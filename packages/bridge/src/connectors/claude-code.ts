@@ -1895,6 +1895,37 @@ function normalizeModelUsage(
   return Object.fromEntries(normalizedEntries)
 }
 
+function normalizePermissionDenials(
+  permissionDenials: unknown,
+): Array<{ toolName: string; toolUseId: string; toolInput?: Record<string, unknown> }> | undefined {
+  if (!Array.isArray(permissionDenials) || permissionDenials.length === 0) return undefined
+
+  const normalized = permissionDenials
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') return null
+      const raw = entry as Record<string, unknown>
+      const toolName = typeof raw.tool_name === 'string' ? raw.tool_name : ''
+      const toolUseId = typeof raw.tool_use_id === 'string' ? raw.tool_use_id : ''
+      if (!toolName || !toolUseId) return null
+
+      const toolInput =
+        raw.tool_input &&
+        typeof raw.tool_input === 'object' &&
+        !Array.isArray(raw.tool_input)
+          ? (raw.tool_input as Record<string, unknown>)
+          : undefined
+
+      return {
+        toolName,
+        toolUseId,
+        ...(toolInput ? { toolInput } : {}),
+      }
+    })
+    .filter((entry): entry is { toolName: string; toolUseId: string; toolInput?: Record<string, unknown> } => entry != null)
+
+  return normalized.length > 0 ? normalized : undefined
+}
+
 function pickContextWindow(
   modelUsage: Record<string, { contextWindow: number }> | undefined,
   preferredModel?: string,
@@ -2047,11 +2078,18 @@ export async function queryClaudeCode(
     hasSuggestions?: boolean
     description?: string
     agentId?: string
-  }) => Promise<PermissionResponse>,
+  }) => Promise<
+    | PermissionResponse
+    | { response: PermissionResponse; updatedInput?: Record<string, unknown> }
+  >,
 ): Promise<void> {
   let sessionId: string | null = options.sessionId || null
   const controller = new AbortController()
   let sawStreamEvents = false
+  // Track stream_event tool_use blocks so input_json_delta can update live tool inputs.
+  const toolUseIdByStreamIndex = new Map<number, string>()
+  const toolNameByToolUseId = new Map<string, string>()
+  const toolInputJsonBufferByToolUseId = new Map<string, string>()
 
   try {
     const systemPrompt = options.systemPrompt ?? currentConfig.systemPrompt
@@ -2118,10 +2156,20 @@ export async function queryClaudeCode(
     if (sdkOptions.permissionMode === 'bypassPermissions') {
       sdkOptions.allowDangerouslySkipPermissions = true
     }
+
+    // Build env overrides: merge checkpointing + agent teams flags into process.env.
+    // SDK docs require CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING=1 for checkpoint tracking.
+    const envOverrides: Record<string, string> = {}
+    if (enableCheckpointing) {
+      envOverrides.CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING = '1'
+    }
     if (enableAgentTeams) {
+      envOverrides.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = '1'
+    }
+    if (Object.keys(envOverrides).length > 0) {
       sdkOptions.env = {
         ...(process.env as Record<string, string | undefined>),
-        CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1',
+        ...envOverrides,
       }
     }
 
@@ -2194,7 +2242,7 @@ export async function queryClaudeCode(
           return { behavior: 'deny', message: 'Session aborted', toolUseID: ctx.toolUseID }
         }
         const sid = sessionId ?? options.sessionId ?? ''
-        const response = await onPermissionRequest({
+        const decision = await onPermissionRequest({
           sessionId: sid,
           toolUseId: ctx.toolUseID,
           tool: toolName,
@@ -2202,9 +2250,26 @@ export async function queryClaudeCode(
           decisionReason: ctx.decisionReason,
           blockedPath: ctx.blockedPath,
           hasSuggestions: Array.isArray(ctx.suggestions) && ctx.suggestions.length > 0,
-          description: ctx.description,
+          // SDK CanUseTool options doesn't have `description` — read from tool input instead.
+          // Bash tool puts a human-readable description in input.description.
+          description: typeof input?.description === 'string' ? input.description : undefined,
           agentId: ctx.agentID,
         })
+
+        const rawResponse = typeof decision === 'string'
+          ? decision
+          : decision?.response
+        const response: PermissionResponse =
+          rawResponse === 'once' || rawResponse === 'always' || rawResponse === 'reject'
+            ? rawResponse
+            : 'reject'
+        const updatedInput =
+          typeof decision === 'object' &&
+          decision?.updatedInput &&
+          typeof decision.updatedInput === 'object' &&
+          !Array.isArray(decision.updatedInput)
+            ? decision.updatedInput
+            : input
 
         if (response === 'reject') {
           return {
@@ -2217,7 +2282,7 @@ export async function queryClaudeCode(
 
         return {
           behavior: 'allow',
-          updatedInput: input,
+          updatedInput,
           ...(response === 'always' && Array.isArray(ctx.suggestions) && ctx.suggestions.length > 0
             ? { updatedPermissions: ctx.suggestions }
             : {}),
@@ -2346,21 +2411,31 @@ export async function queryClaudeCode(
 
         if (eventType === 'content_block_start') {
           const block = event?.content_block
+          const index = typeof event?.index === 'number' ? event.index : undefined
           if (block?.type === 'text' && typeof block?.text === 'string' && block.text.length > 0) {
             emit({ type: 'assistant-message-delta', content: block.text })
           }
           if (block?.type === 'tool_use') {
             const toolName = block.name as string
             const toolInput = block.input as Record<string, unknown>
-            
+            const toolUseId = block.id as string | undefined
+
+            if (typeof index === 'number' && toolUseId) {
+              toolUseIdByStreamIndex.set(index, toolUseId)
+            }
+            if (toolUseId) {
+              toolNameByToolUseId.set(toolUseId, toolName)
+              toolInputJsonBufferByToolUseId.delete(toolUseId)
+            }
+
             emit({
               type: 'tool-call',
               tool: toolName,
               input: toolInput,
-              toolUseId: block.id,
+              toolUseId,
               status: 'running',
             })
-            
+
             // Detect subagent invocations via Task tool
             // Per SDK docs, Task tool is used to invoke subagents with subagent_type in input
             if (toolName === 'Task') {
@@ -2369,7 +2444,7 @@ export async function queryClaudeCode(
                 emit({
                   type: 'subagent-invocation',
                   subagentName: subagentType,
-                  toolUseId: block.id,
+                  toolUseId,
                   prompt: toolInput?.prompt as string | undefined,
                   description: toolInput?.description as string | undefined,
                 })
@@ -2392,6 +2467,43 @@ export async function queryClaudeCode(
               content: delta.thinking,
               partId: typeof event?.index === 'number' ? `thinking_${event.index}` : undefined,
             })
+          } else if (deltaType === 'input_json_delta' && typeof delta?.partial_json === 'string') {
+            const index = typeof event?.index === 'number' ? event.index : undefined
+            const toolUseId = typeof index === 'number' ? toolUseIdByStreamIndex.get(index) : undefined
+            if (toolUseId) {
+              const nextJson = `${toolInputJsonBufferByToolUseId.get(toolUseId) ?? ''}${delta.partial_json}`
+              toolInputJsonBufferByToolUseId.set(toolUseId, nextJson)
+
+              let parsedInput: Record<string, unknown> | undefined
+              try {
+                const parsed = JSON.parse(nextJson)
+                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                  parsedInput = parsed as Record<string, unknown>
+                }
+              } catch {
+                // partial JSON not complete yet — keep buffering
+              }
+
+              const toolName = toolNameByToolUseId.get(toolUseId) ?? 'tool'
+              emit({
+                type: 'tool-call',
+                tool: toolName,
+                input: parsedInput ?? { _partialJson: nextJson },
+                toolUseId,
+                status: 'running',
+              })
+            }
+          }
+        }
+
+        if (eventType === 'content_block_stop') {
+          const index = typeof event?.index === 'number' ? event.index : undefined
+          if (typeof index === 'number') {
+            const toolUseId = toolUseIdByStreamIndex.get(index)
+            if (toolUseId) {
+              toolInputJsonBufferByToolUseId.delete(toolUseId)
+              toolUseIdByStreamIndex.delete(index)
+            }
           }
         }
       }
@@ -2500,14 +2612,31 @@ export async function queryClaudeCode(
             ...(modelUsage ? { modelUsage } : {}),
           })
         }
-        // B10: emit result-complete with stop_reason, num_turns, durations
+
+        const errors = Array.isArray(message.errors)
+          ? message.errors.filter((err: unknown): err is string => typeof err === 'string')
+          : []
+        const permissionDenials = normalizePermissionDenials(message.permission_denials)
+
+        // B10: emit result-complete with stop_reason + subtype/error metadata
         emit({
           type: 'result-complete',
           stopReason: message.stop_reason ?? null,
           numTurns: typeof message.num_turns === 'number' ? message.num_turns : undefined,
           durationMs: typeof message.duration_ms === 'number' ? message.duration_ms : undefined,
           durationApiMs: typeof message.duration_api_ms === 'number' ? message.duration_api_ms : undefined,
+          subtype: typeof message.subtype === 'string' ? message.subtype : undefined,
+          isError: typeof message.is_error === 'boolean' ? message.is_error : undefined,
+          ...(errors.length > 0 ? { errors } : {}),
+          ...(permissionDenials ? { permissionDenials } : {}),
         })
+
+        if (message.structured_output !== undefined) {
+          emit({
+            type: 'structured-output',
+            data: message.structured_output,
+          })
+        }
       }
 
       // SDK 0.2.42: Task notification (agent teams background tasks)
@@ -2639,14 +2768,24 @@ export function listActiveSessions(): Array<{
 
 /**
  * Rewind files to a previous checkpoint state.
- * 
+ *
  * This restores files modified by Write/Edit/NotebookEdit tools to their state
  * at the specified checkpoint. The conversation history remains intact.
- * 
+ *
+ * SDK docs pattern (08-file-checkpointing.md):
+ *   1. Resume the session with an empty prompt
+ *   2. Start iterating the stream (ProcessTransport must be ready)
+ *   3. Call rewindFiles() inside the for-await loop on the first message
+ *   4. Break out of the loop
+ *
+ * Calling rewindFiles() before the stream starts can hit
+ * "ProcessTransport is not ready for writing" because the CLI subprocess
+ * hasn't finished initialising yet.
+ *
  * @param sessionId - The session ID to rewind
  * @param checkpointUuid - The checkpoint UUID to rewind to (from user message uuid)
  * @param cwd - Working directory of the session
- * @returns true if rewind succeeded, false otherwise
+ * @returns Result with success flag and file change statistics
  */
 export async function rewindToCheckpoint(
   sessionId: string,
@@ -2654,39 +2793,51 @@ export async function rewindToCheckpoint(
   cwd: string,
 ): Promise<{ success: boolean; filesChanged?: string[]; insertions?: number; deletions?: number }> {
   try {
-    // Resume the session with an empty prompt to get access to rewindFiles
+    // Resume the session with an empty prompt to open the connection.
+    // SDK requires CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING env var for tracking.
     const resumeOptions: any = {
       cwd,
       resume: sessionId,
       enableFileCheckpointing: true,
       extraArgs: { 'replay-user-messages': null },
+      env: {
+        ...(process.env as Record<string, string | undefined>),
+        CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING: '1',
+      },
     }
 
     const q = query({ prompt: '', options: resumeOptions })
 
-    // Call rewindFiles on the resumed query — SDK 0.2.42 returns RewindFilesResult
-    if (typeof q.rewindFiles === 'function') {
-      const result = await q.rewindFiles(checkpointUuid)
-      
-      // Consume the stream to complete the operation
-      for await (const _message of q) {
-        // Just drain the stream
-      }
-      
-      if (result && !result.canRewind) {
-        console.error('Cannot rewind:', result.error)
-        return { success: false }
-      }
-
-      return {
-        success: true,
-        filesChanged: result?.filesChanged,
-        insertions: result?.insertions,
-        deletions: result?.deletions,
-      }
-    } else {
-      console.error('rewindFiles is not available on the query object')
+    if (typeof q.rewindFiles !== 'function') {
+      console.error('rewindFiles is not available on the query object — SDK version too old?')
       return { success: false }
+    }
+
+    // Per SDK docs: call rewindFiles INSIDE the for-await loop so the
+    // ProcessTransport is guaranteed to be ready. Then break immediately.
+    let result: { canRewind: boolean; error?: string; filesChanged?: string[]; insertions?: number; deletions?: number } | undefined
+
+    for await (const _message of q) {
+      // Transport is now ready — safe to call rewindFiles.
+      result = await q.rewindFiles(checkpointUuid)
+      break
+    }
+
+    if (!result) {
+      console.error('rewindFiles: stream ended before first message')
+      return { success: false }
+    }
+
+    if (!result.canRewind) {
+      console.error('Cannot rewind:', result.error)
+      return { success: false }
+    }
+
+    return {
+      success: true,
+      filesChanged: result.filesChanged,
+      insertions: result.insertions,
+      deletions: result.deletions,
     }
   } catch (error) {
     console.error('Failed to rewind to checkpoint:', error)

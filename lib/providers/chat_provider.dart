@@ -44,6 +44,7 @@ class ChatSessionState {
     this.ccModel,
     this.ccInit,
     this.ccTokenUsage,
+    this.ccStructuredOutput,
     this.ccIsStreaming = false,
     // Codex support
     this.isCodex = false,
@@ -90,6 +91,7 @@ class ChatSessionState {
   final String? ccModel;
   final CCSessionInit? ccInit;
   final CCTokenUsage? ccTokenUsage;
+  final dynamic ccStructuredOutput;
   final bool ccIsStreaming;
 
   // Codex support
@@ -154,6 +156,7 @@ class ChatSessionState {
     String? ccModel,
     CCSessionInit? ccInit,
     CCTokenUsage? ccTokenUsage,
+    dynamic ccStructuredOutput,
     bool? ccIsStreaming,
     bool? isCodex,
     String? cxThreadId,
@@ -186,6 +189,7 @@ class ChatSessionState {
       ccModel: ccModel ?? this.ccModel,
       ccInit: ccInit ?? this.ccInit,
       ccTokenUsage: ccTokenUsage ?? this.ccTokenUsage,
+      ccStructuredOutput: ccStructuredOutput ?? this.ccStructuredOutput,
       ccIsStreaming: ccIsStreaming ?? this.ccIsStreaming,
       isCodex: isCodex ?? this.isCodex,
       cxThreadId: cxThreadId ?? this.cxThreadId,
@@ -258,11 +262,53 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     }
 
     // Clear local state IMMEDIATELY to prevent re-showing the same question.
-    // The WebSocket send() is synchronous — the answer is already on the wire
-    // before we await the confirmation. Even if the confirmation times out,
-    // the bridge already received the reply.
     state = state.copyWith(pendingQuestion: null);
 
+    // Claude Code AskUserQuestion flow: respond via cc_permission_response with updatedInput.
+    if (state.isClaudeCode) {
+      final answersMap = <String, String>{};
+      for (var i = 0; i < req.questions.length && i < answers.length; i++) {
+        final selected = answers[i]
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
+        if (selected.isEmpty) continue;
+        answersMap[req.questions[i].question] = selected.join(', ');
+      }
+
+      if (answersMap.isEmpty) {
+        _bridge.ccRespondToPermission(
+          sessionId: req.sessionId,
+          toolUseId: req.id,
+          response: 'reject',
+        );
+        return;
+      }
+
+      final questionsPayload = req.questions
+          .map(
+            (q) => {
+              'question': q.question,
+              'header': q.header,
+              'options': q.options
+                  .map((o) => {'label': o.label, 'description': o.description})
+                  .toList(),
+              'multiSelect': q.multiple,
+              'custom': q.custom,
+            },
+          )
+          .toList();
+
+      _bridge.ccRespondToPermission(
+        sessionId: req.sessionId,
+        toolUseId: req.id,
+        response: 'once',
+        updatedInput: {'questions': questionsPayload, 'answers': answersMap},
+      );
+      return;
+    }
+
+    // OpenCode Question tool flow.
     try {
       final ok = await _bridge.ocReplyToQuestion(
         requestId: req.id,
@@ -314,6 +360,15 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
 
     // Clear local state IMMEDIATELY (same rationale as replyToPendingQuestion)
     state = state.copyWith(pendingQuestion: null);
+
+    if (state.isClaudeCode) {
+      _bridge.ccRespondToPermission(
+        sessionId: req.sessionId,
+        toolUseId: req.id,
+        response: 'reject',
+      );
+      return;
+    }
 
     try {
       final ok = await _bridge.ocRejectQuestion(
@@ -418,17 +473,20 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   }
 
   /// Reply to a Codex request_user_input (SDK v0.87.0+)
-  /// [answers] is indexed by question position, matching the UI's output format
+  /// [answers] is indexed by question position, matching the UI's output format.
+  /// Protocol shape: { answers: { questionId: { answers: string[] } } }
   void replyToCodexUserInput(List<List<String>> answers) {
     final req = state.cxPendingUserInput;
     if (req == null || req.requestId.isEmpty) return;
 
-    // Convert List<List<String>> to Map<questionId, {selected: [...], other?: ...}>
+    // Convert List<List<String>> to Map<questionId, {answers: [...]}>
+    // Protocol: ToolRequestUserInputResponse = { answers: { [questionId]: ToolRequestUserInputAnswer } }
+    // where ToolRequestUserInputAnswer = { answers: string[] }
     final answersMap = <String, Map<String, dynamic>>{};
     for (var i = 0; i < req.questions.length && i < answers.length; i++) {
       final questionId = req.questions[i].id;
       final selected = answers[i].where((s) => s.trim().isNotEmpty).toList();
-      answersMap[questionId] = {'selected': selected};
+      answersMap[questionId] = {'answers': selected};
     }
 
     _bridge.cxRespondToUserInput(requestId: req.requestId, answers: answersMap);
@@ -441,9 +499,10 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     if (req == null || req.requestId.isEmpty) return;
 
     // Send empty answers to dismiss
+    // Protocol: ToolRequestUserInputAnswer = { answers: string[] }
     final answersMap = <String, Map<String, dynamic>>{};
     for (final q in req.questions) {
-      answersMap[q.id] = {'selected': <String>[]};
+      answersMap[q.id] = {'answers': <String>[]};
     }
 
     _bridge.cxRespondToUserInput(requestId: req.requestId, answers: answersMap);
@@ -468,6 +527,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       ccModel: state.ccModel,
       ccInit: state.ccInit,
       ccTokenUsage: state.ccTokenUsage,
+      ccStructuredOutput: state.ccStructuredOutput,
       ccIsStreaming: state.ccIsStreaming,
       isCodex: state.isCodex,
       cxThreadId: state.cxThreadId,
@@ -1526,10 +1586,10 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     }
 
     if (existing.role != role) {
-      final updated = _copyWithRole(existing, role).copyWith(
-        variant: variant,
-        error: msgErrorName,
-      );
+      final updated = _copyWithRole(
+        existing,
+        role,
+      ).copyWith(variant: variant, error: msgErrorName);
       _updateMessage(messageId, updated);
 
       // If parts arrived before message.updated, we may already have the user text.
@@ -1650,8 +1710,11 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
           // Find the last task/subtask tool call in this message
           final tools = current.toolCalls;
           final taskIdx = tools.lastIndexWhere(
-            (t) => t.name == 'Task' || t.name == 'task' ||
-                    t.name == 'subtask' || t.name == 'Subtask',
+            (t) =>
+                t.name == 'Task' ||
+                t.name == 'task' ||
+                t.name == 'subtask' ||
+                t.name == 'Subtask',
           );
           if (taskIdx >= 0) {
             final tool = tools[taskIdx];
@@ -1674,10 +1737,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
             ];
             _updateMessage(
               messageId,
-              current.copyWith(
-                toolCalls: updatedTools,
-                isStreaming: false,
-              ),
+              current.copyWith(toolCalls: updatedTools, isStreaming: false),
             );
             return;
           }
@@ -1752,10 +1812,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     // SDK v1.2.1: Compaction part — show as system message with divider
     if (partType == 'compaction') {
       final current = _messages[messageId] ?? message;
-      _updateMessage(
-        messageId,
-        current.copyWith(error: 'context_compacted'),
-      );
+      _updateMessage(messageId, current.copyWith(error: 'context_compacted'));
       return;
     }
 
@@ -2026,12 +2083,14 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   void _handleMessagePartDelta(Map<String, dynamic> payload) {
     final properties =
         payload['properties'] as Map<String, dynamic>? ?? const {};
-    final sessionId = properties['sessionID'] as String? ??
+    final sessionId =
+        properties['sessionID'] as String? ??
         properties['sessionId'] as String? ??
         '';
     if (state.session?.id != sessionId) return;
 
-    final messageId = properties['messageID'] as String? ??
+    final messageId =
+        properties['messageID'] as String? ??
         properties['messageId'] as String? ??
         '';
     final field = properties['field'] as String? ?? '';
@@ -2047,10 +2106,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     // Append delta to existing text
     _updateMessage(
       messageId,
-      existing.copyWith(
-        text: existing.text + delta,
-        isStreaming: true,
-      ),
+      existing.copyWith(text: existing.text + delta, isStreaming: true),
     );
   }
 
@@ -2437,7 +2493,8 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     final String errorMessage;
     switch (errorName) {
       case 'ContextOverflowError':
-        errorMessage = 'Context window full. Try compacting or starting a new session.';
+        errorMessage =
+            'Context window full. Try compacting or starting a new session.';
       case 'StructuredOutputError':
         final retries = errorData['retries'] as int? ?? 0;
         errorMessage = 'Output validation failed after $retries retries';
@@ -2763,7 +2820,72 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     }
 
     if (message is CCPermissionRequest) {
-      // Surface as the existing permission prompt UI (haptics + bottom sheet)
+      // AskUserQuestion is a special tool that requires structured answers,
+      // not a simple allow/deny prompt.
+      if (message.tool == 'AskUserQuestion') {
+        final rawQuestions = message.input['questions'];
+        final parsedQuestions = <QuestionInfo>[];
+
+        if (rawQuestions is List) {
+          for (final q in rawQuestions) {
+            final raw = q is Map<String, dynamic>
+                ? q
+                : q is Map
+                ? q.cast<String, dynamic>()
+                : null;
+            if (raw == null) continue;
+
+            final questionText = (raw['question'] as String?)?.trim() ?? '';
+            if (questionText.isEmpty) continue;
+
+            final rawOptions = raw['options'];
+            final options = <QuestionOption>[];
+            if (rawOptions is List) {
+              for (final o in rawOptions) {
+                final optionMap = o is Map<String, dynamic>
+                    ? o
+                    : o is Map
+                    ? o.cast<String, dynamic>()
+                    : null;
+                if (optionMap == null) continue;
+                options.add(
+                  QuestionOption(
+                    label: optionMap['label'] as String? ?? '',
+                    description: optionMap['description'] as String? ?? '',
+                  ),
+                );
+              }
+            }
+
+            final header = (raw['header'] as String?)?.trim() ?? '';
+            parsedQuestions.add(
+              QuestionInfo(
+                question: questionText,
+                header: header.isNotEmpty ? header : questionText,
+                options: options,
+                multiple: raw['multiSelect'] == true || raw['multiple'] == true,
+                custom: raw['custom'] as bool? ?? true,
+              ),
+            );
+          }
+        }
+
+        if (parsedQuestions.isNotEmpty) {
+          final sessionId = message.sessionId.isNotEmpty
+              ? message.sessionId
+              : (state.ccSessionId ?? '');
+          state = state.copyWith(
+            pendingQuestion: QuestionRequest(
+              id: message.toolUseId,
+              sessionId: sessionId,
+              questions: parsedQuestions,
+            ),
+          );
+          return;
+        }
+      }
+
+      // Regular permission request: surface as allow/deny prompt.
       final request = PermissionRequest(
         id: message.toolUseId,
         sessionId: message.sessionId,
@@ -2856,49 +2978,80 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         return;
       }
 
-      // Tool call - add to current message
       final toolUseId =
           message.toolUseId ?? 'cc-${DateTime.now().microsecondsSinceEpoch}';
-      final tool = ToolCall(
-        callId: toolUseId,
-        partId: toolUseId,
-        name: message.tool,
-        status: message.status,
-        title: message.tool,
-        input: message.input is Map<String, dynamic>
-            ? message.input as Map<String, dynamic>
-            : {'input': message.input?.toString() ?? ''},
-        output: null,
-        metadata: const {},
-      );
+      final input = message.input is Map<String, dynamic>
+          ? message.input as Map<String, dynamic>
+          : {'input': message.input?.toString() ?? ''};
 
       // If this tool call is from inside a subagent (has parentToolUseId),
       // track it as a nested tool call instead of a top-level one.
       if (message.parentToolUseId != null &&
           message.parentToolUseId!.isNotEmpty) {
-        _ccNestedToolCalls
-            .putIfAbsent(message.parentToolUseId!, () => [])
-            .add(tool);
+        final parentId = message.parentToolUseId!;
+        final nested = _ccNestedToolCalls.putIfAbsent(parentId, () => []);
+        final existingNestedIdx = nested.indexWhere(
+          (t) => t.callId == toolUseId,
+        );
+        final nextNested = ToolCall(
+          callId: toolUseId,
+          partId: toolUseId,
+          name: message.tool,
+          status: message.status,
+          title: message.tool,
+          input: input,
+          output: existingNestedIdx >= 0
+              ? nested[existingNestedIdx].output
+              : null,
+          metadata: existingNestedIdx >= 0
+              ? nested[existingNestedIdx].metadata
+              : const {},
+        );
+        if (existingNestedIdx >= 0) {
+          nested[existingNestedIdx] = nextNested;
+        } else {
+          nested.add(nextNested);
+        }
+
         // Update the parent Task tool's metadata with nested tool count
-        final parentTool = _ccPendingToolCallsById[message.parentToolUseId];
+        final parentTool = _ccPendingToolCallsById[parentId];
         if (parentTool != null) {
-          _ccPendingToolCallsById[message.parentToolUseId!] = parentTool
-              .copyWith(
-                metadata: {
-                  ...parentTool.metadata,
-                  'nestedToolCount':
-                      _ccNestedToolCalls[message.parentToolUseId]!.length,
-                  'subagentName':
-                      _ccActiveSubagentNames[message.parentToolUseId] ??
-                      parentTool.metadata['subagentName'],
-                },
-              );
+          _ccPendingToolCallsById[parentId] = parentTool.copyWith(
+            metadata: {
+              ...parentTool.metadata,
+              'nestedToolCount': nested.length,
+              'subagentName':
+                  _ccActiveSubagentNames[parentId] ??
+                  parentTool.metadata['subagentName'],
+            },
+          );
         }
         _scheduleCCAssistantUpdate(isStreaming: true);
         return;
       }
 
-      _ccPendingToolCallsById[tool.callId] = tool;
+      final existingTool = _ccPendingToolCallsById[toolUseId];
+      if (existingTool != null) {
+        // Streaming update for an already-started tool call (e.g. input_json_delta)
+        _ccPendingToolCallsById[toolUseId] = existingTool.copyWith(
+          status: message.status,
+          input: input,
+          title: message.tool,
+        );
+        _scheduleCCAssistantUpdate(isStreaming: true);
+        return;
+      }
+
+      _ccPendingToolCallsById[toolUseId] = ToolCall(
+        callId: toolUseId,
+        partId: toolUseId,
+        name: message.tool,
+        status: message.status,
+        title: message.tool,
+        input: input,
+        output: null,
+        metadata: const {},
+      );
 
       // Track in ordered parts: add tool part and reset text tracking
       // Mark current text part as not streaming (tool arrived)
@@ -2910,7 +3063,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
           isStreaming: false,
         );
       }
-      // Add tool part
+      // Add tool part once (for first sighting of this tool call)
       _ccOrderedParts.add(
         ToolPart(sequence: _ccPartSequence++, callId: toolUseId),
       );
@@ -3028,7 +3181,11 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
 
     // ── SDK 0.2.42: Task notifications (agent teams) ──
     if (message is CCTaskNotification) {
-      final statusIcon = message.isCompleted ? '✅' : message.isFailed ? '❌' : '⏳';
+      final statusIcon = message.isCompleted
+          ? '✅'
+          : message.isFailed
+          ? '❌'
+          : '⏳';
       final taskMsg = ChatMessage(
         id: 'cc-task-${message.taskId}-${DateTime.now().microsecondsSinceEpoch}',
         sessionId: state.ccSessionId ?? '',
@@ -3058,7 +3215,10 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     // ── SDK 0.2.42: Files persisted ──
     if (message is CCFilesPersisted) {
       if (message.files.isEmpty && message.failed.isEmpty) return;
-      final names = message.files.map((f) => f['filename'] ?? '').where((f) => f.isNotEmpty).toList();
+      final names = message.files
+          .map((f) => f['filename'] ?? '')
+          .where((f) => f.isNotEmpty)
+          .toList();
       final text = names.isNotEmpty
           ? '💾 Saved ${names.length} file${names.length > 1 ? 's' : ''}: ${names.join(', ')}'
           : '💾 Files persisted';
@@ -3112,7 +3272,11 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       );
       if (existingIdx >= 0) {
         final existing = state.messages[existingIdx];
-        final statusIcon = message.isSuccess ? '✅' : message.isError ? '❌' : '⏹';
+        final statusIcon = message.isSuccess
+            ? '✅'
+            : message.isError
+            ? '❌'
+            : '⏹';
         _updateMessage(
           existing.id,
           existing.copyWith(
@@ -3180,6 +3344,79 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     // ── SDK 0.2.42: Result complete with stop reason ──
     if (message is CCResultComplete) {
       state = state.copyWith(ccIsStreaming: false);
+
+      if (message.stopReason == 'refusal') {
+        _addMessage(
+          ChatMessage(
+            id: 'cc-stop-refusal-${DateTime.now().microsecondsSinceEpoch}',
+            sessionId: state.ccSessionId ?? '',
+            role: MessageRole.system,
+            createdAt: DateTime.now(),
+            text: '⛔ Claude refused this request.',
+            variant: 'cc-stop:refusal',
+          ),
+        );
+      }
+
+      if (message.hasErrorSignal) {
+        final subtype = message.subtype ?? 'error_during_execution';
+        String label;
+        switch (subtype) {
+          case 'error_max_turns':
+            label = 'Reached max turns';
+            break;
+          case 'error_max_budget_usd':
+            label = 'Reached budget limit';
+            break;
+          case 'error_max_structured_output_retries':
+            label = 'Structured output retries exceeded';
+            break;
+          default:
+            label = 'Execution error';
+        }
+
+        final firstError = message.errors.isNotEmpty
+            ? ' — ${message.errors.first}'
+            : '';
+        _addMessage(
+          ChatMessage(
+            id: 'cc-result-error-${DateTime.now().microsecondsSinceEpoch}',
+            sessionId: state.ccSessionId ?? '',
+            role: MessageRole.system,
+            createdAt: DateTime.now(),
+            text: '⚠️ $label$firstError',
+            variant: 'cc-result:$subtype',
+          ),
+        );
+      }
+
+      if (message.permissionDenials.isNotEmpty) {
+        final deniedTools = message.permissionDenials
+            .map((d) => d.toolName)
+            .where((name) => name.isNotEmpty)
+            .toSet()
+            .toList();
+        if (deniedTools.isNotEmpty) {
+          _addMessage(
+            ChatMessage(
+              id: 'cc-denials-${DateTime.now().microsecondsSinceEpoch}',
+              sessionId: state.ccSessionId ?? '',
+              role: MessageRole.system,
+              createdAt: DateTime.now(),
+              text: '🔒 Permission denied: ${deniedTools.join(', ')}',
+              variant: 'cc-permission-denials',
+            ),
+          );
+        }
+      }
+
+      return;
+    }
+
+    if (message is CCStructuredOutput) {
+      // Passthrough-only for now: keep latest structured payload in state,
+      // but intentionally do not render a separate mobile UI card.
+      state = state.copyWith(ccStructuredOutput: message.data);
       return;
     }
   }
@@ -3283,6 +3520,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       ccModel: state.ccModel,
       ccInit: state.ccInit,
       ccTokenUsage: state.ccTokenUsage,
+      ccStructuredOutput: state.ccStructuredOutput,
       ccIsStreaming: state.ccIsStreaming,
       isCodex: state.isCodex,
       cxThreadId: state.cxThreadId,
@@ -3488,14 +3726,16 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         // #29: Build a richer title if reason includes network access context
         String title;
         if (message.method == 'item/commandExecution/requestApproval') {
-          if (reason != null && reason.toString().toLowerCase().contains('network')) {
+          if (reason != null &&
+              reason.toString().toLowerCase().contains('network')) {
             title = 'Allow network access?';
           } else {
             title = 'Allow command execution?';
           }
         } else {
           if (grantRoot != null) {
-            title = 'Allow write access to ${grantRoot.toString().split('/').last}?';
+            title =
+                'Allow write access to ${grantRoot.toString().split('/').last}?';
           } else {
             title = 'Allow file changes?';
           }
@@ -3667,7 +3907,8 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
           final capType = codexErrorInfo['type']?.toString();
           if (capType == 'ModelCap' || capType == 'modelCap') {
             final model = codexErrorInfo['model']?.toString() ?? 'Unknown';
-            final retrySeconds = codexErrorInfo['reset_after_seconds'] ??
+            final retrySeconds =
+                codexErrorInfo['reset_after_seconds'] ??
                 codexErrorInfo['resetAfterSeconds'];
             if (retrySeconds is num && retrySeconds > 0) {
               final minutes = (retrySeconds / 60).ceil();
@@ -3680,12 +3921,12 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
             errorCode = 'model_cap';
           } else if (capType == 'ServerOverloaded' ||
               capType == 'serverOverloaded') {
-            final retrySeconds = codexErrorInfo['retryAfterSeconds'] ??
+            final retrySeconds =
+                codexErrorInfo['retryAfterSeconds'] ??
                 codexErrorInfo['retry_after_seconds'];
             if (retrySeconds is num && retrySeconds > 0) {
               final minutes = (retrySeconds / 60).ceil();
-              errorMessage =
-                  'Server is overloaded. Try again in ${minutes}m.';
+              errorMessage = 'Server is overloaded. Try again in ${minutes}m.';
             } else {
               errorMessage =
                   'Server is overloaded. Please wait a moment and try again.';
@@ -3705,7 +3946,8 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         // Also check string-form codexErrorInfo (bridge may normalize)
         if (codexErrorInfo is String) {
           final ci = codexErrorInfo.toLowerCase();
-          if (ci.contains('serveroverloaded') || ci.contains('server_overloaded')) {
+          if (ci.contains('serveroverloaded') ||
+              ci.contains('server_overloaded')) {
             errorMessage = 'Server is overloaded. Please wait and try again.';
             errorCode = 'server_overloaded';
           } else if (ci.contains('contextwindow')) {

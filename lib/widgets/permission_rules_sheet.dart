@@ -1,18 +1,20 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/agent_type.dart';
 import '../models/claude_code.dart';
 import '../models/codex.dart';
 import '../models/permission_rule.dart';
+import '../providers/chat_provider.dart';
 import '../providers/claude_code_provider.dart';
 import '../providers/codex_settings_provider.dart';
 import '../providers/permission_rules_provider.dart';
+import '../providers/service_providers.dart';
 import '../theme/app_typography.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'chat/detail_sheet.dart';
 import 'package:broski/theme/app_icons.dart';
+
 // =============================================================================
 // PUBLIC API
 // =============================================================================
@@ -41,6 +43,7 @@ Future<void> showPermissionRulesSheet({
     ),
   );
 }
+
 /// Legacy widget for backwards compatibility.
 /// Prefer using [showPermissionRulesSheet] instead.
 class PermissionRulesSheet extends StatefulWidget {
@@ -54,6 +57,7 @@ class PermissionRulesSheet extends StatefulWidget {
   @override
   State<PermissionRulesSheet> createState() => _PermissionRulesSheetState();
 }
+
 class _PermissionRulesSheetState extends State<PermissionRulesSheet> {
   @override
   Widget build(BuildContext context) {
@@ -68,6 +72,7 @@ class _PermissionRulesSheetState extends State<PermissionRulesSheet> {
     );
   }
 }
+
 // =============================================================================
 // UNIFIED CONTENT - Routes to correct backend UI
 // =============================================================================
@@ -102,6 +107,7 @@ class _UnifiedPermissionContent extends ConsumerWidget {
     }
   }
 }
+
 // =============================================================================
 // CLAUDE CODE PERMISSION CONTENT
 // =============================================================================
@@ -111,11 +117,13 @@ class _ClaudeCodePermissionContent extends ConsumerStatefulWidget {
   ConsumerState<_ClaudeCodePermissionContent> createState() =>
       _ClaudeCodePermissionContentState();
 }
+
 class _ClaudeCodePermissionContentState
     extends ConsumerState<_ClaudeCodePermissionContent> {
   late List<String> _allowedTools;
   late List<String> _disallowedTools;
   bool _dirty = false;
+
   /// Well-known Claude Code tools
   static const _knownTools = [
     'Read',
@@ -141,6 +149,7 @@ class _ClaudeCodePermissionContentState
     _allowedTools = List.from(config?.allowedTools ?? []);
     _disallowedTools = List.from(config?.disallowedTools ?? []);
   }
+
   void _save() {
     final notifier = ref.read(ccConfigProvider.notifier);
     final existing = ref.read(ccConfigProvider).valueOrNull;
@@ -153,6 +162,7 @@ class _ClaudeCodePermissionContentState
     );
     setState(() => _dirty = false);
   }
+
   void _addToolToList(List<String> list, String tool) {
     if (tool.isNotEmpty && !list.contains(tool)) {
       setState(() {
@@ -161,12 +171,14 @@ class _ClaudeCodePermissionContentState
       });
     }
   }
+
   void _removeToolFromList(List<String> list, String tool) {
     setState(() {
       list.remove(tool);
       _dirty = true;
     });
   }
+
   void _showAddToolDialog({required bool isAllowed}) {
     final theme = OpenCodeTheme.of(context);
     // Filter out tools already in the target list
@@ -177,9 +189,7 @@ class _ClaudeCodePermissionContentState
     showModalBottomSheet(
       context: context,
       backgroundColor: theme.backgroundPanel,
-      shape: const RoundedRectangleBorder(
-        borderRadius: Radii.sheetTop,
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: Radii.sheetTop),
       builder: (ctx) => _ToolPickerSheet(
         title: isAllowed ? 'Allow Tool' : 'Disallow Tool',
         availableTools: available,
@@ -195,6 +205,7 @@ class _ClaudeCodePermissionContentState
       ),
     );
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -219,9 +230,37 @@ class _ClaudeCodePermissionContentState
               mode: mode,
               isSelected: permissionMode == mode,
               theme: theme,
-              onTap: () {
+              onTap: () async {
+                final messenger = ScaffoldMessenger.of(context);
                 final notifier = ref.read(ccConfigProvider.notifier);
-                notifier.setPermissionMode(mode);
+                await notifier.setPermissionMode(mode);
+
+                final chatState = ref.read(chatSessionProvider);
+                final sessionId = chatState.ccSessionId;
+                final canApplyLive =
+                    chatState.isClaudeCode &&
+                    chatState.ccIsStreaming &&
+                    sessionId != null &&
+                    sessionId.isNotEmpty;
+                if (!canApplyLive) return;
+
+                final ok = await ref
+                    .read(bridgeServiceProvider)
+                    .ccSetPermissionMode(
+                      sessionId: sessionId,
+                      mode: mode.wireValue,
+                    );
+                if (!mounted) return;
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      ok
+                          ? 'Permission mode applied to current Claude turn.'
+                          : 'Saved as default. Live turn update failed.',
+                    ),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
               },
             ),
           ),
@@ -279,6 +318,7 @@ class _ClaudeCodePermissionContentState
     );
   }
 }
+
 // =============================================================================
 // CODEX PERMISSION CONTENT
 // =============================================================================
@@ -374,6 +414,7 @@ class _CodexPermissionContent extends ConsumerWidget {
     );
   }
 }
+
 // =============================================================================
 // OPENCODE RULES CONTENT (preserved from original)
 // =============================================================================
@@ -387,6 +428,7 @@ class _OpenCodeRulesContent extends StatefulWidget {
   @override
   State<_OpenCodeRulesContent> createState() => _OpenCodeRulesContentState();
 }
+
 class _OpenCodeRulesContentState extends State<_OpenCodeRulesContent> {
   late List<PermissionRule> _rules;
   @override
@@ -408,6 +450,7 @@ class _OpenCodeRulesContentState extends State<_OpenCodeRulesContent> {
       ];
     }
   }
+
   void _addRule() {
     setState(() {
       _rules.add(
@@ -419,22 +462,26 @@ class _OpenCodeRulesContentState extends State<_OpenCodeRulesContent> {
       );
     });
   }
+
   void _removeRule(int index) {
     setState(() {
       _rules.removeAt(index);
     });
   }
+
   void _updateRule(int index, PermissionRule rule) {
     setState(() {
       _rules[index] = rule;
     });
   }
+
   void _applyPreset(PermissionPreset preset) {
     if (preset == PermissionPreset.custom) return;
     setState(() {
       _rules = List.from(preset.toRuleset());
     });
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -490,11 +537,7 @@ class _OpenCodeRulesContentState extends State<_OpenCodeRulesContent> {
             ),
             child: Row(
               children: [
-                Icon(
-                  AppIcons.lightbulb,
-                  size: 14,
-                  color: theme.info,
-                ),
+                Icon(AppIcons.lightbulb, size: 14, color: theme.info),
                 SizedBox(width: Spacing.sm),
                 Expanded(
                   child: Text(
@@ -541,6 +584,7 @@ class _OpenCodeRulesContentState extends State<_OpenCodeRulesContent> {
     );
   }
 }
+
 // =============================================================================
 // SHARED HELPER WIDGETS
 // =============================================================================
@@ -560,13 +604,14 @@ class _BackendBadge extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: AppTypography.codeSmall(color: theme.primary).copyWith(
-          fontWeight: FontWeight.w600,
-        ),
+        style: AppTypography.codeSmall(
+          color: theme.primary,
+        ).copyWith(fontWeight: FontWeight.w600),
       ),
     );
   }
 }
+
 /// Uppercase section label.
 class _SectionLabel extends StatelessWidget {
   const _SectionLabel({required this.text, required this.theme});
@@ -585,6 +630,7 @@ class _SectionLabel extends StatelessWidget {
     );
   }
 }
+
 /// Full-width primary action button.
 class _ApplyButton extends StatelessWidget {
   const _ApplyButton({
@@ -606,9 +652,7 @@ class _ApplyButton extends StatelessWidget {
           foregroundColor: theme.background,
           padding: const EdgeInsets.symmetric(vertical: 14),
           elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: Radii.brMd,
-          ),
+          shape: RoundedRectangleBorder(borderRadius: Radii.brMd),
         ),
         child: Text(
           label,
@@ -622,6 +666,7 @@ class _ApplyButton extends StatelessWidget {
     );
   }
 }
+
 /// Dashed-border add button.
 class _AddButton extends StatelessWidget {
   const _AddButton({
@@ -662,6 +707,7 @@ class _AddButton extends StatelessWidget {
     );
   }
 }
+
 /// A row of removable tool chips.
 class _ToolChipList extends StatelessWidget {
   const _ToolChipList({
@@ -704,9 +750,9 @@ class _ToolChipList extends StatelessWidget {
             children: [
               Text(
                 tool,
-                style: AppTypography.codeSmall(color: color).copyWith(
-                  fontWeight: FontWeight.w500,
-                ),
+                style: AppTypography.codeSmall(
+                  color: color,
+                ).copyWith(fontWeight: FontWeight.w500),
               ),
               const SizedBox(width: 6),
               GestureDetector(
@@ -724,6 +770,7 @@ class _ToolChipList extends StatelessWidget {
     );
   }
 }
+
 /// Toggle row with label, description, and switch.
 class _ToggleRow extends StatelessWidget {
   const _ToggleRow({
@@ -779,6 +826,7 @@ class _ToggleRow extends StatelessWidget {
     );
   }
 }
+
 // =============================================================================
 // CLAUDE CODE SPECIFIC WIDGETS
 // =============================================================================
@@ -809,6 +857,7 @@ class _PermissionModeOption extends StatelessWidget {
         return 'Never prompt; deny unapproved actions';
     }
   }
+
   IconData get _icon {
     switch (mode) {
       case ClaudeCodePermissionMode.defaultMode:
@@ -825,6 +874,7 @@ class _PermissionModeOption extends StatelessWidget {
         return AppIcons.block;
     }
   }
+
   Color get _iconColor {
     if (!isSelected) return theme.textMuted;
     switch (mode) {
@@ -842,6 +892,7 @@ class _PermissionModeOption extends StatelessWidget {
         return theme.warning;
     }
   }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -899,6 +950,7 @@ class _PermissionModeOption extends StatelessWidget {
     );
   }
 }
+
 /// Bottom sheet for selecting a tool from known tools or entering a custom one.
 class _ToolPickerSheet extends StatefulWidget {
   const _ToolPickerSheet({
@@ -916,6 +968,7 @@ class _ToolPickerSheet extends StatefulWidget {
   @override
   State<_ToolPickerSheet> createState() => _ToolPickerSheetState();
 }
+
 class _ToolPickerSheetState extends State<_ToolPickerSheet> {
   final _controller = TextEditingController();
   @override
@@ -923,6 +976,7 @@ class _ToolPickerSheetState extends State<_ToolPickerSheet> {
     _controller.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -1033,6 +1087,7 @@ class _ToolPickerSheetState extends State<_ToolPickerSheet> {
     );
   }
 }
+
 // =============================================================================
 // CODEX SPECIFIC WIDGETS
 // =============================================================================
@@ -1059,6 +1114,7 @@ class _CodexPolicyOption extends StatelessWidget {
         return 'Never';
     }
   }
+
   String get _description {
     switch (policy) {
       case CodexApprovalPolicy.unlessTrusted:
@@ -1071,6 +1127,7 @@ class _CodexPolicyOption extends StatelessWidget {
         return 'Never ask — full autonomy';
     }
   }
+
   IconData get _icon {
     switch (policy) {
       case CodexApprovalPolicy.unlessTrusted:
@@ -1083,6 +1140,7 @@ class _CodexPolicyOption extends StatelessWidget {
         return AppIcons.speed;
     }
   }
+
   Color get _iconColor {
     if (!isSelected) return theme.textMuted;
     switch (policy) {
@@ -1096,6 +1154,7 @@ class _CodexPolicyOption extends StatelessWidget {
         return theme.error;
     }
   }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -1153,6 +1212,7 @@ class _CodexPolicyOption extends StatelessWidget {
     );
   }
 }
+
 class _CodexSandboxOption extends StatelessWidget {
   const _CodexSandboxOption({
     required this.mode,
@@ -1174,6 +1234,7 @@ class _CodexSandboxOption extends StatelessWidget {
         return 'Full Access';
     }
   }
+
   String get _description {
     switch (mode) {
       case CodexSandboxMode.readOnly:
@@ -1184,6 +1245,7 @@ class _CodexSandboxOption extends StatelessWidget {
         return 'Unrestricted filesystem access';
     }
   }
+
   IconData get _icon {
     switch (mode) {
       case CodexSandboxMode.readOnly:
@@ -1194,6 +1256,7 @@ class _CodexSandboxOption extends StatelessWidget {
         return AppIcons.lockOpen;
     }
   }
+
   Color get _iconColor {
     if (!isSelected) return theme.textMuted;
     switch (mode) {
@@ -1205,6 +1268,7 @@ class _CodexSandboxOption extends StatelessWidget {
         return theme.error;
     }
   }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -1262,6 +1326,7 @@ class _CodexSandboxOption extends StatelessWidget {
     );
   }
 }
+
 // =============================================================================
 // OPENCODE RULE CARD (preserved from original)
 // =============================================================================
@@ -1297,6 +1362,7 @@ class _PresetChip extends StatelessWidget {
     );
   }
 }
+
 class _RuleCard extends StatelessWidget {
   const _RuleCard({
     required this.index,
@@ -1327,6 +1393,7 @@ class _RuleCard extends StatelessWidget {
         return theme.textMuted;
     }
   }
+
   IconData _getPermissionIcon() {
     switch (rule.permission) {
       case 'edit':
@@ -1347,6 +1414,7 @@ class _RuleCard extends StatelessWidget {
         return AppIcons.settings;
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final permColor = _getPermissionColor();
@@ -1466,6 +1534,7 @@ class _RuleCard extends StatelessWidget {
     );
   }
 }
+
 class _StyledDropdown extends StatelessWidget {
   const _StyledDropdown({
     required this.label,
@@ -1507,11 +1576,7 @@ class _StyledDropdown extends StatelessWidget {
             underline: const SizedBox.shrink(),
             dropdownColor: theme.backgroundPanel,
             style: AppTypography.bodySmall(color: theme.text),
-            icon: Icon(
-              AppIcons.chevronDown,
-              color: theme.textMuted,
-              size: 18,
-            ),
+            icon: Icon(AppIcons.chevronDown, color: theme.textMuted, size: 18),
             items: items
                 .map((item) => DropdownMenuItem(value: item, child: Text(item)))
                 .toList(),
@@ -1524,6 +1589,7 @@ class _StyledDropdown extends StatelessWidget {
     );
   }
 }
+
 class _StyledTextField extends StatelessWidget {
   const _StyledTextField({
     required this.label,

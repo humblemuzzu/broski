@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/codex.dart';
@@ -90,11 +92,51 @@ final codexThreadsProvider =
 class CodexThreadsNotifier
     extends StateNotifier<AsyncValue<List<CodexThread>>> {
   CodexThreadsNotifier(this._bridge, this._storage, this._connection)
-    : super(const AsyncValue.loading());
+    : super(const AsyncValue.loading()) {
+    unawaited(_bootstrap());
+  }
 
   final BridgeService _bridge;
   final StorageService _storage;
   final BridgeConnectionState _connection;
+
+  String? _lastCwd;
+  static bool _codexWarmupStarted = false;
+
+  Future<void> _bootstrap() async {
+    if (_connection.isOfflineMode) return;
+
+    // Warm bridge-side Codex caches once per app lifecycle.
+    if (!_codexWarmupStarted) {
+      _codexWarmupStarted = true;
+      try {
+        await _bridge.cxWarmup();
+      } catch (_) {
+        // Best-effort warmup only.
+      }
+    }
+
+    // Preload protocol metadata that exists in bridge but was previously unused.
+    try {
+      await _bridge.cxListExperimentalFeatures();
+    } catch (_) {
+      // Optional capability probe.
+    }
+  }
+
+  Future<void> _primeRuntimeThreadState(List<CodexThread> threads) async {
+    if (_connection.isOfflineMode || threads.isEmpty) return;
+
+    try {
+      final loaded = await _bridge.cxThreadLoadedList(limit: 50);
+      final preferredId = loaded.isNotEmpty ? loaded.first : threads.first.id;
+      if (preferredId.isNotEmpty) {
+        await _bridge.cxThreadRead(threadId: preferredId, includeTurns: false);
+      }
+    } catch (_) {
+      // Runtime state priming is optional.
+    }
+  }
 
   Future<void> _cacheProjectsFromThreads(List<CodexThread> threads) async {
     final byPath = <String, ProjectSummary>{};
@@ -114,6 +156,7 @@ class CodexThreadsNotifier
   }
 
   Future<void> load({String? cwd}) async {
+    _lastCwd = cwd;
     if (_connection.isOfflineMode) {
       final cached = await _storage.getCachedCodexThreads();
       state = AsyncValue.data(cached);
@@ -127,6 +170,7 @@ class CodexThreadsNotifier
         await _storage.cacheCodexThreads(threads);
         await _cacheProjectsFromThreads(threads);
       }
+      unawaited(_primeRuntimeThreadState(threads));
       state = AsyncValue.data(threads);
     } catch (e, st) {
       final cached = await _storage.getCachedCodexThreads();
@@ -139,6 +183,7 @@ class CodexThreadsNotifier
   }
 
   Future<void> refresh({String? cwd}) async {
+    _lastCwd = cwd ?? _lastCwd;
     if (_connection.isOfflineMode) {
       final cached = await _storage.getCachedCodexThreads();
       state = AsyncValue.data(cached);
@@ -146,11 +191,12 @@ class CodexThreadsNotifier
     }
 
     try {
-      final threads = await _bridge.cxListThreads(cwd: cwd);
+      final threads = await _bridge.cxListThreads(cwd: _lastCwd);
       if (threads.isNotEmpty) {
         await _storage.cacheCodexThreads(threads);
         await _cacheProjectsFromThreads(threads);
       }
+      unawaited(_primeRuntimeThreadState(threads));
       state = AsyncValue.data(threads);
     } catch (e, st) {
       final cached = await _storage.getCachedCodexThreads();
@@ -162,19 +208,40 @@ class CodexThreadsNotifier
     }
   }
 
-  Future<bool> archiveThread(String threadId) async {
+  Future<bool> setThreadArchived(
+    String threadId, {
+    required bool archive,
+  }) async {
     try {
-      final ok = await _bridge.cxArchiveThread(threadId);
+      if (archive) {
+        // Best-effort compaction before archive so large threads are condensed.
+        try {
+          await _bridge.cxCompactThread(threadId: threadId);
+        } catch (_) {
+          // Compaction is optional; continue archive flow.
+        }
+
+        final ok = await _bridge.cxArchiveThread(threadId);
+        if (ok) {
+          state = state.whenData(
+            (threads) => threads.where((t) => t.id != threadId).toList(),
+          );
+        }
+        return ok;
+      }
+
+      final ok = await _bridge.cxUnarchiveThread(threadId: threadId);
       if (ok) {
-        state = state.whenData(
-          (threads) => threads.where((t) => t.id != threadId).toList(),
-        );
+        await refresh(cwd: _lastCwd);
       }
       return ok;
     } catch (_) {
       return false;
     }
   }
+
+  Future<bool> archiveThread(String threadId) =>
+      setThreadArchived(threadId, archive: true);
 }
 
 /// Codex models provider — cache-first, background refresh.

@@ -77,6 +77,7 @@ export async function handleCodexFeature(
     }
 
     // ── thread/unarchive ─────────────────────────────────────────────
+    // Protocol: ThreadUnarchiveResponse = { thread: Thread }
     case 'cx_thread_unarchive': {
       const client = await ensureCodexClient()
       const threadId = safeString(message.threadId).trim()
@@ -84,8 +85,9 @@ export async function handleCodexFeature(
         reply({ type: 'error', message: 'cx_thread_unarchive requires threadId' })
         break
       }
-      const result = await client.request('thread/unarchive', { threadId })
-      reply({ type: 'cx_thread_unarchived', data: result ?? { ok: true } })
+      const result: any = await client.request('thread/unarchive', { threadId })
+      // Unwrap: protocol returns { thread: Thread }, normalize to just the Thread object
+      reply({ type: 'cx_thread_unarchived', data: result?.thread ?? result ?? {} })
       break
     }
 
@@ -139,13 +141,18 @@ export async function handleCodexFeature(
     }
 
     // ── app/list ─────────────────────────────────────────────────────
+    // Protocol: AppsListParams = { cursor?, limit?, threadId?, forceRefetch? }
     case 'cx_apps_list': {
       const client = await ensureCodexClient()
       const cursor = message.cursor ?? null
       const limit = message.limit ?? null
+      const threadId = message.threadId ? safeString(message.threadId).trim() : null
+      const forceRefetch = message.forceRefetch === true
       const result: any = await client.request('app/list', {
         ...(cursor ? { cursor } : {}),
         ...(limit ? { limit } : {}),
+        ...(threadId ? { threadId } : {}),
+        ...(forceRefetch ? { forceRefetch } : {}),
       })
       reply({
         type: 'cx_apps',
@@ -156,6 +163,8 @@ export async function handleCodexFeature(
     }
 
     // ── command/exec ─────────────────────────────────────────────────
+    // Protocol: CommandExecParams = { command: string[], timeoutMs?, cwd?, sandboxPolicy? }
+    // SandboxPolicy = "dangerFullAccess" | { type: "readOnly", ... } | { type: "workspaceWrite", ... } | ...
     case 'cx_command_exec': {
       const client = await ensureCodexClient()
       const command = message.command as string[] | undefined
@@ -167,6 +176,7 @@ export async function handleCodexFeature(
         command,
         ...(message.timeoutMs ? { timeoutMs: message.timeoutMs } : {}),
         ...(message.cwd ? { cwd: message.cwd } : {}),
+        ...(message.sandboxPolicy ? { sandboxPolicy: message.sandboxPolicy } : {}),
       })
       reply({ type: 'cx_command_result', data: result ?? {} })
       break
@@ -236,6 +246,7 @@ export async function handleCodexFeature(
     }
 
     // ── #24: thread/read ─────────────────────────────────────────────
+    // Protocol: ThreadReadResponse = { thread: Thread }
     case 'cx_thread_read': {
       const client = await ensureCodexClient()
       const threadId = safeString(message.threadId).trim()
@@ -243,11 +254,12 @@ export async function handleCodexFeature(
         reply({ type: 'error', message: 'cx_thread_read requires threadId' })
         break
       }
-      const result = await client.request('thread/read', {
+      const result: any = await client.request('thread/read', {
         threadId,
         includeTurns: message.includeTurns === true,
       })
-      reply({ type: 'cx_thread_detail', data: result ?? {} })
+      // Unwrap: protocol returns { thread: Thread }, normalize to just the Thread object
+      reply({ type: 'cx_thread_detail', data: result?.thread ?? result ?? {} })
       break
     }
 

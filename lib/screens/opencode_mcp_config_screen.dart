@@ -99,6 +99,76 @@ class _OpenCodeMcpConfigScreenState
     }
   }
   Future<void> _startMcpAuth(String name) async {
+    // Let user choose: one-shot (opens browser on dev machine) or manual (paste code on phone)
+    final method = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.computer),
+              title: const Text('Authenticate on computer'),
+              subtitle: const Text('Opens browser on your dev machine'),
+              onTap: () => Navigator.pop(ctx, 'auto'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.phone_android),
+              title: const Text('Authenticate on this device'),
+              subtitle: const Text('Get URL here, paste code manually'),
+              onTap: () => Navigator.pop(ctx, 'manual'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (method == null || !mounted) return;
+
+    if (method == 'auto') {
+      await _mcpAuthOneShotFlow(name);
+    } else {
+      await _mcpAuthManualFlow(name);
+    }
+  }
+
+  /// One-shot: opens browser on dev machine, waits for OAuth callback automatically.
+  Future<void> _mcpAuthOneShotFlow(String name) async {
+    final oc = OpenCodeTheme.of(context);
+    try {
+      final bridge = ref.read(bridgeServiceProvider);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Opening browser on your computer for "$name"…'),
+          backgroundColor: oc.primary,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      final result = await bridge.mcpAuthAuthenticate(
+        name,
+        projectPath: _projectPath,
+      );
+      if (!mounted) return;
+      final ok = result != null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(ok ? 'Authenticated "$name"' : 'Auth failed for "$name"'),
+          backgroundColor: ok ? oc.success : oc.error,
+        ),
+      );
+      if (ok) await _refreshStatus();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Auth failed: ${humanizeError(e)}'),
+          backgroundColor: oc.error,
+        ),
+      );
+    }
+  }
+
+  /// Two-step: get OAuth URL on phone, user pastes authorization code back.
+  Future<void> _mcpAuthManualFlow(String name) async {
     final oc = OpenCodeTheme.of(context);
     try {
       final bridge = ref.read(bridgeServiceProvider);

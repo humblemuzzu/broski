@@ -95,7 +95,7 @@ export type ClientMessage =
   | { type: 'create_session'; projectPath?: string; title?: string; permission?: PermissionRuleset }
   | { type: 'get_session'; sessionId: string; projectPath?: string }
   | { type: 'get_session_messages'; sessionId: string; projectPath?: string; limit?: number }
-  | { type: 'chat'; sessionId: string; content: string; projectPath?: string; messageId?: string; model?: { providerID: string; modelID: string }; agent?: string; fileAttachments?: FileAttachment[]; variant?: string; noReply?: boolean; tools?: Record<string, boolean>; system?: string }
+  | { type: 'chat'; sessionId: string; content: string; projectPath?: string; messageId?: string; model?: { providerID: string; modelID: string }; agent?: string; fileAttachments?: FileAttachment[]; variant?: string; noReply?: boolean; system?: string }
   | { type: 'abort'; sessionId: string; projectPath?: string }
   | { type: 'diff'; sessionId: string; projectPath?: string; messageId?: string }
   | { type: 'browse'; path: string; projectPath?: string }
@@ -135,7 +135,7 @@ export type ClientMessage =
   | { type: 'share_session'; sessionId: string; projectPath?: string }
   | { type: 'unshare_session'; sessionId: string; projectPath?: string }
   // Feature 9: Session Summarize (Compact)
-  | { type: 'summarize_session'; sessionId: string; providerID: string; modelID: string; projectPath?: string }
+  | { type: 'summarize_session'; sessionId: string; providerID: string; modelID: string; projectPath?: string; auto?: boolean }
   // Feature 10: Git/VCS Information
   | { type: 'get_vcs'; projectPath?: string }
   // Feature 11: File Content Read
@@ -169,6 +169,7 @@ export type ClientMessage =
   // MCP OAuth Authentication
   | { type: 'mcp_auth_start'; name: string; projectPath?: string }
   | { type: 'mcp_auth_callback'; name: string; code: string; projectPath?: string }
+  | { type: 'mcp_auth_authenticate'; name: string; projectPath?: string }
   | { type: 'mcp_auth_remove'; name: string; projectPath?: string }
   // Provider credential management
   | { type: 'auth_set'; providerId: string; auth: Record<string, unknown>; projectPath?: string }
@@ -300,7 +301,14 @@ export type ClientMessage =
   | { type: 'cc_set_mcp_servers'; sessionId: string; servers: Record<string, unknown> }
   // B3: get full initialization result (richer than session-init)
   | { type: 'cc_initialization_result'; sessionId: string }
-  | { type: 'cc_permission_response'; sessionId: string; toolUseId: string; response: PermissionResponse }
+  | {
+      type: 'cc_permission_response'
+      sessionId: string
+      toolUseId: string
+      response: PermissionResponse
+      // For AskUserQuestion: pass user-selected answers back to SDK via updatedInput
+      updatedInput?: Record<string, unknown>
+    }
   | { type: 'cc_list_skills'; cwd?: string }
   | { type: 'cc_get_skill'; name: string; source: 'project' | 'user' | 'plugin'; cwd?: string; path?: string }
   | { type: 'cc_save_skill'; name: string; source: 'project' | 'user'; content: string; cwd?: string }
@@ -356,7 +364,7 @@ export type ClientMessage =
   | { type: 'cx_abort'; threadId: string; turnId?: string }
   | { type: 'cx_permission_response'; requestId: string; response: PermissionResponse; execpolicyAmendment?: any }
   // Codex request_user_input response (SDK v0.87.0+)
-  | { type: 'cx_user_input_response'; requestId: string; answers: Record<string, { selected: string[]; other?: string }> }
+  | { type: 'cx_user_input_response'; requestId: string; answers: Record<string, { answers: string[] }> }
   | { type: 'cx_thread_fork'; threadId: string }
   | { type: 'cx_thread_rollback'; threadId: string; numTurns: number }
   | { type: 'cx_model_list' }
@@ -387,8 +395,8 @@ export type ClientMessage =
   | { type: 'cx_remote_skills_list' }
   | { type: 'cx_remote_skill_install'; hazelnutId: string; isPreload?: boolean }
   | { type: 'cx_skill_config_write'; path: string; enabled: boolean }
-  | { type: 'cx_apps_list'; cursor?: string | null; limit?: number | null }
-  | { type: 'cx_command_exec'; command: string[]; timeoutMs?: number; cwd?: string }
+  | { type: 'cx_apps_list'; cursor?: string | null; limit?: number | null; threadId?: string; forceRefetch?: boolean }
+  | { type: 'cx_command_exec'; command: string[]; timeoutMs?: number; cwd?: string; sandboxPolicy?: any }
   | { type: 'cx_experimental_features'; cursor?: string | null; limit?: number | null }
   // Codex SDK update: new methods (#21-#25, #27)
   | { type: 'cx_config_batch_write'; edits: Array<{ keyPath: string; value: any; mergeStrategy?: string }>; filePath?: string; expectedVersion?: string }
@@ -614,6 +622,7 @@ export type ServerMessage =
   // MCP OAuth
   | { type: 'mcp_auth_started'; data: { authorizationUrl: string } | null; name: string; requestId?: string }
   | { type: 'mcp_auth_completed'; data: boolean; name: string; requestId?: string }
+  | { type: 'mcp_auth_authenticated'; data: Record<string, unknown> | null; name: string; requestId?: string }
   | { type: 'mcp_auth_removed'; data: boolean; name: string; requestId?: string }
   // Provider credentials
   | { type: 'auth_set_result'; data: boolean; providerId: string; requestId?: string }
@@ -706,6 +715,10 @@ export type ServerMessage =
   | { type: 'cc_task_stopped'; data: { ok: boolean; taskId: string }; requestId?: string }
   | { type: 'cc_mcp_server_reconnected'; data: { ok: boolean; serverName: string }; requestId?: string }
   | { type: 'cc_mcp_server_toggled'; data: { ok: boolean; serverName: string; enabled: boolean }; requestId?: string }
+  | { type: 'cc_permission_mode_set'; data: { ok: boolean; mode: ClaudeCodePermissionMode }; requestId?: string }
+  | { type: 'cc_model_set'; data: { ok: boolean; model?: string }; requestId?: string }
+  | { type: 'cc_mcp_servers_set'; data: { added: string[]; removed: string[]; errors: Record<string, string> } | null; requestId?: string }
+  | { type: 'cc_initialization_result'; data: Record<string, unknown> | null; requestId?: string }
   | { type: 'cc_fs_changed'; data: { kind: 'skills' | 'plugins' | 'hooks' | 'commands' | 'mcp'; dir: string; cwd?: string; file?: string }; requestId?: string }
   | { type: 'cc_stream'; data: ClaudeCodeStreamMessage; sessionId: string }
   // Codex (OpenAI Codex app-server)
@@ -1354,6 +1367,13 @@ export type ClaudeCodeModelUsage = {
   maxOutputTokens: number
 }
 
+export type ClaudeCodePermissionDenial = {
+  toolName: string
+  toolUseId: string
+  // SDK always sends tool_input (required), but we keep optional for defensive runtime safety.
+  toolInput?: Record<string, unknown>
+}
+
 // Claude Code Message (for streaming)
 export type ClaudeCodeStreamMessage = 
   | { type: 'session-created'; sessionId: string; agent: 'claude-code'; model?: string; parentToolUseId?: string }
@@ -1408,8 +1428,21 @@ export type ClaudeCodeStreamMessage =
     }
   // B9: assistant-level error classification (authentication_failed, billing_error, rate_limit, etc.)
   | { type: 'assistant-error'; errorType: string; messageId?: string; parentToolUseId?: string }
-  // B10: stop reason from result message (why the session ended)
-  | { type: 'result-complete'; stopReason?: string | null; numTurns?: number; durationMs?: number; durationApiMs?: number; parentToolUseId?: string }
+  // B10: stop reason + result subtype/details from result message
+  | {
+      type: 'result-complete'
+      stopReason?: string | null
+      numTurns?: number
+      durationMs?: number
+      durationApiMs?: number
+      subtype?: 'success' | 'error_during_execution' | 'error_max_turns' | 'error_max_budget_usd' | 'error_max_structured_output_retries' | string
+      isError?: boolean
+      errors?: string[]
+      permissionDenials?: ClaudeCodePermissionDenial[]
+      parentToolUseId?: string
+    }
+  // Structured output from SDK result when outputFormat is enabled.
+  | { type: 'structured-output'; data: unknown; parentToolUseId?: string }
   | { type: 'error'; message: string; code?: string; parentToolUseId?: string }
   | { type: 'task-notification'; taskId: string; status: 'completed' | 'failed' | 'stopped'; summary: string; outputFile?: string; parentToolUseId?: string }
   | { type: 'tool-use-summary'; summary: string; precedingToolUseIds: string[]; parentToolUseId?: string }

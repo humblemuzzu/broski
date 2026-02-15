@@ -1,3 +1,4 @@
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +9,7 @@ import '../../widgets/chat/detail_sheet.dart';
 import '../../theme/design_tokens.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../../utils/error_utils.dart';
+
 /// Bottom sheet to browse Codex apps/connectors marketplace.
 class CxAppsSheet extends ConsumerStatefulWidget {
   const CxAppsSheet({super.key});
@@ -19,26 +21,44 @@ class CxAppsSheet extends ConsumerStatefulWidget {
       child: const CxAppsSheet(),
     );
   }
+
   @override
   ConsumerState<CxAppsSheet> createState() => _CxAppsSheetState();
 }
+
 class _CxAppsSheetState extends ConsumerState<CxAppsSheet> {
   List<CodexAppInfo>? _apps;
   bool _loading = true;
   String? _error;
+  StreamSubscription<List<Map<String, dynamic>>>? _appsUpdatedSub;
+
   @override
   void initState() {
     super.initState();
+    _appsUpdatedSub = ref
+        .read(bridgeServiceProvider)
+        .codexAppsUpdatedMessages
+        .listen((_) {
+          if (!mounted) return;
+          _load(forceRefetch: true);
+        });
     _load();
   }
-  Future<void> _load() async {
+
+  @override
+  void dispose() {
+    _appsUpdatedSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _load({bool forceRefetch = false}) async {
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
       final bridge = ref.read(bridgeServiceProvider);
-      final data = await bridge.cxListApps();
+      final data = await bridge.cxListApps(forceRefetch: forceRefetch);
       if (!mounted) return;
       setState(() {
         _apps = data.map(CodexAppInfo.fromJson).toList();
@@ -52,6 +72,7 @@ class _CxAppsSheetState extends ConsumerState<CxAppsSheet> {
       });
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -63,7 +84,10 @@ class _CxAppsSheetState extends ConsumerState<CxAppsSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Error: $_error', style: TextStyle(color: theme.colorScheme.error)),
+            Text(
+              'Error: $_error',
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
             SizedBox(height: Spacing.md),
             TextButton(onPressed: _load, child: const Text('Retry')),
           ],
@@ -91,19 +115,31 @@ class _CxAppsSheetState extends ConsumerState<CxAppsSheet> {
                       app.logoUrl!,
                       width: 28,
                       height: 28,
-                      errorBuilder: (_, __, ___) => const Icon(AppIcons.extension_, size: 24),
+                      errorBuilder: (_, __, ___) =>
+                          const Icon(AppIcons.extension_, size: 24),
                     ),
                   )
                 : const Icon(AppIcons.extension_, size: 24),
-            title: Text(app.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+            title: Text(
+              app.name,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
             subtitle: app.description != null && app.description!.isNotEmpty
-                ? Text(app.description!, maxLines: 2, overflow: TextOverflow.ellipsis)
+                ? Text(
+                    app.description!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  )
                 : null,
             trailing: app.installUrl != null
                 ? const Icon(AppIcons.openExternal, size: 18)
                 : app.isAccessible
-                    ? Icon(AppIcons.checkCircle, size: 18, color: theme.colorScheme.primary)
-                    : const Icon(AppIcons.lock, size: 18),
+                ? Icon(
+                    AppIcons.checkCircle,
+                    size: 18,
+                    color: theme.colorScheme.primary,
+                  )
+                : const Icon(AppIcons.lock, size: 18),
             onTap: app.installUrl != null
                 ? () {
                     // Could open URL in browser

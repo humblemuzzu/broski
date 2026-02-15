@@ -484,7 +484,6 @@ class BridgeService {
     List<FileAttachment>? fileAttachments,
     String? variant,
     bool? noReply,
-    Map<String, bool>? tools,
     String? system,
   }) {
     // Guard against duplicate sends - use content hash to allow different messages
@@ -496,6 +495,8 @@ class BridgeService {
       return; // Duplicate detected, skip
     }
 
+    // Note: `tools` param removed — deprecated in SDK. Use session-level
+    // permission rulesets instead (set at session creation).
     _socket.send({
       'type': 'chat',
       'sessionId': sessionId,
@@ -509,7 +510,6 @@ class BridgeService {
         'fileAttachments': fileAttachments.map((f) => f.toJson()).toList(),
       if (variant != null && variant.isNotEmpty) 'variant': variant,
       if (noReply != null) 'noReply': noReply,
-      if (tools != null && tools.isNotEmpty) 'tools': tools,
       if (system != null && system.isNotEmpty) 'system': system,
     });
   }
@@ -1343,6 +1343,7 @@ class BridgeService {
     required String providerID,
     required String modelID,
     String? projectPath,
+    bool? auto,
   }) {
     // Important: Summarization is expensive (uses AI tokens), so we definitely
     // want to prevent duplicate calls
@@ -1354,6 +1355,7 @@ class BridgeService {
         providerID: providerID,
         modelID: modelID,
         projectPath: projectPath,
+        auto: auto,
       ),
     );
   }
@@ -1363,6 +1365,7 @@ class BridgeService {
     required String providerID,
     required String modelID,
     String? projectPath,
+    bool? auto,
   }) async {
     final requestId = _generateRequestId();
     _socket.send({
@@ -1372,6 +1375,7 @@ class BridgeService {
       'modelID': modelID,
       'requestId': requestId,
       if (projectPath != null) 'projectPath': projectPath,
+      if (auto != null) 'auto': auto,
     });
     final response = await _waitFor('session_summarized', requestId: requestId);
     return response['data'] as bool? ?? false;
@@ -2861,51 +2865,94 @@ class BridgeService {
   }
 
   /// B1: Change permission mode mid-session.
-  void ccSetPermissionMode({
+  Future<bool> ccSetPermissionMode({
     required String sessionId,
     required String mode,
-  }) {
+  }) async {
+    final requestId = _generateRequestId();
     _socket.send({
       'type': 'cc_set_permission_mode',
       'sessionId': sessionId,
       'mode': mode,
+      'requestId': requestId,
     });
+
+    try {
+      final response = await _waitFor(
+        'cc_permission_mode_set',
+        requestId: requestId,
+      );
+      final data = response['data'];
+      if (data is Map<String, dynamic>) {
+        return data['ok'] as bool? ?? false;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// B2: Change model mid-session.
-  void ccSetModel({
-    required String sessionId,
-    String? model,
-  }) {
+  Future<bool> ccSetModel({required String sessionId, String? model}) async {
+    final requestId = _generateRequestId();
     _socket.send({
       'type': 'cc_set_model',
       'sessionId': sessionId,
       if (model != null) 'model': model,
+      'requestId': requestId,
     });
+
+    try {
+      final response = await _waitFor('cc_model_set', requestId: requestId);
+      final data = response['data'];
+      if (data is Map<String, dynamic>) {
+        return data['ok'] as bool? ?? false;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// B7: Dynamically set MCP servers mid-session.
-  void ccSetMcpServers({
+  Future<Map<String, dynamic>?> ccSetMcpServers({
     required String sessionId,
     required Map<String, dynamic> servers,
-  }) {
+  }) async {
+    final requestId = _generateRequestId();
     _socket.send({
       'type': 'cc_set_mcp_servers',
       'sessionId': sessionId,
       'servers': servers,
+      'requestId': requestId,
     });
+
+    try {
+      final response = await _waitFor(
+        'cc_mcp_servers_set',
+        requestId: requestId,
+      );
+      final data = response['data'];
+      if (data is Map<String, dynamic>) return data;
+      if (data is Map) return data.cast<String, dynamic>();
+      return null;
+    } catch (_) {
+      return null;
+    }
   }
 
   void ccRespondToPermission({
     required String sessionId,
     required String toolUseId,
     required String response,
+    Map<String, dynamic>? updatedInput,
   }) {
     _socket.send({
       'type': 'cc_permission_response',
       'sessionId': sessionId,
       'toolUseId': toolUseId,
       'response': response,
+      if (updatedInput != null) 'updatedInput': updatedInput,
     });
   }
 
@@ -2935,9 +2982,7 @@ class BridgeService {
 
   /// #19: Stream of app/list/updated notifications from Codex.
   Stream<List<Map<String, dynamic>>> get codexAppsUpdatedMessages =>
-      _socket.messages
-          .where((m) => m['type'] == 'cx_apps_updated')
-          .map((m) {
+      _socket.messages.where((m) => m['type'] == 'cx_apps_updated').map((m) {
         final data = m['data'] as List<dynamic>? ?? [];
         return data.whereType<Map<String, dynamic>>().toList();
       });
@@ -3162,6 +3207,20 @@ class BridgeService {
         .whereType<Map<String, dynamic>>()
         .map(ProjectSummary.fromJson)
         .toList();
+  }
+
+  /// Warm up Codex filesystem caches (projects + threads) in bridge.
+  ///
+  /// This improves first-open latency in sessions views. The bridge starts
+  /// warmup asynchronously and immediately responds with `cx_warmup_started`.
+  Future<void> cxWarmup() async {
+    final requestId = _generateRequestId();
+    _socket.send({'type': 'cx_warmup', 'requestId': requestId});
+    await _waitFor(
+      'cx_warmup_started',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
   }
 
   /// List Codex threads. Supports new #27 params (sourceKinds, sortKey, etc.)
@@ -3577,9 +3636,9 @@ class BridgeService {
     });
   }
 
-  /// Respond to a Codex request_user_input event (SDK v0.87.0+)
+  /// Respond to a Codex request_user_input event (SDK v0.87.0+).
   ///
-  /// [answers] is a map of question ID to answer object with `selected` and `other` fields.
+  /// Protocol shape: `{ answers: { questionId: { answers: string[] } } }`.
   void cxRespondToUserInput({
     required String requestId,
     required Map<String, Map<String, dynamic>> answers,
@@ -3718,6 +3777,8 @@ class BridgeService {
   Future<List<Map<String, dynamic>>> cxListApps({
     String? cursor,
     int? limit,
+    String? threadId,
+    bool forceRefetch = false,
   }) async {
     final requestId = _generateRequestId();
     _socket.send({
@@ -3725,6 +3786,8 @@ class BridgeService {
       'requestId': requestId,
       if (cursor != null) 'cursor': cursor,
       if (limit != null) 'limit': limit,
+      if (threadId != null) 'threadId': threadId,
+      if (forceRefetch) 'forceRefetch': true,
     });
     final response = await _waitFor(
       'cx_apps',
@@ -3740,6 +3803,7 @@ class BridgeService {
     required List<String> command,
     int? timeoutMs,
     String? cwd,
+    Map<String, dynamic>? sandboxPolicy,
   }) async {
     final requestId = _generateRequestId();
     _socket.send({
@@ -3748,6 +3812,7 @@ class BridgeService {
       'command': command,
       if (timeoutMs != null) 'timeoutMs': timeoutMs,
       if (cwd != null) 'cwd': cwd,
+      if (sandboxPolicy != null) 'sandboxPolicy': sandboxPolicy,
     });
     final response = await _waitFor(
       'cx_command_result',
@@ -3812,10 +3877,7 @@ class BridgeService {
   }
 
   /// #23: List threads currently loaded in memory (thread/loaded/list).
-  Future<List<String>> cxThreadLoadedList({
-    String? cursor,
-    int? limit,
-  }) async {
+  Future<List<String>> cxThreadLoadedList({String? cursor, int? limit}) async {
     final requestId = _generateRequestId();
     _socket.send({
       'type': 'cx_thread_loaded_list',
@@ -4742,11 +4804,32 @@ class BridgeService {
       'requestId': requestId,
       if (projectPath != null) 'projectPath': projectPath,
     });
+    final response = await _waitFor('mcp_auth_completed', requestId: requestId);
+    return response['data'] as bool? ?? false;
+  }
+
+  /// One-shot MCP OAuth: opens browser on the dev machine, waits for
+  /// callback, returns final MCP status map (or null on failure).
+  /// Use when the user can see the dev machine screen. For fully-remote
+  /// auth use [mcpAuthStart] + [mcpAuthCallback] instead.
+  Future<Map<String, dynamic>?> mcpAuthAuthenticate(
+    String name, {
+    String? projectPath,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'mcp_auth_authenticate',
+      'name': name,
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
     final response = await _waitFor(
-      'mcp_auth_completed',
+      'mcp_auth_authenticated',
       requestId: requestId,
     );
-    return response['data'] as bool? ?? false;
+    final data = response['data'];
+    if (data is Map<String, dynamic>) return data;
+    return null;
   }
 
   Future<bool> mcpAuthRemove(String name, {String? projectPath}) async {
@@ -4825,9 +4908,7 @@ class BridgeService {
   // Project Management
   // ==================================================================
 
-  Future<Map<String, dynamic>?> getCurrentProject({
-    String? projectPath,
-  }) async {
+  Future<Map<String, dynamic>?> getCurrentProject({String? projectPath}) async {
     final requestId = _generateRequestId();
     _socket.send({
       'type': 'get_current_project',

@@ -244,291 +244,313 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
               slivers: [
                 // Active Sessions Section (sticky at top) - shows running sessions
                 SliverToBoxAdapter(
-                child: ActiveSessionsSection(
-                  onSessionTap: (session) => _openSession(session),
+                  child: ActiveSessionsSection(
+                    onSessionTap: (session) => _openSession(session),
+                  ),
                 ),
-              ),
-              SliverToBoxAdapter(
-                child: Builder(
-                  builder: (context) {
-                    // Count background tasks from grouped sessions
-                    final groupedSessions = ref.watch(groupedSessionsProvider);
-                    final backgroundTaskCount = groupedSessions.fold<int>(
-                      0,
-                      (sum, g) => sum + g.children.length,
-                    );
-                    final showBgTasks = ref.watch(showBackgroundTasksProvider);
-                    final titleFilterCount = ref
-                        .watch(sessionsTitleExcludeFiltersProvider(agentType))
-                        .length;
-                    return _ModernHeader(
-                      connection: connection,
-                      filterProjectPath: filterProjectPath,
-                      projects: projectsAsync,
-                      projectsProvider: ocFilterProjectsProvider,
-                      onFilterChanged: (path) {
-                        ref
-                                .read(
-                                  sessionsFilterProjectPathProvider.notifier,
-                                )
-                                .state =
-                            path;
-                        ref.read(sessionsRefreshTickProvider.notifier).state++;
-                      },
-                      onRefresh: _refresh,
-                      onNewSession: connection.isOfflineMode
-                          ? null
-                          : () => _showNewSessionSheet(context),
-                      titleFilterCount: titleFilterCount,
-                      onTitleFiltersTap: () =>
-                          _showSessionsTitleFiltersSheet(context),
-                      showBackgroundTasks: showBgTasks,
-                      onToggleBackgroundTasks: () {
-                        ref.read(showBackgroundTasksProvider.notifier).state =
-                            !showBgTasks;
-                        // Collapse all when hiding
-                        if (showBgTasks) {
+                SliverToBoxAdapter(
+                  child: Builder(
+                    builder: (context) {
+                      // Count background tasks from grouped sessions
+                      final groupedSessions = ref.watch(
+                        groupedSessionsProvider,
+                      );
+                      final backgroundTaskCount = groupedSessions.fold<int>(
+                        0,
+                        (sum, g) => sum + g.children.length,
+                      );
+                      final showBgTasks = ref.watch(
+                        showBackgroundTasksProvider,
+                      );
+                      final titleFilterCount = ref
+                          .watch(sessionsTitleExcludeFiltersProvider(agentType))
+                          .length;
+                      return _ModernHeader(
+                        connection: connection,
+                        filterProjectPath: filterProjectPath,
+                        projects: projectsAsync,
+                        projectsProvider: ocFilterProjectsProvider,
+                        onFilterChanged: (path) {
                           ref
-                              .read(expandedSessionsProvider.notifier)
-                              .collapseAll();
-                        }
-                      },
-                      backgroundTaskCount: backgroundTaskCount,
-                      // Task 8: Session search
-                      searchController: _searchController,
-                      onSearchChanged: _onSearchChanged,
+                                  .read(
+                                    sessionsFilterProjectPathProvider.notifier,
+                                  )
+                                  .state =
+                              path;
+                          ref
+                              .read(sessionsRefreshTickProvider.notifier)
+                              .state++;
+                        },
+                        onRefresh: _refresh,
+                        onNewSession: connection.isOfflineMode
+                            ? null
+                            : () => _showNewSessionSheet(context),
+                        titleFilterCount: titleFilterCount,
+                        onTitleFiltersTap: () =>
+                            _showSessionsTitleFiltersSheet(context),
+                        showBackgroundTasks: showBgTasks,
+                        onToggleBackgroundTasks: () {
+                          ref.read(showBackgroundTasksProvider.notifier).state =
+                              !showBgTasks;
+                          // Collapse all when hiding
+                          if (showBgTasks) {
+                            ref
+                                .read(expandedSessionsProvider.notifier)
+                                .collapseAll();
+                          }
+                        },
+                        backgroundTaskCount: backgroundTaskCount,
+                        // Task 8: Session search
+                        searchController: _searchController,
+                        onSearchChanged: _onSearchChanged,
+                      );
+                    },
+                  ),
+                ),
+                ...sessionsAsync.when(
+                  loading: () => [
+                    // Smart skeleton: only show after 100ms delay to prevent flash
+                    SliverToBoxAdapter(child: _DelayedSkeletonList()),
+                  ],
+                  error: (error, _) => [
+                    SliverFillRemaining(
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              AppIcons.error,
+                              color: theme.colorScheme.error,
+                              size: 48,
+                            ),
+                            SizedBox(height: Spacing.lg),
+                            Text(
+                              'Failed to load sessions',
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurface,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            SizedBox(height: Spacing.sm),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                              ),
+                              child: Text(
+                                humanizeError(error),
+                                style: TextStyle(
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.6,
+                                  ),
+                                  fontSize: 14,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                  data: (sessions) {
+                    final searchQuery = ref.watch(sessionsSearchQueryProvider);
+                    if (sessions.isEmpty) {
+                      if (searchQuery.isNotEmpty) {
+                        return [
+                          SliverFillRemaining(
+                            child: Center(
+                              child: Text(
+                                'No sessions matching "$searchQuery"',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.onSurface
+                                      .withValues(alpha: 0.6),
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ];
+                      }
+                      return [SliverFillRemaining(child: _EmptyState())];
+                    }
+                    // Sessions are already filtered server-side (search) and
+                    // by project/title in the provider. No client-side search
+                    // filtering needed here.
+                    final groupedSessions = ref.watch(groupedSessionsProvider);
+                    final showBgTasks = ref.watch(showBackgroundTasksProvider);
+                    final expandedSessions = ref.watch(
+                      expandedSessionsProvider,
                     );
+                    final expandedProjects = ref.watch(
+                      sessionsProjectExpandedProvider,
+                    );
+                    // Get highlighted sessions
+                    final highlights = ref.watch(highlightsProvider);
+                    final highlightColor = highlights.color;
+                    // Filter to only root sessions (background tasks are nested)
+                    final rootSessions = sessions
+                        .where((s) => s.isRootSession)
+                        .toList();
+                    // Get highlighted sessions for the section
+                    final highlightedSessions = rootSessions
+                        .where((s) => highlights.isSessionHighlighted(s.id))
+                        .toList();
+                    // Predictive prefetching: preload messages for top 3 root sessions
+                    // Fire-and-forget after frame is rendered
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      prefetchTopSessions(ref, rootSessions);
+                    });
+                    final projectsByPath = <String, ProjectSummary>{};
+                    for (final p
+                        in projectsAsync.valueOrNull ??
+                            const <ProjectSummary>[]) {
+                      projectsByPath[p.path] = p;
+                    }
+                    // Build items — grouped sessions minus highlighted ones
+                    final regularGrouped = groupedSessions
+                        .where(
+                          (g) => !highlights.isSessionHighlighted(g.session.id),
+                        )
+                        .toList();
+                    final items = _buildGroupedListItems(
+                      groupedSessions: regularGrouped,
+                      projectsByPath: projectsByPath,
+                      grouped: filterProjectPath == null,
+                      showBackgroundTasks: showBgTasks,
+                      expandedSessions: expandedSessions,
+                      expandedProjects: expandedProjects,
+                    );
+                    return [
+                      // Highlighted Sessions Section
+                      if (highlightedSessions.isNotEmpty)
+                        SliverToBoxAdapter(
+                          child: _HighlightedSessionsSection(
+                            sessions: highlightedSessions,
+                            sessionStatuses: sessionStatuses,
+                            highlightColor: highlightColor,
+                            isOfflineMode: connection.isOfflineMode,
+                            onTap: _openSession,
+                            onLongPress: connection.isOfflineMode
+                                ? null
+                                : _showSessionOptions,
+                            onDelete: connection.isOfflineMode
+                                ? null
+                                : _deleteSession,
+                          ),
+                        ),
+                      // Regular Sessions
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate((
+                            context,
+                            index,
+                          ) {
+                            final item = items[index];
+                            final ocTheme = OpenCodeTheme.of(context);
+                            if (item is _SessionListHeader) {
+                              return Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  4,
+                                  14,
+                                  4,
+                                  10,
+                                ),
+                                child: Text(
+                                  item.title.toUpperCase(),
+                                  style: TextStyle(
+                                    color: ocTheme.textMuted,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              );
+                            }
+                            if (item is _SessionListItem) {
+                              final session = item.session;
+                              final status = sessionStatuses[session.id];
+                              final grouped = groupedSessions.firstWhere(
+                                (g) => g.session.id == session.id,
+                                orElse: () =>
+                                    SessionWithChildren(session: session),
+                              );
+                              final isExpanded = expandedSessions.contains(
+                                session.id,
+                              );
+                              final hasChildren = grouped.hasChildren;
+                              return Padding(
+                                padding: Insets.bottomMd,
+                                child: _SessionCard(
+                                  session: session,
+                                  status: status,
+                                  isOfflineMode: connection.isOfflineMode,
+                                  onTap: () => _openSession(session),
+                                  onDelete: connection.isOfflineMode
+                                      ? null
+                                      : () => _deleteSession(session),
+                                  onLongPress: connection.isOfflineMode
+                                      ? null
+                                      : () => _showSessionOptions(session),
+                                  // Background task expansion
+                                  childCount: showBgTasks && hasChildren
+                                      ? grouped.children.length
+                                      : 0,
+                                  isExpanded: isExpanded,
+                                  onToggleExpand: showBgTasks && hasChildren
+                                      ? () => ref
+                                            .read(
+                                              expandedSessionsProvider.notifier,
+                                            )
+                                            .toggle(session.id)
+                                      : null,
+                                  activeChildCount: showBgTasks
+                                      ? grouped.activeChildCount(
+                                          sessionStatuses,
+                                        )
+                                      : 0,
+                                ),
+                              );
+                            }
+                            if (item is _ChildSessionItem) {
+                              final session = item.session;
+                              final status = sessionStatuses[session.id];
+                              return Padding(
+                                padding: const EdgeInsets.only(
+                                  left: 24,
+                                  bottom: 8,
+                                ),
+                                child: _ChildSessionCard(
+                                  session: session,
+                                  status: status,
+                                  isOfflineMode: connection.isOfflineMode,
+                                  onTap: () => _openSession(session),
+                                ),
+                              );
+                            }
+                            if (item is _LoadMoreItem) {
+                              return _LoadMoreButton(
+                                remainingCount: item.remainingCount,
+                                onTap: () {
+                                  ref
+                                      .read(
+                                        sessionsProjectExpandedProvider
+                                            .notifier,
+                                      )
+                                      .expand(item.directory);
+                                },
+                              );
+                            }
+                            return const SizedBox.shrink();
+                          }, childCount: items.length),
+                        ),
+                      ),
+                    ];
                   },
                 ),
-              ),
-              ...sessionsAsync.when(
-                loading: () => [
-                  // Smart skeleton: only show after 100ms delay to prevent flash
-                  SliverToBoxAdapter(child: _DelayedSkeletonList()),
-                ],
-                error: (error, _) => [
-                  SliverFillRemaining(
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            AppIcons.error,
-                            color: theme.colorScheme.error,
-                            size: 48,
-                          ),
-                          SizedBox(height: Spacing.lg),
-                          Text(
-                            'Failed to load sessions',
-                            style: TextStyle(
-                              color: theme.colorScheme.onSurface,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          SizedBox(height: Spacing.sm),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 24),
-                            child: Text(
-                              humanizeError(error),
-                              style: TextStyle(
-                                color: theme.colorScheme.onSurface.withValues(
-                                  alpha: 0.6,
-                                ),
-                                fontSize: 14,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-                data: (sessions) {
-                  final searchQuery = ref.watch(sessionsSearchQueryProvider);
-                  if (sessions.isEmpty) {
-                    if (searchQuery.isNotEmpty) {
-                      return [
-                        SliverFillRemaining(
-                          child: Center(
-                            child: Text(
-                              'No sessions matching "$searchQuery"',
-                              style: TextStyle(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurface
-                                    .withValues(alpha: 0.6),
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ];
-                    }
-                    return [SliverFillRemaining(child: _EmptyState())];
-                  }
-                  // Sessions are already filtered server-side (search) and
-                  // by project/title in the provider. No client-side search
-                  // filtering needed here.
-                  final groupedSessions = ref.watch(groupedSessionsProvider);
-                  final showBgTasks = ref.watch(showBackgroundTasksProvider);
-                  final expandedSessions = ref.watch(expandedSessionsProvider);
-                  final expandedProjects =
-                      ref.watch(sessionsProjectExpandedProvider);
-                  // Get highlighted sessions
-                  final highlights = ref.watch(highlightsProvider);
-                  final highlightColor = highlights.color;
-                  // Filter to only root sessions (background tasks are nested)
-                  final rootSessions = sessions
-                      .where((s) => s.isRootSession)
-                      .toList();
-                  // Get highlighted sessions for the section
-                  final highlightedSessions = rootSessions
-                      .where((s) => highlights.isSessionHighlighted(s.id))
-                      .toList();
-                  // Predictive prefetching: preload messages for top 3 root sessions
-                  // Fire-and-forget after frame is rendered
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    prefetchTopSessions(ref, rootSessions);
-                  });
-                  final projectsByPath = <String, ProjectSummary>{};
-                  for (final p
-                      in projectsAsync.valueOrNull ??
-                          const <ProjectSummary>[]) {
-                    projectsByPath[p.path] = p;
-                  }
-                  // Build items — grouped sessions minus highlighted ones
-                  final regularGrouped = groupedSessions
-                      .where(
-                        (g) => !highlights.isSessionHighlighted(g.session.id),
-                      )
-                      .toList();
-                  final items = _buildGroupedListItems(
-                    groupedSessions: regularGrouped,
-                    projectsByPath: projectsByPath,
-                    grouped: filterProjectPath == null,
-                    showBackgroundTasks: showBgTasks,
-                    expandedSessions: expandedSessions,
-                    expandedProjects: expandedProjects,
-                  );
-                  return [
-                    // Highlighted Sessions Section
-                    if (highlightedSessions.isNotEmpty)
-                      SliverToBoxAdapter(
-                        child: _HighlightedSessionsSection(
-                          sessions: highlightedSessions,
-                          sessionStatuses: sessionStatuses,
-                          highlightColor: highlightColor,
-                          isOfflineMode: connection.isOfflineMode,
-                          onTap: _openSession,
-                          onLongPress: connection.isOfflineMode
-                              ? null
-                              : _showSessionOptions,
-                          onDelete: connection.isOfflineMode
-                              ? null
-                              : _deleteSession,
-                        ),
-                      ),
-                    // Regular Sessions
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-                      sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate((context, index) {
-                          final item = items[index];
-                          final ocTheme = OpenCodeTheme.of(context);
-                          if (item is _SessionListHeader) {
-                            return Padding(
-                              padding: const EdgeInsets.fromLTRB(4, 14, 4, 10),
-                              child: Text(
-                                item.title.toUpperCase(),
-                                style: TextStyle(
-                                  color: ocTheme.textMuted,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            );
-                          }
-                          if (item is _SessionListItem) {
-                            final session = item.session;
-                            final status = sessionStatuses[session.id];
-                            final grouped = groupedSessions.firstWhere(
-                              (g) => g.session.id == session.id,
-                              orElse: () =>
-                                  SessionWithChildren(session: session),
-                            );
-                            final isExpanded = expandedSessions.contains(
-                              session.id,
-                            );
-                            final hasChildren = grouped.hasChildren;
-                            return Padding(
-                              padding: Insets.bottomMd,
-                              child: _SessionCard(
-                                session: session,
-                                status: status,
-                                isOfflineMode: connection.isOfflineMode,
-                                onTap: () => _openSession(session),
-                                onDelete: connection.isOfflineMode
-                                    ? null
-                                    : () => _deleteSession(session),
-                                onLongPress: connection.isOfflineMode
-                                    ? null
-                                    : () => _showSessionOptions(session),
-                                // Background task expansion
-                                childCount: showBgTasks && hasChildren
-                                    ? grouped.children.length
-                                    : 0,
-                                isExpanded: isExpanded,
-                                onToggleExpand: showBgTasks && hasChildren
-                                    ? () => ref
-                                          .read(
-                                            expandedSessionsProvider.notifier,
-                                          )
-                                          .toggle(session.id)
-                                    : null,
-                                activeChildCount: showBgTasks
-                                    ? grouped.activeChildCount(sessionStatuses)
-                                    : 0,
-                              ),
-                            );
-                          }
-                          if (item is _ChildSessionItem) {
-                            final session = item.session;
-                            final status = sessionStatuses[session.id];
-                            return Padding(
-                              padding: const EdgeInsets.only(
-                                left: 24,
-                                bottom: 8,
-                              ),
-                              child: _ChildSessionCard(
-                                session: session,
-                                status: status,
-                                isOfflineMode: connection.isOfflineMode,
-                                onTap: () => _openSession(session),
-                              ),
-                            );
-                          }
-                          if (item is _LoadMoreItem) {
-                            return _LoadMoreButton(
-                              remainingCount: item.remainingCount,
-                              onTap: () {
-                                ref
-                                    .read(sessionsProjectExpandedProvider.notifier)
-                                    .expand(item.directory);
-                              },
-                            );
-                          }
-                          return const SizedBox.shrink();
-                        }, childCount: items.length),
-                      ),
-                    ),
-                  ];
-                },
-              ),
-            ],
-          ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1085,9 +1107,7 @@ List<_SessionRowItem> _buildGroupedListItems({
     final group = groups[directory]!
       ..sort((a, b) => b.session.time.updated - a.session.time.updated);
     final isProjectExpanded = expandedProjects.contains(directory);
-    final limit = isProjectExpanded
-        ? group.length
-        : kSessionsPerProjectDefault;
+    final limit = isProjectExpanded ? group.length : kSessionsPerProjectDefault;
     final visible = group.take(limit);
     for (final g in visible) {
       addSessionWithChildren(items, g);
@@ -1095,10 +1115,7 @@ List<_SessionRowItem> _buildGroupedListItems({
     // "Load more" button if there are hidden sessions
     final remaining = group.length - limit;
     if (remaining > 0) {
-      items.add(_LoadMoreItem(
-        directory: directory,
-        remainingCount: remaining,
-      ));
+      items.add(_LoadMoreItem(directory: directory, remainingCount: remaining));
     }
   }
   return items;
@@ -2074,7 +2091,7 @@ class _HighlightedSessionCard extends StatelessWidget {
   final VoidCallback? onLongPress;
   final VoidCallback? onDelete;
   final bool isOfflineMode;
-  bool get isActive => status != null && (status!.isBusy || status!.isRetry);
+  bool get isActive => status?.isBusy == true || status?.isRetry == true;
   String _getProjectName() {
     return session.directory.split('/').where((item) => item.isNotEmpty).last;
   }
@@ -2179,7 +2196,7 @@ class _HighlightedSessionCard extends StatelessWidget {
                                 child: CircularProgressIndicator(
                                   strokeWidth: 1.5,
                                   valueColor: AlwaysStoppedAnimation<Color>(
-                                    status!.isRetry
+                                    (status?.isRetry == true)
                                         ? ocTheme.warning
                                         : ocTheme.info,
                                   ),
@@ -2187,9 +2204,9 @@ class _HighlightedSessionCard extends StatelessWidget {
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                status!.isRetry ? 'Retry' : 'Working',
+                                (status?.isRetry == true) ? 'Retry' : 'Working',
                                 style: TextStyle(
-                                  color: status!.isRetry
+                                  color: (status?.isRetry == true)
                                       ? ocTheme.warning
                                       : ocTheme.info,
                                   fontSize: 11,
@@ -2338,7 +2355,7 @@ class _SessionCard extends StatelessWidget {
 
   /// Number of active (busy/retry) child sessions
   final int activeChildCount;
-  bool get isActive => status != null && (status!.isBusy || status!.isRetry);
+  bool get isActive => status?.isBusy == true || status?.isRetry == true;
   bool get hasChildren => childCount > 0;
   String _getProjectName() {
     return session.directory.split('/').where((item) => item.isNotEmpty).last;
@@ -2380,7 +2397,7 @@ class _SessionCard extends StatelessWidget {
     final lastActivity = _getLastActivity();
     // Accent color for left bar
     final accentColor = isActive
-        ? (status!.isRetry ? ocTheme.warning : ocTheme.info)
+        ? ((status?.isRetry == true) ? ocTheme.warning : ocTheme.info)
         : ocTheme.primary.withValues(alpha: 0.4);
     Widget card = GestureDetector(
       onTap: onTap,
@@ -2440,7 +2457,7 @@ class _SessionCard extends StatelessWidget {
                                 child: CircularProgressIndicator(
                                   strokeWidth: 1.5,
                                   valueColor: AlwaysStoppedAnimation<Color>(
-                                    status!.isRetry
+                                    (status?.isRetry == true)
                                         ? ocTheme.warning
                                         : ocTheme.info,
                                   ),
@@ -2448,9 +2465,9 @@ class _SessionCard extends StatelessWidget {
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                status!.isRetry ? 'Retry' : 'Working',
+                                (status?.isRetry == true) ? 'Retry' : 'Working',
                                 style: TextStyle(
-                                  color: status!.isRetry
+                                  color: (status?.isRetry == true)
                                       ? ocTheme.warning
                                       : ocTheme.info,
                                   fontSize: 11,
@@ -2630,29 +2647,21 @@ class _SessionCard extends StatelessWidget {
 
 /// Small stat badge for session cards (additions, deletions, files)
 class _StatBadge extends StatelessWidget {
-  const _StatBadge({
-    required this.text,
-    required this.color,
-    this.isFile = false,
-  });
+  const _StatBadge({required this.text, required this.color});
   final String text;
   final Color color;
-  final bool isFile;
   @override
   Widget build(BuildContext context) {
-    final ocTheme = OpenCodeTheme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
       decoration: BoxDecoration(
-        color: isFile
-            ? ocTheme.backgroundElement.withValues(alpha: 0.6)
-            : color.withValues(alpha: 0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: Radii.brXs,
       ),
       child: Text(
         text,
         style: TextStyle(
-          color: isFile ? ocTheme.textMuted : color,
+          color: color,
           fontSize: 10,
           fontWeight: FontWeight.w600,
           fontFamily: AppTypography.codeFontFamily,
@@ -2674,7 +2683,7 @@ class _ChildSessionCard extends StatelessWidget {
   final SessionStatus? status;
   final VoidCallback onTap;
   final bool isOfflineMode;
-  bool get isActive => status != null && (status!.isBusy || status!.isRetry);
+  bool get isActive => status?.isBusy == true || status?.isRetry == true;
   String _formatDate(int timestamp) {
     final date = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
     final now = DateTime.now();
@@ -2837,7 +2846,9 @@ class _ChildSessionCard extends StatelessWidget {
                           child: CircularProgressIndicator(
                             strokeWidth: 1.5,
                             valueColor: AlwaysStoppedAnimation<Color>(
-                              status!.isRetry ? ocTheme.warning : ocTheme.info,
+                              (status?.isRetry == true)
+                                  ? ocTheme.warning
+                                  : ocTheme.info,
                             ),
                           ),
                         ),
@@ -2911,10 +2922,7 @@ class _PulsingDotState extends State<_PulsingDot>
 
 /// "Load more" button shown when a project group is truncated.
 class _LoadMoreButton extends StatelessWidget {
-  const _LoadMoreButton({
-    required this.remainingCount,
-    required this.onTap,
-  });
+  const _LoadMoreButton({required this.remainingCount, required this.onTap});
   final int remainingCount;
   final VoidCallback onTap;
   @override
@@ -2930,19 +2938,12 @@ class _LoadMoreButton extends StatelessWidget {
           decoration: BoxDecoration(
             color: ocTheme.backgroundElement.withValues(alpha: 0.5),
             borderRadius: Radii.brMd,
-            border: Border.all(
-              color: ocTheme.borderSubtle,
-              width: 1,
-            ),
+            border: Border.all(color: ocTheme.borderSubtle, width: 1),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                AppIcons.expandMore,
-                size: 16,
-                color: ocTheme.primary,
-              ),
+              Icon(AppIcons.expandMore, size: 16, color: ocTheme.primary),
               const SizedBox(width: 6),
               Text(
                 'Show $remainingCount more session${remainingCount == 1 ? '' : 's'}',
@@ -3647,9 +3648,11 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                 widget.onRefresh();
               } catch (e) {
                 if (mounted) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text('Rename failed: ${humanizeError(e)}')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Rename failed: ${humanizeError(e)}'),
+                    ),
+                  );
                 }
               }
             },
@@ -3673,9 +3676,9 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Fork failed: ${humanizeError(e)}')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Fork failed: ${humanizeError(e)}')),
+        );
       }
     }
   }
@@ -3721,16 +3724,27 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
       ),
     );
     if (confirm != true) return;
-    final ok = await ref
-        .read(codexThreadsProvider.notifier)
-        .archiveThread(thread.id);
+    final notifier = ref.read(codexThreadsProvider.notifier);
+    final ok = await notifier.setThreadArchived(thread.id, archive: true);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
       SnackBar(
         content: Text(ok ? 'Thread archived' : 'Failed to archive thread'),
         backgroundColor: ok
             ? OpenCodeTheme.of(context).backgroundPanel
             : OpenCodeTheme.of(context).error,
+        action: ok
+            ? SnackBarAction(
+                label: 'Undo',
+                onPressed: () {
+                  notifier
+                      .setThreadArchived(thread.id, archive: false)
+                      .then((_) => widget.onRefresh());
+                },
+              )
+            : null,
       ),
     );
   }
@@ -3765,226 +3779,236 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                 SliverToBoxAdapter(
                   child: CodexActiveThreadsSection(onThreadTap: _openThread),
                 ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: ocTheme.primary.withValues(alpha: 0.12),
-                              borderRadius: Radii.brMd,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  AppIcons.autoAwesome,
-                                  size: 14,
-                                  color: ocTheme.primary,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'Codex',
-                                  style: TextStyle(
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: ocTheme.primary.withValues(alpha: 0.12),
+                                borderRadius: Radii.brMd,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    AppIcons.autoAwesome,
+                                    size: 14,
                                     color: ocTheme.primary,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Codex',
+                                    style: TextStyle(
+                                      color: ocTheme.primary,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: Spacing.sm),
-                      Text(
-                        'Codex threads from app-server',
-                        style: TextStyle(
-                          color: ocTheme.textMuted,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 14),
-                      Row(
-                        children: [
-                          _FilterChipButton(
-                            label: filterLabel,
-                            onTap: () => _showProjectFilter(
-                              context: context,
-                              theme: theme,
-                              selectedPath: filterCwd,
-                              projectsProvider: codexFilterProjectsProvider,
-                              onSelected: (path) {
-                                ref
-                                        .read(
-                                          codexThreadsFilterCwdProvider
-                                              .notifier,
-                                        )
-                                        .state =
-                                    path;
-                                ref.read(codexThreadsProvider.notifier).load();
+                        SizedBox(height: Spacing.sm),
+                        Text(
+                          'Codex threads from app-server',
+                          style: TextStyle(
+                            color: ocTheme.textMuted,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            _FilterChipButton(
+                              label: filterLabel,
+                              onTap: () => _showProjectFilter(
+                                context: context,
+                                theme: theme,
+                                selectedPath: filterCwd,
+                                projectsProvider: codexFilterProjectsProvider,
+                                onSelected: (path) {
+                                  ref
+                                          .read(
+                                            codexThreadsFilterCwdProvider
+                                                .notifier,
+                                          )
+                                          .state =
+                                      path;
+                                  ref
+                                      .read(codexThreadsProvider.notifier)
+                                      .load();
+                                },
+                              ),
+                            ),
+                            SizedBox(width: Spacing.sm),
+                            _TitleFiltersChip(
+                              count: titleFilterCount,
+                              onTap: () => _showTitleFiltersSheet(context),
+                            ),
+                            SizedBox(width: Spacing.sm),
+                            _SortChip(
+                              sortBy: _sortBy,
+                              onChanged: (value) {
+                                setState(() => _sortBy = value);
                               },
                             ),
-                          ),
-                          SizedBox(width: Spacing.sm),
-                          _TitleFiltersChip(
-                            count: titleFilterCount,
-                            onTap: () => _showTitleFiltersSheet(context),
-                          ),
-                          SizedBox(width: Spacing.sm),
-                          _SortChip(
-                            sortBy: _sortBy,
-                            onChanged: (value) {
-                              setState(() => _sortBy = value);
-                            },
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: Spacing.md),
-                      SessionsSearchBar(
-                        controller: _searchController,
-                        onChanged: _onSearchChanged,
-                        hintText: 'Search Codex threads...',
-                      ),
-                    ],
+                          ],
+                        ),
+                        SizedBox(height: Spacing.md),
+                        SessionsSearchBar(
+                          controller: _searchController,
+                          onChanged: _onSearchChanged,
+                          hintText: 'Search Codex threads...',
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              ...threadsAsync.when(
-                loading: () => [
-                  SliverToBoxAdapter(child: _DelayedSkeletonList()),
-                ],
-                error: (error, _) => [
-                  SliverFillRemaining(
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(AppIcons.error, color: ocTheme.error, size: 48),
-                          SizedBox(height: Spacing.lg),
-                          Text(
-                            'Failed to load threads',
-                            style: TextStyle(
-                              color: ocTheme.text,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
+                ...threadsAsync.when(
+                  loading: () => [
+                    SliverToBoxAdapter(child: _DelayedSkeletonList()),
+                  ],
+                  error: (error, _) => [
+                    SliverFillRemaining(
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              AppIcons.error,
+                              color: ocTheme.error,
+                              size: 48,
                             ),
-                          ),
-                          SizedBox(height: Spacing.sm),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 24),
-                            child: Text(
-                              humanizeError(error),
+                            SizedBox(height: Spacing.lg),
+                            Text(
+                              'Failed to load threads',
                               style: TextStyle(
-                                color: ocTheme.textMuted,
-                                fontSize: 14,
+                                color: ocTheme.text,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
                               ),
-                              textAlign: TextAlign.center,
                             ),
-                          ),
-                        ],
+                            SizedBox(height: Spacing.sm),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                              ),
+                              child: Text(
+                                humanizeError(error),
+                                style: TextStyle(
+                                  color: ocTheme.textMuted,
+                                  fontSize: 14,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
-                data: (threads) {
-                  final titleFilters = ref.watch(
-                    sessionsTitleExcludeFiltersProvider(AgentType.codex),
-                  );
-                  final filtered =
-                      threads
-                          .where((t) => projectPathMatches(t.cwd, filterCwd))
-                          .where(
-                            (t) => titleFilters.isEmpty
-                                ? true
-                                : !sessionTitleMatchesExcludeFilters(
-                                    t.displayTitle,
-                                    titleFilters,
-                                  ),
-                          )
-                          .where(
-                            (t) => _searchQuery.isEmpty
-                                ? true
-                                : t.displayTitle.toLowerCase().contains(
-                                    _searchQuery,
-                                  ),
-                          )
-                          .toList()
-                        ..sort((a, b) {
-                          if (_sortBy == 'updatedAt') {
-                            return b.updatedAt.compareTo(a.updatedAt);
-                          }
-                          return b.createdAt.compareTo(a.createdAt);
-                        });
-                  if (filtered.isEmpty) {
-                    if (_searchQuery.isNotEmpty) {
-                      return [
-                        SliverFillRemaining(
-                          child: Center(
-                            child: Text(
-                              'No threads matching "$_searchQuery"',
-                              style: TextStyle(
-                                color: ocTheme.textMuted,
-                                fontSize: 14,
+                  ],
+                  data: (threads) {
+                    final titleFilters = ref.watch(
+                      sessionsTitleExcludeFiltersProvider(AgentType.codex),
+                    );
+                    final filtered =
+                        threads
+                            .where((t) => projectPathMatches(t.cwd, filterCwd))
+                            .where(
+                              (t) => titleFilters.isEmpty
+                                  ? true
+                                  : !sessionTitleMatchesExcludeFilters(
+                                      t.displayTitle,
+                                      titleFilters,
+                                    ),
+                            )
+                            .where(
+                              (t) => _searchQuery.isEmpty
+                                  ? true
+                                  : t.displayTitle.toLowerCase().contains(
+                                      _searchQuery,
+                                    ),
+                            )
+                            .toList()
+                          ..sort((a, b) {
+                            if (_sortBy == 'updatedAt') {
+                              return b.updatedAt.compareTo(a.updatedAt);
+                            }
+                            return b.createdAt.compareTo(a.createdAt);
+                          });
+                    if (filtered.isEmpty) {
+                      if (_searchQuery.isNotEmpty) {
+                        return [
+                          SliverFillRemaining(
+                            child: Center(
+                              child: Text(
+                                'No threads matching "$_searchQuery"',
+                                style: TextStyle(
+                                  color: ocTheme.textMuted,
+                                  fontSize: 14,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ];
+                        ];
+                      }
+                      return [SliverFillRemaining(child: _CodexEmptyState())];
                     }
-                    return [SliverFillRemaining(child: _CodexEmptyState())];
-                  }
-                  final highlightedThreads = filtered
-                      .where((t) => highlights.isSessionHighlighted(t.id))
-                      .toList();
-                  final regularThreads = filtered
-                      .where((t) => !highlights.isSessionHighlighted(t.id))
-                      .toList();
-                  return [
-                    if (highlightedThreads.isNotEmpty)
-                      SliverToBoxAdapter(
-                        child: _CodexHighlightedThreadsSection(
-                          threads: highlightedThreads,
-                          highlightColor: highlights.color,
-                          onTap: _openThread,
-                          onLongPress: _showThreadOptions,
+                    final highlightedThreads = filtered
+                        .where((t) => highlights.isSessionHighlighted(t.id))
+                        .toList();
+                    final regularThreads = filtered
+                        .where((t) => !highlights.isSessionHighlighted(t.id))
+                        .toList();
+                    return [
+                      if (highlightedThreads.isNotEmpty)
+                        SliverToBoxAdapter(
+                          child: _CodexHighlightedThreadsSection(
+                            threads: highlightedThreads,
+                            highlightColor: highlights.color,
+                            onTap: _openThread,
+                            onLongPress: _showThreadOptions,
+                          ),
+                        ),
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate((
+                            context,
+                            index,
+                          ) {
+                            final t = regularThreads[index];
+                            final isHighlighted = highlights
+                                .isSessionHighlighted(t.id);
+                            return Padding(
+                              padding: Insets.bottomMd,
+                              child: _CodexThreadCard(
+                                thread: t,
+                                isHighlighted: isHighlighted,
+                                highlightColor: highlights.color,
+                                onTap: () => _openThread(t),
+                                onLongPress: () => _showThreadOptions(t),
+                              ),
+                            );
+                          }, childCount: regularThreads.length),
                         ),
                       ),
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-                      sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate((context, index) {
-                          final t = regularThreads[index];
-                          final isHighlighted = highlights.isSessionHighlighted(
-                            t.id,
-                          );
-                          return Padding(
-                            padding: Insets.bottomMd,
-                            child: _CodexThreadCard(
-                              thread: t,
-                              isHighlighted: isHighlighted,
-                              highlightColor: highlights.color,
-                              onTap: () => _openThread(t),
-                              onLongPress: () => _showThreadOptions(t),
-                            ),
-                          );
-                        }, childCount: regularThreads.length),
-                      ),
-                    ),
-                  ];
-                },
-              ),
-            ],
-          ),
+                    ];
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -4159,7 +4183,7 @@ class _CodexHighlightedThreadCard extends ConsumerWidget {
                                 child: CircularProgressIndicator(
                                   strokeWidth: 1.5,
                                   valueColor: AlwaysStoppedAnimation<Color>(
-                                    status!.isRetry
+                                    status.isRetry
                                         ? ocTheme.warning
                                         : ocTheme.info,
                                   ),
@@ -4306,7 +4330,7 @@ class _CodexThreadCard extends ConsumerWidget {
     final isActive = status != null && (status.isBusy || status.isRetry);
     // Accent color for left bar
     final accentColor = isActive
-        ? (status!.isRetry ? ocTheme.warning : ocTheme.info)
+        ? (status.isRetry ? ocTheme.warning : ocTheme.info)
         : ocTheme.primary.withValues(alpha: 0.4);
     return GestureDetector(
       onTap: onTap,
@@ -4366,7 +4390,7 @@ class _CodexThreadCard extends ConsumerWidget {
                                 child: CircularProgressIndicator(
                                   strokeWidth: 1.5,
                                   valueColor: AlwaysStoppedAnimation<Color>(
-                                    status!.isRetry
+                                    status.isRetry
                                         ? ocTheme.warning
                                         : ocTheme.info,
                                   ),
@@ -4942,238 +4966,248 @@ class _ClaudeCodeSessionsViewState
                 SliverToBoxAdapter(
                   child: _CCActiveSessionsSection(onSessionTap: _openSession),
                 ),
-              // Header
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Sessions',
-                              style: TextStyle(
-                                color: ocTheme.text,
-                                fontSize: 32,
-                                fontWeight: FontWeight.w700,
+                // Header
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Sessions',
+                                style: TextStyle(
+                                  color: ocTheme.text,
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
-                          ),
-                          IconButton(
-                            onPressed: _refresh,
-                            icon: Icon(
-                              AppIcons.refresh,
-                              color: ocTheme.textMuted,
+                            IconButton(
+                              onPressed: _refresh,
+                              icon: Icon(
+                                AppIcons.refresh,
+                                color: ocTheme.textMuted,
+                              ),
+                              tooltip: 'Refresh',
                             ),
-                            tooltip: 'Refresh',
-                          ),
-                          // Claude Code badge
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: ocTheme.accent.withValues(alpha: 0.15),
-                              borderRadius: Radii.brMd,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  AppIcons.terminal,
-                                  size: 14,
-                                  color: ocTheme.accent,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'Claude Code',
-                                  style: TextStyle(
+                            // Claude Code badge
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: ocTheme.accent.withValues(alpha: 0.15),
+                                borderRadius: Radii.brMd,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    AppIcons.terminal,
+                                    size: 14,
                                     color: ocTheme.accent,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Claude Code',
+                                    style: TextStyle(
+                                      color: ocTheme.accent,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: Spacing.sm),
-                      Text(
-                        'Claude Code sessions from ~/.claude',
-                        style: TextStyle(
-                          color: ocTheme.textMuted,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 14),
-                      Row(
-                        children: [
-                          _FilterChipButton(
-                            label: filterLabel,
-                            onTap: () => _showProjectFilter(
-                              context: context,
-                              theme: theme,
-                              selectedPath: filterCwd,
-                              projectsProvider: ccFilterProjectsProvider,
-                              onSelected: (path) {
-                                ref
-                                        .read(
-                                          ccSessionsFilterCwdProvider.notifier,
-                                        )
-                                        .state =
-                                    path;
-                                ref.read(ccSessionsProvider.notifier).load();
-                              },
+                        SizedBox(height: Spacing.sm),
+                        Text(
+                          'Claude Code sessions from ~/.claude',
+                          style: TextStyle(
+                            color: ocTheme.textMuted,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            _FilterChipButton(
+                              label: filterLabel,
+                              onTap: () => _showProjectFilter(
+                                context: context,
+                                theme: theme,
+                                selectedPath: filterCwd,
+                                projectsProvider: ccFilterProjectsProvider,
+                                onSelected: (path) {
+                                  ref
+                                          .read(
+                                            ccSessionsFilterCwdProvider
+                                                .notifier,
+                                          )
+                                          .state =
+                                      path;
+                                  ref.read(ccSessionsProvider.notifier).load();
+                                },
+                              ),
                             ),
-                          ),
-                          SizedBox(width: Spacing.sm),
-                          _TitleFiltersChip(
-                            count: titleFilterCount,
-                            onTap: () => _showTitleFiltersSheet(context),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: Spacing.md),
-                      SessionsSearchBar(
-                        controller: _searchController,
-                        onChanged: _onSearchChanged,
-                        hintText: 'Search Claude Code sessions...',
-                      ),
-                    ],
+                            SizedBox(width: Spacing.sm),
+                            _TitleFiltersChip(
+                              count: titleFilterCount,
+                              onTap: () => _showTitleFiltersSheet(context),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: Spacing.md),
+                        SessionsSearchBar(
+                          controller: _searchController,
+                          onChanged: _onSearchChanged,
+                          hintText: 'Search Claude Code sessions...',
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              // Sessions list
-              ...sessionsAsync.when(
-                loading: () => [
-                  SliverToBoxAdapter(child: _DelayedSkeletonList()),
-                ],
-                error: (error, _) => [
-                  SliverFillRemaining(
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(AppIcons.error, color: ocTheme.error, size: 48),
-                          SizedBox(height: Spacing.lg),
-                          Text(
-                            'Failed to load sessions',
-                            style: TextStyle(
-                              color: ocTheme.text,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
+                // Sessions list
+                ...sessionsAsync.when(
+                  loading: () => [
+                    SliverToBoxAdapter(child: _DelayedSkeletonList()),
+                  ],
+                  error: (error, _) => [
+                    SliverFillRemaining(
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              AppIcons.error,
+                              color: ocTheme.error,
+                              size: 48,
                             ),
-                          ),
-                          SizedBox(height: Spacing.sm),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 24),
-                            child: Text(
-                              humanizeError(error),
+                            SizedBox(height: Spacing.lg),
+                            Text(
+                              'Failed to load sessions',
                               style: TextStyle(
-                                color: ocTheme.textMuted,
-                                fontSize: 14,
+                                color: ocTheme.text,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
                               ),
-                              textAlign: TextAlign.center,
                             ),
-                          ),
-                        ],
+                            SizedBox(height: Spacing.sm),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                              ),
+                              child: Text(
+                                humanizeError(error),
+                                style: TextStyle(
+                                  color: ocTheme.textMuted,
+                                  fontSize: 14,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
-                data: (sessions) {
-                  if (sessions.isEmpty) {
-                    return [SliverFillRemaining(child: _CCEmptyState())];
-                  }
-                  // Sort by updatedAt descending
-                  final titleFilters = ref.watch(
-                    sessionsTitleExcludeFiltersProvider(AgentType.claudeCode),
-                  );
-                  final sorted =
-                      sessions
-                          .where((s) => projectPathMatches(s.cwd, filterCwd))
-                          .where(
-                            (s) => titleFilters.isEmpty
-                                ? true
-                                : !sessionTitleMatchesExcludeFilters(
-                                    s.displayTitle,
-                                    titleFilters,
-                                  ),
-                          )
-                          .where(
-                            (s) => _searchQuery.isEmpty
-                                ? true
-                                : s.displayTitle.toLowerCase().contains(
-                                    _searchQuery,
-                                  ),
-                          )
-                          .toList()
-                        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-                  if (sorted.isEmpty) {
-                    if (_searchQuery.isNotEmpty) {
-                      return [
-                        SliverFillRemaining(
-                          child: Center(
-                            child: Text(
-                              'No sessions matching "$_searchQuery"',
-                              style: TextStyle(
-                                color: ocTheme.textMuted,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ];
+                  ],
+                  data: (sessions) {
+                    if (sessions.isEmpty) {
+                      return [SliverFillRemaining(child: _CCEmptyState())];
                     }
-                    return [SliverFillRemaining(child: _CCEmptyState())];
-                  }
-                  // Separate highlighted and regular sessions
-                  final highlightedSessions = sorted
-                      .where((s) => highlights.isSessionHighlighted(s.id))
-                      .toList();
-                  final regularSessions = sorted
-                      .where((s) => !highlights.isSessionHighlighted(s.id))
-                      .toList();
-                  return [
-                    // Highlighted Sessions Section
-                    if (highlightedSessions.isNotEmpty)
-                      SliverToBoxAdapter(
-                        child: _CCHighlightedSessionsSection(
-                          sessions: highlightedSessions,
-                          highlightColor: highlightColor,
-                          onTap: _openSession,
-                          onLongPress: _showSessionOptions,
-                          onDelete: _deleteSession,
+                    // Sort by updatedAt descending
+                    final titleFilters = ref.watch(
+                      sessionsTitleExcludeFiltersProvider(AgentType.claudeCode),
+                    );
+                    final sorted =
+                        sessions
+                            .where((s) => projectPathMatches(s.cwd, filterCwd))
+                            .where(
+                              (s) => titleFilters.isEmpty
+                                  ? true
+                                  : !sessionTitleMatchesExcludeFilters(
+                                      s.displayTitle,
+                                      titleFilters,
+                                    ),
+                            )
+                            .where(
+                              (s) => _searchQuery.isEmpty
+                                  ? true
+                                  : s.displayTitle.toLowerCase().contains(
+                                      _searchQuery,
+                                    ),
+                            )
+                            .toList()
+                          ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+                    if (sorted.isEmpty) {
+                      if (_searchQuery.isNotEmpty) {
+                        return [
+                          SliverFillRemaining(
+                            child: Center(
+                              child: Text(
+                                'No sessions matching "$_searchQuery"',
+                                style: TextStyle(
+                                  color: ocTheme.textMuted,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ];
+                      }
+                      return [SliverFillRemaining(child: _CCEmptyState())];
+                    }
+                    // Separate highlighted and regular sessions
+                    final highlightedSessions = sorted
+                        .where((s) => highlights.isSessionHighlighted(s.id))
+                        .toList();
+                    final regularSessions = sorted
+                        .where((s) => !highlights.isSessionHighlighted(s.id))
+                        .toList();
+                    return [
+                      // Highlighted Sessions Section
+                      if (highlightedSessions.isNotEmpty)
+                        SliverToBoxAdapter(
+                          child: _CCHighlightedSessionsSection(
+                            sessions: highlightedSessions,
+                            highlightColor: highlightColor,
+                            onTap: _openSession,
+                            onLongPress: _showSessionOptions,
+                            onDelete: _deleteSession,
+                          ),
+                        ),
+                      // Regular Sessions
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate((
+                            context,
+                            index,
+                          ) {
+                            final session = regularSessions[index];
+                            return Padding(
+                              padding: Insets.bottomMd,
+                              child: _CCSessionCard(
+                                session: session,
+                                onTap: () => _openSession(session),
+                                onLongPress: () => _showSessionOptions(session),
+                                onDelete: () => _deleteSession(session),
+                              ),
+                            );
+                          }, childCount: regularSessions.length),
                         ),
                       ),
-                    // Regular Sessions
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-                      sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate((context, index) {
-                          final session = regularSessions[index];
-                          return Padding(
-                            padding: Insets.bottomMd,
-                            child: _CCSessionCard(
-                              session: session,
-                              onTap: () => _openSession(session),
-                              onLongPress: () => _showSessionOptions(session),
-                              onDelete: () => _deleteSession(session),
-                            ),
-                          );
-                        }, childCount: regularSessions.length),
-                      ),
-                    ),
-                  ];
-                },
-              ),
-            ],
-          ),
+                    ];
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -5362,7 +5396,7 @@ class _CCHighlightedSessionCard extends ConsumerWidget {
                                 child: CircularProgressIndicator(
                                   strokeWidth: 1.5,
                                   valueColor: AlwaysStoppedAnimation<Color>(
-                                    status!.isRetry
+                                    status.isRetry
                                         ? ocTheme.warning
                                         : ocTheme.info,
                                   ),
@@ -5523,7 +5557,7 @@ class _CCSessionCard extends ConsumerWidget {
     final isActive = status != null && (status.isBusy || status.isRetry);
     // Accent color for left bar
     final accentColor = isActive
-        ? (status!.isRetry ? ocTheme.warning : ocTheme.info)
+        ? (status.isRetry ? ocTheme.warning : ocTheme.info)
         : ocTheme.accent.withValues(alpha: 0.4);
     Widget card = GestureDetector(
       onTap: onTap,
@@ -5591,7 +5625,7 @@ class _CCSessionCard extends ConsumerWidget {
                                 child: CircularProgressIndicator(
                                   strokeWidth: 1.5,
                                   valueColor: AlwaysStoppedAnimation<Color>(
-                                    status!.isRetry
+                                    status.isRetry
                                         ? ocTheme.warning
                                         : ocTheme.info,
                                   ),

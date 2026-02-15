@@ -13,6 +13,47 @@ import type { Agent, Command, FileAttachment, FileContent, FileStatusInfo, Forma
 const DEFAULT_BASE_URL = 'http://localhost:4096'
 const DEBUG_RTS = process.env.BROSKI_DEBUG_RTS === '1'
 
+/**
+ * Map LSP SymbolKind (number) to a human-readable string.
+ * SDK returns Symbol.kind as a number matching the LSP spec.
+ * Flutter expects a lowercase string for icon mapping.
+ * @see https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#symbolKind
+ */
+const LSP_SYMBOL_KIND_MAP: Record<number, string> = {
+  1: 'file',
+  2: 'module',
+  3: 'namespace',
+  4: 'package',
+  5: 'class',
+  6: 'method',
+  7: 'property',
+  8: 'field',
+  9: 'constructor',
+  10: 'enum',
+  11: 'interface',
+  12: 'function',
+  13: 'variable',
+  14: 'constant',
+  15: 'string',
+  16: 'number',
+  17: 'boolean',
+  18: 'array',
+  19: 'object',
+  20: 'key',
+  21: 'null',
+  22: 'enummember',
+  23: 'struct',
+  24: 'event',
+  25: 'operator',
+  26: 'typeparameter',
+}
+
+function lspSymbolKindToString(kind: unknown): string {
+  if (typeof kind === 'string') return kind
+  if (typeof kind === 'number') return LSP_SYMBOL_KIND_MAP[kind] ?? 'unknown'
+  return 'unknown'
+}
+
 export type OpenCodeConnectorOptions = {
   baseUrl?: string
   client?: OpencodeClient
@@ -225,7 +266,6 @@ export class OpenCodeConnector {
     fileAttachments?: FileAttachment[],
     variant?: string,
     noReply?: boolean,
-    tools?: Record<string, boolean>,
     system?: string,
   ) {
     const parts: Array<{ type: string; text?: string; url?: string; filename?: string; mime?: string }> = [
@@ -259,6 +299,8 @@ export class OpenCodeConnector {
     
     // v2 SDK: first arg is parameters, second arg is options
     // Note: v2 SDK uses sessionID (capital ID), not id
+    // Note: `tools` param is deprecated in SDK — use session-level
+    // permission rulesets instead (set at session creation or via session.patch).
     return this.client.session.prompt(
       {
         sessionID: sessionId,
@@ -268,7 +310,6 @@ export class OpenCodeConnector {
         ...(agent ? { agent } : {}),
         ...(variant ? { variant } : {}),
         ...(noReply !== undefined ? { noReply } : {}),
-        ...(tools ? { tools } : {}),
         ...(system ? { system } : {}),
         parts,
       },
@@ -289,7 +330,6 @@ export class OpenCodeConnector {
     fileAttachments?: FileAttachment[],
     variant?: string,
     noReply?: boolean,
-    tools?: Record<string, boolean>,
     system?: string,
   ) {
     const parts: Array<{ type: string; text?: string; url?: string; filename?: string; mime?: string }> = [
@@ -323,6 +363,8 @@ export class OpenCodeConnector {
 
     // v2 SDK: first arg is parameters, second arg is options
     // Note: v2 SDK uses sessionID (capital ID), not id
+    // Note: `tools` param is deprecated in SDK — use session-level
+    // permission rulesets instead (set at session creation or via session.patch).
     return this.client.session.promptAsync(
       {
         sessionID: sessionId,
@@ -331,7 +373,6 @@ export class OpenCodeConnector {
         ...(agent ? { agent } : {}),
         ...(variant ? { variant } : {}),
         ...(noReply !== undefined ? { noReply } : {}),
-        ...(tools ? { tools } : {}),
         ...(system ? { system } : {}),
         parts,
       },
@@ -655,7 +696,8 @@ export class OpenCodeConnector {
         { responseStyle: 'data' },
       )
       return (todos ?? []).map((todo: any) => ({
-        id: todo.id ?? '',
+        // Note: SDK removed `id` field. Don't send it — Flutter generates
+        // a stable id from content.hashCode for widget keys.
         content: todo.content ?? '',
         status: todo.status ?? 'pending',
         priority: todo.priority ?? 'medium',
@@ -896,12 +938,13 @@ export class OpenCodeConnector {
     providerID: string,
     modelID: string,
     directory?: string,
+    auto?: boolean,
   ): Promise<boolean> {
     try {
       // v2 SDK: first arg is parameters, second arg is options
       // Note: v2 SDK uses sessionID (capital ID), not id
       await this.client.session.summarize(
-        { sessionID: sessionId, directory, providerID, modelID },
+        { sessionID: sessionId, directory, providerID, modelID, ...(auto !== undefined ? { auto } : {}) },
         { responseStyle: 'data' },
       )
       return true
@@ -1021,7 +1064,7 @@ export class OpenCodeConnector {
       )
       return (result ?? []).map((item: any) => ({
         name: item.name ?? '',
-        kind: item.kind ?? 'unknown',
+        kind: lspSymbolKindToString(item.kind),
         path: item.path ?? item.location?.uri ?? '',
         line: item.line ?? item.location?.range?.start?.line ?? 0,
         column: item.column ?? item.location?.range?.start?.character ?? 0,
@@ -1285,6 +1328,26 @@ export class OpenCodeConnector {
     } catch (error) {
       console.error('[mcpAuthCallback] Error:', error)
       return false
+    }
+  }
+
+  /**
+   * One-shot MCP OAuth: starts flow, opens browser on the SERVER machine,
+   * waits for callback, returns final MCP status. Best when the user can
+   * see the dev machine screen. For fully-remote auth use the two-step
+   * mcpAuthStart() + mcpAuthCallback() flow instead.
+   */
+  async mcpAuthAuthenticate(name: string, directory?: string): Promise<Record<string, unknown> | null> {
+    try {
+      const result = await this.client.mcp.auth.authenticate(
+        { name, directory },
+        { responseStyle: 'data' },
+      )
+      // SDK returns McpStatus on success
+      return result ? (result as any) : null
+    } catch (error) {
+      console.error('[mcpAuthAuthenticate] Error:', error)
+      return null
     }
   }
 

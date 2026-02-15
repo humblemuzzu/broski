@@ -1076,14 +1076,18 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
   const cxExternalTails = new Map<string, { stop: () => void }>() // threadId -> tailer
   const ocExternalTails = new Map<string, { stop: () => void }>() // sessionId -> tailer (OpenCode)
   const ocSessionProjectPaths = new Map<string, string>() // sessionId -> projectPath (for external tail)
+  type ClaudePermissionReply = {
+    response: 'once' | 'always' | 'reject'
+    updatedInput?: Record<string, unknown>
+  }
   const ccPermissionWaiters = new Map<
     string,
-    { resolve: (response: 'once' | 'always' | 'reject') => void; timer: Timer }
+    { resolve: (response: ClaudePermissionReply) => void; timer: Timer }
   >()
   type CodexApprovalReply = {
     response?: PermissionResponse
     execpolicyAmendment?: any
-    answers?: Record<string, { selected: string[]; other?: string }>
+    answers?: Record<string, { answers: string[] }>
   }
   const cxApprovalWaiters = new Map<
     string,
@@ -1749,12 +1753,57 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         },
         onServerRequest: async (r) => {
           const params: any = r.params ?? {}
-          const threadId = safeString(params.threadId ?? params.thread_id ?? params.threadID)
+          const requestMethod = String(r.method ?? '')
+          const isLegacyPatchApproval = requestMethod === 'applyPatchApproval'
+          const isLegacyExecApproval = requestMethod === 'execCommandApproval'
+          const isLegacyApproval = isLegacyPatchApproval || isLegacyExecApproval
+
+          const threadId = safeString(
+            params.threadId ??
+              params.thread_id ??
+              params.threadID ??
+              params.conversationId ??
+              params.conversation_id,
+          )
           const turnId = safeString(params.turnId ?? params.turn_id ?? params.turnID)
-          const itemId = safeString(params.itemId ?? params.item_id ?? params.itemID)
+          const itemId = safeString(params.itemId ?? params.item_id ?? params.itemID ?? params.callId)
           const owner = threadId ? cxThreadOwners.get(threadId) : null
 
+          // ── Handle item/tool/call (dynamic tool calls) ──
+          // Protocol: DynamicToolCallParams = { threadId, turnId, callId, tool, arguments }
+          // Response: DynamicToolCallResponse = { contentItems: DynamicToolCallOutputContentItem[], success: boolean }
+          // We don't support dynamic tools yet — return a graceful error response
+          if (requestMethod === 'item/tool/call') {
+            logInfo(`[Codex] Dynamic tool call received: ${safeString(params.tool)} — not supported, declining`)
+            if (owner) {
+              send(owner, {
+                type: 'cx_stream',
+                threadId,
+                data: {
+                  type: 'info',
+                  message: `Dynamic tool "${safeString(params.tool)}" was requested but is not yet supported by Broski.`,
+                } satisfies CodexStreamMessage,
+              })
+            }
+            return {
+              contentItems: [{ type: 'inputText', text: 'Dynamic tool calls are not yet supported by Broski.' }],
+              success: false,
+            }
+          }
+
+          // ── Handle account/chatgptAuthTokens/refresh ──
+          // Protocol: ChatgptAuthTokensRefreshParams = { reason, previousAccountId? }
+          // Response: ChatgptAuthTokensRefreshResponse = { accessToken, chatgptAccountId, chatgptPlanType }
+          // We don't manage ChatGPT auth tokens — return an error so Codex falls back
+          if (requestMethod === 'account/chatgptAuthTokens/refresh') {
+            logInfo(`[Codex] ChatGPT auth token refresh requested — not supported`)
+            throw new Error('ChatGPT auth token refresh is not supported by Broski. Please re-authenticate via `codex` CLI.')
+          }
+
           if (!owner) {
+            if (isLegacyApproval) {
+              return { decision: 'denied' }
+            }
             return { decision: 'decline' }
           }
 
@@ -1763,17 +1812,34 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             : null
 
           // #29: Include structured approval context (command, cwd, commandActions, reason)
-          // The SDK sends these in CommandExecutionRequestApprovalParams / FileChangeRequestApprovalParams
-          const enrichedParams: any = { ...params, cachedItem: cached }
+          // The SDK sends these in CommandExecutionRequestApprovalParams / FileChangeRequestApprovalParams.
+          // Legacy requests (applyPatchApproval/execCommandApproval) are normalized to the same UI methods.
+          const enrichedParams: any = {
+            ...params,
+            cachedItem: cached,
+            threadId,
+            ...(turnId ? { turnId } : {}),
+            ...(itemId ? { itemId } : {}),
+          }
+
           // Ensure command & cwd from approval params are surfaced (they may differ from cachedItem)
-          if (r.method === 'item/commandExecution/requestApproval') {
+          if (requestMethod === 'item/commandExecution/requestApproval' || isLegacyExecApproval) {
             if (params.command && !enrichedParams.approvalCommand) enrichedParams.approvalCommand = params.command
             if (params.cwd && !enrichedParams.approvalCwd) enrichedParams.approvalCwd = params.cwd
             if (params.commandActions) enrichedParams.commandActions = params.commandActions
+            if (params.parsedCmd && !enrichedParams.commandActions) enrichedParams.commandActions = params.parsedCmd
           }
-          if (r.method === 'item/fileChange/requestApproval') {
+          if (requestMethod === 'item/fileChange/requestApproval' || isLegacyPatchApproval) {
             if (params.grantRoot) enrichedParams.grantRoot = params.grantRoot
+            if (params.fileChanges && !enrichedParams.fileChanges) enrichedParams.fileChanges = params.fileChanges
           }
+
+          const frontendMethod =
+            isLegacyExecApproval
+              ? 'item/commandExecution/requestApproval'
+              : isLegacyPatchApproval
+                ? 'item/fileChange/requestApproval'
+                : requestMethod
 
           send(owner, {
             type: 'cx_stream',
@@ -1781,7 +1847,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             data: {
               type: 'request',
               requestId: String(r.id),
-              method: r.method,
+              method: frontendMethod,
               params: enrichedParams,
             } satisfies CodexStreamMessage,
           })
@@ -1795,24 +1861,54 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             cxApprovalWaiters.set(key, { resolve, timer })
           })
 
-          // Handle request_user_input (Codex SDK v0.87.0+)
-          // This returns answers in a different format than approval requests
-          const isUserInput = r.method === 'item/tool/requestUserInput'
+          // ── Handle request_user_input (Codex SDK v0.87.0+) ──
+          // Protocol: ToolRequestUserInputResponse = { answers: { [questionId]: { answers: string[] } } }
+          const isUserInput = requestMethod === 'item/tool/requestUserInput'
           if (isUserInput && (response as any).answers) {
             return { answers: (response as any).answers }
           }
 
-          const isCommand = r.method === 'item/commandExecution/requestApproval'
-          if (isCommand && response.response === 'execpolicy' && response.execpolicyAmendment) {
+          // ── Handle command approval with exec-policy amendment ──
+          const isCommandApproval =
+            requestMethod === 'item/commandExecution/requestApproval' || isLegacyExecApproval
+          if (isCommandApproval && response.response === 'execpolicy' && response.execpolicyAmendment) {
+            if (isLegacyApproval) {
+              return {
+                decision: {
+                  approved_execpolicy_amendment: {
+                    proposed_execpolicy_amendment: response.execpolicyAmendment,
+                  },
+                },
+              }
+            }
+
+            // Protocol: CommandExecutionApprovalDecision uses snake_case for the inner field
+            // because serde(rename_all = "camelCase") on the enum only renames variant names,
+            // not struct variant fields. Wire format: { acceptWithExecpolicyAmendment: { execpolicy_amendment: [...] } }
             return {
               decision: {
                 acceptWithExecpolicyAmendment: {
-                  execpolicyAmendment: response.execpolicyAmendment,
+                  execpolicy_amendment: response.execpolicyAmendment,
                 },
               },
             }
           }
 
+          if (isLegacyApproval) {
+            // Legacy v1 ReviewDecision values:
+            // "approved" | "approved_for_session" | "denied" | "abort"
+            const legacyDecision =
+              response.response === 'always'
+                ? 'approved_for_session'
+                : response.response === 'once'
+                  ? 'approved'
+                  : 'denied'
+            return { decision: legacyDecision }
+          }
+
+          // ── Standard approval decision ──
+          // Protocol: CommandExecutionApprovalDecision / FileChangeApprovalDecision
+          // "accept" | "acceptForSession" | "decline" | "cancel"
           const decision =
             response.response === 'always'
               ? 'acceptForSession'
@@ -5247,7 +5343,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             message.fileAttachments,
             message.variant,
             (message as any).noReply,
-            (message as any).tools,
             (message as any).system,
           )
           break
@@ -5453,6 +5548,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             message.providerID,
             message.modelID,
             message.projectPath,
+            message.auto,
           )
           reply({ type: 'session_summarized', data: success, sessionId: message.sessionId })
           break
@@ -5602,6 +5698,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           const oc = requireOpenCode()
           const ok = await oc.mcpAuthCallback(message.name, (message as any).code, message.projectPath)
           reply({ type: 'mcp_auth_completed', data: ok, name: message.name })
+          break
+        }
+        case 'mcp_auth_authenticate': {
+          const oc = requireOpenCode()
+          const result = await oc.mcpAuthAuthenticate(message.name, message.projectPath)
+          reply({ type: 'mcp_auth_authenticated', data: result, name: message.name })
           break
         }
         case 'mcp_auth_remove': {
@@ -5865,8 +5967,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         break
       }
       case 'cx_list_threads': {
-        // FAST PATH: Read directly from filesystem (no app-server needed!)
-        // Same pattern as Claude Code - instant file I/O instead of subprocess
+        // Protocol: thread/list via JSON-RPC (preferred) with filesystem fallback
+        // ThreadListParams: { cursor?, limit?, sortKey?, modelProviders?, sourceKinds?, archived?, cwd? }
+        // ThreadListResponse: { data: Thread[], nextCursor: string | null }
         const now = Date.now()
         const forceRefresh = message.refresh === true
         const cacheKey = message.cwd ? resolve(message.cwd) : '__all__'
@@ -5886,21 +5989,58 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         
-        logInfo(`[cx_list_threads] ${forceRefresh ? 'Refresh requested' : 'Cache miss'}, reading from filesystem...`)
-        const threads = await codexFs.listThreadsFromFs(message.cwd ?? undefined)
+        logInfo(`[cx_list_threads] ${forceRefresh ? 'Refresh requested' : 'Cache miss'}, fetching thread list...`)
+        
+        // Try JSON-RPC thread/list first (if Codex is running), fall back to filesystem
+        let threadData: any[] = []
+        let nextCursor: string | null = null
+        try {
+          if (codexClient?.isRunning) {
+            // Use proper thread/list RPC — supports filtering, sorting, pagination
+            const rpcParams: any = {}
+            if (message.cursor) rpcParams.cursor = message.cursor
+            if (message.limit) rpcParams.limit = message.limit
+            if (message.sortKey) rpcParams.sortKey = message.sortKey
+            if (message.modelProviders) rpcParams.modelProviders = message.modelProviders
+            if (message.sourceKinds) rpcParams.sourceKinds = message.sourceKinds
+            if (message.archived !== undefined && message.archived !== null) rpcParams.archived = message.archived
+            if (message.cwd) rpcParams.cwd = message.cwd
+            
+            const result: any = await codexClient.request('thread/list', rpcParams)
+            threadData = result?.data ?? []
+            nextCursor = result?.nextCursor ?? null
+            logInfo(`[cx_list_threads] Got ${threadData.length} threads via thread/list RPC`)
+          } else {
+            // Codex not running — use filesystem as fallback (no app-server needed)
+            threadData = await codexFs.listThreadsFromFs(message.cwd ?? undefined)
+            nextCursor = null
+            logInfo(`[cx_list_threads] Got ${threadData.length} threads via filesystem fallback`)
+          }
+        } catch (e: any) {
+          // RPC failed — fall back to filesystem
+          logError(`[cx_list_threads] RPC failed, falling back to filesystem:`, e?.message)
+          try {
+            threadData = await codexFs.listThreadsFromFs(message.cwd ?? undefined)
+            nextCursor = null
+          } catch (fsErr: any) {
+            logError(`[cx_list_threads] Filesystem fallback also failed:`, fsErr?.message)
+            threadData = []
+            nextCursor = null
+          }
+        }
         
         // Merge any known thread names from thread/name/updated notifications
         const threadsWithNames = cxThreadNames.size > 0
-          ? threads.map((t: any) => {
+          ? threadData.map((t: any) => {
               const name = cxThreadNames.get(t.id)
               return name ? { ...t, threadName: name } : t
             })
-          : threads
+          : threadData
         
-        // Update cache (filesystem reads don't have pagination)
-        cxThreadCache.set(cacheKey, { data: threadsWithNames, fetchedAt: Date.now(), nextCursor: null })
-        logInfo(`[cx_list_threads] Done, cached ${threadsWithNames.length} threads (filesystem read)`)
-        reply({ type: 'cx_threads', data: threadsWithNames, nextCursor: null })
+        // Update cache
+        cxThreadCache.set(cacheKey, { data: threadsWithNames, fetchedAt: Date.now(), nextCursor })
+        logInfo(`[cx_list_threads] Done, cached ${threadsWithNames.length} threads`)
+        reply({ type: 'cx_threads', data: threadsWithNames, nextCursor })
         break
       }
       case 'cx_warmup': {
@@ -7305,13 +7445,13 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               const existing = ccPermissionWaiters.get(key)
               if (existing) {
                 // If we somehow re-request, default to deny to avoid deadlocks
-                return 'reject'
+                return { response: 'reject' } as const
               }
 
-              return await new Promise<'once' | 'always' | 'reject'>((resolve) => {
+              return await new Promise<ClaudePermissionReply>((resolve) => {
                 const timer = setTimeout(() => {
                   ccPermissionWaiters.delete(key)
-                  resolve('reject')
+                  resolve({ response: 'reject' })
                 }, PERMISSION_TIMEOUT_MS)
                 ccPermissionWaiters.set(key, { resolve, timer })
               })
@@ -7371,7 +7511,16 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             const raw = message.response
             const normalized: 'once' | 'always' | 'reject' =
               raw === 'once' || raw === 'always' || raw === 'reject' ? raw : 'reject'
-            waiter.resolve(normalized)
+            const updatedInput =
+              message.updatedInput &&
+              typeof message.updatedInput === 'object' &&
+              !Array.isArray(message.updatedInput)
+                ? (message.updatedInput as Record<string, unknown>)
+                : undefined
+            waiter.resolve({
+              response: normalized,
+              ...(updatedInput ? { updatedInput } : {}),
+            })
           }
           break
         }

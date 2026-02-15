@@ -127,9 +127,14 @@ export class CodexAppServerClient {
     void this._pump()
 
     // Initialize handshake: initialize request then initialized notification.
+    // Protocol: InitializeParams = { clientInfo: ClientInfo, capabilities: InitializeCapabilities | null }
+    // InitializeCapabilities = { experimentalApi: boolean, optOutNotificationMethods?: string[] | null }
     console.log('[Codex] Sending initialize request...')
     await this.request('initialize', {
       clientInfo: this.clientInfo,
+      capabilities: {
+        experimentalApi: true,
+      },
     })
     console.log('[Codex] Sending initialized notification...')
     this.notify('initialized')

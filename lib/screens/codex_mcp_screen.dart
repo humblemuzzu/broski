@@ -1,4 +1,3 @@
-
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -12,11 +11,13 @@ import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../utils/error_utils.dart';
+
 class CodexMcpScreen extends ConsumerStatefulWidget {
   const CodexMcpScreen({super.key});
   @override
   ConsumerState<CodexMcpScreen> createState() => _CodexMcpScreenState();
 }
+
 class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabs;
@@ -31,11 +32,13 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
     _tabs = TabController(length: 2, vsync: this);
     _load();
   }
+
   @override
   void dispose() {
     _tabs.dispose();
     super.dispose();
   }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -46,6 +49,11 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
       final bridge = ref.read(bridgeServiceProvider);
       final cfg = await bridge.cxReadConfig();
       final status = await bridge.cxListMcpServerStatus();
+      try {
+        await bridge.cxConfigRequirementsRead();
+      } catch (_) {
+        // Optional policy metadata.
+      }
       if (!mounted) return;
       setState(() {
         _config = cfg;
@@ -60,6 +68,7 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
       });
     }
   }
+
   Map<String, dynamic> _mcpServers() {
     final cfg = _config['config'];
     if (cfg is Map) {
@@ -69,15 +78,20 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
     }
     return {};
   }
+
   Future<void> _save() async {
     final oc = OpenCodeTheme.of(context);
     final servers = _mcpServers();
     try {
       final bridge = ref.read(bridgeServiceProvider);
-      await bridge.cxWriteConfigValue(
-        keyPath: 'mcp_servers',
-        value: servers,
-        mergeStrategy: 'replace',
+      await bridge.cxConfigBatchWrite(
+        edits: [
+          {
+            'keyPath': 'mcp_servers',
+            'value': servers,
+            'mergeStrategy': 'replace',
+          },
+        ],
       );
       if (!mounted) return;
       setState(() => _dirty = false);
@@ -98,12 +112,20 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
       );
     }
   }
+
   /// Hot reload MCP server config (Codex SDK feature)
   Future<void> _hotReload() async {
     final oc = OpenCodeTheme.of(context);
     try {
       final bridge = ref.read(bridgeServiceProvider);
       await bridge.cxMcpReload();
+
+      // One-off command execution smoke test after reload.
+      // Best-effort only; reload itself already succeeded.
+      try {
+        await bridge.cxCommandExec(command: const ['codex', '--version']);
+      } catch (_) {}
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -122,6 +144,7 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
       );
     }
   }
+
   Future<void> _addServer() async {
     final nameController = TextEditingController();
     final name = await showDialog<String>(
@@ -145,6 +168,7 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
         ],
       ),
     );
+    if (!mounted) return;
     if (name == null || name.isEmpty) return;
     final json = const JsonEncoder.withIndent('  ').convert({
       'transport': {
@@ -160,6 +184,7 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
             _CodexMcpServerEditorScreen(title: name, initialJson: json),
       ),
     );
+    if (!mounted) return;
     if (cfg == null) return;
     final servers = _mcpServers();
     servers[name] = cfg;
@@ -174,6 +199,7 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
       _dirty = true;
     });
   }
+
   Future<void> _editServer(String name, Map<String, dynamic> cfg) async {
     final json = const JsonEncoder.withIndent('  ').convert(cfg);
     final updated = await Navigator.push<Map<String, dynamic>>(
@@ -183,6 +209,7 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
             _CodexMcpServerEditorScreen(title: name, initialJson: json),
       ),
     );
+    if (!mounted) return;
     if (updated == null) return;
     final servers = _mcpServers();
     servers[name] = updated;
@@ -197,6 +224,7 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
       _dirty = true;
     });
   }
+
   Future<void> _deleteServer(String name) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -210,7 +238,9 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Theme.of(ctx).extension<OpenCodeTheme>()!.error),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(ctx).extension<OpenCodeTheme>()!.error,
+            ),
             child: const Text('Remove'),
           ),
         ],
@@ -230,6 +260,36 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
       _dirty = true;
     });
   }
+
+  Future<void> _startOauthForServer(String name) async {
+    final oc = OpenCodeTheme.of(context);
+    try {
+      final url = await ref
+          .read(bridgeServiceProvider)
+          .cxMcpOauthLogin(name: name, timeoutSecs: 120);
+      if (!mounted) return;
+      final text = url.isEmpty
+          ? 'OAuth flow started for "$name".'
+          : 'OAuth URL for "$name": $url';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(text),
+          backgroundColor: oc.backgroundPanel,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('OAuth login failed: ${humanizeError(e)}'),
+          backgroundColor: oc.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
@@ -248,6 +308,21 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
             onPressed: _load,
             tooltip: 'Refresh Status',
           ),
+          IconButton(
+            icon: const Icon(AppIcons.replay),
+            onPressed: _hotReload,
+            tooltip: 'Reload MCP in Codex',
+          ),
+          IconButton(
+            icon: const Icon(AppIcons.add),
+            onPressed: _addServer,
+            tooltip: 'Add MCP server',
+          ),
+          IconButton(
+            icon: const Icon(AppIcons.save),
+            onPressed: _dirty ? _save : null,
+            tooltip: 'Save MCP config',
+          ),
         ],
         bottom: TabBar(
           controller: _tabs,
@@ -263,65 +338,125 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
       body: AdaptiveContainer(
         width: ContentWidth.standard,
         child: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-          ? Center(
-              child: Padding(
-                padding: Insets.cardLg,
-                child: Text(_error!, style: TextStyle(color: oc.textMuted)),
-              ),
-            )
-          : TabBarView(
-              controller: _tabs,
-              children: [
-                _CodexMcpStatusList(status: _status),
-                SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Edit MCP servers on your Mac. Broski does not modify Codex config from mobile.',
-                        style: AppTypography.label(color: oc.textMuted),
-                      ),
-                      SizedBox(height: Spacing.md),
-                      Container(
-                        width: double.infinity,
-                        padding: Insets.cardSm,
-                        decoration: BoxDecoration(
-                          color: oc.backgroundElement,
-                          borderRadius: Radii.brMd,
-                          border: Border.all(color: oc.border),
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+            ? Center(
+                child: Padding(
+                  padding: Insets.cardLg,
+                  child: Text(_error!, style: TextStyle(color: oc.textMuted)),
+                ),
+              )
+            : TabBarView(
+                controller: _tabs,
+                children: [
+                  _CodexMcpStatusList(
+                    status: _status,
+                    onStartOauth: _startOauthForServer,
+                  ),
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Edit MCP servers on your Mac. Broski does not modify Codex config from mobile.',
+                          style: AppTypography.label(color: oc.textMuted),
                         ),
-                        child: Text(
-                          const JsonEncoder.withIndent('  ').convert(servers),
-                          style: TextStyle(
-                            color: oc.text,
-                            fontFamily: AppTypography.codeFontFamily,
-                            fontSize: 12,
-                            height: 1.2,
+                        SizedBox(height: Spacing.md),
+                        Container(
+                          width: double.infinity,
+                          padding: Insets.cardSm,
+                          decoration: BoxDecoration(
+                            color: oc.backgroundElement,
+                            borderRadius: Radii.brMd,
+                            border: Border.all(color: oc.border),
+                          ),
+                          child: Text(
+                            const JsonEncoder.withIndent('  ').convert(servers),
+                            style: TextStyle(
+                              color: oc.text,
+                              fontFamily: AppTypography.codeFontFamily,
+                              fontSize: 12,
+                              height: 1.2,
+                            ),
                           ),
                         ),
-                      ),
-                      if (names.isEmpty) ...[
-                        SizedBox(height: Spacing.md),
-                        Text(
-                          'No MCP servers configured in `mcp_servers`.',
-                          style: TextStyle(color: oc.textMuted),
-                        ),
+                        if (names.isEmpty) ...[
+                          SizedBox(height: Spacing.md),
+                          Text(
+                            'No MCP servers configured in `mcp_servers`.',
+                            style: TextStyle(color: oc.textMuted),
+                          ),
+                        ] else ...[
+                          SizedBox(height: Spacing.md),
+                          ...names.map((name) {
+                            final serverCfg =
+                                (servers[name] as Map?)
+                                    ?.cast<String, dynamic>() ??
+                                const <String, dynamic>{};
+                            final transport = serverCfg['transport'];
+                            final transportType = transport is Map
+                                ? (transport['type']?.toString() ?? 'unknown')
+                                : 'unknown';
+                            return ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              leading: Icon(
+                                AppIcons.plugin,
+                                color: oc.textMuted,
+                                size: 16,
+                              ),
+                              title: Text(
+                                name,
+                                style: TextStyle(color: oc.text),
+                              ),
+                              subtitle: Text(
+                                transportType,
+                                style: TextStyle(
+                                  color: oc.textMuted,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: Icon(
+                                      AppIcons.edit,
+                                      color: oc.textMuted,
+                                      size: 18,
+                                    ),
+                                    onPressed: () =>
+                                        _editServer(name, serverCfg),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(
+                                      AppIcons.delete,
+                                      color: oc.error,
+                                      size: 18,
+                                    ),
+                                    onPressed: () => _deleteServer(name),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
       ),
     );
   }
 }
+
 class _CodexMcpStatusList extends StatelessWidget {
-  const _CodexMcpStatusList({required this.status});
+  const _CodexMcpStatusList({required this.status, required this.onStartOauth});
+
   final List<Map<String, dynamic>> status;
+  final Future<void> Function(String name) onStartOauth;
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
@@ -360,12 +495,15 @@ class _CodexMcpStatusList extends StatelessWidget {
               err != null && err.isNotEmpty ? '$st • $err' : st,
               style: TextStyle(color: oc.textMuted),
             ),
+            trailing: Icon(AppIcons.lockOpen, size: 18, color: oc.textMuted),
+            onTap: name.isEmpty ? null : () => onStartOauth(name),
           ),
         );
       },
     );
   }
 }
+
 class _CodexMcpServerEditorScreen extends StatefulWidget {
   const _CodexMcpServerEditorScreen({
     required this.title,
@@ -377,6 +515,7 @@ class _CodexMcpServerEditorScreen extends StatefulWidget {
   State<_CodexMcpServerEditorScreen> createState() =>
       _CodexMcpServerEditorScreenState();
 }
+
 class _CodexMcpServerEditorScreenState
     extends State<_CodexMcpServerEditorScreen> {
   late final TextEditingController _json;
@@ -385,23 +524,27 @@ class _CodexMcpServerEditorScreenState
     super.initState();
     _json = TextEditingController(text: widget.initialJson);
   }
+
   @override
   void dispose() {
     _json.dispose();
     super.dispose();
   }
+
   void _done() {
     try {
       final decoded = jsonDecode(_json.text);
-      if (decoded is! Map)
+      if (decoded is! Map) {
         throw const FormatException('Config must be a JSON object');
+      }
       Navigator.pop(context, decoded.cast<String, dynamic>());
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Invalid JSON: ${humanizeError(e)}')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Invalid JSON: ${humanizeError(e)}')),
+      );
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
@@ -425,22 +568,22 @@ class _CodexMcpServerEditorScreenState
       body: AdaptiveContainer(
         width: ContentWidth.standard,
         child: Padding(
-        padding: Insets.card,
-        child: TextField(
-          controller: _json,
-          maxLines: null,
-          expands: true,
-          style: AppTypography.code(),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: oc.backgroundElement,
-            border: OutlineInputBorder(
-              borderRadius: Radii.brMd,
-              borderSide: BorderSide(color: oc.border),
+          padding: Insets.card,
+          child: TextField(
+            controller: _json,
+            maxLines: null,
+            expands: true,
+            style: AppTypography.code(),
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: oc.backgroundElement,
+              border: OutlineInputBorder(
+                borderRadius: Radii.brMd,
+                borderSide: BorderSide(color: oc.border),
+              ),
             ),
           ),
         ),
-      ),
       ),
     );
   }

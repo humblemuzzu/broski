@@ -1,4 +1,3 @@
-
 import 'dart:async';
 import 'dart:convert';
 
@@ -94,11 +93,13 @@ import '../utils/error_utils.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
+
 // Utility function for color opacity (from expense_tracker)
 Color fade(Color color, double opacity) {
   final clamped = opacity.clamp(0.0, 1.0);
   return color.withValues(alpha: clamped);
 }
+
 class ChatScreen extends ConsumerStatefulWidget {
   /// Constructor for OpenCode sessions
   const ChatScreen({
@@ -116,6 +117,7 @@ class ChatScreen extends ConsumerStatefulWidget {
        cxDraftModel = null,
        isClaudeCode = false,
        isCodex = false;
+
   /// Named constructor for Claude Code sessions
   const ChatScreen.claudeCode({
     super.key,
@@ -138,6 +140,7 @@ class ChatScreen extends ConsumerStatefulWidget {
        cxDraftModel = null,
        isClaudeCode = true,
        isCodex = false;
+
   /// Named constructor for a new Claude Code chat (session ID assigned on first turn)
   const ChatScreen.claudeCodeDraft({
     super.key,
@@ -163,6 +166,7 @@ class ChatScreen extends ConsumerStatefulWidget {
        cxDraftModel = null,
        isClaudeCode = true,
        isCodex = false;
+
   /// Named constructor for Codex threads
   const ChatScreen.codex({
     super.key,
@@ -185,6 +189,7 @@ class ChatScreen extends ConsumerStatefulWidget {
        cxDraftModel = null,
        isClaudeCode = false,
        isCodex = true;
+
   /// Named constructor for a new Codex chat (thread ID assigned on first turn)
   const ChatScreen.codexDraft({
     super.key,
@@ -224,38 +229,45 @@ class ChatScreen extends ConsumerStatefulWidget {
   final bool isCodex;
   final String? initialPrompt;
   bool get isOpenCode => !isClaudeCode && !isCodex;
+
   /// Get the effective session ID
   String get effectiveSessionId => isClaudeCode
       ? (ccSession?.id ?? '')
       : isCodex
       ? (cxThread?.id ?? '')
       : session.id;
+
   /// Get the effective project path
   String get effectivePath => isClaudeCode
       ? (ccSession?.cwd ?? ccDraftCwd ?? '')
       : isCodex
       ? (cxThread?.cwd ?? cxDraftCwd ?? '')
       : project.path;
+
   /// Get the effective title
   String get effectiveTitle => isClaudeCode
       ? (ccSession?.displayTitle ?? ccDraftTitle ?? 'Claude Code')
       : isCodex
       ? (cxThread?.displayTitle ?? cxDraftTitle ?? 'Codex')
       : session.title;
+
   /// Get project name from path
   String get projectName {
     final path = effectivePath;
     final parts = path.split('/').where((p) => p.isNotEmpty).toList();
     return parts.isEmpty ? 'Unknown' : parts.last;
   }
+
   @override
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
+
 class _ChatScreenState extends ConsumerState<ChatScreen>
     with SingleTickerProviderStateMixin {
   String _newClientMessageId() {
     return OpenCodeId.newMessageId();
   }
+
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final HapticsService _haptics = HapticsService();
@@ -454,6 +466,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
     }
   }
+
   void _maybeSendInitialPrompt() {
     if (_initialPromptSent) return;
     final prompt = widget.initialPrompt?.trim() ?? '';
@@ -470,6 +483,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     _controller.text = prompt;
     _sendMessage(connection, chatState);
   }
+
   Future<void> _hydrateSession() async {
     final connection = ref.read(connectionProvider);
     final storage = ref.read(storageServiceProvider);
@@ -599,6 +613,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       await storage.cacheSessionMessages(widget.session.id, chatState.messages);
     }
   }
+
   /// Convert ChatMessage to raw format for hydrate
   Map<String, dynamic> _messageToRaw(ChatMessage m) {
     return {
@@ -628,6 +643,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ],
     };
   }
+
   // Feature 2 & 3: Load available commands and agents
   Future<void> _loadCommandsAndAgents() async {
     final bridge = ref.read(bridgeServiceProvider);
@@ -869,6 +885,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       }
     }
   }
+
   /// Load available variants (thinking levels) for OpenCode models.
   Future<void> _loadOpenCodeVariants() async {
     if (!widget.isOpenCode) return;
@@ -884,6 +901,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       debugPrint('Failed to load OpenCode variants: $e');
     }
   }
+
   /// Load slash commands for Claude Code
   Future<void> _loadClaudeCodeCommands() async {
     final bridge = ref.read(bridgeServiceProvider);
@@ -953,6 +971,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       }
     }
   }
+
   Future<void> _loadSessionContext() async {
     if (_loadingContext) return;
     setState(() => _loadingContext = true);
@@ -1091,9 +1110,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       }
     }
   }
+
   void _closeSidebar() {
     setState(() => _sidebarOpen = false);
   }
+
   // Feature 10: Load VCS/Git info
   Future<void> _loadVcsInfo() async {
     final storage = ref.read(storageServiceProvider);
@@ -1127,6 +1148,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       }
     }
   }
+
   Future<void> _forkSession({String? messageId}) async {
     _haptics.mediumImpact();
     final theme = OpenCodeTheme.of(context);
@@ -1268,6 +1290,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
     }
   }
+
   void _setClaudeResumeFromHere(String messageId) {
     if (messageId.isEmpty) return;
     _haptics.lightImpact();
@@ -1282,6 +1305,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
+
   // Feature 7: Revert/Undo changes
   Future<void> _revertMessage(String messageId, {String? partId}) async {
     _haptics.mediumImpact();
@@ -1314,6 +1338,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
     }
   }
+
   void _openDiffView(DiffEntry diff, {String? messageId}) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -1325,6 +1350,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
+
   // Feature 7: Unrevert session (reserved for future use)
   // ignore: unused_element
   Future<void> _unrevertSession() async {
@@ -1354,6 +1380,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
     }
   }
+
   // Claude Code: Rewind files to the most recent checkpoint.
   // Uses the SDK's `rewindFiles(userMessageId)` which reverts ALL tracked files
   // to their state at that user message. Pops the checkpoint from the stack so
@@ -1407,6 +1434,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
     }
   }
+
   // Feature 8: Share Session
   Future<void> _shareSession() async {
     _haptics.mediumImpact();
@@ -1441,6 +1469,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
     }
   }
+
   void _showShareDialog(String url) {
     final theme = OpenCodeTheme.of(context);
     DetailSheet.show(
@@ -1536,6 +1565,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
+
   // Feature 8: Unshare Session
   Future<void> _unshareSession() async {
     try {
@@ -1563,6 +1593,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
     }
   }
+
   // Feature 9: Summarize/Compact Session
   Future<void> _compactSession() async {
     final theme = OpenCodeTheme.of(context);
@@ -1642,6 +1673,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
     }
   }
+
   // Feature 20: Initialize Project (Create AGENTS.md)
   Future<void> _initializeProject() async {
     final theme = OpenCodeTheme.of(context);
@@ -1732,6 +1764,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
     }
   }
+
   /// Dismiss keyboard if the input field is focused.
   /// Called on tap/drag in the chat area for smooth UX.
   void _dismissKeyboardIfFocused() {
@@ -1739,6 +1772,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _inputFocusNode.unfocus();
     }
   }
+
   void _onTextChanged() {
     final text = _controller.text;
     final fileSearch = ref.read(fileSearchProvider.notifier);
@@ -1838,6 +1872,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _setStateAndRestoreFocus(hadFocus);
     }
   }
+
   void _handleCustomToolSelection(ClaudeCodeCustomTool tool) {
     final text = _controller.text;
     final mcpName = tool.mcpToolName;
@@ -1849,6 +1884,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _customToolQuery = '';
     });
   }
+
   void _insertMemoryPromptTemplate(String scope) {
     final template = switch (scope) {
       'user' => 'When this is useful later, store it in user memory: ',
@@ -1868,6 +1904,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
     _inputFocusNode.requestFocus();
   }
+
   void _showMemoryScopePicker() {
     final theme = OpenCodeTheme.of(context);
     DetailSheet.show(
@@ -1917,6 +1954,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
+
   /// Call setState and restore focus if it was previously focused.
   /// This is the KEY fix - we always restore focus after setState if the
   /// input had focus before the text change. This prevents focus loss
@@ -1943,6 +1981,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       });
     }
   }
+
   void _handleFileSelection(FileAttachment attachment) {
     // Add as file attachment (OpenCode + Claude Code)
     if (_attachedFiles.contains(attachment)) return;
@@ -1956,6 +1995,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     });
     ref.read(fileSearchProvider.notifier).clear();
   }
+
   /// Handle @agent selection - replace @query with @agentname and set as selected agent
   void _handleAgentSelection(Agent agent) {
     final text = _controller.text;
@@ -1973,11 +2013,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       }
     });
   }
+
   void _removeAttachedFile(FileAttachment attachment) {
     setState(() {
       _attachedFiles.remove(attachment);
     });
   }
+
   void _showAttachmentOptions(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     DetailSheet.show(
@@ -2019,6 +2061,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
+
   void _showClaudeCodeToolsSheet() {
     final theme = OpenCodeTheme.of(context);
     DetailSheet.show(
@@ -2039,11 +2082,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               color: theme.textMuted.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              AppIcons.help,
-              color: theme.textMuted,
-              size: 20,
-            ),
+            child: Icon(AppIcons.help, color: theme.textMuted, size: 20),
           ),
         ),
       ),
@@ -2068,6 +2107,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           void updateConfig(ClaudeCodeConfig next) {
             ref.read(ccConfigProvider.notifier).updateConfig(next);
           }
+
           return Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2457,6 +2497,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
+
   // Helper widgets for the Claude Code tools sheet
   Widget _buildSettingsRow(OpenCodeTheme theme, String label, Widget child) {
     return Row(
@@ -2474,6 +2515,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ],
     );
   }
+
   Widget _buildSettingsTile({
     required OpenCodeTheme theme,
     required IconData icon,
@@ -2527,6 +2569,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
+
   Widget _buildStyledDropdown<T>({
     required OpenCodeTheme theme,
     required T? value,
@@ -2552,11 +2595,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                   style: AppTypography.bodySmall(color: theme.textMuted),
                 )
               : null,
-          icon: Icon(
-            AppIcons.chevronDown,
-            size: 18,
-            color: theme.textMuted,
-          ),
+          icon: Icon(AppIcons.chevronDown, size: 18, color: theme.textMuted),
           items: items,
           onChanged: onChanged,
           isDense: true,
@@ -2564,6 +2603,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
+
   Widget _buildSettingsIconButton({
     required OpenCodeTheme theme,
     required IconData icon,
@@ -2581,6 +2621,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
+
   Widget _buildCountBadge(OpenCodeTheme theme, int count) {
     final isActive = count > 0;
     return Container(
@@ -2601,6 +2642,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
+
   Widget _buildToolToggleRow({
     required OpenCodeTheme theme,
     required String tool,
@@ -2636,6 +2678,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
+
   Future<String?> _promptSystemPromptText() async {
     final theme = OpenCodeTheme.of(context);
     final controller = TextEditingController();
@@ -2686,6 +2729,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
+
   void _showClaudeCodeCommandsSheet() {
     final theme = OpenCodeTheme.of(context);
     DetailSheet.show(
@@ -2753,6 +2797,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
+
   void _showClaudeCodeSkillsSheet() {
     final theme = OpenCodeTheme.of(context);
     DetailSheet.show(
@@ -2842,6 +2887,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
+
   void _showClaudeCodeHooksSheet() {
     final theme = OpenCodeTheme.of(context);
     DetailSheet.show(
@@ -2909,6 +2955,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
+
   void _showClaudeCodeMcpSheet() {
     final theme = OpenCodeTheme.of(context);
     DetailSheet.show(
@@ -3022,6 +3069,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
     );
   }
+
   void _handleClaudeCodeMenuAction(String value) {
     switch (value) {
       case 'stop':
@@ -3053,6 +3101,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         break;
     }
   }
+
   void _handleCodexMenuAction(String value) {
     switch (value) {
       case 'stop':
@@ -3096,14 +3145,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         break;
     }
   }
+
   void _showCodexAppsSheet() {
     // Delegate to modular sheet
     CxAppsSheet.show(context);
   }
+
   void _showCodexRemoteSkillsSheet() {
     // Delegate to modular sheet
     CxRemoteSkillsSheet.show(context);
   }
+
   void _showCodexAgentsSheet() {
     final theme = OpenCodeTheme.of(context);
     final chatState = ref.read(chatSessionProvider);
@@ -3129,6 +3181,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             controller.text = (res['content'] ?? '').toString();
             setSheetState(() {});
           }
+
           void insertTemplate() {
             controller.text =
                 '''
@@ -3144,6 +3197,7 @@ Describe project-specific guidance for Codex here.
                     .trim();
             setSheetState(() {});
           }
+
           unawaited(load());
           return Padding(
             padding: EdgeInsets.only(
@@ -3167,11 +3221,7 @@ Describe project-specific guidance for Codex here.
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                     child: Row(
                       children: [
-                        Icon(
-                          AppIcons.info,
-                          size: 16,
-                          color: theme.textMuted,
-                        ),
+                        Icon(AppIcons.info, size: 16, color: theme.textMuted),
                         SizedBox(width: Spacing.sm),
                         Expanded(
                           child: Text(
@@ -3254,6 +3304,7 @@ Describe project-specific guidance for Codex here.
       ),
     ).whenComplete(controller.dispose);
   }
+
   void _showCodexAuthSheet() {
     final theme = OpenCodeTheme.of(context);
     final apiKeyController = TextEditingController();
@@ -3272,6 +3323,7 @@ Describe project-specific guidance for Codex here.
             authUrl = res['authUrl']?.toString();
             setSheetState(() {});
           }
+
           Future<void> cancelLogin() async {
             final id = loginId;
             if (id == null || id.isEmpty) return;
@@ -3282,6 +3334,7 @@ Describe project-specific guidance for Codex here.
               authUrl = null;
             });
           }
+
           return Padding(
             padding: EdgeInsets.only(
               bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -3372,13 +3425,16 @@ Describe project-specific guidance for Codex here.
                       final primary = limits['primary'];
                       if (primary is! Map) return const SizedBox.shrink();
                       // #14: Show limit_name if present
-                      final limitName = limits['limitName'] as String? ??
+                      final limitName =
+                          limits['limitName'] as String? ??
                           limits['limit_name'] as String?;
                       final label = limitName != null && limitName.isNotEmpty
                           ? '$limitName: ${primary['usedPercent'] ?? 0}% used'
                           : 'Rate limits: ${primary['usedPercent'] ?? 0}% used';
                       final resetsAt = primary['resetsAt'];
-                      final resetsStr = resetsAt != null ? ', resets at $resetsAt' : '';
+                      final resetsStr = resetsAt != null
+                          ? ', resets at $resetsAt'
+                          : '';
                       return Padding(
                         padding: Insets.bottomMd,
                         child: Text(
@@ -3512,6 +3568,7 @@ Describe project-specific guidance for Codex here.
       ),
     ).whenComplete(apiKeyController.dispose);
   }
+
   void _showCodexFeedbackSheet() {
     final theme = OpenCodeTheme.of(context);
     final reasonController = TextEditingController();
@@ -3636,6 +3693,7 @@ Describe project-specific guidance for Codex here.
       ),
     ).whenComplete(reasonController.dispose);
   }
+
   void _showCodexSettingsSheet() {
     final theme = OpenCodeTheme.of(context);
     DetailSheet.show(
@@ -3693,6 +3751,7 @@ Describe project-specific guidance for Codex here.
               ],
             );
           }
+
           return Padding(
             padding: Insets.screenH,
             child: Column(
@@ -3801,6 +3860,7 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
+
   void _showCodexSkillsSheet() {
     final theme = OpenCodeTheme.of(context);
     final chatState = ref.read(chatSessionProvider);
@@ -3820,6 +3880,7 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
+
   void _showCodexMcpSheet() {
     final theme = OpenCodeTheme.of(context);
     DetailSheet.show(
@@ -3906,6 +3967,7 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
+
   void _showCodexRollbackSheet() {
     final theme = OpenCodeTheme.of(context);
     final chatState = ref.read(chatSessionProvider);
@@ -3956,6 +4018,7 @@ Describe project-specific guidance for Codex here.
       },
     );
   }
+
   void _showCodexConfigSheet() {
     final theme = OpenCodeTheme.of(context);
     DetailSheet.show(
@@ -3994,6 +4057,7 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
+
   Future<void> _startCodexReview() async {
     final chatState = ref.read(chatSessionProvider);
     final cwd = chatState.cxCwd ?? widget.cxThread?.cwd ?? widget.cxDraftCwd;
@@ -4034,6 +4098,7 @@ Describe project-specific guidance for Codex here.
           config: config,
         );
   }
+
   /// Set Codex reasoning effort by wireValue string (e.g., 'high', 'xhigh')
   void _setCodexReasoningEffort(String? wireValue) {
     if (wireValue == null) return;
@@ -4043,10 +4108,12 @@ Describe project-specific guidance for Codex here.
     );
     ref.read(codexSettingsProvider.notifier).setReasoningEffort(effort);
   }
+
   void _showCodexModelSheet() {
     // Delegate to modular dynamic sheet (fetches from Codex model/list API)
     CxModelSheet.show(context);
   }
+
   void _showClaudeCodeModelSheet() {
     final theme = OpenCodeTheme.of(context);
     DetailSheet.show(
@@ -4072,7 +4139,8 @@ Describe project-specific guidance for Codex here.
                 model: init?.model,
               );
           // null = default/recommended (SDK picks latest)
-          final current = config.model ??
+          final current =
+              config.model ??
               chatState.ccModel ??
               init?.model ??
               widget.ccSession?.model ??
@@ -4082,11 +4150,33 @@ Describe project-specific guidance for Codex here.
           final oneMillionBeta = 'context-1m-2025-08-07';
           final oneMillionEnabled = currentBetas.contains(oneMillionBeta);
           Future<void> setModel(String? model) async {
-            await ref
-                .read(ccConfigProvider.notifier)
-                .setModel(model);
+            final messenger = ScaffoldMessenger.of(context);
+            await ref.read(ccConfigProvider.notifier).setModel(model);
             ref.read(chatSessionProvider.notifier).setCCModel(model ?? '');
+
+            final sessionId = chatState.ccSessionId;
+            final canApplyLive =
+                chatState.ccIsStreaming &&
+                sessionId != null &&
+                sessionId.isNotEmpty;
+            if (!canApplyLive) return;
+
+            final ok = await ref
+                .read(bridgeServiceProvider)
+                .ccSetModel(sessionId: sessionId, model: model);
+            if (!mounted) return;
+            messenger.showSnackBar(
+              SnackBar(
+                content: Text(
+                  ok
+                      ? 'Model applied to current Claude turn.'
+                      : 'Saved as default. Live turn update failed.',
+                ),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
           }
+
           Future<void> setOneMillionContext(bool enabled) async {
             final nextBetas = <String>{...currentBetas};
             if (enabled) {
@@ -4098,15 +4188,14 @@ Describe project-specific guidance for Codex here.
                 .read(ccConfigProvider.notifier)
                 .updateConfig(config.copyWith(betas: nextBetas.toList()));
           }
+
           Widget modelTile(ClaudeCodeSupportedModel model) {
             final selected = current == model.value;
             return ListTile(
               dense: true,
               contentPadding: EdgeInsets.zero,
               leading: Icon(
-                selected
-                    ? AppIcons.radioChecked
-                    : AppIcons.radioUnchecked,
+                selected ? AppIcons.radioChecked : AppIcons.radioUnchecked,
                 size: 18,
                 color: selected ? theme.accent : theme.textMuted,
               ),
@@ -4150,6 +4239,7 @@ Describe project-specific guidance for Codex here.
               },
             );
           }
+
           return supportedModelsAsync.when(
             data: (models) {
               final fallback = const <ClaudeCodeSupportedModel>[
@@ -4200,8 +4290,9 @@ Describe project-specific guidance for Codex here.
                         style: TextStyle(
                           color: theme.text,
                           fontSize: 13,
-                          fontWeight:
-                              isDefaultModel ? FontWeight.w600 : FontWeight.normal,
+                          fontWeight: isDefaultModel
+                              ? FontWeight.w600
+                              : FontWeight.normal,
                         ),
                       ),
                       subtitle: Text(
@@ -4266,6 +4357,7 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
+
   bool _modelSupportsImages(SelectedModel? model) {
     if (model == null) return true;
     final id = model.modelID.toLowerCase();
@@ -4289,6 +4381,7 @@ Describe project-specific guidance for Codex here.
     }
     return true;
   }
+
   void _showImageNotSupportedWarning() {
     final model = ref.read(selectionProvider).model;
     if (!mounted) return;
@@ -4307,6 +4400,7 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
+
   Future<void> _pickImageFromGallery() async {
     final model = ref.read(selectionProvider).model;
     if (!_modelSupportsImages(model)) {
@@ -4318,6 +4412,7 @@ Describe project-specific guidance for Codex here.
       setState(() => _attachedFiles.add(attachment));
     }
   }
+
   Future<void> _pickImageFromCamera() async {
     final model = ref.read(selectionProvider).model;
     if (!_modelSupportsImages(model)) {
@@ -4329,6 +4424,7 @@ Describe project-specific guidance for Codex here.
       setState(() => _attachedFiles.add(attachment));
     }
   }
+
   void _onScroll() {
     if (!_scrollController.hasClients) return;
     final position = _scrollController.position;
@@ -4350,6 +4446,7 @@ Describe project-specific guidance for Codex here.
       _userHasScrolledUp = true;
     }
   }
+
   /// Check if scroll position is near the bottom (within threshold)
   /// Used for auto-scroll decision making
   bool _isNearBottom() {
@@ -4358,6 +4455,7 @@ Describe project-specific guidance for Codex here.
     // Consider "near bottom" if within 150px of max scroll extent
     return position.pixels >= position.maxScrollExtent - 150;
   }
+
   // FIX: Removed _calculateContentLength - now using pre-computed contentLength from provider
   // This avoids O(n) iteration on every UI frame during streaming
   /// Handle auto-scroll when new content arrives
@@ -4397,6 +4495,7 @@ Describe project-specific guidance for Codex here.
       });
     }
   }
+
   Future<void> _loadMoreMessages() async {
     if (_loadingMoreMessages || _hasLoadedAllMessages) return;
     final connection = ref.read(connectionProvider);
@@ -4436,9 +4535,11 @@ Describe project-specific guidance for Codex here.
       setState(() => _loadingMoreMessages = false);
     }
   }
+
   bool _hasStreamingMessage(List<ChatMessage> messages) {
     return messages.any((msg) => msg.isStreaming);
   }
+
   /// Check if any tools are currently running (for auto-scroll during tool execution)
   bool _hasRunningTools(List<ChatMessage> messages) {
     return messages.any(
@@ -4449,6 +4550,7 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
+
   // Feature 2: Get filtered commands based on current input
   List<SlashCommand> get _filteredCommands {
     if (_commandFilter.isEmpty) return _commands;
@@ -4456,6 +4558,7 @@ Describe project-specific guidance for Codex here.
         .where((cmd) => cmd.name.toLowerCase().contains(_commandFilter))
         .toList();
   }
+
   // Feature 2: Handle command selection from autocomplete
   void _selectCommand(SlashCommand command) async {
     final bridge = ref.read(bridgeServiceProvider);
@@ -4479,9 +4582,11 @@ Describe project-specific guidance for Codex here.
               }
             } catch (e) {
               if (mounted) {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text('Failed to undo: ${humanizeError(e)}')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Failed to undo: ${humanizeError(e)}'),
+                  ),
+                );
               }
             }
           } else {
@@ -4505,9 +4610,9 @@ Describe project-specific guidance for Codex here.
             }
           } catch (e) {
             if (mounted) {
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text('Failed to redo: ${humanizeError(e)}')));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Failed to redo: ${humanizeError(e)}')),
+              );
             }
           }
           break;
@@ -4533,7 +4638,9 @@ Describe project-specific guidance for Codex here.
             } catch (e) {
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Failed to compact: ${humanizeError(e)}')),
+                  SnackBar(
+                    content: Text('Failed to compact: ${humanizeError(e)}'),
+                  ),
                 );
               }
             }
@@ -4618,6 +4725,7 @@ Describe project-specific guidance for Codex here.
       _commandFilter = '';
     });
   }
+
   // ============================================================
   // Slash Command Implementations
   // ============================================================
@@ -4677,6 +4785,7 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
+
   Widget _buildCommandSection(
     String title,
     List<(String, String)> commands,
@@ -4730,6 +4839,7 @@ Describe project-specific guidance for Codex here.
       ],
     );
   }
+
   /// Show rename session dialog
   void _showRenameSessionDialog() {
     final theme = OpenCodeTheme.of(context);
@@ -4774,7 +4884,9 @@ Describe project-specific guidance for Codex here.
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Failed to rename: ${humanizeError(e)}')),
+                    SnackBar(
+                      content: Text('Failed to rename: ${humanizeError(e)}'),
+                    ),
                   );
                 }
               }
@@ -4785,6 +4897,7 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
+
   /// Copy transcript to clipboard
   void _copyTranscriptToClipboard() {
     final chatState = ref.read(chatSessionProvider);
@@ -4809,6 +4922,7 @@ Describe project-specific guidance for Codex here.
       const SnackBar(content: Text('Transcript copied to clipboard')),
     );
   }
+
   /// Export transcript (show options)
   void _exportTranscript() {
     final theme = OpenCodeTheme.of(context);
@@ -4877,6 +4991,7 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
+
   /// Share transcript via system share sheet
   void _shareTranscript() {
     final chatState = ref.read(chatSessionProvider);
@@ -4894,6 +5009,7 @@ Describe project-specific guidance for Codex here.
       subject: 'Chat Session: ${widget.session.title}',
     );
   }
+
   /// Show timeline dialog to jump to a specific message
   void _showTimelineDialog() {
     final theme = OpenCodeTheme.of(context);
@@ -4956,6 +5072,7 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
+
   /// Show fork dialog to create a branch from a specific message
   void _showForkDialog() {
     final theme = OpenCodeTheme.of(context);
@@ -5065,7 +5182,9 @@ Describe project-specific guidance for Codex here.
                   } catch (e) {
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Failed to fork: ${humanizeError(e)}')),
+                        SnackBar(
+                          content: Text('Failed to fork: ${humanizeError(e)}'),
+                        ),
                       );
                     }
                   }
@@ -5077,6 +5196,7 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
+
   /// Toggle thinking/reasoning visibility
   void _toggleThinkingVisibility() {
     // Toggle the state - for now we'll use a simple snackbar notification
@@ -5088,11 +5208,13 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
+
   /// Show models selection dialog
   void _showModelsDialog() {
     // Use existing model selector
     _showModelSelector(context);
   }
+
   /// Show agents selection dialog
   void _showAgentsDialog() {
     final theme = OpenCodeTheme.of(context);
@@ -5122,7 +5244,9 @@ Describe project-specific guidance for Codex here.
                   backgroundColor: isSelected ? theme.primary : theme.bgDeep,
                   child: Icon(
                     AppIcons.agent,
-                    color: isSelected ? theme.selectedListItemText : theme.textMuted,
+                    color: isSelected
+                        ? theme.selectedListItemText
+                        : theme.textMuted,
                     size: 20,
                   ),
                 ),
@@ -5158,6 +5282,7 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
+
   @override
   void dispose() {
     // FIX: Cancel listener subscriptions to prevent callbacks after dispose
@@ -5171,6 +5296,7 @@ Describe project-specific guidance for Codex here.
     _inputFocusNode.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -5221,8 +5347,8 @@ Describe project-specific guidance for Codex here.
                   widget.ccDraftTitle ??
                   'Claude Code')
             : widget.isCodex
-                ? (widget.cxThread?.displayTitle ?? 'Codex')
-                : widget.session.title,
+            ? (widget.cxThread?.displayTitle ?? 'Codex')
+            : widget.session.title,
         sessionContext: _sessionContext,
         todos: todos, // Both OC and CC have todos (CC via TodoWrite tool)
         onClose: _closeSidebar,
@@ -5252,149 +5378,150 @@ Describe project-specific guidance for Codex here.
                 children: [
                   // Chat messages with smooth auto-hiding scrollbar
                   Expanded(
-                  // GestureDetector for tap-to-unfocus with smooth behavior
-                  // Handles: tap anywhere, tap-and-drag, long press - all dismiss keyboard
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTap: _dismissKeyboardIfFocused,
-                    onPanDown: (_) => _dismissKeyboardIfFocused(),
-                    child: Stack(
-                      children: [
-                        // OpenCode branding - shown centered when empty
-                        if (widget.isOpenCode && messages.isEmpty)
-                          const Center(
-                            child: OpenCodeBranding(width: 280, opacity: 1.0),
-                          ),
-                        // Codex Multi-Agent Collaboration Tree (SDK v0.87.0+)
-                        if (widget.isCodex)
-                          Consumer(
-                            builder: (context, ref, _) {
-                              final collabTree = ref.watch(
-                                chatSessionProvider.select(
-                                  (s) => s.cxCollabTree,
+                    // GestureDetector for tap-to-unfocus with smooth behavior
+                    // Handles: tap anywhere, tap-and-drag, long press - all dismiss keyboard
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onTap: _dismissKeyboardIfFocused,
+                      onPanDown: (_) => _dismissKeyboardIfFocused(),
+                      child: Stack(
+                        children: [
+                          // OpenCode branding - shown centered when empty
+                          if (widget.isOpenCode && messages.isEmpty)
+                            const Center(
+                              child: OpenCodeBranding(width: 280, opacity: 1.0),
+                            ),
+                          // Codex Multi-Agent Collaboration Tree (SDK v0.87.0+)
+                          if (widget.isCodex)
+                            Consumer(
+                              builder: (context, ref, _) {
+                                final collabTree = ref.watch(
+                                  chatSessionProvider.select(
+                                    (s) => s.cxCollabTree,
+                                  ),
+                                );
+                                if (collabTree == null ||
+                                    collabTree.totalAgents <= 1) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Positioned(
+                                  top: 70,
+                                  left: 16,
+                                  right: 16,
+                                  child: MultiAgentTreeWidget(
+                                    tree: collabTree,
+                                    compact: true,
+                                    onAgentTap: (threadId) {
+                                      // TODO: Switch to view that thread's messages
+                                      if (kDebugMode) {
+                                        debugPrint(
+                                          'Tapped on agent thread: $threadId',
+                                        );
+                                      }
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
+                          // Message list
+                          ScrollbarTheme(
+                            data: ScrollbarThemeData(
+                              thumbColor: WidgetStateProperty.all(
+                                theme.textMuted.withValues(alpha: 0.3),
+                              ),
+                              trackColor: WidgetStateProperty.all(
+                                Colors.transparent,
+                              ),
+                              radius: const Radius.circular(4),
+                              thickness: WidgetStateProperty.all(6),
+                              minThumbLength: 48,
+                              interactive: true,
+                            ),
+                            child: Scrollbar(
+                              controller: _scrollController,
+                              thumbVisibility:
+                                  false, // Auto-hide when not scrolling
+                              child: ListView.builder(
+                                controller: _scrollController,
+                                // PERF: Pre-render 500px above/below viewport for smoother scrolling
+                                cacheExtent: 500,
+                                padding: const EdgeInsets.fromLTRB(
+                                  20,
+                                  20,
+                                  20,
+                                  90,
                                 ),
-                              );
-                              if (collabTree == null ||
-                                  collabTree.totalAgents <= 1) {
-                                return const SizedBox.shrink();
-                              }
-                              return Positioned(
-                                top: 70,
-                                left: 16,
-                                right: 16,
-                                child: MultiAgentTreeWidget(
-                                  tree: collabTree,
-                                  compact: true,
-                                  onAgentTap: (threadId) {
-                                    // TODO: Switch to view that thread's messages
-                                    if (kDebugMode) {
-                                      debugPrint(
-                                        'Tapped on agent thread: $threadId',
+                                // Add 1 for loading indicator at top when loading more
+                                itemCount:
+                                    messages.length +
+                                    (_loadingMoreMessages ? 1 : 0) +
+                                    (!_hasLoadedAllMessages &&
+                                            messages.isNotEmpty
+                                        ? 1
+                                        : 0),
+                                itemBuilder: (context, index) {
+                                  // Show "load more" indicator at top
+                                  if (!_hasLoadedAllMessages &&
+                                      messages.isNotEmpty &&
+                                      index == 0) {
+                                    if (_loadingMoreMessages) {
+                                      return const Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          vertical: 16,
+                                        ),
+                                        child: Center(
+                                          child: SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          ),
+                                        ),
                                       );
                                     }
-                                  },
-                                ),
-                              );
-                            },
-                          ),
-                        // Message list
-                        ScrollbarTheme(
-                          data: ScrollbarThemeData(
-                            thumbColor: WidgetStateProperty.all(
-                              theme.textMuted.withValues(alpha: 0.3),
-                            ),
-                            trackColor: WidgetStateProperty.all(
-                              Colors.transparent,
-                            ),
-                            radius: const Radius.circular(4),
-                            thickness: WidgetStateProperty.all(6),
-                            minThumbLength: 48,
-                            interactive: true,
-                          ),
-                          child: Scrollbar(
-                            controller: _scrollController,
-                            thumbVisibility:
-                                false, // Auto-hide when not scrolling
-                            child: ListView.builder(
-                              controller: _scrollController,
-                              // PERF: Pre-render 500px above/below viewport for smoother scrolling
-                              cacheExtent: 500,
-                              padding: const EdgeInsets.fromLTRB(
-                                20,
-                                20,
-                                20,
-                                90,
-                              ),
-                              // Add 1 for loading indicator at top when loading more
-                              itemCount:
-                                  messages.length +
-                                  (_loadingMoreMessages ? 1 : 0) +
-                                  (!_hasLoadedAllMessages && messages.isNotEmpty
-                                      ? 1
-                                      : 0),
-                              itemBuilder: (context, index) {
-                                // Show "load more" indicator at top
-                                if (!_hasLoadedAllMessages &&
-                                    messages.isNotEmpty &&
-                                    index == 0) {
-                                  if (_loadingMoreMessages) {
-                                    return const Padding(
-                                      padding: EdgeInsets.symmetric(
-                                        vertical: 16,
+                                    // Show "scroll up for more" hint
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
                                       ),
                                       child: Center(
-                                        child: SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
+                                        child: Text(
+                                          '↑ Scroll up to load earlier messages',
+                                          style: TextStyle(
+                                            color: theme.textMuted,
+                                            fontSize: 12,
                                           ),
                                         ),
                                       ),
                                     );
                                   }
-                                  // Show "scroll up for more" hint
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        '↑ Scroll up to load earlier messages',
-                                        style: TextStyle(
-                                          color: theme.textMuted,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
+                                  // Adjust index for the loading indicator
+                                  final messageIndex =
+                                      (!_hasLoadedAllMessages &&
+                                          messages.isNotEmpty)
+                                      ? index - 1
+                                      : index;
+                                  if (messageIndex < 0 ||
+                                      messageIndex >= messages.length) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  final message = messages[messageIndex];
+                                  // PERF: ValueKey helps Flutter track widget identity across rebuilds
+                                  return KeyedSubtree(
+                                    key: ValueKey(message.id),
+                                    child: _buildMessageGroup(message),
                                   );
-                                }
-                                // Adjust index for the loading indicator
-                                final messageIndex =
-                                    (!_hasLoadedAllMessages &&
-                                        messages.isNotEmpty)
-                                    ? index - 1
-                                    : index;
-                                if (messageIndex < 0 ||
-                                    messageIndex >= messages.length) {
-                                  return const SizedBox.shrink();
-                                }
-                                final message = messages[messageIndex];
-                                // PERF: ValueKey helps Flutter track widget identity across rebuilds
-                                return KeyedSubtree(
-                                  key: ValueKey(message.id),
-                                  child: _buildMessageGroup(message),
-                                );
-                              },
+                                },
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
             ),
           ),
           // Stop agent is available via the action sheet menu (⋯ button)
@@ -5575,6 +5702,7 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
+
   // PERF: Input bar version that takes individual params instead of full chatState
   // This allows using select() in the build method for better performance
   Widget _buildInputBarWithParams({
@@ -5674,16 +5802,43 @@ Describe project-specific guidance for Codex here.
             ? () => _showClaudeCodeModelSheet()
             : null,
         onCCPermissionModeChanged: widget.isClaudeCode
-            ? (mode) {
+            ? (mode) async {
+                final messenger = ScaffoldMessenger.of(context);
                 final notifier = ref.read(ccConfigProvider.notifier);
                 final existing = ref.read(ccConfigProvider).valueOrNull;
-                notifier.updateConfig(
+                await notifier.updateConfig(
                   existing?.copyWith(permissionMode: mode) ??
                       ClaudeCodeConfig(
                         permissionMode: mode,
                         allowedTools: const [],
                         disallowedTools: const [],
                       ),
+                );
+
+                final liveState = ref.read(chatSessionProvider);
+                final sessionId = liveState.ccSessionId;
+                final canApplyLive =
+                    liveState.ccIsStreaming &&
+                    sessionId != null &&
+                    sessionId.isNotEmpty;
+                if (!canApplyLive) return;
+
+                final ok = await ref
+                    .read(bridgeServiceProvider)
+                    .ccSetPermissionMode(
+                      sessionId: sessionId,
+                      mode: mode.wireValue,
+                    );
+                if (!mounted) return;
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      ok
+                          ? 'Permission mode applied to current Claude turn.'
+                          : 'Saved as default. Live turn update failed.',
+                    ),
+                    behavior: SnackBarBehavior.floating,
+                  ),
                 );
               }
             : null,
@@ -5785,16 +5940,43 @@ Describe project-specific guidance for Codex here.
                       ?.permissionMode)
             : null,
         onCCPermissionModeChanged: widget.isClaudeCode
-            ? (mode) {
+            ? (mode) async {
+                final messenger = ScaffoldMessenger.of(context);
                 final notifier = ref.read(ccConfigProvider.notifier);
                 final existing = ref.read(ccConfigProvider).valueOrNull;
-                notifier.updateConfig(
+                await notifier.updateConfig(
                   existing?.copyWith(permissionMode: mode) ??
                       ClaudeCodeConfig(
                         permissionMode: mode,
                         allowedTools: const [],
                         disallowedTools: const [],
                       ),
+                );
+
+                final liveState = ref.read(chatSessionProvider);
+                final sessionId = liveState.ccSessionId;
+                final canApplyLive =
+                    liveState.ccIsStreaming &&
+                    sessionId != null &&
+                    sessionId.isNotEmpty;
+                if (!canApplyLive) return;
+
+                final ok = await ref
+                    .read(bridgeServiceProvider)
+                    .ccSetPermissionMode(
+                      sessionId: sessionId,
+                      mode: mode.wireValue,
+                    );
+                if (!mounted) return;
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      ok
+                          ? 'Permission mode applied to current Claude turn.'
+                          : 'Saved as default. Live turn update failed.',
+                    ),
+                    behavior: SnackBarBehavior.floating,
+                  ),
                 );
               }
             : null,
@@ -5851,6 +6033,7 @@ Describe project-specific guidance for Codex here.
     }
     return inputBar;
   }
+
   /// Builds the appropriate compact card for a tool call
   Widget _buildToolCard(ToolCall tool, String messageId) {
     final toolName = tool.name.toLowerCase().replaceFirst('mcp_', '');
@@ -5902,6 +6085,7 @@ Describe project-specific guidance for Codex here.
           : null,
     );
   }
+
   /// Task 3: Build a compaction divider marker
   Widget _buildCompactionDivider() {
     final theme = OpenCodeTheme.of(context);
@@ -5936,6 +6120,7 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
+
   // _buildSubtaskChip removed — using CompactAgentCard.fromNotification() instead
   /// Task 7: Build a muted retry indicator
   Widget _buildRetryIndicator(int attempt, String? errorMessage) {
@@ -5954,9 +6139,7 @@ Describe project-specific guidance for Codex here.
         decoration: BoxDecoration(
           color: theme.warning.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: theme.warning.withValues(alpha: 0.3),
-          ),
+          border: Border.all(color: theme.warning.withValues(alpha: 0.3)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -5987,11 +6170,7 @@ Describe project-specific guidance for Codex here.
                       );
                     }
                   },
-                  icon: Icon(
-                    Icons.compress,
-                    size: 16,
-                    color: theme.accent,
-                  ),
+                  icon: Icon(Icons.compress, size: 16, color: theme.accent),
                   label: Text(
                     'Compact',
                     style: TextStyle(color: theme.accent, fontSize: 12),
@@ -6110,11 +6289,12 @@ Describe project-specific guidance for Codex here.
     final tokenStr = tokensTotal > 0
         ? '${(tokensTotal / 1000).toStringAsFixed(1)}K tokens'
         : '';
-    final costStr =
-        cost > 0 ? '\$${cost.toStringAsFixed(3)}' : '';
-    final parts = [reason, tokenStr, costStr]
-        .where((s) => s.isNotEmpty)
-        .join(' · ');
+    final costStr = cost > 0 ? '\$${cost.toStringAsFixed(3)}' : '';
+    final parts = [
+      reason,
+      tokenStr,
+      costStr,
+    ].where((s) => s.isNotEmpty).join(' · ');
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -6159,10 +6339,12 @@ Describe project-specific guidance for Codex here.
       return [];
     }
   }
+
   /// Check if a tool can be undone (write operations)
   bool _canUndoTool(String toolName) {
     return toolName == 'write';
   }
+
   /// Check if a tool is an edit/patch tool (handles all backend naming conventions)
   /// - OpenCode: 'edit', 'patch'
   /// - Claude Code: 'str_replace_editor', 'edit'
@@ -6175,6 +6357,7 @@ Describe project-specific guidance for Codex here.
         toolName == 'str_replace' ||
         toolName == 'file_editor';
   }
+
   /// Whether an assistant message contains any file-modifying tool calls.
   bool _messageHasFileChanges(ChatMessage message) {
     return message.toolCalls.any((t) {
@@ -6182,6 +6365,7 @@ Describe project-specific guidance for Codex here.
       return _isFileModificationTool(name);
     });
   }
+
   /// Extract file paths from file-modifying tool calls in a message.
   /// Uses the same field-name heuristics as CompactEditCard._getFilePath().
   List<String> _extractChangedFilePaths(ChatMessage message) {
@@ -6211,6 +6395,7 @@ Describe project-specific guidance for Codex here.
     }
     return paths.toList();
   }
+
   /// Check if a tool is a file modification tool (edit, write, patch)
   /// These tools produce diffs that are shown inline in their compact cards
   bool _isFileModificationTool(String toolName) {
@@ -6219,6 +6404,7 @@ Describe project-specific guidance for Codex here.
         toolName == 'create' ||
         toolName == 'touch';
   }
+
   /// Check if a diff came from a file modification tool (to avoid duplicate display)
   /// For Claude Code and Codex, file tools and diffs represent the same changes,
   /// so we hide diffs when file modification tools are present.
@@ -6230,6 +6416,7 @@ Describe project-specific guidance for Codex here.
       return _isFileModificationTool(name);
     });
   }
+
   Widget _buildMessageGroup(ChatMessage message) {
     // Task 3: Compaction marker — render as centered divider instead of error bubble
     if (message.error == 'context_compacted') {
@@ -6331,6 +6518,7 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
+
   /// Build a compact card widget for variant-tagged system messages.
   /// Returns null if the variant is not recognized (falls through to default rendering).
   Widget? _buildVariantCard(ChatMessage message) {
@@ -6346,15 +6534,17 @@ Describe project-specific guidance for Codex here.
         taskId: taskId,
         status: status,
         summary: message.text.replaceFirst(RegExp(r'^[✅❌⏳]\s*Task:\s*'), ''),
-        onStop: status != 'completed' && status != 'failed' && status != 'stopped'
+        onStop:
+            status != 'completed' && status != 'failed' && status != 'stopped'
             ? () {
                 final ccState = ref.read(ccChatProvider);
                 final sessionId = ccState.sessionId;
-                if (sessionId != null && sessionId.isNotEmpty && taskId.isNotEmpty) {
-                  ref.read(bridgeServiceProvider).ccStopTask(
-                    sessionId: sessionId,
-                    taskId: taskId,
-                  );
+                if (sessionId != null &&
+                    sessionId.isNotEmpty &&
+                    taskId.isNotEmpty) {
+                  ref
+                      .read(bridgeServiceProvider)
+                      .ccStopTask(sessionId: sessionId, taskId: taskId);
                 }
               }
             : null,
@@ -6418,10 +6608,7 @@ Describe project-specific guidance for Codex here.
             Expanded(
               child: Text(
                 'Compacting conversation…',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: theme.textMuted,
-                ),
+                style: TextStyle(fontSize: 12, color: theme.textMuted),
               ),
             ),
           ],
@@ -6445,20 +6632,12 @@ Describe project-specific guidance for Codex here.
         ),
         child: Row(
           children: [
-            Icon(
-              Icons.warning_amber_rounded,
-              size: 16,
-              color: theme.error,
-            ),
+            Icon(Icons.warning_amber_rounded, size: 16, color: theme.error),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 message.text,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: theme.text,
-                  height: 1.3,
-                ),
+                style: TextStyle(fontSize: 12, color: theme.text, height: 1.3),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -6484,11 +6663,7 @@ Describe project-specific guidance for Codex here.
         ),
         child: Row(
           children: [
-            Icon(
-              Icons.vpn_key_rounded,
-              size: 14,
-              color: theme.accent,
-            ),
+            Icon(Icons.vpn_key_rounded, size: 14, color: theme.accent),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -6522,20 +6697,12 @@ Describe project-specific guidance for Codex here.
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.save_outlined,
-            size: 16,
-            color: theme.success,
-          ),
+          Icon(Icons.save_outlined, size: 16, color: theme.success),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               message.text.replaceFirst('💾 ', ''),
-              style: TextStyle(
-                fontSize: 12,
-                color: theme.text,
-                height: 1.3,
-              ),
+              style: TextStyle(fontSize: 12, color: theme.text, height: 1.3),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -6618,10 +6785,7 @@ Describe project-specific guidance for Codex here.
         // SDK v1.2.1: Agent indicator — small tinted pill badge
         case AgentIndicatorPart(:final agentName):
           widgets.add(
-            Padding(
-              padding: Insets.topSm,
-              child: _buildAgentPill(agentName),
-            ),
+            Padding(padding: Insets.topSm, child: _buildAgentPill(agentName)),
           );
         // SDK v1.2.1: Compaction divider with auto/manual indicator
         case CompactionIndicatorPart(:final auto):
@@ -6629,20 +6793,15 @@ Describe project-specific guidance for Codex here.
         // SDK v1.2.1: Patch — compact file list
         case PatchIndicatorPart(:final files):
           widgets.add(
-            Padding(
-              padding: Insets.topSm,
-              child: _buildPatchCard(files),
-            ),
+            Padding(padding: Insets.topSm, child: _buildPatchCard(files)),
           );
         // SDK v1.2.1: Step finish — thin token divider
         case StepFinishIndicatorPart(
-              :final reason,
-              :final tokensTotal,
-              :final cost,
-            ):
-          widgets.add(
-            _buildStepFinishDivider(reason, tokensTotal, cost),
-          );
+          :final reason,
+          :final tokensTotal,
+          :final cost,
+        ):
+          widgets.add(_buildStepFinishDivider(reason, tokensTotal, cost));
         // Not rendered visually — internal plumbing data
         case SnapshotPart():
           break;
@@ -6750,6 +6909,7 @@ Describe project-specific guidance for Codex here.
         break;
     }
   }
+
   void _showProjectToolsSheet() {
     final backend = widget.isClaudeCode
         ? AgentType.claudeCode
@@ -6775,6 +6935,7 @@ Describe project-specific guidance for Codex here.
       builder: (_) => ProjectToolsSheet(backend: backend, project: project),
     );
   }
+
   Future<void> _clearInstance() async {
     final theme = OpenCodeTheme.of(context);
     final confirm = await showDialog<bool>(
@@ -6815,6 +6976,7 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
+
   /// Stop AI generation for all backends
   /// Sends abort to bridge and clears local streaming states
   void _stopGeneration() {
@@ -6841,6 +7003,7 @@ Describe project-specific guidance for Codex here.
       notifier.markAllStreamingComplete();
     }
   }
+
   void _showModelSelector(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     DetailSheet.show(
@@ -6862,6 +7025,7 @@ Describe project-specific guidance for Codex here.
       ),
     );
   }
+
   /// Auto-send a pending CC message when the turn completes.
   /// Uses the same CC send flow as _sendMessage (config, model, sessionId, etc.)
   void _autoSendPendingCCMessage() {
@@ -6876,8 +7040,7 @@ Describe project-specific guidance for Codex here.
     // Read all the same config values that _sendMessage reads for CC
     final bridge = ref.read(bridgeServiceProvider);
     final ccConfig = ref.read(ccConfigProvider).valueOrNull;
-    final cwd =
-        chatState.ccCwd ?? widget.ccSession?.cwd ?? widget.ccDraftCwd;
+    final cwd = chatState.ccCwd ?? widget.ccSession?.cwd ?? widget.ccDraftCwd;
     final model =
         ccConfig?.model ??
         chatState.ccModel ??
@@ -6930,6 +7093,7 @@ Describe project-specific guidance for Codex here.
     _userHasScrolledUp = false;
     _scrollToBottom();
   }
+
   // PERF: Version that takes individual params, used with select()
   void _sendMessageWithParams(
     BridgeConnectionState connection,
@@ -6940,6 +7104,7 @@ Describe project-specific guidance for Codex here.
     final chatState = ref.read(chatSessionProvider);
     _sendMessage(connection, chatState);
   }
+
   void _sendMessage(
     BridgeConnectionState connection,
     ChatSessionState chatState,
@@ -6978,10 +7143,9 @@ Describe project-specific guidance for Codex here.
       if (chatState.cxIsStreaming) {
         final threadId = chatState.cxThreadId;
         if (threadId != null && threadId.isNotEmpty) {
-          ref.read(bridgeServiceProvider).cxSteer(
-            threadId: threadId,
-            prompt: text,
-          );
+          ref
+              .read(bridgeServiceProvider)
+              .cxSteer(threadId: threadId, prompt: text);
           // Show the steer message in chat so the user sees what they sent
           ref.read(chatSessionProvider.notifier).appendUserMessage(text);
           _controller.clear();
@@ -7209,7 +7373,9 @@ Describe project-specific guidance for Codex here.
         };
         chat.appendUserMessage(text);
         ref.read(codexSettingsProvider.notifier).setPersonality(p);
-        chat.appendLocalAssistantMessage('Personality set to: ${p.displayName}');
+        chat.appendLocalAssistantMessage(
+          'Personality set to: ${p.displayName}',
+        );
         _controller.clear();
         _userHasScrolledUp = false;
         _scrollToBottom();
@@ -7224,7 +7390,9 @@ Describe project-specific guidance for Codex here.
         };
         chat.appendUserMessage(text);
         ref.read(codexSettingsProvider.notifier).setCollaborationMode(mode);
-        chat.appendLocalAssistantMessage('Collaboration mode set to: ${mode.displayName}');
+        chat.appendLocalAssistantMessage(
+          'Collaboration mode set to: ${mode.displayName}',
+        );
         _controller.clear();
         _userHasScrolledUp = false;
         _scrollToBottom();
@@ -7241,16 +7409,17 @@ Describe project-specific guidance for Codex here.
         } else {
           () async {
             try {
-              await ref.read(bridgeServiceProvider).cxRenameThread(
-                threadId: threadId,
-                name: name,
-              );
+              await ref
+                  .read(bridgeServiceProvider)
+                  .cxRenameThread(threadId: threadId, name: name);
               if (mounted) {
                 chat.appendLocalAssistantMessage('Thread renamed to: $name');
               }
             } catch (e) {
               if (mounted) {
-                chat.appendLocalAssistantMessage('Rename failed: ${humanizeError(e)}');
+                chat.appendLocalAssistantMessage(
+                  'Rename failed: ${humanizeError(e)}',
+                );
               }
             }
           }();
@@ -7268,15 +7437,19 @@ Describe project-specific guidance for Codex here.
         } else {
           () async {
             try {
-              final forked = await ref.read(bridgeServiceProvider).cxThreadFork(
-                threadId: threadId,
-              );
+              final forked = await ref
+                  .read(bridgeServiceProvider)
+                  .cxThreadFork(threadId: threadId);
               if (mounted) {
-                chat.appendLocalAssistantMessage('Thread forked! New thread: ${forked.displayTitle}');
+                chat.appendLocalAssistantMessage(
+                  'Thread forked! New thread: ${forked.displayTitle}',
+                );
               }
             } catch (e) {
               if (mounted) {
-                chat.appendLocalAssistantMessage('Fork failed: ${humanizeError(e)}');
+                chat.appendLocalAssistantMessage(
+                  'Fork failed: ${humanizeError(e)}',
+                );
               }
             }
           }();
@@ -7428,7 +7601,9 @@ Describe project-specific guidance for Codex here.
                 );
               }
             } catch (e) {
-              chat.appendLocalAssistantMessage('Undo failed: ${humanizeError(e)}');
+              chat.appendLocalAssistantMessage(
+                'Undo failed: ${humanizeError(e)}',
+              );
             }
           }();
         }
@@ -7529,7 +7704,9 @@ Describe your project here.
               chat.appendLocalAssistantMessage(buf.toString().trim());
             }
           } catch (e) {
-            chat.appendLocalAssistantMessage('Failed to list MCP servers: ${humanizeError(e)}');
+            chat.appendLocalAssistantMessage(
+              'Failed to list MCP servers: ${humanizeError(e)}',
+            );
           }
         }();
         return;
@@ -7658,6 +7835,7 @@ Describe your project here.
     _userHasScrolledUp = false;
     _scrollToBottom();
   }
+
   void _scrollToBottom({bool animate = true}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
@@ -7672,6 +7850,7 @@ Describe your project here.
       }
     });
   }
+
   // PERF: Separate method that takes just the permissions list, used with select()
   void _maybeShowPermissionPromptFromList(List<PermissionRequest> permissions) {
     if (permissions.isEmpty) {
@@ -7728,8 +7907,9 @@ Describe your project here.
       ).whenComplete(() => _activePermissionId = null);
     });
   }
+
   void _maybeShowQuestionPrompt(QuestionRequest? request) {
-    if (!widget.isOpenCode) return;
+    if (!widget.isOpenCode && !widget.isClaudeCode) return;
     if (request == null || request.id.isEmpty) {
       _activeQuestionId = null;
       return;
@@ -7767,6 +7947,7 @@ Describe your project here.
       ).whenComplete(() => _activeQuestionId = null);
     });
   }
+
   void _maybeShowCodexQuestionPrompt(CodexUserInputRequest? request) {
     if (!widget.isCodex) return;
     if (request == null || request.requestId.isEmpty) {
@@ -7824,6 +8005,7 @@ Describe your project here.
       ).whenComplete(() => _activeCxQuestionId = null);
     });
   }
+
   void _respondToPermission(
     PermissionRequest request,
     String response, {
@@ -7868,6 +8050,7 @@ Describe your project here.
     Navigator.pop(context);
   }
 }
+
 // Floating header - simplified and compact
 class _FloatingHeader extends StatelessWidget {
   const _FloatingHeader({
@@ -7943,11 +8126,7 @@ class _FloatingHeader extends StatelessWidget {
             // Back button
             _GlassPill(
               onTap: onBack,
-              child: Icon(
-                AppIcons.back,
-                color: kOnBackground,
-                size: 22,
-              ),
+              child: Icon(AppIcons.back, color: kOnBackground, size: 22),
             ),
             SizedBox(width: Spacing.sm),
             // Combined: Project + Agent (main pill)
@@ -8127,6 +8306,7 @@ class _FloatingHeader extends StatelessWidget {
       ),
     );
   }
+
   void _showAgentPicker(BuildContext context) {
     // Show all non-hidden agents, primary first
     final visibleAgents = agents.where((a) => !a.hidden).toList()
@@ -8178,7 +8358,10 @@ class _FloatingHeader extends StatelessWidget {
                   if (!agent.isPrimary) ...[
                     const SizedBox(width: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1,
+                      ),
                       decoration: BoxDecoration(
                         color: theme.textMuted.withValues(alpha: 0.12),
                         borderRadius: Radii.brXs,
@@ -8228,6 +8411,7 @@ class _FloatingHeader extends StatelessWidget {
       ),
     );
   }
+
   void _showSessionActionsSheet(
     BuildContext context, {
     required OpenCodeTheme theme,
@@ -8264,6 +8448,7 @@ class _FloatingHeader extends StatelessWidget {
       ),
     );
   }
+
   void _showClaudeCodeActionsSheet(
     BuildContext context, {
     required OpenCodeTheme theme,
@@ -8290,6 +8475,7 @@ class _FloatingHeader extends StatelessWidget {
       ),
     );
   }
+
   void _showCodexActionsSheet(
     BuildContext context, {
     required OpenCodeTheme theme,
@@ -8317,6 +8503,7 @@ class _FloatingHeader extends StatelessWidget {
     );
   }
 }
+
 /// Session actions content for DetailSheet
 class _SessionActionsContent extends StatelessWidget {
   const _SessionActionsContent({
@@ -8354,6 +8541,7 @@ class _SessionActionsContent extends StatelessWidget {
         ? model.modelID.substring(0, 8)
         : model.modelID;
   }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -8378,11 +8566,7 @@ class _SessionActionsContent extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        AppIcons.callSplit,
-                        size: 14,
-                        color: theme.success,
-                      ),
+                      Icon(AppIcons.callSplit, size: 14, color: theme.success),
                       const SizedBox(width: 6),
                       Text(
                         vcsInfo!.branch ?? 'main',
@@ -8540,9 +8724,7 @@ class _SessionActionsContent extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   _ActionTile(
-                    icon: isSessionShared
-                        ? AppIcons.unlink
-                        : AppIcons.share,
+                    icon: isSessionShared ? AppIcons.unlink : AppIcons.share,
                     label: isSessionShared ? 'Unshare' : 'Share',
                     theme: theme,
                     onTap: () =>
@@ -8626,6 +8808,7 @@ class _SessionActionsContent extends StatelessWidget {
     );
   }
 }
+
 /// Square action tile for grid layout
 class _ActionTile extends StatelessWidget {
   const _ActionTile({
@@ -8670,6 +8853,7 @@ class _ActionTile extends StatelessWidget {
     );
   }
 }
+
 /// Row action item for list layout
 class _ActionRow extends StatelessWidget {
   const _ActionRow({
@@ -8737,6 +8921,7 @@ class _ActionRow extends StatelessWidget {
     );
   }
 }
+
 /// Claude Code actions content for DetailSheet
 class _ClaudeCodeActionsContent extends StatelessWidget {
   const _ClaudeCodeActionsContent({
@@ -8761,6 +8946,7 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
     if (m.contains('haiku')) return 'Haiku';
     return model.length > 12 ? '${model.substring(0, 12)}...' : model;
   }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -8815,11 +9001,7 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        AppIcons.autoAwesome,
-                        size: 14,
-                        color: theme.accent,
-                      ),
+                      Icon(AppIcons.autoAwesome, size: 14, color: theme.accent),
                       const SizedBox(width: 6),
                       Text(
                         _getModelName(ccModel),
@@ -8965,6 +9147,7 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
     );
   }
 }
+
 /// Codex actions content for DetailSheet
 class _CodexActionsContent extends StatelessWidget {
   const _CodexActionsContent({
@@ -8989,6 +9172,7 @@ class _CodexActionsContent extends StatelessWidget {
     if (m.contains('gpt-4')) return 'GPT-4';
     return model.length > 12 ? '${model.substring(0, 12)}...' : model;
   }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -9222,6 +9406,7 @@ class _CodexActionsContent extends StatelessWidget {
     );
   }
 }
+
 // Glass pill widget for header elements
 // FIX: Removed expensive BackdropFilter - uses simple semi-transparent background instead
 // BackdropFilter causes severe frame drops during scrolling as it rasterizes everything behind it
@@ -9265,6 +9450,7 @@ class _GlassPill extends StatelessWidget {
     );
   }
 }
+
 // Floating input bar with streaming mode support
 class _FloatingInputBar extends ConsumerWidget {
   const _FloatingInputBar({
@@ -9367,6 +9553,7 @@ class _FloatingInputBar extends ConsumerWidget {
       ),
     );
   }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = OpenCodeTheme.of(context);
@@ -9591,6 +9778,7 @@ class _FloatingInputBar extends ConsumerWidget {
       ),
     );
   }
+
   /// Builds the floating pill container with the appropriate glow style.
   Widget _buildFloatingContainer({
     required GlowStyle glowStyle,
@@ -9667,6 +9855,7 @@ class _FloatingInputBar extends ConsumerWidget {
     }
   }
 }
+
 /// CustomPainter that draws a glowing border around a fully rounded pill shape.
 class _PillGlowPainter extends CustomPainter {
   _PillGlowPainter({
@@ -9703,12 +9892,14 @@ class _PillGlowPainter extends CustomPainter {
       ..strokeWidth = strokeWidth;
     canvas.drawRRect(rect, solidPaint);
   }
+
   @override
   bool shouldRepaint(covariant _PillGlowPainter oldDelegate) =>
       oldDelegate.color != color ||
       oldDelegate.radius != radius ||
       oldDelegate.strokeWidth != strokeWidth;
 }
+
 // CLI-style input bar (OpenCode terminal aesthetic)
 class _CliStyleInputBar extends StatefulWidget {
   const _CliStyleInputBar({
@@ -9794,6 +9985,7 @@ class _CliStyleInputBar extends StatefulWidget {
   @override
   State<_CliStyleInputBar> createState() => _CliStyleInputBarState();
 }
+
 class _CliStyleInputBarState extends State<_CliStyleInputBar> {
   static const _placeholders = [
     'Fix a TODO in the codebase',
@@ -9822,11 +10014,13 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
       });
     });
   }
+
   @override
   void dispose() {
     _placeholderTimer?.cancel(); // FIX: Cancel timer to prevent memory leak
     super.dispose();
   }
+
   /// Cycle through variants/thinking levels
   void _cycleVariant() {
     if (widget.availableVariants.isEmpty) return;
@@ -9839,6 +10033,7 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
       widget.onVariantChanged?.call(widget.availableVariants[nextIndex]);
     }
   }
+
   /// Show the unified PowerSheet for all backends
   void _showPowerSheet(BuildContext context) {
     showModalBottomSheet(
@@ -9878,6 +10073,7 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
       ),
     );
   }
+
   /// Format thinking level display for CLI prompt bar
   String _formatThinkingLevelDisplay(String variant) {
     final backend = widget.backend;
@@ -9916,6 +10112,7 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
     if (variant.isEmpty) return 'Default';
     return variant[0].toUpperCase() + variant.substring(1);
   }
+
   String _getModelDisplayName(SelectedModel? model) {
     if (model == null) return 'Auto';
     // Try to extract clean model name
@@ -9927,6 +10124,7 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
     if (id.contains('gpt-3')) return 'GPT-3.5';
     return id;
   }
+
   String _getProviderName(SelectedModel? model) {
     if (model == null) return '';
     final provider = model.providerID.toLowerCase();
@@ -9936,6 +10134,7 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
     if (provider.contains('openrouter')) return 'OpenRouter';
     return model.providerID;
   }
+
   /// Get Claude Code model display name from model string
   String _getCCModelDisplayName(String? model) {
     if (model == null || model.isEmpty) return 'Auto';
@@ -9948,6 +10147,7 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
     final parts = model.split('/');
     return parts.last;
   }
+
   /// Get Codex model display name from model string
   String _getCodexModelDisplayName(String? model) {
     if (model == null || model.isEmpty) return 'gpt-5.2-codex';
@@ -9955,6 +10155,7 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
     if (model.length > 16) return '${model.substring(0, 14)}...';
     return model;
   }
+
   /// Get Codex collaboration mode display name
   String _getCodexCollabModeDisplay(CodexCollaborationMode? mode) {
     switch (mode) {
@@ -9966,6 +10167,7 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
         return 'Default';
     }
   }
+
   /// Get color for Codex collaboration mode
   Color _getCodexCollabModeColor(
     CodexCollaborationMode? mode,
@@ -9980,6 +10182,7 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
         return theme.primary;
     }
   }
+
   /// Get color for permission mode
   Color _getPermissionModeColor(
     ClaudeCodePermissionMode? mode,
@@ -10002,6 +10205,7 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
         return theme.primary;
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -10395,6 +10599,7 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
       ),
     );
   }
+
   /// Builds the CLI input container with the appropriate glow style.
   Widget _buildCliContainer({
     required OpenCodeTheme theme,
@@ -10467,6 +10672,7 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
         );
     }
   }
+
   Agent? _getCurrentAgent() {
     final primaryAgents = widget.agents.where((a) => a.isPrimary).toList();
     if (primaryAgents.isEmpty) return null;
@@ -10476,6 +10682,7 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
     );
   }
 }
+
 /// CustomPainter that draws a glowing ∩-shaped border (left + top + right)
 /// on the CLI input bar container.
 class _GlowBorderPainter extends CustomPainter {
@@ -10520,12 +10727,14 @@ class _GlowBorderPainter extends CustomPainter {
       ..strokeCap = StrokeCap.butt;
     canvas.drawPath(path, solidPaint);
   }
+
   @override
   bool shouldRepaint(covariant _GlowBorderPainter oldDelegate) =>
       oldDelegate.color != color ||
       oldDelegate.radius != radius ||
       oldDelegate.strokeWidth != strokeWidth;
 }
+
 /// Content widget for agent and permission selection in DetailSheet
 class _AgentAndPermissionContent extends ConsumerStatefulWidget {
   const _AgentAndPermissionContent({
@@ -10542,6 +10751,7 @@ class _AgentAndPermissionContent extends ConsumerStatefulWidget {
   ConsumerState<_AgentAndPermissionContent> createState() =>
       _AgentAndPermissionContentState();
 }
+
 class _AgentAndPermissionContentState
     extends ConsumerState<_AgentAndPermissionContent> {
   @override
@@ -10677,9 +10887,13 @@ class _AgentAndPermissionContentState
                                                 ),
                                               ),
                                               if (agent.variant != null &&
-                                                  agent.variant!.isNotEmpty) ...[
+                                                  agent
+                                                      .variant!
+                                                      .isNotEmpty) ...[
                                                 const SizedBox(width: 6),
-                                                VariantBadge.small(variant: agent.variant),
+                                                VariantBadge.small(
+                                                  variant: agent.variant,
+                                                ),
                                               ],
                                             ],
                                           ),
@@ -10694,7 +10908,8 @@ class _AgentAndPermissionContentState
                                             Text(
                                               agent.model!.displayName,
                                               style: TextStyle(
-                                                color: widget.theme.textMuted.withValues(alpha: 0.7),
+                                                color: widget.theme.textMuted
+                                                    .withValues(alpha: 0.7),
                                                 fontSize: 11,
                                                 fontStyle: FontStyle.italic,
                                               ),
@@ -10817,6 +11032,7 @@ class _AgentAndPermissionContentState
     );
   }
 }
+
 /// Card for primary agents (Build/Plan)
 class _AgentCard extends StatelessWidget {
   const _AgentCard({
@@ -10909,6 +11125,7 @@ class _AgentCard extends StatelessWidget {
     );
   }
 }
+
 /// Compact permission preset card for grid
 class _PermissionPresetCard extends StatelessWidget {
   const _PermissionPresetCard({
@@ -10963,6 +11180,7 @@ class _PermissionPresetCard extends StatelessWidget {
     );
   }
 }
+
 /// Chip widget for variant/thinking level selection
 class _VariantChip extends StatelessWidget {
   const _VariantChip({
@@ -11003,6 +11221,7 @@ class _VariantChip extends StatelessWidget {
     );
   }
 }
+
 // Model selector content for DetailSheet
 class _ModelSelectorContent extends ConsumerStatefulWidget {
   const _ModelSelectorContent({required this.onModelSelected});
@@ -11011,6 +11230,7 @@ class _ModelSelectorContent extends ConsumerStatefulWidget {
   ConsumerState<_ModelSelectorContent> createState() =>
       _ModelSelectorContentState();
 }
+
 class _ModelSelectorContentState extends ConsumerState<_ModelSelectorContent> {
   Map<String, dynamic>? _providersData;
   String? _currentModel;
@@ -11021,6 +11241,7 @@ class _ModelSelectorContentState extends ConsumerState<_ModelSelectorContent> {
     super.initState();
     _loadData();
   }
+
   Future<void> _loadData() async {
     try {
       final bridge = ref.read(bridgeServiceProvider);
@@ -11050,6 +11271,7 @@ class _ModelSelectorContentState extends ConsumerState<_ModelSelectorContent> {
       });
     }
   }
+
   Future<void> _selectModel(String providerId, String modelId) async {
     final model = '$providerId/$modelId';
     final bridge = ref.read(bridgeServiceProvider);
@@ -11059,6 +11281,7 @@ class _ModelSelectorContentState extends ConsumerState<_ModelSelectorContent> {
     });
     widget.onModelSelected(model);
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -11134,6 +11357,7 @@ class _ModelSelectorContentState extends ConsumerState<_ModelSelectorContent> {
       ],
     );
   }
+
   List<Widget> _modelCapabilityIcons(
     Map<String, dynamic> model,
     OpenCodeTheme theme,
@@ -11142,13 +11366,20 @@ class _ModelSelectorContentState extends ConsumerState<_ModelSelectorContent> {
     const s = 13.0;
     final c = theme.textMuted.withValues(alpha: 0.7);
     if (model['reasoning'] == true) {
-      icons.add(Tooltip(
-          message: 'Reasoning', child: Icon(AppIcons.brain, size: s, color: c)));
+      icons.add(
+        Tooltip(
+          message: 'Reasoning',
+          child: Icon(AppIcons.brain, size: s, color: c),
+        ),
+      );
     }
     if (model['attachment'] == true) {
-      icons.add(Tooltip(
+      icons.add(
+        Tooltip(
           message: 'Images',
-          child: Icon(AppIcons.image, size: s, color: c)));
+          child: Icon(AppIcons.image, size: s, color: c),
+        ),
+      );
     }
     // Check modalities for PDF/audio
     final mods = model['modalities'];
@@ -11156,26 +11387,38 @@ class _ModelSelectorContentState extends ConsumerState<_ModelSelectorContent> {
       final input = mods['input'];
       if (input is List) {
         if (input.contains('pdf')) {
-          icons.add(Tooltip(
+          icons.add(
+            Tooltip(
               message: 'PDF',
-              child: Icon(AppIcons.description, size: s, color: c)));
+              child: Icon(AppIcons.description, size: s, color: c),
+            ),
+          );
         }
         if (input.contains('audio')) {
-          icons.add(Tooltip(
+          icons.add(
+            Tooltip(
               message: 'Audio',
-              child: Icon(AppIcons.mic, size: s, color: c)));
+              child: Icon(AppIcons.mic, size: s, color: c),
+            ),
+          );
         }
       }
     }
     final status = model['status'] as String?;
     if (status == 'deprecated') {
-      icons.add(Tooltip(
+      icons.add(
+        Tooltip(
           message: 'Deprecated',
-          child: Icon(AppIcons.warning, size: s, color: theme.warning)));
+          child: Icon(AppIcons.warning, size: s, color: theme.warning),
+        ),
+      );
     } else if (status == 'beta') {
-      icons.add(Tooltip(
+      icons.add(
+        Tooltip(
           message: 'Beta',
-          child: Icon(AppIcons.science, size: s, color: theme.info)));
+          child: Icon(AppIcons.science, size: s, color: theme.info),
+        ),
+      );
     }
     // Space between icons
     final spaced = <Widget>[];
@@ -11242,6 +11485,7 @@ class _ModelSelectorContentState extends ConsumerState<_ModelSelectorContent> {
     );
   }
 }
+
 // Feature 2: Slash command autocomplete popup with grouping
 class _CommandAutocomplete extends StatelessWidget {
   const _CommandAutocomplete({required this.commands, required this.onSelect});
@@ -11350,6 +11594,7 @@ class _CommandAutocomplete extends StatelessWidget {
       ),
     );
   }
+
   Widget _buildSectionHeader(
     String title,
     IconData icon,
@@ -11384,6 +11629,7 @@ class _CommandAutocomplete extends StatelessWidget {
       ),
     );
   }
+
   Widget _buildCommandTile(
     SlashCommand command,
     Color textColor,
@@ -11410,8 +11656,8 @@ class _CommandAutocomplete extends StatelessWidget {
                 command.source == CommandSource.mcp
                     ? AppIcons.extension_
                     : command.source == CommandSource.skill
-                        ? AppIcons.autoAwesome
-                        : AppIcons.terminal,
+                    ? AppIcons.autoAwesome
+                    : AppIcons.terminal,
                 size: 16,
                 color: accentColor,
               ),
@@ -11509,6 +11755,7 @@ class _CommandAutocomplete extends StatelessWidget {
     );
   }
 }
+
 class _CustomToolAutocomplete extends ConsumerWidget {
   const _CustomToolAutocomplete({required this.query, required this.onSelect});
   final String query;
@@ -11659,6 +11906,7 @@ class _CustomToolAutocomplete extends ConsumerWidget {
     );
   }
 }
+
 // Task 1: Retry status countdown banner
 class _RetryStatusBanner extends StatefulWidget {
   const _RetryStatusBanner({required this.status});
@@ -11666,6 +11914,7 @@ class _RetryStatusBanner extends StatefulWidget {
   @override
   State<_RetryStatusBanner> createState() => _RetryStatusBannerState();
 }
+
 class _RetryStatusBannerState extends State<_RetryStatusBanner> {
   Timer? _countdownTimer;
   int _remainingSeconds = 0;
@@ -11674,6 +11923,7 @@ class _RetryStatusBannerState extends State<_RetryStatusBanner> {
     super.initState();
     _startCountdown();
   }
+
   @override
   void didUpdateWidget(_RetryStatusBanner oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -11681,6 +11931,7 @@ class _RetryStatusBannerState extends State<_RetryStatusBanner> {
       _startCountdown();
     }
   }
+
   void _startCountdown() {
     _countdownTimer?.cancel();
     final nextTimestamp = widget.status.next;
@@ -11693,6 +11944,7 @@ class _RetryStatusBannerState extends State<_RetryStatusBanner> {
       _updateRemaining();
     });
   }
+
   void _updateRemaining() {
     final now = DateTime.now().millisecondsSinceEpoch;
     final next = widget.status.next ?? 0;
@@ -11706,11 +11958,13 @@ class _RetryStatusBannerState extends State<_RetryStatusBanner> {
       _countdownTimer?.cancel();
     }
   }
+
   @override
   void dispose() {
     _countdownTimer?.cancel();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -11745,6 +11999,7 @@ class _RetryStatusBannerState extends State<_RetryStatusBanner> {
     );
   }
 }
+
 // Task 2: Revert state banner
 class _RevertStateBanner extends StatelessWidget {
   const _RevertStateBanner({required this.onUndoRevert});
@@ -11791,6 +12046,7 @@ class _RevertStateBanner extends StatelessWidget {
     );
   }
 }
+
 /// Claude Code: Turn-level undo bar shown after assistant messages that
 /// modified files. The SDK only supports `rewindFiles(userMessageId)` which
 /// reverts ALL file changes back to a checkpoint — there is no per-file undo.
@@ -11801,8 +12057,10 @@ class _RevertStateBanner extends StatelessWidget {
 /// JetBrains Mono for paths, DetailSheet for the expanded file list.
 class _CCUndoTurnBar extends StatelessWidget {
   const _CCUndoTurnBar({required this.changedFiles, required this.onUndo});
+
   /// Paths of files changed in this turn (extracted from tool call inputs).
   final List<String> changedFiles;
+
   /// Called when the user taps undo. Should call rewindToCheckpoint().
   final VoidCallback onUndo;
   @override
@@ -11862,9 +12120,7 @@ class _CCUndoTurnBar extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: Radii.brSm,
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: Radii.brSm),
                 ),
               ),
             ),
@@ -11873,6 +12129,7 @@ class _CCUndoTurnBar extends StatelessWidget {
       ),
     );
   }
+
   void _showChangedFilesSheet(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     DetailSheet.show(
@@ -11938,6 +12195,7 @@ class _CCUndoTurnBar extends StatelessWidget {
     );
   }
 }
+
 /// Compact indicator shown below the floating header when Claude Code
 /// subagents (Task tool calls) are actively running.
 class _SubagentActivityIndicator extends StatelessWidget {
@@ -12007,6 +12265,7 @@ class _SubagentActivityIndicator extends StatelessWidget {
     );
   }
 }
+
 // Feature 13: Animated status indicator for session state
 class _StatusIndicator extends StatefulWidget {
   const _StatusIndicator({
@@ -12018,6 +12277,7 @@ class _StatusIndicator extends StatefulWidget {
   @override
   State<_StatusIndicator> createState() => _StatusIndicatorState();
 }
+
 class _StatusIndicatorState extends State<_StatusIndicator>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
@@ -12030,11 +12290,13 @@ class _StatusIndicatorState extends State<_StatusIndicator>
     );
     _updateAnimation();
   }
+
   @override
   void didUpdateWidget(_StatusIndicator oldWidget) {
     super.didUpdateWidget(oldWidget);
     _updateAnimation();
   }
+
   void _updateAnimation() {
     if (widget.sessionStatus.isBusy || widget.sessionStatus.isRetry) {
       _controller.repeat();
@@ -12043,11 +12305,13 @@ class _StatusIndicatorState extends State<_StatusIndicator>
       _controller.value = 0;
     }
   }
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
