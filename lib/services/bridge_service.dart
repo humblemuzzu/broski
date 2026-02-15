@@ -3937,6 +3937,25 @@ class BridgeService {
     return data['authorizationUrl'] as String? ?? '';
   }
 
+  /// #26: List collaboration mode presets (collaborationMode/list).
+  ///
+  /// Protocol: CollaborationModeListResponse = { data: CollaborationModeMask[] }
+  /// CollaborationModeMask fields use snake_case on the wire (no rename_all).
+  Future<List<Map<String, dynamic>>> cxListCollaborationModes() async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_collab_modes',
+      'requestId': requestId,
+    });
+    final response = await _waitFor(
+      'cx_collab_modes',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data.whereType<Map<String, dynamic>>().toList();
+  }
+
   // ============================================================
   // Claude Code - Skills, Hooks, Commands
   // ============================================================

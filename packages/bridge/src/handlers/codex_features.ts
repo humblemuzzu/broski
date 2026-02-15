@@ -284,6 +284,20 @@ export async function handleCodexFeature(
       break
     }
 
+    // ── #26: collaborationMode/list ─────────────────────────────────
+    // Protocol: CollaborationModeListParams = {} (empty)
+    // Response: CollaborationModeListResponse = { data: CollaborationModeMask[] }
+    // CollaborationModeMask = { name, mode?, model?, reasoning_effort?, developer_instructions? }
+    case 'cx_collab_modes': {
+      const client = await ensureCodexClient()
+      const result: any = await client.request('collaborationMode/list', {})
+      reply({
+        type: 'cx_collab_modes',
+        data: result?.data ?? [],
+      })
+      break
+    }
+
     default:
       return false // Not handled by this module
   }

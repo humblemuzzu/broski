@@ -1882,13 +1882,14 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               }
             }
 
-            // Protocol: CommandExecutionApprovalDecision uses snake_case for the inner field
-            // because serde(rename_all = "camelCase") on the enum only renames variant names,
-            // not struct variant fields. Wire format: { acceptWithExecpolicyAmendment: { execpolicy_amendment: [...] } }
+            // Protocol: CommandExecutionApprovalDecision has #[serde(rename_all = "camelCase")]
+            // which renames BOTH variant names AND struct variant fields to camelCase.
+            // ExecPolicyAmendment is #[serde(transparent)] → serializes as plain string[].
+            // Wire format: { "acceptWithExecpolicyAmendment": { "execpolicyAmendment": ["echo", "hello"] } }
             return {
               decision: {
                 acceptWithExecpolicyAmendment: {
-                  execpolicy_amendment: response.execpolicyAmendment,
+                  execpolicyAmendment: response.execpolicyAmendment,
                 },
               },
             }
@@ -6822,7 +6823,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       case 'cx_config_requirements_read':
       case 'cx_thread_loaded_list':
       case 'cx_thread_read':
-      case 'cx_mcp_oauth_login': {
+      case 'cx_mcp_oauth_login':
+      case 'cx_collab_modes': {
         const handled = await handleCodexFeature(message, reply, {
           ensureCodexClient,
           cxActiveTurns,

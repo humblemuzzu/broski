@@ -33,6 +33,7 @@ import '../providers/chat_provider.dart';
 import '../providers/claude_code_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/app_subscription_provider.dart';
+import '../providers/codex_collab_modes_provider.dart';
 import '../providers/codex_settings_provider.dart';
 import '../providers/file_search_provider.dart';
 import '../providers/input_style_provider.dart';
@@ -3846,12 +3847,87 @@ Describe project-specific guidance for Codex here.
                   onSelected: notifier.setPersonality,
                 ),
                 SizedBox(height: Spacing.lg),
-                chipGroup<CodexCollaborationMode>(
-                  label: 'Collaboration mode',
-                  values: CodexCollaborationMode.values,
-                  selected: settings.collaborationMode,
-                  display: (v) => v.displayName,
-                  onSelected: notifier.setCollaborationMode,
+                // Dynamic collaboration modes from Codex collaborationMode/list.
+                // Fetched once and cached for 5 min by the provider.
+                Builder(
+                  builder: (context) {
+                    final modesAsync = ref.watch(codexCollabModesProvider);
+                    final presets = modesAsync.valueOrNull ?? const [];
+                    if (presets.isEmpty) {
+                      // Still loading or empty — show a small spinner
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Collaboration mode',
+                            style: TextStyle(
+                              color: theme.textMuted,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          SizedBox(height: Spacing.sm),
+                          const SizedBox(
+                            height: 32,
+                            width: 32,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ],
+                      );
+                    }
+                    final currentWire = settings.collaborationMode.wireValue;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Collaboration mode',
+                          style: TextStyle(
+                            color: theme.textMuted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        SizedBox(height: Spacing.sm),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: presets.map((preset) {
+                            final isSelected = preset.wireMode == currentWire;
+                            return Tooltip(
+                              message: preset.description,
+                              child: ChoiceChip(
+                                label: Text(preset.displayName),
+                                selected: isSelected,
+                                onSelected: (_) {
+                                  notifier.setCollaborationMode(
+                                    CodexCollaborationMode.fromString(
+                                      preset.wireMode,
+                                    ),
+                                  );
+                                },
+                                labelStyle: TextStyle(
+                                  color: isSelected
+                                      ? theme.background
+                                      : theme.text,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                selectedColor: theme.primary,
+                                backgroundColor: theme.background,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: Radii.brMd,
+                                  side: BorderSide(
+                                    color: theme.borderSubtle
+                                        .withValues(alpha: 0.3),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ],
             ),
