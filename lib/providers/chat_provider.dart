@@ -3448,6 +3448,23 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         if (reason != null) {
           metadata['reason'] = reason;
         }
+        // #29: Surface structured approval context from bridge
+        final approvalCommand = params['approvalCommand'];
+        if (approvalCommand != null) {
+          metadata['approvalCommand'] = approvalCommand;
+        }
+        final approvalCwd = params['approvalCwd'];
+        if (approvalCwd != null) {
+          metadata['approvalCwd'] = approvalCwd;
+        }
+        final commandActions = params['commandActions'];
+        if (commandActions != null) {
+          metadata['commandActions'] = commandActions;
+        }
+        final grantRoot = params['grantRoot'];
+        if (grantRoot != null) {
+          metadata['grantRoot'] = grantRoot;
+        }
 
         String? command;
         if (cachedItem is Map<String, dynamic>) {
@@ -3465,10 +3482,24 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
             }
           }
         }
+        // #29: Fallback to approvalCommand from params if cachedItem didn't have it
+        command ??= approvalCommand?.toString();
 
-        final title = message.method == 'item/commandExecution/requestApproval'
-            ? 'Allow command execution?'
-            : 'Allow file changes?';
+        // #29: Build a richer title if reason includes network access context
+        String title;
+        if (message.method == 'item/commandExecution/requestApproval') {
+          if (reason != null && reason.toString().toLowerCase().contains('network')) {
+            title = 'Allow network access?';
+          } else {
+            title = 'Allow command execution?';
+          }
+        } else {
+          if (grantRoot != null) {
+            title = 'Allow write access to ${grantRoot.toString().split('/').last}?';
+          } else {
+            title = 'Allow file changes?';
+          }
+        }
 
         final request = PermissionRequest(
           id: message.requestId,
@@ -3630,13 +3661,14 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       String errorCode = 'turn_failed';
       if (error is Map<String, dynamic>) {
         errorMessage = error['message']?.toString() ?? errorMessage;
-        // Check for ModelCap error
+        // Check for structured codexErrorInfo (#13: ServerOverloaded + legacy ModelCap)
         final codexErrorInfo = error['codexErrorInfo'];
         if (codexErrorInfo is Map<String, dynamic>) {
           final capType = codexErrorInfo['type']?.toString();
-          if (capType == 'ModelCap') {
+          if (capType == 'ModelCap' || capType == 'modelCap') {
             final model = codexErrorInfo['model']?.toString() ?? 'Unknown';
-            final retrySeconds = codexErrorInfo['reset_after_seconds'];
+            final retrySeconds = codexErrorInfo['reset_after_seconds'] ??
+                codexErrorInfo['resetAfterSeconds'];
             if (retrySeconds is num && retrySeconds > 0) {
               final minutes = (retrySeconds / 60).ceil();
               errorMessage =
@@ -3646,6 +3678,39 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
                   'Model $model is at capacity. Please try a different model.';
             }
             errorCode = 'model_cap';
+          } else if (capType == 'ServerOverloaded' ||
+              capType == 'serverOverloaded') {
+            final retrySeconds = codexErrorInfo['retryAfterSeconds'] ??
+                codexErrorInfo['retry_after_seconds'];
+            if (retrySeconds is num && retrySeconds > 0) {
+              final minutes = (retrySeconds / 60).ceil();
+              errorMessage =
+                  'Server is overloaded. Try again in ${minutes}m.';
+            } else {
+              errorMessage =
+                  'Server is overloaded. Please wait a moment and try again.';
+            }
+            errorCode = 'server_overloaded';
+          } else if (capType == 'ContextWindowExceeded' ||
+              capType == 'contextWindowExceeded') {
+            errorMessage =
+                'Context window exceeded. Try compacting or starting a new thread.';
+            errorCode = 'context_window_exceeded';
+          } else if (capType == 'UsageLimitExceeded' ||
+              capType == 'usageLimitExceeded') {
+            errorMessage = 'Usage limit exceeded. Check your plan limits.';
+            errorCode = 'usage_limit_exceeded';
+          }
+        }
+        // Also check string-form codexErrorInfo (bridge may normalize)
+        if (codexErrorInfo is String) {
+          final ci = codexErrorInfo.toLowerCase();
+          if (ci.contains('serveroverloaded') || ci.contains('server_overloaded')) {
+            errorMessage = 'Server is overloaded. Please wait and try again.';
+            errorCode = 'server_overloaded';
+          } else if (ci.contains('contextwindow')) {
+            errorMessage = 'Context window exceeded. Try compacting.';
+            errorCode = 'context_window_exceeded';
           }
         }
       } else if (error is String) {
@@ -4079,6 +4144,32 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
             tree.updateStatus(
               receiverThreadId,
               status ?? CodexCollabAgentStatus.shutdown,
+            );
+            state = state.copyWith(cxCollabTree: tree);
+          }
+        }
+        break;
+
+      // #18/#30: collab/resume/begin
+      case 'collab/resume/begin':
+      case 'collab_resume_begin':
+        if (kDebugMode) {
+          developer.log(
+            'Collab: Resuming agent $receiverThreadId from $senderThreadId',
+            name: 'ChatProvider',
+          );
+        }
+        break;
+
+      // #18/#30: collab/resume/end
+      case 'collab/resume/end':
+      case 'collab_resume_end':
+        if (receiverThreadId != null) {
+          final tree = state.cxCollabTree;
+          if (tree != null) {
+            tree.updateStatus(
+              receiverThreadId,
+              status ?? CodexCollabAgentStatus.running,
             );
             state = state.copyWith(cxCollabTree: tree);
           }

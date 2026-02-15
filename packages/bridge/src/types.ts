@@ -327,7 +327,7 @@ export type ClientMessage =
   | { type: 'cc_background_session'; sessionId: string; cwd?: string }
   // Codex (OpenAI Codex app-server) messages
   | { type: 'cx_list_projects'; refresh?: boolean }
-  | { type: 'cx_list_threads'; cwd?: string; cursor?: string | null; limit?: number | null; refresh?: boolean }
+  | { type: 'cx_list_threads'; cwd?: string; cursor?: string | null; limit?: number | null; refresh?: boolean; sourceKinds?: string[]; sortKey?: string; modelProviders?: string[]; archived?: boolean }
   | { type: 'cx_warmup' }
   | { type: 'cx_start_thread'; cwd?: string; model?: string; approvalPolicy?: string; sandbox?: string; personality?: 'none' | 'friendly' | 'pragmatic' }
   | { type: 'cx_resume_thread'; threadId: string; personality?: 'none' | 'friendly' | 'pragmatic' }
@@ -390,6 +390,12 @@ export type ClientMessage =
   | { type: 'cx_apps_list'; cursor?: string | null; limit?: number | null }
   | { type: 'cx_command_exec'; command: string[]; timeoutMs?: number; cwd?: string }
   | { type: 'cx_experimental_features'; cursor?: string | null; limit?: number | null }
+  // Codex SDK update: new methods (#21-#25, #27)
+  | { type: 'cx_config_batch_write'; edits: Array<{ keyPath: string; value: any; mergeStrategy?: string }>; filePath?: string; expectedVersion?: string }
+  | { type: 'cx_config_requirements_read' }
+  | { type: 'cx_thread_loaded_list'; cursor?: string | null; limit?: number | null }
+  | { type: 'cx_thread_read'; threadId: string; includeTurns?: boolean }
+  | { type: 'cx_mcp_oauth_login'; name: string; scopes?: string[]; timeoutSecs?: number }
   // Claude Code File Checkpointing (Undo/Revert)
   | { type: 'cc_rewind_checkpoint'; sessionId: string; checkpointUuid: string; cwd: string }
   // Claude Code Custom Tools
@@ -744,6 +750,13 @@ export type ServerMessage =
   | { type: 'cx_apps'; data: CodexAppInfo[]; nextCursor?: string | null; requestId?: string }
   | { type: 'cx_command_result'; data: { exitCode?: number; stdout?: string; stderr?: string }; requestId?: string }
   | { type: 'cx_experimental_features_list'; data: any[]; requestId?: string }
+  // Codex SDK update: new response types (#21-#25, #19)
+  | { type: 'cx_config_batch_written'; data: any; requestId?: string }
+  | { type: 'cx_config_requirements'; data: any; requestId?: string }
+  | { type: 'cx_thread_loaded_list'; data: string[]; nextCursor?: string | null; requestId?: string }
+  | { type: 'cx_thread_detail'; data: any; requestId?: string }
+  | { type: 'cx_mcp_oauth_login_started'; data: { authorizationUrl: string }; name: string; requestId?: string }
+  | { type: 'cx_apps_updated'; data: any[]; requestId?: string }
   | { type: 'cx_stream'; data: CodexStreamMessage; threadId: string }
   // Claude Code Custom Tools
   | { type: 'cc_custom_tools'; data: ClaudeCodeCustomTool[]; requestId?: string }
@@ -1502,6 +1515,9 @@ export type CodexStreamMessage =
   | { type: 'collab_waiting_end'; data: CodexCollabWaitingEndEvent }
   | { type: 'collab_close_begin'; data: CodexCollabCloseBeginEvent }
   | { type: 'collab_close_end'; data: CodexCollabCloseEndEvent }
+  // #18/#30: collab_resume events (SDK CollabResumeBeginEvent / CollabResumeEndEvent)
+  | { type: 'collab_resume_begin'; data: CodexCollabResumeBeginEvent }
+  | { type: 'collab_resume_end'; data: CodexCollabResumeEndEvent }
 
 // ============================================================================
 // CODEX MULTI-AGENT COLLABORATION TYPES (SDK v0.87.0+)
@@ -1572,6 +1588,21 @@ export type CodexCollabCloseBeginEvent = {
 
 /** Event: Agent close completed */
 export type CodexCollabCloseEndEvent = {
+  callId: string
+  senderThreadId: string
+  receiverThreadId: string
+  status: CodexAgentStatus
+}
+
+/** Event: Agent resume started (#18/#30) */
+export type CodexCollabResumeBeginEvent = {
+  callId: string
+  senderThreadId: string
+  receiverThreadId: string
+}
+
+/** Event: Agent resume completed (#18/#30) */
+export type CodexCollabResumeEndEvent = {
   callId: string
   senderThreadId: string
   receiverThreadId: string
@@ -1656,6 +1687,7 @@ export type CodexAppInfo = {
   distributionChannel: string | null
   installUrl: string | null
   isAccessible: boolean
+  isEnabled: boolean // #12: SDK AppInfo.is_enabled (defaults true)
 }
 
 /** SDK Personality type */

@@ -10,6 +10,7 @@ class CodexAppInfo {
   final String? distributionChannel;
   final String? installUrl;
   final bool isAccessible;
+  final bool isEnabled; // #12: SDK AppInfo.is_enabled (defaults true)
 
   const CodexAppInfo({
     required this.id,
@@ -20,6 +21,7 @@ class CodexAppInfo {
     this.distributionChannel,
     this.installUrl,
     this.isAccessible = true,
+    this.isEnabled = true,
   });
 
   factory CodexAppInfo.fromJson(Map<String, dynamic> json) {
@@ -32,6 +34,7 @@ class CodexAppInfo {
       distributionChannel: json['distributionChannel'] as String?,
       installUrl: json['installUrl'] as String?,
       isAccessible: json['isAccessible'] as bool? ?? true,
+      isEnabled: json['isEnabled'] as bool? ?? true,
     );
   }
 
@@ -44,5 +47,6 @@ class CodexAppInfo {
     if (distributionChannel != null) 'distributionChannel': distributionChannel,
     if (installUrl != null) 'installUrl': installUrl,
     'isAccessible': isAccessible,
+    'isEnabled': isEnabled,
   };
 }

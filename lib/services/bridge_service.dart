@@ -2933,6 +2933,15 @@ class BridgeService {
         return const <String, dynamic>{};
       });
 
+  /// #19: Stream of app/list/updated notifications from Codex.
+  Stream<List<Map<String, dynamic>>> get codexAppsUpdatedMessages =>
+      _socket.messages
+          .where((m) => m['type'] == 'cx_apps_updated')
+          .map((m) {
+        final data = m['data'] as List<dynamic>? ?? [];
+        return data.whereType<Map<String, dynamic>>().toList();
+      });
+
   Future<Map<String, dynamic>> cxAccountRead({
     bool refreshToken = false,
   }) async {
@@ -3155,7 +3164,14 @@ class BridgeService {
         .toList();
   }
 
-  Future<List<CodexThread>> cxListThreads({String? cwd}) async {
+  /// List Codex threads. Supports new #27 params (sourceKinds, sortKey, etc.)
+  Future<List<CodexThread>> cxListThreads({
+    String? cwd,
+    List<String>? sourceKinds,
+    String? sortKey,
+    List<String>? modelProviders,
+    bool? archived,
+  }) async {
     final requestId = _generateRequestId();
     _socket.send({
       'type': 'cx_list_threads',
@@ -3163,6 +3179,10 @@ class BridgeService {
       if (cwd != null) 'cwd': cwd,
       'cursor': null,
       'limit': 200,
+      if (sourceKinds != null) 'sourceKinds': sourceKinds,
+      if (sortKey != null) 'sortKey': sortKey,
+      if (modelProviders != null) 'modelProviders': modelProviders,
+      if (archived != null) 'archived': archived,
     });
     final response = await _waitFor(
       'cx_threads',
@@ -3748,6 +3768,111 @@ class BridgeService {
     );
     final data = response['data'] as List<dynamic>? ?? [];
     return data.whereType<Map<String, dynamic>>().toList();
+  }
+
+  // ============================================================
+  // Codex — SDK Update: New Methods (#21-#25)
+  // ============================================================
+
+  /// #21: Write multiple config values atomically (config/batchWrite).
+  Future<Map<String, dynamic>> cxConfigBatchWrite({
+    required List<Map<String, dynamic>> edits,
+    String? filePath,
+    String? expectedVersion,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_config_batch_write',
+      'requestId': requestId,
+      'edits': edits,
+      if (filePath != null) 'filePath': filePath,
+      if (expectedVersion != null) 'expectedVersion': expectedVersion,
+    });
+    final response = await _waitFor(
+      'cx_config_batch_written',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    return response['data'] as Map<String, dynamic>? ?? {};
+  }
+
+  /// #22: Read org-level config restrictions (configRequirements/read).
+  Future<Map<String, dynamic>> cxConfigRequirementsRead() async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_config_requirements_read',
+      'requestId': requestId,
+    });
+    final response = await _waitFor(
+      'cx_config_requirements',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    return response['data'] as Map<String, dynamic>? ?? {};
+  }
+
+  /// #23: List threads currently loaded in memory (thread/loaded/list).
+  Future<List<String>> cxThreadLoadedList({
+    String? cursor,
+    int? limit,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_thread_loaded_list',
+      'requestId': requestId,
+      if (cursor != null) 'cursor': cursor,
+      if (limit != null) 'limit': limit,
+    });
+    final response = await _waitFor(
+      'cx_thread_loaded_list',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data.map((e) => e.toString()).toList();
+  }
+
+  /// #24: Read a specific thread with full turns/items (thread/read).
+  Future<Map<String, dynamic>> cxThreadRead({
+    required String threadId,
+    bool includeTurns = false,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_thread_read',
+      'requestId': requestId,
+      'threadId': threadId,
+      'includeTurns': includeTurns,
+    });
+    final response = await _waitFor(
+      'cx_thread_detail',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    return response['data'] as Map<String, dynamic>? ?? {};
+  }
+
+  /// #25: Start MCP server OAuth login flow (mcpServer/oauth/login).
+  Future<String> cxMcpOauthLogin({
+    required String name,
+    List<String>? scopes,
+    int? timeoutSecs,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_mcp_oauth_login',
+      'requestId': requestId,
+      'name': name,
+      if (scopes != null) 'scopes': scopes,
+      if (timeoutSecs != null) 'timeoutSecs': timeoutSecs,
+    });
+    final response = await _waitFor(
+      'cx_mcp_oauth_login_started',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return data['authorizationUrl'] as String? ?? '';
   }
 
   // ============================================================

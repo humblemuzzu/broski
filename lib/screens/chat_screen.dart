@@ -3371,10 +3371,18 @@ Describe project-specific guidance for Codex here.
                       if (limits is! Map) return const SizedBox.shrink();
                       final primary = limits['primary'];
                       if (primary is! Map) return const SizedBox.shrink();
+                      // #14: Show limit_name if present
+                      final limitName = limits['limitName'] as String? ??
+                          limits['limit_name'] as String?;
+                      final label = limitName != null && limitName.isNotEmpty
+                          ? '$limitName: ${primary['usedPercent'] ?? 0}% used'
+                          : 'Rate limits: ${primary['usedPercent'] ?? 0}% used';
+                      final resetsAt = primary['resetsAt'];
+                      final resetsStr = resetsAt != null ? ', resets at $resetsAt' : '';
                       return Padding(
                         padding: Insets.bottomMd,
                         child: Text(
-                          'Rate limits: ${primary['usedPercent'] ?? 0}% used, resets at ${primary['resetsAt'] ?? ''}',
+                          '$label$resetsStr',
                           style: TextStyle(
                             color: theme.textMuted,
                             fontSize: 12,

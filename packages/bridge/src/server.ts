@@ -1478,6 +1478,14 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             if (id && !threadId) threadId = id
           }
 
+          // #19: Forward app/list/updated notification to all clients
+          if (n.method === 'app/list/updated') {
+            const appData = params.data ?? params
+            for (const ws of sockets) {
+              send(ws, { type: 'cx_apps_updated', data: Array.isArray(appData) ? appData : [] })
+            }
+          }
+
           // Track thread names from thread/name/updated notifications (SDK ThreadNameUpdatedNotification)
           if (n.method === 'thread/name/updated') {
             const nameThreadId = safeString(params.threadId)
@@ -1561,22 +1569,35 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               
               logError(`[Codex] turn/completed with failed status:`, JSON.stringify(turnError, null, 2))
               
-              // Extract ModelCap info if present
+              // Extract structured error info (ModelCap, ServerOverloaded, etc.) — #13
               const codexErrorInfoTC = turnError?.codexErrorInfo ?? turnError?.details?.codexErrorInfo
               let modelCapModelTC: string | undefined
               let modelCapRetrySecondsTC: number | undefined
               if (codexErrorInfoTC && typeof codexErrorInfoTC === 'object') {
-                if (codexErrorInfoTC.type === 'ModelCap' || codexErrorInfoTC.ModelCap) {
+                const infoType = typeof codexErrorInfoTC === 'string' ? codexErrorInfoTC : (codexErrorInfoTC.type ?? Object.keys(codexErrorInfoTC)[0])
+                if (infoType === 'ModelCap' || infoType === 'modelCap' || codexErrorInfoTC.ModelCap) {
                   const cap = codexErrorInfoTC.ModelCap ?? codexErrorInfoTC
                   modelCapModelTC = cap.model ?? cap.modelName
                   modelCapRetrySecondsTC = cap.reset_after_seconds ?? cap.resetAfterSeconds
                 }
+                if (infoType === 'ServerOverloaded' || infoType === 'serverOverloaded') {
+                  modelCapRetrySecondsTC = codexErrorInfoTC.retryAfterSeconds ?? codexErrorInfoTC.retry_after_seconds
+                }
+              }
+
+              // Derive a stable error code string from codexErrorInfo (#13)
+              let derivedErrorCode = typeof errorCode === 'string' ? errorCode : JSON.stringify(errorCode)
+              if (codexErrorInfoTC && typeof codexErrorInfoTC === 'object') {
+                const infoType = codexErrorInfoTC.type ?? (typeof codexErrorInfoTC === 'string' ? codexErrorInfoTC : undefined)
+                if (infoType === 'serverOverloaded' || infoType === 'ServerOverloaded') derivedErrorCode = 'server_overloaded'
+                else if (infoType === 'contextWindowExceeded' || infoType === 'ContextWindowExceeded') derivedErrorCode = 'context_window_exceeded'
+                else if (infoType === 'usageLimitExceeded' || infoType === 'UsageLimitExceeded') derivedErrorCode = 'usage_limit_exceeded'
               }
               
               emitCxStream(threadId, { 
                 type: 'error', 
                 message: errorMessage,
-                code: typeof errorCode === 'string' ? errorCode : JSON.stringify(errorCode),
+                code: derivedErrorCode,
                 details: turnError,
                 modelCapModel: modelCapModelTC,
                 modelCapRetrySeconds: modelCapRetrySecondsTC,
@@ -1597,22 +1618,35 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                 : error?.message ?? error?.additionalDetails ?? JSON.stringify(error)
               const errorCode = error?.codexErrorInfo ?? error?.code ?? n.method
               
-              // Extract ModelCap info if present
+              // Extract structured error info (ModelCap, ServerOverloaded, etc.) — #13
               const codexErrorInfoTF = error?.codexErrorInfo ?? error?.details?.codexErrorInfo
               let modelCapModelTF: string | undefined
               let modelCapRetrySecondsTF: number | undefined
               if (codexErrorInfoTF && typeof codexErrorInfoTF === 'object') {
-                if (codexErrorInfoTF.type === 'ModelCap' || codexErrorInfoTF.ModelCap) {
+                const infoType = typeof codexErrorInfoTF === 'string' ? codexErrorInfoTF : (codexErrorInfoTF.type ?? Object.keys(codexErrorInfoTF)[0])
+                if (infoType === 'ModelCap' || infoType === 'modelCap' || codexErrorInfoTF.ModelCap) {
                   const cap = codexErrorInfoTF.ModelCap ?? codexErrorInfoTF
                   modelCapModelTF = cap.model ?? cap.modelName
                   modelCapRetrySecondsTF = cap.reset_after_seconds ?? cap.resetAfterSeconds
                 }
+                if (infoType === 'ServerOverloaded' || infoType === 'serverOverloaded') {
+                  modelCapRetrySecondsTF = codexErrorInfoTF.retryAfterSeconds ?? codexErrorInfoTF.retry_after_seconds
+                }
+              }
+
+              // Derive a stable error code string from codexErrorInfo (#13)
+              let derivedErrorCodeTF = typeof errorCode === 'string' ? errorCode : JSON.stringify(errorCode)
+              if (codexErrorInfoTF && typeof codexErrorInfoTF === 'object') {
+                const infoType = codexErrorInfoTF.type ?? (typeof codexErrorInfoTF === 'string' ? codexErrorInfoTF : undefined)
+                if (infoType === 'serverOverloaded' || infoType === 'ServerOverloaded') derivedErrorCodeTF = 'server_overloaded'
+                else if (infoType === 'contextWindowExceeded' || infoType === 'ContextWindowExceeded') derivedErrorCodeTF = 'context_window_exceeded'
+                else if (infoType === 'usageLimitExceeded' || infoType === 'UsageLimitExceeded') derivedErrorCodeTF = 'usage_limit_exceeded'
               }
               
               emitCxStream(threadId, { 
                 type: 'error', 
                 message: errorMessage,
-                code: typeof errorCode === 'string' ? errorCode : JSON.stringify(errorCode),
+                code: derivedErrorCodeTF,
                 details: error,
                 modelCapModel: modelCapModelTF,
                 modelCapRetrySeconds: modelCapRetrySecondsTF,
@@ -1728,6 +1762,19 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             ? cxItemCache.get(`${threadId}:${turnId}:${itemId}`)
             : null
 
+          // #29: Include structured approval context (command, cwd, commandActions, reason)
+          // The SDK sends these in CommandExecutionRequestApprovalParams / FileChangeRequestApprovalParams
+          const enrichedParams: any = { ...params, cachedItem: cached }
+          // Ensure command & cwd from approval params are surfaced (they may differ from cachedItem)
+          if (r.method === 'item/commandExecution/requestApproval') {
+            if (params.command && !enrichedParams.approvalCommand) enrichedParams.approvalCommand = params.command
+            if (params.cwd && !enrichedParams.approvalCwd) enrichedParams.approvalCwd = params.cwd
+            if (params.commandActions) enrichedParams.commandActions = params.commandActions
+          }
+          if (r.method === 'item/fileChange/requestApproval') {
+            if (params.grantRoot) enrichedParams.grantRoot = params.grantRoot
+          }
+
           send(owner, {
             type: 'cx_stream',
             threadId,
@@ -1735,7 +1782,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               type: 'request',
               requestId: String(r.id),
               method: r.method,
-              params: { ...params, cachedItem: cached },
+              params: enrichedParams,
             } satisfies CodexStreamMessage,
           })
 
@@ -5956,6 +6003,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         const result: any = await client.request('model/list', {
           cursor: null,
           limit: 200,
+          includeHidden: true,
         })
         reply({
           type: 'cx_models',
@@ -6629,7 +6677,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       case 'cx_skill_config_write':
       case 'cx_apps_list':
       case 'cx_command_exec':
-      case 'cx_experimental_features': {
+      case 'cx_experimental_features':
+      case 'cx_config_batch_write':
+      case 'cx_config_requirements_read':
+      case 'cx_thread_loaded_list':
+      case 'cx_thread_read':
+      case 'cx_mcp_oauth_login': {
         const handled = await handleCodexFeature(message, reply, {
           ensureCodexClient,
           cxActiveTurns,

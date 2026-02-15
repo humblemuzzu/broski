@@ -189,6 +189,89 @@ export async function handleCodexFeature(
       break
     }
 
+    // ── #21: config/batchWrite ─────────────────────────────────────────
+    case 'cx_config_batch_write': {
+      const client = await ensureCodexClient()
+      const edits = message.edits as Array<{ keyPath: string; value: any; mergeStrategy?: string }> | undefined
+      if (!edits || !Array.isArray(edits) || edits.length === 0) {
+        reply({ type: 'error', message: 'cx_config_batch_write requires edits array' })
+        break
+      }
+      const result = await client.request('config/batchWrite', {
+        edits: edits.map((e: any) => ({
+          keyPath: e.keyPath,
+          value: e.value,
+          mergeStrategy: e.mergeStrategy ?? 'replace',
+        })),
+        ...(message.filePath ? { filePath: message.filePath } : {}),
+        ...(message.expectedVersion ? { expectedVersion: message.expectedVersion } : {}),
+      })
+      reply({ type: 'cx_config_batch_written', data: result ?? { ok: true } })
+      break
+    }
+
+    // ── #22: configRequirements/read ─────────────────────────────────
+    case 'cx_config_requirements_read': {
+      const client = await ensureCodexClient()
+      const result = await client.request('configRequirements/read')
+      reply({ type: 'cx_config_requirements', data: result ?? {} })
+      break
+    }
+
+    // ── #23: thread/loaded/list ──────────────────────────────────────
+    case 'cx_thread_loaded_list': {
+      const client = await ensureCodexClient()
+      const cursor = message.cursor ?? null
+      const limit = message.limit ?? null
+      const result: any = await client.request('thread/loaded/list', {
+        ...(cursor ? { cursor } : {}),
+        ...(limit ? { limit } : {}),
+      })
+      reply({
+        type: 'cx_thread_loaded_list',
+        data: result?.data ?? [],
+        nextCursor: result?.nextCursor ?? null,
+      })
+      break
+    }
+
+    // ── #24: thread/read ─────────────────────────────────────────────
+    case 'cx_thread_read': {
+      const client = await ensureCodexClient()
+      const threadId = safeString(message.threadId).trim()
+      if (!threadId) {
+        reply({ type: 'error', message: 'cx_thread_read requires threadId' })
+        break
+      }
+      const result = await client.request('thread/read', {
+        threadId,
+        includeTurns: message.includeTurns === true,
+      })
+      reply({ type: 'cx_thread_detail', data: result ?? {} })
+      break
+    }
+
+    // ── #25: mcpServer/oauth/login ───────────────────────────────────
+    case 'cx_mcp_oauth_login': {
+      const client = await ensureCodexClient()
+      const name = safeString(message.name).trim()
+      if (!name) {
+        reply({ type: 'error', message: 'cx_mcp_oauth_login requires name' })
+        break
+      }
+      const result: any = await client.request('mcpServer/oauth/login', {
+        name,
+        ...(message.scopes ? { scopes: message.scopes } : {}),
+        ...(message.timeoutSecs ? { timeoutSecs: message.timeoutSecs } : {}),
+      })
+      reply({
+        type: 'cx_mcp_oauth_login_started',
+        data: { authorizationUrl: result?.authorizationUrl ?? '' },
+        name,
+      })
+      break
+    }
+
     default:
       return false // Not handled by this module
   }
