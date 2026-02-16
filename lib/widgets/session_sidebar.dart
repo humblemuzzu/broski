@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_typography.dart';
 
 import '../models/claude_code.dart';
+import '../models/codex.dart';
 import '../models/message.dart';
 import '../models/session_context.dart';
 import '../models/todo.dart';
@@ -12,6 +13,21 @@ import '../theme/opencode_theme.dart';
 import 'connection_quality_indicator.dart';
 import 'status_indicator.dart';
 import 'package:broski/theme/app_icons.dart';
+
+/// Codex session info passed to the sidebar for display.
+class CodexSessionInfo {
+  const CodexSessionInfo({
+    this.threadId,
+    this.model,
+    this.cwd,
+    required this.settings,
+  });
+
+  final String? threadId;
+  final String? model;
+  final String? cwd;
+  final CodexSettings settings;
+}
 /// Session sidebar showing plan/todos, context usage, LSP servers, and modified files
 /// Designed to match the OpenCode desktop sidebar shown in the screenshot
 class SessionSidebar extends StatelessWidget {
@@ -27,6 +43,7 @@ class SessionSidebar extends StatelessWidget {
     this.isClaudeCode = false,
     this.isCodex = false,
     this.ccInit,
+    this.cxInfo,
   });
   final String sessionTitle;
   final SessionContext sessionContext;
@@ -41,6 +58,7 @@ class SessionSidebar extends StatelessWidget {
   // Codex mode
   final bool isCodex;
   final CCSessionInit? ccInit;
+  final CodexSessionInfo? cxInfo;
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -78,7 +96,9 @@ class SessionSidebar extends StatelessWidget {
                     _buildPlanSection(context, theme),
                     SizedBox(height: Spacing.xl),
                   ] else if (isCodex) ...[
-                    // Codex: Plan (from turn/plan/updated) + changes, no LSP
+                    // Codex: Session info + Plan + changes, no LSP
+                    _buildCodexInfoSection(context, theme),
+                    SizedBox(height: Spacing.xl),
                     _buildPlanSection(context, theme),
                     SizedBox(height: Spacing.xl),
                   ] else ...[
@@ -418,6 +438,107 @@ class SessionSidebar extends StatelessWidget {
       ],
     );
   }
+  /// Codex session info section showing model, approvals, sandbox, effort.
+  Widget _buildCodexInfoSection(BuildContext context, OpenCodeTheme theme) {
+    final info = cxInfo;
+    if (info == null) {
+      return _SidebarSection(
+        theme: theme,
+        title: 'Session Info',
+        icon: AppIcons.info,
+        children: [
+          Container(
+            padding: Insets.cardSm,
+            decoration: BoxDecoration(
+              color: theme.backgroundPanel,
+              borderRadius: Radii.brSm,
+              border: Border.all(color: theme.borderSubtle, width: 1),
+            ),
+            child: Row(
+              children: [
+                Icon(AppIcons.hourglass, color: theme.textMuted, size: 16),
+                SizedBox(width: Spacing.sm),
+                Text(
+                  'Waiting for thread...',
+                  style: AppTypography.bodySmall(color: theme.textMuted),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+    final s = info.settings;
+    return _SidebarSection(
+      theme: theme,
+      title: 'Codex',
+      icon: AppIcons.agent,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: theme.backgroundPanel,
+            borderRadius: Radii.brMd,
+            border: Border.all(color: theme.borderSubtle, width: 1),
+          ),
+          child: Column(
+            children: [
+              // Model
+              _InfoRow(
+                theme: theme,
+                icon: AppIcons.memory,
+                label: 'Model',
+                value: info.model?.isNotEmpty == true ? info.model! : 'default',
+              ),
+              Divider(height: 1, color: theme.borderSubtle),
+              // Approval policy
+              _InfoRow(
+                theme: theme,
+                icon: AppIcons.security,
+                label: 'Approvals',
+                value: s.approvalPolicy.wireValue,
+              ),
+              Divider(height: 1, color: theme.borderSubtle),
+              // Sandbox mode
+              _InfoRow(
+                theme: theme,
+                icon: AppIcons.vpn,
+                label: 'Sandbox',
+                value: s.sandboxMode == CodexSandboxMode.workspaceWrite
+                    ? '${s.sandboxMode.threadWireValue} (net=${s.networkAccessEnabled})'
+                    : s.sandboxMode.threadWireValue,
+              ),
+              Divider(height: 1, color: theme.borderSubtle),
+              // Reasoning effort
+              _InfoRow(
+                theme: theme,
+                icon: AppIcons.psychology,
+                label: 'Effort',
+                value: s.reasoningEffort.wireValue,
+              ),
+              Divider(height: 1, color: theme.borderSubtle),
+              // Web search
+              _InfoRow(
+                theme: theme,
+                icon: AppIcons.search,
+                label: 'Web Search',
+                value: s.webSearchMode.wireValue,
+              ),
+              if (s.skillsEnabled) ...[
+                Divider(height: 1, color: theme.borderSubtle),
+                _InfoRow(
+                  theme: theme,
+                  icon: AppIcons.autoAwesome,
+                  label: 'Skills',
+                  value: 'enabled',
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildClaudeCodeMcpSection(BuildContext context, OpenCodeTheme theme) {
     final init = ccInit;
     final servers = init?.mcpServers ?? const <Map<String, dynamic>>[];

@@ -676,7 +676,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           ),
           SlashCommand(
             name: 'status',
-            description: 'Show thread status, tokens, settings',
+            description: 'Open sidebar with context usage, tokens & session info',
             builtin: true,
           ),
           // Reasoning commands
@@ -5434,6 +5434,17 @@ Describe project-specific guidance for Codex here.
         isClaudeCode: widget.isClaudeCode,
         isCodex: widget.isCodex,
         ccInit: widget.isClaudeCode ? ccInit : null,
+        cxInfo: widget.isCodex
+            ? () {
+                final cxState = ref.read(chatSessionProvider);
+                return CodexSessionInfo(
+                  threadId: cxState.cxThreadId,
+                  model: cxState.cxModel,
+                  cwd: cxState.cxCwd,
+                  settings: ref.read(codexSettingsProvider),
+                );
+              }()
+            : null,
       ),
       onEndDrawerChanged: (isOpen) {
         if (isOpen && !_sidebarOpen) {
@@ -6359,49 +6370,6 @@ Describe project-specific guidance for Codex here.
     );
   }
 
-  /// SDK v1.2.1: Step finish thin divider with token/cost info
-  Widget _buildStepFinishDivider(String reason, int tokensTotal, double cost) {
-    final theme = OpenCodeTheme.of(context);
-    final tokenStr = tokensTotal > 0
-        ? '${(tokensTotal / 1000).toStringAsFixed(1)}K tokens'
-        : '';
-    final costStr = cost > 0 ? '\$${cost.toStringAsFixed(3)}' : '';
-    final parts = [
-      reason,
-      tokenStr,
-      costStr,
-    ].where((s) => s.isNotEmpty).join(' · ');
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Expanded(
-            child: Divider(
-              color: theme.textMuted.withValues(alpha: 0.2),
-              thickness: 0.5,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Text(
-              parts,
-              style: TextStyle(
-                color: theme.textMuted.withValues(alpha: 0.6),
-                fontSize: 10,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Divider(
-              color: theme.textMuted.withValues(alpha: 0.2),
-              thickness: 0.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   /// Extract todos from TodoWrite tool input
   List<Todo> _extractTodosFromTool(ToolCall tool) {
     try {
@@ -6871,13 +6839,7 @@ Describe project-specific guidance for Codex here.
           widgets.add(
             Padding(padding: Insets.topSm, child: _buildPatchCard(files)),
           );
-        // SDK v1.2.1: Step finish — thin token divider
-        case StepFinishIndicatorPart(
-          :final reason,
-          :final tokensTotal,
-          :final cost,
-        ):
-          widgets.add(_buildStepFinishDivider(reason, tokensTotal, cost));
+
         // Not rendered visually — internal plumbing data
         case SnapshotPart():
           break;
@@ -7577,36 +7539,10 @@ Describe project-specific guidance for Codex here.
         return;
       }
       if (text.startsWith('/status')) {
-        chat.appendUserMessage(text);
-        final stateNow = ref.read(chatSessionProvider);
-        final tokenUsage = stateNow.cxTokenUsage?.total;
-        final contextWindow = stateNow.cxTokenUsage?.modelContextWindow;
-        final summary = StringBuffer()
-          ..writeln('Codex status')
-          ..writeln('- Thread: ${stateNow.cxThreadId ?? '(new)'}')
-          ..writeln('- CWD: ${stateNow.cxCwd ?? cwd}')
-          ..writeln('- Model: ${stateNow.cxModel ?? 'default'}')
-          ..writeln('- Approvals: ${codexSettings.approvalPolicy.wireValue}')
-          ..writeln(
-            '- Sandbox: ${codexSettings.sandboxMode.threadWireValue}'
-            '${codexSettings.sandboxMode == CodexSandboxMode.workspaceWrite ? ' (network=${codexSettings.networkAccessEnabled})' : ''}',
-          )
-          ..writeln('- Effort: ${codexSettings.reasoningEffort.wireValue}')
-          ..writeln('- Summary: ${codexSettings.reasoningSummary.wireValue}')
-          ..writeln('- Web search: ${codexSettings.webSearchMode.wireValue}')
-          ..writeln('- Skills: ${codexSettings.skillsEnabled}');
-        if (tokenUsage != null) {
-          summary.writeln(
-            '- Tokens: ${tokenUsage.totalTokens} (in ${tokenUsage.inputTokens}, out ${tokenUsage.outputTokens}, cached ${tokenUsage.cachedInputTokens}, reasoning ${tokenUsage.reasoningOutputTokens})',
-          );
-        }
-        if (contextWindow != null) {
-          summary.writeln('- Context window: $contextWindow');
-        }
-        chat.appendLocalAssistantMessage(summary.toString().trim());
         _controller.clear();
-        _userHasScrolledUp = false;
-        _scrollToBottom();
+        // Load fresh context data and open the sidebar
+        _loadSessionContext();
+        Scaffold.of(context).openEndDrawer();
         return;
       }
       if (text.startsWith('/compact')) {

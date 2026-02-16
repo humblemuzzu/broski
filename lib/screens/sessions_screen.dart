@@ -5993,7 +5993,6 @@ class _CCChatScreenState extends ConsumerState<CCChatScreen> {
               role: 'assistant',
               text: assistantText,
               toolCalls: List.from(toolCalls),
-              tokenUsage: msg,
             ),
           );
           assistantText = '';
@@ -6023,12 +6022,10 @@ class _CCDisplayMessage {
   final String role; // 'user', 'assistant', 'error'
   final String text;
   final List<CCToolCall> toolCalls;
-  final CCTokenUsage? tokenUsage;
   const _CCDisplayMessage({
     required this.role,
     this.text = '',
     this.toolCalls = const [],
-    this.tokenUsage,
   });
 }
 
@@ -6118,14 +6115,6 @@ class _CCMessageBubble extends StatelessWidget {
           if (message.toolCalls.isNotEmpty) ...[
             SizedBox(height: Spacing.sm),
             ...message.toolCalls.map((tool) => _CCToolCallCard(tool: tool)),
-          ],
-          // Token usage
-          if (message.tokenUsage != null) ...[
-            SizedBox(height: Spacing.xs),
-            Text(
-              '${message.tokenUsage!.inputTokens ?? 0} in · ${message.tokenUsage!.outputTokens ?? 0} out',
-              style: TextStyle(color: ocTheme.textMuted, fontSize: 10),
-            ),
           ],
         ],
       ),

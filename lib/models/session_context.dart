@@ -190,29 +190,19 @@ class TokenUsage {
     );
   }
 
-  /// Format token count with K suffix for large numbers
-  String formatCount(int count) {
+  /// Format token count with K/M suffix for large numbers.
+  /// Instance method for convenience; delegates to the static version.
+  String formatCount(int count) => formatTokenCount(count);
+
+  /// Static formatter usable without a TokenUsage instance.
+  static String formatTokenCount(int count) {
+    if (count >= 1000000) {
+      return '${(count / 1000000).toStringAsFixed(1)}M';
+    }
     if (count >= 1000) {
       return '${(count / 1000).toStringAsFixed(1)}K';
     }
     return count.toString();
-  }
-
-  /// Breakdown string showing all token categories
-  String get breakdownText {
-    final parts = <String>[];
-    parts.add('In: ${formatCount(input)}');
-    parts.add('Out: ${formatCount(output)}');
-    if (reasoning != null && reasoning! > 0) {
-      parts.add('Reason: ${formatCount(reasoning!)}');
-    }
-    if (cacheRead != null && cacheRead! > 0) {
-      parts.add('Cache R: ${formatCount(cacheRead!)}');
-    }
-    if (cacheWrite != null && cacheWrite! > 0) {
-      parts.add('Cache W: ${formatCount(cacheWrite!)}');
-    }
-    return parts.join(' | ');
   }
 }
 

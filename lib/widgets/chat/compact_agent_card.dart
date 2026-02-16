@@ -4,6 +4,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/card_style.dart';
 import '../../models/message.dart';
+import '../../models/session_context.dart';
 import '../../providers/card_style_provider.dart';
 import '../../theme/app_typography.dart';
 import '../../theme/design_tokens.dart';
@@ -539,11 +540,8 @@ class _TokenUsageSection extends StatelessWidget {
   final Map<String, dynamic>? tokens;
   final double cost;
 
-  String _formatTokens(int count) {
-    if (count >= 1000000) return '${(count / 1000000).toStringAsFixed(1)}M';
-    if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}k';
-    return count.toString();
-  }
+  /// Unified formatter — delegates to TokenUsage.formatTokenCount.
+  String _fmt(int count) => TokenUsage.formatTokenCount(count);
 
   @override
   Widget build(BuildContext context) {
@@ -598,17 +596,17 @@ class _TokenUsageSection extends StatelessWidget {
               runSpacing: 4,
               children: [
                 if (total > 0)
-                  _TokenChip(label: 'Total', value: _formatTokens(total), color: theme.text),
+                  _TokenChip(label: 'Total', value: _fmt(total), color: theme.text),
                 if (input > 0)
-                  _TokenChip(label: 'In', value: _formatTokens(input), color: theme.info),
+                  _TokenChip(label: 'In', value: _fmt(input), color: theme.info),
                 if (output > 0)
-                  _TokenChip(label: 'Out', value: _formatTokens(output), color: theme.success),
+                  _TokenChip(label: 'Out', value: _fmt(output), color: theme.success),
                 if (reasoning > 0)
-                  _TokenChip(label: 'Think', value: _formatTokens(reasoning), color: theme.accent),
+                  _TokenChip(label: 'Think', value: _fmt(reasoning), color: theme.accent),
                 if (cacheRead > 0)
-                  _TokenChip(label: 'Cache↓', value: _formatTokens(cacheRead), color: theme.textMuted),
+                  _TokenChip(label: 'Cache↓', value: _fmt(cacheRead), color: theme.textMuted),
                 if (cacheWrite > 0)
-                  _TokenChip(label: 'Cache↑', value: _formatTokens(cacheWrite), color: theme.textMuted),
+                  _TokenChip(label: 'Cache↑', value: _fmt(cacheWrite), color: theme.textMuted),
               ],
             ),
           ],

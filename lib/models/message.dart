@@ -96,31 +96,6 @@ class PatchIndicatorPart extends MessagePart {
   final String? hash;
 }
 
-/// Agentic step boundary — SDK v1.2.1 StepFinishPart
-/// Renders as a thin divider with token/cost info.
-class StepFinishIndicatorPart extends MessagePart {
-  const StepFinishIndicatorPart({
-    required super.sequence,
-    required this.reason,
-    this.cost = 0,
-    this.tokensInput = 0,
-    this.tokensOutput = 0,
-    this.tokensReasoning = 0,
-    this.tokensTotal = 0,
-    this.cacheRead = 0,
-    this.cacheWrite = 0,
-  });
-
-  final String reason;
-  final double cost;
-  final int tokensInput;
-  final int tokensOutput;
-  final int tokensReasoning;
-  final int tokensTotal;
-  final int cacheRead;
-  final int cacheWrite;
-}
-
 /// Snapshot part — not rendered visually. Internal data for rollback/revert.
 class SnapshotPart extends MessagePart {
   const SnapshotPart({
