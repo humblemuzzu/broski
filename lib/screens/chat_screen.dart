@@ -466,6 +466,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         },
       );
     }
+    // Refresh header context pill when token usage changes (CC/CX turn ends)
+    if (widget.isClaudeCode) {
+      ref.listenManual(
+        chatSessionProvider.select((s) => s.ccTokenUsage),
+        (_, __) => _loadSessionContext(),
+      );
+    } else if (widget.isCodex) {
+      ref.listenManual(
+        chatSessionProvider.select((s) => s.cxTokenUsage),
+        (_, __) => _loadSessionContext(),
+      );
+    }
   }
 
   void _maybeSendInitialPrompt() {
@@ -5772,6 +5784,7 @@ Describe project-specific guidance for Codex here.
               codexModel: widget.isCodex
                   ? ref.watch(chatSessionProvider.select((s) => s.cxModel))
                   : null,
+              sessionContext: _sessionContext,
             ),
           ),
           // Subagent activity indicator (Claude Code only)
@@ -8086,6 +8099,7 @@ class _FloatingHeader extends StatelessWidget {
     this.ccModel,
     this.isCodex = false,
     this.codexModel,
+    this.sessionContext,
   });
   final String projectName;
   final bool isConnected;
@@ -8109,19 +8123,23 @@ class _FloatingHeader extends StatelessWidget {
   // Codex support
   final bool isCodex;
   final String? codexModel;
+  // Context usage for inline indicator
+  final SessionContext? sessionContext;
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final kMuted = theme.textMuted;
     final kOnBackground = theme.text;
-    // Get current agent for display
-    final primaryAgents = agents.where((a) => a.isPrimary).toList();
-    final current = primaryAgents.isNotEmpty
-        ? primaryAgents.firstWhere(
-            (a) => a.name == currentAgent,
-            orElse: () => primaryAgents.first,
-          )
-        : null;
+    // Context usage data
+    final ctx = sessionContext;
+    final hasContext = ctx != null &&
+        (ctx.tokens.contextTokens > 0 || ctx.tokens.total > 0);
+    final usagePercent = ctx?.contextUsagePercent ?? 0;
+    final contextColor = usagePercent > 80
+        ? theme.error
+        : usagePercent > 50
+            ? theme.warning
+            : theme.info;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       padding: EdgeInsets.fromLTRB(
@@ -8141,12 +8159,9 @@ class _FloatingHeader extends StatelessWidget {
               child: Icon(AppIcons.back, color: kOnBackground, size: 22),
             ),
             SizedBox(width: Spacing.sm),
-            // Combined: Project + Agent (main pill)
+            // Combined: Project + backend badge
             Expanded(
               child: _GlassPill(
-                onTap: onAgentChanged != null && agents.isNotEmpty
-                    ? () => _showAgentPicker(context)
-                    : null,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -8201,45 +8216,65 @@ class _FloatingHeader extends StatelessWidget {
                         ),
                       ),
                     ],
-                    // Agent indicator (OpenCode only)
-                    if (!isClaudeCode && current != null) ...[
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                    // Codex badge
+                    if (isCodex) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: theme.primary.withValues(alpha: 0.2),
+                          borderRadius: Radii.brSm,
+                        ),
                         child: Text(
-                          '•',
+                          'CX',
                           style: TextStyle(
-                            color: kMuted.withValues(alpha: 0.5),
-                            fontSize: 10,
+                            color: theme.primary,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
-                      ),
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: current.resolveColor(theme),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      SizedBox(width: Spacing.xs),
-                      Text(
-                        current.displayName,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: kOnBackground,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      Icon(
-                        AppIcons.chevronDown,
-                        size: 16,
-                        color: kMuted.withValues(alpha: 0.6),
                       ),
                     ],
                   ],
                 ),
               ),
             ),
+            SizedBox(width: Spacing.sm),
+            // Context usage pill — taps to open sidebar
+            if (ctx case final c? when hasContext)
+              _GlassPill(
+                onTap: onOpenSidebar,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Tiny circular progress arc
+                    SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        value: (usagePercent / 100).clamp(0.0, 1.0),
+                        strokeWidth: 2.5,
+                        backgroundColor: kMuted.withValues(alpha: 0.15),
+                        valueColor: AlwaysStoppedAnimation<Color>(contextColor),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    // Compact token count: "45K/200K"
+                    Text(
+                      '${TokenUsage.formatTokenCount(c.tokens.contextTokens > 0 ? c.tokens.contextTokens : c.tokens.total)}'
+                      '/${TokenUsage.formatTokenCount(c.tokens.contextWindow)}',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: contextColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             SizedBox(width: Spacing.sm),
             // Menu button (contains all secondary options)
             // For Claude Code: bottom sheet menu
@@ -8315,111 +8350,6 @@ class _FloatingHeader extends StatelessWidget {
               ),
           ],
         ),
-      ),
-    );
-  }
-
-  void _showAgentPicker(BuildContext context) {
-    // Show all non-hidden agents, primary first
-    final visibleAgents = agents.where((a) => !a.hidden).toList()
-      ..sort((a, b) {
-        // Primary/all agents first, then subagents
-        final aPrimary = a.isPrimary ? 0 : 1;
-        final bPrimary = b.isPrimary ? 0 : 1;
-        if (aPrimary != bPrimary) return aPrimary - bPrimary;
-        return a.name.compareTo(b.name);
-      });
-    final theme = OpenCodeTheme.of(context);
-    DetailSheet.show(
-      context: context,
-      title: 'Select Agent',
-      initialSize: 0.45,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(height: Spacing.sm),
-          for (final agent in visibleAgents)
-            ListTile(
-              contentPadding: Insets.screenH,
-              leading: Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: agent.resolveColor(theme),
-                  shape: BoxShape.circle,
-                ),
-              ),
-              title: Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      agent.displayName,
-                      style: TextStyle(
-                        color: theme.text,
-                        fontWeight: agent.name == currentAgent
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                      ),
-                    ),
-                  ),
-                  if (agent.variant != null && agent.variant!.isNotEmpty) ...[
-                    const SizedBox(width: 6),
-                    VariantBadge.small(variant: agent.variant),
-                  ],
-                  if (!agent.isPrimary) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 5,
-                        vertical: 1,
-                      ),
-                      decoration: BoxDecoration(
-                        color: theme.textMuted.withValues(alpha: 0.12),
-                        borderRadius: Radii.brXs,
-                      ),
-                      child: Text(
-                        'sub',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                          color: theme.textMuted,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    agent.shortDescription,
-                    style: AppTypography.label(color: theme.textMuted),
-                  ),
-                  if (agent.model != null) ...[
-                    SizedBox(height: Spacing.xxs),
-                    Text(
-                      agent.model!.displayName,
-                      style: TextStyle(
-                        color: theme.textMuted.withValues(alpha: 0.7),
-                        fontSize: 11,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              trailing: agent.name == currentAgent
-                  ? Icon(AppIcons.check, color: theme.success, size: 20)
-                  : null,
-              onTap: () {
-                onAgentChanged?.call(agent.name);
-                Navigator.pop(context);
-              },
-            ),
-          SizedBox(height: Spacing.sm),
-        ],
       ),
     );
   }
