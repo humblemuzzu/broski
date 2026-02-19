@@ -64,10 +64,13 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
     _pulseAnimation = Tween<double>(begin: 0.95, end: 1.05).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
+    // Waveform uses a simple periodic timer to update levels at ~30fps.
+    // The AnimatedBuilder in _AnimatedWaveformLive drives the repaint without
+    // calling setState on the parent overlay (huge rebuild savings).
     _waveController = AnimationController(
-      duration: const Duration(milliseconds: 100),
+      duration: const Duration(milliseconds: 1000),
       vsync: this,
-    )..addListener(_updateWaveform);
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startRecording();
     });
@@ -75,26 +78,36 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
   @override
   void dispose() {
     _durationTimer?.cancel();
+    _waveTimer?.cancel();
     _pulseController.dispose();
     _waveController.dispose();
     super.dispose();
   }
-  void _updateWaveform() {
-    if (!mounted) return;
-    final sttState = ref.read(sttProvider);
-    final isRecording = sttState.recordingState == RecordingState.recording;
-    setState(() {
+  Timer? _waveTimer;
+  void _startWaveformAnimation() {
+    _waveController.repeat();
+    // Update waveform levels at ~30fps via a timer. The actual repaint is
+    // driven by the AnimationController; this timer only mutates the level
+    // data without calling setState on the parent.
+    _waveTimer?.cancel();
+    _waveTimer = Timer.periodic(const Duration(milliseconds: 33), (_) {
+      if (!mounted) return;
+      final sttState = ref.read(sttProvider);
+      final isRecording = sttState.recordingState == RecordingState.recording;
       for (int i = 0; i < _audioLevels.length; i++) {
         if (isRecording) {
-          // Animate levels with some randomness for visual effect
           final target = 0.2 + _random.nextDouble() * 0.8;
           _audioLevels[i] = _audioLevels[i] * 0.7 + target * 0.3;
         } else {
-          // Decay to minimum
           _audioLevels[i] = _audioLevels[i] * 0.9 + 0.1 * 0.1;
         }
       }
     });
+  }
+  void _stopWaveformAnimation() {
+    _waveTimer?.cancel();
+    _waveTimer = null;
+    _waveController.stop();
   }
   Future<void> _startRecording() async {
     final notifier = ref.read(sttProvider.notifier);
@@ -102,12 +115,14 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
     if (!mounted) return;
     if (success) {
       HapticFeedback.mediumImpact();
-      // Start waveform animation
-      _waveController.repeat();
-      _durationTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+      // Start waveform animation (does NOT call setState on parent)
+      _startWaveformAnimation();
+      // Duration timer at 250ms — humans can't read faster than ~4fps on a
+      // counter and this avoids 10 setState/sec for a cosmetic display.
+      _durationTimer = Timer.periodic(const Duration(milliseconds: 250), (_) {
         if (!mounted) return;
         setState(() {
-          _duration += const Duration(milliseconds: 100);
+          _duration += const Duration(milliseconds: 250);
         });
         notifier.updateRecordingDuration(_duration);
       });
@@ -126,7 +141,7 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
       _localError = null;
     });
     _durationTimer?.cancel();
-    _waveController.stop();
+    _stopWaveformAnimation();
     HapticFeedback.lightImpact();
     final notifier = ref.read(sttProvider.notifier);
     final result = await notifier.stopAndTranscribe();
@@ -144,7 +159,7 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
   }
   Future<void> _cancel() async {
     _durationTimer?.cancel();
-    _waveController.stop();
+    _stopWaveformAnimation();
     HapticFeedback.lightImpact();
     final notifier = ref.read(sttProvider.notifier);
     await notifier.cancelRecording();
@@ -231,10 +246,15 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
                         },
                       )
                     else
-                      _AnimatedWaveform(
-                        levels: _audioLevels,
-                        isActive: isRecording,
-                        color: ocTheme.primary,
+                      // AnimatedBuilder repaints only this subtree on each
+                      // animation tick — no setState on the parent overlay.
+                      AnimatedBuilder(
+                        animation: _waveController,
+                        builder: (context, _) => _AnimatedWaveform(
+                          levels: _audioLevels,
+                          isActive: isRecording,
+                          color: ocTheme.primary,
+                        ),
                       ),
                     SizedBox(height: Spacing.xxxl),
                     // Bottom row: Language indicator

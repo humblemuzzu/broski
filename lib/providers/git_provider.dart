@@ -35,14 +35,41 @@ class GitStatusNotifier extends StateNotifier<AsyncValue<GitStatusResult>> {
   GitStatusNotifier(this._ref, this.projectPath)
     : super(const AsyncValue.loading()) {
     load();
-    _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      refresh(silent: true);
-    });
+    _startPolling(_backgroundInterval);
   }
 
   final Ref _ref;
   final String projectPath;
   Timer? _pollTimer;
+  bool _boosted = false;
+
+  /// Default poll interval when git UI is not actively open.
+  static const _backgroundInterval = Duration(seconds: 30);
+
+  /// Faster poll interval when the git sheet/panel is visible.
+  static const _foregroundInterval = Duration(seconds: 5);
+
+  /// Call when the git sheet/panel becomes visible so polling speeds up.
+  void boostPolling() {
+    if (_boosted) return;
+    _boosted = true;
+    refresh(silent: true); // Immediate refresh on open
+    _startPolling(_foregroundInterval);
+  }
+
+  /// Call when the git sheet/panel is closed to restore battery-friendly rate.
+  void unboostPolling() {
+    if (!_boosted) return;
+    _boosted = false;
+    _startPolling(_backgroundInterval);
+  }
+
+  void _startPolling(Duration interval) {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(interval, (_) {
+      refresh(silent: true);
+    });
+  }
 
   @override
   void dispose() {

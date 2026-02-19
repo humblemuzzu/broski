@@ -1,13 +1,17 @@
 
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import '../utils/responsive.dart';
 import 'package:broski/theme/app_icons.dart';
-/// Glassmorphic floating island navigation bar
+/// Glassmorphic floating island navigation bar.
+///
+/// Uses a high-opacity semi-transparent background instead of a live
+/// [BackdropFilter] blur. On dark themes the visual result is nearly
+/// identical, but we avoid the single most expensive per-frame GPU
+/// operation Flutter offers (rasterizing + Gaussian-blurring the entire
+/// layer behind the nav bar on every scroll frame).
 class GlasmorphicNavBar extends StatelessWidget {
   const GlasmorphicNavBar({
     required this.currentIndex,
@@ -23,7 +27,10 @@ class GlasmorphicNavBar extends StatelessWidget {
     return Container(
       margin: EdgeInsets.fromLTRB(20 + tabletMargin, 0, 20 + tabletMargin, 16),
       decoration: BoxDecoration(
-        color: ocTheme.backgroundPanel.withValues(alpha: 0.7),
+        // High opacity gives the frosted-glass feel without a live blur.
+        // 0.88 is the sweet spot — opaque enough to feel glassy, transparent
+        // enough to hint at content beneath.
+        color: ocTheme.backgroundPanel.withValues(alpha: 0.88),
         borderRadius: Radii.brXxl,
         border: Border.all(
           color: ocTheme.borderSubtle.withValues(alpha: 0.3),
@@ -44,39 +51,36 @@ class GlasmorphicNavBar extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: Radii.brXxl,
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _GlassNavItem(
-                  icon: AppIcons.dashboard,
-                  label: 'Projects',
-                  isSelected: currentIndex == 0,
-                  onTap: () => onTap(0),
-                ),
-                _GlassNavItem(
-                  icon: AppIcons.folderOpen,
-                  label: 'Browse',
-                  isSelected: currentIndex == 1,
-                  onTap: () => onTap(1),
-                ),
-                _GlassNavItem(
-                  icon: AppIcons.chatBubble,
-                  label: 'Sessions',
-                  isSelected: currentIndex == 2,
-                  onTap: () => onTap(2),
-                ),
-                _GlassNavItem(
-                  icon: AppIcons.settings,
-                  label: 'Settings',
-                  isSelected: currentIndex == 3,
-                  onTap: () => onTap(3),
-                ),
-              ],
-            ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _GlassNavItem(
+                icon: AppIcons.dashboard,
+                label: 'Projects',
+                isSelected: currentIndex == 0,
+                onTap: () => onTap(0),
+              ),
+              _GlassNavItem(
+                icon: AppIcons.folderOpen,
+                label: 'Browse',
+                isSelected: currentIndex == 1,
+                onTap: () => onTap(1),
+              ),
+              _GlassNavItem(
+                icon: AppIcons.chatBubble,
+                label: 'Sessions',
+                isSelected: currentIndex == 2,
+                onTap: () => onTap(2),
+              ),
+              _GlassNavItem(
+                icon: AppIcons.settings,
+                label: 'Settings',
+                isSelected: currentIndex == 3,
+                onTap: () => onTap(3),
+              ),
+            ],
           ),
         ),
       ),

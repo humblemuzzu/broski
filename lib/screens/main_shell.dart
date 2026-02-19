@@ -98,11 +98,15 @@ class _MainShellState extends ConsumerState<MainShell> {
           AppBackground(screenId: _getScreenId(_index)),
           IndexedStack(
             index: _index,
-            children: const [
-              ProjectsScreen(),
-              BrowseScreen(),
-              SessionsScreen(),
-              SettingsScreen(),
+            children: [
+              // TickerMode pauses all AnimationController tickers in the
+              // subtree when the tab is not visible. Widgets stay built
+              // (instant switching), but pulsing dots, shimmers, and other
+              // repeating animations stop burning CPU/GPU offscreen.
+              TickerMode(enabled: _index == 0, child: const ProjectsScreen()),
+              TickerMode(enabled: _index == 1, child: const BrowseScreen()),
+              TickerMode(enabled: _index == 2, child: const SessionsScreen()),
+              TickerMode(enabled: _index == 3, child: const SettingsScreen()),
             ],
           ),
           // Unpaid UX:

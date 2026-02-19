@@ -55,17 +55,19 @@ class WebSocketService {
     'pong',
   };
 
-  // Ping/pong heartbeat state
-  Timer? _pingTimer;
+  // Unified heartbeat state — a single timer handles both:
+  //   1. Client ping/pong (is the network path alive?)
+  //   2. Server tick watchdog (is the bridge process still running?)
+  // One timer wake every 15s instead of two staggered wakes.
+  Timer? _heartbeatTimer;
   Timer? _pongTimeoutTimer;
   DateTime? _lastPongReceived;
-  static const _pingInterval = Duration(seconds: 15);
+  static const _heartbeatInterval = Duration(seconds: 15);
   static const _pongTimeout = Duration(seconds: 10);
   bool _waitingForPong = false;
 
   // Server tick detection (bridge sends tick every 30s)
-  // If we don't receive a tick in 2x the interval, connection is stale
-  Timer? _tickWatchdogTimer;
+  // If we don't receive a tick in 2.5x the interval, connection is stale
   DateTime? _lastTickReceived;
   static const _expectedTickInterval = Duration(seconds: 30);
   static const _tickTimeoutMultiplier = 2.5; // 75 seconds without tick = dead
@@ -478,23 +480,33 @@ class WebSocketService {
     _statusController.close();
   }
 
-  /// Start heartbeat pings to detect dead connections.
+  /// Start the unified heartbeat timer.
+  ///
+  /// A single [Timer.periodic] at 15 s handles two checks:
+  ///   1. **Ping/pong** — sends a client_ping and expects a client_pong back
+  ///      within [_pongTimeout]. If the previous pong never arrived, the
+  ///      connection is declared dead.
+  ///   2. **Tick watchdog** — the bridge sends a `tick` every 30 s. If we
+  ///      haven't received one in 2.5× that interval (75 s), the bridge
+  ///      probably restarted or the Mac went to sleep.
+  ///
+  /// Merging into one timer halves the CPU wake frequency compared to running
+  /// two independent periodic timers, which helps battery on mobile.
   void _startHeartbeat() {
     _stopHeartbeat();
     _waitingForPong = false;
     _lastPongReceived = DateTime.now();
     _lastTickReceived = DateTime.now();
 
-    _pingTimer = Timer.periodic(_pingInterval, (_) {
+    _heartbeatTimer = Timer.periodic(_heartbeatInterval, (_) {
       if (_channel == null || _status != ConnectionStatus.connected) return;
 
-      // If we're still waiting for a pong from the last ping, connection is dead
+      // ── Check 1: Ping/pong liveness ──
       if (_waitingForPong) {
         _handlePongTimeout();
         return;
       }
 
-      // Send a ping (client-initiated, not the bridge's ping)
       _waitingForPong = true;
       final pingId = DateTime.now().millisecondsSinceEpoch.toString();
       sendImmediate({
@@ -503,51 +515,32 @@ class WebSocketService {
         'sentAt': DateTime.now().millisecondsSinceEpoch,
       });
 
-      // Set a timeout for pong response
       _pongTimeoutTimer?.cancel();
       _pongTimeoutTimer = Timer(_pongTimeout, _handlePongTimeout);
-    });
 
-    // Start tick watchdog - checks if we've received server ticks
-    _startTickWatchdog();
-  }
-
-  /// Start the tick watchdog timer.
-  /// Server sends "tick" every 30s. If we don't receive one in 2.5x that time,
-  /// the connection is considered stale (e.g., Mac woke up but bridge restarted).
-  void _startTickWatchdog() {
-    _tickWatchdogTimer?.cancel();
-    final checkInterval = Duration(
-      milliseconds: (_expectedTickInterval.inMilliseconds * 0.5).round(),
-    );
-
-    _tickWatchdogTimer = Timer.periodic(checkInterval, (_) {
-      if (_channel == null || _status != ConnectionStatus.connected) return;
-      if (_lastTickReceived == null) return;
-
-      final timeSinceTick = DateTime.now().difference(_lastTickReceived!);
-      final timeoutThreshold = Duration(
-        milliseconds:
-            (_expectedTickInterval.inMilliseconds * _tickTimeoutMultiplier)
-                .round(),
-      );
-
-      if (timeSinceTick > timeoutThreshold) {
-        debugPrint(
-          '[WebSocket] Tick timeout: ${timeSinceTick.inSeconds}s since last tick (threshold: ${timeoutThreshold.inSeconds}s)',
+      // ── Check 2: Server tick watchdog ──
+      if (_lastTickReceived != null) {
+        final timeSinceTick = DateTime.now().difference(_lastTickReceived!);
+        final timeoutThreshold = Duration(
+          milliseconds:
+              (_expectedTickInterval.inMilliseconds * _tickTimeoutMultiplier)
+                  .round(),
         );
-        _handleTickTimeout();
+        if (timeSinceTick > timeoutThreshold) {
+          debugPrint(
+            '[WebSocket] Tick timeout: ${timeSinceTick.inSeconds}s since last tick (threshold: ${timeoutThreshold.inSeconds}s)',
+          );
+          _handleTickTimeout();
+        }
       }
     });
   }
 
   void _stopHeartbeat() {
-    _pingTimer?.cancel();
-    _pingTimer = null;
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
     _pongTimeoutTimer?.cancel();
     _pongTimeoutTimer = null;
-    _tickWatchdogTimer?.cancel();
-    _tickWatchdogTimer = null;
     _waitingForPong = false;
   }
 

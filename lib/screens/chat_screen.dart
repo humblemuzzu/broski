@@ -9941,25 +9941,30 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
     'Optimize database queries',
     'Add error handling to this function',
   ];
-  int _placeholderIndex = 0;
-  Timer?
-  _placeholderTimer; // FIX: Use cancellable Timer instead of Future.doWhile
+
+  // PERF: Use a ValueNotifier so the 6-second placeholder rotation only
+  // rebuilds the TextField (via ValueListenableBuilder), not the entire
+  // input bar with its agent selector, model badge, buttons, etc.
+  late final ValueNotifier<int> _placeholderIndex;
+  Timer? _placeholderTimer;
+
   @override
   void initState() {
     super.initState();
-    _placeholderIndex = DateTime.now().millisecond % _placeholders.length;
-    // FIX: Use periodic Timer that can be cancelled on dispose
+    _placeholderIndex = ValueNotifier<int>(
+      DateTime.now().millisecond % _placeholders.length,
+    );
     _placeholderTimer = Timer.periodic(const Duration(seconds: 6), (_) {
       if (!mounted) return;
-      setState(() {
-        _placeholderIndex = (_placeholderIndex + 1) % _placeholders.length;
-      });
+      _placeholderIndex.value =
+          (_placeholderIndex.value + 1) % _placeholders.length;
     });
   }
 
   @override
   void dispose() {
-    _placeholderTimer?.cancel(); // FIX: Cancel timer to prevent memory leak
+    _placeholderTimer?.cancel();
+    _placeholderIndex.dispose();
     super.dispose();
   }
 
@@ -10215,48 +10220,54 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
                           ),
                         ),
                       // Text input area
+                      // PERF: ValueListenableBuilder scopes the 6-second
+                      // placeholder rotation rebuild to ONLY this TextField,
+                      // not the entire input bar (buttons, badges, etc.).
                       Container(
                         constraints: const BoxConstraints(
                           minHeight: 44,
                           maxHeight: 140,
                         ),
-                        child: TextField(
-                          controller: widget.controller,
-                          focusNode: widget.focusNode,
-                          enabled: !widget.isOfflineMode && !widget.isBusy,
-                          minLines: 1,
-                          maxLines: 5,
-                          style: TextStyle(
-                            color: theme.text,
-                            fontSize: 14,
-                            height: 1.5,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: widget.isOfflineMode
-                                ? 'Offline mode - read only'
-                                : _placeholders[_placeholderIndex],
-                            filled: false,
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            disabledBorder: InputBorder.none,
-                            hintStyle: TextStyle(
-                              color: widget.isOfflineMode
-                                  ? theme.warning
-                                  : theme.textMuted.withValues(alpha: 0.4),
+                        child: ValueListenableBuilder<int>(
+                          valueListenable: _placeholderIndex,
+                          builder: (context, placeholderIdx, _) => TextField(
+                            controller: widget.controller,
+                            focusNode: widget.focusNode,
+                            enabled: !widget.isOfflineMode && !widget.isBusy,
+                            minLines: 1,
+                            maxLines: 5,
+                            style: TextStyle(
+                              color: theme.text,
                               fontSize: 14,
+                              height: 1.5,
                             ),
-                            contentPadding: const EdgeInsets.fromLTRB(
-                              16,
-                              12,
-                              16,
-                              4,
+                            decoration: InputDecoration(
+                              hintText: widget.isOfflineMode
+                                  ? 'Offline mode - read only'
+                                  : _placeholders[placeholderIdx],
+                              filled: false,
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              disabledBorder: InputBorder.none,
+                              hintStyle: TextStyle(
+                                color: widget.isOfflineMode
+                                    ? theme.warning
+                                    : theme.textMuted.withValues(alpha: 0.4),
+                                fontSize: 14,
+                              ),
+                              contentPadding: const EdgeInsets.fromLTRB(
+                                16,
+                                12,
+                                16,
+                                4,
+                              ),
+                              isDense: true,
                             ),
-                            isDense: true,
+                            onSubmitted: widget.canSend
+                                ? (_) => widget.onSend()
+                                : null,
                           ),
-                          onSubmitted: widget.canSend
-                              ? (_) => widget.onSend()
-                              : null,
                         ),
                       ),
                       // Bottom info rows - agent + actions on top, model below

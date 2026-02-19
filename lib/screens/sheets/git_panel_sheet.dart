@@ -58,7 +58,15 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
   final _branchController = TextEditingController();
   bool _creatingBranch = false;
   @override
+  void initState() {
+    super.initState();
+    // Speed up git polling while this panel is open
+    ref.read(gitStatusProvider(widget.projectPath).notifier).boostPolling();
+  }
+  @override
   void dispose() {
+    // Restore battery-friendly polling rate when panel closes
+    ref.read(gitStatusProvider(widget.projectPath).notifier).unboostPolling();
     _branchController.dispose();
     super.dispose();
   }
