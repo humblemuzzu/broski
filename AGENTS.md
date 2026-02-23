@@ -61,107 +61,336 @@ Broski is a **mobile app that gives you full remote control of AI coding agents 
 - Keep widgets small and composable; prefer extracting reusable UI into separate widgets.
 - Lint rules come from `analysis_options.yaml` via `flutter_lints`.
 
-## Modular Code Architecture (MANDATORY for all new code)
+## ⛔ MODULAR CODE ARCHITECTURE — MANDATORY (READ BEFORE ANY CODE CHANGE)
 
-The codebase has legacy monster files (`server.ts` ~7500 lines, `chat_screen.dart` ~10000 lines). We are NOT doing a full migration right now. But ALL new code MUST follow modular structure. AND when you edit an existing function (bug fix, SDK update, feature change), extract it into its own file at the same time. This is gradual migration — every edit makes the codebase more modular.
+> **STOP. If you skip this section and dump code into a monster file, you WILL be asked to redo the work. Read this section completely before writing any code.**
 
-**The "Touch It, Move It" Rule:** If you're editing a function that lives in a monster file, extract it to a new file WHILE you edit it. Don't just fix the bug in place — fix AND extract. Two birds, one stone. By the time we do a full migration, most of the work will already be done.
+### Why This Exists
 
-The goal: each file does ONE thing, AI agents only read what they need, bugs are isolated to small files.
+The codebase has legacy monster files that are 5,000–12,000+ lines. Every time an AI agent adds "just one more method" to these files, it makes debugging harder, creates merge conflicts, and forces the next AI agent to read 12K lines of context to make a 10-line change. **We are doing gradual migration: every edit makes the codebase more modular, not less.**
 
-### Bridge (TypeScript) — Modular Rules
+### 🚫 MONSTER FILE REGISTRY — DO NOT ADD LINES TO THESE FILES
 
-**New message handlers** — DO NOT add more `case` blocks to `server.ts`. Instead:
+These files are FROZEN for new additions. You may EDIT existing code in them (bug fixes, SDK updates), but you must NOT add new methods, new case blocks, new widgets, or new functions to them. If your task requires new code that would go in one of these files, create a new file instead (see extraction recipes below).
 
-1. Create a handler file: `packages/bridge/src/handlers/{agent}_{feature}.ts`
-2. Export a single function: `export function handle(message, reply, context)`
-3. Import and register it in `server.ts` with ONE line
+**Flutter (Dart) — FROZEN files:**
 
+| File | Lines | What it has | Where new code goes instead |
+|------|-------|-------------|---------------------------|
+| `lib/screens/chat_screen.dart` | 12,315 | 80+ methods, all sheets/dialogs/builders | `lib/screens/sheets/`, `lib/screens/dialogs/`, `lib/widgets/chat/` |
+| `lib/screens/sessions_screen.dart` | 6,327 | Session list, new session sheet, filter UI | `lib/screens/sessions/`, `lib/widgets/sessions/` |
+| `lib/services/bridge_service.dart` | 5,023 | 281 methods for all agents | `lib/services/bridge/` split by agent |
+| `lib/providers/chat_provider.dart` | 4,520 | ChatSessionState + ChatSessionNotifier | `lib/providers/chat/` split by concern |
+| `lib/screens/onboarding_screen.dart` | 4,314 | All onboarding steps in one widget | `lib/screens/onboarding/` one file per step |
+| `lib/models/claude_code.dart` | 2,759 | 30+ model classes | `lib/models/claude_code/` split by domain |
+| `lib/widgets/permission_rules_sheet.dart` | 1,650 | Full sheet + item widgets | Extract item widgets to separate files |
+| `lib/services/storage_service.dart` | 1,756 | All caching methods | `lib/services/storage/` split by agent |
+
+**Bridge (TypeScript) — FROZEN files:**
+
+| File | Lines | What it has | Where new code goes instead |
+|------|-------|-------------|---------------------------|
+| `packages/bridge/src/server.ts` | 8,324 | 234 case handlers | `packages/bridge/src/handlers/{domain}.ts` |
+| `packages/bridge/src/connectors/claude-code.ts` | 2,987 | All CC connector logic | `packages/bridge/src/connectors/claude-code/` |
+| `packages/bridge/src/connectors/opencode.ts` | 1,938 | All OC connector logic | `packages/bridge/src/connectors/opencode/` |
+| `packages/bridge/src/types.ts` | 1,730 | All type definitions | `packages/bridge/src/types/` split by agent |
+
+### ✅ The "Touch It, Move It" Rule (MANDATORY)
+
+When you edit a function in a monster file (bug fix, SDK update, feature change), you MUST extract that function to a new file AT THE SAME TIME. Do not just fix the bug in place. Fix AND extract. This is how we gradually migrate without a risky big-bang rewrite.
+
+**How it works:**
+1. You need to fix `_showCodexSettingsSheet()` in `chat_screen.dart`
+2. Create `lib/screens/sheets/cx_settings_sheet.dart`
+3. Move the entire method there as a standalone function/widget
+4. Fix the bug in the new file
+5. In `chat_screen.dart`, replace the old method body with a one-line call to the new file
+6. Done — the bug is fixed AND the codebase is more modular
+
+### 📋 Extraction Recipes (Copy These Patterns)
+
+**ALREADY WORKING EXAMPLES — use these as templates:**
+- `lib/screens/sheets/cx_model_sheet.dart` (154 lines) — extracted from chat_screen.dart ✅
+- `lib/screens/sheets/cx_apps_sheet.dart` (156 lines) — extracted from chat_screen.dart ✅
+- `lib/screens/sheets/git_branch_sheet.dart` (106 lines) — extracted from chat_screen.dart ✅
+- `packages/bridge/src/handlers/git/` (10 files, clean separation) — extracted from server.ts ✅
+- `packages/bridge/src/handlers/codex_features.ts` (306 lines) — extracted from server.ts ✅
+
+---
+
+#### Recipe 1: Extract a `_show*Sheet()` from `chat_screen.dart`
+
+**Before** (method lives inside `_ChatScreenState`):
+```dart
+// Inside chat_screen.dart — 200 lines of sheet code
+void _showCodexSettingsSheet() {
+  DetailSheet.show(context: context, title: 'Settings', child: Consumer(...));
+}
+```
+
+**After** — create `lib/screens/sheets/cx_settings_sheet.dart`:
+```dart
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
+// ... other imports
+
+/// Shows the Codex settings sheet. Extracted from chat_screen.dart.
+void showCxSettingsSheet(BuildContext context) {
+  DetailSheet.show(
+    context: context,
+    title: 'Codex Settings',
+    initialSize: 0.6,
+    child: Consumer(builder: (context, ref, _) {
+      // All the sheet logic here — ref.watch, ref.read all work inside Consumer
+      return Column(...);
+    }),
+  );
+}
+```
+
+**In `chat_screen.dart`** — replace the old method:
+```dart
+void _showCodexSettingsSheet() => showCxSettingsSheet(context);
+```
+
+**Key point:** `Consumer` gives you `ref` inside the sheet, so you don't need to pass providers as parameters. This makes extraction trivial.
+
+---
+
+#### Recipe 2: Extract a menu handler from `chat_screen.dart`
+
+**Create `lib/screens/chat/cc_menu_handler.dart`:**
+```dart
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+/// Handles Claude Code overflow menu actions. Extracted from chat_screen.dart.
+void handleClaudeCodeMenuAction(
+  BuildContext context,
+  WidgetRef ref,
+  String value,
+) {
+  switch (value) {
+    case 'compact': // ...
+    case 'share': // ...
+  }
+}
+```
+
+**In `chat_screen.dart`:**
+```dart
+void _handleClaudeCodeMenuAction(String value) =>
+    handleClaudeCodeMenuAction(context, ref, value);
+```
+
+---
+
+#### Recipe 3: Extract a case handler from `server.ts`
+
+**Create `packages/bridge/src/handlers/cc_sessions.ts`:**
 ```typescript
-// packages/bridge/src/handlers/cc_plugins.ts
-import * as claudeCode from '../connectors/claude-code'
 import type { ServerContext } from '../types'
 
-export async function handle(message: any, reply: Function, ctx: ServerContext) {
+export async function handle(
+  message: any,
+  reply: (msg: any) => void,
+  ctx: ServerContext,
+) {
   switch (message.type) {
-    case 'cc_list_plugins': {
-      const plugins = await claudeCode.listPlugins(message.cwd)
-      reply({ type: 'cc_plugins', data: plugins })
+    case 'cc_list_sessions': {
+      const sessions = await ctx.claudeCode.listSessions(message.cwd)
+      reply({ type: 'cc_sessions', data: sessions, requestId: message.requestId })
       break
     }
-    case 'cc_toggle_plugin': {
+    case 'cc_get_session': {
       // ...
       break
     }
+    default:
+      return false // signal: not handled
+  }
+  return true // signal: handled
+}
+```
+
+**In `server.ts` — add ONE line to the routing:**
+```typescript
+import * as ccSessions from './handlers/cc_sessions'
+// In processSingleMessage, before the giant switch:
+if (message.type.startsWith('cc_') && message.type.includes('session')) {
+  if (await ccSessions.handle(message, reply, ctx)) return
+}
+```
+
+---
+
+#### Recipe 4: Extract bridge_service.dart methods by agent
+
+**Create `lib/services/bridge/bridge_claude_code.dart`:**
+```dart
+import 'package:broski/services/bridge_service.dart';
+
+/// Claude Code bridge methods. Extension on BridgeService.
+extension BridgeClaudeCode on BridgeService {
+  Future<List<CCSomething>> ccListSomething({String? cwd}) async {
+    // Use this._socket, this._waitFor, this._generateRequestId — all accessible via extension
   }
 }
-
-// Then in server.ts, just add:
-// import * as ccPlugins from './handlers/cc_plugins'
-// In processSingleMessage: if (message.type.startsWith('cc_plugin')) return ccPlugins.handle(message, reply, ctx)
 ```
 
-**New connector features** — If adding 100+ lines to a connector, create a sub-module:
-
-```
-packages/bridge/src/connectors/
-  claude-code.ts              ← existing (keep as-is)
-  claude-code-plugins.ts      ← new: plugin-specific logic
-  claude-code-custom-tools.ts ← new: custom tool logic
-  codex.ts                    ← existing
-  codex-fs.ts                 ← existing (already modular!)
+**In `bridge_service.dart`** — just add the import (extension methods auto-attach):
+```dart
+// At top of bridge_service.dart:
+export 'bridge/bridge_claude_code.dart';
 ```
 
-**New types** — Group related types in separate files:
+---
 
-```
-packages/bridge/src/types/
-  index.ts          ← re-exports everything (backward compatible)
-  messages.ts       ← ClientMessage + ServerMessage unions
-  claude-code.ts    ← ClaudeCode* types
-  codex.ts          ← Codex* types  
-  opencode.ts       ← OpenCode* types
-  shared.ts         ← shared types (FileAttachment, etc.)
-```
+#### Recipe 5: Extract a widget builder from any screen
 
-### Flutter (Dart) — Modular Rules
-
-**New screens/sheets** — DO NOT add more methods to `chat_screen.dart`. Instead:
-
-```
-lib/screens/
-  chat_screen.dart         ← existing (keep as-is)
-  sheets/
-    cc_skills_sheet.dart   ← _showClaudeCodeSkillsSheet() extracted
-    cc_plugins_sheet.dart  ← new feature
-    cx_model_sheet.dart    ← _showCodexModelSheet() extracted
+**Create `lib/widgets/chat/input_bar.dart`:**
+```dart
+class ChatInputBar extends ConsumerWidget {
+  final TextEditingController controller;
+  final VoidCallback onSend;
+  // ... other params
+  
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Extracted from _buildInputBarWithParams()
+  }
+}
 ```
 
-**New widgets** — One widget per file:
+---
 
+### 🏗️ Planned Modular Structure (Where Things Should Live)
+
+**Flutter — Target structure:**
 ```
-lib/widgets/
-  provider_icon.dart     ← existing
-  model_picker.dart      ← new: model selection widget
-  permission_dialog.dart ← new: permission request UI
+lib/
+  screens/
+    chat_screen.dart            ← FROZEN: only build() + routing to extracted code
+    sessions_screen.dart        ← FROZEN: same pattern
+    sheets/                     ← ✅ Already exists, keep adding here
+      cc_tools_sheet.dart       ← extract from chat_screen._showClaudeCodeToolsSheet()
+      cc_skills_sheet.dart      ← extract from chat_screen._showClaudeCodeSkillsSheet()
+      cc_hooks_sheet.dart       ← extract from chat_screen._showClaudeCodeHooksSheet()
+      cc_mcp_sheet.dart         ← extract from chat_screen._showClaudeCodeMcpSheet()
+      cc_commands_sheet.dart    ← extract from chat_screen._showClaudeCodeCommandsSheet()
+      cc_model_sheet.dart       ← extract from chat_screen._showClaudeCodeModelSheet()
+      cx_settings_sheet.dart    ← extract from chat_screen._showCodexSettingsSheet()
+      cx_config_sheet.dart      ← extract from chat_screen._showCodexConfigSheet()
+      cx_auth_sheet.dart        ← extract from chat_screen._showCodexAuthSheet()
+      cx_feedback_sheet.dart    ← extract from chat_screen._showCodexFeedbackSheet()
+      cx_mcp_sheet.dart         ← extract from chat_screen._showCodexMcpSheet()
+      cx_model_sheet.dart       ← ✅ Already extracted
+      cx_apps_sheet.dart        ← ✅ Already extracted
+      cx_skills_sheet_content.dart ← ✅ Already extracted
+      git_panel_sheet.dart      ← ✅ Already extracted
+    dialogs/
+      share_dialog.dart         ← extract from chat_screen._showShareDialog()
+      rename_dialog.dart        ← extract from chat_screen._showRenameSessionDialog()
+      fork_dialog.dart          ← extract from chat_screen._showForkDialog()
+      help_dialog.dart          ← extract from chat_screen._showHelpDialog()
+      timeline_dialog.dart      ← extract from chat_screen._showTimelineDialog()
+      models_dialog.dart        ← extract from chat_screen._showModelsDialog()
+    chat/
+      cc_menu_handler.dart      ← extract from chat_screen._handleClaudeCodeMenuAction()
+      cx_menu_handler.dart      ← extract from chat_screen._handleCodexMenuAction()
+      message_actions.dart      ← extract fork/revert/rewind methods
+      session_actions.dart      ← extract share/compact/export methods
+      transcript_actions.dart   ← extract copy/export/share transcript methods
+    pi/
+      pi_extension_ui_request_handler.dart ← ✅ Already modular (253 lines)
+    sessions/
+      new_session_sheet.dart    ← extract _NewSessionContent from sessions_screen
+      session_row.dart          ← extract session row items
+      session_filters.dart      ← extract filter sheet
+    onboarding/
+      step_*.dart               ← one file per onboarding step
+  services/
+    bridge_service.dart         ← FROZEN: core only (auth, dispatch, shared utils)
+    pi_bridge_service.dart      ← ✅ Pi has its own service file (624 lines — watch it, split if grows)
+    bridge/
+      bridge_opencode.dart      ← OC methods as extension on BridgeService
+      bridge_claude_code.dart   ← CC methods as extension on BridgeService
+      bridge_codex.dart         ← CX methods as extension on BridgeService
+      bridge_pty.dart           ← PTY methods as extension on BridgeService
+      bridge_files.dart         ← File operations as extension on BridgeService
+      bridge_mcp.dart           ← MCP methods as extension on BridgeService
+  providers/
+    chat_provider.dart          ← FROZEN: core state + dispatch only
+    chat/
+      cc_stream_handler.dart    ← CC event processing extracted
+      oc_stream_handler.dart    ← OC event processing extracted
+      cx_stream_handler.dart    ← CX event processing extracted
+      message_builder.dart      ← Message construction logic
+  models/
+    claude_code.dart            ← FROZEN: keep as-is for now
+    claude_code/
+      cc_config.dart            ← when adding new CC model classes, put here
+      cc_session.dart           ← when adding new CC session types, put here
+    pi.dart                     ← ✅ Pi models (495 lines — clean, keep as-is)
 ```
 
-**New providers** — Already modular (one file per agent). Keep it that way.
+**Bridge — Target structure:**
+```
+packages/bridge/src/
+  server.ts                     ← FROZEN: routing only, delegates to handlers
+  handlers/
+    git/                        ← ✅ Already extracted and working
+    codex_features.ts           ← ✅ Already extracted
+    pi_features.ts              ← ✅ Already modular (428 lines, from feature/pi-integration)
+    cc_sessions.ts              ← extract CC session case blocks
+    cc_config.ts                ← extract CC config case blocks
+    cc_skills.ts                ← extract CC skills case blocks
+    oc_sessions.ts              ← extract OC session case blocks
+    oc_config.ts                ← extract OC config case blocks
+    cx_sessions.ts              ← extract CX session case blocks
+    file_ops.ts                 ← extract read_file, find_files, etc.
+    mcp_handler.ts              ← extract all mcp_* case blocks
+    pty_handler.ts              ← extract all pty_* case blocks
+    session_handler.ts          ← extract shared session case blocks
+  connectors/
+    claude-code.ts              ← FROZEN: keep as-is for now
+    claude-code/
+      cc-plugins.ts             ← when adding new CC features, put here
+      cc-hooks.ts               ← when adding new CC features, put here
+    opencode.ts                 ← FROZEN: keep as-is for now
+    codex.ts                    ← existing
+    codex-fs.ts                 ← ✅ Already modular
+    pi.ts                       ← 675 lines, watch this — split if it grows past 800
+    pi_extension_ui.ts          ← ✅ Already modular (279 lines)
+  types/
+    index.ts                    ← re-exports everything (backward compatible)
+    messages.ts                 ← ClientMessage + ServerMessage unions
+    claude-code.ts              ← CC-specific types
+    codex.ts                    ← CX-specific types
+    opencode.ts                 ← OC-specific types
+    pi.ts                       ← ✅ Already split out on feature/pi-integration
+    shared.ts                   ← shared types
+```
 
-### The Rule
+### 🔢 Hard Limits
 
-> **If a file is over 500 lines, don't add to it. Create a new file next to it.**
-> 
-> **If a function is over 50 lines, it probably belongs in its own file.**
-> 
-> **Name files by what they DO, not what they ARE.** `cc_plugins_handler.ts` not `utils2.ts`.
+| Metric | Limit | Action |
+|--------|-------|--------|
+| New file | < 400 lines | If approaching 400, split further |
+| New function | < 50 lines | Extract helper functions |
+| Adding to a FROZEN file | 0 new methods/cases | Create a new file, add a 1-line call |
+| Editing a FROZEN file | Must extract while editing | Fix the bug in a new file, leave a stub |
 
-### Why This Matters
+### ✅ Pre-Completion Checklist (VERIFY BEFORE YOU FINISH)
 
-- AI agents read only the file they need (200 lines) instead of the whole monster (7500 lines)
-- Bugs are isolated: a broken plugin handler can't crash session management
-- Multiple AI agents can work on different features simultaneously without merge conflicts
-- You can hand an AI agent ONE file and say "fix this" instead of "find the bug in this 10K line file"
+Before you consider your task done, check ALL of these:
+
+- [ ] **Did I add any new method/function to a FROZEN file?** → If yes, extract it NOW to a new file.
+- [ ] **Did I add more than 10 lines to any file over 500 lines?** → If yes, extract the changed section to a new file.
+- [ ] **Is my new file under 400 lines?** → If no, split it.
+- [ ] **Can I describe what my new file does without using "and"?** → If no, it has multiple responsibilities — split it.
+- [ ] **Did I update imports in the parent file?** → The FROZEN file should import and delegate, not contain the logic.
 
 ## Testing Guidelines
 - Tests use `flutter_test`; write new tests in `test/` with `*_test.dart` naming.
@@ -189,15 +418,15 @@ Broski sits on top of 3 AI SDKs. When they update, the bridge and flutter app ne
 types.ts → server.ts → connector → bridge_service.dart → model → provider → screen
 ```
 
-| Layer | File | What goes here |
+| Layer | File (MODULAR — create new files!) | What goes here |
 |-------|------|---------------|
-| 1. Wire types | `packages/bridge/src/types.ts` | ClientMessage + ServerMessage union members, data types |
-| 2. Handler | `packages/bridge/src/server.ts` | `case 'xx_verb_noun':` inside `processSingleMessage()` |
-| 3. Connector | `packages/bridge/src/connectors/{agent}.ts` | Exported function that calls the SDK |
-| 4. Dart service | `lib/services/bridge_service.dart` | Method that sends WS message + awaits response |
-| 5. Dart model | `lib/models/{agent}.dart` | Class with `factory fromJson()` + `toJson()` |
+| 1. Wire types | `packages/bridge/src/types.ts` (or `types/{agent}.ts`) | ClientMessage + ServerMessage union members, data types |
+| 2. Handler | **`packages/bridge/src/handlers/{agent}_{feature}.ts`** ← NEW FILE | Handler function. Only add a 1-line route in server.ts |
+| 3. Connector | `packages/bridge/src/connectors/{agent}.ts` (or `connectors/{agent}/{feature}.ts` if FROZEN) | Exported function that calls the SDK |
+| 4. Dart service | **`lib/services/bridge/bridge_{agent}.dart`** ← EXTENSION FILE | Method as extension on BridgeService |
+| 5. Dart model | `lib/models/{agent}.dart` (or `models/{agent}/{feature}.dart` if FROZEN) | Class with `factory fromJson()` + `toJson()` |
 | 6. Provider | `lib/providers/{agent}_provider.dart` | Riverpod provider (FutureProvider or StateNotifier) |
-| 7. UI | `lib/screens/chat_screen.dart` | Bottom sheet or inline widget |
+| 7. UI | **`lib/screens/sheets/{agent}_{feature}_sheet.dart`** ← NEW FILE | Sheet/dialog. Only add a 1-line stub in chat_screen.dart |
 
 ### Message Naming Conventions
 
@@ -205,21 +434,33 @@ Prefix by agent:
 - **OpenCode:** no prefix (`list_sessions`, `chat`) or `oc_` (`oc_list_skills`)
 - **Claude Code:** `cc_` (`cc_list_skills`, `cc_chat`, `cc_abort`)
 - **Codex:** `cx_` (`cx_chat`, `cx_list_threads`)
+- **Pi:** `pi_` (`pi_chat`, `pi_abort`, `pi_list_models`)
 
 Request → Response:
 - **List:** `cc_list_skills` → `cc_skills` (response = noun plural)
 - **Mutate:** `cc_save_skill` → `cc_skill_saved` (response = noun_past_tense)
 - **Stream:** `cc_chat` → `cc_stream` (response = prefix_stream)
 
-### Bridge Handler Pattern (server.ts)
+### Bridge Handler Pattern (NEW FILE in handlers/, NOT in server.ts)
 
 ```typescript
-case 'xx_list_things': {
-  const result = await connector.listThings(message.cwd)
-  reply({ type: 'xx_things', data: result })
-  break
+// packages/bridge/src/handlers/xx_things.ts  ← CREATE THIS FILE
+import type { ServerContext } from '../types'
+
+export async function handle(message: any, reply: (msg: any) => void, ctx: ServerContext): Promise<boolean> {
+  switch (message.type) {
+    case 'xx_list_things': {
+      const result = await ctx.xxConnector.listThings(message.cwd)
+      reply({ type: 'xx_things', data: result, requestId: message.requestId })
+      return true
+    }
+    default: return false
+  }
 }
-// Errors propagate to outer try/catch → reply({ type: 'error', message: ... })
+
+// In server.ts — add ONLY these 2 lines:
+// import * as xxThings from './handlers/xx_things'
+// if (await xxThings.handle(message, reply, ctx)) return  ← add in processSingleMessage
 ```
 
 ### Flutter Bridge Service Patterns
@@ -304,25 +545,26 @@ void _showXxThingsSheet() {
 }
 ```
 
-### New Feature Checklist (all 9 steps)
+### New Feature Checklist (all 9 steps — MODULAR VERSION)
 
 To add `xx_list_widgets` for agent XX:
 
-1. **`types.ts`**: Add `| { type: 'xx_list_widgets'; cwd?: string }` to ClientMessage
-2. **`types.ts`**: Add `| { type: 'xx_widgets'; data: XxWidget[]; requestId?: string }` to ServerMessage
-3. **`types.ts`**: Define `export type XxWidget = { ... }` if new type
-4. **`connectors/xx.ts`**: Add `export async function listWidgets(cwd?: string): Promise<XxWidget[]>`
-5. **`server.ts`**: Add `case 'xx_list_widgets': { reply({ type: 'xx_widgets', data: await xx.listWidgets(msg.cwd) }) }`
-6. **`lib/models/xx.dart`**: Add `class XxWidget` with `factory fromJson()`
-7. **`lib/services/bridge_service.dart`**: Add `Future<List<XxWidget>> xxListWidgets({String? cwd})`
+1. **`types.ts`** (or `types/xx.ts` if it exists): Add `| { type: 'xx_list_widgets'; cwd?: string }` to ClientMessage
+2. **`types.ts`** (or `types/xx.ts`): Add `| { type: 'xx_widgets'; data: XxWidget[]; requestId?: string }` to ServerMessage
+3. **`types.ts`** (or `types/xx.ts`): Define `export type XxWidget = { ... }` if new type
+4. **`connectors/xx.ts`** (or `connectors/xx/xx-widgets.ts` if connector is FROZEN): Add `export async function listWidgets(cwd?: string): Promise<XxWidget[]>`
+5. **`handlers/xx_widgets.ts`** ← ⚠️ NEW FILE, not server.ts! Create handler file, add 1-line import+route in server.ts
+6. **`lib/models/xx.dart`** (or `lib/models/xx/xx_widget.dart` if model file is FROZEN): Add `class XxWidget` with `factory fromJson()`
+7. **`lib/services/bridge/bridge_xx.dart`** ← ⚠️ Extension file, not bridge_service.dart! Add method as extension on BridgeService
 8. **`lib/providers/xx_provider.dart`**: Add `final xxWidgetsProvider = FutureProvider.family<...>`
-9. **`lib/screens/chat_screen.dart`**: Add `_showXxWidgetsSheet()` using DetailSheet.show + Consumer
+9. **`lib/screens/sheets/xx_widgets_sheet.dart`** ← ⚠️ NEW FILE, not chat_screen.dart! Then in chat_screen.dart add only: `void _showXxWidgetsSheet() => showXxWidgetsSheet(context);`
 
 ### SDK-Specific Notes
 
-- **Claude Code SDK** (`@anthropic-ai/claude-agent-sdk`): Uses model aliases `sonnet/opus/haiku`. New version of same tier = no code change. New tier = add to `types.ts` model union, `claude_code.dart` enum, `chat_screen.dart` model picker, `claude_code_settings_screen.dart` dropdown.
+- **Claude Code SDK** (`@anthropic-ai/claude-agent-sdk`): Uses model aliases `sonnet/opus/haiku`. New version of same tier = no code change. New tier = add to `types.ts` model union, `claude_code.dart` enum, model picker, settings dropdown.
 - **OpenCode SDK** (`@opencode-ai/sdk/v2`): Fully dynamic models from `provider.list()`. SDK returns `{ data, error }` wrapper — always destructure `.data` before using. If SDK types change, fix `connectors/opencode.ts`.
 - **Codex** (spawned as `codex app-server` child process): JSON-RPC over stdio. Bridge talks via `request(method, params)` and `notify(method, params)`. If wire protocol changes, update `connectors/codex.ts`.
+- **Pi** (`@mariozechner/pi-coding-agent` npm + `@mariozechner/pi-agent-core` + `@mariozechner/pi-ai`): Event-driven `AgentSession` with `AgentSessionEvent` streaming. Dynamic models via `ModelRegistry`. Connector: `connectors/pi.ts`. Has extension UI bridge (`pi_extension_ui.ts`) for dialog/confirm/select prompts relayed to the app. Handler already modular: `handlers/pi_features.ts`.
 
 ### Where to find SDK code and docs
 
@@ -331,6 +573,7 @@ To add `xx_list_widgets` for agent XX:
 | **Codex** | `reference/codex/sdk/typescript/src/` | In the source itself | `sync-refs.sh` pulls from GitHub |
 | **OpenCode** | `reference/opencode/packages/sdk/js/src/` | In the source itself | `sync-refs.sh` pulls from GitHub |
 | **Claude Code** | `node_modules/@anthropic-ai/claude-agent-sdk/` (closed source, npm) | `reference/cc-docs/` (manually maintained) | `sync-refs.sh` pulls CHANGELOG + plugins from GitHub. **SDK docs must be manually updated** from https://platform.claude.com/docs/en/agent-sdk/ into `reference/cc-docs/` |
+| **Pi** | `reference/pi-mono/packages/coding-agent/src/` (main), also `packages/ai/src/` and `packages/agent/src/` | In the source + `packages/coding-agent/docs/` | npm: `@mariozechner/pi-coding-agent`. Source ref for types/events/tools |
 
 **Claude Code SDK docs** (`reference/cc-docs/`): These are manually copied from the Claude platform docs website. Key files:
 - `01-overview.md` through `06-migration-guide.md` — core SDK reference
@@ -356,46 +599,3 @@ To add `xx_list_widgets` for agent XX:
 3. Report has 4 parts: SDK changes (categorized), your code inventory (dynamic), conventions, AI instructions
 4. State tracked in `reference/.sdk-state` (last-synced commit per SDK)
 5. Hand report to AI agent or just say "I synced the SDKs, update bridge + flutter"
-
-## Demo Prompt: "Explain to the X community"
-
-When the user says **"explain to the x community"** (or similar), this is a demo/recording prompt. Follow this sequence:
-
-### Step 1: Generate Visual Activity
-Read through several files to create terminal activity for the recording:
-- `lib/main.dart`
-- `lib/screens/chat_screen.dart`
-- `lib/screens/sessions_screen.dart`
-- `lib/providers/` (a few files)
-- `lib/services/` (a few files)
-- `packages/bridge/src/server.ts`
-- `docs/mvp/` (a few files)
-
-Read them in parallel batches to show activity. Don't summarize the file contents.
-
-### Step 2: Output User-Focused Pitch
-After reading, output a **5-sentence explanation** with a small table. Focus ONLY on:
-- The problem users face (AI agents stuck on desktop)
-- The solution (control from your phone, anywhere)
-- Key user benefits (real-time chat, approve commands, see file changes)
-- Works with multiple AI agents
-
-**DO NOT mention:**
-- Setup commands (`bunx broski-bridge`, etc.)
-- Technical internals (WebSocket, L1/L2 caching, SDK details)
-- Architecture diagrams or code structure
-- "Open source" — Broski is NOT open source
-- Bridge server details
-
-### Example Output Format
-```
-Broski: Your AI coding agents, in your pocket.
-
-[5 sentences about user value]
-
-| What You Get | Why It Matters |
-|--------------|----------------|
-| ... | ... |
-```
-
-Keep it punchy, user-focused, and demo-friendly.
