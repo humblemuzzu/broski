@@ -71,7 +71,7 @@ The codebase has legacy monster files that are 5,000–12,000+ lines. Every time
 
 ### 🚫 MONSTER FILE REGISTRY — DO NOT ADD LINES TO THESE FILES
 
-These files are FROZEN for new additions. You may EDIT existing code in them (bug fixes, SDK updates), but you must NOT add new methods, new case blocks, new widgets, or new functions to them. If your task requires new code that would go in one of these files, create a new file instead (see extraction recipes below).
+These files are FROZEN. Do NOT add new methods, new case blocks, new widgets, or new functions to them. If you need to touch a frozen file for ANY reason (bug fix, SDK update, feature change), you MUST extract the code you're changing into a new file and replace the original with a 1-line call to the new file. See extraction recipes below.
 
 **Flutter (Dart) — FROZEN files:**
 
@@ -97,7 +97,7 @@ These files are FROZEN for new additions. You may EDIT existing code in them (bu
 
 ### ✅ The "Touch It, Move It" Rule (MANDATORY)
 
-When you edit a function in a monster file (bug fix, SDK update, feature change), you MUST extract that function to a new file AT THE SAME TIME. Do not just fix the bug in place. Fix AND extract. This is how we gradually migrate without a risky big-bang rewrite.
+When you touch ANY function in a frozen file (bug fix, SDK update, feature change), you MUST extract it to a new file. Never fix in place — always extract to a new file, fix it there, and replace the original method body with a 1-line call to the new file (so nothing breaks). This is how we gradually migrate without a risky big-bang rewrite.
 
 **How it works:**
 1. You need to fix `_showCodexSettingsSheet()` in `chat_screen.dart`
@@ -380,7 +380,7 @@ packages/bridge/src/
 | New file | < 400 lines | If approaching 400, split further |
 | New function | < 50 lines | Extract helper functions |
 | Adding to a FROZEN file | 0 new methods/cases | Create a new file, add a 1-line call |
-| Editing a FROZEN file | Must extract while editing | Fix the bug in a new file, leave a stub |
+| Editing a FROZEN file | Must extract while editing | Fix in a new file, replace original with 1-line call |
 
 ### ✅ Pre-Completion Checklist (VERIFY BEFORE YOU FINISH)
 
@@ -408,9 +408,30 @@ Before you consider your task done, check ALL of these:
 
 ### Don't use mgrep use your own file search and read or whatever tools but not mgrep
 
+## SDK Integration Rules
+
+### Use SDK types. Don't cast `as any` when the SDK exports a proper type.
+
+If the SDK exports a type for a message, response, or content block — import it and use it. Casting `as any` hides breaking changes. When the SDK renames a field, TypeScript catches it at compile time with real types but silently returns `undefined` at runtime with `as any`.
+
+### Don't write fallbacks for old SDK response formats.
+
+When the current SDK returns `{ data: [...] }`, don't also handle the old format with `result?.data ?? result ?? []`. That middle `?? result` is dead code for an SDK version we no longer use. Trust the current SDK's response shape.
+
+| Situation | Do this | Not this |
+|-----------|---------|----------|
+| SDK exports `SDKAssistantMessage` with `.message.content` | `import type { SDKAssistantMessage }` and use it | `(block as any).text` |
+| Codex v2 returns `{ data: [...], nextCursor }` | `result.data` | `result?.data ?? result ?? []` |
+| OpenCode SDK call with `{ responseStyle: 'data' }` | Use the typed return value directly | `(result as any) ?? []` |
+| Filesystem read might fail | `try { readdir() } catch { return [] }` ← this is fine | — |
+| JSON from WebSocket might have null fields | `json['name'] as String? ?? ''` ← this is fine | — |
+| Bridge unreachable, show cached data | Offline cache fallback ← this is fine | — |
+
+**The test:** If your `??` or `as any` exists because "the SDK used to return something different" — remove it. If it exists because "the runtime operation can genuinely fail" — keep it.
+
 ## SDK Update System
 
-Broski sits on top of 3 AI SDKs. When they update, the bridge and flutter app need to match. This section tells you how everything is wired so you can update correctly.
+Broski sits on top of 4 AI SDKs. When they update, the bridge and flutter app need to match. This section tells you how everything is wired so you can update correctly.
 
 ### SDK → Bridge → Flutter: The 5-Layer Flow
 
@@ -426,7 +447,7 @@ types.ts → server.ts → connector → bridge_service.dart → model → provi
 | 4. Dart service | **`lib/services/bridge/bridge_{agent}.dart`** ← EXTENSION FILE | Method as extension on BridgeService |
 | 5. Dart model | `lib/models/{agent}.dart` (or `models/{agent}/{feature}.dart` if FROZEN) | Class with `factory fromJson()` + `toJson()` |
 | 6. Provider | `lib/providers/{agent}_provider.dart` | Riverpod provider (FutureProvider or StateNotifier) |
-| 7. UI | **`lib/screens/sheets/{agent}_{feature}_sheet.dart`** ← NEW FILE | Sheet/dialog. Only add a 1-line stub in chat_screen.dart |
+| 7. UI | **`lib/screens/sheets/{agent}_{feature}_sheet.dart`** ← NEW FILE | Sheet/dialog. Only add a 1-line call in chat_screen.dart |
 
 ### Message Naming Conventions
 
