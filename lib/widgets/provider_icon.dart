@@ -100,6 +100,8 @@ class ProviderIcon extends StatelessWidget {
       // Specialty providers
       'gitlab': _ProviderInfo('GL', Color(0xFFFC6D26)), // GitLab orange
       'gitlab-duo': _ProviderInfo('GL', Color(0xFFFC6D26)), // GitLab Duo
+      // Agent providers
+      'pi': _ProviderInfo('π', Color(0xFF7C3AED)),
     };
 
     return providers[id] ??

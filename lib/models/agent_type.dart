@@ -1,7 +1,8 @@
 enum AgentType {
   opencode,
   claudeCode,
-  codex;
+  codex,
+  pi;
 
   String get displayName {
     switch (this) {
@@ -11,6 +12,8 @@ enum AgentType {
         return 'Claude Code';
       case AgentType.codex:
         return 'Codex';
+      case AgentType.pi:
+        return 'Pi';
     }
   }
 
@@ -22,6 +25,8 @@ enum AgentType {
         return 'Anthropic Claude Code SDK';
       case AgentType.codex:
         return 'OpenAI Codex app-server';
+      case AgentType.pi:
+        return 'Multi-provider coding agent';
     }
   }
 
@@ -33,6 +38,8 @@ enum AgentType {
         return 'claude-code';
       case AgentType.codex:
         return 'codex';
+      case AgentType.pi:
+        return 'pi';
     }
   }
 
@@ -42,6 +49,8 @@ enum AgentType {
         return AgentType.claudeCode;
       case 'codex':
         return AgentType.codex;
+      case 'pi':
+        return AgentType.pi;
       default:
         return AgentType.opencode;
     }
@@ -80,11 +89,13 @@ class AgentsStatus {
   final AgentStatusInfo opencode;
   final AgentStatusInfo claudeCode;
   final AgentStatusInfo codex;
+  final AgentStatusInfo pi;
 
   const AgentsStatus({
     required this.opencode,
     required this.claudeCode,
     required this.codex,
+    required this.pi,
   });
 
   factory AgentsStatus.fromJson(Map<String, dynamic> json) {
@@ -98,6 +109,9 @@ class AgentsStatus {
       codex: AgentStatusInfo.fromJson(
         json['codex'] as Map<String, dynamic>? ?? const {},
       ),
+      pi: AgentStatusInfo.fromJson(
+        json['pi'] as Map<String, dynamic>? ?? const {},
+      ),
     );
   }
 
@@ -109,6 +123,8 @@ class AgentsStatus {
         return claudeCode;
       case AgentType.codex:
         return codex;
+      case AgentType.pi:
+        return pi;
     }
   }
 }

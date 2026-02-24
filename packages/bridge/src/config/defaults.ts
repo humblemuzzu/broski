@@ -34,6 +34,11 @@ export function getDefaultConfig(): BroskiConfig {
       claudeCode: false,
       codex: false,
     },
+    pi: {
+      enabled: false,
+      defaultThinkingLevel: 'medium',
+      extraExtensionPaths: [],
+    },
     daemon: {
       installed: false,
       type: 'none',

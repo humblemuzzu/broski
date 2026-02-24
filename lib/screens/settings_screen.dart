@@ -42,6 +42,7 @@ import 'opencode_agents_screen.dart';
 import 'opencode_commands_screen.dart';
 import 'permission_rules_screen.dart';
 import 'codex_agents_screen.dart';
+
 import 'scan_screen.dart';
 import 'voice_settings_screen.dart';
 import '../utils/responsive.dart';
@@ -152,6 +153,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                   AgentType.opencode => 'OC',
                                   AgentType.claudeCode => 'CC',
                                   AgentType.codex => 'CX',
+                                  AgentType.pi => 'PI',
                                 },
                                 style: TextStyle(
                                   color: theme.colorScheme.primary,
@@ -681,6 +683,8 @@ class _PowerFeaturesTile extends StatelessWidget {
         return 9;
       case AgentType.codex:
         return 4;
+      case AgentType.pi:
+        return 4;
     }
   }
 }
@@ -958,6 +962,41 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
             subtitle: 'Connectors & integrations',
             icon: AppIcons.extension_,
             onTap: () => CxAppsSheet.show(context),
+          ),
+        ];
+      case AgentType.pi:
+        return [
+          _SettingsTile(
+            title: 'Terminal Sessions',
+            subtitle: 'PTY terminal sessions',
+            icon: AppIcons.terminal,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const TerminalScreen()),
+            ),
+          ),
+          _Divider(),
+
+          _SettingsTile(
+            title: 'Skills',
+            subtitle: 'Commands, prompts, and extension actions',
+            icon: AppIcons.autoFix,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const SkillsScreen(backend: AgentType.pi),
+              ),
+            ),
+          ),
+          _Divider(),
+          _SettingsTile(
+            title: 'Agent Backends',
+            subtitle: 'Switch default backend',
+            icon: AppIcons.agent,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AIBackendScreen()),
+            ),
           ),
         ];
     }

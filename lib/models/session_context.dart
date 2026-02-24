@@ -118,6 +118,43 @@ class SessionContext {
     );
   }
 
+  /// Create context from Pi session stats and context usage
+  /// Pi SDK provides: getSessionStats() with tokens (input, output, cacheRead,
+  /// cacheWrite, total) and cost, plus getContextUsage() with tokens, contextWindow, percent
+  factory SessionContext.fromPi({
+    int inputTokens = 0,
+    int outputTokens = 0,
+    int cacheReadTokens = 0,
+    int cacheWriteTokens = 0,
+    int contextWindow = 200000,
+
+    /// Actual tokens in the context window from Pi's estimateContextTokens.
+    /// This is NOT the cumulative cache — it's what's actually occupying the window right now.
+    int actualContextTokens = 0,
+    double totalCost = 0,
+  }) {
+    final total = inputTokens + outputTokens;
+    return SessionContext(
+      tokens: TokenUsage(
+        input: inputTokens,
+        output: outputTokens,
+        total: total,
+        // Use actualContextTokens from Pi's getContextUsage() which estimates
+        // what's actually in the context window. Falls back to just inputTokens
+        // (a rough but sane approximation — NOT including cache which is cumulative).
+        contextTokens: actualContextTokens > 0
+            ? actualContextTokens
+            : inputTokens,
+        contextWindow: contextWindow,
+        cacheRead: cacheReadTokens > 0 ? cacheReadTokens : null,
+        cacheWrite: cacheWriteTokens > 0 ? cacheWriteTokens : null,
+      ),
+      cost: totalCost,
+      lsp: const [],
+      modifiedFiles: const [],
+    );
+  }
+
   /// Percentage of context window used (0-100)
   /// Based on contextTokens (input + cache reads + cache writes) which actually
   /// occupy the context window, NOT the total (which is just fresh tokens).

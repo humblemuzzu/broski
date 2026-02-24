@@ -1,4 +1,3 @@
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -17,12 +16,14 @@ import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../utils/error_utils.dart';
+
 class SkillsScreen extends ConsumerStatefulWidget {
   const SkillsScreen({required this.backend, super.key});
   final AgentType backend;
   @override
   ConsumerState<SkillsScreen> createState() => _SkillsScreenState();
 }
+
 class _SkillsScreenState extends ConsumerState<SkillsScreen> {
   List<Skill> _skills = const [];
   bool _isLoading = true;
@@ -53,11 +54,13 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
     }
     _load();
   }
+
   @override
   void dispose() {
     _fsSub?.cancel();
     super.dispose();
   }
+
   Future<void> _load({bool forceReload = false}) async {
     setState(() {
       _isLoading = true;
@@ -85,7 +88,47 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
       });
     }
   }
+
   Future<void> _openSkill(Skill summary) async {
+    // Pi skills are read-only (managed by Pi's extension/skill system)
+    if (widget.backend == AgentType.pi) {
+      if (!mounted) return;
+      final oc = OpenCodeTheme.of(context);
+      final piSource = summary.extra?['piSource'] as String? ?? 'extension';
+      DetailSheet.show(
+        context: context,
+        title: summary.name,
+        initialSize: 0.35,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (summary.description != null &&
+                  summary.description!.trim().isNotEmpty)
+                Text(
+                  summary.description!,
+                  style: TextStyle(color: oc.text, fontSize: 14),
+                ),
+              SizedBox(height: Spacing.md),
+              Text(
+                'Source: $piSource',
+                style: TextStyle(color: oc.textMuted, fontSize: 13),
+              ),
+              if (summary.path.isNotEmpty) ...[
+                SizedBox(height: Spacing.xs),
+                Text(
+                  'Path: ${summary.path}',
+                  style: TextStyle(color: oc.textMuted, fontSize: 13),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+      return;
+    }
     final selection = ref.read(selectionProvider);
     final cwd = selection.project?.path;
     final bridge = ref.read(bridgeServiceProvider);
@@ -111,6 +154,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
       ).showSnackBar(SnackBar(content: Text('Failed to load skill: ${humanizeError(e)}')));
     }
   }
+
   Future<void> _createSkill() async {
     final selection = ref.read(selectionProvider);
     final cwd = selection.project?.path;
@@ -137,9 +181,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
           for (final s in sources)
             ListTile(
               leading: Icon(
-                s == SkillSource.project
-                    ? AppIcons.folder
-                    : AppIcons.person,
+                s == SkillSource.project ? AppIcons.folder : AppIcons.person,
               ),
               title: Text('${s.displayName} skill'),
               subtitle: Text(
@@ -165,6 +207,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
     );
     await _load();
   }
+
   Future<void> _deleteSkill(Skill skill) async {
     final selection = ref.read(selectionProvider);
     final cwd = selection.project?.path;
@@ -182,7 +225,9 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Theme.of(ctx).extension<OpenCodeTheme>()!.error),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(ctx).extension<OpenCodeTheme>()!.error,
+            ),
             child: const Text('Delete'),
           ),
         ],
@@ -211,6 +256,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
       ).showSnackBar(SnackBar(content: Text('Failed to delete skill: ${humanizeError(e)}')));
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -241,11 +287,12 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
                 _load(forceReload: widget.backend == AgentType.codex),
             tooltip: 'Refresh',
           ),
-          IconButton(
-            icon: const Icon(AppIcons.add),
-            onPressed: _createSkill,
-            tooltip: 'Create Skill',
-          ),
+          if (widget.backend != AgentType.pi)
+            IconButton(
+              icon: const Icon(AppIcons.add),
+              onPressed: _createSkill,
+              tooltip: 'Create Skill',
+            ),
         ],
       ),
       body: AdaptiveContainer(
@@ -259,11 +306,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      AppIcons.error,
-                      color: oc.error,
-                      size: 48,
-                    ),
+                    Icon(AppIcons.error, color: oc.error, size: 48),
                     SizedBox(height: Spacing.md),
                     Text(
                       'Failed to load skills',
@@ -292,25 +335,25 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      AppIcons.extension_,
-                      color: oc.textMuted,
-                      size: 56,
-                    ),
+                    Icon(AppIcons.extension_, color: oc.textMuted, size: 56),
                     SizedBox(height: Spacing.md),
                     Text('No skills found', style: TextStyle(color: oc.text)),
                     SizedBox(height: Spacing.sm),
                     Text(
-                      'Create a SKILL.md to teach the agent repeatable workflows.',
+                      widget.backend == AgentType.pi
+                          ? 'Pi commands come from extensions, skills, and prompt templates.'
+                          : 'Create a SKILL.md to teach the agent repeatable workflows.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: oc.textMuted),
                     ),
-                    SizedBox(height: Spacing.lg),
-                    ElevatedButton.icon(
-                      onPressed: _createSkill,
-                      icon: const Icon(AppIcons.add),
-                      label: const Text('Create Skill'),
-                    ),
+                    if (widget.backend != AgentType.pi) ...[
+                      SizedBox(height: Spacing.lg),
+                      ElevatedButton.icon(
+                        onPressed: _createSkill,
+                        icon: const Icon(AppIcons.add),
+                        label: const Text('Create Skill'),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -404,6 +447,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
     );
   }
 }
+
 class SkillEditorScreen extends ConsumerStatefulWidget {
   const SkillEditorScreen({
     required this.backend,
@@ -419,6 +463,7 @@ class SkillEditorScreen extends ConsumerStatefulWidget {
   @override
   ConsumerState<SkillEditorScreen> createState() => _SkillEditorScreenState();
 }
+
 class _SkillEditorScreenState extends ConsumerState<SkillEditorScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabs;
@@ -442,6 +487,7 @@ class _SkillEditorScreenState extends ConsumerState<SkillEditorScreen>
       _loadExisting();
     }
   }
+
   @override
   void dispose() {
     _tabs.dispose();
@@ -449,6 +495,7 @@ class _SkillEditorScreenState extends ConsumerState<SkillEditorScreen>
     _content.dispose();
     super.dispose();
   }
+
   String _template({required String name, required String description}) {
     return '''---
 name: $name
@@ -463,6 +510,7 @@ description: $description
 - …
 ''';
   }
+
   String _stripFrontmatter(String raw) {
     final match = RegExp(
       r'^---\n[\s\S]*?\n---\n?',
@@ -471,6 +519,7 @@ description: $description
     if (match == null) return raw;
     return raw.substring(match.end);
   }
+
   Future<void> _loadExisting() async {
     setState(() => _loadError = null);
     try {
@@ -485,6 +534,7 @@ description: $description
       setState(() => _loadError = humanizeError(e));
     }
   }
+
   Future<void> _save() async {
     final theme = OpenCodeTheme.of(context);
     final selection = ref.read(selectionProvider);
@@ -591,6 +641,7 @@ description: $description
       if (mounted) setState(() => _isSaving = false);
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -659,10 +710,7 @@ description: $description
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Name',
-                    style: AppTypography.label(color: oc.textMuted),
-                  ),
+                  Text('Name', style: AppTypography.label(color: oc.textMuted)),
                   const SizedBox(height: 6),
                   TextField(
                     controller: _name,
@@ -731,9 +779,9 @@ description: $description
                       ),
                       h2: theme.textTheme.titleLarge?.copyWith(color: oc.text),
                       h3: theme.textTheme.titleMedium?.copyWith(color: oc.text),
-                      code: AppTypography.code(color: oc.text).copyWith(
-                        backgroundColor: oc.backgroundElement,
-                      ),
+                      code: AppTypography.code(
+                        color: oc.text,
+                      ).copyWith(backgroundColor: oc.backgroundElement),
                     ),
                   ),
                 ),
@@ -746,7 +794,9 @@ description: $description
     );
   }
 }
+
 enum ChipTone { normal, warn }
+
 class _Chip extends StatelessWidget {
   const _Chip({required this.label, this.tone = ChipTone.normal});
   final String label;
@@ -773,6 +823,7 @@ class _Chip extends StatelessWidget {
     );
   }
 }
+
 class _BackendHeader extends StatelessWidget {
   const _BackendHeader({required this.backend});
   final AgentType backend;
@@ -809,6 +860,7 @@ class _BackendHeader extends StatelessWidget {
     );
   }
 }
+
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.title});
   final String title;

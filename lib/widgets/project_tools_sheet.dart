@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import '../theme/app_typography.dart';
 
@@ -26,6 +25,7 @@ import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'chat/detail_sheet.dart';
 import 'package:broski/theme/app_icons.dart';
+
 /// Shows a project tools sheet using DetailSheet.
 Future<void> showProjectToolsSheet({
   required BuildContext context,
@@ -43,6 +43,7 @@ Future<void> showProjectToolsSheet({
     child: _ProjectToolsContent(backend: backend, project: project),
   );
 }
+
 /// Legacy widget for backwards compatibility.
 /// Prefer using [showProjectToolsSheet] instead.
 class ProjectToolsSheet extends StatelessWidget {
@@ -65,6 +66,7 @@ class ProjectToolsSheet extends StatelessWidget {
     );
   }
 }
+
 /// The actual content of the project tools sheet.
 class _ProjectToolsContent extends StatelessWidget {
   const _ProjectToolsContent({required this.backend, required this.project});
@@ -77,6 +79,7 @@ class _ProjectToolsContent extends StatelessWidget {
       nav.push(MaterialPageRoute(builder: (_) => screen));
     });
   }
+
   Widget _sectionLabel(OpenCodeTheme theme, String text) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 18, 16, 10),
@@ -91,6 +94,7 @@ class _ProjectToolsContent extends StatelessWidget {
       ),
     );
   }
+
   Widget _tile(
     BuildContext context,
     OpenCodeTheme theme, {
@@ -146,17 +150,14 @@ class _ProjectToolsContent extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(
-                AppIcons.chevronRight,
-                size: 20,
-                color: theme.textMuted,
-              ),
+              Icon(AppIcons.chevronRight, size: 20, color: theme.textMuted),
             ],
           ),
         ),
       ),
     );
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -359,6 +360,19 @@ class _ProjectToolsContent extends StatelessWidget {
               Navigator.pop(context);
               CxAppsSheet.show(context);
             },
+          ),
+        ] else if (backend == AgentType.pi) ...[
+          _sectionLabel(theme, 'Power features'),
+          _tile(
+            context,
+            theme,
+            icon: AppIcons.autoFix,
+            title: 'Skills',
+            subtitle: 'Commands, prompts, extensions',
+            onTap: () => _closeAndPush(
+              context,
+              const SkillsScreen(backend: AgentType.pi),
+            ),
           ),
         ],
         const SizedBox(height: 18),

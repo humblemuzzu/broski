@@ -29,6 +29,14 @@ export const BroskiConfigSchema = z.object({
     claudeCode: z.boolean().default(false),
     codex: z.boolean().default(false),
   }).default({}),
+  pi: z.object({
+    enabled: z.boolean().optional(),
+    agentDir: z.string().optional(),
+    defaultProvider: z.string().optional(),
+    defaultModel: z.string().optional(),
+    defaultThinkingLevel: z.enum(["off", "minimal", "low", "medium", "high", "xhigh"]).optional(),
+    extraExtensionPaths: z.array(z.string()).optional(),
+  }).default({}),
   daemon: z.object({
     installed: z.boolean().default(false),
     type: z.enum(["launchagent", "systemd", "taskscheduler", "none"]).default("none"),

@@ -4095,6 +4095,35 @@ class BridgeService {
             },
           );
         }).toList();
+      case AgentType.pi:
+        final requestId = _generateRequestId();
+        _socket.send({
+          'type': 'pi_list_commands',
+          'requestId': requestId,
+          if (cwd != null) 'projectPath': cwd,
+        });
+        final response = await _waitFor(
+          'pi_commands',
+          requestId: requestId,
+          timeoutSeconds: 15,
+        );
+        final data = response['data'] as List<dynamic>? ?? const [];
+        return data.whereType<Map<String, dynamic>>().map((cmd) {
+          final source = cmd['source'] as String? ?? 'extension';
+          final skillSource = switch (source) {
+            'skill' => SkillSource.user,
+            'prompt' => SkillSource.project,
+            _ => SkillSource.system,
+          };
+          return Skill(
+            backend: AgentType.pi,
+            name: cmd['name'] as String? ?? '',
+            description: cmd['description'] as String?,
+            source: skillSource,
+            path: cmd['path'] as String? ?? '',
+            extra: {'piSource': source},
+          );
+        }).toList();
     }
   }
 
@@ -4118,6 +4147,8 @@ class BridgeService {
         );
       case AgentType.codex:
         return cxGetSkill(name: skill.name, source: skill.source, cwd: cwd);
+      case AgentType.pi:
+        return null;
     }
   }
 
@@ -4150,6 +4181,8 @@ class BridgeService {
           content: content,
           cwd: cwd,
         );
+      case AgentType.pi:
+        return false;
     }
   }
 
@@ -4166,6 +4199,8 @@ class BridgeService {
         return ccDeleteSkill(name: name, source: source, cwd: cwd);
       case AgentType.codex:
         return cxDeleteSkill(name: name, source: source, cwd: cwd);
+      case AgentType.pi:
+        return false;
     }
   }
 

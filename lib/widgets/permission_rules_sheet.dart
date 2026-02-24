@@ -104,9 +104,35 @@ class _UnifiedPermissionContent extends ConsumerWidget {
         return const _ClaudeCodePermissionContent();
       case AgentType.codex:
         return const _CodexPermissionContent();
+      case AgentType.pi:
+        return const _PiPermissionContent();
     }
   }
 }
+
+class _PiPermissionContent extends StatelessWidget {
+  const _PiPermissionContent();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: Insets.screenAll,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Pi permissions', style: AppTypography.h3()),
+          const SizedBox(height: 8),
+          Text(
+            'Pi uses its own in-session permission and tool control model. '
+            'For now, manage permissions directly in Pi via chat commands or settings.',
+            style: AppTypography.body(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 
 // =============================================================================
 // CLAUDE CODE PERMISSION CONTENT

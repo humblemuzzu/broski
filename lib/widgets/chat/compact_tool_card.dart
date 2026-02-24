@@ -1,4 +1,3 @@
-
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -13,6 +12,7 @@ import '../../theme/opencode_theme.dart';
 import '../../theme/tool_style.dart';
 import 'detail_sheet.dart';
 import 'package:broski/theme/app_icons.dart';
+
 /// A compact single-line card for tool calls.
 /// Tapping opens DetailSheet with full tool information.
 ///
@@ -28,6 +28,7 @@ class CompactToolCard extends ConsumerWidget {
     this.messageId,
     this.onUndo,
   });
+
   /// Get display name: strip mcp_ prefix and capitalize first letter
   String _getDisplayName() {
     var name = tool.name;
@@ -41,6 +42,7 @@ class CompactToolCard extends ConsumerWidget {
     }
     return name;
   }
+
   /// Get preview text based on tool type
   String _getPreview() {
     final name = tool.name.toLowerCase();
@@ -70,13 +72,17 @@ class CompactToolCard extends ConsumerWidget {
       }
       return command;
     }
-    // Glob: the pattern
-    if (name.contains('glob')) {
+    // Glob/Find: the pattern
+    if (name.contains('glob') || name == 'find') {
       return tool.input['pattern'] as String? ?? '';
     }
     // Grep: the search pattern
     if (name.contains('grep')) {
       return tool.input['pattern'] as String? ?? '';
+    }
+    // Ls: the directory path
+    if (name == 'ls') {
+      return tool.input['path'] as String? ?? '.';
     }
     // WebFetch: the URL
     if (name.contains('webfetch') || name.contains('fetch')) {
@@ -96,12 +102,14 @@ class CompactToolCard extends ConsumerWidget {
     }
     return tool.status;
   }
+
   /// Extract filename from path (last segment after /)
   String _extractFilename(String path) {
     if (path.isEmpty) return 'file';
     final parts = path.split('/');
     return parts.last.isNotEmpty ? parts.last : 'file';
   }
+
   void _showDetailSheet(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final toolName = _getDisplayName();
@@ -111,6 +119,7 @@ class CompactToolCard extends ConsumerWidget {
       child: _buildSheetContent(theme),
     );
   }
+
   Widget _buildSheetContent(OpenCodeTheme theme) {
     final name = tool.name.toLowerCase();
     // Read tool
@@ -125,13 +134,17 @@ class CompactToolCard extends ConsumerWidget {
     if (name.contains('bash') || name.contains('shell')) {
       return _buildBashContent(theme);
     }
-    // Glob tool
-    if (name.contains('glob')) {
+    // Glob/Find tool
+    if (name.contains('glob') || name == 'find') {
       return _buildGlobContent(theme);
     }
     // Grep tool
     if (name.contains('grep')) {
       return _buildGrepContent(theme);
+    }
+    // Ls tool
+    if (name == 'ls') {
+      return _buildLsContent(theme);
     }
     // WebFetch tool
     if (name.contains('webfetch') || name.contains('fetch')) {
@@ -140,6 +153,7 @@ class CompactToolCard extends ConsumerWidget {
     // Generic/other tools
     return _buildGenericContent(theme);
   }
+
   Widget _buildReadContent(OpenCodeTheme theme) {
     final path =
         tool.input['path'] as String? ??
@@ -165,6 +179,7 @@ class CompactToolCard extends ConsumerWidget {
       ],
     );
   }
+
   Widget _buildWriteContent(OpenCodeTheme theme) {
     final path =
         tool.input['filePath'] as String? ??
@@ -200,6 +215,7 @@ class CompactToolCard extends ConsumerWidget {
       ],
     );
   }
+
   Widget _buildBashContent(OpenCodeTheme theme) {
     final command = tool.input['command'] as String? ?? '';
     return Column(
@@ -235,6 +251,7 @@ class CompactToolCard extends ConsumerWidget {
       ],
     );
   }
+
   Widget _buildGlobContent(OpenCodeTheme theme) {
     final pattern = tool.input['pattern'] as String? ?? '';
     return Column(
@@ -257,9 +274,37 @@ class CompactToolCard extends ConsumerWidget {
       ],
     );
   }
+
+  Widget _buildLsContent(OpenCodeTheme theme) {
+    final path = tool.input['path'] as String? ?? '.';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DetailSection(
+          label: 'Directory',
+          child: SelectableText(
+            path,
+            style: AppTypography.codeSmall(color: theme.text),
+          ),
+        ),
+        DetailSection(
+          label: 'Contents',
+          child: SelectableText(
+            tool.output ?? 'Listing...',
+            style: AppTypography.codeSmall(color: theme.text),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildGrepContent(OpenCodeTheme theme) {
     final pattern = tool.input['pattern'] as String? ?? '';
-    final include = tool.input['include'] as String?;
+    // Different backends use different field names for file filter
+    final include =
+        tool.input['include'] as String? ??
+        tool.input['glob'] as String?; // Pi uses 'glob'
+    final searchPath = tool.input['path'] as String?;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -278,6 +323,14 @@ class CompactToolCard extends ConsumerWidget {
               style: AppTypography.codeSmall(color: theme.text),
             ),
           ),
+        if (searchPath != null && searchPath.isNotEmpty)
+          DetailSection(
+            label: 'Search Path',
+            child: SelectableText(
+              searchPath,
+              style: AppTypography.codeSmall(color: theme.text),
+            ),
+          ),
         DetailSection(
           label: 'Results',
           child: SelectableText(
@@ -288,6 +341,7 @@ class CompactToolCard extends ConsumerWidget {
       ],
     );
   }
+
   Widget _buildWebFetchContent(OpenCodeTheme theme) {
     final url = tool.input['url'] as String? ?? '';
     final isLoading = tool.output == null || tool.status == 'running';
@@ -330,10 +384,16 @@ class CompactToolCard extends ConsumerWidget {
       ],
     );
   }
+
   /// Build markdown style for content rendering
   MarkdownStyleSheet _buildMarkdownStyle(OpenCodeTheme theme) {
     return MarkdownStyleSheet(
-      p: TextStyle(fontFamily: AppTypography.uiFontFamily, fontSize: 14, color: theme.text, height: 1.5),
+      p: TextStyle(
+        fontFamily: AppTypography.uiFontFamily,
+        fontSize: 14,
+        color: theme.text,
+        height: 1.5,
+      ),
       h1: TextStyle(
         fontFamily: AppTypography.uiFontFamily,
         fontSize: 18,
@@ -357,9 +417,9 @@ class CompactToolCard extends ConsumerWidget {
       ),
       strong: TextStyle(fontWeight: FontWeight.w600, color: theme.text),
       em: TextStyle(fontStyle: FontStyle.italic, color: theme.textMuted),
-      code: AppTypography.codeSmall(color: theme.accent).copyWith(
-        backgroundColor: theme.backgroundElement,
-      ),
+      code: AppTypography.codeSmall(
+        color: theme.accent,
+      ).copyWith(backgroundColor: theme.backgroundElement),
       codeblockDecoration: BoxDecoration(
         color: theme.backgroundElement,
         borderRadius: Radii.brSm,
@@ -377,6 +437,7 @@ class CompactToolCard extends ConsumerWidget {
       tableCellsPadding: EdgeInsets.all(Spacing.sm),
     );
   }
+
   Widget _buildGenericContent(OpenCodeTheme theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -399,6 +460,7 @@ class CompactToolCard extends ConsumerWidget {
       ],
     );
   }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = OpenCodeTheme.of(context);
@@ -441,10 +503,7 @@ class CompactToolCard extends ConsumerWidget {
         clipBehavior: Clip.antiAlias,
         child: Container(
           padding: EdgeInsets.symmetric(horizontal: Spacing.md, vertical: 10),
-          decoration: BoxDecoration(
-            color: headerBg,
-            borderRadius: Radii.brMd,
-          ),
+          decoration: BoxDecoration(color: headerBg, borderRadius: Radii.brMd),
           child: Row(
             children: [
               // Icon with 6px spacing

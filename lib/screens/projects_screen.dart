@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,18 +24,22 @@ import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../utils/error_utils.dart';
+
 class ProjectsScreen extends ConsumerStatefulWidget {
   const ProjectsScreen({super.key});
   @override
   ConsumerState<ProjectsScreen> createState() => _ProjectsScreenState();
 }
+
 /// State provider for expanded projects (showing worktrees)
 final _expandedProjectsProvider = StateProvider.autoDispose<Set<String>>(
   (ref) => {},
 );
+
 /// Cache provider for loaded worktrees per project path
 final _projectWorktreesProvider =
     StateProvider.autoDispose<Map<String, List<Worktree>>>((ref) => {});
+
 class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
   late Future<List<ProjectSummary>> _projectsFuture;
   late AgentType _agentType;
@@ -59,30 +62,41 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       });
     });
   }
+
   @override
   void dispose() {
     _agentTypeSub.close();
     super.dispose();
   }
+
   Future<List<ProjectSummary>> _loadProjects(AgentType agentType) async {
     final connection = ref.read(connectionProvider);
     final storage = ref.read(storageServiceProvider);
     // In offline mode, return cached projects
     if (connection.isOfflineMode) {
-      if (agentType == AgentType.opencode) return storage.getCachedProjects();
+      if (agentType == AgentType.opencode || agentType == AgentType.pi) {
+        return storage.getCachedProjects();
+      }
       if (agentType == AgentType.codex) return storage.getCachedCodexProjects();
     }
+    // Pi currently uses explicit cwd entry/session-based flow.
+    // Keep Projects tab cache-only for Pi to avoid coupling to OpenCode project APIs.
+    if (agentType == AgentType.pi) {
+      return storage.getCachedProjects();
+    }
+
     // Try live data first, fallback to cache on failure
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final projects = switch (agentType) {
         AgentType.claudeCode => await bridge.ccListProjects(),
         AgentType.codex => await bridge.cxListProjects(),
-        _ => await bridge.listProjects(),
+        AgentType.opencode => await bridge.listProjects(),
+        AgentType.pi => await bridge.listProjects(),
       };
       // Cache for offline use
       if (projects.isNotEmpty) {
-        if (agentType == AgentType.opencode) {
+        if (agentType == AgentType.opencode || agentType == AgentType.pi) {
           await storage.cacheProjects(projects);
         } else if (agentType == AgentType.codex) {
           await storage.cacheCodexProjects(projects);
@@ -91,7 +105,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       return projects;
     } catch (e) {
       // On any error (timeout, connection issues), try cached data
-      if (agentType == AgentType.opencode) {
+      if (agentType == AgentType.opencode || agentType == AgentType.pi) {
         final cached = await storage.getCachedProjects();
         if (cached.isNotEmpty) return cached;
       }
@@ -103,15 +117,18 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       rethrow;
     }
   }
+
   Future<void> _refresh() async {
     setState(() {
       _projectsFuture = _loadProjects(_agentType);
     });
     await _projectsFuture;
   }
+
   void _toggleHighlight(ProjectSummary project) {
     ref.read(highlightsProvider.notifier).toggleProject(project.id);
   }
+
   /// Toggle expansion state for a project to show/hide worktrees
   Future<void> _toggleProjectExpansion(ProjectSummary project) async {
     final expanded = ref.read(_expandedProjectsProvider);
@@ -133,6 +150,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       }
     }
   }
+
   /// Load worktrees for a project
   Future<void> _loadWorktreesFor(ProjectSummary project) async {
     final bridge = ref.read(bridgeServiceProvider);
@@ -154,6 +172,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       }
     }
   }
+
   /// Open a session in a specific worktree
   Future<void> _openWorktreeSession(
     BuildContext context,
@@ -164,7 +183,10 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     final chat = ref.read(chatSessionProvider.notifier);
     final baseRules = ref.read(permissionRulesProvider).effectiveRuleset;
     final disabledTools = ref.read(toolSettingsProvider).disabledTools;
-    final permissionRules = applyDisabledToolsToRuleset(baseRules, disabledTools);
+    final permissionRules = applyDisabledToolsToRuleset(
+      baseRules,
+      disabledTools,
+    );
     try {
       final session = await bridge.createSession(
         projectPath: worktree.directory,
@@ -194,6 +216,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       );
     }
   }
+
   Future<void> _showCreateWorktreeSheet(ProjectSummary project) async {
     final ocTheme = OpenCodeTheme.of(context);
     final nameController = TextEditingController();
@@ -252,11 +275,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
             SizedBox(height: Spacing.md),
             Row(
               children: [
-                Icon(
-                  AppIcons.callSplit,
-                  size: 18,
-                  color: ocTheme.textMuted,
-                ),
+                Icon(AppIcons.callSplit, size: 18, color: ocTheme.textMuted),
                 SizedBox(width: Spacing.sm),
                 Text(
                   'Base branch:',
@@ -291,9 +310,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                   backgroundColor: ocTheme.primary,
                   foregroundColor: ocTheme.background,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: Radii.brMd,
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: Radii.brMd),
                 ),
                 child: const Text('Create'),
               ),
@@ -303,6 +320,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       ),
     );
   }
+
   Future<void> _createWorktree(
     ProjectSummary project, {
     required String? name,
@@ -341,6 +359,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       if (mounted) setState(() => _creatingWorktreeForPath = null);
     }
   }
+
   Future<void> _deleteWorktree(
     ProjectSummary project,
     Worktree worktree,
@@ -384,6 +403,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       );
     }
   }
+
   Future<void> _showWorktreeOptions(
     ProjectSummary project,
     Worktree worktree,
@@ -432,6 +452,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       ),
     );
   }
+
   @override
   Widget build(BuildContext context) {
     final agentType = ref.watch(agentTypeProvider);
@@ -459,11 +480,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      AppIcons.error,
-                      color: ocTheme.error,
-                      size: 48,
-                    ),
+                    Icon(AppIcons.error, color: ocTheme.error, size: 48),
                     SizedBox(height: Spacing.lg),
                     Text(
                       'Failed to load projects',
@@ -668,6 +685,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       ),
     );
   }
+
   Future<void> _openProject(
     BuildContext context,
     ProjectSummary project,
@@ -679,6 +697,10 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     }
     if (currentAgentType == AgentType.codex) {
       await _openCodexProject(context, project);
+      return;
+    }
+    if (currentAgentType == AgentType.pi) {
+      await _openPiProject(context, project);
       return;
     }
     final connection = ref.read(connectionProvider);
@@ -720,7 +742,10 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     final bridge = ref.read(bridgeServiceProvider);
     final baseRules = ref.read(permissionRulesProvider).effectiveRuleset;
     final disabledTools = ref.read(toolSettingsProvider).disabledTools;
-    final permissionRules = applyDisabledToolsToRuleset(baseRules, disabledTools);
+    final permissionRules = applyDisabledToolsToRuleset(
+      baseRules,
+      disabledTools,
+    );
     final session = await bridge.createSession(
       projectPath: project.path,
       permission: permissionRules,
@@ -735,6 +760,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       ),
     );
   }
+
   Future<void> _openClaudeProject(
     BuildContext context,
     ProjectSummary project,
@@ -749,6 +775,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       ),
     );
   }
+
   Future<void> _openCodexProject(
     BuildContext context,
     ProjectSummary project,
@@ -763,6 +790,22 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       ),
     );
   }
+
+  Future<void> _openPiProject(
+    BuildContext context,
+    ProjectSummary project,
+  ) async {
+    ref.read(selectionProvider.notifier).selectProject(project);
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            ChatScreen.piDraft(cwd: project.path, title: project.name),
+      ),
+    );
+  }
+
   Future<void> _startOpenCode(BuildContext context) async {
     final bridge = ref.read(bridgeServiceProvider);
     final messenger = ScaffoldMessenger.of(context);
@@ -784,6 +827,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       ),
     );
   }
+
   void _showAddProject() {
     final theme = Theme.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
@@ -795,6 +839,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     );
   }
 }
+
 // Modern header with title and add button
 class _ModernHeader extends StatelessWidget {
   const _ModernHeader({
@@ -868,6 +913,7 @@ class _ModernHeader extends StatelessWidget {
     );
   }
 }
+
 // OpenCode warning card
 class _OpenCodeWarning extends StatelessWidget {
   const _OpenCodeWarning({required this.onStart, required this.onRefresh});
@@ -898,11 +944,7 @@ class _OpenCodeWarning extends StatelessWidget {
                   color: ocTheme.error.withValues(alpha: 0.1),
                   borderRadius: Radii.brSm,
                 ),
-                child: Icon(
-                  AppIcons.warning,
-                  color: ocTheme.error,
-                  size: 20,
-                ),
+                child: Icon(AppIcons.warning, color: ocTheme.error, size: 20),
               ),
               SizedBox(width: Spacing.md),
               Expanded(
@@ -932,9 +974,7 @@ class _OpenCodeWarning extends StatelessWidget {
                     backgroundColor: ocTheme.primary,
                     foregroundColor: ocTheme.selectedListItemText,
                     padding: Insets.cardV,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: Radii.brMd,
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: Radii.brMd),
                   ),
                   child: const Text(
                     'Start OpenCode',
@@ -952,9 +992,7 @@ class _OpenCodeWarning extends StatelessWidget {
                     vertical: 12,
                     horizontal: 20,
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: Radii.brMd,
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: Radii.brMd),
                 ),
                 child: const Text(
                   'Refresh',
@@ -968,6 +1006,7 @@ class _OpenCodeWarning extends StatelessWidget {
     );
   }
 }
+
 // Highlighted project card with accent border
 class _HighlightedProjectCard extends StatelessWidget {
   const _HighlightedProjectCard({
@@ -1060,6 +1099,7 @@ class _HighlightedProjectCard extends StatelessWidget {
     );
   }
 }
+
 /// Expandable project item showing worktrees when expanded
 class _ExpandableProjectItem extends StatelessWidget {
   const _ExpandableProjectItem({
@@ -1116,11 +1156,7 @@ class _ExpandableProjectItem extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Icon(
-                    AppIcons.gitBranch,
-                    color: ocTheme.textMuted,
-                    size: 20,
-                  ),
+                  Icon(AppIcons.gitBranch, color: ocTheme.textMuted, size: 20),
                   SizedBox(width: Spacing.md),
                   Expanded(
                     child: Text(
@@ -1262,10 +1298,7 @@ class _ExpandableProjectItem extends StatelessWidget {
                       alignment: Alignment.centerRight,
                       padding: const EdgeInsets.only(right: 20),
                       color: ocTheme.error.withValues(alpha: 0.2),
-                      child: Icon(
-                        AppIcons.delete,
-                        color: ocTheme.error,
-                      ),
+                      child: Icon(AppIcons.delete, color: ocTheme.error),
                     ),
                     child: child,
                   );
@@ -1277,6 +1310,7 @@ class _ExpandableProjectItem extends StatelessWidget {
     );
   }
 }
+
 /// Worktree list item (shown under expanded project)
 class _WorktreeListItem extends StatelessWidget {
   const _WorktreeListItem({
@@ -1327,11 +1361,7 @@ class _WorktreeListItem extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(
-              AppIcons.chevronRight,
-              color: ocTheme.textMuted,
-              size: 18,
-            ),
+            Icon(AppIcons.chevronRight, color: ocTheme.textMuted, size: 18),
           ],
         ),
       ),

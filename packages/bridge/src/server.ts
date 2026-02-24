@@ -10,8 +10,10 @@ import * as claudeCode from './connectors/claude-code'
 import * as codexFs from './connectors/codex-fs'
 import * as fileSearch from './file-search'
 import { CodexAppServerClient, checkCodexAvailable } from './connectors/codex'
+import * as pi from './connectors/pi'
 import { handleCodexFeature } from './handlers/codex_features'
 import { handleGitFeature } from './handlers/git'
+import * as piFeatures from './handlers/pi_features'
 import { PtyManager } from './pty/manager'
 import { PtyRuntime } from './pty/runtime'
 import { headTailTruncate } from './utils'
@@ -1149,7 +1151,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     backendsInFlight = (async () => {
       const envKey = !!process.env.ANTHROPIC_API_KEY
 
-      const [ocOk, ccOk, cxOk] = await Promise.all([
+      const [ocOk, ccOk, cxOk, piStatus] = await Promise.all([
         (async () => {
           try {
             return opencode ? await opencode.isRunning() : false
@@ -1171,6 +1173,13 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             return false
           }
         })(),
+        (async () => {
+          try {
+            return await pi.isPiAvailable()
+          } catch {
+            return { available: false, authenticated: false, modelCount: 0 } as const
+          }
+        })(),
       ])
 
       const data: Record<AgentType, AgentStatusInfo> = {
@@ -1180,6 +1189,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           authMethod: ccOk ? (envKey ? 'api-key' : 'claude-login') : undefined,
         },
         codex: { available: cxOk, authMethod: cxOk ? 'cli' : undefined },
+        pi: {
+          available: piStatus.available,
+          authMethod: piStatus.authenticated ? 'configured' : 'not-configured',
+          version: piStatus.version,
+        },
       }
 
       backendsCache = { fetchedAt: Date.now(), data }
@@ -1207,6 +1221,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         if (backends['claude-code']?.available) currentAgent = 'claude-code'
         else if (backends.opencode?.available) currentAgent = 'opencode'
         else if (backends.codex?.available) currentAgent = 'codex'
+        else if (backends.pi?.available) currentAgent = 'pi'
       }
     } catch {
       // keep default
@@ -4767,6 +4782,14 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         ;(message as any).projectPath = secureProjectPath
       }
 
+    if (message.type.startsWith('pi_')) {
+      const handled = await piFeatures.handle(message, reply, broadcast)
+      if (!handled) {
+        reply({ type: 'error', message: `Unhandled Pi feature: ${message.type}`, requestId: message.requestId })
+      }
+      return
+    }
+
     switch (message.type) {
 	      case 'auth_session': {
 	        log(`[auth_session] START - requireEntitlement=${requireEntitlement}`)
@@ -6866,6 +6889,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             const available = await checkCodexAvailable()
             log(`[Codex] ${available ? 'OK' : 'MISSING'} (requires 'codex' in PATH)`)
           }
+          if (currentAgent === 'pi') {
+            const status = await pi.isPiAvailable()
+            log(
+              `[Pi] ${status.available ? 'OK' : 'MISSING'} (${status.authenticated ? `${status.modelCount} authenticated models` : 'no authenticated providers'})`,
+            )
+          }
           break
         }
         case 'get_agents_status': {
@@ -8253,6 +8282,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       void ptyRuntime.stop().catch((error) => {
         logError(`[PTY] stop cleanup failed: ${toErrorMessage(error)}`)
       })
+      pi.disposeAll()
       try {
         secureServer.stop(force)
       } catch {
