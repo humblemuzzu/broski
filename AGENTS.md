@@ -77,10 +77,10 @@ These files are FROZEN. Do NOT add new methods, new case blocks, new widgets, or
 
 | File | Lines | What it has | Where new code goes instead |
 |------|-------|-------------|---------------------------|
-| `lib/screens/chat_screen.dart` | 12,315 | 80+ methods, all sheets/dialogs/builders | `lib/screens/sheets/`, `lib/screens/dialogs/`, `lib/widgets/chat/` |
-| `lib/screens/sessions_screen.dart` | 6,327 | Session list, new session sheet, filter UI | `lib/screens/sessions/`, `lib/widgets/sessions/` |
-| `lib/services/bridge_service.dart` | 5,023 | 281 methods for all agents | `lib/services/bridge/` split by agent |
-| `lib/providers/chat_provider.dart` | 4,520 | ChatSessionState + ChatSessionNotifier | `lib/providers/chat/` split by concern |
+| `lib/screens/chat_screen.dart` | 13,670 | 80+ methods, all sheets/dialogs/builders | `lib/screens/sheets/`, `lib/screens/dialogs/`, `lib/widgets/chat/` |
+| `lib/screens/sessions_screen.dart` | 7,223 | Session list, new session sheet, filter UI | `lib/screens/sessions/`, `lib/widgets/sessions/` |
+| `lib/services/bridge_service.dart` | 5,058 | 281 methods for all agents | `lib/services/bridge/` split by agent |
+| `lib/providers/chat_provider.dart` | 5,092 | ChatSessionState + ChatSessionNotifier | `lib/providers/chat/` split by concern |
 | `lib/screens/onboarding_screen.dart` | 4,314 | All onboarding steps in one widget | `lib/screens/onboarding/` one file per step |
 | `lib/models/claude_code.dart` | 2,759 | 30+ model classes | `lib/models/claude_code/` split by domain |
 | `lib/widgets/permission_rules_sheet.dart` | 1,650 | Full sheet + item widgets | Extract item widgets to separate files |
@@ -90,10 +90,19 @@ These files are FROZEN. Do NOT add new methods, new case blocks, new widgets, or
 
 | File | Lines | What it has | Where new code goes instead |
 |------|-------|-------------|---------------------------|
-| `packages/bridge/src/server.ts` | 8,324 | 234 case handlers | `packages/bridge/src/handlers/{domain}.ts` |
+| `packages/bridge/src/server.ts` | 8,354 | 234 case handlers | `packages/bridge/src/handlers/{domain}.ts` |
 | `packages/bridge/src/connectors/claude-code.ts` | 2,987 | All CC connector logic | `packages/bridge/src/connectors/claude-code/` |
 | `packages/bridge/src/connectors/opencode.ts` | 1,938 | All OC connector logic | `packages/bridge/src/connectors/opencode/` |
-| `packages/bridge/src/types.ts` | 1,730 | All type definitions | `packages/bridge/src/types/` split by agent |
+| `packages/bridge/src/types.ts` | 1,806 | All type definitions | `packages/bridge/src/types/` split by agent |
+
+**⚠️ WATCH LIST — Already over 500 lines, extract on next touch:**
+
+| File | Lines | What to extract | Where it goes |
+|------|-------|-----------------|---------------|
+| `packages/bridge/src/connectors/pi.ts` | 675 | `translateEvent()` switch | `connectors/pi/pi-events.ts` |
+| `lib/services/pi_bridge_service.dart` | 624 | Methods by concern | `lib/services/bridge/bridge_pi.dart` (extension) |
+| `lib/screens/sheets/pi_session_sidebar_sheet.dart` | 622 | Widget classes at bottom | `lib/widgets/pi/` |
+| `packages/bridge/src/handlers/pi_features.ts` | 428 | Fine for now, extract if adding cases | `handlers/pi_sessions.ts`, `handlers/pi_config.ts` |
 
 ### ✅ The "Touch It, Move It" Rule (MANDATORY)
 
