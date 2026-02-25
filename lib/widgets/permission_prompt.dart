@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import '../models/message.dart';
 import '../screens/diff_view_screen.dart';
@@ -7,6 +6,7 @@ import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import '../utils/diff_utils.dart';
 import 'package:broski/theme/app_icons.dart';
+
 class PermissionPrompt extends StatefulWidget {
   const PermissionPrompt({
     super.key,
@@ -28,16 +28,19 @@ class PermissionPrompt extends StatefulWidget {
   final VoidCallback onAlwaysAllow;
   final String approveOnceLabel;
   final String approveAlwaysLabel;
+
   /// Called when user approves for current session only (SDK feature)
   final VoidCallback? onApproveForSession;
   final String approveForSessionLabel;
   final VoidCallback? onApproveWithExecpolicy;
   final String? approveWithExecpolicyLabel;
+
   /// Called when user wants to deny with a feedback message
   final void Function(String message)? onDenyWithMessage;
   @override
   State<PermissionPrompt> createState() => _PermissionPromptState();
 }
+
 class _PermissionPromptState extends State<PermissionPrompt> {
   bool _showRejectFeedback = false;
   final _feedbackController = TextEditingController();
@@ -48,7 +51,9 @@ class _PermissionPromptState extends State<PermissionPrompt> {
     _feedbackFocusNode.dispose();
     super.dispose();
   }
+
   IconData _getPermissionIcon() {
+    if (_isSkillApproval) return AppIcons.autoAwesome;
     switch (widget.request.permission) {
       case 'edit':
         return AppIcons.edit;
@@ -62,7 +67,9 @@ class _PermissionPromptState extends State<PermissionPrompt> {
         return AppIcons.security;
     }
   }
+
   Color _getPermissionColor(OpenCodeTheme theme) {
+    if (_isSkillApproval) return theme.info;
     switch (widget.request.permission) {
       case 'edit':
         return theme.warning;
@@ -76,12 +83,44 @@ class _PermissionPromptState extends State<PermissionPrompt> {
         return theme.accent;
     }
   }
+
   /// Check if this is a doom loop permission request
   bool get _isDoomLoop {
     return widget.request.permission == 'doom_loop' ||
         (widget.request.metadata['type'] as String?) == 'doom_loop' ||
         (widget.request.metadata['doomLoop'] == true);
   }
+
+  bool get _isSkillApproval =>
+      (widget.request.metadata['method'] as String?) == 'skill/requestApproval';
+
+  String? get _networkHost {
+    final proposed = widget.request.metadata['proposedNetworkPolicyAmendments'];
+    if (proposed is List && proposed.isNotEmpty) {
+      final first = proposed.first;
+      if (first is Map) {
+        final host = first['host']?.toString().trim();
+        if (host != null && host.isNotEmpty) return host;
+      }
+    }
+    final ctx = widget.request.metadata['networkApprovalContext'];
+    if (ctx is Map) {
+      final host = ctx['host']?.toString().trim();
+      if (host != null && host.isNotEmpty) return host;
+    }
+    return null;
+  }
+
+  String get _approveLabel =>
+      _isSkillApproval ? 'Approve' : widget.approveOnceLabel;
+  String get _rejectLabel => _isSkillApproval ? 'Decline' : 'Reject';
+  bool get _showPersistentApprovalButtons => !_isSkillApproval;
+  String get _effectiveAlwaysLabel {
+    final host = _networkHost;
+    if (host != null && host.isNotEmpty) return 'Allow $host';
+    return widget.approveAlwaysLabel;
+  }
+
   void _handleRejectTap() {
     setState(() {
       _showRejectFeedback = true;
@@ -91,12 +130,14 @@ class _PermissionPromptState extends State<PermissionPrompt> {
       _feedbackFocusNode.requestFocus();
     });
   }
+
   void _handleCancelReject() {
     setState(() {
       _showRejectFeedback = false;
       _feedbackController.clear();
     });
   }
+
   void _handleConfirmReject() {
     final message = _feedbackController.text.trim();
     if (message.isNotEmpty && widget.onDenyWithMessage != null) {
@@ -105,6 +146,7 @@ class _PermissionPromptState extends State<PermissionPrompt> {
       widget.onDeny();
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -331,7 +373,7 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                                         ),
                                       ),
                                     ),
-                                    child: const Text('Reject'),
+                                    child: Text(_rejectLabel),
                                   ),
                                 ),
                                 const SizedBox(width: 10),
@@ -346,60 +388,61 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                                         ),
                                       ),
                                     ),
-                                    child: Text(widget.approveOnceLabel),
+                                    child: Text(_approveLabel),
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 10),
-                            // Row 2: Session | Always
-                            Row(
-                              children: [
-                                // Session button - only show if callback provided
-                                if (widget.onApproveForSession != null) ...[
-                                  Expanded(
-                                    child: OutlinedButton.icon(
-                                      onPressed: widget.onApproveForSession,
-                                      icon: const Icon(
-                                        AppIcons.timer,
-                                        size: 16,
-                                      ),
-                                      label: Text(
-                                        widget.approveForSessionLabel,
-                                      ),
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: theme.info,
-                                        side: BorderSide(
-                                          color: theme.info.withValues(
-                                            alpha: 0.5,
+                            if (_showPersistentApprovalButtons) ...[
+                              const SizedBox(height: 10),
+                              // Row 2: Session | Always
+                              Row(
+                                children: [
+                                  // Session button - only show if callback provided
+                                  if (widget.onApproveForSession != null) ...[
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        onPressed: widget.onApproveForSession,
+                                        icon: const Icon(
+                                          AppIcons.timer,
+                                          size: 16,
+                                        ),
+                                        label: Text(
+                                          widget.approveForSessionLabel,
+                                        ),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: theme.info,
+                                          side: BorderSide(
+                                            color: theme.info.withValues(
+                                              alpha: 0.5,
+                                            ),
                                           ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                ],
-                                Expanded(
-                                  child: ElevatedButton(
-                                    onPressed: widget.onAlwaysAllow,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: theme.accent,
-                                      foregroundColor: theme.selectedListItemText,
+                                    const SizedBox(width: 10),
+                                  ],
+                                  Expanded(
+                                    child: ElevatedButton(
+                                      onPressed: widget.onAlwaysAllow,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: theme.accent,
+                                        foregroundColor:
+                                            theme.selectedListItemText,
+                                      ),
+                                      child: Text(_effectiveAlwaysLabel),
                                     ),
-                                    child: Text(widget.approveAlwaysLabel),
                                   ),
-                                ),
-                              ],
-                            ),
+                                ],
+                              ),
+                            ],
                             // Execpolicy prefix learning button
-                            if (widget.onApproveWithExecpolicy != null) ...[
+                            if (_showPersistentApprovalButtons &&
+                                widget.onApproveWithExecpolicy != null) ...[
                               const SizedBox(height: 10),
                               OutlinedButton.icon(
                                 onPressed: widget.onApproveWithExecpolicy,
-                                icon: const Icon(
-                                  AppIcons.autoFix,
-                                  size: 18,
-                                ),
+                                icon: const Icon(AppIcons.autoFix, size: 18),
                                 label: Text(
                                   widget.approveWithExecpolicyLabel ??
                                       'Always allow this command prefix',
@@ -428,6 +471,7 @@ class _PermissionPromptState extends State<PermissionPrompt> {
     );
   }
 }
+
 /// Expandable rejection feedback section
 class _RejectFeedbackSection extends StatelessWidget {
   const _RejectFeedbackSection({
@@ -515,6 +559,7 @@ class _RejectFeedbackSection extends StatelessWidget {
     );
   }
 }
+
 /// Shows the file patterns affected by this permission request
 class _PatternsSection extends StatelessWidget {
   const _PatternsSection({
@@ -564,6 +609,7 @@ class _PatternsSection extends StatelessWidget {
     );
   }
 }
+
 /// Shows what "Always Allow" will permit
 class _AlwaysAllowPreview extends StatelessWidget {
   const _AlwaysAllowPreview({required this.always, required this.theme});
@@ -584,11 +630,7 @@ class _AlwaysAllowPreview extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(
-                AppIcons.checkCircle,
-                size: 14,
-                color: theme.success,
-              ),
+              Icon(AppIcons.checkCircle, size: 14, color: theme.success),
               const SizedBox(width: 6),
               Text(
                 '"Always" will also allow:',
@@ -640,6 +682,7 @@ class _AlwaysAllowPreview extends StatelessWidget {
     );
   }
 }
+
 class _PermissionDiffPreview extends StatelessWidget {
   const _PermissionDiffPreview({required this.diffText, this.filePath});
   final String diffText;
@@ -707,6 +750,7 @@ class _PermissionDiffPreview extends StatelessWidget {
       ),
     );
   }
+
   (int, int) _countAddsDels(List<DiffLine> lines) {
     var adds = 0;
     var dels = 0;
@@ -717,6 +761,7 @@ class _PermissionDiffPreview extends StatelessWidget {
     return (adds, dels);
   }
 }
+
 class _PreviewRow extends StatelessWidget {
   const _PreviewRow({required this.line});
   final DiffLine line;
@@ -742,10 +787,7 @@ class _PreviewRow extends StatelessWidget {
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 2),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: Radii.brMd,
-      ),
+      decoration: BoxDecoration(color: bg, borderRadius: Radii.brMd),
       child: Text(
         '$prefix ${line.text.isEmpty ? ' ' : line.text}',
         style: AppTypography.codeSmall(color: fg).copyWith(height: 1.35),

@@ -1,3 +1,4 @@
+import type { CodexAgentStatus, CodexAppInfo, CodexCollabAgentInteractionBeginEvent, CodexCollabAgentInteractionEndEvent, CodexCollabAgentSpawnBeginEvent, CodexCollabAgentSpawnEndEvent, CodexCollabCloseBeginEvent, CodexCollabCloseEndEvent, CodexCollabResumeBeginEvent, CodexCollabResumeEndEvent, CodexCollabWaitingBeginEvent, CodexCollabWaitingEndEvent, CodexModeKind, CodexPersonality, CodexPrompt, CodexRemoteSkill, CodexStreamMessage, CodexThread, CodexTranscriptDiff, CodexTranscriptMessage, CodexTranscriptToolCall, CodexWebSearchMode } from './types/codex'
 import type { PiCommandPayload, PiForkMessagePayload, PiModelPayload, PiSessionInfo, PiStatePayload, PiStreamMessage } from './types/pi'
 
 export type PermissionResponse = 'once' | 'always' | 'reject' | 'execpolicy'
@@ -75,33 +76,90 @@ export type DeviceInfo = {
 }
 
 export type ClientMessage =
-  | { type: 'batch'; messages: Array<ClientMessage & { requestId?: string }>; count?: number; timestamp?: number }
+  | {
+      type: 'batch'
+      messages: Array<ClientMessage & { requestId?: string }>
+      count?: number
+      timestamp?: number
+    }
   // Cloud auth (Convex session) used for licensing/entitlements.
   | { type: 'auth_session'; sessionToken: string; requestId?: string }
-  | { type: 'set_view'; projectPath?: string; sessionId?: string; agent?: AgentType }
+  | {
+      type: 'set_view'
+      projectPath?: string
+      sessionId?: string
+      agent?: AgentType
+    }
   | { type: 'set_agent'; agent: AgentType }
   | { type: 'restart_opencode' }
   | { type: 'pong'; id: string; sentAt: number }
   // Client-initiated ping (for app lifecycle detection)
   | { type: 'client_ping'; id: string; sentAt: number }
   // Multi-device support
-  | { type: 'register_device'; deviceId: string; deviceName: string; platform: string; protocolVersion?: string }
+  | {
+      type: 'register_device'
+      deviceId: string
+      deviceName: string
+      platform: string
+      protocolVersion?: string
+    }
   | { type: 'list_devices' }
   | { type: 'disconnect_device'; deviceId: string }
   | { type: 'list_projects' }
-  | { type: 'list_sessions'; projectPath?: string; roots?: boolean; start?: number; search?: string; limit?: number }
+  | {
+      type: 'list_sessions'
+      projectPath?: string
+      roots?: boolean
+      start?: number
+      search?: string
+      limit?: number
+    }
   | { type: 'list_providers' }
   | { type: 'get_config'; projectPath?: string }
   | { type: 'set_config'; config: Record<string, any>; projectPath?: string }
   | { type: 'set_model'; model: string; projectPath?: string }
-  | { type: 'create_session'; projectPath?: string; title?: string; permission?: PermissionRuleset }
+  | {
+      type: 'create_session'
+      projectPath?: string
+      title?: string
+      permission?: PermissionRuleset
+    }
   | { type: 'get_session'; sessionId: string; projectPath?: string }
-  | { type: 'get_session_messages'; sessionId: string; projectPath?: string; limit?: number }
-  | { type: 'chat'; sessionId: string; content: string; projectPath?: string; messageId?: string; model?: { providerID: string; modelID: string }; agent?: string; fileAttachments?: FileAttachment[]; variant?: string; noReply?: boolean; system?: string }
+  | {
+      type: 'get_session_messages'
+      sessionId: string
+      projectPath?: string
+      limit?: number
+    }
+  | {
+      type: 'chat'
+      sessionId: string
+      content: string
+      projectPath?: string
+      messageId?: string
+      model?: { providerID: string; modelID: string }
+      agent?: string
+      fileAttachments?: FileAttachment[]
+      variant?: string
+      noReply?: boolean
+      system?: string
+    }
   | { type: 'abort'; sessionId: string; projectPath?: string }
-  | { type: 'diff'; sessionId: string; projectPath?: string; messageId?: string }
+  | {
+      type: 'diff'
+      sessionId: string
+      projectPath?: string
+      messageId?: string
+    }
   | { type: 'browse'; path: string; projectPath?: string }
-  | { type: 'permission_response'; sessionId: string; permissionId: string; response: PermissionResponse; message?: string; projectPath?: string }
+  | {
+      type: 'permission_response'
+      sessionId: string
+      permissionId: string
+      response: PermissionResponse
+      message?: string
+      projectPath?: string
+    }
   | { type: 'list_pending_permissions'; projectPath?: string }
   | { type: 'list_pending_questions'; projectPath?: string }
   | { type: 'get_lsp_status'; projectPath?: string }
@@ -119,25 +177,56 @@ export type ClientMessage =
       agent?: string
       model?: string
       variant?: string
-      parts?: Array<{ id?: string; type: 'file'; mime: string; filename?: string; url: string; source?: Record<string, unknown> }>
+      parts?: Array<{
+        id?: string
+        type: 'file'
+        mime: string
+        filename?: string
+        url: string
+        source?: Record<string, unknown>
+      }>
     }
   // Feature 3: Agent Switching
   | { type: 'list_agents'; projectPath?: string }
   // Feature 4: Session Delete
   | { type: 'delete_session'; sessionId: string; projectPath?: string }
   // Feature 5: Session Update (Rename)
-  | { type: 'update_session'; sessionId: string; title?: string; archived?: boolean; projectPath?: string }
+  | {
+      type: 'update_session'
+      sessionId: string
+      title?: string
+      archived?: boolean
+      projectPath?: string
+    }
   // Feature 6: Session Fork
-  | { type: 'fork_session'; sessionId: string; messageId?: string; projectPath?: string }
+  | {
+      type: 'fork_session'
+      sessionId: string
+      messageId?: string
+      projectPath?: string
+    }
   | { type: 'session_children'; sessionId: string; projectPath?: string }
   // Feature 7: Message Revert (Undo)
-  | { type: 'revert_message'; sessionId: string; messageId: string; partId?: string; projectPath?: string }
+  | {
+      type: 'revert_message'
+      sessionId: string
+      messageId: string
+      partId?: string
+      projectPath?: string
+    }
   | { type: 'unrevert_session'; sessionId: string; projectPath?: string }
   // Feature 8: Session Share
   | { type: 'share_session'; sessionId: string; projectPath?: string }
   | { type: 'unshare_session'; sessionId: string; projectPath?: string }
   // Feature 9: Session Summarize (Compact)
-  | { type: 'summarize_session'; sessionId: string; providerID: string; modelID: string; projectPath?: string; auto?: boolean }
+  | {
+      type: 'summarize_session'
+      sessionId: string
+      providerID: string
+      modelID: string
+      projectPath?: string
+      auto?: boolean
+    }
   // Feature 10: Git/VCS Information
   | { type: 'get_vcs'; projectPath?: string }
   // Feature 11: File Content Read
@@ -146,60 +235,141 @@ export type ClientMessage =
   | { type: 'read_file_binary'; path: string; maxSizeMb?: number }
   // Feature 12: File Search
   | { type: 'find_files'; query: string; projectPath?: string }
-  | { type: 'find_text'; pattern: string; include?: string; projectPath?: string }
+  | {
+      type: 'find_text'
+      pattern: string
+      include?: string
+      projectPath?: string
+    }
   | { type: 'find_symbols'; query: string; projectPath?: string }
   | { type: 'search_files_and_dirs'; query: string; projectPath?: string }
   // Feature 13: Session Status
   | { type: 'get_session_status'; projectPath?: string }
   // Feature 14: PTY Terminal Sessions
   | { type: 'list_pty'; projectPath?: string }
-  | { type: 'create_pty'; command?: string; args?: string[]; cwd?: string; title?: string; env?: Record<string, string>; projectPath?: string }
+  | {
+      type: 'create_pty'
+      command?: string
+      args?: string[]
+      cwd?: string
+      title?: string
+      env?: Record<string, string>
+      projectPath?: string
+    }
   | { type: 'get_pty'; ptyId: string; projectPath?: string }
-  | { type: 'update_pty'; ptyId: string; title?: string; rows?: number; cols?: number; projectPath?: string }
+  | {
+      type: 'update_pty'
+      ptyId: string
+      title?: string
+      rows?: number
+      cols?: number
+      projectPath?: string
+    }
   | { type: 'delete_pty'; ptyId: string; projectPath?: string }
   // Feature 14b: PTY Interactive Terminal I/O
   | { type: 'pty_connect'; ptyId: string; projectPath?: string }
   | { type: 'pty_disconnect'; ptyId: string }
   | { type: 'pty_input'; ptyId: string; data: string }
-  | { type: 'pty_resize'; ptyId: string; rows: number; cols: number; projectPath?: string }
+  | {
+      type: 'pty_resize'
+      ptyId: string
+      rows: number
+      cols: number
+      projectPath?: string
+    }
   // Feature 15: MCP Server Management
   | { type: 'get_mcp_status'; projectPath?: string }
-  | { type: 'add_mcp'; name: string; config: Record<string, unknown>; projectPath?: string }
+  | {
+      type: 'add_mcp'
+      name: string
+      config: Record<string, unknown>
+      projectPath?: string
+    }
   | { type: 'connect_mcp'; name: string; projectPath?: string }
   | { type: 'disconnect_mcp'; name: string; projectPath?: string }
   | { type: 'get_mcp_resources'; projectPath?: string }
   // MCP OAuth Authentication
   | { type: 'mcp_auth_start'; name: string; projectPath?: string }
-  | { type: 'mcp_auth_callback'; name: string; code: string; projectPath?: string }
+  | {
+      type: 'mcp_auth_callback'
+      name: string
+      code: string
+      projectPath?: string
+    }
   | { type: 'mcp_auth_authenticate'; name: string; projectPath?: string }
   | { type: 'mcp_auth_remove'; name: string; projectPath?: string }
   // Provider credential management
-  | { type: 'auth_set'; providerId: string; auth: Record<string, unknown>; projectPath?: string }
+  | {
+      type: 'auth_set'
+      providerId: string
+      auth: Record<string, unknown>
+      projectPath?: string
+    }
   | { type: 'auth_remove'; providerId: string; projectPath?: string }
   // Global config
   | { type: 'get_global_config' }
   | { type: 'set_global_config'; config: Record<string, unknown> }
   // Project management
   | { type: 'get_current_project'; projectPath?: string }
-  | { type: 'update_project'; projectId: string; name?: string; icon?: Record<string, unknown>; projectPath?: string }
+  | {
+      type: 'update_project'
+      projectId: string
+      name?: string
+      icon?: Record<string, unknown>
+      projectPath?: string
+    }
   // Message part editing
-  | { type: 'delete_part'; sessionId: string; messageId: string; partId: string; projectPath?: string }
-  | { type: 'update_part'; sessionId: string; messageId: string; partId: string; part: Record<string, unknown>; projectPath?: string }
+  | {
+      type: 'delete_part'
+      sessionId: string
+      messageId: string
+      partId: string
+      projectPath?: string
+    }
+  | {
+      type: 'update_part'
+      sessionId: string
+      messageId: string
+      partId: string
+      part: Record<string, unknown>
+      projectPath?: string
+    }
   // SDK skills endpoint
   | { type: 'oc_list_sdk_skills'; projectPath?: string }
   // Feature 23: Git Worktrees (SDK v1.1.1+ experimental)
   | { type: 'list_worktrees'; projectPath?: string }
-  | { type: 'create_worktree'; name?: string; startCommand?: string; projectPath?: string }
+  | {
+      type: 'create_worktree'
+      name?: string
+      startCommand?: string
+      projectPath?: string
+    }
   | { type: 'reset_worktree'; worktreeDirectory: string; projectPath?: string }
   | { type: 'delete_worktree'; name: string; projectPath?: string }
   // Feature 16: Full Provider Management
   | { type: 'list_all_providers'; projectPath?: string }
   | { type: 'get_provider_auth'; projectPath?: string }
-  | { type: 'provider_oauth_authorize'; providerId: string; method: number; projectPath?: string }
-  | { type: 'provider_oauth_callback'; providerId: string; method: number; code?: string; projectPath?: string }
+  | {
+      type: 'provider_oauth_authorize'
+      providerId: string
+      method: number
+      projectPath?: string
+    }
+  | {
+      type: 'provider_oauth_callback'
+      providerId: string
+      method: number
+      code?: string
+      projectPath?: string
+    }
   // Feature 17: Tool List
   | { type: 'list_tool_ids'; projectPath?: string }
-  | { type: 'list_tools'; provider: string; model: string; projectPath?: string }
+  | {
+      type: 'list_tools'
+      provider: string
+      model: string
+      projectPath?: string
+    }
   // Feature 18: File Status (Git)
   | { type: 'get_file_status'; projectPath?: string }
   // Feature 18b: Git diff (working tree / staged)
@@ -216,51 +386,150 @@ export type ClientMessage =
   | { type: 'git_pull'; projectPath: string; rebase?: boolean }
   | { type: 'git_fetch'; projectPath: string }
   | { type: 'git_checkout'; projectPath: string; branch: string }
-  | { type: 'git_create_branch'; projectPath: string; name: string; startPoint?: string }
+  | {
+      type: 'git_create_branch'
+      projectPath: string
+      name: string
+      startPoint?: string
+    }
   | { type: 'git_stash'; projectPath: string }
   | { type: 'git_stash_pop'; projectPath: string }
   | { type: 'git_commit_diff'; projectPath: string; hash: string }
   // GitHub integration
   | { type: 'github_remote'; projectPath: string }
-  | { type: 'github_issues'; projectPath: string; state?: 'open' | 'closed' | 'all' }
-  | { type: 'github_prs'; projectPath: string; state?: 'open' | 'closed' | 'all' }
+  | {
+      type: 'github_issues'
+      projectPath: string
+      state?: 'open' | 'closed' | 'all'
+    }
+  | {
+      type: 'github_prs'
+      projectPath: string
+      state?: 'open' | 'closed' | 'all'
+    }
   | { type: 'github_pr_diff'; projectPath: string; prNumber: number }
   | { type: 'github_pr_comments'; projectPath: string; prNumber: number }
   // Feature 19: Formatter Status
   | { type: 'get_formatter_status'; projectPath?: string }
   // Feature 20: Session Init
-  | { type: 'init_session'; sessionId: string; providerID: string; modelID: string; messageID: string; projectPath?: string }
+  | {
+      type: 'init_session'
+      sessionId: string
+      providerID: string
+      modelID: string
+      messageID: string
+      projectPath?: string
+    }
   // Feature 22: Instance Disposal (Clear project context)
   | { type: 'dispose_instance'; projectPath?: string }
   | { type: 'get_agents_status' }
   // Skills (filesystem-backed)
   | { type: 'oc_list_skills'; cwd?: string }
-  | { type: 'oc_get_skill'; name: string; source: 'project' | 'user'; cwd?: string }
-  | { type: 'oc_save_skill'; name: string; source: 'project' | 'user'; content: string; cwd?: string }
-  | { type: 'oc_delete_skill'; name: string; source: 'project' | 'user'; cwd?: string }
+  | {
+      type: 'oc_get_skill'
+      name: string
+      source: 'project' | 'user'
+      cwd?: string
+    }
+  | {
+      type: 'oc_save_skill'
+      name: string
+      source: 'project' | 'user'
+      content: string
+      cwd?: string
+    }
+  | {
+      type: 'oc_delete_skill'
+      name: string
+      source: 'project' | 'user'
+      cwd?: string
+    }
   | { type: 'oc_list_plugin_files'; cwd?: string }
-  | { type: 'oc_get_plugin_file'; name: string; source: 'project' | 'user'; cwd?: string }
-  | { type: 'oc_save_plugin_file'; name: string; source: 'project' | 'user'; content: string; cwd?: string }
-  | { type: 'oc_delete_plugin_file'; name: string; source: 'project' | 'user'; cwd?: string }
+  | {
+      type: 'oc_get_plugin_file'
+      name: string
+      source: 'project' | 'user'
+      cwd?: string
+    }
+  | {
+      type: 'oc_save_plugin_file'
+      name: string
+      source: 'project' | 'user'
+      content: string
+      cwd?: string
+    }
+  | {
+      type: 'oc_delete_plugin_file'
+      name: string
+      source: 'project' | 'user'
+      cwd?: string
+    }
   // OpenCode custom markdown files (filesystem-backed)
   | { type: 'oc_list_command_files'; cwd?: string }
-  | { type: 'oc_get_command_file'; name: string; source: 'project' | 'user'; cwd?: string }
-  | { type: 'oc_save_command_file'; name: string; source: 'project' | 'user'; content: string; cwd?: string }
-  | { type: 'oc_delete_command_file'; name: string; source: 'project' | 'user'; cwd?: string }
+  | {
+      type: 'oc_get_command_file'
+      name: string
+      source: 'project' | 'user'
+      cwd?: string
+    }
+  | {
+      type: 'oc_save_command_file'
+      name: string
+      source: 'project' | 'user'
+      content: string
+      cwd?: string
+    }
+  | {
+      type: 'oc_delete_command_file'
+      name: string
+      source: 'project' | 'user'
+      cwd?: string
+    }
   | { type: 'oc_list_agent_files'; cwd?: string }
-  | { type: 'oc_get_agent_file'; name: string; source: 'project' | 'user'; cwd?: string }
-  | { type: 'oc_save_agent_file'; name: string; source: 'project' | 'user'; content: string; cwd?: string }
-  | { type: 'oc_delete_agent_file'; name: string; source: 'project' | 'user'; cwd?: string }
+  | {
+      type: 'oc_get_agent_file'
+      name: string
+      source: 'project' | 'user'
+      cwd?: string
+    }
+  | {
+      type: 'oc_save_agent_file'
+      name: string
+      source: 'project' | 'user'
+      content: string
+      cwd?: string
+    }
+  | {
+      type: 'oc_delete_agent_file'
+      name: string
+      source: 'project' | 'user'
+      cwd?: string
+    }
   // OpenCode Question Tool
-  | { type: 'oc_question_reply'; questionId: string; answers: string[][]; projectPath?: string }
+  | {
+      type: 'oc_question_reply'
+      questionId: string
+      answers: string[][]
+      projectPath?: string
+    }
   | { type: 'oc_question_reject'; questionId: string; projectPath?: string }
   // Claude Code-specific messages
   | { type: 'cc_list_projects' }
   | { type: 'cc_list_sessions'; cwd?: string }
   | { type: 'cc_get_session'; sessionId: string; cwd?: string }
-  | { type: 'cc_get_session_messages'; sessionId: string; cwd?: string; limit?: number }
+  | {
+      type: 'cc_get_session_messages'
+      sessionId: string
+      cwd?: string
+      limit?: number
+    }
   | { type: 'cc_delete_session'; sessionId: string; cwd?: string }
-  | { type: 'cc_fork_session'; sessionId: string; messageId?: string; cwd?: string }
+  | {
+      type: 'cc_fork_session'
+      sessionId: string
+      messageId?: string
+      cwd?: string
+    }
   | {
       type: 'cc_chat'
       sessionId?: string
@@ -294,13 +563,26 @@ export type ClientMessage =
   | { type: 'cc_abort'; sessionId: string }
   | { type: 'cc_stop_task'; sessionId: string; taskId: string }
   | { type: 'cc_reconnect_mcp_server'; sessionId: string; serverName: string }
-  | { type: 'cc_toggle_mcp_server'; sessionId: string; serverName: string; enabled: boolean }
+  | {
+      type: 'cc_toggle_mcp_server'
+      sessionId: string
+      serverName: string
+      enabled: boolean
+    }
   // B1: change permission mode mid-session
-  | { type: 'cc_set_permission_mode'; sessionId: string; mode: ClaudeCodePermissionMode }
+  | {
+      type: 'cc_set_permission_mode'
+      sessionId: string
+      mode: ClaudeCodePermissionMode
+    }
   // B2: change model mid-session
   | { type: 'cc_set_model'; sessionId: string; model?: string }
   // B7: dynamically set MCP servers mid-session
-  | { type: 'cc_set_mcp_servers'; sessionId: string; servers: Record<string, unknown> }
+  | {
+      type: 'cc_set_mcp_servers'
+      sessionId: string
+      servers: Record<string, unknown>
+    }
   // B3: get full initialization result (richer than session-init)
   | { type: 'cc_initialization_result'; sessionId: string }
   | {
@@ -312,35 +594,104 @@ export type ClientMessage =
       updatedInput?: Record<string, unknown>
     }
   | { type: 'cc_list_skills'; cwd?: string }
-  | { type: 'cc_get_skill'; name: string; source: 'project' | 'user' | 'plugin'; cwd?: string; path?: string }
-  | { type: 'cc_save_skill'; name: string; source: 'project' | 'user'; content: string; cwd?: string }
-  | { type: 'cc_delete_skill'; name: string; source: 'project' | 'user'; cwd?: string }
+  | {
+      type: 'cc_get_skill'
+      name: string
+      source: 'project' | 'user' | 'plugin'
+      cwd?: string
+      path?: string
+    }
+  | {
+      type: 'cc_save_skill'
+      name: string
+      source: 'project' | 'user'
+      content: string
+      cwd?: string
+    }
+  | {
+      type: 'cc_delete_skill'
+      name: string
+      source: 'project' | 'user'
+      cwd?: string
+    }
   | { type: 'cc_list_hooks'; cwd?: string }
   | { type: 'cc_hooks_file_read'; source: 'project' | 'user'; cwd?: string }
-  | { type: 'cc_hooks_file_write'; source: 'project' | 'user'; content: string; cwd?: string }
+  | {
+      type: 'cc_hooks_file_write'
+      source: 'project' | 'user'
+      content: string
+      cwd?: string
+    }
   | { type: 'cc_mcp_file_read'; cwd: string }
   | { type: 'cc_mcp_file_write'; cwd: string; content: string }
   | { type: 'cc_list_commands'; cwd?: string }
-  | { type: 'cc_get_command'; name: string; source: 'project' | 'user' | 'plugin'; cwd?: string; path?: string }
-  | { type: 'cc_save_command'; name: string; source: 'project' | 'user'; content: string; cwd?: string }
-  | { type: 'cc_delete_command'; name: string; source: 'project' | 'user'; cwd?: string }
+  | {
+      type: 'cc_get_command'
+      name: string
+      source: 'project' | 'user' | 'plugin'
+      cwd?: string
+      path?: string
+    }
+  | {
+      type: 'cc_save_command'
+      name: string
+      source: 'project' | 'user'
+      content: string
+      cwd?: string
+    }
+  | {
+      type: 'cc_delete_command'
+      name: string
+      source: 'project' | 'user'
+      cwd?: string
+    }
   | { type: 'cc_get_config'; cwd?: string }
   | { type: 'cc_set_config'; config: Partial<ClaudeCodeConfig>; cwd?: string }
   | { type: 'cc_get_supported_models'; cwd?: string }
   | { type: 'cc_get_account_info'; cwd?: string }
   | { type: 'cc_get_mcp_server_status'; cwd?: string }
   | { type: 'cc_list_agents'; cwd?: string; projectPath?: string }
-  | { type: 'cc_list_memories'; scope?: 'user' | 'project' | 'local'; cwd?: string }
-  | { type: 'cc_delete_memory'; scope: 'user' | 'project' | 'local'; filename: string; cwd?: string }
+  | {
+      type: 'cc_list_memories'
+      scope?: 'user' | 'project' | 'local'
+      cwd?: string
+    }
+  | {
+      type: 'cc_delete_memory'
+      scope: 'user' | 'project' | 'local'
+      filename: string
+      cwd?: string
+    }
   | { type: 'cc_get_active_sessions' }
   | { type: 'cc_rename_session'; sessionId: string; name: string; cwd?: string }
   | { type: 'cc_background_session'; sessionId: string; cwd?: string }
   // Codex (OpenAI Codex app-server) messages
   | { type: 'cx_list_projects'; refresh?: boolean }
-  | { type: 'cx_list_threads'; cwd?: string; cursor?: string | null; limit?: number | null; refresh?: boolean; sourceKinds?: string[]; sortKey?: string; modelProviders?: string[]; archived?: boolean }
+  | {
+      type: 'cx_list_threads'
+      cwd?: string
+      cursor?: string | null
+      limit?: number | null
+      refresh?: boolean
+      sourceKinds?: string[]
+      sortKey?: string
+      modelProviders?: string[]
+      archived?: boolean
+    }
   | { type: 'cx_warmup' }
-  | { type: 'cx_start_thread'; cwd?: string; model?: string; approvalPolicy?: string; sandbox?: string; personality?: 'none' | 'friendly' | 'pragmatic' }
-  | { type: 'cx_resume_thread'; threadId: string; personality?: 'none' | 'friendly' | 'pragmatic' }
+  | {
+      type: 'cx_start_thread'
+      cwd?: string
+      model?: string
+      approvalPolicy?: string
+      sandbox?: string
+      personality?: 'none' | 'friendly' | 'pragmatic'
+    }
+  | {
+      type: 'cx_resume_thread'
+      threadId: string
+      personality?: 'none' | 'friendly' | 'pragmatic'
+    }
   | { type: 'cx_archive_thread'; threadId: string }
   | { type: 'cx_get_thread_messages'; threadId: string }
   | {
@@ -364,28 +715,81 @@ export type ClientMessage =
       personality?: 'none' | 'friendly' | 'pragmatic'
     }
   | { type: 'cx_abort'; threadId: string; turnId?: string }
-  | { type: 'cx_permission_response'; requestId: string; response: PermissionResponse; execpolicyAmendment?: any }
+  | {
+      type: 'cx_permission_response'
+      requestId: string
+      response: PermissionResponse
+      execpolicyAmendment?: any
+      networkPolicyAmendment?: { host: string; action: 'allow' | 'deny' }
+    }
   // Codex request_user_input response (SDK v0.87.0+)
-  | { type: 'cx_user_input_response'; requestId: string; answers: Record<string, { answers: string[] }> }
+  | {
+      type: 'cx_user_input_response'
+      requestId: string
+      answers: Record<string, { answers: string[] }>
+    }
   | { type: 'cx_thread_fork'; threadId: string }
   | { type: 'cx_thread_rollback'; threadId: string; numTurns: number }
   | { type: 'cx_model_list' }
   | { type: 'cx_skills_list'; cwd?: string; forceReload?: boolean }
-  | { type: 'cx_get_skill'; name: string; scope: 'Repo' | 'User' | 'System' | 'Admin'; cwd?: string }
-  | { type: 'cx_save_skill'; name: string; scope: 'Repo' | 'User'; content: string; cwd?: string }
-  | { type: 'cx_delete_skill'; name: string; scope: 'Repo' | 'User'; cwd?: string }
+  | {
+      type: 'cx_get_skill'
+      name: string
+      scope: 'Repo' | 'User' | 'System' | 'Admin'
+      cwd?: string
+    }
+  | {
+      type: 'cx_save_skill'
+      name: string
+      scope: 'Repo' | 'User'
+      content: string
+      cwd?: string
+    }
+  | {
+      type: 'cx_delete_skill'
+      name: string
+      scope: 'Repo' | 'User'
+      cwd?: string
+    }
   | { type: 'cx_list_prompts'; cwd?: string }
   | { type: 'cx_config_read' }
-  | { type: 'cx_config_value_write'; keyPath: string; value: any; mergeStrategy?: string }
-  | { type: 'cx_mcp_status_list'; cursor?: string | null; limit?: number | null }
+  | {
+      type: 'cx_config_value_write'
+      keyPath: string
+      value: any
+      mergeStrategy?: string
+    }
+  | {
+      type: 'cx_mcp_status_list'
+      cursor?: string | null
+      limit?: number | null
+    }
   | { type: 'cx_mcp_reload' }
-  | { type: 'cx_review_start'; threadId?: string; cwd?: string; delivery?: 'inline' | 'detached'; target?: any; model?: string; approvalPolicy?: string; sandbox?: string; sandboxPolicy?: any; config?: Record<string, any> }
+  | {
+      type: 'cx_review_start'
+      threadId?: string
+      cwd?: string
+      delivery?: 'inline' | 'detached'
+      target?: any
+      model?: string
+      approvalPolicy?: string
+      sandbox?: string
+      sandboxPolicy?: any
+      config?: Record<string, any>
+    }
   | { type: 'cx_account_read'; refreshToken?: boolean }
   | { type: 'cx_login_start'; loginType: 'chatgpt' | 'apiKey'; apiKey?: string }
   | { type: 'cx_login_cancel'; loginId: string }
   | { type: 'cx_logout' }
   | { type: 'cx_rate_limits_read' }
-  | { type: 'cx_feedback_upload'; classification: string; reason?: string | null; threadId?: string | null; includeLogs?: boolean }
+  | {
+      type: 'cx_feedback_upload'
+      classification: string
+      reason?: string | null
+      threadId?: string | null
+      includeLogs?: boolean
+      extraLogFiles?: string[] | null
+    }
   | { type: 'cx_undo_files'; threadId: string; count?: number }
   | { type: 'cx_agents_read'; cwd: string }
   | { type: 'cx_agents_write'; cwd: string; content: string }
@@ -394,26 +798,70 @@ export type ClientMessage =
   | { type: 'cx_thread_rename'; threadId: string; name: string }
   | { type: 'cx_thread_unarchive'; threadId: string }
   | { type: 'cx_thread_compact'; threadId: string }
-  | { type: 'cx_remote_skills_list' }
+  | {
+      type: 'cx_remote_skills_list'
+      hazelnutScope?: 'example' | 'workspace-shared' | 'all-shared' | 'personal'
+      productSurface?: 'chatgpt' | 'codex' | 'api' | 'atlas'
+      enabled?: boolean
+    }
   | { type: 'cx_remote_skill_install'; hazelnutId: string; isPreload?: boolean }
   | { type: 'cx_skill_config_write'; path: string; enabled: boolean }
-  | { type: 'cx_apps_list'; cursor?: string | null; limit?: number | null; threadId?: string; forceRefetch?: boolean }
-  | { type: 'cx_command_exec'; command: string[]; timeoutMs?: number; cwd?: string; sandboxPolicy?: any }
-  | { type: 'cx_experimental_features'; cursor?: string | null; limit?: number | null }
+  | {
+      type: 'cx_apps_list'
+      cursor?: string | null
+      limit?: number | null
+      threadId?: string
+      forceRefetch?: boolean
+    }
+  | {
+      type: 'cx_command_exec'
+      command: string[]
+      timeoutMs?: number
+      cwd?: string
+      sandboxPolicy?: any
+    }
+  | {
+      type: 'cx_experimental_features'
+      cursor?: string | null
+      limit?: number | null
+    }
   // Codex SDK update: new methods (#21-#25, #27)
-  | { type: 'cx_config_batch_write'; edits: Array<{ keyPath: string; value: any; mergeStrategy?: string }>; filePath?: string; expectedVersion?: string }
+  | {
+      type: 'cx_config_batch_write'
+      edits: Array<{ keyPath: string; value: any; mergeStrategy?: string }>
+      filePath?: string
+      expectedVersion?: string
+    }
   | { type: 'cx_config_requirements_read' }
-  | { type: 'cx_thread_loaded_list'; cursor?: string | null; limit?: number | null }
+  | {
+      type: 'cx_thread_loaded_list'
+      cursor?: string | null
+      limit?: number | null
+    }
   | { type: 'cx_thread_read'; threadId: string; includeTurns?: boolean }
-  | { type: 'cx_mcp_oauth_login'; name: string; scopes?: string[]; timeoutSecs?: number }
+  | {
+      type: 'cx_mcp_oauth_login'
+      name: string
+      scopes?: string[]
+      timeoutSecs?: number
+    }
   // Claude Code File Checkpointing (Undo/Revert)
-  | { type: 'cc_rewind_checkpoint'; sessionId: string; checkpointUuid: string; cwd: string }
+  | {
+      type: 'cc_rewind_checkpoint'
+      sessionId: string
+      checkpointUuid: string
+      cwd: string
+    }
   // Claude Code Custom Tools
   | { type: 'cc_list_custom_tools' }
   | { type: 'cc_get_custom_tool'; id: string }
   | { type: 'cc_save_custom_tool'; tool: ClaudeCodeCustomTool }
   | { type: 'cc_delete_custom_tool'; id: string }
-  | { type: 'cc_test_custom_tool'; tool: ClaudeCodeCustomTool; testArgs: Record<string, unknown> }
+  | {
+      type: 'cc_test_custom_tool'
+      tool: ClaudeCodeCustomTool
+      testArgs: Record<string, unknown>
+    }
   // Claude Code Plugins
   | { type: 'cc_list_plugins'; cwd?: string }
   | { type: 'cc_get_plugin'; name: string }
@@ -423,17 +871,36 @@ export type ClientMessage =
   | { type: 'cc_get_plugin_config' }
   | { type: 'cc_reload_plugins'; cwd?: string }
   // Pi Coding Agent
-  | { type: 'pi_chat'; prompt: string; projectPath?: string; fileAttachments?: FileAttachment[]; streamingBehavior?: 'steer' | 'followUp' }
+  | {
+      type: 'pi_chat'
+      prompt: string
+      projectPath?: string
+      fileAttachments?: FileAttachment[]
+      streamingBehavior?: 'steer' | 'followUp'
+    }
   | { type: 'pi_steer'; message: string; projectPath?: string }
   | { type: 'pi_follow_up'; message: string; projectPath?: string }
   | { type: 'pi_abort'; projectPath?: string }
-  | { type: 'pi_set_steering_mode'; mode: 'all' | 'one-at-a-time'; projectPath?: string }
-  | { type: 'pi_set_follow_up_mode'; mode: 'all' | 'one-at-a-time'; projectPath?: string }
+  | {
+      type: 'pi_set_steering_mode'
+      mode: 'all' | 'one-at-a-time'
+      projectPath?: string
+    }
+  | {
+      type: 'pi_set_follow_up_mode'
+      mode: 'all' | 'one-at-a-time'
+      projectPath?: string
+    }
   | { type: 'pi_set_auto_retry'; enabled: boolean; projectPath?: string }
   | { type: 'pi_abort_retry'; projectPath?: string }
   | { type: 'pi_get_state'; projectPath?: string }
   | { type: 'pi_list_models'; projectPath?: string }
-  | { type: 'pi_set_model'; provider: string; modelId: string; projectPath?: string }
+  | {
+      type: 'pi_set_model'
+      provider: string
+      modelId: string
+      projectPath?: string
+    }
   | { type: 'pi_set_thinking_level'; level: string; projectPath?: string }
   | { type: 'pi_cycle_thinking_level'; projectPath?: string }
   | { type: 'pi_cycle_model'; projectPath?: string }
@@ -446,15 +913,34 @@ export type ClientMessage =
   | { type: 'pi_set_session_name'; name: string; projectPath?: string }
   | { type: 'pi_fork'; entryId: string; projectPath?: string }
   | { type: 'pi_get_fork_messages'; projectPath?: string }
-  | { type: 'pi_navigate_tree'; targetId: string; summarize?: boolean; customInstructions?: string; replaceInstructions?: boolean; label?: string; projectPath?: string }
+  | {
+      type: 'pi_navigate_tree'
+      targetId: string
+      summarize?: boolean
+      customInstructions?: string
+      replaceInstructions?: boolean
+      label?: string
+      projectPath?: string
+    }
   | { type: 'pi_list_commands'; projectPath?: string }
   | { type: 'pi_compact'; customInstructions?: string; projectPath?: string }
   | { type: 'pi_set_auto_compaction'; enabled: boolean; projectPath?: string }
   | { type: 'pi_export_html'; outputPath?: string; projectPath?: string }
   | { type: 'pi_get_settings'; projectPath?: string }
-  | { type: 'pi_set_settings'; settings: Record<string, any>; projectPath?: string }
+  | {
+      type: 'pi_set_settings'
+      settings: Record<string, any>
+      projectPath?: string
+    }
   | { type: 'pi_dispose_instance'; projectPath?: string }
-  | { type: 'pi_extension_ui_response'; id: string; value?: any; confirmed?: boolean; cancelled?: boolean; projectPath?: string }
+  | {
+      type: 'pi_extension_ui_response'
+      id: string
+      value?: any
+      confirmed?: boolean
+      cancelled?: boolean
+      projectPath?: string
+    }
   // Subscription Usage Tracking
   | { type: 'get_subscription_usage' }
   | { type: 'get_provider_usage'; providerId: 'claude' | 'openai' }
@@ -472,7 +958,7 @@ export type SessionSummary = {
   title: string
   projectID: string
   directory: string
-  parentID?: string  // For forked sessions
+  parentID?: string // For forked sessions
   time: {
     created: number
     updated: number
@@ -492,10 +978,16 @@ export type SessionSummary = {
       status?: 'added' | 'deleted' | 'modified'
     }>
   }
-  share?: {  // Feature 8: Session sharing info
+  share?: {
+    // Feature 8: Session sharing info
     url: string
   }
-  revert?: { messageID: string; partID?: string; snapshot?: string; diff?: string }
+  revert?: {
+    messageID: string
+    partID?: string
+    snapshot?: string
+    diff?: string
+  }
   permission?: PermissionRuleset // Session-level permissions (SDK v1.1.53+)
 }
 
@@ -547,29 +1039,64 @@ export type StatusPayload = {
 }
 
 export type ServerMessage =
-  | { type: 'auth_session_ok'; data: { appUserId: string; entitled: boolean; status?: string }; requestId?: string }
+  | {
+      type: 'auth_session_ok'
+      data: { appUserId: string; entitled: boolean; status?: string }
+      requestId?: string
+    }
   | { type: 'projects'; data: ProjectSummary[]; requestId?: string }
-  | { type: 'sessions'; data: SessionSummary[]; projectPath?: string; requestId?: string }
+  | {
+      type: 'sessions'
+      data: SessionSummary[]
+      projectPath?: string
+      requestId?: string
+    }
   | { type: 'providers'; data: unknown; requestId?: string }
   | { type: 'config'; data: unknown; requestId?: string }
   | { type: 'session'; data: SessionSummary; requestId?: string }
-  | { type: 'session_messages'; data: unknown; sessionId: string; requestId?: string }
+  | {
+      type: 'session_messages'
+      data: unknown
+      sessionId: string
+      requestId?: string
+    }
   | { type: 'session_created'; data: SessionSummary; requestId?: string }
   | { type: 'diff'; data: unknown; sessionId: string; requestId?: string }
-  | { type: 'browse_result'; data: { path: string; items: unknown[] }; requestId?: string }
+  | {
+      type: 'browse_result'
+      data: { path: string; items: unknown[] }
+      requestId?: string
+    }
   | { type: 'sdk_event'; data: unknown }
   | { type: 'sdk_event_batch'; data: unknown[] }
   | { type: 'ping'; data: { id: string; sentAt: number } }
   | { type: 'client_pong'; id: string; sentAt: number; receivedAt: number }
-  | { type: 'connection_metrics'; data: { rttMs: number; lastPongAt: number; connectionType?: string } }
+  | {
+      type: 'connection_metrics'
+      data: { rttMs: number; lastPongAt: number; connectionType?: string }
+    }
   | { type: 'opencode_restarted'; data: boolean; requestId?: string }
   | { type: 'status'; data: StatusPayload }
   | { type: 'error'; message: string; code?: string; requestId?: string }
   | { type: 'lsp_status'; data: LspServerStatus[]; requestId?: string }
-  | { type: 'session_context'; data: SessionContextInfo; sessionId: string; requestId?: string }
-  | { type: 'device_registered'; data: DeviceInfo; protocolVersion?: string; requestId?: string }
+  | {
+      type: 'session_context'
+      data: SessionContextInfo
+      sessionId: string
+      requestId?: string
+    }
+  | {
+      type: 'device_registered'
+      data: DeviceInfo
+      protocolVersion?: string
+      requestId?: string
+    }
   | { type: 'devices'; data: DeviceInfo[]; requestId?: string }
-  | { type: 'device_disconnected'; data: { deviceId: string; deviceName?: string }; requestId?: string }
+  | {
+      type: 'device_disconnected'
+      data: { deviceId: string; deviceName?: string }
+      requestId?: string
+    }
   | { type: 'device_connected'; data: DeviceInfo }
   | { type: 'pending_permissions'; data: unknown[]; requestId?: string }
   | { type: 'pending_questions'; data: unknown[]; requestId?: string }
@@ -577,57 +1104,212 @@ export type ServerMessage =
   | { type: 'todos'; data: Todo[]; sessionId: string; requestId?: string }
   // Feature 2: Slash Commands
   | { type: 'commands'; data: Command[]; requestId?: string }
-  | { type: 'command_executed'; data: unknown; sessionId: string; requestId?: string }
+  | {
+      type: 'command_executed'
+      data: unknown
+      sessionId: string
+      requestId?: string
+    }
   // Feature 3: Agent Switching
   | { type: 'agents'; data: Agent[]; requestId?: string }
   | { type: 'oc_question_replied'; data: boolean; requestId?: string }
   | { type: 'oc_question_rejected'; data: boolean; requestId?: string }
   // Skills (filesystem-backed)
-  | { type: 'oc_skills'; data: Array<{ name: string; description?: string; path: string; source: 'project' | 'user' | 'system' | 'admin' | 'plugin'; editable: boolean }>; requestId?: string }
-  | { type: 'oc_skill'; data: { name: string; path: string; source: 'project' | 'user'; content: string }; requestId?: string }
-  | { type: 'oc_skill_saved'; data: { ok: boolean; path?: string }; requestId?: string }
+  | {
+      type: 'oc_skills'
+      data: Array<{
+        name: string
+        description?: string
+        path: string
+        source: 'project' | 'user' | 'system' | 'admin' | 'plugin'
+        editable: boolean
+      }>
+      requestId?: string
+    }
+  | {
+      type: 'oc_skill'
+      data: {
+        name: string
+        path: string
+        source: 'project' | 'user'
+        content: string
+      }
+      requestId?: string
+    }
+  | {
+      type: 'oc_skill_saved'
+      data: { ok: boolean; path?: string }
+      requestId?: string
+    }
   | { type: 'oc_skill_deleted'; data: { ok: boolean }; requestId?: string }
-  | { type: 'oc_plugin_files'; data: Array<{ name: string; path: string; source: 'project' | 'user' }>; requestId?: string }
-  | { type: 'oc_plugin_file'; data: { name: string; path: string; source: 'project' | 'user'; content: string }; requestId?: string }
-  | { type: 'oc_plugin_file_saved'; data: { ok: boolean; path?: string }; requestId?: string }
-  | { type: 'oc_plugin_file_deleted'; data: { ok: boolean }; requestId?: string }
-  | { type: 'oc_command_files'; data: Array<{ name: string; path: string; source: 'project' | 'user'; description?: string }>; requestId?: string }
-  | { type: 'oc_command_file'; data: { name: string; path: string; source: 'project' | 'user'; content: string }; requestId?: string }
-  | { type: 'oc_command_file_saved'; data: { ok: boolean; path?: string }; requestId?: string }
-  | { type: 'oc_command_file_deleted'; data: { ok: boolean }; requestId?: string }
-  | { type: 'oc_agent_files'; data: Array<{ name: string; path: string; source: 'project' | 'user'; description?: string }>; requestId?: string }
-  | { type: 'oc_agent_file'; data: { name: string; path: string; source: 'project' | 'user'; content: string }; requestId?: string }
-  | { type: 'oc_agent_file_saved'; data: { ok: boolean; path?: string }; requestId?: string }
+  | {
+      type: 'oc_plugin_files'
+      data: Array<{ name: string; path: string; source: 'project' | 'user' }>
+      requestId?: string
+    }
+  | {
+      type: 'oc_plugin_file'
+      data: {
+        name: string
+        path: string
+        source: 'project' | 'user'
+        content: string
+      }
+      requestId?: string
+    }
+  | {
+      type: 'oc_plugin_file_saved'
+      data: { ok: boolean; path?: string }
+      requestId?: string
+    }
+  | {
+      type: 'oc_plugin_file_deleted'
+      data: { ok: boolean }
+      requestId?: string
+    }
+  | {
+      type: 'oc_command_files'
+      data: Array<{
+        name: string
+        path: string
+        source: 'project' | 'user'
+        description?: string
+      }>
+      requestId?: string
+    }
+  | {
+      type: 'oc_command_file'
+      data: {
+        name: string
+        path: string
+        source: 'project' | 'user'
+        content: string
+      }
+      requestId?: string
+    }
+  | {
+      type: 'oc_command_file_saved'
+      data: { ok: boolean; path?: string }
+      requestId?: string
+    }
+  | {
+      type: 'oc_command_file_deleted'
+      data: { ok: boolean }
+      requestId?: string
+    }
+  | {
+      type: 'oc_agent_files'
+      data: Array<{
+        name: string
+        path: string
+        source: 'project' | 'user'
+        description?: string
+      }>
+      requestId?: string
+    }
+  | {
+      type: 'oc_agent_file'
+      data: {
+        name: string
+        path: string
+        source: 'project' | 'user'
+        content: string
+      }
+      requestId?: string
+    }
+  | {
+      type: 'oc_agent_file_saved'
+      data: { ok: boolean; path?: string }
+      requestId?: string
+    }
   | { type: 'oc_agent_file_deleted'; data: { ok: boolean }; requestId?: string }
   // Feature 4: Session Delete
-  | { type: 'session_deleted'; data: boolean; sessionId: string; requestId?: string }
+  | {
+      type: 'session_deleted'
+      data: boolean
+      sessionId: string
+      requestId?: string
+    }
   // Feature 5: Session Update (Rename)
-  | { type: 'session_updated'; data: SessionSummary; sessionId: string; requestId?: string }
+  | {
+      type: 'session_updated'
+      data: SessionSummary
+      sessionId: string
+      requestId?: string
+    }
   // Feature 6: Session Fork
   | { type: 'session_forked'; data: SessionSummary; requestId?: string }
-  | { type: 'session_children'; data: SessionSummary[]; sessionId: string; requestId?: string }
+  | {
+      type: 'session_children'
+      data: SessionSummary[]
+      sessionId: string
+      requestId?: string
+    }
   // Feature 7: Message Revert (Undo)
-  | { type: 'message_reverted'; data: SessionSummary; sessionId: string; requestId?: string }
-  | { type: 'session_unreverted'; data: SessionSummary; sessionId: string; requestId?: string }
+  | {
+      type: 'message_reverted'
+      data: SessionSummary
+      sessionId: string
+      requestId?: string
+    }
+  | {
+      type: 'session_unreverted'
+      data: SessionSummary
+      sessionId: string
+      requestId?: string
+    }
   // Feature 8: Session Share
-  | { type: 'session_shared'; data: SessionSummary; sessionId: string; requestId?: string }
-  | { type: 'session_unshared'; data: SessionSummary; sessionId: string; requestId?: string }
+  | {
+      type: 'session_shared'
+      data: SessionSummary
+      sessionId: string
+      requestId?: string
+    }
+  | {
+      type: 'session_unshared'
+      data: SessionSummary
+      sessionId: string
+      requestId?: string
+    }
   // Feature 9: Session Summarize (Compact)
-  | { type: 'session_summarized'; data: boolean; sessionId: string; requestId?: string }
+  | {
+      type: 'session_summarized'
+      data: boolean
+      sessionId: string
+      requestId?: string
+    }
   // Feature 10: Git/VCS Information
   | { type: 'vcs'; data: VcsInfo; requestId?: string }
   // Feature 11: File Content Read
-  | { type: 'file_content'; data: FileContent; path: string; requestId?: string }
+  | {
+      type: 'file_content'
+      data: FileContent
+      path: string
+      requestId?: string
+    }
   // Feature 21: Binary File Content
-  | { type: 'file_binary'; data: FileBinaryContent; path: string; requestId?: string }
-  | { type: 'file_too_large'; data: { path: string; size: number; maxSize: number }; requestId?: string }
+  | {
+      type: 'file_binary'
+      data: FileBinaryContent
+      path: string
+      requestId?: string
+    }
+  | {
+      type: 'file_too_large'
+      data: { path: string; size: number; maxSize: number }
+      requestId?: string
+    }
   // Feature 12: File Search
   | { type: 'files_found'; data: string[]; requestId?: string }
   | { type: 'text_found'; data: TextSearchResult[]; requestId?: string }
   | { type: 'symbols_found'; data: SymbolResult[]; requestId?: string }
   | { type: 'files_and_dirs_found'; data: string[]; requestId?: string }
   // Feature 13: Session Status
-  | { type: 'session_status'; data: Record<string, SessionStatusInfo>; requestId?: string }
+  | {
+      type: 'session_status'
+      data: Record<string, SessionStatusInfo>
+      requestId?: string
+    }
   // Feature 14: PTY Terminal Sessions
   | { type: 'pty_list'; data: PtySession[]; requestId?: string }
   | { type: 'pty_created'; data: PtySession; requestId?: string }
@@ -649,45 +1331,137 @@ export type ServerMessage =
     }
   | { type: 'pty_exit'; ptyId: string; exitCode?: number }
   // Feature 15: MCP Server Management
-  | { type: 'mcp_status'; data: Record<string, McpServerStatus>; requestId?: string }
-  | { type: 'mcp_added'; data: Record<string, McpServerStatus>; requestId?: string }
+  | {
+      type: 'mcp_status'
+      data: Record<string, McpServerStatus>
+      requestId?: string
+    }
+  | {
+      type: 'mcp_added'
+      data: Record<string, McpServerStatus>
+      requestId?: string
+    }
   | { type: 'mcp_connected'; data: boolean; name: string; requestId?: string }
-  | { type: 'mcp_disconnected'; data: boolean; name: string; requestId?: string }
-  | { type: 'mcp_resources'; data: Record<string, McpResource>; requestId?: string }
+  | {
+      type: 'mcp_disconnected'
+      data: boolean
+      name: string
+      requestId?: string
+    }
+  | {
+      type: 'mcp_resources'
+      data: Record<string, McpResource>
+      requestId?: string
+    }
   // MCP OAuth
-  | { type: 'mcp_auth_started'; data: { authorizationUrl: string } | null; name: string; requestId?: string }
-  | { type: 'mcp_auth_completed'; data: boolean; name: string; requestId?: string }
-  | { type: 'mcp_auth_authenticated'; data: Record<string, unknown> | null; name: string; requestId?: string }
-  | { type: 'mcp_auth_removed'; data: boolean; name: string; requestId?: string }
+  | {
+      type: 'mcp_auth_started'
+      data: { authorizationUrl: string } | null
+      name: string
+      requestId?: string
+    }
+  | {
+      type: 'mcp_auth_completed'
+      data: boolean
+      name: string
+      requestId?: string
+    }
+  | {
+      type: 'mcp_auth_authenticated'
+      data: Record<string, unknown> | null
+      name: string
+      requestId?: string
+    }
+  | {
+      type: 'mcp_auth_removed'
+      data: boolean
+      name: string
+      requestId?: string
+    }
   // Provider credentials
-  | { type: 'auth_set_result'; data: boolean; providerId: string; requestId?: string }
-  | { type: 'auth_removed_result'; data: boolean; providerId: string; requestId?: string }
+  | {
+      type: 'auth_set_result'
+      data: boolean
+      providerId: string
+      requestId?: string
+    }
+  | {
+      type: 'auth_removed_result'
+      data: boolean
+      providerId: string
+      requestId?: string
+    }
   // Global config
   | { type: 'global_config'; data: Record<string, unknown>; requestId?: string }
   // Project management
-  | { type: 'current_project'; data: Record<string, unknown> | null; requestId?: string }
-  | { type: 'project_updated'; data: Record<string, unknown>; requestId?: string }
+  | {
+      type: 'current_project'
+      data: Record<string, unknown> | null
+      requestId?: string
+    }
+  | {
+      type: 'project_updated'
+      data: Record<string, unknown>
+      requestId?: string
+    }
   // Message part editing
   | { type: 'part_deleted'; data: boolean; requestId?: string }
   | { type: 'part_updated'; data: Record<string, unknown>; requestId?: string }
   // SDK skills
-  | { type: 'oc_sdk_skills'; data: Array<{ name: string; description: string; location: string; content: string }>; requestId?: string }
+  | {
+      type: 'oc_sdk_skills'
+      data: Array<{
+        name: string
+        description: string
+        location: string
+        content: string
+      }>
+      requestId?: string
+    }
   // Feature 23: Git Worktrees
   | { type: 'worktrees'; data: Worktree[]; requestId?: string }
   | { type: 'worktree_created'; data: Worktree; requestId?: string }
-  | { type: 'worktree_reset'; data: boolean; worktreeDirectory: string; requestId?: string }
-  | { type: 'worktree_deleted'; data: boolean; name: string; requestId?: string }
+  | {
+      type: 'worktree_reset'
+      data: boolean
+      worktreeDirectory: string
+      requestId?: string
+    }
+  | {
+      type: 'worktree_deleted'
+      data: boolean
+      name: string
+      requestId?: string
+    }
   // Feature 16: Full Provider Management
   | { type: 'all_providers'; data: ProviderInfo; requestId?: string }
-  | { type: 'provider_auth'; data: Record<string, ProviderAuthMethod[]>; requestId?: string }
-  | { type: 'provider_oauth_authorized'; data: ProviderAuthAuthorization | null; providerId: string; requestId?: string }
-  | { type: 'provider_oauth_callback'; data: boolean; providerId: string; requestId?: string }
+  | {
+      type: 'provider_auth'
+      data: Record<string, ProviderAuthMethod[]>
+      requestId?: string
+    }
+  | {
+      type: 'provider_oauth_authorized'
+      data: ProviderAuthAuthorization | null
+      providerId: string
+      requestId?: string
+    }
+  | {
+      type: 'provider_oauth_callback'
+      data: boolean
+      providerId: string
+      requestId?: string
+    }
   // Feature 17: Tool List
   | { type: 'tool_ids'; data: string[]; requestId?: string }
   | { type: 'tools'; data: ToolInfo[]; requestId?: string }
   // Feature 18: File Status (Git)
   | { type: 'file_status'; data: FileStatusInfo[]; requestId?: string }
-  | { type: 'git_diff'; data: { path?: string; diff: string; staged?: boolean }; requestId?: string }
+  | {
+      type: 'git_diff'
+      data: { path?: string; diff: string; staged?: boolean }
+      requestId?: string
+    }
   // Git foundation
   | { type: 'git_status_result'; data: GitStatusResult; requestId?: string }
   | { type: 'git_log_result'; data: GitLogEntry[]; requestId?: string }
@@ -695,7 +1469,11 @@ export type ServerMessage =
   | { type: 'git_staged'; data: { ok: boolean }; requestId?: string }
   | { type: 'git_unstaged'; data: { ok: boolean }; requestId?: string }
   | { type: 'git_reverted'; data: { ok: boolean }; requestId?: string }
-  | { type: 'git_committed'; data: { hash: string; subject: string }; requestId?: string }
+  | {
+      type: 'git_committed'
+      data: { hash: string; subject: string }
+      requestId?: string
+    }
   | { type: 'git_pushed'; data: { ok: boolean }; requestId?: string }
   | { type: 'git_pulled'; data: { ok: boolean }; requestId?: string }
   | { type: 'git_fetched'; data: { ok: boolean }; requestId?: string }
@@ -705,88 +1483,311 @@ export type ServerMessage =
   | { type: 'git_stash_popped'; data: { ok: boolean }; requestId?: string }
   | { type: 'git_commit_diff_result'; data: string; requestId?: string }
   // GitHub integration
-  | { type: 'github_remote_result'; data: GitHubRemote | null; requestId?: string }
+  | {
+      type: 'github_remote_result'
+      data: GitHubRemote | null
+      requestId?: string
+    }
   | { type: 'github_issues_result'; data: GitHubIssue[]; requestId?: string }
   | { type: 'github_prs_result'; data: GitHubPR[]; requestId?: string }
   | { type: 'github_pr_diff_result'; data: string; requestId?: string }
-  | { type: 'github_pr_comments_result'; data: GitHubComment[]; requestId?: string }
+  | {
+      type: 'github_pr_comments_result'
+      data: GitHubComment[]
+      requestId?: string
+    }
   // Feature 19: Formatter Status
   | { type: 'formatter_status'; data: FormatterInfo[]; requestId?: string }
   // Feature 20: Session Init
-  | { type: 'session_initialized'; data: boolean; sessionId: string; requestId?: string }
+  | {
+      type: 'session_initialized'
+      data: boolean
+      sessionId: string
+      requestId?: string
+    }
   | { type: 'instance_disposed'; data: boolean; requestId?: string }
-  | { type: 'agents_status'; data: Record<AgentType, AgentStatusInfo>; requestId?: string }
+  | {
+      type: 'agents_status'
+      data: Record<AgentType, AgentStatusInfo>
+      requestId?: string
+    }
   | { type: 'cc_projects'; data: ProjectSummary[]; requestId?: string }
   | { type: 'cc_sessions'; data: ClaudeCodeSession[]; requestId?: string }
   | { type: 'cc_session'; data: ClaudeCodeSession; requestId?: string }
-  | { type: 'cc_session_deleted'; data: boolean; sessionId: string; requestId?: string }
-  | { type: 'cc_session_forked'; data: ClaudeCodeSession | null; requestId?: string }
-  | { type: 'cc_session_renamed'; data: ClaudeCodeSession | null; requestId?: string }
-  | { type: 'cc_session_backgrounded'; data: boolean; sessionId: string; requestId?: string }
-  | { type: 'cc_session_messages'; data: ClaudeCodeTranscriptMessage[]; sessionId: string; requestId?: string }
+  | {
+      type: 'cc_session_deleted'
+      data: boolean
+      sessionId: string
+      requestId?: string
+    }
+  | {
+      type: 'cc_session_forked'
+      data: ClaudeCodeSession | null
+      requestId?: string
+    }
+  | {
+      type: 'cc_session_renamed'
+      data: ClaudeCodeSession | null
+      requestId?: string
+    }
+  | {
+      type: 'cc_session_backgrounded'
+      data: boolean
+      sessionId: string
+      requestId?: string
+    }
+  | {
+      type: 'cc_session_messages'
+      data: ClaudeCodeTranscriptMessage[]
+      sessionId: string
+      requestId?: string
+    }
   | { type: 'cc_skills'; data: ClaudeCodeSkill[]; requestId?: string }
-  | { type: 'cc_skill'; data: { name: string; path: string; source: 'project' | 'user' | 'plugin'; content: string }; requestId?: string }
-  | { type: 'cc_skill_saved'; data: { ok: boolean; path?: string }; requestId?: string }
+  | {
+      type: 'cc_skill'
+      data: {
+        name: string
+        path: string
+        source: 'project' | 'user' | 'plugin'
+        content: string
+      }
+      requestId?: string
+    }
+  | {
+      type: 'cc_skill_saved'
+      data: { ok: boolean; path?: string }
+      requestId?: string
+    }
   | { type: 'cc_skill_deleted'; data: { ok: boolean }; requestId?: string }
   | { type: 'cc_hooks'; data: ClaudeCodeHook[]; requestId?: string }
-  | { type: 'cc_hooks_file'; data: { ok: boolean; source: 'project' | 'user'; path: string; content: string }; requestId?: string }
-  | { type: 'cc_hooks_file_written'; data: { ok: boolean; source: 'project' | 'user'; path: string }; requestId?: string }
-  | { type: 'cc_mcp_file'; data: { ok: boolean; path: string; content: string }; requestId?: string }
-  | { type: 'cc_mcp_file_written'; data: { ok: boolean; path: string }; requestId?: string }
+  | {
+      type: 'cc_hooks_file'
+      data: {
+        ok: boolean
+        source: 'project' | 'user'
+        path: string
+        content: string
+      }
+      requestId?: string
+    }
+  | {
+      type: 'cc_hooks_file_written'
+      data: { ok: boolean; source: 'project' | 'user'; path: string }
+      requestId?: string
+    }
+  | {
+      type: 'cc_mcp_file'
+      data: { ok: boolean; path: string; content: string }
+      requestId?: string
+    }
+  | {
+      type: 'cc_mcp_file_written'
+      data: { ok: boolean; path: string }
+      requestId?: string
+    }
   | { type: 'cc_commands'; data: ClaudeCodeCommand[]; requestId?: string }
   | { type: 'cc_agents'; data: ClaudeCodeFilesystemAgent[]; requestId?: string }
   | { type: 'cc_memories'; data: ClaudeCodeMemoryEntry[]; requestId?: string }
-  | { type: 'cc_memory_deleted'; data: { ok: boolean; filename: string; scope: string }; requestId?: string }
-  | { type: 'cc_active_sessions'; data: Array<{ id: string; cwd: string; startedAt?: number }>; requestId?: string }
-  | { type: 'cc_command_file'; data: { ok: boolean; name: string; source: 'project' | 'user' | 'plugin'; path: string; content: string }; requestId?: string }
-  | { type: 'cc_command_saved'; data: { ok: boolean; name: string; source: 'project' | 'user'; path?: string }; requestId?: string }
-  | { type: 'cc_command_deleted'; data: { ok: boolean; name: string; source: 'project' | 'user' }; requestId?: string }
+  | {
+      type: 'cc_memory_deleted'
+      data: { ok: boolean; filename: string; scope: string }
+      requestId?: string
+    }
+  | {
+      type: 'cc_active_sessions'
+      data: Array<{ id: string; cwd: string; startedAt?: number }>
+      requestId?: string
+    }
+  | {
+      type: 'cc_command_file'
+      data: {
+        ok: boolean
+        name: string
+        source: 'project' | 'user' | 'plugin'
+        path: string
+        content: string
+      }
+      requestId?: string
+    }
+  | {
+      type: 'cc_command_saved'
+      data: {
+        ok: boolean
+        name: string
+        source: 'project' | 'user'
+        path?: string
+      }
+      requestId?: string
+    }
+  | {
+      type: 'cc_command_deleted'
+      data: { ok: boolean; name: string; source: 'project' | 'user' }
+      requestId?: string
+    }
   | { type: 'cc_config'; data: ClaudeCodeConfig; requestId?: string }
   | { type: 'cc_config_updated'; data: ClaudeCodeConfig; requestId?: string }
-  | { type: 'cc_supported_models'; data: ClaudeCodeSupportedModel[]; requestId?: string }
+  | {
+      type: 'cc_supported_models'
+      data: ClaudeCodeSupportedModel[]
+      requestId?: string
+    }
   | { type: 'cc_account_info'; data: ClaudeCodeAccountInfo; requestId?: string }
-  | { type: 'cc_mcp_server_status'; data: ClaudeCodeMcpServerStatus[]; requestId?: string }
-  | { type: 'cc_checkpoint_rewound'; data: { success: boolean; sessionId: string; checkpointUuid: string; filesChanged?: string[]; insertions?: number; deletions?: number }; requestId?: string }
-  | { type: 'cc_task_stopped'; data: { ok: boolean; taskId: string }; requestId?: string }
-  | { type: 'cc_mcp_server_reconnected'; data: { ok: boolean; serverName: string }; requestId?: string }
-  | { type: 'cc_mcp_server_toggled'; data: { ok: boolean; serverName: string; enabled: boolean }; requestId?: string }
-  | { type: 'cc_permission_mode_set'; data: { ok: boolean; mode: ClaudeCodePermissionMode }; requestId?: string }
-  | { type: 'cc_model_set'; data: { ok: boolean; model?: string }; requestId?: string }
-  | { type: 'cc_mcp_servers_set'; data: { added: string[]; removed: string[]; errors: Record<string, string> } | null; requestId?: string }
-  | { type: 'cc_initialization_result'; data: Record<string, unknown> | null; requestId?: string }
-  | { type: 'cc_fs_changed'; data: { kind: 'skills' | 'plugins' | 'hooks' | 'commands' | 'mcp'; dir: string; cwd?: string; file?: string }; requestId?: string }
+  | {
+      type: 'cc_mcp_server_status'
+      data: ClaudeCodeMcpServerStatus[]
+      requestId?: string
+    }
+  | {
+      type: 'cc_checkpoint_rewound'
+      data: {
+        success: boolean
+        sessionId: string
+        checkpointUuid: string
+        filesChanged?: string[]
+        insertions?: number
+        deletions?: number
+      }
+      requestId?: string
+    }
+  | {
+      type: 'cc_task_stopped'
+      data: { ok: boolean; taskId: string }
+      requestId?: string
+    }
+  | {
+      type: 'cc_mcp_server_reconnected'
+      data: { ok: boolean; serverName: string }
+      requestId?: string
+    }
+  | {
+      type: 'cc_mcp_server_toggled'
+      data: { ok: boolean; serverName: string; enabled: boolean }
+      requestId?: string
+    }
+  | {
+      type: 'cc_permission_mode_set'
+      data: { ok: boolean; mode: ClaudeCodePermissionMode }
+      requestId?: string
+    }
+  | {
+      type: 'cc_model_set'
+      data: { ok: boolean; model?: string }
+      requestId?: string
+    }
+  | {
+      type: 'cc_mcp_servers_set'
+      data: {
+        added: string[]
+        removed: string[]
+        errors: Record<string, string>
+      } | null
+      requestId?: string
+    }
+  | {
+      type: 'cc_initialization_result'
+      data: Record<string, unknown> | null
+      requestId?: string
+    }
+  | {
+      type: 'cc_fs_changed'
+      data: {
+        kind: 'skills' | 'plugins' | 'hooks' | 'commands' | 'mcp'
+        dir: string
+        cwd?: string
+        file?: string
+      }
+      requestId?: string
+    }
   | { type: 'cc_stream'; data: ClaudeCodeStreamMessage; sessionId: string }
   // Codex (OpenAI Codex app-server)
-  | { type: 'cx_global'; data: { method: string; params?: any }; requestId?: string }
+  | {
+      type: 'cx_global'
+      data: { method: string; params?: any }
+      requestId?: string
+    }
   | { type: 'cx_projects'; data: ProjectSummary[]; requestId?: string }
   | { type: 'cx_warmup_started'; requestId?: string }
-  | { type: 'cx_threads'; data: CodexThread[]; nextCursor?: string | null; requestId?: string }
-  | { type: 'cx_models'; data: any; nextCursor?: string | null; requestId?: string }
+  | {
+      type: 'cx_threads'
+      data: CodexThread[]
+      nextCursor?: string | null
+      requestId?: string
+    }
+  | {
+      type: 'cx_models'
+      data: any
+      nextCursor?: string | null
+      requestId?: string
+    }
   | { type: 'cx_thread'; data: CodexThread; requestId?: string }
   | { type: 'cx_thread_created'; data: CodexThread; requestId?: string }
   | { type: 'cx_thread_forked'; data: CodexThread; requestId?: string }
   | { type: 'cx_thread_rolled_back'; data: CodexThread; requestId?: string }
-  | { type: 'cx_thread_archived'; data: boolean; threadId: string; requestId?: string }
-  | { type: 'cx_thread_messages'; data: CodexTranscriptMessage[]; threadId: string; requestId?: string }
+  | {
+      type: 'cx_thread_archived'
+      data: boolean
+      threadId: string
+      requestId?: string
+    }
+  | {
+      type: 'cx_thread_messages'
+      data: CodexTranscriptMessage[]
+      threadId: string
+      requestId?: string
+    }
   | { type: 'cx_skills'; data: any; requestId?: string }
-  | { type: 'cx_skill'; data: { name: string; path: string; scope: 'Repo' | 'User' | 'System' | 'Admin'; content: string }; requestId?: string }
-  | { type: 'cx_skill_saved'; data: { ok: boolean; path?: string }; requestId?: string }
+  | {
+      type: 'cx_skill'
+      data: {
+        name: string
+        path: string
+        scope: 'Repo' | 'User' | 'System' | 'Admin'
+        content: string
+      }
+      requestId?: string
+    }
+  | {
+      type: 'cx_skill_saved'
+      data: { ok: boolean; path?: string }
+      requestId?: string
+    }
   | { type: 'cx_skill_deleted'; data: { ok: boolean }; requestId?: string }
   | { type: 'cx_prompts'; data: CodexPrompt[]; requestId?: string }
   | { type: 'cx_config'; data: any; requestId?: string }
   | { type: 'cx_config_written'; data: any; requestId?: string }
-  | { type: 'cx_mcp_status'; data: any; nextCursor?: string | null; requestId?: string }
+  | {
+      type: 'cx_mcp_status'
+      data: any
+      nextCursor?: string | null
+      requestId?: string
+    }
   | { type: 'cx_mcp_reloaded'; data: any; requestId?: string }
-  | { type: 'cx_review_started'; data: { threadId: string; reviewThreadId: string; turnId: string }; requestId?: string }
+  | {
+      type: 'cx_review_started'
+      data: { threadId: string; reviewThreadId: string; turnId: string }
+      requestId?: string
+    }
   | { type: 'cx_account'; data: any; requestId?: string }
   | { type: 'cx_login_started'; data: any; requestId?: string }
   | { type: 'cx_login_canceled'; data: any; requestId?: string }
   | { type: 'cx_logged_out'; data: any; requestId?: string }
   | { type: 'cx_rate_limits'; data: any; requestId?: string }
   | { type: 'cx_feedback_uploaded'; data: any; requestId?: string }
-  | { type: 'cx_undo_result'; data: { ok: boolean; revertedPaths: string[]; error?: string }; requestId?: string }
-  | { type: 'cx_agents'; data: { exists: boolean; path: string; content: string }; requestId?: string }
-  | { type: 'cx_agents_written'; data: { ok: boolean; path: string }; requestId?: string }
+  | {
+      type: 'cx_undo_result'
+      data: { ok: boolean; revertedPaths: string[]; error?: string }
+      requestId?: string
+    }
+  | {
+      type: 'cx_agents'
+      data: { exists: boolean; path: string; content: string }
+      requestId?: string
+    }
+  | {
+      type: 'cx_agents_written'
+      data: { ok: boolean; path: string }
+      requestId?: string
+    }
   // Codex new features (mid-2026 SDK update)
   | { type: 'cx_steered'; data: any; requestId?: string }
   | { type: 'cx_thread_renamed'; data: any; requestId?: string }
@@ -795,38 +1796,110 @@ export type ServerMessage =
   | { type: 'cx_remote_skills'; data: CodexRemoteSkill[]; requestId?: string }
   | { type: 'cx_remote_skill_installed'; data: any; requestId?: string }
   | { type: 'cx_skill_config_written'; data: any; requestId?: string }
-  | { type: 'cx_apps'; data: CodexAppInfo[]; nextCursor?: string | null; requestId?: string }
-  | { type: 'cx_command_result'; data: { exitCode?: number; stdout?: string; stderr?: string }; requestId?: string }
+  | {
+      type: 'cx_apps'
+      data: CodexAppInfo[]
+      nextCursor?: string | null
+      requestId?: string
+    }
+  | {
+      type: 'cx_command_result'
+      data: { exitCode?: number; stdout?: string; stderr?: string }
+      requestId?: string
+    }
   | { type: 'cx_experimental_features_list'; data: any[]; requestId?: string }
   // Codex SDK update: new response types (#21-#25, #19)
   | { type: 'cx_config_batch_written'; data: any; requestId?: string }
   | { type: 'cx_config_requirements'; data: any; requestId?: string }
-  | { type: 'cx_thread_loaded_list'; data: string[]; nextCursor?: string | null; requestId?: string }
+  | {
+      type: 'cx_thread_loaded_list'
+      data: string[]
+      nextCursor?: string | null
+      requestId?: string
+    }
   | { type: 'cx_thread_detail'; data: any; requestId?: string }
-  | { type: 'cx_mcp_oauth_login_started'; data: { authorizationUrl: string }; name: string; requestId?: string }
+  | {
+      type: 'cx_mcp_oauth_login_started'
+      data: { authorizationUrl: string }
+      name: string
+      requestId?: string
+    }
   | { type: 'cx_apps_updated'; data: any[]; requestId?: string }
   | { type: 'cx_stream'; data: CodexStreamMessage; threadId: string }
   // Claude Code Custom Tools
-  | { type: 'cc_custom_tools'; data: ClaudeCodeCustomTool[]; requestId?: string }
-  | { type: 'cc_custom_tool'; data: ClaudeCodeCustomTool | null; requestId?: string }
-  | { type: 'cc_custom_tool_saved'; data: ClaudeCodeCustomTool; requestId?: string }
-  | { type: 'cc_custom_tool_deleted'; data: boolean; id: string; requestId?: string }
-  | { type: 'cc_custom_tool_test_result'; data: { success: boolean; result?: string; error?: string }; requestId?: string }
+  | {
+      type: 'cc_custom_tools'
+      data: ClaudeCodeCustomTool[]
+      requestId?: string
+    }
+  | {
+      type: 'cc_custom_tool'
+      data: ClaudeCodeCustomTool | null
+      requestId?: string
+    }
+  | {
+      type: 'cc_custom_tool_saved'
+      data: ClaudeCodeCustomTool
+      requestId?: string
+    }
+  | {
+      type: 'cc_custom_tool_deleted'
+      data: boolean
+      id: string
+      requestId?: string
+    }
+  | {
+      type: 'cc_custom_tool_test_result'
+      data: { success: boolean; result?: string; error?: string }
+      requestId?: string
+    }
   // Claude Code Plugins
   | { type: 'cc_plugins'; data: ClaudeCodePlugin[]; requestId?: string }
   | { type: 'cc_plugin'; data: ClaudeCodePlugin | null; requestId?: string }
-  | { type: 'cc_plugin_toggled'; data: boolean; name: string; enabled: boolean; requestId?: string }
-  | { type: 'cc_plugin_path_added'; data: boolean; path: string; requestId?: string }
-  | { type: 'cc_plugin_path_removed'; data: boolean; path: string; requestId?: string }
-  | { type: 'cc_plugin_config'; data: ClaudeCodePluginConfig; requestId?: string }
-  | { type: 'cc_plugins_reloaded'; data: ClaudeCodePlugin[]; requestId?: string }
+  | {
+      type: 'cc_plugin_toggled'
+      data: boolean
+      name: string
+      enabled: boolean
+      requestId?: string
+    }
+  | {
+      type: 'cc_plugin_path_added'
+      data: boolean
+      path: string
+      requestId?: string
+    }
+  | {
+      type: 'cc_plugin_path_removed'
+      data: boolean
+      path: string
+      requestId?: string
+    }
+  | {
+      type: 'cc_plugin_config'
+      data: ClaudeCodePluginConfig
+      requestId?: string
+    }
+  | {
+      type: 'cc_plugins_reloaded'
+      data: ClaudeCodePlugin[]
+      requestId?: string
+    }
   // Pi Coding Agent
   | { type: 'pi_chat_started'; data: boolean; requestId?: string }
   | { type: 'pi_steered'; data: boolean; requestId?: string }
   | { type: 'pi_followed_up'; data: boolean; requestId?: string }
   | { type: 'pi_aborted'; data: boolean; requestId?: string }
-  | { type: 'pi_steering_mode_set'; data: { mode: 'all' | 'one-at-a-time' }; requestId?: string }
-  | { type: 'pi_follow_up_mode_set'; data: { mode: 'all' | 'one-at-a-time' }; requestId?: string }
+  | {
+      type: 'pi_steering_mode_set'
+      data: { mode: 'all' | 'one-at-a-time' }
+      requestId?: string
+    }
+  | {
+      type: 'pi_follow_up_mode_set'
+      data: { mode: 'all' | 'one-at-a-time' }
+      requestId?: string
+    }
   | { type: 'pi_auto_retry_set'; data: boolean; requestId?: string }
   | { type: 'pi_retry_aborted'; data: boolean; requestId?: string }
   | { type: 'pi_state'; data: PiStatePayload; requestId?: string }
@@ -840,9 +1913,21 @@ export type ServerMessage =
   | { type: 'pi_session_stats'; data: any; requestId?: string }
   | { type: 'pi_messages'; data: any[]; requestId?: string }
   | { type: 'pi_session_name_set'; data: boolean; requestId?: string }
-  | { type: 'pi_fork_result'; data: { text: string; cancelled: boolean }; requestId?: string }
-  | { type: 'pi_fork_messages'; data: PiForkMessagePayload[]; requestId?: string }
-  | { type: 'pi_tree_navigated'; data: { editorText?: string; cancelled: boolean; aborted?: boolean }; requestId?: string }
+  | {
+      type: 'pi_fork_result'
+      data: { text: string; cancelled: boolean }
+      requestId?: string
+    }
+  | {
+      type: 'pi_fork_messages'
+      data: PiForkMessagePayload[]
+      requestId?: string
+    }
+  | {
+      type: 'pi_tree_navigated'
+      data: { editorText?: string; cancelled: boolean; aborted?: boolean }
+      requestId?: string
+    }
   | { type: 'pi_commands'; data: PiCommandPayload[]; requestId?: string }
   | { type: 'pi_compacted'; data: any; requestId?: string }
   | { type: 'pi_auto_compaction_set'; data: boolean; requestId?: string }
@@ -895,10 +1980,7 @@ export type SymbolResult = {
 }
 
 // Feature 13: Session Status
-export type SessionStatusInfo = 
-  | { type: 'idle' }
-  | { type: 'busy' }
-  | { type: 'retry'; attempt: number; message: string; next: number }
+export type SessionStatusInfo = { type: 'idle' } | { type: 'busy' } | { type: 'retry'; attempt: number; message: string; next: number }
 
 // Feature 14: PTY Session
 export type PtySession = {
@@ -936,7 +2018,7 @@ export type McpResource = {
   uri: string
   description?: string
   mimeType?: string
-  client: string  // Which MCP server provides this resource
+  client: string // Which MCP server provides this resource
 }
 
 // Git Worktree (SDK v1.1.1+ experimental feature)
@@ -1021,12 +2103,7 @@ export type FileStatusInfo = {
   status: 'modified' | 'added' | 'deleted'
 }
 
-export type GitChangeStatus =
-  | 'modified'
-  | 'added'
-  | 'deleted'
-  | 'renamed'
-  | 'copied'
+export type GitChangeStatus = 'modified' | 'added' | 'deleted' | 'renamed' | 'copied'
 
 export type GitFileChange = {
   path: string
@@ -1131,28 +2208,13 @@ export type ClaudeCodeSkill = {
 }
 
 // Claude Code Hook Event Types
-export type ClaudeCodeHookEvent = 
-  | 'PreToolUse'
-  | 'PostToolUse'
-  | 'PostToolUseFailure'
-  | 'Notification'
-  | 'SessionStart'
-  | 'SessionEnd'
-  | 'Stop'
-  | 'PermissionRequest'
-  | 'UserPromptSubmit'
-  | 'SubagentStart'
-  | 'SubagentStop'
-  | 'TeammateIdle'
-  | 'TaskCompleted'
-  | 'PreCompact'
-  | 'Setup'
+export type ClaudeCodeHookEvent = 'PreToolUse' | 'PostToolUse' | 'PostToolUseFailure' | 'Notification' | 'SessionStart' | 'SessionEnd' | 'Stop' | 'PermissionRequest' | 'UserPromptSubmit' | 'SubagentStart' | 'SubagentStop' | 'TeammateIdle' | 'TaskCompleted' | 'PreCompact' | 'Setup'
 
 // Claude Code Hook Configuration
 export type ClaudeCodeHook = {
   id: string
   event: ClaudeCodeHookEvent
-  matcher?: string  // Tool name pattern (e.g., 'Bash', 'Write|Edit')
+  matcher?: string // Tool name pattern (e.g., 'Bash', 'Write|Edit')
   enabled: boolean
   description?: string
   hooks?: any[]
@@ -1186,20 +2248,11 @@ export type ClaudeCodeCommand = {
 }
 
 // Claude Code Permission Mode
-export type ClaudeCodePermissionMode =
-  | 'default'
-  | 'acceptEdits'
-  | 'plan'
-  | 'bypassPermissions'
-  | 'delegate'
-  | 'dontAsk'
+export type ClaudeCodePermissionMode = 'default' | 'acceptEdits' | 'plan' | 'bypassPermissions' | 'delegate' | 'dontAsk'
 
 export type ClaudeCodeBeta = 'context-1m-2025-08-07'
 
-export type ClaudeCodeSystemPrompt = 
-  | string 
-  | { type: 'preset'; preset: 'claude_code'; append?: string }
-  | null
+export type ClaudeCodeSystemPrompt = string | { type: 'preset'; preset: 'claude_code'; append?: string } | null
 
 export type ClaudeCodeOutputFormat = {
   type: 'json_schema'
@@ -1229,37 +2282,37 @@ export type ClaudeCodeSandboxSettings = {
 
 // Claude Code Filesystem Agent (discovered from .claude/agents/*.md)
 export type ClaudeCodeFilesystemAgent = {
-  name: string                   // Derived from filename (without .md)
-  description?: string           // From frontmatter or first paragraph
-  prompt?: string                // Full markdown content (the agent's instructions)
-  tools?: string[]               // From frontmatter 'tools' field
-  model?: string                 // From frontmatter 'model' field
+  name: string // Derived from filename (without .md)
+  description?: string // From frontmatter or first paragraph
+  prompt?: string // Full markdown content (the agent's instructions)
+  tools?: string[] // From frontmatter 'tools' field
+  model?: string // From frontmatter 'model' field
   memory?: 'user' | 'project' | 'local' // From frontmatter 'memory' field
-  source: 'project' | 'user'    // Project-level (.claude/agents/) or user-level (~/.claude/agents/)
-  path: string                   // Absolute path to the .md file
+  source: 'project' | 'user' // Project-level (.claude/agents/) or user-level (~/.claude/agents/)
+  path: string // Absolute path to the .md file
 }
 
 // Claude Code Memory Entry (from ~/.claude/memory/ or .claude/memory/)
 export type ClaudeCodeMemoryEntry = {
   scope: 'user' | 'project' | 'local'
-  filename: string                     // e.g. "2025-02-07T12-00-00.md"
-  content: string                      // Full markdown content
-  createdAt?: string                   // ISO date from filename or stat
-  path: string                         // Absolute path to the file
+  filename: string // e.g. "2025-02-07T12-00-00.md"
+  content: string // Full markdown content
+  createdAt?: string // ISO date from filename or stat
+  path: string // Absolute path to the file
 }
 
 // Claude Code Subagent Definition (matches SDK AgentDefinition)
 export type ClaudeCodeSubagent = {
-  name: string                   // Unique identifier for the subagent
-  description: string            // When Claude should use this subagent
-  prompt: string                 // System prompt for the subagent
-  tools?: string[]               // Allowed tools (inherits if omitted)
-  model?: 'sonnet' | 'opus' | 'haiku' | 'inherit'  // Model override
+  name: string // Unique identifier for the subagent
+  description: string // When Claude should use this subagent
+  prompt: string // System prompt for the subagent
+  tools?: string[] // Allowed tools (inherits if omitted)
+  model?: 'sonnet' | 'opus' | 'haiku' | 'inherit' // Model override
   permissionMode?: ClaudeCodePermissionMode
   disallowedTools?: string[]
-  skills?: string[]              // Skills to preload
-  maxTurns?: number              // Max agentic turns
-  mcpServers?: Array<string | Record<string, unknown>>  // Per-subagent MCP servers (B14)
+  skills?: string[] // Skills to preload
+  maxTurns?: number // Max agentic turns
+  mcpServers?: Array<string | Record<string, unknown>> // Per-subagent MCP servers (B14)
 }
 
 // Claude Code Custom Tool Parameter
@@ -1269,7 +2322,7 @@ export type ClaudeCodeCustomToolParameter = {
   description?: string
   required?: boolean
   default?: unknown
-  enum?: string[]  // For string types with fixed options
+  enum?: string[] // For string types with fixed options
 }
 
 // Claude Code Custom Tool HTTP Handler Config
@@ -1277,7 +2330,7 @@ export type ClaudeCodeHttpHandlerConfig = {
   url: string
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
   headers?: Record<string, string>
-  bodyTemplate?: string  // JSON template with {{param}} placeholders
+  bodyTemplate?: string // JSON template with {{param}} placeholders
 }
 
 // Claude Code Custom Tool Script Handler Config
@@ -1302,10 +2355,7 @@ export type ClaudeCodeCustomTool = {
   description: string
   parameters: ClaudeCodeCustomToolParameter[]
   handler: 'http' | 'script' | 'builtin'
-  handlerConfig:
-    | ClaudeCodeHttpHandlerConfig
-    | ClaudeCodeScriptHandlerConfig
-    | ClaudeCodeBuiltinHandlerConfig
+  handlerConfig: ClaudeCodeHttpHandlerConfig | ClaudeCodeScriptHandlerConfig | ClaudeCodeBuiltinHandlerConfig
   enabled: boolean
   createdAt: number
   updatedAt: number
@@ -1337,32 +2387,29 @@ export type ClaudeCodePluginStatus = 'enabled' | 'disabled' | 'error'
 // Full plugin definition
 export type ClaudeCodePlugin = {
   name: string
-  path: string                    // Absolute path to plugin directory
+  path: string // Absolute path to plugin directory
   status: ClaudeCodePluginStatus
   manifest?: ClaudeCodePluginManifest
   // Discovered components
-  commands?: string[]             // Slash commands provided by plugin
-  agents?: string[]               // Agent definitions
-  skills?: string[]               // Skills provided
-  hasHooks?: boolean              // Has hooks.json
-  hasMcpServers?: boolean         // Has MCP server configs
+  commands?: string[] // Slash commands provided by plugin
+  agents?: string[] // Agent definitions
+  skills?: string[] // Skills provided
+  hasHooks?: boolean // Has hooks.json
+  hasMcpServers?: boolean // Has MCP server configs
   // Runtime info
-  loadedAt?: number               // When plugin was last loaded
-  error?: string                  // Error message if status is 'error'
+  loadedAt?: number // When plugin was last loaded
+  error?: string // Error message if status is 'error'
 }
 
 // Plugin configuration (what we store in ~/.broski/plugins-config.json)
 export type ClaudeCodePluginConfig = {
-  enabled: string[]               // Plugin names that are enabled
-  disabled: string[]              // Plugin names that are explicitly disabled
-  customPaths: string[]           // Additional plugin paths to scan
+  enabled: string[] // Plugin names that are enabled
+  disabled: string[] // Plugin names that are explicitly disabled
+  customPaths: string[] // Additional plugin paths to scan
 }
 
 // Claude Code Thinking Option (SDK 0.2.42+)
-export type ClaudeCodeThinkingOption =
-  | { type: 'adaptive' }
-  | { type: 'enabled'; budgetTokens: number }
-  | { type: 'disabled' }
+export type ClaudeCodeThinkingOption = { type: 'adaptive' } | { type: 'enabled'; budgetTokens: number } | { type: 'disabled' }
 
 // Claude Code Effort Level (SDK 0.2.42+)
 export type ClaudeCodeEffort = 'low' | 'medium' | 'high' | 'max'
@@ -1386,8 +2433,8 @@ export type ClaudeCodeConfig = {
   language?: string
   releaseChannel?: 'stable' | 'latest'
   respectGitignore?: boolean
-  subagents?: ClaudeCodeSubagent[]           // Custom subagent definitions
-  activeSubagent?: string                     // Currently selected subagent name
+  subagents?: ClaudeCodeSubagent[] // Custom subagent definitions
+  activeSubagent?: string // Currently selected subagent name
 }
 
 export type ClaudeCodeSupportedModel = {
@@ -1420,7 +2467,11 @@ export type ClaudeCodeMcpServerStatus = {
   error?: string
   config?: Record<string, unknown>
   scope?: string
-  tools?: Array<{ name: string; description?: string; annotations?: ClaudeCodeMcpToolAnnotations }>
+  tools?: Array<{
+    name: string
+    description?: string
+    annotations?: ClaudeCodeMcpToolAnnotations
+  }>
 }
 
 export type ClaudeCodeModelUsage = {
@@ -1442,8 +2493,14 @@ export type ClaudeCodePermissionDenial = {
 }
 
 // Claude Code Message (for streaming)
-export type ClaudeCodeStreamMessage = 
-  | { type: 'session-created'; sessionId: string; agent: 'claude-code'; model?: string; parentToolUseId?: string }
+export type ClaudeCodeStreamMessage =
+  | {
+      type: 'session-created'
+      sessionId: string
+      agent: 'claude-code'
+      model?: string
+      parentToolUseId?: string
+    }
   | {
       type: 'session-init'
       sessionId: string
@@ -1469,14 +2526,71 @@ export type ClaudeCodeStreamMessage =
       preTokens: number
       parentToolUseId?: string
     }
-  | { type: 'permission-request'; sessionId: string; toolUseId: string; tool: string; input: Record<string, unknown>; decisionReason?: string; blockedPath?: string; hasSuggestions?: boolean; description?: string; agentId?: string; parentToolUseId?: string }
-  | { type: 'checkpoint-created'; sessionId: string; checkpointUuid: string; timestamp: number; parentToolUseId?: string }
-  | { type: 'assistant-message'; content: string; messageId?: string; parentToolUseId?: string }
-  | { type: 'assistant-message-delta'; content: string; messageId?: string; parentToolUseId?: string }
-  | { type: 'thinking-delta'; content: string; partId?: string; messageId?: string; parentToolUseId?: string }
-  | { type: 'tool-call'; tool: string; input: any; toolUseId?: string; status: 'running' | 'completed' | 'failed'; messageId?: string; parentToolUseId?: string }
-  | { type: 'tool-result'; toolUseId?: string; result: any; toolUseResult?: any; messageId?: string; parentToolUseId?: string }
-  | { type: 'subagent-invocation'; subagentName: string; toolUseId?: string; prompt?: string; description?: string; messageId?: string; parentToolUseId?: string }
+  | {
+      type: 'permission-request'
+      sessionId: string
+      toolUseId: string
+      tool: string
+      input: Record<string, unknown>
+      decisionReason?: string
+      blockedPath?: string
+      hasSuggestions?: boolean
+      description?: string
+      agentId?: string
+      parentToolUseId?: string
+    }
+  | {
+      type: 'checkpoint-created'
+      sessionId: string
+      checkpointUuid: string
+      timestamp: number
+      parentToolUseId?: string
+    }
+  | {
+      type: 'assistant-message'
+      content: string
+      messageId?: string
+      parentToolUseId?: string
+    }
+  | {
+      type: 'assistant-message-delta'
+      content: string
+      messageId?: string
+      parentToolUseId?: string
+    }
+  | {
+      type: 'thinking-delta'
+      content: string
+      partId?: string
+      messageId?: string
+      parentToolUseId?: string
+    }
+  | {
+      type: 'tool-call'
+      tool: string
+      input: any
+      toolUseId?: string
+      status: 'running' | 'completed' | 'failed'
+      messageId?: string
+      parentToolUseId?: string
+    }
+  | {
+      type: 'tool-result'
+      toolUseId?: string
+      result: any
+      toolUseResult?: any
+      messageId?: string
+      parentToolUseId?: string
+    }
+  | {
+      type: 'subagent-invocation'
+      subagentName: string
+      toolUseId?: string
+      prompt?: string
+      description?: string
+      messageId?: string
+      parentToolUseId?: string
+    }
   | {
       type: 'token-usage'
       usage: {
@@ -1494,7 +2608,12 @@ export type ClaudeCodeStreamMessage =
       parentToolUseId?: string
     }
   // B9: assistant-level error classification (authentication_failed, billing_error, rate_limit, etc.)
-  | { type: 'assistant-error'; errorType: string; messageId?: string; parentToolUseId?: string }
+  | {
+      type: 'assistant-error'
+      errorType: string
+      messageId?: string
+      parentToolUseId?: string
+    }
   // B10: stop reason + result subtype/details from result message
   | {
       type: 'result-complete'
@@ -1511,14 +2630,64 @@ export type ClaudeCodeStreamMessage =
   // Structured output from SDK result when outputFormat is enabled.
   | { type: 'structured-output'; data: unknown; parentToolUseId?: string }
   | { type: 'error'; message: string; code?: string; parentToolUseId?: string }
-  | { type: 'task-notification'; taskId: string; status: 'completed' | 'failed' | 'stopped'; summary: string; outputFile?: string; parentToolUseId?: string }
-  | { type: 'tool-use-summary'; summary: string; precedingToolUseIds: string[]; parentToolUseId?: string }
-  | { type: 'files-persisted'; files: Array<{ filename: string; fileId: string }>; failed: Array<{ filename: string; error: string }>; parentToolUseId?: string }
-  | { type: 'status-update'; status: 'compacting' | null; permissionMode?: string; parentToolUseId?: string }
-  | { type: 'hook-started'; hookId: string; hookName: string; hookEvent: string; parentToolUseId?: string }
-  | { type: 'hook-progress'; hookId: string; hookName: string; hookEvent: string; output: string; parentToolUseId?: string }
-  | { type: 'hook-response'; hookId: string; hookName: string; hookEvent: string; output: string; outcome: 'success' | 'error' | 'cancelled'; exitCode?: number; parentToolUseId?: string }
-  | { type: 'auth-status'; isAuthenticating: boolean; output: string[]; error?: string; parentToolUseId?: string }
+  | {
+      type: 'task-notification'
+      taskId: string
+      status: 'completed' | 'failed' | 'stopped'
+      summary: string
+      outputFile?: string
+      parentToolUseId?: string
+    }
+  | {
+      type: 'tool-use-summary'
+      summary: string
+      precedingToolUseIds: string[]
+      parentToolUseId?: string
+    }
+  | {
+      type: 'files-persisted'
+      files: Array<{ filename: string; fileId: string }>
+      failed: Array<{ filename: string; error: string }>
+      parentToolUseId?: string
+    }
+  | {
+      type: 'status-update'
+      status: 'compacting' | null
+      permissionMode?: string
+      parentToolUseId?: string
+    }
+  | {
+      type: 'hook-started'
+      hookId: string
+      hookName: string
+      hookEvent: string
+      parentToolUseId?: string
+    }
+  | {
+      type: 'hook-progress'
+      hookId: string
+      hookName: string
+      hookEvent: string
+      output: string
+      parentToolUseId?: string
+    }
+  | {
+      type: 'hook-response'
+      hookId: string
+      hookName: string
+      hookEvent: string
+      output: string
+      outcome: 'success' | 'error' | 'cancelled'
+      exitCode?: number
+      parentToolUseId?: string
+    }
+  | {
+      type: 'auth-status'
+      isAuthenticating: boolean
+      output: string[]
+      error?: string
+      parentToolUseId?: string
+    }
 
 export type ClaudeCodeTranscriptToolCall = {
   toolUseId: string
@@ -1550,175 +2719,16 @@ export type ClaudeCodeTranscriptMessage = {
 }
 
 // ============================================================================
-// CODEX (OpenAI Codex app-server) TYPES
+// CODEX types are extracted to ./types/codex.ts (re-exported below)
 // ============================================================================
-
-export type CodexPrompt = {
-  name: string
-  description?: string
-  argumentHint?: string
-  content: string
-  path: string
-  source: 'project' | 'user'
-}
-
-export type CodexThread = {
-  id: string
-  preview: string
-  modelProvider?: string
-  createdAt: number // Unix timestamp seconds
-  updatedAt: number // Unix timestamp seconds (SDK v0.87.0+)
-  cwd: string
-  cliVersion?: string
-  source?: string
-  gitInfo?: { branch?: string } | null
-}
-
-export type CodexTranscriptToolCall = {
-  itemId: string
-  type: 'commandExecution' | 'fileChange' | 'mcpToolCall' | 'webSearch' | 'imageView' | 'review'
-  name: string
-  status: 'running' | 'completed' | 'failed' | 'declined'
-  input?: any
-  output?: string
-  metadata?: Record<string, unknown>
-}
-
-export type CodexTranscriptDiff = {
-  file: string
-  diff: string
-  additions: number
-  deletions: number
-  itemId?: string
-}
-
-export type CodexTranscriptMessage = {
-  id: string
-  role: 'user' | 'assistant' | 'system'
-  createdAt: number
-  text: string
-  thinking?: string
-  toolCalls?: CodexTranscriptToolCall[]
-  diffs?: CodexTranscriptDiff[]
-}
-
-export type CodexStreamMessage =
-  | { type: 'notification'; method: string; params: any }
-  | { type: 'request'; requestId: string; method: string; params: any }
-  | { type: 'error'; message: string; code?: string; details?: any; modelCapModel?: string; modelCapRetrySeconds?: number }
-  // Multi-Agent Collaboration Events (Codex SDK v0.87.0+)
-  | { type: 'collab_spawn_begin'; data: CodexCollabAgentSpawnBeginEvent }
-  | { type: 'collab_spawn_end'; data: CodexCollabAgentSpawnEndEvent }
-  | { type: 'collab_interaction_begin'; data: CodexCollabAgentInteractionBeginEvent }
-  | { type: 'collab_interaction_end'; data: CodexCollabAgentInteractionEndEvent }
-  | { type: 'collab_waiting_begin'; data: CodexCollabWaitingBeginEvent }
-  | { type: 'collab_waiting_end'; data: CodexCollabWaitingEndEvent }
-  | { type: 'collab_close_begin'; data: CodexCollabCloseBeginEvent }
-  | { type: 'collab_close_end'; data: CodexCollabCloseEndEvent }
-  // #18/#30: collab_resume events (SDK CollabResumeBeginEvent / CollabResumeEndEvent)
-  | { type: 'collab_resume_begin'; data: CodexCollabResumeBeginEvent }
-  | { type: 'collab_resume_end'; data: CodexCollabResumeEndEvent }
-
-// ============================================================================
-// CODEX MULTI-AGENT COLLABORATION TYPES (SDK v0.87.0+)
-// ============================================================================
-
-/** Agent status for multi-agent collaboration */
-export type CodexAgentStatus =
-  | { type: 'pending_init' }
-  | { type: 'running' }
-  | { type: 'completed'; message?: string }
-  | { type: 'errored'; error: string }
-  | { type: 'shutdown' }
-  | { type: 'not_found' }
-
-/** Event: Agent spawn started */
-export type CodexCollabAgentSpawnBeginEvent = {
-  callId: string
-  senderThreadId: string
-  prompt: string
-}
-
-/** Event: Agent spawn completed */
-export type CodexCollabAgentSpawnEndEvent = {
-  callId: string
-  senderThreadId: string
-  newThreadId?: string
-  prompt: string
-  status: CodexAgentStatus
-}
-
-/** Event: Agent-to-agent interaction started */
-export type CodexCollabAgentInteractionBeginEvent = {
-  callId: string
-  senderThreadId: string
-  receiverThreadId: string
-  prompt: string
-}
-
-/** Event: Agent-to-agent interaction completed */
-export type CodexCollabAgentInteractionEndEvent = {
-  callId: string
-  senderThreadId: string
-  receiverThreadId: string
-  prompt: string
-  status: CodexAgentStatus
-}
-
-/** Event: Waiting for multiple agents started */
-export type CodexCollabWaitingBeginEvent = {
-  senderThreadId: string
-  receiverThreadIds: string[]
-  callId: string
-}
-
-/** Event: Waiting for multiple agents completed */
-export type CodexCollabWaitingEndEvent = {
-  senderThreadId: string
-  callId: string
-  statuses: Record<string, CodexAgentStatus>
-}
-
-/** Event: Agent close started */
-export type CodexCollabCloseBeginEvent = {
-  callId: string
-  senderThreadId: string
-  receiverThreadId: string
-}
-
-/** Event: Agent close completed */
-export type CodexCollabCloseEndEvent = {
-  callId: string
-  senderThreadId: string
-  receiverThreadId: string
-  status: CodexAgentStatus
-}
-
-/** Event: Agent resume started (#18/#30) */
-export type CodexCollabResumeBeginEvent = {
-  callId: string
-  senderThreadId: string
-  receiverThreadId: string
-}
-
-/** Event: Agent resume completed (#18/#30) */
-export type CodexCollabResumeEndEvent = {
-  callId: string
-  senderThreadId: string
-  receiverThreadId: string
-  status: CodexAgentStatus
-}
-
-/** WebSearchMode replaces webSearchEnabled boolean (SDK v0.87.0+) */
-export type CodexWebSearchMode = 'disabled' | 'cached' | 'live'
 
 // Feature 21: File Attachment (for @ tagging in prompt and image attachments)
 export type FileAttachment = {
   path: string
   isDirectory: boolean
   // Image support fields (Phase 4)
-  mimeType?: string      // e.g., "image/png", "image/jpeg"
-  base64Data?: string    // Base64 encoded image data from mobile
+  mimeType?: string // e.g., "image/png", "image/jpeg"
+  base64Data?: string // Base64 encoded image data from mobile
 }
 
 // ============================================================================
@@ -1726,16 +2736,16 @@ export type FileAttachment = {
 // ============================================================================
 
 export type UsageWindow = {
-  usedPercent: number       // 0-100
-  resetsAt: number | null   // Unix timestamp (seconds)
-  windowSeconds: number     // Window duration in seconds
+  usedPercent: number // 0-100
+  resetsAt: number | null // Unix timestamp (seconds)
+  windowSeconds: number // Window duration in seconds
 }
 
 export type ExtraUsage = {
   isEnabled: boolean
   monthlyLimit: number | null
   usedCredits: number | null
-  utilization: number | null  // 0-100
+  utilization: number | null // 0-100
   currency: string
   resetsAt: number | null
 }
@@ -1766,41 +2776,6 @@ export type SubscriptionUsage = {
   fetchedAt: number
 }
 
-// ============================================================================
-// CODEX NEW SDK TYPES (mid-2026)
-// ============================================================================
+export type { CodexAgentStatus, CodexAppInfo, CodexCollabAgentInteractionBeginEvent, CodexCollabAgentInteractionEndEvent, CodexCollabAgentSpawnBeginEvent, CodexCollabAgentSpawnEndEvent, CodexCollabCloseBeginEvent, CodexCollabCloseEndEvent, CodexCollabResumeBeginEvent, CodexCollabResumeEndEvent, CodexCollabWaitingBeginEvent, CodexCollabWaitingEndEvent, CodexModeKind, CodexPersonality, CodexPrompt, CodexRemoteSkill, CodexStreamMessage, CodexThread, CodexTranscriptDiff, CodexTranscriptMessage, CodexTranscriptToolCall, CodexWebSearchMode } from './types/codex'
 
-/** Remote skill from the public skills marketplace */
-export type CodexRemoteSkill = {
-  id: string
-  name: string
-  description: string
-}
-
-/** App/connector from Codex marketplace */
-export type CodexAppInfo = {
-  id: string
-  name: string
-  description: string | null
-  logoUrl: string | null
-  logoUrlDark: string | null
-  distributionChannel: string | null
-  installUrl: string | null
-  isAccessible: boolean
-  isEnabled: boolean // #12: SDK AppInfo.is_enabled (defaults true)
-}
-
-/** SDK Personality type */
-export type CodexPersonality = 'none' | 'friendly' | 'pragmatic'
-
-/** SDK ModeKind type */
-export type CodexModeKind = 'plan' | 'default'
-
-export type {
-  PiCommandPayload,
-  PiForkMessagePayload,
-  PiModelPayload,
-  PiSessionInfo,
-  PiStatePayload,
-  PiStreamMessage,
-} from './types/pi'
+export type { PiCommandPayload, PiForkMessagePayload, PiModelPayload, PiSessionInfo, PiStatePayload, PiStreamMessage } from './types/pi'

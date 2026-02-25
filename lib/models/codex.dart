@@ -354,6 +354,35 @@ class CodexSettings {
   }
 }
 
+class CodexThreadStatus {
+  const CodexThreadStatus({required this.type, this.activeFlags = const []});
+
+  final String type;
+  final List<String> activeFlags;
+
+  factory CodexThreadStatus.fromJson(dynamic json) {
+    if (json is! Map<String, dynamic>) {
+      return const CodexThreadStatus(type: 'notLoaded');
+    }
+    final flags = (json['activeFlags'] as List<dynamic>? ?? const [])
+        .map((f) => f.toString())
+        .toList();
+    return CodexThreadStatus(
+      type: json['type'] as String? ?? 'notLoaded',
+      activeFlags: flags,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'type': type,
+    if (activeFlags.isNotEmpty) 'activeFlags': activeFlags,
+  };
+
+  bool get isActive => type == 'active';
+  bool get isWaitingOnApproval => activeFlags.contains('waitingOnApproval');
+  bool get isWaitingOnUserInput => activeFlags.contains('waitingOnUserInput');
+}
+
 class CodexThread {
   final String id;
   final String preview;
@@ -365,6 +394,9 @@ class CodexThread {
   final String? source;
   final String? gitBranch;
   final String? threadName; // SDK thread/name/set (mid-2026)
+  final CodexThreadStatus? status; // SDK thread.status (mid-2026)
+  final String? agentNickname; // SDK thread.agentNickname
+  final String? agentRole; // SDK thread.agentRole
 
   const CodexThread({
     required this.id,
@@ -377,6 +409,9 @@ class CodexThread {
     this.source,
     this.gitBranch,
     this.threadName,
+    this.status,
+    this.agentNickname,
+    this.agentRole,
   }) : updatedAt = updatedAt ?? createdAt;
 
   factory CodexThread.fromJson(Map<String, dynamic> json) {
@@ -392,7 +427,12 @@ class CodexThread {
       cliVersion: json['cliVersion'] as String?,
       source: json['source'] as String?,
       gitBranch: gitInfo?['branch'] as String?,
-      threadName: json['threadName'] as String?,
+      threadName: (json['threadName'] ?? json['name']) as String?,
+      status: json['status'] != null
+          ? CodexThreadStatus.fromJson(json['status'])
+          : null,
+      agentNickname: json['agentNickname'] as String?,
+      agentRole: json['agentRole'] as String?,
     );
   }
 
@@ -408,6 +448,9 @@ class CodexThread {
       if (source != null) 'source': source,
       if (gitBranch != null) 'gitInfo': {'branch': gitBranch},
       if (threadName != null) 'threadName': threadName,
+      if (status != null) 'status': status!.toJson(),
+      if (agentNickname != null) 'agentNickname': agentNickname,
+      if (agentRole != null) 'agentRole': agentRole,
     };
   }
 
@@ -860,6 +903,8 @@ class CodexCollabAgentNode {
     this.parentThreadId,
     required this.status,
     this.prompt,
+    this.agentNickname,
+    this.agentRole,
     this.waitingForThreadIds = const [],
     required this.startedAt,
     this.completedAt,
@@ -870,6 +915,8 @@ class CodexCollabAgentNode {
   final String? parentThreadId;
   final CodexCollabAgentStatus status;
   final String? prompt;
+  final String? agentNickname;
+  final String? agentRole;
   final List<String> waitingForThreadIds;
   final DateTime startedAt;
   final DateTime? completedAt;
@@ -880,11 +927,15 @@ class CodexCollabAgentNode {
     List<String>? waitingForThreadIds,
     DateTime? completedAt,
     String? errorMessage,
+    String? agentNickname,
+    String? agentRole,
   }) => CodexCollabAgentNode(
     threadId: threadId,
     parentThreadId: parentThreadId,
     status: status ?? this.status,
     prompt: prompt,
+    agentNickname: agentNickname ?? this.agentNickname,
+    agentRole: agentRole ?? this.agentRole,
     waitingForThreadIds: waitingForThreadIds ?? this.waitingForThreadIds,
     startedAt: startedAt,
     completedAt: completedAt ?? this.completedAt,

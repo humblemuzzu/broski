@@ -11,6 +11,9 @@ class CodexAppInfo {
   final String? installUrl;
   final bool isAccessible;
   final bool isEnabled; // #12: SDK AppInfo.is_enabled (defaults true)
+  final Map<String, dynamic>? branding; // SDK v2 AppBranding
+  final Map<String, dynamic>? appMetadata; // SDK v2 AppMetadata
+  final Map<String, String>? labels; // SDK v2 labels
 
   const CodexAppInfo({
     required this.id,
@@ -22,6 +25,9 @@ class CodexAppInfo {
     this.installUrl,
     this.isAccessible = true,
     this.isEnabled = true,
+    this.branding,
+    this.appMetadata,
+    this.labels,
   });
 
   factory CodexAppInfo.fromJson(Map<String, dynamic> json) {
@@ -35,6 +41,17 @@ class CodexAppInfo {
       installUrl: json['installUrl'] as String?,
       isAccessible: json['isAccessible'] as bool? ?? true,
       isEnabled: json['isEnabled'] as bool? ?? true,
+      branding: json['branding'] is Map
+          ? (json['branding'] as Map).cast<String, dynamic>()
+          : null,
+      appMetadata: json['appMetadata'] is Map
+          ? (json['appMetadata'] as Map).cast<String, dynamic>()
+          : null,
+      labels: json['labels'] is Map
+          ? (json['labels'] as Map).map(
+              (k, v) => MapEntry(k.toString(), v?.toString() ?? ''),
+            )
+          : null,
     );
   }
 
@@ -46,6 +63,9 @@ class CodexAppInfo {
     if (logoUrlDark != null) 'logoUrlDark': logoUrlDark,
     if (distributionChannel != null) 'distributionChannel': distributionChannel,
     if (installUrl != null) 'installUrl': installUrl,
+    if (branding != null) 'branding': branding,
+    if (appMetadata != null) 'appMetadata': appMetadata,
+    if (labels != null) 'labels': labels,
     'isAccessible': isAccessible,
     'isEnabled': isEnabled,
   };

@@ -106,6 +106,23 @@ class _CxAppsSheetState extends ConsumerState<CxAppsSheet> {
         separatorBuilder: (_, __) => const Divider(height: 1),
         itemBuilder: (context, index) {
           final app = apps[index];
+          final subtitleLines = <String>[];
+          final description = app.description?.trim() ?? '';
+          if (description.isNotEmpty) {
+            subtitleLines.add(description);
+          }
+          final developer = app.branding?['developer']?.toString().trim() ?? '';
+          final category = app.branding?['category']?.toString().trim() ?? '';
+          final version = app.appMetadata?['version']?.toString().trim() ?? '';
+          final metaLine = [
+            developer,
+            category,
+            version,
+          ].where((v) => v.isNotEmpty).join(' · ');
+          if (metaLine.isNotEmpty) {
+            subtitleLines.add(metaLine);
+          }
+
           return ListTile(
             dense: true,
             leading: app.logoUrl != null
@@ -124,13 +141,13 @@ class _CxAppsSheetState extends ConsumerState<CxAppsSheet> {
               app.name,
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
-            subtitle: app.description != null && app.description!.isNotEmpty
-                ? Text(
-                    app.description!,
-                    maxLines: 2,
+            subtitle: subtitleLines.isEmpty
+                ? null
+                : Text(
+                    subtitleLines.join('\n'),
+                    maxLines: 3,
                     overflow: TextOverflow.ellipsis,
-                  )
-                : null,
+                  ),
             trailing: app.installUrl != null
                 ? const Icon(AppIcons.openExternal, size: 18)
                 : app.isAccessible

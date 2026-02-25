@@ -1,9 +1,9 @@
-
 import 'package:flutter/material.dart';
 import '../models/codex.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'package:broski/theme/app_icons.dart';
+
 /// Displays a tree visualization of multi-agent collaboration in Codex.
 /// Shows: main thread -> spawned agents with status indicators.
 ///
@@ -35,9 +35,7 @@ class MultiAgentTreeWidget extends StatelessWidget {
       decoration: BoxDecoration(
         color: ocTheme.bgRaised,
         borderRadius: Radii.brSm,
-        border: Border.all(
-          color: ocTheme.borderSubtle,
-        ),
+        border: Border.all(color: ocTheme.borderSubtle),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -81,6 +79,7 @@ class MultiAgentTreeWidget extends StatelessWidget {
       ),
     );
   }
+
   Widget _buildAgentNode(
     BuildContext context,
     CodexCollabAgentNode node,
@@ -88,6 +87,12 @@ class MultiAgentTreeWidget extends StatelessWidget {
   ) {
     final children = tree.getChildren(node.threadId);
     final ocTheme = OpenCodeTheme.of(context);
+    final title = node.threadId == tree.rootThreadId
+        ? 'Main Thread'
+        : (node.agentNickname != null && node.agentNickname!.trim().isNotEmpty)
+        ? node.agentNickname!.trim()
+        : 'Agent ${node.threadId.length > 8 ? node.threadId.substring(0, 8) : node.threadId}';
+    final role = node.agentRole?.trim();
     return Padding(
       padding: EdgeInsets.only(left: depth * (compact ? 16.0 : 20.0)),
       child: Column(
@@ -102,10 +107,16 @@ class MultiAgentTreeWidget extends StatelessWidget {
               ),
               margin: EdgeInsets.only(bottom: compact ? 4 : 6),
               decoration: BoxDecoration(
-                color: _getStatusColor(ocTheme, node.status).withValues(alpha: 0.1),
+                color: _getStatusColor(
+                  ocTheme,
+                  node.status,
+                ).withValues(alpha: 0.1),
                 borderRadius: Radii.brSm,
                 border: Border.all(
-                  color: _getStatusColor(ocTheme, node.status).withValues(alpha: 0.5),
+                  color: _getStatusColor(
+                    ocTheme,
+                    node.status,
+                  ).withValues(alpha: 0.5),
                 ),
               ),
               child: Row(
@@ -118,15 +129,22 @@ class MultiAgentTreeWidget extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          node.threadId == tree.rootThreadId
-                              ? 'Main Thread'
-                              : 'Agent ${node.threadId.length > 8 ? node.threadId.substring(0, 8) : node.threadId}',
+                          title,
                           style: TextStyle(
                             fontWeight: FontWeight.w500,
                             fontSize: compact ? 11 : 12,
                             color: ocTheme.text,
                           ),
                         ),
+                        if (role != null && role.isNotEmpty)
+                          Text(
+                            role,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: ocTheme.info,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                         if (node.prompt != null &&
                             node.prompt!.isNotEmpty &&
                             !compact)
@@ -173,6 +191,7 @@ class MultiAgentTreeWidget extends StatelessWidget {
       ),
     );
   }
+
   Color _getStatusColor(OpenCodeTheme theme, CodexCollabAgentStatus status) {
     switch (status) {
       case CodexCollabAgentStatus.pendingInit:
@@ -189,16 +208,13 @@ class MultiAgentTreeWidget extends StatelessWidget {
         return theme.textMuted;
     }
   }
+
   Widget _getStatusIcon(BuildContext context, CodexCollabAgentStatus status) {
     final size = compact ? 14.0 : 16.0;
     final ocTheme = OpenCodeTheme.of(context);
     switch (status) {
       case CodexCollabAgentStatus.pendingInit:
-        return Icon(
-          AppIcons.hourglass,
-          size: size,
-          color: ocTheme.textMuted,
-        );
+        return Icon(AppIcons.hourglass, size: size, color: ocTheme.textMuted);
       case CodexCollabAgentStatus.running:
         return SizedBox(
           width: size,
@@ -210,16 +226,13 @@ class MultiAgentTreeWidget extends StatelessWidget {
       case CodexCollabAgentStatus.errored:
         return Icon(AppIcons.error, size: size, color: ocTheme.error);
       case CodexCollabAgentStatus.shutdown:
-        return Icon(
-          AppIcons.stop,
-          size: size,
-          color: ocTheme.warning,
-        );
+        return Icon(AppIcons.stop, size: size, color: ocTheme.warning);
       case CodexCollabAgentStatus.notFound:
         return Icon(AppIcons.help, size: size, color: ocTheme.textMuted);
     }
   }
 }
+
 /// A compact indicator showing multi-agent status (for message bubbles)
 class MultiAgentIndicator extends StatelessWidget {
   const MultiAgentIndicator({super.key, required this.tree, this.onTap});
@@ -259,7 +272,11 @@ class MultiAgentIndicator extends StatelessWidget {
                 ),
               )
             else
-              Icon(AppIcons.check, size: 12, color: OpenCodeTheme.of(context).success),
+              Icon(
+                AppIcons.check,
+                size: 12,
+                color: OpenCodeTheme.of(context).success,
+              ),
             SizedBox(width: Spacing.xs),
             Text(
               '$completed/$total',

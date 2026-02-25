@@ -94,12 +94,14 @@ class CodexThreadsNotifier
   CodexThreadsNotifier(this._bridge, this._storage, this._connection)
     : super(const AsyncValue.loading()) {
     unawaited(_bootstrap());
+    _bridgeMessagesSub = _bridge.messages.listen(_handleBridgeMessage);
   }
 
   final BridgeService _bridge;
   final StorageService _storage;
   final BridgeConnectionState _connection;
 
+  StreamSubscription<Map<String, dynamic>>? _bridgeMessagesSub;
   String? _lastCwd;
   static bool _codexWarmupStarted = false;
 
@@ -122,6 +124,23 @@ class CodexThreadsNotifier
     } catch (_) {
       // Optional capability probe.
     }
+  }
+
+  void _handleBridgeMessage(Map<String, dynamic> message) {
+    if (_connection.isOfflineMode) return;
+    final type = message['type'] as String? ?? '';
+    if (type != 'cx_global') return;
+    final data = message['data'] as Map<String, dynamic>? ?? const {};
+    final method = data['method'] as String? ?? '';
+    if (method == 'thread/archived' || method == 'thread/unarchived') {
+      unawaited(refresh(cwd: _lastCwd));
+    }
+  }
+
+  @override
+  void dispose() {
+    _bridgeMessagesSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _primeRuntimeThreadState(List<CodexThread> threads) async {

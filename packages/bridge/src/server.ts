@@ -12,6 +12,9 @@ import * as fileSearch from './file-search'
 import { CodexAppServerClient, checkCodexAvailable } from './connectors/codex'
 import * as pi from './connectors/pi'
 import { handleCodexFeature } from './handlers/codex_features'
+import { buildCodexApprovalDecision } from './handlers/codex/approval-decision'
+import { mapCodexThreadFromSdk } from './handlers/codex/map-thread'
+import { handleCodexRuntimeNotification } from './handlers/codex/runtime-notifications'
 import { handleGitFeature } from './handlers/git'
 import * as piFeatures from './handlers/pi_features'
 import { PtyManager } from './pty/manager'
@@ -118,15 +121,8 @@ function isSafeClaudeCommandName(name: string): boolean {
   return trimmed === basename(trimmed)
 }
 
-function resolveClaudeCommandFilePath(params: {
-  cwd: string
-  source: 'project' | 'user'
-  name: string
-}): string | null {
-  const baseDir =
-    params.source === 'project'
-      ? join(params.cwd, '.claude', 'commands')
-      : join(homedir(), '.claude', 'commands')
+function resolveClaudeCommandFilePath(params: { cwd: string; source: 'project' | 'user'; name: string }): string | null {
+  const baseDir = params.source === 'project' ? join(params.cwd, '.claude', 'commands') : join(homedir(), '.claude', 'commands')
 
   const parts = params.name.split(':')
   if (parts.some((p) => p.length === 0)) return null
@@ -155,23 +151,7 @@ function _countDiffAddsDels(diff: string): { adds: number; dels: number } {
 }
 
 function mapCodexThread(thread: any, nameOverride?: string): CodexThread & { threadName?: string } {
-  const gitInfo = thread?.gitInfo && typeof thread.gitInfo === 'object'
-    ? { branch: safeString(thread.gitInfo.branch) || undefined }
-    : null
-  // Prefer explicit override (from cxThreadNames Map), then any field on the thread object itself
-  const threadName = nameOverride || safeString(thread?.threadName ?? thread?.thread_name).trim() || undefined
-  return {
-    id: safeString(thread?.id),
-    preview: safeString(thread?.preview),
-    modelProvider: safeString(thread?.modelProvider) || undefined,
-    createdAt: Number(thread?.createdAt ?? 0) || 0,
-    updatedAt: Number(thread?.updatedAt ?? thread?.createdAt ?? 0) || 0, // SDK v0.87.0+
-    cwd: safeString(thread?.cwd),
-    cliVersion: safeString(thread?.cliVersion) || undefined,
-    source: safeString(thread?.source) || undefined,
-    gitInfo,
-    ...(threadName ? { threadName } : {}),
-  }
+  return mapCodexThreadFromSdk({ thread, nameOverride, safeString })
 }
 
 function buildCodexTranscript(thread: any): CodexTranscriptMessage[] {
@@ -195,7 +175,7 @@ function buildCodexTranscript(thread: any): CodexTranscriptMessage[] {
       createdAt: baseSec + seq,
       text: '',
       toolCalls: [],
-      diffs: [],
+      diffs: []
     }
     push(msg)
     return msg
@@ -219,7 +199,7 @@ function buildCodexTranscript(thread: any): CodexTranscriptMessage[] {
           id,
           role: 'user',
           createdAt: baseSec + seq,
-          text: textParts.filter(Boolean).join('\n\n'),
+          text: textParts.filter(Boolean).join('\n\n')
         })
         continue
       }
@@ -231,7 +211,7 @@ function buildCodexTranscript(thread: any): CodexTranscriptMessage[] {
           createdAt: baseSec + seq,
           text: safeString(item?.text),
           toolCalls: [],
-          diffs: [],
+          diffs: []
         })
         continue
       }
@@ -253,20 +233,17 @@ function buildCodexTranscript(thread: any): CodexTranscriptMessage[] {
         // Apply head-tail truncation to preserve important start/end of long outputs
         const rawOutput = safeString(item?.aggregatedOutput)
         const truncated = rawOutput ? headTailTruncate(rawOutput, 50, 30) : null
-        
+
         a.toolCalls.push({
           itemId: id,
           type: 'commandExecution',
           name: 'Bash',
-          status: safeString(item?.status).toLowerCase() === 'completed'
-            ? 'completed'
-            : safeString(item?.status).toLowerCase() === 'failed'
-              ? 'failed'
-              : safeString(item?.status).toLowerCase() === 'declined'
-                ? 'declined'
-                : 'running',
-          input: { command: safeString(item?.command), cwd: safeString(item?.cwd) },
-          output: truncated?.text || undefined,
+          status: safeString(item?.status).toLowerCase() === 'completed' ? 'completed' : safeString(item?.status).toLowerCase() === 'failed' ? 'failed' : safeString(item?.status).toLowerCase() === 'declined' ? 'declined' : 'running',
+          input: {
+            command: safeString(item?.command),
+            cwd: safeString(item?.cwd)
+          },
+          output: truncated?.text || undefined
         })
         continue
       }
@@ -280,22 +257,22 @@ function buildCodexTranscript(thread: any): CodexTranscriptMessage[] {
           const file = safeString(ch?.path)
           if (file && d) {
             const { adds, dels } = _countDiffAddsDels(d)
-            a.diffs.push({ file, diff: d, additions: adds, deletions: dels, itemId: id })
+            a.diffs.push({
+              file,
+              diff: d,
+              additions: adds,
+              deletions: dels,
+              itemId: id
+            })
           }
         }
         a.toolCalls.push({
           itemId: id,
           type: 'fileChange',
           name: 'ApplyPatch',
-          status: safeString(item?.status).toLowerCase() === 'completed'
-            ? 'completed'
-            : safeString(item?.status).toLowerCase() === 'failed'
-              ? 'failed'
-              : safeString(item?.status).toLowerCase() === 'declined'
-                ? 'declined'
-                : 'running',
+          status: safeString(item?.status).toLowerCase() === 'completed' ? 'completed' : safeString(item?.status).toLowerCase() === 'failed' ? 'failed' : safeString(item?.status).toLowerCase() === 'declined' ? 'declined' : 'running',
           input: { changes },
-          output: unified.trim().length > 0 ? unified.trimEnd() : undefined,
+          output: unified.trim().length > 0 ? unified.trimEnd() : undefined
         })
         continue
       }
@@ -304,14 +281,10 @@ function buildCodexTranscript(thread: any): CodexTranscriptMessage[] {
         a.toolCalls.push({
           itemId: id,
           type: 'mcpToolCall',
-           name: `${safeString(item?.server)}.${safeString(item?.tool)}`.replace(/^\./, ''),
-          status: safeString(item?.status).toLowerCase() === 'completed'
-            ? 'completed'
-            : safeString(item?.status).toLowerCase() === 'failed'
-              ? 'failed'
-              : 'running',
+          name: `${safeString(item?.server)}.${safeString(item?.tool)}`.replace(/^\./, ''),
+          status: safeString(item?.status).toLowerCase() === 'completed' ? 'completed' : safeString(item?.status).toLowerCase() === 'failed' ? 'failed' : 'running',
           input: item?.arguments,
-          output: item?.result ? JSON.stringify(item.result) : item?.error ? JSON.stringify(item.error) : undefined,
+          output: item?.result ? JSON.stringify(item.result) : item?.error ? JSON.stringify(item.error) : undefined
         })
         continue
       }
@@ -322,7 +295,7 @@ function buildCodexTranscript(thread: any): CodexTranscriptMessage[] {
           type: 'webSearch',
           name: 'WebSearch',
           status: 'completed',
-          input: { query: safeString(item?.query) },
+          input: { query: safeString(item?.query) }
         })
         continue
       }
@@ -373,7 +346,7 @@ async function createNewAuthState(now = Date.now(), tokenTtlDays?: number): Prom
     token,
     createdAt: now,
     expiresAt: now + ttlMs,
-    lastUsedAt: now,
+    lastUsedAt: now
   }
   await persistAuthState(state)
   // Best-effort: remove legacy token file to avoid confusion.
@@ -395,7 +368,7 @@ export async function loadOrCreateAuthState(forceNew = false, tokenTtlDays?: num
       const parsed = JSON.parse(raw) as Partial<AuthTokenState>
       const token = typeof parsed.token === 'string' ? parsed.token.trim() : ''
       const createdAt = Number(parsed.createdAt ?? 0) || now
-      const expiresAt = Number(parsed.expiresAt ?? 0) || (createdAt + getTokenTtlMs(tokenTtlDays))
+      const expiresAt = Number(parsed.expiresAt ?? 0) || createdAt + getTokenTtlMs(tokenTtlDays)
       const lastUsedAt = Number(parsed.lastUsedAt ?? 0) || undefined
 
       if (parsed.version === 1 && isLikelyValidToken(token)) {
@@ -408,7 +381,7 @@ export async function loadOrCreateAuthState(forceNew = false, tokenTtlDays?: num
           token,
           createdAt,
           expiresAt,
-          ...(lastUsedAt ? { lastUsedAt } : {}),
+          ...(lastUsedAt ? { lastUsedAt } : {})
         }
         // Touch last-used (best-effort).
         void persistAuthState({ ...state, lastUsedAt: now }).catch(() => {})
@@ -429,7 +402,7 @@ export async function loadOrCreateAuthState(forceNew = false, tokenTtlDays?: num
           token,
           createdAt: now,
           expiresAt: now + ttlMs,
-          lastUsedAt: now,
+          lastUsedAt: now
         }
         await persistAuthState(state)
         try {
@@ -493,9 +466,7 @@ async function getSecurePath(requestedPath: string): Promise<string | null> {
     // Reject ASCII control chars (helps avoid odd filesystem edge cases).
     if (/[\u0000-\u001F]/.test(requestedPath)) return null
 
-    const expandedPath = requestedPath.startsWith('~')
-      ? requestedPath.replace(/^~/, homedir())
-      : requestedPath
+    const expandedPath = requestedPath.startsWith('~') ? requestedPath.replace(/^~/, homedir()) : requestedPath
 
     const abs = resolve(expandedPath)
     // Check the logical path (pre-symlink resolution) is within allowed bases.
@@ -511,9 +482,14 @@ async function getSecurePath(requestedPath: string): Promise<string | null> {
   }
 }
 
-async function listFilesDirectly(
-  filePath: string,
-): Promise<Array<{ name: string; type: 'file' | 'directory'; path: string; absolute: string }>> {
+async function listFilesDirectly(filePath: string): Promise<
+  Array<{
+    name: string
+    type: 'file' | 'directory'
+    path: string
+    absolute: string
+  }>
+> {
   const securePath = await getSecurePath(filePath)
   if (!securePath) {
     logError(`[listFilesDirectly] Access denied: ${filePath}`)
@@ -522,7 +498,12 @@ async function listFilesDirectly(
 
   try {
     const entries = await readdir(securePath, { withFileTypes: true })
-    const items: Array<{ name: string; type: 'file' | 'directory'; path: string; absolute: string }> = []
+    const items: Array<{
+      name: string
+      type: 'file' | 'directory'
+      path: string
+      absolute: string
+    }> = []
 
     for (const entry of entries) {
       if (entry.name.startsWith('.')) continue
@@ -532,7 +513,7 @@ async function listFilesDirectly(
         name: entry.name,
         type: entry.isDirectory() ? 'directory' : 'file',
         path: absolute,
-        absolute,
+        absolute
       })
     }
 
@@ -551,9 +532,7 @@ async function listFilesDirectly(
   }
 }
 
-async function readFileDirectly(
-  filePath: string,
-): Promise<{
+async function readFileDirectly(filePath: string): Promise<{
   type: 'text' | 'binary'
   content: string
   mime: string
@@ -563,7 +542,12 @@ async function readFileDirectly(
   const securePath = await getSecurePath(filePath)
   if (!securePath) {
     logError(`[readFileDirectly] Access denied: ${filePath}`)
-    return { type: 'text', content: '', mime: 'text/plain', mimeType: 'text/plain' }
+    return {
+      type: 'text',
+      content: '',
+      mime: 'text/plain',
+      mimeType: 'text/plain'
+    }
   }
 
   try {
@@ -574,7 +558,12 @@ async function readFileDirectly(
       // Best-effort symlink refusal on platforms without O_NOFOLLOW.
       const lst = await lstat(securePath).catch(() => null)
       if (lst?.isSymbolicLink()) {
-        return { type: 'text', content: '', mime: 'text/plain', mimeType: 'text/plain' }
+        return {
+          type: 'text',
+          content: '',
+          mime: 'text/plain',
+          mimeType: 'text/plain'
+        }
       }
     }
     const flags = fsConstants.O_RDONLY | noFollow
@@ -591,16 +580,15 @@ async function readFileDirectly(
       const mime = file.type || 'application/octet-stream'
       const st = await fh.stat()
       if (!st.isFile()) {
-        return { type: 'text', content: '', mime: 'text/plain', mimeType: 'text/plain' }
+        return {
+          type: 'text',
+          content: '',
+          mime: 'text/plain',
+          mimeType: 'text/plain'
+        }
       }
 
-      const isText =
-        mime.startsWith('text/') ||
-        mime.includes('json') ||
-        mime.includes('xml') ||
-        mime.includes('javascript') ||
-        mime.includes('typescript') ||
-        mime.includes('markdown')
+      const isText = mime.startsWith('text/') || mime.includes('json') || mime.includes('xml') || mime.includes('javascript') || mime.includes('typescript') || mime.includes('markdown')
 
       if (!isText) {
         return { type: 'binary', content: '', mime, mimeType: mime }
@@ -613,7 +601,7 @@ async function readFileDirectly(
           type: 'text',
           content: `${text.slice(0, maxChars)}\n\n…(truncated)…`,
           mime,
-          mimeType: mime,
+          mimeType: mime
         }
       }
       return { type: 'text', content: text, mime, mimeType: mime }
@@ -622,14 +610,16 @@ async function readFileDirectly(
     }
   } catch (error) {
     logError(`[readFileDirectly] Error reading ${securePath}:`, error)
-    return { type: 'text', content: '', mime: 'text/plain', mimeType: 'text/plain' }
+    return {
+      type: 'text',
+      content: '',
+      mime: 'text/plain',
+      mimeType: 'text/plain'
+    }
   }
 }
 
-async function readFileBinaryDirectly(
-  filePath: string,
-  maxSizeMb: number = 10,
-): Promise<{ base64: string; mime: string; size: number } | { error: 'not_found' | 'too_large' | 'access_denied'; size?: number }> {
+async function readFileBinaryDirectly(filePath: string, maxSizeMb: number = 10): Promise<{ base64: string; mime: string; size: number } | { error: 'not_found' | 'too_large' | 'access_denied'; size?: number }> {
   const securePath = await getSecurePath(filePath)
   if (!securePath) {
     logError(`[readFileBinaryDirectly] Access denied: ${filePath}`)
@@ -712,29 +702,29 @@ export type BridgeServer = {
   tls: () => { enabled: boolean; certSha256: string | null }
 }
 
-	type ConnectionContext = {
-	  projectPath?: string
-	  sessionId?: string
-	  viewAgent?: AgentType
-	  lastPongAt: number
-	  lastRttMs: number
-	  pendingPing?: { id: string; sentAt: number }
-	  connectionType: 'local' | 'tailscale' | 'unknown'
-	  deviceId?: string
-	  deviceName?: string
-	  platform?: string
-	  protocolVersion?: string
-	  connectedAt: number
-	  // Cloud-authenticated session (Convex) for licensing/entitlements.
-	  cloudAuthed?: boolean
-	  cloudAppUserId?: string
-	  cloudEntitled?: boolean
-	  cloudStatus?: string
-	  cloudCheckedAt?: number
-	  cloudSessionToken?: string
-	  cloudSessionTokenHash?: string
-	  licenseExpSec?: number
-	}
+type ConnectionContext = {
+  projectPath?: string
+  sessionId?: string
+  viewAgent?: AgentType
+  lastPongAt: number
+  lastRttMs: number
+  pendingPing?: { id: string; sentAt: number }
+  connectionType: 'local' | 'tailscale' | 'unknown'
+  deviceId?: string
+  deviceName?: string
+  platform?: string
+  protocolVersion?: string
+  connectedAt: number
+  // Cloud-authenticated session (Convex) for licensing/entitlements.
+  cloudAuthed?: boolean
+  cloudAppUserId?: string
+  cloudEntitled?: boolean
+  cloudStatus?: string
+  cloudCheckedAt?: number
+  cloudSessionToken?: string
+  cloudSessionTokenHash?: string
+  licenseExpSec?: number
+}
 
 type ClientQueue = {
   queue: unknown[]
@@ -744,7 +734,7 @@ type ClientQueue = {
 const BATCH_THRESHOLDS = {
   local: { low: 16, high: 8, burst: 4 },
   tailscale: { low: 32, high: 16, burst: 8 },
-  highLatency: { low: 50, high: 25, burst: 12 },
+  highLatency: { low: 50, high: 25, burst: 12 }
 }
 
 const MESSAGE_PRIORITIES: Record<string, 'immediate' | 'high' | 'normal' | 'low'> = {
@@ -787,7 +777,7 @@ const MESSAGE_PRIORITIES: Record<string, 'immediate' | 'high' | 'normal' | 'low'
   'lsp.updated': 'low',
   'installation.updated': 'low',
   'installation.update-available': 'low',
-  'mcp.browser.open.failed': 'low',
+  'mcp.browser.open.failed': 'low'
 }
 
 export async function createBridgeServer(options: BridgeServerOptions): Promise<BridgeServer> {
@@ -802,23 +792,39 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
   /** Always visible on user's console (compiled or dev). */
   function logUser(message: string): void {
-    if (_bl) { _bl.user(message); return }
+    if (_bl) {
+      _bl.user(message)
+      return
+    }
     _legacyLog?.(message)
   }
   /** Visible in dev console; hidden in binary console. Always in log file. */
   function logInfo(message: string): void {
-    if (_bl) { _bl.info(message); return }
+    if (_bl) {
+      _bl.info(message)
+      return
+    }
     _legacyLog?.(message)
   }
   /** Visible only with --verbose / DEBUG in dev console. Always in log file. */
   function logDebug(message: string): void {
-    if (_bl) { _bl.debug(message); return }
+    if (_bl) {
+      _bl.debug(message)
+      return
+    }
     _legacyLog?.(message)
   }
   /** Always visible on stderr + error log file. */
   function logError(message: string, ...args: unknown[]): void {
-    if (_bl) { _bl.error(message, ...args); return }
-    if (args.length > 0) { console.error(message, ...args) } else { console.error(message) }
+    if (_bl) {
+      _bl.error(message, ...args)
+      return
+    }
+    if (args.length > 0) {
+      console.error(message, ...args)
+    } else {
+      console.error(message)
+    }
   }
   // Backward-compat alias — existing `log(...)` calls become info-level.
   const log = logInfo
@@ -833,26 +839,14 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
   const compiled = isCompiledBinary()
   const ENTITLEMENT_CACHE_TTL_MS = compiled
     ? 30_000 // 30 seconds — hardcoded for production
-    : Math.max(
-        5_000,
-        Math.min(Number(options.cloud?.entitlementCacheTtlMs ?? process.env.BROSKI_ENTITLEMENT_CACHE_TTL_MS ?? '30000'), 10 * 60 * 1000),
-      )
+    : Math.max(5_000, Math.min(Number(options.cloud?.entitlementCacheTtlMs ?? process.env.BROSKI_ENTITLEMENT_CACHE_TTL_MS ?? '30000'), 10 * 60 * 1000))
   const ENTITLEMENT_RECHECK_MS = compiled
     ? 30 * 60_000 // 30 minutes — hardcoded for production
-    : Math.max(
-        60_000,
-        Math.min(Number(options.cloud?.entitlementRecheckMs ?? process.env.BROSKI_ENTITLEMENT_RECHECK_MS ?? String(30 * 60_000)), 24 * 60 * 60 * 1000),
-      )
+    : Math.max(60_000, Math.min(Number(options.cloud?.entitlementRecheckMs ?? process.env.BROSKI_ENTITLEMENT_RECHECK_MS ?? String(30 * 60_000)), 24 * 60 * 60 * 1000))
   const OFFLINE_GRACE_MS = compiled
     ? 72 * 60 * 60 * 1000 // 72 hours — hardcoded for production
-    : Math.max(
-        0,
-        Math.min(Number(options.cloud?.offlineGraceHours ?? process.env.BROSKI_LICENSE_OFFLINE_GRACE_HOURS ?? '72') * 60 * 60 * 1000, 7 * 24 * 60 * 60 * 1000),
-      )
-  const entitlementCache = new Map<
-    string,
-    { checkedAt: number; appUserId: string; entitled: boolean; status?: string }
-  >()
+    : Math.max(0, Math.min(Number(options.cloud?.offlineGraceHours ?? process.env.BROSKI_LICENSE_OFFLINE_GRACE_HOURS ?? '72') * 60 * 60 * 1000, 7 * 24 * 60 * 60 * 1000))
+  const entitlementCache = new Map<string, { checkedAt: number; appUserId: string; entitled: boolean; status?: string }>()
 
   // Web dashboard dist directory (served by bridge HTTP when present).
   const webDistDir = (() => {
@@ -885,7 +879,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       const ctx = contexts.get(ws)
       if (ctx?.cloudAuthed) return
       try {
-        send(ws, { type: 'error', message: 'CLOUD_AUTH_REQUIRED', code: 'CLOUD_AUTH_REQUIRED' })
+        send(ws, {
+          type: 'error',
+          message: 'CLOUD_AUTH_REQUIRED',
+          code: 'CLOUD_AUTH_REQUIRED'
+        })
       } catch {
         // ignore
       }
@@ -898,165 +896,153 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     cloudAuthTimers.set(ws, t)
   }
 
-	  const refreshCloudEntitlement = async (
-	    ws: ServerWebSocket<unknown>,
-	    ctx: ConnectionContext,
-	    reason: string,
-	  ): Promise<void> => {
-	    if (!requireEntitlement) return
-	    if (!convexHttpBaseUrl) return
-	    const sessionToken = ctx.cloudSessionToken
-	    if (!sessionToken) return
+  const refreshCloudEntitlement = async (ws: ServerWebSocket<unknown>, ctx: ConnectionContext, reason: string): Promise<void> => {
+    if (!requireEntitlement) return
+    if (!convexHttpBaseUrl) return
+    const sessionToken = ctx.cloudSessionToken
+    if (!sessionToken) return
 
     const now = Date.now()
     if (ctx.cloudCheckedAt && now - ctx.cloudCheckedAt < ENTITLEMENT_RECHECK_MS) return
 
     const tokenHash = createHash('sha256').update(sessionToken, 'utf8').digest('hex')
-	    const cached = entitlementCache.get(tokenHash)
-	    // Only use cache if entitled=true. If cache says NOT entitled, always do fresh check
-	    // (subscription might have just renewed, especially in sandbox where they renew every 5 min)
-	    if (cached && cached.entitled && now - cached.checkedAt <= ENTITLEMENT_CACHE_TTL_MS) {
-	      contexts.set(ws, {
-	        ...ctx,
-	        cloudAuthed: true,
-	        cloudAppUserId: cached.appUserId,
-	        cloudEntitled: cached.entitled,
-	        cloudStatus: cached.status,
-	        cloudCheckedAt: cached.checkedAt,
-	        cloudSessionTokenHash: tokenHash,
-	        licenseExpSec: localLicense?.sessionTokenHash === tokenHash ? localLicense.exp : undefined,
-	      })
-	      return
-	    }
+    const cached = entitlementCache.get(tokenHash)
+    // Only use cache if entitled=true. If cache says NOT entitled, always do fresh check
+    // (subscription might have just renewed, especially in sandbox where they renew every 5 min)
+    if (cached && cached.entitled && now - cached.checkedAt <= ENTITLEMENT_CACHE_TTL_MS) {
+      contexts.set(ws, {
+        ...ctx,
+        cloudAuthed: true,
+        cloudAppUserId: cached.appUserId,
+        cloudEntitled: cached.entitled,
+        cloudStatus: cached.status,
+        cloudCheckedAt: cached.checkedAt,
+        cloudSessionTokenHash: tokenHash,
+        licenseExpSec: localLicense?.sessionTokenHash === tokenHash ? localLicense.exp : undefined
+      })
+      return
+    }
 
-	    try {
-	      const refreshed = await refreshLocalLicenseFromCloud({
-	        convexHttpBaseUrl,
-	        sessionToken,
-	      })
+    try {
+      const refreshed = await refreshLocalLicenseFromCloud({
+        convexHttpBaseUrl,
+        sessionToken
+      })
 
-	      if (!refreshed.ok) {
-	        if (refreshed.status === 401) {
-	          try {
-	            ws.close(4401, 'Invalid session')
-	          } catch {
-	            // ignore
-	          }
-	          return
-	        }
+      if (!refreshed.ok) {
+        if (refreshed.status === 401) {
+          try {
+            ws.close(4401, 'Invalid session')
+          } catch {
+            // ignore
+          }
+          return
+        }
 
-	        // Keep working if we have a valid local license for this session and it's not expired.
-	        const nowSec = Math.floor(Date.now() / 1000)
-	        if (
-	          localLicense?.entitled &&
-	          localLicense.sessionTokenHash === tokenHash &&
-	          nowSec <= localLicense.exp
-	        ) {
-	          contexts.set(ws, {
-	            ...ctx,
-	            cloudAuthed: true,
-	            cloudAppUserId: localLicense.appUserId,
-	            cloudEntitled: true,
-	            cloudStatus: localLicense.status,
-	            cloudCheckedAt: now,
-	            cloudSessionTokenHash: tokenHash,
-	            licenseExpSec: localLicense.exp,
-	          })
-	          log(`[CloudAuth] Refresh failed (${reason}); using valid local license`)
-	          return
-	        }
+        // Keep working if we have a valid local license for this session and it's not expired.
+        const nowSec = Math.floor(Date.now() / 1000)
+        if (localLicense?.entitled && localLicense.sessionTokenHash === tokenHash && nowSec <= localLicense.exp) {
+          contexts.set(ws, {
+            ...ctx,
+            cloudAuthed: true,
+            cloudAppUserId: localLicense.appUserId,
+            cloudEntitled: true,
+            cloudStatus: localLicense.status,
+            cloudCheckedAt: now,
+            cloudSessionTokenHash: tokenHash,
+            licenseExpSec: localLicense.exp
+          })
+          log(`[CloudAuth] Refresh failed (${reason}); using valid local license`)
+          return
+        }
 
-	        if (cached && cached.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS) {
-	          contexts.set(ws, {
-	            ...ctx,
-	            cloudAuthed: true,
-	            cloudAppUserId: cached.appUserId,
-	            cloudEntitled: cached.entitled,
-	            cloudStatus: cached.status,
-	            cloudCheckedAt: cached.checkedAt,
-	            cloudSessionTokenHash: tokenHash,
-	            licenseExpSec: localLicense?.sessionTokenHash === tokenHash ? localLicense.exp : undefined,
-	          })
-	          log(`[CloudAuth] Offline grace applied during refresh (${reason})`)
-	          return
-	        }
+        if (cached && cached.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS) {
+          contexts.set(ws, {
+            ...ctx,
+            cloudAuthed: true,
+            cloudAppUserId: cached.appUserId,
+            cloudEntitled: cached.entitled,
+            cloudStatus: cached.status,
+            cloudCheckedAt: cached.checkedAt,
+            cloudSessionTokenHash: tokenHash,
+            licenseExpSec: localLicense?.sessionTokenHash === tokenHash ? localLicense.exp : undefined
+          })
+          log(`[CloudAuth] Offline grace applied during refresh (${reason})`)
+          return
+        }
 
-	        if (refreshed.status === 403) {
-	          try {
-	            ws.close(4403, 'License required')
-	          } catch {
-	            // ignore
-	          }
-	          return
-	        }
+        if (refreshed.status === 403) {
+          try {
+            ws.close(4403, 'License required')
+          } catch {
+            // ignore
+          }
+          return
+        }
 
-	        log(`[CloudAuth] Refresh failed (${reason}): ${refreshed.code} ${refreshed.message}`)
-	        return
-	      }
+        log(`[CloudAuth] Refresh failed (${reason}): ${refreshed.code} ${refreshed.message}`)
+        return
+      }
 
-	      if (refreshed.state.entitled) localLicense = refreshed.state
-	      const record = {
-	        checkedAt: now,
-	        appUserId: refreshed.state.appUserId,
-	        entitled: refreshed.state.entitled,
-	        ...(refreshed.state.status ? { status: refreshed.state.status } : {}),
-	      }
-	      entitlementCache.set(tokenHash, record)
-	      contexts.set(ws, {
-	        ...ctx,
-	        cloudAuthed: true,
-	        cloudAppUserId: refreshed.state.appUserId,
-	        cloudEntitled: refreshed.state.entitled,
-	        cloudStatus: refreshed.state.status,
-	        cloudCheckedAt: record.checkedAt,
-	        cloudSessionTokenHash: tokenHash,
-	        licenseExpSec: refreshed.state.exp,
-	      })
-	      if (!refreshed.state.entitled) {
-	        try {
-	          ws.close(4403, 'License required')
-	        } catch {
-	          // ignore
-	        }
-	      }
-	    } catch (error) {
-	      const nowSec = Math.floor(Date.now() / 1000)
-	      if (
-	        localLicense?.entitled &&
-	        localLicense.sessionTokenHash === tokenHash &&
-	        nowSec <= localLicense.exp
-	      ) {
-	        contexts.set(ws, {
-	          ...ctx,
-	          cloudAuthed: true,
-	          cloudAppUserId: localLicense.appUserId,
-	          cloudEntitled: true,
-	          cloudStatus: localLicense.status,
-	          cloudCheckedAt: now,
-	          cloudSessionTokenHash: tokenHash,
-	          licenseExpSec: localLicense.exp,
-	        })
-	        log(`[CloudAuth] Cloud unreachable during refresh (${reason}); using valid local license`)
-	        return
-	      }
+      if (refreshed.state.entitled) localLicense = refreshed.state
+      const record = {
+        checkedAt: now,
+        appUserId: refreshed.state.appUserId,
+        entitled: refreshed.state.entitled,
+        ...(refreshed.state.status ? { status: refreshed.state.status } : {})
+      }
+      entitlementCache.set(tokenHash, record)
+      contexts.set(ws, {
+        ...ctx,
+        cloudAuthed: true,
+        cloudAppUserId: refreshed.state.appUserId,
+        cloudEntitled: refreshed.state.entitled,
+        cloudStatus: refreshed.state.status,
+        cloudCheckedAt: record.checkedAt,
+        cloudSessionTokenHash: tokenHash,
+        licenseExpSec: refreshed.state.exp
+      })
+      if (!refreshed.state.entitled) {
+        try {
+          ws.close(4403, 'License required')
+        } catch {
+          // ignore
+        }
+      }
+    } catch (error) {
+      const nowSec = Math.floor(Date.now() / 1000)
+      if (localLicense?.entitled && localLicense.sessionTokenHash === tokenHash && nowSec <= localLicense.exp) {
+        contexts.set(ws, {
+          ...ctx,
+          cloudAuthed: true,
+          cloudAppUserId: localLicense.appUserId,
+          cloudEntitled: true,
+          cloudStatus: localLicense.status,
+          cloudCheckedAt: now,
+          cloudSessionTokenHash: tokenHash,
+          licenseExpSec: localLicense.exp
+        })
+        log(`[CloudAuth] Cloud unreachable during refresh (${reason}); using valid local license`)
+        return
+      }
 
-	      if (cached && cached.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS) {
-	        contexts.set(ws, {
-	          ...ctx,
-	          cloudAuthed: true,
-	          cloudAppUserId: cached.appUserId,
-	          cloudEntitled: cached.entitled,
-	          cloudStatus: cached.status,
-	          cloudCheckedAt: cached.checkedAt,
-	          cloudSessionTokenHash: tokenHash,
-	          licenseExpSec: localLicense?.sessionTokenHash === tokenHash ? localLicense.exp : undefined,
-	        })
-	        log(`[CloudAuth] Offline grace applied during refresh (${reason})`)
-	        return
-	      }
-	      log(`[CloudAuth] Refresh failed (${reason}): ${toErrorMessage(error)}`)
-	    }
-	  }
+      if (cached && cached.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS) {
+        contexts.set(ws, {
+          ...ctx,
+          cloudAuthed: true,
+          cloudAppUserId: cached.appUserId,
+          cloudEntitled: cached.entitled,
+          cloudStatus: cached.status,
+          cloudCheckedAt: cached.checkedAt,
+          cloudSessionTokenHash: tokenHash,
+          licenseExpSec: localLicense?.sessionTokenHash === tokenHash ? localLicense.exp : undefined
+        })
+        log(`[CloudAuth] Offline grace applied during refresh (${reason})`)
+        return
+      }
+      log(`[CloudAuth] Refresh failed (${reason}): ${toErrorMessage(error)}`)
+    }
+  }
   // Permission/approval timeout: 10 minutes.
   // Users may background the app for extended periods; auto-rejecting after 2 minutes
   // kills long-running sessions that need approval. 10 min gives enough time for
@@ -1082,19 +1068,14 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     response: 'once' | 'always' | 'reject'
     updatedInput?: Record<string, unknown>
   }
-  const ccPermissionWaiters = new Map<
-    string,
-    { resolve: (response: ClaudePermissionReply) => void; timer: Timer }
-  >()
+  const ccPermissionWaiters = new Map<string, { resolve: (response: ClaudePermissionReply) => void; timer: Timer }>()
   type CodexApprovalReply = {
     response?: PermissionResponse
     execpolicyAmendment?: any
+    networkPolicyAmendment?: { host: string; action: 'allow' | 'deny' }
     answers?: Record<string, { answers: string[] }>
   }
-  const cxApprovalWaiters = new Map<
-    string,
-    { resolve: (response: CodexApprovalReply) => void; timer: Timer }
-  >()
+  const cxApprovalWaiters = new Map<string, { resolve: (response: CodexApprovalReply) => void; timer: Timer }>()
   const ccSessionOwners = new Map<string, ServerWebSocket<unknown>>()
   const cxThreadOwners = new Map<string, ServerWebSocket<unknown>>()
   const ocSessionOwners = new Map<string, ServerWebSocket<unknown>>()
@@ -1109,11 +1090,15 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
   // Project cache has longer TTL since projects rarely change
   const CODEX_THREAD_CACHE_TTL_MS = 5000 // 5 seconds
   const CODEX_PROJECT_CACHE_TTL_MS = 30000 // 30 seconds
-  type CxThreadCacheEntry = { data: any[]; fetchedAt: number; nextCursor: string | null }
+  type CxThreadCacheEntry = {
+    data: any[]
+    fetchedAt: number
+    nextCursor: string | null
+  }
   type CxProjectCacheEntry = { data: any[]; fetchedAt: number }
   const cxThreadCache = new Map<string, CxThreadCacheEntry>() // key: cwd or '__all__' -> threads
   let cxProjectCache: CxProjectCacheEntry | null = null
-  
+
   /** Invalidate Codex caches (called on mutations) */
   const invalidateCodexCaches = (cwd?: string) => {
     // Always invalidate project cache on any mutation
@@ -1125,20 +1110,21 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     }
     cxThreadCache.delete('__all__')
   }
-  
-	  let codexClient: CodexAppServerClient | null = null
+
+  let codexClient: CodexAppServerClient | null = null
 
   const requireOpenCode = (): OpenCodeConnector => {
     if (!opencode) {
-      throw new Error(
-        'OpenCode backend is not available on this machine. Install OpenCode (or start it and attach), or switch to Claude Code / Codex in the app.',
-      )
+      throw new Error('OpenCode backend is not available on this machine. Install OpenCode (or start it and attach), or switch to Claude Code / Codex in the app.')
     }
     return opencode
   }
 
   const BACKEND_STATUS_TTL_MS = 1500
-  let backendsCache: { fetchedAt: number; data: Record<AgentType, AgentStatusInfo> } | null = null
+  let backendsCache: {
+    fetchedAt: number
+    data: Record<AgentType, AgentStatusInfo>
+  } | null = null
   let backendsInFlight: Promise<Record<AgentType, AgentStatusInfo>> | null = null
 
   const getBackendsStatus = async (): Promise<Record<AgentType, AgentStatusInfo>> => {
@@ -1177,23 +1163,27 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           try {
             return await pi.isPiAvailable()
           } catch {
-            return { available: false, authenticated: false, modelCount: 0 } as const
+            return {
+              available: false,
+              authenticated: false,
+              modelCount: 0
+            } as const
           }
-        })(),
+        })()
       ])
 
       const data: Record<AgentType, AgentStatusInfo> = {
         opencode: { available: ocOk, version },
         'claude-code': {
           available: ccOk,
-          authMethod: ccOk ? (envKey ? 'api-key' : 'claude-login') : undefined,
+          authMethod: ccOk ? (envKey ? 'api-key' : 'claude-login') : undefined
         },
         codex: { available: cxOk, authMethod: cxOk ? 'cli' : undefined },
         pi: {
           available: piStatus.available,
           authMethod: piStatus.authenticated ? 'configured' : 'not-configured',
-          version: piStatus.version,
-        },
+          version: piStatus.version
+        }
       }
 
       backendsCache = { fetchedAt: Date.now(), data }
@@ -1206,12 +1196,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       backendsInFlight = null
     }
   }
-  
+
   // Default agent is detected from what's available, not hardcoded.
   // The Flutter app also auto-selects on connect, so this is just the
   // server-side default until the first client sets it explicitly.
   let currentAgent: AgentType = options.currentAgent || 'opencode'
-  
+
   // Detect actual default after backends probe (async, runs once)
   void (async () => {
     try {
@@ -1228,51 +1218,48 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     }
   })()
   const lastGitBranchByProject = new Map<string, string>()
-  
-	  let authState: AuthTokenState = options.auth
-	  let authToken = authState.token
-	  let authExpiresAt = authState.expiresAt
-	  // Never allow token-in-URL in production binaries.
-	  const allowTokenInUrl = !compiled && process.env.BROSKI_ALLOW_TOKEN_IN_URL === '1'
-	  // In production binaries, do not allow environment flags to weaken enforcement.
-	  const requireEntitlement = compiled ? true : isTruthyEnv(process.env.BROSKI_REQUIRE_ENTITLEMENT, !!options.cloud?.requireEntitlement)
-	  // Defense-in-depth: if we're compiled but entitlement somehow got disabled, abort.
-	  // This catches scenarios where someone patches the `compiled` const or ternary above.
-	  if (compiled && !requireEntitlement) {
-	    throw new Error('FATAL: Entitlement enforcement disabled in compiled binary. Binary may be tampered.')
-	  }
-	  const convexHttpBaseUrlRaw = (
-	    compiled
-	      ? (options.cloud?.convexHttpBaseUrl ?? '')
-	      : (options.cloud?.convexHttpBaseUrl ?? process.env.BROSKI_CONVEX_HTTP_BASE_URL ?? process.env.CONVEX_HTTP_BASE_URL ?? '')
-	  )
-	    .trim()
-	    .replace(/\/+$/, '')
-	  const convexHttpBaseUrl = (() => {
-	    if (!convexHttpBaseUrlRaw) return ''
-	    try {
-	      const u = new URL(convexHttpBaseUrlRaw)
-	      if (u.protocol !== 'https:' && !(u.protocol === 'http:' && !compiled)) return ''
-	      // Cheap "pinning": require Convex HTTPS hostnames in production.
-	      if (compiled && !u.hostname.endsWith('.convex.site')) return ''
-	      return `${u.protocol}//${u.host}`
-	    } catch {
-	      return ''
-	    }
-	  })()
-	  // In production binaries, always enable TLS for any non-loopback access.
-	  // Allowing BROSKI_TLS=0 creates sniffing/MITM risk on WiFi/hotspot.
-	  const tlsEnabled = compiled ? true : isTlsEnabledByEnv()
-	  let tlsMaterial: TlsMaterial | null = null
+
+  let authState: AuthTokenState = options.auth
+  let authToken = authState.token
+  let authExpiresAt = authState.expiresAt
+  // Never allow token-in-URL in production binaries.
+  const allowTokenInUrl = !compiled && process.env.BROSKI_ALLOW_TOKEN_IN_URL === '1'
+  // In production binaries, do not allow environment flags to weaken enforcement.
+  const requireEntitlement = compiled ? true : isTruthyEnv(process.env.BROSKI_REQUIRE_ENTITLEMENT, !!options.cloud?.requireEntitlement)
+  // Defense-in-depth: if we're compiled but entitlement somehow got disabled, abort.
+  // This catches scenarios where someone patches the `compiled` const or ternary above.
+  if (compiled && !requireEntitlement) {
+    throw new Error('FATAL: Entitlement enforcement disabled in compiled binary. Binary may be tampered.')
+  }
+  const convexHttpBaseUrlRaw = (compiled ? (options.cloud?.convexHttpBaseUrl ?? '') : (options.cloud?.convexHttpBaseUrl ?? process.env.BROSKI_CONVEX_HTTP_BASE_URL ?? process.env.CONVEX_HTTP_BASE_URL ?? '')).trim().replace(/\/+$/, '')
+  const convexHttpBaseUrl = (() => {
+    if (!convexHttpBaseUrlRaw) return ''
+    try {
+      const u = new URL(convexHttpBaseUrlRaw)
+      if (u.protocol !== 'https:' && !(u.protocol === 'http:' && !compiled)) return ''
+      // Cheap "pinning": require Convex HTTPS hostnames in production.
+      if (compiled && !u.hostname.endsWith('.convex.site')) return ''
+      return `${u.protocol}//${u.host}`
+    } catch {
+      return ''
+    }
+  })()
+  // In production binaries, always enable TLS for any non-loopback access.
+  // Allowing BROSKI_TLS=0 creates sniffing/MITM risk on WiFi/hotspot.
+  const tlsEnabled = compiled ? true : isTlsEnabledByEnv()
+  let tlsMaterial: TlsMaterial | null = null
 
   // Claude Code filesystem watchers (skills/plugins/hook/command updates).
-  const ccFsWatchers = new Map<string, { watcher: FSWatcher; debounce: Timer | null; kind: 'skills' | 'plugins' | 'hooks' | 'commands' | 'mcp'; cwd?: string }>()
-  const ensureClaudeWatchDir = (
-    dir: string,
-    kind: 'skills' | 'plugins' | 'hooks' | 'commands' | 'mcp',
-    cwd?: string,
-    recursive = true,
-  ) => {
+  const ccFsWatchers = new Map<
+    string,
+    {
+      watcher: FSWatcher
+      debounce: Timer | null
+      kind: 'skills' | 'plugins' | 'hooks' | 'commands' | 'mcp'
+      cwd?: string
+    }
+  >()
+  const ensureClaudeWatchDir = (dir: string, kind: 'skills' | 'plugins' | 'hooks' | 'commands' | 'mcp', cwd?: string, recursive = true) => {
     if (!dir || ccFsWatchers.has(dir)) return
 
     try {
@@ -1288,8 +1275,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               kind,
               dir,
               ...(cwd ? { cwd } : {}),
-              ...(filename ? { file: String(filename) } : {}),
-            },
+              ...(filename ? { file: String(filename) } : {})
+            }
           })
         }, 150)
       })
@@ -1314,7 +1301,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     ptyManager,
     send,
     log,
-    resolveSecurePath: getSecurePath,
+    resolveSecurePath: getSecurePath
   })
 
   // Watch user-scope Claude Code skills (best-effort).
@@ -1345,12 +1332,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     targetContentFile?: string | null
   }
 
-  const snapshotCodexFileChange = async (
-    threadId: string,
-    turnId: string,
-    itemId: string,
-    item: any,
-  ): Promise<void> => {
+  const snapshotCodexFileChange = async (threadId: string, turnId: string, itemId: string, item: any): Promise<void> => {
     const cwd = cxThreadCwds.get(threadId)
     if (!cwd) return
     const changes = Array.isArray(item?.changes) ? item.changes : []
@@ -1367,8 +1349,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       const relPath = safeString(c?.path)
       const kindObj = c?.kind
       const kindType = safeString(kindObj?.type).toLowerCase()
-      const kind: FileSnapshotEntry['kind'] =
-        kindType === 'add' ? 'add' : kindType === 'delete' ? 'delete' : 'update'
+      const kind: FileSnapshotEntry['kind'] = kindType === 'add' ? 'add' : kindType === 'delete' ? 'delete' : 'update'
       const movePathRaw = safeString(kindObj?.movePath)
       const movePath = movePathRaw ? movePathRaw : null
 
@@ -1408,7 +1389,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         movePath,
         existed,
         contentFile,
-        ...(movePath ? { targetExisted, targetContentFile } : {}),
+        ...(movePath ? { targetExisted, targetContentFile } : {})
       })
       idx++
     }
@@ -1419,7 +1400,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       itemId,
       cwd,
       createdAt: Math.floor(Date.now() / 1000),
-      entries,
+      entries
     }
     const manifestPath = resolve(baseDir, 'manifest.json')
     await writeFile(manifestPath, JSON.stringify(manifest, null, 2), 'utf8')
@@ -1432,18 +1413,17 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     const manifestPath = cxFileChangeSnapshots.get(key)
     if (!manifestPath) return []
     const raw = await readFile(manifestPath, 'utf8')
-    const parsed = JSON.parse(raw) as { cwd: string; entries: FileSnapshotEntry[] }
+    const parsed = JSON.parse(raw) as {
+      cwd: string
+      entries: FileSnapshotEntry[]
+    }
     const secureCwd = await getSecurePath(parsed.cwd)
     if (!secureCwd) return []
     const cwd = secureCwd
     const reverted: string[] = []
     const filesDir = resolve(dirname(manifestPath), 'files')
 
-    const restoreFile = async (
-      rel: string,
-      existed: boolean,
-      contentFile?: string | null,
-    ) => {
+    const restoreFile = async (rel: string, existed: boolean, contentFile?: string | null) => {
       const abs = safeResolveInCwd(cwd, rel)
       if (!existed) {
         await rm(abs, { force: true })
@@ -1501,14 +1481,17 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           if (n.method === 'app/list/updated') {
             const appData = params.data ?? params
             for (const ws of sockets) {
-              send(ws, { type: 'cx_apps_updated', data: Array.isArray(appData) ? appData : [] })
+              send(ws, {
+                type: 'cx_apps_updated',
+                data: Array.isArray(appData) ? appData : []
+              })
             }
           }
 
           // Track thread names from thread/name/updated notifications (SDK ThreadNameUpdatedNotification)
           if (n.method === 'thread/name/updated') {
             const nameThreadId = safeString(params.threadId)
-            const threadName = safeString(params.threadName).trim()
+            const threadName = safeString(params.threadName ?? params.name).trim()
             if (nameThreadId) {
               if (threadName) {
                 cxThreadNames.set(nameThreadId, threadName)
@@ -1517,6 +1500,14 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               }
             }
           }
+
+          handleCodexRuntimeNotification({
+            method: n.method,
+            params,
+            sockets,
+            send,
+            safeString
+          })
 
           if (!threadId && params.turn?.threadId) {
             threadId = safeString(params.turn.threadId)
@@ -1578,16 +1569,14 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             const turnStatus = safeString(params.turn?.status).toLowerCase()
             const turnError = params.turn?.error
             logInfo(`[Codex] turn/completed: threadId=${threadId}, turnId=${turnId}, status=${turnStatus}`)
-            
+
             // Handle turn/completed with failed status (different from turn/failed notification)
             if (turnStatus === 'failed' && turnError && threadId) {
-              const errorMessage = typeof turnError === 'string' 
-                ? turnError 
-                : turnError?.message ?? turnError?.additionalDetails ?? JSON.stringify(turnError)
+              const errorMessage = typeof turnError === 'string' ? turnError : (turnError?.message ?? turnError?.additionalDetails ?? JSON.stringify(turnError))
               const errorCode = turnError?.codexErrorInfo ?? turnError?.code ?? 'turn_failed'
-              
+
               logError(`[Codex] turn/completed with failed status:`, JSON.stringify(turnError, null, 2))
-              
+
               // Extract structured error info (ModelCap, ServerOverloaded, etc.) — #13
               const codexErrorInfoTC = turnError?.codexErrorInfo ?? turnError?.details?.codexErrorInfo
               let modelCapModelTC: string | undefined
@@ -1612,15 +1601,19 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                 else if (infoType === 'contextWindowExceeded' || infoType === 'ContextWindowExceeded') derivedErrorCode = 'context_window_exceeded'
                 else if (infoType === 'usageLimitExceeded' || infoType === 'UsageLimitExceeded') derivedErrorCode = 'usage_limit_exceeded'
               }
-              
-              emitCxStream(threadId, { 
-                type: 'error', 
-                message: errorMessage,
-                code: derivedErrorCode,
-                details: turnError,
-                modelCapModel: modelCapModelTC,
-                modelCapRetrySeconds: modelCapRetrySecondsTC,
-              }, owner)
+
+              emitCxStream(
+                threadId,
+                {
+                  type: 'error',
+                  message: errorMessage,
+                  code: derivedErrorCode,
+                  details: turnError,
+                  modelCapModel: modelCapModelTC,
+                  modelCapRetrySeconds: modelCapRetrySecondsTC
+                },
+                owner
+              )
             }
           }
           // Handle turn failures and errors - EMIT TO CLIENT, not just log!
@@ -1630,13 +1623,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             logError(`[Codex] ${n.method}: threadId=${threadId}`, JSON.stringify(error, null, 2))
             if (threadId) {
               cxActiveTurns.delete(threadId)
-              
+
               // CRITICAL: Emit error to client so UI knows the turn failed
-              const errorMessage = typeof error === 'string' 
-                ? error 
-                : error?.message ?? error?.additionalDetails ?? JSON.stringify(error)
+              const errorMessage = typeof error === 'string' ? error : (error?.message ?? error?.additionalDetails ?? JSON.stringify(error))
               const errorCode = error?.codexErrorInfo ?? error?.code ?? n.method
-              
+
               // Extract structured error info (ModelCap, ServerOverloaded, etc.) — #13
               const codexErrorInfoTF = error?.codexErrorInfo ?? error?.details?.codexErrorInfo
               let modelCapModelTF: string | undefined
@@ -1661,16 +1652,20 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                 else if (infoType === 'contextWindowExceeded' || infoType === 'ContextWindowExceeded') derivedErrorCodeTF = 'context_window_exceeded'
                 else if (infoType === 'usageLimitExceeded' || infoType === 'UsageLimitExceeded') derivedErrorCodeTF = 'usage_limit_exceeded'
               }
-              
-              emitCxStream(threadId, { 
-                type: 'error', 
-                message: errorMessage,
-                code: derivedErrorCodeTF,
-                details: error,
-                modelCapModel: modelCapModelTF,
-                modelCapRetrySeconds: modelCapRetrySecondsTF,
-              }, owner)
-              
+
+              emitCxStream(
+                threadId,
+                {
+                  type: 'error',
+                  message: errorMessage,
+                  code: derivedErrorCodeTF,
+                  details: error,
+                  modelCapModel: modelCapModelTF,
+                  modelCapRetrySeconds: modelCapRetrySecondsTF
+                },
+                owner
+              )
+
               // CRITICAL: Send session.idle to reset UI state
               if (owner) {
                 send(owner, {
@@ -1678,9 +1673,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                   data: {
                     payload: {
                       type: 'session.idle',
-                      properties: { sessionID: threadId },
-                    },
-                  },
+                      properties: { sessionID: threadId }
+                    }
+                  }
                 })
               }
             }
@@ -1711,13 +1706,13 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               callId: safeString(params.call_id ?? params.callId),
               senderThreadId: safeString(params.sender_thread_id ?? params.senderThreadId ?? threadId),
               receiverThreadId: safeString(params.receiver_thread_id ?? params.receiverThreadId),
-              receiverThreadIds: Array.isArray(params.receiver_thread_ids ?? params.receiverThreadIds)
-                ? (params.receiver_thread_ids ?? params.receiverThreadIds).map(safeString)
-                : [],
+              receiverThreadIds: Array.isArray(params.receiver_thread_ids ?? params.receiverThreadIds) ? (params.receiver_thread_ids ?? params.receiverThreadIds).map(safeString) : [],
               newThreadId: safeString(params.new_thread_id ?? params.newThreadId) || undefined,
+              newAgentNickname: safeString(params.new_agent_nickname ?? params.newAgentNickname) || undefined,
+              newAgentRole: safeString(params.new_agent_role ?? params.newAgentRole) || undefined,
               prompt: safeString(params.prompt),
               status: params.status,
-              statuses: params.statuses,
+              statuses: params.statuses
             }
             const senderThread = collabData.senderThreadId || threadId
             const collabOwner = senderThread ? cxThreadOwners.get(senderThread) : null
@@ -1734,7 +1729,10 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             // only forward them when explicitly enabled for debugging.
             if (DEBUG_CX_GLOBAL || !n.method.startsWith('codex/event/')) {
               for (const ws of sockets) {
-                send(ws, { type: 'cx_global', data: { method: n.method, params } })
+                send(ws, {
+                  type: 'cx_global',
+                  data: { method: n.method, params }
+                })
               }
             }
             return
@@ -1749,9 +1747,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               data: {
                 payload: {
                   type: 'session.status',
-                  properties: { sessionID: threadId, status: { type: 'busy' } },
-                },
-              },
+                  properties: { sessionID: threadId, status: { type: 'busy' } }
+                }
+              }
             })
           }
           if (owner && n.method === 'turn/completed' && threadId) {
@@ -1760,9 +1758,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               data: {
                 payload: {
                   type: 'session.idle',
-                  properties: { sessionID: threadId },
-                },
-              },
+                  properties: { sessionID: threadId }
+                }
+              }
             })
           }
         },
@@ -1773,15 +1771,26 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           const isLegacyExecApproval = requestMethod === 'execCommandApproval'
           const isLegacyApproval = isLegacyPatchApproval || isLegacyExecApproval
 
-          const threadId = safeString(
-            params.threadId ??
-              params.thread_id ??
-              params.threadID ??
-              params.conversationId ??
-              params.conversation_id,
-          )
-          const turnId = safeString(params.turnId ?? params.turn_id ?? params.turnID)
+          let threadId = safeString(params.threadId ?? params.thread_id ?? params.threadID ?? params.conversationId ?? params.conversation_id)
+          let turnId = safeString(params.turnId ?? params.turn_id ?? params.turnID)
           const itemId = safeString(params.itemId ?? params.item_id ?? params.itemID ?? params.callId)
+
+          // skill/requestApproval does not currently include threadId in protocol params.
+          // Recover it from cached item events: key format `${threadId}:${turnId}:${itemId}`.
+          if (!threadId && requestMethod === 'skill/requestApproval' && itemId) {
+            for (const key of cxItemCache.keys()) {
+              if (key.endsWith(`:${itemId}`)) {
+                const [resolvedThreadId, resolvedTurnId] = key.split(':')
+                threadId = resolvedThreadId ?? ''
+                if (!turnId) turnId = resolvedTurnId ?? ''
+                break
+              }
+            }
+          }
+          if (!threadId && requestMethod === 'skill/requestApproval' && cxThreadOwners.size === 1) {
+            threadId = Array.from(cxThreadOwners.keys())[0] ?? ''
+          }
+
           const owner = threadId ? cxThreadOwners.get(threadId) : null
 
           // ── Handle item/tool/call (dynamic tool calls) ──
@@ -1796,13 +1805,18 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                 threadId,
                 data: {
                   type: 'info',
-                  message: `Dynamic tool "${safeString(params.tool)}" was requested but is not yet supported by Broski.`,
-                } satisfies CodexStreamMessage,
+                  message: `Dynamic tool "${safeString(params.tool)}" was requested but is not yet supported by Broski.`
+                } satisfies CodexStreamMessage
               })
             }
             return {
-              contentItems: [{ type: 'inputText', text: 'Dynamic tool calls are not yet supported by Broski.' }],
-              success: false,
+              contentItems: [
+                {
+                  type: 'inputText',
+                  text: 'Dynamic tool calls are not yet supported by Broski.'
+                }
+              ],
+              success: false
             }
           }
 
@@ -1822,9 +1836,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             return { decision: 'decline' }
           }
 
-          const cached = threadId && turnId && itemId
-            ? cxItemCache.get(`${threadId}:${turnId}:${itemId}`)
-            : null
+          const cached = threadId && turnId && itemId ? cxItemCache.get(`${threadId}:${turnId}:${itemId}`) : null
 
           // #29: Include structured approval context (command, cwd, commandActions, reason)
           // The SDK sends these in CommandExecutionRequestApprovalParams / FileChangeRequestApprovalParams.
@@ -1834,7 +1846,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             cachedItem: cached,
             threadId,
             ...(turnId ? { turnId } : {}),
-            ...(itemId ? { itemId } : {}),
+            ...(itemId ? { itemId } : {})
           }
 
           // Ensure command & cwd from approval params are surfaced (they may differ from cachedItem)
@@ -1843,18 +1855,25 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             if (params.cwd && !enrichedParams.approvalCwd) enrichedParams.approvalCwd = params.cwd
             if (params.commandActions) enrichedParams.commandActions = params.commandActions
             if (params.parsedCmd && !enrichedParams.commandActions) enrichedParams.commandActions = params.parsedCmd
+            const networkApprovalContext = params.networkApprovalContext ?? params.network_approval_context
+            if (networkApprovalContext && !enrichedParams.networkApprovalContext) {
+              enrichedParams.networkApprovalContext = networkApprovalContext
+            }
+            const proposedNetworkPolicyAmendments = params.proposedNetworkPolicyAmendments ?? params.proposed_network_policy_amendments
+            if (proposedNetworkPolicyAmendments && !enrichedParams.proposedNetworkPolicyAmendments) {
+              enrichedParams.proposedNetworkPolicyAmendments = proposedNetworkPolicyAmendments
+            }
           }
           if (requestMethod === 'item/fileChange/requestApproval' || isLegacyPatchApproval) {
             if (params.grantRoot) enrichedParams.grantRoot = params.grantRoot
             if (params.fileChanges && !enrichedParams.fileChanges) enrichedParams.fileChanges = params.fileChanges
           }
+          if (requestMethod === 'skill/requestApproval') {
+            if (params.skillName && !enrichedParams.skillName) enrichedParams.skillName = params.skillName
+            if (params.itemId && !enrichedParams.itemId) enrichedParams.itemId = params.itemId
+          }
 
-          const frontendMethod =
-            isLegacyExecApproval
-              ? 'item/commandExecution/requestApproval'
-              : isLegacyPatchApproval
-                ? 'item/fileChange/requestApproval'
-                : requestMethod
+          const frontendMethod = isLegacyExecApproval ? 'item/commandExecution/requestApproval' : isLegacyPatchApproval ? 'item/fileChange/requestApproval' : requestMethod
 
           send(owner, {
             type: 'cx_stream',
@@ -1863,8 +1882,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               type: 'request',
               requestId: String(r.id),
               method: frontendMethod,
-              params: enrichedParams,
-            } satisfies CodexStreamMessage,
+              params: enrichedParams
+            } satisfies CodexStreamMessage
           })
 
           const response = await new Promise<CodexApprovalReply>((resolve) => {
@@ -1876,113 +1895,67 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             cxApprovalWaiters.set(key, { resolve, timer })
           })
 
-          // ── Handle request_user_input (Codex SDK v0.87.0+) ──
-          // Protocol: ToolRequestUserInputResponse = { answers: { [questionId]: { answers: string[] } } }
-          const isUserInput = requestMethod === 'item/tool/requestUserInput'
-          if (isUserInput && (response as any).answers) {
-            return { answers: (response as any).answers }
-          }
-
-          // ── Handle command approval with exec-policy amendment ──
-          const isCommandApproval =
-            requestMethod === 'item/commandExecution/requestApproval' || isLegacyExecApproval
-          if (isCommandApproval && response.response === 'execpolicy' && response.execpolicyAmendment) {
-            if (isLegacyApproval) {
-              return {
-                decision: {
-                  approved_execpolicy_amendment: {
-                    proposed_execpolicy_amendment: response.execpolicyAmendment,
-                  },
-                },
-              }
-            }
-
-            // Protocol: CommandExecutionApprovalDecision has #[serde(rename_all = "camelCase")]
-            // which renames BOTH variant names AND struct variant fields to camelCase.
-            // ExecPolicyAmendment is #[serde(transparent)] → serializes as plain string[].
-            // Wire format: { "acceptWithExecpolicyAmendment": { "execpolicyAmendment": ["echo", "hello"] } }
-            return {
-              decision: {
-                acceptWithExecpolicyAmendment: {
-                  execpolicyAmendment: response.execpolicyAmendment,
-                },
-              },
-            }
-          }
-
-          if (isLegacyApproval) {
-            // Legacy v1 ReviewDecision values:
-            // "approved" | "approved_for_session" | "denied" | "abort"
-            const legacyDecision =
-              response.response === 'always'
-                ? 'approved_for_session'
-                : response.response === 'once'
-                  ? 'approved'
-                  : 'denied'
-            return { decision: legacyDecision }
-          }
-
-          // ── Standard approval decision ──
-          // Protocol: CommandExecutionApprovalDecision / FileChangeApprovalDecision
-          // "accept" | "acceptForSession" | "decline" | "cancel"
-          const decision =
-            response.response === 'always'
-              ? 'acceptForSession'
-              : response.response === 'once'
-                ? 'accept'
-                : 'decline'
-
-          return { decision }
+          return buildCodexApprovalDecision({
+            requestMethod,
+            isLegacyApproval,
+            isLegacyExecApproval,
+            response,
+            requestParams: params,
+            safeString
+          })
         },
         // Handle app-server crash - notify all affected clients
         onExit: (code, signal) => {
           logError(`[Codex] App-server crashed! code=${code}, signal=${signal}`)
-          
+
           // Notify all thread owners that the server crashed
           for (const [threadId, owner] of cxThreadOwners.entries()) {
             send(owner, {
               type: 'cx_stream',
               threadId,
-              data: { 
-                type: 'error', 
+              data: {
+                type: 'error',
                 message: 'Codex agent stopped unexpectedly. It will restart automatically on your next message.',
-                code: 'app_server_crashed',
-              },
+                code: 'app_server_crashed'
+              }
             })
-            
+
             // Reset UI state
             send(owner, {
               type: 'sdk_event',
               data: {
                 payload: {
                   type: 'session.idle',
-                  properties: { sessionID: threadId },
-                },
-              },
+                  properties: { sessionID: threadId }
+                }
+              }
             })
           }
-          
+
           // Clean up all state
           cxThreadOwners.clear()
           cxActiveTurns.clear()
           cxEventBuffers.clear()
-          cxApprovalWaiters.forEach(w => {
+          cxApprovalWaiters.forEach((w) => {
             clearTimeout(w.timer)
             w.resolve({ response: 'reject' })
           })
           cxApprovalWaiters.clear()
-          
+
           // Reset client so it can be re-created on next request
           codexClient = null
         },
         onError: (error) => {
           logError(`[Codex] App-server error:`, error.message)
-          
+
           // Broadcast error to all connected clients
           for (const ws of sockets) {
-            send(ws, { type: 'cx_global', data: { method: 'error', params: { message: error.message } } })
+            send(ws, {
+              type: 'cx_global',
+              data: { method: 'error', params: { message: error.message } }
+            })
           }
-        },
+        }
       })
     }
 
@@ -2000,9 +1973,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       connectionType: ctx.connectionType,
       rttMs: ctx.lastRttMs,
       connectedAt: ctx.connectedAt,
-      currentView: ctx.projectPath || ctx.sessionId
-        ? { projectPath: ctx.projectPath, sessionId: ctx.sessionId }
-        : undefined,
+      currentView: ctx.projectPath || ctx.sessionId ? { projectPath: ctx.projectPath, sessionId: ctx.sessionId } : undefined
     }
   }
 
@@ -2096,7 +2067,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         const statusMap = await oc.getSessionStatus(projectPath).catch(() => ({}))
         const status = statusMap[sessionId]
         const newStatus = status?.type ?? 'idle'
-        
+
         // Debug: Log raw status response on first few polls or when it changes
         if (DEBUG_RTS && (idleCount < 3 || newStatus !== lastSessionStatus)) {
           const sessionIds = Object.keys(statusMap)
@@ -2107,20 +2078,20 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             logDebug(`[RTS] OC External: Session ${sessionId} NOT in status map, defaulting to idle`)
           }
         }
-        
+
         // Track idle state for adaptive polling
         if (newStatus === 'idle') {
           idleCount++
         } else {
           idleCount = 0
         }
-        
+
         if (newStatus !== lastSessionStatus) {
           if (DEBUG_RTS) {
             logDebug(`[RTS] OC External: Session ${sessionId} status changed: ${lastSessionStatus} -> ${newStatus}`)
           }
           lastSessionStatus = newStatus
-          
+
           // Always emit session status events (important for UI state)
           enqueueSdkEvent({
             directory: projectPath,
@@ -2128,9 +2099,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               type: 'session.status',
               properties: {
                 sessionID: sessionId,
-                status: { type: newStatus },
-              },
-            },
+                status: { type: newStatus }
+              }
+            }
           })
         }
 
@@ -2144,17 +2115,17 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           if (!msg?.info?.id) continue
           const msgId = msg.info.id
           const isNewMessage = !seenMessageIds.has(msgId)
-          
+
           if (isNewMessage) {
             seenMessageIds.add(msgId)
-            
+
             // Only emit events AFTER initial sync
             if (initialSyncDone) {
               hadChanges = true
               if (DEBUG_RTS) {
                 logDebug(`[RTS] OC External: New message ${msgId} in session ${sessionId}`)
               }
-              
+
               enqueueSdkEvent({
                 directory: projectPath,
                 payload: {
@@ -2162,10 +2133,10 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                   properties: {
                     info: {
                       ...msg.info,
-                      sessionID: sessionId,
-                    },
-                  },
-                },
+                      sessionID: sessionId
+                    }
+                  }
+                }
               })
             }
           }
@@ -2176,27 +2147,25 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             if (!part?.id) continue
             const partId = part.id
             const isNewPart = !seenPartIds.has(partId)
-            
+
             // For text parts, check for content changes
             if (part.type === 'text' && typeof part.text === 'string') {
               const prevText = lastTextByPartId.get(partId) ?? ''
               const textChanged = part.text !== prevText
-              
+
               if (textChanged) {
                 lastTextByPartId.set(partId, part.text)
-                
+
                 // Only emit events AFTER initial sync
                 if (initialSyncDone) {
                   hadChanges = true
                   // Compute delta: if text was appended (not replaced), extract the new portion
-                  const delta = prevText && part.text.startsWith(prevText) 
-                    ? part.text.slice(prevText.length) 
-                    : undefined
-                  
+                  const delta = prevText && part.text.startsWith(prevText) ? part.text.slice(prevText.length) : undefined
+
                   if (DEBUG_RTS) {
                     logDebug(`[RTS] OC External: Text part ${partId} updated, delta=${delta?.length ?? 'full'}`)
                   }
-                  
+
                   if (delta) {
                     // Lightweight delta event — Flutter appends text incrementally (SDK v1.2.1)
                     enqueueSdkEvent({
@@ -2208,9 +2177,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                           messageID: msgId,
                           partID: partId,
                           field: 'text',
-                          delta,
-                        },
-                      },
+                          delta
+                        }
+                      }
                     })
                   } else {
                     // Full replacement — text was edited, not appended
@@ -2222,32 +2191,32 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                           part: {
                             ...part,
                             sessionID: sessionId,
-                            messageID: msgId,
-                          },
-                        },
-                      },
+                            messageID: msgId
+                          }
+                        }
+                      }
                     })
                   }
                 }
               }
             }
-            
+
             // For tool parts, check for state changes
             if (part.type === 'tool' && part.state) {
               const stateKey = `${part.state.status}:${JSON.stringify(part.state.output ?? '')}`
               const prevState = lastToolStateByPartId.get(partId)
               const stateChanged = stateKey !== prevState
-              
+
               if (stateChanged) {
                 lastToolStateByPartId.set(partId, stateKey)
-                
+
                 // Only emit events AFTER initial sync
                 if (initialSyncDone) {
                   hadChanges = true
                   if (DEBUG_RTS) {
                     logDebug(`[RTS] OC External: Tool part ${partId} state changed to ${part.state.status}`)
                   }
-                  
+
                   enqueueSdkEvent({
                     directory: projectPath,
                     payload: {
@@ -2256,19 +2225,19 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                         part: {
                           ...part,
                           sessionID: sessionId,
-                          messageID: msgId,
-                        },
-                      },
-                    },
+                          messageID: msgId
+                        }
+                      }
+                    }
                   })
                 }
               }
             }
-            
+
             // Track new parts
             if (isNewPart) {
               seenPartIds.add(partId)
-              
+
               // Only emit events AFTER initial sync, and for non-text parts (text handled above)
               if (initialSyncDone && part.type !== 'text') {
                 hadChanges = true
@@ -2280,10 +2249,10 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                       part: {
                         ...part,
                         sessionID: sessionId,
-                        messageID: msgId,
-                      },
-                    },
-                  },
+                        messageID: msgId
+                      }
+                    }
+                  }
                 })
               }
             }
@@ -2302,7 +2271,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         if (hadChanges) {
           idleCount = 0
           lastChangeTime = Date.now()
-          
+
           // Mark as busy when we see content changes (since API doesn't report status)
           if (!wasEverBusy || lastEmittedStatus !== 'busy') {
             wasEverBusy = true
@@ -2316,13 +2285,13 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                 type: 'session.status',
                 properties: {
                   sessionID: sessionId,
-                  status: { type: 'busy' },
-                },
-              },
+                  status: { type: 'busy' }
+                }
+              }
             })
           }
         }
-        
+
         // Fallback idle detection: if we had changes before but none for 1.5 seconds, emit idle
         // This is needed because getSessionStatus returns 0 sessions (doesn't track external sessions)
         const timeSinceLastChange = Date.now() - lastChangeTime
@@ -2337,9 +2306,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               type: 'session.status',
               properties: {
                 sessionID: sessionId,
-                status: { type: 'idle' },
-              },
-            },
+                status: { type: 'idle' }
+              }
+            }
           })
         }
       } catch (err) {
@@ -2376,7 +2345,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         if (DEBUG_RTS) {
           logDebug(`[RTS] OC External: Stopped polling for session ${sessionId}`)
         }
-      },
+      }
     }
   }
 
@@ -2409,7 +2378,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       }
       return parts.join('')
     }
-    
+
     const extractThinking = (content: unknown): string => {
       if (!Array.isArray(content)) return ''
       const parts: string[] = []
@@ -2421,13 +2390,13 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       }
       return parts.join('')
     }
-    
+
     type ToolUseBlock = {
       id: string
       name: string
       input: any
     }
-    
+
     const extractToolUseBlocks = (content: unknown): ToolUseBlock[] => {
       if (!Array.isArray(content)) return []
       const tools: ToolUseBlock[] = []
@@ -2437,19 +2406,19 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           tools.push({
             id: safeString((block as any).id),
             name: safeString((block as any).name),
-            input: (block as any).input,
+            input: (block as any).input
           })
         }
       }
       return tools
     }
-    
+
     type ToolResultBlock = {
       toolUseId: string
       content: string
       isError?: boolean
     }
-    
+
     const extractToolResults = (content: unknown): ToolResultBlock[] => {
       if (!Array.isArray(content)) return []
       const results: ToolResultBlock[] = []
@@ -2470,7 +2439,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           results.push({
             toolUseId: safeString((block as any).tool_use_id),
             content: resultContent,
-            isError: (block as any).is_error === true,
+            isError: (block as any).is_error === true
           })
         }
       }
@@ -2493,7 +2462,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           const res = await fh.read(buf, 0, len, start)
           const txt = buf.subarray(0, res.bytesRead).toString('utf-8')
           const lines = txt.split('\n').filter(Boolean)
-          
+
           // Process ALL lines (not just the last one) to build complete baseline
           for (const line of lines) {
             let parsed: any
@@ -2502,28 +2471,26 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             } catch {
               continue
             }
-            
+
             // Process assistant records for text, thinking, and tool_use
             if (parsed?.type === 'assistant' && parsed?.isMeta !== true) {
-              const msgId = typeof parsed?.uuid === 'string'
-                ? parsed.uuid
-                : (typeof parsed?.message?.id === 'string' ? parsed.message.id : '')
+              const msgId = typeof parsed?.uuid === 'string' ? parsed.uuid : typeof parsed?.message?.id === 'string' ? parsed.message.id : ''
               if (!msgId) continue
-              
+
               const content = parsed?.message?.content
-              
+
               // Track text baseline
               const text = extractText(content)
               if (text) {
                 lastTextByMessageId.set(msgId, text)
               }
-              
+
               // Track thinking baseline
               const thinking = extractThinking(content)
               if (thinking) {
                 lastThinkingByMessageId.set(msgId, thinking)
               }
-              
+
               // Track emitted tool calls baseline
               const toolUseBlocks = extractToolUseBlocks(content)
               for (const tool of toolUseBlocks) {
@@ -2533,10 +2500,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               }
             }
           }
-          
+
           if (DEBUG_RTS) {
-            logDebug(`[RTS] CC Bootstrap: Built baseline for session ${sessionId}: ` +
-              `${lastTextByMessageId.size} texts, ${lastThinkingByMessageId.size} thinking, ${emittedToolCalls.size} tool calls`)
+            logDebug(`[RTS] CC Bootstrap: Built baseline for session ${sessionId}: ` + `${lastTextByMessageId.size} texts, ${lastThinkingByMessageId.size} thinking, ${emittedToolCalls.size} tool calls`)
           }
         } finally {
           await fh.close().catch(() => {})
@@ -2546,7 +2512,15 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       }
     }
 
-    const extractUsage = (parsed: any): { inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheWriteTokens?: number; reasoningTokens?: number } => {
+    const extractUsage = (
+      parsed: any
+    ): {
+      inputTokens?: number
+      outputTokens?: number
+      cacheReadTokens?: number
+      cacheWriteTokens?: number
+      reasoningTokens?: number
+    } => {
       const usage = parsed?.message?.usage
       if (!usage || typeof usage !== 'object') return {}
       const inputTokens = Number((usage as any).input_tokens ?? NaN)
@@ -2559,7 +2533,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         ...(Number.isFinite(outputTokens) ? { outputTokens } : {}),
         ...(Number.isFinite(cacheReadTokens) ? { cacheReadTokens } : {}),
         ...(Number.isFinite(cacheWriteTokens) ? { cacheWriteTokens } : {}),
-        ...(Number.isFinite(reasoningTokens) ? { reasoningTokens } : {}),
+        ...(Number.isFinite(reasoningTokens) ? { reasoningTokens } : {})
       }
     }
 
@@ -2576,19 +2550,23 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     const applyAssistantTextUpdate = (msgId: string, text: string, parsed?: any) => {
       if (!msgId) return
       const prev = lastTextByMessageId.get(msgId) ?? ''
-      
+
       // Always update baseline state, even before initialSyncDone
       if (text && text !== prev) {
         lastTextByMessageId.set(msgId, text)
       }
-      
+
       // Only emit events AFTER initial sync is done
       if (!initialSyncDone) return
-      
+
       if (!text || text === prev) {
         // Still send completion if we learned this record is complete (e.g., usage filled later).
         if (parsed && isCompletedAssistantRecord(parsed)) {
-          emitCcStream(sessionId, { type: 'token-usage', usage: extractUsage(parsed), messageId: msgId })
+          emitCcStream(sessionId, {
+            type: 'token-usage',
+            usage: extractUsage(parsed),
+            messageId: msgId
+          })
         }
         return
       }
@@ -2596,42 +2574,62 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       if (prev && text.startsWith(prev)) {
         const delta = text.slice(prev.length)
         if (delta) {
-          emitCcStream(sessionId, { type: 'assistant-message-delta', content: delta, messageId: msgId })
+          emitCcStream(sessionId, {
+            type: 'assistant-message-delta',
+            content: delta,
+            messageId: msgId
+          })
         }
       } else {
         // Non-append update (file rewrites or truncated context): replace with full text.
-        emitCcStream(sessionId, { type: 'assistant-message', content: text, messageId: msgId })
+        emitCcStream(sessionId, {
+          type: 'assistant-message',
+          content: text,
+          messageId: msgId
+        })
       }
 
       if (parsed && isCompletedAssistantRecord(parsed)) {
-        emitCcStream(sessionId, { type: 'token-usage', usage: extractUsage(parsed), messageId: msgId })
+        emitCcStream(sessionId, {
+          type: 'token-usage',
+          usage: extractUsage(parsed),
+          messageId: msgId
+        })
       }
     }
-    
+
     const applyThinkingUpdate = (msgId: string, thinking: string) => {
       if (!msgId || !thinking) return
       const prev = lastThinkingByMessageId.get(msgId) ?? ''
-      
+
       // Always update baseline state, even before initialSyncDone
       if (thinking !== prev) {
         lastThinkingByMessageId.set(msgId, thinking)
       }
-      
+
       // Only emit events AFTER initial sync is done
       if (!initialSyncDone) return
       if (thinking === prev) return
-      
+
       if (prev && thinking.startsWith(prev)) {
         const delta = thinking.slice(prev.length)
         if (delta) {
-          emitCcStream(sessionId, { type: 'thinking-delta', content: delta, messageId: msgId })
+          emitCcStream(sessionId, {
+            type: 'thinking-delta',
+            content: delta,
+            messageId: msgId
+          })
         }
       } else {
         // Full thinking content (for initial or non-delta cases)
-        emitCcStream(sessionId, { type: 'thinking-delta', content: thinking, messageId: msgId })
+        emitCcStream(sessionId, {
+          type: 'thinking-delta',
+          content: thinking,
+          messageId: msgId
+        })
       }
     }
-    
+
     const processToolUseBlocks = (msgId: string, toolUseBlocks: ToolUseBlock[]) => {
       for (const tool of toolUseBlocks) {
         if (!tool.id) continue
@@ -2639,39 +2637,39 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         const key = `${msgId}:${tool.id}`
         if (emittedToolCalls.has(key)) continue
         emittedToolCalls.add(key)
-        
+
         // Only emit events AFTER initial sync is done
         if (!initialSyncDone) continue
-        
+
         emitCcStream(sessionId, {
           type: 'tool-call',
           tool: tool.name,
           input: tool.input,
           toolUseId: tool.id,
           status: 'running',
-          messageId: msgId,
+          messageId: msgId
         })
-        
+
         if (DEBUG_RTS) {
           logDebug(`[RTS] CC External: Emitted tool-call ${tool.name} (${tool.id}) for session ${sessionId}`)
         }
       }
     }
-    
+
     const processToolResults = (toolResults: ToolResultBlock[]) => {
       // Only emit events AFTER initial sync is done
       if (!initialSyncDone) return
-      
+
       for (const result of toolResults) {
         if (!result.toolUseId) continue
-        
+
         emitCcStream(sessionId, {
           type: 'tool-result',
           toolUseId: result.toolUseId,
           result: result.content,
-          toolUseResult: result.isError ? { error: result.content } : { output: result.content },
+          toolUseResult: result.isError ? { error: result.content } : { output: result.content }
         })
-        
+
         if (DEBUG_RTS) {
           logDebug(`[RTS] CC External: Emitted tool-result for ${result.toolUseId} for session ${sessionId}`)
         }
@@ -2702,9 +2700,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               continue
             }
             if (parsed?.type !== 'assistant' || parsed?.isMeta === true) continue
-            const msgId = typeof parsed?.uuid === 'string'
-              ? parsed.uuid
-              : (typeof parsed?.message?.id === 'string' ? parsed.message.id : '')
+            const msgId = typeof parsed?.uuid === 'string' ? parsed.uuid : typeof parsed?.message?.id === 'string' ? parsed.message.id : ''
             if (!msgId) continue
             const text = extractText(parsed?.message?.content)
             return { msgId, text, parsed }
@@ -2771,13 +2767,13 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           }
           return
         }
-        
+
         const size = Number(st.size ?? 0)
         const mtimeMs = st.mtime?.getTime?.() ?? 0
         const ino = Number(st.ino ?? 0)
-        
+
         if (!Number.isFinite(size)) return
-        
+
         // Check for file rotation (inode changed)
         if (lastIno !== 0 && ino !== lastIno) {
           if (DEBUG_RTS) {
@@ -2791,7 +2787,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           emittedToolCalls.clear()
         }
         lastIno = ino
-        
+
         // Check for truncation
         if (size < offset) {
           if (DEBUG_RTS) {
@@ -2803,7 +2799,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           lastThinkingByMessageId.clear()
           emittedToolCalls.clear()
         }
-        
+
         if (size === offset) {
           // Some Claude Code versions update transcripts in-place without appending bytes.
           // If mtime changed, re-read tail and diff the latest assistant message.
@@ -2844,33 +2840,31 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           }
 
           const recordType = parsed?.type
-          
+
           // Process assistant messages (text, thinking, tool_use)
           if (recordType === 'assistant' && parsed?.isMeta !== true) {
-            const msgId = typeof parsed?.uuid === 'string'
-              ? parsed.uuid
-              : (typeof parsed?.message?.id === 'string' ? parsed.message.id : '')
+            const msgId = typeof parsed?.uuid === 'string' ? parsed.uuid : typeof parsed?.message?.id === 'string' ? parsed.message.id : ''
             if (!msgId) continue
-            
+
             const content = parsed?.message?.content
-            
+
             // Extract and emit text
             const text = extractText(content)
             applyAssistantTextUpdate(msgId, text, parsed)
-            
+
             // Extract and emit thinking
             const thinking = extractThinking(content)
             if (thinking) {
               applyThinkingUpdate(msgId, thinking)
             }
-            
+
             // Extract and emit tool_use blocks
             const toolUseBlocks = extractToolUseBlocks(content)
             if (toolUseBlocks.length > 0) {
               processToolUseBlocks(msgId, toolUseBlocks)
             }
           }
-          
+
           // Process user messages (for tool_result AND user text)
           if (recordType === 'user') {
             const content = parsed?.message?.content
@@ -2882,7 +2876,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             }
           }
         }
-        
+
         // Mark initial sync as done after first successful pump
         // This ensures we only emit NEW events from this point on
         if (!initialSyncDone) {
@@ -2911,7 +2905,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
       void ensureFile().then((ok) => {
         if (!ok || !filePath || stopped) return
-        
+
         // Watch the file itself
         try {
           watcher = fsWatch(filePath, { persistent: false }, () => {
@@ -2919,14 +2913,16 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           })
           watcher.on('error', () => {
             if (watcher) {
-              try { watcher.close() } catch {}
+              try {
+                watcher.close()
+              } catch {}
               watcher = null
             }
           })
         } catch {
           // ignore (polling will handle)
         }
-        
+
         // Also watch parent directory for more reliable notifications
         try {
           const parentDir = dirname(filePath)
@@ -2937,7 +2933,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           })
           dirWatcher.on('error', () => {
             if (dirWatcher) {
-              try { dirWatcher.close() } catch {}
+              try {
+                dirWatcher.close()
+              } catch {}
               dirWatcher = null
             }
           })
@@ -2945,7 +2943,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           // ignore (polling will handle)
         }
       })
-      
+
       if (DEBUG_RTS) {
         logDebug(`[RTS] CC External: Started tailing session ${sessionId}`)
       }
@@ -2973,11 +2971,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           dirWatcher = null
         }
         void closeHandle()
-        
+
         if (DEBUG_RTS) {
           logDebug(`[RTS] CC External: Stopped tailing session ${sessionId}`)
         }
-      },
+      }
     }
   }
 
@@ -3081,7 +3079,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           const res = await fh.read(buf, 0, len, start)
           const txt = buf.subarray(0, res.bytesRead).toString('utf-8')
           const lines = txt.split('\n').filter(Boolean)
-          
+
           // Process ALL lines to build baseline (track emitted items)
           for (const line of lines) {
             let parsed: any
@@ -3090,10 +3088,10 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             } catch {
               continue
             }
-            
+
             const outerType = parsed?.type as string | undefined
             const payload = parsed?.payload ?? null
-            
+
             // Track response_item records for baseline
             if (outerType === 'response_item') {
               const item = payload?.item ?? payload
@@ -3103,7 +3101,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               }
             }
           }
-          
+
           if (DEBUG_RTS) {
             logDebug(`[RTS] CX Bootstrap: Built baseline for thread ${threadId}: ${emittedItems.size} items tracked`)
           }
@@ -3118,7 +3116,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     const emit = (method: string, params: Record<string, unknown>) => {
       // Only emit events AFTER initial sync is done
       if (!initialSyncDone) return
-      emitCxStream(threadId, { type: 'notification', method, params: { threadId, ...params } })
+      emitCxStream(threadId, {
+        type: 'notification',
+        method,
+        params: { threadId, ...params }
+      })
     }
 
     const pump = async () => {
@@ -3139,12 +3141,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           }
           return
         }
-        
+
         const size = Number(st.size ?? 0)
         const ino = Number(st.ino ?? 0)
-        
+
         if (!Number.isFinite(size)) return
-        
+
         // Check for file rotation (inode changed)
         if (lastIno !== 0 && ino !== lastIno) {
           if (DEBUG_RTS) {
@@ -3157,7 +3159,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           emittedItems.clear()
         }
         lastIno = ino
-        
+
         // Check for truncation
         if (size < offset) {
           if (DEBUG_RTS) {
@@ -3168,7 +3170,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           turnInProgress = false
           emittedItems.clear()
         }
-        
+
         if (size === offset) return
 
         if (!fileHandle) {
@@ -3202,7 +3204,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           // Handle event_msg records
           if (outerType === 'event_msg') {
             const payloadType = payload?.type
-            
+
             if (payloadType === 'user_message') {
               if (!turnInProgress) {
                 turnInProgress = true
@@ -3219,16 +3221,14 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               if (delta) {
                 emit('item/reasoning/textDelta', {
                   itemId: `cx-ext-thinking-${threadId}`,
-                  delta,
+                  delta
                 })
               }
               continue
             }
 
             if (payloadType === 'agent_message') {
-              const text = typeof payload?.message === 'string'
-                ? payload.message
-                : (typeof payload?.text === 'string' ? payload.text : '')
+              const text = typeof payload?.message === 'string' ? payload.message : typeof payload?.text === 'string' ? payload.text : ''
               if (text) {
                 const ts = typeof parsed?.timestamp === 'string' ? parsed.timestamp : `${Date.now()}`
                 const itemId = `cx-ext-msg-${ts.replace(/[^a-zA-Z0-9]/g, '_')}`
@@ -3243,7 +3243,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               }
               continue
             }
-            
+
             // Handle turn_completed event
             if (payloadType === 'turn_completed') {
               if (turnInProgress) {
@@ -3256,16 +3256,16 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               continue
             }
           }
-          
+
           // Handle response_item records (tool calls)
           if (outerType === 'response_item') {
             const item = payload?.item ?? payload
             const itemType = safeString(item?.type)
             const itemId = safeString(item?.id) || `cx-ext-item-${Date.now()}`
-            
+
             // Avoid duplicate emissions
             if (emittedItems.has(itemId)) continue
-            
+
             if (itemType === 'function_call') {
               emittedItems.add(itemId)
               const name = safeString(item?.name)
@@ -3273,55 +3273,55 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               try {
                 args = typeof item?.arguments === 'string' ? JSON.parse(item.arguments) : (item?.arguments ?? {})
               } catch {}
-              
+
               emit('item/started', {
                 item: {
                   id: itemId,
                   type: 'commandExecution',
                   command: args?.command || name,
-                  status: 'running',
-                },
+                  status: 'running'
+                }
               })
-              
+
               if (DEBUG_RTS) {
                 logDebug(`[RTS] CX External: item/started (function_call) ${name} for thread ${threadId}`)
               }
               continue
             }
-            
+
             if (itemType === 'function_call_output') {
               const callId = safeString(item?.call_id)
               const output = safeString(item?.output)
-              
+
               emit('item/completed', {
                 item: {
                   id: callId || itemId,
                   type: 'commandExecution',
                   status: 'completed',
-                  output,
-                },
+                  output
+                }
               })
-              
+
               if (DEBUG_RTS) {
                 logDebug(`[RTS] CX External: item/completed (function_call_output) for thread ${threadId}`)
               }
               continue
             }
-            
+
             // Handle file change items
             if (itemType === 'file_change' || itemType === 'fileChange') {
               emittedItems.add(itemId)
               const changes = Array.isArray(item?.changes) ? item.changes : []
-              
+
               emit('item/started', {
                 item: {
                   id: itemId,
                   type: 'fileChange',
                   changes,
-                  status: 'running',
-                },
+                  status: 'running'
+                }
               })
-              
+
               if (DEBUG_RTS) {
                 logDebug(`[RTS] CX External: item/started (fileChange) for thread ${threadId}`)
               }
@@ -3329,7 +3329,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             }
           }
         }
-        
+
         // Mark initial sync as done after first successful pump
         // This ensures we only emit NEW events from this point on
         if (!initialSyncDone) {
@@ -3356,7 +3356,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
     void ensureFile().then((ok) => {
       if (!ok || !filePath || stopped) return
-      
+
       // Watch the file itself
       try {
         watcher = fsWatch(filePath, { persistent: false }, () => {
@@ -3364,14 +3364,16 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         })
         watcher.on('error', () => {
           if (watcher) {
-            try { watcher.close() } catch {}
+            try {
+              watcher.close()
+            } catch {}
             watcher = null
           }
         })
       } catch {
         // ignore (polling will handle)
       }
-      
+
       // Also watch parent directory for more reliable notifications
       try {
         const parentDir = dirname(filePath)
@@ -3382,7 +3384,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         })
         dirWatcher.on('error', () => {
           if (dirWatcher) {
-            try { dirWatcher.close() } catch {}
+            try {
+              dirWatcher.close()
+            } catch {}
             dirWatcher = null
           }
         })
@@ -3390,7 +3394,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         // ignore (polling will handle)
       }
     })
-    
+
     if (DEBUG_RTS) {
       logDebug(`[RTS] CX External: Started tailing thread ${threadId}`)
     }
@@ -3415,11 +3419,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           dirWatcher = null
         }
         void closeHandle()
-        
+
         if (DEBUG_RTS) {
           logDebug(`[RTS] CX External: Stopped tailing thread ${threadId}`)
         }
-      },
+      }
     }
   }
 
@@ -3493,11 +3497,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     }
   }
 
-  const updateSessionWatchers = (
-    ws: ServerWebSocket<unknown>,
-    prevKey: string | null,
-    nextKey: string | null,
-  ) => {
+  const updateSessionWatchers = (ws: ServerWebSocket<unknown>, prevKey: string | null, nextKey: string | null) => {
     if (prevKey) {
       const prevSet = sessionWatchers.get(prevKey)
       if (prevSet) {
@@ -3517,12 +3517,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     }
   }
 
-  const broadcastToSessionWatchers = (
-    agent: AgentType,
-    sessionId: string,
-    message: ServerMessage,
-    owner?: ServerWebSocket<unknown> | null,
-  ) => {
+  const broadcastToSessionWatchers = (agent: AgentType, sessionId: string, message: ServerMessage, owner?: ServerWebSocket<unknown> | null) => {
     const key = makeSessionKey(agent, sessionId)
     if (!key) return
     const watchers = sessionWatchers.get(key)
@@ -3533,24 +3528,24 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     }
   }
 
-  const emitCcStream = (
-    sessionId: string,
-    streamMsg: ClaudeCodeStreamMessage,
-    owner?: ServerWebSocket<unknown> | null,
-  ) => {
-    const payload: ServerMessage = { type: 'cc_stream', data: streamMsg, sessionId }
+  const emitCcStream = (sessionId: string, streamMsg: ClaudeCodeStreamMessage, owner?: ServerWebSocket<unknown> | null) => {
+    const payload: ServerMessage = {
+      type: 'cc_stream',
+      data: streamMsg,
+      sessionId
+    }
     // Always look up the CURRENT owner from the map, not a stale captured reference.
     // This is critical: when the app disconnects and reconnects, the old `ws` is dead
     // but `ccSessionOwners` gets updated to the new socket via `set_view`.
     const resolvedOwner = owner ?? ccSessionOwners.get(sessionId) ?? null
     const key = makeSessionKey('claude-code', sessionId)
     const watchers = key ? sessionWatchers.get(key) : null
-    
+
     if (DEBUG_RTS) {
       const msgType = (streamMsg as any)?.type ?? 'unknown'
       logDebug(`[RTS] emitCcStream: session=${sessionId}, msgType=${msgType}, owner=${!!resolvedOwner}, watchers=${watchers?.size ?? 0}`)
     }
-    
+
     if (resolvedOwner) {
       send(resolvedOwner, payload)
     } else {
@@ -3562,21 +3557,21 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     broadcastToSessionWatchers('claude-code', sessionId, payload, resolvedOwner)
   }
 
-  const emitCxStream = (
-    threadId: string,
-    streamMsg: CodexStreamMessage,
-    owner?: ServerWebSocket<unknown> | null,
-  ) => {
-    const payload: ServerMessage = { type: 'cx_stream', data: streamMsg, threadId }
+  const emitCxStream = (threadId: string, streamMsg: CodexStreamMessage, owner?: ServerWebSocket<unknown> | null) => {
+    const payload: ServerMessage = {
+      type: 'cx_stream',
+      data: streamMsg,
+      threadId
+    }
     const key = makeSessionKey('codex', threadId)
     const watchers = key ? sessionWatchers.get(key) : null
     const resolvedOwner = owner ?? cxThreadOwners.get(threadId) ?? null
-    
+
     if (DEBUG_RTS) {
       const msgType = (streamMsg as any)?.type ?? (streamMsg as any)?.method ?? 'unknown'
       logDebug(`[RTS] emitCxStream: thread=${threadId}, msgType=${msgType}, owner=${!!resolvedOwner}, watchers=${watchers?.size ?? 0}`)
     }
-    
+
     if (resolvedOwner) {
       send(resolvedOwner, payload)
     } else {
@@ -3622,7 +3617,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
     // Only replay events from the last 60 seconds (stale events would confuse the UI)
     const cutoff = Date.now() - 60_000
-    const recent = buf.filter(e => e.ts >= cutoff)
+    const recent = buf.filter((e) => e.ts >= cutoff)
     if (recent.length === 0) return
 
     logInfo(`[RTS] Replaying ${recent.length} buffered events for ${agent}:${sessionId}`)
@@ -3646,7 +3641,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     const properties = payload?.properties ?? null
     const info = properties?.info ?? null
     const part = properties?.part ?? null
-    
+
     // Try all possible sessionId field locations and formats
     const sessionId =
       // Standard SDK locations
@@ -3662,7 +3657,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       // Payload level (some events have sessionId directly in payload)
       (typeof payload?.sessionID === 'string' && payload.sessionID) ||
       (typeof payload?.sessionId === 'string' && payload.sessionId)
-    
+
     return sessionId ? String(sessionId) : null
   }
 
@@ -3712,9 +3707,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     const normalizeDirectory = (dir: string) => safeDecode(dir).replace(/\/+$/, '')
     const directoryRaw = (typeof e?.directory === 'string' ? e.directory : null) ?? 'global'
     const directory = directoryRaw === 'global' ? 'global' : normalizeDirectory(directoryRaw)
-    const projectPath = ctx.projectPath && ctx.projectPath !== 'global'
-      ? normalizeDirectory(ctx.projectPath)
-      : ctx.projectPath
+    const projectPath = ctx.projectPath && ctx.projectPath !== 'global' ? normalizeDirectory(ctx.projectPath) : ctx.projectPath
 
     if (ctx.projectPath === 'global') {
       // Global view = receive ALL events (enables multi-device real-time sync)
@@ -3779,7 +3772,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       lastPongAt: Date.now(),
       lastRttMs: 0,
       connectionType: 'unknown' as const,
-      connectedAt: Date.now(),
+      connectedAt: Date.now()
     }
     const batchMs = getBatchInterval(ctx)
 
@@ -3797,7 +3790,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     }
 
     const priority = getEventPriority(event)
-    
+
     if (DEBUG_RTS) {
       const eventType = getEventType(event)
       const sid = extractSessionId(event)
@@ -3817,7 +3810,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         enqueueForClient(ws, event)
       }
     }
-    
+
     if (DEBUG_RTS && deliveredCount === 0 && sockets.size > 0) {
       logDebug(`[RTS] enqueueSdkEvent: WARNING - Event not delivered to any socket!`)
     }
@@ -3840,9 +3833,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         if (payloadType === 'session.idle' || payloadType === 'session.status') {
           const props = e?.payload?.properties
           const sid = safeString(props?.sessionID)
-          const isIdle =
-            payloadType === 'session.idle' ||
-            (props?.status?.type === 'idle')
+          const isIdle = payloadType === 'session.idle' || props?.status?.type === 'idle'
           if (sid && isIdle && ocSessionOwners.has(sid)) {
             ocSessionOwners.delete(sid)
             syncExternalTailForKey(makeSessionKey('opencode', sid))
@@ -3859,7 +3850,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
   const HEARTBEAT_INTERVAL_MS = 20000
   const HEARTBEAT_DEAD_AFTER_MS = 90000
-  
+
   // Tick heartbeat: Sent every 30 seconds to all clients.
   // Clients use this to detect stale connections (if no tick in 2x interval = dead).
   // This is separate from ping/pong (which measures RTT).
@@ -3885,19 +3876,23 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
       const ping = {
         id: `ping_${now}_${Math.floor(Math.random() * 1_000_000)}`,
-        sentAt: now,
+        sentAt: now
       }
       ctx.pendingPing = ping
       send(ws, { type: 'ping', data: ping })
     }
   }, HEARTBEAT_INTERVAL_MS)
-  
+
   // Tick timer: Simple liveness signal to all connected clients.
   // Clients should expect a tick every TICK_INTERVAL_MS. If 2x interval passes
   // without a tick, the client should consider the connection dead and reconnect.
   const tickTimer = setInterval(() => {
     const now = Date.now()
-    const tickPayload = { type: 'tick', timestamp: now, interval: TICK_INTERVAL_MS }
+    const tickPayload = {
+      type: 'tick',
+      timestamp: now,
+      interval: TICK_INTERVAL_MS
+    }
     for (const ws of sockets) {
       try {
         ws.send(JSON.stringify(tickPayload))
@@ -3949,17 +3944,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       const forwardHeaders = (() => {
         const h = new Headers()
         // Forward basic headers; keep it conservative.
-        const allow = new Set([
-          'accept',
-          'accept-language',
-          'content-type',
-          'cache-control',
-          'pragma',
-          'if-none-match',
-          'if-modified-since',
-          'user-agent',
-          'cookie',
-        ])
+        const allow = new Set(['accept', 'accept-language', 'content-type', 'cache-control', 'pragma', 'if-none-match', 'if-modified-since', 'user-agent', 'cookie'])
         for (const [k, v] of request.headers.entries()) {
           const key = k.toLowerCase()
           if (!allow.has(key)) continue
@@ -3977,9 +3962,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         redirect: 'manual',
         headers: forwardHeaders,
         body: hasBody ? request.body : undefined,
-        duplex: hasBody ? 'half' : undefined,
+        duplex: hasBody ? 'half' : undefined
       } as any).catch((err) => {
-        return new Response(`Proxy fetch failed: ${toErrorMessage(err)}`, { status: 502 })
+        return new Response(`Proxy fetch failed: ${toErrorMessage(err)}`, {
+          status: 502
+        })
       })
 
       // If fetch failed (we returned a Response above), pass it through.
@@ -4019,10 +4006,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       if (location) {
         try {
           const locUrl = new URL(location, upstreamUrl)
-          if (
-            (locUrl.hostname === '127.0.0.1' || locUrl.hostname === 'localhost') &&
-            Number(locUrl.port) === port
-          ) {
+          if ((locUrl.hostname === '127.0.0.1' || locUrl.hostname === 'localhost') && Number(locUrl.port) === port) {
             const rewritten = `/proxy/${port}${locUrl.pathname}${locUrl.search}${locUrl.hash}`
             headers.set('location', rewritten)
           }
@@ -4046,9 +4030,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           text = `<base href="${prefix}/">\n${shim}\n` + text
         }
         // Rewrite root-relative URLs ("/...") to proxy-prefixed paths.
-        text = text
-          .replace(/(href|src|action)=([\"'])\//gi, `$1=$2${prefix}/`)
-          .replace(/url\(\//gi, `url(${prefix}/`)
+        text = text.replace(/(href|src|action)=([\"'])\//gi, `$1=$2${prefix}/`).replace(/url\(\//gi, `url(${prefix}/`)
         return new Response(text, { status: upstreamRes.status, headers })
       }
 
@@ -4058,14 +4040,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
     // Serve embedded web dashboard (Vite build output) when present.
     // Keep "/" JSON response for API callers (Accept does not include text/html).
-    if (
-      request.method === 'GET' &&
-      (wantsHtml ||
-        url.pathname.startsWith('/assets/') ||
-        url.pathname === '/favicon.ico' ||
-        url.pathname === '/manifest.json' ||
-        url.pathname === '/robots.txt')
-    ) {
+    if (request.method === 'GET' && (wantsHtml || url.pathname.startsWith('/assets/') || url.pathname === '/favicon.ico' || url.pathname === '/manifest.json' || url.pathname === '/robots.txt')) {
       const indexPath = join(webDistDir, 'index.html')
       const indexFile = Bun.file(indexPath)
       if (await indexFile.exists()) {
@@ -4090,56 +4065,52 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       return jsonResponse({ status: 'ok', version })
     }
 
-	    if (url.pathname === '/projects') {
-	      if (requireEntitlement) {
-	        const cloudSession = safeString(request.headers.get('x-broski-session')).trim()
-	        if (!cloudSession) {
-	          return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
-	        }
-	        const tokenHash = createHash('sha256').update(cloudSession, 'utf8').digest('hex')
-	        const cached = entitlementCache.get(tokenHash)
-	        const now = Date.now()
-	        if (cached && now - cached.checkedAt <= ENTITLEMENT_CACHE_TTL_MS) {
-	          if (!cached.entitled) return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
-	        } else if (convexHttpBaseUrl) {
-	          try {
-	            const refreshed = await refreshLocalLicenseFromCloud({
-	              convexHttpBaseUrl,
-	              sessionToken: cloudSession,
-	            })
-	            if (!refreshed.ok) {
-	              if (refreshed.status === 401) return publicJson({ error: 'INVALID_SESSION' }, 401)
-	              if (refreshed.status === 403) return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
+    if (url.pathname === '/projects') {
+      if (requireEntitlement) {
+        const cloudSession = safeString(request.headers.get('x-broski-session')).trim()
+        if (!cloudSession) {
+          return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
+        }
+        const tokenHash = createHash('sha256').update(cloudSession, 'utf8').digest('hex')
+        const cached = entitlementCache.get(tokenHash)
+        const now = Date.now()
+        if (cached && now - cached.checkedAt <= ENTITLEMENT_CACHE_TTL_MS) {
+          if (!cached.entitled) return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
+        } else if (convexHttpBaseUrl) {
+          try {
+            const refreshed = await refreshLocalLicenseFromCloud({
+              convexHttpBaseUrl,
+              sessionToken: cloudSession
+            })
+            if (!refreshed.ok) {
+              if (refreshed.status === 401) return publicJson({ error: 'INVALID_SESSION' }, 401)
+              if (refreshed.status === 403) return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
 
-	              const nowSec = Math.floor(Date.now() / 1000)
-	              if (
-	                localLicense?.entitled &&
-	                localLicense.sessionTokenHash === tokenHash &&
-	                nowSec <= localLicense.exp
-	              ) {
-	                // allow via local license
-	              } else if (!(cached && cached.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS)) {
-	                return publicJson({ error: 'CLOUD_AUTH_FAILED' }, 503)
-	              }
-	            } else {
-	              if (refreshed.state.entitled) localLicense = refreshed.state
-	              entitlementCache.set(tokenHash, {
-	                checkedAt: now,
-	                appUserId: refreshed.state.appUserId,
-	                entitled: refreshed.state.entitled,
-	                ...(refreshed.state.status ? { status: refreshed.state.status } : {}),
-	              })
-	              if (!refreshed.state.entitled) return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
-	            }
-	          } catch {
-	            if (!(cached && cached.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS)) {
-	              return publicJson({ error: 'CLOUD_AUTH_FAILED' }, 503)
-	            }
-	          }
-	        } else {
-	          return publicJson({ error: 'CLOUD_AUTH_UNAVAILABLE' }, 503)
-	        }
-	      }
+              const nowSec = Math.floor(Date.now() / 1000)
+              if (localLicense?.entitled && localLicense.sessionTokenHash === tokenHash && nowSec <= localLicense.exp) {
+                // allow via local license
+              } else if (!(cached && cached.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS)) {
+                return publicJson({ error: 'CLOUD_AUTH_FAILED' }, 503)
+              }
+            } else {
+              if (refreshed.state.entitled) localLicense = refreshed.state
+              entitlementCache.set(tokenHash, {
+                checkedAt: now,
+                appUserId: refreshed.state.appUserId,
+                entitled: refreshed.state.entitled,
+                ...(refreshed.state.status ? { status: refreshed.state.status } : {})
+              })
+              if (!refreshed.state.entitled) return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
+            }
+          } catch {
+            if (!(cached && cached.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS)) {
+              return publicJson({ error: 'CLOUD_AUTH_FAILED' }, 503)
+            }
+          }
+        } else {
+          return publicJson({ error: 'CLOUD_AUTH_UNAVAILABLE' }, 503)
+        }
+      }
       if (!opencode) {
         return jsonResponse({ error: 'OpenCode not available' }, 503)
       }
@@ -4151,56 +4122,52 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       }
     }
 
-	    if (url.pathname === '/browse') {
-	      if (requireEntitlement) {
-	        const cloudSession = safeString(request.headers.get('x-broski-session')).trim()
-	        if (!cloudSession) {
-	          return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
-	        }
-	        const tokenHash = createHash('sha256').update(cloudSession, 'utf8').digest('hex')
-	        const cached = entitlementCache.get(tokenHash)
-	        const now = Date.now()
-	        if (cached && now - cached.checkedAt <= ENTITLEMENT_CACHE_TTL_MS) {
-	          if (!cached.entitled) return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
-	        } else if (convexHttpBaseUrl) {
-	          try {
-	            const refreshed = await refreshLocalLicenseFromCloud({
-	              convexHttpBaseUrl,
-	              sessionToken: cloudSession,
-	            })
-	            if (!refreshed.ok) {
-	              if (refreshed.status === 401) return publicJson({ error: 'INVALID_SESSION' }, 401)
-	              if (refreshed.status === 403) return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
+    if (url.pathname === '/browse') {
+      if (requireEntitlement) {
+        const cloudSession = safeString(request.headers.get('x-broski-session')).trim()
+        if (!cloudSession) {
+          return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
+        }
+        const tokenHash = createHash('sha256').update(cloudSession, 'utf8').digest('hex')
+        const cached = entitlementCache.get(tokenHash)
+        const now = Date.now()
+        if (cached && now - cached.checkedAt <= ENTITLEMENT_CACHE_TTL_MS) {
+          if (!cached.entitled) return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
+        } else if (convexHttpBaseUrl) {
+          try {
+            const refreshed = await refreshLocalLicenseFromCloud({
+              convexHttpBaseUrl,
+              sessionToken: cloudSession
+            })
+            if (!refreshed.ok) {
+              if (refreshed.status === 401) return publicJson({ error: 'INVALID_SESSION' }, 401)
+              if (refreshed.status === 403) return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
 
-	              const nowSec = Math.floor(Date.now() / 1000)
-	              if (
-	                localLicense?.entitled &&
-	                localLicense.sessionTokenHash === tokenHash &&
-	                nowSec <= localLicense.exp
-	              ) {
-	                // allow via local license
-	              } else if (!(cached && cached.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS)) {
-	                return publicJson({ error: 'CLOUD_AUTH_FAILED' }, 503)
-	              }
-	            } else {
-	              if (refreshed.state.entitled) localLicense = refreshed.state
-	              entitlementCache.set(tokenHash, {
-	                checkedAt: now,
-	                appUserId: refreshed.state.appUserId,
-	                entitled: refreshed.state.entitled,
-	                ...(refreshed.state.status ? { status: refreshed.state.status } : {}),
-	              })
-	              if (!refreshed.state.entitled) return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
-	            }
-	          } catch {
-	            if (!(cached && cached.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS)) {
-	              return publicJson({ error: 'CLOUD_AUTH_FAILED' }, 503)
-	            }
-	          }
-	        } else {
-	          return publicJson({ error: 'CLOUD_AUTH_UNAVAILABLE' }, 503)
-	        }
-	      }
+              const nowSec = Math.floor(Date.now() / 1000)
+              if (localLicense?.entitled && localLicense.sessionTokenHash === tokenHash && nowSec <= localLicense.exp) {
+                // allow via local license
+              } else if (!(cached && cached.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS)) {
+                return publicJson({ error: 'CLOUD_AUTH_FAILED' }, 503)
+              }
+            } else {
+              if (refreshed.state.entitled) localLicense = refreshed.state
+              entitlementCache.set(tokenHash, {
+                checkedAt: now,
+                appUserId: refreshed.state.appUserId,
+                entitled: refreshed.state.entitled,
+                ...(refreshed.state.status ? { status: refreshed.state.status } : {})
+              })
+              if (!refreshed.state.entitled) return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
+            }
+          } catch {
+            if (!(cached && cached.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS)) {
+              return publicJson({ error: 'CLOUD_AUTH_FAILED' }, 503)
+            }
+          }
+        } else {
+          return publicJson({ error: 'CLOUD_AUTH_UNAVAILABLE' }, 503)
+        }
+      }
       const path = url.searchParams.get('path')
       if (!path) {
         return jsonResponse({ error: 'Missing path' }, 400)
@@ -4220,24 +4187,39 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
   const MAX_WS_MESSAGE_BYTES = Math.max(
     1024 * 1024, // 1MB minimum
-    Math.min(Number(process.env.BROSKI_MAX_WS_MESSAGE_MB ?? '15') * 1024 * 1024, 200 * 1024 * 1024), // cap at 200MB
+    Math.min(Number(process.env.BROSKI_MAX_WS_MESSAGE_MB ?? '15') * 1024 * 1024, 200 * 1024 * 1024) // cap at 200MB
   )
 
   const RATE = {
     perSecond: Math.max(10, Math.min(Number(process.env.BROSKI_RATE_LIMIT_PER_SEC ?? '60'), 5000)),
     burst: Math.max(10, Math.min(Number(process.env.BROSKI_RATE_LIMIT_BURST ?? '150'), 20000)),
-    blockMs: Math.max(1000, Math.min(Number(process.env.BROSKI_RATE_LIMIT_BLOCK_MS ?? '10000'), 60_000)),
+    blockMs: Math.max(1000, Math.min(Number(process.env.BROSKI_RATE_LIMIT_BLOCK_MS ?? '10000'), 60_000))
   }
 
   // Security: Proxy port allowlist for preview feature.
   // Only common dev server ports are allowed to reduce attack surface.
   // Users can extend via BROSKI_ALLOWED_PROXY_PORTS env var.
   const DEFAULT_ALLOWED_PROXY_PORTS = new Set([
-    3000, 3001, 3002, 3003, // React, Next.js, Remix
-    4000, 4001, 4200, 4321, // Angular, Astro
-    5000, 5001, 5173, 5174, 5175, // Flask, Vite
-    8000, 8001, 8080, 8081, 8888, // Django, generic
-    9000, 9001, // PHP, misc
+    3000,
+    3001,
+    3002,
+    3003, // React, Next.js, Remix
+    4000,
+    4001,
+    4200,
+    4321, // Angular, Astro
+    5000,
+    5001,
+    5173,
+    5174,
+    5175, // Flask, Vite
+    8000,
+    8001,
+    8080,
+    8081,
+    8888, // Django, generic
+    9000,
+    9001 // PHP, misc
   ])
   const extraProxyPorts = (process.env.BROSKI_ALLOWED_PROXY_PORTS ?? '')
     .split(',')
@@ -4263,7 +4245,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           .split(',')
           .map((s) => s.trim())
           .filter(Boolean)
-      : [],
+      : []
   )
 
   const isAllowedOrigin = (origin: string | null): boolean => {
@@ -4296,7 +4278,10 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
   const extractProtocolToken = (protocolHeader: string | null): string | null => {
     if (!protocolHeader) return null
     // Header is comma-separated. We accept tokens in the form: "broski-auth.<token>".
-    const parts = protocolHeader.split(',').map((p) => p.trim()).filter(Boolean)
+    const parts = protocolHeader
+      .split(',')
+      .map((p) => p.trim())
+      .filter(Boolean)
     for (const p of parts) {
       if (p.startsWith('broski-auth.')) {
         const tok = p.slice('broski-auth.'.length)
@@ -4306,13 +4291,13 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     return null
   }
 
-	  const extractTokenFromRequest = (_url: URL, request: Request): string | null => {
-	    const authHeader = request.headers.get('authorization')
-	    const tokenFromHeader = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
-	    const tokenFromProtocol = extractProtocolToken(request.headers.get('sec-websocket-protocol'))
-	    // Security: never allow tokens in URLs (leak via logs, history, referrers).
-	    return tokenFromHeader || tokenFromProtocol
-	  }
+  const extractTokenFromRequest = (_url: URL, request: Request): string | null => {
+    const authHeader = request.headers.get('authorization')
+    const tokenFromHeader = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
+    const tokenFromProtocol = extractProtocolToken(request.headers.get('sec-websocket-protocol'))
+    // Security: never allow tokens in URLs (leak via logs, history, referrers).
+    return tokenFromHeader || tokenFromProtocol
+  }
 
   const publicJson = (data: unknown, status = 200, extraHeaders: Record<string, string> = {}): Response => {
     return new Response(JSON.stringify(data), {
@@ -4324,8 +4309,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         'x-content-type-options': 'nosniff',
         'x-frame-options': 'DENY',
         'referrer-policy': 'no-referrer',
-        ...extraHeaders,
-      },
+        ...extraHeaders
+      }
     })
   }
 
@@ -4355,7 +4340,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
   const checkRateLimit = (ws: ServerWebSocket<unknown>): boolean => {
     const now = Date.now()
-    const state = rateLimiters.get(ws) ?? { tokens: RATE.burst, lastRefill: now, blockedUntil: 0 }
+    const state = rateLimiters.get(ws) ?? {
+      tokens: RATE.burst,
+      lastRefill: now,
+      blockedUntil: 0
+    }
     if (state.blockedUntil && now < state.blockedUntil) {
       rateLimiters.set(ws, state)
       return false
@@ -4417,19 +4406,23 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         return
       }
       sockets.add(ws)
-      rateLimiters.set(ws, { tokens: RATE.burst, lastRefill: Date.now(), blockedUntil: 0 })
-		      const baseCtx: ConnectionContext = {
-		        lastPongAt: Date.now(),
-		        lastRttMs: 0,
-	        connectionType: 'unknown',
-	        connectedAt: Date.now(),
-	      }
-	      contexts.set(ws, baseCtx)
-	      logUser(`Client connected (${sockets.size} active)`)
-	      logInfo(`[WS] Client CONNECTED (${sockets.size} total) - requireEntitlement=${requireEntitlement}`)
-	      scheduleCloudAuthDeadline(ws)
-	      void sendStatus(ws)
-		    },
+      rateLimiters.set(ws, {
+        tokens: RATE.burst,
+        lastRefill: Date.now(),
+        blockedUntil: 0
+      })
+      const baseCtx: ConnectionContext = {
+        lastPongAt: Date.now(),
+        lastRttMs: 0,
+        connectionType: 'unknown',
+        connectedAt: Date.now()
+      }
+      contexts.set(ws, baseCtx)
+      logUser(`Client connected (${sockets.size} active)`)
+      logInfo(`[WS] Client CONNECTED (${sockets.size} total) - requireEntitlement=${requireEntitlement}`)
+      scheduleCloudAuthDeadline(ws)
+      void sendStatus(ws)
+    },
     close(ws: ServerWebSocket<unknown>, code?: number, reason?: string) {
       logUser(`Client disconnected`)
       logInfo(`[WS] Client DISCONNECTED - code=${code}, reason=${reason}`)
@@ -4452,53 +4445,53 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       const prevKey = makeSessionKey(ctx?.viewAgent, ctx?.sessionId)
       updateSessionWatchers(ws, prevKey, null)
 
-	      // If this socket owned any CC/Codex/OpenCode sessions, release ownership so watchers
-	      // can fall back to external tailing (or another owner) correctly.
-	      const releasedKeys: Array<{ agent: AgentType; id: string }> = []
-	      for (const [sid, owner] of ccSessionOwners.entries()) {
-	        if (owner === ws) {
-	          ccSessionOwners.delete(sid)
-	          releasedKeys.push({ agent: 'claude-code', id: sid })
-	        }
-	      }
-	      for (const [tid, owner] of cxThreadOwners.entries()) {
-	        if (owner === ws) {
-	          cxThreadOwners.delete(tid)
-	          releasedKeys.push({ agent: 'codex', id: tid })
-	        }
-	      }
-	      for (const [sid, owner] of ocSessionOwners.entries()) {
-	        if (owner === ws) {
-	          ocSessionOwners.delete(sid)
-	          releasedKeys.push({ agent: 'opencode', id: sid })
-	        }
-	      }
-	      for (const k of releasedKeys) {
-	        syncExternalTailForKey(makeSessionKey(k.agent, k.id))
-	      }
-
-	      sockets.delete(ws)
-	      contexts.delete(ws)
-	      rateLimiters.delete(ws)
-	      const clientQ = clientQueues.get(ws)
-	      if (clientQ?.timer) {
-	        clearTimeout(clientQ.timer)
-	      }
-	      clientQueues.delete(ws)
-
-        // Remove client from active PTY subscriptions.
-        ptyRuntime.onClientDisconnected(ws)
-        log(`Client disconnected (${sockets.size} total)`)
-        
-        if (disconnectedDeviceId) {
-          broadcast({ 
-            type: 'device_disconnected', 
-            data: { 
-              deviceId: disconnectedDeviceId,
-              deviceName: disconnectedDeviceName,
-            } 
-          })
+      // If this socket owned any CC/Codex/OpenCode sessions, release ownership so watchers
+      // can fall back to external tailing (or another owner) correctly.
+      const releasedKeys: Array<{ agent: AgentType; id: string }> = []
+      for (const [sid, owner] of ccSessionOwners.entries()) {
+        if (owner === ws) {
+          ccSessionOwners.delete(sid)
+          releasedKeys.push({ agent: 'claude-code', id: sid })
         }
+      }
+      for (const [tid, owner] of cxThreadOwners.entries()) {
+        if (owner === ws) {
+          cxThreadOwners.delete(tid)
+          releasedKeys.push({ agent: 'codex', id: tid })
+        }
+      }
+      for (const [sid, owner] of ocSessionOwners.entries()) {
+        if (owner === ws) {
+          ocSessionOwners.delete(sid)
+          releasedKeys.push({ agent: 'opencode', id: sid })
+        }
+      }
+      for (const k of releasedKeys) {
+        syncExternalTailForKey(makeSessionKey(k.agent, k.id))
+      }
+
+      sockets.delete(ws)
+      contexts.delete(ws)
+      rateLimiters.delete(ws)
+      const clientQ = clientQueues.get(ws)
+      if (clientQ?.timer) {
+        clearTimeout(clientQ.timer)
+      }
+      clientQueues.delete(ws)
+
+      // Remove client from active PTY subscriptions.
+      ptyRuntime.onClientDisconnected(ws)
+      log(`Client disconnected (${sockets.size} total)`)
+
+      if (disconnectedDeviceId) {
+        broadcast({
+          type: 'device_disconnected',
+          data: {
+            deviceId: disconnectedDeviceId,
+            deviceName: disconnectedDeviceName
+          }
+        })
+      }
     },
     message(ws: ServerWebSocket<unknown>, raw: string | Uint8Array) {
       const proxy = (ws as any).data && (ws as any).data.kind === 'proxy'
@@ -4532,7 +4525,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         return
       }
       void handleMessage(ws, raw)
-    },
+    }
   } satisfies Bun.WebSocketHandler<unknown>
 
   const makeFetch = (serverLabel: string) => {
@@ -4584,7 +4577,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       // Transport hardening: if TLS is disabled, only allow loopback or Tailscale clients.
       // (Tailscale provides encryption-in-transit; LAN/hotspot without TLS is sniffable.)
       if (!tlsEnabled && !isLoopback && !isTailscale) {
-        return new Response('TLS required for non-local connections', { status: 403 })
+        return new Response('TLS required for non-local connections', {
+          status: 403
+        })
       }
 
       // WebSocket proxy for embedded previews (loopback-only, no auth token).
@@ -4608,7 +4603,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         }
         const upstreamPath = slashIdx === -1 ? '/' : `/${rest.slice(slashIdx + 1)}`
         const ok = serverInstance.upgrade(request, {
-          data: { kind: 'proxy', port, path: upstreamPath, search: url.search },
+          data: { kind: 'proxy', port, path: upstreamPath, search: url.search }
         })
         if (ok) return
         return new Response('WebSocket upgrade failed', { status: 500 })
@@ -4649,13 +4644,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         // Everything else (including /projects, /browse, etc.) still requires auth.
         const accept = request.headers.get('accept') ?? ''
         const wantsHtml = accept.includes('text/html')
-        const looksLikeDashboardAsset =
-          wantsHtml ||
-          url.pathname.startsWith('/assets/') ||
-          url.pathname.startsWith('/proxy/') ||
-          url.pathname === '/favicon.ico' ||
-          url.pathname === '/manifest.json' ||
-          url.pathname === '/robots.txt'
+        const looksLikeDashboardAsset = wantsHtml || url.pathname.startsWith('/assets/') || url.pathname.startsWith('/proxy/') || url.pathname === '/favicon.ico' || url.pathname === '/manifest.json' || url.pathname === '/robots.txt'
         if (request.method === 'GET' && looksLikeDashboardAsset) {
           // Do not serve the embedded dashboard over the Funnel-facing loopback backend.
           // (It increases attack surface on a public hostname.)
@@ -4689,12 +4678,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       ? {
           tls: {
             key: Bun.file(tlsMaterial.keyPath),
-            cert: Bun.file(tlsMaterial.certPath),
-          },
+            cert: Bun.file(tlsMaterial.certPath)
+          }
         }
       : {}),
     fetch: makeFetch('secure'),
-    websocket: websocketConfig,
+    websocket: websocketConfig
   })
   const securePort = (secureServer as any).port ?? options.port
 
@@ -4705,7 +4694,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       hostname: '127.0.0.1',
       port: 0,
       fetch: makeFetch('loopback'),
-      websocket: websocketConfig,
+      websocket: websocketConfig
     })
     loopbackPort = (loopbackServer as any).port ?? null
     if (loopbackPort) {
@@ -4722,289 +4711,383 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       data: {
         opencodeRunning: backends.opencode.available,
         activeAgent,
-        backends,
-      },
+        backends
+      }
     })
   }
 
-  const processSingleMessage = async (
-    ws: ServerWebSocket<unknown>,
-    message: ClientMessage & { requestId?: string },
-    reply: (response: ServerMessage) => void,
-  ) => {
+  const processSingleMessage = async (ws: ServerWebSocket<unknown>, message: ClientMessage & { requestId?: string }, reply: (response: ServerMessage) => void) => {
     const cloudAuthRequiredMessageTypes = new Set(['auth_session', 'pong', 'client_ping', 'batch'])
-	    const ctx = contexts.get(ws)
-	    if (requireEntitlement && !cloudAuthRequiredMessageTypes.has(message.type)) {
-	      if (!ctx?.cloudAuthed || !ctx.cloudEntitled) {
-	        reply({ type: 'error', message: 'LICENSE_REQUIRED', code: 'LICENSE_REQUIRED', requestId: message.requestId })
-	        try {
-	          ws.close(4403, 'License required')
-	        } catch {
-	          // ignore
-	        }
-	        return
-	      }
-	      if (typeof ctx.licenseExpSec === 'number') {
-	        const nowSec = Math.floor(Date.now() / 1000)
-	        if (nowSec > ctx.licenseExpSec) {
-	          reply({ type: 'error', message: 'LICENSE_EXPIRED', code: 'LICENSE_EXPIRED', requestId: message.requestId })
-	          try {
-	            ws.close(4403, 'License expired')
-	          } catch {
-	            // ignore
-	          }
-	          return
-	        }
-	      }
-	    }
-
-      // Security: never trust client-supplied filesystem roots.
-      // Many message types accept `cwd` / `projectPath` and downstream SDKs
-      // (Codex/OpenCode/Claude Code) will happily use whatever we pass.
-      // We canonicalize to a real path and enforce the allowed-base allowlist.
-      const rawCwd = (message as any).cwd
-      if (typeof rawCwd === 'string' && rawCwd.trim()) {
-        const secureCwd = await getSecurePath(rawCwd.trim())
-        if (!secureCwd) {
-          reply({ type: 'error', message: 'Access denied', requestId: message.requestId })
+    const ctx = contexts.get(ws)
+    if (requireEntitlement && !cloudAuthRequiredMessageTypes.has(message.type)) {
+      if (!ctx?.cloudAuthed || !ctx.cloudEntitled) {
+        reply({
+          type: 'error',
+          message: 'LICENSE_REQUIRED',
+          code: 'LICENSE_REQUIRED',
+          requestId: message.requestId
+        })
+        try {
+          ws.close(4403, 'License required')
+        } catch {
+          // ignore
+        }
+        return
+      }
+      if (typeof ctx.licenseExpSec === 'number') {
+        const nowSec = Math.floor(Date.now() / 1000)
+        if (nowSec > ctx.licenseExpSec) {
+          reply({
+            type: 'error',
+            message: 'LICENSE_EXPIRED',
+            code: 'LICENSE_EXPIRED',
+            requestId: message.requestId
+          })
+          try {
+            ws.close(4403, 'License expired')
+          } catch {
+            // ignore
+          }
           return
         }
-        ;(message as any).cwd = secureCwd
       }
+    }
 
-      const rawProjectPath = (message as any).projectPath
-      if (typeof rawProjectPath === 'string' && rawProjectPath.trim()) {
-        const secureProjectPath = await getSecurePath(rawProjectPath.trim())
-        if (!secureProjectPath) {
-          reply({ type: 'error', message: 'Access denied', requestId: message.requestId })
-          return
-        }
-        ;(message as any).projectPath = secureProjectPath
+    // Security: never trust client-supplied filesystem roots.
+    // Many message types accept `cwd` / `projectPath` and downstream SDKs
+    // (Codex/OpenCode/Claude Code) will happily use whatever we pass.
+    // We canonicalize to a real path and enforce the allowed-base allowlist.
+    const rawCwd = (message as any).cwd
+    if (typeof rawCwd === 'string' && rawCwd.trim()) {
+      const secureCwd = await getSecurePath(rawCwd.trim())
+      if (!secureCwd) {
+        reply({
+          type: 'error',
+          message: 'Access denied',
+          requestId: message.requestId
+        })
+        return
       }
+      ;(message as any).cwd = secureCwd
+    }
+
+    const rawProjectPath = (message as any).projectPath
+    if (typeof rawProjectPath === 'string' && rawProjectPath.trim()) {
+      const secureProjectPath = await getSecurePath(rawProjectPath.trim())
+      if (!secureProjectPath) {
+        reply({
+          type: 'error',
+          message: 'Access denied',
+          requestId: message.requestId
+        })
+        return
+      }
+      ;(message as any).projectPath = secureProjectPath
+    }
 
     if (message.type.startsWith('pi_')) {
       const handled = await piFeatures.handle(message, reply, broadcast)
       if (!handled) {
-        reply({ type: 'error', message: `Unhandled Pi feature: ${message.type}`, requestId: message.requestId })
+        reply({
+          type: 'error',
+          message: `Unhandled Pi feature: ${message.type}`,
+          requestId: message.requestId
+        })
       }
       return
     }
 
     switch (message.type) {
-	      case 'auth_session': {
-	        log(`[auth_session] START - requireEntitlement=${requireEntitlement}`)
-	        const sessionToken = safeString(message.sessionToken).trim()
-	        if (sessionToken.length < 10 || sessionToken.length > 1024) {
-	          log(`[auth_session] REJECT - invalid token length: ${sessionToken.length}`)
-	          reply({ type: 'error', message: 'Invalid sessionToken', code: 'INVALID_SESSION', requestId: message.requestId })
-	          try {
-	            ws.close(4401, 'Invalid session')
-	          } catch {
-	            // ignore
-	          }
-	          break
-	        }
-	        const tokenHash = createHash('sha256').update(sessionToken, 'utf8').digest('hex')
-	        const cached = entitlementCache.get(tokenHash)
-	        const nowSec = Math.floor(Date.now() / 1000)
-	        const hasValidLocalLicense = !!(
-	          requireEntitlement &&
-	          localLicense?.entitled &&
-	          localLicense.sessionTokenHash === tokenHash &&
-	          nowSec <= localLicense.exp
-	        )
+      case 'auth_session': {
+        log(`[auth_session] START - requireEntitlement=${requireEntitlement}`)
+        const sessionToken = safeString(message.sessionToken).trim()
+        if (sessionToken.length < 10 || sessionToken.length > 1024) {
+          log(`[auth_session] REJECT - invalid token length: ${sessionToken.length}`)
+          reply({
+            type: 'error',
+            message: 'Invalid sessionToken',
+            code: 'INVALID_SESSION',
+            requestId: message.requestId
+          })
+          try {
+            ws.close(4401, 'Invalid session')
+          } catch {
+            // ignore
+          }
+          break
+        }
+        const tokenHash = createHash('sha256').update(sessionToken, 'utf8').digest('hex')
+        const cached = entitlementCache.get(tokenHash)
+        const nowSec = Math.floor(Date.now() / 1000)
+        const hasValidLocalLicense = !!(requireEntitlement && localLicense?.entitled && localLicense.sessionTokenHash === tokenHash && nowSec <= localLicense.exp)
 
-	        if (!convexHttpBaseUrl) {
-	          if (hasValidLocalLicense) {
-	            contexts.set(ws, {
-	              ...(ctx ?? { lastPongAt: Date.now(), lastRttMs: 0, connectionType: 'unknown' as const, connectedAt: Date.now() }),
-	              cloudAuthed: true,
-	              cloudAppUserId: localLicense!.appUserId,
-	              cloudEntitled: true,
-	              cloudStatus: localLicense!.status,
-	              cloudCheckedAt: Date.now(),
-	              cloudSessionToken: sessionToken,
-	              cloudSessionTokenHash: tokenHash,
-	              licenseExpSec: localLicense!.exp,
-	            })
-	            clearCloudAuthTimer(ws)
-	            reply({
-	              type: 'auth_session_ok',
-	              data: {
-	                appUserId: localLicense!.appUserId,
-	                entitled: true,
-	                ...(localLicense!.status ? { status: localLicense!.status } : {}),
-	              },
-	              requestId: message.requestId,
-	            })
-	            log('[CloudAuth] Convex base URL missing; accepted due to valid local license')
-	            break
-	          }
-	          reply({ type: 'error', message: 'Convex base URL not configured', code: 'CLOUD_AUTH_UNAVAILABLE', requestId: message.requestId })
-	          try {
-	            ws.close(1011, 'Cloud auth unavailable')
-	          } catch {
-	            // ignore
-	          }
-	          break
-	        }
-
-	        // Only use cache if entitled=true. If cache says NOT entitled, always do fresh check
-	        // (subscription might have just renewed, especially in sandbox where they renew every 5 min)
-	        if (cached && cached.entitled && Date.now() - cached.checkedAt <= ENTITLEMENT_CACHE_TTL_MS) {
-	          log(`[auth_session] CACHE HIT - entitled=${cached.entitled}, cacheAge=${Date.now() - cached.checkedAt}ms`)
-	          contexts.set(ws, {
-	            ...(ctx ?? { lastPongAt: Date.now(), lastRttMs: 0, connectionType: 'unknown' as const, connectedAt: Date.now() }),
-	            cloudAuthed: true,
-	            cloudAppUserId: cached.appUserId,
-	            cloudEntitled: cached.entitled,
-	            cloudStatus: cached.status,
-	            cloudCheckedAt: cached.checkedAt,
-	            cloudSessionToken: sessionToken,
-	            cloudSessionTokenHash: tokenHash,
-	            licenseExpSec: localLicense?.sessionTokenHash === tokenHash ? localLicense.exp : undefined,
-	          })
-          clearCloudAuthTimer(ws)
-          log(`[auth_session] CACHE HIT - SUCCESS, sending auth_session_ok`)
-          reply({ type: 'auth_session_ok', data: { appUserId: cached.appUserId, entitled: cached.entitled, ...(cached.status ? { status: cached.status } : {}) }, requestId: message.requestId })
-	          if (cached.entitled && convexHttpBaseUrl) {
-	            void (async () => {
-	              const refreshed = await refreshLocalLicenseFromCloud({
-	                convexHttpBaseUrl,
-	                sessionToken,
-	              }).catch(() => null)
-	              if (refreshed && refreshed.ok && refreshed.state.entitled) {
-	                localLicense = refreshed.state
-	              }
-	            })()
-	          }
-	          break
-	        }
-
-	        try {
-	          const refreshed = await refreshLocalLicenseFromCloud({
-	            convexHttpBaseUrl,
-	            sessionToken,
-	          })
-
-	          if (!refreshed.ok) {
-	            if (refreshed.status === 401) {
-	              reply({ type: 'error', message: 'Invalid session', code: 'INVALID_SESSION', requestId: message.requestId })
-	              try {
-	                ws.close(4401, 'Invalid session')
-	              } catch {
-	                // ignore
-	              }
-	              break
-	            }
-	            if (refreshed.status === 403) {
-	              reply({ type: 'error', message: refreshed.message, code: refreshed.code || 'LICENSE_DENIED', requestId: message.requestId })
-	              try {
-	                ws.close(4403, 'License required')
-	              } catch {
-	                // ignore
-	              }
-	              break
-	            }
-	            reply({ type: 'error', message: refreshed.message, code: refreshed.code || 'CLOUD_AUTH_FAILED', requestId: message.requestId })
-	            try {
-	              ws.close(1011, 'Cloud auth failed')
-	            } catch {
-	              // ignore
-	            }
-	            break
-	          }
-
-	          localLicense = refreshed.state
-	          const record = { checkedAt: Date.now(), appUserId: refreshed.state.appUserId, entitled: refreshed.state.entitled, ...(refreshed.state.status ? { status: refreshed.state.status } : {}) }
-	          entitlementCache.set(tokenHash, record)
-
-	          log(`[auth_session] FRESH CHECK - entitled=${refreshed.state.entitled}, appUserId=${refreshed.state.appUserId}`)
-	          // FIX: Check entitlement BEFORE sending auth_session_ok to avoid
-	          // sending success then immediately closing (causes reconnect loops).
-	          if (requireEntitlement && !refreshed.state.entitled) {
-	            logUser(`Session rejected: device not entitled`)
-	            logInfo(`[auth_session] FRESH CHECK - NOT ENTITLED, closing connection`)
-	            reply({ type: 'error', message: 'LICENSE_REQUIRED', code: 'LICENSE_REQUIRED', requestId: message.requestId })
-	            try {
-	              ws.close(4403, 'License required')
-	            } catch {
-	              // ignore
-	            }
-	            break
-	          }
-
-	          contexts.set(ws, {
-	            ...(ctx ?? { lastPongAt: Date.now(), lastRttMs: 0, connectionType: 'unknown' as const, connectedAt: Date.now() }),
-	            cloudAuthed: true,
-	            cloudAppUserId: refreshed.state.appUserId,
-	            cloudEntitled: refreshed.state.entitled,
-	            cloudStatus: refreshed.state.status,
-	            cloudCheckedAt: record.checkedAt,
-	            cloudSessionToken: sessionToken,
-	            cloudSessionTokenHash: tokenHash,
-	            licenseExpSec: refreshed.state.exp,
-	          })
-	          clearCloudAuthTimer(ws)
-	          reply({ type: 'auth_session_ok', data: { appUserId: refreshed.state.appUserId, entitled: refreshed.state.entitled, ...(refreshed.state.status ? { status: refreshed.state.status } : {}) }, requestId: message.requestId })
-	        } catch (error) {
-	          // If a valid local license exists, do not hard-fail auth_session when the
-	          // cloud is unreachable (offline / transient DNS issues). We'll refresh on
-	          // the next successful online handshake.
-	          if (hasValidLocalLicense) {
-	            contexts.set(ws, {
-	              ...(ctx ?? { lastPongAt: Date.now(), lastRttMs: 0, connectionType: 'unknown' as const, connectedAt: Date.now() }),
-	              cloudAuthed: true,
-	              cloudAppUserId: localLicense!.appUserId,
-	              cloudEntitled: true,
-	              cloudStatus: localLicense!.status,
-	              cloudCheckedAt: Date.now(),
-	              cloudSessionToken: sessionToken,
-	              cloudSessionTokenHash: tokenHash,
-	              licenseExpSec: localLicense!.exp,
-	            })
+        if (!convexHttpBaseUrl) {
+          if (hasValidLocalLicense) {
+            contexts.set(ws, {
+              ...(ctx ?? {
+                lastPongAt: Date.now(),
+                lastRttMs: 0,
+                connectionType: 'unknown' as const,
+                connectedAt: Date.now()
+              }),
+              cloudAuthed: true,
+              cloudAppUserId: localLicense!.appUserId,
+              cloudEntitled: true,
+              cloudStatus: localLicense!.status,
+              cloudCheckedAt: Date.now(),
+              cloudSessionToken: sessionToken,
+              cloudSessionTokenHash: tokenHash,
+              licenseExpSec: localLicense!.exp
+            })
             clearCloudAuthTimer(ws)
             reply({
               type: 'auth_session_ok',
               data: {
                 appUserId: localLicense!.appUserId,
                 entitled: true,
-                ...(localLicense!.status ? { status: localLicense!.status } : {}),
+                ...(localLicense!.status ? { status: localLicense!.status } : {})
               },
-              requestId: message.requestId,
+              requestId: message.requestId
             })
-	            log('[CloudAuth] Cloud unreachable; accepted due to valid local license')
-	            break
-	          }
+            log('[CloudAuth] Convex base URL missing; accepted due to valid local license')
+            break
+          }
+          reply({
+            type: 'error',
+            message: 'Convex base URL not configured',
+            code: 'CLOUD_AUTH_UNAVAILABLE',
+            requestId: message.requestId
+          })
+          try {
+            ws.close(1011, 'Cloud auth unavailable')
+          } catch {
+            // ignore
+          }
+          break
+        }
+
+        // Only use cache if entitled=true. If cache says NOT entitled, always do fresh check
+        // (subscription might have just renewed, especially in sandbox where they renew every 5 min)
+        if (cached && cached.entitled && Date.now() - cached.checkedAt <= ENTITLEMENT_CACHE_TTL_MS) {
+          log(`[auth_session] CACHE HIT - entitled=${cached.entitled}, cacheAge=${Date.now() - cached.checkedAt}ms`)
+          contexts.set(ws, {
+            ...(ctx ?? {
+              lastPongAt: Date.now(),
+              lastRttMs: 0,
+              connectionType: 'unknown' as const,
+              connectedAt: Date.now()
+            }),
+            cloudAuthed: true,
+            cloudAppUserId: cached.appUserId,
+            cloudEntitled: cached.entitled,
+            cloudStatus: cached.status,
+            cloudCheckedAt: cached.checkedAt,
+            cloudSessionToken: sessionToken,
+            cloudSessionTokenHash: tokenHash,
+            licenseExpSec: localLicense?.sessionTokenHash === tokenHash ? localLicense.exp : undefined
+          })
+          clearCloudAuthTimer(ws)
+          log(`[auth_session] CACHE HIT - SUCCESS, sending auth_session_ok`)
+          reply({
+            type: 'auth_session_ok',
+            data: {
+              appUserId: cached.appUserId,
+              entitled: cached.entitled,
+              ...(cached.status ? { status: cached.status } : {})
+            },
+            requestId: message.requestId
+          })
+          if (cached.entitled && convexHttpBaseUrl) {
+            void (async () => {
+              const refreshed = await refreshLocalLicenseFromCloud({
+                convexHttpBaseUrl,
+                sessionToken
+              }).catch(() => null)
+              if (refreshed && refreshed.ok && refreshed.state.entitled) {
+                localLicense = refreshed.state
+              }
+            })()
+          }
+          break
+        }
+
+        try {
+          const refreshed = await refreshLocalLicenseFromCloud({
+            convexHttpBaseUrl,
+            sessionToken
+          })
+
+          if (!refreshed.ok) {
+            if (refreshed.status === 401) {
+              reply({
+                type: 'error',
+                message: 'Invalid session',
+                code: 'INVALID_SESSION',
+                requestId: message.requestId
+              })
+              try {
+                ws.close(4401, 'Invalid session')
+              } catch {
+                // ignore
+              }
+              break
+            }
+            if (refreshed.status === 403) {
+              reply({
+                type: 'error',
+                message: refreshed.message,
+                code: refreshed.code || 'LICENSE_DENIED',
+                requestId: message.requestId
+              })
+              try {
+                ws.close(4403, 'License required')
+              } catch {
+                // ignore
+              }
+              break
+            }
+            reply({
+              type: 'error',
+              message: refreshed.message,
+              code: refreshed.code || 'CLOUD_AUTH_FAILED',
+              requestId: message.requestId
+            })
+            try {
+              ws.close(1011, 'Cloud auth failed')
+            } catch {
+              // ignore
+            }
+            break
+          }
+
+          localLicense = refreshed.state
+          const record = {
+            checkedAt: Date.now(),
+            appUserId: refreshed.state.appUserId,
+            entitled: refreshed.state.entitled,
+            ...(refreshed.state.status ? { status: refreshed.state.status } : {})
+          }
+          entitlementCache.set(tokenHash, record)
+
+          log(`[auth_session] FRESH CHECK - entitled=${refreshed.state.entitled}, appUserId=${refreshed.state.appUserId}`)
+          // FIX: Check entitlement BEFORE sending auth_session_ok to avoid
+          // sending success then immediately closing (causes reconnect loops).
+          if (requireEntitlement && !refreshed.state.entitled) {
+            logUser(`Session rejected: device not entitled`)
+            logInfo(`[auth_session] FRESH CHECK - NOT ENTITLED, closing connection`)
+            reply({
+              type: 'error',
+              message: 'LICENSE_REQUIRED',
+              code: 'LICENSE_REQUIRED',
+              requestId: message.requestId
+            })
+            try {
+              ws.close(4403, 'License required')
+            } catch {
+              // ignore
+            }
+            break
+          }
+
+          contexts.set(ws, {
+            ...(ctx ?? {
+              lastPongAt: Date.now(),
+              lastRttMs: 0,
+              connectionType: 'unknown' as const,
+              connectedAt: Date.now()
+            }),
+            cloudAuthed: true,
+            cloudAppUserId: refreshed.state.appUserId,
+            cloudEntitled: refreshed.state.entitled,
+            cloudStatus: refreshed.state.status,
+            cloudCheckedAt: record.checkedAt,
+            cloudSessionToken: sessionToken,
+            cloudSessionTokenHash: tokenHash,
+            licenseExpSec: refreshed.state.exp
+          })
+          clearCloudAuthTimer(ws)
+          reply({
+            type: 'auth_session_ok',
+            data: {
+              appUserId: refreshed.state.appUserId,
+              entitled: refreshed.state.entitled,
+              ...(refreshed.state.status ? { status: refreshed.state.status } : {})
+            },
+            requestId: message.requestId
+          })
+        } catch (error) {
+          // If a valid local license exists, do not hard-fail auth_session when the
+          // cloud is unreachable (offline / transient DNS issues). We'll refresh on
+          // the next successful online handshake.
+          if (hasValidLocalLicense) {
+            contexts.set(ws, {
+              ...(ctx ?? {
+                lastPongAt: Date.now(),
+                lastRttMs: 0,
+                connectionType: 'unknown' as const,
+                connectedAt: Date.now()
+              }),
+              cloudAuthed: true,
+              cloudAppUserId: localLicense!.appUserId,
+              cloudEntitled: true,
+              cloudStatus: localLicense!.status,
+              cloudCheckedAt: Date.now(),
+              cloudSessionToken: sessionToken,
+              cloudSessionTokenHash: tokenHash,
+              licenseExpSec: localLicense!.exp
+            })
+            clearCloudAuthTimer(ws)
+            reply({
+              type: 'auth_session_ok',
+              data: {
+                appUserId: localLicense!.appUserId,
+                entitled: true,
+                ...(localLicense!.status ? { status: localLicense!.status } : {})
+              },
+              requestId: message.requestId
+            })
+            log('[CloudAuth] Cloud unreachable; accepted due to valid local license')
+            break
+          }
 
           // Offline grace: if we have a recent "entitled" cache, keep working.
           if (cached && cached.entitled && Date.now() - cached.checkedAt <= OFFLINE_GRACE_MS) {
-	            contexts.set(ws, {
-	              ...(ctx ?? { lastPongAt: Date.now(), lastRttMs: 0, connectionType: 'unknown' as const, connectedAt: Date.now() }),
-	              cloudAuthed: true,
-	              cloudAppUserId: cached.appUserId,
-	              cloudEntitled: cached.entitled,
-	              cloudStatus: cached.status,
-	              cloudCheckedAt: cached.checkedAt,
-	              cloudSessionToken: sessionToken,
-	              cloudSessionTokenHash: tokenHash,
-	              licenseExpSec: localLicense?.sessionTokenHash === tokenHash ? localLicense.exp : undefined,
-	            })
+            contexts.set(ws, {
+              ...(ctx ?? {
+                lastPongAt: Date.now(),
+                lastRttMs: 0,
+                connectionType: 'unknown' as const,
+                connectedAt: Date.now()
+              }),
+              cloudAuthed: true,
+              cloudAppUserId: cached.appUserId,
+              cloudEntitled: cached.entitled,
+              cloudStatus: cached.status,
+              cloudCheckedAt: cached.checkedAt,
+              cloudSessionToken: sessionToken,
+              cloudSessionTokenHash: tokenHash,
+              licenseExpSec: localLicense?.sessionTokenHash === tokenHash ? localLicense.exp : undefined
+            })
             clearCloudAuthTimer(ws)
             reply({
               type: 'auth_session_ok',
               data: {
                 appUserId: cached.appUserId,
                 entitled: cached.entitled,
-                ...(cached.status ? { status: cached.status } : {}),
+                ...(cached.status ? { status: cached.status } : {})
               },
-              requestId: message.requestId,
+              requestId: message.requestId
             })
             log(`[CloudAuth] Offline grace applied (cache age ${Date.now() - cached.checkedAt}ms)`)
             break
           }
 
-          reply({ type: 'error', message: 'Cloud auth failed', code: 'CLOUD_AUTH_FAILED', requestId: message.requestId })
+          reply({
+            type: 'error',
+            message: 'Cloud auth failed',
+            code: 'CLOUD_AUTH_FAILED',
+            requestId: message.requestId
+          })
           try {
             ws.close(1011, 'Cloud auth failed')
           } catch {
@@ -5033,22 +5116,26 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           }
           break
         }
-        const existing = contexts.get(ws) ?? { 
-          lastPongAt: Date.now(), 
-          lastRttMs: 0, 
+        const existing = contexts.get(ws) ?? {
+          lastPongAt: Date.now(),
+          lastRttMs: 0,
           connectionType: 'unknown' as const,
-          connectedAt: Date.now(),
+          connectedAt: Date.now()
         }
         contexts.set(ws, {
           ...existing,
           deviceId: message.deviceId,
           deviceName: message.deviceName,
           platform: message.platform,
-          protocolVersion: safeString((message as any).protocolVersion) || undefined,
+          protocolVersion: safeString((message as any).protocolVersion) || undefined
         })
         const deviceInfo = getDeviceInfo(ws)
         if (deviceInfo) {
-          reply({ type: 'device_registered', data: deviceInfo, protocolVersion: BRIDGE_PROTOCOL_VERSION })
+          reply({
+            type: 'device_registered',
+            data: deviceInfo,
+            protocolVersion: BRIDGE_PROTOCOL_VERSION
+          })
           broadcast({ type: 'device_connected', data: deviceInfo })
         }
         logUser(`Device registered: ${message.deviceName} (${message.platform})`)
@@ -5061,16 +5148,16 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         // while the app was backgrounded.
         void (async () => {
           try {
-            const activeCC = claudeCode.listActiveSessions().map(s => ({
+            const activeCC = claudeCode.listActiveSessions().map((s) => ({
               sessionId: s.sessionId,
               cwd: s.cwd,
-              startedAt: s.startedAt,
+              startedAt: s.startedAt
             }))
 
             const activeCX = Array.from(cxActiveTurns.entries()).map(([threadId, turnId]) => ({
               threadId,
               turnId,
-              cwd: cxThreadCwds.get(threadId) ?? '',
+              cwd: cxThreadCwds.get(threadId) ?? ''
             }))
 
             let activeOC: Array<{ sessionId: string; projectPath?: string }> = []
@@ -5081,7 +5168,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                   .filter(([, s]) => (s as any)?.type === 'busy' || (s as any)?.type === 'retry')
                   .map(([id]) => ({
                     sessionId: id,
-                    projectPath: ocSessionProjectPaths.get(id),
+                    projectPath: ocSessionProjectPaths.get(id)
                   }))
               } catch {
                 // best-effort
@@ -5089,7 +5176,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             }
 
             // Also include sessions with pending permissions (across all backends)
-            const pendingCCPerms = Array.from(ccPermissionWaiters.keys()).map(key => {
+            const pendingCCPerms = Array.from(ccPermissionWaiters.keys()).map((key) => {
               const parts = key.split(':')
               return { sessionId: parts[0], toolUseId: parts[1] }
             })
@@ -5103,9 +5190,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                 opencode: activeOC,
                 pendingPermissions: {
                   claudeCode: pendingCCPerms,
-                  codex: pendingCXPerms,
-                },
-              },
+                  codex: pendingCXPerms
+                }
+              }
             } as any)
           } catch (err) {
             logError('[sessions_active] Failed to build active sessions snapshot:', err)
@@ -5127,866 +5214,850 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           } catch {
             // ignore
           }
-          broadcast({ 
-            type: 'device_disconnected', 
-            data: { 
+          broadcast({
+            type: 'device_disconnected',
+            data: {
               deviceId: message.deviceId,
-              deviceName: targetCtx?.deviceName,
-            } 
+              deviceName: targetCtx?.deviceName
+            }
           })
         }
         break
       }
       case 'set_view': {
-           const existing = contexts.get(ws) ?? {
-             lastPongAt: Date.now(),
-             lastRttMs: 0,
-             connectionType: 'unknown' as const,
-             connectedAt: Date.now(),
-           }
-          const prevKey = makeSessionKey(existing.viewAgent, existing.sessionId)
-          const nextAgent =
-            message.agent ??
-            existing.viewAgent ??
-            (message.projectPath || message.sessionId ? currentAgent : undefined)
-          const nextSessionId = message.sessionId || undefined
+        const existing = contexts.get(ws) ?? {
+          lastPongAt: Date.now(),
+          lastRttMs: 0,
+          connectionType: 'unknown' as const,
+          connectedAt: Date.now()
+        }
+        const prevKey = makeSessionKey(existing.viewAgent, existing.sessionId)
+        const nextAgent = message.agent ?? existing.viewAgent ?? (message.projectPath || message.sessionId ? currentAgent : undefined)
+        const nextSessionId = message.sessionId || undefined
 
-          if (DEBUG_RTS) {
-            logDebug(`[RTS] set_view: agent=${nextAgent}, sessionId=${nextSessionId}, projectPath=${message.projectPath}, prevKey=${prevKey}`)
-          }
+        if (DEBUG_RTS) {
+          logDebug(`[RTS] set_view: agent=${nextAgent}, sessionId=${nextSessionId}, projectPath=${message.projectPath}, prevKey=${prevKey}`)
+        }
 
-          if (nextAgent === 'claude-code') {
-            const cwd = message.projectPath && message.projectPath !== 'global'
-              ? message.projectPath
-              : undefined
-            if (cwd) {
-              ensureClaudeWatchDir(join(cwd, '.claude', 'skills'), 'skills', cwd)
-              ensureClaudeWatchDir(join(cwd, '.claude', 'plugins'), 'plugins', cwd)
-              ensureClaudeWatchDir(join(cwd, '.claude', 'commands'), 'commands', cwd)
-              ensureClaudeWatchDir(join(cwd, '.claude', 'hooks'), 'hooks', cwd)
-              ensureClaudeWatchDir(join(cwd, '.mcp.json'), 'mcp', cwd, false)
-            }
-          }
-
-          contexts.set(ws, {
-            ...existing,
-            projectPath: message.projectPath || undefined,
-            sessionId: nextSessionId,
-            viewAgent: nextAgent,
-          })
-
-          // Track project path for OpenCode external tails
-          if (nextAgent === 'opencode' && nextSessionId && message.projectPath) {
-            ocSessionProjectPaths.set(nextSessionId, message.projectPath)
-            if (DEBUG_RTS) {
-              logDebug(`[RTS] set_view: Stored projectPath for OpenCode session ${nextSessionId}: ${message.projectPath}`)
-            }
-          }
-
-          // ── Re-bind ownership for active sessions on reconnect ───────
-          // When the app reconnects after backgrounding, the old socket is dead.
-          // If this session is still actively streaming (in the bridge process),
-          // re-bind the new socket as owner so live events flow to it immediately.
-          if (nextAgent === 'claude-code' && nextSessionId) {
-            const ccActiveList = claudeCode.listActiveSessions()
-            const isActive = ccActiveList.some(s => s.sessionId === nextSessionId)
-            if (isActive) {
-              const prevOwner = ccSessionOwners.get(nextSessionId)
-              // Re-bind if no owner or owner is a dead/different socket
-              if (!prevOwner || !sockets.has(prevOwner)) {
-                ccSessionOwners.set(nextSessionId, ws)
-                logInfo(`[RTS] set_view: Re-bound CC session ${nextSessionId} owner (was ${prevOwner ? 'stale' : 'absent'})`)
-              }
-              // Replay any buffered events from the disconnect gap
-              replayBufferedEvents(ws, 'claude-code', nextSessionId)
-            }
-          }
-          if (nextAgent === 'codex' && nextSessionId) {
-            const isActive = cxActiveTurns.has(nextSessionId)
-            if (isActive) {
-              const prevOwner = cxThreadOwners.get(nextSessionId)
-              if (!prevOwner || !sockets.has(prevOwner)) {
-                cxThreadOwners.set(nextSessionId, ws)
-                logInfo(`[RTS] set_view: Re-bound CX thread ${nextSessionId} owner (was ${prevOwner ? 'stale' : 'absent'})`)
-              }
-              replayBufferedEvents(ws, 'codex', nextSessionId)
-            }
-          }
-          if (nextAgent === 'opencode' && nextSessionId) {
-            const prevOwner = ocSessionOwners.get(nextSessionId)
-            if (!prevOwner || !sockets.has(prevOwner)) {
-              // Re-bind OC ownership so external tail stops (SDK stream delivers events)
-              ocSessionOwners.set(nextSessionId, ws)
-              if (DEBUG_RTS) {
-                logDebug(`[RTS] set_view: Re-bound OC session ${nextSessionId} owner`)
-              }
-            }
-          }
-
-          const nextKey = makeSessionKey(nextAgent, nextSessionId)
-          updateSessionWatchers(ws, prevKey, nextKey)
-          
-          if (DEBUG_RTS) {
-            const watchers = sessionWatchers.get(nextKey ?? '')
-            logDebug(`[RTS] set_view: nextKey=${nextKey}, watchers=${watchers?.size ?? 0}`)
-          }
-          
-          void sendStatus(ws)
-          break
-        }
-        case 'pong': {
-          const ctx = contexts.get(ws)
-          if (!ctx) break
-          ctx.lastPongAt = Date.now()
-          ctx.lastRttMs = Math.max(0, ctx.lastPongAt - message.sentAt)
-          if (ctx.pendingPing?.id === message.id) {
-            ctx.pendingPing = undefined
-          }
-          if (ctx.connectionType === 'unknown') {
-            ctx.connectionType = ctx.lastRttMs > 30 ? 'tailscale' : 'local'
-          }
-          send(ws, { type: 'connection_metrics', data: { rttMs: ctx.lastRttMs, lastPongAt: ctx.lastPongAt, connectionType: ctx.connectionType } })
-          break
-        }
-        case 'client_ping': {
-          // Client-initiated ping for app lifecycle detection - respond immediately
-          send(ws, { type: 'client_pong', id: message.id, sentAt: message.sentAt, receivedAt: Date.now() })
-          break
-        }
-        case 'list_projects': {
-          const oc = requireOpenCode()
-          const projects = await oc.listProjects()
-          reply({ type: 'projects', data: projects })
-          break
-        }
-        case 'restart_opencode': {
-          const ok = await options.restartOpenCode?.()
-          reply({ type: 'opencode_restarted', data: ok === true })
-          break
-        }
-        case 'list_sessions': {
-          const oc = requireOpenCode()
-          const sessions = await oc.listSessions(message.projectPath, {
-            roots: (message as any).roots,
-            start: (message as any).start,
-            search: (message as any).search,
-            limit: (message as any).limit,
-          })
-          reply({ type: 'sessions', data: sessions, projectPath: message.projectPath })
-          break
-        }
-        case 'list_providers': {
-          const oc = requireOpenCode()
-          const providers = await oc.listProviders()
-          reply({ type: 'providers', data: providers })
-          break
-        }
-        case 'get_config': {
-          const oc = requireOpenCode()
-          // Use instance directory as fallback when no project is specified
-          const fallback = await oc.getInstanceDirectory()
-          const projectPath = safeString(message.projectPath).trim() || (fallback ? (await getSecurePath(fallback)) : '')
-          const config = await oc.getConfig(projectPath || undefined)
-          reply({ type: 'config', data: config })
-          break
-        }
-        case 'set_config': {
-          const oc = requireOpenCode()
-          // Use instance directory as fallback when no project is specified
-          const fallback = await oc.getInstanceDirectory()
-          const projectPath = safeString(message.projectPath).trim() || (fallback ? (await getSecurePath(fallback)) : '')
-          const config = await oc.updateConfig(message.config, projectPath || undefined)
-          reply({ type: 'config', data: config })
-          break
-        }
-        case 'set_model': {
-          const oc = requireOpenCode()
-          await oc.updateModel(message.model, message.projectPath)
-          const config = await oc.getConfig(message.projectPath)
-          reply({ type: 'config', data: config })
-          break
-        }
-        case 'create_session': {
-          const oc = requireOpenCode()
-          const session = await oc.createSession(
-            message.projectPath,
-            message.title,
-            message.permission,
-          )
-          reply({ type: 'session_created', data: session })
-          break
-        }
-        case 'get_session': {
-          const oc = requireOpenCode()
-          const session = await oc.getSession(message.sessionId, message.projectPath)
-          reply({ type: 'session', data: session })
-          break
-        }
-        case 'get_session_messages': {
-          const oc = requireOpenCode()
-          const messages = await oc.getSessionMessages(
-            message.sessionId,
-            message.projectPath,
-            message.limit,
-          )
-          reply({ type: 'session_messages', data: messages, sessionId: message.sessionId })
-          break
-        }
-        case 'chat': {
-          const oc = requireOpenCode()
-          const msgId = safeString((message as any).messageId)
-          if (msgId) {
-            const key = `${message.sessionId}:${msgId}`
-            const now = Date.now()
-            const previous = recentChatMessageIds.get(key)
-            if (previous && now - previous < 120_000) {
-              // Duplicate send of the same message (likely retry) — ignore.
-              break
-            }
-            recentChatMessageIds.set(key, now)
-            // Best-effort cleanup to keep memory bounded.
-            if (recentChatMessageIds.size > 10_000) {
-              const cutoff = now - 300_000
-              for (const [k, t] of recentChatMessageIds) {
-                if (t < cutoff) recentChatMessageIds.delete(k)
-              }
-            }
-          }
-          // Mark this WS as the owner so the external polling tail is suppressed
-          // while the global SSE event stream delivers events for this session.
-          if (message.sessionId) {
-            ocSessionOwners.set(message.sessionId, ws)
-            syncExternalTailForKey(makeSessionKey('opencode', message.sessionId))
-          }
-          await oc.sendPromptAsync(
-            message.sessionId,
-            message.content,
-            message.projectPath,
-            message.model,
-            message.agent,
-            message.fileAttachments,
-            message.variant,
-            (message as any).noReply,
-            (message as any).system,
-          )
-          break
-        }
-        case 'abort': {
-          const oc = requireOpenCode()
-          await oc.abortSession(message.sessionId, message.projectPath)
-          break
-        }
-        case 'diff': {
-          const oc = requireOpenCode()
-          const diff = await oc.getSessionDiff(
-            message.sessionId,
-            message.projectPath,
-            message.messageId,
-          )
-          reply({ type: 'diff', data: diff, sessionId: message.sessionId })
-          break
-        }
-        case 'browse': {
-          // Use direct file listing (doesn't require OpenCode SDK)
-          const items = await listFilesDirectly(message.path)
-          reply({ type: 'browse_result', data: { path: message.path, items } })
-          break
-        }
-        case 'permission_response': {
-          const oc = requireOpenCode()
-          // OpenCode only accepts: once | always | reject
-          const raw = message.response
-          const normalized: 'once' | 'always' | 'reject' =
-            raw === 'once' || raw === 'always' || raw === 'reject' ? raw : 'reject'
-          if (raw !== normalized) {
-            logError('[permission_response] Invalid OpenCode permission response, forcing reject:', raw)
-          }
-          // Use the new permission.reply() API - permissionId is now requestId
-          await oc.respondToPermission(
-            message.permissionId,  // This is the requestID in the new API
-            normalized,
-            message.message,  // Optional rejection feedback message
-            message.projectPath,
-          )
-          break
-        }
-        case 'list_pending_permissions': {
-          const oc = requireOpenCode()
-          const pending = await oc.listPendingPermissions(message.projectPath)
-          reply({ type: 'pending_permissions', data: pending })
-          break
-        }
-        case 'list_pending_questions': {
-          const oc = requireOpenCode()
-          const pending = await oc.listPendingQuestions(message.projectPath)
-          reply({ type: 'pending_questions', data: pending })
-          break
-        }
-        case 'get_lsp_status': {
-          const oc = requireOpenCode()
-          const lspStatus = await oc.getLspStatus(message.projectPath)
-          reply({ type: 'lsp_status', data: lspStatus })
-          break
-        }
-        case 'get_session_context': {
-          const oc = requireOpenCode()
-          const context = await oc.getSessionContext(
-            message.sessionId,
-            message.projectPath,
-          )
-          reply({ type: 'session_context', data: context, sessionId: message.sessionId })
-          break
-        }
-        // Feature 1: Todo/Plan Management
-        case 'get_todos': {
-          const oc = requireOpenCode()
-          const todos = await oc.getTodos(message.sessionId, message.projectPath)
-          reply({ type: 'todos', data: todos, sessionId: message.sessionId })
-          break
-        }
-        // Feature 2: Slash Commands
-        case 'list_commands': {
-          const oc = requireOpenCode()
-          const commands = await oc.listCommands(message.projectPath)
-          reply({ type: 'commands', data: commands })
-          break
-        }
-        case 'execute_command': {
-          const oc = requireOpenCode()
-          const result = await oc.executeCommand(
-            message.sessionId,
-            message.command,
-            message.arguments,
-            message.projectPath,
-            message.agent,
-            message.model,
-            (message as any).variant,
-            (message as any).parts,
-          )
-          reply({ type: 'command_executed', data: result, sessionId: message.sessionId })
-          break
-        }
-        // Feature 3: Agent Switching
-        case 'list_agents': {
-          const oc = requireOpenCode()
-          const agents = await oc.listAgents(message.projectPath)
-          reply({ type: 'agents', data: agents })
-          break
-        }
-        // Feature 4: Session Delete
-        case 'delete_session': {
-          const oc = requireOpenCode()
-          const deleted = await oc.deleteSession(message.sessionId, message.projectPath)
-          reply({ type: 'session_deleted', data: deleted, sessionId: message.sessionId })
-          break
-        }
-        // Feature 5: Session Update (Rename)
-        case 'update_session': {
-          const oc = requireOpenCode()
-          const session = await oc.updateSession(
-            message.sessionId,
-            message.title,
-            message.archived,
-            message.projectPath,
-          )
-          reply({ type: 'session_updated', data: session, sessionId: message.sessionId })
-          break
-        }
-        // Feature 6: Session Fork
-        case 'fork_session': {
-          const oc = requireOpenCode()
-          const session = await oc.forkSession(
-            message.sessionId,
-            message.messageId,
-            message.projectPath,
-          )
-          reply({ type: 'session_forked', data: session })
-          break
-        }
-        case 'oc_session_shell': {
-          const oc = requireOpenCode()
-          const result = await oc.shellCommand(
-            message.sessionId,
-            message.command,
-            message.projectPath,
-            message.agent,
-            message.model,
-          )
-          reply({ type: 'oc_session_shell_result', data: result })
-          break
-        }
-        case 'session_children': {
-          const oc = requireOpenCode()
-          const sessions = await oc.listSessionChildren(
-            message.sessionId,
-            message.projectPath,
-          )
-          reply({ type: 'session_children', data: sessions, sessionId: message.sessionId })
-          break
-        }
-        // Feature 7: Message Revert (Undo)
-        case 'revert_message': {
-          const oc = requireOpenCode()
-          const session = await oc.revertMessage(
-            message.sessionId,
-            message.messageId,
-            message.partId,
-            message.projectPath,
-          )
-          reply({ type: 'message_reverted', data: session, sessionId: message.sessionId })
-          break
-        }
-        case 'unrevert_session': {
-          const oc = requireOpenCode()
-          const session = await oc.unrevertSession(
-            message.sessionId,
-            message.projectPath,
-          )
-          reply({ type: 'session_unreverted', data: session, sessionId: message.sessionId })
-          break
-        }
-        // Feature 8: Session Share
-        case 'share_session': {
-          const oc = requireOpenCode()
-          const session = await oc.shareSession(
-            message.sessionId,
-            message.projectPath,
-          )
-          reply({ type: 'session_shared', data: session, sessionId: message.sessionId })
-          break
-        }
-        case 'unshare_session': {
-          const oc = requireOpenCode()
-          const session = await oc.unshareSession(
-            message.sessionId,
-            message.projectPath,
-          )
-          reply({ type: 'session_unshared', data: session, sessionId: message.sessionId })
-          break
-        }
-        // Feature 9: Session Summarize (Compact)
-        case 'summarize_session': {
-          const oc = requireOpenCode()
-          const success = await oc.summarizeSession(
-            message.sessionId,
-            message.providerID,
-            message.modelID,
-            message.projectPath,
-            message.auto,
-          )
-          reply({ type: 'session_summarized', data: success, sessionId: message.sessionId })
-          break
-        }
-        // Feature 10: Git/VCS Information
-        case 'get_vcs': {
-          const oc = requireOpenCode()
-          const vcs = await oc.getVcsInfo(message.projectPath)
-          reply({ type: 'vcs', data: vcs })
-          break
-        }
-        // Feature 11: File Content Read
-        case 'read_file': {
-          const content = message.projectPath
-            ? await requireOpenCode().readFile(message.path, message.projectPath)
-            : await readFileDirectly(message.path)
-          reply({ type: 'file_content', data: content, path: message.path })
-          break
-        }
-        case 'read_file_binary': {
-          const maxSizeMb = message.maxSizeMb ?? 10
-          const result = await readFileBinaryDirectly(message.path, maxSizeMb)
-          if ('error' in result) {
-            if (result.error === 'too_large') {
-              reply({
-                type: 'file_too_large',
-                data: {
-                  path: message.path,
-                  size: result.size ?? 0,
-                  maxSize: maxSizeMb * 1024 * 1024,
-                },
-              })
-            } else if (result.error === 'access_denied') {
-              reply({ type: 'error', message: 'Access denied' })
-            } else {
-              reply({ type: 'error', message: 'File not found' })
-            }
-          } else {
-            reply({ type: 'file_binary', data: result, path: message.path })
-          }
-          break
-        }
-        // Feature 12: File Search
-        case 'find_files': {
-          const oc = requireOpenCode()
-          const files = await oc.findFiles(message.query, message.projectPath)
-          reply({ type: 'files_found', data: files })
-          break
-        }
-        case 'find_text': {
-          const oc = requireOpenCode()
-          const results = await oc.findText(message.pattern, message.include, message.projectPath)
-          reply({ type: 'text_found', data: results })
-          break
-        }
-        case 'find_symbols': {
-          const oc = requireOpenCode()
-          const symbols = await oc.findSymbols(message.query, message.projectPath)
-          reply({ type: 'symbols_found', data: symbols })
-          break
-        }
-        case 'search_files_and_dirs': {
-          // Use our unified file search module - works for both OpenCode and Claude Code
-          // Falls back to OpenCode SDK if no projectPath is provided and OpenCode is running
-          const cwd = message.projectPath
-          
+        if (nextAgent === 'claude-code') {
+          const cwd = message.projectPath && message.projectPath !== 'global' ? message.projectPath : undefined
           if (cwd) {
-            // Project path provided - use our file search module (faster, works for any directory)
-            const results = await fileSearch.searchFilesAndDirs({
-              query: message.query ?? '',
-              cwd,
-              limit: 50,
-              includeDirs: true,
+            ensureClaudeWatchDir(join(cwd, '.claude', 'skills'), 'skills', cwd)
+            ensureClaudeWatchDir(join(cwd, '.claude', 'plugins'), 'plugins', cwd)
+            ensureClaudeWatchDir(join(cwd, '.claude', 'commands'), 'commands', cwd)
+            ensureClaudeWatchDir(join(cwd, '.claude', 'hooks'), 'hooks', cwd)
+            ensureClaudeWatchDir(join(cwd, '.mcp.json'), 'mcp', cwd, false)
+          }
+        }
+
+        contexts.set(ws, {
+          ...existing,
+          projectPath: message.projectPath || undefined,
+          sessionId: nextSessionId,
+          viewAgent: nextAgent
+        })
+
+        // Track project path for OpenCode external tails
+        if (nextAgent === 'opencode' && nextSessionId && message.projectPath) {
+          ocSessionProjectPaths.set(nextSessionId, message.projectPath)
+          if (DEBUG_RTS) {
+            logDebug(`[RTS] set_view: Stored projectPath for OpenCode session ${nextSessionId}: ${message.projectPath}`)
+          }
+        }
+
+        // ── Re-bind ownership for active sessions on reconnect ───────
+        // When the app reconnects after backgrounding, the old socket is dead.
+        // If this session is still actively streaming (in the bridge process),
+        // re-bind the new socket as owner so live events flow to it immediately.
+        if (nextAgent === 'claude-code' && nextSessionId) {
+          const ccActiveList = claudeCode.listActiveSessions()
+          const isActive = ccActiveList.some((s) => s.sessionId === nextSessionId)
+          if (isActive) {
+            const prevOwner = ccSessionOwners.get(nextSessionId)
+            // Re-bind if no owner or owner is a dead/different socket
+            if (!prevOwner || !sockets.has(prevOwner)) {
+              ccSessionOwners.set(nextSessionId, ws)
+              logInfo(`[RTS] set_view: Re-bound CC session ${nextSessionId} owner (was ${prevOwner ? 'stale' : 'absent'})`)
+            }
+            // Replay any buffered events from the disconnect gap
+            replayBufferedEvents(ws, 'claude-code', nextSessionId)
+          }
+        }
+        if (nextAgent === 'codex' && nextSessionId) {
+          const isActive = cxActiveTurns.has(nextSessionId)
+          if (isActive) {
+            const prevOwner = cxThreadOwners.get(nextSessionId)
+            if (!prevOwner || !sockets.has(prevOwner)) {
+              cxThreadOwners.set(nextSessionId, ws)
+              logInfo(`[RTS] set_view: Re-bound CX thread ${nextSessionId} owner (was ${prevOwner ? 'stale' : 'absent'})`)
+            }
+            replayBufferedEvents(ws, 'codex', nextSessionId)
+          }
+        }
+        if (nextAgent === 'opencode' && nextSessionId) {
+          const prevOwner = ocSessionOwners.get(nextSessionId)
+          if (!prevOwner || !sockets.has(prevOwner)) {
+            // Re-bind OC ownership so external tail stops (SDK stream delivers events)
+            ocSessionOwners.set(nextSessionId, ws)
+            if (DEBUG_RTS) {
+              logDebug(`[RTS] set_view: Re-bound OC session ${nextSessionId} owner`)
+            }
+          }
+        }
+
+        const nextKey = makeSessionKey(nextAgent, nextSessionId)
+        updateSessionWatchers(ws, prevKey, nextKey)
+
+        if (DEBUG_RTS) {
+          const watchers = sessionWatchers.get(nextKey ?? '')
+          logDebug(`[RTS] set_view: nextKey=${nextKey}, watchers=${watchers?.size ?? 0}`)
+        }
+
+        void sendStatus(ws)
+        break
+      }
+      case 'pong': {
+        const ctx = contexts.get(ws)
+        if (!ctx) break
+        ctx.lastPongAt = Date.now()
+        ctx.lastRttMs = Math.max(0, ctx.lastPongAt - message.sentAt)
+        if (ctx.pendingPing?.id === message.id) {
+          ctx.pendingPing = undefined
+        }
+        if (ctx.connectionType === 'unknown') {
+          ctx.connectionType = ctx.lastRttMs > 30 ? 'tailscale' : 'local'
+        }
+        send(ws, {
+          type: 'connection_metrics',
+          data: {
+            rttMs: ctx.lastRttMs,
+            lastPongAt: ctx.lastPongAt,
+            connectionType: ctx.connectionType
+          }
+        })
+        break
+      }
+      case 'client_ping': {
+        // Client-initiated ping for app lifecycle detection - respond immediately
+        send(ws, {
+          type: 'client_pong',
+          id: message.id,
+          sentAt: message.sentAt,
+          receivedAt: Date.now()
+        })
+        break
+      }
+      case 'list_projects': {
+        const oc = requireOpenCode()
+        const projects = await oc.listProjects()
+        reply({ type: 'projects', data: projects })
+        break
+      }
+      case 'restart_opencode': {
+        const ok = await options.restartOpenCode?.()
+        reply({ type: 'opencode_restarted', data: ok === true })
+        break
+      }
+      case 'list_sessions': {
+        const oc = requireOpenCode()
+        const sessions = await oc.listSessions(message.projectPath, {
+          roots: (message as any).roots,
+          start: (message as any).start,
+          search: (message as any).search,
+          limit: (message as any).limit
+        })
+        reply({
+          type: 'sessions',
+          data: sessions,
+          projectPath: message.projectPath
+        })
+        break
+      }
+      case 'list_providers': {
+        const oc = requireOpenCode()
+        const providers = await oc.listProviders()
+        reply({ type: 'providers', data: providers })
+        break
+      }
+      case 'get_config': {
+        const oc = requireOpenCode()
+        // Use instance directory as fallback when no project is specified
+        const fallback = await oc.getInstanceDirectory()
+        const projectPath = safeString(message.projectPath).trim() || (fallback ? await getSecurePath(fallback) : '')
+        const config = await oc.getConfig(projectPath || undefined)
+        reply({ type: 'config', data: config })
+        break
+      }
+      case 'set_config': {
+        const oc = requireOpenCode()
+        // Use instance directory as fallback when no project is specified
+        const fallback = await oc.getInstanceDirectory()
+        const projectPath = safeString(message.projectPath).trim() || (fallback ? await getSecurePath(fallback) : '')
+        const config = await oc.updateConfig(message.config, projectPath || undefined)
+        reply({ type: 'config', data: config })
+        break
+      }
+      case 'set_model': {
+        const oc = requireOpenCode()
+        await oc.updateModel(message.model, message.projectPath)
+        const config = await oc.getConfig(message.projectPath)
+        reply({ type: 'config', data: config })
+        break
+      }
+      case 'create_session': {
+        const oc = requireOpenCode()
+        const session = await oc.createSession(message.projectPath, message.title, message.permission)
+        reply({ type: 'session_created', data: session })
+        break
+      }
+      case 'get_session': {
+        const oc = requireOpenCode()
+        const session = await oc.getSession(message.sessionId, message.projectPath)
+        reply({ type: 'session', data: session })
+        break
+      }
+      case 'get_session_messages': {
+        const oc = requireOpenCode()
+        const messages = await oc.getSessionMessages(message.sessionId, message.projectPath, message.limit)
+        reply({
+          type: 'session_messages',
+          data: messages,
+          sessionId: message.sessionId
+        })
+        break
+      }
+      case 'chat': {
+        const oc = requireOpenCode()
+        const msgId = safeString((message as any).messageId)
+        if (msgId) {
+          const key = `${message.sessionId}:${msgId}`
+          const now = Date.now()
+          const previous = recentChatMessageIds.get(key)
+          if (previous && now - previous < 120_000) {
+            // Duplicate send of the same message (likely retry) — ignore.
+            break
+          }
+          recentChatMessageIds.set(key, now)
+          // Best-effort cleanup to keep memory bounded.
+          if (recentChatMessageIds.size > 10_000) {
+            const cutoff = now - 300_000
+            for (const [k, t] of recentChatMessageIds) {
+              if (t < cutoff) recentChatMessageIds.delete(k)
+            }
+          }
+        }
+        // Mark this WS as the owner so the external polling tail is suppressed
+        // while the global SSE event stream delivers events for this session.
+        if (message.sessionId) {
+          ocSessionOwners.set(message.sessionId, ws)
+          syncExternalTailForKey(makeSessionKey('opencode', message.sessionId))
+        }
+        await oc.sendPromptAsync(message.sessionId, message.content, message.projectPath, message.model, message.agent, message.fileAttachments, message.variant, (message as any).noReply, (message as any).system)
+        break
+      }
+      case 'abort': {
+        const oc = requireOpenCode()
+        await oc.abortSession(message.sessionId, message.projectPath)
+        break
+      }
+      case 'diff': {
+        const oc = requireOpenCode()
+        const diff = await oc.getSessionDiff(message.sessionId, message.projectPath, message.messageId)
+        reply({ type: 'diff', data: diff, sessionId: message.sessionId })
+        break
+      }
+      case 'browse': {
+        // Use direct file listing (doesn't require OpenCode SDK)
+        const items = await listFilesDirectly(message.path)
+        reply({ type: 'browse_result', data: { path: message.path, items } })
+        break
+      }
+      case 'permission_response': {
+        const oc = requireOpenCode()
+        // OpenCode only accepts: once | always | reject
+        const raw = message.response
+        const normalized: 'once' | 'always' | 'reject' = raw === 'once' || raw === 'always' || raw === 'reject' ? raw : 'reject'
+        if (raw !== normalized) {
+          logError('[permission_response] Invalid OpenCode permission response, forcing reject:', raw)
+        }
+        // Use the new permission.reply() API - permissionId is now requestId
+        await oc.respondToPermission(
+          message.permissionId, // This is the requestID in the new API
+          normalized,
+          message.message, // Optional rejection feedback message
+          message.projectPath
+        )
+        break
+      }
+      case 'list_pending_permissions': {
+        const oc = requireOpenCode()
+        const pending = await oc.listPendingPermissions(message.projectPath)
+        reply({ type: 'pending_permissions', data: pending })
+        break
+      }
+      case 'list_pending_questions': {
+        const oc = requireOpenCode()
+        const pending = await oc.listPendingQuestions(message.projectPath)
+        reply({ type: 'pending_questions', data: pending })
+        break
+      }
+      case 'get_lsp_status': {
+        const oc = requireOpenCode()
+        const lspStatus = await oc.getLspStatus(message.projectPath)
+        reply({ type: 'lsp_status', data: lspStatus })
+        break
+      }
+      case 'get_session_context': {
+        const oc = requireOpenCode()
+        const context = await oc.getSessionContext(message.sessionId, message.projectPath)
+        reply({
+          type: 'session_context',
+          data: context,
+          sessionId: message.sessionId
+        })
+        break
+      }
+      // Feature 1: Todo/Plan Management
+      case 'get_todos': {
+        const oc = requireOpenCode()
+        const todos = await oc.getTodos(message.sessionId, message.projectPath)
+        reply({ type: 'todos', data: todos, sessionId: message.sessionId })
+        break
+      }
+      // Feature 2: Slash Commands
+      case 'list_commands': {
+        const oc = requireOpenCode()
+        const commands = await oc.listCommands(message.projectPath)
+        reply({ type: 'commands', data: commands })
+        break
+      }
+      case 'execute_command': {
+        const oc = requireOpenCode()
+        const result = await oc.executeCommand(message.sessionId, message.command, message.arguments, message.projectPath, message.agent, message.model, (message as any).variant, (message as any).parts)
+        reply({
+          type: 'command_executed',
+          data: result,
+          sessionId: message.sessionId
+        })
+        break
+      }
+      // Feature 3: Agent Switching
+      case 'list_agents': {
+        const oc = requireOpenCode()
+        const agents = await oc.listAgents(message.projectPath)
+        reply({ type: 'agents', data: agents })
+        break
+      }
+      // Feature 4: Session Delete
+      case 'delete_session': {
+        const oc = requireOpenCode()
+        const deleted = await oc.deleteSession(message.sessionId, message.projectPath)
+        reply({
+          type: 'session_deleted',
+          data: deleted,
+          sessionId: message.sessionId
+        })
+        break
+      }
+      // Feature 5: Session Update (Rename)
+      case 'update_session': {
+        const oc = requireOpenCode()
+        const session = await oc.updateSession(message.sessionId, message.title, message.archived, message.projectPath)
+        reply({
+          type: 'session_updated',
+          data: session,
+          sessionId: message.sessionId
+        })
+        break
+      }
+      // Feature 6: Session Fork
+      case 'fork_session': {
+        const oc = requireOpenCode()
+        const session = await oc.forkSession(message.sessionId, message.messageId, message.projectPath)
+        reply({ type: 'session_forked', data: session })
+        break
+      }
+      case 'oc_session_shell': {
+        const oc = requireOpenCode()
+        const result = await oc.shellCommand(message.sessionId, message.command, message.projectPath, message.agent, message.model)
+        reply({ type: 'oc_session_shell_result', data: result })
+        break
+      }
+      case 'session_children': {
+        const oc = requireOpenCode()
+        const sessions = await oc.listSessionChildren(message.sessionId, message.projectPath)
+        reply({
+          type: 'session_children',
+          data: sessions,
+          sessionId: message.sessionId
+        })
+        break
+      }
+      // Feature 7: Message Revert (Undo)
+      case 'revert_message': {
+        const oc = requireOpenCode()
+        const session = await oc.revertMessage(message.sessionId, message.messageId, message.partId, message.projectPath)
+        reply({
+          type: 'message_reverted',
+          data: session,
+          sessionId: message.sessionId
+        })
+        break
+      }
+      case 'unrevert_session': {
+        const oc = requireOpenCode()
+        const session = await oc.unrevertSession(message.sessionId, message.projectPath)
+        reply({
+          type: 'session_unreverted',
+          data: session,
+          sessionId: message.sessionId
+        })
+        break
+      }
+      // Feature 8: Session Share
+      case 'share_session': {
+        const oc = requireOpenCode()
+        const session = await oc.shareSession(message.sessionId, message.projectPath)
+        reply({
+          type: 'session_shared',
+          data: session,
+          sessionId: message.sessionId
+        })
+        break
+      }
+      case 'unshare_session': {
+        const oc = requireOpenCode()
+        const session = await oc.unshareSession(message.sessionId, message.projectPath)
+        reply({
+          type: 'session_unshared',
+          data: session,
+          sessionId: message.sessionId
+        })
+        break
+      }
+      // Feature 9: Session Summarize (Compact)
+      case 'summarize_session': {
+        const oc = requireOpenCode()
+        const success = await oc.summarizeSession(message.sessionId, message.providerID, message.modelID, message.projectPath, message.auto)
+        reply({
+          type: 'session_summarized',
+          data: success,
+          sessionId: message.sessionId
+        })
+        break
+      }
+      // Feature 10: Git/VCS Information
+      case 'get_vcs': {
+        const oc = requireOpenCode()
+        const vcs = await oc.getVcsInfo(message.projectPath)
+        reply({ type: 'vcs', data: vcs })
+        break
+      }
+      // Feature 11: File Content Read
+      case 'read_file': {
+        const content = message.projectPath ? await requireOpenCode().readFile(message.path, message.projectPath) : await readFileDirectly(message.path)
+        reply({ type: 'file_content', data: content, path: message.path })
+        break
+      }
+      case 'read_file_binary': {
+        const maxSizeMb = message.maxSizeMb ?? 10
+        const result = await readFileBinaryDirectly(message.path, maxSizeMb)
+        if ('error' in result) {
+          if (result.error === 'too_large') {
+            reply({
+              type: 'file_too_large',
+              data: {
+                path: message.path,
+                size: result.size ?? 0,
+                maxSize: maxSizeMb * 1024 * 1024
+              }
             })
-            reply({ type: 'files_and_dirs_found', data: results })
+          } else if (result.error === 'access_denied') {
+            reply({ type: 'error', message: 'Access denied' })
           } else {
-            // No project path - try OpenCode SDK (it uses its current working directory)
-            const oc = requireOpenCode()
-            const results = await oc.searchFilesAndDirs(message.query, message.projectPath)
-            reply({ type: 'files_and_dirs_found', data: results })
+            reply({ type: 'error', message: 'File not found' })
           }
-          break
+        } else {
+          reply({ type: 'file_binary', data: result, path: message.path })
         }
-        // Feature 13: Session Status
-        case 'get_session_status': {
+        break
+      }
+      // Feature 12: File Search
+      case 'find_files': {
+        const oc = requireOpenCode()
+        const files = await oc.findFiles(message.query, message.projectPath)
+        reply({ type: 'files_found', data: files })
+        break
+      }
+      case 'find_text': {
+        const oc = requireOpenCode()
+        const results = await oc.findText(message.pattern, message.include, message.projectPath)
+        reply({ type: 'text_found', data: results })
+        break
+      }
+      case 'find_symbols': {
+        const oc = requireOpenCode()
+        const symbols = await oc.findSymbols(message.query, message.projectPath)
+        reply({ type: 'symbols_found', data: symbols })
+        break
+      }
+      case 'search_files_and_dirs': {
+        // Use our unified file search module - works for both OpenCode and Claude Code
+        // Falls back to OpenCode SDK if no projectPath is provided and OpenCode is running
+        const cwd = message.projectPath
+
+        if (cwd) {
+          // Project path provided - use our file search module (faster, works for any directory)
+          const results = await fileSearch.searchFilesAndDirs({
+            query: message.query ?? '',
+            cwd,
+            limit: 50,
+            includeDirs: true
+          })
+          reply({ type: 'files_and_dirs_found', data: results })
+        } else {
+          // No project path - try OpenCode SDK (it uses its current working directory)
           const oc = requireOpenCode()
-          const status = await oc.getSessionStatus(message.projectPath)
-          reply({ type: 'session_status', data: status })
-          break
+          const results = await oc.searchFilesAndDirs(message.query, message.projectPath)
+          reply({ type: 'files_and_dirs_found', data: results })
         }
-        // Feature 14: PTY Terminal Sessions (OpenCode when available, native fallback otherwise)
-        case 'list_pty':
-        case 'create_pty':
-        case 'get_pty':
-        case 'update_pty':
-        case 'delete_pty':
-        case 'pty_connect':
-        case 'pty_input':
-        case 'pty_disconnect':
-        case 'pty_resize': {
-          await ptyRuntime.handleMessage(ws, message, reply)
-          break
+        break
+      }
+      // Feature 13: Session Status
+      case 'get_session_status': {
+        const oc = requireOpenCode()
+        const status = await oc.getSessionStatus(message.projectPath)
+        reply({ type: 'session_status', data: status })
+        break
+      }
+      // Feature 14: PTY Terminal Sessions (OpenCode when available, native fallback otherwise)
+      case 'list_pty':
+      case 'create_pty':
+      case 'get_pty':
+      case 'update_pty':
+      case 'delete_pty':
+      case 'pty_connect':
+      case 'pty_input':
+      case 'pty_disconnect':
+      case 'pty_resize': {
+        await ptyRuntime.handleMessage(ws, message, reply)
+        break
+      }
+      // Feature 15: MCP Server Management
+      case 'get_mcp_status': {
+        const oc = requireOpenCode()
+        const status = await oc.getMcpStatus(message.projectPath)
+        reply({ type: 'mcp_status', data: status })
+        break
+      }
+      case 'add_mcp': {
+        const oc = requireOpenCode()
+        const status = await oc.addMcp(message.name, (message as any).config ?? {}, message.projectPath)
+        reply({ type: 'mcp_added', data: status })
+        break
+      }
+      case 'connect_mcp': {
+        const oc = requireOpenCode()
+        const connected = await oc.connectMcp(message.name, message.projectPath)
+        reply({ type: 'mcp_connected', data: connected, name: message.name })
+        break
+      }
+      case 'disconnect_mcp': {
+        const oc = requireOpenCode()
+        const disconnected = await oc.disconnectMcp(message.name, message.projectPath)
+        reply({
+          type: 'mcp_disconnected',
+          data: disconnected,
+          name: message.name
+        })
+        break
+      }
+      case 'get_mcp_resources': {
+        const oc = requireOpenCode()
+        const resources = await oc.getMcpResources(message.projectPath)
+        reply({ type: 'mcp_resources', data: resources })
+        break
+      }
+      // MCP OAuth Authentication
+      case 'mcp_auth_start': {
+        const oc = requireOpenCode()
+        const result = await oc.mcpAuthStart(message.name, message.projectPath)
+        reply({ type: 'mcp_auth_started', data: result, name: message.name })
+        break
+      }
+      case 'mcp_auth_callback': {
+        const oc = requireOpenCode()
+        const ok = await oc.mcpAuthCallback(message.name, (message as any).code, message.projectPath)
+        reply({ type: 'mcp_auth_completed', data: ok, name: message.name })
+        break
+      }
+      case 'mcp_auth_authenticate': {
+        const oc = requireOpenCode()
+        const result = await oc.mcpAuthAuthenticate(message.name, message.projectPath)
+        reply({
+          type: 'mcp_auth_authenticated',
+          data: result,
+          name: message.name
+        })
+        break
+      }
+      case 'mcp_auth_remove': {
+        const oc = requireOpenCode()
+        const ok = await oc.mcpAuthRemove(message.name, message.projectPath)
+        reply({ type: 'mcp_auth_removed', data: ok, name: message.name })
+        break
+      }
+      // Provider credential management
+      case 'auth_set': {
+        const oc = requireOpenCode()
+        const ok = await oc.authSet((message as any).providerId, (message as any).auth)
+        reply({
+          type: 'auth_set_result',
+          data: ok,
+          providerId: (message as any).providerId
+        })
+        break
+      }
+      case 'auth_remove': {
+        const oc = requireOpenCode()
+        const ok = await oc.authRemove((message as any).providerId)
+        reply({
+          type: 'auth_removed_result',
+          data: ok,
+          providerId: (message as any).providerId
+        })
+        break
+      }
+      // Global config
+      case 'get_global_config': {
+        const oc = requireOpenCode()
+        const config = await oc.getGlobalConfig()
+        reply({ type: 'global_config', data: config })
+        break
+      }
+      case 'set_global_config': {
+        const oc = requireOpenCode()
+        const config = await oc.updateGlobalConfig((message as any).config ?? {})
+        reply({ type: 'global_config', data: config })
+        break
+      }
+      // Project management
+      case 'get_current_project': {
+        const oc = requireOpenCode()
+        const project = await oc.getCurrentProject(message.projectPath)
+        reply({ type: 'current_project', data: project })
+        break
+      }
+      case 'update_project': {
+        const oc = requireOpenCode()
+        const project = await oc.updateProject((message as any).projectId, { name: (message as any).name, icon: (message as any).icon }, message.projectPath)
+        reply({ type: 'project_updated', data: project })
+        break
+      }
+      // Message part editing
+      case 'delete_part': {
+        const oc = requireOpenCode()
+        const ok = await oc.deletePart((message as any).sessionId, (message as any).messageId, (message as any).partId, message.projectPath)
+        reply({ type: 'part_deleted', data: ok })
+        break
+      }
+      case 'update_part': {
+        const oc = requireOpenCode()
+        const result = await oc.updatePart((message as any).sessionId, (message as any).messageId, (message as any).partId, (message as any).part ?? {}, message.projectPath)
+        reply({ type: 'part_updated', data: result ?? {} })
+        break
+      }
+      // SDK skills endpoint
+      case 'oc_list_sdk_skills': {
+        const oc = requireOpenCode()
+        const skills = await oc.listSdkSkills(message.projectPath)
+        reply({ type: 'oc_sdk_skills', data: skills })
+        break
+      }
+      // Feature 23: Git Worktrees (SDK v1.1.1+ experimental)
+      case 'list_worktrees': {
+        const oc = requireOpenCode()
+        const worktrees = await oc.listWorktrees(message.projectPath)
+        reply({ type: 'worktrees', data: worktrees })
+        break
+      }
+      case 'create_worktree': {
+        const oc = requireOpenCode()
+        const worktree = await oc.createWorktree(message.name, message.startCommand, message.projectPath)
+        if (worktree) {
+          reply({ type: 'worktree_created', data: worktree })
+        } else {
+          reply({ type: 'error', message: 'Failed to create worktree' })
         }
-        // Feature 15: MCP Server Management
-        case 'get_mcp_status': {
-          const oc = requireOpenCode()
-          const status = await oc.getMcpStatus(message.projectPath)
-          reply({ type: 'mcp_status', data: status })
-          break
-        }
-        case 'add_mcp': {
-          const oc = requireOpenCode()
-          const status = await oc.addMcp(
-            message.name,
-            (message as any).config ?? {},
-            message.projectPath,
-          )
-          reply({ type: 'mcp_added', data: status })
-          break
-        }
-        case 'connect_mcp': {
-          const oc = requireOpenCode()
-          const connected = await oc.connectMcp(message.name, message.projectPath)
-          reply({ type: 'mcp_connected', data: connected, name: message.name })
-          break
-        }
-        case 'disconnect_mcp': {
-          const oc = requireOpenCode()
-          const disconnected = await oc.disconnectMcp(message.name, message.projectPath)
-          reply({ type: 'mcp_disconnected', data: disconnected, name: message.name })
-          break
-        }
-        case 'get_mcp_resources': {
-          const oc = requireOpenCode()
-          const resources = await oc.getMcpResources(message.projectPath)
-          reply({ type: 'mcp_resources', data: resources })
-          break
-        }
-        // MCP OAuth Authentication
-        case 'mcp_auth_start': {
-          const oc = requireOpenCode()
-          const result = await oc.mcpAuthStart(message.name, message.projectPath)
-          reply({ type: 'mcp_auth_started', data: result, name: message.name })
-          break
-        }
-        case 'mcp_auth_callback': {
-          const oc = requireOpenCode()
-          const ok = await oc.mcpAuthCallback(message.name, (message as any).code, message.projectPath)
-          reply({ type: 'mcp_auth_completed', data: ok, name: message.name })
-          break
-        }
-        case 'mcp_auth_authenticate': {
-          const oc = requireOpenCode()
-          const result = await oc.mcpAuthAuthenticate(message.name, message.projectPath)
-          reply({ type: 'mcp_auth_authenticated', data: result, name: message.name })
-          break
-        }
-        case 'mcp_auth_remove': {
-          const oc = requireOpenCode()
-          const ok = await oc.mcpAuthRemove(message.name, message.projectPath)
-          reply({ type: 'mcp_auth_removed', data: ok, name: message.name })
-          break
-        }
-        // Provider credential management
-        case 'auth_set': {
-          const oc = requireOpenCode()
-          const ok = await oc.authSet((message as any).providerId, (message as any).auth)
-          reply({ type: 'auth_set_result', data: ok, providerId: (message as any).providerId })
-          break
-        }
-        case 'auth_remove': {
-          const oc = requireOpenCode()
-          const ok = await oc.authRemove((message as any).providerId)
-          reply({ type: 'auth_removed_result', data: ok, providerId: (message as any).providerId })
-          break
-        }
-        // Global config
-        case 'get_global_config': {
-          const oc = requireOpenCode()
-          const config = await oc.getGlobalConfig()
-          reply({ type: 'global_config', data: config })
-          break
-        }
-        case 'set_global_config': {
-          const oc = requireOpenCode()
-          const config = await oc.updateGlobalConfig((message as any).config ?? {})
-          reply({ type: 'global_config', data: config })
-          break
-        }
-        // Project management
-        case 'get_current_project': {
-          const oc = requireOpenCode()
-          const project = await oc.getCurrentProject(message.projectPath)
-          reply({ type: 'current_project', data: project })
-          break
-        }
-        case 'update_project': {
-          const oc = requireOpenCode()
-          const project = await oc.updateProject(
-            (message as any).projectId,
-            { name: (message as any).name, icon: (message as any).icon },
-            message.projectPath,
-          )
-          reply({ type: 'project_updated', data: project })
-          break
-        }
-        // Message part editing
-        case 'delete_part': {
-          const oc = requireOpenCode()
-          const ok = await oc.deletePart(
-            (message as any).sessionId,
-            (message as any).messageId,
-            (message as any).partId,
-            message.projectPath,
-          )
-          reply({ type: 'part_deleted', data: ok })
-          break
-        }
-        case 'update_part': {
-          const oc = requireOpenCode()
-          const result = await oc.updatePart(
-            (message as any).sessionId,
-            (message as any).messageId,
-            (message as any).partId,
-            (message as any).part ?? {},
-            message.projectPath,
-          )
-          reply({ type: 'part_updated', data: result ?? {} })
-          break
-        }
-        // SDK skills endpoint
-        case 'oc_list_sdk_skills': {
-          const oc = requireOpenCode()
-          const skills = await oc.listSdkSkills(message.projectPath)
-          reply({ type: 'oc_sdk_skills', data: skills })
-          break
-        }
-        // Feature 23: Git Worktrees (SDK v1.1.1+ experimental)
-        case 'list_worktrees': {
-          const oc = requireOpenCode()
-          const worktrees = await oc.listWorktrees(message.projectPath)
-          reply({ type: 'worktrees', data: worktrees })
-          break
-        }
-        case 'create_worktree': {
-          const oc = requireOpenCode()
-          const worktree = await oc.createWorktree(
-            message.name,
-            message.startCommand,
-            message.projectPath,
-          )
-          if (worktree) {
-            reply({ type: 'worktree_created', data: worktree })
-          } else {
-            reply({ type: 'error', message: 'Failed to create worktree' })
-          }
-          break
-        }
-        case 'reset_worktree': {
-          const oc = requireOpenCode()
-          const success = await oc.resetWorktree(
-            (message as any).worktreeDirectory,
-            message.projectPath,
-          )
+        break
+      }
+      case 'reset_worktree': {
+        const oc = requireOpenCode()
+        const success = await oc.resetWorktree((message as any).worktreeDirectory, message.projectPath)
+        reply({
+          type: 'worktree_reset',
+          data: success,
+          worktreeDirectory: (message as any).worktreeDirectory
+        })
+        break
+      }
+      case 'delete_worktree': {
+        const oc = requireOpenCode()
+        const deleted = await oc.deleteWorktree(message.name, message.projectPath)
+        reply({ type: 'worktree_deleted', data: deleted, name: message.name })
+        break
+      }
+      // Feature 16: Full Provider Management
+      case 'list_all_providers': {
+        const oc = requireOpenCode()
+        const providers = await oc.listAllProviders(message.projectPath)
+        reply({ type: 'all_providers', data: providers })
+        break
+      }
+      case 'get_provider_auth': {
+        const oc = requireOpenCode()
+        const auth = await oc.getProviderAuth(message.projectPath)
+        reply({ type: 'provider_auth', data: auth })
+        break
+      }
+      case 'provider_oauth_authorize': {
+        const oc = requireOpenCode()
+        const data = await oc.providerOauthAuthorize((message as any).providerId, (message as any).method, message.projectPath)
+        reply({
+          type: 'provider_oauth_authorized',
+          data,
+          providerId: (message as any).providerId
+        })
+        break
+      }
+      case 'provider_oauth_callback': {
+        const oc = requireOpenCode()
+        const ok = await oc.providerOauthCallback((message as any).providerId, (message as any).method, (message as any).code, message.projectPath)
+        reply({
+          type: 'provider_oauth_callback',
+          data: ok,
+          providerId: (message as any).providerId
+        })
+        break
+      }
+      // Feature 17: Tool List
+      case 'list_tool_ids': {
+        const oc = requireOpenCode()
+        const toolIds = await oc.listToolIds(message.projectPath)
+        reply({ type: 'tool_ids', data: toolIds })
+        break
+      }
+      case 'list_tools': {
+        const oc = requireOpenCode()
+        const tools = await oc.listTools(message.provider, message.model, message.projectPath)
+        reply({ type: 'tools', data: tools })
+        break
+      }
+      // Feature 18: File Status (Git)
+      case 'get_file_status': {
+        const oc = requireOpenCode()
+        const fileStatus = await oc.getFileStatus(message.projectPath)
+        reply({ type: 'file_status', data: fileStatus })
+        break
+      }
+      case 'git_diff':
+      case 'git_status':
+      case 'git_log':
+      case 'git_branches':
+      case 'git_stage':
+      case 'git_unstage':
+      case 'git_revert_file':
+      case 'git_commit':
+      case 'git_push':
+      case 'git_pull':
+      case 'git_fetch':
+      case 'git_checkout':
+      case 'git_create_branch':
+      case 'git_stash':
+      case 'git_stash_pop':
+      case 'git_commit_diff':
+      case 'github_remote':
+      case 'github_issues':
+      case 'github_prs':
+      case 'github_pr_diff':
+      case 'github_pr_comments': {
+        const handled = await handleGitFeature(message, reply, {
+          getSecurePath,
+          safeString
+        })
+        if (!handled) {
           reply({
-            type: 'worktree_reset',
-            data: success,
-            worktreeDirectory: (message as any).worktreeDirectory,
+            type: 'error',
+            message: `Unhandled Git feature: ${message.type}`
           })
-          break
         }
-        case 'delete_worktree': {
-          const oc = requireOpenCode()
-          const deleted = await oc.deleteWorktree(message.name, message.projectPath)
-          reply({ type: 'worktree_deleted', data: deleted, name: message.name })
-          break
-        }
-        // Feature 16: Full Provider Management
-        case 'list_all_providers': {
-          const oc = requireOpenCode()
-          const providers = await oc.listAllProviders(message.projectPath)
-          reply({ type: 'all_providers', data: providers })
-          break
-        }
-        case 'get_provider_auth': {
-          const oc = requireOpenCode()
-          const auth = await oc.getProviderAuth(message.projectPath)
-          reply({ type: 'provider_auth', data: auth })
-          break
-        }
-        case 'provider_oauth_authorize': {
-          const oc = requireOpenCode()
-          const data = await oc.providerOauthAuthorize(
-            (message as any).providerId,
-            (message as any).method,
-            message.projectPath,
-          )
-          reply({
-            type: 'provider_oauth_authorized',
-            data,
-            providerId: (message as any).providerId,
-          })
-          break
-        }
-        case 'provider_oauth_callback': {
-          const oc = requireOpenCode()
-          const ok = await oc.providerOauthCallback(
-            (message as any).providerId,
-            (message as any).method,
-            (message as any).code,
-            message.projectPath,
-          )
-          reply({
-            type: 'provider_oauth_callback',
-            data: ok,
-            providerId: (message as any).providerId,
-          })
-          break
-        }
-        // Feature 17: Tool List
-        case 'list_tool_ids': {
-          const oc = requireOpenCode()
-          const toolIds = await oc.listToolIds(message.projectPath)
-          reply({ type: 'tool_ids', data: toolIds })
-          break
-        }
-        case 'list_tools': {
-          const oc = requireOpenCode()
-          const tools = await oc.listTools(message.provider, message.model, message.projectPath)
-          reply({ type: 'tools', data: tools })
-          break
-        }
-        // Feature 18: File Status (Git)
-        case 'get_file_status': {
-          const oc = requireOpenCode()
-          const fileStatus = await oc.getFileStatus(message.projectPath)
-          reply({ type: 'file_status', data: fileStatus })
-          break
-        }
-        case 'git_diff':
-        case 'git_status':
-        case 'git_log':
-        case 'git_branches':
-        case 'git_stage':
-        case 'git_unstage':
-        case 'git_revert_file':
-        case 'git_commit':
-        case 'git_push':
-        case 'git_pull':
-        case 'git_fetch':
-        case 'git_checkout':
-        case 'git_create_branch':
-        case 'git_stash':
-        case 'git_stash_pop':
-        case 'git_commit_diff':
-        case 'github_remote':
-        case 'github_issues':
-        case 'github_prs':
-        case 'github_pr_diff':
-        case 'github_pr_comments': {
-          const handled = await handleGitFeature(message, reply, {
-            getSecurePath,
-            safeString,
-          })
-          if (!handled) {
-            reply({ type: 'error', message: `Unhandled Git feature: ${message.type}` })
-          }
-          break
-        }
-        // Feature 19: Formatter Status
-        case 'get_formatter_status': {
-          const oc = requireOpenCode()
-          const formatterStatus = await oc.getFormatterStatus(message.projectPath)
-          reply({ type: 'formatter_status', data: formatterStatus })
-          break
-        }
-        // Feature 20: Session Init
-        case 'init_session': {
-          const oc = requireOpenCode()
-          const initialized = await oc.initSession(
-            message.sessionId,
-            message.providerID,
-            message.modelID,
-            message.messageID,
-            message.projectPath,
-          )
-          reply({ type: 'session_initialized', data: initialized, sessionId: message.sessionId })
-          break
-        }
-        case 'dispose_instance': {
-          const oc = requireOpenCode()
-          const disposed = await oc.disposeInstance(message.projectPath)
-          reply({ type: 'instance_disposed', data: disposed })
-          break
+        break
+      }
+      // Feature 19: Formatter Status
+      case 'get_formatter_status': {
+        const oc = requireOpenCode()
+        const formatterStatus = await oc.getFormatterStatus(message.projectPath)
+        reply({ type: 'formatter_status', data: formatterStatus })
+        break
+      }
+      // Feature 20: Session Init
+      case 'init_session': {
+        const oc = requireOpenCode()
+        const initialized = await oc.initSession(message.sessionId, message.providerID, message.modelID, message.messageID, message.projectPath)
+        reply({
+          type: 'session_initialized',
+          data: initialized,
+          sessionId: message.sessionId
+        })
+        break
+      }
+      case 'dispose_instance': {
+        const oc = requireOpenCode()
+        const disposed = await oc.disposeInstance(message.projectPath)
+        reply({ type: 'instance_disposed', data: disposed })
+        break
       }
       case 'cx_list_projects': {
         // FAST PATH: Read directly from filesystem (no app-server needed!)
         // Same pattern as Claude Code - instant file I/O instead of subprocess
         const now = Date.now()
         const forceRefresh = message.refresh === true
-        
+
         // Check cache first (unless explicit refresh requested)
-        if (!forceRefresh && cxProjectCache && (now - cxProjectCache.fetchedAt) < CODEX_PROJECT_CACHE_TTL_MS) {
+        if (!forceRefresh && cxProjectCache && now - cxProjectCache.fetchedAt < CODEX_PROJECT_CACHE_TTL_MS) {
           logInfo('[cx_list_projects] Cache hit, returning cached data')
           reply({ type: 'cx_projects', data: cxProjectCache.data })
           break
         }
-        
+
         logInfo(`[cx_list_projects] ${forceRefresh ? 'Refresh requested' : 'Cache miss'}, reading from filesystem...`)
-        const projects = await codexFs.listProjectsFromFs()
-        
+        let projects = await codexFs.listProjectsFromFs()
+
+        // SQLite-era fallback: derive project roots from thread/list when filesystem cache is empty.
+        if (projects.length === 0) {
+          try {
+            const client = await ensureCodexClient()
+            const rpcResult: any = await client.request('thread/list', {
+              limit: 200
+            })
+            const threads: any[] = rpcResult?.data ?? []
+            const byPath = new Map<string, { id: string; name: string; path: string }>()
+            for (const thread of threads) {
+              const path = safeString(thread?.cwd).trim()
+              if (!path) continue
+              const name = basename(path)
+              byPath.set(path, { id: path, name: name || path, path })
+            }
+            projects = Array.from(byPath.values())
+            logInfo(`[cx_list_projects] Filesystem empty, recovered ${projects.length} projects via cold thread/list`)
+          } catch (err: any) {
+            logInfo(`[cx_list_projects] Cold thread/list fallback unavailable: ${err?.message ?? err}`)
+          }
+        }
+
         // Update cache
         cxProjectCache = { data: projects, fetchedAt: Date.now() }
-        logInfo(`[cx_list_projects] Done, cached ${projects.length} projects (filesystem read)`)
+        logInfo(`[cx_list_projects] Done, cached ${projects.length} projects`)
         reply({ type: 'cx_projects', data: projects })
         break
       }
@@ -5997,24 +6068,29 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         const now = Date.now()
         const forceRefresh = message.refresh === true
         const cacheKey = message.cwd ? resolve(message.cwd) : '__all__'
-        
+
         // Check cache first (unless explicit refresh or cursor-based pagination)
         const cached = cxThreadCache.get(cacheKey)
-        if (!forceRefresh && !message.cursor && cached && (now - cached.fetchedAt) < CODEX_THREAD_CACHE_TTL_MS) {
+        if (!forceRefresh && !message.cursor && cached && now - cached.fetchedAt < CODEX_THREAD_CACHE_TTL_MS) {
           logInfo(`[cx_list_threads] Cache hit for ${cacheKey}, returning cached data`)
           // Merge latest thread names into cached response (names may have changed since caching)
-          const cachedData = cxThreadNames.size > 0
-            ? cached.data.map((t: any) => {
-                const name = cxThreadNames.get(t.id)
-                return name ? { ...t, threadName: name } : t
-              })
-            : cached.data
-          reply({ type: 'cx_threads', data: cachedData, nextCursor: cached.nextCursor })
+          const cachedData =
+            cxThreadNames.size > 0
+              ? cached.data.map((t: any) => {
+                  const name = cxThreadNames.get(t.id)
+                  return name ? { ...t, threadName: name } : t
+                })
+              : cached.data
+          reply({
+            type: 'cx_threads',
+            data: cachedData,
+            nextCursor: cached.nextCursor
+          })
           break
         }
-        
+
         logInfo(`[cx_list_threads] ${forceRefresh ? 'Refresh requested' : 'Cache miss'}, fetching thread list...`)
-        
+
         // Try JSON-RPC thread/list first (if Codex is running), fall back to filesystem
         let threadData: any[] = []
         let nextCursor: string | null = null
@@ -6029,16 +6105,29 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             if (message.sourceKinds) rpcParams.sourceKinds = message.sourceKinds
             if (message.archived !== undefined && message.archived !== null) rpcParams.archived = message.archived
             if (message.cwd) rpcParams.cwd = message.cwd
-            
+
             const result: any = await codexClient.request('thread/list', rpcParams)
             threadData = result?.data ?? []
             nextCursor = result?.nextCursor ?? null
             logInfo(`[cx_list_threads] Got ${threadData.length} threads via thread/list RPC`)
           } else {
-            // Codex not running — use filesystem as fallback (no app-server needed)
+            // Codex not running — use filesystem fallback first (fast, no subprocess).
             threadData = await codexFs.listThreadsFromFs(message.cwd ?? undefined)
             nextCursor = null
             logInfo(`[cx_list_threads] Got ${threadData.length} threads via filesystem fallback`)
+
+            // SQLite-era fallback: if filesystem has no sessions, ask app-server directly.
+            if (threadData.length === 0) {
+              try {
+                const coldClient = await ensureCodexClient()
+                const rpcResult: any = await coldClient.request('thread/list', {})
+                threadData = rpcResult?.data ?? []
+                nextCursor = rpcResult?.nextCursor ?? null
+                logInfo(`[cx_list_threads] Filesystem empty, recovered ${threadData.length} threads via cold thread/list`)
+              } catch (coldErr: any) {
+                logInfo(`[cx_list_threads] Cold thread/list fallback unavailable: ${coldErr?.message ?? coldErr}`)
+              }
+            }
           }
         } catch (e: any) {
           // RPC failed — fall back to filesystem
@@ -6052,17 +6141,22 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             nextCursor = null
           }
         }
-        
+
         // Merge any known thread names from thread/name/updated notifications
-        const threadsWithNames = cxThreadNames.size > 0
-          ? threadData.map((t: any) => {
-              const name = cxThreadNames.get(t.id)
-              return name ? { ...t, threadName: name } : t
-            })
-          : threadData
-        
+        const threadsWithNames =
+          cxThreadNames.size > 0
+            ? threadData.map((t: any) => {
+                const name = cxThreadNames.get(t.id)
+                return name ? { ...t, threadName: name } : t
+              })
+            : threadData
+
         // Update cache
-        cxThreadCache.set(cacheKey, { data: threadsWithNames, fetchedAt: Date.now(), nextCursor })
+        cxThreadCache.set(cacheKey, {
+          data: threadsWithNames,
+          fetchedAt: Date.now(),
+          nextCursor
+        })
         logInfo(`[cx_list_threads] Done, cached ${threadsWithNames.length} threads`)
         reply({ type: 'cx_threads', data: threadsWithNames, nextCursor })
         break
@@ -6072,7 +6166,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         // No app-server spawn needed for listing - just file I/O
         logInfo('[cx_warmup] Starting Codex warmup (filesystem)...')
         reply({ type: 'cx_warmup_started' })
-        
+
         // Fire-and-forget: pre-warm caches from filesystem
         ;(async () => {
           try {
@@ -6080,10 +6174,14 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             const projects = await codexFs.listProjectsFromFs()
             cxProjectCache = { data: projects, fetchedAt: Date.now() }
             logInfo(`[cx_warmup] Pre-cached ${projects.length} projects from filesystem`)
-            
+
             // Pre-fetch all threads from filesystem
             const threads = await codexFs.listThreadsFromFs()
-            cxThreadCache.set('__all__', { data: threads, fetchedAt: Date.now(), nextCursor: null })
+            cxThreadCache.set('__all__', {
+              data: threads,
+              fetchedAt: Date.now(),
+              nextCursor: null
+            })
             logInfo(`[cx_warmup] Pre-cached ${threads.length} threads from filesystem`)
           } catch (e) {
             logError('[cx_warmup] Error:', e)
@@ -6099,16 +6197,14 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           break
         }
         const personalityVal = safeString(message.personality).trim().toLowerCase()
-        const personality = personalityVal === 'none' || personalityVal === 'friendly' || personalityVal === 'pragmatic'
-          ? personalityVal
-          : null
+        const personality = personalityVal === 'none' || personalityVal === 'friendly' || personalityVal === 'pragmatic' ? personalityVal : null
         const result: any = await client.request('thread/start', {
           cwd,
           model: message.model ?? null,
           approvalPolicy: message.approvalPolicy ?? null,
           sandbox: message.sandbox ?? null,
           ...(personality ? { personality } : {}),
-          experimentalRawEvents: false,
+          experimentalRawEvents: false
         })
         const threadId_start = safeString(result?.thread?.id)
         const thread = mapCodexThread(result?.thread, cxThreadNames.get(threadId_start))
@@ -6124,12 +6220,10 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       case 'cx_resume_thread': {
         const client = await ensureCodexClient()
         const personalityResume = safeString(message.personality).trim().toLowerCase()
-        const personalityResumeVal = personalityResume === 'none' || personalityResume === 'friendly' || personalityResume === 'pragmatic'
-          ? personalityResume
-          : null
+        const personalityResumeVal = personalityResume === 'none' || personalityResume === 'friendly' || personalityResume === 'pragmatic' ? personalityResume : null
         const result: any = await client.request('thread/resume', {
           threadId: message.threadId,
-          ...(personalityResumeVal ? { personality: personalityResumeVal } : {}),
+          ...(personalityResumeVal ? { personality: personalityResumeVal } : {})
         })
         const thread = mapCodexThread(result?.thread, cxThreadNames.get(message.threadId))
         if (thread.id && thread.cwd) {
@@ -6146,7 +6240,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         await client.request('thread/archive', { threadId: message.threadId })
         // Invalidate caches since a thread was archived
         invalidateCodexCaches(archivedCwd)
-        reply({ type: 'cx_thread_archived', data: true, threadId: message.threadId })
+        reply({
+          type: 'cx_thread_archived',
+          data: true,
+          threadId: message.threadId
+        })
         break
       }
       case 'cx_get_thread_messages': {
@@ -6158,7 +6256,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         reply({
           type: 'cx_thread_messages',
           data: transcript,
-          threadId: message.threadId,
+          threadId: message.threadId
         })
         break
       }
@@ -6167,12 +6265,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         const result: any = await client.request('model/list', {
           cursor: null,
           limit: 200,
-          includeHidden: true,
+          includeHidden: true
         })
         reply({
           type: 'cx_models',
           data: result?.data ?? [],
-          nextCursor: result?.nextCursor ?? null,
+          nextCursor: result?.nextCursor ?? null
         })
         break
       }
@@ -6181,7 +6279,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         const cwds = message.cwd ? [message.cwd] : []
         const result: any = await client.request('skills/list', {
           cwds,
-          forceReload: message.forceReload === true,
+          forceReload: message.forceReload === true
         })
         reply({ type: 'cx_skills', data: result?.data ?? [] })
         break
@@ -6195,13 +6293,13 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         const path = skillFiles.getCodexSkillFilePath({
           name: message.name,
           scope: message.scope,
-          cwd: message.cwd,
+          cwd: message.cwd
         })
         try {
           const content = await skillFiles.readSkillFile(path)
           reply({
             type: 'cx_skill',
-            data: { name: message.name, path, scope: message.scope, content },
+            data: { name: message.name, path, scope: message.scope, content }
           })
         } catch {
           reply({ type: 'error', message: 'Skill not found' })
@@ -6217,7 +6315,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         const path = skillFiles.getCodexSkillFilePath({
           name: message.name,
           scope: message.scope,
-          cwd: message.cwd,
+          cwd: message.cwd
         })
         try {
           await skillFiles.writeSkillFile(path, message.content)
@@ -6236,7 +6334,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         const path = skillFiles.getCodexSkillFilePath({
           name: message.name,
           scope: message.scope,
-          cwd: message.cwd,
+          cwd: message.cwd
         })
         try {
           await skillFiles.deleteSkillByPath(path)
@@ -6256,7 +6354,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       case 'cx_config_read': {
         const client = await ensureCodexClient()
         const result: any = await client.request('config/read', {
-          includeLayers: false,
+          includeLayers: false
         })
         reply({ type: 'cx_config', data: result ?? {} })
         break
@@ -6272,7 +6370,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           value: message.value,
           mergeStrategy,
           filePath: null,
-          expectedVersion: null,
+          expectedVersion: null
         })
         reply({ type: 'cx_config_written', data: result ?? {} })
         break
@@ -6281,12 +6379,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         const client = await ensureCodexClient()
         const result: any = await client.request('mcpServerStatus/list', {
           cursor: message.cursor ?? null,
-          limit: message.limit ?? 200,
+          limit: message.limit ?? 200
         })
         reply({
           type: 'cx_mcp_status',
           data: result?.data ?? [],
-          nextCursor: result?.nextCursor ?? null,
+          nextCursor: result?.nextCursor ?? null
         })
         break
       }
@@ -6319,18 +6417,19 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             model: message.model ?? null,
             approvalPolicy: message.approvalPolicy ?? null,
             sandbox: message.sandbox ?? null,
-            config: message.config ?? null,
+            config: message.config ?? null
           })
           threadId = safeString(startRes?.thread?.id)
           if (threadId) {
-            reply({ type: 'cx_thread_created', data: mapCodexThread(startRes.thread) })
+            reply({
+              type: 'cx_thread_created',
+              data: mapCodexThread(startRes.thread)
+            })
             cxThreadCwds.set(threadId, cwd)
           }
         } else {
           const personalityReview = safeString(message.personality).trim().toLowerCase()
-          const personalityReviewVal = personalityReview === 'none' || personalityReview === 'friendly' || personalityReview === 'pragmatic'
-            ? personalityReview
-            : null
+          const personalityReviewVal = personalityReview === 'none' || personalityReview === 'friendly' || personalityReview === 'pragmatic' ? personalityReview : null
           await client.request('thread/resume', {
             threadId,
             model: message.model ?? null,
@@ -6338,12 +6437,15 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             approvalPolicy: message.approvalPolicy ?? null,
             sandbox: message.sandbox ?? null,
             config: message.config ?? null,
-            ...(personalityReviewVal ? { personality: personalityReviewVal } : {}),
+            ...(personalityReviewVal ? { personality: personalityReviewVal } : {})
           })
         }
 
         if (!threadId) {
-          reply({ type: 'error', message: 'Failed to create/resume Codex thread for review' })
+          reply({
+            type: 'error',
+            message: 'Failed to create/resume Codex thread for review'
+          })
           break
         }
 
@@ -6356,7 +6458,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         const res: any = await client.request('review/start', {
           threadId,
           target,
-          delivery,
+          delivery
         })
         const reviewThreadId = safeString(res?.reviewThreadId ?? res?.review_thread_id) || threadId
         const turnId = safeString(res?.turn?.id)
@@ -6364,14 +6466,14 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         if (turnId && reviewThreadId) cxActiveTurns.set(reviewThreadId, turnId)
         reply({
           type: 'cx_review_started',
-          data: { threadId, reviewThreadId, turnId },
+          data: { threadId, reviewThreadId, turnId }
         })
         break
       }
       case 'cx_account_read': {
         const client = await ensureCodexClient()
         const result: any = await client.request('account/read', {
-          refreshToken: message.refreshToken === true,
+          refreshToken: message.refreshToken === true
         })
         reply({ type: 'cx_account', data: result ?? {} })
         break
@@ -6379,10 +6481,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       case 'cx_login_start': {
         const client = await ensureCodexClient()
         const loginType = message.loginType
-        const params =
-          loginType === 'apiKey'
-            ? { type: 'apiKey', apiKey: message.apiKey ?? '' }
-            : { type: 'chatgpt' }
+        const params = loginType === 'apiKey' ? { type: 'apiKey', apiKey: message.apiKey ?? '' } : { type: 'chatgpt' }
         const result: any = await client.request('account/login/start', params)
         reply({ type: 'cx_login_started', data: result ?? {} })
         break
@@ -6390,7 +6489,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       case 'cx_login_cancel': {
         const client = await ensureCodexClient()
         const result: any = await client.request('account/login/cancel', {
-          loginId: message.loginId,
+          loginId: message.loginId
         })
         reply({ type: 'cx_login_canceled', data: result ?? {} })
         break
@@ -6414,6 +6513,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           reason: message.reason ?? null,
           threadId: message.threadId ?? null,
           includeLogs: message.includeLogs === true,
+          extraLogFiles: Array.isArray(message.extraLogFiles) ? message.extraLogFiles : undefined
         })
         reply({ type: 'cx_feedback_uploaded', data: result ?? {} })
         break
@@ -6423,14 +6523,17 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         if (!threadId) {
           reply({
             type: 'cx_undo_result',
-            data: { ok: false, revertedPaths: [], error: 'Missing threadId' },
+            data: { ok: false, revertedPaths: [], error: 'Missing threadId' }
           })
           break
         }
         const stack = ensureUndoStack(threadId)
         const count = Math.max(1, Number(message.count ?? 1) || 1)
         if (stack.length === 0) {
-          reply({ type: 'cx_undo_result', data: { ok: true, revertedPaths: [] } })
+          reply({
+            type: 'cx_undo_result',
+            data: { ok: true, revertedPaths: [] }
+          })
           break
         }
         const keys = stack.slice(-count)
@@ -6440,90 +6543,89 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             const reverted = await applyCodexUndo(threadId, key)
             revertedAll.push(...reverted)
           }
-          reply({ type: 'cx_undo_result', data: { ok: true, revertedPaths: revertedAll } })
+          reply({
+            type: 'cx_undo_result',
+            data: { ok: true, revertedPaths: revertedAll }
+          })
         } catch (err: any) {
           reply({
             type: 'cx_undo_result',
             data: {
               ok: false,
               revertedPaths: revertedAll,
-              error: err?.message ?? String(err),
-            },
+              error: err?.message ?? String(err)
+            }
           })
         }
         break
       }
       case 'cx_agents_read': {
-	        const requestedCwd = safeString(message.cwd).trim()
-	        const secureCwd = requestedCwd ? await getSecurePath(requestedCwd) : null
-	        if (!secureCwd) {
-	          reply({ type: 'error', message: 'Access denied' })
-	          break
-	        }
-	        const agentsPath = resolve(secureCwd, 'AGENTS.md')
+        const requestedCwd = safeString(message.cwd).trim()
+        const secureCwd = requestedCwd ? await getSecurePath(requestedCwd) : null
+        if (!secureCwd) {
+          reply({ type: 'error', message: 'Access denied' })
+          break
+        }
+        const agentsPath = resolve(secureCwd, 'AGENTS.md')
         try {
           const content = await readFile(agentsPath, 'utf8')
           reply({
             type: 'cx_agents',
-            data: { exists: true, path: agentsPath, content },
+            data: { exists: true, path: agentsPath, content }
           })
         } catch {
           reply({
             type: 'cx_agents',
-            data: { exists: false, path: agentsPath, content: '' },
+            data: { exists: false, path: agentsPath, content: '' }
           })
         }
         break
       }
       case 'cx_agents_write': {
-	        const requestedCwd = safeString(message.cwd).trim()
-	        const secureCwd = requestedCwd ? await getSecurePath(requestedCwd) : null
-	        if (!secureCwd) {
-	          reply({ type: 'error', message: 'Access denied' })
-	          break
-	        }
-	        const agentsPath = resolve(secureCwd, 'AGENTS.md')
+        const requestedCwd = safeString(message.cwd).trim()
+        const secureCwd = requestedCwd ? await getSecurePath(requestedCwd) : null
+        if (!secureCwd) {
+          reply({ type: 'error', message: 'Access denied' })
+          break
+        }
+        const agentsPath = resolve(secureCwd, 'AGENTS.md')
         try {
           await writeFile(agentsPath, message.content ?? '', 'utf8')
           reply({
             type: 'cx_agents_written',
-            data: { ok: true, path: agentsPath },
+            data: { ok: true, path: agentsPath }
           })
         } catch {
           reply({
             type: 'cx_agents_written',
-            data: { ok: false, path: agentsPath },
+            data: { ok: false, path: agentsPath }
           })
         }
         break
       }
       case 'cx_chat': {
         const client = await ensureCodexClient()
-	        const explicitCwd = safeString(message.cwd).trim()
-	        const existingThreadId = safeString(message.threadId).trim()
-	        const storedCwd = existingThreadId ? cxThreadCwds.get(existingThreadId) : null
-	        if (storedCwd && explicitCwd && storedCwd !== explicitCwd) {
-	          reply({ type: 'error', message: 'Access denied' })
-	          break
-	        }
-	        const cwd = storedCwd || explicitCwd
-	        if (!cwd) {
-	          reply({ type: 'error', message: 'Missing cwd' })
-	          break
-	        }
-	        if (DEBUG_CX_GLOBAL) {
-	          logDebug(
-	            `[Codex cx_chat] model=${message.model ?? 'default'}, threadId=${message.threadId ?? 'new'}`,
-	          )
-	        }
+        const explicitCwd = safeString(message.cwd).trim()
+        const existingThreadId = safeString(message.threadId).trim()
+        const storedCwd = existingThreadId ? cxThreadCwds.get(existingThreadId) : null
+        if (storedCwd && explicitCwd && storedCwd !== explicitCwd) {
+          reply({ type: 'error', message: 'Access denied' })
+          break
+        }
+        const cwd = storedCwd || explicitCwd
+        if (!cwd) {
+          reply({ type: 'error', message: 'Missing cwd' })
+          break
+        }
+        if (DEBUG_CX_GLOBAL) {
+          logDebug(`[Codex cx_chat] model=${message.model ?? 'default'}, threadId=${message.threadId ?? 'new'}`)
+        }
 
         let resolvedModel = safeString(message.model).trim()
         let threadId = existingThreadId || null
         // Resolve personality (SDK Personality: "none" | "friendly" | "pragmatic")
         const personalityRaw = safeString(message.personality).trim().toLowerCase()
-        const personality = personalityRaw === 'none' || personalityRaw === 'friendly' || personalityRaw === 'pragmatic'
-          ? personalityRaw
-          : null
+        const personality = personalityRaw === 'none' || personalityRaw === 'friendly' || personalityRaw === 'pragmatic' ? personalityRaw : null
 
         if (!threadId) {
           const startRes: any = await client.request('thread/start', {
@@ -6535,19 +6637,22 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             baseInstructions: message.baseInstructions ?? null,
             developerInstructions: message.developerInstructions ?? null,
             ...(personality ? { personality } : {}),
-            experimentalRawEvents: false,
+            experimentalRawEvents: false
           })
           threadId = safeString(startRes?.thread?.id)
           if (!resolvedModel) {
             resolvedModel = safeString(startRes?.model).trim()
           }
-	          if (DEBUG_CX_GLOBAL) {
-	            logInfo(`[Codex cx_chat] thread/start result: threadId=${threadId}`)
-	          }
+          if (DEBUG_CX_GLOBAL) {
+            logInfo(`[Codex cx_chat] thread/start result: threadId=${threadId}`)
+          }
           if (threadId) {
-            reply({ type: 'cx_thread_created', data: mapCodexThread(startRes.thread) })
+            reply({
+              type: 'cx_thread_created',
+              data: mapCodexThread(startRes.thread)
+            })
           } else {
-	            logError(`[Codex cx_chat] thread/start failed - no threadId returned`)
+            logError(`[Codex cx_chat] thread/start failed - no threadId returned`)
           }
         } else {
           // Ensure we are subscribed to events for this thread.
@@ -6560,24 +6665,27 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             config: message.config ?? null,
             baseInstructions: message.baseInstructions ?? null,
             developerInstructions: message.developerInstructions ?? null,
-            ...(personality ? { personality } : {}),
+            ...(personality ? { personality } : {})
           })
           if (!resolvedModel) {
             resolvedModel = safeString(resumeRes?.model).trim()
           }
         }
 
-          if (!threadId) {
-            send(ws, {
-              type: 'cx_stream',
-              threadId: 'unknown',
-              data: { type: 'error', message: 'Failed to create/resume Codex thread' },
-            })
-            break
-          }
+        if (!threadId) {
+          send(ws, {
+            type: 'cx_stream',
+            threadId: 'unknown',
+            data: {
+              type: 'error',
+              message: 'Failed to create/resume Codex thread'
+            }
+          })
+          break
+        }
 
-          cxThreadOwners.set(threadId, ws)
-          cxThreadCwds.set(threadId, cwd)
+        cxThreadOwners.set(threadId, ws)
+        cxThreadCwds.set(threadId, cwd)
 
         // Prepare input (text + optional local images written to disk).
         // SDK UserInput type requires text_elements field (Array<TextElement>)
@@ -6588,23 +6696,19 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           for (const a of message.fileAttachments) {
             if (a.base64Data && a.mimeType) {
               const token = randomBytes(6).toString('hex')
-              const ext = a.mimeType.includes('png')
-                ? '.png'
-                : a.mimeType.includes('webp')
-                  ? '.webp'
-                  : '.jpg'
+              const ext = a.mimeType.includes('png') ? '.png' : a.mimeType.includes('webp') ? '.webp' : '.jpg'
               const fileName = `${Date.now()}_${token}${ext}`
               const outPath = resolve(attachmentsDir, fileName)
-               await writeFile(outPath, Buffer.from(a.base64Data, 'base64'))
-               // Codex v2 UserInput uses camelCase type tags.
-               input.push({ type: 'localImage', path: outPath })
-             } else if (a.path) {
-               // File/directory references via prompt hint
-               const ref = a.path.startsWith('@') ? a.path : `@${a.path}`
-               input[0].text = `${input[0].text}\n\nAttached context (via Broski):\n- ${a.isDirectory ? 'Directory' : 'File'}: ${ref}`
-             }
-           }
-         }
+              await writeFile(outPath, Buffer.from(a.base64Data, 'base64'))
+              // Codex v2 UserInput uses camelCase type tags.
+              input.push({ type: 'localImage', path: outPath })
+            } else if (a.path) {
+              // File/directory references via prompt hint
+              const ref = a.path.startsWith('@') ? a.path : `@${a.path}`
+              input[0].text = `${input[0].text}\n\nAttached context (via Broski):\n- ${a.isDirectory ? 'Directory' : 'File'}: ${ref}`
+            }
+          }
+        }
 
         // Build collaboration mode object if specified.
         // Codex SDK ModeKind: "plan" | "default" (legacy code/pair_programming/execute/custom → "default")
@@ -6614,21 +6718,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         if (collabModeRaw) {
           const collabKey = collabModeRaw.replace(/[-_]/g, '').toLowerCase()
           // Map to SDK ModeKind: only "plan" and "default" are valid
-          const normalizedMode: 'plan' | 'default' =
-            collabKey === 'plan' ? 'plan' : 'default'
+          const normalizedMode: 'plan' | 'default' = collabKey === 'plan' ? 'plan' : 'default'
 
           const model = resolvedModel
           if (model) {
             const effortRaw = safeString(message.effort).trim().toLowerCase()
-            const reasoningEffort =
-              effortRaw === 'none' ||
-              effortRaw === 'minimal' ||
-              effortRaw === 'low' ||
-              effortRaw === 'medium' ||
-              effortRaw === 'high' ||
-              effortRaw === 'xhigh'
-                ? effortRaw
-                : null
+            const reasoningEffort = effortRaw === 'none' || effortRaw === 'minimal' || effortRaw === 'low' || effortRaw === 'medium' || effortRaw === 'high' || effortRaw === 'xhigh' ? effortRaw : null
 
             const developerInstructions = safeString(message.developerInstructions).trim()
             collaborationMode = {
@@ -6636,18 +6731,18 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               settings: {
                 model,
                 reasoning_effort: reasoningEffort ?? null,
-                developer_instructions: developerInstructions || null,
-              },
+                developer_instructions: developerInstructions || null
+              }
             }
           } else {
             logInfo('[Codex cx_chat] collaborationMode ignored (missing model)')
           }
         }
 
-	        if (DEBUG_CX_GLOBAL) {
-	          logInfo(`[Codex cx_chat] Starting turn for threadId=${threadId}`)
-	        }
-        
+        if (DEBUG_CX_GLOBAL) {
+          logInfo(`[Codex cx_chat] Starting turn for threadId=${threadId}`)
+        }
+
         try {
           const turnRes: any = await client.request('turn/start', {
             threadId,
@@ -6659,104 +6754,102 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             approvalPolicy: message.approvalPolicy ?? null,
             sandboxPolicy: message.sandboxPolicy ?? null,
             ...(personality ? { personality } : {}),
-            collaborationMode,
+            collaborationMode
           })
 
           const turnId = safeString(turnRes?.turn?.id)
           const turnStatus = safeString(turnRes?.turn?.status).toLowerCase()
           const turnError = turnRes?.turn?.error ?? turnRes?.error
-          
-	          if (DEBUG_CX_GLOBAL) {
-	            logInfo(`[Codex cx_chat] turn/start result: turnId=${turnId}, status=${turnStatus}`)
-	          }
-          
+
+          if (DEBUG_CX_GLOBAL) {
+            logInfo(`[Codex cx_chat] turn/start result: turnId=${turnId}, status=${turnStatus}`)
+          }
+
           // Check if turn started with an error
           if (turnError || turnStatus === 'failed') {
-            const errorMessage = typeof turnError === 'string' 
-              ? turnError 
-              : turnError?.message ?? turnError?.additionalDetails ?? 'Turn failed to start'
+            const errorMessage = typeof turnError === 'string' ? turnError : (turnError?.message ?? turnError?.additionalDetails ?? 'Turn failed to start')
             const errorCode = turnError?.codexErrorInfo ?? turnError?.code ?? 'turn_start_failed'
-            
-	            logError(`[Codex cx_chat] turn/start failed`)
-	            if (DEBUG_CX_GLOBAL) {
-	              try {
-	                logError(JSON.stringify(turnError ?? turnRes, null, 2))
-	              } catch {
-	                // ignore
-	              }
-	            }
-            
+
+            logError(`[Codex cx_chat] turn/start failed`)
+            if (DEBUG_CX_GLOBAL) {
+              try {
+                logError(JSON.stringify(turnError ?? turnRes, null, 2))
+              } catch {
+                // ignore
+              }
+            }
+
             send(ws, {
               type: 'cx_stream',
               threadId,
-              data: { 
-                type: 'error', 
+              data: {
+                type: 'error',
                 message: errorMessage,
                 code: typeof errorCode === 'string' ? errorCode : JSON.stringify(errorCode),
                 details: turnError
-              },
+              }
             })
-            
+
             // Send idle to reset UI
             send(ws, {
               type: 'sdk_event',
               data: {
                 payload: {
                   type: 'session.idle',
-                  properties: { sessionID: threadId },
-                },
-              },
+                  properties: { sessionID: threadId }
+                }
+              }
             })
             break
           }
-          
-	          if (!turnId) {
-	            logError(`[Codex cx_chat] turn/start returned no turnId`)
-	            if (DEBUG_CX_GLOBAL) {
-	              try {
-	                logError(JSON.stringify(turnRes, null, 2))
-	              } catch {
-	                // ignore
-	              }
-	            }
+
+          if (!turnId) {
+            logError(`[Codex cx_chat] turn/start returned no turnId`)
+            if (DEBUG_CX_GLOBAL) {
+              try {
+                logError(JSON.stringify(turnRes, null, 2))
+              } catch {
+                // ignore
+              }
+            }
             send(ws, {
               type: 'cx_stream',
               threadId,
-              data: { 
-                type: 'error', 
+              data: {
+                type: 'error',
                 message: 'Turn failed to start - no turn ID returned',
                 code: 'turn_start_no_id',
                 details: turnRes
-              },
+              }
             })
             break
           }
-          
+
           cxActiveTurns.set(threadId, turnId)
         } catch (err: any) {
           // Handle request-level errors (network, timeout, app-server crash, etc.)
           const errorMessage = err?.message ?? String(err)
           logError(`[Codex cx_chat] turn/start threw error:`, errorMessage)
-          
+
           send(ws, {
             type: 'cx_stream',
             threadId,
-            data: { 
-              type: 'error', 
+            data: {
+              type: 'error',
               message: errorMessage,
-              code: 'turn_start_exception',
-            },
+              code: 'turn_start_exception'
+            }
           })
-          
+
           // Send idle to reset UI
           send(ws, {
             type: 'sdk_event',
             data: {
               payload: {
                 type: 'session.idle',
-                properties: { sessionID: threadId },
-              },
-            },
+                properties: { sessionID: threadId }
+              }
+            }
           })
         }
         break
@@ -6767,7 +6860,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         if (turnId) {
           await client.request('turn/interrupt', {
             threadId: message.threadId,
-            turnId,
+            turnId
           })
         }
         break
@@ -6775,7 +6868,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       case 'cx_thread_fork': {
         const client = await ensureCodexClient()
         const result: any = await client.request('thread/fork', {
-          threadId: message.threadId,
+          threadId: message.threadId
         })
         const thread = result?.thread
         if (thread) {
@@ -6789,7 +6882,10 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             }
           }
           const forkedId = safeString(thread?.id)
-          reply({ type: 'cx_thread_forked', data: mapCodexThread(thread, cxThreadNames.get(forkedId)) })
+          reply({
+            type: 'cx_thread_forked',
+            data: mapCodexThread(thread, cxThreadNames.get(forkedId))
+          })
         } else {
           reply({ type: 'error', message: 'Fork failed' })
         }
@@ -6799,11 +6895,14 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         const client = await ensureCodexClient()
         const result: any = await client.request('thread/rollback', {
           threadId: message.threadId,
-          numTurns: message.numTurns,
+          numTurns: message.numTurns
         })
         const thread = result?.thread
         if (thread) {
-          reply({ type: 'cx_thread_rolled_back', data: mapCodexThread(thread, cxThreadNames.get(message.threadId)) })
+          reply({
+            type: 'cx_thread_rolled_back',
+            data: mapCodexThread(thread, cxThreadNames.get(message.threadId))
+          })
         } else {
           reply({ type: 'error', message: 'Rollback failed' })
         }
@@ -6817,6 +6916,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           waiter.resolve({
             response: message.response,
             execpolicyAmendment: (message as any).execpolicyAmendment,
+            networkPolicyAmendment: (message as any).networkPolicyAmendment
           })
         }
         break
@@ -6846,1393 +6946,1541 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       case 'cx_config_requirements_read':
       case 'cx_thread_loaded_list':
       case 'cx_thread_read':
-      case 'cx_mcp_oauth_login':
-      case 'cx_collab_modes': {
+      case 'cx_mcp_oauth_login': {
         const handled = await handleCodexFeature(message, reply, {
           ensureCodexClient,
           cxActiveTurns,
           cxThreadNames,
-          safeString,
+          safeString
         })
         if (!handled) {
-          reply({ type: 'error', message: `Unhandled Codex feature: ${message.type}` })
+          reply({
+            type: 'error',
+            message: `Unhandled Codex feature: ${message.type}`
+          })
         }
         break
       }
       case 'set_agent': {
-          currentAgent = message.agent
-          log(`Agent switched to: ${currentAgent}`)
-          if (currentAgent === 'claude-code') {
-            const ctx = contexts.get(ws)
-            const cwd = ctx?.projectPath && ctx.projectPath !== 'global' ? ctx.projectPath : undefined
-            if (cwd) {
-              ensureClaudeWatchDir(join(cwd, '.claude', 'skills'), 'skills', cwd)
-              ensureClaudeWatchDir(join(cwd, '.claude', 'plugins'), 'plugins', cwd)
-              ensureClaudeWatchDir(join(cwd, '.claude', 'commands'), 'commands', cwd)
-              ensureClaudeWatchDir(join(cwd, '.claude', 'hooks'), 'hooks', cwd)
-              ensureClaudeWatchDir(join(cwd, '.mcp.json'), 'mcp', cwd, false)
-            }
-            const envKey = !!process.env.ANTHROPIC_API_KEY
-            const available = await claudeCode.checkClaudeCodeAvailable()
-            log(
-              `[Claude Code] Auth: ${
-                available ? 'OK' : 'MISSING'
-              } (${envKey ? 'ANTHROPIC_API_KEY' : '~/.claude/settings.json'})`,
-            )
-            if (!available) {
-              log(
-                `[Claude Code] Set ANTHROPIC_API_KEY or run 'claude login' on this machine before using Claude Code from Broski.`,
-              )
-            }
+        currentAgent = message.agent
+        log(`Agent switched to: ${currentAgent}`)
+        if (currentAgent === 'claude-code') {
+          const ctx = contexts.get(ws)
+          const cwd = ctx?.projectPath && ctx.projectPath !== 'global' ? ctx.projectPath : undefined
+          if (cwd) {
+            ensureClaudeWatchDir(join(cwd, '.claude', 'skills'), 'skills', cwd)
+            ensureClaudeWatchDir(join(cwd, '.claude', 'plugins'), 'plugins', cwd)
+            ensureClaudeWatchDir(join(cwd, '.claude', 'commands'), 'commands', cwd)
+            ensureClaudeWatchDir(join(cwd, '.claude', 'hooks'), 'hooks', cwd)
+            ensureClaudeWatchDir(join(cwd, '.mcp.json'), 'mcp', cwd, false)
           }
-          if (currentAgent === 'codex') {
-            const available = await checkCodexAvailable()
-            log(`[Codex] ${available ? 'OK' : 'MISSING'} (requires 'codex' in PATH)`)
+          const envKey = !!process.env.ANTHROPIC_API_KEY
+          const available = await claudeCode.checkClaudeCodeAvailable()
+          log(`[Claude Code] Auth: ${available ? 'OK' : 'MISSING'} (${envKey ? 'ANTHROPIC_API_KEY' : '~/.claude/settings.json'})`)
+          if (!available) {
+            log(`[Claude Code] Set ANTHROPIC_API_KEY or run 'claude login' on this machine before using Claude Code from Broski.`)
           }
-          if (currentAgent === 'pi') {
-            const status = await pi.isPiAvailable()
-            log(
-              `[Pi] ${status.available ? 'OK' : 'MISSING'} (${status.authenticated ? `${status.modelCount} authenticated models` : 'no authenticated providers'})`,
-            )
-          }
-          break
         }
-        case 'get_agents_status': {
-          const backends = await getBackendsStatus()
-          reply({ type: 'agents_status', data: backends })
-          break
+        if (currentAgent === 'codex') {
+          const available = await checkCodexAvailable()
+          log(`[Codex] ${available ? 'OK' : 'MISSING'} (requires 'codex' in PATH)`)
         }
-        case 'oc_question_reply': {
-          const oc = requireOpenCode()
-          const questionId = message.questionId
-          const answers = message.answers
-          const directory = message.projectPath
+        if (currentAgent === 'pi') {
+          const status = await pi.isPiAvailable()
+          log(`[Pi] ${status.available ? 'OK' : 'MISSING'} (${status.authenticated ? `${status.modelCount} authenticated models` : 'no authenticated providers'})`)
+        }
+        break
+      }
+      case 'get_agents_status': {
+        const backends = await getBackendsStatus()
+        reply({ type: 'agents_status', data: backends })
+        break
+      }
+      case 'oc_question_reply': {
+        const oc = requireOpenCode()
+        const questionId = message.questionId
+        const answers = message.answers
+        const directory = message.projectPath
 
-          // Validate inputs
-          if (!questionId || typeof questionId !== 'string') {
-            logError('[OC Question] Reply FAILED: Invalid or missing questionId:', questionId)
-            reply({ type: 'oc_question_replied', data: false })
-            break
-          }
-          if (!Array.isArray(answers)) {
-            logError('[OC Question] Reply FAILED: Invalid answers format (not array):', typeof answers, answers)
-            reply({ type: 'oc_question_replied', data: false })
-            break
-          }
+        // Validate inputs
+        if (!questionId || typeof questionId !== 'string') {
+          logError('[OC Question] Reply FAILED: Invalid or missing questionId:', questionId)
+          reply({ type: 'oc_question_replied', data: false })
+          break
+        }
+        if (!Array.isArray(answers)) {
+          logError('[OC Question] Reply FAILED: Invalid answers format (not array):', typeof answers, answers)
+          reply({ type: 'oc_question_replied', data: false })
+          break
+        }
 
-          if (DEBUG_RTS) {
-            logInfo('[OC Question] Reply received:', {
-              questionId,
-              answers,
-              answersType: typeof answers,
-              answersLength: answers.length,
-              answersSample: answers.slice(0, 3),
-              directory,
-            })
-          }
+        if (DEBUG_RTS) {
+          logInfo('[OC Question] Reply received:', {
+            questionId,
+            answers,
+            answersType: typeof answers,
+            answersLength: answers.length,
+            answersSample: answers.slice(0, 3),
+            directory
+          })
+        }
 
-          const ok = await oc.replyToQuestion(questionId, answers, directory)
-          if (DEBUG_RTS) {
-            logInfo('[OC Question] Reply result:', { questionId, ok })
-          }
-          if (!ok) {
-            logInfo('[OC Question] Reply returned false - question may have been already answered or expired')
-          }
-          reply({ type: 'oc_question_replied', data: ok })
-          break
+        const ok = await oc.replyToQuestion(questionId, answers, directory)
+        if (DEBUG_RTS) {
+          logInfo('[OC Question] Reply result:', { questionId, ok })
         }
-        case 'oc_question_reject': {
-          const oc = requireOpenCode()
-          const directory = message.projectPath
-          if (DEBUG_RTS) {
-            logInfo('[OC Question] Reject received:', { questionId: message.questionId, directory })
-          }
-          const ok = await oc.rejectQuestion(message.questionId, directory)
-          if (DEBUG_RTS) {
-            logInfo('[OC Question] Reject result:', { questionId: message.questionId, ok })
-          }
-          reply({ type: 'oc_question_rejected', data: ok })
-          break
+        if (!ok) {
+          logInfo('[OC Question] Reply returned false - question may have been already answered or expired')
         }
-        case 'oc_list_skills': {
-          const oc = requireOpenCode()
-          const skillFiles = await import('./skills')
-          // Use instance directory as fallback when no cwd is specified.
-          // Ensure the fallback is still within allowed base paths.
-          const fallback = await oc.getInstanceDirectory()
-          const cwd = safeString(message.cwd).trim() || (fallback ? (await getSecurePath(fallback)) : '')
-          const data = await skillFiles.listOpenCodeSkills(cwd || undefined)
-          reply({ type: 'oc_skills', data })
-          break
-        }
-        case 'oc_get_skill': {
-          const skillFiles = await import('./skills')
-          if (!skillFiles.validateSkillName(message.name)) {
-            reply({ type: 'error', message: 'Invalid skill name' })
-            break
-          }
-          const path = await skillFiles.resolveOpenCodeSkillFilePath({
-            name: message.name,
-            source: message.source,
-            cwd: message.cwd,
+        reply({ type: 'oc_question_replied', data: ok })
+        break
+      }
+      case 'oc_question_reject': {
+        const oc = requireOpenCode()
+        const directory = message.projectPath
+        if (DEBUG_RTS) {
+          logInfo('[OC Question] Reject received:', {
+            questionId: message.questionId,
+            directory
           })
-          try {
-            const content = await skillFiles.readSkillFile(path)
-            reply({
-              type: 'oc_skill',
-              data: { name: message.name, path, source: message.source, content },
-            })
-          } catch {
-            reply({ type: 'error', message: 'Skill not found' })
-          }
-          break
         }
-        case 'oc_save_skill': {
-          const skillFiles = await import('./skills')
-          if (!skillFiles.validateSkillName(message.name)) {
-            reply({ type: 'oc_skill_saved', data: { ok: false } })
-            break
-          }
-          const path = await skillFiles.resolveOpenCodeSkillFilePath({
-            name: message.name,
-            source: message.source,
-            cwd: message.cwd,
+        const ok = await oc.rejectQuestion(message.questionId, directory)
+        if (DEBUG_RTS) {
+          logInfo('[OC Question] Reject result:', {
+            questionId: message.questionId,
+            ok
           })
-          try {
-            await skillFiles.writeSkillFile(path, message.content)
-            reply({ type: 'oc_skill_saved', data: { ok: true, path } })
-          } catch {
-            reply({ type: 'oc_skill_saved', data: { ok: false } })
-          }
+        }
+        reply({ type: 'oc_question_rejected', data: ok })
+        break
+      }
+      case 'oc_list_skills': {
+        const oc = requireOpenCode()
+        const skillFiles = await import('./skills')
+        // Use instance directory as fallback when no cwd is specified.
+        // Ensure the fallback is still within allowed base paths.
+        const fallback = await oc.getInstanceDirectory()
+        const cwd = safeString(message.cwd).trim() || (fallback ? await getSecurePath(fallback) : '')
+        const data = await skillFiles.listOpenCodeSkills(cwd || undefined)
+        reply({ type: 'oc_skills', data })
+        break
+      }
+      case 'oc_get_skill': {
+        const skillFiles = await import('./skills')
+        if (!skillFiles.validateSkillName(message.name)) {
+          reply({ type: 'error', message: 'Invalid skill name' })
           break
         }
-        case 'oc_delete_skill': {
-          const skillFiles = await import('./skills')
-          if (!skillFiles.validateSkillName(message.name)) {
-            reply({ type: 'oc_skill_deleted', data: { ok: false } })
-            break
-          }
-          const path = await skillFiles.resolveOpenCodeSkillFilePath({
-            name: message.name,
-            source: message.source,
-            cwd: message.cwd,
-          })
-          try {
-            await skillFiles.deleteSkillByPath(path)
-            reply({ type: 'oc_skill_deleted', data: { ok: true } })
-          } catch {
-            reply({ type: 'oc_skill_deleted', data: { ok: false } })
-          }
-          break
-        }
-        case 'oc_list_plugin_files': {
-          const plugins = await import('./opencode-plugins')
-          const data = await plugins.listPluginFiles(message.cwd)
-          reply({ type: 'oc_plugin_files', data })
-          break
-        }
-        case 'oc_get_plugin_file': {
-          const plugins = await import('./opencode-plugins')
-          if (!plugins.validatePluginFilename(message.name)) {
-            reply({ type: 'error', message: 'Invalid plugin filename' })
-            break
-          }
-          const path = await plugins.resolvePluginFilePath({
-            name: message.name,
-            source: message.source,
-            cwd: message.cwd,
-          })
-          try {
-            const content = await plugins.readPluginFile(path)
-            reply({
-              type: 'oc_plugin_file',
-              data: { name: message.name, path, source: message.source, content },
-            })
-          } catch {
-            reply({ type: 'error', message: 'Plugin file not found' })
-          }
-          break
-        }
-        case 'oc_save_plugin_file': {
-          const plugins = await import('./opencode-plugins')
-          if (!plugins.validatePluginFilename(message.name)) {
-            reply({ type: 'oc_plugin_file_saved', data: { ok: false } })
-            break
-          }
-          const path = await plugins.resolvePluginFilePath({
-            name: message.name,
-            source: message.source,
-            cwd: message.cwd,
-          })
-          try {
-            await plugins.writePluginFile(path, message.content)
-            reply({ type: 'oc_plugin_file_saved', data: { ok: true, path } })
-          } catch {
-            reply({ type: 'oc_plugin_file_saved', data: { ok: false } })
-          }
-          break
-        }
-        case 'oc_delete_plugin_file': {
-          const plugins = await import('./opencode-plugins')
-          if (!plugins.validatePluginFilename(message.name)) {
-            reply({ type: 'oc_plugin_file_deleted', data: { ok: false } })
-            break
-          }
-          const path = await plugins.resolvePluginFilePath({
-            name: message.name,
-            source: message.source,
-            cwd: message.cwd,
-          })
-          try {
-            await plugins.deletePluginFile(path)
-            reply({ type: 'oc_plugin_file_deleted', data: { ok: true } })
-          } catch {
-            reply({ type: 'oc_plugin_file_deleted', data: { ok: false } })
-          }
-          break
-        }
-        case 'oc_list_command_files': {
-          const oc = requireOpenCode()
-          const files = await import('./opencode-custom')
-          // Use instance directory as fallback when no cwd is specified.
-          // Ensure the fallback is still within allowed base paths.
-          const fallback = await oc.getInstanceDirectory()
-          const cwd = safeString(message.cwd).trim() || (fallback ? (await getSecurePath(fallback)) : '')
-          const data = await files.listCommandFiles(cwd || undefined)
-          reply({ type: 'oc_command_files', data })
-          break
-        }
-        case 'oc_get_command_file': {
-          const files = await import('./opencode-custom')
-          if (!files.validateName(message.name)) {
-            reply({ type: 'error', message: 'Invalid command name' })
-            break
-          }
-          const path = await files.resolveCommandFilePath({ name: message.name, source: message.source, cwd: message.cwd })
-          try {
-            const content = await files.readMarkdownFile(path)
-            reply({ type: 'oc_command_file', data: { name: message.name, path, source: message.source, content } })
-          } catch {
-            reply({ type: 'error', message: 'Command file not found' })
-          }
-          break
-        }
-        case 'oc_save_command_file': {
-          const files = await import('./opencode-custom')
-          if (!files.validateName(message.name)) {
-            reply({ type: 'oc_command_file_saved', data: { ok: false } })
-            break
-          }
-          const path = await files.resolveCommandFilePath({ name: message.name, source: message.source, cwd: message.cwd })
-          try {
-            await files.writeMarkdownFile(path, message.content)
-            reply({ type: 'oc_command_file_saved', data: { ok: true, path } })
-          } catch {
-            reply({ type: 'oc_command_file_saved', data: { ok: false } })
-          }
-          break
-        }
-        case 'oc_delete_command_file': {
-          const files = await import('./opencode-custom')
-          if (!files.validateName(message.name)) {
-            reply({ type: 'oc_command_file_deleted', data: { ok: false } })
-            break
-          }
-          const path = await files.resolveCommandFilePath({ name: message.name, source: message.source, cwd: message.cwd })
-          try {
-            await files.deleteMarkdownFile(path)
-            reply({ type: 'oc_command_file_deleted', data: { ok: true } })
-          } catch {
-            reply({ type: 'oc_command_file_deleted', data: { ok: false } })
-          }
-          break
-        }
-        case 'oc_list_agent_files': {
-          const oc = requireOpenCode()
-          const files = await import('./opencode-custom')
-          // Use instance directory as fallback when no cwd is specified.
-          // Ensure the fallback is still within allowed base paths.
-          const fallback = await oc.getInstanceDirectory()
-          const cwd = safeString(message.cwd).trim() || (fallback ? (await getSecurePath(fallback)) : '')
-          const data = await files.listAgentFiles(cwd || undefined)
-          reply({ type: 'oc_agent_files', data })
-          break
-        }
-        case 'oc_get_agent_file': {
-          const files = await import('./opencode-custom')
-          if (!files.validateName(message.name)) {
-            reply({ type: 'error', message: 'Invalid agent name' })
-            break
-          }
-          const path = await files.resolveAgentFilePath({ name: message.name, source: message.source, cwd: message.cwd })
-          try {
-            const content = await files.readMarkdownFile(path)
-            reply({ type: 'oc_agent_file', data: { name: message.name, path, source: message.source, content } })
-          } catch {
-            reply({ type: 'error', message: 'Agent file not found' })
-          }
-          break
-        }
-        case 'oc_save_agent_file': {
-          const files = await import('./opencode-custom')
-          if (!files.validateName(message.name)) {
-            reply({ type: 'oc_agent_file_saved', data: { ok: false } })
-            break
-          }
-          const path = await files.resolveAgentFilePath({ name: message.name, source: message.source, cwd: message.cwd })
-          try {
-            await files.writeMarkdownFile(path, message.content)
-            reply({ type: 'oc_agent_file_saved', data: { ok: true, path } })
-          } catch {
-            reply({ type: 'oc_agent_file_saved', data: { ok: false } })
-          }
-          break
-        }
-        case 'oc_delete_agent_file': {
-          const files = await import('./opencode-custom')
-          if (!files.validateName(message.name)) {
-            reply({ type: 'oc_agent_file_deleted', data: { ok: false } })
-            break
-          }
-          const path = await files.resolveAgentFilePath({ name: message.name, source: message.source, cwd: message.cwd })
-          try {
-            await files.deleteMarkdownFile(path)
-            reply({ type: 'oc_agent_file_deleted', data: { ok: true } })
-          } catch {
-            reply({ type: 'oc_agent_file_deleted', data: { ok: false } })
-          }
-          break
-        }
-        case 'cc_list_projects': {
-          const projects = await claudeCode.listProjects()
-          reply({ type: 'cc_projects', data: projects })
-          break
-        }
-        case 'cc_list_sessions': {
-          const sessions = await claudeCode.listSessions(message.cwd)
-          reply({ type: 'cc_sessions', data: sessions })
-          break
-        }
-        case 'cc_get_session': {
-          const session = await claudeCode.getSession(message.sessionId, message.cwd)
-          if (session) {
-            reply({ type: 'cc_session', data: session })
-          } else {
-            reply({ type: 'error', message: 'Session not found' })
-          }
-          break
-        }
-        case 'cc_get_session_messages': {
-          const items = await claudeCode.getSessionMessages(
-            message.sessionId,
-            message.cwd,
-            message.limit,
-          )
+        const path = await skillFiles.resolveOpenCodeSkillFilePath({
+          name: message.name,
+          source: message.source,
+          cwd: message.cwd
+        })
+        try {
+          const content = await skillFiles.readSkillFile(path)
           reply({
-            type: 'cc_session_messages',
-            data: items,
-            sessionId: message.sessionId,
+            type: 'oc_skill',
+            data: { name: message.name, path, source: message.source, content }
           })
+        } catch {
+          reply({ type: 'error', message: 'Skill not found' })
+        }
+        break
+      }
+      case 'oc_save_skill': {
+        const skillFiles = await import('./skills')
+        if (!skillFiles.validateSkillName(message.name)) {
+          reply({ type: 'oc_skill_saved', data: { ok: false } })
           break
         }
-        case 'cc_delete_session': {
-          const deleted = await claudeCode.deleteSession(message.sessionId, message.cwd)
-          reply({ type: 'cc_session_deleted', data: deleted, sessionId: message.sessionId })
+        const path = await skillFiles.resolveOpenCodeSkillFilePath({
+          name: message.name,
+          source: message.source,
+          cwd: message.cwd
+        })
+        try {
+          await skillFiles.writeSkillFile(path, message.content)
+          reply({ type: 'oc_skill_saved', data: { ok: true, path } })
+        } catch {
+          reply({ type: 'oc_skill_saved', data: { ok: false } })
+        }
+        break
+      }
+      case 'oc_delete_skill': {
+        const skillFiles = await import('./skills')
+        if (!skillFiles.validateSkillName(message.name)) {
+          reply({ type: 'oc_skill_deleted', data: { ok: false } })
           break
         }
-        case 'cc_fork_session': {
-          const forked = await claudeCode.forkSession(message.sessionId, message.messageId, message.cwd)
-          reply({ type: 'cc_session_forked', data: forked })
+        const path = await skillFiles.resolveOpenCodeSkillFilePath({
+          name: message.name,
+          source: message.source,
+          cwd: message.cwd
+        })
+        try {
+          await skillFiles.deleteSkillByPath(path)
+          reply({ type: 'oc_skill_deleted', data: { ok: true } })
+        } catch {
+          reply({ type: 'oc_skill_deleted', data: { ok: false } })
+        }
+        break
+      }
+      case 'oc_list_plugin_files': {
+        const plugins = await import('./opencode-plugins')
+        const data = await plugins.listPluginFiles(message.cwd)
+        reply({ type: 'oc_plugin_files', data })
+        break
+      }
+      case 'oc_get_plugin_file': {
+        const plugins = await import('./opencode-plugins')
+        if (!plugins.validatePluginFilename(message.name)) {
+          reply({ type: 'error', message: 'Invalid plugin filename' })
           break
         }
-        case 'cc_rename_session': {
-          const renamed = await claudeCode.renameSession(message.sessionId, message.name, message.cwd)
-          reply({ type: 'cc_session_renamed', data: renamed })
+        const path = await plugins.resolvePluginFilePath({
+          name: message.name,
+          source: message.source,
+          cwd: message.cwd
+        })
+        try {
+          const content = await plugins.readPluginFile(path)
+          reply({
+            type: 'oc_plugin_file',
+            data: { name: message.name, path, source: message.source, content }
+          })
+        } catch {
+          reply({ type: 'error', message: 'Plugin file not found' })
+        }
+        break
+      }
+      case 'oc_save_plugin_file': {
+        const plugins = await import('./opencode-plugins')
+        if (!plugins.validatePluginFilename(message.name)) {
+          reply({ type: 'oc_plugin_file_saved', data: { ok: false } })
           break
         }
-        case 'cc_background_session': {
-          // Background session support - mark session as backgrounded
-          // For now, this is a client-side state change acknowledgment
-          reply({ type: 'cc_session_backgrounded', data: true, sessionId: message.sessionId })
+        const path = await plugins.resolvePluginFilePath({
+          name: message.name,
+          source: message.source,
+          cwd: message.cwd
+        })
+        try {
+          await plugins.writePluginFile(path, message.content)
+          reply({ type: 'oc_plugin_file_saved', data: { ok: true, path } })
+        } catch {
+          reply({ type: 'oc_plugin_file_saved', data: { ok: false } })
+        }
+        break
+      }
+      case 'oc_delete_plugin_file': {
+        const plugins = await import('./opencode-plugins')
+        if (!plugins.validatePluginFilename(message.name)) {
+          reply({ type: 'oc_plugin_file_deleted', data: { ok: false } })
           break
         }
-        case 'cc_chat': {
-	          const cwd = safeString(message.cwd).trim()
-	          if (!cwd) {
-	            reply({ type: 'error', message: 'Missing cwd' })
-	            break
-	          }
-          let actualSessionId = message.sessionId ?? ''
-          const cfg = await claudeCode.getConfig(cwd)
-          const model = message.model || cfg.model || 'sonnet'
-          const permissionMode = message.permissionMode || cfg.permissionMode
-          const allowedTools = message.allowedTools || cfg.allowedTools
-          const disallowedTools = message.disallowedTools || cfg.disallowedTools
-          // Stable per-turn identifier so watchers on other devices can keep CC turns separated.
-          const ccMessageId = `cc-msg-${randomBytes(8).toString('hex')}`
-          let sentBusyStatus = false
+        const path = await plugins.resolvePluginFilePath({
+          name: message.name,
+          source: message.source,
+          cwd: message.cwd
+        })
+        try {
+          await plugins.deletePluginFile(path)
+          reply({ type: 'oc_plugin_file_deleted', data: { ok: true } })
+        } catch {
+          reply({ type: 'oc_plugin_file_deleted', data: { ok: false } })
+        }
+        break
+      }
+      case 'oc_list_command_files': {
+        const oc = requireOpenCode()
+        const files = await import('./opencode-custom')
+        // Use instance directory as fallback when no cwd is specified.
+        // Ensure the fallback is still within allowed base paths.
+        const fallback = await oc.getInstanceDirectory()
+        const cwd = safeString(message.cwd).trim() || (fallback ? await getSecurePath(fallback) : '')
+        const data = await files.listCommandFiles(cwd || undefined)
+        reply({ type: 'oc_command_files', data })
+        break
+      }
+      case 'oc_get_command_file': {
+        const files = await import('./opencode-custom')
+        if (!files.validateName(message.name)) {
+          reply({ type: 'error', message: 'Invalid command name' })
+          break
+        }
+        const path = await files.resolveCommandFilePath({
+          name: message.name,
+          source: message.source,
+          cwd: message.cwd
+        })
+        try {
+          const content = await files.readMarkdownFile(path)
+          reply({
+            type: 'oc_command_file',
+            data: { name: message.name, path, source: message.source, content }
+          })
+        } catch {
+          reply({ type: 'error', message: 'Command file not found' })
+        }
+        break
+      }
+      case 'oc_save_command_file': {
+        const files = await import('./opencode-custom')
+        if (!files.validateName(message.name)) {
+          reply({ type: 'oc_command_file_saved', data: { ok: false } })
+          break
+        }
+        const path = await files.resolveCommandFilePath({
+          name: message.name,
+          source: message.source,
+          cwd: message.cwd
+        })
+        try {
+          await files.writeMarkdownFile(path, message.content)
+          reply({ type: 'oc_command_file_saved', data: { ok: true, path } })
+        } catch {
+          reply({ type: 'oc_command_file_saved', data: { ok: false } })
+        }
+        break
+      }
+      case 'oc_delete_command_file': {
+        const files = await import('./opencode-custom')
+        if (!files.validateName(message.name)) {
+          reply({ type: 'oc_command_file_deleted', data: { ok: false } })
+          break
+        }
+        const path = await files.resolveCommandFilePath({
+          name: message.name,
+          source: message.source,
+          cwd: message.cwd
+        })
+        try {
+          await files.deleteMarkdownFile(path)
+          reply({ type: 'oc_command_file_deleted', data: { ok: true } })
+        } catch {
+          reply({ type: 'oc_command_file_deleted', data: { ok: false } })
+        }
+        break
+      }
+      case 'oc_list_agent_files': {
+        const oc = requireOpenCode()
+        const files = await import('./opencode-custom')
+        // Use instance directory as fallback when no cwd is specified.
+        // Ensure the fallback is still within allowed base paths.
+        const fallback = await oc.getInstanceDirectory()
+        const cwd = safeString(message.cwd).trim() || (fallback ? await getSecurePath(fallback) : '')
+        const data = await files.listAgentFiles(cwd || undefined)
+        reply({ type: 'oc_agent_files', data })
+        break
+      }
+      case 'oc_get_agent_file': {
+        const files = await import('./opencode-custom')
+        if (!files.validateName(message.name)) {
+          reply({ type: 'error', message: 'Invalid agent name' })
+          break
+        }
+        const path = await files.resolveAgentFilePath({
+          name: message.name,
+          source: message.source,
+          cwd: message.cwd
+        })
+        try {
+          const content = await files.readMarkdownFile(path)
+          reply({
+            type: 'oc_agent_file',
+            data: { name: message.name, path, source: message.source, content }
+          })
+        } catch {
+          reply({ type: 'error', message: 'Agent file not found' })
+        }
+        break
+      }
+      case 'oc_save_agent_file': {
+        const files = await import('./opencode-custom')
+        if (!files.validateName(message.name)) {
+          reply({ type: 'oc_agent_file_saved', data: { ok: false } })
+          break
+        }
+        const path = await files.resolveAgentFilePath({
+          name: message.name,
+          source: message.source,
+          cwd: message.cwd
+        })
+        try {
+          await files.writeMarkdownFile(path, message.content)
+          reply({ type: 'oc_agent_file_saved', data: { ok: true, path } })
+        } catch {
+          reply({ type: 'oc_agent_file_saved', data: { ok: false } })
+        }
+        break
+      }
+      case 'oc_delete_agent_file': {
+        const files = await import('./opencode-custom')
+        if (!files.validateName(message.name)) {
+          reply({ type: 'oc_agent_file_deleted', data: { ok: false } })
+          break
+        }
+        const path = await files.resolveAgentFilePath({
+          name: message.name,
+          source: message.source,
+          cwd: message.cwd
+        })
+        try {
+          await files.deleteMarkdownFile(path)
+          reply({ type: 'oc_agent_file_deleted', data: { ok: true } })
+        } catch {
+          reply({ type: 'oc_agent_file_deleted', data: { ok: false } })
+        }
+        break
+      }
+      case 'cc_list_projects': {
+        const projects = await claudeCode.listProjects()
+        reply({ type: 'cc_projects', data: projects })
+        break
+      }
+      case 'cc_list_sessions': {
+        const sessions = await claudeCode.listSessions(message.cwd)
+        reply({ type: 'cc_sessions', data: sessions })
+        break
+      }
+      case 'cc_get_session': {
+        const session = await claudeCode.getSession(message.sessionId, message.cwd)
+        if (session) {
+          reply({ type: 'cc_session', data: session })
+        } else {
+          reply({ type: 'error', message: 'Session not found' })
+        }
+        break
+      }
+      case 'cc_get_session_messages': {
+        const items = await claudeCode.getSessionMessages(message.sessionId, message.cwd, message.limit)
+        reply({
+          type: 'cc_session_messages',
+          data: items,
+          sessionId: message.sessionId
+        })
+        break
+      }
+      case 'cc_delete_session': {
+        const deleted = await claudeCode.deleteSession(message.sessionId, message.cwd)
+        reply({
+          type: 'cc_session_deleted',
+          data: deleted,
+          sessionId: message.sessionId
+        })
+        break
+      }
+      case 'cc_fork_session': {
+        const forked = await claudeCode.forkSession(message.sessionId, message.messageId, message.cwd)
+        reply({ type: 'cc_session_forked', data: forked })
+        break
+      }
+      case 'cc_rename_session': {
+        const renamed = await claudeCode.renameSession(message.sessionId, message.name, message.cwd)
+        reply({ type: 'cc_session_renamed', data: renamed })
+        break
+      }
+      case 'cc_background_session': {
+        // Background session support - mark session as backgrounded
+        // For now, this is a client-side state change acknowledgment
+        reply({
+          type: 'cc_session_backgrounded',
+          data: true,
+          sessionId: message.sessionId
+        })
+        break
+      }
+      case 'cc_chat': {
+        const cwd = safeString(message.cwd).trim()
+        if (!cwd) {
+          reply({ type: 'error', message: 'Missing cwd' })
+          break
+        }
+        let actualSessionId = message.sessionId ?? ''
+        const cfg = await claudeCode.getConfig(cwd)
+        const model = message.model || cfg.model || 'sonnet'
+        const permissionMode = message.permissionMode || cfg.permissionMode
+        const allowedTools = message.allowedTools || cfg.allowedTools
+        const disallowedTools = message.disallowedTools || cfg.disallowedTools
+        // Stable per-turn identifier so watchers on other devices can keep CC turns separated.
+        const ccMessageId = `cc-msg-${randomBytes(8).toString('hex')}`
+        let sentBusyStatus = false
 
-          if (message.sessionId) {
-            ccSessionOwners.set(message.sessionId, ws)
-          }
+        if (message.sessionId) {
+          ccSessionOwners.set(message.sessionId, ws)
+        }
 
-          // Use dynamic owner lookup instead of captured `ws` to survive reconnects.
-          // When the app disconnects and reconnects, `ws` is dead but
-          // `ccSessionOwners.get(sessionId)` points to the new socket.
-          const getOwnerSocket = (sessionId: string): ServerWebSocket<unknown> | null =>
-            ccSessionOwners.get(sessionId) ?? null
+        // Use dynamic owner lookup instead of captured `ws` to survive reconnects.
+        // When the app disconnects and reconnects, `ws` is dead but
+        // `ccSessionOwners.get(sessionId)` points to the new socket.
+        const getOwnerSocket = (sessionId: string): ServerWebSocket<unknown> | null => ccSessionOwners.get(sessionId) ?? null
 
-          const sendSessionBusy = (sessionId: string) => {
-            if (!sessionId || sentBusyStatus) return
-            sentBusyStatus = true
-            const target = getOwnerSocket(sessionId) ?? ws
-            send(target, {
-              type: 'sdk_event',
-              data: {
-                payload: {
-                  type: 'session.status',
-                  properties: {
-                    sessionID: sessionId,
-                    status: { type: 'busy' },
-                  },
-                },
-              },
-            })
-          }
-
-          const sendSessionIdle = (sessionId: string) => {
-            if (!sessionId) return
-            // Broadcast idle to all watchers, not just the owner.
-            // On reconnect the owner may have changed; on disconnect the
-            // owner may be gone — enqueueSdkEvent handles both cases.
-            enqueueSdkEvent({
+        const sendSessionBusy = (sessionId: string) => {
+          if (!sessionId || sentBusyStatus) return
+          sentBusyStatus = true
+          const target = getOwnerSocket(sessionId) ?? ws
+          send(target, {
+            type: 'sdk_event',
+            data: {
               payload: {
-                type: 'session.idle',
+                type: 'session.status',
                 properties: {
                   sessionID: sessionId,
-                },
-              },
+                  status: { type: 'busy' }
+                }
+              }
+            }
+          })
+        }
+
+        const sendSessionIdle = (sessionId: string) => {
+          if (!sessionId) return
+          // Broadcast idle to all watchers, not just the owner.
+          // On reconnect the owner may have changed; on disconnect the
+          // owner may be gone — enqueueSdkEvent handles both cases.
+          enqueueSdkEvent({
+            payload: {
+              type: 'session.idle',
+              properties: {
+                sessionID: sessionId
+              }
+            }
+          })
+        }
+
+        const available = await claudeCode.checkClaudeCodeAvailable()
+        if (!available) {
+          const err = 'Claude Code is not signed in. Run "claude login" in your terminal on the Mac, or set ANTHROPIC_API_KEY.'
+          log(`[Claude Code] ${err}`)
+          const sid = actualSessionId || message.sessionId || ''
+          if (sid) {
+            emitCcStream(sid, { type: 'error', message: err, code: 'cc_auth_missing' }, ws)
+          } else {
+            send(ws, {
+              type: 'cc_stream',
+              data: { type: 'error', message: err, code: 'cc_auth_missing' },
+              sessionId: 'unknown'
             })
           }
+          break
+        }
 
-          const available = await claudeCode.checkClaudeCodeAvailable()
-          if (!available) {
-            const err = 'Claude Code is not signed in. Run "claude login" in your terminal on the Mac, or set ANTHROPIC_API_KEY.'
-            log(`[Claude Code] ${err}`)
+        log(`[Claude Code] chat: ${message.sessionId ? 'resume' : 'new'} cwd=${cwd} model=${model} permissionMode=${permissionMode}`)
+        log(`[Claude Code] tools: allowed=${allowedTools.length} disallowed=${disallowedTools.length}`)
+
+        const prompt = await claudeCode.preparePromptWithAttachments(message.prompt, cwd, message.fileAttachments)
+
+        // If we're resuming an existing session, mark it busy immediately.
+        // For new sessions, we'll mark busy once we receive session-created.
+        if (message.sessionId) {
+          sendSessionBusy(message.sessionId)
+        }
+
+        claudeCode.queryClaudeCode(
+          prompt,
+          {
+            cwd,
+            sessionId: message.sessionId,
+            model,
+            permissionMode,
+            allowedTools,
+            disallowedTools,
+            maxThinkingTokens: message.maxThinkingTokens,
+            maxTurns: message.maxTurns ?? cfg.maxTurns,
+            maxBudgetUsd: message.maxBudgetUsd ?? cfg.maxBudgetUsd,
+            betas: message.betas ?? cfg.betas,
+            variant: message.variant,
+            thinking: message.thinking ?? cfg.thinking,
+            effort: message.effort ?? cfg.effort,
+            agent: message.agent,
+            systemPrompt: message.systemPrompt ?? cfg.systemPrompt,
+            resumeSessionAt: message.resumeSessionAt,
+            outputFormat: message.outputFormat ?? cfg.outputFormat,
+            sandbox: message.sandbox ?? cfg.sandbox,
+            enableAgentTeams: message.enableAgentTeams ?? cfg.enableAgentTeams,
+            activeSubagent: message.activeSubagent,
+            persistSession: message.persistSession,
+            fallbackModel: message.fallbackModel,
+            additionalDirectories: message.additionalDirectories
+          },
+          (streamMsg) => {
+            const streamMsgWithId = (() => {
+              const t = (streamMsg as any)?.type
+              if (t === 'assistant-message' || t === 'assistant-message-delta' || t === 'thinking-delta' || t === 'tool-call' || t === 'tool-result' || t === 'subagent-invocation' || t === 'token-usage' || t === 'task-notification' || t === 'tool-use-summary' || t === 'files-persisted' || t === 'hook-started' || t === 'hook-progress' || t === 'hook-response' || t === 'assistant-error' || t === 'result-complete') {
+                return { ...(streamMsg as any), messageId: ccMessageId }
+              }
+              return streamMsg
+            })()
+            if ((streamMsg as any)?.type === 'session-created' && typeof (streamMsg as any)?.sessionId === 'string') {
+              actualSessionId = (streamMsg as any).sessionId
+              // Set the CURRENT ws as owner (may be stale later, but set_view will update)
+              ccSessionOwners.set(actualSessionId, ws)
+              log(`[Claude Code] session created: ${actualSessionId}`)
+              sendSessionBusy(actualSessionId)
+            }
+
+            if (actualSessionId) {
+              // Don't pass `ws` as owner — let emitCcStream do dynamic lookup
+              // via ccSessionOwners.get(). This survives WebSocket reconnects.
+              emitCcStream(actualSessionId, streamMsgWithId)
+            } else {
+              const target = getOwnerSocket(actualSessionId || '') ?? ws
+              send(target, {
+                type: 'cc_stream',
+                data: streamMsgWithId,
+                sessionId: 'unknown'
+              })
+            }
+          },
+          (completedSessionId) => {
+            const sid = completedSessionId || actualSessionId || message.sessionId || ''
+            log(`Claude Code session ${sid} completed`)
+            sendSessionIdle(sid)
+            // Clear ownership — any socket that was the owner
+            ccSessionOwners.delete(sid)
+            // Clear event buffer for this session (no longer streaming)
+            ccEventBuffers.delete(sid)
+            syncExternalTailForKey(makeSessionKey('claude-code', sid))
+          },
+          (error) => {
+            log(`[Claude Code] error: ${error.message}`)
             const sid = actualSessionId || message.sessionId || ''
             if (sid) {
-              emitCcStream(sid, { type: 'error', message: err, code: 'cc_auth_missing' }, ws)
+              // Use dynamic lookup, not captured ws
+              emitCcStream(sid, {
+                type: 'error',
+                message: error.message,
+                code: 'cc_error'
+              })
             } else {
-              send(ws, {
+              const target = getOwnerSocket(sid) ?? ws
+              send(target, {
                 type: 'cc_stream',
-                data: { type: 'error', message: err, code: 'cc_auth_missing' },
-                sessionId: 'unknown',
+                data: {
+                  type: 'error',
+                  message: error.message,
+                  code: 'cc_error'
+                },
+                sessionId: 'unknown'
               })
             }
-            break
-          }
+            sendSessionIdle(sid)
+            ccSessionOwners.delete(sid)
+            ccEventBuffers.delete(sid)
+            syncExternalTailForKey(makeSessionKey('claude-code', sid))
+          },
+          async (req) => {
+            const sid = req.sessionId || actualSessionId
+            if (sid) actualSessionId = sid
+            // Use dynamic lookup: if the app reconnected, the owner may be a new socket
+            const ownerWs = (sid ? ccSessionOwners.get(sid) : null) ?? ws
+            if (sid) ccSessionOwners.set(sid, ownerWs)
 
-          log(
-            `[Claude Code] chat: ${message.sessionId ? 'resume' : 'new'} cwd=${cwd} model=${model} permissionMode=${permissionMode}`,
-          )
-          log(
-            `[Claude Code] tools: allowed=${allowedTools.length} disallowed=${disallowedTools.length}`,
-          )
+            // Ask the current owner socket for approval (mobile UI shows prompt).
+            // If the owner is disconnected, this will buffer via emitCcStream.
+            emitCcStream(sid ?? '', {
+              type: 'permission-request',
+              sessionId: sid,
+              toolUseId: req.toolUseId,
+              tool: req.tool,
+              input: req.input,
+              decisionReason: req.decisionReason,
+              blockedPath: req.blockedPath,
+              hasSuggestions: req.hasSuggestions,
+              description: req.description,
+              agentId: req.agentId
+            } as any)
 
-          const prompt = await claudeCode.preparePromptWithAttachments(
-            message.prompt,
-            cwd,
-            message.fileAttachments,
-          )
+            // Wait for a response from the client
+            const key = `${sid}:${req.toolUseId}`
+            const existing = ccPermissionWaiters.get(key)
+            if (existing) {
+              // If we somehow re-request, default to deny to avoid deadlocks
+              return { response: 'reject' } as const
+            }
 
-          // If we're resuming an existing session, mark it busy immediately.
-          // For new sessions, we'll mark busy once we receive session-created.
-          if (message.sessionId) {
-            sendSessionBusy(message.sessionId)
-          }
-
-          claudeCode.queryClaudeCode(
-            prompt,
-            {
-              cwd,
-              sessionId: message.sessionId,
-              model,
-              permissionMode,
-              allowedTools,
-              disallowedTools,
-              maxThinkingTokens: message.maxThinkingTokens,
-              maxTurns: message.maxTurns ?? cfg.maxTurns,
-              maxBudgetUsd: message.maxBudgetUsd ?? cfg.maxBudgetUsd,
-              betas: message.betas ?? cfg.betas,
-              variant: message.variant,
-              thinking: message.thinking ?? cfg.thinking,
-              effort: message.effort ?? cfg.effort,
-              agent: message.agent,
-              systemPrompt: message.systemPrompt ?? cfg.systemPrompt,
-              resumeSessionAt: message.resumeSessionAt,
-              outputFormat: message.outputFormat ?? cfg.outputFormat,
-              sandbox: message.sandbox ?? cfg.sandbox,
-              enableAgentTeams: message.enableAgentTeams ?? cfg.enableAgentTeams,
-              activeSubagent: message.activeSubagent,
-              persistSession: message.persistSession,
-              fallbackModel: message.fallbackModel,
-              additionalDirectories: message.additionalDirectories,
-            },
-            (streamMsg) => {
-              const streamMsgWithId = (() => {
-                const t = (streamMsg as any)?.type
-                if (
-                  t === 'assistant-message' ||
-                  t === 'assistant-message-delta' ||
-                  t === 'thinking-delta' ||
-                  t === 'tool-call' ||
-                  t === 'tool-result' ||
-                  t === 'subagent-invocation' ||
-                  t === 'token-usage' ||
-                  t === 'task-notification' ||
-                  t === 'tool-use-summary' ||
-                  t === 'files-persisted' ||
-                  t === 'hook-started' ||
-                  t === 'hook-progress' ||
-                  t === 'hook-response' ||
-                  t === 'assistant-error' ||
-                  t === 'result-complete'
-                ) {
-                  return { ...(streamMsg as any), messageId: ccMessageId }
-                }
-                return streamMsg
-              })()
-              if ((streamMsg as any)?.type === 'session-created' && typeof (streamMsg as any)?.sessionId === 'string') {
-                actualSessionId = (streamMsg as any).sessionId
-                // Set the CURRENT ws as owner (may be stale later, but set_view will update)
-                ccSessionOwners.set(actualSessionId, ws)
-                log(`[Claude Code] session created: ${actualSessionId}`)
-                sendSessionBusy(actualSessionId)
-              }
-
-              if (actualSessionId) {
-                // Don't pass `ws` as owner — let emitCcStream do dynamic lookup
-                // via ccSessionOwners.get(). This survives WebSocket reconnects.
-                emitCcStream(actualSessionId, streamMsgWithId)
-              } else {
-                const target = getOwnerSocket(actualSessionId || '') ?? ws
-                send(target, { type: 'cc_stream', data: streamMsgWithId, sessionId: 'unknown' })
-              }
-
-            },
-            (completedSessionId) => {
-              const sid = completedSessionId || actualSessionId || message.sessionId || ''
-              log(`Claude Code session ${sid} completed`)
-              sendSessionIdle(sid)
-              // Clear ownership — any socket that was the owner
-              ccSessionOwners.delete(sid)
-              // Clear event buffer for this session (no longer streaming)
-              ccEventBuffers.delete(sid)
-              syncExternalTailForKey(makeSessionKey('claude-code', sid))
-            },
-            (error) => {
-              log(`[Claude Code] error: ${error.message}`)
-              const sid = actualSessionId || message.sessionId || ''
-              if (sid) {
-                // Use dynamic lookup, not captured ws
-                emitCcStream(sid, { type: 'error', message: error.message, code: 'cc_error' })
-              } else {
-                const target = getOwnerSocket(sid) ?? ws
-                send(target, {
-                  type: 'cc_stream',
-                  data: { type: 'error', message: error.message, code: 'cc_error' },
-                  sessionId: 'unknown',
-                })
-              }
-              sendSessionIdle(sid)
-              ccSessionOwners.delete(sid)
-              ccEventBuffers.delete(sid)
-              syncExternalTailForKey(makeSessionKey('claude-code', sid))
-            },
-            async (req) => {
-              const sid = req.sessionId || actualSessionId
-              if (sid) actualSessionId = sid
-              // Use dynamic lookup: if the app reconnected, the owner may be a new socket
-              const ownerWs = (sid ? ccSessionOwners.get(sid) : null) ?? ws
-              if (sid) ccSessionOwners.set(sid, ownerWs)
-
-              // Ask the current owner socket for approval (mobile UI shows prompt).
-              // If the owner is disconnected, this will buffer via emitCcStream.
-              emitCcStream(sid ?? '', {
-                type: 'permission-request',
-                sessionId: sid,
-                toolUseId: req.toolUseId,
-                tool: req.tool,
-                input: req.input,
-                decisionReason: req.decisionReason,
-                blockedPath: req.blockedPath,
-                hasSuggestions: req.hasSuggestions,
-                description: req.description,
-                agentId: req.agentId,
-              } as any)
-
-              // Wait for a response from the client
-              const key = `${sid}:${req.toolUseId}`
-              const existing = ccPermissionWaiters.get(key)
-              if (existing) {
-                // If we somehow re-request, default to deny to avoid deadlocks
-                return { response: 'reject' } as const
-              }
-
-              return await new Promise<ClaudePermissionReply>((resolve) => {
-                const timer = setTimeout(() => {
-                  ccPermissionWaiters.delete(key)
-                  resolve({ response: 'reject' })
-                }, PERMISSION_TIMEOUT_MS)
-                ccPermissionWaiters.set(key, { resolve, timer })
-              })
-            },
-          )
-          break
-        }
-        case 'cc_abort': {
-          await claudeCode.abortClaudeCode(message.sessionId)
-          break
-        }
-        case 'cc_stop_task': {
-          const ok = await claudeCode.stopTask(message.sessionId, message.taskId)
-          reply({ type: 'cc_task_stopped', data: { ok, taskId: message.taskId } })
-          break
-        }
-        case 'cc_reconnect_mcp_server': {
-          const ok = await claudeCode.reconnectMcpServer(message.sessionId, message.serverName)
-          reply({ type: 'cc_mcp_server_reconnected', data: { ok, serverName: message.serverName } })
-          break
-        }
-        case 'cc_toggle_mcp_server': {
-          const ok = await claudeCode.toggleMcpServer(message.sessionId, message.serverName, message.enabled)
-          reply({ type: 'cc_mcp_server_toggled', data: { ok, serverName: message.serverName, enabled: message.enabled } })
-          break
-        }
-        // B1: change permission mode mid-session
-        case 'cc_set_permission_mode': {
-          const ok = await claudeCode.setPermissionMode(message.sessionId, message.mode)
-          reply({ type: 'cc_permission_mode_set', data: { ok, mode: message.mode } })
-          break
-        }
-        // B2: change model mid-session
-        case 'cc_set_model': {
-          const ok = await claudeCode.setModel(message.sessionId, message.model)
-          reply({ type: 'cc_model_set', data: { ok, model: message.model } })
-          break
-        }
-        // B3: get full initialization result
-        case 'cc_initialization_result': {
-          const result = await claudeCode.getInitializationResult(message.sessionId)
-          reply({ type: 'cc_initialization_result', data: result })
-          break
-        }
-        // B7: dynamically set MCP servers mid-session
-        case 'cc_set_mcp_servers': {
-          const result = await claudeCode.setMcpServers(message.sessionId, message.servers as Record<string, unknown>)
-          reply({ type: 'cc_mcp_servers_set', data: result })
-          break
-        }
-        case 'cc_permission_response': {
-          const key = `${message.sessionId}:${message.toolUseId}`
-          const waiter = ccPermissionWaiters.get(key)
-          if (waiter) {
-            clearTimeout(waiter.timer)
-            ccPermissionWaiters.delete(key)
-            const raw = message.response
-            const normalized: 'once' | 'always' | 'reject' =
-              raw === 'once' || raw === 'always' || raw === 'reject' ? raw : 'reject'
-            const updatedInput =
-              message.updatedInput &&
-              typeof message.updatedInput === 'object' &&
-              !Array.isArray(message.updatedInput)
-                ? (message.updatedInput as Record<string, unknown>)
-                : undefined
-            waiter.resolve({
-              response: normalized,
-              ...(updatedInput ? { updatedInput } : {}),
+            return await new Promise<ClaudePermissionReply>((resolve) => {
+              const timer = setTimeout(() => {
+                ccPermissionWaiters.delete(key)
+                resolve({ response: 'reject' })
+              }, PERMISSION_TIMEOUT_MS)
+              ccPermissionWaiters.set(key, { resolve, timer })
             })
           }
+        )
+        break
+      }
+      case 'cc_abort': {
+        await claudeCode.abortClaudeCode(message.sessionId)
+        break
+      }
+      case 'cc_stop_task': {
+        const ok = await claudeCode.stopTask(message.sessionId, message.taskId)
+        reply({
+          type: 'cc_task_stopped',
+          data: { ok, taskId: message.taskId }
+        })
+        break
+      }
+      case 'cc_reconnect_mcp_server': {
+        const ok = await claudeCode.reconnectMcpServer(message.sessionId, message.serverName)
+        reply({
+          type: 'cc_mcp_server_reconnected',
+          data: { ok, serverName: message.serverName }
+        })
+        break
+      }
+      case 'cc_toggle_mcp_server': {
+        const ok = await claudeCode.toggleMcpServer(message.sessionId, message.serverName, message.enabled)
+        reply({
+          type: 'cc_mcp_server_toggled',
+          data: {
+            ok,
+            serverName: message.serverName,
+            enabled: message.enabled
+          }
+        })
+        break
+      }
+      // B1: change permission mode mid-session
+      case 'cc_set_permission_mode': {
+        const ok = await claudeCode.setPermissionMode(message.sessionId, message.mode)
+        reply({
+          type: 'cc_permission_mode_set',
+          data: { ok, mode: message.mode }
+        })
+        break
+      }
+      // B2: change model mid-session
+      case 'cc_set_model': {
+        const ok = await claudeCode.setModel(message.sessionId, message.model)
+        reply({ type: 'cc_model_set', data: { ok, model: message.model } })
+        break
+      }
+      // B3: get full initialization result
+      case 'cc_initialization_result': {
+        const result = await claudeCode.getInitializationResult(message.sessionId)
+        reply({ type: 'cc_initialization_result', data: result })
+        break
+      }
+      // B7: dynamically set MCP servers mid-session
+      case 'cc_set_mcp_servers': {
+        const result = await claudeCode.setMcpServers(message.sessionId, message.servers as Record<string, unknown>)
+        reply({ type: 'cc_mcp_servers_set', data: result })
+        break
+      }
+      case 'cc_permission_response': {
+        const key = `${message.sessionId}:${message.toolUseId}`
+        const waiter = ccPermissionWaiters.get(key)
+        if (waiter) {
+          clearTimeout(waiter.timer)
+          ccPermissionWaiters.delete(key)
+          const raw = message.response
+          const normalized: 'once' | 'always' | 'reject' = raw === 'once' || raw === 'always' || raw === 'reject' ? raw : 'reject'
+          const updatedInput = message.updatedInput && typeof message.updatedInput === 'object' && !Array.isArray(message.updatedInput) ? (message.updatedInput as Record<string, unknown>) : undefined
+          waiter.resolve({
+            response: normalized,
+            ...(updatedInput ? { updatedInput } : {})
+          })
+        }
+        break
+      }
+      case 'cc_list_skills': {
+        const skills = await claudeCode.listSkills(message.cwd)
+        reply({ type: 'cc_skills', data: skills })
+        break
+      }
+      case 'cc_get_skill': {
+        const skillFiles = await import('./skills')
+        if (!skillFiles.validateSkillName(message.name)) {
+          reply({ type: 'error', message: 'Invalid skill name' })
           break
         }
-        case 'cc_list_skills': {
-          const skills = await claudeCode.listSkills(message.cwd)
-          reply({ type: 'cc_skills', data: skills })
-          break
-        }
-        case 'cc_get_skill': {
-          const skillFiles = await import('./skills')
-          if (!skillFiles.validateSkillName(message.name)) {
-            reply({ type: 'error', message: 'Invalid skill name' })
+
+        let skillPath: string | null = null
+        if (message.source === 'plugin') {
+          const requestedPath = safeString(message.path)
+          if (!requestedPath) {
+            reply({ type: 'error', message: 'Missing skill path' })
             break
           }
+          try {
+            const pluginsModule = await import('./plugins')
+            const plugins = await pluginsModule.discoverPlugins(message.cwd)
+            const resolved = resolve(requestedPath)
+            const allowed = plugins.some((p) => resolved.startsWith(resolve(p.path) + sep))
+            if (!allowed) {
+              reply({ type: 'error', message: 'Skill path not allowed' })
+              break
+            }
+            skillPath = resolved
+          } catch {
+            reply({ type: 'error', message: 'Failed to resolve plugin skill' })
+            break
+          }
+        } else {
+          skillPath = skillFiles.getClaudeCodeSkillFilePath({
+            name: message.name,
+            source: message.source,
+            cwd: message.cwd
+          })
+        }
 
-          let skillPath: string | null = null
-          if (message.source === 'plugin') {
-            const requestedPath = safeString(message.path)
-            if (!requestedPath) {
-              reply({ type: 'error', message: 'Missing skill path' })
-              break
-            }
-            try {
-              const pluginsModule = await import('./plugins')
-              const plugins = await pluginsModule.discoverPlugins(message.cwd)
-              const resolved = resolve(requestedPath)
-              const allowed = plugins.some((p) => resolved.startsWith(resolve(p.path) + sep))
-              if (!allowed) {
-                reply({ type: 'error', message: 'Skill path not allowed' })
-                break
-              }
-              skillPath = resolved
-            } catch {
-              reply({ type: 'error', message: 'Failed to resolve plugin skill' })
-              break
-            }
-          } else {
-            skillPath = skillFiles.getClaudeCodeSkillFilePath({
+        try {
+          const content = await skillFiles.readSkillFile(skillPath)
+          reply({
+            type: 'cc_skill',
+            data: {
               name: message.name,
+              path: skillPath,
               source: message.source,
-              cwd: message.cwd,
-            })
-          }
-
-          try {
-            const content = await skillFiles.readSkillFile(skillPath)
+              content
+            }
+          })
+        } catch {
+          reply({ type: 'error', message: 'Skill not found' })
+        }
+        break
+      }
+      case 'cc_save_skill': {
+        const skillFiles = await import('./skills')
+        if (!skillFiles.validateSkillName(message.name)) {
+          reply({ type: 'cc_skill_saved', data: { ok: false } })
+          break
+        }
+        const path = skillFiles.getClaudeCodeSkillFilePath({
+          name: message.name,
+          source: message.source,
+          cwd: message.cwd
+        })
+        try {
+          await skillFiles.writeSkillFile(path, message.content)
+          reply({ type: 'cc_skill_saved', data: { ok: true, path } })
+        } catch {
+          reply({ type: 'cc_skill_saved', data: { ok: false } })
+        }
+        break
+      }
+      case 'cc_delete_skill': {
+        const skillFiles = await import('./skills')
+        if (!skillFiles.validateSkillName(message.name)) {
+          reply({ type: 'cc_skill_deleted', data: { ok: false } })
+          break
+        }
+        const path = skillFiles.getClaudeCodeSkillFilePath({
+          name: message.name,
+          source: message.source,
+          cwd: message.cwd
+        })
+        try {
+          await skillFiles.deleteSkillByPath(path)
+          reply({ type: 'cc_skill_deleted', data: { ok: true } })
+        } catch {
+          reply({ type: 'cc_skill_deleted', data: { ok: false } })
+        }
+        break
+      }
+      case 'cc_list_hooks': {
+        const hooks = await claudeCode.listHooks(message.cwd)
+        reply({ type: 'cc_hooks', data: hooks })
+        break
+      }
+      case 'cc_hooks_file_read': {
+        // Read hooks from the first available location:
+        // 1. settings.json → "hooks" key (standard Claude Code CLI approach)
+        // 2. hooks/hooks.json (standalone file, used by some plugins/projects)
+        // Returns merged content as {"hooks": {...}} so the Flutter UI sees everything.
+        const src = message.source
+        const cwd = safeString(message.cwd).trim()
+        if (src === 'project' && !cwd) {
+          reply({
+            type: 'cc_hooks_file',
+            data: { ok: false, source: src, path: '', content: '' }
+          })
+          break
+        }
+        let baseDir: string
+        if (src === 'project') {
+          const secureCwd = await getSecurePath(cwd)
+          if (!secureCwd) {
             reply({
-              type: 'cc_skill',
-              data: { name: message.name, path: skillPath, source: message.source, content },
+              type: 'cc_hooks_file',
+              data: { ok: false, source: src, path: '', content: '' }
             })
-          } catch {
-            reply({ type: 'error', message: 'Skill not found' })
-          }
-          break
-        }
-        case 'cc_save_skill': {
-          const skillFiles = await import('./skills')
-          if (!skillFiles.validateSkillName(message.name)) {
-            reply({ type: 'cc_skill_saved', data: { ok: false } })
             break
           }
-          const path = skillFiles.getClaudeCodeSkillFilePath({
-            name: message.name,
-            source: message.source,
-            cwd: message.cwd,
-          })
-          try {
-            await skillFiles.writeSkillFile(path, message.content)
-            reply({ type: 'cc_skill_saved', data: { ok: true, path } })
-          } catch {
-            reply({ type: 'cc_skill_saved', data: { ok: false } })
-          }
-          break
+          baseDir = secureCwd
+        } else {
+          baseDir = homedir()
         }
-        case 'cc_delete_skill': {
-          const skillFiles = await import('./skills')
-          if (!skillFiles.validateSkillName(message.name)) {
-            reply({ type: 'cc_skill_deleted', data: { ok: false } })
-            break
+
+        const settingsPath = join(baseDir, '.claude', 'settings.json')
+        const hooksJsonPath = join(baseDir, '.claude', 'hooks', 'hooks.json')
+
+        // Try settings.json first (preferred, standard Claude Code convention)
+        let hooksObj: Record<string, unknown> = {}
+        let resolvedPath = settingsPath
+
+        try {
+          const raw = await readFile(settingsPath, 'utf-8')
+          const parsed = JSON.parse(raw) as Record<string, unknown>
+          if (parsed.hooks && typeof parsed.hooks === 'object' && !Array.isArray(parsed.hooks)) {
+            hooksObj = parsed.hooks as Record<string, unknown>
           }
-          const path = skillFiles.getClaudeCodeSkillFilePath({
-            name: message.name,
-            source: message.source,
-            cwd: message.cwd,
-          })
-          try {
-            await skillFiles.deleteSkillByPath(path)
-            reply({ type: 'cc_skill_deleted', data: { ok: true } })
-          } catch {
-            reply({ type: 'cc_skill_deleted', data: { ok: false } })
-          }
-          break
+        } catch {
+          // settings.json missing or no hooks key — try hooks.json
         }
-        case 'cc_list_hooks': {
-          const hooks = await claudeCode.listHooks(message.cwd)
-          reply({ type: 'cc_hooks', data: hooks })
-          break
-        }
-        case 'cc_hooks_file_read': {
-          // Read hooks from the first available location:
-          // 1. settings.json → "hooks" key (standard Claude Code CLI approach)
-          // 2. hooks/hooks.json (standalone file, used by some plugins/projects)
-          // Returns merged content as {"hooks": {...}} so the Flutter UI sees everything.
-          const src = message.source
-          const cwd = safeString(message.cwd).trim()
-          if (src === 'project' && !cwd) {
-            reply({ type: 'cc_hooks_file', data: { ok: false, source: src, path: '', content: '' } })
-            break
-          }
-          let baseDir: string
-          if (src === 'project') {
-            const secureCwd = await getSecurePath(cwd)
-            if (!secureCwd) {
-              reply({ type: 'cc_hooks_file', data: { ok: false, source: src, path: '', content: '' } })
-              break
-            }
-            baseDir = secureCwd
-          } else {
-            baseDir = homedir()
-          }
 
-          const settingsPath = join(baseDir, '.claude', 'settings.json')
-          const hooksJsonPath = join(baseDir, '.claude', 'hooks', 'hooks.json')
-
-          // Try settings.json first (preferred, standard Claude Code convention)
-          let hooksObj: Record<string, unknown> = {}
-          let resolvedPath = settingsPath
-
-          try {
-            const raw = await readFile(settingsPath, 'utf-8')
-            const parsed = JSON.parse(raw) as Record<string, unknown>
-            if (parsed.hooks && typeof parsed.hooks === 'object' && !Array.isArray(parsed.hooks)) {
-              hooksObj = parsed.hooks as Record<string, unknown>
-            }
-          } catch {
-            // settings.json missing or no hooks key — try hooks.json
-          }
-
-          // Also merge hooks from hooks/hooks.json if present
-          try {
-            const raw = await readFile(hooksJsonPath, 'utf-8')
-            const parsed = JSON.parse(raw) as { hooks?: Record<string, unknown> }
-            if (parsed.hooks && typeof parsed.hooks === 'object') {
-              for (const [event, matchers] of Object.entries(parsed.hooks)) {
-                if (hooksObj[event] && Array.isArray(hooksObj[event]) && Array.isArray(matchers)) {
-                  // Merge: append hooks.json entries after settings.json entries
-                  ;(hooksObj[event] as unknown[]).push(...matchers)
-                } else if (!hooksObj[event]) {
-                  hooksObj[event] = matchers
-                }
+        // Also merge hooks from hooks/hooks.json if present
+        try {
+          const raw = await readFile(hooksJsonPath, 'utf-8')
+          const parsed = JSON.parse(raw) as { hooks?: Record<string, unknown> }
+          if (parsed.hooks && typeof parsed.hooks === 'object') {
+            for (const [event, matchers] of Object.entries(parsed.hooks)) {
+              if (hooksObj[event] && Array.isArray(hooksObj[event]) && Array.isArray(matchers)) {
+                // Merge: append hooks.json entries after settings.json entries
+                ;(hooksObj[event] as unknown[]).push(...matchers)
+              } else if (!hooksObj[event]) {
+                hooksObj[event] = matchers
               }
-              resolvedPath = hooksJsonPath
             }
-          } catch {
-            // hooks.json missing — fine
+            resolvedPath = hooksJsonPath
           }
+        } catch {
+          // hooks.json missing — fine
+        }
 
-          const content = JSON.stringify({ hooks: hooksObj }, null, 2)
-          reply({ type: 'cc_hooks_file', data: { ok: true, source: src, path: resolvedPath, content } })
+        const content = JSON.stringify({ hooks: hooksObj }, null, 2)
+        reply({
+          type: 'cc_hooks_file',
+          data: { ok: true, source: src, path: resolvedPath, content }
+        })
+        break
+      }
+      case 'cc_hooks_file_write': {
+        // Write hooks to the appropriate location.
+        // Strategy: if settings.json already has a "hooks" key, update it there.
+        // Otherwise, write to hooks/hooks.json (backward-compatible).
+        const src = message.source
+        const cwd = safeString(message.cwd).trim()
+        if (src === 'project' && !cwd) {
+          reply({
+            type: 'cc_hooks_file_written',
+            data: { ok: false, source: src, path: '' }
+          })
           break
         }
-        case 'cc_hooks_file_write': {
-          // Write hooks to the appropriate location.
-          // Strategy: if settings.json already has a "hooks" key, update it there.
-          // Otherwise, write to hooks/hooks.json (backward-compatible).
-          const src = message.source
-          const cwd = safeString(message.cwd).trim()
-          if (src === 'project' && !cwd) {
-            reply({ type: 'cc_hooks_file_written', data: { ok: false, source: src, path: '' } })
-            break
-          }
-          let baseDir: string
-          if (src === 'project') {
-            const secureCwd = await getSecurePath(cwd)
-            if (!secureCwd) {
-              reply({ type: 'cc_hooks_file_written', data: { ok: false, source: src, path: '' } })
-              break
-            }
-            baseDir = secureCwd
-          } else {
-            baseDir = homedir()
-          }
-
-          const settingsFilePath = join(baseDir, '.claude', 'settings.json')
-          const hooksJsonFilePath = join(baseDir, '.claude', 'hooks', 'hooks.json')
-
-          try {
-            // Parse the incoming content — expected shape: {"hooks": {...}}
-            const incoming = JSON.parse(message.content) as { hooks?: Record<string, unknown> }
-            const newHooks = incoming.hooks ?? {}
-
-            // Check if settings.json exists and already has hooks
-            let wroteToSettings = false
-            try {
-              const raw = await readFile(settingsFilePath, 'utf-8')
-              const settings = JSON.parse(raw) as Record<string, unknown>
-              if ('hooks' in settings || Object.keys(newHooks).length > 0) {
-                // Update hooks in settings.json (preferred location)
-                settings.hooks = newHooks
-                await writeFile(settingsFilePath, JSON.stringify(settings, null, 2), 'utf-8')
-                wroteToSettings = true
-              }
-            } catch {
-              // settings.json doesn't exist — fall through to hooks.json
-            }
-
-            if (!wroteToSettings) {
-              // Fall back to standalone hooks.json
-              await mkdir(resolve(hooksJsonFilePath, '..'), { recursive: true })
-              await writeFile(hooksJsonFilePath, message.content, 'utf-8')
-            }
-
-            const writtenPath = wroteToSettings ? settingsFilePath : hooksJsonFilePath
-            reply({ type: 'cc_hooks_file_written', data: { ok: true, source: src, path: writtenPath } })
-          } catch {
-            reply({ type: 'cc_hooks_file_written', data: { ok: false, source: src, path: settingsFilePath } })
-          }
-          break
-        }
-        case 'cc_mcp_file_read': {
-          const cwd = safeString(message.cwd).trim()
-          if (!cwd) {
-            reply({ type: 'cc_mcp_file', data: { ok: false, path: '', content: '' } })
-            break
-          }
+        let baseDir: string
+        if (src === 'project') {
           const secureCwd = await getSecurePath(cwd)
           if (!secureCwd) {
-            reply({ type: 'cc_mcp_file', data: { ok: false, path: '', content: '' } })
+            reply({
+              type: 'cc_hooks_file_written',
+              data: { ok: false, source: src, path: '' }
+            })
             break
           }
-          const mcpPath = join(secureCwd, '.mcp.json')
-          try {
-            const content = await readFile(mcpPath, 'utf-8')
-            reply({ type: 'cc_mcp_file', data: { ok: true, path: mcpPath, content } })
-          } catch {
-            reply({ type: 'cc_mcp_file', data: { ok: true, path: mcpPath, content: '{"mcpServers":{}}' } })
-          }
-          break
+          baseDir = secureCwd
+        } else {
+          baseDir = homedir()
         }
-        case 'cc_mcp_file_write': {
-          const cwd = safeString(message.cwd).trim()
-          if (!cwd) {
-            reply({ type: 'cc_mcp_file_written', data: { ok: false, path: '' } })
-            break
-          }
-          const secureCwd = await getSecurePath(cwd)
-          if (!secureCwd) {
-            reply({ type: 'cc_mcp_file_written', data: { ok: false, path: '' } })
-            break
-          }
-          const mcpPath = join(secureCwd, '.mcp.json')
-          try {
-            await writeFile(mcpPath, message.content, 'utf-8')
-            reply({ type: 'cc_mcp_file_written', data: { ok: true, path: mcpPath } })
-          } catch {
-            reply({ type: 'cc_mcp_file_written', data: { ok: false, path: mcpPath } })
-          }
-          break
-        }
-        case 'cc_list_commands': {
-          const commands = await claudeCode.listCommands(message.cwd)
-          reply({ type: 'cc_commands', data: commands })
-          break
-        }
-        case 'cc_list_agents': {
-          const agents = await claudeCode.listAgents(message.cwd || message.projectPath)
-          reply({ type: 'cc_agents', data: agents })
-          break
-        }
-        case 'cc_list_memories': {
-          const memories = await claudeCode.listMemories(message.scope, message.cwd)
-          reply({ type: 'cc_memories', data: memories })
-          break
-        }
-        case 'cc_delete_memory': {
-          const ok = await claudeCode.deleteMemory(message.scope, message.filename, message.cwd)
-          reply({ type: 'cc_memory_deleted', data: { ok, filename: message.filename, scope: message.scope } })
-          break
-        }
-        case 'cc_get_command': {
-          const name = safeString(message.name)
-          const source = message.source
-          let cwd = safeString(message.cwd).trim() || process.cwd()
 
-          if (!isSafeClaudeCommandName(name)) {
+        const settingsFilePath = join(baseDir, '.claude', 'settings.json')
+        const hooksJsonFilePath = join(baseDir, '.claude', 'hooks', 'hooks.json')
+
+        try {
+          // Parse the incoming content — expected shape: {"hooks": {...}}
+          const incoming = JSON.parse(message.content) as {
+            hooks?: Record<string, unknown>
+          }
+          const newHooks = incoming.hooks ?? {}
+
+          // Check if settings.json exists and already has hooks
+          let wroteToSettings = false
+          try {
+            const raw = await readFile(settingsFilePath, 'utf-8')
+            const settings = JSON.parse(raw) as Record<string, unknown>
+            if ('hooks' in settings || Object.keys(newHooks).length > 0) {
+              // Update hooks in settings.json (preferred location)
+              settings.hooks = newHooks
+              await writeFile(settingsFilePath, JSON.stringify(settings, null, 2), 'utf-8')
+              wroteToSettings = true
+            }
+          } catch {
+            // settings.json doesn't exist — fall through to hooks.json
+          }
+
+          if (!wroteToSettings) {
+            // Fall back to standalone hooks.json
+            await mkdir(resolve(hooksJsonFilePath, '..'), { recursive: true })
+            await writeFile(hooksJsonFilePath, message.content, 'utf-8')
+          }
+
+          const writtenPath = wroteToSettings ? settingsFilePath : hooksJsonFilePath
+          reply({
+            type: 'cc_hooks_file_written',
+            data: { ok: true, source: src, path: writtenPath }
+          })
+        } catch {
+          reply({
+            type: 'cc_hooks_file_written',
+            data: { ok: false, source: src, path: settingsFilePath }
+          })
+        }
+        break
+      }
+      case 'cc_mcp_file_read': {
+        const cwd = safeString(message.cwd).trim()
+        if (!cwd) {
+          reply({
+            type: 'cc_mcp_file',
+            data: { ok: false, path: '', content: '' }
+          })
+          break
+        }
+        const secureCwd = await getSecurePath(cwd)
+        if (!secureCwd) {
+          reply({
+            type: 'cc_mcp_file',
+            data: { ok: false, path: '', content: '' }
+          })
+          break
+        }
+        const mcpPath = join(secureCwd, '.mcp.json')
+        try {
+          const content = await readFile(mcpPath, 'utf-8')
+          reply({
+            type: 'cc_mcp_file',
+            data: { ok: true, path: mcpPath, content }
+          })
+        } catch {
+          reply({
+            type: 'cc_mcp_file',
+            data: { ok: true, path: mcpPath, content: '{"mcpServers":{}}' }
+          })
+        }
+        break
+      }
+      case 'cc_mcp_file_write': {
+        const cwd = safeString(message.cwd).trim()
+        if (!cwd) {
+          reply({ type: 'cc_mcp_file_written', data: { ok: false, path: '' } })
+          break
+        }
+        const secureCwd = await getSecurePath(cwd)
+        if (!secureCwd) {
+          reply({ type: 'cc_mcp_file_written', data: { ok: false, path: '' } })
+          break
+        }
+        const mcpPath = join(secureCwd, '.mcp.json')
+        try {
+          await writeFile(mcpPath, message.content, 'utf-8')
+          reply({
+            type: 'cc_mcp_file_written',
+            data: { ok: true, path: mcpPath }
+          })
+        } catch {
+          reply({
+            type: 'cc_mcp_file_written',
+            data: { ok: false, path: mcpPath }
+          })
+        }
+        break
+      }
+      case 'cc_list_commands': {
+        const commands = await claudeCode.listCommands(message.cwd)
+        reply({ type: 'cc_commands', data: commands })
+        break
+      }
+      case 'cc_list_agents': {
+        const agents = await claudeCode.listAgents(message.cwd || message.projectPath)
+        reply({ type: 'cc_agents', data: agents })
+        break
+      }
+      case 'cc_list_memories': {
+        const memories = await claudeCode.listMemories(message.scope, message.cwd)
+        reply({ type: 'cc_memories', data: memories })
+        break
+      }
+      case 'cc_delete_memory': {
+        const ok = await claudeCode.deleteMemory(message.scope, message.filename, message.cwd)
+        reply({
+          type: 'cc_memory_deleted',
+          data: { ok, filename: message.filename, scope: message.scope }
+        })
+        break
+      }
+      case 'cc_get_command': {
+        const name = safeString(message.name)
+        const source = message.source
+        let cwd = safeString(message.cwd).trim() || process.cwd()
+
+        if (!isSafeClaudeCommandName(name)) {
+          reply({
+            type: 'cc_command_file',
+            data: { ok: false, name, source, path: '', content: '' }
+          })
+          break
+        }
+
+        let cmdPath = ''
+        if (source === 'plugin') {
+          const requestedPath = safeString(message.path)
+          if (!requestedPath) {
             reply({
               type: 'cc_command_file',
-              data: { ok: false, name, source, path: '', content: '' },
+              data: { ok: false, name, source, path: '', content: '' }
             })
             break
           }
-
-          let cmdPath = ''
-          if (source === 'plugin') {
-            const requestedPath = safeString(message.path)
-            if (!requestedPath) {
+          try {
+            const pluginsModule = await import('./plugins')
+            const plugins = await pluginsModule.discoverPlugins(message.cwd)
+            const resolved = resolve(requestedPath)
+            const allowed = plugins.some((p) => resolved.startsWith(resolve(p.path) + sep))
+            if (!allowed) {
               reply({
                 type: 'cc_command_file',
-                data: { ok: false, name, source, path: '', content: '' },
-              })
-              break
-            }
-            try {
-              const pluginsModule = await import('./plugins')
-              const plugins = await pluginsModule.discoverPlugins(message.cwd)
-              const resolved = resolve(requestedPath)
-              const allowed = plugins.some((p) => resolved.startsWith(resolve(p.path) + sep))
-              if (!allowed) {
-                reply({
-                  type: 'cc_command_file',
-                  data: { ok: false, name, source, path: '', content: '' },
-                })
-                break
-              }
-              cmdPath = resolved
-            } catch {
-              reply({
-                type: 'cc_command_file',
-                data: { ok: false, name, source, path: '', content: '' },
-              })
-              break
-            }
-          } else {
-            if (source !== 'project' && source !== 'user') {
-              reply({
-                type: 'cc_command_file',
-                data: { ok: false, name, source, path: '', content: '' },
-              })
-              break
-            }
-            if (source === 'project') {
-              const secureCwd = await getSecurePath(cwd)
-              if (!secureCwd) {
-                reply({
-                  type: 'cc_command_file',
-                  data: { ok: false, name, source, path: '', content: '' },
-                })
-                break
-              }
-              cwd = secureCwd
-            }
-            const resolved = resolveClaudeCommandFilePath({ cwd, source, name })
-            if (!resolved) {
-              reply({
-                type: 'cc_command_file',
-                data: { ok: false, name, source, path: '', content: '' },
+                data: { ok: false, name, source, path: '', content: '' }
               })
               break
             }
             cmdPath = resolved
-          }
-
-          try {
-            const content = await readFile(cmdPath, 'utf-8')
-            reply({
-              type: 'cc_command_file',
-              data: { ok: true, name, source, path: cmdPath, content },
-            })
           } catch {
-            const defaultContent = [
-              '---',
-              `description: ${name}`,
-              '---',
-              '',
-            ].join('\n')
             reply({
               type: 'cc_command_file',
-              data: { ok: false, name, source, path: cmdPath, content: defaultContent },
+              data: { ok: false, name, source, path: '', content: '' }
             })
+            break
           }
-          break
-        }
-        case 'cc_save_command': {
-          const name = safeString(message.name)
-          const source = message.source
-          let cwd = safeString(message.cwd).trim() || process.cwd()
-
+        } else {
           if (source !== 'project' && source !== 'user') {
-            reply({ type: 'cc_command_saved', data: { ok: false, name, source } })
+            reply({
+              type: 'cc_command_file',
+              data: { ok: false, name, source, path: '', content: '' }
+            })
             break
           }
-          if (!isSafeClaudeCommandName(name)) {
-            reply({ type: 'cc_command_saved', data: { ok: false, name, source } })
-            break
-          }
-
           if (source === 'project') {
             const secureCwd = await getSecurePath(cwd)
             if (!secureCwd) {
-              reply({ type: 'cc_command_saved', data: { ok: false, name, source } })
+              reply({
+                type: 'cc_command_file',
+                data: { ok: false, name, source, path: '', content: '' }
+              })
               break
             }
             cwd = secureCwd
           }
-
-          const cmdPath = resolveClaudeCommandFilePath({ cwd, source, name })
-          if (!cmdPath) {
-            reply({ type: 'cc_command_saved', data: { ok: false, name, source } })
+          const resolved = resolveClaudeCommandFilePath({ cwd, source, name })
+          if (!resolved) {
+            reply({
+              type: 'cc_command_file',
+              data: { ok: false, name, source, path: '', content: '' }
+            })
             break
           }
+          cmdPath = resolved
+        }
 
-          try {
-            await mkdir(resolve(cmdPath, '..'), { recursive: true })
-            await writeFile(cmdPath, message.content, 'utf-8')
-            reply({ type: 'cc_command_saved', data: { ok: true, name, source, path: cmdPath } })
-          } catch {
-            reply({ type: 'cc_command_saved', data: { ok: false, name, source, path: cmdPath } })
-          }
-          break
-        }
-        case 'cc_delete_command': {
-          const name = safeString(message.name)
-          const source = message.source
-          let cwd = safeString(message.cwd).trim() || process.cwd()
-
-          if (source !== 'project' && source !== 'user') {
-            reply({ type: 'cc_command_deleted', data: { ok: false, name, source } })
-            break
-          }
-          if (!isSafeClaudeCommandName(name)) {
-            reply({ type: 'cc_command_deleted', data: { ok: false, name, source } })
-            break
-          }
-
-          if (source === 'project') {
-            const secureCwd = await getSecurePath(cwd)
-            if (!secureCwd) {
-              reply({ type: 'cc_command_deleted', data: { ok: false, name, source } })
-              break
-            }
-            cwd = secureCwd
-          }
-
-          const cmdPath = resolveClaudeCommandFilePath({ cwd, source, name })
-          if (!cmdPath) {
-            reply({ type: 'cc_command_deleted', data: { ok: false, name, source } })
-            break
-          }
-
-          try {
-            await rm(cmdPath, { force: true })
-            reply({ type: 'cc_command_deleted', data: { ok: true, name, source } })
-          } catch {
-            reply({ type: 'cc_command_deleted', data: { ok: false, name, source } })
-          }
-          break
-        }
-        case 'cc_get_active_sessions': {
-          const sessions = claudeCode
-            .listActiveSessions()
-            .map((s) => ({ id: s.sessionId, cwd: s.cwd, startedAt: s.startedAt }))
-          reply({ type: 'cc_active_sessions', data: sessions })
-          break
-        }
-        case 'cc_get_config': {
-          const config = await claudeCode.getConfig(message.cwd)
-          reply({ type: 'cc_config', data: config })
-          break
-        }
-        case 'cc_set_config': {
-          const config = await claudeCode.setConfig(message.config, message.cwd)
-          reply({ type: 'cc_config_updated', data: config })
-          break
-        }
-        case 'cc_get_supported_models': {
-          const models = await claudeCode.getSupportedModels(message.cwd)
-          reply({ type: 'cc_supported_models', data: models })
-          break
-        }
-        case 'cc_get_account_info': {
-          const accountInfo = await claudeCode.getAccountInfo(message.cwd)
-          reply({ type: 'cc_account_info', data: accountInfo })
-          break
-        }
-        case 'cc_get_mcp_server_status': {
-          const statuses = await claudeCode.getMcpServerStatus(message.cwd)
-          reply({ type: 'cc_mcp_server_status', data: statuses })
-          break
-        }
-        // Claude Code File Checkpointing (Undo/Revert)
-        case 'cc_rewind_checkpoint': {
-          const result = await claudeCode.rewindToCheckpoint(
-            message.sessionId,
-            message.checkpointUuid,
-            message.cwd,
-          )
+        try {
+          const content = await readFile(cmdPath, 'utf-8')
           reply({
-            type: 'cc_checkpoint_rewound',
+            type: 'cc_command_file',
+            data: { ok: true, name, source, path: cmdPath, content }
+          })
+        } catch {
+          const defaultContent = ['---', `description: ${name}`, '---', ''].join('\n')
+          reply({
+            type: 'cc_command_file',
             data: {
-              success: result.success,
-              sessionId: message.sessionId,
-              checkpointUuid: message.checkpointUuid,
-              ...(result.filesChanged ? { filesChanged: result.filesChanged } : {}),
-              ...(typeof result.insertions === 'number' ? { insertions: result.insertions } : {}),
-              ...(typeof result.deletions === 'number' ? { deletions: result.deletions } : {}),
-            },
+              ok: false,
+              name,
+              source,
+              path: cmdPath,
+              content: defaultContent
+            }
+          })
+        }
+        break
+      }
+      case 'cc_save_command': {
+        const name = safeString(message.name)
+        const source = message.source
+        let cwd = safeString(message.cwd).trim() || process.cwd()
+
+        if (source !== 'project' && source !== 'user') {
+          reply({
+            type: 'cc_command_saved',
+            data: { ok: false, name, source }
           })
           break
         }
-        // Claude Code Custom Tools
-        case 'cc_list_custom_tools': {
-          const customTools = await import('./custom-tools')
-          const tools = await customTools.getCustomTools()
-          reply({ type: 'cc_custom_tools', data: tools })
+        if (!isSafeClaudeCommandName(name)) {
+          reply({
+            type: 'cc_command_saved',
+            data: { ok: false, name, source }
+          })
           break
         }
-        case 'cc_get_custom_tool': {
-          const customTools = await import('./custom-tools')
-          const tool = await customTools.getCustomTool(message.id)
-          reply({ type: 'cc_custom_tool', data: tool || null })
-          break
-        }
-        case 'cc_save_custom_tool': {
-          const customTools = await import('./custom-tools')
-          // Validate the tool definition
-          const validation = customTools.validateCustomTool(message.tool)
-          if (!validation.valid) {
-            reply({ type: 'error', message: `Invalid tool: ${validation.errors.join(', ')}` })
+
+        if (source === 'project') {
+          const secureCwd = await getSecurePath(cwd)
+          if (!secureCwd) {
+            reply({
+              type: 'cc_command_saved',
+              data: { ok: false, name, source }
+            })
             break
           }
-          // Generate ID if not present
-          const toolToSave = {
-            ...message.tool,
-            id: message.tool.id || customTools.generateToolId(),
+          cwd = secureCwd
+        }
+
+        const cmdPath = resolveClaudeCommandFilePath({ cwd, source, name })
+        if (!cmdPath) {
+          reply({
+            type: 'cc_command_saved',
+            data: { ok: false, name, source }
+          })
+          break
+        }
+
+        try {
+          await mkdir(resolve(cmdPath, '..'), { recursive: true })
+          await writeFile(cmdPath, message.content, 'utf-8')
+          reply({
+            type: 'cc_command_saved',
+            data: { ok: true, name, source, path: cmdPath }
+          })
+        } catch {
+          reply({
+            type: 'cc_command_saved',
+            data: { ok: false, name, source, path: cmdPath }
+          })
+        }
+        break
+      }
+      case 'cc_delete_command': {
+        const name = safeString(message.name)
+        const source = message.source
+        let cwd = safeString(message.cwd).trim() || process.cwd()
+
+        if (source !== 'project' && source !== 'user') {
+          reply({
+            type: 'cc_command_deleted',
+            data: { ok: false, name, source }
+          })
+          break
+        }
+        if (!isSafeClaudeCommandName(name)) {
+          reply({
+            type: 'cc_command_deleted',
+            data: { ok: false, name, source }
+          })
+          break
+        }
+
+        if (source === 'project') {
+          const secureCwd = await getSecurePath(cwd)
+          if (!secureCwd) {
+            reply({
+              type: 'cc_command_deleted',
+              data: { ok: false, name, source }
+            })
+            break
           }
-          const savedTool = await customTools.saveCustomTool(toolToSave)
-          reply({ type: 'cc_custom_tool_saved', data: savedTool })
+          cwd = secureCwd
+        }
+
+        const cmdPath = resolveClaudeCommandFilePath({ cwd, source, name })
+        if (!cmdPath) {
+          reply({
+            type: 'cc_command_deleted',
+            data: { ok: false, name, source }
+          })
           break
         }
-        case 'cc_delete_custom_tool': {
-          const customTools = await import('./custom-tools')
-          const deleted = await customTools.deleteCustomTool(message.id)
-          reply({ type: 'cc_custom_tool_deleted', data: deleted, id: message.id })
+
+        try {
+          await rm(cmdPath, { force: true })
+          reply({
+            type: 'cc_command_deleted',
+            data: { ok: true, name, source }
+          })
+        } catch {
+          reply({
+            type: 'cc_command_deleted',
+            data: { ok: false, name, source }
+          })
+        }
+        break
+      }
+      case 'cc_get_active_sessions': {
+        const sessions = claudeCode.listActiveSessions().map((s) => ({
+          id: s.sessionId,
+          cwd: s.cwd,
+          startedAt: s.startedAt
+        }))
+        reply({ type: 'cc_active_sessions', data: sessions })
+        break
+      }
+      case 'cc_get_config': {
+        const config = await claudeCode.getConfig(message.cwd)
+        reply({ type: 'cc_config', data: config })
+        break
+      }
+      case 'cc_set_config': {
+        const config = await claudeCode.setConfig(message.config, message.cwd)
+        reply({ type: 'cc_config_updated', data: config })
+        break
+      }
+      case 'cc_get_supported_models': {
+        const models = await claudeCode.getSupportedModels(message.cwd)
+        reply({ type: 'cc_supported_models', data: models })
+        break
+      }
+      case 'cc_get_account_info': {
+        const accountInfo = await claudeCode.getAccountInfo(message.cwd)
+        reply({ type: 'cc_account_info', data: accountInfo })
+        break
+      }
+      case 'cc_get_mcp_server_status': {
+        const statuses = await claudeCode.getMcpServerStatus(message.cwd)
+        reply({ type: 'cc_mcp_server_status', data: statuses })
+        break
+      }
+      // Claude Code File Checkpointing (Undo/Revert)
+      case 'cc_rewind_checkpoint': {
+        const result = await claudeCode.rewindToCheckpoint(message.sessionId, message.checkpointUuid, message.cwd)
+        reply({
+          type: 'cc_checkpoint_rewound',
+          data: {
+            success: result.success,
+            sessionId: message.sessionId,
+            checkpointUuid: message.checkpointUuid,
+            ...(result.filesChanged ? { filesChanged: result.filesChanged } : {}),
+            ...(typeof result.insertions === 'number' ? { insertions: result.insertions } : {}),
+            ...(typeof result.deletions === 'number' ? { deletions: result.deletions } : {})
+          }
+        })
+        break
+      }
+      // Claude Code Custom Tools
+      case 'cc_list_custom_tools': {
+        const customTools = await import('./custom-tools')
+        const tools = await customTools.getCustomTools()
+        reply({ type: 'cc_custom_tools', data: tools })
+        break
+      }
+      case 'cc_get_custom_tool': {
+        const customTools = await import('./custom-tools')
+        const tool = await customTools.getCustomTool(message.id)
+        reply({ type: 'cc_custom_tool', data: tool || null })
+        break
+      }
+      case 'cc_save_custom_tool': {
+        const customTools = await import('./custom-tools')
+        // Validate the tool definition
+        const validation = customTools.validateCustomTool(message.tool)
+        if (!validation.valid) {
+          reply({
+            type: 'error',
+            message: `Invalid tool: ${validation.errors.join(', ')}`
+          })
           break
         }
-        case 'cc_test_custom_tool': {
-          const customTools = await import('./custom-tools')
-          const result = await customTools.testCustomTool(message.tool, message.testArgs)
-          reply({ type: 'cc_custom_tool_test_result', data: result })
-          break
+        // Generate ID if not present
+        const toolToSave = {
+          ...message.tool,
+          id: message.tool.id || customTools.generateToolId()
         }
-        // Claude Code Plugins
-        case 'cc_list_plugins': {
-          const plugins = await import('./plugins')
-          const pluginList = await plugins.discoverPlugins(message.cwd)
-          reply({ type: 'cc_plugins', data: pluginList })
-          break
+        const savedTool = await customTools.saveCustomTool(toolToSave)
+        reply({ type: 'cc_custom_tool_saved', data: savedTool })
+        break
+      }
+      case 'cc_delete_custom_tool': {
+        const customTools = await import('./custom-tools')
+        const deleted = await customTools.deleteCustomTool(message.id)
+        reply({
+          type: 'cc_custom_tool_deleted',
+          data: deleted,
+          id: message.id
+        })
+        break
+      }
+      case 'cc_test_custom_tool': {
+        const customTools = await import('./custom-tools')
+        const result = await customTools.testCustomTool(message.tool, message.testArgs)
+        reply({ type: 'cc_custom_tool_test_result', data: result })
+        break
+      }
+      // Claude Code Plugins
+      case 'cc_list_plugins': {
+        const plugins = await import('./plugins')
+        const pluginList = await plugins.discoverPlugins(message.cwd)
+        reply({ type: 'cc_plugins', data: pluginList })
+        break
+      }
+      case 'cc_get_plugin': {
+        const plugins = await import('./plugins')
+        const plugin = await plugins.getPlugin(message.name)
+        reply({ type: 'cc_plugin', data: plugin || null })
+        break
+      }
+      case 'cc_toggle_plugin': {
+        const plugins = await import('./plugins')
+        const success = await plugins.togglePlugin(message.name, message.enabled)
+        reply({
+          type: 'cc_plugin_toggled',
+          data: success,
+          name: message.name,
+          enabled: message.enabled
+        })
+        break
+      }
+      case 'cc_add_plugin_path': {
+        const plugins = await import('./plugins')
+        const success = await plugins.addPluginPath(message.path)
+        reply({
+          type: 'cc_plugin_path_added',
+          data: success,
+          path: message.path
+        })
+        break
+      }
+      case 'cc_remove_plugin_path': {
+        const plugins = await import('./plugins')
+        const success = await plugins.removePluginPath(message.path)
+        reply({
+          type: 'cc_plugin_path_removed',
+          data: success,
+          path: message.path
+        })
+        break
+      }
+      case 'cc_get_plugin_config': {
+        const plugins = await import('./plugins')
+        const config = await plugins.getPluginConfig()
+        reply({ type: 'cc_plugin_config', data: config })
+        break
+      }
+      case 'cc_reload_plugins': {
+        const plugins = await import('./plugins')
+        const pluginList = await plugins.reloadPlugins(message.cwd)
+        reply({ type: 'cc_plugins_reloaded', data: pluginList })
+        break
+      }
+      // Subscription Usage Tracking
+      case 'get_subscription_usage': {
+        const subscriptionTracker = await import('./subscription-tracker')
+        const usage = await subscriptionTracker.getSubscriptionUsage()
+        reply({ type: 'subscription_usage', data: usage })
+        break
+      }
+      case 'get_provider_usage': {
+        const subscriptionTracker = await import('./subscription-tracker')
+        const usage = await subscriptionTracker.getProviderUsage(message.providerId)
+        reply({ type: 'provider_usage', data: usage })
+        break
+      }
+      default: {
+        reply({ type: 'error', message: 'Unknown message type' })
+      }
+    }
+  }
+
+  const handleMessage = async (ws: ServerWebSocket<unknown>, raw: string | Uint8Array) => {
+    const text = typeof raw === 'string' ? raw : new TextDecoder().decode(raw)
+
+    let message: ClientMessage & { requestId?: string }
+    try {
+      const parsed = JSON.parse(text)
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        send(ws, { type: 'error', message: 'Invalid JSON payload' })
+        return
+      }
+      if (hasPrototypePoisonKeys(parsed)) {
+        send(ws, { type: 'error', message: 'Invalid JSON payload' })
+        return
+      }
+      message = parsed as ClientMessage & { requestId?: string }
+    } catch {
+      send(ws, { type: 'error', message: 'Invalid JSON payload' })
+      return
+    }
+
+    if (typeof (message as any).type !== 'string' || (message as any).type.length > 64) {
+      send(ws, { type: 'error', message: 'Invalid message type' })
+      return
+    }
+
+    const requestId = message.requestId
+    const reply = (response: ServerMessage) => {
+      send(ws, requestId ? ({ ...response, requestId } as any) : response)
+    }
+
+    // Defense-in-depth: enforce entitlement before even entering the main
+    // per-message switch (a patched `processSingleMessage` should not be enough).
+    if (requireEntitlement) {
+      const allowed = new Set(['auth_session', 'pong', 'client_ping', 'batch'])
+      if (!allowed.has(message.type)) {
+        const c = contexts.get(ws)
+        if (!c?.cloudAuthed || !c.cloudEntitled) {
+          log(`[MSG] BLOCKED ${message.type} - cloudAuthed=${c?.cloudAuthed}, cloudEntitled=${c?.cloudEntitled}`)
+          reply({
+            type: 'error',
+            message: 'LICENSE_REQUIRED',
+            code: 'LICENSE_REQUIRED'
+          })
+          try {
+            ws.close(4403, 'License required')
+          } catch {
+            // ignore
+          }
+          return
         }
-        case 'cc_get_plugin': {
-          const plugins = await import('./plugins')
-          const plugin = await plugins.getPlugin(message.name)
-          reply({ type: 'cc_plugin', data: plugin || null })
-          break
-        }
-        case 'cc_toggle_plugin': {
-          const plugins = await import('./plugins')
-          const success = await plugins.togglePlugin(message.name, message.enabled)
-          reply({ type: 'cc_plugin_toggled', data: success, name: message.name, enabled: message.enabled })
-          break
-        }
-        case 'cc_add_plugin_path': {
-          const plugins = await import('./plugins')
-          const success = await plugins.addPluginPath(message.path)
-          reply({ type: 'cc_plugin_path_added', data: success, path: message.path })
-          break
-        }
-        case 'cc_remove_plugin_path': {
-          const plugins = await import('./plugins')
-          const success = await plugins.removePluginPath(message.path)
-          reply({ type: 'cc_plugin_path_removed', data: success, path: message.path })
-          break
-        }
-        case 'cc_get_plugin_config': {
-          const plugins = await import('./plugins')
-          const config = await plugins.getPluginConfig()
-          reply({ type: 'cc_plugin_config', data: config })
-          break
-        }
-        case 'cc_reload_plugins': {
-          const plugins = await import('./plugins')
-          const pluginList = await plugins.reloadPlugins(message.cwd)
-          reply({ type: 'cc_plugins_reloaded', data: pluginList })
-          break
-        }
-        // Subscription Usage Tracking
-        case 'get_subscription_usage': {
-          const subscriptionTracker = await import('./subscription-tracker')
-          const usage = await subscriptionTracker.getSubscriptionUsage()
-          reply({ type: 'subscription_usage', data: usage })
-          break
-        }
-        case 'get_provider_usage': {
-          const subscriptionTracker = await import('./subscription-tracker')
-          const usage = await subscriptionTracker.getProviderUsage(message.providerId)
-          reply({ type: 'provider_usage', data: usage })
-          break
-        }
-        default: {
-          reply({ type: 'error', message: 'Unknown message type' })
+        if (typeof c.licenseExpSec === 'number') {
+          const nowSec = Math.floor(Date.now() / 1000)
+          if (nowSec > c.licenseExpSec) {
+            reply({
+              type: 'error',
+              message: 'LICENSE_EXPIRED',
+              code: 'LICENSE_EXPIRED'
+            })
+            try {
+              ws.close(4403, 'License expired')
+            } catch {
+              // ignore
+            }
+            return
+          }
         }
       }
     }
 
-	  const handleMessage = async (ws: ServerWebSocket<unknown>, raw: string | Uint8Array) => {
-	    const text = typeof raw === 'string' ? raw : new TextDecoder().decode(raw)
-
-	    let message: ClientMessage & { requestId?: string }
-	    try {
-	      const parsed = JSON.parse(text)
-	      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-	        send(ws, { type: 'error', message: 'Invalid JSON payload' })
-	        return
-	      }
-	      if (hasPrototypePoisonKeys(parsed)) {
-	        send(ws, { type: 'error', message: 'Invalid JSON payload' })
-	        return
-	      }
-	      message = parsed as ClientMessage & { requestId?: string }
-	    } catch {
-	      send(ws, { type: 'error', message: 'Invalid JSON payload' })
-	      return
-	    }
-
-	    if (typeof (message as any).type !== 'string' || (message as any).type.length > 64) {
-	      send(ws, { type: 'error', message: 'Invalid message type' })
-	      return
-	    }
-
-	    const requestId = message.requestId
-	    const reply = (response: ServerMessage) => {
-	      send(ws, requestId ? ({ ...response, requestId } as any) : response)
-	    }
-
-	    // Defense-in-depth: enforce entitlement before even entering the main
-	    // per-message switch (a patched `processSingleMessage` should not be enough).
-	    if (requireEntitlement) {
-	      const allowed = new Set(['auth_session', 'pong', 'client_ping', 'batch'])
-	      if (!allowed.has(message.type)) {
-	        const c = contexts.get(ws)
-	        if (!c?.cloudAuthed || !c.cloudEntitled) {
-	          log(`[MSG] BLOCKED ${message.type} - cloudAuthed=${c?.cloudAuthed}, cloudEntitled=${c?.cloudEntitled}`)
-	          reply({ type: 'error', message: 'LICENSE_REQUIRED', code: 'LICENSE_REQUIRED' })
-	          try {
-	            ws.close(4403, 'License required')
-	          } catch {
-	            // ignore
-	          }
-	          return
-	        }
-	        if (typeof c.licenseExpSec === 'number') {
-	          const nowSec = Math.floor(Date.now() / 1000)
-	          if (nowSec > c.licenseExpSec) {
-	            reply({ type: 'error', message: 'LICENSE_EXPIRED', code: 'LICENSE_EXPIRED' })
-	            try {
-	              ws.close(4403, 'License expired')
-	            } catch {
-	              // ignore
-	            }
-	            return
-	          }
-	        }
-	      }
-	    }
-
-	    try {
-	      if (message.type === 'batch') {
-	        const batchedMessages = message.messages as Array<ClientMessage & { requestId?: string }>
+    try {
+      if (message.type === 'batch') {
+        const batchedMessages = message.messages as Array<ClientMessage & { requestId?: string }>
         if (!Array.isArray(batchedMessages)) {
-          reply({ type: 'error', message: 'Invalid batch: messages must be an array' })
+          reply({
+            type: 'error',
+            message: 'Invalid batch: messages must be an array'
+          })
           return
         }
-        
+
         for (const batchedMsg of batchedMessages) {
           const batchReply = (response: ServerMessage) => {
             send(ws, batchedMsg.requestId ? ({ ...response, requestId: batchedMsg.requestId } as any) : response)
           }
-          
+
           try {
             await processSingleMessage(ws, batchedMsg, batchReply)
           } catch (batchError) {
-            batchReply({ type: 'error', message: toPublicErrorMessage(batchError) })
+            batchReply({
+              type: 'error',
+              message: toPublicErrorMessage(batchError)
+            })
           }
         }
       } else {
@@ -8300,7 +8548,10 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     port: () => securePort,
     funnelBackendPort: () => loopbackPort,
     authToken: () => authToken,
-    tls: () => ({ enabled: !!tlsMaterial, certSha256: tlsMaterial?.certSha256 ?? null }),
+    tls: () => ({
+      enabled: !!tlsMaterial,
+      certSha256: tlsMaterial?.certSha256 ?? null
+    })
   }
 }
 
@@ -8312,8 +8563,8 @@ function jsonResponse(data: unknown, status = 200): Response {
       'cache-control': 'no-store',
       'x-content-type-options': 'nosniff',
       'x-frame-options': 'DENY',
-      'referrer-policy': 'no-referrer',
-    },
+      'referrer-policy': 'no-referrer'
+    }
   })
 }
 

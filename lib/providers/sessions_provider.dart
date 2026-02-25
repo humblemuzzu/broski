@@ -37,7 +37,7 @@ class _SessionActivity {
   final DateTime startedAt;
   String? lastToolName;
 
-  _SessionActivity({required this.startedAt, this.lastToolName});
+  _SessionActivity({required this.startedAt});
 }
 
 class GlobalSessionStatusNotifier
@@ -69,6 +69,9 @@ class GlobalSessionStatusNotifier
     if (type == 'sessions_active') {
       _handleSessionsActive(message['data'] as Map<String, dynamic>? ?? {});
     }
+    if (type == 'cx_threads') {
+      _handleCxThreadsSnapshot(message['data'] as List<dynamic>? ?? const []);
+    }
 
     // CC: detect session idle from cc_stream — the bridge emits a 'result'
     // event when the CC SDK completes, then sendSessionIdle. But if the
@@ -99,8 +102,8 @@ class GlobalSessionStatusNotifier
   void _handleCcStreamForCompletion(Map<String, dynamic> message) {
     final data = message['data'] as Map<String, dynamic>? ?? {};
     final eventType = data['type'] as String? ?? '';
-    final sessionId = message['sessionId'] as String? ??
-        data['sessionId'] as String? ?? '';
+    final sessionId =
+        message['sessionId'] as String? ?? data['sessionId'] as String? ?? '';
     if (sessionId.isEmpty) return;
 
     // Any content event means the session is active
@@ -146,17 +149,33 @@ class GlobalSessionStatusNotifier
   void _handleCxStreamForCompletion(Map<String, dynamic> message) {
     final data = message['data'] as Map<String, dynamic>? ?? {};
     final eventType = data['type'] as String? ?? '';
-    final threadId = message['threadId'] as String? ??
-        data['threadId'] as String? ?? '';
+    final threadId =
+        message['threadId'] as String? ?? data['threadId'] as String? ?? '';
     if (threadId.isEmpty) return;
 
-    // Mark CX session as busy when a turn starts
+    // Mark CX session status from Codex notifications.
     if (eventType == 'notification') {
       final method = data['method'] as String? ?? '';
+      final params = data['params'] as Map<String, dynamic>? ?? const {};
       if (method == 'turn/started') {
         state = {...state, threadId: const SessionStatus.busy()};
       } else if (method == 'turn/completed') {
         state = {...state, threadId: const SessionStatus.idle()};
+      } else if (method == 'thread/status/changed') {
+        final statusThreadId = params['threadId'] as String? ?? threadId;
+        final status = params['status'] as Map<String, dynamic>? ?? const {};
+        final statusType = status['type'] as String? ?? 'idle';
+        state = {
+          ...state,
+          statusThreadId: statusType == 'active'
+              ? const SessionStatus.busy()
+              : const SessionStatus.idle(),
+        };
+      } else if (method == 'thread/archived') {
+        final archivedThreadId = params['threadId'] as String? ?? threadId;
+        final next = {...state};
+        next.remove(archivedThreadId);
+        state = next;
       }
     }
   }
@@ -170,7 +189,8 @@ class GlobalSessionStatusNotifier
     // Claude Code active sessions
     final ccActive = data['claudeCode'] as List<dynamic>? ?? [];
     for (final item in ccActive) {
-      final sessionId = (item as Map<String, dynamic>?)?['sessionId'] as String? ?? '';
+      final sessionId =
+          (item as Map<String, dynamic>?)?['sessionId'] as String? ?? '';
       if (sessionId.isNotEmpty) {
         updates[sessionId] = const SessionStatus.busy();
       }
@@ -179,7 +199,8 @@ class GlobalSessionStatusNotifier
     // Codex active threads
     final cxActive = data['codex'] as List<dynamic>? ?? [];
     for (final item in cxActive) {
-      final threadId = (item as Map<String, dynamic>?)?['threadId'] as String? ?? '';
+      final threadId =
+          (item as Map<String, dynamic>?)?['threadId'] as String? ?? '';
       if (threadId.isNotEmpty) {
         updates[threadId] = const SessionStatus.busy();
       }
@@ -188,12 +209,36 @@ class GlobalSessionStatusNotifier
     // OpenCode active sessions
     final ocActive = data['opencode'] as List<dynamic>? ?? [];
     for (final item in ocActive) {
-      final sessionId = (item as Map<String, dynamic>?)?['sessionId'] as String? ?? '';
+      final sessionId =
+          (item as Map<String, dynamic>?)?['sessionId'] as String? ?? '';
       if (sessionId.isNotEmpty) {
         updates[sessionId] = const SessionStatus.busy();
       }
     }
 
+    if (updates.isNotEmpty) {
+      state = {...state, ...updates};
+    }
+  }
+
+  /// Seed Codex runtime status from thread/list payload (official v2 Thread.status).
+  void _handleCxThreadsSnapshot(List<dynamic> threads) {
+    final updates = <String, SessionStatus>{};
+    for (final item in threads) {
+      final map = item is Map<String, dynamic>
+          ? item
+          : item is Map
+          ? item.cast<String, dynamic>()
+          : null;
+      if (map == null) continue;
+      final id = map['id'] as String? ?? '';
+      if (id.isEmpty) continue;
+      final status = map['status'] as Map<String, dynamic>?;
+      final statusType = status?['type'] as String? ?? 'idle';
+      updates[id] = statusType == 'active'
+          ? const SessionStatus.busy()
+          : const SessionStatus.idle();
+    }
     if (updates.isNotEmpty) {
       state = {...state, ...updates};
     }
@@ -539,8 +584,8 @@ const int kSessionsPerProjectDefault = 5;
 /// Tracks which project directories have been expanded to show all sessions.
 final sessionsProjectExpandedProvider =
     StateNotifierProvider<_ProjectExpandedNotifier, Set<String>>((ref) {
-  return _ProjectExpandedNotifier();
-});
+      return _ProjectExpandedNotifier();
+    });
 
 class _ProjectExpandedNotifier extends StateNotifier<Set<String>> {
   _ProjectExpandedNotifier() : super({});
@@ -709,8 +754,9 @@ final sessionsListProvider = StreamProvider<List<SessionSummary>>((ref) async* {
   final storage = ref.watch(storageServiceProvider);
 
   List<SessionSummary> applyFilters(List<SessionSummary> sessions) {
-    var result = sessions
-        .where((s) => projectPathMatches(s.directory, filterProjectPath));
+    var result = sessions.where(
+      (s) => projectPathMatches(s.directory, filterProjectPath),
+    );
     if (titleFilters.isNotEmpty) {
       result = result.where(
         (s) => !sessionTitleMatchesExcludeFilters(s.title, titleFilters),
@@ -744,7 +790,9 @@ final sessionsListProvider = StreamProvider<List<SessionSummary>>((ref) async* {
 
   // STEP 3: TTL check - skip network if cache is fresh (< 30s old)
   // BUT if searching, always fetch (server has better search than client)
-  if (searchQuery.isEmpty && cached.isNotEmpty && storage.isSessionsCacheFresh()) {
+  if (searchQuery.isEmpty &&
+      cached.isNotEmpty &&
+      storage.isSessionsCacheFresh()) {
     // Cache is fresh and no search, no need to fetch - we already yielded cached data
     return;
   }
@@ -763,8 +811,9 @@ final sessionsListProvider = StreamProvider<List<SessionSummary>>((ref) async* {
     }
 
     // Apply project filter + title filters (search already applied server-side)
-    var fresh = freshAll
-        .where((s) => projectPathMatches(s.directory, filterProjectPath));
+    var fresh = freshAll.where(
+      (s) => projectPathMatches(s.directory, filterProjectPath),
+    );
     if (titleFilters.isNotEmpty) {
       fresh = fresh.where(
         (s) => !sessionTitleMatchesExcludeFilters(s.title, titleFilters),

@@ -9,6 +9,8 @@ import '../services/purchase_service.dart';
 import '../services/storage_service.dart';
 import '../services/websocket_service.dart';
 
+export '../services/bridge_service.dart';
+
 final storageServiceProvider = Provider<StorageService>((ref) {
   return StorageService();
 });

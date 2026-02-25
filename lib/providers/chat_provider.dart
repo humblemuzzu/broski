@@ -16,6 +16,7 @@ import '../models/todo.dart';
 import '../models/vcs.dart';
 import '../services/bridge_service.dart';
 import '../services/pi_bridge_service.dart';
+import 'chat/codex_permission_helpers.dart';
 import 'pi_provider.dart';
 import 'service_providers.dart';
 
@@ -1090,7 +1091,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
             return tc;
           }).toList();
 
-          _messages[lastAssistantMsgId!] = assistantMsg.copyWith(
+          _messages[lastAssistantMsgId] = assistantMsg.copyWith(
             toolCalls: updatedTools,
           );
         }
@@ -3953,6 +3954,17 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         return;
       }
 
+      // Handle skill approval requests (Codex SDK mid-2026)
+      if (message.method == 'skill/requestApproval') {
+        final request = buildCodexSkillPermissionRequest(
+          requestId: message.requestId,
+          sessionId: threadId ?? (state.cxThreadId ?? ''),
+          params: params,
+        );
+        state = state.copyWith(permissions: [request, ...state.permissions]);
+        return;
+      }
+
       if (message.method == 'item/commandExecution/requestApproval' ||
           message.method == 'item/fileChange/requestApproval') {
         final cachedItem = params['cachedItem'];
@@ -3971,6 +3983,19 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         final reason = params['reason'];
         if (reason != null) {
           metadata['reason'] = reason;
+        }
+        final networkApprovalContext =
+            params['networkApprovalContext'] ??
+            params['network_approval_context'];
+        if (networkApprovalContext != null) {
+          metadata['networkApprovalContext'] = networkApprovalContext;
+        }
+        final proposedNetworkPolicyAmendments =
+            params['proposedNetworkPolicyAmendments'] ??
+            params['proposed_network_policy_amendments'];
+        if (proposedNetworkPolicyAmendments != null) {
+          metadata['proposedNetworkPolicyAmendments'] =
+              proposedNetworkPolicyAmendments;
         }
         // #29: Surface structured approval context from bridge
         final approvalCommand = params['approvalCommand'];
@@ -4009,23 +4034,12 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         // #29: Fallback to approvalCommand from params if cachedItem didn't have it
         command ??= approvalCommand?.toString();
 
-        // #29: Build a richer title if reason includes network access context
-        String title;
-        if (message.method == 'item/commandExecution/requestApproval') {
-          if (reason != null &&
-              reason.toString().toLowerCase().contains('network')) {
-            title = 'Allow network access?';
-          } else {
-            title = 'Allow command execution?';
-          }
-        } else {
-          if (grantRoot != null) {
-            title =
-                'Allow write access to ${grantRoot.toString().split('/').last}?';
-          } else {
-            title = 'Allow file changes?';
-          }
-        }
+        final title = buildCodexApprovalTitle(
+          method: message.method,
+          reason: reason,
+          grantRoot: grantRoot,
+          networkApprovalContext: networkApprovalContext,
+        );
 
         final request = PermissionRequest(
           id: message.requestId,
@@ -4540,6 +4554,11 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
             ?.toString();
     final newThreadId = (params['newThreadId'] ?? params['new_thread_id'])
         ?.toString();
+    final newAgentNickname =
+        (params['newAgentNickname'] ?? params['new_agent_nickname'])
+            ?.toString();
+    final newAgentRole = (params['newAgentRole'] ?? params['new_agent_role'])
+        ?.toString();
     final prompt = params['prompt']?.toString();
 
     // Parse status (can be a map or string)
@@ -4584,6 +4603,8 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
               parentThreadId: senderThreadId,
               status: status ?? CodexCollabAgentStatus.running,
               prompt: prompt,
+              agentNickname: newAgentNickname,
+              agentRole: newAgentRole,
               startedAt: DateTime.now(),
             ),
           );
@@ -4843,7 +4864,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       case 'tool-exec-start':
       case 'tool-call-start':
         final toolCallId =
-            message.raw['toolCallId'] as String? ?? 'pi-tc-${_piPartSequence}';
+            message.raw['toolCallId'] as String? ?? 'pi-tc-$_piPartSequence';
         final toolName = message.raw['toolName'] as String? ?? 'tool';
         final args = message.raw['args'];
         final alreadyTracked = _piPendingToolCallsById.containsKey(toolCallId);

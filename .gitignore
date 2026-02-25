@@ -148,3 +148,5 @@ packages/bridge/dist/
 convex/_generated/
 .asc/
 .license-keys/
+
+docs/
