@@ -152,7 +152,10 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
     case 'pi_steer': {
       await ensureStreamBridge(cwd, broadcast)
       const instance = await pi.getOrCreateInstance(cwd)
-      await instance.session.steer(String(message.message ?? ''))
+      const basePrompt = typeof message.message === 'string' ? message.message : ''
+      const attachments = message.fileAttachments as FileAttachment[] | undefined
+      const prompt = composePromptWithTaggedPaths(basePrompt, extractTaggedPaths(attachments))
+      await instance.session.steer(prompt, extractImages(attachments))
       reply({ type: 'pi_steered', data: true, requestId: message.requestId })
       return true
     }
@@ -160,7 +163,10 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
     case 'pi_follow_up': {
       await ensureStreamBridge(cwd, broadcast)
       const instance = await pi.getOrCreateInstance(cwd)
-      await instance.session.followUp(String(message.message ?? ''))
+      const basePrompt = typeof message.message === 'string' ? message.message : ''
+      const attachments = message.fileAttachments as FileAttachment[] | undefined
+      const prompt = composePromptWithTaggedPaths(basePrompt, extractTaggedPaths(attachments))
+      await instance.session.followUp(prompt, extractImages(attachments))
       reply({ type: 'pi_followed_up', data: true, requestId: message.requestId })
       return true
     }

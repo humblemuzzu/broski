@@ -1,4 +1,3 @@
-
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -14,12 +13,15 @@ import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../utils/error_utils.dart';
+import 'opencode/opencode_session_behavior_card.dart';
+
 class OpenCodeMcpConfigScreen extends ConsumerStatefulWidget {
   const OpenCodeMcpConfigScreen({super.key});
   @override
   ConsumerState<OpenCodeMcpConfigScreen> createState() =>
       _OpenCodeMcpConfigScreenState();
 }
+
 class _OpenCodeMcpConfigScreenState
     extends ConsumerState<OpenCodeMcpConfigScreen> {
   bool _loading = true;
@@ -27,11 +29,13 @@ class _OpenCodeMcpConfigScreenState
   String? _error;
   Map<String, dynamic> _config = const {};
   Map<String, McpServerStatus> _status = const {};
+  bool _savingSessionBehavior = false;
   @override
   void initState() {
     super.initState();
     _load();
   }
+
   String? get _projectPath => ref.read(selectionProvider).project?.path;
   Future<void> _load() async {
     setState(() {
@@ -56,11 +60,78 @@ class _OpenCodeMcpConfigScreenState
       });
     }
   }
+
   Map<String, dynamic> _mcp() {
     final m = _config['mcp'];
     if (m is Map) return m.cast<String, dynamic>();
     return {};
   }
+
+  Map<String, dynamic> _compaction() {
+    final c = _config['compaction'];
+    if (c is Map) return c.cast<String, dynamic>();
+    return {};
+  }
+
+  bool get _autoCompactionEnabled => _compaction()['auto'] as bool? ?? true;
+  bool get _pruneCompactionEnabled => _compaction()['prune'] as bool? ?? true;
+
+  String get _shareMode {
+    final share = _config['share'];
+    if (share is String && {'manual', 'auto', 'disabled'}.contains(share)) {
+      return share;
+    }
+    final legacyAutoShare = _config['autoshare'];
+    if (legacyAutoShare is bool) {
+      return legacyAutoShare ? 'auto' : 'manual';
+    }
+    return 'manual';
+  }
+
+  Future<void> _updateSessionBehavior({
+    bool? autoCompaction,
+    bool? pruneCompaction,
+    String? shareMode,
+  }) async {
+    if (_savingSessionBehavior) return;
+    setState(() => _savingSessionBehavior = true);
+    final oc = OpenCodeTheme.of(context);
+
+    final nextCompaction = <String, dynamic>{
+      ..._compaction(),
+      if (autoCompaction != null) 'auto': autoCompaction,
+      if (pruneCompaction != null) 'prune': pruneCompaction,
+    };
+
+    final patch = <String, dynamic>{
+      'compaction': nextCompaction,
+      if (shareMode != null) 'share': shareMode,
+    };
+
+    try {
+      final bridge = ref.read(bridgeServiceProvider);
+      final updated = await bridge.setConfig(patch, projectPath: _projectPath);
+      if (!mounted) return;
+      setState(() {
+        _config = updated.isNotEmpty
+            ? updated
+            : <String, dynamic>{..._config, ...patch};
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to update settings: ${humanizeError(e)}'),
+          backgroundColor: oc.error,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _savingSessionBehavior = false);
+      }
+    }
+  }
+
   Future<void> _restart() async {
     final oc = OpenCodeTheme.of(context);
     try {
@@ -83,6 +154,7 @@ class _OpenCodeMcpConfigScreenState
       );
     }
   }
+
   Future<void> _refreshStatus() async {
     setState(() => _loadingStatus = true);
     try {
@@ -98,6 +170,7 @@ class _OpenCodeMcpConfigScreenState
       setState(() => _loadingStatus = false);
     }
   }
+
   Future<void> _startMcpAuth(String name) async {
     // Let user choose: one-shot (opens browser on dev machine) or manual (paste code on phone)
     final method = await showModalBottomSheet<String>(
@@ -151,7 +224,9 @@ class _OpenCodeMcpConfigScreenState
       final ok = result != null;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(ok ? 'Authenticated "$name"' : 'Auth failed for "$name"'),
+          content: Text(
+            ok ? 'Authenticated "$name"' : 'Auth failed for "$name"',
+          ),
           backgroundColor: ok ? oc.success : oc.error,
         ),
       );
@@ -199,10 +274,7 @@ class _OpenCodeMcpConfigScreenState
                 const SizedBox(height: 8),
                 SelectableText(
                   url,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: oc.primary,
-                  ),
+                  style: TextStyle(fontSize: 12, color: oc.primary),
                 ),
                 const SizedBox(height: 16),
                 const Text('Then paste the authorization code:'),
@@ -232,11 +304,17 @@ class _OpenCodeMcpConfigScreenState
       );
       if (code == null || code.isEmpty) return;
       if (!mounted) return;
-      final ok = await bridge.mcpAuthCallback(name, code, projectPath: _projectPath);
+      final ok = await bridge.mcpAuthCallback(
+        name,
+        code,
+        projectPath: _projectPath,
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(ok ? 'Authenticated "$name"' : 'Auth failed for "$name"'),
+          content: Text(
+            ok ? 'Authenticated "$name"' : 'Auth failed for "$name"',
+          ),
           backgroundColor: ok ? oc.success : oc.error,
         ),
       );
@@ -278,13 +356,16 @@ class _OpenCodeMcpConfigScreenState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            connect ? 'Connect failed: ${humanizeError(e)}' : 'Disconnect failed: ${humanizeError(e)}',
+            connect
+                ? 'Connect failed: ${humanizeError(e)}'
+                : 'Disconnect failed: ${humanizeError(e)}',
           ),
           backgroundColor: oc.error,
         ),
       );
     }
   }
+
   Future<void> _addServer() async {
     final nameController = TextEditingController();
     final name = await showDialog<String>(
@@ -352,6 +433,7 @@ class _OpenCodeMcpConfigScreenState
       );
     }
   }
+
   Widget _mcpTrailingButton(
     String name,
     McpServerStatus? status,
@@ -381,6 +463,7 @@ class _OpenCodeMcpConfigScreenState
     if (status.hasError) return AppIcons.error;
     return AppIcons.pause;
   }
+
   Color _statusColor(OpenCodeTheme oc, McpServerStatus? status) {
     if (status == null) return oc.textMuted;
     if (status.isConnected) return oc.success;
@@ -388,6 +471,7 @@ class _OpenCodeMcpConfigScreenState
     if (status.hasError) return oc.error;
     return oc.warning;
   }
+
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
@@ -421,110 +505,126 @@ class _OpenCodeMcpConfigScreenState
       body: AdaptiveContainer(
         width: ContentWidth.standard,
         child: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-          ? Center(
-              child: Padding(
-                padding: Insets.cardLg,
-                child: Text(_error!, style: TextStyle(color: oc.textMuted)),
-              ),
-            )
-          : Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'View and control MCP servers. Add new servers from mobile and manage connection status.',
-                          style: AppTypography.label(color: oc.textMuted),
-                        ),
-                      ),
-                      TextButton.icon(
-                        onPressed: _restart,
-                        icon: const Icon(AppIcons.restart, size: 18),
-                        label: const Text('Restart'),
-                      ),
-                    ],
-                  ),
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+            ? Center(
+                child: Padding(
+                  padding: Insets.cardLg,
+                  child: Text(_error!, style: TextStyle(color: oc.textMuted)),
                 ),
-                Expanded(
-                  child: names.isEmpty
-                      ? Center(
-                          child: Padding(
-                            padding: Insets.cardLg,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  AppIcons.dns,
-                                  color: oc.textMuted,
-                                  size: 56,
-                                ),
-                                SizedBox(height: Spacing.md),
-                                Text(
-                                  'No MCP servers configured',
-                                  style: TextStyle(color: oc.text),
-                                ),
-                                SizedBox(height: Spacing.sm),
-                                Text(
-                                  'Tap + to add your first MCP server.',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(color: oc.textMuted),
-                                ),
-                              ],
-                            ),
+              )
+            : Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'View and control MCP servers. Add new servers from mobile and manage connection status.',
+                            style: AppTypography.label(color: oc.textMuted),
                           ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                          itemCount: names.length,
-                          itemBuilder: (context, idx) {
-                            final name = names[idx];
-                            final status = _status[name];
-                            final isConnected = status?.isConnected ?? false;
-                            return Card(
-                              color: oc.backgroundElement,
-                              margin: const EdgeInsets.only(bottom: 10),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: Radii.brMd,
-                                side: BorderSide(color: oc.border),
+                        ),
+                        TextButton.icon(
+                          onPressed: _restart,
+                          icon: const Icon(AppIcons.restart, size: 18),
+                          label: const Text('Restart'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                    child: OpenCodeSessionBehaviorCard(
+                      autoCompaction: _autoCompactionEnabled,
+                      pruneCompaction: _pruneCompactionEnabled,
+                      shareMode: _shareMode,
+                      saving: _savingSessionBehavior,
+                      onAutoCompactionChanged: (value) =>
+                          _updateSessionBehavior(autoCompaction: value),
+                      onPruneCompactionChanged: (value) =>
+                          _updateSessionBehavior(pruneCompaction: value),
+                      onShareModeChanged: (value) =>
+                          _updateSessionBehavior(shareMode: value),
+                    ),
+                  ),
+                  Expanded(
+                    child: names.isEmpty
+                        ? Center(
+                            child: Padding(
+                              padding: Insets.cardLg,
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    AppIcons.dns,
+                                    color: oc.textMuted,
+                                    size: 56,
+                                  ),
+                                  SizedBox(height: Spacing.md),
+                                  Text(
+                                    'No MCP servers configured',
+                                    style: TextStyle(color: oc.text),
+                                  ),
+                                  SizedBox(height: Spacing.sm),
+                                  Text(
+                                    'Tap + to add your first MCP server.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(color: oc.textMuted),
+                                  ),
+                                ],
                               ),
-                              child: ListTile(
-                                leading: Icon(
-                                  _statusIcon(status),
-                                  color: _statusColor(oc, status),
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                            itemCount: names.length,
+                            itemBuilder: (context, idx) {
+                              final name = names[idx];
+                              final status = _status[name];
+                              final isConnected = status?.isConnected ?? false;
+                              return Card(
+                                color: oc.backgroundElement,
+                                margin: const EdgeInsets.only(bottom: 10),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: Radii.brMd,
+                                  side: BorderSide(color: oc.border),
                                 ),
-                                title: Text(
-                                  name,
-                                  style: TextStyle(
-                                    color: oc.text,
-                                    fontWeight: FontWeight.w700,
+                                child: ListTile(
+                                  leading: Icon(
+                                    _statusIcon(status),
+                                    color: _statusColor(oc, status),
+                                  ),
+                                  title: Text(
+                                    name,
+                                    style: TextStyle(
+                                      color: oc.text,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    status?.statusDisplay ??
+                                        'Configured in OpenCode config',
+                                    style: TextStyle(color: oc.textMuted),
+                                  ),
+                                  trailing: _mcpTrailingButton(
+                                    name,
+                                    status,
+                                    isConnected,
+                                    oc,
                                   ),
                                 ),
-                                subtitle: Text(
-                                  status?.statusDisplay ??
-                                      'Configured in OpenCode config',
-                                  style: TextStyle(color: oc.textMuted),
-                                ),
-                                trailing: _mcpTrailingButton(
-                                  name,
-                                  status,
-                                  isConnected,
-                                  oc,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                ),
-              ],
-            ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
       ),
     );
   }
 }
+
 class _JsonObjectEditorScreen extends StatefulWidget {
   const _JsonObjectEditorScreen({
     required this.title,
@@ -536,6 +636,7 @@ class _JsonObjectEditorScreen extends StatefulWidget {
   State<_JsonObjectEditorScreen> createState() =>
       _JsonObjectEditorScreenState();
 }
+
 class _JsonObjectEditorScreenState extends State<_JsonObjectEditorScreen> {
   late final TextEditingController _json;
   @override
@@ -543,11 +644,13 @@ class _JsonObjectEditorScreenState extends State<_JsonObjectEditorScreen> {
     super.initState();
     _json = TextEditingController(text: widget.initialJson);
   }
+
   @override
   void dispose() {
     _json.dispose();
     super.dispose();
   }
+
   void _done() {
     try {
       final decoded = jsonDecode(_json.text);
@@ -556,11 +659,12 @@ class _JsonObjectEditorScreenState extends State<_JsonObjectEditorScreen> {
       }
       Navigator.pop(context, decoded.cast<String, dynamic>());
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Invalid JSON: ${humanizeError(e)}')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Invalid JSON: ${humanizeError(e)}')),
+      );
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
@@ -584,22 +688,22 @@ class _JsonObjectEditorScreenState extends State<_JsonObjectEditorScreen> {
       body: AdaptiveContainer(
         width: ContentWidth.standard,
         child: Padding(
-        padding: Insets.card,
-        child: TextField(
-          controller: _json,
-          maxLines: null,
-          expands: true,
-          style: AppTypography.code(),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: oc.backgroundElement,
-            border: OutlineInputBorder(
-              borderRadius: Radii.brMd,
-              borderSide: BorderSide(color: oc.border),
+          padding: Insets.card,
+          child: TextField(
+            controller: _json,
+            maxLines: null,
+            expands: true,
+            style: AppTypography.code(),
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: oc.backgroundElement,
+              border: OutlineInputBorder(
+                borderRadius: Radii.brMd,
+                borderSide: BorderSide(color: oc.border),
+              ),
             ),
           ),
         ),
-      ),
       ),
     );
   }

@@ -75,10 +75,7 @@ class AgentIndicatorPart extends MessagePart {
 /// Context compacted indicator — SDK v1.2.1 CompactionPart
 /// Renders as a centered divider with "Context compacted (auto/manual)".
 class CompactionIndicatorPart extends MessagePart {
-  const CompactionIndicatorPart({
-    required super.sequence,
-    this.auto = false,
-  });
+  const CompactionIndicatorPart({required super.sequence, this.auto = false});
 
   final bool auto;
 }
@@ -98,22 +95,33 @@ class PatchIndicatorPart extends MessagePart {
 
 /// Snapshot part — not rendered visually. Internal data for rollback/revert.
 class SnapshotPart extends MessagePart {
-  const SnapshotPart({
-    required super.sequence,
-    required this.snapshot,
-  });
+  const SnapshotPart({required super.sequence, required this.snapshot});
 
   final String snapshot;
 }
 
 /// Step start part — not rendered visually. Marks step boundary.
 class StepStartIndicatorPart extends MessagePart {
-  const StepStartIndicatorPart({
-    required super.sequence,
-    this.snapshot,
-  });
+  const StepStartIndicatorPart({required super.sequence, this.snapshot});
 
   final String? snapshot;
+}
+
+/// Step finish part metadata from OpenCode SDK.
+/// Carries per-step completion reason, snapshot, and token/cost usage.
+class StepFinishIndicatorPart extends MessagePart {
+  const StepFinishIndicatorPart({
+    required super.sequence,
+    this.reason,
+    this.snapshot,
+    this.cost,
+    this.tokens,
+  });
+
+  final String? reason;
+  final String? snapshot;
+  final double? cost;
+  final Map<String, dynamic>? tokens;
 }
 
 class RetryInfo {
@@ -131,6 +139,7 @@ class ChatMessage {
     required this.createdAt,
     required this.text,
     this.variant,
+    this.finish,
     this.retryInfo,
     this.toolCalls = const [],
     this.diffs = const [],
@@ -149,6 +158,9 @@ class ChatMessage {
 
   /// OpenCode/Codex message variant (e.g. thinking level)
   final String? variant;
+
+  /// Why the assistant message finished (SDK v1.2.10+), e.g. stop/length/tool_use.
+  final String? finish;
 
   /// Latest retry metadata for this message, if any.
   final RetryInfo? retryInfo;
@@ -195,6 +207,7 @@ class ChatMessage {
   ChatMessage copyWith({
     String? text,
     String? variant,
+    String? finish,
     RetryInfo? retryInfo,
     List<ToolCall>? toolCalls,
     List<DiffEntry>? diffs,
@@ -211,6 +224,7 @@ class ChatMessage {
       createdAt: createdAt,
       text: text ?? this.text,
       variant: variant ?? this.variant,
+      finish: finish ?? this.finish,
       retryInfo: retryInfo ?? this.retryInfo,
       toolCalls: toolCalls ?? this.toolCalls,
       diffs: diffs ?? this.diffs,

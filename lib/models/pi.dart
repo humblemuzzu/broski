@@ -358,21 +358,21 @@ class PiTokenUsage {
 
 /// Context usage from Pi's estimateContextTokens — actual tokens in the window.
 class PiContextUsage {
-  final int tokens;
+  final int? tokens;
   final int contextWindow;
-  final double percent;
+  final double? percent;
 
   const PiContextUsage({
-    this.tokens = 0,
+    this.tokens,
     this.contextWindow = 200000,
-    this.percent = 0,
+    this.percent,
   });
 
   factory PiContextUsage.fromJson(Map<String, dynamic> json) {
     return PiContextUsage(
-      tokens: json['tokens'] as int? ?? 0,
+      tokens: (json['tokens'] as num?)?.toInt(),
       contextWindow: json['contextWindow'] as int? ?? 200000,
-      percent: (json['percent'] as num?)?.toDouble() ?? 0,
+      percent: (json['percent'] as num?)?.toDouble(),
     );
   }
 }

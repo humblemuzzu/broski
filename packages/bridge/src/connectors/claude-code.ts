@@ -26,6 +26,8 @@ import type {
   ClaudeCodeEffort,
   FileAttachment,
 } from '../types'
+import { normalizeSupportedModels } from './claude-code/model-normalization'
+import { emitClaudeCodeSupplementalStreamEvents } from './claude-code/stream-supplemental-events'
 
 const CLAUDE_PROJECTS_DIR = join(homedir(), '.claude', 'projects')
 const CLAUDE_SETTINGS_FILE = join(homedir(), '.claude', 'settings.json')
@@ -70,6 +72,7 @@ let currentConfig: ClaudeCodeConfig = {
   model: 'sonnet',
   betas: [],
   enableAgentTeams: false,
+  promptSuggestions: false,
   systemPrompt: { type: 'preset', preset: 'claude_code' },
   // Defaults: Claude Code itself defaults to respecting .gitignore in file pickers.
   // Leave language/releaseChannel unset unless the user configures them.
@@ -279,6 +282,7 @@ export type ClaudeCodeQueryOptions = {
   enableAgentTeams?: boolean
   enableFileCheckpointing?: boolean
   persistSession?: boolean
+  promptSuggestions?: boolean
   agents?: Record<string, ClaudeCodeSubagent>  // Custom subagent definitions
   activeSubagent?: string  // Name of the subagent to use for this query (prepends prompt hint)
   fallbackModel?: string                // B5: fallback model on primary failure
@@ -1786,23 +1790,6 @@ function convertSubagentsToRecord(subagents: ClaudeCodeSubagent[]): Record<strin
   return record
 }
 
-function normalizeSupportedModels(models: unknown): ClaudeCodeSupportedModel[] {
-  if (!Array.isArray(models)) return []
-  const normalized = models
-    .map((item) => {
-      if (!item || typeof item !== 'object') return null
-      const value = String((item as any).value ?? '').trim()
-      if (!value) return null
-      return {
-        value,
-        displayName: String((item as any).displayName ?? value).trim() || value,
-        description: String((item as any).description ?? '').trim(),
-      } satisfies ClaudeCodeSupportedModel
-    })
-    .filter((item): item is ClaudeCodeSupportedModel => item != null)
-  return normalized
-}
-
 function normalizeAccountInfo(data: unknown): ClaudeCodeAccountInfo {
   if (!data || typeof data !== 'object') return {}
   const raw = data as Record<string, unknown>
@@ -2108,6 +2095,7 @@ export async function queryClaudeCode(
     const thinking = options.thinking ?? currentConfig.thinking
     const effort = options.effort ?? currentConfig.effort
     const persistSession = options.persistSession
+    const promptSuggestions = options.promptSuggestions ?? currentConfig.promptSuggestions
 
     const sdkOptions: any = {
       cwd: options.cwd,
@@ -2132,6 +2120,8 @@ export async function queryClaudeCode(
       ...(options.agent ? { agent: options.agent } : {}),
       // SDK 0.2.42: session persistence control
       ...(typeof persistSession === 'boolean' ? { persistSession } : {}),
+      // SDK 0.2.52: prompt suggestions
+      ...(typeof promptSuggestions === 'boolean' ? { promptSuggestions } : {}),
       // B5: fallback model
       ...(options.fallbackModel ? { fallbackModel: options.fallbackModel } : {}),
       // B6: additional directories
@@ -2639,94 +2629,12 @@ export async function queryClaudeCode(
         }
       }
 
-      // SDK 0.2.42: Task notification (agent teams background tasks)
-      if (message?.type === 'system' && message?.subtype === 'task_notification') {
-        emit({
-          type: 'task-notification',
-          taskId: message.task_id,
-          status: message.status,
-          summary: message.summary,
-          outputFile: message.output_file,
-        })
-      }
-
-      // SDK 0.2.42: Tool use summary (aggregated tool calls)
-      if (message?.type === 'tool_use_summary') {
-        emit({
-          type: 'tool-use-summary',
-          summary: message.summary,
-          precedingToolUseIds: Array.isArray(message.preceding_tool_use_ids) ? message.preceding_tool_use_ids : [],
-        })
-      }
-
-      // SDK 0.2.42: Files persisted events
-      if (message?.type === 'system' && message?.subtype === 'files_persisted') {
-        emit({
-          type: 'files-persisted',
-          files: Array.isArray(message.files) ? message.files.map((f: any) => ({
-            filename: String(f?.filename ?? ''),
-            fileId: String(f?.file_id ?? ''),
-          })) : [],
-          failed: Array.isArray(message.failed) ? message.failed.map((f: any) => ({
-            filename: String(f?.filename ?? ''),
-            error: String(f?.error ?? ''),
-          })) : [],
-        })
-      }
-
-      // SDK 0.2.42: Status updates (compacting, permission mode changes)
-      if (message?.type === 'system' && message?.subtype === 'status') {
-        emit({
-          type: 'status-update',
-          status: message.status ?? null,
-          ...(message.permissionMode ? { permissionMode: message.permissionMode } : {}),
-        })
-      }
-
-      // SDK 0.2.42: Hook lifecycle events
-      if (message?.type === 'system' && message?.subtype === 'hook_started') {
-        emit({
-          type: 'hook-started',
-          hookId: message.hook_id,
-          hookName: message.hook_name,
-          hookEvent: message.hook_event,
-        })
-      }
-      if (message?.type === 'system' && message?.subtype === 'hook_progress') {
-        emit({
-          type: 'hook-progress',
-          hookId: message.hook_id,
-          hookName: message.hook_name,
-          hookEvent: message.hook_event,
-          output: message.output || message.stdout || '',
-        })
-      }
-      if (message?.type === 'system' && message?.subtype === 'hook_response') {
-        emit({
-          type: 'hook-response',
-          hookId: message.hook_id,
-          hookName: message.hook_name,
-          hookEvent: message.hook_event,
-          output: message.output || message.stdout || '',
-          outcome: message.outcome ?? 'success',
-          exitCode: message.exit_code,
-        })
-      }
-
-      // Auth status events: surface errors to UI, forward non-error auth progress
-      if (message?.type === 'auth_status') {
-        if (message?.error) {
-          onError(new Error(String(message.error)))
-          return
-        }
-        // Forward non-error auth status for login progress visibility
-        emit({
-          type: 'auth-status',
-          isAuthenticating: message.isAuthenticating ?? false,
-          output: Array.isArray(message.output) ? message.output : [],
-          ...(message.error ? { error: String(message.error) } : {}),
-        })
-      }
+      const supplementalResult = emitClaudeCodeSupplementalStreamEvents(
+        message,
+        emit,
+        onError,
+      )
+      if (supplementalResult === 'fatal') return
     }
 
     if (sessionId) {

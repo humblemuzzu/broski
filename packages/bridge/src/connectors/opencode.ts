@@ -9,6 +9,11 @@ import { homedir } from 'os'
 import { basename, isAbsolute, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { Agent, Command, FileAttachment, FileContent, FileStatusInfo, FormatterInfo, LspServerStatus, McpResource, McpServerStatus, PermissionRuleset, ProviderAuthAuthorization, ProviderAuthMethod, ProviderInfo, ProjectSummary, PtySession, SessionContextInfo, SessionStatusInfo, SessionSummary, SymbolResult, TextSearchResult, Todo, ToolInfo, VcsInfo, Worktree } from '../types'
+import {
+  listOpenCodeSessionsInternal,
+  listOpenCodeSessionsWithCache,
+  type OpenCodeSessionListOptions,
+} from './opencode/session-list'
 
 const DEFAULT_BASE_URL = 'http://localhost:4096'
 const DEBUG_RTS = process.env.BROSKI_DEBUG_RTS === '1'
@@ -124,30 +129,16 @@ export class OpenCodeConnector {
 
   async listSessions(
     directory?: string,
-    options?: { roots?: boolean; start?: number; search?: string; limit?: number },
+    options?: OpenCodeSessionListOptions,
   ): Promise<SessionSummary[]> {
-    const hasFilters =
-      options?.roots !== undefined ||
-      options?.start !== undefined ||
-      ((options?.search?.trim().length ?? 0) > 0) ||
-      options?.limit !== undefined
-
-    // Avoid stale cache for filtered/paginated queries.
-    if (hasFilters) {
-      return this._listSessionsInternal(directory, options)
-    }
-
-    const cacheKey = directory ?? '__all__'
-    const now = Date.now()
-    const cached = this.sessionCache.get(cacheKey)
-
-    if (cached && now - cached.fetchedAt < this.SESSION_CACHE_TTL_MS) {
-      return cached.data
-    }
-
-    const result = await this._listSessionsInternal(directory, options)
-    this.sessionCache.set(cacheKey, { data: result, fetchedAt: now })
-    return result
+    return listOpenCodeSessionsWithCache({
+      directory,
+      options,
+      sessionCache: this.sessionCache,
+      cacheTtlMs: this.SESSION_CACHE_TTL_MS,
+      listSessionsInternal: (sessionDirectory, sessionOptions) =>
+        this._listSessionsInternal(sessionDirectory, sessionOptions),
+    })
   }
 
   invalidateSessionCache(directory?: string): void {
@@ -159,61 +150,13 @@ export class OpenCodeConnector {
 
   private async _listSessionsInternal(
     directory?: string,
-    options?: { roots?: boolean; start?: number; search?: string; limit?: number },
+    options?: OpenCodeSessionListOptions,
   ): Promise<SessionSummary[]> {
-    if (directory != null && directory.length > 0) {
-      const sessions =
-        (await this.client.session.list(
-          {
-            directory,
-            ...(options?.roots !== undefined ? { roots: options.roots } : {}),
-            ...(options?.start !== undefined ? { start: options.start } : {}),
-            ...(options?.search ? { search: options.search } : {}),
-            ...(options?.limit !== undefined ? { limit: options.limit } : {}),
-          },
-          { responseStyle: 'data' },
-        )) ?? []
-      return sessions.map((session) => this.mapSession(session))
-    }
-
-    const projects = await this.listProjects().catch(() => [])
-    const queue = projects.filter((p) => p.path.length > 0).slice()
-    const sessionsById = new Map<string, SessionSummary>()
-
-    const concurrency = 8
-    await Promise.all(
-      Array.from({ length: Math.max(1, concurrency) }, async () => {
-        for (;;) {
-          const project = queue.shift()
-          if (!project) break
-          try {
-            // v2 SDK: first arg is parameters, second arg is options
-            const sessions =
-              (await this.client.session.list(
-                {
-                  directory: project.path,
-                  ...(options?.roots !== undefined ? { roots: options.roots } : {}),
-                  ...(options?.start !== undefined ? { start: options.start } : {}),
-                  ...(options?.search ? { search: options.search } : {}),
-                  ...(options?.limit !== undefined ? { limit: options.limit } : {}),
-                },
-                { responseStyle: 'data' },
-              )) ?? []
-            for (const session of sessions) {
-              const mapped = this.mapSession(session)
-              if ((mapped.time as any)?.archived) continue
-              sessionsById.set(mapped.id, mapped)
-            }
-          } catch {
-          }
-        }
-      }),
-    )
-
-    return Array.from(sessionsById.values()).sort((a, b) => {
-      const aUpdated = a.time?.updated ?? 0
-      const bUpdated = b.time?.updated ?? 0
-      return bUpdated - aUpdated
+    return listOpenCodeSessionsInternal({
+      client: this.client,
+      directory,
+      options,
+      mapSession: (session) => this.mapSession(session),
     })
   }
 

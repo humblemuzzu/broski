@@ -32,6 +32,7 @@ part 'bridge/bridge_codex_core.dart';
 part 'bridge/bridge_codex_threads.dart';
 part 'bridge/bridge_codex_runtime.dart';
 part 'bridge/bridge_codex_features.dart';
+part 'bridge/bridge_opencode_sessions.dart';
 
 class BridgeService {
   static const protocolVersion = '1.0.0';
@@ -255,59 +256,39 @@ class BridgeService {
     String? projectPath,
     bool? roots,
     int? start,
+    int? cursor,
     String? search,
     int? limit,
-  }) async {
-    final dedupeKey =
-        'list_sessions:${projectPath ?? 'all'}:${roots ?? 'null'}:${start ?? 'null'}:${search ?? ''}:${limit ?? 'null'}';
-
-    // Check if request is already in-flight
-    if (_inFlightRequests.containsKey(dedupeKey)) {
-      return await _inFlightRequests[dedupeKey] as List<SessionSummary>;
-    }
-
-    // Create the request future
-    final future = _listSessionsInternal(
-      projectPath: projectPath,
-      roots: roots,
-      start: start,
-      search: search,
-      limit: limit,
-    );
-    _inFlightRequests[dedupeKey] = future;
-
-    try {
-      return await future;
-    } finally {
-      _inFlightRequests.remove(dedupeKey);
-    }
-  }
+    bool? archived,
+  }) => _bridgeListSessions(
+    this,
+    projectPath: projectPath,
+    roots: roots,
+    start: start,
+    cursor: cursor,
+    search: search,
+    limit: limit,
+    archived: archived,
+  );
 
   Future<List<SessionSummary>> _listSessionsInternal({
     String? projectPath,
     bool? roots,
     int? start,
+    int? cursor,
     String? search,
     int? limit,
-  }) async {
-    return _timedRequest('list_sessions', () async {
-      final requestId = _generateRequestId();
-      _socket.send({
-        'type': 'list_sessions',
-        'requestId': requestId,
-        if (projectPath != null) 'projectPath': projectPath,
-        if (roots != null) 'roots': roots,
-        if (start != null) 'start': start,
-        if (search != null && search.isNotEmpty) 'search': search,
-        if (limit != null) 'limit': limit,
-      });
-      final response = await _waitFor('sessions', requestId: requestId);
-      final data = response['data'] as List<dynamic>? ?? [];
-      return data
-          .map((item) => SessionSummary.fromJson(item as Map<String, dynamic>))
-          .toList();
-    });
-  }
+    bool? archived,
+  }) => _bridgeListSessionsInternal(
+    this,
+    projectPath: projectPath,
+    roots: roots,
+    start: start,
+    cursor: cursor,
+    search: search,
+    limit: limit,
+    archived: archived,
+  );
 
   Future<Map<String, dynamic>> listProviders() async {
     final requestId = _generateRequestId();

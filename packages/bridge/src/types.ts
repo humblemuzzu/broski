@@ -111,8 +111,10 @@ export type ClientMessage =
       projectPath?: string
       roots?: boolean
       start?: number
+      cursor?: number
       search?: string
       limit?: number
+      archived?: boolean
     }
   | { type: 'list_providers' }
   | { type: 'get_config'; projectPath?: string }
@@ -555,6 +557,7 @@ export type ClientMessage =
       sandbox?: ClaudeCodeSandboxSettings
       enableAgentTeams?: boolean
       persistSession?: boolean
+      promptSuggestions?: boolean
       // B5: fallback model for auto-retry on primary model failure
       fallbackModel?: string
       // B6: additional directories agent can access beyond cwd
@@ -989,6 +992,11 @@ export type SessionSummary = {
     diff?: string
   }
   permission?: PermissionRuleset // Session-level permissions (SDK v1.1.53+)
+  project?: {
+    id: string
+    name?: string
+    worktree: string
+  }
 }
 
 // VCS/Git information from OpenCode SDK
@@ -2248,7 +2256,7 @@ export type ClaudeCodeCommand = {
 }
 
 // Claude Code Permission Mode
-export type ClaudeCodePermissionMode = 'default' | 'acceptEdits' | 'plan' | 'bypassPermissions' | 'delegate' | 'dontAsk'
+export type ClaudeCodePermissionMode = 'default' | 'acceptEdits' | 'plan' | 'bypassPermissions' | 'dontAsk'
 
 export type ClaudeCodeBeta = 'context-1m-2025-08-07'
 
@@ -2274,6 +2282,11 @@ export type ClaudeCodeSandboxSettings = {
   autoAllowBashIfSandboxed?: boolean
   allowUnsandboxedCommands?: boolean
   network?: ClaudeCodeSandboxNetworkConfig
+  filesystem?: {
+    allowWrite?: string[]
+    denyWrite?: string[]
+    denyRead?: string[]
+  }
   ignoreViolations?: Record<string, string[]>
   enableWeakerNestedSandbox?: boolean
   excludedCommands?: string[]
@@ -2429,6 +2442,7 @@ export type ClaudeCodeConfig = {
   enableAgentTeams?: boolean
   thinking?: ClaudeCodeThinkingOption
   effort?: ClaudeCodeEffort
+  promptSuggestions?: boolean
   // Project/user settings (persisted in Claude Code settings.json)
   language?: string
   releaseChannel?: 'stable' | 'latest'
@@ -2441,6 +2455,9 @@ export type ClaudeCodeSupportedModel = {
   value: string
   displayName: string
   description: string
+  supportsEffort?: boolean
+  supportedEffortLevels?: ('low' | 'medium' | 'high' | 'max')[]
+  supportsAdaptiveThinking?: boolean
 }
 
 export type ClaudeCodeAccountInfo = {
@@ -2631,11 +2648,38 @@ export type ClaudeCodeStreamMessage =
   | { type: 'structured-output'; data: unknown; parentToolUseId?: string }
   | { type: 'error'; message: string; code?: string; parentToolUseId?: string }
   | {
+      type: 'task-started'
+      taskId: string
+      toolUseId?: string
+      description: string
+      taskType?: string
+      parentToolUseId?: string
+    }
+  | {
+      type: 'task-progress'
+      taskId: string
+      toolUseId?: string
+      description: string
+      usage?: {
+        totalTokens: number
+        toolUses: number
+        durationMs: number
+      }
+      lastToolName?: string
+      parentToolUseId?: string
+    }
+  | {
       type: 'task-notification'
       taskId: string
+      toolUseId?: string
       status: 'completed' | 'failed' | 'stopped'
       summary: string
       outputFile?: string
+      usage?: {
+        totalTokens: number
+        toolUses: number
+        durationMs: number
+      }
       parentToolUseId?: string
     }
   | {
@@ -2679,6 +2723,16 @@ export type ClaudeCodeStreamMessage =
       output: string
       outcome: 'success' | 'error' | 'cancelled'
       exitCode?: number
+      parentToolUseId?: string
+    }
+  | {
+      type: 'rate-limit-info'
+      data: unknown
+      parentToolUseId?: string
+    }
+  | {
+      type: 'prompt-suggestion'
+      suggestion: string
       parentToolUseId?: string
     }
   | {

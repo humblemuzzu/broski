@@ -62,13 +62,15 @@ export type PiStreamMessage =
   | { type: 'agent-end'; messages: any[] }
   | { type: 'turn-start' }
   | { type: 'turn-end'; message: any; toolResults: any[] }
+  | { type: 'message-start'; message: any }
+  | { type: 'message-end'; message: any }
   | { type: 'text-delta'; content: string }
   | { type: 'thinking-delta'; content: string }
   | { type: 'tool-call-start'; toolCallId: string; toolName: string; args: any }
   | { type: 'tool-call-args-done'; toolCallId: string; toolName: string; args: any }
   | { type: 'tool-exec-start'; toolCallId: string; toolName: string; args: any }
-  | { type: 'tool-exec-update'; toolCallId: string; toolName: string; partialResult: any }
-  | { type: 'tool-exec-end'; toolCallId: string; toolName: string; result: any; isError: boolean }
+  | { type: 'tool-exec-update'; toolCallId: string; toolName: string; args?: any; partialResult: any }
+  | { type: 'tool-exec-end'; toolCallId: string; toolName: string; result: any; details?: any; isError: boolean }
   | { type: 'message-done'; stopReason: string }
   | { type: 'compaction-start'; reason: string }
   | { type: 'compaction-end'; aborted: boolean; willRetry: boolean; errorMessage?: string }

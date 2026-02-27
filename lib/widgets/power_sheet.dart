@@ -384,8 +384,6 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
         return 'Research and plan only';
       case ClaudeCodePermissionMode.bypassPermissions:
         return 'Skip all permission prompts';
-      case ClaudeCodePermissionMode.delegate:
-        return 'Delegate work to teammates and tasks';
       case ClaudeCodePermissionMode.dontAsk:
         return 'Never prompt; deny unapproved tools';
     }

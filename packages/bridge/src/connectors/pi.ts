@@ -13,26 +13,21 @@ import {
   type AgentSessionEvent,
   type SessionInfo,
 } from '@mariozechner/pi-coding-agent'
-import type { AgentMessage, ThinkingLevel } from '@mariozechner/pi-agent-core'
-import type { AssistantMessage, Model, ToolResultMessage } from '@mariozechner/pi-ai'
+import type { ThinkingLevel } from '@mariozechner/pi-agent-core'
+import type { Model } from '@mariozechner/pi-ai'
 import type {
   PiCommandPayload,
   PiForkMessagePayload,
   PiModelPayload,
   PiSessionInfo,
   PiStatePayload,
-  PiStreamMessage,
 } from '../types'
 import {
   createPiExtensionUiBridge,
   type PiExtensionUiBridge,
   type PiExtensionUiResponseInput,
 } from './pi_extension_ui'
-
-type PiBridgeSyntheticEvent = {
-  type: '__pi_bridge_stream__'
-  streamMessage: PiStreamMessage
-}
+import type { PiBridgeSyntheticEvent } from './pi/pi-events'
 
 type PiEventListener = (event: AgentSessionEvent | PiBridgeSyntheticEvent) => void
 
@@ -75,7 +70,7 @@ const getSessionsRoot = (): string => resolve(getAgentDir(), 'sessions')
 
 export function getAuthStorage(): AuthStorage {
   if (!authStorage) {
-    authStorage = new AuthStorage()
+    authStorage = AuthStorage.create()
   }
   return authStorage
 }
@@ -85,6 +80,13 @@ export function getModelRegistry(): ModelRegistry {
     modelRegistry = new ModelRegistry(getAuthStorage())
   }
   return modelRegistry
+}
+
+const drainAuthStorageErrors = (): void => {
+  const errors = getAuthStorage().drainErrors()
+  for (const error of errors) {
+    console.warn(`[pi-auth-storage] ${error.message}`)
+  }
 }
 
 async function buildInstance(cwd: string, options?: GetOrCreatePiOptions): Promise<PiInstance> {
@@ -258,6 +260,7 @@ export function listAvailableModels(): PiModelPayload[] {
 export async function isPiAvailable(): Promise<PiAvailability> {
   try {
     const models = getModelRegistry().getAvailable()
+    drainAuthStorageErrors()
     return {
       available: true,
       authenticated: models.length > 0,
@@ -265,6 +268,7 @@ export async function isPiAvailable(): Promise<PiAvailability> {
       version: VERSION,
     }
   } catch {
+    drainAuthStorageErrors()
     return {
       available: false,
       authenticated: false,
@@ -298,6 +302,7 @@ export async function deleteSession(sessionPath: string): Promise<boolean> {
 
 export async function applySettings(instance: PiInstance, settings: Record<string, unknown>): Promise<void> {
   instance.settingsManager.applyOverrides(settings)
+  await instance.settingsManager.flush()
   await instance.session.reload()
 }
 
@@ -416,260 +421,4 @@ export function mapModel(model: Model<any>): PiModelPayload {
   }
 }
 
-export function mapAgentMessage(message: AgentMessage): any {
-  if (message.role === 'user') {
-    return {
-      role: 'user',
-      content: extractText(message.content),
-      timestamp: Number((message as any).timestamp ?? Date.now()),
-    }
-  }
-
-  if (message.role === 'assistant') {
-    const assistant = message as AssistantMessage
-    return {
-      role: 'assistant',
-      text: extractText(assistant.content),
-      thinking: extractThinking(assistant.content),
-      toolCalls: extractToolCalls(assistant.content),
-      model: assistant.model,
-      provider: assistant.provider,
-      usage: assistant.usage,
-      stopReason: assistant.stopReason,
-      timestamp: Number(assistant.timestamp ?? Date.now()),
-    }
-  }
-
-  if (message.role === 'toolResult') {
-    const toolResult = message as ToolResultMessage
-    return {
-      role: 'toolResult',
-      toolCallId: toolResult.toolCallId,
-      toolName: toolResult.toolName,
-      content: extractText(toolResult.content),
-      details: (toolResult as any).details,
-      isError: toolResult.isError,
-      timestamp: Number(toolResult.timestamp ?? Date.now()),
-    }
-  }
-
-  return {
-    role: (message as any).role,
-    ...(message as any),
-  }
-}
-
-export function mapToolResult(message: ToolResultMessage): any {
-  return {
-    toolCallId: message.toolCallId,
-    toolName: message.toolName,
-    content: extractText(message.content),
-    details: (message as any).details,
-    isError: message.isError,
-    timestamp: Number(message.timestamp ?? Date.now()),
-  }
-}
-
-export function translateEvent(event: AgentSessionEvent | PiBridgeSyntheticEvent): PiStreamMessage | null {
-  if ((event as PiBridgeSyntheticEvent).type === '__pi_bridge_stream__') {
-    return (event as PiBridgeSyntheticEvent).streamMessage
-  }
-
-  switch (event.type) {
-    case 'agent_start':
-      return { type: 'agent-start' }
-
-    case 'agent_end':
-      return {
-        type: 'agent-end',
-        messages: event.messages.map(mapAgentMessage),
-      }
-
-    case 'turn_start':
-      return { type: 'turn-start' }
-
-    case 'turn_end':
-      return {
-        type: 'turn-end',
-        message: mapAgentMessage(event.message),
-        toolResults: event.toolResults.map(mapToolResult),
-      }
-
-    case 'message_update': {
-      const assistantEvent = event.assistantMessageEvent
-      if (assistantEvent.type === 'text_delta') {
-        return { type: 'text-delta', content: assistantEvent.delta }
-      }
-
-      if (assistantEvent.type === 'thinking_delta') {
-        return { type: 'thinking-delta', content: assistantEvent.delta }
-      }
-
-      if (assistantEvent.type === 'toolcall_start') {
-        const content = assistantEvent.partial?.content?.[assistantEvent.contentIndex] as any
-        if (content?.type === 'toolCall') {
-          return {
-            type: 'tool-call-start',
-            toolCallId: String(content.id ?? ''),
-            toolName: String(content.name ?? ''),
-            args: content.arguments,
-          }
-        }
-      }
-
-      if (assistantEvent.type === 'toolcall_end') {
-        return {
-          type: 'tool-call-args-done',
-          toolCallId: assistantEvent.toolCall.id,
-          toolName: assistantEvent.toolCall.name,
-          args: assistantEvent.toolCall.arguments,
-        }
-      }
-
-      if (assistantEvent.type === 'done' || assistantEvent.type === 'error') {
-        return {
-          type: 'message-done',
-          stopReason: String(assistantEvent.reason ?? 'stop'),
-        }
-      }
-
-      return null
-    }
-
-    case 'tool_execution_start':
-      return {
-        type: 'tool-exec-start',
-        toolCallId: event.toolCallId,
-        toolName: event.toolName,
-        args: event.args,
-      }
-
-    case 'tool_execution_update': {
-      // Extract text from partial AgentToolResult.content array
-      const rawPartial = event.partialResult
-      let partialText: string | undefined
-      if (rawPartial && typeof rawPartial === 'object' && Array.isArray((rawPartial as any).content)) {
-        partialText = (rawPartial as any).content
-          .filter((c: any) => c && c.type === 'text')
-          .map((c: any) => c.text ?? '')
-          .join('\n')
-      } else if (typeof rawPartial === 'string') {
-        partialText = rawPartial
-      } else {
-        partialText = rawPartial != null ? JSON.stringify(rawPartial) : undefined
-      }
-      return {
-        type: 'tool-exec-update',
-        toolCallId: event.toolCallId,
-        toolName: event.toolName,
-        partialResult: partialText,
-      }
-    }
-
-    case 'tool_execution_end': {
-      // Extract text from AgentToolResult.content array
-      const rawResult = event.result
-      let resultText: string | undefined
-      let resultDetails: any = undefined
-      if (rawResult && typeof rawResult === 'object' && Array.isArray((rawResult as any).content)) {
-        resultText = (rawResult as any).content
-          .filter((c: any) => c && c.type === 'text')
-          .map((c: any) => c.text ?? '')
-          .join('\n')
-        resultDetails = (rawResult as any).details
-      } else if (typeof rawResult === 'string') {
-        resultText = rawResult
-      } else {
-        resultText = rawResult != null ? JSON.stringify(rawResult) : undefined
-      }
-      return {
-        type: 'tool-exec-end',
-        toolCallId: event.toolCallId,
-        toolName: event.toolName,
-        result: resultText,
-        details: resultDetails,
-        isError: event.isError,
-      }
-    }
-
-    case 'auto_compaction_start':
-      return {
-        type: 'compaction-start',
-        reason: event.reason,
-      }
-
-    case 'auto_compaction_end':
-      return {
-        type: 'compaction-end',
-        aborted: event.aborted,
-        willRetry: event.willRetry,
-        ...(event.errorMessage ? { errorMessage: event.errorMessage } : {}),
-      }
-
-    case 'auto_retry_start':
-      return {
-        type: 'retry-start',
-        attempt: event.attempt,
-        maxAttempts: event.maxAttempts,
-        delayMs: event.delayMs,
-        errorMessage: event.errorMessage,
-      }
-
-    case 'auto_retry_end':
-      return {
-        type: 'retry-end',
-        success: event.success,
-        attempt: event.attempt,
-        ...(event.finalError ? { finalError: event.finalError } : {}),
-      }
-
-    default:
-      return null
-  }
-}
-
-const extractText = (content: unknown): string => {
-  if (typeof content === 'string') return content
-  if (!Array.isArray(content)) return ''
-
-  const chunks: string[] = []
-  for (const item of content) {
-    if (!item || typeof item !== 'object') continue
-    if ((item as any).type === 'text' && typeof (item as any).text === 'string') {
-      chunks.push((item as any).text)
-    }
-  }
-
-  return chunks.join('')
-}
-
-const extractThinking = (content: unknown): string => {
-  if (!Array.isArray(content)) return ''
-
-  const chunks: string[] = []
-  for (const item of content) {
-    if (!item || typeof item !== 'object') continue
-    if ((item as any).type === 'thinking' && typeof (item as any).thinking === 'string') {
-      chunks.push((item as any).thinking)
-    }
-  }
-
-  return chunks.join('')
-}
-
-const extractToolCalls = (content: unknown): Array<{ id: string; name: string; arguments: any }> => {
-  if (!Array.isArray(content)) return []
-
-  const calls: Array<{ id: string; name: string; arguments: any }> = []
-  for (const item of content) {
-    if (!item || typeof item !== 'object') continue
-    if ((item as any).type !== 'toolCall') continue
-    calls.push({
-      id: String((item as any).id ?? ''),
-      name: String((item as any).name ?? ''),
-      arguments: (item as any).arguments,
-    })
-  }
-
-  return calls
-}
+export { mapAgentMessage, mapToolResult, translateEvent } from './pi/pi-events'

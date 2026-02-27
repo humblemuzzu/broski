@@ -16,6 +16,7 @@ import { buildCodexApprovalDecision } from './handlers/codex/approval-decision'
 import { mapCodexThreadFromSdk } from './handlers/codex/map-thread'
 import { handleCodexRuntimeNotification } from './handlers/codex/runtime-notifications'
 import { handleGitFeature } from './handlers/git'
+import * as ocSessions from './handlers/oc_sessions'
 import * as piFeatures from './handlers/pi_features'
 import { PtyManager } from './pty/manager'
 import { PtyRuntime } from './pty/runtime'
@@ -4797,6 +4798,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       return
     }
 
+    if (await ocSessions.handle(message, reply, requireOpenCode)) return
+
     switch (message.type) {
       case 'auth_session': {
         log(`[auth_session] START - requireEntitlement=${requireEntitlement}`)
@@ -7500,13 +7503,14 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             enableAgentTeams: message.enableAgentTeams ?? cfg.enableAgentTeams,
             activeSubagent: message.activeSubagent,
             persistSession: message.persistSession,
+            promptSuggestions: message.promptSuggestions ?? cfg.promptSuggestions,
             fallbackModel: message.fallbackModel,
             additionalDirectories: message.additionalDirectories
           },
           (streamMsg) => {
             const streamMsgWithId = (() => {
               const t = (streamMsg as any)?.type
-              if (t === 'assistant-message' || t === 'assistant-message-delta' || t === 'thinking-delta' || t === 'tool-call' || t === 'tool-result' || t === 'subagent-invocation' || t === 'token-usage' || t === 'task-notification' || t === 'tool-use-summary' || t === 'files-persisted' || t === 'hook-started' || t === 'hook-progress' || t === 'hook-response' || t === 'assistant-error' || t === 'result-complete') {
+              if (t === 'assistant-message' || t === 'assistant-message-delta' || t === 'thinking-delta' || t === 'tool-call' || t === 'tool-result' || t === 'subagent-invocation' || t === 'token-usage' || t === 'task-started' || t === 'task-progress' || t === 'task-notification' || t === 'tool-use-summary' || t === 'files-persisted' || t === 'hook-started' || t === 'hook-progress' || t === 'hook-response' || t === 'assistant-error' || t === 'result-complete' || t === 'rate-limit-info' || t === 'prompt-suggestion') {
                 return { ...(streamMsg as any), messageId: ccMessageId }
               }
               return streamMsg

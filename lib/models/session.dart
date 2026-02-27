@@ -1,3 +1,5 @@
+import 'session_project.dart';
+
 class SessionSummary {
   const SessionSummary({
     required this.id,
@@ -11,6 +13,7 @@ class SessionSummary {
     this.share,
     this.revert,
     this.permission,
+    this.project,
   });
 
   final String id;
@@ -23,7 +26,10 @@ class SessionSummary {
   final SessionSummaryStats? summary;
   final SessionShare? share; // Share URL if shared
   final SessionRevert? revert; // Active revert state (non-null when reverted)
-  final List<Map<String, dynamic>>? permission; // Session-level permissions (SDK v1.1.53+)
+  final List<Map<String, dynamic>>?
+  permission; // Session-level permissions (SDK v1.1.53+)
+  final SessionProject?
+  project; // Global session list project metadata (SDK v1.2.10+)
 
   /// Whether this is a background/subagent task (title contains @agent subagent pattern)
   bool get isBackgroundTask {
@@ -77,6 +83,9 @@ class SessionSummary {
       permission: (json['permission'] as List<dynamic>?)
           ?.map((p) => p as Map<String, dynamic>)
           .toList(),
+      project: json['project'] is Map<String, dynamic>
+          ? SessionProject.fromJson(json['project'] as Map<String, dynamic>)
+          : null,
     );
   }
 
@@ -92,6 +101,7 @@ class SessionSummary {
     SessionShare? share,
     SessionRevert? revert,
     List<Map<String, dynamic>>? permission,
+    SessionProject? project,
   }) {
     return SessionSummary(
       id: id ?? this.id,
@@ -105,6 +115,7 @@ class SessionSummary {
       share: share ?? this.share,
       revert: revert ?? this.revert,
       permission: permission ?? this.permission,
+      project: project ?? this.project,
     );
   }
 }

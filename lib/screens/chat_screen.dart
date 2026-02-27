@@ -31,6 +31,7 @@ import '../models/session.dart';
 import '../models/session_context.dart';
 import '../models/vcs.dart';
 import '../providers/chat_provider.dart';
+import 'chat/mcp_oauth_snackbar.dart';
 import '../providers/claude_code_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/app_subscription_provider.dart';
@@ -372,6 +373,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   // Track previous message count to detect new content
   int _previousMessageCount = 0;
   int _previousContentLength = 0;
+  String? _lastShownMcpOAuthUrl;
   // Sidebar state
   bool _sidebarOpen = false;
   SessionContext _sessionContext = SessionContext.empty();
@@ -883,7 +885,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           ),
           SlashCommand(
             name: 'status',
-            description: 'Open sidebar with context usage, tokens & session info',
+            description:
+                'Open sidebar with context usage, tokens & session info',
             builtin: true,
           ),
           // Reasoning commands
@@ -4491,8 +4494,7 @@ Describe project-specific guidance for Codex here.
                       spacing: 8,
                       runSpacing: 8,
                       children: CodexCollaborationMode.values.map((mode) {
-                        final isSelected =
-                            settings.collaborationMode == mode;
+                        final isSelected = settings.collaborationMode == mode;
                         return ChoiceChip(
                           label: Text(mode.displayName),
                           selected: isSelected,
@@ -4500,9 +4502,7 @@ Describe project-specific guidance for Codex here.
                             notifier.setCollaborationMode(mode);
                           },
                           labelStyle: TextStyle(
-                            color: isSelected
-                                ? theme.background
-                                : theme.text,
+                            color: isSelected ? theme.background : theme.text,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -4511,8 +4511,7 @@ Describe project-specific guidance for Codex here.
                           shape: RoundedRectangleBorder(
                             borderRadius: Radii.brMd,
                             side: BorderSide(
-                              color: theme.borderSubtle
-                                  .withValues(alpha: 0.3),
+                              color: theme.borderSubtle.withValues(alpha: 0.3),
                             ),
                           ),
                         );
@@ -5141,6 +5140,15 @@ Describe project-specific guidance for Codex here.
   /// Handle auto-scroll when new content arrives
   /// Only scrolls if user hasn't intentionally scrolled up
   void _handleAutoScroll(ChatSessionState? previous, ChatSessionState next) {
+    if (widget.isOpenCode) {
+      _lastShownMcpOAuthUrl = maybeShowMcpOAuthFailureSnackbar(
+        context: context,
+        previous: previous?.mcpOAuthPending,
+        next: next.mcpOAuthPending,
+        lastShownUrl: _lastShownMcpOAuthUrl,
+      );
+    }
+
     // Skip if user has scrolled up to view history
     if (_userHasScrolledUp) return;
     final messages = next.messages;
@@ -7492,6 +7500,8 @@ Describe project-specific guidance for Codex here.
           break;
         case StepStartIndicatorPart():
           break;
+        case StepFinishIndicatorPart():
+          break;
       }
     }
     // Fallback: if no widgets were built from parts but message has content,
@@ -8822,14 +8832,14 @@ class _FloatingHeader extends StatelessWidget {
     final kOnBackground = theme.text;
     // Context usage data
     final ctx = sessionContext;
-    final hasContext = ctx != null &&
-        (ctx.tokens.contextTokens > 0 || ctx.tokens.total > 0);
+    final hasContext =
+        ctx != null && (ctx.tokens.contextTokens > 0 || ctx.tokens.total > 0);
     final usagePercent = ctx?.contextUsagePercent ?? 0;
     final contextColor = usagePercent > 80
         ? theme.error
         : usagePercent > 50
-            ? theme.warning
-            : theme.info;
+        ? theme.warning
+        : theme.info;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       padding: EdgeInsets.fromLTRB(
@@ -11463,8 +11473,6 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
         return theme.warning; // Plan mode - amber/yellow
       case ClaudeCodePermissionMode.bypassPermissions:
         return theme.error; // Dangerous mode - red
-      case ClaudeCodePermissionMode.delegate:
-        return theme.info;
       case ClaudeCodePermissionMode.dontAsk:
         return theme.warning;
       case null:

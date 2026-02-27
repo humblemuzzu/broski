@@ -133,7 +133,6 @@ class _PiPermissionContent extends StatelessWidget {
   }
 }
 
-
 // =============================================================================
 // CLAUDE CODE PERMISSION CONTENT
 // =============================================================================
@@ -877,8 +876,6 @@ class _PermissionModeOption extends StatelessWidget {
         return 'Read-only research and planning';
       case ClaudeCodePermissionMode.bypassPermissions:
         return 'Skip all permission prompts';
-      case ClaudeCodePermissionMode.delegate:
-        return 'Delegate mode for teammate/task workflows';
       case ClaudeCodePermissionMode.dontAsk:
         return 'Never prompt; deny unapproved actions';
     }
@@ -894,8 +891,6 @@ class _PermissionModeOption extends StatelessWidget {
         return AppIcons.description;
       case ClaudeCodePermissionMode.bypassPermissions:
         return AppIcons.speed;
-      case ClaudeCodePermissionMode.delegate:
-        return AppIcons.group;
       case ClaudeCodePermissionMode.dontAsk:
         return AppIcons.block;
     }
@@ -912,8 +907,6 @@ class _PermissionModeOption extends StatelessWidget {
         return theme.warning;
       case ClaudeCodePermissionMode.bypassPermissions:
         return theme.error;
-      case ClaudeCodePermissionMode.delegate:
-        return theme.info;
       case ClaudeCodePermissionMode.dontAsk:
         return theme.warning;
     }

@@ -135,25 +135,33 @@ class PiBridgeService {
     await _waitFor('pi_chat_started', requestId: requestId);
   }
 
-  Future<void> steer({required String message, String? projectPath}) async {
+  Future<void> steer({required String message, String? projectPath, List<FileAttachment>? fileAttachments}) async {
     final requestId = _generateRequestId();
     _socket.send({
       'type': 'pi_steer',
       'requestId': requestId,
       'message': message,
       if (projectPath != null) 'projectPath': projectPath,
+      if (fileAttachments != null)
+        'fileAttachments': fileAttachments
+            .map((attachment) => attachment.toJson())
+            .toList(),
     });
 
     await _waitFor('pi_steered', requestId: requestId);
   }
 
-  Future<void> followUp({required String message, String? projectPath}) async {
+  Future<void> followUp({required String message, String? projectPath, List<FileAttachment>? fileAttachments}) async {
     final requestId = _generateRequestId();
     _socket.send({
       'type': 'pi_follow_up',
       'requestId': requestId,
       'message': message,
       if (projectPath != null) 'projectPath': projectPath,
+      if (fileAttachments != null)
+        'fileAttachments': fileAttachments
+            .map((attachment) => attachment.toJson())
+            .toList(),
     });
 
     await _waitFor('pi_followed_up', requestId: requestId);

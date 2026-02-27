@@ -14,7 +14,6 @@ import '../models/question.dart';
 import '../models/session.dart';
 import '../models/todo.dart';
 import '../models/vcs.dart';
-import '../services/bridge_service.dart';
 import '../services/pi_bridge_service.dart';
 import 'chat/codex_permission_helpers.dart';
 import 'pi_provider.dart';
@@ -1850,6 +1849,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         info['time']?['created'] as int? ??
         DateTime.now().millisecondsSinceEpoch;
     final variant = info['variant'] as String?;
+    final finish = info['finish'] as String?;
     // SDK v1.2.1: inline error on assistant messages
     final msgError = info['error'] as Map<String, dynamic>?;
     final msgErrorName = msgError?['name'] as String?;
@@ -1866,6 +1866,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
           createdAt: DateTime.fromMillisecondsSinceEpoch(created),
           text: '',
           variant: variant,
+          finish: finish,
           error: msgErrorName,
         ),
       );
@@ -1876,7 +1877,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       final updated = _copyWithRole(
         existing,
         role,
-      ).copyWith(variant: variant, error: msgErrorName);
+      ).copyWith(variant: variant, finish: finish, error: msgErrorName);
       _updateMessage(messageId, updated);
 
       // If parts arrived before message.updated, we may already have the user text.
@@ -1920,6 +1921,9 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     }
     if (msgErrorName != null && msgErrorName != existing.error) {
       updated = (updated ?? existing).copyWith(error: msgErrorName);
+    }
+    if (finish != null && finish != existing.finish) {
+      updated = (updated ?? existing).copyWith(finish: finish);
     }
     if (updated != null) {
       _updateMessage(messageId, updated);
@@ -3466,19 +3470,86 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       return;
     }
 
-    // ── SDK 0.2.42: Task notifications (agent teams) ──
+    if (message is CCTaskStarted) {
+      final taskMsg = ChatMessage(
+        id: 'cc-task-${message.taskId}',
+        sessionId: state.ccSessionId ?? '',
+        role: MessageRole.system,
+        createdAt: DateTime.now(),
+        text: '⏳ Task started: ${message.description}',
+        variant: 'task-started',
+      );
+      _addMessage(taskMsg);
+      return;
+    }
+
+    if (message is CCTaskProgress) {
+      final existingId = 'cc-task-${message.taskId}';
+      final usageParts = <String>[];
+      if (message.totalTokens != null) {
+        usageParts.add('${message.totalTokens} tokens');
+      }
+      if (message.toolUses != null) {
+        usageParts.add('${message.toolUses} tools');
+      }
+      if (message.durationMs != null) {
+        usageParts.add('${(message.durationMs! / 1000).toStringAsFixed(1)}s');
+      }
+      final progressText = usageParts.isEmpty
+          ? message.description
+          : '${message.description} (${usageParts.join(', ')})';
+      final existingIdx = state.messages.lastIndexWhere(
+        (m) => m.id == existingId,
+      );
+      if (existingIdx >= 0) {
+        _updateMessage(
+          existingId,
+          state.messages[existingIdx].copyWith(
+            text: '⏳ Task running: $progressText',
+            variant: 'task-progress',
+          ),
+        );
+      } else {
+        _addMessage(
+          ChatMessage(
+            id: existingId,
+            sessionId: state.ccSessionId ?? '',
+            role: MessageRole.system,
+            createdAt: DateTime.now(),
+            text: '⏳ Task running: $progressText',
+            variant: 'task-progress',
+          ),
+        );
+      }
+      return;
+    }
+
+    // ── SDK 0.2.52: Task notifications (agent teams) ──
     if (message is CCTaskNotification) {
       final statusIcon = message.isCompleted
           ? '✅'
           : message.isFailed
           ? '❌'
           : '⏳';
+      final usageParts = <String>[];
+      if (message.totalTokens != null) {
+        usageParts.add('${message.totalTokens} tokens');
+      }
+      if (message.toolUses != null) {
+        usageParts.add('${message.toolUses} tools');
+      }
+      if (message.durationMs != null) {
+        usageParts.add('${(message.durationMs! / 1000).toStringAsFixed(1)}s');
+      }
+      final text = usageParts.isEmpty
+          ? '$statusIcon Task: ${message.summary}'
+          : '$statusIcon Task: ${message.summary} (${usageParts.join(', ')})';
       final taskMsg = ChatMessage(
         id: 'cc-task-${message.taskId}-${DateTime.now().microsecondsSinceEpoch}',
         sessionId: state.ccSessionId ?? '',
         role: MessageRole.system,
         createdAt: DateTime.now(),
-        text: '$statusIcon Task: ${message.summary}',
+        text: text,
         variant: 'task-notification:${message.status}',
       );
       _addMessage(taskMsg);
@@ -3588,6 +3659,42 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         );
         _addMessage(authMsg);
       }
+      return;
+    }
+
+    if (message is CCRateLimitInfo) {
+      final resetAt = message.data['reset_at'] ?? message.data['resetAt'];
+      final usage = message.data['utilization'] ?? message.data['usage'];
+      final extra = [
+        if (usage != null) '$usage',
+        if (resetAt != null) 'reset: $resetAt',
+      ].join(' · ');
+      final limitMsg = ChatMessage(
+        id: 'cc-rate-limit-${DateTime.now().microsecondsSinceEpoch}',
+        sessionId: state.ccSessionId ?? '',
+        role: MessageRole.system,
+        createdAt: DateTime.now(),
+        text: extra.isEmpty
+            ? '⏱ Claude Code rate-limit update received'
+            : '⏱ Claude Code rate-limit update: $extra',
+        variant: 'cc-rate-limit',
+      );
+      _addMessage(limitMsg);
+      return;
+    }
+
+    if (message is CCPromptSuggestion) {
+      final suggestion = message.suggestion.trim();
+      if (suggestion.isEmpty) return;
+      final suggestionMsg = ChatMessage(
+        id: 'cc-prompt-suggestion-${DateTime.now().microsecondsSinceEpoch}',
+        sessionId: state.ccSessionId ?? '',
+        role: MessageRole.system,
+        createdAt: DateTime.now(),
+        text: '💡 Suggested next prompt: $suggestion',
+        variant: 'cc-prompt-suggestion',
+      );
+      _addMessage(suggestionMsg);
       return;
     }
 

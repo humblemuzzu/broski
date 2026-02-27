@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import '../models/message.dart';
@@ -10,6 +9,7 @@ import 'chat/detail_sheet.dart';
 import 'retry_indicator.dart';
 import 'variant_badge.dart';
 import 'package:broski/theme/app_icons.dart';
+
 class MessageBubble extends StatelessWidget {
   const MessageBubble({
     super.key,
@@ -19,6 +19,7 @@ class MessageBubble extends StatelessWidget {
     this.onRollback,
   });
   final ChatMessage message;
+
   /// Feature 6: Callback for forking from this message
   final void Function(String messageId)? onForkFromHere;
   final void Function(String messageId)? onResumeFromHere;
@@ -48,6 +49,7 @@ class MessageBubble extends StatelessWidget {
     // AI messages - left aligned, subtle styling with markdown support
     return _buildAssistantMessage(context, theme);
   }
+
   Widget _buildInfoMessage(BuildContext context, OpenCodeTheme theme) {
     final label = humanErrorLabel(message.error);
     return Align(
@@ -134,6 +136,7 @@ class MessageBubble extends StatelessWidget {
       ),
     );
   }
+
   Widget _buildUserMessage(BuildContext context, OpenCodeTheme theme) {
     return Align(
       alignment: Alignment.centerRight,
@@ -166,6 +169,7 @@ class MessageBubble extends StatelessWidget {
       ),
     );
   }
+
   Widget _buildAssistantMessage(BuildContext context, OpenCodeTheme theme) {
     // Feature 6/CodeX: Long press actions
     return GestureDetector(
@@ -205,10 +209,11 @@ class MessageBubble extends StatelessWidget {
                         child: _buildStreamingCursor(theme),
                       ),
                     ),
-                  // Variant + retry badges using dedicated widgets
+                  // Variant + retry + finish badges
                   if ((message.variant != null &&
                           message.variant!.isNotEmpty) ||
-                      message.retryInfo != null)
+                      message.retryInfo != null ||
+                      _shouldShowFinishHint)
                     Padding(
                       padding: EdgeInsets.only(bottom: 6),
                       child: Column(
@@ -221,7 +226,14 @@ class MessageBubble extends StatelessWidget {
                               child: VariantBadge(variant: message.variant),
                             ),
                           if (message.retryInfo != null)
-                            RetryIndicator(retryInfo: message.retryInfo),
+                            Padding(
+                              padding: EdgeInsets.only(bottom: Spacing.xs),
+                              child: RetryIndicator(
+                                retryInfo: message.retryInfo,
+                              ),
+                            ),
+                          if (_shouldShowFinishHint)
+                            _buildFinishHint(theme, message.finish!),
                         ],
                       ),
                     ),
@@ -272,6 +284,52 @@ class MessageBubble extends StatelessWidget {
       ),
     );
   }
+
+  bool get _shouldShowFinishHint {
+    final finish = message.finish?.trim().toLowerCase();
+    if (finish == null || finish.isEmpty) return false;
+    return finish != 'stop';
+  }
+
+  Widget _buildFinishHint(OpenCodeTheme theme, String finish) {
+    final normalized = finish.trim().toLowerCase();
+    final isLengthStop = normalized == 'length';
+    final color = isLengthStop ? theme.warning : theme.info;
+    final label = switch (normalized) {
+      'length' => 'Response truncated by length',
+      'tool_use' => 'Waiting on tool execution',
+      _ => 'Finished: $finish',
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: Radii.brMd,
+        border: Border.all(color: color.withValues(alpha: 0.28)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isLengthStop ? AppIcons.warning : AppIcons.info,
+            size: 14,
+            color: color,
+          ),
+          SizedBox(width: Spacing.xs),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   MarkdownStyleSheet _buildMarkdownStyle(OpenCodeTheme theme) {
     return MarkdownStyleSheet(
       p: TextStyle(
@@ -314,9 +372,9 @@ class MessageBubble extends StatelessWidget {
         color: theme.markdownStrong,
       ),
       em: TextStyle(fontStyle: FontStyle.italic, color: theme.markdownEmph),
-      code: AppTypography.codeLarge(color: theme.markdownCode).copyWith(
-        backgroundColor: theme.backgroundElement,
-      ),
+      code: AppTypography.codeLarge(
+        color: theme.markdownCode,
+      ).copyWith(backgroundColor: theme.backgroundElement),
       codeblockPadding: Insets.card,
       codeblockDecoration: BoxDecoration(
         color: theme.backgroundElement,
@@ -343,6 +401,7 @@ class MessageBubble extends StatelessWidget {
       blockSpacing: Spacing.lg,
     );
   }
+
   // Feature 6: Show fork menu on long press
   void _showForkMenu(BuildContext context, OpenCodeTheme theme) {
     DetailSheet.show(
@@ -419,15 +478,18 @@ class MessageBubble extends StatelessWidget {
       ),
     );
   }
+
   Widget _buildStreamingCursor(OpenCodeTheme theme) =>
       _StreamingCursor(color: theme.info);
 }
+
 class _StreamingCursor extends StatefulWidget {
   const _StreamingCursor({required this.color});
   final Color color;
   @override
   State<_StreamingCursor> createState() => _StreamingCursorState();
 }
+
 class _StreamingCursorState extends State<_StreamingCursor>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
@@ -439,11 +501,13 @@ class _StreamingCursorState extends State<_StreamingCursor>
       duration: const Duration(milliseconds: 800),
     )..repeat();
   }
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
