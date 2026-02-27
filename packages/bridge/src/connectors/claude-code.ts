@@ -28,6 +28,7 @@ import type {
 } from '../types'
 import { normalizeSupportedModels } from './claude-code/model-normalization'
 import { emitClaudeCodeSupplementalStreamEvents } from './claude-code/stream-supplemental-events'
+import { computeCCSessionStats } from './claude-code/cc-session-stats'
 
 const CLAUDE_PROJECTS_DIR = join(homedir(), '.claude', 'projects')
 const CLAUDE_SETTINGS_FILE = join(homedir(), '.claude', 'settings.json')
@@ -886,7 +887,8 @@ export async function listSessions(cwd?: string): Promise<ClaudeCodeSession[]> {
             isBackground: preview.isBackground,
             hasSubagentActivity: preview.hasSubagentActivity,
             subagentName: preview.subagentName,
-          })
+            _filePath: filePath, // internal: used for stats computation below
+          } as ClaudeCodeSession & { _filePath: string })
         }
       } catch {
         continue
@@ -894,6 +896,20 @@ export async function listSessions(cwd?: string): Promise<ClaudeCodeSession[]> {
     }
 
     sessions.sort((a, b) => b.updatedAt - a.updatedAt)
+
+    // Compute diff stats in parallel for all sessions (cached by mtime)
+    await Promise.all(
+      sessions.map(async (session) => {
+        const fp = (session as any)._filePath as string | undefined
+        if (!fp) return
+        const summary = await computeCCSessionStats(fp, session.id)
+        if (summary && (summary.additions > 0 || summary.deletions > 0 || summary.files > 0)) {
+          session.summary = summary
+        }
+        delete (session as any)._filePath
+      }),
+    )
+
     return sessions
   } catch {
     return []
@@ -908,6 +924,7 @@ export async function getSession(sessionId: string, cwd?: string): Promise<Claud
   const preview = await readSessionPreview(filePath)
   const sessionCwd = preview.cwd ?? cwd ?? ''
 
+  const summary = await computeCCSessionStats(filePath, sessionId)
   return {
     id: sessionId,
     title: preview.title || preview.slug || `Session ${sessionId.slice(0, 8)}`,
@@ -918,6 +935,7 @@ export async function getSession(sessionId: string, cwd?: string): Promise<Claud
     isBackground: preview.isBackground,
     hasSubagentActivity: preview.hasSubagentActivity,
     subagentName: preview.subagentName,
+    ...(summary && (summary.additions > 0 || summary.deletions > 0 || summary.files > 0) ? { summary } : {}),
   }
 }
 

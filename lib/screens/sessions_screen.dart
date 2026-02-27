@@ -2650,6 +2650,42 @@ class _SessionCard extends StatelessWidget {
   }
 }
 
+/// Build stat badges for CC/Codex/Pi session cards from a [SessionSummaryStats].
+/// Returns empty list if no meaningful stats.
+List<Widget> _buildSessionStatBadges(
+  SessionSummaryStats? summary,
+  OpenCodeTheme ocTheme,
+) {
+  if (summary == null ||
+      (summary.additions == 0 && summary.deletions == 0 && summary.files == 0)) {
+    return [];
+  }
+  return [
+    if (summary.additions > 0)
+      _StatBadge(
+        text: '+${summary.additions}',
+        color: ocTheme.diffAdded,
+      ),
+    if (summary.deletions > 0) ...[
+      const SizedBox(width: 6),
+      _StatBadge(
+        text: '-${summary.deletions}',
+        color: ocTheme.diffRemoved,
+      ),
+    ],
+    if (summary.files > 0) ...[
+      const SizedBox(width: 6),
+      Text(
+        '${summary.files} ${summary.files == 1 ? 'file' : 'files'}',
+        style: TextStyle(
+          color: ocTheme.textMuted,
+          fontSize: 11,
+        ),
+      ),
+    ],
+  ];
+}
+
 /// Small stat badge for session cards (additions, deletions, files)
 class _StatBadge extends StatelessWidget {
   const _StatBadge({required this.text, required this.color});
@@ -4258,26 +4294,8 @@ class _CodexHighlightedThreadCard extends ConsumerWidget {
                           ),
                         ],
                         const Spacer(),
-                        // Model badge if available
-                        if (thread.modelProvider != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 5,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: ocTheme.info.withValues(alpha: 0.12),
-                              borderRadius: Radii.brXs,
-                            ),
-                            child: Text(
-                              thread.modelProvider!,
-                              style: TextStyle(
-                                color: ocTheme.info,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
+                        // Diff stats badges
+                        ..._buildSessionStatBadges(thread.summary, ocTheme),
                       ],
                     ),
                   ],
@@ -4465,26 +4483,8 @@ class _CodexThreadCard extends ConsumerWidget {
                           ),
                         ],
                         const Spacer(),
-                        // Model badge if available
-                        if (thread.modelProvider != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 5,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: ocTheme.info.withValues(alpha: 0.12),
-                              borderRadius: Radii.brXs,
-                            ),
-                            child: Text(
-                              thread.modelProvider!,
-                              style: TextStyle(
-                                color: ocTheme.info,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
+                        // Diff stats badges
+                        ..._buildSessionStatBadges(thread.summary, ocTheme),
                       ],
                     ),
                   ],
@@ -5471,10 +5471,15 @@ class _CCHighlightedSessionCard extends ConsumerWidget {
                             ),
                           ),
                         ],
-                        // Message count if available
-                        if (session.messageCount != null &&
-                            session.messageCount! > 0) ...[
-                          const Spacer(),
+                        const Spacer(),
+                        // Diff stats badges (or message count fallback)
+                        if (session.summary != null &&
+                            (session.summary!.additions > 0 ||
+                                session.summary!.deletions > 0 ||
+                                session.summary!.files > 0))
+                          ..._buildSessionStatBadges(session.summary, ocTheme)
+                        else if (session.messageCount != null &&
+                            session.messageCount! > 0)
                           Text(
                             '${session.messageCount} msgs',
                             style: TextStyle(
@@ -5482,7 +5487,6 @@ class _CCHighlightedSessionCard extends ConsumerWidget {
                               fontSize: 11,
                             ),
                           ),
-                        ],
                       ],
                     ),
                   ],
@@ -5700,10 +5704,15 @@ class _CCSessionCard extends ConsumerWidget {
                             ),
                           ),
                         ],
-                        // Message count if available
-                        if (session.messageCount != null &&
-                            session.messageCount! > 0) ...[
-                          const Spacer(),
+                        const Spacer(),
+                        // Diff stats badges (or message count fallback)
+                        if (session.summary != null &&
+                            (session.summary!.additions > 0 ||
+                                session.summary!.deletions > 0 ||
+                                session.summary!.files > 0))
+                          ..._buildSessionStatBadges(session.summary, ocTheme)
+                        else if (session.messageCount != null &&
+                            session.messageCount! > 0)
                           Text(
                             '${session.messageCount} msgs',
                             style: TextStyle(
@@ -5711,7 +5720,6 @@ class _CCSessionCard extends ConsumerWidget {
                               fontSize: 11,
                             ),
                           ),
-                        ],
                       ],
                     ),
                   ],
@@ -6968,24 +6976,30 @@ class _PiSessionCard extends StatelessWidget {
                           ),
                         ),
                         const Spacer(),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: ocTheme.info.withValues(alpha: 0.12),
-                            borderRadius: Radii.brXs,
-                          ),
-                          child: Text(
-                            '${session.messageCount} msgs',
-                            style: TextStyle(
-                              color: ocTheme.info,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
+                        // Diff stats badges
+                        ..._buildSessionStatBadges(session.summary, ocTheme),
+                        // Message count badge (if no diff stats)
+                        if (session.summary == null ||
+                            (session.summary!.additions == 0 &&
+                                session.summary!.deletions == 0))
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: ocTheme.info.withValues(alpha: 0.12),
+                              borderRadius: Radii.brXs,
+                            ),
+                            child: Text(
+                              '${session.messageCount} msgs',
+                              style: TextStyle(
+                                color: ocTheme.info,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
-                        ),
                       ],
                     ),
                   ],

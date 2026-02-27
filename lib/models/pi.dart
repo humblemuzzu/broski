@@ -1,3 +1,5 @@
+import 'session.dart' show SessionSummaryStats;
+
 class PiModelCost {
   final double input;
   final double output;
@@ -222,6 +224,7 @@ class PiSessionInfo {
   final DateTime modified;
   final int messageCount;
   final String firstMessage;
+  final SessionSummaryStats? summary;
 
   const PiSessionInfo({
     required this.path,
@@ -233,6 +236,7 @@ class PiSessionInfo {
     required this.modified,
     required this.messageCount,
     required this.firstMessage,
+    this.summary,
   });
 
   factory PiSessionInfo.fromJson(Map<String, dynamic> json) {
@@ -250,6 +254,11 @@ class PiSessionInfo {
       ),
       messageCount: json['messageCount'] as int? ?? 0,
       firstMessage: json['firstMessage'] as String? ?? '',
+      summary: json['summary'] == null
+          ? null
+          : SessionSummaryStats.fromJson(
+              json['summary'] as Map<String, dynamic>,
+            ),
     );
   }
 

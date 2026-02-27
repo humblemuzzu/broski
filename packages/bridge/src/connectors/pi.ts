@@ -28,6 +28,7 @@ import {
   type PiExtensionUiResponseInput,
 } from './pi_extension_ui'
 import type { PiBridgeSyntheticEvent } from './pi/pi-events'
+import { computePiSessionStats } from './pi/pi-session-stats'
 
 type PiEventListener = (event: AgentSessionEvent | PiBridgeSyntheticEvent) => void
 
@@ -250,7 +251,9 @@ export async function listSessions(cwd?: string): Promise<PiSessionInfo[]> {
   const sessions = cwd
     ? await SessionManager.list(normalizeCwd(cwd))
     : await SessionManager.listAll()
-  return sessions.map(mapSessionInfo)
+  const mapped = sessions.map(mapSessionInfo)
+  await enrichSessionsWithStats(mapped)
+  return mapped
 }
 
 export function listAvailableModels(): PiModelPayload[] {
@@ -399,7 +402,21 @@ export function mapSessionInfo(session: SessionInfo): PiSessionInfo {
     modified: session.modified.getTime(),
     messageCount: session.messageCount,
     firstMessage: session.firstMessage,
+    // summary is populated asynchronously by enrichSessionsWithStats()
   }
+}
+
+/** Enrich a list of Pi sessions with diff stats (computed in parallel, cached by mtime). */
+export async function enrichSessionsWithStats(sessions: PiSessionInfo[]): Promise<void> {
+  await Promise.all(
+    sessions.map(async (session) => {
+      if (!session.path) return
+      const summary = await computePiSessionStats(session.path)
+      if (summary && (summary.additions > 0 || summary.deletions > 0 || summary.files > 0)) {
+        session.summary = summary
+      }
+    }),
+  )
 }
 
 export function mapModel(model: Model<any>): PiModelPayload {

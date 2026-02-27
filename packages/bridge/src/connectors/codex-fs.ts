@@ -15,6 +15,7 @@ import type {
   CodexTranscriptToolCall,
   ProjectSummary,
 } from '../types'
+import { computeCxThreadStats } from './codex/cx-session-stats'
 
 const CODEX_SESSIONS_DIR = join(homedir(), '.codex', 'sessions')
 
@@ -161,7 +162,7 @@ async function collectSessionFiles(dir: string): Promise<string[]> {
 export async function listThreadsFromFs(cwd?: string): Promise<CodexThread[]> {
   const normalizedCwd = cwd ? resolve(cwd) : null
   const files = await collectSessionFiles(CODEX_SESSIONS_DIR)
-  const threads: CodexThread[] = []
+  const threads: (CodexThread & { _filePath?: string })[] = []
   
   for (const filePath of files) {
     const [fileStat, meta] = await Promise.all([
@@ -184,10 +185,25 @@ export async function listThreadsFromFs(cwd?: string): Promise<CodexThread[]> {
       cwd: meta.cwd,
       cliVersion: meta.cliVersion,
       gitInfo: meta.gitBranch ? { branch: meta.gitBranch } : null,
+      _filePath: filePath,
     })
   }
 
   threads.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
+
+  // Compute diff stats in parallel (cached by mtime)
+  await Promise.all(
+    threads.map(async (thread) => {
+      const fp = thread._filePath
+      if (!fp) return
+      const summary = await computeCxThreadStats(fp, thread.id)
+      if (summary && (summary.additions > 0 || summary.deletions > 0 || summary.files > 0)) {
+        thread.summary = summary
+      }
+      delete thread._filePath
+    }),
+  )
+
   return threads
 }
 
@@ -239,6 +255,7 @@ export async function getThreadFromFs(threadId: string): Promise<CodexThread | n
     const meta = await readSessionMeta(filePath)
     if (meta?.id === threadId) {
       const fileStat = await stat(filePath).catch(() => null)
+      const summary = await computeCxThreadStats(filePath, threadId)
       return {
         id: meta.id,
         preview: meta.preview ?? `Session ${meta.id.slice(0, 8)}`,
@@ -248,6 +265,7 @@ export async function getThreadFromFs(threadId: string): Promise<CodexThread | n
         cwd: meta.cwd,
         cliVersion: meta.cliVersion,
         gitInfo: meta.gitBranch ? { branch: meta.gitBranch } : null,
+        ...(summary && (summary.additions > 0 || summary.deletions > 0 || summary.files > 0) ? { summary } : {}),
       }
     }
   }
@@ -544,4 +562,36 @@ export async function getThreadMessagesFromFs(threadId: string): Promise<Transcr
   } catch {
     return []
   }
+}
+
+/**
+ * Enrich a list of Codex threads with diff stats from the filesystem.
+ * Builds a threadId→filePath index first, then computes stats in parallel.
+ * Safe to call on threads from RPC or filesystem — skips threads that already have summary.
+ */
+export async function enrichThreadsWithStats(threads: CodexThread[]): Promise<void> {
+  const needStats = threads.filter((t) => !t.summary)
+  if (needStats.length === 0) return
+
+  // Build threadId→filePath index
+  const files = await collectSessionFiles(CODEX_SESSIONS_DIR)
+  const idToFile = new Map<string, string>()
+  await Promise.all(
+    files.map(async (filePath) => {
+      const meta = await readSessionMeta(filePath)
+      if (meta?.id) idToFile.set(meta.id, filePath)
+    }),
+  )
+
+  // Compute stats in parallel
+  await Promise.all(
+    needStats.map(async (thread) => {
+      const fp = idToFile.get(thread.id)
+      if (!fp) return
+      const summary = await computeCxThreadStats(fp, thread.id)
+      if (summary && (summary.additions > 0 || summary.deletions > 0 || summary.files > 0)) {
+        thread.summary = summary
+      }
+    }),
+  )
 }

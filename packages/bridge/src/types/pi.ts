@@ -42,6 +42,7 @@ export type PiSessionInfo = {
   modified: number
   messageCount: number
   firstMessage: string
+  summary?: { additions: number; deletions: number; files: number }
 }
 
 export type PiCommandPayload = {

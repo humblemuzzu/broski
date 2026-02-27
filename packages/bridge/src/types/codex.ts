@@ -24,6 +24,7 @@ export type CodexThread = {
   status?: { type: string; activeFlags?: string[] };
   agentNickname?: string | null;
   agentRole?: string | null;
+  summary?: { additions: number; deletions: number; files: number };
 };
 
 export type CodexTranscriptToolCall = {

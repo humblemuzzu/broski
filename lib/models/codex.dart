@@ -1,3 +1,5 @@
+import 'session.dart' show SessionSummaryStats;
+
 /// A custom prompt from `.codex/prompts/` (project) or `$CODEX_HOME/prompts/` (user).
 ///
 /// These are Markdown files with optional YAML frontmatter (description, argument-hint).
@@ -397,6 +399,7 @@ class CodexThread {
   final CodexThreadStatus? status; // SDK thread.status (mid-2026)
   final String? agentNickname; // SDK thread.agentNickname
   final String? agentRole; // SDK thread.agentRole
+  final SessionSummaryStats? summary; // Code diff stats (additions/deletions/files)
 
   const CodexThread({
     required this.id,
@@ -412,6 +415,7 @@ class CodexThread {
     this.status,
     this.agentNickname,
     this.agentRole,
+    this.summary,
   }) : updatedAt = updatedAt ?? createdAt;
 
   factory CodexThread.fromJson(Map<String, dynamic> json) {
@@ -433,6 +437,11 @@ class CodexThread {
           : null,
       agentNickname: json['agentNickname'] as String?,
       agentRole: json['agentRole'] as String?,
+      summary: json['summary'] == null
+          ? null
+          : SessionSummaryStats.fromJson(
+              json['summary'] as Map<String, dynamic>,
+            ),
     );
   }
 

@@ -1,4 +1,5 @@
 import 'command.dart';
+import 'session.dart' show SessionSummaryStats;
 
 enum ClaudeCodePermissionMode {
   defaultMode,
@@ -64,6 +65,7 @@ class ClaudeCodeSession {
   final bool isBackground;
   final bool hasSubagentActivity;
   final String? subagentName;
+  final SessionSummaryStats? summary;
 
   const ClaudeCodeSession({
     required this.id,
@@ -76,6 +78,7 @@ class ClaudeCodeSession {
     this.isBackground = false,
     this.hasSubagentActivity = false,
     this.subagentName,
+    this.summary,
   });
 
   factory ClaudeCodeSession.fromJson(Map<String, dynamic> json) {
@@ -90,6 +93,11 @@ class ClaudeCodeSession {
       isBackground: json['isBackground'] as bool? ?? false,
       hasSubagentActivity: json['hasSubagentActivity'] as bool? ?? false,
       subagentName: json['subagentName'] as String?,
+      summary: json['summary'] == null
+          ? null
+          : SessionSummaryStats.fromJson(
+              json['summary'] as Map<String, dynamic>,
+            ),
     );
   }
 

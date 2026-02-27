@@ -2242,6 +2242,7 @@ export type ClaudeCodeSession = {
   isBackground?: boolean
   hasSubagentActivity?: boolean
   subagentName?: string
+  summary?: { additions: number; deletions: number; files: number }
 }
 
 // Claude Code Command (slash command)

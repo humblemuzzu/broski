@@ -6154,6 +6154,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               })
             : threadData
 
+        // Enrich threads with diff stats from filesystem (cached by mtime)
+        await codexFs.enrichThreadsWithStats(threadsWithNames)
+
         // Update cache
         cxThreadCache.set(cacheKey, {
           data: threadsWithNames,
