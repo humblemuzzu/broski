@@ -444,8 +444,11 @@ function validateAuthToken(provided: string, expectedToken: string): boolean {
 }
 
 const SECURITY_ALLOWED_BASE_PATHS = (() => {
-  const raw = (process.env.BROSKI_ALLOWED_BASE_PATHS ?? '').trim()
   const defaults = getDefaultAllowedPaths()
+  // In compiled binaries, NEVER allow env var to override allowed paths.
+  // An attacker could set BROSKI_ALLOWED_BASE_PATHS=/ to read any file.
+  if (isCompiledBinary()) return defaults.map((p) => resolve(p))
+  const raw = (process.env.BROSKI_ALLOWED_BASE_PATHS ?? '').trim()
   const bases = raw
     ? raw
         .split(',')

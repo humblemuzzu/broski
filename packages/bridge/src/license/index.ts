@@ -1,7 +1,9 @@
 import { createFallbackLicenseCrypto, type LicenseCrypto } from './fallback'
 import { loadNativeLicense } from './native'
+import { isCompiledBinary } from '../platform'
 import { loadStoredLicense, saveStoredLicense } from './store'
 export { verifyBinaryIntegrity, startPeriodicIntegrityCheck, stopPeriodicIntegrityCheck, type IntegrityResult } from './integrity'
+export { initRuntimeHardening, sanitizeEnvironment, startHardeningMonitor, stopHardeningMonitor, type HardeningFlags } from './hardening'
 
 export type LocalLicenseState = {
   entitled: boolean
@@ -14,13 +16,31 @@ export type LocalLicenseState = {
 }
 
 let cachedCrypto: LicenseCrypto | null = null
+let _nativeMissing = false
+
+/** True if compiled binary is using TS fallback instead of native lib. */
+export function isNativeLibMissing(): boolean {
+  return _nativeMissing
+}
 
 export function getLicenseCrypto(): LicenseCrypto {
-  // Prefer native library when present (harder to tamper with / hide keys), but
-  // always fall back to a pure-TS implementation so licensing still works even
-  // when the native lib is missing.
   if (cachedCrypto) return cachedCrypto
-  cachedCrypto = (loadNativeLicense() ?? createFallbackLicenseCrypto()) as LicenseCrypto
+
+  const native = loadNativeLicense()
+  if (native) {
+    cachedCrypto = native as LicenseCrypto
+    return cachedCrypto
+  }
+
+  // In compiled binaries, the native lib MUST be present. If missing:
+  // - Build was broken (packaging issue)
+  // - Attacker deleted the .dylib/.so/.dll to force the easier-to-patch TS fallback
+  // Either way, mark it so integrity checks can flag this.
+  if (isCompiledBinary()) {
+    _nativeMissing = true
+  }
+
+  cachedCrypto = createFallbackLicenseCrypto() as LicenseCrypto
   return cachedCrypto
 }
 

@@ -20,6 +20,7 @@ import { createHash, createPublicKey, verify } from 'node:crypto'
 import { readFileSync, existsSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { isCompiledBinary } from '../platform'
+import { isNativeLibMissing } from './index'
 
 // ============================================================================
 // CODESIGN VERIFICATION (macOS / Windows)
@@ -256,6 +257,20 @@ function verifySentinel(): { ok: boolean; reason?: string } {
   return { ok: true }
 }
 
+
+/**
+ * In compiled binaries, the native license lib should be present.
+ * If getLicenseCrypto() fell back to pure-TS, flag it.
+ * This catches .dylib deletion attacks.
+ */
+function verifyNativeLibPresence(): IntegrityCheckResult {
+  if (!looksLikeCompiledBinary()) return { ok: true, skipped: true }
+  if (isNativeLibMissing()) {
+    return { ok: false, reason: 'Native license library missing in compiled binary — possible sidecar deletion attack' }
+  }
+  return { ok: true }
+}
+
 // ============================================================================
 // PUBLIC API
 // ============================================================================
@@ -269,6 +284,7 @@ export type IntegrityResult = {
     sentinel: IntegrityCheckResult
     signedHash: IntegrityCheckResult
     nativeSidecar: IntegrityCheckResult
+    nativeLibPresence: IntegrityCheckResult
   }
 }
 
@@ -323,6 +339,7 @@ export function verifyBinaryIntegrity(exePath?: string): IntegrityResult {
         sentinel: { ok: true, skipped: true },
         signedHash: { ok: true, skipped: true },
         nativeSidecar: { ok: true, skipped: true },
+        nativeLibPresence: { ok: true, skipped: true },
       },
     }
   }
@@ -349,9 +366,12 @@ export function verifyBinaryIntegrity(exePath?: string): IntegrityResult {
   // 4. Native sidecar integrity (prevents .dylib swap attack)
   const nativeSidecar = verifyNativeSidecar(effectivePath)
 
+  // 5. Native lib presence (catches .dylib deletion to force TS fallback)
+  const nativeLibPresence = verifyNativeLibPresence()
+
   return {
-    ok: codesign.ok && sentinel.ok && signedHash.ok && nativeSidecar.ok,
-    checks: { codesign, sentinel, signedHash, nativeSidecar },
+    ok: codesign.ok && sentinel.ok && signedHash.ok && nativeSidecar.ok && nativeLibPresence.ok,
+    checks: { codesign, sentinel, signedHash, nativeSidecar, nativeLibPresence },
   }
 }
 

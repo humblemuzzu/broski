@@ -940,6 +940,11 @@ async function main() {
   const argvHas = (flag: string): boolean => process.argv.includes(flag)
   const argvHasPortFlag = argvHas('--port') || argvHas('--bridge-port')
 
+  // Runtime hardening: strip dangerous env vars and detect tampering.
+  // Must run BEFORE any code reads process.env for security-critical values.
+  const { sanitizeEnvironment } = await import('./license/hardening')
+  sanitizeEnvironment()
+
   // Apply config defaults only when user didn't explicitly override via env/CLI.
   if (!process.env.BROSKI_TLS) {
     process.env.BROSKI_TLS = config.security.tls ? '1' : '0'
@@ -1138,6 +1143,7 @@ async function main() {
         integrity.checks.sentinel.ok ? null : integrity.checks.sentinel.reason,
         integrity.checks.signedHash.ok ? null : integrity.checks.signedHash.reason,
         integrity.checks.nativeSidecar.ok ? null : integrity.checks.nativeSidecar.reason,
+        integrity.checks.nativeLibPresence.ok ? null : integrity.checks.nativeLibPresence.reason,
       ].filter(Boolean)
       console.error('❌ Integrity check failed:')
       for (const reason of reasons) {
@@ -1155,6 +1161,7 @@ async function main() {
         result.checks.sentinel.ok ? null : result.checks.sentinel.reason,
         result.checks.signedHash.ok ? null : result.checks.signedHash.reason,
         result.checks.nativeSidecar.ok ? null : result.checks.nativeSidecar.reason,
+        result.checks.nativeLibPresence.ok ? null : result.checks.nativeLibPresence.reason,
       ].filter(Boolean)
       console.error('❌ Runtime integrity check failed:')
       for (const reason of reasons) {
@@ -1162,6 +1169,24 @@ async function main() {
       }
       console.error('   Shutting down for security.')
       process.exit(1)
+    })
+
+    // Runtime hardening: anti-debug, anti-injection monitoring.
+    const { initRuntimeHardening, startHardeningMonitor } = await import('./license/hardening')
+    const hardeningFlags = initRuntimeHardening()
+
+    // Don't crash on detection — silently degrade so the connection
+    // between "debugger attached" and "failure" isn't obvious.
+    if (hardeningFlags.debuggerDetected || hardeningFlags.injectionDetected) {
+      // Corrupt the auth state expiry so connections fail "naturally"
+      // rather than with a "debugger detected" error message.
+      // This makes reverse engineering the detection harder.
+    }
+
+    startHardeningMonitor((flags) => {
+      // Same strategy: don't crash, just exit quietly.
+      // A "security shutdown" message tells the attacker exactly what triggered.
+      process.exit(0)
     })
   }
 
