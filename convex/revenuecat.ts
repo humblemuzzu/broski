@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
+import { hasActiveBetaGrant } from "./beta";
 
 type RevenueCatEventSummary = {
   eventType?: string;
@@ -52,10 +53,18 @@ export const recordEventAndUpdateUser = internalMutation({
     const entitlementActive =
       args.expiresAtMs != null ? args.expiresAtMs > now : false;
 
+    // Guard: don't let a RevenueCat webhook (e.g. EXPIRATION for a product the
+    // beta user never bought) clobber an active beta grant. If the webhook
+    // reports entitled=true (real purchase), let it through to upgrade them.
+    if (hasActiveBetaGrant(user.subscription) && !entitlementActive) {
+      return; // Event is already logged above — subscription stays intact.
+    }
+
     await ctx.db.patch(user._id, {
       subscription: {
         entitlementActive,
         status: entitlementActive ? "active" : "inactive",
+        source: "revenuecat",
         productId: args.productId ?? user.subscription?.productId,
         expiresAtMs: args.expiresAtMs ?? user.subscription?.expiresAtMs,
         store: args.store ?? user.subscription?.store,

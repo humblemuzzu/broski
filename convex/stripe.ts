@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
+import { hasActiveBetaGrant } from "./beta";
 
 export const recordEventAndUpdateUser = internalMutation({
   args: {
@@ -40,6 +41,11 @@ export const recordEventAndUpdateUser = internalMutation({
     const activeByExpiry =
       args.currentPeriodEndMs != null ? args.currentPeriodEndMs > now : activeByStatus;
     const entitlementActive = activeByStatus && activeByExpiry;
+
+    // Guard: don't let a Stripe webhook clobber an active beta grant.
+    if (hasActiveBetaGrant(user.subscription) && !entitlementActive) {
+      return; // Event is already logged above — subscription stays intact.
+    }
 
     await ctx.db.patch(user._id, {
       subscription: {

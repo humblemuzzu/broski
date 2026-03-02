@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
+import { isBetaModeEnabled, makeBetaSubscription, hasActiveBetaGrant } from "./beta";
 
 export type PublicUser = {
   appUserId: string;
@@ -55,10 +56,9 @@ export const upsertUserFromProvider = internalMutation({
       createdAtMs: now,
       updatedAtMs: now,
       lastSeenAtMs: now,
-      subscription: {
-        entitlementActive: false,
-        status: "none",
-      },
+      subscription: isBetaModeEnabled()
+        ? makeBetaSubscription(now)
+        : { entitlementActive: false, status: "none" },
       revenueCat: {
         appUserId: args.appUserIdIfNew,
       },
@@ -244,10 +244,30 @@ export const updateSubscriptionFromRevenueCatApi = internalMutation({
     if (!user) return;
     const now = Date.now();
 
+    // Guard: don't let a RevenueCat sync (which returns "no subscription" for
+    // beta users) clobber an active beta grant. If RC reports entitled=true
+    // (real purchase), let it through — that upgrades them to a paid subscriber.
+    if (hasActiveBetaGrant(user.subscription) && !args.entitlementActive) {
+      // Still update RC tracking fields for analytics, but leave subscription intact.
+      await ctx.db.patch(args.userId, {
+        revenueCat: {
+          ...(user.revenueCat ?? {}),
+          originalAppUserId:
+            args.originalAppUserId ?? user.revenueCat?.originalAppUserId,
+          lastEventType: "REVENUECAT_API",
+          lastEventAtMs: args.fetchedAtMs,
+        },
+        updatedAtMs: now,
+        lastSeenAtMs: now,
+      });
+      return;
+    }
+
     await ctx.db.patch(args.userId, {
       subscription: {
         entitlementActive: args.entitlementActive,
         status: args.status,
+        source: "revenuecat",
         productId: args.productId ?? user.subscription?.productId,
         expiresAtMs: args.expiresAtMs ?? user.subscription?.expiresAtMs,
         store: args.store ?? user.subscription?.store,
@@ -265,5 +285,127 @@ export const updateSubscriptionFromRevenueCatApi = internalMutation({
       updatedAtMs: now,
       lastSeenAtMs: now,
     });
+  },
+});
+
+// ============================================================================
+// BETA ADMIN MUTATIONS
+// Run from Convex Dashboard → Functions tab. Not exposed via HTTP.
+// ============================================================================
+
+/**
+ * Extend (or grant) beta access for a single user by email.
+ * If the user already has beta time left, adds extraDays on top.
+ * If beta expired or user has no grant, starts fresh from now.
+ *
+ * Usage from Convex Dashboard:
+ *   extendBetaAccess({ email: "tester@gmail.com", extraDays: 30 })
+ */
+export const extendBetaAccess = internalMutation({
+  args: {
+    email: v.string(),
+    extraDays: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .unique();
+    if (!user) return { ok: false, error: "User not found" };
+
+    const now = Date.now();
+    const clampedDays = Math.max(1, Math.min(365, args.extraDays));
+    const msToAdd = clampedDays * 86_400_000;
+
+    // If they have active beta time left, extend from current expiry.
+    // Otherwise start fresh from now.
+    const currentExpiry = user.subscription?.expiresAtMs ?? 0;
+    const base = currentExpiry > now ? currentExpiry : now;
+    const newExpiry = base + msToAdd;
+
+    await ctx.db.patch(user._id, {
+      subscription: {
+        ...(user.subscription ?? { entitlementActive: false, status: "none" }),
+        entitlementActive: true,
+        status: "active",
+        source: "beta",
+        expiresAtMs: newExpiry,
+        lastEventType: "BETA_EXTEND",
+        lastEventAtMs: now,
+      },
+      updatedAtMs: now,
+    });
+    return {
+      ok: true,
+      email: args.email,
+      newExpiresAt: new Date(newExpiry).toISOString(),
+      daysAdded: clampedDays,
+    };
+  },
+});
+
+/**
+ * Revoke beta access for a user immediately.
+ * Sets entitlementActive=false and status="expired".
+ * Note: source stays "beta" (Convex doesn't support unsetting fields via spread).
+ * This is safe — hasActiveBetaGrant() also checks entitlementActive === true,
+ * so a revoked user won't trigger the clobber guard.
+ *
+ * Usage from Convex Dashboard:
+ *   revokeBetaAccess({ email: "abuser@gmail.com" })
+ */
+export const revokeBetaAccess = internalMutation({
+  args: { email: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .unique();
+    if (!user) return { ok: false, error: "User not found" };
+    if (user.subscription?.source !== "beta") {
+      return { ok: false, error: "User is not on a beta grant (source: " + (user.subscription?.source ?? "none") + ")" };
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(user._id, {
+      subscription: {
+        ...(user.subscription ?? { entitlementActive: false, status: "none" }),
+        entitlementActive: false,
+        status: "expired",
+        lastEventType: "BETA_REVOKE",
+        lastEventAtMs: now,
+      },
+      updatedAtMs: now,
+    });
+    return { ok: true, email: args.email, revokedAt: new Date(now).toISOString() };
+  },
+});
+
+/**
+ * List all users with active beta grants.
+ * Useful for seeing who's on beta and when they expire.
+ *
+ * Usage from Convex Dashboard:
+ *   listBetaUsers({})
+ */
+export const listBetaUsers = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const allUsers = await ctx.db.query("users").collect();
+    return allUsers
+      .filter(
+        (u) =>
+          u.subscription?.source === "beta" &&
+          u.subscription?.expiresAtMs != null &&
+          u.subscription.expiresAtMs > now,
+      )
+      .map((u) => ({
+        email: u.email ?? "no-email",
+        displayName: u.displayName ?? "unknown",
+        appUserId: u.appUserId,
+        expiresAt: new Date(u.subscription!.expiresAtMs!).toISOString(),
+        daysLeft: Math.max(0, Math.round((u.subscription!.expiresAtMs! - now) / 86_400_000)),
+      }));
   },
 });
