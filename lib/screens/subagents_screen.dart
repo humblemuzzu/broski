@@ -179,6 +179,8 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
                     description: agent['description'] as String? ?? '',
                     source: agent['source'] as String? ?? 'filesystem',
                     memoryScope: agent['memory'] as String?,
+                    background: agent['background'] as bool? ?? false,
+                    isolation: agent['isolation'] as String?,
                   ),
               ],
               // Divider between filesystem and config sections
@@ -432,6 +434,10 @@ class _SubagentCard extends StatelessWidget {
                     )
                   else
                     _InfoChip(icon: AppIcons.build, label: 'All tools'),
+                  if (subagent.background)
+                    _InfoChip(icon: AppIcons.pending, label: 'Background'),
+                  if (subagent.isolation == 'worktree')
+                    _InfoChip(icon: AppIcons.copy, label: 'Worktree'),
                 ],
               ),
             ],
@@ -448,11 +454,16 @@ class _FilesystemAgentCard extends StatelessWidget {
   final String description;
   final String source;
   final String? memoryScope;
+  final bool background;
+  final String? isolation;
+
   const _FilesystemAgentCard({
     required this.name,
     required this.description,
     required this.source,
     this.memoryScope,
+    this.background = false,
+    this.isolation,
   });
   @override
   Widget build(BuildContext context) {
@@ -536,6 +547,19 @@ class _FilesystemAgentCard extends StatelessWidget {
                       ],
                     ),
                   ],
+                  if (background || isolation == 'worktree') ...[
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        if (background)
+                          _InfoChip(icon: AppIcons.pending, label: 'Background'),
+                        if (isolation == 'worktree')
+                          _InfoChip(icon: AppIcons.copy, label: 'Worktree'),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -588,6 +612,9 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
   late ClaudeCodeSubagentModel _model;
   late ClaudeCodePermissionMode? _permissionMode;
   late final TextEditingController _disallowedToolsController;
+  late bool _background;
+  late String? _isolation;
+
   bool get isEditing => widget.existing != null;
   @override
   void initState() {
@@ -606,6 +633,8 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
     _disallowedToolsController = TextEditingController(
       text: existing?.disallowedTools?.join(', ') ?? '',
     );
+    _background = existing?.background ?? false;
+    _isolation = existing?.isolation;
   }
   @override
   void dispose() {
@@ -796,6 +825,60 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
               ),
             ),
             SizedBox(height: Spacing.xxl),
+            _buildLabel('Background Task', oc),
+            const SizedBox(height: Spacing.sm),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _background,
+              title: const Text('Run subagent in background by default'),
+              subtitle: const Text(
+                'When enabled, this subagent can keep running while you continue chatting.',
+              ),
+              onChanged: (value) {
+                setState(() => _background = value);
+              },
+            ),
+            SizedBox(height: Spacing.xxl),
+            _buildLabel('Isolation', oc),
+            SizedBox(height: Spacing.sm),
+            Container(
+              padding: Insets.cardH,
+              decoration: BoxDecoration(
+                color: oc.backgroundElement,
+                borderRadius: Radii.brSm,
+                border: Border.all(color: oc.border),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String?>(
+                  value: _isolation,
+                  isExpanded: true,
+                  dropdownColor: oc.backgroundElement,
+                  style: TextStyle(color: oc.text),
+                  items: const [
+                    DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('None'),
+                    ),
+                    DropdownMenuItem<String?>(
+                      value: 'worktree',
+                      child: Text('Worktree isolation'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() => _isolation = value);
+                  },
+                ),
+              ),
+            ),
+            SizedBox(height: Spacing.xs),
+            Text(
+              'Worktree isolation runs the subagent in a temporary git worktree.',
+              style: TextStyle(
+                color: oc.textMuted.withOpacity(0.7),
+                fontSize: 12,
+              ),
+            ),
+            SizedBox(height: Spacing.xxl),
             // Tools field
             _buildLabel('Allowed Tools (optional)', oc),
             SizedBox(height: Spacing.sm),
@@ -956,6 +1039,8 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
       model: _model,
       permissionMode: _permissionMode,
       disallowedTools: disallowedTools,
+      background: _background,
+      isolation: _isolation,
     );
     Navigator.pop(context, subagent);
   }

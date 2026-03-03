@@ -20,6 +20,8 @@ import * as ocMessages from './handlers/oc_messages'
 import * as ocSessions from './handlers/oc_sessions'
 import * as ocWorkspaces from './handlers/oc_workspaces'
 import * as piFeatures from './handlers/pi_features'
+import * as ccElicitation from './handlers/cc_elicitation'
+import type { ClaudeElicitationReply } from './handlers/cc_elicitation'
 import { PtyManager } from './pty/manager'
 import { PtyRuntime } from './pty/runtime'
 import { headTailTruncate } from './utils'
@@ -1077,6 +1079,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     updatedInput?: Record<string, unknown>
   }
   const ccPermissionWaiters = new Map<string, { resolve: (response: ClaudePermissionReply) => void; timer: Timer }>()
+  const ccElicitationWaiters = new Map<string, { resolve: (response: ClaudeElicitationReply) => void; timer: Timer }>()
   type CodexApprovalReply = {
     response?: PermissionResponse
     execpolicyAmendment?: any
@@ -4808,6 +4811,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     if (await ocSessions.handle(message, reply, requireOpenCode)) return
     if (await ocMessages.handle(message, reply, requireOpenCode)) return
     if (await ocWorkspaces.handle(message, reply, requireOpenCode)) return
+    if (ccElicitation.handle(message, ccElicitationWaiters)) return
 
     switch (message.type) {
       case 'auth_session': {
@@ -5192,6 +5196,10 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               const parts = key.split(':')
               return { sessionId: parts[0], toolUseId: parts[1] }
             })
+            const pendingCCElicitations = Array.from(ccElicitationWaiters.keys()).map((key) => {
+              const parts = key.split(':')
+              return { sessionId: parts[0], requestId: parts[1] }
+            })
             const pendingCXPerms = Array.from(cxApprovalWaiters.keys())
 
             send(ws, {
@@ -5202,6 +5210,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                 opencode: activeOC,
                 pendingPermissions: {
                   claudeCode: pendingCCPerms,
+                  claudeCodeElicitations: pendingCCElicitations,
                   codex: pendingCXPerms
                 }
               }
@@ -7516,6 +7525,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             activeSubagent: message.activeSubagent,
             persistSession: message.persistSession,
             promptSuggestions: message.promptSuggestions ?? cfg.promptSuggestions,
+            enableClaudeAiMcpServers: message.enableClaudeAiMcpServers ?? cfg.enableClaudeAiMcpServers,
             fallbackModel: message.fallbackModel,
             additionalDirectories: message.additionalDirectories
           },
@@ -7622,7 +7632,49 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               }, PERMISSION_TIMEOUT_MS)
               ccPermissionWaiters.set(key, { resolve, timer })
             })
-          }
+          },
+          async (req) => {
+            const sid = req.sessionId || actualSessionId || message.sessionId || ''
+            if (sid) actualSessionId = sid
+
+            const requestId = req.requestId
+            const elicitationStreamMsg: Extract<ClaudeCodeStreamMessage, { type: 'elicitation-request' }> = {
+              type: 'elicitation-request',
+              sessionId: sid,
+              requestId,
+              mcpServerName: req.mcpServerName,
+              message: req.message,
+              mode: req.mode,
+              url: req.url,
+              elicitationId: req.elicitationId,
+              requestedSchema: req.requestedSchema,
+            }
+
+            if (sid) {
+              emitCcStream(sid, elicitationStreamMsg)
+            } else {
+              send(ws, {
+                type: 'cc_stream',
+                data: elicitationStreamMsg,
+                sessionId: 'unknown',
+              })
+            }
+
+            const key = `${sid}:${requestId}`
+            const existing = ccElicitationWaiters.get(key)
+            if (existing) {
+              // Preserve the original waiter and reject duplicate requests.
+              return { action: 'cancel' } as const
+            }
+
+            return await new Promise<ClaudeElicitationReply>((resolve) => {
+              const timer = setTimeout(() => {
+                ccElicitationWaiters.delete(key)
+                resolve({ action: 'cancel' })
+              }, PERMISSION_TIMEOUT_MS)
+              ccElicitationWaiters.set(key, { resolve, timer })
+            })
+          },
         )
         break
       }
@@ -8516,6 +8568,21 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       clearInterval(entitlementRefreshTimer)
       for (const t of cloudAuthTimers.values()) clearTimeout(t)
       cloudAuthTimers.clear()
+      for (const waiter of ccPermissionWaiters.values()) {
+        clearTimeout(waiter.timer)
+        waiter.resolve({ response: 'reject' })
+      }
+      ccPermissionWaiters.clear()
+      for (const waiter of ccElicitationWaiters.values()) {
+        clearTimeout(waiter.timer)
+        waiter.resolve({ action: 'cancel' })
+      }
+      ccElicitationWaiters.clear()
+      for (const waiter of cxApprovalWaiters.values()) {
+        clearTimeout(waiter.timer)
+        waiter.resolve({ response: 'reject' })
+      }
+      cxApprovalWaiters.clear()
       for (const t of ccExternalTails.values()) {
         try {
           t.stop()

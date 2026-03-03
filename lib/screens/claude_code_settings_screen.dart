@@ -910,6 +910,28 @@ class _ClaudeCodeSettingsScreenState
                                 },
                         ),
                       ),
+                    if (_matches('claude ai mcp servers managed mcp'))
+                      _buildSettingCard(
+                        oc: oc,
+                        title: 'Claude.ai MCP Servers',
+                        child: SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: cfg?.enableClaudeAiMcpServers ?? true,
+                          title: const Text('Enable Claude.ai managed MCP servers'),
+                          subtitle: const Text(
+                            'Disable to opt out of Claude.ai-provided MCP servers for this workspace.',
+                          ),
+                          onChanged: cfg == null
+                              ? null
+                              : (enabled) async {
+                                  await _update(
+                                    cfg.copyWith(
+                                      enableClaudeAiMcpServers: enabled,
+                                    ),
+                                  );
+                                },
+                        ),
+                      ),
                     if (_matches('1m context beta'))
                       _buildSettingCard(
                         oc: oc,

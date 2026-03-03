@@ -1,4 +1,5 @@
 import { query } from '@anthropic-ai/claude-agent-sdk'
+import type { ElicitationRequest, ElicitationResult } from '@anthropic-ai/claude-agent-sdk'
 import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
@@ -284,6 +285,7 @@ export type ClaudeCodeQueryOptions = {
   enableFileCheckpointing?: boolean
   persistSession?: boolean
   promptSuggestions?: boolean
+  enableClaudeAiMcpServers?: boolean
   agents?: Record<string, ClaudeCodeSubagent>  // Custom subagent definitions
   activeSubagent?: string  // Name of the subagent to use for this query (prepends prompt hint)
   fallbackModel?: string                // B5: fallback model on primary failure
@@ -1525,6 +1527,8 @@ function parseAgentFile(name: string, content: string): Omit<ClaudeCodeFilesyste
   let tools: string[] | undefined
   let model: string | undefined
   let memory: 'user' | 'project' | 'local' | undefined
+  let background: boolean | undefined
+  let isolation: 'worktree' | undefined
 
   // Parse YAML frontmatter if present
   const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/)
@@ -1542,6 +1546,19 @@ function parseAgentFile(name: string, content: string): Omit<ClaudeCodeFilesyste
       const scope = memoryMatch[1].trim().replace(/['"]/g, '') as 'user' | 'project' | 'local'
       if (scope === 'user' || scope === 'project' || scope === 'local') {
         memory = scope
+      }
+    }
+
+    const backgroundMatch = frontmatter.match(/background:\s*(true|false)/)
+    if (backgroundMatch) {
+      background = backgroundMatch[1] === 'true'
+    }
+
+    const isolationMatch = frontmatter.match(/isolation:\s*(.+)/)
+    if (isolationMatch) {
+      const iso = isolationMatch[1].trim().replace(/['"]/g, '')
+      if (iso === 'worktree') {
+        isolation = 'worktree'
       }
     }
 
@@ -1573,7 +1590,16 @@ function parseAgentFile(name: string, content: string): Omit<ClaudeCodeFilesyste
   const promptStart = frontmatterMatch ? content.indexOf('---', 4) + 3 : 0
   const prompt = content.slice(promptStart).trim()
 
-  return { name, description, prompt: prompt || undefined, tools, model, memory }
+  return {
+    name,
+    description,
+    prompt: prompt || undefined,
+    tools,
+    model,
+    memory,
+    ...(typeof background === 'boolean' ? { background } : {}),
+    ...(isolation ? { isolation } : {}),
+  }
 }
 
 export async function listAgents(cwd?: string): Promise<ClaudeCodeFilesystemAgent[]> {
@@ -1624,6 +1650,40 @@ export async function listAgents(cwd?: string): Promise<ClaudeCodeFilesystemAgen
 
 import type { ClaudeCodeMemoryEntry } from '../types'
 
+function classifyMemorySource(
+  filename: string,
+  content: string,
+): ClaudeCodeMemoryEntry['source'] {
+  const filenameLower = filename.toLowerCase()
+  if (
+    filenameLower.includes('auto-memory') ||
+    filenameLower.includes('automemory') ||
+    filenameLower.startsWith('auto-') ||
+    filenameLower.includes('.auto.')
+  ) {
+    return 'auto'
+  }
+
+  const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/)
+  if (frontmatterMatch) {
+    const frontmatter = frontmatterMatch[1].toLowerCase()
+    const normalized = frontmatter.replace(/\s+/g, ' ')
+    if (/(^|\s)(source|memory_source|origin|type):\s*['"]?auto['"]?(\s|$)/.test(normalized)) {
+      return 'auto'
+    }
+    if (/(^|\s)(source|memory_source|origin|type):\s*['"]?manual['"]?(\s|$)/.test(normalized)) {
+      return 'manual'
+    }
+  }
+
+  const contentLower = content.toLowerCase()
+  if (contentLower.includes('auto-memory') || contentLower.includes('generated automatically')) {
+    return 'auto'
+  }
+
+  return 'unknown'
+}
+
 async function readMemoryDir(
   dir: string,
   scope: 'user' | 'project' | 'local',
@@ -1645,6 +1705,7 @@ async function readMemoryDir(
           content: content.trim(),
           createdAt: dateMatch ? dateMatch[1] : undefined,
           path: filePath,
+          source: classifyMemorySource(file.name, content),
         })
       } catch {
         // Skip unreadable files
@@ -1790,8 +1851,32 @@ export async function setConfig(config: Partial<ClaudeCodeConfig>, cwd?: string)
  * Convert an array of ClaudeCodeSubagent to SDK's agents Record format.
  * The SDK expects agents as Record<name, { description, prompt, tools?, model? }>
  */
-function convertSubagentsToRecord(subagents: ClaudeCodeSubagent[]): Record<string, { description: string; prompt: string; tools?: string[]; model?: string; permissionMode?: string; disallowedTools?: string[]; skills?: string[]; maxTurns?: number }> {
-  const record: Record<string, { description: string; prompt: string; tools?: string[]; model?: string; permissionMode?: string; disallowedTools?: string[]; skills?: string[]; maxTurns?: number }> = {}
+function convertSubagentsToRecord(subagents: ClaudeCodeSubagent[]): Record<string, {
+  description: string
+  prompt: string
+  tools?: string[]
+  model?: string
+  permissionMode?: string
+  disallowedTools?: string[]
+  skills?: string[]
+  maxTurns?: number
+  mcpServers?: Array<string | Record<string, unknown>>
+  background?: boolean
+  isolation?: 'worktree'
+}> {
+  const record: Record<string, {
+    description: string
+    prompt: string
+    tools?: string[]
+    model?: string
+    permissionMode?: string
+    disallowedTools?: string[]
+    skills?: string[]
+    maxTurns?: number
+    mcpServers?: Array<string | Record<string, unknown>>
+    background?: boolean
+    isolation?: 'worktree'
+  }> = {}
   for (const agent of subagents) {
     record[agent.name] = {
       description: agent.description,
@@ -1803,6 +1888,8 @@ function convertSubagentsToRecord(subagents: ClaudeCodeSubagent[]): Record<strin
       ...(agent.skills?.length && { skills: agent.skills }),
       ...(typeof agent.maxTurns === 'number' && agent.maxTurns > 0 && { maxTurns: agent.maxTurns }),
       ...(agent.mcpServers?.length && { mcpServers: agent.mcpServers }),
+      ...(agent.background === true ? { background: true } : {}),
+      ...(agent.isolation === 'worktree' ? { isolation: 'worktree' as const } : {}),
     }
   }
   return record
@@ -1817,6 +1904,8 @@ function normalizeAccountInfo(data: unknown): ClaudeCodeAccountInfo {
     ...(typeof raw.subscriptionType === 'string' ? { subscriptionType: raw.subscriptionType } : {}),
     ...(typeof raw.tokenSource === 'string' ? { tokenSource: raw.tokenSource } : {}),
     ...(typeof raw.apiKeySource === 'string' ? { apiKeySource: raw.apiKeySource } : {}),
+    ...(typeof raw.accountUuid === 'string' ? { accountUuid: raw.accountUuid } : {}),
+    ...(typeof raw.organizationUuid === 'string' ? { organizationUuid: raw.organizationUuid } : {}),
   }
 }
 
@@ -2087,6 +2176,16 @@ export async function queryClaudeCode(
     | PermissionResponse
     | { response: PermissionResponse; updatedInput?: Record<string, unknown> }
   >,
+  onElicitationRequest?: (request: {
+    sessionId: string
+    requestId: string
+    mcpServerName: string
+    message: string
+    mode?: 'form' | 'url'
+    url?: string
+    elicitationId?: string
+    requestedSchema?: Record<string, unknown>
+  }) => Promise<{ action: 'accept' | 'decline' | 'cancel'; content?: Record<string, unknown> }>,
 ): Promise<void> {
   let sessionId: string | null = options.sessionId || null
   const controller = new AbortController()
@@ -2114,6 +2213,8 @@ export async function queryClaudeCode(
     const effort = options.effort ?? currentConfig.effort
     const persistSession = options.persistSession
     const promptSuggestions = options.promptSuggestions ?? currentConfig.promptSuggestions
+    const enableClaudeAiMcpServers =
+      options.enableClaudeAiMcpServers ?? currentConfig.enableClaudeAiMcpServers
 
     const sdkOptions: any = {
       cwd: options.cwd,
@@ -2174,6 +2275,29 @@ export async function queryClaudeCode(
     if (enableAgentTeams) {
       envOverrides.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = '1'
     }
+    if (enableClaudeAiMcpServers === false) {
+      envOverrides.ENABLE_CLAUDEAI_MCP_SERVERS = 'false'
+    }
+
+    const cachedAccountInfo = ccAccountInfoByCwd.get(cwdCacheKey(options.cwd))
+    if (typeof cachedAccountInfo?.email === 'string' && cachedAccountInfo.email.length > 0) {
+      envOverrides.CLAUDE_CODE_USER_EMAIL = cachedAccountInfo.email
+    }
+    if (typeof cachedAccountInfo?.accountUuid === 'string' && cachedAccountInfo.accountUuid.length > 0) {
+      envOverrides.CLAUDE_CODE_ACCOUNT_UUID = cachedAccountInfo.accountUuid
+    }
+    const organizationUuid =
+      typeof cachedAccountInfo?.organizationUuid === 'string' &&
+      cachedAccountInfo.organizationUuid.length > 0
+        ? cachedAccountInfo.organizationUuid
+        : typeof cachedAccountInfo?.organization === 'string' &&
+            cachedAccountInfo.organization.length > 0
+          ? cachedAccountInfo.organization
+          : undefined
+    if (organizationUuid) {
+      envOverrides.CLAUDE_CODE_ORGANIZATION_UUID = organizationUuid
+    }
+
     if (Object.keys(envOverrides).length > 0) {
       sdkOptions.env = {
         ...(process.env as Record<string, string | undefined>),
@@ -2299,6 +2423,56 @@ export async function queryClaudeCode(
       }
     }
 
+    sdkOptions.onElicitation = async (
+      request: ElicitationRequest,
+      ctx: { signal: AbortSignal },
+    ): Promise<ElicitationResult> => {
+      if (ctx.signal?.aborted) {
+        return { action: 'cancel' }
+      }
+
+      if (!onElicitationRequest) {
+        return { action: 'decline' }
+      }
+
+      const sid = sessionId ?? options.sessionId ?? ''
+      const requestId = randomBytes(8).toString('hex')
+
+      const response = await onElicitationRequest({
+        sessionId: sid,
+        requestId,
+        mcpServerName: request.serverName,
+        message: request.message,
+        mode: request.mode,
+        url: request.url,
+        elicitationId: request.elicitationId,
+        requestedSchema: request.requestedSchema,
+      })
+
+      const action =
+        response.action === 'accept' ||
+        response.action === 'decline' ||
+        response.action === 'cancel'
+          ? response.action
+          : 'cancel'
+
+      if (action !== 'accept') {
+        return { action }
+      }
+
+      const content =
+        response.content &&
+        typeof response.content === 'object' &&
+        !Array.isArray(response.content)
+          ? response.content
+          : undefined
+
+      return {
+        action: 'accept',
+        ...(content ? { content } : {}),
+      }
+    }
+
     // If activeSubagent is specified and no top-level `agent` was set,
     // use the SDK 0.2.42 `agent` option for proper subagent routing.
     // Falls back to prompt hint for agents not in the `agents` option.
@@ -2396,6 +2570,7 @@ export async function queryClaudeCode(
           ...(message.output_style ? { outputStyle: message.output_style } : {}),
           supportedModels: capabilities?.supportedModels,
           accountInfo: capabilities?.accountInfo,
+          ...(typeof message.fast_mode_state === 'string' ? { fastModeState: message.fast_mode_state } : {}),
         })
 
         // (Legacy thinking fallback was moved before query() call — see below)
@@ -2637,6 +2812,7 @@ export async function queryClaudeCode(
           isError: typeof message.is_error === 'boolean' ? message.is_error : undefined,
           ...(errors.length > 0 ? { errors } : {}),
           ...(permissionDenials ? { permissionDenials } : {}),
+          ...(typeof message.fast_mode_state === 'string' ? { fastModeState: message.fast_mode_state } : {}),
         })
 
         if (message.structured_output !== undefined) {

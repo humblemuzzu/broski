@@ -33,13 +33,13 @@ import '../models/vcs.dart';
 import '../providers/chat_provider.dart';
 import 'chat/mcp_oauth_snackbar.dart';
 import 'chat/oc_message_delete_action.dart';
+import 'chat/cc_elicitation_form_dialog.dart';
 import '../providers/claude_code_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/app_subscription_provider.dart';
 
 import '../providers/codex_settings_provider.dart';
 import '../providers/pi_provider.dart';
-import '../services/pi_bridge_service.dart';
 import 'pi/pi_extension_ui_request_handler.dart';
 import 'sheets/pi_session_sidebar_sheet.dart';
 import '../providers/file_search_provider.dart';
@@ -79,6 +79,7 @@ import '../widgets/chat/compact_task_notification_card.dart';
 import '../widgets/chat/compact_tool_summary_chip.dart';
 import '../widgets/chat/compact_hook_card.dart';
 import '../widgets/chat/compact_agent_card.dart';
+import '../widgets/chat/cc_system_message_cards.dart';
 
 import '../models/todo.dart';
 import '../widgets/multi_agent_tree.dart';
@@ -7398,6 +7399,15 @@ Describe project-specific guidance for Codex here.
       );
     }
 
+    final ccSystemCard = buildCcSystemMessageCard(
+      context: context,
+      message: message,
+      variant: variant,
+    );
+    if (ccSystemCard != null) {
+      return ccSystemCard;
+    }
+
     return null; // Unknown variant, fall through to default rendering
   }
 
@@ -7837,6 +7847,7 @@ Describe project-specific guidance for Codex here.
       outputFormat: ccConfig?.outputFormat,
       sandbox: ccConfig?.sandbox,
       enableAgentTeams: ccConfig?.enableAgentTeams,
+      enableClaudeAiMcpServers: ccConfig?.enableClaudeAiMcpServers,
       fileAttachments: hasAttachments ? pendingAttachments : null,
     );
     _userHasScrolledUp = false;
@@ -7993,6 +8004,7 @@ Describe project-specific guidance for Codex here.
         outputFormat: ccConfig?.outputFormat,
         sandbox: ccConfig?.sandbox,
         enableAgentTeams: ccConfig?.enableAgentTeams,
+        enableClaudeAiMcpServers: ccConfig?.enableClaudeAiMcpServers,
         fileAttachments: hasAttachments ? _attachedFiles : null,
       );
       _ccResumeSessionAtMessageId = null;
@@ -8630,7 +8642,13 @@ Describe your project here.
     _haptics.mediumImpact();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final isCodex = widget.isCodex;
-      final alwaysLabel = isCodex ? 'Session' : 'Always';
+      final isClaudeElicitation =
+          request.metadata['ccElicitationRequestId'] != null;
+      final alwaysLabel = isCodex
+          ? 'Session'
+          : isClaudeElicitation
+          ? 'Approve'
+          : 'Always';
       VoidCallback? onExecpolicy;
       String? execpolicyLabel;
       if (isCodex) {
@@ -8664,7 +8682,9 @@ Describe your project here.
           request: request,
           onApprove: () => _respondToPermission(request, 'once'),
           onDeny: () => _respondToPermission(request, 'reject'),
-          onAlwaysAllow: () => _respondToPermission(request, 'always'),
+          onAlwaysAllow: isClaudeElicitation
+              ? () => _respondToPermission(request, 'once')
+              : () => _respondToPermission(request, 'always'),
           approveAlwaysLabel: alwaysLabel,
           onApproveWithExecpolicy: onExecpolicy,
           approveWithExecpolicyLabel: execpolicyLabel,
@@ -8773,12 +8793,18 @@ Describe your project here.
     });
   }
 
-  void _respondToPermission(
+  Future<Map<String, dynamic>?> _showElicitationFormInputDialog(
+    PermissionRequest request,
+  ) {
+    return showCcElicitationFormInputDialog(context, request);
+  }
+
+  Future<void> _respondToPermission(
     PermissionRequest request,
     String response, {
     String? message,
     Object? execpolicyAmendment,
-  }) {
+  }) async {
     final entitlement = ref.read(appSubscriptionProvider).entitled;
     if (!entitlement) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -8793,11 +8819,37 @@ Describe your project here.
     final bridge = ref.read(bridgeServiceProvider);
     final chat = ref.read(chatSessionProvider.notifier);
     if (widget.isClaudeCode) {
-      bridge.ccRespondToPermission(
-        sessionId: request.sessionId,
-        toolUseId: request.id,
-        response: response,
-      );
+      final elicitationRequestId =
+          request.metadata['ccElicitationRequestId'] as String?;
+      if (elicitationRequestId != null && elicitationRequestId.isNotEmpty) {
+        final mode = request.metadata['ccElicitationMode'] as String?;
+        var action = switch (response) {
+          'once' || 'always' => 'accept',
+          'reject' => 'decline',
+          _ => 'cancel',
+        };
+
+        Map<String, dynamic>? content;
+        if (mode == 'form' && action == 'accept') {
+          content = await _showElicitationFormInputDialog(request);
+          if (content == null) {
+            action = 'cancel';
+          }
+        }
+
+        bridge.ccRespondToElicitation(
+          sessionId: request.sessionId,
+          requestId: elicitationRequestId,
+          action: action,
+          content: content,
+        );
+      } else {
+        bridge.ccRespondToPermission(
+          sessionId: request.sessionId,
+          toolUseId: request.id,
+          response: response,
+        );
+      }
     } else if (widget.isCodex) {
       bridge.cxRespondToPermission(
         requestId: request.id,
@@ -8814,7 +8866,9 @@ Describe your project here.
       );
     }
     chat.resolvePermission(request.id);
-    Navigator.pop(context);
+    if (mounted && Navigator.of(context).canPop()) {
+      Navigator.pop(context);
+    }
   }
 }
 

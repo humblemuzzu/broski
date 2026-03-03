@@ -717,6 +717,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   // Claude Code subagent tracking
   // Maps Task tool_use_id -> subagent name for running subagents
   final Map<String, String> _ccActiveSubagentNames = {};
+  String? _ccFastModeState;
   // Maps parentToolUseId -> list of nested ToolCalls from within that subagent
   final Map<String, List<ToolCall>> _ccNestedToolCalls = {};
 
@@ -751,6 +752,27 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       ),
     );
     _ccCurrentTextPartIndex = 0;
+  }
+
+  void _emitCcFastModeState(String? nextState) {
+    if (nextState == null || nextState.isEmpty) return;
+    if (_ccFastModeState == nextState) return;
+    // Do not emit the initial default off state as a visible transition.
+    if (_ccFastModeState == null && nextState == 'off') {
+      _ccFastModeState = nextState;
+      return;
+    }
+    _ccFastModeState = nextState;
+    _addMessage(
+      ChatMessage(
+        id: 'cc-fast-mode-${DateTime.now().microsecondsSinceEpoch}',
+        sessionId: state.ccSessionId ?? '',
+        role: MessageRole.system,
+        createdAt: DateTime.now(),
+        text: '⚡ Fast mode: $nextState',
+        variant: 'cc-fast-mode:$nextState',
+      ),
+    );
   }
 
   void updateConnectionMetrics(int rttMs) {
@@ -1131,6 +1153,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     // Reset subagent tracking
     _ccActiveSubagentNames.clear();
     _ccNestedToolCalls.clear();
+    _ccFastModeState = null;
   }
 
   void _resetCodexState() {
@@ -3106,6 +3129,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       if (nextSessionId.isNotEmpty && nextSessionId != prevSessionId) {
         _bridge.setView(sessionId: nextSessionId, agent: 'claude-code');
       }
+      _emitCcFastModeState(message.fastModeState);
       return;
     }
 
@@ -3482,6 +3506,122 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       return;
     }
 
+    if (message is CCLocalCommandOutput) {
+      final content = message.content.trim();
+      if (content.isEmpty) return;
+      _addMessage(
+        ChatMessage(
+          id: 'cc-local-command-${DateTime.now().microsecondsSinceEpoch}',
+          sessionId: state.ccSessionId ?? '',
+          role: MessageRole.system,
+          createdAt: DateTime.now(),
+          text: content,
+          variant: 'cc-local-command-output',
+        ),
+      );
+      return;
+    }
+
+    if (message is CCElicitationRequest) {
+      // Keep the exact wire sessionId for waiter-key round-tripping.
+      // For brand-new sessions this can be empty until session-created arrives.
+      final sessionId = message.sessionId;
+      final title = message.mcpServerName.isNotEmpty
+          ? 'MCP auth: ${message.mcpServerName}'
+          : 'MCP authentication required';
+      final command = message.url ?? message.message;
+      final requestId = message.requestId.isNotEmpty
+          ? message.requestId
+          : 'cc-elicitation-${DateTime.now().microsecondsSinceEpoch}';
+
+      final permissionRequest = PermissionRequest(
+        id: requestId,
+        sessionId: sessionId,
+        title: title,
+        permission: 'mcp_auth',
+        command: command,
+        metadata: {
+          'tool': 'mcp_elicitation',
+          'input': {
+            'message': message.message,
+            if (message.mode != null) 'mode': message.mode,
+            if (message.url != null) 'url': message.url,
+            if (message.elicitationId != null)
+              'elicitationId': message.elicitationId,
+            if (message.requestedSchema != null)
+              'requestedSchema': message.requestedSchema,
+          },
+          'description': message.message,
+          'ccElicitationRequestId': requestId,
+          'ccElicitationMode': message.mode,
+          if (message.url != null) 'ccElicitationUrl': message.url,
+          'ccElicitationServer': message.mcpServerName,
+        },
+      );
+
+      state = state.copyWith(
+        permissions: [permissionRequest, ...state.permissions],
+      );
+
+      _addMessage(
+        ChatMessage(
+          id: 'cc-elicitation-$requestId',
+          sessionId: sessionId,
+          role: MessageRole.system,
+          createdAt: DateTime.now(),
+          text: message.message,
+          variant: 'cc-elicitation-request',
+        ),
+      );
+      return;
+    }
+
+    if (message is CCElicitationComplete) {
+      final serverName = message.mcpServerName.isNotEmpty
+          ? message.mcpServerName
+          : 'MCP server';
+
+      final remainingPermissions = state.permissions.where((permission) {
+        final metadata = permission.metadata;
+        final rawInput = metadata['input'];
+        final pendingServer = metadata['ccElicitationServer'] as String?;
+        String? pendingElicitationId;
+        if (rawInput is Map<String, dynamic>) {
+          pendingElicitationId = rawInput['elicitationId'] as String?;
+        } else if (rawInput is Map) {
+          final value = rawInput['elicitationId'];
+          pendingElicitationId = value is String ? value : null;
+        }
+
+        if (message.elicitationId.isNotEmpty &&
+            pendingElicitationId == message.elicitationId) {
+          return false;
+        }
+        if (message.elicitationId.isEmpty &&
+            message.mcpServerName.isNotEmpty &&
+            pendingServer == message.mcpServerName) {
+          return false;
+        }
+        return true;
+      }).toList();
+
+      if (remainingPermissions.length != state.permissions.length) {
+        state = state.copyWith(permissions: remainingPermissions);
+      }
+
+      _addMessage(
+        ChatMessage(
+          id: 'cc-elicitation-complete-${DateTime.now().microsecondsSinceEpoch}',
+          sessionId: state.ccSessionId ?? '',
+          role: MessageRole.system,
+          createdAt: DateTime.now(),
+          text: '✅ $serverName authentication completed',
+          variant: 'cc-elicitation-complete',
+        ),
+      );
+      return;
+    }
+
     if (message is CCTaskStarted) {
       final taskMsg = ChatMessage(
         id: 'cc-task-${message.taskId}',
@@ -3675,20 +3815,32 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     }
 
     if (message is CCRateLimitInfo) {
-      final resetAt = message.data['reset_at'] ?? message.data['resetAt'];
-      final usage = message.data['utilization'] ?? message.data['usage'];
-      final extra = [
-        if (usage != null) '$usage',
-        if (resetAt != null) 'reset: $resetAt',
-      ].join(' · ');
+      final utilizationPercent = message.utilization != null
+          ? (message.utilization! * 100).round()
+          : null;
+      final resetAt = message.resetsAt;
+      final status = message.status;
+      // SDK docs type resetsAt as number without explicit unit.
+      // Current bridge payloads are unix-seconds, but keep a defensive branch
+      // for millisecond payloads to avoid rendering dates in 1970.
+      final resetAtMs = resetAt == null
+          ? null
+          : (resetAt > 1000000000000 ? resetAt : resetAt * 1000);
+      final parts = <String>[
+        if (status != null && status.isNotEmpty) status,
+        if (utilizationPercent != null) '$utilizationPercent%',
+        if (resetAtMs != null)
+          'reset: ${DateTime.fromMillisecondsSinceEpoch(resetAtMs).toLocal()}',
+      ];
+      final text = parts.isEmpty
+          ? '⏱ Claude Code rate-limit update received'
+          : '⏱ Claude Code rate-limit update: ${parts.join(' · ')}';
       final limitMsg = ChatMessage(
         id: 'cc-rate-limit-${DateTime.now().microsecondsSinceEpoch}',
         sessionId: state.ccSessionId ?? '',
         role: MessageRole.system,
         createdAt: DateTime.now(),
-        text: extra.isEmpty
-            ? '⏱ Claude Code rate-limit update received'
-            : '⏱ Claude Code rate-limit update: $extra',
+        text: text,
         variant: 'cc-rate-limit',
       );
       _addMessage(limitMsg);
@@ -3815,6 +3967,8 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
           );
         }
       }
+
+      _emitCcFastModeState(message.fastModeState);
 
       return;
     }

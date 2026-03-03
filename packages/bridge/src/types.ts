@@ -581,6 +581,7 @@ export type ClientMessage =
       enableAgentTeams?: boolean
       persistSession?: boolean
       promptSuggestions?: boolean
+      enableClaudeAiMcpServers?: boolean
       // B5: fallback model for auto-retry on primary model failure
       fallbackModel?: string
       // B6: additional directories agent can access beyond cwd
@@ -618,6 +619,13 @@ export type ClientMessage =
       response: PermissionResponse
       // For AskUserQuestion: pass user-selected answers back to SDK via updatedInput
       updatedInput?: Record<string, unknown>
+    }
+  | {
+      type: 'cc_elicitation_response'
+      sessionId: string
+      requestId: string
+      action: 'accept' | 'decline' | 'cancel'
+      content?: Record<string, unknown>
     }
   | { type: 'cc_list_skills'; cwd?: string }
   | {
@@ -2259,7 +2267,7 @@ export type ClaudeCodeSkill = {
 }
 
 // Claude Code Hook Event Types
-export type ClaudeCodeHookEvent = 'PreToolUse' | 'PostToolUse' | 'PostToolUseFailure' | 'Notification' | 'SessionStart' | 'SessionEnd' | 'Stop' | 'PermissionRequest' | 'UserPromptSubmit' | 'SubagentStart' | 'SubagentStop' | 'TeammateIdle' | 'TaskCompleted' | 'PreCompact' | 'Setup'
+export type ClaudeCodeHookEvent = 'PreToolUse' | 'PostToolUse' | 'PostToolUseFailure' | 'Notification' | 'SessionStart' | 'SessionEnd' | 'Stop' | 'PermissionRequest' | 'UserPromptSubmit' | 'SubagentStart' | 'SubagentStop' | 'TeammateIdle' | 'TaskCompleted' | 'PreCompact' | 'Setup' | 'Elicitation' | 'ElicitationResult' | 'ConfigChange' | 'WorktreeCreate' | 'WorktreeRemove'
 
 // Claude Code Hook Configuration
 export type ClaudeCodeHook = {
@@ -2345,6 +2353,8 @@ export type ClaudeCodeFilesystemAgent = {
   tools?: string[] // From frontmatter 'tools' field
   model?: string // From frontmatter 'model' field
   memory?: 'user' | 'project' | 'local' // From frontmatter 'memory' field
+  background?: boolean // From frontmatter 'background' field (always run as background task)
+  isolation?: 'worktree' // From frontmatter 'isolation' field
   source: 'project' | 'user' // Project-level (.claude/agents/) or user-level (~/.claude/agents/)
   path: string // Absolute path to the .md file
 }
@@ -2356,6 +2366,7 @@ export type ClaudeCodeMemoryEntry = {
   content: string // Full markdown content
   createdAt?: string // ISO date from filename or stat
   path: string // Absolute path to the file
+  source?: 'auto' | 'manual' | 'unknown' // Best-effort classifier for auto-memory entries
 }
 
 // Claude Code Subagent Definition (matches SDK AgentDefinition)
@@ -2370,6 +2381,8 @@ export type ClaudeCodeSubagent = {
   skills?: string[] // Skills to preload
   maxTurns?: number // Max agentic turns
   mcpServers?: Array<string | Record<string, unknown>> // Per-subagent MCP servers (B14)
+  background?: boolean // Run this subagent as background task by default
+  isolation?: 'worktree' // Run this subagent in isolated git worktree
 }
 
 // Claude Code Custom Tool Parameter
@@ -2487,6 +2500,8 @@ export type ClaudeCodeConfig = {
   thinking?: ClaudeCodeThinkingOption
   effort?: ClaudeCodeEffort
   promptSuggestions?: boolean
+  // When false, disables claude.ai-managed MCP servers (CLAUDE_CODE env flag).
+  enableClaudeAiMcpServers?: boolean
   // Project/user settings (persisted in Claude Code settings.json)
   language?: string
   releaseChannel?: 'stable' | 'latest'
@@ -2510,6 +2525,8 @@ export type ClaudeCodeAccountInfo = {
   subscriptionType?: string
   tokenSource?: string
   apiKeySource?: string
+  accountUuid?: string
+  organizationUuid?: string
 }
 
 export type ClaudeCodeMcpToolAnnotations = {
@@ -2553,6 +2570,18 @@ export type ClaudeCodePermissionDenial = {
   toolInput?: Record<string, unknown>
 }
 
+export type ClaudeCodeRateLimitInfo = {
+  status?: 'allowed' | 'allowed_warning' | 'rejected'
+  resetsAt?: number
+  rateLimitType?: 'five_hour' | 'seven_day' | 'seven_day_opus' | 'seven_day_sonnet' | 'overage' | string
+  utilization?: number
+  overageStatus?: 'allowed' | 'allowed_warning' | 'rejected'
+  overageResetsAt?: number
+  overageDisabledReason?: string
+  isUsingOverage?: boolean
+  surpassedThreshold?: number
+}
+
 // Claude Code Message (for streaming)
 export type ClaudeCodeStreamMessage =
   | {
@@ -2579,6 +2608,7 @@ export type ClaudeCodeStreamMessage =
       outputStyle?: string
       supportedModels?: ClaudeCodeSupportedModel[]
       accountInfo?: ClaudeCodeAccountInfo
+      fastModeState?: 'off' | 'cooldown' | 'on'
       parentToolUseId?: string
     }
   | {
@@ -2686,10 +2716,34 @@ export type ClaudeCodeStreamMessage =
       isError?: boolean
       errors?: string[]
       permissionDenials?: ClaudeCodePermissionDenial[]
+      fastModeState?: 'off' | 'cooldown' | 'on'
       parentToolUseId?: string
     }
   // Structured output from SDK result when outputFormat is enabled.
   | { type: 'structured-output'; data: unknown; parentToolUseId?: string }
+  | {
+      type: 'local-command-output'
+      content: string
+      parentToolUseId?: string
+    }
+  | {
+      type: 'elicitation-request'
+      sessionId?: string
+      requestId: string
+      mcpServerName: string
+      message: string
+      mode?: 'form' | 'url'
+      url?: string
+      elicitationId?: string
+      requestedSchema?: Record<string, unknown>
+      parentToolUseId?: string
+    }
+  | {
+      type: 'elicitation-complete'
+      mcpServerName: string
+      elicitationId: string
+      parentToolUseId?: string
+    }
   | { type: 'error'; message: string; code?: string; parentToolUseId?: string }
   | {
       type: 'task-started'
@@ -2771,7 +2825,7 @@ export type ClaudeCodeStreamMessage =
     }
   | {
       type: 'rate-limit-info'
-      data: unknown
+      data: ClaudeCodeRateLimitInfo
       parentToolUseId?: string
     }
   | {

@@ -296,11 +296,36 @@ class _MemoryCardState extends State<_MemoryCard> {
         return AppIcons.memory;
     }
   }
+
+  String? _sourceLabel(String? source) {
+    switch (source) {
+      case 'auto':
+        return 'Auto';
+      case 'manual':
+        return 'Manual';
+      default:
+        return null;
+    }
+  }
+
+  Color _sourceColor(String? source) {
+    switch (source) {
+      case 'auto':
+        return widget.theme.success;
+      case 'manual':
+        return widget.theme.info;
+      default:
+        return widget.theme.textMuted;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = widget.theme;
     final entry = widget.entry;
     final scopeColor = _scopeColor(entry.scope);
+    final sourceLabel = _sourceLabel(entry.source);
+    final sourceColor = _sourceColor(entry.source);
     // Show first ~150 chars as preview
     final preview = entry.content.length > 150
         ? '${entry.content.substring(0, 150)}…'
@@ -342,6 +367,27 @@ class _MemoryCardState extends State<_MemoryCard> {
                       ),
                     ),
                   ),
+                  if (sourceLabel != null) ...[
+                    SizedBox(width: Spacing.xs),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: sourceColor.withValues(alpha: 0.12),
+                        borderRadius: Radii.brFull,
+                      ),
+                      child: Text(
+                        sourceLabel,
+                        style: TextStyle(
+                          color: sourceColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
                   SizedBox(width: Spacing.sm),
                   if (entry.createdAt != null)
                     Text(

@@ -421,6 +421,8 @@ class _HookEditorScreenState extends State<HookEditorScreen> {
     'TaskCompleted',
     'PreCompact',
     'Setup',
+    'Elicitation',
+    'ElicitationResult',
     'ConfigChange',
     'WorktreeCreate',
     'WorktreeRemove',

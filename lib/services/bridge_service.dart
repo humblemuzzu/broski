@@ -34,6 +34,7 @@ part 'bridge/bridge_codex_runtime.dart';
 part 'bridge/bridge_codex_features.dart';
 part 'bridge/bridge_opencode_sessions.dart';
 part 'bridge/bridge_opencode_updates.dart';
+part 'bridge/bridge_claude_code_updates.dart';
 
 class BridgeService {
   static const protocolVersion = '1.0.0';
@@ -2771,6 +2772,7 @@ class BridgeService {
     ClaudeCodeSandboxSettings? sandbox,
     bool? enableAgentTeams,
     bool? persistSession,
+    bool? enableClaudeAiMcpServers,
     String? fallbackModel,
     List<String>? additionalDirectories,
     List<FileAttachment>? fileAttachments,
@@ -2804,6 +2806,8 @@ class BridgeService {
       if (sandbox != null) 'sandbox': sandbox.toJson(),
       if (enableAgentTeams != null) 'enableAgentTeams': enableAgentTeams,
       if (persistSession != null) 'persistSession': persistSession,
+      if (enableClaudeAiMcpServers != null)
+        'enableClaudeAiMcpServers': enableClaudeAiMcpServers,
       if (fallbackModel != null) 'fallbackModel': fallbackModel,
       if (additionalDirectories != null && additionalDirectories.isNotEmpty)
         'additionalDirectories': additionalDirectories,

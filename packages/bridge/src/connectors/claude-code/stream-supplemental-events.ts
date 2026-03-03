@@ -1,3 +1,5 @@
+import type { SDKRateLimitInfo } from '@anthropic-ai/claude-agent-sdk'
+
 type EmitFn = (message: Record<string, unknown>) => void
 
 export type SupplementalEventResult = 'unhandled' | 'handled' | 'fatal'
@@ -167,10 +169,51 @@ export function emitClaudeCodeSupplementalStreamEvents(
     return 'handled'
   }
 
+  if (type === 'system' && subtype === 'local_command_output') {
+    emit({
+      type: 'local-command-output',
+      content: String(payload.content ?? ''),
+    })
+    return 'handled'
+  }
+
+  if (type === 'system' && subtype === 'elicitation_complete') {
+    emit({
+      type: 'elicitation-complete',
+      mcpServerName: String(payload.mcp_server_name ?? ''),
+      elicitationId: String(payload.elicitation_id ?? ''),
+    })
+    return 'handled'
+  }
+
   if (type === 'rate_limit_event') {
+    const raw = (
+      payload.rate_limit_info && typeof payload.rate_limit_info === 'object'
+        ? payload.rate_limit_info
+        : {}
+    ) as SDKRateLimitInfo
+
     emit({
       type: 'rate-limit-info',
-      data: payload.rate_limit_info ?? payload,
+      data: {
+        ...(raw.status ? { status: raw.status } : {}),
+        ...(typeof raw.resetsAt === 'number' ? { resetsAt: raw.resetsAt } : {}),
+        ...(raw.rateLimitType ? { rateLimitType: raw.rateLimitType } : {}),
+        ...(typeof raw.utilization === 'number' ? { utilization: raw.utilization } : {}),
+        ...(raw.overageStatus ? { overageStatus: raw.overageStatus } : {}),
+        ...(typeof raw.overageResetsAt === 'number'
+          ? { overageResetsAt: raw.overageResetsAt }
+          : {}),
+        ...(raw.overageDisabledReason
+          ? { overageDisabledReason: raw.overageDisabledReason }
+          : {}),
+        ...(typeof raw.isUsingOverage === 'boolean'
+          ? { isUsingOverage: raw.isUsingOverage }
+          : {}),
+        ...(typeof raw.surpassedThreshold === 'number'
+          ? { surpassedThreshold: raw.surpassedThreshold }
+          : {}),
+      },
     })
     return 'handled'
   }

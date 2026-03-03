@@ -596,6 +596,7 @@ class ClaudeCodeMemoryEntry {
   final String content;
   final String? createdAt;
   final String path;
+  final String? source; // 'auto' | 'manual' | 'unknown'
 
   const ClaudeCodeMemoryEntry({
     required this.scope,
@@ -603,6 +604,7 @@ class ClaudeCodeMemoryEntry {
     required this.content,
     this.createdAt,
     required this.path,
+    this.source,
   });
 
   factory ClaudeCodeMemoryEntry.fromJson(Map<String, dynamic> json) {
@@ -612,6 +614,7 @@ class ClaudeCodeMemoryEntry {
       content: json['content'] as String? ?? '',
       createdAt: json['createdAt'] as String?,
       path: json['path'] as String? ?? '',
+      source: json['source'] as String?,
     );
   }
 }
@@ -674,6 +677,8 @@ class ClaudeCodeAccountInfo {
   final String? subscriptionType;
   final String? tokenSource;
   final String? apiKeySource;
+  final String? accountUuid;
+  final String? organizationUuid;
 
   const ClaudeCodeAccountInfo({
     this.email,
@@ -681,6 +686,8 @@ class ClaudeCodeAccountInfo {
     this.subscriptionType,
     this.tokenSource,
     this.apiKeySource,
+    this.accountUuid,
+    this.organizationUuid,
   });
 
   factory ClaudeCodeAccountInfo.fromJson(Map<String, dynamic> json) {
@@ -690,6 +697,8 @@ class ClaudeCodeAccountInfo {
       subscriptionType: json['subscriptionType'] as String?,
       tokenSource: json['tokenSource'] as String?,
       apiKeySource: json['apiKeySource'] as String?,
+      accountUuid: json['accountUuid'] as String?,
+      organizationUuid: json['organizationUuid'] as String?,
     );
   }
 
@@ -700,6 +709,8 @@ class ClaudeCodeAccountInfo {
       if (subscriptionType != null) 'subscriptionType': subscriptionType,
       if (tokenSource != null) 'tokenSource': tokenSource,
       if (apiKeySource != null) 'apiKeySource': apiKeySource,
+      if (accountUuid != null) 'accountUuid': accountUuid,
+      if (organizationUuid != null) 'organizationUuid': organizationUuid,
     };
   }
 }
@@ -899,6 +910,8 @@ class ClaudeCodeSubagent {
   final List<String>? skills;
   final int? maxTurns;
   final List<dynamic>? mcpServers;
+  final bool background;
+  final String? isolation;
 
   const ClaudeCodeSubagent({
     required this.name,
@@ -911,6 +924,8 @@ class ClaudeCodeSubagent {
     this.skills,
     this.maxTurns,
     this.mcpServers,
+    this.background = false,
+    this.isolation,
   });
 
   factory ClaudeCodeSubagent.fromJson(Map<String, dynamic> json) {
@@ -930,6 +945,8 @@ class ClaudeCodeSubagent {
       skills: (json['skills'] as List<dynamic>?)?.cast<String>(),
       maxTurns: (json['maxTurns'] as num?)?.toInt(),
       mcpServers: json['mcpServers'] as List<dynamic>?,
+      background: json['background'] as bool? ?? false,
+      isolation: json['isolation'] as String?,
     );
   }
 
@@ -947,6 +964,8 @@ class ClaudeCodeSubagent {
       if (maxTurns != null) 'maxTurns': maxTurns,
       if (mcpServers != null && mcpServers!.isNotEmpty)
         'mcpServers': mcpServers,
+      if (background) 'background': true,
+      if (isolation != null && isolation!.isNotEmpty) 'isolation': isolation,
     };
   }
 
@@ -961,6 +980,8 @@ class ClaudeCodeSubagent {
     List<String>? skills,
     int? maxTurns,
     List<dynamic>? mcpServers,
+    bool? background,
+    String? isolation,
   }) {
     return ClaudeCodeSubagent(
       name: name ?? this.name,
@@ -973,6 +994,8 @@ class ClaudeCodeSubagent {
       skills: skills ?? this.skills,
       maxTurns: maxTurns ?? this.maxTurns,
       mcpServers: mcpServers ?? this.mcpServers,
+      background: background ?? this.background,
+      isolation: isolation ?? this.isolation,
     );
   }
 }
@@ -992,6 +1015,7 @@ class ClaudeCodeConfig {
   final ClaudeCodeThinkingOption? thinking;
   final ClaudeCodeEffort? effort;
   final bool? promptSuggestions;
+  final bool? enableClaudeAiMcpServers;
   final String? language;
   final String? releaseChannel; // 'stable' | 'latest'
   final bool? respectGitignore;
@@ -1013,6 +1037,7 @@ class ClaudeCodeConfig {
     this.thinking,
     this.effort,
     this.promptSuggestions,
+    this.enableClaudeAiMcpServers,
     this.language,
     this.releaseChannel,
     this.respectGitignore,
@@ -1067,6 +1092,7 @@ class ClaudeCodeConfig {
           : null,
       effort: ClaudeCodeEffort.fromWireValue(json['effort'] as String?),
       promptSuggestions: json['promptSuggestions'] as bool?,
+      enableClaudeAiMcpServers: json['enableClaudeAiMcpServers'] as bool?,
       language: json['language'] as String?,
       releaseChannel: json['releaseChannel'] as String?,
       respectGitignore: json['respectGitignore'] as bool?,
@@ -1097,6 +1123,8 @@ class ClaudeCodeConfig {
       if (thinking != null) 'thinking': thinking!.toJson(),
       if (effort != null) 'effort': effort!.wireValue,
       if (promptSuggestions != null) 'promptSuggestions': promptSuggestions,
+      if (enableClaudeAiMcpServers != null)
+        'enableClaudeAiMcpServers': enableClaudeAiMcpServers,
       if (language != null) 'language': language,
       if (releaseChannel != null) 'releaseChannel': releaseChannel,
       if (respectGitignore != null) 'respectGitignore': respectGitignore,
@@ -1139,6 +1167,8 @@ class ClaudeCodeConfig {
     bool clearEffort = false,
     bool? promptSuggestions,
     bool clearPromptSuggestions = false,
+    bool? enableClaudeAiMcpServers,
+    bool clearEnableClaudeAiMcpServers = false,
     String? language,
     bool clearLanguage = false,
     String? releaseChannel,
@@ -1174,6 +1204,9 @@ class ClaudeCodeConfig {
       promptSuggestions: clearPromptSuggestions
           ? null
           : (promptSuggestions ?? this.promptSuggestions),
+      enableClaudeAiMcpServers: clearEnableClaudeAiMcpServers
+          ? null
+          : (enableClaudeAiMcpServers ?? this.enableClaudeAiMcpServers),
       language: clearLanguage ? null : (language ?? this.language),
       releaseChannel: clearReleaseChannel
           ? null
@@ -1255,6 +1288,12 @@ sealed class ClaudeCodeStreamMessage {
         return CCResultComplete.fromJson(json);
       case 'structured-output':
         return CCStructuredOutput.fromJson(json);
+      case 'local-command-output':
+        return CCLocalCommandOutput.fromJson(json);
+      case 'elicitation-request':
+        return CCElicitationRequest.fromJson(json);
+      case 'elicitation-complete':
+        return CCElicitationComplete.fromJson(json);
       default:
         return CCUnknown(type ?? 'unknown', json);
     }
@@ -1303,6 +1342,9 @@ class CCSessionInit extends ClaudeCodeStreamMessage {
   /// Output style (e.g. 'concise', 'verbose').
   final String? outputStyle;
 
+  /// Fast mode state for Opus 4.6: off, cooldown, on.
+  final String? fastModeState;
+
   /// Agent definitions (subagents) available in this session (SDK 0.2.42+).
   final List<Map<String, dynamic>> agents;
 
@@ -1321,6 +1363,7 @@ class CCSessionInit extends ClaudeCodeStreamMessage {
     this.claudeCodeVersion,
     this.betas = const [],
     this.outputStyle,
+    this.fastModeState,
     this.agents = const [],
     super.parentToolUseId,
   });
@@ -1372,6 +1415,7 @@ class CCSessionInit extends ClaudeCodeStreamMessage {
       claudeCodeVersion: json['claudeCodeVersion'] as String?,
       betas: (json['betas'] as List<dynamic>?)?.cast<String>() ?? const [],
       outputStyle: json['outputStyle'] as String?,
+      fastModeState: json['fastModeState'] as String?,
       agents:
           (json['agents'] as List<dynamic>?)
               ?.whereType<Map<String, dynamic>>()
@@ -2060,18 +2104,57 @@ class CCAuthStatus extends ClaudeCodeStreamMessage {
 }
 
 class CCRateLimitInfo extends ClaudeCodeStreamMessage {
+  final String? status;
+  final int? resetsAt;
+  final String? rateLimitType;
+  final double? utilization;
+  final String? overageStatus;
+  final int? overageResetsAt;
+  final String? overageDisabledReason;
+  final bool? isUsingOverage;
+  final double? surpassedThreshold;
   final Map<String, dynamic> data;
 
-  const CCRateLimitInfo({required this.data, super.parentToolUseId});
+  const CCRateLimitInfo({
+    this.status,
+    this.resetsAt,
+    this.rateLimitType,
+    this.utilization,
+    this.overageStatus,
+    this.overageResetsAt,
+    this.overageDisabledReason,
+    this.isUsingOverage,
+    this.surpassedThreshold,
+    this.data = const {},
+    super.parentToolUseId,
+  });
 
   factory CCRateLimitInfo.fromJson(Map<String, dynamic> json) {
     final dataRaw = json['data'];
+    final data = dataRaw is Map<String, dynamic>
+        ? dataRaw
+        : dataRaw is Map
+        ? dataRaw.cast<String, dynamic>()
+        : <String, dynamic>{};
+
+    double? toDouble(dynamic value) {
+      if (value == null) return null;
+      if (value is num) return value.toDouble();
+      if (value is String) return double.tryParse(value);
+      return null;
+    }
+
     return CCRateLimitInfo(
-      data: dataRaw is Map<String, dynamic>
-          ? dataRaw
-          : dataRaw is Map
-          ? dataRaw.cast<String, dynamic>()
-          : <String, dynamic>{},
+      status: data['status'] as String?,
+      resetsAt: (data['resetsAt'] as num?)?.toInt(),
+      rateLimitType: data['rateLimitType'] as String?,
+      utilization: toDouble(data['utilization']),
+      overageStatus: data['overageStatus'] as String?,
+      overageResetsAt: (data['overageResetsAt'] as num?)?.toInt(),
+      overageDisabledReason: data['overageDisabledReason'] as String?,
+      isUsingOverage: data['isUsingOverage'] as bool?,
+      surpassedThreshold: toDouble(data['surpassedThreshold']),
+      data: data,
       parentToolUseId: json['parentToolUseId'] as String?,
     );
   }
@@ -2121,6 +2204,7 @@ class CCResultComplete extends ClaudeCodeStreamMessage {
   final bool? isError;
   final List<String> errors;
   final List<CCPermissionDenial> permissionDenials;
+  final String? fastModeState;
 
   const CCResultComplete({
     this.stopReason,
@@ -2131,6 +2215,7 @@ class CCResultComplete extends ClaudeCodeStreamMessage {
     this.isError,
     this.errors = const [],
     this.permissionDenials = const [],
+    this.fastModeState,
     super.parentToolUseId,
   });
 
@@ -2152,6 +2237,7 @@ class CCResultComplete extends ClaudeCodeStreamMessage {
               .map(CCPermissionDenial.fromJson)
               .toList() ??
           const [],
+      fastModeState: json['fastModeState'] as String?,
       parentToolUseId: json['parentToolUseId'] as String?,
     );
   }
@@ -2195,6 +2281,83 @@ class CCStructuredOutput extends ClaudeCodeStreamMessage {
   factory CCStructuredOutput.fromJson(Map<String, dynamic> json) {
     return CCStructuredOutput(
       data: json['data'],
+      parentToolUseId: json['parentToolUseId'] as String?,
+    );
+  }
+}
+
+class CCLocalCommandOutput extends ClaudeCodeStreamMessage {
+  final String content;
+
+  const CCLocalCommandOutput({required this.content, super.parentToolUseId});
+
+  factory CCLocalCommandOutput.fromJson(Map<String, dynamic> json) {
+    return CCLocalCommandOutput(
+      content: json['content'] as String? ?? '',
+      parentToolUseId: json['parentToolUseId'] as String?,
+    );
+  }
+}
+
+class CCElicitationRequest extends ClaudeCodeStreamMessage {
+  final String sessionId;
+  final String requestId;
+  final String mcpServerName;
+  final String message;
+  final String? mode;
+  final String? url;
+  final String? elicitationId;
+  final Map<String, dynamic>? requestedSchema;
+
+  const CCElicitationRequest({
+    required this.sessionId,
+    required this.requestId,
+    required this.mcpServerName,
+    required this.message,
+    this.mode,
+    this.url,
+    this.elicitationId,
+    this.requestedSchema,
+    super.parentToolUseId,
+  });
+
+  factory CCElicitationRequest.fromJson(Map<String, dynamic> json) {
+    final requestedSchemaRaw = json['requestedSchema'];
+    return CCElicitationRequest(
+      sessionId: json['sessionId'] as String? ?? '',
+      requestId: json['requestId'] as String? ?? '',
+      mcpServerName: json['mcpServerName'] as String? ?? '',
+      message: json['message'] as String? ?? '',
+      mode: json['mode'] as String?,
+      url: json['url'] as String?,
+      elicitationId: json['elicitationId'] as String?,
+      requestedSchema: requestedSchemaRaw is Map<String, dynamic>
+          ? requestedSchemaRaw
+          : requestedSchemaRaw is Map
+          ? requestedSchemaRaw.cast<String, dynamic>()
+          : null,
+      parentToolUseId: json['parentToolUseId'] as String?,
+    );
+  }
+
+  bool get isUrlMode => mode == 'url';
+  bool get isFormMode => mode == 'form';
+}
+
+class CCElicitationComplete extends ClaudeCodeStreamMessage {
+  final String mcpServerName;
+  final String elicitationId;
+
+  const CCElicitationComplete({
+    required this.mcpServerName,
+    required this.elicitationId,
+    super.parentToolUseId,
+  });
+
+  factory CCElicitationComplete.fromJson(Map<String, dynamic> json) {
+    return CCElicitationComplete(
+      mcpServerName: json['mcpServerName'] as String? ?? '',
+      elicitationId: json['elicitationId'] as String? ?? '',
       parentToolUseId: json['parentToolUseId'] as String?,
     );
   }
