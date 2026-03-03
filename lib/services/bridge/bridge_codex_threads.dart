@@ -149,8 +149,8 @@ extension BridgeServiceCodexThreads on BridgeService {
       case SkillSource.admin:
         return 'Admin';
       case SkillSource.plugin:
-        return 'System';
       case SkillSource.system:
+      case SkillSource.builtin:
         return 'System';
     }
   }

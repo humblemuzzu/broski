@@ -32,6 +32,7 @@ import '../models/session_context.dart';
 import '../models/vcs.dart';
 import '../providers/chat_provider.dart';
 import 'chat/mcp_oauth_snackbar.dart';
+import 'chat/oc_message_delete_action.dart';
 import '../providers/claude_code_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/app_subscription_provider.dart';
@@ -6948,10 +6949,15 @@ Describe project-specific guidance for Codex here.
     );
   }
 
-  /// SDK v1.2.1: Enhanced compaction divider with auto/manual
-  Widget _buildCompactionDividerEnhanced(bool auto) {
+  /// SDK v1.2.1: Enhanced compaction divider with auto/manual/overflow.
+  Widget _buildCompactionDividerEnhanced({
+    required bool auto,
+    bool overflow = false,
+  }) {
     final theme = OpenCodeTheme.of(context);
-    final label = auto ? 'Context compacted (auto)' : 'Context compacted';
+    final label = overflow
+        ? 'Context compacted (overflow)'
+        : (auto ? 'Context compacted (auto)' : 'Context compacted');
     return Padding(
       padding: Insets.screenV,
       child: Row(
@@ -7121,6 +7127,9 @@ Describe project-specific guidance for Codex here.
     if (message.error == 'context_compacted') {
       return _buildCompactionDivider();
     }
+    if (message.error == 'context_compacted_overflow') {
+      return _buildCompactionDividerEnhanced(auto: true, overflow: true);
+    }
     // SDK v1.2.1: Context overflow — show with action buttons
     if (message.error == 'ContextOverflowError') {
       return _buildContextOverflowError(message);
@@ -7162,6 +7171,18 @@ Describe project-specific guidance for Codex here.
                 onResumeFromHere:
                     widget.isClaudeCode && message.role == MessageRole.assistant
                     ? (messageId) => _setClaudeResumeFromHere(messageId)
+                    : null,
+                onDeleteMessage:
+                    widget.isOpenCode && message.role == MessageRole.assistant
+                    ? (messageId) => deleteOpenCodeMessageFromChat(
+                        context: context,
+                        ref: ref,
+                        sessionId: message.sessionId,
+                        messageId: messageId,
+                        projectPath:
+                            ref.read(chatSessionProvider).projectPath ??
+                            widget.project.path,
+                      )
                     : null,
                 onRollback: widget.isCodex ? _showCodexRollbackSheet : null,
               ),
@@ -7442,6 +7463,18 @@ Describe project-specific guidance for Codex here.
                           message.role == MessageRole.assistant
                       ? (messageId) => _setClaudeResumeFromHere(message.id)
                       : null,
+                  onDeleteMessage:
+                      widget.isOpenCode && message.role == MessageRole.assistant
+                      ? (messageId) => deleteOpenCodeMessageFromChat(
+                          context: context,
+                          ref: ref,
+                          sessionId: message.sessionId,
+                          messageId: message.id,
+                          projectPath:
+                              ref.read(chatSessionProvider).projectPath ??
+                              widget.project.path,
+                        )
+                      : null,
                   onRollback: widget.isCodex ? _showCodexRollbackSheet : null,
                 ),
               ),
@@ -7487,8 +7520,10 @@ Describe project-specific guidance for Codex here.
             Padding(padding: Insets.topSm, child: _buildAgentPill(agentName)),
           );
         // SDK v1.2.1: Compaction divider with auto/manual indicator
-        case CompactionIndicatorPart(:final auto):
-          widgets.add(_buildCompactionDividerEnhanced(auto));
+        case CompactionIndicatorPart(:final auto, :final overflow):
+          widgets.add(
+            _buildCompactionDividerEnhanced(auto: auto, overflow: overflow),
+          );
         // SDK v1.2.1: Patch — compact file list
         case PatchIndicatorPart(:final files):
           widgets.add(
@@ -7517,6 +7552,18 @@ Describe project-specific guidance for Codex here.
             onResumeFromHere:
                 widget.isClaudeCode && message.role == MessageRole.assistant
                 ? (messageId) => _setClaudeResumeFromHere(messageId)
+                : null,
+            onDeleteMessage:
+                widget.isOpenCode && message.role == MessageRole.assistant
+                ? (messageId) => deleteOpenCodeMessageFromChat(
+                    context: context,
+                    ref: ref,
+                    sessionId: message.sessionId,
+                    messageId: message.id,
+                    projectPath:
+                        ref.read(chatSessionProvider).projectPath ??
+                        widget.project.path,
+                  )
                 : null,
             onRollback: widget.isCodex ? _showCodexRollbackSheet : null,
           ),

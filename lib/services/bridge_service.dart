@@ -33,6 +33,7 @@ part 'bridge/bridge_codex_threads.dart';
 part 'bridge/bridge_codex_runtime.dart';
 part 'bridge/bridge_codex_features.dart';
 part 'bridge/bridge_opencode_sessions.dart';
+part 'bridge/bridge_opencode_updates.dart';
 
 class BridgeService {
   static const protocolVersion = '1.0.0';

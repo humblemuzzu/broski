@@ -80,7 +80,8 @@ String _mapKnownBridgeError(String message) {
   if (lower == 'missing cwd') {
     return 'No project folder selected. Open a project first.';
   }
-  if (lower.contains('license_required') || lower.contains('license required')) {
+  if (lower.contains('license_required') ||
+      lower.contains('license required')) {
     return 'Subscription required. Subscribe to Pro in Settings.';
   }
   if (lower.contains('license_expired') || lower.contains('license expired')) {
@@ -143,6 +144,7 @@ String humanErrorLabel(String? code) {
 
     // Informational (not real errors — see message_bubble.dart)
     'context_compacted' => 'Context Compacted',
+    'context_compacted_overflow' => 'Context Compacted (Overflow)',
 
     // Fallback: clean up snake_case/SCREAMING_CASE into Title Case
     _ => _prettifyCode(code),
@@ -154,6 +156,7 @@ String humanErrorLabel(String? code) {
 bool isInfoCode(String? code) {
   return switch (code) {
     'context_compacted' => true,
+    'context_compacted_overflow' => true,
     _ => false,
   };
 }

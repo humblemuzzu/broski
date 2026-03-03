@@ -75,9 +75,12 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
         cwd: cwd,
         forceReload: forceReload,
       );
+      final sdkSkills = widget.backend == AgentType.opencode
+          ? await bridge.ocListSdkSkills(projectPath: cwd)
+          : const <Skill>[];
       if (!mounted) return;
       setState(() {
-        _skills = skills;
+        _skills = [...skills, ...sdkSkills];
         _isLoading = false;
       });
     } catch (e) {
@@ -90,15 +93,19 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
   }
 
   Future<void> _openSkill(Skill summary) async {
-    // Pi skills are read-only (managed by Pi's extension/skill system)
-    if (widget.backend == AgentType.pi) {
+    // Pi and built-in OpenCode SDK skills are read-only.
+    if (widget.backend == AgentType.pi ||
+        summary.source == SkillSource.builtin) {
       if (!mounted) return;
       final oc = OpenCodeTheme.of(context);
-      final piSource = summary.extra?['piSource'] as String? ?? 'extension';
+      final piSource = summary.extra?['piSource'] as String?;
+      final sourceLabel = summary.source == SkillSource.builtin
+          ? 'OpenCode SDK'
+          : (piSource ?? 'extension');
       DetailSheet.show(
         context: context,
         title: summary.name,
-        initialSize: 0.35,
+        initialSize: 0.5,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
           child: Column(
@@ -111,9 +118,26 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
                   summary.description!,
                   style: TextStyle(color: oc.text, fontSize: 14),
                 ),
+              if (summary.content != null &&
+                  summary.content!.trim().isNotEmpty) ...[
+                SizedBox(height: Spacing.md),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: oc.backgroundElement,
+                    borderRadius: Radii.brMd,
+                    border: Border.all(color: oc.border),
+                  ),
+                  child: Text(
+                    summary.content!,
+                    style: AppTypography.codeSmall(color: oc.text),
+                  ),
+                ),
+              ],
               SizedBox(height: Spacing.md),
               Text(
-                'Source: $piSource',
+                'Source: $sourceLabel',
                 style: TextStyle(color: oc.textMuted, fontSize: 13),
               ),
               if (summary.path.isNotEmpty) ...[
@@ -149,9 +173,9 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
       await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to load skill: ${humanizeError(e)}')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load skill: ${humanizeError(e)}')),
+      );
     }
   }
 
@@ -251,9 +275,9 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
       await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to delete skill: ${humanizeError(e)}')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to delete skill: ${humanizeError(e)}')),
+      );
     }
   }
 
@@ -268,6 +292,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
     List<SkillSource> orderedSources = [
       SkillSource.project,
       SkillSource.user,
+      SkillSource.builtin,
       SkillSource.plugin,
       SkillSource.system,
       SkillSource.admin,
@@ -298,151 +323,151 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
       body: AdaptiveContainer(
         width: ContentWidth.standard,
         child: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-          ? Center(
-              child: Padding(
-                padding: Insets.cardLg,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(AppIcons.error, color: oc.error, size: 48),
-                    SizedBox(height: Spacing.md),
-                    Text(
-                      'Failed to load skills',
-                      style: TextStyle(color: oc.text, fontSize: 16),
-                    ),
-                    SizedBox(height: Spacing.sm),
-                    Text(
-                      _error!,
-                      textAlign: TextAlign.center,
-                      style: AppTypography.label(color: oc.textMuted),
-                    ),
-                    SizedBox(height: Spacing.lg),
-                    ElevatedButton.icon(
-                      onPressed: _load,
-                      icon: const Icon(AppIcons.refresh),
-                      label: const Text('Retry'),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          : _skills.isEmpty
-          ? Center(
-              child: Padding(
-                padding: Insets.cardLg,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(AppIcons.extension_, color: oc.textMuted, size: 56),
-                    SizedBox(height: Spacing.md),
-                    Text('No skills found', style: TextStyle(color: oc.text)),
-                    SizedBox(height: Spacing.sm),
-                    Text(
-                      widget.backend == AgentType.pi
-                          ? 'Pi commands come from extensions, skills, and prompt templates.'
-                          : 'Create a SKILL.md to teach the agent repeatable workflows.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: oc.textMuted),
-                    ),
-                    if (widget.backend != AgentType.pi) ...[
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+            ? Center(
+                child: Padding(
+                  padding: Insets.cardLg,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(AppIcons.error, color: oc.error, size: 48),
+                      SizedBox(height: Spacing.md),
+                      Text(
+                        'Failed to load skills',
+                        style: TextStyle(color: oc.text, fontSize: 16),
+                      ),
+                      SizedBox(height: Spacing.sm),
+                      Text(
+                        _error!,
+                        textAlign: TextAlign.center,
+                        style: AppTypography.label(color: oc.textMuted),
+                      ),
                       SizedBox(height: Spacing.lg),
                       ElevatedButton.icon(
-                        onPressed: _createSkill,
-                        icon: const Icon(AppIcons.add),
-                        label: const Text('Create Skill'),
+                        onPressed: _load,
+                        icon: const Icon(AppIcons.refresh),
+                        label: const Text('Retry'),
                       ),
                     ],
-                  ],
+                  ),
                 ),
-              ),
-            )
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              children: [
-                _BackendHeader(backend: widget.backend),
-                SizedBox(height: Spacing.md),
-                for (final source in orderedSources) ...[
-                  _SectionHeader(title: source.displayName),
-                  const SizedBox(height: 6),
-                  ...grouped[source]!.map((skill) {
-                    final editable = skill.source.isEditable;
-                    return Card(
-                      color: oc.backgroundElement,
-                      margin: const EdgeInsets.only(bottom: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: Radii.brMd,
-                        side: BorderSide(color: oc.border),
+              )
+            : _skills.isEmpty
+            ? Center(
+                child: Padding(
+                  padding: Insets.cardLg,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(AppIcons.extension_, color: oc.textMuted, size: 56),
+                      SizedBox(height: Spacing.md),
+                      Text('No skills found', style: TextStyle(color: oc.text)),
+                      SizedBox(height: Spacing.sm),
+                      Text(
+                        widget.backend == AgentType.pi
+                            ? 'Pi commands come from extensions, skills, and prompt templates.'
+                            : 'Create a SKILL.md to teach the agent repeatable workflows.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: oc.textMuted),
                       ),
-                      child: ListTile(
-                        onTap: () => _openSkill(skill),
-                        title: Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                skill.name,
-                                style: TextStyle(
-                                  color: oc.text,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            if (skill.extra?['agent'] != null) ...[
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: oc.primary.withValues(alpha: 0.15),
-                                  borderRadius: Radii.brXs,
-                                ),
+                      if (widget.backend != AgentType.pi) ...[
+                        SizedBox(height: Spacing.lg),
+                        ElevatedButton.icon(
+                          onPressed: _createSkill,
+                          icon: const Icon(AppIcons.add),
+                          label: const Text('Create Skill'),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              )
+            : ListView(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                children: [
+                  _BackendHeader(backend: widget.backend),
+                  SizedBox(height: Spacing.md),
+                  for (final source in orderedSources) ...[
+                    _SectionHeader(title: source.displayName),
+                    const SizedBox(height: 6),
+                    ...grouped[source]!.map((skill) {
+                      final editable = skill.source.isEditable;
+                      return Card(
+                        color: oc.backgroundElement,
+                        margin: const EdgeInsets.only(bottom: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: Radii.brMd,
+                          side: BorderSide(color: oc.border),
+                        ),
+                        child: ListTile(
+                          onTap: () => _openSkill(skill),
+                          title: Row(
+                            children: [
+                              Flexible(
                                 child: Text(
-                                  skill.extra!['agent'].toString(),
+                                  skill.name,
                                   style: TextStyle(
-                                    color: oc.primary,
-                                    fontSize: 10,
+                                    color: oc.text,
                                     fontWeight: FontWeight.w600,
                                   ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
+                              if (skill.extra?['agent'] != null) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: oc.primary.withValues(alpha: 0.15),
+                                    borderRadius: Radii.brXs,
+                                  ),
+                                  child: Text(
+                                    skill.extra!['agent'].toString(),
+                                    style: TextStyle(
+                                      color: oc.primary,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ],
-                          ],
-                        ),
-                        subtitle: Text(
-                          skill.description?.trim().isNotEmpty == true
-                              ? skill.description!.trim()
-                              : 'No description',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: oc.textMuted),
-                        ),
-                        trailing: PopupMenuButton<String>(
-                          onSelected: (value) {
-                            if (value == 'open') _openSkill(skill);
-                            if (value == 'delete') _deleteSkill(skill);
-                          },
-                          itemBuilder: (context) => [
-                            const PopupMenuItem(
-                              value: 'open',
-                              child: Text('Open'),
-                            ),
-                            if (editable)
+                          ),
+                          subtitle: Text(
+                            skill.description?.trim().isNotEmpty == true
+                                ? skill.description!.trim()
+                                : 'No description',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: oc.textMuted),
+                          ),
+                          trailing: PopupMenuButton<String>(
+                            onSelected: (value) {
+                              if (value == 'open') _openSkill(skill);
+                              if (value == 'delete') _deleteSkill(skill);
+                            },
+                            itemBuilder: (context) => [
                               const PopupMenuItem(
-                                value: 'delete',
-                                child: Text('Delete'),
+                                value: 'open',
+                                child: Text('Open'),
                               ),
-                          ],
+                              if (editable)
+                                const PopupMenuItem(
+                                  value: 'delete',
+                                  child: Text('Delete'),
+                                ),
+                            ],
+                          ),
                         ),
-                      ),
-                    );
-                  }),
+                      );
+                    }),
+                  ],
                 ],
-              ],
-            ),
+              ),
       ),
     );
   }
@@ -698,98 +723,105 @@ description: $description
       body: AdaptiveContainer(
         width: ContentWidth.standard,
         child: Column(
-        children: [
-          if (_loadError != null)
-            Padding(
-              padding: Insets.cardSm,
-              child: Text(_loadError!, style: TextStyle(color: oc.error)),
-            ),
-          if (_isCreate)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Name', style: AppTypography.label(color: oc.textMuted)),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: _name,
-                    decoration: const InputDecoration(
-                      hintText: 'e.g. api-docs, code-reviewer',
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  if (source != null)
+          children: [
+            if (_loadError != null)
+              Padding(
+                padding: Insets.cardSm,
+                child: Text(_loadError!, style: TextStyle(color: oc.error)),
+              ),
+            if (_isCreate)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      'Location: ${source.displayName}${readOnly ? ' (read-only)' : ''}',
+                      'Name',
                       style: AppTypography.label(color: oc.textMuted),
                     ),
-                ],
-              ),
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: Row(
-                children: [
-                  _Chip(label: widget.backend.displayName),
-                  SizedBox(width: Spacing.sm),
-                  if (source != null) _Chip(label: source.displayName),
-                  if (readOnly) ...[
-                    SizedBox(width: Spacing.sm),
-                    _Chip(label: 'Read-only', tone: ChipTone.warn),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _name,
+                      decoration: const InputDecoration(
+                        hintText: 'e.g. api-docs, code-reviewer',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    if (source != null)
+                      Text(
+                        'Location: ${source.displayName}${readOnly ? ' (read-only)' : ''}',
+                        style: AppTypography.label(color: oc.textMuted),
+                      ),
                   ],
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Row(
+                  children: [
+                    _Chip(label: widget.backend.displayName),
+                    SizedBox(width: Spacing.sm),
+                    if (source != null) _Chip(label: source.displayName),
+                    if (readOnly) ...[
+                      SizedBox(width: Spacing.sm),
+                      _Chip(label: 'Read-only', tone: ChipTone.warn),
+                    ],
+                  ],
+                ),
+              ),
+            SizedBox(height: Spacing.md),
+            Expanded(
+              child: TabBarView(
+                controller: _tabs,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: TextField(
+                      controller: _content,
+                      maxLines: null,
+                      expands: true,
+                      readOnly: readOnly,
+                      style: AppTypography.code(),
+                      decoration: InputDecoration(
+                        hintText: 'SKILL.md content',
+                        filled: true,
+                        fillColor: oc.backgroundElement,
+                        border: OutlineInputBorder(
+                          borderRadius: Radii.brMd,
+                          borderSide: BorderSide(color: oc.border),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    color: oc.background,
+                    child: Markdown(
+                      data: _stripFrontmatter(_content.text),
+                      selectable: true,
+                      styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
+                        p: theme.textTheme.bodyMedium?.copyWith(color: oc.text),
+                        h1: theme.textTheme.headlineSmall?.copyWith(
+                          color: oc.text,
+                        ),
+                        h2: theme.textTheme.titleLarge?.copyWith(
+                          color: oc.text,
+                        ),
+                        h3: theme.textTheme.titleMedium?.copyWith(
+                          color: oc.text,
+                        ),
+                        code: AppTypography.code(
+                          color: oc.text,
+                        ).copyWith(backgroundColor: oc.backgroundElement),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
-          SizedBox(height: Spacing.md),
-          Expanded(
-            child: TabBarView(
-              controller: _tabs,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  child: TextField(
-                    controller: _content,
-                    maxLines: null,
-                    expands: true,
-                    readOnly: readOnly,
-                    style: AppTypography.code(),
-                    decoration: InputDecoration(
-                      hintText: 'SKILL.md content',
-                      filled: true,
-                      fillColor: oc.backgroundElement,
-                      border: OutlineInputBorder(
-                        borderRadius: Radii.brMd,
-                        borderSide: BorderSide(color: oc.border),
-                      ),
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  color: oc.background,
-                  child: Markdown(
-                    data: _stripFrontmatter(_content.text),
-                    selectable: true,
-                    styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
-                      p: theme.textTheme.bodyMedium?.copyWith(color: oc.text),
-                      h1: theme.textTheme.headlineSmall?.copyWith(
-                        color: oc.text,
-                      ),
-                      h2: theme.textTheme.titleLarge?.copyWith(color: oc.text),
-                      h3: theme.textTheme.titleMedium?.copyWith(color: oc.text),
-                      code: AppTypography.code(
-                        color: oc.text,
-                      ).copyWith(backgroundColor: oc.backgroundElement),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }

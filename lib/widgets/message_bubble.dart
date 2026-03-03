@@ -16,6 +16,7 @@ class MessageBubble extends StatelessWidget {
     required this.message,
     this.onForkFromHere,
     this.onResumeFromHere,
+    this.onDeleteMessage,
     this.onRollback,
   });
   final ChatMessage message;
@@ -23,6 +24,7 @@ class MessageBubble extends StatelessWidget {
   /// Feature 6: Callback for forking from this message
   final void Function(String messageId)? onForkFromHere;
   final void Function(String messageId)? onResumeFromHere;
+  final void Function(String messageId)? onDeleteMessage;
   final VoidCallback? onRollback;
   @override
   Widget build(BuildContext context) {
@@ -176,6 +178,7 @@ class MessageBubble extends StatelessWidget {
       onLongPress:
           (onForkFromHere != null ||
                   onResumeFromHere != null ||
+                  onDeleteMessage != null ||
                   onRollback != null) &&
               message.id.isNotEmpty
           ? () => _showForkMenu(context, theme)
@@ -452,8 +455,32 @@ class MessageBubble extends StatelessWidget {
               },
             ),
           ],
-          if (onRollback != null) ...[
+          if (onDeleteMessage != null) ...[
             if (onForkFromHere != null || onResumeFromHere != null)
+              Divider(height: 1, color: theme.borderSubtle),
+            ListTile(
+              leading: Icon(AppIcons.delete, color: theme.error),
+              title: Text(
+                'Delete message',
+                style: TextStyle(
+                  color: theme.error,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              subtitle: Text(
+                'Permanently remove this message',
+                style: AppTypography.label(color: theme.textMuted),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                onDeleteMessage?.call(message.id);
+              },
+            ),
+          ],
+          if (onRollback != null) ...[
+            if (onForkFromHere != null ||
+                onResumeFromHere != null ||
+                onDeleteMessage != null)
               Divider(height: 1, color: theme.borderSubtle),
             ListTile(
               leading: Icon(AppIcons.history, color: theme.warning),

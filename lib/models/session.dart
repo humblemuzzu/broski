@@ -7,6 +7,7 @@ class SessionSummary {
     required this.projectID,
     required this.directory,
     required this.time,
+    this.workspaceID,
     this.slug,
     this.parentID,
     this.summary,
@@ -20,6 +21,7 @@ class SessionSummary {
   final String title;
   final String projectID;
   final String directory;
+  final String? workspaceID; // Workspace association (SDK v1.2.15+)
   final String? slug; // URL-friendly slug for session (SDK v1.1.53+)
   final String? parentID; // For forked sessions
   final SessionTime time;
@@ -64,6 +66,7 @@ class SessionSummary {
       title: json['title'] as String? ?? 'Untitled',
       projectID: json['projectID'] as String? ?? '',
       directory: json['directory'] as String? ?? '',
+      workspaceID: json['workspaceID'] as String?,
       slug: json['slug'] as String?,
       parentID: json['parentID'] as String?,
       time: SessionTime.fromJson(
@@ -94,6 +97,7 @@ class SessionSummary {
     String? title,
     String? projectID,
     String? directory,
+    String? workspaceID,
     String? slug,
     String? parentID,
     SessionTime? time,
@@ -108,6 +112,7 @@ class SessionSummary {
       title: title ?? this.title,
       projectID: projectID ?? this.projectID,
       directory: directory ?? this.directory,
+      workspaceID: workspaceID ?? this.workspaceID,
       slug: slug ?? this.slug,
       parentID: parentID ?? this.parentID,
       time: time ?? this.time,

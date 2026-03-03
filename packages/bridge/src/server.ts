@@ -16,7 +16,9 @@ import { buildCodexApprovalDecision } from './handlers/codex/approval-decision'
 import { mapCodexThreadFromSdk } from './handlers/codex/map-thread'
 import { handleCodexRuntimeNotification } from './handlers/codex/runtime-notifications'
 import { handleGitFeature } from './handlers/git'
+import * as ocMessages from './handlers/oc_messages'
 import * as ocSessions from './handlers/oc_sessions'
+import * as ocWorkspaces from './handlers/oc_workspaces'
 import * as piFeatures from './handlers/pi_features'
 import { PtyManager } from './pty/manager'
 import { PtyRuntime } from './pty/runtime'
@@ -771,6 +773,8 @@ const MESSAGE_PRIORITIES: Record<string, 'immediate' | 'high' | 'normal' | 'low'
   'pty.deleted': 'normal',
   'worktree.ready': 'normal',
   'worktree.failed': 'normal',
+  'workspace.ready': 'normal',
+  'workspace.failed': 'normal',
   'mcp.tools.changed': 'normal',
   'file.edited': 'normal',
   'project.updated': 'normal',
@@ -4802,6 +4806,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     }
 
     if (await ocSessions.handle(message, reply, requireOpenCode)) return
+    if (await ocMessages.handle(message, reply, requireOpenCode)) return
+    if (await ocWorkspaces.handle(message, reply, requireOpenCode)) return
 
     switch (message.type) {
       case 'auth_session': {

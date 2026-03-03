@@ -404,6 +404,33 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     }
   }
 
+  Future<void> _resetWorktree(ProjectSummary project, Worktree worktree) async {
+    try {
+      final bridge = ref.read(bridgeServiceProvider);
+      final ok = await bridge.resetWorktree(
+        worktree.directory,
+        projectPath: project.path,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(ok ? 'Worktree reset' : 'Failed to reset worktree'),
+          backgroundColor: ok
+              ? OpenCodeTheme.of(context).backgroundPanel
+              : Theme.of(context).colorScheme.error,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to reset worktree: ${humanizeError(e)}'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    }
+  }
+
   Future<void> _showWorktreeOptions(
     ProjectSummary project,
     Worktree worktree,
@@ -441,6 +468,14 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
             },
           ),
           ListTile(
+            leading: Icon(AppIcons.refresh, color: ocTheme.textMuted),
+            title: Text('Reset', style: TextStyle(color: ocTheme.text)),
+            onTap: () async {
+              Navigator.pop(context);
+              await _resetWorktree(project, worktree);
+            },
+          ),
+          ListTile(
             leading: Icon(AppIcons.delete, color: ocTheme.error),
             title: Text('Delete', style: TextStyle(color: ocTheme.error)),
             onTap: () async {
@@ -468,219 +503,228 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
         child: AdaptiveContainer(
           width: ContentWidth.standard,
           child: FutureBuilder<List<ProjectSummary>>(
-          future: _projectsFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Center(
-                child: CircularProgressIndicator(color: ocTheme.primary),
-              );
-            }
-            if (snapshot.hasError) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(AppIcons.error, color: ocTheme.error, size: 48),
-                    SizedBox(height: Spacing.lg),
-                    Text(
-                      'Failed to load projects',
-                      style: TextStyle(
-                        color: ocTheme.text,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+            future: _projectsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Center(
+                  child: CircularProgressIndicator(color: ocTheme.primary),
+                );
+              }
+              if (snapshot.hasError) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(AppIcons.error, color: ocTheme.error, size: 48),
+                      SizedBox(height: Spacing.lg),
+                      Text(
+                        'Failed to load projects',
+                        style: TextStyle(
+                          color: ocTheme.text,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                    SizedBox(height: Spacing.sm),
-                    Text(
-                      '${snapshot.error}',
-                      style: TextStyle(color: ocTheme.textMuted, fontSize: 14),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              );
-            }
-            final projects = snapshot.data ?? [];
-            // Separate highlighted and non-highlighted projects
-            final highlightedProjects = projects
-                .where((p) => highlights.isProjectHighlighted(p.id))
-                .toList();
-            final regularProjects = projects
-                .where((p) => !highlights.isProjectHighlighted(p.id))
-                .toList();
-            return RefreshIndicator(
-              onRefresh: _refresh,
-              color: theme.colorScheme.primary,
-              backgroundColor: theme.colorScheme.surface,
-              child: CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  // Modern header
-                  SliverToBoxAdapter(
-                    child: _ModernHeader(
-                      connection: connection,
-                      onRefresh: _refresh,
-                      onAddProject: agentType == AgentType.opencode
-                          ? _showAddProject
-                          : null,
-                    ),
+                      SizedBox(height: Spacing.sm),
+                      Text(
+                        '${snapshot.error}',
+                        style: TextStyle(
+                          color: ocTheme.textMuted,
+                          fontSize: 14,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ),
-                  // OpenCode warning if not running
-                  if (agentType == AgentType.opencode &&
-                      !connection.opencodeRunning)
+                );
+              }
+              final projects = snapshot.data ?? [];
+              // Separate highlighted and non-highlighted projects
+              final highlightedProjects = projects
+                  .where((p) => highlights.isProjectHighlighted(p.id))
+                  .toList();
+              final regularProjects = projects
+                  .where((p) => !highlights.isProjectHighlighted(p.id))
+                  .toList();
+              return RefreshIndicator(
+                onRefresh: _refresh,
+                color: theme.colorScheme.primary,
+                backgroundColor: theme.colorScheme.surface,
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    // Modern header
                     SliverToBoxAdapter(
-                      child: _OpenCodeWarning(
-                        onStart: () => _startOpenCode(context),
+                      child: _ModernHeader(
+                        connection: connection,
                         onRefresh: _refresh,
+                        onAddProject: agentType == AgentType.opencode
+                            ? _showAddProject
+                            : null,
                       ),
                     ),
-                  // Highlighted Projects section
-                  if (highlightedProjects.isNotEmpty) ...[
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-                        child: Row(
-                          children: [
-                            Icon(
-                              AppIcons.star,
-                              size: 14,
-                              color: highlights.color.forBrightness(
-                                theme.brightness,
-                                themePrimary: ocTheme.primary,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'HIGHLIGHTED',
-                              style: TextStyle(
+                    // OpenCode warning if not running
+                    if (agentType == AgentType.opencode &&
+                        !connection.opencodeRunning)
+                      SliverToBoxAdapter(
+                        child: _OpenCodeWarning(
+                          onStart: () => _startOpenCode(context),
+                          onRefresh: _refresh,
+                        ),
+                      ),
+                    // Highlighted Projects section
+                    if (highlightedProjects.isNotEmpty) ...[
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+                          child: Row(
+                            children: [
+                              Icon(
+                                AppIcons.star,
+                                size: 14,
                                 color: highlights.color.forBrightness(
                                   theme.brightness,
                                   themePrimary: ocTheme.primary,
                                 ),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.5,
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                      sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate((context, index) {
-                          final project = highlightedProjects[index];
-                          return Padding(
-                            padding: Insets.bottomSm,
-                            child: _HighlightedProjectCard(
-                              project: project,
-                              highlightColor: highlights.color,
-                              onTap: () => _openProject(context, project),
-                              onLongPress: () => _toggleHighlight(project),
-                            ),
-                          );
-                        }, childCount: highlightedProjects.length),
-                      ),
-                    ),
-                  ],
-                  // All Repositories section
-                  if (regularProjects.isNotEmpty) ...[
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 32, 20, 12),
-                        child: Text(
-                          agentType == AgentType.claudeCode
-                              ? 'CLAUDE PROJECTS'
-                              : 'ALL REPOSITORIES',
-                          style: TextStyle(
-                            color: ocTheme.textMuted,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.5,
+                              const SizedBox(width: 6),
+                              Text(
+                                'HIGHLIGHTED',
+                                style: TextStyle(
+                                  color: highlights.color.forBrightness(
+                                    theme.brightness,
+                                    themePrimary: ocTheme.primary,
+                                  ),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                    ),
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-                      sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate((context, index) {
-                          final project = regularProjects[index];
-                          final isExpanded = expandedProjects.contains(
-                            project.path,
-                          );
-                          final worktrees = projectWorktrees[project.path];
-                          final isLoading = isExpanded && worktrees == null;
-                          return _ExpandableProjectItem(
-                            project: project,
-                            isExpanded: isExpanded,
-                            isLoading: isLoading,
-                            worktrees: worktrees ?? [],
-                            onTap: () => _openProject(context, project),
-                            onLongPress: () => _toggleHighlight(project),
-                            onToggleExpand: agentType == AgentType.opencode
-                                ? () => _toggleProjectExpansion(project)
-                                : null,
-                            onWorktreeTap: (worktree) => _openWorktreeSession(
-                              context,
-                              project,
-                              worktree,
-                            ),
-                            onWorktreeLongPress: (worktree) =>
-                                _showWorktreeOptions(project, worktree),
-                            onWorktreeDelete: (worktree) =>
-                                _deleteWorktree(project, worktree),
-                            onCreateWorktree:
-                                agentType == AgentType.opencode &&
-                                    !connection.isOfflineMode
-                                ? () => _showCreateWorktreeSheet(project)
-                                : null,
-                            isCreatingWorktree:
-                                _creatingWorktreeForPath == project.path,
-                          );
-                        }, childCount: regularProjects.length),
-                      ),
-                    ),
-                  ],
-                  // Empty state
-                  if (projects.isEmpty)
-                    SliverFillRemaining(
-                      child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              AppIcons.folderOpen,
-                              size: 64,
-                              color: ocTheme.textMuted.withValues(alpha: 0.5),
-                            ),
-                            SizedBox(height: Spacing.lg),
-                            Text(
-                              'No projects found',
-                              style: TextStyle(
-                                color: ocTheme.text,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate((
+                            context,
+                            index,
+                          ) {
+                            final project = highlightedProjects[index];
+                            return Padding(
+                              padding: Insets.bottomSm,
+                              child: _HighlightedProjectCard(
+                                project: project,
+                                highlightColor: highlights.color,
+                                onTap: () => _openProject(context, project),
+                                onLongPress: () => _toggleHighlight(project),
                               ),
-                            ),
-                            SizedBox(height: Spacing.sm),
-                            Text(
-                              'Open a repository to get started',
-                              style: TextStyle(
-                                color: ocTheme.textMuted,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
+                            );
+                          }, childCount: highlightedProjects.length),
                         ),
                       ),
-                    ),
-                ],
-              ),
-            );
-          },
-        ),
+                    ],
+                    // All Repositories section
+                    if (regularProjects.isNotEmpty) ...[
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 32, 20, 12),
+                          child: Text(
+                            agentType == AgentType.claudeCode
+                                ? 'CLAUDE PROJECTS'
+                                : 'ALL REPOSITORIES',
+                            style: TextStyle(
+                              color: ocTheme.textMuted,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate((
+                            context,
+                            index,
+                          ) {
+                            final project = regularProjects[index];
+                            final isExpanded = expandedProjects.contains(
+                              project.path,
+                            );
+                            final worktrees = projectWorktrees[project.path];
+                            final isLoading = isExpanded && worktrees == null;
+                            return _ExpandableProjectItem(
+                              project: project,
+                              isExpanded: isExpanded,
+                              isLoading: isLoading,
+                              worktrees: worktrees ?? [],
+                              onTap: () => _openProject(context, project),
+                              onLongPress: () => _toggleHighlight(project),
+                              onToggleExpand: agentType == AgentType.opencode
+                                  ? () => _toggleProjectExpansion(project)
+                                  : null,
+                              onWorktreeTap: (worktree) => _openWorktreeSession(
+                                context,
+                                project,
+                                worktree,
+                              ),
+                              onWorktreeLongPress: (worktree) =>
+                                  _showWorktreeOptions(project, worktree),
+                              onWorktreeDelete: (worktree) =>
+                                  _deleteWorktree(project, worktree),
+                              onCreateWorktree:
+                                  agentType == AgentType.opencode &&
+                                      !connection.isOfflineMode
+                                  ? () => _showCreateWorktreeSheet(project)
+                                  : null,
+                              isCreatingWorktree:
+                                  _creatingWorktreeForPath == project.path,
+                            );
+                          }, childCount: regularProjects.length),
+                        ),
+                      ),
+                    ],
+                    // Empty state
+                    if (projects.isEmpty)
+                      SliverFillRemaining(
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                AppIcons.folderOpen,
+                                size: 64,
+                                color: ocTheme.textMuted.withValues(alpha: 0.5),
+                              ),
+                              SizedBox(height: Spacing.lg),
+                              Text(
+                                'No projects found',
+                                style: TextStyle(
+                                  color: ocTheme.text,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              SizedBox(height: Spacing.sm),
+                              Text(
+                                'Open a repository to get started',
+                                style: TextStyle(
+                                  color: ocTheme.textMuted,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ),
     );

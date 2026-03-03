@@ -115,6 +115,7 @@ function mapGlobalSession(session: GlobalSession): SessionSummary {
     slug: session.slug || undefined,
     title: session.title,
     projectID: session.projectID,
+    workspaceID: session.workspaceID,
     directory: session.directory,
     parentID: session.parentID,
     time: session.time,

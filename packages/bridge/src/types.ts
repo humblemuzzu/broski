@@ -320,6 +320,19 @@ export type ClientMessage =
       icon?: Record<string, unknown>
       projectPath?: string
     }
+  // Message editing
+  | {
+      type: 'oc_delete_message'
+      sessionId: string
+      messageId: string
+      projectPath?: string
+    }
+  | {
+      type: 'oc_get_message'
+      sessionId: string
+      messageId: string
+      projectPath?: string
+    }
   // Message part editing
   | {
       type: 'delete_part'
@@ -336,6 +349,16 @@ export type ClientMessage =
       part: Record<string, unknown>
       projectPath?: string
     }
+  // Workspace management (OpenCode experimental)
+  | { type: 'oc_list_workspaces'; projectPath?: string }
+  | {
+      type: 'oc_create_workspace'
+      id: string
+      branch?: string | null
+      configDirectory?: string
+      projectPath?: string
+    }
+  | { type: 'oc_remove_workspace'; id: string; projectPath?: string }
   // SDK skills endpoint
   | { type: 'oc_list_sdk_skills'; projectPath?: string }
   // Feature 23: Git Worktrees (SDK v1.1.1+ experimental)
@@ -960,6 +983,7 @@ export type SessionSummary = {
   slug?: string // URL-friendly slug (SDK v1.1.53+)
   title: string
   projectID: string
+  workspaceID?: string // Workspace association (SDK v1.2.15+)
   directory: string
   parentID?: string // For forked sessions
   time: {
@@ -1404,17 +1428,36 @@ export type ServerMessage =
   // Project management
   | {
       type: 'current_project'
-      data: Record<string, unknown> | null
+      data: unknown | null
       requestId?: string
     }
   | {
       type: 'project_updated'
-      data: Record<string, unknown>
+      data: unknown
+      requestId?: string
+    }
+  // Message editing
+  | {
+      type: 'oc_message_deleted'
+      data: boolean
+      sessionId: string
+      messageId: string
+      requestId?: string
+    }
+  | {
+      type: 'oc_message'
+      data: unknown | null
+      sessionId: string
+      messageId: string
       requestId?: string
     }
   // Message part editing
   | { type: 'part_deleted'; data: boolean; requestId?: string }
-  | { type: 'part_updated'; data: Record<string, unknown>; requestId?: string }
+  | { type: 'part_updated'; data: unknown; requestId?: string }
+  // Workspace management (OpenCode experimental)
+  | { type: 'oc_workspaces'; data: unknown[]; requestId?: string }
+  | { type: 'oc_workspace_created'; data: unknown | null; requestId?: string }
+  | { type: 'oc_workspace_removed'; data: boolean; id: string; requestId?: string }
   // SDK skills
   | {
       type: 'oc_sdk_skills'

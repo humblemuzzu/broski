@@ -1,14 +1,24 @@
 import {
   createOpencodeClient,
+  type Auth,
+  type Config as OpenCodeConfig,
   type GlobalEvent,
+  type GlobalSession,
+  type McpLocalConfig,
+  type McpRemoteConfig,
   type OpencodeClient,
+  type Part,
+  type PermissionRequest as OpenCodePermissionRequest,
   type Project,
+  type QuestionRequest as OpenCodeQuestionRequest,
   type Session,
+  type SessionMessageResponse,
+  type Workspace as OpenCodeWorkspace,
 } from '@opencode-ai/sdk/v2'
 import { homedir } from 'os'
 import { basename, isAbsolute, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import type { Agent, Command, FileAttachment, FileContent, FileStatusInfo, FormatterInfo, LspServerStatus, McpResource, McpServerStatus, PermissionRuleset, ProviderAuthAuthorization, ProviderAuthMethod, ProviderInfo, ProjectSummary, PtySession, SessionContextInfo, SessionStatusInfo, SessionSummary, SymbolResult, TextSearchResult, Todo, ToolInfo, VcsInfo, Worktree } from '../types'
+import type { Agent, Command, FileAttachment, FileContent, FileStatusInfo, FormatterInfo, LspServerStatus, McpResource, McpServerStatus, ModelInfo, PermissionRuleset, ProviderAuthAuthorization, ProviderAuthMethod, ProviderInfo, ProjectSummary, PtySession, SessionContextInfo, SessionStatusInfo, SessionSummary, SymbolResult, TextSearchResult, Todo, ToolInfo, VcsInfo, Worktree } from '../types'
 import {
   listOpenCodeSessionsInternal,
   listOpenCodeSessionsWithCache,
@@ -371,12 +381,12 @@ export class OpenCodeConnector {
     )
   }
 
-  async updateConfig(config: Record<string, unknown>, directory?: string) {
+  async updateConfig(config: OpenCodeConfig, directory?: string) {
     // v2 SDK: config.update({ directory?, config? })
     return this.client.config.update(
       {
         ...(directory && directory.length > 0 ? { directory } : {}),
-        config: config as any,
+        config,
       },
       { responseStyle: 'data' },
     )
@@ -407,25 +417,25 @@ export class OpenCodeConnector {
     )
   }
 
-  async listPendingPermissions(directory?: string): Promise<unknown[]> {
+  async listPendingPermissions(directory?: string): Promise<OpenCodePermissionRequest[]> {
     try {
       const result = await this.client.permission.list(
         { directory },
         { responseStyle: 'data' },
       )
-      return (result as any) ?? []
+      return result ?? []
     } catch {
       return []
     }
   }
 
-  async listPendingQuestions(directory?: string): Promise<unknown[]> {
+  async listPendingQuestions(directory?: string): Promise<OpenCodeQuestionRequest[]> {
     try {
       const result = await this.client.question.list(
         { directory },
         { responseStyle: 'data' },
       )
-      return (result as any) ?? []
+      return result ?? []
     } catch {
       return []
     }
@@ -817,7 +827,7 @@ export class OpenCodeConnector {
           { sessionID: sessionId, directory },
           { responseStyle: 'data' },
         )) ?? []
-      return children.map((session) => this.mapSession(session as Session))
+      return children.map((session) => this.mapSession(session))
     } catch {
       return []
     }
@@ -954,7 +964,8 @@ export class OpenCodeConnector {
   async searchFilesAndDirs(query: string, directory?: string, limit: number = 20): Promise<string[]> {
     try {
       // v2 SDK: first arg is parameters, second arg is options
-      // Pass limit to SDK server-side for efficiency
+      // `dirs` is a wire enum (`"true" | "false"`), not a boolean.
+      // Pass limit to SDK server-side for efficiency.
       const result = await this.client.find.files(
         { query, dirs: 'true', directory, limit },
         { responseStyle: 'data' },
@@ -1027,7 +1038,7 @@ export class OpenCodeConnector {
       )
       const mapped: Record<string, SessionStatusInfo> = {}
       for (const [sessionId, status] of Object.entries(result ?? {})) {
-        const s = status as any
+        const s = status as { type?: string; attempt?: number; message?: string; next?: number }
         if (s.type === 'busy') {
           mapped[sessionId] = { type: 'busy' }
         } else if (s.type === 'retry') {
@@ -1174,7 +1185,12 @@ export class OpenCodeConnector {
       )
       const mapped: Record<string, McpServerStatus> = {}
       for (const [name, status] of Object.entries(result ?? {})) {
-        const s = status as any
+        const s = status as {
+          status?: string
+          error?: string
+          tools?: string[]
+          resources?: string[]
+        }
         mapped[name] = {
           name,
           status: typeof s.status === 'string' ? s.status : 'failed',
@@ -1197,13 +1213,22 @@ export class OpenCodeConnector {
   ): Promise<Record<string, McpServerStatus>> {
     try {
       const result = await this.client.mcp.add(
-        { directory, name, config: config as any },
+        {
+          directory,
+          name,
+          config: config as unknown as McpLocalConfig | McpRemoteConfig,
+        },
         { responseStyle: 'data' },
       )
 
       const mapped: Record<string, McpServerStatus> = {}
       for (const [serverName, status] of Object.entries(result ?? {})) {
-        const s = status as any
+        const s = status as {
+          status?: string
+          error?: string
+          tools?: string[]
+          resources?: string[]
+        }
         mapped[serverName] = {
           name: serverName,
           status: typeof s.status === 'string' ? s.status : 'failed',
@@ -1287,7 +1312,7 @@ export class OpenCodeConnector {
         { responseStyle: 'data' },
       )
       // SDK returns McpStatus on success
-      return result ? (result as any) : null
+      return result ? { ...result } : null
     } catch (error) {
       console.error('[mcpAuthAuthenticate] Error:', error)
       return null
@@ -1317,7 +1342,13 @@ export class OpenCodeConnector {
       // Map the result to our McpResource type
       const mapped: Record<string, McpResource> = {}
       for (const [key, resource] of Object.entries(result ?? {})) {
-        const r = resource as any
+        const r = resource as {
+          name?: string
+          uri?: string
+          description?: string
+          mimeType?: string
+          client?: string
+        }
         mapped[key] = {
           name: r.name ?? '',
           uri: r.uri ?? '',
@@ -1362,7 +1393,7 @@ export class OpenCodeConnector {
                 { directory: dir },
                 { responseStyle: 'data' },
               )
-              branch = (vcs as any)?.branch ?? ''
+              branch = vcs?.branch ?? ''
             } catch {
               branch = ''
             }
@@ -1486,12 +1517,30 @@ export class OpenCodeConnector {
         { responseStyle: 'data' },
       )
       return {
-        all: (result?.all ?? []).map((p: any) => {
+        all: (result?.all ?? []).map((p) => {
           // Map SDK ProviderListResponses model shape to our enriched ModelInfo
           const rawModels = p.models ?? {}
-          const mappedModels: Record<string, any> = {}
+          const mappedModels: Record<string, ModelInfo> = {}
           for (const [modelId, model] of Object.entries(rawModels)) {
-            const m = model as any
+            const m = model as {
+              id?: string
+              name?: string
+              family?: string
+              limit?: { context?: number; output?: number }
+              reasoning?: boolean
+              attachment?: boolean
+              tool_call?: boolean
+              modalities?: { input?: string[]; output?: string[] }
+              status?: string
+              experimental?: boolean
+              cost?: {
+                input?: number
+                output?: number
+                cache_read?: number
+                cache_write?: number
+              }
+              variants?: Record<string, Record<string, unknown>>
+            }
             mappedModels[modelId] = {
               id: m.id ?? modelId,
               name: m.name ?? modelId,
@@ -1504,12 +1553,14 @@ export class OpenCodeConnector {
               modalities: m.modalities ?? undefined,
               status: m.status ?? undefined,
               experimental: m.experimental ?? undefined,
-              pricing: m.cost ? {
-                input: m.cost.input ?? 0,
-                output: m.cost.output ?? 0,
-                cacheRead: m.cost.cache_read ?? undefined,
-                cacheWrite: m.cost.cache_write ?? undefined,
-              } : undefined,
+              pricing: m.cost
+                  ? {
+                      input: m.cost.input ?? 0,
+                      output: m.cost.output ?? 0,
+                      cacheRead: m.cost.cache_read ?? undefined,
+                      cacheWrite: m.cost.cache_write ?? undefined,
+                    }
+                  : undefined,
               variants: m.variants ?? undefined,
             }
           }
@@ -1536,8 +1587,17 @@ export class OpenCodeConnector {
       )
       const mapped: Record<string, ProviderAuthMethod[]> = {}
       for (const [providerId, methods] of Object.entries(result ?? {})) {
-        mapped[providerId] = (methods as any[]).map((m: any) => ({
-          type: m.type ?? 'api',
+        const methodList = Array.isArray(methods)
+          ? methods as Array<{
+              type?: string
+              label?: string
+              name?: string
+              description?: string
+              url?: string
+            }>
+          : []
+        mapped[providerId] = methodList.map((m) => ({
+          type: m.type === 'oauth' ? 'oauth' : 'api',
           label: m.label,
           name: m.name,
           description: m.description,
@@ -1691,10 +1751,10 @@ export class OpenCodeConnector {
   }
 
   // Provider credential management
-  async authSet(providerId: string, auth: Record<string, unknown>): Promise<boolean> {
+  async authSet(providerId: string, auth: Auth): Promise<boolean> {
     try {
       const result = await this.client.auth.set(
-        { providerID: providerId, auth: auth as any },
+        { providerID: providerId, auth },
         { responseStyle: 'data' },
       )
       return result === true
@@ -1718,35 +1778,33 @@ export class OpenCodeConnector {
   // Global config
   async getGlobalConfig(): Promise<Record<string, unknown>> {
     try {
-      const result = await this.client.global.config.get(
-        { responseStyle: 'data' },
-      )
-      return (result as any) ?? {}
+      const result = await this.client.global.config.get({ responseStyle: 'data' })
+      return result ?? {}
     } catch {
       return {}
     }
   }
 
-  async updateGlobalConfig(config: Record<string, unknown>): Promise<Record<string, unknown>> {
+  async updateGlobalConfig(config: OpenCodeConfig): Promise<Record<string, unknown>> {
     try {
       const result = await this.client.global.config.update(
-        { config: config as any },
+        { config },
         { responseStyle: 'data' },
       )
-      return (result as any) ?? {}
+      return result ?? {}
     } catch {
       return {}
     }
   }
 
   // Project management
-  async getCurrentProject(directory?: string): Promise<Record<string, unknown> | null> {
+  async getCurrentProject(directory?: string): Promise<Project | null> {
     try {
       const result = await this.client.project.current(
         { directory },
         { responseStyle: 'data' },
       )
-      return result ? (result as any) : null
+      return result ?? null
     } catch {
       return null
     }
@@ -1756,20 +1814,20 @@ export class OpenCodeConnector {
     projectId: string,
     updates: { name?: string; icon?: Record<string, unknown> },
     directory?: string,
-  ): Promise<Record<string, unknown>> {
+  ): Promise<Project | null> {
     try {
       const result = await this.client.project.update(
         {
           projectID: projectId,
           directory,
           ...(updates.name ? { name: updates.name } : {}),
-          ...(updates.icon ? { icon: updates.icon as any } : {}),
+          ...(updates.icon ? { icon: updates.icon } : {}),
         },
         { responseStyle: 'data' },
       )
-      return (result as any) ?? {}
+      return result ?? null
     } catch {
-      return {}
+      return null
     }
   }
 
@@ -1795,17 +1853,94 @@ export class OpenCodeConnector {
     sessionId: string,
     messageId: string,
     partId: string,
-    part: Record<string, unknown>,
+    part: Part,
     directory?: string,
-  ): Promise<Record<string, unknown> | null> {
+  ): Promise<Part | null> {
     try {
       const result = await this.client.part.update(
-        { sessionID: sessionId, messageID: messageId, partID: partId, directory, part: part as any },
+        { sessionID: sessionId, messageID: messageId, partID: partId, directory, part },
         { responseStyle: 'data' },
       )
-      return (result as any) ?? null
+      return result ?? null
     } catch {
       return null
+    }
+  }
+
+  async deleteMessage(
+    sessionId: string,
+    messageId: string,
+    directory?: string,
+  ): Promise<boolean> {
+    try {
+      const result = await this.client.session.deleteMessage(
+        { sessionID: sessionId, messageID: messageId, directory },
+        { responseStyle: 'data' },
+      )
+      return result === true
+    } catch {
+      return false
+    }
+  }
+
+  async getMessage(
+    sessionId: string,
+    messageId: string,
+    directory?: string,
+  ): Promise<SessionMessageResponse | null> {
+    try {
+      const result = await this.client.session.message(
+        { sessionID: sessionId, messageID: messageId, directory },
+        { responseStyle: 'data' },
+      )
+      return result ?? null
+    } catch {
+      return null
+    }
+  }
+
+  async listWorkspaces(directory?: string): Promise<OpenCodeWorkspace[]> {
+    try {
+      const result = await this.client.experimental.workspace.list(
+        { directory },
+        { responseStyle: 'data' },
+      )
+      return result ?? []
+    } catch {
+      return []
+    }
+  }
+
+  async createWorkspace(
+    id: string,
+    options: { branch?: string | null; config?: { directory: string; type: 'worktree' } },
+    directory?: string,
+  ): Promise<OpenCodeWorkspace | null> {
+    try {
+      const result = await this.client.experimental.workspace.create(
+        {
+          id,
+          directory,
+          ...(options.branch !== undefined ? { branch: options.branch } : {}),
+          ...(options.config ? { config: options.config } : {}),
+        },
+        { responseStyle: 'data' },
+      )
+      return result ?? null
+    } catch {
+      return null
+    }
+  }
+
+  async removeWorkspace(id: string, directory?: string): Promise<boolean> {
+    try {
+      const result = await this.client.experimental.workspace.remove(
+        { id, directory },
+        { responseStyle: 'data' },
+      )
+      return result === true
+    } catch {
+      return false
     }
   }
 
@@ -1863,19 +1998,27 @@ export class OpenCodeConnector {
     }
   }
 
-  private mapSession(session: Session): SessionSummary {
+  private mapSession(session: Session | GlobalSession): SessionSummary {
     return {
       id: session.id,
-      slug: (session as any).slug ?? undefined,
+      slug: session.slug ?? undefined,
       title: session.title,
       projectID: session.projectID,
+      workspaceID: session.workspaceID,
       directory: session.directory,
       parentID: session.parentID,
       time: session.time,
       summary: session.summary,
       share: session.share,
       revert: session.revert ?? undefined,
-      permission: (session as any).permission ?? undefined,
+      permission: session.permission ?? undefined,
+      project: 'project' in session && session.project
+          ? {
+              id: session.project.id,
+              name: session.project.name,
+              worktree: session.project.worktree,
+            }
+          : undefined,
     }
   }
 }

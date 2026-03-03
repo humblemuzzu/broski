@@ -75,9 +75,14 @@ class AgentIndicatorPart extends MessagePart {
 /// Context compacted indicator — SDK v1.2.1 CompactionPart
 /// Renders as a centered divider with "Context compacted (auto/manual)".
 class CompactionIndicatorPart extends MessagePart {
-  const CompactionIndicatorPart({required super.sequence, this.auto = false});
+  const CompactionIndicatorPart({
+    required super.sequence,
+    this.auto = false,
+    this.overflow = false,
+  });
 
   final bool auto;
+  final bool overflow;
 }
 
 /// Files patched indicator — SDK v1.2.1 PatchPart

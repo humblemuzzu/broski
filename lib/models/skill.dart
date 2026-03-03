@@ -3,6 +3,7 @@ import 'agent_type.dart';
 enum SkillSource {
   project,
   user,
+  builtin,
   system,
   admin,
   plugin;
@@ -17,6 +18,9 @@ enum SkillSource {
         return SkillSource.admin;
       case 'plugin':
         return SkillSource.plugin;
+      case 'builtin':
+      case 'sdk':
+        return SkillSource.builtin;
       case 'system':
       default:
         return SkillSource.system;
@@ -25,7 +29,8 @@ enum SkillSource {
 
   String get wireValue => name;
 
-  bool get isEditable => this == SkillSource.project || this == SkillSource.user;
+  bool get isEditable =>
+      this == SkillSource.project || this == SkillSource.user;
 
   String get displayName {
     switch (this) {
@@ -33,6 +38,8 @@ enum SkillSource {
         return 'Project';
       case SkillSource.user:
         return 'User';
+      case SkillSource.builtin:
+        return 'Built-in';
       case SkillSource.system:
         return 'System';
       case SkillSource.admin:
@@ -82,4 +89,3 @@ class Skill {
     );
   }
 }
-

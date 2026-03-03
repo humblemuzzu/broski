@@ -1793,6 +1793,10 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       case 'mcp.browser.open.failed':
         _handleMcpBrowserOpenFailed(payload);
         break;
+      // OpenCode SDK v1.2.15+: workspace lifecycle events
+      case 'workspace.ready':
+      case 'workspace.failed':
+        break;
       default:
         if (kDebugMode) {
           developer.log('Unhandled event type: $type', name: 'ChatProvider');
@@ -2103,7 +2107,15 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     // SDK v1.2.1: Compaction part — show as system message with divider
     if (partType == 'compaction') {
       final current = _messages[messageId] ?? message;
-      _updateMessage(messageId, current.copyWith(error: 'context_compacted'));
+      final isOverflow = part['overflow'] == true;
+      _updateMessage(
+        messageId,
+        current.copyWith(
+          error: isOverflow
+              ? 'context_compacted_overflow'
+              : 'context_compacted',
+        ),
+      );
       return;
     }
 
