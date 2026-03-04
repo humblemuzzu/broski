@@ -782,4 +782,186 @@ http.route({
   }),
 });
 
+
+// ─── Waitlist ──────────────────────────────────────────────────────────────
+
+// Rate limiter: sliding window, max N joins per minute
+const WAITLIST_RATE_LIMIT = 10; // max joins per window
+const WAITLIST_RATE_WINDOW_MS = 60_000; // 1 minute
+const joinTimestamps: number[] = [];
+
+function isRateLimited(): boolean {
+  const now = Date.now();
+  // Prune old entries
+  while (joinTimestamps.length > 0 && joinTimestamps[0] < now - WAITLIST_RATE_WINDOW_MS) {
+    joinTimestamps.shift();
+  }
+  return joinTimestamps.length >= WAITLIST_RATE_LIMIT;
+}
+
+function recordJoin(): void {
+  joinTimestamps.push(Date.now());
+}
+
+function waitlistCorsHeaders(origin?: string | null): Record<string, string> {
+  const allowed = (process.env.WAITLIST_ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  // If no origins configured, allow all (dev mode)
+  const allowOrigin =
+    allowed.length === 0
+      ? "*"
+      : origin && allowed.includes(origin)
+        ? origin
+        : allowed[0]; // fallback to first allowed origin
+
+  return {
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, X-Waitlist-Key",
+    Vary: "Origin",
+  };
+}
+
+http.route({
+  path: "/waitlist/join",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    const origin = req.headers.get("origin");
+    const cors = waitlistCorsHeaders(origin);
+
+    // Verify shared secret
+    const apiKey = process.env.WAITLIST_API_KEY;
+    if (apiKey) {
+      const provided = req.headers.get("x-waitlist-key") ?? "";
+      if (provided !== apiKey) {
+        return new Response(
+          JSON.stringify({ ok: false, error: "Unauthorized" }),
+          { status: 401, headers: { "content-type": "application/json", ...cors } },
+        );
+      }
+    }
+
+    // Request body size limit (2KB)
+    const contentLength = parseInt(req.headers.get("content-length") ?? "0", 10);
+    if (contentLength > 2048) {
+      return new Response(
+        JSON.stringify({ ok: false, error: "Request too large" }),
+        { status: 413, headers: { "content-type": "application/json", ...cors } },
+      );
+    }
+
+    // Rate limit
+    if (isRateLimited()) {
+      return new Response(
+        JSON.stringify({ ok: false, error: "Too many requests, try again later" }),
+        { status: 429, headers: { "content-type": "application/json", ...cors } },
+      );
+    }
+
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(JSON.stringify({ ok: false, error: "Invalid JSON body" }), {
+        status: 400,
+        headers: { "content-type": "application/json", ...cors },
+      });
+    }
+
+    const email = typeof body?.email === "string" ? body.email.trim() : "";
+    if (!email || email.length > 254 || !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
+      return new Response(
+        JSON.stringify({ ok: false, error: "Please enter a valid email address" }),
+        { status: 400, headers: { "content-type": "application/json", ...cors } },
+      );
+    }
+
+    const source = typeof body?.source === "string" ? body.source.slice(0, 100) : "broski-website";
+    const country = typeof body?.country === "string" ? body.country.slice(0, 100) : undefined;
+    const city = typeof body?.city === "string" ? body.city.slice(0, 100) : undefined;
+
+    const result = await ctx.runMutation(internal.waitlist.join, {
+      email,
+      timestamp: new Date().toISOString(),
+      source,
+      country,
+      city,
+    });
+
+    if (result.error) {
+      return new Response(
+        JSON.stringify({ ok: false, error: result.error }),
+        { status: 400, headers: { "content-type": "application/json", ...cors } },
+      );
+    }
+
+    // Record successful join for rate limiting (only count actual new inserts)
+    if (!result.alreadyExists) {
+      recordJoin();
+    }
+
+    if (result.alreadyExists) {
+      return new Response(
+        JSON.stringify({ ok: true, message: "You're already on the waitlist!" }),
+        { status: 200, headers: { "content-type": "application/json", ...cors } },
+      );
+    }
+
+    return new Response(
+      JSON.stringify({ ok: true, message: "Successfully joined the waitlist!" }),
+      { status: 200, headers: { "content-type": "application/json", ...cors } },
+    );
+  }),
+});
+
+// CORS preflight for /waitlist/join
+http.route({
+  path: "/waitlist/join",
+  method: "OPTIONS",
+  handler: httpAction(async (_, req) => {
+    const origin = req.headers.get("origin");
+    const cors = waitlistCorsHeaders(origin);
+    return new Response(null, { status: 204, headers: cors });
+  }),
+});
+
+http.route({
+  path: "/waitlist/count",
+  method: "GET",
+  handler: httpAction(async (ctx) => {
+    const count = await ctx.runQuery(internal.waitlist.count, {});
+
+    return new Response(
+      JSON.stringify({ ok: true, count }),
+      {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+          "Cache-Control": "public, max-age=30",
+        },
+      },
+    );
+  }),
+});
+
+// CORS preflight for /waitlist/count
+http.route({
+  path: "/waitlist/count",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+      },
+    });
+  }),
+});
+
 export default http;

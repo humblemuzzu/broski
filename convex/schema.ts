@@ -133,4 +133,13 @@ export default defineSchema({
     .index("by_platform", ["platform"])
     .index("by_version", ["version"])
     .index("by_installedAt", ["installedAtMs"]),
+
+  waitlist: defineTable({
+    email: v.string(),
+    timestamp: v.string(),
+    source: v.string(),
+    country: v.optional(v.string()),
+    city: v.optional(v.string()),
+  })
+    .index("by_email", ["email"]),
 });

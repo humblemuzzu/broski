@@ -11,7 +11,8 @@
   package = "@netlify/plugin-nextjs"
 
 # Environment variables (set these in Netlify dashboard)
-# GOOGLE_SCRIPT_URL = "your-google-script-url"
+# CONVEX_SITE_URL = "https://your-deployment.convex.site"
+# WAITLIST_API_KEY = "your-shared-secret"
 
 # Headers for security
 [[headers]]

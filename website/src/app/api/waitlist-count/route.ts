@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 
-// Google Apps Script Web App URL - set this in your environment
-const GOOGLE_SCRIPT_URL = process.env.GOOGLE_SCRIPT_URL;
+const CONVEX_SITE_URL = process.env.CONVEX_SITE_URL;
 
-// Cache the count for 30 seconds to avoid hammering Google Sheets
+// Cache the count for 30 seconds to reduce calls to Convex
 let cachedCount: number | null = null;
 let cacheTime: number = 0;
 const CACHE_DURATION = 30 * 1000; // 30 seconds
@@ -20,30 +19,22 @@ export async function GET() {
       });
     }
 
-    // If no Google Script URL, return 0 (real count comes from Google Sheets)
-    if (!GOOGLE_SCRIPT_URL) {
-      return NextResponse.json({
-        success: true,
-        count: 0,
-        cached: false,
-        dev: true,
-      });
+    if (!CONVEX_SITE_URL) {
+      return NextResponse.json({ success: true, count: 0, dev: true });
     }
 
-    // Fetch count from Google Sheets via Apps Script
-    const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=count`, {
+    // Fetch count from Convex
+    const response = await fetch(`${CONVEX_SITE_URL}/waitlist/count`, {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
     });
 
     if (!response.ok) {
-      throw new Error("Failed to fetch from Google Sheets");
+      throw new Error("Failed to fetch count from backend");
     }
 
     const data = await response.json();
-    
+
     // Update cache
     cachedCount = data.count || 0;
     cacheTime = now;
@@ -55,7 +46,7 @@ export async function GET() {
     });
   } catch (error) {
     console.error("Waitlist count error:", error);
-    
+
     // Return cached value on error if available
     if (cachedCount !== null) {
       return NextResponse.json({
