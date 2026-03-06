@@ -75,41 +75,104 @@ sealed class RuntimeEvent {
   };
 }
 
-abstract class _JsonRuntimeEvent extends RuntimeEvent {
-  _JsonRuntimeEvent({required super.type, required Map<String, dynamic> json})
+class RuntimeAgentStartedEvent extends RuntimeEvent {
+  RuntimeAgentStartedEvent._(Map<String, dynamic> json)
     : super(
-        backend: AgentType.fromWireValue(
-          json['backend'] as String? ?? 'opencode',
-        ),
-        timestampMs: (json['timestampMs'] as num?)?.toInt() ?? 0,
-        sessionId: json['sessionId'] as String?,
-        cwd: json['cwd'] as String?,
-        messageId: json['messageId'] as String?,
-        toolCallId: json['toolCallId'] as String?,
+        type: 'agent_started',
+        backend: _backendFromJson(json),
+        timestampMs: _timestampFromJson(json),
+        sessionId: _stringField(json, 'sessionId'),
+        cwd: _stringField(json, 'cwd'),
+        messageId: _stringField(json, 'messageId'),
+        toolCallId: _stringField(json, 'toolCallId'),
         backendData: _asMap(json['backendData']),
       );
-}
 
-abstract class _JsonEmptyRuntimeEvent extends _JsonRuntimeEvent {
-  _JsonEmptyRuntimeEvent({required super.type, required super.json});
   @override
   Map<String, dynamic> toJson() => toEnvelopeJson();
 }
 
-abstract class _JsonDeltaRuntimeEvent extends _JsonRuntimeEvent {
+class RuntimeAgentFinishedEvent extends RuntimeEvent {
+  final String? stopReason;
+
+  RuntimeAgentFinishedEvent._(Map<String, dynamic> json)
+    : stopReason = json['stopReason'] as String?,
+      super(
+        type: 'agent_finished',
+        backend: _backendFromJson(json),
+        timestampMs: _timestampFromJson(json),
+        sessionId: _stringField(json, 'sessionId'),
+        cwd: _stringField(json, 'cwd'),
+        messageId: _stringField(json, 'messageId'),
+        toolCallId: _stringField(json, 'toolCallId'),
+        backendData: _asMap(json['backendData']),
+      );
+
+  @override
+  Map<String, dynamic> toJson() => {
+    ...toEnvelopeJson(),
+    if (stopReason != null) 'stopReason': stopReason,
+  };
+}
+
+class RuntimeAssistantTextDeltaEvent extends RuntimeEvent {
   final String delta;
-  _JsonDeltaRuntimeEvent({required super.type, required super.json})
-    : delta = json['delta'] as String? ?? '';
+
+  RuntimeAssistantTextDeltaEvent._(Map<String, dynamic> json)
+    : delta = json['delta'] as String? ?? '',
+      super(
+        type: 'assistant_text_delta',
+        backend: _backendFromJson(json),
+        timestampMs: _timestampFromJson(json),
+        sessionId: _stringField(json, 'sessionId'),
+        cwd: _stringField(json, 'cwd'),
+        messageId: _stringField(json, 'messageId'),
+        toolCallId: _stringField(json, 'toolCallId'),
+        backendData: _asMap(json['backendData']),
+      );
+
   @override
   Map<String, dynamic> toJson() => {...toEnvelopeJson(), 'delta': delta};
 }
 
-abstract class _JsonToolRuntimeEvent extends _JsonRuntimeEvent {
+class RuntimeAssistantThinkingDeltaEvent extends RuntimeEvent {
+  final String delta;
+
+  RuntimeAssistantThinkingDeltaEvent._(Map<String, dynamic> json)
+    : delta = json['delta'] as String? ?? '',
+      super(
+        type: 'assistant_thinking_delta',
+        backend: _backendFromJson(json),
+        timestampMs: _timestampFromJson(json),
+        sessionId: _stringField(json, 'sessionId'),
+        cwd: _stringField(json, 'cwd'),
+        messageId: _stringField(json, 'messageId'),
+        toolCallId: _stringField(json, 'toolCallId'),
+        backendData: _asMap(json['backendData']),
+      );
+
+  @override
+  Map<String, dynamic> toJson() => {...toEnvelopeJson(), 'delta': delta};
+}
+
+class RuntimeToolStartedEvent extends RuntimeEvent {
   final String? toolName;
   final Object? input;
-  _JsonToolRuntimeEvent({required super.type, required super.json})
+
+  RuntimeToolStartedEvent._(Map<String, dynamic> json)
     : toolName = json['toolName'] as String?,
-      input = json['input'];
+      input = json['input'],
+      super(
+        type: 'tool_started',
+        backend: _backendFromJson(json),
+        timestampMs: _timestampFromJson(json),
+        sessionId: _stringField(json, 'sessionId'),
+        cwd: _stringField(json, 'cwd'),
+        messageId: _stringField(json, 'messageId'),
+        toolCallId: _stringField(json, 'toolCallId'),
+        backendData: _asMap(json['backendData']),
+      );
+
   @override
   Map<String, dynamic> toJson() => {
     ...toEnvelopeJson(),
@@ -118,72 +181,85 @@ abstract class _JsonToolRuntimeEvent extends _JsonRuntimeEvent {
   };
 }
 
-class RuntimeAgentStartedEvent extends _JsonEmptyRuntimeEvent {
-  RuntimeAgentStartedEvent._(Map<String, dynamic> json)
-    : super(type: 'agent_started', json: json);
-}
+class RuntimeToolUpdatedEvent extends RuntimeEvent {
+  final String? toolName;
+  final Object? input;
+  final Object? partialOutput;
 
-class RuntimeAgentFinishedEvent extends _JsonRuntimeEvent {
-  final String? stopReason;
-  RuntimeAgentFinishedEvent._(Map<String, dynamic> json)
-    : stopReason = json['stopReason'] as String?,
-      super(type: 'agent_finished', json: json);
+  RuntimeToolUpdatedEvent._(Map<String, dynamic> json)
+    : toolName = json['toolName'] as String?,
+      input = json['input'],
+      partialOutput = json['partialOutput'],
+      super(
+        type: 'tool_updated',
+        backend: _backendFromJson(json),
+        timestampMs: _timestampFromJson(json),
+        sessionId: _stringField(json, 'sessionId'),
+        cwd: _stringField(json, 'cwd'),
+        messageId: _stringField(json, 'messageId'),
+        toolCallId: _stringField(json, 'toolCallId'),
+        backendData: _asMap(json['backendData']),
+      );
+
   @override
   Map<String, dynamic> toJson() => {
     ...toEnvelopeJson(),
-    if (stopReason != null) 'stopReason': stopReason,
-  };
-}
-
-class RuntimeAssistantTextDeltaEvent extends _JsonDeltaRuntimeEvent {
-  RuntimeAssistantTextDeltaEvent._(Map<String, dynamic> json)
-    : super(type: 'assistant_text_delta', json: json);
-}
-
-class RuntimeAssistantThinkingDeltaEvent extends _JsonDeltaRuntimeEvent {
-  RuntimeAssistantThinkingDeltaEvent._(Map<String, dynamic> json)
-    : super(type: 'assistant_thinking_delta', json: json);
-}
-
-class RuntimeToolStartedEvent extends _JsonToolRuntimeEvent {
-  RuntimeToolStartedEvent._(Map<String, dynamic> json)
-    : super(type: 'tool_started', json: json);
-}
-
-class RuntimeToolUpdatedEvent extends _JsonToolRuntimeEvent {
-  final Object? partialOutput;
-  RuntimeToolUpdatedEvent._(Map<String, dynamic> json)
-    : partialOutput = json['partialOutput'],
-      super(type: 'tool_updated', json: json);
-  @override
-  Map<String, dynamic> toJson() => {
-    ...super.toJson(),
+    if (toolName != null) 'toolName': toolName,
+    if (input != null) 'input': input,
     if (partialOutput != null) 'partialOutput': partialOutput,
   };
 }
 
-class RuntimeToolFinishedEvent extends _JsonToolRuntimeEvent {
+class RuntimeToolFinishedEvent extends RuntimeEvent {
+  final String? toolName;
+  final Object? input;
   final Object? output;
   final bool? isError;
+
   RuntimeToolFinishedEvent._(Map<String, dynamic> json)
-    : output = json['output'],
+    : toolName = json['toolName'] as String?,
+      input = json['input'],
+      output = json['output'],
       isError = json['isError'] as bool?,
-      super(type: 'tool_finished', json: json);
+      super(
+        type: 'tool_finished',
+        backend: _backendFromJson(json),
+        timestampMs: _timestampFromJson(json),
+        sessionId: _stringField(json, 'sessionId'),
+        cwd: _stringField(json, 'cwd'),
+        messageId: _stringField(json, 'messageId'),
+        toolCallId: _stringField(json, 'toolCallId'),
+        backendData: _asMap(json['backendData']),
+      );
+
   @override
   Map<String, dynamic> toJson() => {
-    ...super.toJson(),
+    ...toEnvelopeJson(),
+    if (toolName != null) 'toolName': toolName,
+    if (input != null) 'input': input,
     if (output != null) 'output': output,
     if (isError != null) 'isError': isError,
   };
 }
 
-class RuntimePermissionRequestedEvent extends _JsonRuntimeEvent {
+class RuntimePermissionRequestedEvent extends RuntimeEvent {
   final RuntimePermissionRequest request;
+
   RuntimePermissionRequestedEvent._(Map<String, dynamic> json)
     : request = RuntimePermissionRequest.fromJson(
         _asMap(json['request']) ?? <String, dynamic>{},
       ),
-      super(type: 'permission_requested', json: json);
+      super(
+        type: 'permission_requested',
+        backend: _backendFromJson(json),
+        timestampMs: _timestampFromJson(json),
+        sessionId: _stringField(json, 'sessionId'),
+        cwd: _stringField(json, 'cwd'),
+        messageId: _stringField(json, 'messageId'),
+        toolCallId: _stringField(json, 'toolCallId'),
+        backendData: _asMap(json['backendData']),
+      );
+
   @override
   Map<String, dynamic> toJson() => {
     ...toEnvelopeJson(),
@@ -191,13 +267,24 @@ class RuntimePermissionRequestedEvent extends _JsonRuntimeEvent {
   };
 }
 
-class RuntimeUserInputRequestedEvent extends _JsonRuntimeEvent {
+class RuntimeUserInputRequestedEvent extends RuntimeEvent {
   final RuntimeUserInputRequest request;
+
   RuntimeUserInputRequestedEvent._(Map<String, dynamic> json)
     : request = RuntimeUserInputRequest.fromJson(
         _asMap(json['request']) ?? <String, dynamic>{},
       ),
-      super(type: 'user_input_requested', json: json);
+      super(
+        type: 'user_input_requested',
+        backend: _backendFromJson(json),
+        timestampMs: _timestampFromJson(json),
+        sessionId: _stringField(json, 'sessionId'),
+        cwd: _stringField(json, 'cwd'),
+        messageId: _stringField(json, 'messageId'),
+        toolCallId: _stringField(json, 'toolCallId'),
+        backendData: _asMap(json['backendData']),
+      );
+
   @override
   Map<String, dynamic> toJson() => {
     ...toEnvelopeJson(),
@@ -205,13 +292,24 @@ class RuntimeUserInputRequestedEvent extends _JsonRuntimeEvent {
   };
 }
 
-class RuntimeSessionStateChangedEvent extends _JsonRuntimeEvent {
+class RuntimeSessionStateChangedEvent extends RuntimeEvent {
   final RuntimeState state;
+
   RuntimeSessionStateChangedEvent._(Map<String, dynamic> json)
     : state = RuntimeState.fromJson(
         _asMap(json['state']) ?? <String, dynamic>{},
       ),
-      super(type: 'session_state_changed', json: json);
+      super(
+        type: 'session_state_changed',
+        backend: _backendFromJson(json),
+        timestampMs: _timestampFromJson(json),
+        sessionId: _stringField(json, 'sessionId'),
+        cwd: _stringField(json, 'cwd'),
+        messageId: _stringField(json, 'messageId'),
+        toolCallId: _stringField(json, 'toolCallId'),
+        backendData: _asMap(json['backendData']),
+      );
+
   @override
   Map<String, dynamic> toJson() => {
     ...toEnvelopeJson(),
@@ -219,11 +317,22 @@ class RuntimeSessionStateChangedEvent extends _JsonRuntimeEvent {
   };
 }
 
-class RuntimeCompactionStartedEvent extends _JsonRuntimeEvent {
+class RuntimeCompactionStartedEvent extends RuntimeEvent {
   final String? reason;
+
   RuntimeCompactionStartedEvent._(Map<String, dynamic> json)
     : reason = json['reason'] as String?,
-      super(type: 'compaction_started', json: json);
+      super(
+        type: 'compaction_started',
+        backend: _backendFromJson(json),
+        timestampMs: _timestampFromJson(json),
+        sessionId: _stringField(json, 'sessionId'),
+        cwd: _stringField(json, 'cwd'),
+        messageId: _stringField(json, 'messageId'),
+        toolCallId: _stringField(json, 'toolCallId'),
+        backendData: _asMap(json['backendData']),
+      );
+
   @override
   Map<String, dynamic> toJson() => {
     ...toEnvelopeJson(),
@@ -231,15 +340,26 @@ class RuntimeCompactionStartedEvent extends _JsonRuntimeEvent {
   };
 }
 
-class RuntimeCompactionFinishedEvent extends _JsonRuntimeEvent {
+class RuntimeCompactionFinishedEvent extends RuntimeEvent {
   final bool? aborted;
   final bool? willRetry;
   final String? errorMessage;
+
   RuntimeCompactionFinishedEvent._(Map<String, dynamic> json)
     : aborted = json['aborted'] as bool?,
       willRetry = json['willRetry'] as bool?,
       errorMessage = json['errorMessage'] as String?,
-      super(type: 'compaction_finished', json: json);
+      super(
+        type: 'compaction_finished',
+        backend: _backendFromJson(json),
+        timestampMs: _timestampFromJson(json),
+        sessionId: _stringField(json, 'sessionId'),
+        cwd: _stringField(json, 'cwd'),
+        messageId: _stringField(json, 'messageId'),
+        toolCallId: _stringField(json, 'toolCallId'),
+        backendData: _asMap(json['backendData']),
+      );
+
   @override
   Map<String, dynamic> toJson() => {
     ...toEnvelopeJson(),
@@ -249,17 +369,28 @@ class RuntimeCompactionFinishedEvent extends _JsonRuntimeEvent {
   };
 }
 
-class RuntimeRetryStartedEvent extends _JsonRuntimeEvent {
+class RuntimeRetryStartedEvent extends RuntimeEvent {
   final int? attempt;
   final int? maxAttempts;
   final int? delayMs;
   final String? errorMessage;
+
   RuntimeRetryStartedEvent._(Map<String, dynamic> json)
     : attempt = (json['attempt'] as num?)?.toInt(),
       maxAttempts = (json['maxAttempts'] as num?)?.toInt(),
       delayMs = (json['delayMs'] as num?)?.toInt(),
       errorMessage = json['errorMessage'] as String?,
-      super(type: 'retry_started', json: json);
+      super(
+        type: 'retry_started',
+        backend: _backendFromJson(json),
+        timestampMs: _timestampFromJson(json),
+        sessionId: _stringField(json, 'sessionId'),
+        cwd: _stringField(json, 'cwd'),
+        messageId: _stringField(json, 'messageId'),
+        toolCallId: _stringField(json, 'toolCallId'),
+        backendData: _asMap(json['backendData']),
+      );
+
   @override
   Map<String, dynamic> toJson() => {
     ...toEnvelopeJson(),
@@ -270,15 +401,26 @@ class RuntimeRetryStartedEvent extends _JsonRuntimeEvent {
   };
 }
 
-class RuntimeRetryFinishedEvent extends _JsonRuntimeEvent {
+class RuntimeRetryFinishedEvent extends RuntimeEvent {
   final bool? success;
   final int? attempt;
   final String? finalError;
+
   RuntimeRetryFinishedEvent._(Map<String, dynamic> json)
     : success = json['success'] as bool?,
       attempt = (json['attempt'] as num?)?.toInt(),
       finalError = json['finalError'] as String?,
-      super(type: 'retry_finished', json: json);
+      super(
+        type: 'retry_finished',
+        backend: _backendFromJson(json),
+        timestampMs: _timestampFromJson(json),
+        sessionId: _stringField(json, 'sessionId'),
+        cwd: _stringField(json, 'cwd'),
+        messageId: _stringField(json, 'messageId'),
+        toolCallId: _stringField(json, 'toolCallId'),
+        backendData: _asMap(json['backendData']),
+      );
+
   @override
   Map<String, dynamic> toJson() => {
     ...toEnvelopeJson(),
@@ -288,15 +430,26 @@ class RuntimeRetryFinishedEvent extends _JsonRuntimeEvent {
   };
 }
 
-class RuntimeErrorEvent extends _JsonRuntimeEvent {
+class RuntimeErrorEvent extends RuntimeEvent {
   final String message;
   final String? code;
   final Object? details;
+
   RuntimeErrorEvent._(Map<String, dynamic> json)
     : message = json['message'] as String? ?? '',
       code = json['code'] as String?,
       details = json['details'],
-      super(type: 'error', json: json);
+      super(
+        type: 'error',
+        backend: _backendFromJson(json),
+        timestampMs: _timestampFromJson(json),
+        sessionId: _stringField(json, 'sessionId'),
+        cwd: _stringField(json, 'cwd'),
+        messageId: _stringField(json, 'messageId'),
+        toolCallId: _stringField(json, 'toolCallId'),
+        backendData: _asMap(json['backendData']),
+      );
+
   @override
   Map<String, dynamic> toJson() => {
     ...toEnvelopeJson(),
@@ -306,19 +459,42 @@ class RuntimeErrorEvent extends _JsonRuntimeEvent {
   };
 }
 
-class RuntimeBackendEvent extends _JsonRuntimeEvent {
+class RuntimeBackendEvent extends RuntimeEvent {
   final String kind;
   final Object? payload;
+
   RuntimeBackendEvent._(Map<String, dynamic> json)
     : kind = json['kind'] as String? ?? '',
       payload = json['payload'],
-      super(type: 'backend_event', json: json);
+      super(
+        type: 'backend_event',
+        backend: _backendFromJson(json),
+        timestampMs: _timestampFromJson(json),
+        sessionId: _stringField(json, 'sessionId'),
+        cwd: _stringField(json, 'cwd'),
+        messageId: _stringField(json, 'messageId'),
+        toolCallId: _stringField(json, 'toolCallId'),
+        backendData: _asMap(json['backendData']),
+      );
+
   @override
   Map<String, dynamic> toJson() => {
     ...toEnvelopeJson(),
     'kind': kind,
     if (payload != null) 'payload': payload,
   };
+}
+
+AgentType _backendFromJson(Map<String, dynamic> json) {
+  return AgentType.fromWireValue(json['backend'] as String? ?? 'opencode');
+}
+
+int _timestampFromJson(Map<String, dynamic> json) {
+  return (json['timestampMs'] as num?)?.toInt() ?? 0;
+}
+
+String? _stringField(Map<String, dynamic> json, String key) {
+  return json[key] as String?;
 }
 
 Map<String, dynamic>? _asMap(dynamic value) {

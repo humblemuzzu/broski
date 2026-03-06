@@ -2002,10 +2002,10 @@ export type ServerMessage =
   | { type: 'pi_instance_disposed'; data: boolean; requestId?: string }
   | { type: 'pi_extension_ui_responded'; data: boolean; requestId?: string }
   | { type: 'pi_stream'; data: PiStreamMessage; sessionId: string }
-  | { type: 'runtime_event'; backend: 'pi'; data: BroskiRuntimeEvent }
-  | { type: 'runtime_models'; backend: 'pi'; data: BroskiModelSummary[] }
-  | { type: 'runtime_sessions'; backend: 'pi'; data: BroskiSessionSummary[] }
-  | { type: 'runtime_state'; backend: 'pi'; data: BroskiRuntimeState }
+  | { type: 'runtime_event'; backend: 'opencode' | 'claude-code' | 'codex' | 'pi'; data: BroskiRuntimeEvent }
+  | { type: 'runtime_models'; backend: 'opencode' | 'claude-code' | 'codex' | 'pi'; data: BroskiModelSummary[] }
+  | { type: 'runtime_sessions'; backend: 'opencode' | 'claude-code' | 'codex' | 'pi'; data: BroskiSessionSummary[] }
+  | { type: 'runtime_state'; backend: 'opencode' | 'claude-code' | 'codex' | 'pi'; data: BroskiRuntimeState }
   // Subscription Usage Tracking
   | { type: 'subscription_usage'; data: SubscriptionUsage; requestId?: string }
   | { type: 'provider_usage'; data: ProviderUsage; requestId?: string }

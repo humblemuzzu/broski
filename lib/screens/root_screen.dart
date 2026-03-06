@@ -10,6 +10,7 @@ import '../providers/app_auth_provider.dart';
 import '../providers/app_subscription_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/onboarding_provider.dart';
+import '../providers/chat/runtime_shadow_provider.dart';
 import '../theme/opencode_theme.dart';
 import '../utils/responsive.dart';
 import 'bridge_setup_screen.dart';
@@ -25,6 +26,7 @@ class RootScreen extends ConsumerWidget {
   const RootScreen({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(runtimeShadowBootstrapProvider);
     final authState = ref.watch(appAuthProvider);
     final subState = ref.watch(appSubscriptionProvider);
     final connectionState = ref.watch(connectionProvider);

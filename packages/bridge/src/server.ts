@@ -22,6 +22,24 @@ import * as ocWorkspaces from './handlers/oc_workspaces'
 import * as piFeatures from './handlers/pi_features'
 import * as ccElicitation from './handlers/cc_elicitation'
 import type { ClaudeElicitationReply } from './handlers/cc_elicitation'
+import { mapClaudeCodeStreamToRuntimeEvent } from './runtime/claude-code-runtime-event-mapper'
+import {
+  buildClaudeCodeRuntimeState,
+  mapClaudeCodeModelToSummary,
+  mapClaudeCodeSessionToRuntimeSession,
+} from './runtime/claude-code-runtime-read-models'
+import { mapCodexStreamToRuntimeEvent } from './runtime/codex-runtime-event-mapper'
+import {
+  buildCodexRuntimeState,
+  mapCodexModelToSummary,
+  mapCodexThreadToRuntimeSession,
+} from './runtime/codex-runtime-read-models'
+import { mapOpenCodeSdkEventToRuntimeEvent } from './runtime/opencode-runtime-event-mapper'
+import {
+  mapOpenCodeProvidersToRuntimeModels,
+  mapOpenCodeSessionToRuntimeSession,
+  mapOpenCodeStatusToRuntimeState,
+} from './runtime/opencode-runtime-read-models'
 import { PtyManager } from './pty/manager'
 import { PtyRuntime } from './pty/runtime'
 import { headTailTruncate } from './utils'
@@ -1088,6 +1106,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
   }
   const cxApprovalWaiters = new Map<string, { resolve: (response: CodexApprovalReply) => void; timer: Timer }>()
   const ccSessionOwners = new Map<string, ServerWebSocket<unknown>>()
+  const ccSessionCwds = new Map<string, string>()
   const cxThreadOwners = new Map<string, ServerWebSocket<unknown>>()
   const ocSessionOwners = new Map<string, ServerWebSocket<unknown>>()
   const cxActiveTurns = new Map<string, string>()
@@ -1677,6 +1696,20 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                 owner
               )
 
+              const runtimeStatePayload: ServerMessage = {
+                type: 'runtime_state',
+                backend: 'codex',
+                data: buildCodexRuntimeState({
+                  threadId,
+                  cwd: cxThreadCwds.get(threadId),
+                  isStreaming: false,
+                }),
+              }
+              if (owner) {
+                send(owner, runtimeStatePayload)
+              }
+              broadcastToSessionWatchers('codex', threadId, runtimeStatePayload, owner)
+
               // CRITICAL: Send session.idle to reset UI state
               if (owner) {
                 send(owner, {
@@ -1753,6 +1786,17 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
           // Send busy/idle events for background indicators/notifications
           if (owner && n.method === 'turn/started' && threadId) {
+            const runtimeStatePayload: ServerMessage = {
+              type: 'runtime_state',
+              backend: 'codex',
+              data: buildCodexRuntimeState({
+                threadId,
+                cwd: cxThreadCwds.get(threadId),
+                isStreaming: true,
+              }),
+            }
+            send(owner, runtimeStatePayload)
+            broadcastToSessionWatchers('codex', threadId, runtimeStatePayload, owner)
             send(owner, {
               type: 'sdk_event',
               data: {
@@ -1764,6 +1808,17 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             })
           }
           if (owner && n.method === 'turn/completed' && threadId) {
+            const runtimeStatePayload: ServerMessage = {
+              type: 'runtime_state',
+              backend: 'codex',
+              data: buildCodexRuntimeState({
+                threadId,
+                cwd: cxThreadCwds.get(threadId),
+                isStreaming: false,
+              }),
+            }
+            send(owner, runtimeStatePayload)
+            broadcastToSessionWatchers('codex', threadId, runtimeStatePayload, owner)
             send(owner, {
               type: 'sdk_event',
               data: {
@@ -3566,6 +3621,23 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       bufferCcEvent(sessionId, streamMsg)
     }
     broadcastToSessionWatchers('claude-code', sessionId, payload, resolvedOwner)
+
+    const runtimeEvent = mapClaudeCodeStreamToRuntimeEvent(streamMsg, {
+      backend: 'claude-code',
+      sessionId,
+      cwd: ccSessionCwds.get(sessionId),
+    })
+    if (!runtimeEvent) return
+
+    const runtimePayload: ServerMessage = {
+      type: 'runtime_event',
+      backend: 'claude-code',
+      data: runtimeEvent,
+    }
+    if (resolvedOwner) {
+      send(resolvedOwner, runtimePayload)
+    }
+    broadcastToSessionWatchers('claude-code', sessionId, runtimePayload, resolvedOwner)
   }
 
   const emitCxStream = (threadId: string, streamMsg: CodexStreamMessage, owner?: ServerWebSocket<unknown> | null) => {
@@ -3590,6 +3662,23 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       bufferCxEvent(threadId, streamMsg)
     }
     broadcastToSessionWatchers('codex', threadId, payload, resolvedOwner)
+
+    const runtimeEvent = mapCodexStreamToRuntimeEvent(streamMsg, {
+      backend: 'codex',
+      threadId,
+      cwd: cxThreadCwds.get(threadId),
+    })
+    if (!runtimeEvent) return
+
+    const runtimePayload: ServerMessage = {
+      type: 'runtime_event',
+      backend: 'codex',
+      data: runtimeEvent,
+    }
+    if (resolvedOwner) {
+      send(resolvedOwner, runtimePayload)
+    }
+    broadcastToSessionWatchers('codex', threadId, runtimePayload, resolvedOwner)
   }
 
   // ── Event buffer for reconnect replay ──────────────────────────────
@@ -3801,6 +3890,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     }
 
     const priority = getEventPriority(event)
+    const runtimeEvent = mapOpenCodeSdkEventToRuntimeEvent(event)
 
     if (DEBUG_RTS) {
       const eventType = getEventType(event)
@@ -3819,6 +3909,14 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         send(ws, { type: 'sdk_event', data: event })
       } else {
         enqueueForClient(ws, event)
+      }
+
+      if (runtimeEvent) {
+        send(ws, {
+          type: 'runtime_event',
+          backend: 'opencode',
+          data: runtimeEvent,
+        })
       }
     }
 
@@ -5292,7 +5390,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         // re-bind the new socket as owner so live events flow to it immediately.
         if (nextAgent === 'claude-code' && nextSessionId) {
           const ccActiveList = claudeCode.listActiveSessions()
-          const isActive = ccActiveList.some((s) => s.sessionId === nextSessionId)
+          const activeSession = ccActiveList.find((s) => s.sessionId === nextSessionId)
+          const isActive = activeSession != null
           if (isActive) {
             const prevOwner = ccSessionOwners.get(nextSessionId)
             // Re-bind if no owner or owner is a dead/different socket
@@ -5300,6 +5399,15 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               ccSessionOwners.set(nextSessionId, ws)
               logInfo(`[RTS] set_view: Re-bound CC session ${nextSessionId} owner (was ${prevOwner ? 'stale' : 'absent'})`)
             }
+            send(ws, {
+              type: 'runtime_state',
+              backend: 'claude-code',
+              data: buildClaudeCodeRuntimeState({
+                sessionId: nextSessionId,
+                cwd: activeSession?.cwd ?? ccSessionCwds.get(nextSessionId) ?? message.projectPath,
+                isStreaming: true,
+              }),
+            })
             // Replay any buffered events from the disconnect gap
             replayBufferedEvents(ws, 'claude-code', nextSessionId)
           }
@@ -5312,6 +5420,15 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               cxThreadOwners.set(nextSessionId, ws)
               logInfo(`[RTS] set_view: Re-bound CX thread ${nextSessionId} owner (was ${prevOwner ? 'stale' : 'absent'})`)
             }
+            send(ws, {
+              type: 'runtime_state',
+              backend: 'codex',
+              data: buildCodexRuntimeState({
+                threadId: nextSessionId,
+                cwd: cxThreadCwds.get(nextSessionId),
+                isStreaming: true,
+              }),
+            })
             replayBufferedEvents(ws, 'codex', nextSessionId)
           }
         }
@@ -5391,6 +5508,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           type: 'sessions',
           data: sessions,
           projectPath: message.projectPath
+        })
+        reply({
+          type: 'runtime_sessions',
+          backend: 'opencode',
+          data: sessions.map(mapOpenCodeSessionToRuntimeSession),
         })
         break
       }
@@ -5749,6 +5871,17 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         const oc = requireOpenCode()
         const status = await oc.getSessionStatus(message.projectPath)
         reply({ type: 'session_status', data: status })
+        for (const [sessionId, sessionStatus] of Object.entries(status)) {
+          reply({
+            type: 'runtime_state',
+            backend: 'opencode',
+            data: mapOpenCodeStatusToRuntimeState(
+              sessionId,
+              sessionStatus,
+              message.projectPath,
+            ),
+          })
+        }
         break
       }
       // Feature 14: PTY Terminal Sessions (OpenCode when available, native fallback otherwise)
@@ -5933,6 +6066,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         const oc = requireOpenCode()
         const providers = await oc.listAllProviders(message.projectPath)
         reply({ type: 'all_providers', data: providers })
+        reply({
+          type: 'runtime_models',
+          backend: 'opencode',
+          data: mapOpenCodeProvidersToRuntimeModels(providers),
+        })
         break
       }
       case 'get_provider_auth': {
@@ -6183,6 +6321,13 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         })
         logInfo(`[cx_list_threads] Done, cached ${threadsWithNames.length} threads`)
         reply({ type: 'cx_threads', data: threadsWithNames, nextCursor })
+        reply({
+          type: 'runtime_sessions',
+          backend: 'codex',
+          data: threadsWithNames.map((thread: CodexThread & { threadName?: string }) =>
+            mapCodexThreadToRuntimeSession(thread),
+          ),
+        })
         break
       }
       case 'cx_warmup': {
@@ -6295,6 +6440,13 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           type: 'cx_models',
           data: result?.data ?? [],
           nextCursor: result?.nextCursor ?? null
+        })
+        reply({
+          type: 'runtime_models',
+          backend: 'codex',
+          data: (Array.isArray(result?.data) ? result.data : []).map(
+            (model: Record<string, unknown>) => mapCodexModelToSummary(model),
+          ),
         })
         break
       }
@@ -7365,6 +7517,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       case 'cc_list_sessions': {
         const sessions = await claudeCode.listSessions(message.cwd)
         reply({ type: 'cc_sessions', data: sessions })
+        reply({
+          type: 'runtime_sessions',
+          backend: 'claude-code',
+          data: sessions.map(mapClaudeCodeSessionToRuntimeSession),
+        })
         break
       }
       case 'cc_get_session': {
@@ -7432,6 +7589,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
         if (message.sessionId) {
           ccSessionOwners.set(message.sessionId, ws)
+          ccSessionCwds.set(message.sessionId, cwd)
         }
 
         // Use dynamic owner lookup instead of captured `ws` to survive reconnects.
@@ -7443,6 +7601,16 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           if (!sessionId || sentBusyStatus) return
           sentBusyStatus = true
           const target = getOwnerSocket(sessionId) ?? ws
+          send(target, {
+            type: 'runtime_state',
+            backend: 'claude-code',
+            data: buildClaudeCodeRuntimeState({
+              sessionId,
+              cwd: ccSessionCwds.get(sessionId) ?? cwd,
+              isStreaming: true,
+              model,
+            }),
+          })
           send(target, {
             type: 'sdk_event',
             data: {
@@ -7459,6 +7627,21 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
         const sendSessionIdle = (sessionId: string) => {
           if (!sessionId) return
+          const runtimeStatePayload: ServerMessage = {
+            type: 'runtime_state',
+            backend: 'claude-code',
+            data: buildClaudeCodeRuntimeState({
+              sessionId,
+              cwd: ccSessionCwds.get(sessionId) ?? cwd,
+              isStreaming: false,
+              model,
+            }),
+          }
+          const owner = getOwnerSocket(sessionId)
+          if (owner) {
+            send(owner, runtimeStatePayload)
+          }
+          broadcastToSessionWatchers('claude-code', sessionId, runtimeStatePayload, owner)
           // Broadcast idle to all watchers, not just the owner.
           // On reconnect the owner may have changed; on disconnect the
           // owner may be gone — enqueueSdkEvent handles both cases.
@@ -7541,6 +7724,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               actualSessionId = (streamMsg as any).sessionId
               // Set the CURRENT ws as owner (may be stale later, but set_view will update)
               ccSessionOwners.set(actualSessionId, ws)
+              ccSessionCwds.set(actualSessionId, cwd)
               log(`[Claude Code] session created: ${actualSessionId}`)
               sendSessionBusy(actualSessionId)
             }
@@ -7564,6 +7748,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             sendSessionIdle(sid)
             // Clear ownership — any socket that was the owner
             ccSessionOwners.delete(sid)
+            ccSessionCwds.delete(sid)
             // Clear event buffer for this session (no longer streaming)
             ccEventBuffers.delete(sid)
             syncExternalTailForKey(makeSessionKey('claude-code', sid))
@@ -7592,6 +7777,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             }
             sendSessionIdle(sid)
             ccSessionOwners.delete(sid)
+            ccSessionCwds.delete(sid)
             ccEventBuffers.delete(sid)
             syncExternalTailForKey(makeSessionKey('claude-code', sid))
           },
@@ -7601,6 +7787,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             // Use dynamic lookup: if the app reconnected, the owner may be a new socket
             const ownerWs = (sid ? ccSessionOwners.get(sid) : null) ?? ws
             if (sid) ccSessionOwners.set(sid, ownerWs)
+            if (sid) ccSessionCwds.set(sid, cwd)
 
             // Ask the current owner socket for approval (mobile UI shows prompt).
             // If the owner is disconnected, this will buffer via emitCcStream.
@@ -8305,6 +8492,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       case 'cc_get_supported_models': {
         const models = await claudeCode.getSupportedModels(message.cwd)
         reply({ type: 'cc_supported_models', data: models })
+        reply({
+          type: 'runtime_models',
+          backend: 'claude-code',
+          data: models.map(mapClaudeCodeModelToSummary),
+        })
         break
       }
       case 'cc_get_account_info': {
