@@ -1,7 +1,19 @@
 import { resolve } from 'node:path'
 import type { ThinkingLevel } from '@mariozechner/pi-agent-core'
 import * as pi from '../connectors/pi'
+import { mapPiStreamToRuntimeEvent } from '../runtime/pi-runtime-event-mapper'
+import {
+  mapPiModelToSummary,
+  mapPiSessionToRuntimeSession,
+  mapPiStateToRuntimeState,
+} from '../runtime/pi-runtime-read-models'
 import type { FileAttachment, ServerMessage } from '../types'
+import type {
+  PiModelPayload,
+  PiSessionInfo,
+  PiStatePayload,
+  PiStreamMessage,
+} from '../types/pi'
 
 type Reply = (message: ServerMessage) => void
 
@@ -81,6 +93,69 @@ const parseQueueMode = (value: unknown): 'all' | 'one-at-a-time' => {
   throw new Error(`Invalid Pi queue mode: ${String(value)}`)
 }
 
+function broadcastPiStreamMessage(
+  broadcast: Broadcast,
+  cwd: string,
+  sessionId: string,
+  streamMessage: PiStreamMessage,
+): void {
+  broadcast({
+    type: 'pi_stream',
+    data: streamMessage,
+    sessionId,
+  })
+
+  const runtimeEvent = mapPiStreamToRuntimeEvent(streamMessage, {
+    backend: 'pi',
+    sessionId,
+    cwd,
+  })
+  if (!runtimeEvent) return
+
+  broadcast({
+    type: 'runtime_event',
+    backend: 'pi',
+    data: runtimeEvent,
+  })
+}
+
+function emitPiRuntimeState(
+  reply: Reply,
+  cwd: string,
+  state: PiStatePayload,
+): void {
+  reply({
+    type: 'runtime_state',
+    backend: 'pi',
+    data: {
+      ...mapPiStateToRuntimeState(state),
+      cwd,
+    },
+  })
+}
+
+function emitPiRuntimeModels(
+  reply: Reply,
+  models: PiModelPayload[],
+): void {
+  reply({
+    type: 'runtime_models',
+    backend: 'pi',
+    data: models.map(mapPiModelToSummary),
+  })
+}
+
+function emitPiRuntimeSessions(
+  reply: Reply,
+  sessions: PiSessionInfo[],
+): void {
+  reply({
+    type: 'runtime_sessions',
+    backend: 'pi',
+    data: sessions.map(mapPiSessionToRuntimeSession),
+  })
+}
+
 async function ensureStreamBridge(cwd: string, broadcast: Broadcast): Promise<void> {
   if (streamUnsubscribers.has(cwd)) return
 
@@ -89,11 +164,7 @@ async function ensureStreamBridge(cwd: string, broadcast: Broadcast): Promise<vo
     const streamMessage = pi.translateEvent(event)
     if (!streamMessage) return
 
-    broadcast({
-      type: 'pi_stream',
-      data: streamMessage,
-      sessionId: instance.session.sessionId,
-    })
+    broadcastPiStreamMessage(broadcast, cwd, instance.session.sessionId, streamMessage)
   })
 
   streamUnsubscribers.set(cwd, unsubscribe)
@@ -135,13 +206,9 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
           source: 'rpc',
         })
         .catch((error) => {
-          broadcast({
-            type: 'pi_stream',
-            data: {
-              type: 'error',
-              message: error instanceof Error ? error.message : String(error),
-            },
-            sessionId: instance.session.sessionId,
+          broadcastPiStreamMessage(broadcast, cwd, instance.session.sessionId, {
+            type: 'error',
+            message: error instanceof Error ? error.message : String(error),
           })
         })
 
@@ -210,12 +277,16 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
 
     case 'pi_get_state': {
       const instance = await pi.getOrCreateInstance(cwd)
-      reply({ type: 'pi_state', data: pi.mapStatePayload(instance), requestId: message.requestId })
+      const state = pi.mapStatePayload(instance)
+      reply({ type: 'pi_state', data: state, requestId: message.requestId })
+      emitPiRuntimeState(reply, cwd, state)
       return true
     }
 
     case 'pi_list_models': {
-      reply({ type: 'pi_models', data: pi.listAvailableModels(), requestId: message.requestId })
+      const models = pi.listAvailableModels()
+      reply({ type: 'pi_models', data: models, requestId: message.requestId })
+      emitPiRuntimeModels(reply, models)
       return true
     }
 
@@ -260,6 +331,7 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
     case 'pi_list_sessions': {
       const sessions = await pi.listSessions(optionalCwd)
       reply({ type: 'pi_sessions', data: sessions, requestId: message.requestId })
+      emitPiRuntimeSessions(reply, sessions)
       return true
     }
 

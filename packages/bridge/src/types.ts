@@ -1,5 +1,11 @@
 import type { CodexAgentStatus, CodexAppInfo, CodexCollabAgentInteractionBeginEvent, CodexCollabAgentInteractionEndEvent, CodexCollabAgentSpawnBeginEvent, CodexCollabAgentSpawnEndEvent, CodexCollabCloseBeginEvent, CodexCollabCloseEndEvent, CodexCollabResumeBeginEvent, CodexCollabResumeEndEvent, CodexCollabWaitingBeginEvent, CodexCollabWaitingEndEvent, CodexModeKind, CodexPersonality, CodexPrompt, CodexRemoteSkill, CodexStreamMessage, CodexThread, CodexTranscriptDiff, CodexTranscriptMessage, CodexTranscriptToolCall, CodexWebSearchMode } from './types/codex'
 import type { PiCommandPayload, PiForkMessagePayload, PiModelPayload, PiSessionInfo, PiStatePayload, PiStreamMessage } from './types/pi'
+import type {
+  BroskiModelSummary,
+  BroskiRuntimeEvent,
+  BroskiRuntimeState,
+  BroskiSessionSummary,
+} from './types/runtime'
 
 export type PermissionResponse = 'once' | 'always' | 'reject' | 'execpolicy'
 
@@ -1996,6 +2002,10 @@ export type ServerMessage =
   | { type: 'pi_instance_disposed'; data: boolean; requestId?: string }
   | { type: 'pi_extension_ui_responded'; data: boolean; requestId?: string }
   | { type: 'pi_stream'; data: PiStreamMessage; sessionId: string }
+  | { type: 'runtime_event'; backend: 'pi'; data: BroskiRuntimeEvent }
+  | { type: 'runtime_models'; backend: 'pi'; data: BroskiModelSummary[] }
+  | { type: 'runtime_sessions'; backend: 'pi'; data: BroskiSessionSummary[] }
+  | { type: 'runtime_state'; backend: 'pi'; data: BroskiRuntimeState }
   // Subscription Usage Tracking
   | { type: 'subscription_usage'; data: SubscriptionUsage; requestId?: string }
   | { type: 'provider_usage'; data: ProviderUsage; requestId?: string }
