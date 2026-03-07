@@ -964,4 +964,41 @@ http.route({
   }),
 });
 
+
+// ─── Admin endpoints for Gani ──────────────────────────────────────────────
+
+function requireAdminKey(req: Request): { ok: true } | { ok: false; response: Response } {
+  const adminKey = process.env.GANI_ADMIN_KEY;
+  if (!adminKey) {
+    return { ok: false, response: error("GANI_ADMIN_KEY not configured", 500) };
+  }
+  const provided = getBearerToken(req);
+  if (!provided || provided !== adminKey) {
+    return { ok: false, response: error("Unauthorized", 401) };
+  }
+  return { ok: true };
+}
+
+http.route({
+  path: "/admin/waitlist",
+  method: "GET",
+  handler: httpAction(async (ctx, req) => {
+    const auth = requireAdminKey(req);
+    if (!auth.ok) return auth.response;
+    const entries = await ctx.runQuery(internal.waitlist.listAll, {});
+    return json({ ok: true, entries, count: entries.length });
+  }),
+});
+
+http.route({
+  path: "/admin/users",
+  method: "GET",
+  handler: httpAction(async (ctx, req) => {
+    const auth = requireAdminKey(req);
+    if (!auth.ok) return auth.response;
+    const users = await ctx.runQuery(internal.users.listAllForAdmin, {});
+    return json({ ok: true, users, count: users.length });
+  }),
+});
+
 export default http;

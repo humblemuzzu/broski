@@ -409,3 +409,37 @@ export const listBetaUsers = internalQuery({
       }));
   },
 });
+
+/**
+ * List all users with key fields for the Gani admin panel.
+ * Strips internal Convex IDs and sensitive fields.
+ *
+ * Usage: called from /admin/users httpAction.
+ */
+export const listAllForAdmin = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const allUsers = await ctx.db.query("users").collect();
+    return allUsers.map((u) => ({
+      appUserId: u.appUserId,
+      provider: u.provider,
+      email: u.email,
+      displayName: u.displayName,
+      photoUrl: u.photoUrl,
+      createdAtMs: u.createdAtMs,
+      updatedAtMs: u.updatedAtMs,
+      lastSeenAtMs: u.lastSeenAtMs,
+      subscription: u.subscription
+        ? {
+            entitlementActive: u.subscription.entitlementActive,
+            status: u.subscription.status,
+            source: u.subscription.source,
+            productId: u.subscription.productId,
+            expiresAtMs: u.subscription.expiresAtMs,
+            store: u.subscription.store,
+            environment: u.subscription.environment,
+          }
+        : undefined,
+    }));
+  },
+});

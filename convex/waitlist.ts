@@ -120,3 +120,11 @@ export const removeByEmail = internalMutation({
     return { deleted: false };
   },
 });
+
+// Internal query: list all waitlist entries (called from admin httpAction)
+export const listAll = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("waitlist").collect();
+  },
+});
