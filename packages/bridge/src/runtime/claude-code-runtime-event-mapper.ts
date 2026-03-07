@@ -165,8 +165,27 @@ export function mapClaudeCodeStreamToRuntimeEvent(
         payload: streamMessage,
       }
 
-    case 'session-init':
+    case 'hook-started':
+    case 'hook-progress':
+    case 'hook-response':
+      return {
+        ...baseEvent('backend_event', eventContext),
+        kind: streamMessage.type,
+        payload: streamMessage,
+      }
+
     case 'compact-boundary':
+      return {
+        ...baseEvent('compaction_finished', eventContext),
+      }
+
+    case 'status-update':
+      if (streamMessage.status === 'compacting') {
+        return { ...baseEvent('compaction_started', eventContext), reason: 'context-limit' }
+      }
+      return null
+
+    case 'session-init':
     case 'assistant-message':
     case 'subagent-invocation':
     case 'token-usage':
@@ -177,10 +196,6 @@ export function mapClaudeCodeStreamToRuntimeEvent(
     case 'task-notification':
     case 'tool-use-summary':
     case 'files-persisted':
-    case 'status-update':
-    case 'hook-started':
-    case 'hook-progress':
-    case 'hook-response':
     case 'rate-limit-info':
     case 'prompt-suggestion':
     case 'auth-status':

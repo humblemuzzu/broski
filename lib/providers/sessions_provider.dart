@@ -7,11 +7,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/agent_type.dart';
 import '../models/message.dart';
 import '../models/project.dart';
+import '../models/runtime/runtime.dart';
 import '../models/session.dart';
+import '../services/bridge/bridge_runtime.dart';
 import '../services/notification_service.dart';
 import '../utils/project_path_match.dart';
 import '../services/storage_service.dart';
 import 'connection_provider.dart';
+import 'sessions/runtime_session_activity_handler.dart';
+import 'sessions/runtime_session_snapshot_handler.dart';
 import 'service_providers.dart';
 
 // ============================================================
@@ -47,175 +51,67 @@ class GlobalSessionStatusNotifier
   }
 
   final Ref _ref;
-  StreamSubscription<Map<String, dynamic>>? _subscription;
 
   /// Tracks when sessions became busy and last tool used
   final Map<String, _SessionActivity> _sessionActivity = {};
 
   StreamSubscription<Map<String, dynamic>>? _rawSubscription;
+  StreamSubscription<RuntimeEvent>? _runtimeEventSubscription;
+  StreamSubscription<RuntimeState>? _runtimeStateSubscription;
+  StreamSubscription<List<RuntimeSessionSummary>>? _runtimeSessionsSubscription;
+  final Set<AgentType> _runtimeSnapshotBackends = <AgentType>{};
 
   void _init() {
-    // Listen to SDK events for session.status, session.idle, and tool events
-    // These come through bridgeService.sdkEvents stream
     final bridge = _ref.read(bridgeServiceProvider);
-    _subscription = bridge.sdkEvents.listen(_handleSdkEvent);
+    _runtimeEventSubscription = bridge.runtimeEvents.listen(
+      _handleRuntimeEvent,
+    );
+    _runtimeStateSubscription = bridge.runtimeStates.listen(
+      _handleRuntimeState,
+    );
+    _runtimeSessionsSubscription = bridge.runtimeSessions.listen(
+      _handleRuntimeSessions,
+    );
 
-    // Listen to raw bridge messages for sessions_active (pushed on reconnect)
+    // Keep raw snapshots only as read-model fallback while runtime snapshots
+    // prove out across reconnect and thread-list paths.
     _rawSubscription = bridge.messages.listen(_handleRawMessage);
   }
 
   void _handleRawMessage(Map<String, dynamic> message) {
     final type = message['type'] as String? ?? '';
-    if (type == 'sessions_active') {
-      _handleSessionsActive(message['data'] as Map<String, dynamic>? ?? {});
-    }
-    if (type == 'cx_threads') {
+    if (type == 'cx_threads' &&
+        !_runtimeSnapshotBackends.contains(AgentType.codex)) {
       _handleCxThreadsSnapshot(message['data'] as List<dynamic>? ?? const []);
     }
+  }
 
-    // CC: detect session idle from cc_stream — the bridge emits a 'result'
-    // event when the CC SDK completes, then sendSessionIdle. But if the
-    // session.idle SDK event is missed (reconnect, app backgrounded), the
-    // session stays stuck as "busy" forever. Listen to cc_stream as backup.
-    if (type == 'cc_stream') {
-      _handleCcStreamForCompletion(message);
+  void _handleRuntimeEvent(RuntimeEvent event) {
+    final sessionId = runtimeSessionIdFromEvent(event);
+    if (sessionId == null || sessionId.isEmpty) return;
+
+    final status = runtimeSessionStatusFromEvent(event);
+    if (status != null) {
+      _applyRuntimeStatus(sessionId, status);
     }
 
-    // CX: detect turn completion — CX sessions are never added to
-    // fetchAllStatuses so they only get marked busy via sessions_active.
-    // Completion comes as notification turn/completed.
-    if (type == 'cx_stream') {
-      _handleCxStreamForCompletion(message);
+    final toolName = runtimeToolNameFromEvent(event);
+    if (toolName != null && _sessionActivity.containsKey(sessionId)) {
+      _sessionActivity[sessionId]!.lastToolName = toolName;
     }
   }
 
-  /// Detect CC session state from cc_stream messages.
-  /// Marks busy on first streaming event. Completion is signaled by
-  /// 'token-usage' (the last event the bridge emits for a CC session
-  /// after the SDK yields a ResultMessage). The bridge also sends
-  /// session.idle via enqueueSdkEvent, but if that's missed (reconnect,
-  /// app backgrounded), the token-usage fallback ensures we clear state.
-  ///
-  /// CC SDK message flow (from docs): StreamEvent* → AssistantMessage →
-  ///   ResultMessage. Bridge translates ResultMessage → assistant-message
-  ///   (if text) + token-usage (always). Then calls sendSessionIdle().
-  void _handleCcStreamForCompletion(Map<String, dynamic> message) {
-    final data = message['data'] as Map<String, dynamic>? ?? {};
-    final eventType = data['type'] as String? ?? '';
-    final sessionId =
-        message['sessionId'] as String? ?? data['sessionId'] as String? ?? '';
+  void _handleRuntimeState(RuntimeState runtimeState) {
+    final sessionId = (runtimeState.sessionId ?? '').trim();
     if (sessionId.isEmpty) return;
-
-    // Any content event means the session is active
-    if (eventType == 'assistant-message-delta' ||
-        eventType == 'thinking-delta' ||
-        eventType == 'tool-call' ||
-        eventType == 'tool-result') {
-      final current = state[sessionId];
-      if (current == null || current.isIdle) {
-        state = {...state, sessionId: const SessionStatus.busy()};
-      }
-    }
-
-    // 'token-usage' is the last cc_stream event the bridge emits.
-    // It comes from the CC SDK ResultMessage (success or error).
-    // The bridge will send session.idle via SDK event shortly after.
-    // We use token-usage as a safety net: if session.idle doesn't
-    // arrive within 5s, force the session to idle.
-    if (eventType == 'token-usage') {
-      if (kDebugMode) {
-        developer.log(
-          'CC session token-usage received (pending completion): $sessionId',
-          name: 'GlobalSessionStatus',
-        );
-      }
-      Future.delayed(const Duration(seconds: 5), () {
-        if (!mounted) return;
-        final current = state[sessionId];
-        if (current != null && (current.isBusy || current.isRetry)) {
-          if (kDebugMode) {
-            developer.log(
-              'CC session forced idle (session.idle not received): $sessionId',
-              name: 'GlobalSessionStatus',
-            );
-          }
-          state = {...state, sessionId: const SessionStatus.idle()};
-        }
-      });
-    }
+    _applyRuntimeStatus(sessionId, runtimeSessionStatusFromState(runtimeState));
   }
 
-  /// Detect CX turn completion from cx_stream messages.
-  void _handleCxStreamForCompletion(Map<String, dynamic> message) {
-    final data = message['data'] as Map<String, dynamic>? ?? {};
-    final eventType = data['type'] as String? ?? '';
-    final threadId =
-        message['threadId'] as String? ?? data['threadId'] as String? ?? '';
-    if (threadId.isEmpty) return;
+  void _handleRuntimeSessions(List<RuntimeSessionSummary> sessions) {
+    if (sessions.isEmpty) return;
 
-    // Mark CX session status from Codex notifications.
-    if (eventType == 'notification') {
-      final method = data['method'] as String? ?? '';
-      final params = data['params'] as Map<String, dynamic>? ?? const {};
-      if (method == 'turn/started') {
-        state = {...state, threadId: const SessionStatus.busy()};
-      } else if (method == 'turn/completed') {
-        state = {...state, threadId: const SessionStatus.idle()};
-      } else if (method == 'thread/status/changed') {
-        final statusThreadId = params['threadId'] as String? ?? threadId;
-        final status = params['status'] as Map<String, dynamic>? ?? const {};
-        final statusType = status['type'] as String? ?? 'idle';
-        state = {
-          ...state,
-          statusThreadId: statusType == 'active'
-              ? const SessionStatus.busy()
-              : const SessionStatus.idle(),
-        };
-      } else if (method == 'thread/archived') {
-        final archivedThreadId = params['threadId'] as String? ?? threadId;
-        final next = {...state};
-        next.remove(archivedThreadId);
-        state = next;
-      }
-    }
-  }
-
-  /// Handle the sessions_active snapshot pushed by the bridge on (re)connect.
-  /// Immediately updates the global status map so all session cards reflect
-  /// the correct state without requiring manual refresh.
-  void _handleSessionsActive(Map<String, dynamic> data) {
-    final updates = <String, SessionStatus>{};
-
-    // Claude Code active sessions
-    final ccActive = data['claudeCode'] as List<dynamic>? ?? [];
-    for (final item in ccActive) {
-      final sessionId =
-          (item as Map<String, dynamic>?)?['sessionId'] as String? ?? '';
-      if (sessionId.isNotEmpty) {
-        updates[sessionId] = const SessionStatus.busy();
-      }
-    }
-
-    // Codex active threads
-    final cxActive = data['codex'] as List<dynamic>? ?? [];
-    for (final item in cxActive) {
-      final threadId =
-          (item as Map<String, dynamic>?)?['threadId'] as String? ?? '';
-      if (threadId.isNotEmpty) {
-        updates[threadId] = const SessionStatus.busy();
-      }
-    }
-
-    // OpenCode active sessions
-    final ocActive = data['opencode'] as List<dynamic>? ?? [];
-    for (final item in ocActive) {
-      final sessionId =
-          (item as Map<String, dynamic>?)?['sessionId'] as String? ?? '';
-      if (sessionId.isNotEmpty) {
-        updates[sessionId] = const SessionStatus.busy();
-      }
-    }
-
+    _runtimeSnapshotBackends.add(sessions.first.backend);
+    final updates = runtimeSessionStatusesFromSummaries(sessions);
     if (updates.isNotEmpty) {
       state = {...state, ...updates};
     }
@@ -244,109 +140,35 @@ class GlobalSessionStatusNotifier
     }
   }
 
-  void _handleSdkEvent(Map<String, dynamic> event) {
-    // SDK events have structure: { directory?, payload: { type, properties } }
-    final payload = event['payload'] as Map<String, dynamic>? ?? {};
-    final type = payload['type'] as String? ?? '';
-
-    if (type == 'session.status') {
-      _handleSessionStatus(payload);
-    } else if (type == 'session.idle') {
-      _handleSessionIdle(payload);
-    } else if (type == 'message.part.updated') {
-      _handleToolUpdate(payload);
-    }
-  }
-
-  void _handleSessionStatus(Map<String, dynamic> payload) {
-    final properties = payload['properties'] as Map<String, dynamic>? ?? {};
-    final sessionId =
-        properties['sessionID'] as String? ??
-        properties['sessionId'] as String? ??
-        '';
-    if (sessionId.isEmpty) return;
-
-    final statusData = properties['status'] as Map<String, dynamic>? ?? {};
-    final status = SessionStatus.fromJson(statusData);
-
-    // Track when session becomes busy
-    final wasBusy = state[sessionId]?.isBusy ?? false;
-    if (!wasBusy && status.isBusy) {
-      _sessionActivity[sessionId] = _SessionActivity(startedAt: DateTime.now());
-    }
-
-    if (kDebugMode) {
-      developer.log(
-        'Global session status: $sessionId -> ${status.displayString}',
-        name: 'GlobalSessionStatus',
-      );
-    }
-
-    // Update the map with new status
-    state = {...state, sessionId: status};
-  }
-
-  void _handleToolUpdate(Map<String, dynamic> payload) {
-    final properties = payload['properties'] as Map<String, dynamic>? ?? {};
-    final info = properties['info'] as Map<String, dynamic>?;
-    final sessionId =
-        properties['sessionID'] as String? ??
-        properties['sessionId'] as String? ??
-        (info?['sessionID'] as String?) ??
-        (info?['sessionId'] as String?) ??
-        '';
-    if (sessionId.isEmpty) return;
-
-    // Extract tool name from the part
-    final part = properties['part'] as Map<String, dynamic>?;
-    final toolName = part?['tool'] as String?;
-
-    if (toolName != null && _sessionActivity.containsKey(sessionId)) {
-      _sessionActivity[sessionId]!.lastToolName = toolName;
-    }
-  }
-
-  void _handleSessionIdle(Map<String, dynamic> payload) {
-    final properties = payload['properties'] as Map<String, dynamic>? ?? {};
-    final sessionId =
-        properties['sessionID'] as String? ??
-        properties['sessionId'] as String? ??
-        '';
-    if (sessionId.isEmpty) return;
-
-    // Check if session was busy before (for notification)
+  void _applyRuntimeStatus(String sessionId, SessionStatus status) {
     final previousStatus = state[sessionId];
     final wasBusy =
         previousStatus != null &&
         (previousStatus.isBusy || previousStatus.isRetry);
 
-    // Get activity info before clearing
-    final activity = _sessionActivity[sessionId];
-    final duration = activity != null
-        ? DateTime.now().difference(activity.startedAt)
-        : null;
-    final lastTool = activity?.lastToolName;
-
-    // Clear activity tracking
-    _sessionActivity.remove(sessionId);
-
-    if (kDebugMode) {
-      developer.log(
-        'Global session idle: $sessionId (was busy: $wasBusy, duration: ${duration?.inSeconds}s, lastTool: $lastTool)',
-        name: 'GlobalSessionStatus',
-      );
+    if (!wasBusy && (status.isBusy || status.isRetry)) {
+      _sessionActivity[sessionId] = _SessionActivity(startedAt: DateTime.now());
     }
 
-    // Set session to idle
-    state = {...state, sessionId: const SessionStatus.idle()};
+    if (wasBusy && status.isIdle) {
+      final activity = _sessionActivity.remove(sessionId);
+      final duration = activity == null
+          ? null
+          : DateTime.now().difference(activity.startedAt);
+      final lastTool = activity?.lastToolName;
 
-    // Show notification if session was busy and is now idle
-    if (wasBusy) {
+      state = {...state, sessionId: status};
       _showCompletionNotification(
         sessionId,
         duration: duration,
         lastTool: lastTool,
       );
+      return;
+    }
+
+    state = {...state, sessionId: status};
+    if (status.isIdle) {
+      _sessionActivity.remove(sessionId);
     }
   }
 
@@ -403,12 +225,15 @@ class GlobalSessionStatusNotifier
       final bridge = _ref.read(bridgeServiceProvider);
       final statuses = await bridge.getSessionStatus();
 
-      // Claude Code: sessions running in the bridge runtime (best-effort)
-      final ccActive = await bridge.ccGetActiveSessions();
-      for (final item in ccActive) {
-        final sessionId = item['sessionId'] as String? ?? '';
-        if (sessionId.isEmpty) continue;
-        statuses[sessionId] = const SessionStatus.busy();
+      // Claude Code fallback only while normalized runtime snapshots are not
+      // yet available from the bridge.
+      if (!_runtimeSnapshotBackends.contains(AgentType.claudeCode)) {
+        final ccActive = await bridge.ccGetActiveSessions();
+        for (final item in ccActive) {
+          final sessionId = item['sessionId'] as String? ?? '';
+          if (sessionId.isEmpty) continue;
+          statuses[sessionId] = const SessionStatus.busy();
+        }
       }
 
       if (kDebugMode) {
@@ -436,8 +261,10 @@ class GlobalSessionStatusNotifier
 
   @override
   void dispose() {
-    _subscription?.cancel();
     _rawSubscription?.cancel();
+    _runtimeEventSubscription?.cancel();
+    _runtimeStateSubscription?.cancel();
+    _runtimeSessionsSubscription?.cancel();
     super.dispose();
   }
 }

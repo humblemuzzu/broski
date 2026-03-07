@@ -55,6 +55,17 @@ function isCodexToolItem(item: any): boolean {
     itemType === 'review'
 }
 
+function parseMaybeJson(input: unknown): unknown {
+  if (typeof input !== 'string') return input
+  const trimmed = input.trim()
+  if (!trimmed) return input
+  try {
+    return JSON.parse(trimmed)
+  } catch {
+    return input
+  }
+}
+
 export function mapCodexStreamToRuntimeEvent(
   streamMessage: CodexStreamMessage,
   ctx: CodexRuntimeEventContext,
@@ -210,6 +221,66 @@ export function mapCodexStreamToRuntimeEvent(
             input,
             output,
             isError: item?.status === 'failed' || item?.status === 'declined',
+          }
+        }
+
+        case 'item/commandExecution/outputDelta': {
+          const itemId = typeof params.itemId === 'string'
+            ? params.itemId
+            : typeof params.item_id === 'string'
+              ? params.item_id
+              : undefined
+          if (!itemId || typeof params.delta !== 'string' || !params.delta) {
+            return null
+          }
+
+          return {
+            ...baseEvent('tool_updated', ctx, {
+              sourceType: streamMessage.type,
+              method: streamMessage.method,
+            }),
+            toolCallId: itemId,
+            toolName: 'Bash',
+            partialOutput: params.delta,
+          }
+        }
+
+        case 'rawResponseItem/completed': {
+          const item = params.item
+          const itemType = typeof item?.type === 'string' ? item.type : ''
+          if (
+            itemType !== 'function_call' &&
+            itemType !== 'function_call_output' &&
+            itemType !== 'custom_tool_call' &&
+            itemType !== 'custom_tool_call_output'
+          ) {
+            return null
+          }
+
+          const toolCallId = pickToolCallId(item)
+          if (!toolCallId) return null
+
+          if (itemType === 'function_call' || itemType === 'custom_tool_call') {
+            return {
+              ...baseEvent('tool_started', ctx, {
+                sourceType: streamMessage.type,
+                method: streamMessage.method,
+                itemType,
+              }),
+              toolCallId,
+              ...(pickToolName(item) ? { toolName: pickToolName(item) } : {}),
+              input: parseMaybeJson(item?.arguments ?? item?.input),
+            }
+          }
+
+          return {
+            ...baseEvent('tool_finished', ctx, {
+              sourceType: streamMessage.type,
+              method: streamMessage.method,
+              itemType,
+            }),
+            toolCallId,
+            output: item?.output,
           }
         }
 

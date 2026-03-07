@@ -96,16 +96,35 @@ export function mapOpenCodeSdkEventToRuntimeEvent(
       const partSessionId = extractSessionId(part) ?? sessionId
       const partMessageId = extractMessageId(part)
 
+      if (part.type === 'reasoning') {
+        const delta = typeof properties.delta === 'string'
+          ? properties.delta
+          : typeof part.text === 'string'
+            ? part.text
+            : ''
+        if (!delta) return null
+        return {
+          ...baseEvent('assistant_thinking_delta', { sourceType: payloadType }, partSessionId, cwd),
+          ...(partMessageId ? { messageId: partMessageId } : {}),
+          delta,
+        }
+      }
+
       if (part.type === 'tool') {
         const toolCallId = extractToolCallId(part)
         const toolName = typeof part.tool === 'string' ? part.tool : undefined
         const state = part.state ?? {}
         const status = typeof state.status === 'string' ? state.status : 'pending'
+        const metadata = state.metadata
         if (status === 'completed' || status === 'failed' || status === 'declined') {
           return {
             ...baseEvent(
               'tool_finished',
-              { sourceType: payloadType, status },
+              {
+                sourceType: payloadType,
+                status,
+                ...(metadata !== undefined ? { metadata } : {}),
+              },
               partSessionId,
               cwd,
             ),
@@ -121,7 +140,11 @@ export function mapOpenCodeSdkEventToRuntimeEvent(
         return {
           ...baseEvent(
             state.output != null ? 'tool_updated' : 'tool_started',
-            { sourceType: payloadType, status },
+            {
+              sourceType: payloadType,
+              status,
+              ...(metadata !== undefined ? { metadata } : {}),
+            },
             partSessionId,
             cwd,
           ),

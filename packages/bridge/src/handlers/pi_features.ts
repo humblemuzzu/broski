@@ -4,7 +4,7 @@ import * as pi from '../connectors/pi'
 import { mapPiStreamToRuntimeEvent } from '../runtime/pi-runtime-event-mapper'
 import {
   mapPiModelToSummary,
-  mapPiSessionToRuntimeSession,
+  mapPiSessionsToRuntimeSessions,
   mapPiStateToRuntimeState,
 } from '../runtime/pi-runtime-read-models'
 import type { FileAttachment, ServerMessage } from '../types'
@@ -152,7 +152,7 @@ function emitPiRuntimeSessions(
   reply({
     type: 'runtime_sessions',
     backend: 'pi',
-    data: sessions.map(mapPiSessionToRuntimeSession),
+    data: mapPiSessionsToRuntimeSessions(sessions, pi.listActiveRuntimeStates()),
   })
 }
 

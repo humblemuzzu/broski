@@ -40,6 +40,11 @@ import {
   mapOpenCodeSessionToRuntimeSession,
   mapOpenCodeStatusToRuntimeState,
 } from './runtime/opencode-runtime-read-models'
+import {
+  buildPiActiveRuntimeStateMessages,
+  findPiActiveRuntimeStateMessage,
+  listPiActiveSessionSnapshots,
+} from './runtime/pi-runtime-bootstrap'
 import { PtyManager } from './pty/manager'
 import { PtyRuntime } from './pty/runtime'
 import { headTailTruncate } from './utils'
@@ -1976,15 +1981,24 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
           // Notify all thread owners that the server crashed
           for (const [threadId, owner] of cxThreadOwners.entries()) {
-            send(owner, {
-              type: 'cx_stream',
-              threadId,
-              data: {
-                type: 'error',
-                message: 'Codex agent stopped unexpectedly. It will restart automatically on your next message.',
-                code: 'app_server_crashed'
-              }
-            })
+            emitCxStream(threadId, {
+              type: 'error',
+              message: 'Codex agent stopped unexpectedly. It will restart automatically on your next message.',
+              code: 'app_server_crashed'
+            }, owner)
+
+            // Emit runtime_state with isStreaming: false for the dead thread
+            const runtimeStatePayload: ServerMessage = {
+              type: 'runtime_state',
+              backend: 'codex',
+              data: buildCodexRuntimeState({
+                threadId,
+                cwd: cxThreadCwds.get(threadId),
+                isStreaming: false,
+              }),
+            }
+            send(owner, runtimeStatePayload)
+            broadcastToSessionWatchers('codex', threadId, runtimeStatePayload, owner)
 
             // Reset UI state
             send(owner, {
@@ -3723,9 +3737,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     logInfo(`[RTS] Replaying ${recent.length} buffered events for ${agent}:${sessionId}`)
     for (const { event } of recent) {
       if (agent === 'claude-code') {
-        send(ws, { type: 'cc_stream', data: event, sessionId })
+        emitCcStream(sessionId, event, ws)
       } else {
-        send(ws, { type: 'cx_stream', data: event, threadId: sessionId })
+        emitCxStream(sessionId, event, ws)
       }
     }
 
@@ -5274,15 +5288,16 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               cwd: cxThreadCwds.get(threadId) ?? ''
             }))
 
-            let activeOC: Array<{ sessionId: string; projectPath?: string }> = []
+            let activeOC: Array<{ sessionId: string; projectPath?: string; statusType: 'busy' | 'retry' }> = []
             if (opencode) {
               try {
                 const statuses = await opencode.getSessionStatus().catch(() => ({}))
                 activeOC = Object.entries(statuses)
                   .filter(([, s]) => (s as any)?.type === 'busy' || (s as any)?.type === 'retry')
-                  .map(([id]) => ({
+                  .map(([id, s]) => ({
                     sessionId: id,
-                    projectPath: ocSessionProjectPaths.get(id)
+                    projectPath: ocSessionProjectPaths.get(id),
+                    statusType: (s as any)?.type === 'retry' ? 'retry' : 'busy',
                   }))
               } catch {
                 // best-effort
@@ -5300,12 +5315,56 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             })
             const pendingCXPerms = Array.from(cxApprovalWaiters.keys())
 
+            for (const active of activeCC) {
+              send(ws, {
+                type: 'runtime_state',
+                backend: 'claude-code',
+                data: buildClaudeCodeRuntimeState({
+                  sessionId: active.sessionId,
+                  cwd: active.cwd,
+                  isStreaming: true,
+                })
+              } satisfies ServerMessage)
+            }
+
+            for (const active of activeCX) {
+              send(ws, {
+                type: 'runtime_state',
+                backend: 'codex',
+                data: buildCodexRuntimeState({
+                  threadId: active.threadId,
+                  cwd: active.cwd,
+                  isStreaming: true,
+                })
+              } satisfies ServerMessage)
+            }
+
+            for (const active of activeOC) {
+              send(ws, {
+                type: 'runtime_state',
+                backend: 'opencode',
+                data: mapOpenCodeStatusToRuntimeState(
+                  active.sessionId,
+                  active.statusType === 'retry'
+                    ? { type: 'retry', attempt: 0, message: '', next: 0 }
+                    : { type: 'busy' },
+                  active.projectPath,
+                )
+              } satisfies ServerMessage)
+            }
+
+            const activePI = listPiActiveSessionSnapshots()
+            for (const runtimeStateMessage of buildPiActiveRuntimeStateMessages()) {
+              send(ws, runtimeStateMessage)
+            }
+
             send(ws, {
               type: 'sessions_active',
               data: {
                 claudeCode: activeCC,
                 codex: activeCX,
                 opencode: activeOC,
+                pi: activePI,
                 pendingPermissions: {
                   claudeCode: pendingCCPerms,
                   claudeCodeElicitations: pendingCCElicitations,
@@ -5440,6 +5499,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             if (DEBUG_RTS) {
               logDebug(`[RTS] set_view: Re-bound OC session ${nextSessionId} owner`)
             }
+          }
+        }
+        if (nextAgent === 'pi' && nextSessionId) {
+          const runtimeStateMessage = findPiActiveRuntimeStateMessage(nextSessionId)
+          if (runtimeStateMessage) {
+            send(ws, runtimeStateMessage)
           }
         }
 
@@ -6955,16 +7020,25 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               }
             }
 
-            send(ws, {
-              type: 'cx_stream',
-              threadId,
-              data: {
-                type: 'error',
-                message: errorMessage,
-                code: typeof errorCode === 'string' ? errorCode : JSON.stringify(errorCode),
-                details: turnError
-              }
-            })
+            emitCxStream(threadId, {
+              type: 'error',
+              message: errorMessage,
+              code: typeof errorCode === 'string' ? errorCode : JSON.stringify(errorCode),
+              details: turnError
+            }, ws)
+
+            // Emit runtime_state with isStreaming: false
+            const turnFailedRuntimeState: ServerMessage = {
+              type: 'runtime_state',
+              backend: 'codex',
+              data: buildCodexRuntimeState({
+                threadId,
+                cwd: cxThreadCwds.get(threadId),
+                isStreaming: false,
+              }),
+            }
+            send(ws, turnFailedRuntimeState)
+            broadcastToSessionWatchers('codex', threadId, turnFailedRuntimeState, ws)
 
             // Send idle to reset UI
             send(ws, {
@@ -6988,16 +7062,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
                 // ignore
               }
             }
-            send(ws, {
-              type: 'cx_stream',
-              threadId,
-              data: {
-                type: 'error',
-                message: 'Turn failed to start - no turn ID returned',
-                code: 'turn_start_no_id',
-                details: turnRes
-              }
-            })
+            emitCxStream(threadId, {
+              type: 'error',
+              message: 'Turn failed to start - no turn ID returned',
+              code: 'turn_start_no_id',
+              details: turnRes
+            }, ws)
             break
           }
 
@@ -7007,15 +7077,24 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
           const errorMessage = err?.message ?? String(err)
           logError(`[Codex cx_chat] turn/start threw error:`, errorMessage)
 
-          send(ws, {
-            type: 'cx_stream',
-            threadId,
-            data: {
-              type: 'error',
-              message: errorMessage,
-              code: 'turn_start_exception'
-            }
-          })
+          emitCxStream(threadId, {
+            type: 'error',
+            message: errorMessage,
+            code: 'turn_start_exception'
+          }, ws)
+
+          // Emit runtime_state with isStreaming: false
+          const exceptionRuntimeState: ServerMessage = {
+            type: 'runtime_state',
+            backend: 'codex',
+            data: buildCodexRuntimeState({
+              threadId,
+              cwd: cxThreadCwds.get(threadId),
+              isStreaming: false,
+            }),
+          }
+          send(ws, exceptionRuntimeState)
+          broadcastToSessionWatchers('codex', threadId, exceptionRuntimeState, ws)
 
           // Send idle to reset UI
           send(ws, {

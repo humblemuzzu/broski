@@ -57,6 +57,11 @@ export type PiInstance = {
   createdAt: number
 }
 
+export type PiActiveRuntimeState = {
+  cwd: string
+  state: PiStatePayload
+}
+
 let authStorage: AuthStorage | null = null
 let modelRegistry: ModelRegistry | null = null
 
@@ -333,6 +338,13 @@ export function mapStatePayload(instance: PiInstance): PiStatePayload {
     messageCount: instance.session.messages.length,
     pendingMessageCount: instance.session.pendingMessageCount,
   }
+}
+
+export function listActiveRuntimeStates(): PiActiveRuntimeState[] {
+  return Array.from(instances.values()).map((instance) => ({
+    cwd: instance.cwd,
+    state: mapStatePayload(instance),
+  }))
 }
 
 export function listCommands(instance: PiInstance): PiCommandPayload[] {

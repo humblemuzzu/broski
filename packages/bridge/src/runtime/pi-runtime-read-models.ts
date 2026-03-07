@@ -3,6 +3,7 @@ import type {
   PiSessionInfo,
   PiStatePayload,
 } from '../types/pi'
+import type { PiActiveRuntimeState } from '../connectors/pi'
 import type {
   BroskiModelSummary,
   BroskiRuntimeCapabilities,
@@ -96,4 +97,33 @@ export function mapPiSessionToRuntimeSession(session: PiSessionInfo): BroskiSess
       firstMessage: session.firstMessage,
     },
   }
+}
+
+export function mapPiSessionsToRuntimeSessions(
+  sessions: PiSessionInfo[],
+  activeStates: PiActiveRuntimeState[] = [],
+): BroskiSessionSummary[] {
+  const activeKeys = activeStates
+    .filter(
+      ({ state }) =>
+        state.isStreaming ||
+        state.isCompacting ||
+        state.isRetrying ||
+        state.pendingMessageCount > 0,
+    )
+    .flatMap(({ cwd, state }) => {
+      const sessionId = state.sessionId.trim()
+      if (!sessionId) return []
+      return [`${sessionId}::${cwd}`]
+    })
+
+  const activeKeySet = new Set(activeKeys)
+
+  return sessions.map((session) => {
+    const summary = mapPiSessionToRuntimeSession(session)
+    const sessionKey = `${session.id}::${session.cwd}`
+    return activeKeySet.has(sessionKey)
+      ? { ...summary, isActive: true }
+      : summary
+  })
 }

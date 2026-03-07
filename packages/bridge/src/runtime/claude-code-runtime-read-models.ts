@@ -73,9 +73,6 @@ export function mapClaudeCodeSessionToRuntimeSession(
     updatedAtMs: normalizeTimestampMs(session.updatedAt),
     ...(session.model ? { modelLabel: session.model } : {}),
     ...(session.summary ? { summary: session.summary } : {}),
-    ...(session.isBackground !== undefined
-        ? { isActive: session.isBackground === true }
-        : {}),
     backendData: {
       ...(session.messageCount !== undefined
           ? { messageCount: session.messageCount }

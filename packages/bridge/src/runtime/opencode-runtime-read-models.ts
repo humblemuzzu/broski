@@ -12,7 +12,7 @@ import type {
 
 const openCodeRuntimeCapabilities: BroskiRuntimeCapabilities = {
   canStreamText: true,
-  canStreamThinking: false,
+  canStreamThinking: true,
   canUseTools: true,
   canPrompt: true,
   canAbort: true,

@@ -6,6 +6,7 @@ import { buildClaudeCodeRuntimeState } from '../runtime/claude-code-runtime-read
 import { mapCodexStreamToRuntimeEvent } from '../runtime/codex-runtime-event-mapper'
 import { buildCodexRuntimeState } from '../runtime/codex-runtime-read-models'
 import { mapOpenCodeSdkEventToRuntimeEvent } from '../runtime/opencode-runtime-event-mapper'
+import { mapPiSessionsToRuntimeSessions, mapPiStateToRuntimeState } from '../runtime/pi-runtime-read-models'
 
 function readServerSource(): string {
   return readFileSync(resolve(import.meta.dir, '..', 'server.ts'), 'utf-8')
@@ -101,6 +102,103 @@ describe('Runtime Abstraction', () => {
       },
     })
     expect(delta?.type).toBe('assistant_text_delta')
+
+    const reasoning = mapOpenCodeSdkEventToRuntimeEvent({
+      directory: '/tmp/repo',
+      payload: {
+        type: 'message.part.updated',
+        properties: {
+          sessionID: 'oc-1',
+          part: {
+            type: 'reasoning',
+            sessionID: 'oc-1',
+            messageID: 'msg-1',
+            text: 'think',
+          },
+        },
+      },
+    })
+    expect(reasoning?.type).toBe('assistant_thinking_delta')
+
+    const tool = mapOpenCodeSdkEventToRuntimeEvent({
+      directory: '/tmp/repo',
+      payload: {
+        type: 'message.part.updated',
+        properties: {
+          sessionID: 'oc-1',
+          part: {
+            id: 'tool-1',
+            type: 'tool',
+            tool: 'Bash',
+            sessionID: 'oc-1',
+            messageID: 'msg-1',
+            state: {
+              status: 'completed',
+              input: { command: 'ls' },
+              output: 'file.txt',
+              metadata: { exitCode: 0 },
+            },
+          },
+        },
+      },
+    })
+    expect(tool?.type).toBe('tool_finished')
+    expect(tool?.backendData).toMatchObject({ metadata: { exitCode: 0 } })
+  })
+
+  test('Codex mapper emits tool updates for output deltas and raw tool items', () => {
+    const outputDelta = mapCodexStreamToRuntimeEvent(
+      {
+        type: 'notification',
+        method: 'item/commandExecution/outputDelta',
+        params: {
+          itemId: 'cmd-1',
+          delta: 'chunk',
+        },
+      },
+      { backend: 'codex', threadId: 'cx-1', cwd: '/tmp/repo' },
+    )
+    expect(outputDelta?.type).toBe('tool_updated')
+    expect(outputDelta).toMatchObject({
+      toolCallId: 'cmd-1',
+      toolName: 'Bash',
+      partialOutput: 'chunk',
+    })
+
+    const rawStarted = mapCodexStreamToRuntimeEvent(
+      {
+        type: 'notification',
+        method: 'rawResponseItem/completed',
+        params: {
+          item: {
+            id: 'tool-2',
+            type: 'function_call',
+            name: 'grep',
+            arguments: '{"pattern":"TODO"}',
+          },
+        },
+      },
+      { backend: 'codex', threadId: 'cx-1', cwd: '/tmp/repo' },
+    )
+    expect(rawStarted?.type).toBe('tool_started')
+    expect(rawStarted).toMatchObject({ toolCallId: 'tool-2', toolName: 'grep' })
+
+    const rawFinished = mapCodexStreamToRuntimeEvent(
+      {
+        type: 'notification',
+        method: 'rawResponseItem/completed',
+        params: {
+          item: {
+            id: 'tool-2',
+            type: 'function_call_output',
+            output: 'done',
+          },
+        },
+      },
+      { backend: 'codex', threadId: 'cx-1', cwd: '/tmp/repo' },
+    )
+    expect(rawFinished?.type).toBe('tool_finished')
+    expect(rawFinished).toMatchObject({ toolCallId: 'tool-2', output: 'done' })
   })
 
   test('runtime state builders mark Claude and Codex streaming state honestly', () => {
@@ -122,12 +220,84 @@ describe('Runtime Abstraction', () => {
     expect(cxState.isStreaming).toBeFalse()
   })
 
-  test('server emits runtime_state snapshots for Claude and Codex reconnect paths', () => {
+  test('Pi runtime read models preserve active sessions honestly', () => {
+    const piState = mapPiStateToRuntimeState({
+      model: null,
+      thinkingLevel: 'high',
+      isStreaming: true,
+      isCompacting: false,
+      isRetrying: false,
+      sessionFile: '/tmp/repo/.pi/session.jsonl',
+      sessionId: 'pi-1',
+      sessionName: 'Pi session',
+      steeringMode: 'all',
+      followUpMode: 'all',
+      autoCompactionEnabled: true,
+      autoRetryEnabled: true,
+      messageCount: 2,
+      pendingMessageCount: 0,
+    })
+    expect(piState.backend).toBe('pi')
+    expect(piState.isStreaming).toBeTrue()
+
+    const sessions = mapPiSessionsToRuntimeSessions(
+      [
+        {
+          id: 'pi-1',
+          path: '/tmp/repo/.pi/session.jsonl',
+          cwd: '/tmp/repo',
+          created: 1,
+          modified: 2,
+          messageCount: 2,
+          firstMessage: 'hello',
+        },
+        {
+          id: 'pi-2',
+          path: '/tmp/other/.pi/session.jsonl',
+          cwd: '/tmp/other',
+          created: 3,
+          modified: 4,
+          messageCount: 1,
+          firstMessage: 'hi',
+        },
+      ],
+      [
+        {
+          cwd: '/tmp/repo',
+          state: {
+            model: null,
+            thinkingLevel: 'high',
+            isStreaming: true,
+            isCompacting: false,
+            isRetrying: false,
+            sessionFile: '/tmp/repo/.pi/session.jsonl',
+            sessionId: 'pi-1',
+            sessionName: 'Pi session',
+            steeringMode: 'all',
+            followUpMode: 'all',
+            autoCompactionEnabled: true,
+            autoRetryEnabled: true,
+            messageCount: 2,
+            pendingMessageCount: 0,
+          },
+        },
+      ],
+    )
+
+    expect(sessions[0]?.isActive).toBeTrue()
+    expect(sessions[1]?.isActive).toBeUndefined()
+  })
+
+  test('server emits runtime_state snapshots for reconnect paths', () => {
     const src = readServerSource()
     expect(src).toContain("backend: 'claude-code'")
     expect(src).toContain('buildClaudeCodeRuntimeState({')
     expect(src).toContain("backend: 'codex'")
     expect(src).toContain('buildCodexRuntimeState({')
+    expect(src).toContain("backend: 'opencode'")
+    expect(src).toContain('mapOpenCodeStatusToRuntimeState(')
+    expect(src).toContain('buildPiActiveRuntimeStateMessages()')
+    expect(src).toContain('findPiActiveRuntimeStateMessage(nextSessionId)')
     expect(src).toContain("type: 'runtime_state'")
   })
 })

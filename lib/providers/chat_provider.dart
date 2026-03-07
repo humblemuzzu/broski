@@ -8,16 +8,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/claude_code.dart';
 import '../models/codex.dart';
 import '../models/file_attachment.dart';
+import '../models/agent_type.dart';
 import '../models/message.dart';
 import '../models/pi.dart';
 import '../models/question.dart';
+import '../models/runtime/runtime.dart';
 import '../models/session.dart';
 import '../models/todo.dart';
 import '../models/vcs.dart';
+import '../services/bridge/bridge_runtime.dart';
 import '../services/pi_bridge_service.dart';
+import 'chat/runtime_common_models.dart';
 import 'chat/codex_permission_helpers.dart';
+import 'chat/runtime_common_reducer.dart';
 import 'pi_provider.dart';
 import 'service_providers.dart';
+
+part 'chat/runtime_chat_ingest.dart';
+part 'chat/runtime_oc_extensions.dart';
+part 'chat/runtime_cc_extensions.dart';
+part 'chat/runtime_cx_extensions.dart';
+part 'chat/runtime_pi_extensions.dart';
 
 /// MCP OAuth pending state (SDK v1.1.23+)
 /// When MCP OAuth browser open fails (headless/remote), we store the URL
@@ -263,6 +274,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         _handlePiStreamMessage,
       );
     }
+    _initializeRuntimeChatIngest();
   }
 
   final BridgeService _bridge;
@@ -277,6 +289,9 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   StreamSubscription<CodexStreamMessage>? _cxSubscription;
   StreamSubscription<Map<String, dynamic>>? _rawSubscription;
   StreamSubscription<PiStreamMessage>? _piSubscription;
+  StreamSubscription<RuntimeEvent>? _runtimeEventSubscription;
+  StreamSubscription<RuntimeState>? _runtimeStateSubscription;
+  final Map<String, RuntimeChatTurnState> _runtimeChatTurns = {};
 
   final Map<String, int> _lastCcFsNoticeAtMs = {};
 
@@ -591,6 +606,13 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       mcpOAuthPending: state.mcpOAuthPending,
       pendingCCMessage: state.pendingCCMessage,
       pendingCCAttachments: state.pendingCCAttachments,
+      isPi: state.isPi,
+      piSessionId: state.piSessionId,
+      piCwd: state.piCwd,
+      piModel: state.piModel,
+      piModelData: state.piModelData,
+      piThinkingLevel: state.piThinkingLevel,
+      piIsStreaming: state.piIsStreaming,
     );
   }
 
@@ -804,6 +826,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     _localAuthoredUserMessageIds.clear();
     _pendingEvents.clear(); // FIX: Clear pending events for old session
     _pendingTextBuffers.clear(); // FIX: Clear text buffers for old session
+    _runtimeChatTurns.clear();
     _flushTimer?.cancel();
     _flushTimer = null;
     _textDebounceTimer?.cancel();
@@ -839,6 +862,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     _localAuthoredUserMessageIds.clear();
     _pendingEvents.clear(); // FIX: Clear pending events for old session
     _pendingTextBuffers.clear(); // FIX: Clear text buffers for old session
+    _runtimeChatTurns.clear();
     _flushTimer?.cancel();
     _flushTimer = null;
     _textDebounceTimer?.cancel();
@@ -890,6 +914,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     _localAuthoredUserMessageIds.clear();
     _pendingEvents.clear();
     _pendingTextBuffers.clear();
+    _runtimeChatTurns.clear();
     _flushTimer?.cancel();
     _flushTimer = null;
     _textDebounceTimer?.cancel();
@@ -940,6 +965,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     _localAuthoredUserMessageIds.clear();
     _pendingEvents.clear();
     _pendingTextBuffers.clear();
+    _runtimeChatTurns.clear();
     _flushTimer?.cancel();
     _flushTimer = null;
     _textDebounceTimer?.cancel();
@@ -1750,6 +1776,10 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
           return;
         }
       }
+    }
+
+    if (_skipNativeOpenCodeCommonEvent(payload)) {
+      return;
     }
 
     switch (type) {
@@ -3085,6 +3115,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   void _handleCCStreamMessage(ClaudeCodeStreamMessage message) {
     // Only process if in Claude Code mode
     if (!state.isClaudeCode) return;
+    if (_handleRuntimeClaudeCodeCommonMessage(message)) return;
 
     void ensureTurnId(String? messageId) {
       final id = messageId ?? '';
@@ -4097,6 +4128,13 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       // Explicitly cleared:
       pendingCCMessage: null,
       pendingCCAttachments: null,
+      isPi: state.isPi,
+      piSessionId: state.piSessionId,
+      piCwd: state.piCwd,
+      piModel: state.piModel,
+      piModelData: state.piModelData,
+      piThinkingLevel: state.piThinkingLevel,
+      piIsStreaming: state.piIsStreaming,
     );
   }
 
@@ -4185,6 +4223,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
 
   void _handleCodexStreamMessage(CodexStreamMessage message) {
     if (!state.isCodex) return;
+    if (_handleRuntimeCodexCommonMessage(message)) return;
 
     if (message is CodexErrorMessage) {
       state = state.copyWith(cxIsStreaming: false);
@@ -5085,6 +5124,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
 
   void _handlePiStreamMessage(PiStreamMessage message) {
     if (!state.isPi) return;
+    if (_handleRuntimePiCommonMessage(message)) return;
 
     // Filter by session ID if available
     if (state.piSessionId != null &&
@@ -5369,6 +5409,8 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     _cxSubscription?.cancel();
     _rawSubscription?.cancel();
     _piSubscription?.cancel();
+    _runtimeEventSubscription?.cancel();
+    _runtimeStateSubscription?.cancel();
     _flushTimer?.cancel();
     _textDebounceTimer?.cancel();
     _ccUpdateTimer?.cancel();

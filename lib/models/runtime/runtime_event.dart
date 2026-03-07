@@ -57,7 +57,11 @@ sealed class RuntimeEvent {
       case 'backend_event':
         return RuntimeBackendEvent._(json);
       default:
-        throw FormatException('Unknown runtime event type: ${json['type']}');
+        return RuntimeBackendEvent._({
+          ...json,
+          'kind': 'unknown',
+          'payload': json,
+        });
     }
   }
 
