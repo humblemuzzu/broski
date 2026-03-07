@@ -156,8 +156,50 @@ export function mapOpenCodeSdkEventToRuntimeEvent(
         }
       }
 
-      return null
+      // Remaining part types (text for user messages, file, agent, retry, subtask,
+      // compaction, patch, snapshot, step-start, step-finish, etc.) — pass through
+      // as backend_event so the Flutter side can handle OC-specific lifecycle.
+      const partType = typeof part.type === 'string' ? part.type : ''
+      // Tool and reasoning parts are already mapped to runtime events above, skip them
+      if (partType === 'tool' || partType === 'reasoning') return null
+      return {
+        ...baseEvent('backend_event', { sourceType: payloadType }, partSessionId, cwd),
+        kind: `message.part.${partType || 'unknown'}`,
+        payload: properties,
+      }
     }
+
+    case 'message.updated':
+    case 'message.removed':
+    case 'message.part.removed':
+      return {
+        ...baseEvent('backend_event', { sourceType: payloadType }, sessionId, cwd),
+        kind: payloadType,
+        payload: properties,
+      }
+
+    case 'session.diff':
+    case 'todo.updated':
+    case 'session.compacted':
+    case 'vcs.branch.updated':
+    case 'mcp.tools.changed':
+    case 'mcp.browser.open.failed':
+    case 'workspace.ready':
+    case 'workspace.failed':
+      return {
+        ...baseEvent('backend_event', { sourceType: payloadType }, sessionId, cwd),
+        kind: payloadType,
+        payload: properties,
+      }
+
+    case 'question.replied':
+    case 'question.rejected':
+    case 'permission.replied':
+      return {
+        ...baseEvent('backend_event', { sourceType: payloadType }, sessionId, cwd),
+        kind: payloadType,
+        payload: properties,
+      }
 
     case 'permission.asked':
     case 'permission.updated': {

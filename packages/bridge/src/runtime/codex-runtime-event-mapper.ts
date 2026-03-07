@@ -284,6 +284,19 @@ export function mapCodexStreamToRuntimeEvent(
           }
         }
 
+        case 'thread/started':
+        case 'thread/tokenUsage/updated':
+        case 'turn/plan/updated':
+        case 'turn/diff/updated':
+          return {
+            ...baseEvent('backend_event', ctx, {
+              sourceType: streamMessage.type,
+              method: streamMessage.method,
+            }),
+            kind: streamMessage.method,
+            payload: params,
+          }
+
         default:
           return null
       }

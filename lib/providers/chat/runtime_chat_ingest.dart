@@ -2,6 +2,7 @@ part of '../chat_provider.dart';
 
 // ignore_for_file: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
 
+/// Core runtime chat ingest — event/state routing, projection, matching.
 extension _RuntimeChatIngest on ChatSessionNotifier {
   void _initializeRuntimeChatIngest() {
     _runtimeEventSubscription = _bridge.runtimeEvents.listen(
@@ -46,6 +47,47 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
 
     if (event case RuntimeErrorEvent()) {
       _addRuntimeErrorMessage(event);
+    }
+
+    // Handle compaction/retry system messages (runtime_system_messages.dart)
+    if (event case RuntimeCompactionStartedEvent()) {
+      _handleRuntimeCompactionStarted(event);
+    }
+    if (event case RuntimeCompactionFinishedEvent()) {
+      _handleRuntimeCompactionFinished(event);
+    }
+    if (event case RuntimeRetryStartedEvent()) {
+      _handleRuntimeRetryStarted(event);
+    }
+    if (event case RuntimeRetryFinishedEvent()) {
+      _handleRuntimeRetryFinished(event);
+    }
+
+    // Permission/approval requests via runtime (runtime_permission_handler.dart)
+    if (event case RuntimePermissionRequestedEvent()) {
+      _handleRuntimePermissionRequested(event);
+    }
+
+    if (event case RuntimeUserInputRequestedEvent()) {
+      _handleRuntimeUserInputRequested(event);
+    }
+
+    // CC system notification messages (runtime_cc_system_messages.dart)
+    if (event case RuntimeBackendEvent()
+        when event.backend == AgentType.claudeCode) {
+      _handleRuntimeCcBackendEvent(event);
+    }
+
+    // OC message lifecycle + metadata (runtime_oc_message_handler.dart)
+    if (event case RuntimeBackendEvent()
+        when event.backend == AgentType.opencode) {
+      _handleRuntimeOcBackendEvent(event);
+    }
+
+    // CX metadata + collab (runtime_cx_handlers.dart)
+    if (event case RuntimeBackendEvent()
+        when event.backend == AgentType.codex) {
+      _handleRuntimeCxBackendEvent(event);
     }
   }
 
@@ -129,7 +171,6 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
 
     return activeSessionId.isEmpty && activeCwd.isEmpty;
   }
-
   void _applyRuntimeStateToChat(
     AgentType backend, {
     required RuntimeState? runtimeState,
@@ -203,7 +244,6 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
         ? const SessionStatus.busy()
         : const SessionStatus.idle();
   }
-
   Map<String, dynamic> _runtimeToolMetadataForEvent(RuntimeEvent event) {
     final metadata = <String, dynamic>{};
     final backendData = event.backendData;
@@ -247,7 +287,6 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
 
     return metadata;
   }
-
   void _appendCodexRuntimeDiffMetadata(
     Map<String, dynamic> metadata,
     RuntimeEvent event,
@@ -269,7 +308,6 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
     metadata['filediff'] = {'file': path, 'path': path, 'diff': diff};
     metadata['diff'] = diff;
   }
-
   void _addRuntimeErrorMessage(RuntimeErrorEvent event) {
     final sessionId = event.sessionId ?? state.effectiveSessionId ?? '';
     if (sessionId.isEmpty) return;

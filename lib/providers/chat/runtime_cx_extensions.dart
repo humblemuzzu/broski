@@ -8,6 +8,11 @@ extension _RuntimeCodexExtensions on ChatSessionNotifier {
       return true;
     }
 
+    // Intercept CX request messages (permissions, user input) — Wave 4
+    if (message is CodexRequestMessage) {
+      return true;
+    }
+
     if (message is! CodexNotificationMessage) {
       return false;
     }
@@ -34,6 +39,23 @@ extension _RuntimeCodexExtensions on ChatSessionNotifier {
       case 'item/completed':
       case 'item/commandExecution/outputDelta':
       case 'rawResponseItem/completed':
+      // Metadata events (Wave 6)
+      case 'thread/started':
+      case 'thread/tokenUsage/updated':
+      case 'turn/plan/updated':
+      case 'turn/diff/updated':
+      case 'thread/compacted':
+      // Collab events (Wave 6)
+      case 'collab/agentSpawn/begin':
+      case 'collab/agentSpawn/end':
+      case 'collab/agentInteraction/begin':
+      case 'collab/agentInteraction/end':
+      case 'collab/waiting/begin':
+      case 'collab/waiting/end':
+      case 'collab/close/begin':
+      case 'collab/close/end':
+      case 'collab/resume/begin':
+      case 'collab/resume/end':
         return true;
       default:
         return false;

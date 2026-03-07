@@ -238,6 +238,32 @@ extension _RuntimeClaudeCodeExtensions on ChatSessionNotifier {
       return true;
     }
 
+    // Permission/approval/elicitation — now handled via runtime (Wave 4)
+    if (message is CCPermissionRequest ||
+        message is CCElicitationRequest ||
+        message is CCElicitationComplete) {
+      return true;
+    }
+
+    // System notification messages — now handled via runtime backend_event pipeline
+    if (message is CCCompactBoundary ||
+        message is CCLocalCommandOutput ||
+        message is CCStatusUpdate ||
+        message is CCHookStarted ||
+        message is CCHookProgress ||
+        message is CCHookResponse ||
+        message is CCTaskStarted ||
+        message is CCTaskProgress ||
+        message is CCTaskNotification ||
+        message is CCToolUseSummary ||
+        message is CCFilesPersisted ||
+        message is CCAuthStatus ||
+        message is CCRateLimitInfo ||
+        message is CCPromptSuggestion ||
+        message is CCAssistantError) {
+      return true;
+    }
+
     return false;
   }
 }

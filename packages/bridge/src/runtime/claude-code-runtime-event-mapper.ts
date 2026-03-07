@@ -190,6 +190,8 @@ export function mapClaudeCodeStreamToRuntimeEvent(
     case 'subagent-invocation':
     case 'token-usage':
     case 'structured-output':
+      return null  // handled by CC extension directly, not through runtime
+
     case 'local-command-output':
     case 'task-started':
     case 'task-progress':
@@ -199,6 +201,10 @@ export function mapClaudeCodeStreamToRuntimeEvent(
     case 'rate-limit-info':
     case 'prompt-suggestion':
     case 'auth-status':
-      return null
+      return {
+        ...baseEvent('backend_event', eventContext),
+        kind: streamMessage.type,
+        payload: streamMessage,
+      }
   }
 }
