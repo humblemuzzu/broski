@@ -203,24 +203,31 @@ export function mapOpenCodeSdkEventToRuntimeEvent(
 
     case 'permission.asked':
     case 'permission.updated': {
-      const permission = properties.permission ?? properties
-      const permissionSessionId = extractSessionId(permission) ?? sessionId
+      // For permission.asked, `properties` IS the PermissionRequest object:
+      //   { id, sessionID, permission: "bash", patterns, metadata, always, tool? }
+      // properties.permission is the permission TYPE string (e.g. "bash"), NOT a nested object.
+      // Guard against any hypothetical legacy format where permission data is nested.
+      const permData =
+        properties.permission != null && typeof properties.permission === 'object'
+          ? properties.permission
+          : properties
+      const permissionSessionId = extractSessionId(permData) ?? sessionId
       if (!permissionSessionId) return null
       return {
         ...baseEvent('permission_requested', { sourceType: payloadType }, permissionSessionId, cwd),
         request: {
           requestId:
-            typeof permission.id === 'string'
-              ? permission.id
-              : typeof permission.requestID === 'string'
-                ? permission.requestID
+            typeof permData.id === 'string'
+              ? permData.id
+              : typeof permData.requestID === 'string'
+                ? permData.requestID
                 : undefined,
-          kind: typeof permission.permission === 'string' ? permission.permission : undefined,
+          kind: typeof permData.permission === 'string' ? permData.permission : undefined,
           title:
-            typeof permission.title === 'string'
-              ? permission.title
+            typeof permData.title === 'string'
+              ? permData.title
               : 'Permission required',
-          metadata: permission,
+          metadata: permData,
         },
       }
     }
