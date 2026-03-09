@@ -41,6 +41,8 @@ function pickToolName(item: any): string | undefined {
       return 'WebSearch'
     case 'review':
       return 'Review'
+    case 'dynamicToolCall':
+      return typeof item.tool === 'string' ? item.tool : 'DynamicTool'
     default:
       return itemType || undefined
   }
@@ -52,6 +54,7 @@ function isCodexToolItem(item: any): boolean {
     itemType === 'fileChange' ||
     itemType === 'mcpToolCall' ||
     itemType === 'webSearch' ||
+    itemType === 'dynamicToolCall' ||
     itemType === 'review'
 }
 
@@ -315,7 +318,7 @@ export function mapCodexStreamToRuntimeEvent(
       return {
         ...baseEvent('backend_event', ctx),
         kind: streamMessage.type,
-        payload: streamMessage,
+        payload: (streamMessage as any).data ?? streamMessage,
       }
   }
 }

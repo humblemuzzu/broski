@@ -147,9 +147,10 @@ extension RuntimeCcSystemMessages on ChatSessionNotifier {
   ) {
     final taskId = payloadMap['taskId']?.toString() ?? '';
     final description = payloadMap['description']?.toString() ?? '';
-    final totalTokens = payloadMap['totalTokens'];
-    final toolUses = payloadMap['toolUses'];
-    final durationMs = payloadMap['durationMs'];
+    final usage = payloadMap['usage'] as Map<String, dynamic>?;
+    final totalTokens = usage?['totalTokens'];
+    final toolUses = usage?['toolUses'];
+    final durationMs = usage?['durationMs'];
     final usageParts = <String>[
       if (totalTokens != null) '$totalTokens tokens',
       if (toolUses != null) '$toolUses tools',
@@ -193,11 +194,12 @@ extension RuntimeCcSystemMessages on ChatSessionNotifier {
     final taskId = payloadMap['taskId']?.toString() ?? '';
     final summary = payloadMap['summary']?.toString() ?? '';
     final status = payloadMap['status']?.toString() ?? '';
-    final isCompleted = payloadMap['isCompleted'] == true;
-    final isFailed = payloadMap['isFailed'] == true;
-    final totalTokens = payloadMap['totalTokens'];
-    final toolUses = payloadMap['toolUses'];
-    final durationMs = payloadMap['durationMs'];
+    final isCompleted = status == 'completed';
+    final isFailed = status == 'failed';
+    final usage = payloadMap['usage'] as Map<String, dynamic>?;
+    final totalTokens = usage?['totalTokens'];
+    final toolUses = usage?['toolUses'];
+    final durationMs = usage?['durationMs'];
     final statusIcon = isCompleted
         ? '✅'
         : isFailed
@@ -333,8 +335,8 @@ extension RuntimeCcSystemMessages on ChatSessionNotifier {
           payloadMap['name']?.toString() ??
           '';
       final outcome = payloadMap['outcome']?.toString() ?? '';
-      final isSuccess = payloadMap['isSuccess'] == true;
-      final isError = payloadMap['isError'] == true;
+      final isSuccess = outcome == 'success';
+      final isError = outcome == 'error';
       final statusIcon = isSuccess
           ? '✅'
           : isError
