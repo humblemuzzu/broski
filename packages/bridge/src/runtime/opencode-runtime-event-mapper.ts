@@ -116,7 +116,9 @@ export function mapOpenCodeSdkEventToRuntimeEvent(
         const state = part.state ?? {}
         const status = typeof state.status === 'string' ? state.status : 'pending'
         const metadata = state.metadata
-        if (status === 'completed' || status === 'failed' || status === 'declined') {
+        // SDK ToolState statuses: pending, running, completed, error
+        // Also handle 'failed' and 'declined' defensively.
+        if (status === 'completed' || status === 'error' || status === 'failed' || status === 'declined') {
           return {
             ...baseEvent(
               'tool_finished',
@@ -132,7 +134,7 @@ export function mapOpenCodeSdkEventToRuntimeEvent(
             ...(toolCallId ? { toolCallId } : {}),
             ...(toolName ? { toolName } : {}),
             input: state.input,
-            output: state.output,
+            output: state.error ?? state.output,
             isError: status !== 'completed',
           }
         }
@@ -234,14 +236,16 @@ export function mapOpenCodeSdkEventToRuntimeEvent(
 
     case 'question.asked': {
       if (!sessionId) return null
+      // SDK's QuestionRequest = { id, sessionID, questions: QuestionInfo[], tool? }
+      // The primary identifier is `id`, not `requestID` (reply events use requestID).
       return {
         ...baseEvent('user_input_requested', { sourceType: payloadType }, sessionId, cwd),
         request: {
           requestId:
-            typeof properties.requestID === 'string'
-              ? properties.requestID
-              : typeof properties.requestId === 'string'
-                ? properties.requestId
+            typeof properties.id === 'string'
+              ? properties.id
+              : typeof properties.requestID === 'string'
+                ? properties.requestID
                 : undefined,
           kind: 'question',
           title: typeof properties.title === 'string' ? properties.title : 'Input required',
@@ -259,16 +263,18 @@ export function mapOpenCodeSdkEventToRuntimeEvent(
       }
     }
 
-    case 'session.error':
+    case 'session.error': {
+      // SDK: EventSessionError.properties = { sessionID?, error?: { name: string, data: { message: string, ... } } }
+      const errorObj = properties.error
+      const errorName = typeof errorObj?.name === 'string' ? errorObj.name : undefined
+      const errorMessage = typeof errorObj?.data?.message === 'string' ? errorObj.data.message : undefined
       return {
         ...baseEvent('error', { sourceType: payloadType }, sessionId, cwd),
-        message:
-          typeof properties.message === 'string'
-            ? properties.message
-            : 'OpenCode session error',
-        ...(typeof properties.code === 'string' ? { code: properties.code } : {}),
-        ...(properties.error !== undefined ? { details: properties.error } : {}),
+        message: errorMessage ?? 'OpenCode session error',
+        ...(errorName ? { code: errorName } : {}),
+        ...(errorObj !== undefined ? { details: errorObj } : {}),
       }
+    }
 
     default:
       return null
