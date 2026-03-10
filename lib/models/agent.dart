@@ -212,8 +212,32 @@ class Agent {
         return theme.error;
       case 'info':
         return theme.info;
+    }
+
+    // Parse raw hex color if provided (e.g. '#3B82F6')
+    if (color != null && color!.startsWith('#')) {
+      try {
+        final hex = color!.replaceFirst('#', '');
+        if (hex.length == 6) {
+          return Color(int.parse('FF$hex', radix: 16));
+        }
+      } catch (_) {
+        // Fall through to name-based defaults.
+      }
+    }
+
+    // Name-based fallback using theme tokens
+    switch (name) {
+      case 'build':
+        return theme.success;
+      case 'plan':
+        return theme.warning;
+      case 'general':
+        return theme.textMuted;
+      case 'explore':
+        return theme.secondary;
       default:
-        return displayColor;
+        return theme.primary;
     }
   }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/websocket_service.dart';
+import '../theme/app_typography.dart';
 import '../theme/opencode_theme.dart';
 
 class ConnectionIndicator extends StatelessWidget {
@@ -56,7 +57,7 @@ class ConnectionIndicator extends StatelessWidget {
         ),
         if (!compact) ...[
           const SizedBox(width: 6),
-          Text(label, style: Theme.of(context).textTheme.labelSmall),
+          Text(label, style: AppTypography.labelSmall(color: theme.textMuted)),
         ],
       ],
     );

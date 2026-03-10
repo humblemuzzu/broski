@@ -72,7 +72,7 @@ class _GitCommitSheetState extends State<GitCommitSheet> {
         SnackBar(
           content: Text(errorMsg),
           duration: const Duration(seconds: 5),
-          backgroundColor: Colors.red.shade700,
+          backgroundColor: OpenCodeTheme.of(context).error,
         ),
       );
     } finally {

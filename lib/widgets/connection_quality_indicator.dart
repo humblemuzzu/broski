@@ -32,14 +32,14 @@ class ConnectionQualityIndicator extends ConsumerWidget {
     return Container(
       padding: Insets.chip,
       decoration: BoxDecoration(
-        color: metrics.qualityColor.withValues(alpha: 0.1),
+        color: metrics.resolveQualityColor(theme).withValues(alpha: 0.1),
         borderRadius: Radii.brMd,
-        border: Border.all(color: metrics.qualityColor.withValues(alpha: 0.3)),
+        border: Border.all(color: metrics.resolveQualityColor(theme).withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _SignalBars(bars: metrics.signalBars, color: metrics.qualityColor),
+          _SignalBars(bars: metrics.signalBars, color: metrics.resolveQualityColor(theme)),
           const SizedBox(width: 6),
           Icon(metrics.typeIcon, size: 14, color: theme.textMuted),
           SizedBox(width: Spacing.xs),
@@ -64,7 +64,7 @@ class ConnectionQualityIndicator extends ConsumerWidget {
       children: [
         _SignalBars(
           bars: metrics.signalBars,
-          color: metrics.qualityColor,
+          color: metrics.resolveQualityColor(theme),
           height: 12,
         ),
         SizedBox(width: Spacing.xs),

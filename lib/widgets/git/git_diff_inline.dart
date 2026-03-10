@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/opencode_theme.dart';
 import '../../theme/app_typography.dart';
 import '../../theme/design_tokens.dart';
 import '../../widgets/chat/detail_sheet.dart';
@@ -38,9 +39,7 @@ class GitDiffInline extends StatelessWidget {
         width: double.infinity,
         padding: Insets.cardSm,
         decoration: BoxDecoration(
-          color: Theme.of(
-            context,
-          ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+          color: OpenCodeTheme.of(context).bgHighlight.withValues(alpha: 0.35),
           borderRadius: Radii.brMd,
         ),
         child: SelectableText(

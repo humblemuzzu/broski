@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,8 +5,10 @@ import '../../models/codex_remote_skill.dart';
 import '../../providers/service_providers.dart';
 import '../../widgets/chat/detail_sheet.dart';
 import '../../theme/design_tokens.dart';
+import '../../theme/opencode_theme.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../../utils/error_utils.dart';
+
 /// Bottom sheet to browse and install skills from the Codex public skills marketplace.
 class CxRemoteSkillsSheet extends ConsumerStatefulWidget {
   const CxRemoteSkillsSheet({super.key});
@@ -19,10 +20,12 @@ class CxRemoteSkillsSheet extends ConsumerStatefulWidget {
       child: const CxRemoteSkillsSheet(),
     );
   }
+
   @override
   ConsumerState<CxRemoteSkillsSheet> createState() =>
       _CxRemoteSkillsSheetState();
 }
+
 class _CxRemoteSkillsSheetState extends ConsumerState<CxRemoteSkillsSheet> {
   List<CodexRemoteSkill>? _skills;
   bool _loading = true;
@@ -33,6 +36,7 @@ class _CxRemoteSkillsSheetState extends ConsumerState<CxRemoteSkillsSheet> {
     super.initState();
     _load();
   }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -54,15 +58,16 @@ class _CxRemoteSkillsSheetState extends ConsumerState<CxRemoteSkillsSheet> {
       });
     }
   }
+
   Future<void> _install(CodexRemoteSkill skill) async {
     setState(() => _installing.add(skill.id));
     try {
       final bridge = ref.read(bridgeServiceProvider);
       await bridge.cxInstallRemoteSkill(hazelnutId: skill.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Installed "${skill.name}"')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Installed "${skill.name}"')));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -72,9 +77,10 @@ class _CxRemoteSkillsSheetState extends ConsumerState<CxRemoteSkillsSheet> {
       if (mounted) setState(() => _installing.remove(skill.id));
     }
   }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final ocTheme = OpenCodeTheme.of(context);
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -83,7 +89,7 @@ class _CxRemoteSkillsSheetState extends ConsumerState<CxRemoteSkillsSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Error: $_error', style: TextStyle(color: theme.colorScheme.error)),
+            Text('Error: $_error', style: TextStyle(color: ocTheme.error)),
             SizedBox(height: Spacing.md),
             TextButton(onPressed: _load, child: const Text('Retry')),
           ],
@@ -106,10 +112,23 @@ class _CxRemoteSkillsSheetState extends ConsumerState<CxRemoteSkillsSheet> {
           return ListTile(
             dense: true,
             leading: const Icon(AppIcons.autoAwesome, size: 20),
-            title: Text(skill.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-            subtitle: skill.description.isNotEmpty ? Text(skill.description, maxLines: 2, overflow: TextOverflow.ellipsis) : null,
+            title: Text(
+              skill.name,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            subtitle: skill.description.isNotEmpty
+                ? Text(
+                    skill.description,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  )
+                : null,
             trailing: isInstalling
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
                 : IconButton(
                     icon: const Icon(AppIcons.download, size: 20),
                     onPressed: () => _install(skill),

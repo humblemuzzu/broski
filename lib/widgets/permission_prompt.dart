@@ -209,8 +209,11 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                           Expanded(
                             child: Text(
                               widget.request.displayTitle,
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w600),
+                              style: TextStyle(
+                                color: theme.text,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ],
@@ -279,7 +282,10 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                               widget.request.displayTitle) ...[
                         Text(
                           widget.request.title,
-                          style: Theme.of(context).textTheme.bodyMedium,
+                          style: TextStyle(
+                          color: theme.text,
+                          fontSize: 14,
+                        ),
                         ),
                         SizedBox(height: Spacing.sm),
                       ],

@@ -52,7 +52,7 @@ Future<void> deleteOpenCodeMessageFromChat({
         content: Text(ok ? 'Message deleted' : 'Failed to delete message'),
         backgroundColor: ok
             ? oc.backgroundPanel
-            : Theme.of(context).colorScheme.error,
+            : oc.error,
       ),
     );
   } catch (error) {
@@ -60,7 +60,7 @@ Future<void> deleteOpenCodeMessageFromChat({
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Failed to delete message: ${humanizeError(error)}'),
-        backgroundColor: Theme.of(context).colorScheme.error,
+        backgroundColor: OpenCodeTheme.of(context).error,
       ),
     );
   }

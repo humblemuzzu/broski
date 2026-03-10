@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/opencode_theme.dart';
 
 enum ConnectionType { local, hotspot, tailscale, magicDNS, unknown }
 
@@ -56,6 +57,22 @@ class ConnectionMetrics {
         return const Color(0xFFEF4444);
       case ConnectionQuality.disconnected:
         return const Color(0xFF6B7280);
+    }
+  }
+
+  /// Theme-aware quality color. Prefer this over [qualityColor].
+  Color resolveQualityColor(OpenCodeTheme theme) {
+    switch (quality) {
+      case ConnectionQuality.excellent:
+        return theme.success;
+      case ConnectionQuality.good:
+        return theme.success;
+      case ConnectionQuality.fair:
+        return theme.warning;
+      case ConnectionQuality.poor:
+        return theme.error;
+      case ConnectionQuality.disconnected:
+        return theme.textMuted;
     }
   }
 

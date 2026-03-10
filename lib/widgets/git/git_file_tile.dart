@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+import 'package:broski/theme/opencode_theme.dart';
 
 import '../../models/git.dart';
 import 'git_status_badge.dart';
@@ -20,7 +21,7 @@ class GitFileTile extends StatelessWidget {
   final VoidCallback? onRevert;
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final ocTheme = OpenCodeTheme.of(context);
     return ListTile(
       dense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
@@ -37,7 +38,7 @@ class GitFileTile extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 11,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
+                color: ocTheme.textMuted,
               ),
             )
           : null,

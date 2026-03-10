@@ -529,7 +529,7 @@ class _AgentAutocompleteItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-    final agentColor = agent.displayColor;
+    final agentColor = agent.resolveColor(theme);
     return InkWell(
       onTap: onTap,
       child: Container(

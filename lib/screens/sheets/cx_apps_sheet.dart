@@ -7,6 +7,7 @@ import '../../models/codex_app_info.dart';
 import '../../providers/service_providers.dart';
 import '../../widgets/chat/detail_sheet.dart';
 import '../../theme/design_tokens.dart';
+import '../../theme/opencode_theme.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../../utils/error_utils.dart';
 
@@ -75,7 +76,7 @@ class _CxAppsSheetState extends ConsumerState<CxAppsSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final ocTheme = OpenCodeTheme.of(context);
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -84,10 +85,7 @@ class _CxAppsSheetState extends ConsumerState<CxAppsSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              'Error: $_error',
-              style: TextStyle(color: theme.colorScheme.error),
-            ),
+            Text('Error: $_error', style: TextStyle(color: ocTheme.error)),
             SizedBox(height: Spacing.md),
             TextButton(onPressed: _load, child: const Text('Retry')),
           ],
@@ -151,11 +149,7 @@ class _CxAppsSheetState extends ConsumerState<CxAppsSheet> {
             trailing: app.installUrl != null
                 ? const Icon(AppIcons.openExternal, size: 18)
                 : app.isAccessible
-                ? Icon(
-                    AppIcons.checkCircle,
-                    size: 18,
-                    color: theme.colorScheme.primary,
-                  )
+                ? Icon(AppIcons.checkCircle, size: 18, color: ocTheme.primary)
                 : const Icon(AppIcons.lock, size: 18),
             onTap: app.installUrl != null
                 ? () {
