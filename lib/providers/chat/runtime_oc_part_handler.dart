@@ -299,6 +299,29 @@ extension _RuntimeOcPartHandler on ChatSessionNotifier {
       }
     }
 
+    final runtimeTurn = _findRuntimeTurnByMessageId(
+      AgentType.opencode,
+      messageId,
+    );
+    if (resolvedRole == MessageRole.assistant &&
+        runtimeTurn != null &&
+        runtimeTurn.assistantText.isNotEmpty) {
+      final runtimeCurrent = _messages[messageId] ?? message;
+      final runtimeText = runtimeTurn.assistantText;
+      final runtimeStreaming = runtimeTurn.isStreaming;
+      if (runtimeCurrent.text != runtimeText ||
+          runtimeCurrent.isStreaming != runtimeStreaming) {
+        _updateMessage(
+          messageId,
+          runtimeCurrent.copyWith(
+            text: runtimeText,
+            isStreaming: runtimeStreaming,
+          ),
+        );
+      }
+      return;
+    }
+
     final currentAfter = _messages[messageId] ?? message;
 
     if (delta != null && currentAfter.text.isEmpty && text.isNotEmpty) {
@@ -330,5 +353,17 @@ extension _RuntimeOcPartHandler on ChatSessionNotifier {
         ),
       );
     }
+  }
+
+  RuntimeChatTurnState? _findRuntimeTurnByMessageId(
+    AgentType backend,
+    String messageId,
+  ) {
+    for (final turn in _runtimeChatTurns.values) {
+      if (turn.backend == backend && turn.messageId == messageId) {
+        return turn;
+      }
+    }
+    return null;
   }
 }
