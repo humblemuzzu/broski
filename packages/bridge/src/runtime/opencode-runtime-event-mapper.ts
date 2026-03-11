@@ -263,6 +263,49 @@ export function mapOpenCodeSdkEventToRuntimeEvent(
       }
     }
 
+    // ── Newly-mapped events (Phase 1B) ──────────────────────────────────
+    case 'session.created':
+    case 'session.updated':
+    case 'session.deleted':
+    case 'project.updated':
+      return {
+        ...baseEvent('backend_event', { sourceType: payloadType }, sessionId, cwd),
+        kind: payloadType,
+        payload: properties,
+      }
+
+    case 'pty.created':
+    case 'pty.updated':
+    case 'pty.exited':
+    case 'pty.deleted':
+      return {
+        ...baseEvent('backend_event', { sourceType: payloadType }, sessionId, cwd),
+        kind: payloadType,
+        payload: properties,
+      }
+
+    case 'worktree.ready':
+    case 'worktree.failed':
+      return {
+        ...baseEvent('backend_event', { sourceType: payloadType }, sessionId, cwd),
+        kind: payloadType,
+        payload: properties,
+      }
+
+    case 'lsp.updated':
+      return {
+        ...baseEvent('backend_event', { sourceType: payloadType }, sessionId, cwd),
+        kind: payloadType,
+        payload: properties,
+      }
+
+    case 'file.edited':
+      return {
+        ...baseEvent('backend_event', { sourceType: payloadType }, sessionId, cwd),
+        kind: payloadType,
+        payload: properties,
+      }
+
     case 'session.error': {
       // SDK: EventSessionError.properties = { sessionID?, error?: { name: string, data: { message: string, ... } } }
       const errorObj = properties.error

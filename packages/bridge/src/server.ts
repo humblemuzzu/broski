@@ -19,6 +19,18 @@ import { handleGitFeature } from './handlers/git'
 import * as ocMessages from './handlers/oc_messages'
 import * as ocSessions from './handlers/oc_sessions'
 import * as ocWorkspaces from './handlers/oc_workspaces'
+import * as ocWorktrees from './handlers/oc_worktrees'
+import * as ocSessionOps from './handlers/oc_session_ops'
+import * as ocConfig from './handlers/oc_config'
+import * as ocProviders from './handlers/oc_providers'
+import * as ocFeatures from './handlers/oc_features'
+import * as ocFiles from './handlers/oc_files'
+import * as ocMcp from './handlers/oc_mcp'
+import * as ocChat from './handlers/oc_chat'
+import * as ocParts from './handlers/oc_parts'
+import * as ocQuestions from './handlers/oc_questions'
+import * as ocShell from './handlers/oc_shell'
+import * as ocCustomization from './handlers/oc_customization'
 import * as piFeatures from './handlers/pi_features'
 import * as ccElicitation from './handlers/cc_elicitation'
 import type { ClaudeElicitationReply } from './handlers/cc_elicitation'
@@ -4923,6 +4935,18 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     if (await ocSessions.handle(message, reply, requireOpenCode)) return
     if (await ocMessages.handle(message, reply, requireOpenCode)) return
     if (await ocWorkspaces.handle(message, reply, requireOpenCode)) return
+    if (await ocWorktrees.handle(message, reply, requireOpenCode)) return
+    if (await ocSessionOps.handle(message, reply, requireOpenCode)) return
+    if (await ocConfig.handle(message, reply, { requireOpenCode, safeString, getSecurePath })) return
+    if (await ocProviders.handle(message, reply, requireOpenCode)) return
+    if (await ocFeatures.handle(message, reply, requireOpenCode)) return
+    if (await ocFiles.handle(message, reply, { requireOpenCode, readFileDirectly, readFileBinaryDirectly, listFilesDirectly, fileSearch })) return
+    if (await ocMcp.handle(message, reply, requireOpenCode)) return
+    if (await ocChat.handle(message, reply, { requireOpenCode, safeString, recentChatMessageIds, sessionOwners: ocSessionOwners, ws, syncExternalTailForKey, makeSessionKey })) return
+    if (await ocParts.handle(message, reply, requireOpenCode)) return
+    if (await ocQuestions.handle(message, reply, requireOpenCode)) return
+    if (await ocShell.handle(message, reply, requireOpenCode)) return
+    if (await ocCustomization.handle(message, reply, { requireOpenCode, safeString, getSecurePath })) return
     if (ccElicitation.handle(message, ccElicitationWaiters)) return
 
     switch (message.type) {

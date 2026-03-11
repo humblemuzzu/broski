@@ -117,4 +117,30 @@ extension BridgeOpenCodeUpdates on BridgeService {
     );
     return response['data'] == true;
   }
+
+  /// Run a shell command in the context of an OpenCode session.
+  /// The agent sees the output and can respond to it.
+  Future<dynamic> ocSessionShell({
+    required String sessionId,
+    required String command,
+    String? projectPath,
+    String? agent,
+    String? model,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'oc_session_shell',
+      'requestId': requestId,
+      'sessionId': sessionId,
+      'command': command,
+      if (projectPath != null) 'projectPath': projectPath,
+      if (agent != null) 'agent': agent,
+      if (model != null) 'model': model,
+    });
+    final response = await _waitFor(
+      'oc_session_shell_result',
+      requestId: requestId,
+    );
+    return response['data'];
+  }
 }

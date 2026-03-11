@@ -284,6 +284,7 @@ export class OpenCodeConnector {
     variant?: string,
     noReply?: boolean,
     system?: string,
+    format?: { type: 'text' } | { type: 'json_schema'; json_schema: Record<string, unknown> },
   ) {
     const parts: Array<{ type: string; text?: string; url?: string; filename?: string; mime?: string }> = [
       { type: 'text', text: content },
@@ -327,6 +328,7 @@ export class OpenCodeConnector {
         ...(variant ? { variant } : {}),
         ...(noReply !== undefined ? { noReply } : {}),
         ...(system ? { system } : {}),
+        ...(format ? { format } : {}),
         parts,
       },
       { responseStyle: 'data' },

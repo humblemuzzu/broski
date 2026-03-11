@@ -14,6 +14,8 @@ import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../utils/error_utils.dart';
 import 'opencode/opencode_session_behavior_card.dart';
+import 'opencode/opencode_mcp_server_card.dart';
+import 'opencode/opencode_mcp_auth_card.dart';
 
 class OpenCodeMcpConfigScreen extends ConsumerStatefulWidget {
   const OpenCodeMcpConfigScreen({super.key});
@@ -172,162 +174,14 @@ class _OpenCodeMcpConfigScreenState
   }
 
   Future<void> _startMcpAuth(String name) async {
-    // Let user choose: one-shot (opens browser on dev machine) or manual (paste code on phone)
-    final method = await showModalBottomSheet<String>(
+    final bridge = ref.read(bridgeServiceProvider);
+    final ok = await startMcpAuth(
       context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.computer),
-              title: const Text('Authenticate on computer'),
-              subtitle: const Text('Opens browser on your dev machine'),
-              onTap: () => Navigator.pop(ctx, 'auto'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.phone_android),
-              title: const Text('Authenticate on this device'),
-              subtitle: const Text('Get URL here, paste code manually'),
-              onTap: () => Navigator.pop(ctx, 'manual'),
-            ),
-          ],
-        ),
-      ),
+      bridge: bridge,
+      name: name,
+      projectPath: _projectPath,
     );
-    if (method == null || !mounted) return;
-
-    if (method == 'auto') {
-      await _mcpAuthOneShotFlow(name);
-    } else {
-      await _mcpAuthManualFlow(name);
-    }
-  }
-
-  /// One-shot: opens browser on dev machine, waits for OAuth callback automatically.
-  Future<void> _mcpAuthOneShotFlow(String name) async {
-    final oc = OpenCodeTheme.of(context);
-    try {
-      final bridge = ref.read(bridgeServiceProvider);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Opening browser on your computer for "$name"…'),
-          backgroundColor: oc.primary,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-      final result = await bridge.mcpAuthAuthenticate(
-        name,
-        projectPath: _projectPath,
-      );
-      if (!mounted) return;
-      final ok = result != null;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            ok ? 'Authenticated "$name"' : 'Auth failed for "$name"',
-          ),
-          backgroundColor: ok ? oc.success : oc.error,
-        ),
-      );
-      if (ok) await _refreshStatus();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Auth failed: ${humanizeError(e)}'),
-          backgroundColor: oc.error,
-        ),
-      );
-    }
-  }
-
-  /// Two-step: get OAuth URL on phone, user pastes authorization code back.
-  Future<void> _mcpAuthManualFlow(String name) async {
-    final oc = OpenCodeTheme.of(context);
-    try {
-      final bridge = ref.read(bridgeServiceProvider);
-      final result = await bridge.mcpAuthStart(name, projectPath: _projectPath);
-      if (!mounted) return;
-      if (result == null || result['authorizationUrl'] == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to start auth for "$name"'),
-            backgroundColor: oc.error,
-          ),
-        );
-        return;
-      }
-      final url = result['authorizationUrl'] as String;
-      // Show dialog with URL and code input
-      final code = await showDialog<String>(
-        context: context,
-        builder: (ctx) {
-          final codeCtrl = TextEditingController();
-          return AlertDialog(
-            title: Text('Authenticate "$name"'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Open this URL in your browser:'),
-                const SizedBox(height: 8),
-                SelectableText(
-                  url,
-                  style: TextStyle(fontSize: 12, color: oc.primary),
-                ),
-                const SizedBox(height: 16),
-                const Text('Then paste the authorization code:'),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: codeCtrl,
-                  decoration: const InputDecoration(
-                    hintText: 'Authorization code',
-                    border: OutlineInputBorder(),
-                  ),
-                  autofocus: true,
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx, codeCtrl.text.trim()),
-                child: const Text('Submit'),
-              ),
-            ],
-          );
-        },
-      );
-      if (code == null || code.isEmpty) return;
-      if (!mounted) return;
-      final ok = await bridge.mcpAuthCallback(
-        name,
-        code,
-        projectPath: _projectPath,
-      );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            ok ? 'Authenticated "$name"' : 'Auth failed for "$name"',
-          ),
-          backgroundColor: ok ? oc.success : oc.error,
-        ),
-      );
-      await _refreshStatus();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Auth failed: ${humanizeError(e)}'),
-          backgroundColor: oc.error,
-        ),
-      );
-    }
+    if (ok && mounted) await _refreshStatus();
   }
 
   Future<void> _toggleConnection(String name, bool connect) async {
@@ -399,7 +253,7 @@ class _OpenCodeMcpConfigScreenState
     final cfg = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
-        builder: (_) => _JsonObjectEditorScreen(title: name, initialJson: json),
+        builder: (_) => JsonObjectEditorScreen(title: name, initialJson: json),
       ),
     );
     if (cfg == null) return;
@@ -432,44 +286,6 @@ class _OpenCodeMcpConfigScreenState
         ),
       );
     }
-  }
-
-  Widget _mcpTrailingButton(
-    String name,
-    McpServerStatus? status,
-    bool isConnected,
-    OpenCodeTheme oc,
-  ) {
-    // Show "Authenticate" for servers needing auth
-    if (status?.status == McpConnectionStatus.needsAuth ||
-        status?.status == McpConnectionStatus.needsClientRegistration) {
-      return TextButton(
-        onPressed: () => _startMcpAuth(name),
-        child: Text('Authenticate', style: TextStyle(color: oc.warning)),
-      );
-    }
-    return TextButton(
-      onPressed: status?.isConnecting == true
-          ? null
-          : () => _toggleConnection(name, !isConnected),
-      child: Text(isConnected ? 'Disconnect' : 'Connect'),
-    );
-  }
-
-  IconData _statusIcon(McpServerStatus? status) {
-    if (status == null) return AppIcons.cloud;
-    if (status.isConnected) return AppIcons.checkCircle;
-    if (status.isConnecting) return AppIcons.sync;
-    if (status.hasError) return AppIcons.error;
-    return AppIcons.pause;
-  }
-
-  Color _statusColor(OpenCodeTheme oc, McpServerStatus? status) {
-    if (status == null) return oc.textMuted;
-    if (status.isConnected) return oc.success;
-    if (status.isConnecting) return oc.info;
-    if (status.hasError) return oc.error;
-    return oc.warning;
   }
 
   @override
@@ -549,161 +365,15 @@ class _OpenCodeMcpConfigScreenState
                     ),
                   ),
                   Expanded(
-                    child: names.isEmpty
-                        ? Center(
-                            child: Padding(
-                              padding: Insets.cardLg,
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    AppIcons.dns,
-                                    color: oc.textMuted,
-                                    size: 56,
-                                  ),
-                                  SizedBox(height: Spacing.md),
-                                  Text(
-                                    'No MCP servers configured',
-                                    style: TextStyle(color: oc.text),
-                                  ),
-                                  SizedBox(height: Spacing.sm),
-                                  Text(
-                                    'Tap + to add your first MCP server.',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(color: oc.textMuted),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          )
-                        : ListView.builder(
-                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                            itemCount: names.length,
-                            itemBuilder: (context, idx) {
-                              final name = names[idx];
-                              final status = _status[name];
-                              final isConnected = status?.isConnected ?? false;
-                              return Card(
-                                color: oc.backgroundElement,
-                                margin: const EdgeInsets.only(bottom: 10),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: Radii.brMd,
-                                  side: BorderSide(color: oc.border),
-                                ),
-                                child: ListTile(
-                                  leading: Icon(
-                                    _statusIcon(status),
-                                    color: _statusColor(oc, status),
-                                  ),
-                                  title: Text(
-                                    name,
-                                    style: TextStyle(
-                                      color: oc.text,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  subtitle: Text(
-                                    status?.statusDisplay ??
-                                        'Configured in OpenCode config',
-                                    style: TextStyle(color: oc.textMuted),
-                                  ),
-                                  trailing: _mcpTrailingButton(
-                                    name,
-                                    status,
-                                    isConnected,
-                                    oc,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
+                    child: OpenCodeMcpServerList(
+                      names: names,
+                      status: _status,
+                      onToggleConnection: _toggleConnection,
+                      onStartAuth: _startMcpAuth,
+                    ),
                   ),
                 ],
               ),
-      ),
-    );
-  }
-}
-
-class _JsonObjectEditorScreen extends StatefulWidget {
-  const _JsonObjectEditorScreen({
-    required this.title,
-    required this.initialJson,
-  });
-  final String title;
-  final String initialJson;
-  @override
-  State<_JsonObjectEditorScreen> createState() =>
-      _JsonObjectEditorScreenState();
-}
-
-class _JsonObjectEditorScreenState extends State<_JsonObjectEditorScreen> {
-  late final TextEditingController _json;
-  @override
-  void initState() {
-    super.initState();
-    _json = TextEditingController(text: widget.initialJson);
-  }
-
-  @override
-  void dispose() {
-    _json.dispose();
-    super.dispose();
-  }
-
-  void _done() {
-    try {
-      final decoded = jsonDecode(_json.text);
-      if (decoded is! Map) {
-        throw const FormatException('Config must be a JSON object');
-      }
-      Navigator.pop(context, decoded.cast<String, dynamic>());
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Invalid JSON: ${humanizeError(e)}')),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final oc = OpenCodeTheme.of(context);
-    return Scaffold(
-      backgroundColor: oc.background,
-      appBar: AppBar(
-        backgroundColor: oc.background,
-        elevation: 0,
-        title: Text(widget.title, style: TextStyle(color: oc.text)),
-        iconTheme: IconThemeData(color: oc.text),
-        actions: [
-          TextButton(
-            onPressed: _done,
-            child: Text(
-              'Done',
-              style: TextStyle(color: oc.primary, fontWeight: FontWeight.w700),
-            ),
-          ),
-        ],
-      ),
-      body: AdaptiveContainer(
-        width: ContentWidth.standard,
-        child: Padding(
-          padding: Insets.card,
-          child: TextField(
-            controller: _json,
-            maxLines: null,
-            expands: true,
-            style: AppTypography.code(),
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: oc.backgroundElement,
-              border: OutlineInputBorder(
-                borderRadius: Radii.brMd,
-                borderSide: BorderSide(color: oc.border),
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }

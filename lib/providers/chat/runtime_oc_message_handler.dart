@@ -43,6 +43,57 @@ extension _RuntimeOcMessageHandler on ChatSessionNotifier {
         _handleRuntimeOcQuestionReplied(payloadMap);
       case 'question.rejected':
         _handleRuntimeOcQuestionRejected(payloadMap);
+
+      // ── Phase 3A: Newly-mapped events ──────────────────────────────
+      case 'session.created':
+      case 'session.updated':
+      case 'session.deleted':
+        // Session list changed — sessions screen will refresh on next navigation
+        // or pull-to-refresh. Future: wire a provider invalidation.
+        developer.log(
+          'OC session lifecycle event: ${event.kind}',
+          name: 'ChatProvider',
+        );
+
+      case 'project.updated':
+        developer.log(
+          'OC project updated',
+          name: 'ChatProvider',
+        );
+
+      case 'pty.created':
+      case 'pty.updated':
+      case 'pty.exited':
+      case 'pty.deleted':
+        developer.log(
+          'OC PTY event: ${event.kind}',
+          name: 'ChatProvider',
+        );
+
+      case 'worktree.ready':
+        developer.log(
+          'OC worktree ready',
+          name: 'ChatProvider',
+        );
+
+      case 'worktree.failed':
+        developer.log(
+          'OC worktree creation failed',
+          name: 'ChatProvider',
+        );
+
+      case 'lsp.updated':
+        developer.log(
+          'OC LSP status updated',
+          name: 'ChatProvider',
+        );
+
+      case 'file.edited':
+        developer.log(
+          'OC file edited: ${payloadMap['file'] ?? 'unknown'}',
+          name: 'ChatProvider',
+        );
+
       default:
         // message.part.* sub-types for OC-specific part lifecycle
         if (event.kind.startsWith('message.part.')) {
