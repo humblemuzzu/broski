@@ -13,6 +13,7 @@ import '../models/highlight_color.dart';
 import '../models/mcp.dart';
 import '../models/message.dart';
 import '../models/permission_rule.dart';
+import '../models/pi.dart';
 import '../models/project.dart';
 import '../models/provider.dart';
 import '../models/session.dart';
@@ -89,6 +90,7 @@ class StorageService {
   static const _cachedSubagentsKey = 'broski_cached_subagents';
   static const _cachedCustomToolsKey = 'broski_cached_custom_tools';
   static const _cachedPluginsKey = 'broski_cached_plugins';
+  static const _cachedPiSessionsKey = 'broski_cached_pi_sessions';
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
@@ -135,6 +137,7 @@ class StorageService {
       _cachedSubagentsKey,
       _cachedCustomToolsKey,
       _cachedPluginsKey,
+      _cachedPiSessionsKey,
     ];
 
     for (final key in keysToDelete) {
@@ -1322,6 +1325,39 @@ class StorageService {
     }
   }
 
+  // ============================================================
+  // Pi Sessions Cache
+  // ============================================================
+
+  /// Cache Pi sessions list
+  Future<void> cachePiSessions(List<PiSessionInfo> sessions) async {
+    _memoryCache[_cachedPiSessionsKey] = sessions;
+    _updateCacheTimestamp(_cachedPiSessionsKey);
+
+    final json = jsonEncode(sessions.map((s) => s.toJson()).toList());
+    await _storage.write(key: _cachedPiSessionsKey, value: json);
+  }
+
+  /// Get cached Pi sessions
+  Future<List<PiSessionInfo>> getCachedPiSessions() async {
+    final memCached = _memoryCache[_cachedPiSessionsKey];
+    if (memCached != null && memCached is List<PiSessionInfo>) {
+      return memCached;
+    }
+
+    final raw = await _storage.read(key: _cachedPiSessionsKey);
+    if (raw == null) return [];
+    try {
+      final List<dynamic> list = jsonDecode(raw);
+      final sessions = list
+          .map((item) => PiSessionInfo.fromJson(item as Map<String, dynamic>))
+          .toList();
+      _memoryCache[_cachedPiSessionsKey] = sessions;
+      return sessions;
+    } catch (_) {
+      return [];
+    }
+  }
   // ============================================================
   // Codex Threads Cache
   // ============================================================

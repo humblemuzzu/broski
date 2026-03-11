@@ -39,6 +39,11 @@ import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../utils/error_utils.dart';
+import 'sessions/pi_session_options_sheet.dart';
+import 'sessions/pi_highlighted_sessions_section.dart';
+import 'sessions/pi_active_sessions_section.dart';
+import 'sheets/cc_new_session_sheet.dart';
+import 'sheets/cx_new_thread_sheet.dart';
 
 class SessionsScreen extends ConsumerStatefulWidget {
   const SessionsScreen({super.key});
@@ -707,6 +712,18 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
               _showRenameDialog(session);
             },
           ),
+          ListTile(
+            leading: Icon(AppIcons.forkRight, color: ocTheme.textMuted),
+            title: Text('Fork', style: TextStyle(color: ocTheme.text)),
+            subtitle: Text(
+              'Create a copy of this session',
+              style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
+            ),
+            onTap: () {
+              Navigator.pop(context);
+              _forkSession(session);
+            },
+          ),
           // Archive / Unarchive
           ListTile(
             leading: Icon(
@@ -1019,6 +1036,35 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
         SnackBar(
           content: const Text('Failed to rename session'),
           backgroundColor: ocTheme.error,
+        ),
+      );
+    }
+  }
+
+  Future<void> _forkSession(SessionSummary session) async {
+    final bridge = ref.read(bridgeServiceProvider);
+    final ocTheme = OpenCodeTheme.of(context);
+    try {
+      final forked = await bridge.forkSession(
+        session.id,
+        projectPath: session.directory,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Forked: ${forked.title}'),
+          backgroundColor: ocTheme.backgroundPanel,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      _refresh();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Fork failed: ${humanizeError(e)}'),
+          backgroundColor: ocTheme.error,
+          behavior: SnackBarBehavior.floating,
         ),
       );
     }
@@ -3805,6 +3851,7 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
       selectedPath: filterCwd,
       projects: codexFilterProjects,
     );
+    final expandedProjects = ref.watch(cxProjectExpandedProvider);
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SafeArea(
@@ -3856,6 +3903,12 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                                   ),
                                 ],
                               ),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              onPressed: () => showNewCxThreadSheet(context),
+                              icon: Icon(AppIcons.add, color: ocTheme.text),
+                              tooltip: 'New thread',
                             ),
                           ],
                         ),
@@ -3988,6 +4041,10 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                             }
                             return b.createdAt.compareTo(a.createdAt);
                           });
+                    // Predictive prefetching: preload messages for top 3 CX threads
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      prefetchTopCxThreads(ref, filtered);
+                    });
                     if (filtered.isEmpty) {
                       if (_searchQuery.isNotEmpty) {
                         return [
@@ -4012,6 +4069,78 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                     final regularThreads = filtered
                         .where((t) => !highlights.isSessionHighlighted(t.id))
                         .toList();
+                    // Build grouped items for regular threads
+                    final cxIsGrouped = filterCwd == null;
+                    final cxGroupedItems = <Widget>[];
+                    if (!cxIsGrouped) {
+                      for (final t in regularThreads) {
+                        cxGroupedItems.add(Padding(
+                          padding: Insets.bottomMd,
+                          child: _CodexThreadCard(
+                            thread: t,
+                            isHighlighted: highlights.isSessionHighlighted(t.id),
+                            highlightColor: highlights.color,
+                            onTap: () => _openThread(t),
+                            onLongPress: () => _showThreadOptions(t),
+                            onArchive: () => _archiveThread(t),
+                          ),
+                        ));
+                      }
+                    } else {
+                      final groups = <String, List<CodexThread>>{};
+                      for (final t in regularThreads) {
+                        groups.putIfAbsent(t.cwd, () => []).add(t);
+                      }
+                      final directories = groups.keys.toList()
+                        ..sort((a, b) {
+                          final aMax = groups[a]!.map((t) => t.updatedAt).fold<int>(0, (p, v) => v > p ? v : p);
+                          final bMax = groups[b]!.map((t) => t.updatedAt).fold<int>(0, (p, v) => v > p ? v : p);
+                          return bMax.compareTo(aMax);
+                        });
+                      for (final directory in directories) {
+                        final parts = directory.split('/').where((p) => p.isNotEmpty).toList();
+                        final name = parts.isEmpty ? 'Global' : parts.last;
+                        cxGroupedItems.add(Padding(
+                          padding: const EdgeInsets.fromLTRB(4, 14, 4, 10),
+                          child: Builder(builder: (context) {
+                            final ocTheme = OpenCodeTheme.of(context);
+                            return Text(
+                              name.toUpperCase(),
+                              style: TextStyle(
+                                color: ocTheme.textMuted,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5,
+                              ),
+                            );
+                          }),
+                        ));
+                        final group = groups[directory]!;
+                        final isExpanded = expandedProjects.contains(directory);
+                        final limit = isExpanded ? group.length : kSessionsPerProjectDefault;
+                        final visible = group.take(limit);
+                        for (final t in visible) {
+                          cxGroupedItems.add(Padding(
+                            padding: Insets.bottomMd,
+                            child: _CodexThreadCard(
+                              thread: t,
+                              isHighlighted: highlights.isSessionHighlighted(t.id),
+                              highlightColor: highlights.color,
+                              onTap: () => _openThread(t),
+                              onLongPress: () => _showThreadOptions(t),
+                              onArchive: () => _archiveThread(t),
+                            ),
+                          ));
+                        }
+                        final remaining = group.length - limit;
+                        if (remaining > 0) {
+                          cxGroupedItems.add(_LoadMoreButton(
+                            remainingCount: remaining,
+                            onTap: () => ref.read(cxProjectExpandedProvider.notifier).expand(directory),
+                          ));
+                        }
+                      }
+                    }
                     return [
                       if (highlightedThreads.isNotEmpty)
                         SliverToBoxAdapter(
@@ -4025,24 +4154,10 @@ class _CodexThreadsViewState extends ConsumerState<_CodexThreadsView> {
                       SliverPadding(
                         padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
                         sliver: SliverList(
-                          delegate: SliverChildBuilderDelegate((
-                            context,
-                            index,
-                          ) {
-                            final t = regularThreads[index];
-                            final isHighlighted = highlights
-                                .isSessionHighlighted(t.id);
-                            return Padding(
-                              padding: Insets.bottomMd,
-                              child: _CodexThreadCard(
-                                thread: t,
-                                isHighlighted: isHighlighted,
-                                highlightColor: highlights.color,
-                                onTap: () => _openThread(t),
-                                onLongPress: () => _showThreadOptions(t),
-                              ),
-                            );
-                          }, childCount: regularThreads.length),
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) => cxGroupedItems[index],
+                            childCount: cxGroupedItems.length,
+                          ),
                         ),
                       ),
                     ];
@@ -4272,6 +4387,29 @@ class _CodexHighlightedThreadCard extends ConsumerWidget {
                             fontSize: 12,
                           ),
                         ),
+                        // Model provider badge
+                        if (thread.modelProvider != null &&
+                            thread.modelProvider!.isNotEmpty) ...[
+                          SizedBox(width: Spacing.sm),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: ocTheme.info.withValues(alpha: 0.12),
+                              borderRadius: Radii.brXs,
+                            ),
+                            child: Text(
+                              thread.modelProvider!,
+                              style: TextStyle(
+                                color: ocTheme.info,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                         // Git branch if available
                         if (thread.gitBranch != null) ...[
                           Text(
@@ -4290,6 +4428,28 @@ class _CodexHighlightedThreadCard extends ConsumerWidget {
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                        // Agent nickname
+                        if (thread.agentNickname != null) ...[
+                          SizedBox(width: Spacing.sm),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: ocTheme.accent.withValues(alpha: 0.12),
+                              borderRadius: Radii.brXs,
+                            ),
+                            child: Text(
+                              thread.agentNickname!,
+                              style: TextStyle(
+                                color: ocTheme.accent,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ],
@@ -4318,12 +4478,14 @@ class _CodexThreadCard extends ConsumerWidget {
     required this.highlightColor,
     required this.onTap,
     this.onLongPress,
+    this.onArchive,
   });
   final CodexThread thread;
   final bool isHighlighted;
   final HighlightColor highlightColor;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
+  final VoidCallback? onArchive;
   String _getProjectName() {
     final parts = thread.cwd.split('/').where((p) => p.isNotEmpty).toList();
     return parts.isEmpty ? 'Unknown' : parts.last;
@@ -4355,7 +4517,7 @@ class _CodexThreadCard extends ConsumerWidget {
     final accentColor = isActive
         ? (status.isRetry ? ocTheme.warning : ocTheme.info)
         : ocTheme.primary.withValues(alpha: 0.4);
-    return GestureDetector(
+    Widget card = GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
       child: Container(
@@ -4461,6 +4623,29 @@ class _CodexThreadCard extends ConsumerWidget {
                             fontSize: 12,
                           ),
                         ),
+                        // Model provider badge
+                        if (thread.modelProvider != null &&
+                            thread.modelProvider!.isNotEmpty) ...[
+                          SizedBox(width: Spacing.sm),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: ocTheme.info.withValues(alpha: 0.12),
+                              borderRadius: Radii.brXs,
+                            ),
+                            child: Text(
+                              thread.modelProvider!,
+                              style: TextStyle(
+                                color: ocTheme.info,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                         // Git branch if available
                         if (thread.gitBranch != null) ...[
                           Text(
@@ -4482,6 +4667,28 @@ class _CodexThreadCard extends ConsumerWidget {
                             ),
                           ),
                         ],
+                        // Agent nickname
+                        if (thread.agentNickname != null) ...[
+                          SizedBox(width: Spacing.sm),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: ocTheme.accent.withValues(alpha: 0.12),
+                              borderRadius: Radii.brXs,
+                            ),
+                            child: Text(
+                              thread.agentNickname!,
+                              style: TextStyle(
+                                color: ocTheme.accent,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                         const Spacer(),
                         // Diff stats badges
                         ..._buildSessionStatBadges(thread.summary, ocTheme),
@@ -4495,6 +4702,31 @@ class _CodexThreadCard extends ConsumerWidget {
         ),
       ),
     );
+    if (onArchive != null) {
+      return Dismissible(
+        key: Key(thread.id),
+        direction: DismissDirection.endToStart,
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 20),
+          decoration: BoxDecoration(
+            color: ocTheme.warning,
+            borderRadius: Radii.brMd,
+          ),
+          child: Icon(
+            AppIcons.archive,
+            color: ocTheme.selectedListItemText,
+            size: 24,
+          ),
+        ),
+        confirmDismiss: (_) async {
+          onArchive!();
+          return false;
+        },
+        child: card,
+      );
+    }
+    return card;
   }
 }
 
@@ -4542,6 +4774,7 @@ class _ClaudeCodeSessionsViewState
     extends ConsumerState<_ClaudeCodeSessionsView> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
+  String _sortBy = 'updatedAt';
   Timer? _searchDebounce;
   @override
   void initState() {
@@ -4845,6 +5078,18 @@ class _ClaudeCodeSessionsViewState
             },
           ),
           ListTile(
+            leading: Icon(AppIcons.forkRight, color: ocTheme.textMuted),
+            title: Text('Fork', style: TextStyle(color: ocTheme.text)),
+            subtitle: Text(
+              'Create a copy of this session',
+              style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
+            ),
+            onTap: () {
+              Navigator.pop(context);
+              _forkCCSession(session);
+            },
+          ),
+          ListTile(
             leading: Icon(AppIcons.delete, color: ocTheme.error),
             title: Text('Delete', style: TextStyle(color: ocTheme.error)),
             onTap: () {
@@ -4939,11 +5184,44 @@ class _ClaudeCodeSessionsViewState
     }
   }
 
+  /// Fork a Claude Code session
+  Future<void> _forkCCSession(ClaudeCodeSession session) async {
+    final bridge = ref.read(bridgeServiceProvider);
+    final ocTheme = OpenCodeTheme.of(context);
+    try {
+      final forked = await bridge.ccForkSession(
+        session.id,
+        cwd: session.cwd,
+      );
+      if (!mounted) return;
+      if (forked != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Forked: ${forked.displayTitle}'),
+            backgroundColor: ocTheme.backgroundPanel,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        _refresh();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Fork failed: ${humanizeError(e)}'),
+          backgroundColor: ocTheme.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final sessionsAsync = ref.watch(ccSessionsProvider);
     final filterCwd = ref.watch(ccSessionsFilterCwdProvider);
     final ccFilterProjects = ref.watch(ccFilterProjectsProvider);
+    final expandedProjects = ref.watch(ccProjectExpandedProvider);
     final ocTheme = OpenCodeTheme.of(context);
     final highlights = ref.watch(highlightsProvider);
     final highlightColor = highlights.color;
@@ -4989,6 +5267,11 @@ class _ClaudeCodeSessionsViewState
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
+                            ),
+                            IconButton(
+                              onPressed: () => showNewCCSessionSheet(context),
+                              icon: Icon(AppIcons.add, color: ocTheme.text),
+                              tooltip: 'New session',
                             ),
                             IconButton(
                               onPressed: _refresh,
@@ -5065,6 +5348,13 @@ class _ClaudeCodeSessionsViewState
                             _TitleFiltersChip(
                               count: titleFilterCount,
                               onTap: () => _showTitleFiltersSheet(context),
+                            ),
+                            SizedBox(width: Spacing.sm),
+                            _SortChip(
+                              sortBy: _sortBy,
+                              onChanged: (value) {
+                                setState(() => _sortBy = value);
+                              },
                             ),
                           ],
                         ),
@@ -5149,7 +5439,16 @@ class _ClaudeCodeSessionsViewState
                                     ),
                             )
                             .toList()
-                          ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+                          ..sort((a, b) {
+                            if (_sortBy == 'updatedAt') {
+                              return b.updatedAt.compareTo(a.updatedAt);
+                            }
+                            return b.createdAt.compareTo(a.createdAt);
+                          });
+                    // Predictive prefetching: preload messages for top 3 CC sessions
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      prefetchTopCCSessions(ref, sorted);
+                    });
                     if (sorted.isEmpty) {
                       if (_searchQuery.isNotEmpty) {
                         return [
@@ -5187,27 +5486,122 @@ class _ClaudeCodeSessionsViewState
                             onDelete: _deleteSession,
                           ),
                         ),
-                      // Regular Sessions
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-                        sliver: SliverList(
-                          delegate: SliverChildBuilderDelegate((
-                            context,
-                            index,
-                          ) {
-                            final session = regularSessions[index];
-                            return Padding(
+                      // Regular Sessions (grouped by project when no filter)
+                      (() {
+                        final isGrouped = filterCwd == null;
+                        final ccItems = <Widget>[];
+                        if (!isGrouped) {
+                          // Flat list when filtered
+                          for (final session in regularSessions) {
+                            ccItems.add(Padding(
                               padding: Insets.bottomMd,
                               child: _CCSessionCard(
                                 session: session,
                                 onTap: () => _openSession(session),
-                                onLongPress: () => _showSessionOptions(session),
+                                onLongPress: () =>
+                                    _showSessionOptions(session),
                                 onDelete: () => _deleteSession(session),
                               ),
-                            );
-                          }, childCount: regularSessions.length),
-                        ),
-                      ),
+                            ));
+                          }
+                        } else {
+                          // Group by project directory
+                          final groups =
+                              <String, List<ClaudeCodeSession>>{};
+                          for (final s in regularSessions) {
+                            groups
+                                .putIfAbsent(s.cwd, () => [])
+                                .add(s);
+                          }
+                          final directories = groups.keys.toList()
+                            ..sort((a, b) {
+                              final aMax = groups[a]!
+                                  .map((s) => s.updatedAt)
+                                  .fold<int>(
+                                    0,
+                                    (p, v) => v > p ? v : p,
+                                  );
+                              final bMax = groups[b]!
+                                  .map((s) => s.updatedAt)
+                                  .fold<int>(
+                                    0,
+                                    (p, v) => v > p ? v : p,
+                                  );
+                              return bMax.compareTo(aMax);
+                            });
+                          for (final directory in directories) {
+                            final parts = directory
+                                .split('/')
+                                .where((p) => p.isNotEmpty)
+                                .toList();
+                            final name =
+                                parts.isEmpty ? 'Global' : parts.last;
+                            ccItems.add(Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                4,
+                                14,
+                                4,
+                                10,
+                              ),
+                              child: Builder(builder: (context) {
+                                final ocT =
+                                    OpenCodeTheme.of(context);
+                                return Text(
+                                  name.toUpperCase(),
+                                  style: TextStyle(
+                                    color: ocT.textMuted,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.5,
+                                  ),
+                                );
+                              }),
+                            ));
+                            final group = groups[directory]!;
+                            final isExpanded = expandedProjects
+                                .contains(directory);
+                            final limit = isExpanded
+                                ? group.length
+                                : kSessionsPerProjectDefault;
+                            final visible = group.take(limit);
+                            for (final session in visible) {
+                              ccItems.add(Padding(
+                                padding: Insets.bottomMd,
+                                child: _CCSessionCard(
+                                  session: session,
+                                  onTap: () => _openSession(session),
+                                  onLongPress: () =>
+                                      _showSessionOptions(session),
+                                  onDelete: () =>
+                                      _deleteSession(session),
+                                ),
+                              ));
+                            }
+                            final remaining = group.length - limit;
+                            if (remaining > 0) {
+                              ccItems.add(_LoadMoreButton(
+                                remainingCount: remaining,
+                                onTap: () => ref
+                                    .read(
+                                      ccProjectExpandedProvider
+                                          .notifier,
+                                    )
+                                    .expand(directory),
+                              ));
+                            }
+                          }
+                        }
+                        return SliverPadding(
+                          padding:
+                              const EdgeInsets.fromLTRB(20, 0, 20, 100),
+                          sliver: SliverList(
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) => ccItems[index],
+                              childCount: ccItems.length,
+                            ),
+                          ),
+                        );
+                      })(),
                     ];
                   },
                 ),
@@ -5471,6 +5865,27 @@ class _CCHighlightedSessionCard extends ConsumerWidget {
                             ),
                           ),
                         ],
+                        // Git branch if available
+                        if (session.gitBranch != null) ...[
+                          Text(
+                            ' · ',
+                            style: TextStyle(
+                              color: ocTheme.textMuted.withValues(alpha: 0.5),
+                              fontSize: 12,
+                            ),
+                          ),
+                          Flexible(
+                            child: Text(
+                              session.gitBranch!,
+                              style: TextStyle(
+                                color: ocTheme.textMuted,
+                                fontSize: 12,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                         const Spacer(),
                         // Diff stats badges (or message count fallback)
                         if (session.summary != null &&
@@ -5701,6 +6116,27 @@ class _CCSessionCard extends ConsumerWidget {
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
                               ),
+                            ),
+                          ),
+                        ],
+                        // Git branch if available
+                        if (session.gitBranch != null) ...[
+                          Text(
+                            ' · ',
+                            style: TextStyle(
+                              color: ocTheme.textMuted.withValues(alpha: 0.5),
+                              fontSize: 12,
+                            ),
+                          ),
+                          Flexible(
+                            child: Text(
+                              session.gitBranch!,
+                              style: TextStyle(
+                                color: ocTheme.textMuted,
+                                fontSize: 12,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -6354,6 +6790,7 @@ class _PiSessionsViewState extends ConsumerState<_PiSessionsView> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
   Timer? _searchDebounce;
+  String _sortBy = 'updatedAt';
 
   @override
   void dispose() {
@@ -6465,6 +6902,21 @@ class _PiSessionsViewState extends ConsumerState<_PiSessionsView> {
     }
   }
 
+  void _showSessionOptions(PiSessionInfo session) {
+    final title = (session.name ?? '').trim().isNotEmpty
+        ? session.name!.trim()
+        : session.firstMessage.trim().isNotEmpty
+            ? session.firstMessage.trim()
+            : 'Session ${session.id}';
+    showPiSessionOptionsSheet(
+      context: context,
+      ref: ref,
+      session: session,
+      displayTitle: title,
+      onDeleted: () => _refresh(),
+      onRenamed: () => _refresh(),
+    );
+  }
   void _showTitleFiltersSheet(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
     final controller = TextEditingController();
@@ -6574,6 +7026,7 @@ class _PiSessionsViewState extends ConsumerState<_PiSessionsView> {
       projects: piFilterProjects,
     );
 
+    final expandedProjects = ref.watch(piProjectExpandedProvider);
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SafeArea(
@@ -6584,6 +7037,10 @@ class _PiSessionsViewState extends ConsumerState<_PiSessionsView> {
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
+              // Active sessions (busy/retry) - parity with CC
+              SliverToBoxAdapter(
+                child: PiActiveSessionsSection(onSessionTap: _openSession),
+              ),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
@@ -6677,6 +7134,13 @@ class _PiSessionsViewState extends ConsumerState<_PiSessionsView> {
                             count: titleFilterCount,
                             onTap: () => _showTitleFiltersSheet(context),
                           ),
+                          SizedBox(width: Spacing.sm),
+                          _SortChip(
+                            sortBy: _sortBy,
+                            onChanged: (value) {
+                              setState(() => _sortBy = value);
+                            },
+                          ),
                           const Spacer(),
                           IconButton(
                             onPressed: _showNewSessionSheet,
@@ -6769,7 +7233,16 @@ class _PiSessionsViewState extends ConsumerState<_PiSessionsView> {
                       return false;
                     }
                     return true;
-                  }).toList()..sort((a, b) => b.modified.compareTo(a.modified));
+                  }).toList()..sort((a, b) {
+                    if (_sortBy == 'updatedAt') {
+                      return b.modified.compareTo(a.modified);
+                    }
+                    return b.created.compareTo(a.created);
+                  });
+                  // Predictive prefetching: preload messages for top 3 Pi sessions
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    prefetchTopPiSessions(ref, filtered);
+                  });
 
                   if (filtered.isEmpty) {
                     if (_searchQuery.isNotEmpty) {
@@ -6835,31 +7308,118 @@ class _PiSessionsViewState extends ConsumerState<_PiSessionsView> {
                     ];
                   }
 
+                  // Separate highlighted and regular sessions
+                  final highlightedSessions = filtered
+                      .where((s) => highlights.isSessionHighlighted(s.id))
+                      .toList();
+                  final regularSessions = filtered
+                      .where((s) => !highlights.isSessionHighlighted(s.id))
+                      .toList();
+
+                  // Build grouped items
+                  final piIsGrouped = filterCwd == null;
+                  final piGroupedItems = <Widget>[];
+                  if (!piIsGrouped) {
+                    for (final session in regularSessions) {
+                      final title = (session.name ?? '').trim().isNotEmpty
+                          ? session.name!.trim()
+                          : session.firstMessage.trim().isNotEmpty
+                              ? session.firstMessage.trim()
+                              : 'Session ${session.id}';
+                      final isHighlighted = highlights.isSessionHighlighted(session.id);
+                      piGroupedItems.add(Padding(
+                        padding: Insets.bottomMd,
+                        child: _PiSessionCard(
+                          title: title,
+                          session: session,
+                          isHighlighted: isHighlighted,
+                          onTap: () => _openSession(session),
+                          onLongPress: () => _showSessionOptions(session),
+                          onDelete: () => _deleteSession(session),
+                        ),
+                      ));
+                    }
+                  } else {
+                    final groups = <String, List<PiSessionInfo>>{};
+                    for (final s in regularSessions) {
+                      groups.putIfAbsent(s.cwd, () => []).add(s);
+                    }
+                    final directories = groups.keys.toList()
+                      ..sort((a, b) {
+                        final aMax = groups[a]!.map((s) => s.modified.millisecondsSinceEpoch).fold<int>(0, (p, v) => v > p ? v : p);
+                        final bMax = groups[b]!.map((s) => s.modified.millisecondsSinceEpoch).fold<int>(0, (p, v) => v > p ? v : p);
+                        return bMax.compareTo(aMax);
+                      });
+                    for (final directory in directories) {
+                      final parts = directory.split('/').where((p) => p.isNotEmpty).toList();
+                      final name = parts.isEmpty ? 'Global' : parts.last;
+                      piGroupedItems.add(Padding(
+                        padding: const EdgeInsets.fromLTRB(4, 14, 4, 10),
+                        child: Builder(builder: (context) {
+                          final ocTheme = OpenCodeTheme.of(context);
+                          return Text(
+                            name.toUpperCase(),
+                            style: TextStyle(
+                              color: ocTheme.textMuted,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.5,
+                            ),
+                          );
+                        }),
+                      ));
+                      final group = groups[directory]!;
+                      final isExpanded = expandedProjects.contains(directory);
+                      final limit = isExpanded ? group.length : kSessionsPerProjectDefault;
+                      final visible = group.take(limit);
+                      for (final session in visible) {
+                        final title = (session.name ?? '').trim().isNotEmpty
+                            ? session.name!.trim()
+                            : session.firstMessage.trim().isNotEmpty
+                                ? session.firstMessage.trim()
+                                : 'Session ${session.id}';
+                        final isHighlighted = highlights.isSessionHighlighted(session.id);
+                        piGroupedItems.add(Padding(
+                          padding: Insets.bottomMd,
+                          child: _PiSessionCard(
+                            title: title,
+                            session: session,
+                            isHighlighted: isHighlighted,
+                            onTap: () => _openSession(session),
+                            onLongPress: () => _showSessionOptions(session),
+                            onDelete: () => _deleteSession(session),
+                          ),
+                        ));
+                      }
+                      final remaining = group.length - limit;
+                      if (remaining > 0) {
+                        piGroupedItems.add(_LoadMoreButton(
+                          remainingCount: remaining,
+                          onTap: () => ref.read(piProjectExpandedProvider.notifier).expand(directory),
+                        ));
+                      }
+                    }
+                  }
+
                   return [
+                    // Highlighted Sessions Section
+                    if (highlightedSessions.isNotEmpty)
+                      SliverToBoxAdapter(
+                        child: PiHighlightedSessionsSection(
+                          sessions: highlightedSessions,
+                          highlightColor: highlights.color,
+                          onTap: _openSession,
+                          onLongPress: _showSessionOptions,
+                          onDelete: _deleteSession,
+                        ),
+                      ),
                     SliverPadding(
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
                       sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate((context, index) {
-                          final session = filtered[index];
-                          final title = (session.name ?? '').trim().isNotEmpty
-                              ? session.name!.trim()
-                              : session.firstMessage.trim().isNotEmpty
-                              ? session.firstMessage.trim()
-                              : 'Session ${session.id}';
-                          final isHighlighted = highlights.isSessionHighlighted(
-                            session.id,
-                          );
-                          return Padding(
-                            padding: Insets.bottomMd,
-                            child: _PiSessionCard(
-                              title: title,
-                              session: session,
-                              isHighlighted: isHighlighted,
-                              onTap: () => _openSession(session),
-                              onLongPress: () => _deleteSession(session),
-                            ),
-                          );
-                        }, childCount: filtered.length),
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) => piGroupedItems[index],
+                          childCount: piGroupedItems.length,
+                        ),
                       ),
                     ),
                   ];
@@ -6880,6 +7440,7 @@ class _PiSessionCard extends StatelessWidget {
     required this.isHighlighted,
     required this.onTap,
     this.onLongPress,
+    this.onDelete,
   });
 
   final String title;
@@ -6887,6 +7448,7 @@ class _PiSessionCard extends StatelessWidget {
   final bool isHighlighted;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
+  final VoidCallback? onDelete;
 
   String _getProjectName() {
     final parts = session.cwd.split('/').where((p) => p.isNotEmpty).toList();
@@ -6906,7 +7468,7 @@ class _PiSessionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-    return GestureDetector(
+    Widget card = GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
       child: Container(
@@ -6975,6 +7537,14 @@ class _PiSessionCard extends StatelessWidget {
                             fontSize: 12,
                           ),
                         ),
+                        if (session.parentSessionPath != null) ...[
+                          const SizedBox(width: 6),
+                          Icon(
+                            AppIcons.forkRight,
+                            size: 12,
+                            color: ocTheme.info,
+                          ),
+                        ],
                         const Spacer(),
                         // Diff stats badges
                         ..._buildSessionStatBadges(session.summary, ocTheme),
@@ -7010,6 +7580,31 @@ class _PiSessionCard extends StatelessWidget {
         ),
       ),
     );
+    if (onDelete != null) {
+      return Dismissible(
+        key: Key(session.id),
+        direction: DismissDirection.endToStart,
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 20),
+          decoration: BoxDecoration(
+            color: ocTheme.error,
+            borderRadius: Radii.brMd,
+          ),
+          child: Icon(
+            AppIcons.delete,
+            color: ocTheme.selectedListItemText,
+            size: 24,
+          ),
+        ),
+        confirmDismiss: (_) async {
+          onDelete!();
+          return false;
+        },
+        child: card,
+      );
+    }
+    return card;
   }
 }
 

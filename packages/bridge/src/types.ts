@@ -2337,6 +2337,7 @@ export type ClaudeCodeSession = {
   isBackground?: boolean
   hasSubagentActivity?: boolean
   subagentName?: string
+  gitBranch?: string
   summary?: { additions: number; deletions: number; files: number }
 }
 

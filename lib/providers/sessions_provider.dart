@@ -438,6 +438,22 @@ class _ProjectExpandedNotifier extends StateNotifier<Set<String>> {
   void reset() => state = {};
 }
 
+/// Per-agent project expansion tracking (so expanding in one tab does not affect others).
+final ccProjectExpandedProvider =
+    StateNotifierProvider<_ProjectExpandedNotifier, Set<String>>((ref) {
+      return _ProjectExpandedNotifier();
+    });
+
+final cxProjectExpandedProvider =
+    StateNotifierProvider<_ProjectExpandedNotifier, Set<String>>((ref) {
+      return _ProjectExpandedNotifier();
+    });
+
+final piProjectExpandedProvider =
+    StateNotifierProvider<_ProjectExpandedNotifier, Set<String>>((ref) {
+      return _ProjectExpandedNotifier();
+    });
+
 // ============================================================
 // Sessions Title Filters (hide sessions by title)
 // ============================================================

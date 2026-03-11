@@ -584,6 +584,7 @@ async function readSessionPreview(filePath: string, maxBytes: number = 200_000):
   isBackground?: boolean
   hasSubagentActivity?: boolean
   subagentName?: string
+  gitBranch?: string
 }> {
   try {
     const preview = await Bun.file(filePath).slice(0, maxBytes).text()
@@ -596,11 +597,13 @@ async function readSessionPreview(filePath: string, maxBytes: number = 200_000):
     let isBackground = false
     let hasSubagentActivity = false
     let subagentName: string | undefined
+    let gitBranch: string | undefined
 
     for (const line of lines) {
       const parsed = safeParseJsonLine(line) as ClaudeTranscriptLine | null
       if (!parsed) continue
       if (!cwd && typeof parsed.cwd === 'string') cwd = parsed.cwd
+      if (!gitBranch && typeof parsed.gitBranch === 'string') gitBranch = parsed.gitBranch
       if (!slug && typeof parsed.slug === 'string') slug = parsed.slug
       if (!model && typeof parsed.message?.model === 'string') model = parsed.message.model
 
@@ -643,7 +646,7 @@ async function readSessionPreview(filePath: string, maxBytes: number = 200_000):
       isBackground = titleHint.includes('subagent') || titleHint.includes('@agent') || titleHint.includes('background')
     }
 
-    return { cwd, model, title, slug, isBackground, hasSubagentActivity, subagentName }
+    return { cwd, model, title, slug, isBackground, hasSubagentActivity, subagentName, gitBranch }
   } catch {
     return {}
   }
@@ -889,6 +892,7 @@ export async function listSessions(cwd?: string): Promise<ClaudeCodeSession[]> {
             isBackground: preview.isBackground,
             hasSubagentActivity: preview.hasSubagentActivity,
             subagentName: preview.subagentName,
+            gitBranch: preview.gitBranch,
             _filePath: filePath, // internal: used for stats computation below
           } as ClaudeCodeSession & { _filePath: string })
         }
@@ -937,6 +941,7 @@ export async function getSession(sessionId: string, cwd?: string): Promise<Claud
     isBackground: preview.isBackground,
     hasSubagentActivity: preview.hasSubagentActivity,
     subagentName: preview.subagentName,
+    gitBranch: preview.gitBranch,
     ...(summary && (summary.additions > 0 || summary.deletions > 0 || summary.files > 0) ? { summary } : {}),
   }
 }

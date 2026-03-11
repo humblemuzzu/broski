@@ -845,3 +845,18 @@ final ccPluginConfigProvider = FutureProvider<ClaudeCodePluginConfig>((
   final bridge = ref.watch(bridgeServiceProvider);
   return bridge.ccGetPluginConfig();
 });
+
+/// Prefetch messages for the top N Claude Code sessions to speed up opening.
+void prefetchTopCCSessions(
+  WidgetRef ref,
+  List<ClaudeCodeSession> sessions, {
+  int count = 3,
+}) {
+  final bridge = ref.read(bridgeServiceProvider);
+  for (final session in sessions.take(count)) {
+    // Fire and forget — just warm the cache
+    bridge
+        .ccGetSessionMessages(session.id, cwd: session.cwd)
+        .catchError((_) => <Map<String, dynamic>>[]);
+  }
+}

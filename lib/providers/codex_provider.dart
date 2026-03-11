@@ -324,3 +324,18 @@ class CodexModelsNotifier extends StateNotifier<AsyncValue<List<CodexModel>>> {
   /// Force a full refresh (e.g. pull-to-refresh).
   Future<void> refresh() => load();
 }
+
+/// Prefetch messages for the top N Codex threads to speed up opening.
+void prefetchTopCxThreads(
+  WidgetRef ref,
+  List<CodexThread> threads, {
+  int count = 3,
+}) {
+  final bridge = ref.read(bridgeServiceProvider);
+  for (final thread in threads.take(count)) {
+    // Fire and forget — just warm the cache
+    bridge
+        .cxGetThreadMessages(thread.id)
+        .catchError((_) => <CodexTranscriptMessage>[]);
+  }
+}

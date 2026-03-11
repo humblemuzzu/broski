@@ -66,6 +66,7 @@ class ClaudeCodeSession {
   final bool hasSubagentActivity;
   final String? subagentName;
   final SessionSummaryStats? summary;
+  final String? gitBranch;
 
   const ClaudeCodeSession({
     required this.id,
@@ -79,6 +80,7 @@ class ClaudeCodeSession {
     this.hasSubagentActivity = false,
     this.subagentName,
     this.summary,
+    this.gitBranch,
   });
 
   factory ClaudeCodeSession.fromJson(Map<String, dynamic> json) {
@@ -98,6 +100,7 @@ class ClaudeCodeSession {
           : SessionSummaryStats.fromJson(
               json['summary'] as Map<String, dynamic>,
             ),
+      gitBranch: json['gitBranch'] as String?,
     );
   }
 
@@ -113,6 +116,7 @@ class ClaudeCodeSession {
       if (isBackground) 'isBackground': isBackground,
       if (hasSubagentActivity) 'hasSubagentActivity': hasSubagentActivity,
       if (subagentName != null) 'subagentName': subagentName,
+      if (gitBranch != null) 'gitBranch': gitBranch,
     };
   }
 

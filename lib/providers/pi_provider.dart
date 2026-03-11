@@ -38,13 +38,32 @@ final piSessionsProvider = FutureProvider.family<List<PiSessionInfo>, String?>((
   ref,
   projectPath,
 ) async {
+  final bridge = ref.watch(piBridgeServiceProvider);
+  final storage = ref.watch(storageServiceProvider);
   final connection = ref.read(connectionProvider);
+
   if (connection.isOfflineMode) {
+    if (projectPath == null) {
+      return storage.getCachedPiSessions();
+    }
     return const [];
   }
 
-  final bridge = ref.watch(piBridgeServiceProvider);
-  return bridge.listSessions(projectPath: projectPath);
+  try {
+    final sessions = await bridge.listSessions(projectPath: projectPath);
+    // Cache on success (only for "all sessions" query)
+    if (projectPath == null) {
+      await storage.cachePiSessions(sessions);
+    }
+    return sessions;
+  } catch (e) {
+    // Fall back to cache when offline or on error
+    if (projectPath == null) {
+      final cached = await storage.getCachedPiSessions();
+      if (cached.isNotEmpty) return cached;
+    }
+    return const [];
+  }
 });
 
 final piCommandsProvider = FutureProvider.family<List<PiCommand>, String?>((
@@ -114,12 +133,12 @@ final piToolsProvider = FutureProvider.family<List<PiTool>, String?>((
 
 final piThinkingCapabilitiesProvider =
     FutureProvider.family<PiThinkingCapabilities, String?>((
-  ref,
-  projectPath,
-) async {
-  final bridge = ref.watch(piBridgeServiceProvider);
-  return bridge.getThinkingCapabilities(projectPath: projectPath);
-});
+      ref,
+      projectPath,
+    ) async {
+      final bridge = ref.watch(piBridgeServiceProvider);
+      return bridge.getThinkingCapabilities(projectPath: projectPath);
+    });
 
 final piAllModelsProvider = FutureProvider.family<List<PiModel>, String?>((
   ref,
@@ -141,3 +160,18 @@ final piQueueProvider = FutureProvider.family<PiQueueState, String?>((
   final bridge = ref.watch(piBridgeServiceProvider);
   return bridge.getQueue(projectPath: projectPath);
 });
+
+/// Prefetch messages for the top N Pi sessions to speed up opening.
+void prefetchTopPiSessions(
+  WidgetRef ref,
+  List<PiSessionInfo> sessions, {
+  int count = 3,
+}) {
+  final bridge = ref.read(piBridgeServiceProvider);
+  for (final session in sessions.take(count)) {
+    // Fire and forget — just warm the cache
+    bridge
+        .getMessages(projectPath: session.cwd)
+        .catchError((_) => <Map<String, dynamic>>[]);
+  }
+}
