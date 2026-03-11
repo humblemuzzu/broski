@@ -216,11 +216,17 @@ class _PiSessionSidebarContentState
     PiSessionStats stats,
     PiState? piState,
   ) {
-    final contextWindow = piState?.model?.contextWindow ?? 200000;
-    final contextUsed = stats.tokens.input + stats.tokens.cacheRead;
-    final contextPercent = contextWindow > 0
-        ? (contextUsed / contextWindow * 100).clamp(0, 100)
-        : 0.0;
+    // Use the SDK's getContextUsage() which estimates actual tokens in the
+    // context window (via last assistant usage + trailing message estimates).
+    // Falls back to cumulative input tokens only if SDK data unavailable.
+    final ctxUsage = stats.contextUsage;
+    final contextWindow =
+        ctxUsage?.contextWindow ?? piState?.model?.contextWindow ?? 200000;
+    final contextUsed = ctxUsage?.tokens ?? stats.tokens.input;
+    final contextPercent = ctxUsage?.percent ??
+        (contextWindow > 0
+            ? (contextUsed / contextWindow * 100).clamp(0.0, 100.0)
+            : 0.0);
     final costStr = stats.cost > 0
         ? '\$${stats.cost.toStringAsFixed(4)}'
         : 'Free';
