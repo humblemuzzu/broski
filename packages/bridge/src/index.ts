@@ -467,15 +467,22 @@ async function runStop(): Promise<void> {
     return
   }
 
-  // Try to kill any running broski processes
-  const pids = findProcessByPattern('broski')
-  if (pids.length > 0) {
-    for (const pid of pids) {
-      killProcess(pid)
-    }
-    console.log('  Stopped running Broski processes')
+  // Kill by port first (safe), fall back to pattern match
+  const configuredPort = await getConfiguredPort()
+  const portProc = await getProcessOnPort(configuredPort)
+  if (portProc && portProc.pid !== process.pid) {
+    killProcess(portProc.pid)
+    console.log(`\n  Stopped bridge process (PID ${portProc.pid})`)
   } else {
-    console.log('  No running Broski bridge found')
+    const pids = findProcessByPattern('broski').filter(p => p !== process.pid)
+    if (pids.length > 0) {
+      for (const pid of pids) {
+        killProcess(pid)
+      }
+      console.log('\n  Stopped running Broski processes')
+    } else {
+      console.log('\n  No running Broski bridge found')
+    }
   }
 }
 
@@ -633,6 +640,12 @@ const extraEventStreamControllers: AbortController[] = []
 let healthTimer: Timer | null = null
 let opencodeConnector: OpenCodeConnector | null = null
 let restartInFlight = false
+let restartCount = 0
+const MAX_RESTARTS = 10
+const RESTART_COOLDOWN_MS = 30_000
+let lastRestartTime = 0
+let consecutiveHealthFailures = 0
+const FAILURES_TO_TRIGGER_RESTART = 3
 let activeBridgeLogger: BridgeLogger | null = null
 let managedHostname = '127.0.0.1'
 let managedPort = 0
@@ -661,7 +674,7 @@ async function subscribeOpenCodeStream(
 }
 
 // Graceful shutdown handler
-async function shutdown(signal: string) {
+async function shutdown(signal: string, exitCode = 0) {
   console.log(`\n${signal} received. Shutting down...`)
 
   stopPeriodicUpdateCheck()
@@ -708,7 +721,7 @@ async function shutdown(signal: string) {
   }
 
   console.log('Shutdown complete. Goodbye!')
-  process.exit(0)
+  process.exit(exitCode)
 }
 
 async function restartManagedOpenCode(): Promise<boolean> {
@@ -743,6 +756,7 @@ async function restartManagedOpenCode(): Promise<boolean> {
     )
 
     bridgeServer?.broadcast({ type: 'status', data: { opencodeRunning: true } })
+    consecutiveHealthFailures = 0
     console.log('✓ OpenCode restarted')
     return true
   } catch (error) {
@@ -1150,7 +1164,8 @@ async function main() {
         console.error(`   • ${reason}`)
       }
       console.error('   The binary may have been modified. Download a fresh copy from the official source.')
-      process.exit(1)
+      void shutdown('INTEGRITY_FAIL', 1)
+      return
     }
 
     // Re-verify every 5 minutes in the background.
@@ -1168,7 +1183,7 @@ async function main() {
         console.error(`   • ${reason}`)
       }
       console.error('   Shutting down for security.')
-      process.exit(1)
+      void shutdown('INTEGRITY_FAIL', 1)
     })
 
     // Runtime hardening: anti-debug, anti-injection monitoring.
@@ -1183,10 +1198,8 @@ async function main() {
       // This makes reverse engineering the detection harder.
     }
 
-    startHardeningMonitor((flags) => {
-      // Same strategy: don't crash, just exit quietly.
-      // A "security shutdown" message tells the attacker exactly what triggered.
-      process.exit(0)
+    startHardeningMonitor((_flags) => {
+      void shutdown('SECURITY', 0)
     })
   }
 
@@ -1374,19 +1387,43 @@ async function main() {
     }
   }
 
-  // Managed mode: keep OpenCode alive. If it dies, restart it (bridge URL stays the same).
+  // Managed mode: keep OpenCode alive with conservative restart policy.
+  // Requires 3 consecutive health failures before restarting, with 30s cooldown.
   if (opencodeServer && 'close' in opencodeServer) {
     healthTimer = setInterval(() => {
       void (async () => {
         if (!opencodeConnector) return
         if (restartInFlight) return
+        if (Date.now() - lastRestartTime < RESTART_COOLDOWN_MS) return
+
         const ok = await opencodeConnector.isRunning()
-        if (!ok) {
-          bridgeServer?.broadcast({ type: 'status', data: { opencodeRunning: false } })
-          await restartManagedOpenCode()
+        if (ok) {
+          consecutiveHealthFailures = 0
+          return
         }
+
+        consecutiveHealthFailures++
+        if (consecutiveHealthFailures < FAILURES_TO_TRIGGER_RESTART) {
+          console.log(`[health] OpenCode not responding (${consecutiveHealthFailures}/${FAILURES_TO_TRIGGER_RESTART})`)
+          return
+        }
+        consecutiveHealthFailures = 0
+
+        if (restartCount >= MAX_RESTARTS) {
+          console.error(`[health] OpenCode has restarted ${MAX_RESTARTS} times — automatic restarts disabled`)
+          if (healthTimer) {
+            clearInterval(healthTimer)
+            healthTimer = null
+          }
+          return
+        }
+
+        restartCount++
+        lastRestartTime = Date.now()
+        bridgeServer?.broadcast({ type: 'status', data: { opencodeRunning: false } })
+        await restartManagedOpenCode()
       })()
-    }, 5000)
+    }, 30_000)
   }
 
   const tlsInfo = bridgeServer.tls()

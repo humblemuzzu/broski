@@ -318,7 +318,7 @@ export function findProcessByPattern(pattern: string): number[] {
   return res.stdout
     .split('\n')
     .map(s => Number(s.trim()))
-    .filter(n => Number.isFinite(n) && n > 0)
+    .filter(n => Number.isFinite(n) && n > 0 && n !== process.pid)
 }
 
 /**
