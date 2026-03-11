@@ -42,6 +42,8 @@ class PiModel {
   final bool reasoning;
   final List<String> input;
   final PiModelCost cost;
+  final bool authenticated;
+  final bool isOAuth;
 
   const PiModel({
     required this.id,
@@ -53,6 +55,8 @@ class PiModel {
     required this.reasoning,
     required this.input,
     required this.cost,
+    this.authenticated = true,
+    this.isOAuth = false,
   });
 
   factory PiModel.fromJson(Map<String, dynamic> json) {
@@ -70,6 +74,8 @@ class PiModel {
       cost: PiModelCost.fromJson(
         json['cost'] as Map<String, dynamic>? ?? const {},
       ),
+      authenticated: json['authenticated'] as bool? ?? true,
+      isOAuth: json['isOAuth'] as bool? ?? false,
     );
   }
 
@@ -84,6 +90,8 @@ class PiModel {
       'reasoning': reasoning,
       'input': input,
       'cost': cost.toJson(),
+      'authenticated': authenticated,
+      'isOAuth': isOAuth,
     };
   }
 
@@ -152,6 +160,9 @@ class PiState {
   final bool autoRetryEnabled;
   final int messageCount;
   final int pendingMessageCount;
+  final bool isBashRunning;
+  final bool hasPendingBashMessages;
+  final int retryAttempt;
 
   const PiState({
     this.model,
@@ -168,6 +179,9 @@ class PiState {
     this.autoRetryEnabled = true,
     this.messageCount = 0,
     this.pendingMessageCount = 0,
+    this.isBashRunning = false,
+    this.hasPendingBashMessages = false,
+    this.retryAttempt = 0,
   });
 
   factory PiState.fromJson(Map<String, dynamic> json) {
@@ -191,6 +205,9 @@ class PiState {
       autoRetryEnabled: json['autoRetryEnabled'] as bool? ?? true,
       messageCount: json['messageCount'] as int? ?? 0,
       pendingMessageCount: json['pendingMessageCount'] as int? ?? 0,
+      isBashRunning: json['isBashRunning'] as bool? ?? false,
+      hasPendingBashMessages: json['hasPendingBashMessages'] as bool? ?? false,
+      retryAttempt: json['retryAttempt'] as int? ?? 0,
     );
   }
 
@@ -210,6 +227,9 @@ class PiState {
       'autoRetryEnabled': autoRetryEnabled,
       'messageCount': messageCount,
       'pendingMessageCount': pendingMessageCount,
+      'isBashRunning': isBashRunning,
+      'hasPendingBashMessages': hasPendingBashMessages,
+      'retryAttempt': retryAttempt,
     };
   }
 }
@@ -501,4 +521,82 @@ class PiStreamMessage {
       type == 'extension-ui-request' ? raw['id'] as String? : null;
 
   bool get isError => type == 'error';
+}
+
+/// Tool info from Pi's getAllTools() + active status.
+class PiTool {
+  final String name;
+  final String description;
+  final bool active;
+
+  const PiTool({
+    required this.name,
+    required this.description,
+    this.active = true,
+  });
+
+  factory PiTool.fromJson(Map<String, dynamic> json) {
+    return PiTool(
+      name: json['name'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      active: json['active'] as bool? ?? true,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'description': description,
+      'active': active,
+    };
+  }
+}
+
+/// Thinking capabilities for the current model.
+class PiThinkingCapabilities {
+  final bool supportsThinking;
+  final bool supportsXhigh;
+  final List<PiThinkingLevel> availableLevels;
+
+  const PiThinkingCapabilities({
+    this.supportsThinking = false,
+    this.supportsXhigh = false,
+    this.availableLevels = const [PiThinkingLevel.off],
+  });
+
+  factory PiThinkingCapabilities.fromJson(Map<String, dynamic> json) {
+    final rawLevels = json['availableLevels'] as List<dynamic>? ?? const [];
+    return PiThinkingCapabilities(
+      supportsThinking: json['supportsThinking'] as bool? ?? false,
+      supportsXhigh: json['supportsXhigh'] as bool? ?? false,
+      availableLevels: rawLevels
+          .whereType<String>()
+          .map((l) => PiThinkingLevel.fromWireValue(l))
+          .toList(),
+    );
+  }
+}
+
+/// Queue state with pending steering and follow-up messages.
+class PiQueueState {
+  final List<String> steering;
+  final List<String> followUp;
+
+  const PiQueueState({
+    this.steering = const [],
+    this.followUp = const [],
+  });
+
+  factory PiQueueState.fromJson(Map<String, dynamic> json) {
+    final rawSteering = json['steering'] as List<dynamic>? ?? const [];
+    final rawFollowUp = json['followUp'] as List<dynamic>? ?? const [];
+    return PiQueueState(
+      steering: rawSteering.whereType<String>().toList(),
+      followUp: rawFollowUp.whereType<String>().toList(),
+    );
+  }
+
+  int get total => steering.length + followUp.length;
+  bool get isEmpty => steering.isEmpty && followUp.isEmpty;
+  bool get isNotEmpty => !isEmpty;
 }

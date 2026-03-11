@@ -219,8 +219,13 @@ export function createPiExtensionUiBridge(
       return undefined
     },
 
-    pasteToEditor: (_text: string) => {
-      // Editor paste is handled client side only.
+    pasteToEditor: (text: string) => {
+      emitStreamMessage({
+        type: 'extension-ui-request',
+        id: randomUUID(),
+        method: 'paste_to_editor',
+        text,
+      })
     },
 
     setEditorText: (text: string) => {
@@ -248,8 +253,13 @@ export function createPiExtensionUiBridge(
 
     getToolsExpanded: () => false,
 
-    setToolsExpanded: (_expanded: boolean) => {
-      // Not supported in mobile bridge mode.
+    setToolsExpanded: (expanded: boolean) => {
+      emitStreamMessage({
+        type: 'extension-ui-request',
+        id: randomUUID(),
+        method: 'set_tools_expanded',
+        expanded,
+      })
     },
   }
 

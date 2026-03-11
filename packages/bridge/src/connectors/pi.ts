@@ -19,8 +19,11 @@ import type {
   PiCommandPayload,
   PiForkMessagePayload,
   PiModelPayload,
+  PiQueueState,
   PiSessionInfo,
   PiStatePayload,
+  PiThinkingCapabilities,
+  PiToolInfo,
 } from '../types'
 import {
   createPiExtensionUiBridge,
@@ -265,6 +268,14 @@ export function listAvailableModels(): PiModelPayload[] {
   return getModelRegistry().getAvailable().map(mapModel)
 }
 
+export function listAllModels(): PiModelPayload[] {
+  return getModelRegistry().getAll().map(mapModel)
+}
+
+export function refreshModels(): void {
+  getModelRegistry().refresh()
+}
+
 export async function isPiAvailable(): Promise<PiAvailability> {
   try {
     const models = getModelRegistry().getAvailable()
@@ -337,6 +348,9 @@ export function mapStatePayload(instance: PiInstance): PiStatePayload {
     autoRetryEnabled: instance.session.autoRetryEnabled,
     messageCount: instance.session.messages.length,
     pendingMessageCount: instance.session.pendingMessageCount,
+    isBashRunning: instance.session.isBashRunning,
+    hasPendingBashMessages: instance.session.hasPendingBashMessages,
+    retryAttempt: instance.session.retryAttempt,
   }
 }
 
@@ -447,6 +461,8 @@ export function mapModel(model: Model<any>): PiModelPayload {
       cacheRead: Number(model.cost?.cacheRead ?? 0),
       cacheWrite: Number(model.cost?.cacheWrite ?? 0),
     },
+    authenticated: getModelRegistry().getAvailable().some(m => m.id === model.id && m.provider === model.provider),
+    isOAuth: getModelRegistry().isUsingOAuth(model),
   }
 }
 

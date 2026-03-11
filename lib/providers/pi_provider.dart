@@ -98,3 +98,46 @@ final piFilterProjectsProvider = FutureProvider<List<ProjectSummary>>((
     ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
   return sorted;
 });
+
+final piToolsProvider = FutureProvider.family<List<PiTool>, String?>((
+  ref,
+  projectPath,
+) async {
+  final connection = ref.read(connectionProvider);
+  if (connection.isOfflineMode) {
+    return const [];
+  }
+
+  final bridge = ref.watch(piBridgeServiceProvider);
+  return bridge.getTools(projectPath: projectPath);
+});
+
+final piThinkingCapabilitiesProvider =
+    FutureProvider.family<PiThinkingCapabilities, String?>((
+  ref,
+  projectPath,
+) async {
+  final bridge = ref.watch(piBridgeServiceProvider);
+  return bridge.getThinkingCapabilities(projectPath: projectPath);
+});
+
+final piAllModelsProvider = FutureProvider.family<List<PiModel>, String?>((
+  ref,
+  projectPath,
+) async {
+  final connection = ref.read(connectionProvider);
+  if (connection.isOfflineMode) {
+    return const [];
+  }
+
+  final bridge = ref.watch(piBridgeServiceProvider);
+  return bridge.listAllModels(projectPath: projectPath);
+});
+
+final piQueueProvider = FutureProvider.family<PiQueueState, String?>((
+  ref,
+  projectPath,
+) async {
+  final bridge = ref.watch(piBridgeServiceProvider);
+  return bridge.getQueue(projectPath: projectPath);
+});

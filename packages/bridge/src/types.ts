@@ -1,5 +1,5 @@
 import type { CodexAgentStatus, CodexAppInfo, CodexCollabAgentInteractionBeginEvent, CodexCollabAgentInteractionEndEvent, CodexCollabAgentSpawnBeginEvent, CodexCollabAgentSpawnEndEvent, CodexCollabCloseBeginEvent, CodexCollabCloseEndEvent, CodexCollabResumeBeginEvent, CodexCollabResumeEndEvent, CodexCollabWaitingBeginEvent, CodexCollabWaitingEndEvent, CodexModeKind, CodexPersonality, CodexPrompt, CodexRemoteSkill, CodexStreamMessage, CodexThread, CodexTranscriptDiff, CodexTranscriptMessage, CodexTranscriptToolCall, CodexWebSearchMode } from './types/codex'
-import type { PiCommandPayload, PiForkMessagePayload, PiModelPayload, PiSessionInfo, PiStatePayload, PiStreamMessage } from './types/pi'
+import type { PiCommandPayload, PiForkMessagePayload, PiModelPayload, PiQueueState, PiSessionInfo, PiStatePayload, PiStreamMessage, PiThinkingCapabilities, PiToolInfo } from './types/pi'
 import type {
   BroskiModelSummary,
   BroskiRuntimeEvent,
@@ -918,8 +918,8 @@ export type ClientMessage =
       fileAttachments?: FileAttachment[]
       streamingBehavior?: 'steer' | 'followUp'
     }
-  | { type: 'pi_steer'; message: string; projectPath?: string }
-  | { type: 'pi_follow_up'; message: string; projectPath?: string }
+  | { type: 'pi_steer'; message: string; projectPath?: string; fileAttachments?: FileAttachment[] }
+  | { type: 'pi_follow_up'; message: string; projectPath?: string; fileAttachments?: FileAttachment[] }
   | { type: 'pi_abort'; projectPath?: string }
   | {
       type: 'pi_set_steering_mode'
@@ -943,9 +943,9 @@ export type ClientMessage =
     }
   | { type: 'pi_set_thinking_level'; level: string; projectPath?: string }
   | { type: 'pi_cycle_thinking_level'; projectPath?: string }
-  | { type: 'pi_cycle_model'; projectPath?: string }
+  | { type: 'pi_cycle_model'; projectPath?: string; direction?: 'forward' | 'backward' }
   | { type: 'pi_list_sessions'; projectPath?: string }
-  | { type: 'pi_new_session'; projectPath?: string }
+  | { type: 'pi_new_session'; projectPath?: string; name?: string; provider?: string; modelId?: string; thinkingLevel?: string }
   | { type: 'pi_switch_session'; sessionPath: string; projectPath?: string }
   | { type: 'pi_delete_session'; sessionPath: string; projectPath?: string }
   | { type: 'pi_get_session_stats'; projectPath?: string }
@@ -981,6 +981,23 @@ export type ClientMessage =
       cancelled?: boolean
       projectPath?: string
     }
+  // Pi Tool Management
+  | { type: 'pi_get_tools'; projectPath?: string }
+  | { type: 'pi_get_active_tools'; projectPath?: string }
+  | { type: 'pi_set_active_tools'; toolNames: string[]; projectPath?: string }
+  // Pi Model Capabilities
+  | { type: 'pi_get_thinking_capabilities'; projectPath?: string }
+  | { type: 'pi_list_all_models'; projectPath?: string }
+  | { type: 'pi_refresh_models'; projectPath?: string }
+  // Pi Granular Abort
+  | { type: 'pi_abort_compaction'; projectPath?: string }
+  | { type: 'pi_abort_branch_summary'; projectPath?: string }
+  | { type: 'pi_abort_bash'; projectPath?: string }
+  // Pi Queue Management
+  | { type: 'pi_clear_queue'; projectPath?: string }
+  | { type: 'pi_get_queue'; projectPath?: string }
+  // Pi Misc
+  | { type: 'pi_get_last_assistant_text'; projectPath?: string }
   // Subscription Usage Tracking
   | { type: 'get_subscription_usage' }
   | { type: 'get_provider_usage'; providerId: 'claude' | 'openai' }
@@ -2006,6 +2023,23 @@ export type ServerMessage =
   | { type: 'runtime_models'; backend: 'opencode' | 'claude-code' | 'codex' | 'pi'; data: BroskiModelSummary[] }
   | { type: 'runtime_sessions'; backend: 'opencode' | 'claude-code' | 'codex' | 'pi'; data: BroskiSessionSummary[] }
   | { type: 'runtime_state'; backend: 'opencode' | 'claude-code' | 'codex' | 'pi'; data: BroskiRuntimeState }
+  // Pi Tool Management
+  | { type: 'pi_get_tools'; projectPath?: string }
+  | { type: 'pi_get_active_tools'; projectPath?: string }
+  | { type: 'pi_set_active_tools'; toolNames: string[]; projectPath?: string }
+  // Pi Model Capabilities
+  | { type: 'pi_get_thinking_capabilities'; projectPath?: string }
+  | { type: 'pi_list_all_models'; projectPath?: string }
+  | { type: 'pi_refresh_models'; projectPath?: string }
+  // Pi Granular Abort
+  | { type: 'pi_abort_compaction'; projectPath?: string }
+  | { type: 'pi_abort_branch_summary'; projectPath?: string }
+  | { type: 'pi_abort_bash'; projectPath?: string }
+  // Pi Queue Management
+  | { type: 'pi_clear_queue'; projectPath?: string }
+  | { type: 'pi_get_queue'; projectPath?: string }
+  // Pi Misc
+  | { type: 'pi_get_last_assistant_text'; projectPath?: string }
   // Subscription Usage Tracking
   | { type: 'subscription_usage'; data: SubscriptionUsage; requestId?: string }
   | { type: 'provider_usage'; data: ProviderUsage; requestId?: string }
@@ -2940,4 +2974,4 @@ export type SubscriptionUsage = {
 
 export type { CodexAgentStatus, CodexAppInfo, CodexCollabAgentInteractionBeginEvent, CodexCollabAgentInteractionEndEvent, CodexCollabAgentSpawnBeginEvent, CodexCollabAgentSpawnEndEvent, CodexCollabCloseBeginEvent, CodexCollabCloseEndEvent, CodexCollabResumeBeginEvent, CodexCollabResumeEndEvent, CodexCollabWaitingBeginEvent, CodexCollabWaitingEndEvent, CodexModeKind, CodexPersonality, CodexPrompt, CodexRemoteSkill, CodexStreamMessage, CodexThread, CodexTranscriptDiff, CodexTranscriptMessage, CodexTranscriptToolCall, CodexWebSearchMode } from './types/codex'
 
-export type { PiCommandPayload, PiForkMessagePayload, PiModelPayload, PiSessionInfo, PiStatePayload, PiStreamMessage } from './types/pi'
+export type { PiCommandPayload, PiForkMessagePayload, PiModelPayload, PiQueueState, PiSessionInfo, PiStatePayload, PiStreamMessage, PiThinkingCapabilities, PiToolInfo } from './types/pi'

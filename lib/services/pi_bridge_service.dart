@@ -4,6 +4,8 @@ import '../models/file_attachment.dart';
 import '../models/pi.dart';
 import 'websocket_service.dart';
 
+export 'bridge/bridge_pi_tools.dart';
+
 class PiBridgeService {
   PiBridgeService(this._socket) {
     _dispatcherSub = _socket.messages.listen(_dispatchMessage);
@@ -54,6 +56,19 @@ class PiBridgeService {
     }
     _pendingByRequestId.clear();
   }
+
+  /// Internal: generate a unique request ID (for extensions).
+  String generateRequestId() => _generateRequestId();
+
+  /// Internal: send a message via the socket (for extensions).
+  void sendMessage(Map<String, dynamic> message) => _socket.send(message);
+
+  /// Internal: wait for a response message (for extensions).
+  Future<Map<String, dynamic>> waitForResponse(
+    String expectedType, {
+    required String requestId,
+    Duration timeout = const Duration(seconds: 30),
+  }) => _waitFor(expectedType, requestId: requestId, timeout: timeout);
 
   String _generateRequestId() {
     _requestCounter++;
@@ -135,7 +150,11 @@ class PiBridgeService {
     await _waitFor('pi_chat_started', requestId: requestId);
   }
 
-  Future<void> steer({required String message, String? projectPath, List<FileAttachment>? fileAttachments}) async {
+  Future<void> steer({
+    required String message,
+    String? projectPath,
+    List<FileAttachment>? fileAttachments,
+  }) async {
     final requestId = _generateRequestId();
     _socket.send({
       'type': 'pi_steer',
@@ -151,7 +170,11 @@ class PiBridgeService {
     await _waitFor('pi_steered', requestId: requestId);
   }
 
-  Future<void> followUp({required String message, String? projectPath, List<FileAttachment>? fileAttachments}) async {
+  Future<void> followUp({
+    required String message,
+    String? projectPath,
+    List<FileAttachment>? fileAttachments,
+  }) async {
     final requestId = _generateRequestId();
     _socket.send({
       'type': 'pi_follow_up',
@@ -311,18 +334,23 @@ class PiBridgeService {
     return PiThinkingLevel.fromWireValue(data['level'] as String? ?? 'medium');
   }
 
-  Future<PiModel?> cycleModel({String? projectPath}) async {
+  Future<({PiModel? model, bool isScoped})> cycleModel({
+    String? projectPath,
+    String? direction,
+  }) async {
     final requestId = _generateRequestId();
     _socket.send({
       'type': 'pi_cycle_model',
       'requestId': requestId,
       if (projectPath != null) 'projectPath': projectPath,
+      if (direction != null) 'direction': direction,
     });
 
     final response = await _waitFor('pi_model_set', requestId: requestId);
     final data = response['data'];
-    if (data is! Map<String, dynamic>) return null;
-    return PiModel.fromJson(data);
+    final model = data is Map<String, dynamic> ? PiModel.fromJson(data) : null;
+    final isScoped = response['isScoped'] as bool? ?? false;
+    return (model: model, isScoped: isScoped);
   }
 
   Future<List<PiSessionInfo>> listSessions({String? projectPath}) async {
@@ -341,12 +369,22 @@ class PiBridgeService {
         .toList();
   }
 
-  Future<bool> newSession({String? projectPath}) async {
+  Future<bool> newSession({
+    String? projectPath,
+    String? name,
+    String? provider,
+    String? modelId,
+    String? thinkingLevel,
+  }) async {
     final requestId = _generateRequestId();
     _socket.send({
       'type': 'pi_new_session',
       'requestId': requestId,
       if (projectPath != null) 'projectPath': projectPath,
+      if (name != null) 'name': name,
+      if (provider != null) 'provider': provider,
+      if (modelId != null) 'modelId': modelId,
+      if (thinkingLevel != null) 'thinkingLevel': thinkingLevel,
     });
 
     final response = await _waitFor('pi_session_created', requestId: requestId);

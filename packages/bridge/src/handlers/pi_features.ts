@@ -14,6 +14,8 @@ import type {
   PiStatePayload,
   PiStreamMessage,
 } from '../types/pi'
+import * as piTools from './pi_tools'
+import * as piAbort from './pi_abort'
 
 type Reply = (message: ServerMessage) => void
 
@@ -187,6 +189,10 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
   const optionalCwd = resolveOptionalCwd(message)
   const cwd = optionalCwd ?? normalizeCwd()
 
+  // Delegate to sub-handlers first
+  if (await piTools.handle(message, reply)) return true
+  if (await piAbort.handle(message, reply)) return true
+
   switch (message.type) {
     case 'pi_chat': {
       await ensureStreamBridge(cwd, broadcast)
@@ -319,10 +325,12 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
 
     case 'pi_cycle_model': {
       const instance = await pi.getOrCreateInstance(cwd)
-      const result = await instance.session.cycleModel()
+      const direction = message.direction === 'backward' ? 'backward' : 'forward'
+      const result = await instance.session.cycleModel(direction)
       reply({
         type: 'pi_model_set',
         data: result?.model ? pi.mapModel(result.model) : null,
+        isScoped: result?.isScoped ?? false,
         requestId: message.requestId,
       })
       return true
@@ -337,7 +345,18 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
 
     case 'pi_new_session': {
       const instance = await pi.getOrCreateInstance(cwd)
-      const created = await instance.session.newSession()
+      const options: Record<string, unknown> = {}
+      if (typeof message.name === 'string' && message.name.trim()) {
+        options.name = message.name.trim()
+      }
+      if (typeof message.provider === 'string' && typeof message.modelId === 'string') {
+        const model = pi.getModelRegistry().find(message.provider, message.modelId)
+        if (model) options.model = model
+      }
+      if (typeof message.thinkingLevel === 'string') {
+        options.thinkingLevel = parseThinkingLevel(message.thinkingLevel)
+      }
+      const created = await instance.session.newSession(Object.keys(options).length > 0 ? options : undefined)
       reply({ type: 'pi_session_created', data: created, requestId: message.requestId })
       return true
     }

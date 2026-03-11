@@ -13,6 +13,9 @@ export type PiStatePayload = {
   autoRetryEnabled: boolean
   messageCount: number
   pendingMessageCount: number
+  isBashRunning: boolean
+  hasPendingBashMessages: boolean
+  retryAttempt: number
 }
 
 export type PiModelPayload = {
@@ -30,6 +33,8 @@ export type PiModelPayload = {
     cacheRead: number
     cacheWrite: number
   }
+  authenticated: boolean
+  isOAuth: boolean
 }
 
 export type PiSessionInfo = {
@@ -51,6 +56,23 @@ export type PiCommandPayload = {
   source: 'extension' | 'prompt' | 'skill'
   location?: 'user' | 'project' | 'path'
   path?: string
+}
+
+export type PiToolInfo = {
+  name: string
+  description: string
+  parameters?: any
+}
+
+export type PiThinkingCapabilities = {
+  supportsThinking: boolean
+  supportsXhigh: boolean
+  availableLevels: string[]
+}
+
+export type PiQueueState = {
+  steering: string[]
+  followUp: string[]
 }
 
 export type PiForkMessagePayload = {
