@@ -723,9 +723,42 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // Pi mode - set up Pi session in provider
     if (widget.isPi) {
       final cwd = widget.piSession?.cwd ?? widget.piDraftCwd ?? '';
-      final sessionId = widget.piSession?.id ?? '';
+      final widgetSessionId = widget.piSession?.id ?? '';
       final isDraft = widget.piSession == null;
       final piBridge = ref.read(piBridgeServiceProvider);
+
+      // On reconnect, the session is already alive in the bridge — don't
+      // create a new one or switch sessions. Just re-sync state and hydrate.
+      if (_resyncingAfterReconnect) {
+        if (!connection.isOfflineMode) {
+          try {
+            final piState = await piBridge.getState(projectPath: cwd);
+            chat.setPiModel(
+              piState.model != null
+                  ? '${piState.model!.provider}/${piState.model!.id}'
+                  : null,
+              modelData: piState.model,
+            );
+            chat.setPiThinkingLevel(piState.thinkingLevel);
+          } catch (_) {
+            // Best effort
+          }
+          // Re-hydrate transcript to pick up any messages from the gap.
+          // getMessages works by CWD so this works even if session ID is empty.
+          try {
+            final items = await piBridge.getMessages(projectPath: cwd);
+            chat.hydratePiTranscript(items);
+          } catch (_) {
+            // Best effort
+          }
+        }
+        _scrollToBottom(animate: false);
+        setState(() => _hasLoadedAllMessages = true);
+        _loadSessionContext();
+        return;
+      }
+
+      // Initial load path — only runs on first open, not on reconnect.
       // Draft mode: create a new session so we don't resume an existing one.
       // Existing session: switch to the specific session by path.
       if (isDraft && !connection.isOfflineMode) {
@@ -746,12 +779,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         }
       }
       chat.setPiSession(
-        sessionId: sessionId,
+        sessionId: widgetSessionId,
         cwd: cwd,
         model: widget.piSession?.name,
       );
       // Existing session: hydrate transcript
-      if (sessionId.isNotEmpty && !connection.isOfflineMode) {
+      if (widgetSessionId.isNotEmpty && !connection.isOfflineMode) {
         try {
           final items = await piBridge.getMessages(projectPath: cwd);
           chat.hydratePiTranscript(items);
@@ -763,7 +796,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       if (!connection.isOfflineMode) {
         try {
           final piState = await piBridge.getState(projectPath: cwd);
-          if (piState.sessionId.isNotEmpty && sessionId.isEmpty) {
+          if (piState.sessionId.isNotEmpty && widgetSessionId.isEmpty) {
             // New session was created by newSession() — adopt its ID
             chat.setPiSession(
               sessionId: piState.sessionId,
