@@ -1489,6 +1489,21 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       return id;
     }
 
+    // Pi mode
+    if (state.isPi) {
+      final sessionId = state.piSessionId ?? '';
+      final id = messageId ?? 'local-${DateTime.now().microsecondsSinceEpoch}';
+      final message = ChatMessage(
+        id: id,
+        sessionId: sessionId,
+        role: MessageRole.user,
+        createdAt: DateTime.now(),
+        text: content,
+      );
+      _addMessage(message);
+      return id;
+    }
+
     // OpenCode mode
     final session = state.session;
     if (session == null) return '';
@@ -1526,6 +1541,8 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
         ? (state.ccSessionId ?? '')
         : state.isCodex
         ? (state.cxThreadId ?? '')
+        : state.isPi
+        ? (state.piSessionId ?? '')
         : (state.session?.id ?? '');
     if (sessionId.isEmpty) return;
     final message = ChatMessage(
