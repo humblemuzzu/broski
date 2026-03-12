@@ -47,7 +47,7 @@
     "build:windows": "sh scripts/build.sh --target windows-x64"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.2.71",
+    "@anthropic-ai/claude-agent-sdk": "^0.2.74",
     "@clack/prompts": "^1.0.0",
     "@mariozechner/pi-coding-agent": "^0.54.2",
     "@opencode-ai/sdk": "file:../../reference/opencode/packages/sdk/js",
