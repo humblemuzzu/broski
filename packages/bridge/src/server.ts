@@ -44,6 +44,15 @@ import * as ocCustomization from './handlers/oc_customization'
 import * as piFeatures from './handlers/pi_features'
 import * as ccElicitation from './handlers/cc_elicitation'
 import type { ClaudeElicitationReply } from './handlers/cc_elicitation'
+import * as ccSessions from './handlers/cc_sessions'
+import * as ccSkills from './handlers/cc_skills'
+import * as ccCommands from './handlers/cc_commands'
+import * as ccMemory from './handlers/cc_memory'
+import * as ccConfig from './handlers/cc_config'
+import * as ccHooksMcp from './handlers/cc_hooks_mcp'
+import * as ccLiveSession from './handlers/cc_live_session'
+import * as ccCustomTools from './handlers/cc_custom_tools'
+import * as ccPlugins from './handlers/cc_plugins'
 import { mapClaudeCodeStreamToRuntimeEvent } from './runtime/claude-code-runtime-event-mapper'
 import {
   buildClaudeCodeRuntimeState,
@@ -6901,66 +6910,102 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         }
         break
       }
-      case 'cc_list_projects': {
-        const projects = await claudeCode.listProjects()
-        reply({ type: 'cc_projects', data: projects })
+      // ── CC handlers (extracted from server.ts) ──────────────────────
+      // Route CC messages to modular handler files.
+      // cc_chat, cc_abort, and cc_permission_response stay inline due to
+      // deep coupling with socket/waiter state.
+      // cc_elicitation_response is handled before this switch in cc_elicitation.ts.
+      case 'cc_list_projects':
+      case 'cc_list_sessions':
+      case 'cc_get_session':
+      case 'cc_get_session_messages':
+      case 'cc_delete_session':
+      case 'cc_fork_session':
+      case 'cc_rename_session':
+      case 'cc_background_session':
+      case 'cc_get_active_sessions': {
+        const ccSessionCtx = { claudeCode, mapClaudeCodeSessionToRuntimeSession }
+        if (await ccSessions.handle(message as Record<string, unknown>, reply, ccSessionCtx)) break
+        reply({ type: 'error', message: 'Unhandled CC session message' })
         break
       }
-      case 'cc_list_sessions': {
-        const sessions = await claudeCode.listSessions(message.cwd)
-        reply({ type: 'cc_sessions', data: sessions })
-        reply({
-          type: 'runtime_sessions',
-          backend: 'claude-code',
-          data: sessions.map(mapClaudeCodeSessionToRuntimeSession),
-        })
+      case 'cc_list_skills':
+      case 'cc_get_skill':
+      case 'cc_save_skill':
+      case 'cc_delete_skill': {
+        const ccSkillCtx = { claudeCode, safeString }
+        if (await ccSkills.handle(message as Record<string, unknown>, reply, ccSkillCtx)) break
+        reply({ type: 'error', message: 'Unhandled CC skill message' })
         break
       }
-      case 'cc_get_session': {
-        const session = await claudeCode.getSession(message.sessionId, message.cwd)
-        if (session) {
-          reply({ type: 'cc_session', data: session })
-        } else {
-          reply({ type: 'error', message: 'Session not found' })
-        }
+      case 'cc_list_commands':
+      case 'cc_get_command':
+      case 'cc_save_command':
+      case 'cc_delete_command': {
+        const ccCmdCtx = { claudeCode, safeString, getSecurePath, isSafeClaudeCommandName, resolveClaudeCommandFilePath }
+        if (await ccCommands.handle(message as Record<string, unknown>, reply, ccCmdCtx)) break
+        reply({ type: 'error', message: 'Unhandled CC command message' })
         break
       }
-      case 'cc_get_session_messages': {
-        const items = await claudeCode.getSessionMessages(message.sessionId, message.cwd, message.limit)
-        reply({
-          type: 'cc_session_messages',
-          data: items,
-          sessionId: message.sessionId
-        })
+      case 'cc_list_memories':
+      case 'cc_delete_memory':
+      case 'cc_list_agents': {
+        const ccMemCtx = { claudeCode }
+        if (await ccMemory.handle(message as Record<string, unknown>, reply, ccMemCtx)) break
+        reply({ type: 'error', message: 'Unhandled CC memory/agent message' })
         break
       }
-      case 'cc_delete_session': {
-        const deleted = await claudeCode.deleteSession(message.sessionId, message.cwd)
-        reply({
-          type: 'cc_session_deleted',
-          data: deleted,
-          sessionId: message.sessionId
-        })
+      case 'cc_get_config':
+      case 'cc_set_config':
+      case 'cc_get_supported_models':
+      case 'cc_get_account_info':
+      case 'cc_get_mcp_server_status':
+      case 'cc_rewind_checkpoint': {
+        const ccCfgCtx = { claudeCode, mapClaudeCodeModelToSummary }
+        if (await ccConfig.handle(message as Record<string, unknown>, reply, ccCfgCtx)) break
+        reply({ type: 'error', message: 'Unhandled CC config message' })
         break
       }
-      case 'cc_fork_session': {
-        const forked = await claudeCode.forkSession(message.sessionId, message.messageId, message.cwd)
-        reply({ type: 'cc_session_forked', data: forked })
+      case 'cc_list_hooks':
+      case 'cc_hooks_file_read':
+      case 'cc_hooks_file_write':
+      case 'cc_mcp_file_read':
+      case 'cc_mcp_file_write': {
+        const ccHooksCtx = { claudeCode, safeString, getSecurePath }
+        if (await ccHooksMcp.handle(message as Record<string, unknown>, reply, ccHooksCtx)) break
+        reply({ type: 'error', message: 'Unhandled CC hooks/MCP message' })
         break
       }
-      case 'cc_rename_session': {
-        const renamed = await claudeCode.renameSession(message.sessionId, message.name, message.cwd)
-        reply({ type: 'cc_session_renamed', data: renamed })
+      case 'cc_stop_task':
+      case 'cc_reconnect_mcp_server':
+      case 'cc_toggle_mcp_server':
+      case 'cc_set_permission_mode':
+      case 'cc_set_model':
+      case 'cc_initialization_result':
+      case 'cc_set_mcp_servers': {
+        const ccLiveCtx = { claudeCode }
+        if (await ccLiveSession.handle(message as Record<string, unknown>, reply, ccLiveCtx)) break
+        reply({ type: 'error', message: 'Unhandled CC live session message' })
         break
       }
-      case 'cc_background_session': {
-        // Background session support - mark session as backgrounded
-        // For now, this is a client-side state change acknowledgment
-        reply({
-          type: 'cc_session_backgrounded',
-          data: true,
-          sessionId: message.sessionId
-        })
+      case 'cc_list_custom_tools':
+      case 'cc_get_custom_tool':
+      case 'cc_save_custom_tool':
+      case 'cc_delete_custom_tool':
+      case 'cc_test_custom_tool': {
+        if (await ccCustomTools.handle(message as Record<string, unknown>, reply)) break
+        reply({ type: 'error', message: 'Unhandled CC custom tools message' })
+        break
+      }
+      case 'cc_list_plugins':
+      case 'cc_get_plugin':
+      case 'cc_toggle_plugin':
+      case 'cc_add_plugin_path':
+      case 'cc_remove_plugin_path':
+      case 'cc_get_plugin_config':
+      case 'cc_reload_plugins': {
+        if (await ccPlugins.handle(message as Record<string, unknown>, reply)) break
+        reply({ type: 'error', message: 'Unhandled CC plugins message' })
         break
       }
       case 'cc_chat': {
@@ -7262,61 +7307,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         await claudeCode.abortClaudeCode(message.sessionId)
         break
       }
-      case 'cc_stop_task': {
-        const ok = await claudeCode.stopTask(message.sessionId, message.taskId)
-        reply({
-          type: 'cc_task_stopped',
-          data: { ok, taskId: message.taskId }
-        })
-        break
-      }
-      case 'cc_reconnect_mcp_server': {
-        const ok = await claudeCode.reconnectMcpServer(message.sessionId, message.serverName)
-        reply({
-          type: 'cc_mcp_server_reconnected',
-          data: { ok, serverName: message.serverName }
-        })
-        break
-      }
-      case 'cc_toggle_mcp_server': {
-        const ok = await claudeCode.toggleMcpServer(message.sessionId, message.serverName, message.enabled)
-        reply({
-          type: 'cc_mcp_server_toggled',
-          data: {
-            ok,
-            serverName: message.serverName,
-            enabled: message.enabled
-          }
-        })
-        break
-      }
-      // B1: change permission mode mid-session
-      case 'cc_set_permission_mode': {
-        const ok = await claudeCode.setPermissionMode(message.sessionId, message.mode)
-        reply({
-          type: 'cc_permission_mode_set',
-          data: { ok, mode: message.mode }
-        })
-        break
-      }
-      // B2: change model mid-session
-      case 'cc_set_model': {
-        const ok = await claudeCode.setModel(message.sessionId, message.model)
-        reply({ type: 'cc_model_set', data: { ok, model: message.model } })
-        break
-      }
-      // B3: get full initialization result
-      case 'cc_initialization_result': {
-        const result = await claudeCode.getInitializationResult(message.sessionId)
-        reply({ type: 'cc_initialization_result', data: result })
-        break
-      }
-      // B7: dynamically set MCP servers mid-session
-      case 'cc_set_mcp_servers': {
-        const result = await claudeCode.setMcpServers(message.sessionId, message.servers as Record<string, unknown>)
-        reply({ type: 'cc_mcp_servers_set', data: result })
-        break
-      }
       case 'cc_permission_response': {
         const key = `${message.sessionId}:${message.toolUseId}`
         const waiter = ccPermissionWaiters.get(key)
@@ -7333,696 +7323,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         }
         break
       }
-      case 'cc_list_skills': {
-        const skills = await claudeCode.listSkills(message.cwd)
-        reply({ type: 'cc_skills', data: skills })
-        break
-      }
-      case 'cc_get_skill': {
-        const skillFiles = await import('./skills')
-        if (!skillFiles.validateSkillName(message.name)) {
-          reply({ type: 'error', message: 'Invalid skill name' })
-          break
-        }
-
-        let skillPath: string | null = null
-        if (message.source === 'plugin') {
-          const requestedPath = safeString(message.path)
-          if (!requestedPath) {
-            reply({ type: 'error', message: 'Missing skill path' })
-            break
-          }
-          try {
-            const pluginsModule = await import('./plugins')
-            const plugins = await pluginsModule.discoverPlugins(message.cwd)
-            const resolved = resolve(requestedPath)
-            const allowed = plugins.some((p) => resolved.startsWith(resolve(p.path) + sep))
-            if (!allowed) {
-              reply({ type: 'error', message: 'Skill path not allowed' })
-              break
-            }
-            skillPath = resolved
-          } catch {
-            reply({ type: 'error', message: 'Failed to resolve plugin skill' })
-            break
-          }
-        } else {
-          skillPath = skillFiles.getClaudeCodeSkillFilePath({
-            name: message.name,
-            source: message.source,
-            cwd: message.cwd
-          })
-        }
-
-        try {
-          const content = await skillFiles.readSkillFile(skillPath)
-          reply({
-            type: 'cc_skill',
-            data: {
-              name: message.name,
-              path: skillPath,
-              source: message.source,
-              content
-            }
-          })
-        } catch {
-          reply({ type: 'error', message: 'Skill not found' })
-        }
-        break
-      }
-      case 'cc_save_skill': {
-        const skillFiles = await import('./skills')
-        if (!skillFiles.validateSkillName(message.name)) {
-          reply({ type: 'cc_skill_saved', data: { ok: false } })
-          break
-        }
-        const path = skillFiles.getClaudeCodeSkillFilePath({
-          name: message.name,
-          source: message.source,
-          cwd: message.cwd
-        })
-        try {
-          await skillFiles.writeSkillFile(path, message.content)
-          reply({ type: 'cc_skill_saved', data: { ok: true, path } })
-        } catch {
-          reply({ type: 'cc_skill_saved', data: { ok: false } })
-        }
-        break
-      }
-      case 'cc_delete_skill': {
-        const skillFiles = await import('./skills')
-        if (!skillFiles.validateSkillName(message.name)) {
-          reply({ type: 'cc_skill_deleted', data: { ok: false } })
-          break
-        }
-        const path = skillFiles.getClaudeCodeSkillFilePath({
-          name: message.name,
-          source: message.source,
-          cwd: message.cwd
-        })
-        try {
-          await skillFiles.deleteSkillByPath(path)
-          reply({ type: 'cc_skill_deleted', data: { ok: true } })
-        } catch {
-          reply({ type: 'cc_skill_deleted', data: { ok: false } })
-        }
-        break
-      }
-      case 'cc_list_hooks': {
-        const hooks = await claudeCode.listHooks(message.cwd)
-        reply({ type: 'cc_hooks', data: hooks })
-        break
-      }
-      case 'cc_hooks_file_read': {
-        // Read hooks from the first available location:
-        // 1. settings.json → "hooks" key (standard Claude Code CLI approach)
-        // 2. hooks/hooks.json (standalone file, used by some plugins/projects)
-        // Returns merged content as {"hooks": {...}} so the Flutter UI sees everything.
-        const src = message.source
-        const cwd = safeString(message.cwd).trim()
-        if (src === 'project' && !cwd) {
-          reply({
-            type: 'cc_hooks_file',
-            data: { ok: false, source: src, path: '', content: '' }
-          })
-          break
-        }
-        let baseDir: string
-        if (src === 'project') {
-          const secureCwd = await getSecurePath(cwd)
-          if (!secureCwd) {
-            reply({
-              type: 'cc_hooks_file',
-              data: { ok: false, source: src, path: '', content: '' }
-            })
-            break
-          }
-          baseDir = secureCwd
-        } else {
-          baseDir = homedir()
-        }
-
-        const settingsPath = join(baseDir, '.claude', 'settings.json')
-        const hooksJsonPath = join(baseDir, '.claude', 'hooks', 'hooks.json')
-
-        // Try settings.json first (preferred, standard Claude Code convention)
-        let hooksObj: Record<string, unknown> = {}
-        let resolvedPath = settingsPath
-
-        try {
-          const raw = await readFile(settingsPath, 'utf-8')
-          const parsed = JSON.parse(raw) as Record<string, unknown>
-          if (parsed.hooks && typeof parsed.hooks === 'object' && !Array.isArray(parsed.hooks)) {
-            hooksObj = parsed.hooks as Record<string, unknown>
-          }
-        } catch {
-          // settings.json missing or no hooks key — try hooks.json
-        }
-
-        // Also merge hooks from hooks/hooks.json if present
-        try {
-          const raw = await readFile(hooksJsonPath, 'utf-8')
-          const parsed = JSON.parse(raw) as { hooks?: Record<string, unknown> }
-          if (parsed.hooks && typeof parsed.hooks === 'object') {
-            for (const [event, matchers] of Object.entries(parsed.hooks)) {
-              if (hooksObj[event] && Array.isArray(hooksObj[event]) && Array.isArray(matchers)) {
-                // Merge: append hooks.json entries after settings.json entries
-                ;(hooksObj[event] as unknown[]).push(...matchers)
-              } else if (!hooksObj[event]) {
-                hooksObj[event] = matchers
-              }
-            }
-            resolvedPath = hooksJsonPath
-          }
-        } catch {
-          // hooks.json missing — fine
-        }
-
-        const content = JSON.stringify({ hooks: hooksObj }, null, 2)
-        reply({
-          type: 'cc_hooks_file',
-          data: { ok: true, source: src, path: resolvedPath, content }
-        })
-        break
-      }
-      case 'cc_hooks_file_write': {
-        // Write hooks to the appropriate location.
-        // Strategy: if settings.json already has a "hooks" key, update it there.
-        // Otherwise, write to hooks/hooks.json (backward-compatible).
-        const src = message.source
-        const cwd = safeString(message.cwd).trim()
-        if (src === 'project' && !cwd) {
-          reply({
-            type: 'cc_hooks_file_written',
-            data: { ok: false, source: src, path: '' }
-          })
-          break
-        }
-        let baseDir: string
-        if (src === 'project') {
-          const secureCwd = await getSecurePath(cwd)
-          if (!secureCwd) {
-            reply({
-              type: 'cc_hooks_file_written',
-              data: { ok: false, source: src, path: '' }
-            })
-            break
-          }
-          baseDir = secureCwd
-        } else {
-          baseDir = homedir()
-        }
-
-        const settingsFilePath = join(baseDir, '.claude', 'settings.json')
-        const hooksJsonFilePath = join(baseDir, '.claude', 'hooks', 'hooks.json')
-
-        try {
-          // Parse the incoming content — expected shape: {"hooks": {...}}
-          const incoming = JSON.parse(message.content) as {
-            hooks?: Record<string, unknown>
-          }
-          const newHooks = incoming.hooks ?? {}
-
-          // Check if settings.json exists and already has hooks
-          let wroteToSettings = false
-          try {
-            const raw = await readFile(settingsFilePath, 'utf-8')
-            const settings = JSON.parse(raw) as Record<string, unknown>
-            if ('hooks' in settings || Object.keys(newHooks).length > 0) {
-              // Update hooks in settings.json (preferred location)
-              settings.hooks = newHooks
-              await writeFile(settingsFilePath, JSON.stringify(settings, null, 2), 'utf-8')
-              wroteToSettings = true
-            }
-          } catch {
-            // settings.json doesn't exist — fall through to hooks.json
-          }
-
-          if (!wroteToSettings) {
-            // Fall back to standalone hooks.json
-            await mkdir(resolve(hooksJsonFilePath, '..'), { recursive: true })
-            await writeFile(hooksJsonFilePath, message.content, 'utf-8')
-          }
-
-          const writtenPath = wroteToSettings ? settingsFilePath : hooksJsonFilePath
-          reply({
-            type: 'cc_hooks_file_written',
-            data: { ok: true, source: src, path: writtenPath }
-          })
-        } catch {
-          reply({
-            type: 'cc_hooks_file_written',
-            data: { ok: false, source: src, path: settingsFilePath }
-          })
-        }
-        break
-      }
-      case 'cc_mcp_file_read': {
-        const cwd = safeString(message.cwd).trim()
-        if (!cwd) {
-          reply({
-            type: 'cc_mcp_file',
-            data: { ok: false, path: '', content: '' }
-          })
-          break
-        }
-        const secureCwd = await getSecurePath(cwd)
-        if (!secureCwd) {
-          reply({
-            type: 'cc_mcp_file',
-            data: { ok: false, path: '', content: '' }
-          })
-          break
-        }
-        const mcpPath = join(secureCwd, '.mcp.json')
-        try {
-          const content = await readFile(mcpPath, 'utf-8')
-          reply({
-            type: 'cc_mcp_file',
-            data: { ok: true, path: mcpPath, content }
-          })
-        } catch {
-          reply({
-            type: 'cc_mcp_file',
-            data: { ok: true, path: mcpPath, content: '{"mcpServers":{}}' }
-          })
-        }
-        break
-      }
-      case 'cc_mcp_file_write': {
-        const cwd = safeString(message.cwd).trim()
-        if (!cwd) {
-          reply({ type: 'cc_mcp_file_written', data: { ok: false, path: '' } })
-          break
-        }
-        const secureCwd = await getSecurePath(cwd)
-        if (!secureCwd) {
-          reply({ type: 'cc_mcp_file_written', data: { ok: false, path: '' } })
-          break
-        }
-        const mcpPath = join(secureCwd, '.mcp.json')
-        try {
-          await writeFile(mcpPath, message.content, 'utf-8')
-          reply({
-            type: 'cc_mcp_file_written',
-            data: { ok: true, path: mcpPath }
-          })
-        } catch {
-          reply({
-            type: 'cc_mcp_file_written',
-            data: { ok: false, path: mcpPath }
-          })
-        }
-        break
-      }
-      case 'cc_list_commands': {
-        const commands = await claudeCode.listCommands(message.cwd)
-        reply({ type: 'cc_commands', data: commands })
-        break
-      }
-      case 'cc_list_agents': {
-        const agents = await claudeCode.listAgents(message.cwd || message.projectPath)
-        reply({ type: 'cc_agents', data: agents })
-        break
-      }
-      case 'cc_list_memories': {
-        const memories = await claudeCode.listMemories(message.scope, message.cwd)
-        reply({ type: 'cc_memories', data: memories })
-        break
-      }
-      case 'cc_delete_memory': {
-        const ok = await claudeCode.deleteMemory(message.scope, message.filename, message.cwd)
-        reply({
-          type: 'cc_memory_deleted',
-          data: { ok, filename: message.filename, scope: message.scope }
-        })
-        break
-      }
-      case 'cc_get_command': {
-        const name = safeString(message.name)
-        const source = message.source
-        let cwd = safeString(message.cwd).trim() || process.cwd()
-
-        if (!isSafeClaudeCommandName(name)) {
-          reply({
-            type: 'cc_command_file',
-            data: { ok: false, name, source, path: '', content: '' }
-          })
-          break
-        }
-
-        let cmdPath = ''
-        if (source === 'plugin') {
-          const requestedPath = safeString(message.path)
-          if (!requestedPath) {
-            reply({
-              type: 'cc_command_file',
-              data: { ok: false, name, source, path: '', content: '' }
-            })
-            break
-          }
-          try {
-            const pluginsModule = await import('./plugins')
-            const plugins = await pluginsModule.discoverPlugins(message.cwd)
-            const resolved = resolve(requestedPath)
-            const allowed = plugins.some((p) => resolved.startsWith(resolve(p.path) + sep))
-            if (!allowed) {
-              reply({
-                type: 'cc_command_file',
-                data: { ok: false, name, source, path: '', content: '' }
-              })
-              break
-            }
-            cmdPath = resolved
-          } catch {
-            reply({
-              type: 'cc_command_file',
-              data: { ok: false, name, source, path: '', content: '' }
-            })
-            break
-          }
-        } else {
-          if (source !== 'project' && source !== 'user') {
-            reply({
-              type: 'cc_command_file',
-              data: { ok: false, name, source, path: '', content: '' }
-            })
-            break
-          }
-          if (source === 'project') {
-            const secureCwd = await getSecurePath(cwd)
-            if (!secureCwd) {
-              reply({
-                type: 'cc_command_file',
-                data: { ok: false, name, source, path: '', content: '' }
-              })
-              break
-            }
-            cwd = secureCwd
-          }
-          const resolved = resolveClaudeCommandFilePath({ cwd, source, name })
-          if (!resolved) {
-            reply({
-              type: 'cc_command_file',
-              data: { ok: false, name, source, path: '', content: '' }
-            })
-            break
-          }
-          cmdPath = resolved
-        }
-
-        try {
-          const content = await readFile(cmdPath, 'utf-8')
-          reply({
-            type: 'cc_command_file',
-            data: { ok: true, name, source, path: cmdPath, content }
-          })
-        } catch {
-          const defaultContent = ['---', `description: ${name}`, '---', ''].join('\n')
-          reply({
-            type: 'cc_command_file',
-            data: {
-              ok: false,
-              name,
-              source,
-              path: cmdPath,
-              content: defaultContent
-            }
-          })
-        }
-        break
-      }
-      case 'cc_save_command': {
-        const name = safeString(message.name)
-        const source = message.source
-        let cwd = safeString(message.cwd).trim() || process.cwd()
-
-        if (source !== 'project' && source !== 'user') {
-          reply({
-            type: 'cc_command_saved',
-            data: { ok: false, name, source }
-          })
-          break
-        }
-        if (!isSafeClaudeCommandName(name)) {
-          reply({
-            type: 'cc_command_saved',
-            data: { ok: false, name, source }
-          })
-          break
-        }
-
-        if (source === 'project') {
-          const secureCwd = await getSecurePath(cwd)
-          if (!secureCwd) {
-            reply({
-              type: 'cc_command_saved',
-              data: { ok: false, name, source }
-            })
-            break
-          }
-          cwd = secureCwd
-        }
-
-        const cmdPath = resolveClaudeCommandFilePath({ cwd, source, name })
-        if (!cmdPath) {
-          reply({
-            type: 'cc_command_saved',
-            data: { ok: false, name, source }
-          })
-          break
-        }
-
-        try {
-          await mkdir(resolve(cmdPath, '..'), { recursive: true })
-          await writeFile(cmdPath, message.content, 'utf-8')
-          reply({
-            type: 'cc_command_saved',
-            data: { ok: true, name, source, path: cmdPath }
-          })
-        } catch {
-          reply({
-            type: 'cc_command_saved',
-            data: { ok: false, name, source, path: cmdPath }
-          })
-        }
-        break
-      }
-      case 'cc_delete_command': {
-        const name = safeString(message.name)
-        const source = message.source
-        let cwd = safeString(message.cwd).trim() || process.cwd()
-
-        if (source !== 'project' && source !== 'user') {
-          reply({
-            type: 'cc_command_deleted',
-            data: { ok: false, name, source }
-          })
-          break
-        }
-        if (!isSafeClaudeCommandName(name)) {
-          reply({
-            type: 'cc_command_deleted',
-            data: { ok: false, name, source }
-          })
-          break
-        }
-
-        if (source === 'project') {
-          const secureCwd = await getSecurePath(cwd)
-          if (!secureCwd) {
-            reply({
-              type: 'cc_command_deleted',
-              data: { ok: false, name, source }
-            })
-            break
-          }
-          cwd = secureCwd
-        }
-
-        const cmdPath = resolveClaudeCommandFilePath({ cwd, source, name })
-        if (!cmdPath) {
-          reply({
-            type: 'cc_command_deleted',
-            data: { ok: false, name, source }
-          })
-          break
-        }
-
-        try {
-          await rm(cmdPath, { force: true })
-          reply({
-            type: 'cc_command_deleted',
-            data: { ok: true, name, source }
-          })
-        } catch {
-          reply({
-            type: 'cc_command_deleted',
-            data: { ok: false, name, source }
-          })
-        }
-        break
-      }
-      case 'cc_get_active_sessions': {
-        const sessions = claudeCode.listActiveSessions().map((s) => ({
-          id: s.sessionId,
-          cwd: s.cwd,
-          startedAt: s.startedAt
-        }))
-        reply({ type: 'cc_active_sessions', data: sessions })
-        break
-      }
-      case 'cc_get_config': {
-        const config = await claudeCode.getConfig(message.cwd)
-        reply({ type: 'cc_config', data: config })
-        break
-      }
-      case 'cc_set_config': {
-        const config = await claudeCode.setConfig(message.config, message.cwd)
-        reply({ type: 'cc_config_updated', data: config })
-        break
-      }
-      case 'cc_get_supported_models': {
-        const models = await claudeCode.getSupportedModels(message.cwd)
-        reply({ type: 'cc_supported_models', data: models })
-        reply({
-          type: 'runtime_models',
-          backend: 'claude-code',
-          data: models.map(mapClaudeCodeModelToSummary),
-        })
-        break
-      }
-      case 'cc_get_account_info': {
-        const accountInfo = await claudeCode.getAccountInfo(message.cwd)
-        reply({ type: 'cc_account_info', data: accountInfo })
-        break
-      }
-      case 'cc_get_mcp_server_status': {
-        const statuses = await claudeCode.getMcpServerStatus(message.cwd)
-        reply({ type: 'cc_mcp_server_status', data: statuses })
-        break
-      }
-      // Claude Code File Checkpointing (Undo/Revert)
-      case 'cc_rewind_checkpoint': {
-        const result = await claudeCode.rewindToCheckpoint(message.sessionId, message.checkpointUuid, message.cwd)
-        reply({
-          type: 'cc_checkpoint_rewound',
-          data: {
-            success: result.success,
-            sessionId: message.sessionId,
-            checkpointUuid: message.checkpointUuid,
-            ...(result.filesChanged ? { filesChanged: result.filesChanged } : {}),
-            ...(typeof result.insertions === 'number' ? { insertions: result.insertions } : {}),
-            ...(typeof result.deletions === 'number' ? { deletions: result.deletions } : {})
-          }
-        })
-        break
-      }
-      // Claude Code Custom Tools
-      case 'cc_list_custom_tools': {
-        const customTools = await import('./custom-tools')
-        const tools = await customTools.getCustomTools()
-        reply({ type: 'cc_custom_tools', data: tools })
-        break
-      }
-      case 'cc_get_custom_tool': {
-        const customTools = await import('./custom-tools')
-        const tool = await customTools.getCustomTool(message.id)
-        reply({ type: 'cc_custom_tool', data: tool || null })
-        break
-      }
-      case 'cc_save_custom_tool': {
-        const customTools = await import('./custom-tools')
-        // Validate the tool definition
-        const validation = customTools.validateCustomTool(message.tool)
-        if (!validation.valid) {
-          reply({
-            type: 'error',
-            message: `Invalid tool: ${validation.errors.join(', ')}`
-          })
-          break
-        }
-        // Generate ID if not present
-        const toolToSave = {
-          ...message.tool,
-          id: message.tool.id || customTools.generateToolId()
-        }
-        const savedTool = await customTools.saveCustomTool(toolToSave)
-        reply({ type: 'cc_custom_tool_saved', data: savedTool })
-        break
-      }
-      case 'cc_delete_custom_tool': {
-        const customTools = await import('./custom-tools')
-        const deleted = await customTools.deleteCustomTool(message.id)
-        reply({
-          type: 'cc_custom_tool_deleted',
-          data: deleted,
-          id: message.id
-        })
-        break
-      }
-      case 'cc_test_custom_tool': {
-        const customTools = await import('./custom-tools')
-        const result = await customTools.testCustomTool(message.tool, message.testArgs)
-        reply({ type: 'cc_custom_tool_test_result', data: result })
-        break
-      }
-      // Claude Code Plugins
-      case 'cc_list_plugins': {
-        const plugins = await import('./plugins')
-        const pluginList = await plugins.discoverPlugins(message.cwd)
-        reply({ type: 'cc_plugins', data: pluginList })
-        break
-      }
-      case 'cc_get_plugin': {
-        const plugins = await import('./plugins')
-        const plugin = await plugins.getPlugin(message.name)
-        reply({ type: 'cc_plugin', data: plugin || null })
-        break
-      }
-      case 'cc_toggle_plugin': {
-        const plugins = await import('./plugins')
-        const success = await plugins.togglePlugin(message.name, message.enabled)
-        reply({
-          type: 'cc_plugin_toggled',
-          data: success,
-          name: message.name,
-          enabled: message.enabled
-        })
-        break
-      }
-      case 'cc_add_plugin_path': {
-        const plugins = await import('./plugins')
-        const success = await plugins.addPluginPath(message.path)
-        reply({
-          type: 'cc_plugin_path_added',
-          data: success,
-          path: message.path
-        })
-        break
-      }
-      case 'cc_remove_plugin_path': {
-        const plugins = await import('./plugins')
-        const success = await plugins.removePluginPath(message.path)
-        reply({
-          type: 'cc_plugin_path_removed',
-          data: success,
-          path: message.path
-        })
-        break
-      }
-      case 'cc_get_plugin_config': {
-        const plugins = await import('./plugins')
-        const config = await plugins.getPluginConfig()
-        reply({ type: 'cc_plugin_config', data: config })
-        break
-      }
-      case 'cc_reload_plugins': {
-        const plugins = await import('./plugins')
-        const pluginList = await plugins.reloadPlugins(message.cwd)
-        reply({ type: 'cc_plugins_reloaded', data: pluginList })
-        break
-      }
+      // ── End of CC handlers ──────────────────────────────────────────
+      // cc_list_skills through cc_reload_plugins extracted to handlers/cc_*.ts
+      // Only cc_chat, cc_abort, cc_permission_response remain inline.
       // Subscription Usage Tracking
       case 'get_subscription_usage': {
         const subscriptionTracker = await import('./subscription-tracker')
