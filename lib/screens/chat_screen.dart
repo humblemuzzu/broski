@@ -600,7 +600,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             composerController: _controller,
           );
         } else if (message.type == 'agent-end') {
-          // Refresh context/usage after agent completes a turn
+          // Refresh context/usage after agent completes a turn.
+          // Session list + state updates are handled by the bridge broadcast
+          // path (runtime_sessions / runtime_state) which flows through
+          // GlobalSessionStatusNotifier → piSessionsProvider invalidation.
           _loadSessionContext();
         }
       });

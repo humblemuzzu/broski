@@ -14,6 +14,7 @@ import '../services/notification_service.dart';
 import '../utils/project_path_match.dart';
 import '../services/storage_service.dart';
 import 'connection_provider.dart';
+import 'pi_provider.dart';
 import 'sessions/runtime_session_activity_handler.dart';
 import 'sessions/runtime_session_snapshot_handler.dart';
 import 'service_providers.dart';
@@ -110,10 +111,17 @@ class GlobalSessionStatusNotifier
   void _handleRuntimeSessions(List<RuntimeSessionSummary> sessions) {
     if (sessions.isEmpty) return;
 
-    _runtimeSnapshotBackends.add(sessions.first.backend);
+    final backend = sessions.first.backend;
+    _runtimeSnapshotBackends.add(backend);
     final updates = runtimeSessionStatusesFromSummaries(sessions);
     if (updates.isNotEmpty) {
       state = {...state, ...updates};
+    }
+
+    // When Pi broadcasts updated sessions, refresh the Pi sessions list
+    // so the sessions screen stays in sync without manual pull-to-refresh.
+    if (backend == AgentType.pi) {
+      _ref.invalidate(piSessionsProvider(null));
     }
   }
 
@@ -202,14 +210,52 @@ class GlobalSessionStatusNotifier
           .read(storageServiceProvider)
           .getCachedCCSessions();
       final ccSession = ccSessions.where((s) => s.id == sessionId).firstOrNull;
-      final title = ccSession?.displayTitle ?? 'Session';
-      final cwd = ccSession?.cwd ?? '';
-      final project = cwd.split('/').where((p) => p.isNotEmpty).lastOrNull;
+      if (ccSession != null) {
+        final title = ccSession.displayTitle;
+        final cwd = ccSession.cwd;
+        final project = cwd.split('/').where((p) => p.isNotEmpty).lastOrNull;
 
+        NotificationService.instance.showSessionCompleted(
+          sessionId: sessionId,
+          title: title,
+          projectName: project ?? 'Claude Code',
+          duration: duration,
+          lastTool: lastTool,
+        );
+        return;
+      }
+
+      // Pi fallback: use cached Pi sessions
+      final piSessions = await _ref
+          .read(storageServiceProvider)
+          .getCachedPiSessions();
+      final piSession = piSessions.where((s) => s.id == sessionId).firstOrNull;
+      if (piSession != null) {
+        final title = (piSession.name ?? '').trim().isNotEmpty
+            ? piSession.name!.trim()
+            : piSession.firstMessage.trim().isNotEmpty
+                ? piSession.firstMessage.trim()
+                : 'Pi Session';
+        final cwd = piSession.cwd;
+        final project = cwd.split('/').where((p) => p.isNotEmpty).lastOrNull;
+
+        NotificationService.instance.showSessionCompleted(
+          sessionId: sessionId,
+          title: title,
+          projectName: project ?? 'Pi',
+          duration: duration,
+          lastTool: lastTool,
+          additions: piSession.summary?.additions,
+          deletions: piSession.summary?.deletions,
+        );
+        return;
+      }
+
+      // Final fallback
       NotificationService.instance.showSessionCompleted(
         sessionId: sessionId,
-        title: title,
-        projectName: project ?? 'Claude Code',
+        title: 'Session',
+        projectName: 'Unknown',
         duration: duration,
         lastTool: lastTool,
       );

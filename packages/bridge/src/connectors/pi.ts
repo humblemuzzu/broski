@@ -231,6 +231,11 @@ export async function addEventListener(cwd: string, listener: PiEventListener): 
   }
 }
 
+/** Non-creating getter — returns undefined if no instance exists for this cwd. */
+export function getInstance(cwd?: string): PiInstance | undefined {
+  return instances.get(normalizeCwd(cwd))
+}
+
 export function disposeInstance(cwd?: string): void {
   const normalizedCwd = normalizeCwd(cwd)
   const instance = instances.get(normalizedCwd)

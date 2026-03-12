@@ -10,7 +10,6 @@ import {
 import type { FileAttachment, ServerMessage } from '../types'
 import type {
   PiModelPayload,
-  PiSessionInfo,
   PiStatePayload,
   PiStreamMessage,
 } from '../types/pi'
@@ -147,26 +146,51 @@ function emitPiRuntimeModels(
   })
 }
 
-function emitPiRuntimeSessions(
-  reply: Reply,
-  sessions: PiSessionInfo[],
-): void {
-  reply({
-    type: 'runtime_sessions',
-    backend: 'pi',
-    data: mapPiSessionsToRuntimeSessions(sessions, pi.listActiveRuntimeStates()),
-  })
+async function broadcastPiRuntimeSessions(broadcast: Broadcast): Promise<void> {
+  try {
+    const sessions = await pi.listSessions(undefined)
+    const summaries = mapPiSessionsToRuntimeSessions(sessions, pi.listActiveRuntimeStates())
+    broadcast({
+      type: 'runtime_sessions',
+      backend: 'pi',
+      data: summaries,
+    })
+  } catch {
+    // Non-critical — don't crash on broadcast failures
+  }
 }
 
 async function ensureStreamBridge(cwd: string, broadcast: Broadcast): Promise<void> {
   if (streamUnsubscribers.has(cwd)) return
 
-  const instance = await pi.getOrCreateInstance(cwd)
+  // Create/get the instance to register with, but use dynamic lookup in the
+  // event callback so session switches are reflected immediately.
+  await pi.getOrCreateInstance(cwd)
   const unsubscribe = await pi.addEventListener(cwd, (event) => {
     const streamMessage = pi.translateEvent(event)
     if (!streamMessage) return
 
-    broadcastPiStreamMessage(broadcast, cwd, instance.session.sessionId, streamMessage)
+    // Re-resolve the live instance on every event rather than using a captured
+    // reference, so session switches are reflected immediately.
+    const liveInstance = pi.getInstance(cwd)
+    if (!liveInstance) return
+
+    broadcastPiStreamMessage(broadcast, cwd, liveInstance.session.sessionId, streamMessage)
+
+    // After agent ends a turn, broadcast updated session list + state so all
+    // connected clients (including the phone app) see real-time updates.
+    if (streamMessage.type === 'agent-end' || streamMessage.type === 'agent-start') {
+      const state = pi.mapStatePayload(liveInstance)
+      broadcast({
+        type: 'runtime_state',
+        backend: 'pi',
+        data: {
+          ...mapPiStateToRuntimeState(state),
+          cwd,
+        },
+      })
+      void broadcastPiRuntimeSessions(broadcast)
+    }
   })
 
   streamUnsubscribers.set(cwd, unsubscribe)
@@ -196,6 +220,12 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
   switch (message.type) {
     case 'pi_chat': {
       await ensureStreamBridge(cwd, broadcast)
+      // Also ensure any other active Pi sessions have stream bridges
+      for (const { cwd: existingCwd } of pi.listActiveRuntimeStates()) {
+        if (existingCwd !== cwd) {
+          await ensureStreamBridge(existingCwd, broadcast)
+        }
+      }
       const instance = await pi.getOrCreateInstance(cwd)
       const basePrompt = typeof message.prompt === 'string' ? message.prompt : ''
       const attachments = message.fileAttachments as FileAttachment[] | undefined
@@ -282,6 +312,7 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
     }
 
     case 'pi_get_state': {
+      await ensureStreamBridge(cwd, broadcast)
       const instance = await pi.getOrCreateInstance(cwd)
       const state = pi.mapStatePayload(instance)
       reply({ type: 'pi_state', data: state, requestId: message.requestId })
@@ -337,9 +368,19 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
     }
 
     case 'pi_list_sessions': {
+      // Ensure stream bridges exist for all bridge-owned Pi instances so
+      // events from sessions started via the bridge flow to all clients.
+      for (const { cwd: existingCwd } of pi.listActiveRuntimeStates()) {
+        await ensureStreamBridge(existingCwd, broadcast)
+      }
       const sessions = await pi.listSessions(optionalCwd)
       reply({ type: 'pi_sessions', data: sessions, requestId: message.requestId })
-      emitPiRuntimeSessions(reply, sessions)
+      // NOTE: Do NOT call emitPiRuntimeSessions(reply, sessions) here.
+      // That sends runtime_sessions via reply, which Flutter's runtimeSessions
+      // stream picks up, triggering a piSessionsProvider invalidation, which
+      // fires another pi_list_sessions — creating an infinite polling loop.
+      // Real-time updates are handled by broadcastPiRuntimeSessions() on
+      // actual state changes (agent-end, new session, etc.).
       return true
     }
 
@@ -363,7 +404,9 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
         options.thinkingLevel = parseThinkingLevel(message.thinkingLevel)
       }
       const created = await instance.session.newSession(Object.keys(options).length > 0 ? options : undefined)
+      await ensureStreamBridge(cwd, broadcast)
       reply({ type: 'pi_session_created', data: created, requestId: message.requestId })
+      void broadcastPiRuntimeSessions(broadcast)
       return true
     }
 
@@ -371,12 +414,14 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
       const instance = await pi.getOrCreateInstance(cwd)
       const switched = await instance.session.switchSession(String(message.sessionPath ?? ''))
       reply({ type: 'pi_session_switched', data: switched, requestId: message.requestId })
+      void broadcastPiRuntimeSessions(broadcast)
       return true
     }
 
     case 'pi_delete_session': {
       const deleted = await pi.deleteSession(String(message.sessionPath ?? ''))
       reply({ type: 'pi_session_deleted', data: deleted, requestId: message.requestId })
+      void broadcastPiRuntimeSessions(broadcast)
       return true
     }
 
