@@ -30,20 +30,6 @@ extension BridgeServiceRuntime on BridgeService {
     return [RuntimeState.fromJson(payload)];
   });
 
-  Stream<List<RuntimeModelSummary>> get runtimeModels =>
-      messages.expand((message) {
-        if (message['type'] != 'runtime_models') {
-          return const Iterable<List<RuntimeModelSummary>>.empty();
-        }
-
-        final payload = _extractRuntimePayloadList(message);
-        if (payload == null) {
-          return const Iterable<List<RuntimeModelSummary>>.empty();
-        }
-
-        return [payload.map(RuntimeModelSummary.fromJson).toList()];
-      });
-
   Stream<List<RuntimeSessionSummary>> get runtimeSessions =>
       messages.expand((message) {
         if (message['type'] != 'runtime_sessions') {

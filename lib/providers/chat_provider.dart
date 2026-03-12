@@ -22,10 +22,9 @@ import 'chat/runtime_common_reducer.dart';
 import 'service_providers.dart';
 
 part 'chat/runtime_chat_ingest.dart';
-part 'chat/runtime_cc_extensions.dart';
-part 'chat/runtime_cx_extensions.dart';
 part 'chat/runtime_system_messages.dart';
 part 'chat/runtime_cc_system_messages.dart';
+part 'chat/runtime_cc_metadata_handler.dart';
 part 'chat/runtime_oc_message_handler.dart';
 part 'chat/runtime_oc_part_handler.dart';
 part 'chat/runtime_cx_handlers.dart';
@@ -261,10 +260,6 @@ class ChatSessionState {
 
 class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   ChatSessionNotifier(this._bridge) : super(const ChatSessionState()) {
-    _ccSubscription = _bridge.ccStreamMessages.listen(_handleCCStreamMessage);
-    _cxSubscription = _bridge.codexStreamMessages.listen(
-      _handleCodexStreamMessage,
-    );
     _rawSubscription = _bridge.messages.listen(_handleRawBridgeMessage);
     _initializeRuntimeChatIngest();
   }
@@ -275,8 +270,6 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   final Map<String, MessageRole> _rolesByMessageId = {};
   final Map<String, String> _pendingLocalUserTextByMessageId = {};
   final Set<String> _localAuthoredUserMessageIds = {};
-  StreamSubscription<ClaudeCodeStreamMessage>? _ccSubscription;
-  StreamSubscription<CodexStreamMessage>? _cxSubscription;
   StreamSubscription<Map<String, dynamic>>? _rawSubscription;
   StreamSubscription<RuntimeEvent>? _runtimeEventSubscription;
   StreamSubscription<RuntimeState>? _runtimeStateSubscription;
@@ -1718,7 +1711,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   }
 
   // ============================================================
-  // Claude Code Stream Message Handling
+  // Claude Code Helpers (used by runtime_cc_metadata_handler.dart)
   // ============================================================
 
   /// Handle TodoWrite tool calls from Claude Code
@@ -1738,11 +1731,6 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     if (todos.isNotEmpty) {
       state = state.copyWith(todos: todos);
     }
-  }
-
-  void _handleCCStreamMessage(ClaudeCodeStreamMessage message) {
-    if (!state.isClaudeCode) return;
-    _handleRuntimeClaudeCodeCommonMessage(message);
   }
 
   /// Set CC streaming state (called when sending a message)
@@ -1881,7 +1869,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   }
 
   // ============================================================
-  // Codex Stream Message Handling
+  // Shared Helpers (used by runtime_cx_handlers.dart)
   // ============================================================
 
   (int, int) _countUnifiedDiffAddsDels(String diff) {
@@ -1895,11 +1883,6 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     return (adds, dels);
   }
 
-  void _handleCodexStreamMessage(CodexStreamMessage message) {
-    if (!state.isCodex) return;
-    _handleRuntimeCodexCommonMessage(message);
-  }
-
   /// Set Codex streaming state (called when sending a message)
   void setCodexStreaming(bool isStreaming) {
     state = state.copyWith(cxIsStreaming: isStreaming);
@@ -1907,8 +1890,6 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
 
   @override
   void dispose() {
-    _ccSubscription?.cancel();
-    _cxSubscription?.cancel();
     _rawSubscription?.cancel();
     _runtimeEventSubscription?.cancel();
     _runtimeStateSubscription?.cancel();

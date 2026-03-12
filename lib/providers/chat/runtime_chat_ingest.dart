@@ -78,6 +78,22 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
       _handleRuntimeCcBackendEvent(event);
     }
 
+    // CC metadata enrichment (runtime_cc_metadata_handler.dart)
+    if (event.backend == AgentType.claudeCode) {
+      if (event case RuntimeAgentStartedEvent()) {
+        _handleRuntimeCcAgentStarted(event);
+      }
+      if (event case RuntimeAgentFinishedEvent()) {
+        _handleRuntimeCcAgentFinished(event);
+      }
+      if (event case RuntimeToolStartedEvent()) {
+        _handleRuntimeCcToolStarted(event);
+      }
+      if (event case RuntimeToolFinishedEvent()) {
+        _handleRuntimeCcToolFinished(event);
+      }
+    }
+
     // OC message lifecycle + metadata (runtime_oc_message_handler.dart)
     if (event case RuntimeBackendEvent()
         when event.backend == AgentType.opencode) {

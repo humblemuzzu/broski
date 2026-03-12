@@ -2573,6 +2573,8 @@ export async function queryClaudeCode(
           // B15: forward active betas and output style
           ...(Array.isArray(message.betas) && message.betas.length > 0 ? { betas: message.betas } : {}),
           ...(message.output_style ? { outputStyle: message.output_style } : {}),
+          ...(Array.isArray(message.available_output_styles) && message.available_output_styles.length > 0 ? { availableOutputStyles: message.available_output_styles } : {}),
+          ...(message.cwd ? { cwd: message.cwd } : {}),
           supportedModels: capabilities?.supportedModels,
           accountInfo: capabilities?.accountInfo,
           ...(typeof message.fast_mode_state === 'string' ? { fastModeState: message.fast_mode_state } : {}),
@@ -2816,6 +2818,21 @@ export async function queryClaudeCode(
               ...(typeof contextWindow === 'number' ? { contextWindow } : {}),
               // Per-turn context tokens from last iteration (actual window occupancy)
               ...(typeof lastIterContextTokens === 'number' ? { lastIterContextTokens } : {}),
+              // SDK newer usage fields
+              ...(message.usage.cache_creation != null ? {
+                cacheCreation: {
+                  ephemeral1hInputTokens: message.usage.cache_creation.ephemeral_1h_input_tokens,
+                  ephemeral5mInputTokens: message.usage.cache_creation.ephemeral_5m_input_tokens,
+                },
+              } : {}),
+              ...(message.usage.inference_geo != null ? { inferenceGeo: message.usage.inference_geo } : {}),
+              ...(message.usage.server_tool_use != null ? {
+                serverToolUse: {
+                  webFetchRequests: message.usage.server_tool_use.web_fetch_requests,
+                  webSearchRequests: message.usage.server_tool_use.web_search_requests,
+                },
+              } : {}),
+              ...(message.usage.service_tier != null ? { serviceTier: message.usage.service_tier } : {}),
             },
             // CC SDK: total_cost_usd is on the result message itself, NOT inside usage
             // SDKResultSuccess/SDKResultError both have top-level total_cost_usd

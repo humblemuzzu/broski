@@ -2562,6 +2562,7 @@ export type ClaudeCodeSupportedModel = {
   supportsEffort?: boolean
   supportedEffortLevels?: ('low' | 'medium' | 'high' | 'max')[]
   supportsAdaptiveThinking?: boolean
+  supportsFastMode?: boolean
 }
 
 export type ClaudeCodeAccountInfo = {
@@ -2570,6 +2571,7 @@ export type ClaudeCodeAccountInfo = {
   subscriptionType?: string
   tokenSource?: string
   apiKeySource?: string
+  /** Not in SDK AccountInfo type but present in raw response; used for env var injection */
   accountUuid?: string
   organizationUuid?: string
 }
@@ -2651,6 +2653,8 @@ export type ClaudeCodeStreamMessage =
       claudeCodeVersion?: string
       betas?: string[]
       outputStyle?: string
+      availableOutputStyles?: string[]
+      cwd?: string
       supportedModels?: ClaudeCodeSupportedModel[]
       accountInfo?: ClaudeCodeAccountInfo
       fastModeState?: 'off' | 'cooldown' | 'on'
@@ -2734,11 +2738,17 @@ export type ClaudeCodeStreamMessage =
         outputTokens?: number
         cacheReadTokens?: number
         cacheCreationTokens?: number
-        cacheWriteTokens?: number
-        reasoningTokens?: number
         contextWindow?: number
         /** Per-turn context tokens from last message iteration (actual window occupancy) */
         lastIterContextTokens?: number
+        /** SDK: cache_creation breakdown by TTL */
+        cacheCreation?: { ephemeral1hInputTokens?: number; ephemeral5mInputTokens?: number } | null
+        /** SDK: geographic region used for inference */
+        inferenceGeo?: string | null
+        /** SDK: server-side tool usage counters */
+        serverToolUse?: { webFetchRequests?: number; webSearchRequests?: number } | null
+        /** SDK: service tier used for this request */
+        serviceTier?: 'standard' | 'priority' | 'batch' | null
       }
       totalCostUsd?: number
       modelUsage?: Record<string, ClaudeCodeModelUsage>

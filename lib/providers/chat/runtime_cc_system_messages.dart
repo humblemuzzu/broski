@@ -132,6 +132,19 @@ extension RuntimeCcSystemMessages on ChatSessionNotifier {
           event.timestampMs,
         );
 
+      // ── CC metadata events (previously via cc_stream, now via runtime) ────
+      case 'session-init':
+        _handleCcSessionInit(payloadMap);
+
+      case 'subagent-invocation':
+        _handleCcSubagentInvocation(payloadMap);
+
+      case 'token-usage':
+        _handleCcTokenUsage(payloadMap);
+
+      case 'structured-output':
+        _handleCcStructuredOutput(payloadMap);
+
       default:
         break;
     }
@@ -350,5 +363,53 @@ extension RuntimeCcSystemMessages on ChatSessionNotifier {
         ),
       );
     }
+  }
+
+  // ── CC metadata handlers (migrated from runtime_cc_extensions.dart) ──────
+
+  void _handleCcSessionInit(Map<String, dynamic> payloadMap) {
+    final previousSessionId = state.ccSessionId ?? '';
+    final rawSessionId = payloadMap['sessionId']?.toString() ?? '';
+    final nextSessionId =
+        rawSessionId.isNotEmpty ? rawSessionId : previousSessionId;
+
+    final model = payloadMap['model']?.toString() ?? '';
+    state = state.copyWith(
+      ccSessionId: nextSessionId.isNotEmpty ? nextSessionId : state.ccSessionId,
+      ccModel: model.isNotEmpty ? model : state.ccModel,
+      ccInit: CCSessionInit.fromJson(payloadMap),
+    );
+
+    if (nextSessionId.isNotEmpty && nextSessionId != previousSessionId) {
+      _bridge.setView(sessionId: nextSessionId, agent: 'claude-code');
+    }
+
+    // Fast mode state
+    final fastModeState = payloadMap['fastModeState']?.toString();
+    _emitCcFastModeState(fastModeState);
+  }
+
+  void _handleCcSubagentInvocation(Map<String, dynamic> payloadMap) {
+    final toolUseId = payloadMap['toolUseId']?.toString() ?? '';
+    final subagentName = payloadMap['subagentName']?.toString() ?? '';
+    if (toolUseId.isNotEmpty) {
+      _ccActiveSubagentNames[toolUseId] = subagentName;
+      _replaceRuntimeTool(
+        AgentType.claudeCode,
+        toolUseId,
+        (current) => current.copyWith(
+          metadata: {...current.metadata, 'subagentName': subagentName},
+        ),
+      );
+    }
+  }
+
+  void _handleCcTokenUsage(Map<String, dynamic> payloadMap) {
+    state = state.copyWith(ccTokenUsage: CCTokenUsage.fromJson(payloadMap));
+  }
+
+  void _handleCcStructuredOutput(Map<String, dynamic> payloadMap) {
+    final data = payloadMap['data'];
+    state = state.copyWith(ccStructuredOutput: data);
   }
 }

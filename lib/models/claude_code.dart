@@ -630,6 +630,7 @@ class ClaudeCodeSupportedModel {
   final bool? supportsEffort;
   final List<String>? supportedEffortLevels;
   final bool? supportsAdaptiveThinking;
+  final bool? supportsFastMode;
 
   const ClaudeCodeSupportedModel({
     required this.value,
@@ -638,6 +639,7 @@ class ClaudeCodeSupportedModel {
     this.supportsEffort,
     this.supportedEffortLevels,
     this.supportsAdaptiveThinking,
+    this.supportsFastMode,
   });
 
   factory ClaudeCodeSupportedModel.fromJson(Map<String, dynamic> json) {
@@ -651,6 +653,7 @@ class ClaudeCodeSupportedModel {
           ?.map((e) => '$e')
           .toList(),
       supportsAdaptiveThinking: json['supportsAdaptiveThinking'] as bool?,
+      supportsFastMode: json['supportsFastMode'] as bool?,
     );
   }
 
@@ -664,6 +667,7 @@ class ClaudeCodeSupportedModel {
         'supportedEffortLevels': supportedEffortLevels,
       if (supportsAdaptiveThinking != null)
         'supportsAdaptiveThinking': supportsAdaptiveThinking,
+      if (supportsFastMode != null) 'supportsFastMode': supportsFastMode,
     };
   }
 
@@ -681,6 +685,8 @@ class ClaudeCodeAccountInfo {
   final String? subscriptionType;
   final String? tokenSource;
   final String? apiKeySource;
+
+  /// Not in SDK AccountInfo type but present in raw response; used by bridge for env var injection.
   final String? accountUuid;
   final String? organizationUuid;
 
@@ -1344,6 +1350,12 @@ class CCSessionInit extends ClaudeCodeStreamMessage {
   final List<String> betas;
 
   /// Output style (e.g. 'concise', 'verbose').
+
+  /// Available output styles (SDK: available_output_styles).
+  final List<String> availableOutputStyles;
+
+  /// Working directory from SDK system init.
+  final String? cwd;
   final String? outputStyle;
 
   /// Fast mode state for Opus 4.6: off, cooldown, on.
@@ -1367,6 +1379,8 @@ class CCSessionInit extends ClaudeCodeStreamMessage {
     this.claudeCodeVersion,
     this.betas = const [],
     this.outputStyle,
+    this.availableOutputStyles = const [],
+    this.cwd,
     this.fastModeState,
     this.agents = const [],
     super.parentToolUseId,
@@ -1419,6 +1433,8 @@ class CCSessionInit extends ClaudeCodeStreamMessage {
       claudeCodeVersion: json['claudeCodeVersion'] as String?,
       betas: (json['betas'] as List<dynamic>?)?.cast<String>() ?? const [],
       outputStyle: json['outputStyle'] as String?,
+      availableOutputStyles: (json['availableOutputStyles'] as List<dynamic>?)?.cast<String>() ?? const [],
+      cwd: json['cwd'] as String?,
       fastModeState: json['fastModeState'] as String?,
       agents:
           (json['agents'] as List<dynamic>?)

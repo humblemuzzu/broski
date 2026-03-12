@@ -71,6 +71,7 @@ export function mapClaudeCodeStreamToRuntimeEvent(
           ...baseEvent('tool_finished', eventContext, {
             sourceType: streamMessage.type,
             status: streamMessage.status,
+            ...(streamMessage.parentToolUseId ? { parentToolUseId: streamMessage.parentToolUseId } : {}),
           }),
           ...(streamMessage.messageId ? { messageId: streamMessage.messageId } : {}),
           ...(streamMessage.toolUseId ? { toolCallId: streamMessage.toolUseId } : {}),
@@ -84,6 +85,7 @@ export function mapClaudeCodeStreamToRuntimeEvent(
         ...baseEvent('tool_started', eventContext, {
           sourceType: streamMessage.type,
           status: streamMessage.status,
+          ...(streamMessage.parentToolUseId ? { parentToolUseId: streamMessage.parentToolUseId } : {}),
         }),
         ...(streamMessage.messageId ? { messageId: streamMessage.messageId } : {}),
         ...(streamMessage.toolUseId ? { toolCallId: streamMessage.toolUseId } : {}),
@@ -98,6 +100,7 @@ export function mapClaudeCodeStreamToRuntimeEvent(
           ...(streamMessage.toolUseResult !== undefined
               ? { toolUseResult: streamMessage.toolUseResult }
               : {}),
+          ...(streamMessage.parentToolUseId ? { parentToolUseId: streamMessage.parentToolUseId } : {}),
         }),
         ...(streamMessage.messageId ? { messageId: streamMessage.messageId } : {}),
         ...(streamMessage.toolUseId ? { toolCallId: streamMessage.toolUseId } : {}),
@@ -134,6 +137,8 @@ export function mapClaudeCodeStreamToRuntimeEvent(
           ...(streamMessage.subtype ? { subtype: streamMessage.subtype } : {}),
           ...(streamMessage.isError !== undefined ? { isError: streamMessage.isError } : {}),
           ...(streamMessage.errors ? { errors: streamMessage.errors } : {}),
+          ...(streamMessage.permissionDenials ? { permissionDenials: streamMessage.permissionDenials } : {}),
+          ...(streamMessage.fastModeState ? { fastModeState: streamMessage.fastModeState } : {}),
         }),
         ...(streamMessage.stopReason ? { stopReason: streamMessage.stopReason } : {}),
       }
@@ -186,11 +191,43 @@ export function mapClaudeCodeStreamToRuntimeEvent(
       return null
 
     case 'session-init':
+      return {
+        ...baseEvent('backend_event', eventContext, {
+          sourceType: streamMessage.type,
+        }),
+        kind: 'session-init',
+        payload: streamMessage,
+      }
+
     case 'assistant-message':
+      return null  // no-op — both old path and new path ignore this
+
     case 'subagent-invocation':
+      return {
+        ...baseEvent('backend_event', eventContext, {
+          sourceType: streamMessage.type,
+        }),
+        kind: 'subagent-invocation',
+        payload: streamMessage,
+      }
+
     case 'token-usage':
+      return {
+        ...baseEvent('backend_event', eventContext, {
+          sourceType: streamMessage.type,
+        }),
+        kind: 'token-usage',
+        payload: streamMessage,
+      }
+
     case 'structured-output':
-      return null  // handled by CC extension directly, not through runtime
+      return {
+        ...baseEvent('backend_event', eventContext, {
+          sourceType: streamMessage.type,
+        }),
+        kind: 'structured-output',
+        payload: streamMessage,
+      }
 
     case 'local-command-output':
     case 'task-started':

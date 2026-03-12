@@ -78,19 +78,25 @@ extension _RuntimeCxHandlers on ChatSessionNotifier {
       case 'turn/diff/updated':
         final diff = payloadMap['diff']?.toString() ?? '';
         if (diff.trim().isEmpty) return;
-        final (adds, dels) = _countUnifiedDiffAddsDels(diff);
-        state = state.copyWith(
-          sessionDiffs: [
-            DiffEntry(
-              file: 'Changes',
-              before: '',
-              after: '',
-              additions: adds,
-              deletions: dels,
-              diff: diff,
-            ),
-          ],
-        );
+        final perFileDiffs = _parseConsolidatedDiffIntoPerFile(diff);
+        if (perFileDiffs.isEmpty) {
+          // Fallback: if parsing fails, use a single entry
+          final (adds, dels) = _countUnifiedDiffAddsDels(diff);
+          state = state.copyWith(
+            sessionDiffs: [
+              DiffEntry(
+                file: 'Changes',
+                before: '',
+                after: '',
+                additions: adds,
+                deletions: dels,
+                diff: diff,
+              ),
+            ],
+          );
+        } else {
+          state = state.copyWith(sessionDiffs: perFileDiffs);
+        }
 
       // Collab events (from bridge mapper top-level types)
       case 'collab_spawn_begin':
@@ -196,6 +202,86 @@ extension _RuntimeCxHandlers on ChatSessionNotifier {
       default:
         break;
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Per-file diff parser
+  // ---------------------------------------------------------------------------
+
+  /// Parses a consolidated unified diff into per-file [DiffEntry] objects.
+  List<DiffEntry> _parseConsolidatedDiffIntoPerFile(String diff) {
+    final entries = <DiffEntry>[];
+    // Split on "diff --git" boundaries if present
+    final diffGitPattern = RegExp(r'^diff --git ', multiLine: true);
+    if (diff.contains(diffGitPattern)) {
+      final chunks = diff.split(diffGitPattern);
+      for (final chunk in chunks) {
+        if (chunk.trim().isEmpty) continue;
+        final plusMatch = RegExp(
+          r'^\+\+\+ b/(.+)$',
+          multiLine: true,
+        ).firstMatch(chunk);
+        final file = plusMatch?.group(1)?.trim() ?? 'unknown';
+        final chunkText = 'diff --git $chunk';
+        final (adds, dels) = _countUnifiedDiffAddsDels(chunkText);
+        if (adds > 0 || dels > 0) {
+          entries.add(
+            DiffEntry(
+              file: file,
+              before: '',
+              after: '',
+              additions: adds,
+              deletions: dels,
+              diff: chunkText.trim(),
+            ),
+          );
+        }
+      }
+      return entries;
+    }
+
+    // Fallback: split on "+++ b/" boundaries
+    final lines = diff.split('\n');
+    String? currentFile;
+    final buffer = <String>[];
+
+    void flush() {
+      if (currentFile != null && buffer.isNotEmpty) {
+        final text = buffer.join('\n');
+        final (adds, dels) = _countUnifiedDiffAddsDels(text);
+        if (adds > 0 || dels > 0) {
+          entries.add(
+            DiffEntry(
+              file: currentFile,
+              before: '',
+              after: '',
+              additions: adds,
+              deletions: dels,
+              diff: text,
+            ),
+          );
+        }
+      }
+      buffer.clear();
+    }
+
+    for (final line in lines) {
+      // `--- a/` marks the real file boundary — flush the previous file here
+      if (line.startsWith('--- a/') || line.startsWith('--- /dev/null')) {
+        flush();
+        currentFile = null;
+      }
+      if (line.startsWith('+++ b/')) {
+        final file = line.substring(6).trim();
+        if (file.isNotEmpty && file != '/dev/null') {
+          currentFile = file;
+        }
+      }
+      buffer.add(line);
+    }
+    flush();
+
+    return entries;
   }
 
   // ---------------------------------------------------------------------------

@@ -9,20 +9,6 @@ extension BridgeServiceCodexCore on BridgeService {
   // Codex (OpenAI Codex app-server)
   // ============================================================
 
-  Stream<CodexStreamMessage> get codexStreamMessages =>
-      _socket.messages.where((m) => m['type'] == 'cx_stream').map((m) {
-        final data = m['data'] as Map<String, dynamic>? ?? {};
-        return CodexStreamMessage.fromJson(data);
-      });
-
-  Stream<Map<String, dynamic>> get codexGlobalMessages =>
-      _socket.messages.where((m) => m['type'] == 'cx_global').map((m) {
-        final data = m['data'];
-        if (data is Map<String, dynamic>) return data;
-        if (data is Map) return data.cast<String, dynamic>();
-        return const <String, dynamic>{};
-      });
-
   /// #19: Stream of app/list/updated notifications from Codex.
   Stream<List<Map<String, dynamic>>> get codexAppsUpdatedMessages =>
       _socket.messages.where((m) => m['type'] == 'cx_apps_updated').map((m) {
