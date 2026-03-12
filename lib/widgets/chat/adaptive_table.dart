@@ -136,7 +136,7 @@ class AdaptiveTable extends StatelessWidget {
       (i) => isCompact[i] ? _compactPadH * 2 : _padH * 2,
     );
     final padOverhead = pads.reduce((a, b) => a + b);
-    final forContent = available - borderOverhead - padOverhead;
+    final forContent = max(0.0, available - borderOverhead - padOverhead);
     final totalNatural = natural.reduce((a, b) => a + b);
 
     // Cap each column's minimum so no single column can hog the table.
@@ -291,14 +291,14 @@ class AdaptiveTable extends StatelessWidget {
     }
   }
 
-  /// Insert zero-width spaces after path/code delimiters so Flutter's
-  /// text layout can break long file paths at natural boundaries.
+  /// Insert zero-width spaces after path separators so Flutter's text
+  /// layout can break long file paths at directory boundaries.
+  /// Only `/` and `\` — NOT `_` or `-` which appear in prose, CLI flags,
+  /// and compound words where invisible chars corrupt clipboard copies.
   static String _addBreakHints(String text) {
     return text
         .replaceAll('/', '/\u200B')
-        .replaceAll('\\', '\\\u200B')
-        .replaceAll('_', '_\u200B')
-        .replaceAll('-', '-\u200B');
+        .replaceAll('\\', '\\\u200B');
   }
 
   List<InlineSpan> _nodesToSpans(List<md.Node> nodes, TextStyle style) {
@@ -327,7 +327,7 @@ class AdaptiveTable extends StatelessWidget {
             ));
           case 'code':
             spans.add(TextSpan(
-              text: _addBreakHints(node.textContent),
+              text: node.textContent, // verbatim — no break hints in code
               style: AppTypography.codeSmall(color: theme.markdownCode)
                   .copyWith(backgroundColor: theme.backgroundElement),
             ));
@@ -368,6 +368,12 @@ class AdaptiveTable extends StatelessWidget {
   /// code-friendly delimiters (/, \, _, -) so file paths like
   /// "lib/screens/sheets/cx_settings_sheet.dart" break into smaller
   /// segments instead of being treated as one 280px word.
+  ///
+  /// Intentionally more aggressive than [_addBreakHints] (which only
+  /// inserts break hints at / and \ to avoid clipboard corruption).
+  /// The mismatch is fine: this is a width-allocation heuristic, not
+  /// a rendering promise. Flutter wraps at character boundaries when
+  /// a word exceeds column width, so the text still fits.
   double _longestSegment(String text, TextStyle style) {
     if (text.isEmpty) return _minColW;
     final segments = text.split(RegExp(r'[\s/\\_-]+'));
