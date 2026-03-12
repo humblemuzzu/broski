@@ -41,7 +41,7 @@ export async function getFunnelStatus(): Promise<FunnelStatus> {
 export async function enableFunnel(port: number): Promise<{ success: boolean; url: string | null; error?: string }> {
   try {
     await $`${TAILSCALE_BIN} funnel ${port}`.quiet()
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    await Bun.sleep(1000)
 
     const status = await getFunnelStatus()
     

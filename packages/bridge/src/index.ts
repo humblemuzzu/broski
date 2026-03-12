@@ -47,7 +47,7 @@ type OpenCodeInstance = {
 }
 
 async function sleep(ms: number): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, ms))
+  await Bun.sleep(ms)
 }
 
 const FALLBACK_PORT = 18274

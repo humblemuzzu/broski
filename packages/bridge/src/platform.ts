@@ -760,18 +760,18 @@ export async function restartDaemon(): Promise<void> {
     const configPath = getDaemonConfigPath()
     // Stop first (may already be stopped)
     runCommand('launchctl', ['stop', MACOS_LABEL])
-    await new Promise(r => setTimeout(r, 500))
+    await Bun.sleep(500)
     // Unload then reload to force a clean restart.
     // KeepAlive.SuccessfulExit=false means launchd won't auto-restart
     // after a clean shutdown (exit 0), so we must explicitly reload.
     runCommand('launchctl', ['unload', configPath])
-    await new Promise(r => setTimeout(r, 500))
+    await Bun.sleep(500)
     runCommand('launchctl', ['load', configPath])
   } else if (IS_LINUX) {
     runCommand('systemctl', ['--user', 'restart', LINUX_SERVICE])
   } else if (IS_WINDOWS) {
     runCommand('schtasks', ['/end', '/tn', WINDOWS_TASK])
-    await new Promise(r => setTimeout(r, 1000))
+    await Bun.sleep(1000)
     runCommand('schtasks', ['/run', '/tn', WINDOWS_TASK])
   }
 }
