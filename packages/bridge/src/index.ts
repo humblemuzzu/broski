@@ -46,10 +46,6 @@ type OpenCodeInstance = {
   lastActivity: number
 }
 
-async function sleep(ms: number): Promise<void> {
-  await Bun.sleep(ms)
-}
-
 const FALLBACK_PORT = 18274
 
 /** Read the configured bridge port (from config.json), falling back to 18274. */
@@ -125,7 +121,7 @@ async function runInstall(): Promise<void> {
   }
 
   // Wait a moment for the service to start
-  await sleep(1000)
+  await Bun.sleep(1000)
 
   // Verify it's running
   const newStatus = await getDaemonStatus()
@@ -506,7 +502,7 @@ async function runRestart(): Promise<void> {
     const proc = await getProcessOnPort(port)
     if (!proc) break
     killProcess(proc.pid)
-    await sleep(300)
+    await Bun.sleep(300)
   }
 
   // Also kill any orphaned broski processes
@@ -514,7 +510,7 @@ async function runRestart(): Promise<void> {
   for (const pid of orphans) {
     killProcess(pid)
   }
-  await sleep(500)
+  await Bun.sleep(500)
 
   // Wait for port to be truly free
   let portFree = false
@@ -523,7 +519,7 @@ async function runRestart(): Promise<void> {
       portFree = true
       break
     }
-    await sleep(500)
+    await Bun.sleep(500)
   }
 
   if (!portFree) {
@@ -538,7 +534,7 @@ async function runRestart(): Promise<void> {
   let ready = false
   process.stdout.write('Waiting for bridge')
   for (let i = 0; i < 30; i++) {
-    await sleep(500)
+    await Bun.sleep(500)
     process.stdout.write('.')
     if (await checkPortInUse(port)) {
       ready = true
@@ -566,7 +562,7 @@ async function waitForOpencodeReady(url: string, timeoutMs: number): Promise<boo
     } catch {
       // keep retrying
     }
-    await sleep(150)
+    await Bun.sleep(150)
   }
   return false
 }
@@ -814,7 +810,7 @@ async function bootstrapManagedOpenCode(hostname: string, port: number, verbose:
     } catch (error) {
       if (attempt < MAX_RETRIES) {
         console.log(`  OpenCode not ready, retrying in ${RETRY_DELAY_MS / 1000}s...`)
-        await sleep(RETRY_DELAY_MS)
+        await Bun.sleep(RETRY_DELAY_MS)
         continue
       }
       console.error('Failed to start managed OpenCode server after all retries:', error)

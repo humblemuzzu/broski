@@ -24,10 +24,6 @@ async function waitForEnter(prompt: string): Promise<void> {
   }
 }
 
-async function sleep(ms: number): Promise<void> {
-  await Bun.sleep(ms)
-}
-
 export async function runSetupTailscale(): Promise<void> {
   console.log(`
 ${CYAN}╔══════════════════════════════════════════════════════════╗
@@ -107,7 +103,7 @@ ${CYAN}╔═══════════════════════�
     const maxAttempts = 60
     
     while (!(await isTailscaleConnected())) {
-      await sleep(5000)
+      await Bun.sleep(5000)
       attempts++
       
       if (attempts >= maxAttempts) {
