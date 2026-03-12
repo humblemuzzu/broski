@@ -719,6 +719,7 @@ export type ClientMessage =
       sortKey?: string
       modelProviders?: string[]
       archived?: boolean
+      searchTerm?: string
     }
   | { type: 'cx_warmup' }
   | {

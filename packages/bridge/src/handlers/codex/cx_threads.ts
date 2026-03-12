@@ -8,6 +8,11 @@
 import type { CodexAppServerClient } from '../../connectors/codex'
 import type { CodexThread } from '../../types'
 import { basename, resolve } from 'node:path'
+import {
+  listThreadsFromDb as cxListThreadsFromDb,
+  listProjectsFromDb as cxListProjectsFromDb,
+  findCodexStateDbPath,
+} from '../../connectors/codex/cx-sqlite'
 
 // Cache entry types (mirrored from server.ts scope)
 type CxThreadCacheEntry = {
@@ -69,7 +74,18 @@ export async function handleCxThreads(
       ctx.logInfo(`[cx_list_projects] ${forceRefresh ? 'Refresh requested' : 'Cache miss'}, reading from filesystem...`)
       let projects = await ctx.codexFs.listProjectsFromFs()
 
-      // SQLite-era fallback: derive project roots from thread/list when filesystem cache is empty.
+      // Tier 2: SQLite fallback — much faster than cold-starting app-server.
+      if (projects.length === 0) {
+        const dbPath = findCodexStateDbPath()
+        if (dbPath) {
+          projects = cxListProjectsFromDb(dbPath)
+          if (projects.length > 0) {
+            ctx.logInfo(`[cx_list_projects] Filesystem empty, recovered ${projects.length} projects via SQLite`)
+          }
+        }
+      }
+
+      // Tier 3: Cold-start app-server — last resort.
       if (projects.length === 0) {
         try {
           const client = await ctx.ensureCodexClient()
@@ -85,7 +101,7 @@ export async function handleCxThreads(
             byPath.set(path, { id: path, name: name || path, path })
           }
           projects = Array.from(byPath.values())
-          ctx.logInfo(`[cx_list_projects] Filesystem empty, recovered ${projects.length} projects via cold thread/list`)
+          ctx.logInfo(`[cx_list_projects] Recovered ${projects.length} projects via cold thread/list`)
         } catch (err: any) {
           ctx.logInfo(`[cx_list_projects] Cold thread/list fallback unavailable: ${err?.message ?? err}`)
         }
@@ -143,27 +159,50 @@ export async function handleCxThreads(
           if (message.sourceKinds) rpcParams.sourceKinds = message.sourceKinds
           if (message.archived !== undefined && message.archived !== null) rpcParams.archived = message.archived
           if (message.cwd) rpcParams.cwd = message.cwd
+          if (message.searchTerm) rpcParams.searchTerm = message.searchTerm
 
           const result: any = await ctx.codexClient.request('thread/list', rpcParams)
           threadData = result?.data ?? []
           nextCursor = result?.nextCursor ?? null
           ctx.logInfo(`[cx_list_threads] Got ${threadData.length} threads via thread/list RPC`)
         } else {
-          // Codex not running — use filesystem fallback first (fast, no subprocess).
-          threadData = await ctx.codexFs.listThreadsFromFs(message.cwd ?? undefined)
-          nextCursor = null
-          ctx.logInfo(`[cx_list_threads] Got ${threadData.length} threads via filesystem fallback`)
+          // Codex not running — try SQLite first (fast indexed queries), then filesystem.
+          const dbPath = findCodexStateDbPath()
 
-          // SQLite-era fallback: if filesystem has no sessions, ask app-server directly.
-          if (threadData.length === 0) {
-            try {
-              const coldClient = await ctx.ensureCodexClient()
-              const rpcResult: any = await coldClient.request('thread/list', {})
-              threadData = rpcResult?.data ?? []
-              nextCursor = rpcResult?.nextCursor ?? null
-              ctx.logInfo(`[cx_list_threads] Filesystem empty, recovered ${threadData.length} threads via cold thread/list`)
-            } catch (coldErr: any) {
-              ctx.logInfo(`[cx_list_threads] Cold thread/list fallback unavailable: ${coldErr?.message ?? coldErr}`)
+          if (dbPath) {
+            // Tier 2: SQLite available — use as authoritative offline source.
+            // Empty result = genuine no-match; do NOT fall through to unfiltered filesystem.
+            threadData = cxListThreadsFromDb(
+              {
+                cwd: message.cwd ?? undefined,
+                limit: message.limit ?? undefined,
+                archived: message.archived,
+                searchTerm: message.searchTerm ?? undefined,
+                sortKey: message.sortKey === 'created_at' ? 'created_at' : 'updated_at',
+                sourceKinds: message.sourceKinds ?? undefined,
+                modelProviders: message.modelProviders ?? undefined,
+              },
+              dbPath,
+            )
+            nextCursor = null
+            ctx.logInfo(`[cx_list_threads] Got ${threadData.length} threads via SQLite fallback`)
+          } else {
+            // Tier 3: No SQLite — filesystem is the only offline option (no filter support).
+            threadData = await ctx.codexFs.listThreadsFromFs(message.cwd ?? undefined)
+            nextCursor = null
+            ctx.logInfo(`[cx_list_threads] Got ${threadData.length} threads via filesystem fallback`)
+
+            // Tier 4: Cold-start app-server — last resort when filesystem also empty.
+            if (threadData.length === 0) {
+              try {
+                const coldClient = await ctx.ensureCodexClient()
+                const rpcResult: any = await coldClient.request('thread/list', {})
+                threadData = rpcResult?.data ?? []
+                nextCursor = rpcResult?.nextCursor ?? null
+                ctx.logInfo(`[cx_list_threads] Recovered ${threadData.length} threads via cold thread/list`)
+              } catch (coldErr: any) {
+                ctx.logInfo(`[cx_list_threads] Cold thread/list fallback unavailable: ${coldErr?.message ?? coldErr}`)
+              }
             }
           }
         }

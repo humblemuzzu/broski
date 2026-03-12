@@ -16,8 +16,21 @@ import type {
   ProjectSummary,
 } from '../types'
 import { computeCxThreadStats } from './codex/cx-session-stats'
+import { findRolloutPathById } from './codex/cx-sqlite'
 
 const CODEX_SESSIONS_DIR = join(homedir(), '.codex', 'sessions')
+const CODEX_ARCHIVED_SESSIONS_DIR = join(homedir(), '.codex', 'archived_sessions')
+
+/**
+ * Collect all .jsonl session files from both active and archived directories.
+ */
+async function collectAllSessionFiles(): Promise<string[]> {
+  const [activeFiles, archivedFiles] = await Promise.all([
+    collectSessionFiles(CODEX_SESSIONS_DIR),
+    collectSessionFiles(CODEX_ARCHIVED_SESSIONS_DIR),
+  ])
+  return [...activeFiles, ...archivedFiles]
+}
 
 /**
  * Extract the actual user prompt from a Codex user_message.
@@ -161,7 +174,7 @@ async function collectSessionFiles(dir: string): Promise<string[]> {
  */
 export async function listThreadsFromFs(cwd?: string): Promise<CodexThread[]> {
   const normalizedCwd = cwd ? resolve(cwd) : null
-  const files = await collectSessionFiles(CODEX_SESSIONS_DIR)
+  const files = await collectAllSessionFiles()
   const threads: (CodexThread & { _filePath?: string })[] = []
   
   for (const filePath of files) {
@@ -211,7 +224,7 @@ export async function listThreadsFromFs(cwd?: string): Promise<CodexThread[]> {
  * List all unique projects from Codex sessions.
  */
 export async function listProjectsFromFs(): Promise<ProjectSummary[]> {
-  const files = await collectSessionFiles(CODEX_SESSIONS_DIR)
+  const files = await collectAllSessionFiles()
   const byPath = new Map<string, { path: string; name: string; lastOpened: number }>()
 
   for (const filePath of files) {
@@ -249,7 +262,7 @@ export async function listProjectsFromFs(): Promise<ProjectSummary[]> {
  * Get a specific thread by ID from filesystem.
  */
 export async function getThreadFromFs(threadId: string): Promise<CodexThread | null> {
-  const files = await collectSessionFiles(CODEX_SESSIONS_DIR)
+  const files = await collectAllSessionFiles()
   
   for (const filePath of files) {
     const meta = await readSessionMeta(filePath)
@@ -274,9 +287,15 @@ export async function getThreadFromFs(threadId: string): Promise<CodexThread | n
 
 /**
  * Find the session file path for a thread ID.
+ * Tries SQLite lookup first (instant), then falls back to filesystem scan.
  */
 export async function findThreadFilePath(threadId: string): Promise<string | null> {
-  const files = await collectSessionFiles(CODEX_SESSIONS_DIR)
+  // Fast path: SQLite has a rollout_path index — O(1) lookup.
+  const sqlitePath = findRolloutPathById(threadId)
+  if (sqlitePath) return sqlitePath
+
+  // Slow path: scan all JSONL files for a matching session_meta.id.
+  const files = await collectAllSessionFiles()
   
   for (const filePath of files) {
     const meta = await readSessionMeta(filePath)
@@ -573,8 +592,8 @@ export async function enrichThreadsWithStats(threads: CodexThread[]): Promise<vo
   const needStats = threads.filter((t) => !t.summary)
   if (needStats.length === 0) return
 
-  // Build threadId→filePath index
-  const files = await collectSessionFiles(CODEX_SESSIONS_DIR)
+  // Build threadId→filePath index (scan both active and archived directories)
+  const files = await collectAllSessionFiles()
   const idToFile = new Map<string, string>()
   await Promise.all(
     files.map(async (filePath) => {

@@ -1,5 +1,9 @@
 import type { ClientMessage, ServerMessage } from '../types'
 import { mapOpenCodeStatusToRuntimeState } from '../runtime/opencode-runtime-read-models'
+import {
+  listProjectsFromDb as ocListProjectsFromDb,
+  findOpenCodeDbPath,
+} from '../connectors/opencode/oc-sqlite'
 
 type Reply = (message: ServerMessage) => void
 
@@ -30,8 +34,20 @@ export async function handle(
 ): Promise<boolean> {
   switch (message.type) {
     case 'list_projects': {
-      const oc = requireOpenCode()
-      const projects = await oc.listProjects()
+      let projects: any[]
+      try {
+        const oc = requireOpenCode()
+        projects = await oc.listProjects()
+      } catch {
+        // OpenCode server unavailable — fall back to direct SQLite read.
+        try {
+          const dbPath = findOpenCodeDbPath()
+          projects = dbPath ? ocListProjectsFromDb(dbPath) : []
+        } catch {
+          // SQLite also failed (corrupt DB, missing table, etc.) — give up gracefully.
+          projects = []
+        }
+      }
       reply({ type: 'projects', data: projects })
       return true
     }

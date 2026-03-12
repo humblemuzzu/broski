@@ -7,6 +7,7 @@ extension BridgeServiceCodexThreads on BridgeService {
     String? sortKey,
     List<String>? modelProviders,
     bool? archived,
+    String? searchTerm,
   }) async {
     final requestId = _generateRequestId();
     _socket.send({
@@ -19,6 +20,7 @@ extension BridgeServiceCodexThreads on BridgeService {
       if (sortKey != null) 'sortKey': sortKey,
       if (modelProviders != null) 'modelProviders': modelProviders,
       if (archived != null) 'archived': archived,
+      if (searchTerm != null) 'searchTerm': searchTerm,
     });
     final response = await _waitFor(
       'cx_threads',
