@@ -107,19 +107,23 @@ class AdaptiveTable extends StatelessWidget {
     final n = table.columnCount;
     final borderOverhead = _borderW * (n + 1);
 
-    // Measure natural (max content) and minimum (longest word) widths.
+    // Measure natural (max content) and minimum (longest-segment) widths,
+    // plus total content volume per column for weighting.
     final natural = List<double>.filled(n, 0);
     final minWord = List<double>.filled(n, _minColW);
+    final volume = List<double>.filled(n, 0);
 
     for (int col = 0; col < n; col++) {
       final hdr = _stripInline(table.headers[col]);
       natural[col] = _measure(hdr, _headerStyle);
-      minWord[col] = max(_minColW, _longestWord(hdr, _headerStyle));
+      minWord[col] = max(_minColW, _longestSegment(hdr, _headerStyle));
+      volume[col] += hdr.length;
 
       for (final row in table.rows) {
         final cell = col < row.length ? _stripInline(row[col]) : '';
         natural[col] = max(natural[col], _measure(cell, _bodyStyle));
-        minWord[col] = max(minWord[col], _longestWord(cell, _bodyStyle));
+        minWord[col] = max(minWord[col], _longestSegment(cell, _bodyStyle));
+        volume[col] += cell.length;
       }
     }
 
@@ -135,11 +139,19 @@ class AdaptiveTable extends StatelessWidget {
     final forContent = available - borderOverhead - padOverhead;
     final totalNatural = natural.reduce((a, b) => a + b);
 
+    // Cap each column's minimum so no single column can hog the table.
+    // At most 45% for 2 columns, 35% for 3+.
+    final maxMinFraction = n <= 2 ? 0.45 : 0.35;
+    final maxMinW = forContent * maxMinFraction;
+    for (int i = 0; i < n; i++) {
+      minWord[i] = min(minWord[i], maxMinW);
+    }
+
     List<double> colW;
     bool scroll = false;
 
     if (totalNatural <= forContent) {
-      // Everything fits — give leftover to text (non-compact) columns.
+      // Everything fits — give leftover weighted by content volume.
       colW = List<double>.from(natural);
       final textCols = <int>[
         for (int i = 0; i < n; i++)
@@ -147,13 +159,19 @@ class AdaptiveTable extends StatelessWidget {
       ];
       final leftover = forContent - totalNatural;
       if (textCols.isNotEmpty && leftover > 0) {
-        final share = leftover / textCols.length;
+        final textVolume =
+            textCols.map((i) => volume[i]).reduce((a, b) => a + b);
         for (final i in textCols) {
+          final share = textVolume > 0
+              ? (volume[i] / textVolume) * leftover
+              : leftover / textCols.length;
           colW[i] += share;
         }
       }
     } else {
-      // Shrink — Pi's proportional distribution.
+      // Shrink — distribute space above minimums using a blend of
+      // growth margin (how much the column wants to grow) and content
+      // volume (how much text actually needs to be displayed).
       final totalMin = minWord.reduce((a, b) => a + b);
       if (totalMin > forContent) {
         // Even minimums overflow — use minimums and scroll.
@@ -166,9 +184,22 @@ class AdaptiveTable extends StatelessWidget {
           (i) => max(0.0, natural[i] - minWord[i]),
         );
         final totalGrow = growths.reduce((a, b) => a + b);
+        final totalVol = volume.reduce((a, b) => a + b);
+
+        // Blend: 50% growth-based, 50% volume-based.
+        final blended = List.generate(n, (i) {
+          final gShare =
+              totalGrow > 0 ? growths[i] / totalGrow : 1.0 / n;
+          final vShare =
+              totalVol > 0 ? volume[i] / totalVol : 1.0 / n;
+          return (gShare + vShare) / 2;
+        });
+        final totalBlended = blended.reduce((a, b) => a + b);
+
         colW = List.generate(n, (i) {
-          final bonus =
-              totalGrow > 0 ? (growths[i] / totalGrow) * extra : extra / n;
+          final bonus = totalBlended > 0
+              ? (blended[i] / totalBlended) * extra
+              : extra / n;
           return minWord[i] + bonus;
         });
       }
@@ -260,11 +291,21 @@ class AdaptiveTable extends StatelessWidget {
     }
   }
 
+  /// Insert zero-width spaces after path/code delimiters so Flutter's
+  /// text layout can break long file paths at natural boundaries.
+  static String _addBreakHints(String text) {
+    return text
+        .replaceAll('/', '/\u200B')
+        .replaceAll('\\', '\\\u200B')
+        .replaceAll('_', '_\u200B')
+        .replaceAll('-', '-\u200B');
+  }
+
   List<InlineSpan> _nodesToSpans(List<md.Node> nodes, TextStyle style) {
     final spans = <InlineSpan>[];
     for (final node in nodes) {
       if (node is md.Text) {
-        spans.add(TextSpan(text: node.text, style: style));
+        spans.add(TextSpan(text: _addBreakHints(node.text), style: style));
       } else if (node is md.Element) {
         final children = node.children ?? [];
         switch (node.tag) {
@@ -286,7 +327,7 @@ class AdaptiveTable extends StatelessWidget {
             ));
           case 'code':
             spans.add(TextSpan(
-              text: node.textContent,
+              text: _addBreakHints(node.textContent),
               style: AppTypography.codeSmall(color: theme.markdownCode)
                   .copyWith(backgroundColor: theme.backgroundElement),
             ));
@@ -323,13 +364,17 @@ class AdaptiveTable extends StatelessWidget {
     return w;
   }
 
-  double _longestWord(String text, TextStyle style) {
+  /// Longest unbreakable segment width — splits on whitespace AND
+  /// code-friendly delimiters (/, \, _, -) so file paths like
+  /// "lib/screens/sheets/cx_settings_sheet.dart" break into smaller
+  /// segments instead of being treated as one 280px word.
+  double _longestSegment(String text, TextStyle style) {
     if (text.isEmpty) return _minColW;
-    final words = text.split(RegExp(r'\s+'));
+    final segments = text.split(RegExp(r'[\s/\\_-]+'));
     double longest = _minColW;
-    for (final word in words) {
-      if (word.isEmpty) continue;
-      longest = max(longest, min(_measure(word, style), 200));
+    for (final seg in segments) {
+      if (seg.isEmpty) continue;
+      longest = max(longest, min(_measure(seg, style), 200));
     }
     return longest;
   }
