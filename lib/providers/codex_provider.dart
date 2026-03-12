@@ -12,6 +12,16 @@ import 'service_providers.dart';
 /// `null` means "all projects" for Codex threads.
 final codexThreadsFilterCwdProvider = StateProvider<String?>((ref) => null);
 
+/// Reactive deprecation notice from Codex (set by cx_global notifications).
+final cxDeprecationNoticeProvider = StateProvider<String?>((ref) => null);
+
+/// Reactive config warning from Codex (set by cx_global notifications).
+final cxConfigWarningProvider = StateProvider<String?>((ref) => null);
+
+/// Cached experimental features from bootstrap (avoids redundant re-fetch).
+final cxExperimentalFeaturesProvider =
+    StateProvider<List<Map<String, dynamic>>>((ref) => []);
+
 /// Project list for Codex threads screen (used by "New Session" sheet).
 /// Online: uses `cx_list_projects`.
 /// Offline: uses cached projects, falls back to deriving from cached threads.
@@ -86,12 +96,12 @@ final codexThreadsProvider =
       final bridge = ref.watch(bridgeServiceProvider);
       final storage = ref.watch(storageServiceProvider);
       final connection = ref.read(connectionProvider);
-      return CodexThreadsNotifier(bridge, storage, connection);
+      return CodexThreadsNotifier(bridge, storage, connection, ref);
     });
 
 class CodexThreadsNotifier
     extends StateNotifier<AsyncValue<List<CodexThread>>> {
-  CodexThreadsNotifier(this._bridge, this._storage, this._connection)
+  CodexThreadsNotifier(this._bridge, this._storage, this._connection, this._ref)
     : super(const AsyncValue.loading()) {
     unawaited(_bootstrap());
     _bridgeMessagesSub = _bridge.messages.listen(_handleBridgeMessage);
@@ -100,6 +110,7 @@ class CodexThreadsNotifier
   final BridgeService _bridge;
   final StorageService _storage;
   final BridgeConnectionState _connection;
+  final Ref _ref;
 
   StreamSubscription<Map<String, dynamic>>? _bridgeMessagesSub;
   String? _lastCwd;
@@ -118,9 +129,10 @@ class CodexThreadsNotifier
       }
     }
 
-    // Preload protocol metadata that exists in bridge but was previously unused.
+    // Preload experimental features into reactive provider for UI consumption.
     try {
-      await _bridge.cxListExperimentalFeatures();
+      final features = await _bridge.cxListExperimentalFeatures();
+      _ref.read(cxExperimentalFeaturesProvider.notifier).state = features;
     } catch (_) {
       // Optional capability probe.
     }
@@ -134,6 +146,25 @@ class CodexThreadsNotifier
     final method = data['method'] as String? ?? '';
     if (method == 'thread/archived' || method == 'thread/unarchived') {
       unawaited(refresh(cwd: _lastCwd));
+    }
+    // Push deprecation notices and config warnings into reactive providers
+    if (method == 'deprecationNotice') {
+      final summary =
+          data['summary']?.toString() ??
+          data['params']?['summary']?.toString() ??
+          '';
+      if (summary.isNotEmpty) {
+        _ref.read(cxDeprecationNoticeProvider.notifier).state = summary;
+      }
+    }
+    if (method == 'configWarning') {
+      final warning =
+          data['message']?.toString() ??
+          data['params']?['message']?.toString() ??
+          '';
+      if (warning.isNotEmpty) {
+        _ref.read(cxConfigWarningProvider.notifier).state = warning;
+      }
     }
   }
 

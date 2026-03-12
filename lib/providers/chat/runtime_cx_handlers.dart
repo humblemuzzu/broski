@@ -199,6 +199,61 @@ extension _RuntimeCxHandlers on ChatSessionNotifier {
         // Plan deltas are handled via raw cx_stream passthrough
         break;
 
+      // Terminal interaction — agent needs stdin during command
+      case 'terminal_interaction':
+        final itemId = payloadMap['itemId']?.toString() ?? '';
+        _addMessage(
+          ChatMessage(
+            id: 'cx-terminal-interaction-${DateTime.now().millisecondsSinceEpoch}',
+            sessionId: state.cxThreadId ?? '',
+            role: MessageRole.system,
+            createdAt: DateTime.now(),
+            text:
+                '⌨️ Agent is waiting for terminal input${itemId.isNotEmpty ? ' (item: $itemId)' : ''}',
+            variant: 'cx-terminal-interaction',
+          ),
+        );
+
+      // Review mode dividers
+      case 'enteredReviewMode':
+        final review = payloadMap['item']?['review'] ?? payloadMap['review'];
+        final reviewType = review is Map ? (review['target']?['type']?.toString() ?? '') : '';
+        _addMessage(
+          ChatMessage(
+            id: 'cx-review-entered-${DateTime.now().millisecondsSinceEpoch}',
+            sessionId: state.cxThreadId ?? '',
+            role: MessageRole.system,
+            createdAt: DateTime.now(),
+            text: '🔍 Entered review mode${reviewType.isNotEmpty ? ' ($reviewType)' : ''}',
+            variant: 'cx-review-mode',
+          ),
+        );
+
+      case 'exitedReviewMode':
+        _addMessage(
+          ChatMessage(
+            id: 'cx-review-exited-${DateTime.now().millisecondsSinceEpoch}',
+            sessionId: state.cxThreadId ?? '',
+            role: MessageRole.system,
+            createdAt: DateTime.now(),
+            text: '🔍 Exited review mode',
+            variant: 'cx-review-mode',
+          ),
+        );
+
+      // Context compaction divider
+      case 'contextCompaction':
+        _addMessage(
+          ChatMessage(
+            id: 'cx-context-compaction-${DateTime.now().millisecondsSinceEpoch}',
+            sessionId: state.cxThreadId ?? '',
+            role: MessageRole.system,
+            createdAt: DateTime.now(),
+            text: '📦 Context compacted — older messages summarized',
+            variant: 'cx-context-compaction',
+          ),
+        );
+
       default:
         break;
     }

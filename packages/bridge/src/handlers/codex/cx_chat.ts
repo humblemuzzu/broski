@@ -152,6 +152,22 @@ export async function handleCxChat(
           }
         }
       }
+      // Structured skill mentions
+      if (Array.isArray(message.skillMentions)) {
+        for (const s of message.skillMentions) {
+          if (s.name && s.path) {
+            input.push({ type: 'skill', name: s.name, path: s.path })
+          }
+        }
+      }
+      // Structured file mentions
+      if (Array.isArray(message.fileMentions)) {
+        for (const f of message.fileMentions) {
+          if (f.name && f.path) {
+            input.push({ type: 'mention', name: f.name, path: f.path })
+          }
+        }
+      }
 
       // Build collaboration mode object if specified.
       // Codex SDK ModeKind: "plan" | "default" (legacy code/pair_programming/execute/custom → "default")
@@ -198,7 +214,8 @@ export async function handleCxChat(
           sandboxPolicy: message.sandboxPolicy ?? null,
           ...(personality ? { personality } : {}),
           serviceTier: message.serviceTier ?? null,
-          collaborationMode
+          collaborationMode,
+          ...(message.outputSchema ? { outputSchema: message.outputSchema } : {}),
         })
 
         const turnId = ctx.safeString(turnRes?.turn?.id)

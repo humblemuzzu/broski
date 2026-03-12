@@ -344,6 +344,62 @@ export async function handleCodexFeature(
       break;
     }
 
+
+    // ── thread/unsubscribe ───────────────────────────────────────────
+    case "cx_thread_unsubscribe": {
+      const client = await ensureCodexClient();
+      const threadId = safeString(message.threadId).trim();
+      if (!threadId) {
+        reply({
+          type: "error",
+          message: "cx_thread_unsubscribe requires threadId",
+        });
+        break;
+      }
+      const result: any = await client.request("thread/unsubscribe", {
+        threadId,
+      });
+      reply({
+        type: "cx_thread_unsubscribed",
+        data: result ?? { status: "unsubscribed" },
+      });
+      break;
+    }
+
+    // ── collaborationMode/list ───────────────────────────────────────
+    case "cx_collaboration_modes": {
+      const client = await ensureCodexClient();
+      const result: any = await client.request("collaborationMode/list", {
+        ...(message.threadId ? { threadId: message.threadId } : {}),
+      });
+      reply({
+        type: "cx_collaboration_modes_list",
+        data: result?.data ?? result?.modes ?? result ?? [],
+      });
+      break;
+    }
+
+    // ── thread/backgroundTerminals/clean ─────────────────────────────
+    case "cx_background_terminals_clean": {
+      const client = await ensureCodexClient();
+      const threadId = safeString(message.threadId).trim();
+      if (!threadId) {
+        reply({
+          type: "error",
+          message: "cx_background_terminals_clean requires threadId",
+        });
+        break;
+      }
+      const result = await client.request("thread/backgroundTerminals/clean", {
+        threadId,
+      });
+      reply({
+        type: "cx_background_terminals_cleaned",
+        data: result ?? { ok: true },
+      });
+      break;
+    }
+
     default:
       return false; // Not handled by this module
   }

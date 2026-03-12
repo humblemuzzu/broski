@@ -21,6 +21,7 @@ import { handleCxMcp } from './handlers/codex/cx_mcp'
 import { handleCxAccount } from './handlers/codex/cx_account'
 import { handleCxAgents } from './handlers/codex/cx_agents'
 import { handleCxFiles } from './handlers/codex/cx_files'
+import { handleCxExternalConfig } from './handlers/codex/cx_external_config'
 import { buildCodexApprovalDecision } from './handlers/codex/approval-decision'
 import { handleCxCommandPty } from './handlers/codex/cx_command_pty'
 import { mapCodexThreadFromSdk } from './handlers/codex/map-thread'
@@ -6346,6 +6347,17 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         }
         break
       }
+      case 'cx_external_config_detect':
+      case 'cx_external_config_import': {
+        const extConfigHandled = await handleCxExternalConfig(message, reply, {
+          ensureCodexClient,
+          safeString,
+        })
+        if (!extConfigHandled) {
+          reply({ type: 'error', message: `Unhandled external config feature: ${message.type}` })
+        }
+        break
+      }
       case 'cx_skills_list':
       case 'cx_get_skill':
       case 'cx_save_skill':
@@ -6512,7 +6524,10 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       case 'cx_config_requirements_read':
       case 'cx_thread_loaded_list':
       case 'cx_thread_read':
-      case 'cx_mcp_oauth_login': {
+      case 'cx_mcp_oauth_login':
+      case 'cx_thread_unsubscribe':
+      case 'cx_collaboration_modes':
+      case 'cx_background_terminals_clean': {
         const handled = await handleCodexFeature(message, reply, {
           ensureCodexClient,
           cxActiveTurns,

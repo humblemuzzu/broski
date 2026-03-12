@@ -84,6 +84,9 @@ extension BridgeServiceCodexRuntime on BridgeService {
     String? collaborationMode, // SDK ModeKind: 'plan' | 'default'
     String? personality, // SDK Personality: 'none' | 'friendly' | 'pragmatic'
     String? serviceTier, // SDK ServiceTier: 'fast' | 'flex'
+    List<Map<String, String>>? skillMentions,
+    List<Map<String, String>>? fileMentions,
+    Map<String, dynamic>? outputSchema,
   }) {
     _socket.send({
       'type': 'cx_chat',
@@ -102,6 +105,11 @@ extension BridgeServiceCodexRuntime on BridgeService {
       if (collaborationMode != null) 'collaborationMode': collaborationMode,
       if (personality != null) 'personality': personality,
       if (serviceTier != null) 'serviceTier': serviceTier,
+      if (skillMentions != null && skillMentions.isNotEmpty)
+        'skillMentions': skillMentions,
+      if (fileMentions != null && fileMentions.isNotEmpty)
+        'fileMentions': fileMentions,
+      if (outputSchema != null) 'outputSchema': outputSchema,
     });
   }
 

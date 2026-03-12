@@ -55,7 +55,8 @@ function isCodexToolItem(item: any): boolean {
     itemType === 'mcpToolCall' ||
     itemType === 'webSearch' ||
     itemType === 'dynamicToolCall' ||
-    itemType === 'review'
+    itemType === 'review' ||
+    itemType === 'imageGeneration'
 }
 
 function parseMaybeJson(input: unknown): unknown {
@@ -187,6 +188,21 @@ export function mapCodexStreamToRuntimeEvent(
         case 'item/started':
         case 'item/completed': {
           const item = params.item
+          const itemType = typeof item?.type === 'string' ? item.type : ''
+
+          // Special item types → backend_event (not tool cards)
+          if (itemType === 'enteredReviewMode' || itemType === 'exitedReviewMode' || itemType === 'contextCompaction') {
+            return {
+              ...baseEvent('backend_event', ctx, {
+                sourceType: streamMessage.type,
+                method: streamMessage.method,
+                itemType,
+              }),
+              kind: itemType,
+              payload: params,
+            }
+          }
+
           if (!isCodexToolItem(item)) return null
 
           const eventType = streamMessage.method === 'item/started'
@@ -425,6 +441,40 @@ export function mapCodexStreamToRuntimeEvent(
             partialOutput: outputDelta,
           }
         }
+
+        // Terminal interaction — agent needs stdin from user during command execution
+        case 'item/commandExecution/terminalInteraction': {
+          const itemId = typeof params.itemId === 'string'
+            ? params.itemId
+            : typeof params.item_id === 'string'
+              ? params.item_id
+              : undefined
+          return {
+            ...baseEvent('backend_event', ctx, {
+              sourceType: streamMessage.type,
+              method: streamMessage.method,
+            }),
+            kind: 'terminal_interaction',
+            payload: {
+              ...params,
+              ...(itemId ? { itemId } : {}),
+            },
+          }
+        }
+
+        // Image generation items
+        case 'item/imageGeneration/started':
+        case 'item/imageGeneration/completed': {
+          return {
+            ...baseEvent('backend_event', ctx, {
+              sourceType: streamMessage.type,
+              method: streamMessage.method,
+            }),
+            kind: streamMessage.method,
+            payload: params,
+          }
+        }
+
         default:
           return null
       }

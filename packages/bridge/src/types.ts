@@ -1015,6 +1015,7 @@ export type ProjectSummary = {
   name: string
   path: string
   lastOpened?: number
+  icon?: string
 }
 
 export type SessionSummary = {

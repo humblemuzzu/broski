@@ -2013,6 +2013,7 @@ export class OpenCodeConnector {
       name: project.name ?? fallbackName,
       path,
       lastOpened: project.time?.initialized ?? project.time?.created,
+      icon: project.icon?.override,
     }
   }
 

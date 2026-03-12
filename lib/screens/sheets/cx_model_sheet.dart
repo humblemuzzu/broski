@@ -57,6 +57,62 @@ class CxModelSheet extends ConsumerWidget {
                 style: AppTypography.bodySmall(color: theme.textMuted),
               ),
               const SizedBox(height: 14),
+              // Model availability NUX banners
+              ...(() {
+                final nuxModels = visibleModels
+                    .where(
+                      (m) =>
+                          m.availabilityNux != null &&
+                          m.availabilityNux!.isNotEmpty,
+                    )
+                    .toList();
+                if (nuxModels.isEmpty) return <Widget>[];
+                return nuxModels.map<Widget>((m) {
+                  final nuxMessage =
+                      m.availabilityNux!['message']?.toString() ?? '';
+                  if (nuxMessage.isEmpty) return const SizedBox.shrink();
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: theme.primary.withValues(alpha: 0.06),
+                      borderRadius: Radii.brSm,
+                      border: Border.all(
+                        color: theme.primary.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(AppIcons.info, size: 16, color: theme.primary),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            nuxMessage,
+                            style: AppTypography.bodySmall(color: theme.text),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () {
+                            ref
+                                .read(chatSessionProvider.notifier)
+                                .setCodexModel(m.id);
+                            Navigator.pop(context);
+                          },
+                          child: Text(
+                            'Try \u2192',
+                            style: TextStyle(
+                              color: theme.primary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList();
+              })(),
               ...visibleModels.map((model) {
                 final selected = isUsingDefault
                     ? model.isDefault

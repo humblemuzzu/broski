@@ -130,7 +130,8 @@ extension BridgeOpenCodeUpdates on BridgeService {
       'oc_git_initialized',
       requestId: requestId,
     );
-    return response['data'] == true;
+    // initGit returns the updated Project object on success, not a boolean
+    return response['data'] != null;
   }
 
   /// Get important paths (state, config, worktree, directory).

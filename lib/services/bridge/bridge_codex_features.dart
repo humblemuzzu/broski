@@ -287,8 +287,6 @@ extension BridgeServiceCodexFeatures on BridgeService {
     return data['authorizationUrl'] as String? ?? '';
   }
 
-
-
   // ============================================================
   // Plugin Marketplace
   // ============================================================
@@ -415,5 +413,121 @@ extension BridgeServiceCodexFeatures on BridgeService {
       timeoutSeconds: _codexTimeoutSeconds,
     );
     return true;
+  }
+
+  // ============================================================
+  // Thread Unsubscribe + Collaboration Modes + Background Terminals
+  // ============================================================
+
+  /// Unsubscribe from a thread to free server memory (thread/unsubscribe).
+  Future<String> cxThreadUnsubscribe({required String threadId}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_thread_unsubscribe',
+      'requestId': requestId,
+      'threadId': threadId,
+    });
+    final response = await _waitFor(
+      'cx_thread_unsubscribed',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return data['status'] as String? ?? 'unsubscribed';
+  }
+
+  /// List available collaboration modes (collaborationMode/list).
+  Future<List<Map<String, dynamic>>> cxListCollaborationModes({
+    String? threadId,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_collaboration_modes',
+      'requestId': requestId,
+      if (threadId != null) 'threadId': threadId,
+    });
+    final response = await _waitFor(
+      'cx_collaboration_modes_list',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data.whereType<Map<String, dynamic>>().toList();
+  }
+
+  /// Clean up background terminals for a thread (thread/backgroundTerminals/clean).
+  Future<bool> cxCleanBackgroundTerminals({required String threadId}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_background_terminals_clean',
+      'requestId': requestId,
+      'threadId': threadId,
+    });
+    await _waitFor(
+      'cx_background_terminals_cleaned',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    return true;
+  }
+
+  // ============================================================
+  // External Agent Config Import
+  // ============================================================
+
+  /// Detect external agent configs (Claude Code, Cursor, Windsurf, etc.)
+  Future<List<Map<String, dynamic>>> cxDetectExternalConfigs({
+    List<String>? cwds,
+    bool includeHome = true,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_external_config_detect',
+      'requestId': requestId,
+      if (cwds != null) 'cwds': cwds,
+      'includeHome': includeHome,
+    });
+    final response = await _waitFor(
+      'cx_external_configs',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data.whereType<Map<String, dynamic>>().toList();
+  }
+
+  /// Import an external agent config.
+  Future<bool> cxImportExternalConfig({
+    required String source,
+    String? configPath,
+    Map<String, dynamic>? importOptions,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_external_config_import',
+      'requestId': requestId,
+      'source': source,
+      if (configPath != null) 'configPath': configPath,
+      if (importOptions != null) 'importOptions': importOptions,
+    });
+    await _waitFor(
+      'cx_external_config_imported',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    return true;
+  }
+
+  /// Read account rate limits (account/rateLimits/read).
+  /// Returns rate limit info including usage, limits, reset time.
+  Future<Map<String, dynamic>> cxReadRateLimits() async {
+    final requestId = _generateRequestId();
+    _socket.send({'type': 'cx_rate_limits_read', 'requestId': requestId});
+    final response = await _waitFor(
+      'cx_rate_limits',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    return response['data'] as Map<String, dynamic>? ?? {};
   }
 }
