@@ -536,7 +536,11 @@ class BridgeService {
       'requestId': requestId,
       if (projectPath != null) 'projectPath': projectPath,
     });
-    final response = await _waitFor('browse_result', requestId: requestId);
+    final response = await _waitFor(
+      'browse_result',
+      requestId: requestId,
+      timeoutSeconds: 20,
+    );
     final data = response['data'] as Map<String, dynamic>? ?? const {};
     return data['items'] as List<dynamic>? ?? [];
   }

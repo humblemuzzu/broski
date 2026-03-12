@@ -160,8 +160,14 @@ async function broadcastPiRuntimeSessions(broadcast: Broadcast): Promise<void> {
   }
 }
 
-async function ensureStreamBridge(cwd: string, broadcast: Broadcast): Promise<void> {
-  if (streamUnsubscribers.has(cwd)) return
+async function ensureStreamBridge(cwd: string, broadcast: Broadcast, force = false): Promise<void> {
+  if (streamUnsubscribers.has(cwd) && !force) return
+  // If forcing, remove the stale bridge first
+  if (force && streamUnsubscribers.has(cwd)) {
+    const oldUnsub = streamUnsubscribers.get(cwd)!
+    streamUnsubscribers.delete(cwd)
+    oldUnsub()
+  }
 
   // Create/get the instance to register with, but use dynamic lookup in the
   // event callback so session switches are reflected immediately.
@@ -223,7 +229,7 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
       // Also ensure any other active Pi sessions have stream bridges
       for (const { cwd: existingCwd } of pi.listActiveRuntimeStates()) {
         if (existingCwd !== cwd) {
-          await ensureStreamBridge(existingCwd, broadcast)
+          await ensureStreamBridge(existingCwd, broadcast, true)
         }
       }
       const instance = await pi.getOrCreateInstance(cwd)
@@ -368,10 +374,10 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
     }
 
     case 'pi_list_sessions': {
-      // Ensure stream bridges exist for all bridge-owned Pi instances so
-      // events from sessions started via the bridge flow to all clients.
+      // Ensure stream bridges exist for all bridge-owned Pi instances.
+      // Force re-registration to pick up fresh broadcast function after reconnect.
       for (const { cwd: existingCwd } of pi.listActiveRuntimeStates()) {
-        await ensureStreamBridge(existingCwd, broadcast)
+        await ensureStreamBridge(existingCwd, broadcast, true)
       }
       const sessions = await pi.listSessions(optionalCwd)
       reply({ type: 'pi_sessions', data: sessions, requestId: message.requestId })

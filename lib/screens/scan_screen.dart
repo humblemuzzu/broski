@@ -95,7 +95,11 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
     if (info == null) return;
     _handledScan = true;
     HapticFeedback.mediumImpact();
-    ref.read(connectionProvider.notifier).connect(info);
+    // Clear any in-flight reconnect so connect() is not skipped due to
+    // _isConnecting being true from an auto-reconnect cycle.
+    final notifier = ref.read(connectionProvider.notifier);
+    notifier.cancelPendingReconnect();
+    notifier.connect(info);
   }
   void _toggleFlash() {
     _scannerController.toggleTorch();

@@ -933,8 +933,32 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
 
   Future<void> disconnect() async {
     _reconnectTimer?.cancel();
+    // Set _isBackgrounding to suppress _handleStatus from scheduling
+    // auto-reconnect during the synchronous status callback inside
+    // _socket.disconnect(). Without this, the broadcast StreamController
+    // fires _handleStatus(disconnected) synchronously, which sees
+    // connection != null && !_isConnecting && !_isBackgrounding and
+    // schedules a reconnect — defeating the intentional disconnect.
+    _isBackgrounding = true;
     await _socket.disconnect();
-    state = state.copyWith(status: ConnectionStatus.disconnected);
+    _isBackgrounding = false;
+    _isConnecting = false;
+    _failureStreak = 0;
+    _reconnectAttempts = 0;
+    state = state.copyWith(
+      status: ConnectionStatus.disconnected,
+      isReconnecting: false,
+    );
+  }
+
+  /// Cancel any pending reconnect timer and reset connecting state.
+  /// Used by the scan screen to ensure a fresh QR scan is not blocked
+  /// by an in-flight auto-reconnect cycle.
+  void cancelPendingReconnect() {
+    _reconnectTimer?.cancel();
+    _isConnecting = false;
+    _failureStreak = 0;
+    _reconnectAttempts = 0;
   }
 
   Future<void> clearConnection() async {
