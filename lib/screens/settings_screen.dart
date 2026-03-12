@@ -40,6 +40,7 @@ import 'claude_code_commands_screen.dart';
 import 'claude_code_settings_screen.dart';
 import 'opencode_agents_screen.dart';
 import 'opencode_commands_screen.dart';
+import 'opencode_global_config_screen.dart';
 import 'permission_rules_screen.dart';
 import 'codex_agents_screen.dart';
 
@@ -787,6 +788,18 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const PermissionRulesScreen()),
+            ),
+          ),
+          _Divider(),
+          _SettingsTile(
+            title: 'Global Configuration',
+            subtitle: 'Settings across all projects',
+            icon: AppIcons.tune,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const OpenCodeGlobalConfigScreen(),
+              ),
             ),
           ),
         ];

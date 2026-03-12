@@ -25,6 +25,7 @@ import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../utils/error_utils.dart';
+import 'dialogs/project_context_menu.dart';
 import 'sheets/add_project_sheet.dart';
 
 class ProjectsScreen extends ConsumerStatefulWidget {
@@ -122,8 +123,15 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     await _projectsFuture;
   }
 
-  void _toggleHighlight(ProjectSummary project) {
-    ref.read(highlightsProvider.notifier).toggleProject(project.id);
+  Future<void> _showProjectContextMenu(ProjectSummary project) async {
+    final shouldRefresh = await showProjectContextMenu(
+      context: context,
+      ref: ref,
+      project: project,
+    );
+    if (shouldRefresh && mounted) {
+      await _refresh();
+    }
   }
 
   /// Toggle expansion state for a project to show/hide worktrees
@@ -615,7 +623,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                                 project: project,
                                 highlightColor: highlights.color,
                                 onTap: () => _openProject(context, project),
-                                onLongPress: () => _toggleHighlight(project),
+                                onLongPress: () => _showProjectContextMenu(project),
                               ),
                             );
                           }, childCount: highlightedProjects.length),
@@ -659,7 +667,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                               isLoading: isLoading,
                               worktrees: worktrees ?? [],
                               onTap: () => _openProject(context, project),
-                              onLongPress: () => _toggleHighlight(project),
+                              onLongPress: () => _showProjectContextMenu(project),
                               onToggleExpand: agentType == AgentType.opencode
                                   ? () => _toggleProjectExpansion(project)
                                   : null,

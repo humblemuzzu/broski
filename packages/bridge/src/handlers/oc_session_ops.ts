@@ -3,7 +3,7 @@ import type { ClientMessage, ServerMessage } from '../types'
 type Reply = (message: ServerMessage) => void
 
 type OpenCodeSessionOpsLike = {
-  createSession: (dir?: string, title?: string, permission?: any) => Promise<any>
+  createSession: (dir?: string, title?: string, permission?: any, workspaceID?: string) => Promise<any>
   getSession: (id: string, dir?: string) => Promise<any>
   getSessionMessages: (id: string, dir?: string, limit?: number) => Promise<any>
   deleteSession: (id: string, dir?: string) => Promise<boolean>
@@ -28,7 +28,7 @@ export async function handle(
   switch (message.type) {
     case 'create_session': {
       const oc = requireOpenCode()
-      const session = await oc.createSession(message.projectPath, message.title, message.permission)
+      const session = await oc.createSession(message.projectPath, message.title, message.permission, message.workspaceID)
       reply({ type: 'session_created', data: session })
       return true
     }

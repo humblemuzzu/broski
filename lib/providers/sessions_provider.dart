@@ -18,6 +18,7 @@ import 'pi_provider.dart';
 import 'sessions/runtime_session_activity_handler.dart';
 import 'sessions/runtime_session_snapshot_handler.dart';
 import 'service_providers.dart';
+import 'session_archive_filter_provider.dart';
 
 // ============================================================
 // Global Session Status Provider
@@ -234,8 +235,8 @@ class GlobalSessionStatusNotifier
         final title = (piSession.name ?? '').trim().isNotEmpty
             ? piSession.name!.trim()
             : piSession.firstMessage.trim().isNotEmpty
-                ? piSession.firstMessage.trim()
-                : 'Pi Session';
+            ? piSession.firstMessage.trim()
+            : 'Pi Session';
         final cwd = piSession.cwd;
         final project = cwd.split('/').where((p) => p.isNotEmpty).lastOrNull;
 
@@ -641,6 +642,7 @@ final sessionsListProvider = StreamProvider<List<SessionSummary>>((ref) async* {
   final searchQuery = ref.watch(sessionsSearchQueryProvider).trim();
   final connection = ref.watch(connectionProvider);
   final storage = ref.watch(storageServiceProvider);
+  final showArchived = ref.watch(showArchivedSessionsProvider);
 
   List<SessionSummary> applyFilters(List<SessionSummary> sessions) {
     var result = sessions.where(
@@ -655,6 +657,10 @@ final sessionsListProvider = StreamProvider<List<SessionSummary>>((ref) async* {
     if (searchQuery.isNotEmpty) {
       final q = searchQuery.toLowerCase();
       result = result.where((s) => s.title.toLowerCase().contains(q));
+    }
+    // Filter archived sessions unless showArchived is true
+    if (!showArchived) {
+      result = result.where((s) => !s.isArchived);
     }
     return result.toList();
   }
@@ -707,6 +713,10 @@ final sessionsListProvider = StreamProvider<List<SessionSummary>>((ref) async* {
       fresh = fresh.where(
         (s) => !sessionTitleMatchesExcludeFilters(s.title, titleFilters),
       );
+    }
+    // Filter archived sessions unless showArchived is true
+    if (!showArchived) {
+      fresh = fresh.where((s) => !s.isArchived);
     }
 
     yield fresh.toList();

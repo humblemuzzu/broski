@@ -32,6 +32,7 @@ import '../widgets/background_session_widgets.dart';
 import '../widgets/chat/detail_sheet.dart';
 import '../widgets/sessions/codex_active_threads_section.dart';
 import '../widgets/sessions/sessions_search_bar.dart';
+import '../widgets/sessions/archive_filter_chip.dart';
 import '../models/pi.dart';
 import '../providers/pi_provider.dart';
 import 'chat_screen.dart';
@@ -1677,6 +1678,8 @@ class _ModernHeader extends StatelessWidget {
                   isExpanded: showBackgroundTasks,
                   onTap: onToggleBackgroundTasks,
                 ),
+              SizedBox(width: Spacing.sm),
+              const ArchiveFilterChip(),
             ],
           ),
           // Task 8: Session search bar

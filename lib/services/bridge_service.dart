@@ -371,6 +371,7 @@ class BridgeService {
     String? projectPath,
     String? title,
     PermissionRuleset? permission,
+    String? workspaceID,
   }) {
     // Dedupe by project path - if already creating a session for this project,
     // return the same future instead of creating another session
@@ -386,6 +387,7 @@ class BridgeService {
         projectPath: projectPath,
         title: title,
         permission: permission,
+        workspaceID: workspaceID,
       ),
     );
   }
@@ -394,6 +396,7 @@ class BridgeService {
     String? projectPath,
     String? title,
     PermissionRuleset? permission,
+    String? workspaceID,
   }) async {
     final requestId = _generateRequestId();
     _socket.send({
@@ -403,6 +406,7 @@ class BridgeService {
       if (title != null) 'title': title,
       if (permission != null)
         'permission': permission.map((r) => r.toJson()).toList(),
+      if (workspaceID != null) 'workspaceID': workspaceID,
     });
     final response = await _waitFor('session_created', requestId: requestId);
     return SessionSummary.fromJson(response['data'] as Map<String, dynamic>);

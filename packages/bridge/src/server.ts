@@ -41,6 +41,7 @@ import * as ocParts from './handlers/oc_parts'
 import * as ocQuestions from './handlers/oc_questions'
 import * as ocShell from './handlers/oc_shell'
 import * as ocCustomization from './handlers/oc_customization'
+import * as ocProject from './handlers/oc_project'
 import * as piFeatures from './handlers/pi_features'
 import * as ccElicitation from './handlers/cc_elicitation'
 import type { ClaudeElicitationReply } from './handlers/cc_elicitation'
@@ -4968,6 +4969,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     if (await ocQuestions.handle(message, reply, requireOpenCode)) return
     if (await ocShell.handle(message, reply, requireOpenCode)) return
     if (await ocCustomization.handle(message, reply, { requireOpenCode, safeString, getSecurePath })) return
+    if (await ocProject.handle(message, reply, requireOpenCode)) return
     if (ccElicitation.handle(message, ccElicitationWaiters)) return
 
     switch (message.type) {

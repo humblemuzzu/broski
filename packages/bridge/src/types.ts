@@ -131,6 +131,7 @@ export type ClientMessage =
       projectPath?: string
       title?: string
       permission?: PermissionRuleset
+      workspaceID?: string
     }
   | { type: 'get_session'; sessionId: string; projectPath?: string }
   | {
@@ -544,6 +545,9 @@ export type ClientMessage =
       projectPath?: string
     }
   | { type: 'oc_question_reject'; questionId: string; projectPath?: string }
+  // OpenCode project operations
+  | { type: 'oc_init_git'; projectPath?: string }
+  | { type: 'oc_get_paths'; projectPath?: string }
   // Claude Code-specific messages
   | { type: 'cc_list_projects' }
   | { type: 'cc_list_sessions'; cwd?: string }
@@ -1471,6 +1475,9 @@ export type ServerMessage =
       data: unknown
       requestId?: string
     }
+  // OpenCode project operations
+  | { type: 'oc_git_initialized'; data: any; requestId?: string }
+  | { type: 'oc_paths'; data: any; requestId?: string }
   // Message editing
   | {
       type: 'oc_message_deleted'

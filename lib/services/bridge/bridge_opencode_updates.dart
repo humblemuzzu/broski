@@ -118,6 +118,33 @@ extension BridgeOpenCodeUpdates on BridgeService {
     return response['data'] == true;
   }
 
+  /// Initialize a git repository for the current project.
+  Future<bool> ocInitGit({String? projectPath}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'oc_init_git',
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    final response = await _waitFor(
+      'oc_git_initialized',
+      requestId: requestId,
+    );
+    return response['data'] == true;
+  }
+
+  /// Get important paths (state, config, worktree, directory).
+  Future<Map<String, dynamic>> ocGetPaths({String? projectPath}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'oc_get_paths',
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    final response = await _waitFor('oc_paths', requestId: requestId);
+    return response['data'] as Map<String, dynamic>? ?? {};
+  }
+
   /// Run a shell command in the context of an OpenCode session.
   /// The agent sees the output and can respond to it.
   Future<dynamic> ocSessionShell({

@@ -174,10 +174,12 @@ export class OpenCodeConnector {
     directory?: string,
     title?: string,
     permission?: PermissionRuleset,
+    workspaceID?: string,
   ): Promise<SessionSummary> {
     const body: Record<string, unknown> = {}
     if (title && title.length > 0) body.title = title
     if (permission && permission.length > 0) body.permission = permission
+    if (workspaceID) body.workspaceID = workspaceID
 
     // v2 SDK: first arg is parameters, second arg is options
     const session = await this.client.session.create(
@@ -1831,6 +1833,20 @@ export class OpenCodeConnector {
     } catch {
       return null
     }
+  }
+
+  async initGit(directory?: string): Promise<any> {
+    return this.client.project.initGit(
+      { directory },
+      { responseStyle: 'data' },
+    )
+  }
+
+  async getPaths(directory?: string): Promise<any> {
+    return this.client.path.get(
+      { directory },
+      { responseStyle: 'data' },
+    )
   }
 
   // Message part editing

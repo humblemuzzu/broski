@@ -15,6 +15,8 @@ import '../screens/mcp_servers_screen.dart';
 import '../screens/opencode_agents_screen.dart';
 import '../screens/opencode_commands_screen.dart';
 import '../screens/opencode_plugins_screen.dart';
+import '../screens/opencode_worktrees_screen.dart';
+import '../screens/opencode_workspaces_screen.dart';
 import '../screens/projects_screen.dart';
 import '../screens/skills_screen.dart';
 import '../screens/subagents_screen.dart';
@@ -240,6 +242,25 @@ class _ProjectToolsContent extends StatelessWidget {
             title: 'Plugins',
             subtitle: '.opencode/plugin',
             onTap: () => _closeAndPush(context, const OpenCodePluginsScreen()),
+          ),
+          _sectionLabel(theme, 'Environments'),
+          _tile(
+            context,
+            theme,
+            icon: AppIcons.gitBranch,
+            title: 'Worktrees',
+            subtitle: 'Parallel git branches for agents',
+            onTap: () =>
+                _closeAndPush(context, const OpenCodeWorktreesScreen()),
+          ),
+          _tile(
+            context,
+            theme,
+            icon: AppIcons.workspace,
+            title: 'Workspaces',
+            subtitle: 'Isolated runtime environments',
+            onTap: () =>
+                _closeAndPush(context, const OpenCodeWorkspacesScreen()),
           ),
         ] else if (backend == AgentType.claudeCode) ...[
           _sectionLabel(theme, 'Power features'),
