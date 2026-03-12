@@ -2,6 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'adaptive_markdown_body.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../theme/markdown_styles.dart';
 import '../../models/card_style.dart';
 import '../../models/message.dart';
 import '../../models/session_context.dart';
@@ -333,10 +336,16 @@ class CompactAgentCard extends ConsumerWidget {
                       ),
                     ],
                   )
-                : MarkdownBody(
+                : AdaptiveMarkdownBody(
                     data: _output ?? 'No output',
                     selectable: true,
                     styleSheet: _buildMarkdownStyle(theme),
+                    onTapLink: (_, href, __) {
+                      if (href != null) {
+                        launchUrl(Uri.parse(href),
+                            mode: LaunchMode.externalApplication);
+                      }
+                    },
                   ),
           ),
         ],
@@ -413,52 +422,8 @@ class CompactAgentCard extends ConsumerWidget {
     );
   }
   /// Build markdown style matching the main chat
-  MarkdownStyleSheet _buildMarkdownStyle(OpenCodeTheme theme) {
-    return MarkdownStyleSheet(
-      p: TextStyle(fontFamily: AppTypography.uiFontFamily, fontSize: 14, color: theme.text, height: 1.5),
-      h1: TextStyle(
-        fontFamily: AppTypography.uiFontFamily,
-        fontSize: 18,
-        fontWeight: FontWeight.w600,
-        color: theme.text,
-        height: 1.4,
-      ),
-      h2: TextStyle(
-        fontFamily: AppTypography.uiFontFamily,
-        fontSize: 16,
-        fontWeight: FontWeight.w600,
-        color: theme.text,
-        height: 1.4,
-      ),
-      h3: TextStyle(
-        fontFamily: AppTypography.uiFontFamily,
-        fontSize: 15,
-        fontWeight: FontWeight.w600,
-        color: theme.text,
-        height: 1.4,
-      ),
-      strong: TextStyle(fontWeight: FontWeight.w600, color: theme.text),
-      em: TextStyle(fontStyle: FontStyle.italic, color: theme.textMuted),
-      code: AppTypography.codeSmall(color: theme.accent).copyWith(
-        backgroundColor: theme.backgroundElement,
-      ),
-      codeblockDecoration: BoxDecoration(
-        color: theme.backgroundElement,
-        borderRadius: Radii.brSm,
-        border: Border.all(color: theme.borderSubtle),
-      ),
-      codeblockPadding: Insets.card,
-      blockquoteDecoration: BoxDecoration(
-        border: Border(left: BorderSide(color: theme.borderSubtle, width: 3)),
-      ),
-      blockquotePadding: EdgeInsets.only(left: Spacing.md),
-      listBullet: TextStyle(color: theme.textMuted),
-      tableHead: TextStyle(fontWeight: FontWeight.w600, color: theme.text),
-      tableBody: TextStyle(color: theme.text),
-      tableBorder: TableBorder.all(color: theme.borderSubtle, width: 1),
-      tableCellsPadding: EdgeInsets.all(Spacing.sm),
-    );
-  }
+  MarkdownStyleSheet _buildMarkdownStyle(OpenCodeTheme theme) =>
+      MarkdownStyles.compact(theme);
   /// Parse nested tool calls from tool metadata (populated by chat_provider)
   List<Map<String, String>> _parseNestedToolCalls() {
     try {

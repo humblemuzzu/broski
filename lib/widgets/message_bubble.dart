@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import '../models/message.dart';
+import 'chat/adaptive_markdown_body.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../theme/markdown_styles.dart';
 import '../theme/app_typography.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
@@ -274,10 +277,16 @@ class MessageBubble extends StatelessWidget {
                               height: 1.6,
                             ),
                           )
-                        : MarkdownBody(
+                        : AdaptiveMarkdownBody(
                             data: message.text,
                             selectable: true,
                             styleSheet: _buildMarkdownStyle(theme),
+                            onTapLink: (_, href, __) {
+                              if (href != null) {
+                                launchUrl(Uri.parse(href),
+                                    mode: LaunchMode.externalApplication);
+                              }
+                            },
                           ),
                 ],
               ),
@@ -333,77 +342,8 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
-  MarkdownStyleSheet _buildMarkdownStyle(OpenCodeTheme theme) {
-    return MarkdownStyleSheet(
-      p: TextStyle(
-        fontFamily: AppTypography.uiFontFamily,
-        fontSize: 15,
-        color: theme.markdownText,
-        height: 1.6,
-      ),
-      h1: TextStyle(
-        fontFamily: AppTypography.uiFontFamily,
-        fontSize: 20,
-        fontWeight: FontWeight.w600,
-        color: theme.markdownHeading,
-        height: 1.4,
-      ),
-      h2: TextStyle(
-        fontFamily: AppTypography.uiFontFamily,
-        fontSize: 18,
-        fontWeight: FontWeight.w600,
-        color: theme.markdownHeading,
-        height: 1.4,
-      ),
-      h3: TextStyle(
-        fontFamily: AppTypography.uiFontFamily,
-        fontSize: 16,
-        fontWeight: FontWeight.w600,
-        color: theme.markdownHeading,
-        height: 1.4,
-      ),
-      // Section spacing - creates visual separation like Claude's app
-      h1Padding: EdgeInsets.only(top: Spacing.xxl, bottom: Spacing.md),
-      h2Padding: EdgeInsets.only(top: Spacing.xl, bottom: 10),
-      h3Padding: EdgeInsets.only(top: Spacing.lg, bottom: Spacing.sm),
-      // Add subtle divider after headings using bottom border decoration
-      horizontalRuleDecoration: BoxDecoration(
-        border: Border(top: BorderSide(color: theme.dividerSection, width: 1)),
-      ),
-      strong: TextStyle(
-        fontWeight: FontWeight.w600,
-        color: theme.markdownStrong,
-      ),
-      em: TextStyle(fontStyle: FontStyle.italic, color: theme.markdownEmph),
-      code: AppTypography.codeLarge(
-        color: theme.markdownCode,
-      ).copyWith(backgroundColor: theme.backgroundElement),
-      codeblockPadding: Insets.card,
-      codeblockDecoration: BoxDecoration(
-        color: theme.backgroundElement,
-        borderRadius: Radii.brMd,
-        border: Border.all(color: theme.borderSubtle),
-      ),
-      listBullet: TextStyle(
-        fontFamily: AppTypography.uiFontFamily,
-        fontSize: 15,
-        color: theme.markdownListItem,
-      ),
-      listIndent: 24,
-      blockquotePadding: EdgeInsets.only(left: Spacing.lg),
-      blockquoteDecoration: BoxDecoration(
-        border: Border(
-          left: BorderSide(color: theme.markdownBlockQuote, width: 3),
-        ),
-      ),
-      a: TextStyle(
-        color: theme.markdownLink,
-        decoration: TextDecoration.underline,
-      ),
-      // Block spacing between sections
-      blockSpacing: Spacing.lg,
-    );
-  }
+  MarkdownStyleSheet _buildMarkdownStyle(OpenCodeTheme theme) =>
+      MarkdownStyles.assistant(theme);
 
   // Feature 6: Show fork menu on long press
   void _showForkMenu(BuildContext context, OpenCodeTheme theme) {
