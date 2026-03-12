@@ -5,6 +5,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_typography.dart';
 import '../theme/design_tokens.dart';
+import '../theme/markdown_styles.dart';
 
 import '../models/agent_type.dart';
 import '../models/skill.dart';
@@ -800,21 +801,7 @@ description: $description
                     child: Markdown(
                       data: _stripFrontmatter(_content.text),
                       selectable: true,
-                      styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
-                        p: theme.textTheme.bodyMedium?.copyWith(color: oc.text),
-                        h1: theme.textTheme.headlineSmall?.copyWith(
-                          color: oc.text,
-                        ),
-                        h2: theme.textTheme.titleLarge?.copyWith(
-                          color: oc.text,
-                        ),
-                        h3: theme.textTheme.titleMedium?.copyWith(
-                          color: oc.text,
-                        ),
-                        code: AppTypography.code(
-                          color: oc.text,
-                        ).copyWith(backgroundColor: oc.backgroundElement),
-                      ),
+                      styleSheet: MarkdownStyles.fileViewer(oc),
                     ),
                   ),
                 ],

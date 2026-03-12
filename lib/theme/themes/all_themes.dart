@@ -2589,31 +2589,33 @@ const broskiDarkTheme = OpenCodeTheme(
   diffLineNumber: Color(0xFF3A4252), // Border color
   diffAddedLineNumberBg: Color(0xFF162418), // Darker sage
   diffRemovedLineNumberBg: Color(0xFF241618), // Darker rose
-  // Markdown - Silver-based hierarchy (BRIGHTER)
-  markdownText: Color(0xFFF0F0F2), // Primary white-silver
-  markdownHeading: Color(0xFFE0E0E4), // Bright platinum
-  markdownLink: Color(0xFFC8C8CC), // Bright secondary silver
-  markdownLinkText: Color(0xFFA0B0C8), // Steel blue brighter
-  markdownCode: Color(0xFFA0B8C0), // Slate teal brighter
-  markdownBlockQuote: Color(0xFFA0A0A8), // Muted silver brighter
-  markdownEmph: Color(0xFFD4B892), // Bronze brighter
-  markdownStrong: Color(0xFFE0E0E4), // Platinum bright
+  // Markdown — Navy-compatible hues with real differentiation.
+  // Each token has its own hue lane (20-40% saturation) so elements are
+  // visually distinct while staying within the premium navy/silver world.
+  markdownText: Color(0xFFF0F0F2), // Primary white-silver (body text)
+  markdownHeading: Color(0xFF8AAAD0), // Steel blue — reads as "structure"
+  markdownLink: Color(0xFF7EA8C8), // Cool blue — clickable feeling
+  markdownLinkText: Color(0xFF8AB0D0), // Mid blue — link labels
+  markdownCode: Color(0xFF8AC0A8), // Sage green — code = green convention
+  markdownBlockQuote: Color(0xFF9098B0), // Muted lavender — quoted/secondary
+  markdownEmph: Color(0xFFD4B892), // Bronze — warm emphasis (kept)
+  markdownStrong: Color(0xFFD0B88A), // Warm gold — weight emphasis
   markdownHorizontalRule: Color(0xFF3A4252), // Border
-  markdownListItem: Color(0xFFC8C8CC), // Secondary silver
-  markdownListEnumeration: Color(0xFFA0B0C8), // Steel blue
-  markdownImage: Color(0xFFE0E0E4), // Platinum
-  markdownImageText: Color(0xFFA0A0A8), // Muted
+  markdownListItem: Color(0xFFA0B8D0), // Lighter steel — structural
+  markdownListEnumeration: Color(0xFF8AB0D0), // Mid blue
+  markdownImage: Color(0xFF8AAAD0), // Steel blue
+  markdownImageText: Color(0xFFA0A8B8), // Cool silver-blue
   markdownCodeBlock: Color(0xFFF0F0F2), // Primary white-silver
-  // Syntax highlighting - Monochromatic with better visibility
+  // Syntax highlighting — Navy-compatible with real hue separation.
   syntaxComment: Color(0xFF707080), // Comments - visible but muted
-  syntaxKeyword: Color(0xFFC8C8CC), // Secondary silver - brighter
-  syntaxFunction: Color(0xFFE0E0E4), // Platinum - functions stand out
-  syntaxVariable: Color(0xFFA0B0C8), // Steel blue - brighter
-  syntaxString: Color(0xFFA0B8C0), // Slate teal - brighter
-  syntaxNumber: Color(0xFFD4B892), // Bronze - brighter
-  syntaxType: Color(0xFFB0B0B8), // Cool silver - brighter
-  syntaxOperator: Color(0xFFA0A0A8), // Muted - brighter
-  syntaxPunctuation: Color(0xFFF0F0F2), // Primary white-silver
+  syntaxKeyword: Color(0xFF8AAAD0), // Steel blue — structure
+  syntaxFunction: Color(0xFFD0B88A), // Warm gold — functions stand out
+  syntaxVariable: Color(0xFFA0B8D0), // Lighter steel — variables
+  syntaxString: Color(0xFF8AC0A8), // Sage green — strings
+  syntaxNumber: Color(0xFFD4B892), // Bronze — numbers
+  syntaxType: Color(0xFFB0A0C8), // Soft lavender — types
+  syntaxOperator: Color(0xFFA0A8B8), // Cool silver-blue — operators
+  syntaxPunctuation: Color(0xFFD0D0D4), // Platinum — punctuation
 );
 
 // ═══════════════════════════════════════════════════════════════════════════════

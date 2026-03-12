@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import '../models/message.dart';
 import 'chat/adaptive_markdown_body.dart';
+import 'chat/lightweight_inline_markdown.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/markdown_styles.dart';
 import '../theme/app_typography.dart';
@@ -263,19 +264,13 @@ class MessageBubble extends StatelessWidget {
                       ),
                     )
                   else if (message.text.isNotEmpty)
-                    // Huge perf win: avoid markdown layout while streaming.
-                    // Render markdown only once the message is stable.
-                    //
-                    // Also avoid SelectableText while streaming: selection layout is expensive.
+                    // Perf-safe streaming path: Text.rich() with lightweight
+                    // inline markdown (bold/italic/code only). Same render
+                    // cost as plain Text — single RenderParagraph, no widget
+                    // tree. Full AdaptiveMarkdownBody kicks in once stable.
                     message.isStreaming
-                        ? Text(
-                            message.text,
-                            style: TextStyle(
-                              fontFamily: AppTypography.uiFontFamily,
-                              fontSize: 15,
-                              color: theme.text,
-                              height: 1.6,
-                            ),
+                        ? Text.rich(
+                            buildInlineMarkdown(message.text, theme),
                           )
                         : AdaptiveMarkdownBody(
                             data: message.text,

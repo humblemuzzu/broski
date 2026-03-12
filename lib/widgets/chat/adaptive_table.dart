@@ -271,17 +271,23 @@ class AdaptiveTable extends StatelessWidget {
           case 'strong':
             spans.addAll(_nodesToSpans(
               children,
-              style.copyWith(fontWeight: FontWeight.w600),
+              style.copyWith(
+                fontWeight: FontWeight.w600,
+                color: theme.markdownStrong,
+              ),
             ));
           case 'em':
             spans.addAll(_nodesToSpans(
               children,
-              style.copyWith(fontStyle: FontStyle.italic),
+              style.copyWith(
+                fontStyle: FontStyle.italic,
+                color: theme.markdownEmph,
+              ),
             ));
           case 'code':
             spans.add(TextSpan(
               text: node.textContent,
-              style: AppTypography.codeSmall(color: theme.accent)
+              style: AppTypography.codeSmall(color: theme.markdownCode)
                   .copyWith(backgroundColor: theme.backgroundElement),
             ));
           case 'del':
