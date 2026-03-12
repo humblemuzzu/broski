@@ -36,7 +36,7 @@ export async function computePiSessionStats(
     // Yield to the event loop between file read and CPU-intensive JSON parsing.
     // Without this, Promise.all fires all reads concurrently and the synchronous
     // parse callbacks run back-to-back, starving the event loop for seconds.
-    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+    await Bun.sleep(0)
     const lines = text.split('\n')
 
     const fileDiffs: Array<{ file: string; additions: number; deletions: number }> = []
