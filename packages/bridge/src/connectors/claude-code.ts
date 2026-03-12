@@ -1,5 +1,5 @@
 import { query } from '@anthropic-ai/claude-agent-sdk'
-import type { ElicitationRequest, ElicitationResult } from '@anthropic-ai/claude-agent-sdk'
+import type { ElicitationRequest, ElicitationResult, Options, Query as SDKQuery } from '@anthropic-ai/claude-agent-sdk'
 import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
@@ -55,7 +55,7 @@ function classifySource(dir: string, feature: string): 'project' | 'user' {
 type ActiveSession = {
   controller: AbortController
   cwd: string
-  query?: { interrupt: () => Promise<void> }
+  query?: SDKQuery
   startedAt: number
 }
 
@@ -290,6 +290,7 @@ export type ClaudeCodeQueryOptions = {
   activeSubagent?: string  // Name of the subagent to use for this query (prepends prompt hint)
   fallbackModel?: string                // B5: fallback model on primary failure
   additionalDirectories?: string[]      // B6: extra directories agent can access
+  agentProgressSummaries?: boolean      // SDK 0.2.74: AI-generated progress summaries for subagents
 }
 
 /**
@@ -2092,15 +2093,14 @@ async function collectCapabilitiesFromQuery(
 
 async function callActiveSessionCapability<T>(
   cwd: string | undefined,
-  method: (q: any) => Promise<T>,
+  method: (q: SDKQuery) => Promise<T>,
 ): Promise<T | undefined> {
   const normalizedCwd = (cwd || '').trim()
   for (const [, session] of activeSessions.entries()) {
     if (normalizedCwd && session.cwd !== normalizedCwd) continue
-    const q = session.query as any
-    if (!q) continue
+    if (!session.query) continue
     try {
-      return await method(q)
+      return await method(session.query)
     } catch {
       continue
     }
@@ -2221,7 +2221,7 @@ export async function queryClaudeCode(
     const enableClaudeAiMcpServers =
       options.enableClaudeAiMcpServers ?? currentConfig.enableClaudeAiMcpServers
 
-    const sdkOptions: any = {
+    const sdkOptions: Partial<Options> & { extraArgs?: Record<string, string | null> } = {
       cwd: options.cwd,
       model: options.model || currentConfig.model || 'sonnet',
       allowedTools: options.allowedTools || currentConfig.allowedTools,
@@ -2250,6 +2250,8 @@ export async function queryClaudeCode(
       ...(options.fallbackModel ? { fallbackModel: options.fallbackModel } : {}),
       // B6: additional directories
       ...(options.additionalDirectories?.length ? { additionalDirectories: options.additionalDirectories } : {}),
+      // SDK 0.2.74: AI-generated progress summaries for subagents
+      ...(options.agentProgressSummaries !== undefined ? { agentProgressSummaries: options.agentProgressSummaries } : {}),
     }
 
     if (Array.isArray(betas) && betas.length > 0) {
@@ -2513,10 +2515,10 @@ export async function queryClaudeCode(
 
     const q = query({ prompt: finalPrompt, options: sdkOptions })
 
-    for await (const message of q as any) {
+    for await (const message of q) {
       // Extract parent_tool_use_id from SDK message for subagent context tracking.
       // When non-null, this message originated from inside a subagent's execution.
-      const parentToolUseId = (message as any)?.parent_tool_use_id as string | undefined
+      const parentToolUseId = 'parent_tool_use_id' in message ? (message.parent_tool_use_id as string | undefined) : undefined
       const emit = (msg: Record<string, unknown>) => onMessage(parentToolUseId ? { ...msg, parentToolUseId } : msg)
 
       // System init: session created + capabilities snapshot (tools/commands/etc)
@@ -2892,7 +2894,7 @@ export async function abortClaudeCode(sessionId: string): Promise<void> {
   const session = activeSessions.get(sessionId)
   if (session) {
     try {
-      await session.query?.interrupt?.()
+      await session.query?.interrupt()
     } catch {
       // ignore
     }
@@ -2942,7 +2944,7 @@ export async function rewindToCheckpoint(
   try {
     // Resume the session with an empty prompt to open the connection.
     // SDK requires CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING env var for tracking.
-    const resumeOptions: any = {
+    const resumeOptions: Partial<Options> & { extraArgs?: Record<string, string | null> } = {
       cwd,
       resume: sessionId,
       enableFileCheckpointing: true,
@@ -3000,12 +3002,8 @@ export async function stopTask(sessionId: string, taskId: string): Promise<boole
   const session = activeSessions.get(sessionId)
   if (!session?.query) return false
   try {
-    const q = session.query as any
-    if (typeof q.stopTask === 'function') {
-      await q.stopTask(taskId)
-      return true
-    }
-    return false
+    await session.query.stopTask(taskId)
+    return true
   } catch {
     return false
   }
@@ -3018,12 +3016,8 @@ export async function reconnectMcpServer(sessionId: string, serverName: string):
   const session = activeSessions.get(sessionId)
   if (!session?.query) return false
   try {
-    const q = session.query as any
-    if (typeof q.reconnectMcpServer === 'function') {
-      await q.reconnectMcpServer(serverName)
-      return true
-    }
-    return false
+    await session.query.reconnectMcpServer(serverName)
+    return true
   } catch {
     return false
   }
@@ -3036,12 +3030,8 @@ export async function toggleMcpServer(sessionId: string, serverName: string, ena
   const session = activeSessions.get(sessionId)
   if (!session?.query) return false
   try {
-    const q = session.query as any
-    if (typeof q.toggleMcpServer === 'function') {
-      await q.toggleMcpServer(serverName, enabled)
-      return true
-    }
-    return false
+    await session.query.toggleMcpServer(serverName, enabled)
+    return true
   } catch {
     return false
   }
@@ -3054,12 +3044,8 @@ export async function setPermissionMode(sessionId: string, mode: string): Promis
   const session = activeSessions.get(sessionId)
   if (!session?.query) return false
   try {
-    const q = session.query as any
-    if (typeof q.setPermissionMode === 'function') {
-      await q.setPermissionMode(mode)
-      return true
-    }
-    return false
+    await session.query.setPermissionMode(mode as import('@anthropic-ai/claude-agent-sdk').PermissionMode)
+    return true
   } catch {
     return false
   }
@@ -3072,12 +3058,8 @@ export async function setModel(sessionId: string, model?: string): Promise<boole
   const session = activeSessions.get(sessionId)
   if (!session?.query) return false
   try {
-    const q = session.query as any
-    if (typeof q.setModel === 'function') {
-      await q.setModel(model)
-      return true
-    }
-    return false
+    await session.query.setModel(model)
+    return true
   } catch {
     return false
   }
@@ -3091,11 +3073,9 @@ export async function getInitializationResult(sessionId: string): Promise<Record
   const session = activeSessions.get(sessionId)
   if (!session?.query) return null
   try {
-    const q = session.query as any
-    if (typeof q.initializationResult === 'function') {
-      return await q.initializationResult()
-    }
-    return null
+    // SDKControlInitializeResponse is not exported from the SDK package; double-cast
+    // is the only option until the SDK exports it or we define a dedicated parsed type.
+    return await session.query.initializationResult() as unknown as Record<string, unknown>
   } catch {
     return null
   }
@@ -3109,11 +3089,12 @@ export async function setMcpServers(sessionId: string, servers: Record<string, u
   const session = activeSessions.get(sessionId)
   if (!session?.query) return null
   try {
-    const q = session.query as any
-    if (typeof q.setMcpServers === 'function') {
-      return await q.setMcpServers(servers)
+    const result = await session.query.setMcpServers(servers as Record<string, import('@anthropic-ai/claude-agent-sdk').McpServerConfig>)
+    return {
+      added: result.added,
+      removed: result.removed,
+      errors: result.errors,
     }
-    return null
   } catch {
     return null
   }

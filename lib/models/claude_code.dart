@@ -1031,6 +1031,8 @@ class ClaudeCodeConfig {
   final bool? respectGitignore;
   final List<ClaudeCodeSubagent> subagents;
   final String? activeSubagent;
+  final bool? agentProgressSummaries;
+  final String? fallbackModel;
 
   const ClaudeCodeConfig({
     required this.permissionMode,
@@ -1053,6 +1055,8 @@ class ClaudeCodeConfig {
     this.respectGitignore,
     this.subagents = const [],
     this.activeSubagent,
+    this.agentProgressSummaries,
+    this.fallbackModel,
   });
 
   factory ClaudeCodeConfig.fromJson(Map<String, dynamic> json) {
@@ -1114,6 +1118,8 @@ class ClaudeCodeConfig {
               .toList() ??
           const [],
       activeSubagent: json['activeSubagent'] as String?,
+      agentProgressSummaries: json['agentProgressSummaries'] as bool?,
+      fallbackModel: json['fallbackModel'] as String?,
     );
   }
 
@@ -1141,6 +1147,9 @@ class ClaudeCodeConfig {
       if (subagents.isNotEmpty)
         'subagents': subagents.map((e) => e.toJson()).toList(),
       if (activeSubagent != null) 'activeSubagent': activeSubagent,
+      if (agentProgressSummaries != null)
+        'agentProgressSummaries': agentProgressSummaries,
+      if (fallbackModel != null) 'fallbackModel': fallbackModel,
     };
   }
 
@@ -1188,6 +1197,10 @@ class ClaudeCodeConfig {
     List<ClaudeCodeSubagent>? subagents,
     String? activeSubagent,
     bool clearActiveSubagent = false,
+    bool? agentProgressSummaries,
+    bool clearAgentProgressSummaries = false,
+    String? fallbackModel,
+    bool clearFallbackModel = false,
   }) {
     return ClaudeCodeConfig(
       permissionMode: permissionMode ?? this.permissionMode,
@@ -1228,6 +1241,12 @@ class ClaudeCodeConfig {
       activeSubagent: clearActiveSubagent
           ? null
           : (activeSubagent ?? this.activeSubagent),
+      agentProgressSummaries: clearAgentProgressSummaries
+          ? null
+          : (agentProgressSummaries ?? this.agentProgressSummaries),
+      fallbackModel: clearFallbackModel
+          ? null
+          : (fallbackModel ?? this.fallbackModel),
     );
   }
 }
@@ -1862,6 +1881,7 @@ class CCTaskProgress extends ClaudeCodeStreamMessage {
   final int? toolUses;
   final int? durationMs;
   final String? lastToolName;
+  final String? summary;
 
   const CCTaskProgress({
     required this.taskId,
@@ -1871,6 +1891,7 @@ class CCTaskProgress extends ClaudeCodeStreamMessage {
     this.toolUses,
     this.durationMs,
     this.lastToolName,
+    this.summary,
     super.parentToolUseId,
   });
 
@@ -1890,6 +1911,7 @@ class CCTaskProgress extends ClaudeCodeStreamMessage {
       toolUses: (usageMap?['toolUses'] as num?)?.toInt(),
       durationMs: (usageMap?['durationMs'] as num?)?.toInt(),
       lastToolName: json['lastToolName'] as String?,
+      summary: json['summary'] as String?,
       parentToolUseId: json['parentToolUseId'] as String?,
     );
   }

@@ -7101,8 +7101,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             persistSession: message.persistSession,
             promptSuggestions: message.promptSuggestions ?? cfg.promptSuggestions,
             enableClaudeAiMcpServers: message.enableClaudeAiMcpServers ?? cfg.enableClaudeAiMcpServers,
-            fallbackModel: message.fallbackModel,
-            additionalDirectories: message.additionalDirectories
+            fallbackModel: message.fallbackModel ?? cfg.fallbackModel,
+            additionalDirectories: message.additionalDirectories,
+            agentProgressSummaries: message.agentProgressSummaries ?? cfg.agentProgressSummaries
           },
           (streamMsg) => {
             const streamMsgWithId = (() => {

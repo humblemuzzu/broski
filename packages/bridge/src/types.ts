@@ -592,6 +592,8 @@ export type ClientMessage =
       fallbackModel?: string
       // B6: additional directories agent can access beyond cwd
       additionalDirectories?: string[]
+      // SDK 0.2.74: enable AI-generated progress summaries for subagents
+      agentProgressSummaries?: boolean
     }
   | { type: 'cc_abort'; sessionId: string }
   | { type: 'cc_stop_task'; sessionId: string; taskId: string }
@@ -2555,6 +2557,8 @@ export type ClaudeCodeConfig = {
   respectGitignore?: boolean
   subagents?: ClaudeCodeSubagent[] // Custom subagent definitions
   activeSubagent?: string // Currently selected subagent name
+  agentProgressSummaries?: boolean // SDK 0.2.74: AI-generated summaries for subagent progress
+  fallbackModel?: string           // Persistent fallback model for auto-retry
 }
 
 export type ClaudeCodeSupportedModel = {
@@ -2823,6 +2827,7 @@ export type ClaudeCodeStreamMessage =
         durationMs: number
       }
       lastToolName?: string
+      summary?: string
       parentToolUseId?: string
     }
   | {

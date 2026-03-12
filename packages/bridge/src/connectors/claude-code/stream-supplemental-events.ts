@@ -53,6 +53,7 @@ export function emitClaudeCodeSupplementalStreamEvents(
       description: String(payload.description ?? ''),
       ...(usage ? { usage } : {}),
       ...(typeof payload.last_tool_name === 'string' ? { lastToolName: payload.last_tool_name } : {}),
+      ...(typeof payload.summary === 'string' ? { summary: payload.summary } : {}),
     })
     return 'handled'
   }

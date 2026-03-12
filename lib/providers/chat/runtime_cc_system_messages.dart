@@ -160,6 +160,7 @@ extension RuntimeCcSystemMessages on ChatSessionNotifier {
   ) {
     final taskId = payloadMap['taskId']?.toString() ?? '';
     final description = payloadMap['description']?.toString() ?? '';
+    final summary = payloadMap['summary']?.toString();
     final usage = payloadMap['usage'] as Map<String, dynamic>?;
     final totalTokens = usage?['totalTokens'];
     final toolUses = usage?['toolUses'];
@@ -169,9 +170,11 @@ extension RuntimeCcSystemMessages on ChatSessionNotifier {
       if (toolUses != null) '$toolUses tools',
       if (durationMs is num) '${(durationMs / 1000).toStringAsFixed(1)}s',
     ];
+    // Prefer AI-generated summary (from agentProgressSummaries) over raw description
+    final displayText = (summary != null && summary.isNotEmpty) ? summary : description;
     final progressText = usageParts.isEmpty
-        ? description
-        : '$description (${usageParts.join(', ')})';
+        ? displayText
+        : '$displayText (${usageParts.join(', ')})';
     final existingId = 'cc-task-$taskId';
     final existingIdx = state.messages.lastIndexWhere(
       (m) => m.id == existingId,
