@@ -1263,6 +1263,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         budgetLimitUsd: ccConfig?.maxBudgetUsd,
         // SDK v2.1.6+: Use context window from token usage if available
         contextWindow: tokenUsage?.effectiveContextWindow ?? 200000,
+        // Per-turn context tokens from iterations[-1] (actual window occupancy)
+        lastIterContextTokens: tokenUsage?.lastIterContextTokens,
         // Avoid client-side "made up" file summaries for Claude Code.
         // Only show what the SDK reports directly (usage/cost).
         modifiedFiles: const [],

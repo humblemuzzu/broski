@@ -1717,6 +1717,10 @@ class CCTokenUsage extends ClaudeCodeStreamMessage {
   final String? messageId;
   // Context window tracking (SDK v2.1.6+)
   final int? contextWindow;
+  // Per-turn context tokens from usage.iterations[-1] (actual window occupancy).
+  // The cumulative inputTokens/cacheReadTokens grow across all turns.
+  // This field is the LAST iteration's input+cacheRead+cacheWrite = what's in the window NOW.
+  final int? lastIterContextTokens;
 
   const CCTokenUsage({
     this.inputTokens,
@@ -1727,6 +1731,7 @@ class CCTokenUsage extends ClaudeCodeStreamMessage {
     this.modelUsage,
     this.messageId,
     this.contextWindow,
+    this.lastIterContextTokens,
     super.parentToolUseId,
   });
 
@@ -1761,6 +1766,7 @@ class CCTokenUsage extends ClaudeCodeStreamMessage {
       messageId: json['messageId'] as String?,
       contextWindow:
           usage['contextWindow'] as int? ?? json['contextWindow'] as int?,
+      lastIterContextTokens: usage['lastIterContextTokens'] as int?,
       parentToolUseId: json['parentToolUseId'] as String?,
     );
   }
@@ -1779,10 +1785,12 @@ class CCTokenUsage extends ClaudeCodeStreamMessage {
   }
 
   /// Context window used percentage (0-100)
-  /// Based on input tokens as per SDK v2.1.6 `context_window.used_percentage`
+  /// Prefers per-turn lastIterContextTokens (actual window occupancy) over
+  /// cumulative inputTokens. Falls back to inputTokens when iterations unavailable.
   double get usedPercentage {
-    if (inputTokens == null || inputTokens == 0) return 0.0;
-    return ((inputTokens! / effectiveContextWindow) * 100).clamp(0.0, 100.0);
+    final tokens = lastIterContextTokens ?? inputTokens;
+    if (tokens == null || tokens == 0) return 0.0;
+    return ((tokens / effectiveContextWindow) * 100).clamp(0.0, 100.0);
   }
 
   /// Context window remaining percentage (0-100)

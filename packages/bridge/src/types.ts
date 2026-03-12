@@ -2737,6 +2737,8 @@ export type ClaudeCodeStreamMessage =
         cacheWriteTokens?: number
         reasoningTokens?: number
         contextWindow?: number
+        /** Per-turn context tokens from last message iteration (actual window occupancy) */
+        lastIterContextTokens?: number
       }
       totalCostUsd?: number
       modelUsage?: Record<string, ClaudeCodeModelUsage>

@@ -50,8 +50,9 @@ class SessionContext {
   }
 
   /// Create context from Claude Code token usage (cumulative from SDK result)
-  /// The SDK provides cumulative totals and cost in the result message
-  /// Note: SDK v2.1.6 added `context_window.used_percentage` based on input tokens
+  /// The SDK provides cumulative totals and cost in the result message.
+  /// SDK usage.iterations provides per-turn breakdowns — the last message
+  /// iteration's tokens reflect actual context window occupancy.
   factory SessionContext.fromClaudeCode({
     int inputTokens = 0,
     int outputTokens = 0,
@@ -62,11 +63,22 @@ class SessionContext {
     double? budgetLimitUsd,
     List<ModifiedFile> modifiedFiles = const [],
     int contextWindow = 200000, // SDK v2.1.6+: Allow custom context window
+    // Per-turn context tokens from SDK usage.iterations[-1].
+    // This is the actual context window occupancy (input + cacheRead + cacheWrite
+    // for a single API call), NOT cumulative across all turns.
+    int? lastIterContextTokens,
   }) {
     // total = fresh tokens only (what the user sees as "usage")
-    // contextTokens = everything occupying the context window (for % bar)
+    // contextTokens = actual context window occupancy (for % bar)
+    //
+    // Data paths:
+    //   1. Live SDK result: cumulative fields + lastIterContextTokens (from iterations[-1])
+    //      → use lastIterContextTokens (accurate per-turn)
+    //   2. RTS per-message replay: per-turn fields, no lastIterContextTokens
+    //      → input + cacheRead + cacheWrite IS per-turn context (correct)
     final total = inputTokens + outputTokens;
-    final contextTokens = inputTokens + cacheReadTokens + cacheWriteTokens;
+    final contextTokens = lastIterContextTokens ??
+        (inputTokens + cacheReadTokens + cacheWriteTokens);
     return SessionContext(
       tokens: TokenUsage(
         input: inputTokens,

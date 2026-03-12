@@ -2785,6 +2785,27 @@ export async function queryClaudeCode(
         if (message.usage) {
           const modelUsage = normalizeModelUsage(message.modelUsage)
           const contextWindow = pickContextWindow(modelUsage, sdkOptions.model)
+
+          // Extract last message-type iteration for accurate context window usage.
+          // usage.iterations has per-API-call breakdowns. The last 'message' iteration
+          // reflects the actual current context window occupancy, NOT cumulative totals.
+          // See: https://docs.anthropic.com/en/docs/about-claude/models (iterations field)
+          let lastIterContextTokens: number | undefined
+          const iterations = (message.usage as any).iterations
+          if (Array.isArray(iterations) && iterations.length > 0) {
+            // Walk backwards to find the last message-type iteration (skip compaction iterations)
+            for (let i = iterations.length - 1; i >= 0; i--) {
+              const iter = iterations[i]
+              if (iter && iter.type === 'message') {
+                lastIterContextTokens =
+                  (iter.input_tokens ?? 0) +
+                  (iter.cache_read_input_tokens ?? 0) +
+                  (iter.cache_creation_input_tokens ?? 0)
+                break
+              }
+            }
+          }
+
           emit({
             type: 'token-usage',
             usage: {
@@ -2793,6 +2814,8 @@ export async function queryClaudeCode(
               cacheReadTokens: message.usage.cache_read_input_tokens,
               cacheCreationTokens: message.usage.cache_creation_input_tokens,
               ...(typeof contextWindow === 'number' ? { contextWindow } : {}),
+              // Per-turn context tokens from last iteration (actual window occupancy)
+              ...(typeof lastIterContextTokens === 'number' ? { lastIterContextTokens } : {}),
             },
             // CC SDK: total_cost_usd is on the result message itself, NOT inside usage
             // SDKResultSuccess/SDKResultError both have top-level total_cost_usd
