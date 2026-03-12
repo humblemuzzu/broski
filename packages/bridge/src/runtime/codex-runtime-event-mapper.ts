@@ -300,6 +300,131 @@ export function mapCodexStreamToRuntimeEvent(
             payload: params,
           }
 
+
+        // BUG-3: model/rerouted — user needs to know model was changed
+        case 'model/rerouted': {
+          return {
+            ...baseEvent('backend_event', ctx, {
+              sourceType: streamMessage.type,
+              method: streamMessage.method,
+            }),
+            kind: 'model/rerouted',
+            payload: params,
+          }
+        }
+
+        // BUG-6: serverRequest/resolved — dismiss stale approval prompts
+        case 'serverRequest/resolved': {
+          return {
+            ...baseEvent('backend_event', ctx, {
+              sourceType: streamMessage.type,
+              method: streamMessage.method,
+            }),
+            kind: 'serverRequest/resolved',
+            payload: params,
+          }
+        }
+
+        // Hook lifecycle events
+        case 'hook/started':
+        case 'hook/completed': {
+          return {
+            ...baseEvent('backend_event', ctx, {
+              sourceType: streamMessage.type,
+              method: streamMessage.method,
+            }),
+            kind: streamMessage.method,
+            payload: params,
+          }
+        }
+
+        // Streaming file change diffs (mirrors item/commandExecution/outputDelta)
+        case 'item/fileChange/outputDelta': {
+          const itemId = typeof params.itemId === 'string'
+            ? params.itemId
+            : typeof params.item_id === 'string'
+              ? params.item_id
+              : undefined
+          if (!itemId) return null
+
+          const deltaBase64 = params.deltaBase64 ?? params.delta_base64
+          const delta = typeof deltaBase64 === 'string'
+            ? Buffer.from(deltaBase64, 'base64').toString('utf8')
+            : typeof params.delta === 'string'
+              ? params.delta
+              : undefined
+          if (!delta) return null
+
+          return {
+            ...baseEvent('tool_updated', ctx, {
+              sourceType: streamMessage.type,
+              method: streamMessage.method,
+            }),
+            toolCallId: itemId,
+            toolName: 'ApplyPatch',
+            partialOutput: delta,
+          }
+        }
+
+        // MCP tool call progress
+        case 'item/mcpToolCall/progress': {
+          const mcpItemId = typeof params.itemId === 'string'
+            ? params.itemId
+            : typeof params.item_id === 'string'
+              ? params.item_id
+              : undefined
+          if (!mcpItemId) return null
+
+          const progress = typeof params.progress === 'string'
+            ? params.progress
+            : typeof params.message === 'string'
+              ? params.message
+              : undefined
+
+          return {
+            ...baseEvent('tool_updated', ctx, {
+              sourceType: streamMessage.type,
+              method: streamMessage.method,
+            }),
+            toolCallId: mcpItemId,
+            toolName: typeof params.server === 'string' ? params.server : 'MCP',
+            partialOutput: progress ?? '',
+          }
+        }
+
+        // Streaming plan text (incremental delta as plan text is written)
+        case 'item/plan/delta': {
+          return {
+            ...baseEvent('backend_event', ctx, {
+              sourceType: streamMessage.type,
+              method: streamMessage.method,
+            }),
+            kind: 'item/plan/delta',
+            payload: params,
+          }
+        }
+
+        // Standalone command exec output streaming (PTY mode)
+        case 'command/exec/outputDelta': {
+          const processId = typeof params.processId === 'string'
+            ? params.processId
+            : undefined
+          if (!processId) return null
+
+          const outputDelta = typeof params.deltaBase64 === 'string'
+            ? Buffer.from(params.deltaBase64, 'base64').toString('utf8')
+            : ''
+
+          return {
+            ...baseEvent('tool_updated', ctx, {
+              sourceType: streamMessage.type,
+              method: streamMessage.method,
+            }),
+            toolCallId: processId,
+            toolName: 'Bash',
+            partialOutput: outputDelta,
+          }
+        }
         default:
           return null
       }

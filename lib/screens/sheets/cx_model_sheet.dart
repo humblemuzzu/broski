@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import '../../theme/app_typography.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +9,7 @@ import '../../theme/opencode_theme.dart';
 import '../../widgets/chat/detail_sheet.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../../utils/error_utils.dart';
+
 /// Bottom sheet that shows available Codex models via a cache-first provider.
 ///
 /// First open with no cache: brief loading spinner, then list.
@@ -24,6 +24,7 @@ class CxModelSheet extends ConsumerWidget {
       child: const CxModelSheet(),
     );
   }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = OpenCodeTheme.of(context);
@@ -33,7 +34,8 @@ class CxModelSheet extends ConsumerWidget {
     final isUsingDefault = current.isEmpty;
     return modelsAsync.when(
       data: (models) {
-        if (models.isEmpty) {
+        final visibleModels = models.where((m) => !m.hidden).toList();
+        if (visibleModels.isEmpty) {
           return Padding(
             padding: Insets.card,
             child: Center(
@@ -55,7 +57,7 @@ class CxModelSheet extends ConsumerWidget {
                 style: AppTypography.bodySmall(color: theme.textMuted),
               ),
               const SizedBox(height: 14),
-              ...models.map((model) {
+              ...visibleModels.map((model) {
                 final selected = isUsingDefault
                     ? model.isDefault
                     : (current == model.id || current == model.model);
@@ -63,9 +65,7 @@ class CxModelSheet extends ConsumerWidget {
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(
-                    selected
-                        ? AppIcons.radioChecked
-                        : AppIcons.radioUnchecked,
+                    selected ? AppIcons.radioChecked : AppIcons.radioUnchecked,
                     size: 18,
                     color: selected ? theme.primary : theme.textMuted,
                   ),
@@ -98,13 +98,20 @@ class CxModelSheet extends ConsumerWidget {
                           ),
                         ),
                       ],
+                      if (model.supportsImages) ...[
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.camera_alt_outlined,
+                          size: 14,
+                          color: theme.textMuted,
+                        ),
+                      ],
                     ],
                   ),
                   subtitle: model.description.isNotEmpty
                       ? Text(
                           model.description,
-                          style:
-                              AppTypography.label(color: theme.textMuted),
+                          style: AppTypography.label(color: theme.textMuted),
                         )
                       : null,
                   onTap: () {
@@ -115,6 +122,39 @@ class CxModelSheet extends ConsumerWidget {
                   },
                 );
               }),
+              // Show upgrade banner if any model has an upgrade path
+              ...(() {
+                final modelsWithUpgrade = visibleModels
+                    .where((m) => m.hasUpgrade)
+                    .toList();
+                if (modelsWithUpgrade.isEmpty) return <Widget>[];
+                final first = modelsWithUpgrade.first;
+                return <Widget>[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: theme.primary.withValues(alpha: 0.08),
+                      borderRadius: Radii.brSm,
+                      border: Border.all(
+                        color: theme.primary.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.upgrade, size: 18, color: theme.primary),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            first.upgradeCopy ?? 'A model upgrade is available',
+                            style: AppTypography.bodySmall(color: theme.text),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ];
+              })(),
             ],
           ),
         );
@@ -142,8 +182,7 @@ class CxModelSheet extends ConsumerWidget {
             ),
             SizedBox(height: Spacing.md),
             TextButton(
-              onPressed: () =>
-                  ref.read(codexModelsProvider.notifier).refresh(),
+              onPressed: () => ref.read(codexModelsProvider.notifier).refresh(),
               child: const Text('Retry'),
             ),
           ],

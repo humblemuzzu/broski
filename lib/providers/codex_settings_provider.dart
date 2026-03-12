@@ -65,6 +65,11 @@ class CodexSettingsNotifier extends StateNotifier<CodexSettings> {
     await _save();
   }
 
+  Future<void> setServiceTier(CodexServiceTier tier) async {
+    state = state.copyWith(serviceTier: tier);
+    await _save();
+  }
+
   void cycleCollaborationMode() {
     final modes = CodexCollaborationMode.values;
     final currentIndex = modes.indexOf(state.collaborationMode);

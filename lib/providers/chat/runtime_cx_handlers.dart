@@ -14,8 +14,8 @@ extension _RuntimeCxHandlers on ChatSessionNotifier {
     final payloadMap = payload is Map<String, dynamic>
         ? payload
         : payload is Map
-            ? payload.cast<String, dynamic>()
-            : <String, dynamic>{};
+        ? payload.cast<String, dynamic>()
+        : <String, dynamic>{};
 
     switch (event.kind) {
       case 'thread/started':
@@ -61,8 +61,8 @@ extension _RuntimeCxHandlers on ChatSessionNotifier {
             final mappedStatus = status == 'inProgress'
                 ? 'in_progress'
                 : status == 'completed'
-                    ? 'completed'
-                    : 'pending';
+                ? 'completed'
+                : 'pending';
             todos.add(
               Todo(
                 id: 'cx-plan-$i',
@@ -105,6 +105,94 @@ extension _RuntimeCxHandlers on ChatSessionNotifier {
       case 'collab_resume_end':
         _handleRuntimeCxCollabEvent(event.kind, payloadMap);
 
+      // BUG-3: Model rerouted — show warning
+      case 'model/rerouted':
+        final from =
+            payloadMap['from']?.toString() ??
+            payloadMap['originalModel']?.toString() ??
+            '';
+        final to =
+            payloadMap['to']?.toString() ??
+            payloadMap['model']?.toString() ??
+            '';
+        final reason = payloadMap['reason']?.toString() ?? 'capacity';
+        if (to.isNotEmpty) {
+          _addMessage(
+            ChatMessage(
+              id: 'cx-model-rerouted-${DateTime.now().millisecondsSinceEpoch}',
+              sessionId: state.cxThreadId ?? '',
+              role: MessageRole.system,
+              createdAt: DateTime.now(),
+              text:
+                  '⚠️ Model rerouted${from.isNotEmpty ? ' from $from' : ''} to $to ($reason)',
+              variant: 'cx-model-rerouted',
+            ),
+          );
+        }
+
+      // BUG-6: serverRequest/resolved — dismiss stale approval prompts
+      case 'serverRequest/resolved':
+        final resolvedRequestId = payloadMap['requestId']?.toString() ?? '';
+        if (resolvedRequestId.isNotEmpty) {
+          // Remove the pending permission request from state
+          final currentPermissions = [...state.permissions];
+          currentPermissions.removeWhere((p) => p.id == resolvedRequestId);
+          if (currentPermissions.length != state.permissions.length) {
+            state = state.copyWith(permissions: currentPermissions);
+          }
+        }
+
+      // Hook lifecycle
+      case 'hook/started':
+        final hookId = payloadMap['id']?.toString() ?? '';
+        final eventName = payloadMap['eventName']?.toString() ?? '';
+        final handlerType = payloadMap['handlerType']?.toString() ?? '';
+        if (hookId.isNotEmpty) {
+          _addMessage(
+            ChatMessage(
+              id: 'cx-hook-started-$hookId',
+              sessionId: state.cxThreadId ?? '',
+              role: MessageRole.system,
+              createdAt: DateTime.now(),
+              text:
+                  '🪝 Hook started: $eventName ${handlerType.isNotEmpty ? '($handlerType)' : ''}',
+              variant: 'cx-hook-started',
+            ),
+          );
+        }
+
+      case 'hook/completed':
+        final hookId = payloadMap['id']?.toString() ?? '';
+        final hookStatus = payloadMap['status']?.toString() ?? 'completed';
+        final statusMessage = payloadMap['statusMessage']?.toString();
+        final durationMs = payloadMap['durationMs'];
+        final durationStr = durationMs != null
+            ? ' (${(durationMs as num).toDouble() / 1000}s)'
+            : '';
+        if (hookId.isNotEmpty) {
+          final icon = hookStatus == 'completed'
+              ? '✅'
+              : hookStatus == 'failed'
+              ? '❌'
+              : '⏳';
+          _addMessage(
+            ChatMessage(
+              id: 'cx-hook-completed-$hookId',
+              sessionId: state.cxThreadId ?? '',
+              role: MessageRole.system,
+              createdAt: DateTime.now(),
+              text:
+                  '🪝 Hook $icon $hookStatus$durationStr${statusMessage != null ? ': $statusMessage' : ''}',
+              variant: 'cx-hook-completed',
+            ),
+          );
+        }
+
+      // Plan text streaming delta
+      case 'item/plan/delta':
+        // Plan deltas are handled via raw cx_stream passthrough
+        break;
+
       default:
         break;
     }
@@ -122,13 +210,13 @@ extension _RuntimeCxHandlers on ChatSessionNotifier {
     final receiverThreadId =
         (params['receiverThreadId'] ?? params['receiver_thread_id'])
             ?.toString();
-    final newThreadId =
-        (params['newThreadId'] ?? params['new_thread_id'])?.toString();
+    final newThreadId = (params['newThreadId'] ?? params['new_thread_id'])
+        ?.toString();
     final newAgentNickname =
         (params['newAgentNickname'] ?? params['new_agent_nickname'])
             ?.toString();
-    final newAgentRole =
-        (params['newAgentRole'] ?? params['new_agent_role'])?.toString();
+    final newAgentRole = (params['newAgentRole'] ?? params['new_agent_role'])
+        ?.toString();
     final prompt = params['prompt']?.toString();
 
     CodexCollabAgentStatus? parseStatus(dynamic statusData) {

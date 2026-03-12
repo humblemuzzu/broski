@@ -5,6 +5,7 @@ type CodexApprovalReply = {
   execpolicyAmendment?: any;
   networkPolicyAmendment?: { host: string; action: "allow" | "deny" };
   answers?: Record<string, { answers: string[] }>;
+  formData?: Record<string, unknown>;
 };
 
 type BuildApprovalDecisionParams = {
@@ -39,6 +40,43 @@ export function buildCodexApprovalDecision({
         ? "approve"
         : "decline";
     return { decision };
+  }
+
+  // Permissions approval (SDK item/permissions/requestApproval)
+  const isPermissionsApproval =
+    requestMethod === "item/permissions/requestApproval";
+  if (isPermissionsApproval) {
+    const decision =
+      response.response === "once" || response.response === "always"
+        ? "approve"
+        : "decline";
+    // scope maps to how broadly to grant: 'turn' | 'session' | 'global'
+    const scope =
+      response.response === "always"
+        ? "global"
+        : response.response === "once"
+          ? "turn"
+          : "turn";
+    return {
+      permissions: requestParams.permissions ?? {},
+      scope,
+    };
+  }
+
+  // MCP elicitation response (SDK mcpServer/elicitation/request)
+  const isMcpElicitation = requestMethod === "mcpServer/elicitation/request";
+  if (isMcpElicitation) {
+    // Form mode: submit data; URL mode: signal completion; or cancel
+    if (response.response === "reject") {
+      return { action: "cancel" };
+    }
+    // Check if there's form data from the Flutter side
+    const formData = (response as any).formData ?? (response as any).data;
+    if (formData && typeof formData === "object") {
+      return { action: "submit", data: formData };
+    }
+    // URL mode completion
+    return { action: "completed" };
   }
 
   const isCommandApproval =

@@ -12,7 +12,17 @@ import * as fileSearch from './file-search'
 import { CodexAppServerClient, checkCodexAvailable } from './connectors/codex'
 import * as pi from './connectors/pi'
 import { handleCodexFeature } from './handlers/codex_features'
+import { handleCxPlugins } from './handlers/codex/cx_plugins'
+import { handleCxThreads } from './handlers/codex/cx_threads'
+import { handleCxChat } from './handlers/codex/cx_chat'
+import { handleCxConfig } from './handlers/codex/cx_config'
+import { handleCxSkills } from './handlers/codex/cx_skills'
+import { handleCxMcp } from './handlers/codex/cx_mcp'
+import { handleCxAccount } from './handlers/codex/cx_account'
+import { handleCxAgents } from './handlers/codex/cx_agents'
+import { handleCxFiles } from './handlers/codex/cx_files'
 import { buildCodexApprovalDecision } from './handlers/codex/approval-decision'
+import { handleCxCommandPty } from './handlers/codex/cx_command_pty'
 import { mapCodexThreadFromSdk } from './handlers/codex/map-thread'
 import { handleCodexRuntimeNotification } from './handlers/codex/runtime-notifications'
 import { handleGitFeature } from './handlers/git'
@@ -1553,7 +1563,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             params,
             sockets,
             send,
-            safeString
+            safeString,
+            cxThreadOwners,
+            cxThreadCwds,
           })
 
           if (!threadId && params.turn?.threadId) {
@@ -6265,948 +6277,212 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
         reply({ type: 'instance_disposed', data: disposed })
         break
       }
-      case 'cx_list_projects': {
-        // FAST PATH: Read directly from filesystem (no app-server needed!)
-        // Same pattern as Claude Code - instant file I/O instead of subprocess
-        const now = Date.now()
-        const forceRefresh = message.refresh === true
-
-        // Check cache first (unless explicit refresh requested)
-        if (!forceRefresh && cxProjectCache && now - cxProjectCache.fetchedAt < CODEX_PROJECT_CACHE_TTL_MS) {
-          logInfo('[cx_list_projects] Cache hit, returning cached data')
-          reply({ type: 'cx_projects', data: cxProjectCache.data })
-          break
-        }
-
-        logInfo(`[cx_list_projects] ${forceRefresh ? 'Refresh requested' : 'Cache miss'}, reading from filesystem...`)
-        let projects = await codexFs.listProjectsFromFs()
-
-        // SQLite-era fallback: derive project roots from thread/list when filesystem cache is empty.
-        if (projects.length === 0) {
-          try {
-            const client = await ensureCodexClient()
-            const rpcResult: any = await client.request('thread/list', {
-              limit: 200
-            })
-            const threads: any[] = rpcResult?.data ?? []
-            const byPath = new Map<string, { id: string; name: string; path: string }>()
-            for (const thread of threads) {
-              const path = safeString(thread?.cwd).trim()
-              if (!path) continue
-              const name = basename(path)
-              byPath.set(path, { id: path, name: name || path, path })
-            }
-            projects = Array.from(byPath.values())
-            logInfo(`[cx_list_projects] Filesystem empty, recovered ${projects.length} projects via cold thread/list`)
-          } catch (err: any) {
-            logInfo(`[cx_list_projects] Cold thread/list fallback unavailable: ${err?.message ?? err}`)
-          }
-        }
-
-        // Update cache
-        cxProjectCache = { data: projects, fetchedAt: Date.now() }
-        logInfo(`[cx_list_projects] Done, cached ${projects.length} projects`)
-        reply({ type: 'cx_projects', data: projects })
-        break
-      }
-      case 'cx_list_threads': {
-        // Protocol: thread/list via JSON-RPC (preferred) with filesystem fallback
-        // ThreadListParams: { cursor?, limit?, sortKey?, modelProviders?, sourceKinds?, archived?, cwd? }
-        // ThreadListResponse: { data: Thread[], nextCursor: string | null }
-        const now = Date.now()
-        const forceRefresh = message.refresh === true
-        const cacheKey = message.cwd ? resolve(message.cwd) : '__all__'
-
-        // Check cache first (unless explicit refresh or cursor-based pagination)
-        const cached = cxThreadCache.get(cacheKey)
-        if (!forceRefresh && !message.cursor && cached && now - cached.fetchedAt < CODEX_THREAD_CACHE_TTL_MS) {
-          logInfo(`[cx_list_threads] Cache hit for ${cacheKey}, returning cached data`)
-          // Merge latest thread names into cached response (names may have changed since caching)
-          const cachedData =
-            cxThreadNames.size > 0
-              ? cached.data.map((t: any) => {
-                  const name = cxThreadNames.get(t.id)
-                  return name ? { ...t, threadName: name } : t
-                })
-              : cached.data
-          reply({
-            type: 'cx_threads',
-            data: cachedData,
-            nextCursor: cached.nextCursor
-          })
-          break
-        }
-
-        logInfo(`[cx_list_threads] ${forceRefresh ? 'Refresh requested' : 'Cache miss'}, fetching thread list...`)
-
-        // Try JSON-RPC thread/list first (if Codex is running), fall back to filesystem
-        let threadData: any[] = []
-        let nextCursor: string | null = null
-        try {
-          if (codexClient?.isRunning) {
-            // Use proper thread/list RPC — supports filtering, sorting, pagination
-            const rpcParams: any = {}
-            if (message.cursor) rpcParams.cursor = message.cursor
-            if (message.limit) rpcParams.limit = message.limit
-            if (message.sortKey) rpcParams.sortKey = message.sortKey
-            if (message.modelProviders) rpcParams.modelProviders = message.modelProviders
-            if (message.sourceKinds) rpcParams.sourceKinds = message.sourceKinds
-            if (message.archived !== undefined && message.archived !== null) rpcParams.archived = message.archived
-            if (message.cwd) rpcParams.cwd = message.cwd
-
-            const result: any = await codexClient.request('thread/list', rpcParams)
-            threadData = result?.data ?? []
-            nextCursor = result?.nextCursor ?? null
-            logInfo(`[cx_list_threads] Got ${threadData.length} threads via thread/list RPC`)
-          } else {
-            // Codex not running — use filesystem fallback first (fast, no subprocess).
-            threadData = await codexFs.listThreadsFromFs(message.cwd ?? undefined)
-            nextCursor = null
-            logInfo(`[cx_list_threads] Got ${threadData.length} threads via filesystem fallback`)
-
-            // SQLite-era fallback: if filesystem has no sessions, ask app-server directly.
-            if (threadData.length === 0) {
-              try {
-                const coldClient = await ensureCodexClient()
-                const rpcResult: any = await coldClient.request('thread/list', {})
-                threadData = rpcResult?.data ?? []
-                nextCursor = rpcResult?.nextCursor ?? null
-                logInfo(`[cx_list_threads] Filesystem empty, recovered ${threadData.length} threads via cold thread/list`)
-              } catch (coldErr: any) {
-                logInfo(`[cx_list_threads] Cold thread/list fallback unavailable: ${coldErr?.message ?? coldErr}`)
-              }
-            }
-          }
-        } catch (e: any) {
-          // RPC failed — fall back to filesystem
-          logError(`[cx_list_threads] RPC failed, falling back to filesystem:`, e?.message)
-          try {
-            threadData = await codexFs.listThreadsFromFs(message.cwd ?? undefined)
-            nextCursor = null
-          } catch (fsErr: any) {
-            logError(`[cx_list_threads] Filesystem fallback also failed:`, fsErr?.message)
-            threadData = []
-            nextCursor = null
-          }
-        }
-
-        // Merge any known thread names from thread/name/updated notifications
-        const threadsWithNames =
-          cxThreadNames.size > 0
-            ? threadData.map((t: any) => {
-                const name = cxThreadNames.get(t.id)
-                return name ? { ...t, threadName: name } : t
-              })
-            : threadData
-
-        // Enrich threads with diff stats from filesystem (cached by mtime)
-        await codexFs.enrichThreadsWithStats(threadsWithNames)
-
-        // Update cache
-        cxThreadCache.set(cacheKey, {
-          data: threadsWithNames,
-          fetchedAt: Date.now(),
-          nextCursor
-        })
-        logInfo(`[cx_list_threads] Done, cached ${threadsWithNames.length} threads`)
-        reply({ type: 'cx_threads', data: threadsWithNames, nextCursor })
-        reply({
-          type: 'runtime_sessions',
-          backend: 'codex',
-          data: threadsWithNames.map((thread: CodexThread & { threadName?: string }) =>
-            mapCodexThreadToRuntimeSession(thread),
-          ),
-        })
-        break
-      }
-      case 'cx_warmup': {
-        // Pre-populate caches from filesystem for instant loading
-        // No app-server spawn needed for listing - just file I/O
-        logInfo('[cx_warmup] Starting Codex warmup (filesystem)...')
-        reply({ type: 'cx_warmup_started' })
-
-        // Fire-and-forget: pre-warm caches from filesystem
-        ;(async () => {
-          try {
-            // Pre-fetch projects from filesystem
-            const projects = await codexFs.listProjectsFromFs()
-            cxProjectCache = { data: projects, fetchedAt: Date.now() }
-            logInfo(`[cx_warmup] Pre-cached ${projects.length} projects from filesystem`)
-
-            // Pre-fetch all threads from filesystem
-            const threads = await codexFs.listThreadsFromFs()
-            cxThreadCache.set('__all__', {
-              data: threads,
-              fetchedAt: Date.now(),
-              nextCursor: null
-            })
-            logInfo(`[cx_warmup] Pre-cached ${threads.length} threads from filesystem`)
-          } catch (e) {
-            logError('[cx_warmup] Error:', e)
-          }
-        })()
-        break
-      }
-      case 'cx_start_thread': {
-        const client = await ensureCodexClient()
-        const cwd = safeString(message.cwd).trim()
-        if (!cwd) {
-          reply({ type: 'error', message: 'Missing cwd' })
-          break
-        }
-        const personalityVal = safeString(message.personality).trim().toLowerCase()
-        const personality = personalityVal === 'none' || personalityVal === 'friendly' || personalityVal === 'pragmatic' ? personalityVal : null
-        const result: any = await client.request('thread/start', {
-          cwd,
-          model: message.model ?? null,
-          approvalPolicy: message.approvalPolicy ?? null,
-          sandbox: message.sandbox ?? null,
-          ...(personality ? { personality } : {}),
-          experimentalRawEvents: false
-        })
-        const threadId_start = safeString(result?.thread?.id)
-        const thread = mapCodexThread(result?.thread, cxThreadNames.get(threadId_start))
-        if (thread.id && thread.cwd) {
-          const secureThreadCwd = await getSecurePath(thread.cwd)
-          if (secureThreadCwd) cxThreadCwds.set(thread.id, secureThreadCwd)
-        }
-        // Invalidate caches since a new thread was created
-        invalidateCodexCaches(thread.cwd)
-        reply({ type: 'cx_thread_created', data: thread })
-        break
-      }
-      case 'cx_resume_thread': {
-        const client = await ensureCodexClient()
-        const personalityResume = safeString(message.personality).trim().toLowerCase()
-        const personalityResumeVal = personalityResume === 'none' || personalityResume === 'friendly' || personalityResume === 'pragmatic' ? personalityResume : null
-        const result: any = await client.request('thread/resume', {
-          threadId: message.threadId,
-          ...(personalityResumeVal ? { personality: personalityResumeVal } : {})
-        })
-        const thread = mapCodexThread(result?.thread, cxThreadNames.get(message.threadId))
-        if (thread.id && thread.cwd) {
-          const secureThreadCwd = await getSecurePath(thread.cwd)
-          if (secureThreadCwd) cxThreadCwds.set(thread.id, secureThreadCwd)
-        }
-        reply({ type: 'cx_thread', data: thread })
-        break
-      }
+      case 'cx_list_projects':
+      case 'cx_list_threads':
+      case 'cx_warmup':
+      case 'cx_start_thread':
+      case 'cx_resume_thread':
       case 'cx_archive_thread': {
-        const client = await ensureCodexClient()
-        // Get the thread's cwd before archiving (for cache invalidation)
-        const archivedCwd = cxThreadCwds.get(message.threadId)
-        await client.request('thread/archive', { threadId: message.threadId })
-        // Invalidate caches since a thread was archived
-        invalidateCodexCaches(archivedCwd)
-        reply({
-          type: 'cx_thread_archived',
-          data: true,
-          threadId: message.threadId
+        const handled = await handleCxThreads(message, reply, {
+          ensureCodexClient,
+          codexClient,
+          codexFs,
+          safeString,
+          getSecurePath,
+          logInfo,
+          logError,
+          cxProjectCache,
+          setProjectCache: (cache) => { cxProjectCache = cache },
+          cxThreadCache,
+          CODEX_PROJECT_CACHE_TTL_MS,
+          CODEX_THREAD_CACHE_TTL_MS,
+          cxThreadNames,
+          cxThreadOwners,
+          cxThreadCwds,
+          mapCodexThread,
+          mapCodexThreadToRuntimeSession,
+          invalidateCodexCaches,
+          ws,
         })
-        break
-      }
-      case 'cx_get_thread_messages': {
-        // FAST PATH: Read messages directly from filesystem (no app-server needed!)
-        // Same pattern as listing - instant file I/O instead of slow subprocess
-        logInfo(`[cx_get_thread_messages] Reading messages for thread ${message.threadId} from filesystem...`)
-        const transcript = await codexFs.getThreadMessagesFromFs(message.threadId)
-        logInfo(`[cx_get_thread_messages] Found ${transcript.length} messages`)
-        reply({
-          type: 'cx_thread_messages',
-          data: transcript,
-          threadId: message.threadId
-        })
-        break
-      }
-      case 'cx_model_list': {
-        const client = await ensureCodexClient()
-        const result: any = await client.request('model/list', {
-          cursor: null,
-          limit: 200,
-          includeHidden: true
-        })
-        reply({
-          type: 'cx_models',
-          data: result?.data ?? [],
-          nextCursor: result?.nextCursor ?? null
-        })
-        reply({
-          type: 'runtime_models',
-          backend: 'codex',
-          data: (Array.isArray(result?.data) ? result.data : []).map(
-            (model: Record<string, unknown>) => mapCodexModelToSummary(model),
-          ),
-        })
-        break
-      }
-      case 'cx_skills_list': {
-        const client = await ensureCodexClient()
-        const cwds = message.cwd ? [message.cwd] : []
-        const result: any = await client.request('skills/list', {
-          cwds,
-          forceReload: message.forceReload === true
-        })
-        reply({ type: 'cx_skills', data: result?.data ?? [] })
-        break
-      }
-      case 'cx_get_skill': {
-        const skillFiles = await import('./skills')
-        if (!skillFiles.validateSkillName(message.name)) {
-          reply({ type: 'error', message: 'Invalid skill name' })
-          break
-        }
-        const path = skillFiles.getCodexSkillFilePath({
-          name: message.name,
-          scope: message.scope,
-          cwd: message.cwd
-        })
-        try {
-          const content = await skillFiles.readSkillFile(path)
-          reply({
-            type: 'cx_skill',
-            data: { name: message.name, path, scope: message.scope, content }
-          })
-        } catch {
-          reply({ type: 'error', message: 'Skill not found' })
+        if (!handled) {
+          reply({ type: 'error', message: `Unhandled thread feature: ${message.type}` })
         }
         break
       }
-      case 'cx_save_skill': {
-        const skillFiles = await import('./skills')
-        if (!skillFiles.validateSkillName(message.name)) {
-          reply({ type: 'cx_skill_saved', data: { ok: false } })
-          break
-        }
-        const path = skillFiles.getCodexSkillFilePath({
-          name: message.name,
-          scope: message.scope,
-          cwd: message.cwd
-        })
-        try {
-          await skillFiles.writeSkillFile(path, message.content)
-          reply({ type: 'cx_skill_saved', data: { ok: true, path } })
-        } catch {
-          reply({ type: 'cx_skill_saved', data: { ok: false } })
-        }
-        break
-      }
-      case 'cx_delete_skill': {
-        const skillFiles = await import('./skills')
-        if (!skillFiles.validateSkillName(message.name)) {
-          reply({ type: 'cx_skill_deleted', data: { ok: false } })
-          break
-        }
-        const path = skillFiles.getCodexSkillFilePath({
-          name: message.name,
-          scope: message.scope,
-          cwd: message.cwd
-        })
-        try {
-          await skillFiles.deleteSkillByPath(path)
-          reply({ type: 'cx_skill_deleted', data: { ok: true } })
-        } catch {
-          reply({ type: 'cx_skill_deleted', data: { ok: false } })
-        }
-        break
-      }
-      case 'cx_list_prompts': {
-        const skillFiles = await import('./skills')
-        const cwd = safeString(message.cwd).trim() || undefined
-        const prompts = await skillFiles.listCodexPrompts(cwd)
-        reply({ type: 'cx_prompts', data: prompts })
-        break
-      }
-      case 'cx_config_read': {
-        const client = await ensureCodexClient()
-        const result: any = await client.request('config/read', {
-          includeLayers: false
-        })
-        reply({ type: 'cx_config', data: result ?? {} })
-        break
-      }
-      case 'cx_config_value_write': {
-        const client = await ensureCodexClient()
-        // Codex app-server protocol expects MergeStrategy on the wire as lower-case strings
-        // (enum is `Replace|Upsert` in Rust with `rename_all = "camelCase"`).
-        const mergeStrategyRaw = safeString(message.mergeStrategy).trim().toLowerCase()
-        const mergeStrategy = mergeStrategyRaw === 'upsert' ? 'upsert' : 'replace'
-        const result: any = await client.request('config/value/write', {
-          keyPath: message.keyPath,
-          value: message.value,
-          mergeStrategy,
-          filePath: null,
-          expectedVersion: null
-        })
-        reply({ type: 'cx_config_written', data: result ?? {} })
-        break
-      }
-      case 'cx_mcp_status_list': {
-        const client = await ensureCodexClient()
-        const result: any = await client.request('mcpServerStatus/list', {
-          cursor: message.cursor ?? null,
-          limit: message.limit ?? 200
-        })
-        reply({
-          type: 'cx_mcp_status',
-          data: result?.data ?? [],
-          nextCursor: result?.nextCursor ?? null
-        })
-        break
-      }
-      // Codex MCP Hot Reload (SDK feature) - reloads MCP server config without restarting
-      case 'cx_mcp_reload': {
-        const client = await ensureCodexClient()
-        // Protocol expects params to be omitted (Option<()>).
-        const result: any = await client.request('config/mcpServer/reload')
-        reply({ type: 'cx_mcp_reloaded', data: result ?? {} })
-        break
-      }
-      case 'cx_review_start': {
-        const client = await ensureCodexClient()
-        const explicitCwd = safeString(message.cwd).trim()
-
-        let threadId = message.threadId
-        const storedCwd = threadId ? cxThreadCwds.get(threadId) : null
-        if (storedCwd && explicitCwd && storedCwd !== explicitCwd) {
-          reply({ type: 'error', message: 'Access denied' })
-          break
-        }
-        const cwd = explicitCwd || storedCwd || ''
-        if (!cwd) {
-          reply({ type: 'error', message: 'Missing cwd' })
-          break
-        }
-        if (!threadId) {
-          const startRes: any = await client.request('thread/start', {
-            cwd,
-            model: message.model ?? null,
-            approvalPolicy: message.approvalPolicy ?? null,
-            sandbox: message.sandbox ?? null,
-            config: message.config ?? null
-          })
-          threadId = safeString(startRes?.thread?.id)
-          if (threadId) {
-            reply({
-              type: 'cx_thread_created',
-              data: mapCodexThread(startRes.thread)
-            })
-            cxThreadCwds.set(threadId, cwd)
-          }
-        } else {
-          const personalityReview = safeString(message.personality).trim().toLowerCase()
-          const personalityReviewVal = personalityReview === 'none' || personalityReview === 'friendly' || personalityReview === 'pragmatic' ? personalityReview : null
-          await client.request('thread/resume', {
-            threadId,
-            model: message.model ?? null,
-            cwd,
-            approvalPolicy: message.approvalPolicy ?? null,
-            sandbox: message.sandbox ?? null,
-            config: message.config ?? null,
-            ...(personalityReviewVal ? { personality: personalityReviewVal } : {})
-          })
-        }
-
-        if (!threadId) {
-          reply({
-            type: 'error',
-            message: 'Failed to create/resume Codex thread for review'
-          })
-          break
-        }
-
-        cxThreadOwners.set(threadId, ws)
-
-        const target = message.target ?? { type: 'uncommittedChanges' }
-        const delivery = message.delivery ?? 'inline'
-        // EXPERIMENTAL: `review/start` is not part of the confirmed public Codex API surface.
-        // Keep this feature behind UI affordances that can be removed if the endpoint disappears.
-        const res: any = await client.request('review/start', {
-          threadId,
-          target,
-          delivery
-        })
-        const reviewThreadId = safeString(res?.reviewThreadId ?? res?.review_thread_id) || threadId
-        const turnId = safeString(res?.turn?.id)
-        if (reviewThreadId) cxThreadOwners.set(reviewThreadId, ws)
-        if (turnId && reviewThreadId) cxActiveTurns.set(reviewThreadId, turnId)
-        reply({
-          type: 'cx_review_started',
-          data: { threadId, reviewThreadId, turnId }
-        })
-        break
-      }
-      case 'cx_account_read': {
-        const client = await ensureCodexClient()
-        const result: any = await client.request('account/read', {
-          refreshToken: message.refreshToken === true
-        })
-        reply({ type: 'cx_account', data: result ?? {} })
-        break
-      }
-      case 'cx_login_start': {
-        const client = await ensureCodexClient()
-        const loginType = message.loginType
-        const params = loginType === 'apiKey' ? { type: 'apiKey', apiKey: message.apiKey ?? '' } : { type: 'chatgpt' }
-        const result: any = await client.request('account/login/start', params)
-        reply({ type: 'cx_login_started', data: result ?? {} })
-        break
-      }
-      case 'cx_login_cancel': {
-        const client = await ensureCodexClient()
-        const result: any = await client.request('account/login/cancel', {
-          loginId: message.loginId
-        })
-        reply({ type: 'cx_login_canceled', data: result ?? {} })
-        break
-      }
-      case 'cx_logout': {
-        const client = await ensureCodexClient()
-        const result: any = await client.request('account/logout')
-        reply({ type: 'cx_logged_out', data: result ?? {} })
-        break
-      }
-      case 'cx_rate_limits_read': {
-        const client = await ensureCodexClient()
-        const result: any = await client.request('account/rateLimits/read')
-        reply({ type: 'cx_rate_limits', data: result ?? {} })
-        break
-      }
-      case 'cx_feedback_upload': {
-        const client = await ensureCodexClient()
-        const result: any = await client.request('feedback/upload', {
-          classification: message.classification,
-          reason: message.reason ?? null,
-          threadId: message.threadId ?? null,
-          includeLogs: message.includeLogs === true,
-          extraLogFiles: Array.isArray(message.extraLogFiles) ? message.extraLogFiles : undefined
-        })
-        reply({ type: 'cx_feedback_uploaded', data: result ?? {} })
-        break
-      }
+      case 'cx_get_thread_messages':
       case 'cx_undo_files': {
-        const threadId = safeString(message.threadId)
-        if (!threadId) {
-          reply({
-            type: 'cx_undo_result',
-            data: { ok: false, revertedPaths: [], error: 'Missing threadId' }
-          })
-          break
-        }
-        const stack = ensureUndoStack(threadId)
-        const count = Math.max(1, Number(message.count ?? 1) || 1)
-        if (stack.length === 0) {
-          reply({
-            type: 'cx_undo_result',
-            data: { ok: true, revertedPaths: [] }
-          })
-          break
-        }
-        const keys = stack.slice(-count)
-        const revertedAll: string[] = []
-        try {
-          for (const key of keys.reverse()) {
-            const reverted = await applyCodexUndo(threadId, key)
-            revertedAll.push(...reverted)
-          }
-          reply({
-            type: 'cx_undo_result',
-            data: { ok: true, revertedPaths: revertedAll }
-          })
-        } catch (err: any) {
-          reply({
-            type: 'cx_undo_result',
-            data: {
-              ok: false,
-              revertedPaths: revertedAll,
-              error: err?.message ?? String(err)
-            }
-          })
+        const filesHandled = await handleCxFiles(message, reply, {
+          safeString,
+          logInfo,
+          codexFs,
+          ensureUndoStack,
+          applyCodexUndo,
+        })
+        if (!filesHandled) {
+          reply({ type: 'error', message: `Unhandled files feature: ${message.type}` })
         }
         break
       }
-      case 'cx_agents_read': {
-        const requestedCwd = safeString(message.cwd).trim()
-        const secureCwd = requestedCwd ? await getSecurePath(requestedCwd) : null
-        if (!secureCwd) {
-          reply({ type: 'error', message: 'Access denied' })
-          break
-        }
-        const agentsPath = resolve(secureCwd, 'AGENTS.md')
-        try {
-          const content = await readFile(agentsPath, 'utf8')
-          reply({
-            type: 'cx_agents',
-            data: { exists: true, path: agentsPath, content }
-          })
-        } catch {
-          reply({
-            type: 'cx_agents',
-            data: { exists: false, path: agentsPath, content: '' }
-          })
+      case 'cx_model_list':
+      case 'cx_config_read':
+      case 'cx_config_value_write': {
+        const configHandled = await handleCxConfig(message, reply, {
+          ensureCodexClient,
+          safeString,
+        })
+        if (!configHandled) {
+          reply({ type: 'error', message: `Unhandled config feature: ${message.type}` })
         }
         break
       }
+      case 'cx_skills_list':
+      case 'cx_get_skill':
+      case 'cx_save_skill':
+      case 'cx_delete_skill':
+      case 'cx_list_prompts': {
+        const skillsHandled = await handleCxSkills(message, reply, {
+          ensureCodexClient,
+          safeString,
+        })
+        if (!skillsHandled) {
+          reply({ type: 'error', message: `Unhandled skills feature: ${message.type}` })
+        }
+        break
+      }
+      case 'cx_mcp_status_list':
+      case 'cx_mcp_reload':
+      case 'cx_review_start': {
+        const mcpHandled = await handleCxMcp(message, reply, {
+          ensureCodexClient,
+          safeString,
+          cxThreadOwners,
+          cxThreadCwds,
+          cxActiveTurns,
+          mapCodexThread,
+          ws,
+        })
+        if (!mcpHandled) {
+          reply({ type: 'error', message: `Unhandled MCP feature: ${message.type}` })
+        }
+        break
+      }
+      case 'cx_account_read':
+      case 'cx_login_start':
+      case 'cx_login_cancel':
+      case 'cx_logout':
+      case 'cx_rate_limits_read':
+      case 'cx_feedback_upload': {
+        const accountHandled = await handleCxAccount(message, reply, {
+          ensureCodexClient,
+        })
+        if (!accountHandled) {
+          reply({ type: 'error', message: `Unhandled account feature: ${message.type}` })
+        }
+        break
+      }
+      case 'cx_agents_read':
       case 'cx_agents_write': {
-        const requestedCwd = safeString(message.cwd).trim()
-        const secureCwd = requestedCwd ? await getSecurePath(requestedCwd) : null
-        if (!secureCwd) {
-          reply({ type: 'error', message: 'Access denied' })
-          break
-        }
-        const agentsPath = resolve(secureCwd, 'AGENTS.md')
-        try {
-          await writeFile(agentsPath, message.content ?? '', 'utf8')
-          reply({
-            type: 'cx_agents_written',
-            data: { ok: true, path: agentsPath }
-          })
-        } catch {
-          reply({
-            type: 'cx_agents_written',
-            data: { ok: false, path: agentsPath }
-          })
+        const agentsHandled = await handleCxAgents(message, reply, {
+          safeString,
+          getSecurePath,
+        })
+        if (!agentsHandled) {
+          reply({ type: 'error', message: `Unhandled agents feature: ${message.type}` })
         }
         break
       }
-      case 'cx_chat': {
-        const client = await ensureCodexClient()
-        const explicitCwd = safeString(message.cwd).trim()
-        const existingThreadId = safeString(message.threadId).trim()
-        const storedCwd = existingThreadId ? cxThreadCwds.get(existingThreadId) : null
-        if (storedCwd && explicitCwd && storedCwd !== explicitCwd) {
-          reply({ type: 'error', message: 'Access denied' })
-          break
-        }
-        const cwd = storedCwd || explicitCwd
-        if (!cwd) {
-          reply({ type: 'error', message: 'Missing cwd' })
-          break
-        }
-        if (DEBUG_CX_GLOBAL) {
-          logDebug(`[Codex cx_chat] model=${message.model ?? 'default'}, threadId=${message.threadId ?? 'new'}`)
-        }
 
-        let resolvedModel = safeString(message.model).trim()
-        let threadId = existingThreadId || null
-        // Resolve personality (SDK Personality: "none" | "friendly" | "pragmatic")
-        const personalityRaw = safeString(message.personality).trim().toLowerCase()
-        const personality = personalityRaw === 'none' || personalityRaw === 'friendly' || personalityRaw === 'pragmatic' ? personalityRaw : null
-
-        if (!threadId) {
-          const startRes: any = await client.request('thread/start', {
-            cwd,
-            model: message.model ?? null,
-            approvalPolicy: message.approvalPolicy ?? null,
-            sandbox: message.sandbox ?? null,
-            config: message.config ?? null,
-            baseInstructions: message.baseInstructions ?? null,
-            developerInstructions: message.developerInstructions ?? null,
-            ...(personality ? { personality } : {}),
-            experimentalRawEvents: false
-          })
-          threadId = safeString(startRes?.thread?.id)
-          if (!resolvedModel) {
-            resolvedModel = safeString(startRes?.model).trim()
-          }
-          if (DEBUG_CX_GLOBAL) {
-            logInfo(`[Codex cx_chat] thread/start result: threadId=${threadId}`)
-          }
-          if (threadId) {
-            reply({
-              type: 'cx_thread_created',
-              data: mapCodexThread(startRes.thread)
-            })
-          } else {
-            logError(`[Codex cx_chat] thread/start failed - no threadId returned`)
-          }
-        } else {
-          // Ensure we are subscribed to events for this thread.
-          const resumeRes: any = await client.request('thread/resume', {
-            threadId,
-            model: message.model ?? null,
-            cwd,
-            approvalPolicy: message.approvalPolicy ?? null,
-            sandbox: message.sandbox ?? null,
-            config: message.config ?? null,
-            baseInstructions: message.baseInstructions ?? null,
-            developerInstructions: message.developerInstructions ?? null,
-            ...(personality ? { personality } : {})
-          })
-          if (!resolvedModel) {
-            resolvedModel = safeString(resumeRes?.model).trim()
-          }
-        }
-
-        if (!threadId) {
-          send(ws, {
-            type: 'cx_stream',
-            threadId: 'unknown',
-            data: {
-              type: 'error',
-              message: 'Failed to create/resume Codex thread'
-            }
-          })
-          break
-        }
-
-        cxThreadOwners.set(threadId, ws)
-        cxThreadCwds.set(threadId, cwd)
-
-        // Prepare input (text + optional local images written to disk).
-        // SDK UserInput type requires text_elements field (Array<TextElement>)
-        const input: Array<any> = [{ type: 'text', text: message.prompt, text_elements: [] }]
-        if (message.fileAttachments && message.fileAttachments.length > 0) {
-          const attachmentsDir = resolve(cwd, '.broski', 'codex-attachments')
-          await mkdir(attachmentsDir, { recursive: true })
-          for (const a of message.fileAttachments) {
-            if (a.base64Data && a.mimeType) {
-              const token = randomBytes(6).toString('hex')
-              const ext = a.mimeType.includes('png') ? '.png' : a.mimeType.includes('webp') ? '.webp' : '.jpg'
-              const fileName = `${Date.now()}_${token}${ext}`
-              const outPath = resolve(attachmentsDir, fileName)
-              await writeFile(outPath, Buffer.from(a.base64Data, 'base64'))
-              // Codex v2 UserInput uses camelCase type tags.
-              input.push({ type: 'localImage', path: outPath })
-            } else if (a.path) {
-              // File/directory references via prompt hint
-              const ref = a.path.startsWith('@') ? a.path : `@${a.path}`
-              input[0].text = `${input[0].text}\n\nAttached context (via Broski):\n- ${a.isDirectory ? 'Directory' : 'File'}: ${ref}`
-            }
-          }
-        }
-
-        // Build collaboration mode object if specified.
-        // Codex SDK ModeKind: "plan" | "default" (legacy code/pair_programming/execute/custom → "default")
-        // CollaborationMode = { mode: ModeKind, settings: { model, reasoning_effort?, developer_instructions? } }
-        let collaborationMode: any = null
-        const collabModeRaw = safeString(message.collaborationMode).trim()
-        if (collabModeRaw) {
-          const collabKey = collabModeRaw.replace(/[-_]/g, '').toLowerCase()
-          // Map to SDK ModeKind: only "plan" and "default" are valid
-          const normalizedMode: 'plan' | 'default' = collabKey === 'plan' ? 'plan' : 'default'
-
-          const model = resolvedModel
-          if (model) {
-            const effortRaw = safeString(message.effort).trim().toLowerCase()
-            const reasoningEffort = effortRaw === 'none' || effortRaw === 'minimal' || effortRaw === 'low' || effortRaw === 'medium' || effortRaw === 'high' || effortRaw === 'xhigh' ? effortRaw : null
-
-            const developerInstructions = safeString(message.developerInstructions).trim()
-            collaborationMode = {
-              mode: normalizedMode,
-              settings: {
-                model,
-                reasoning_effort: reasoningEffort ?? null,
-                developer_instructions: developerInstructions || null
-              }
-            }
-          } else {
-            logInfo('[Codex cx_chat] collaborationMode ignored (missing model)')
-          }
-        }
-
-        if (DEBUG_CX_GLOBAL) {
-          logInfo(`[Codex cx_chat] Starting turn for threadId=${threadId}`)
-        }
-
-        try {
-          const turnRes: any = await client.request('turn/start', {
-            threadId,
-            input,
-            cwd,
-            model: resolvedModel || null,
-            effort: message.effort ?? null,
-            summary: message.summary ?? null,
-            approvalPolicy: message.approvalPolicy ?? null,
-            sandboxPolicy: message.sandboxPolicy ?? null,
-            ...(personality ? { personality } : {}),
-            collaborationMode
-          })
-
-          const turnId = safeString(turnRes?.turn?.id)
-          const turnStatus = safeString(turnRes?.turn?.status).toLowerCase()
-          const turnError = turnRes?.turn?.error ?? turnRes?.error
-
-          if (DEBUG_CX_GLOBAL) {
-            logInfo(`[Codex cx_chat] turn/start result: turnId=${turnId}, status=${turnStatus}`)
-          }
-
-          // Check if turn started with an error
-          if (turnError || turnStatus === 'failed') {
-            const errorMessage = typeof turnError === 'string' ? turnError : (turnError?.message ?? turnError?.additionalDetails ?? 'Turn failed to start')
-            const errorCode = turnError?.codexErrorInfo ?? turnError?.code ?? 'turn_start_failed'
-
-            logError(`[Codex cx_chat] turn/start failed`)
-            if (DEBUG_CX_GLOBAL) {
-              try {
-                logError(JSON.stringify(turnError ?? turnRes, null, 2))
-              } catch {
-                // ignore
-              }
-            }
-
-            emitCxStream(threadId, {
-              type: 'error',
-              message: errorMessage,
-              code: typeof errorCode === 'string' ? errorCode : JSON.stringify(errorCode),
-              details: turnError
-            }, ws)
-
-            // Emit runtime_state with isStreaming: false
-            const turnFailedRuntimeState: ServerMessage = {
-              type: 'runtime_state',
-              backend: 'codex',
-              data: buildCodexRuntimeState({
-                threadId,
-                cwd: cxThreadCwds.get(threadId),
-                isStreaming: false,
-              }),
-            }
-            send(ws, turnFailedRuntimeState)
-            broadcastToSessionWatchers('codex', threadId, turnFailedRuntimeState, ws)
-
-            // Send idle to reset UI
-            send(ws, {
-              type: 'sdk_event',
-              data: {
-                payload: {
-                  type: 'session.idle',
-                  properties: { sessionID: threadId }
-                }
-              }
-            })
-            break
-          }
-
-          if (!turnId) {
-            logError(`[Codex cx_chat] turn/start returned no turnId`)
-            if (DEBUG_CX_GLOBAL) {
-              try {
-                logError(JSON.stringify(turnRes, null, 2))
-              } catch {
-                // ignore
-              }
-            }
-            emitCxStream(threadId, {
-              type: 'error',
-              message: 'Turn failed to start - no turn ID returned',
-              code: 'turn_start_no_id',
-              details: turnRes
-            }, ws)
-            break
-          }
-
-          cxActiveTurns.set(threadId, turnId)
-        } catch (err: any) {
-          // Handle request-level errors (network, timeout, app-server crash, etc.)
-          const errorMessage = err?.message ?? String(err)
-          logError(`[Codex cx_chat] turn/start threw error:`, errorMessage)
-
-          emitCxStream(threadId, {
-            type: 'error',
-            message: errorMessage,
-            code: 'turn_start_exception'
-          }, ws)
-
-          // Emit runtime_state with isStreaming: false
-          const exceptionRuntimeState: ServerMessage = {
-            type: 'runtime_state',
-            backend: 'codex',
-            data: buildCodexRuntimeState({
-              threadId,
-              cwd: cxThreadCwds.get(threadId),
-              isStreaming: false,
-            }),
-          }
-          send(ws, exceptionRuntimeState)
-          broadcastToSessionWatchers('codex', threadId, exceptionRuntimeState, ws)
-
-          // Send idle to reset UI
-          send(ws, {
-            type: 'sdk_event',
-            data: {
-              payload: {
-                type: 'session.idle',
-                properties: { sessionID: threadId }
-              }
-            }
-          })
-        }
-        break
-      }
+      case 'cx_chat':
       case 'cx_abort': {
-        const client = await ensureCodexClient()
-        const turnId = message.turnId ?? cxActiveTurns.get(message.threadId)
-        if (turnId) {
-          await client.request('turn/interrupt', {
-            threadId: message.threadId,
-            turnId
-          })
-        }
-        break
-      }
-      case 'cx_thread_fork': {
-        const client = await ensureCodexClient()
-        const result: any = await client.request('thread/fork', {
-          threadId: message.threadId
+        const chatHandled = await handleCxChat(message, reply, {
+          ensureCodexClient,
+          safeString,
+          logInfo,
+          logError,
+          logDebug,
+          DEBUG_CX_GLOBAL,
+          cxThreadOwners,
+          cxThreadCwds,
+          cxActiveTurns,
+          cxApprovalWaiters,
+          mapCodexThread,
+          emitCxStream,
+          send,
+          broadcastToSessionWatchers,
+          buildCodexRuntimeState,
+          ws,
         })
-        const thread = result?.thread
-        if (thread) {
-          const id = safeString(thread?.id)
-          if (id) {
-            cxThreadOwners.set(id, ws)
-            const cwd = safeString(thread?.cwd)
-            if (cwd) {
-              const secureThreadCwd = await getSecurePath(cwd)
-              if (secureThreadCwd) cxThreadCwds.set(id, secureThreadCwd)
-            }
-          }
-          const forkedId = safeString(thread?.id)
-          reply({
-            type: 'cx_thread_forked',
-            data: mapCodexThread(thread, cxThreadNames.get(forkedId))
-          })
-        } else {
-          reply({ type: 'error', message: 'Fork failed' })
+        if (!chatHandled) {
+          reply({ type: 'error', message: `Unhandled chat feature: ${message.type}` })
         }
         break
       }
+      case 'cx_thread_fork':
       case 'cx_thread_rollback': {
-        const client = await ensureCodexClient()
-        const result: any = await client.request('thread/rollback', {
-          threadId: message.threadId,
-          numTurns: message.numTurns
+        const handled = await handleCxThreads(message, reply, {
+          ensureCodexClient,
+          codexClient,
+          codexFs,
+          safeString,
+          getSecurePath,
+          logInfo,
+          logError,
+          cxProjectCache,
+          setProjectCache: (cache) => { cxProjectCache = cache },
+          cxThreadCache,
+          CODEX_PROJECT_CACHE_TTL_MS,
+          CODEX_THREAD_CACHE_TTL_MS,
+          cxThreadNames,
+          cxThreadOwners,
+          cxThreadCwds,
+          mapCodexThread,
+          mapCodexThreadToRuntimeSession,
+          invalidateCodexCaches,
+          ws,
         })
-        const thread = result?.thread
-        if (thread) {
-          reply({
-            type: 'cx_thread_rolled_back',
-            data: mapCodexThread(thread, cxThreadNames.get(message.threadId))
-          })
-        } else {
-          reply({ type: 'error', message: 'Rollback failed' })
+        if (!handled) {
+          reply({ type: 'error', message: `Unhandled thread feature: ${message.type}` })
         }
         break
       }
-      case 'cx_permission_response': {
-        const waiter = cxApprovalWaiters.get(message.requestId)
-        if (waiter) {
-          clearTimeout(waiter.timer)
-          cxApprovalWaiters.delete(message.requestId)
-          waiter.resolve({
-            response: message.response,
-            execpolicyAmendment: (message as any).execpolicyAmendment,
-            networkPolicyAmendment: (message as any).networkPolicyAmendment
-          })
-        }
-        break
-      }
+      case 'cx_permission_response':
       case 'cx_user_input_response': {
-        // Codex request_user_input response (SDK v0.87.0+)
-        const waiter = cxApprovalWaiters.get(message.requestId)
-        if (waiter) {
-          clearTimeout(waiter.timer)
-          cxApprovalWaiters.delete(message.requestId)
-          waiter.resolve({ answers: message.answers })
+        const chatHandled2 = await handleCxChat(message, reply, {
+          ensureCodexClient,
+          safeString,
+          logInfo,
+          logError,
+          logDebug,
+          DEBUG_CX_GLOBAL,
+          cxThreadOwners,
+          cxThreadCwds,
+          cxActiveTurns,
+          cxApprovalWaiters,
+          mapCodexThread,
+          emitCxStream,
+          send,
+          broadcastToSessionWatchers,
+          buildCodexRuntimeState,
+          ws,
+        })
+        if (!chatHandled2) {
+          reply({ type: 'error', message: `Unhandled chat feature: ${message.type}` })
+        }
+        break
+      }
+      // Codex plugin marketplace — delegated to modular handler
+      case 'cx_plugin_list':
+      case 'cx_plugin_install':
+      case 'cx_plugin_uninstall': {
+        const handled = await handleCxPlugins(message, reply, {
+          ensureCodexClient,
+          safeString,
+        })
+        if (!handled) {
+          reply({
+            type: 'error',
+            message: `Unhandled plugin feature: ${message.type}`,
+          })
         }
         break
       }
@@ -7237,6 +6513,19 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
             type: 'error',
             message: `Unhandled Codex feature: ${message.type}`
           })
+        }
+        break
+      }
+      case 'cx_command_write':
+      case 'cx_command_resize':
+      case 'cx_command_terminate':
+      case 'cx_thread_metadata_update': {
+        const handled = await handleCxCommandPty(message, reply, {
+          ensureCodexClient,
+          safeString,
+        })
+        if (!handled) {
+          reply({ type: 'error', message: `Unhandled command: ${message.type}` })
         }
         break
       }

@@ -83,6 +83,7 @@ extension BridgeServiceCodexRuntime on BridgeService {
     List<FileAttachment>? fileAttachments,
     String? collaborationMode, // SDK ModeKind: 'plan' | 'default'
     String? personality, // SDK Personality: 'none' | 'friendly' | 'pragmatic'
+    String? serviceTier, // SDK ServiceTier: 'fast' | 'flex'
   }) {
     _socket.send({
       'type': 'cx_chat',
@@ -100,6 +101,7 @@ extension BridgeServiceCodexRuntime on BridgeService {
         'fileAttachments': fileAttachments.map((a) => a.toJson()).toList(),
       if (collaborationMode != null) 'collaborationMode': collaborationMode,
       if (personality != null) 'personality': personality,
+      if (serviceTier != null) 'serviceTier': serviceTier,
     });
   }
 

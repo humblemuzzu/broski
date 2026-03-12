@@ -288,4 +288,132 @@ extension BridgeServiceCodexFeatures on BridgeService {
   }
 
 
+
+  // ============================================================
+  // Plugin Marketplace
+  // ============================================================
+
+  /// List plugins from marketplace (plugin/list).
+  Future<List<CodexPluginMarketplace>> cxListPlugins({String? cwd}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_plugin_list',
+      'requestId': requestId,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor(
+      'cx_plugins',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map((e) => CodexPluginMarketplace.fromJson(e))
+        .toList();
+  }
+
+  /// Install a plugin from marketplace (plugin/install).
+  Future<bool> cxInstallPlugin({
+    required String marketplacePath,
+    required String pluginName,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_plugin_install',
+      'requestId': requestId,
+      'marketplacePath': marketplacePath,
+      'pluginName': pluginName,
+    });
+    await _waitFor(
+      'cx_plugin_installed',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    return true;
+  }
+
+  /// Uninstall a plugin (plugin/uninstall).
+  Future<bool> cxUninstallPlugin({required String pluginId}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_plugin_uninstall',
+      'requestId': requestId,
+      'pluginId': pluginId,
+    });
+    await _waitFor(
+      'cx_plugin_uninstalled',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    return true;
+  }
+
+  // ============================================================
+  // PTY Command Methods + Thread Metadata
+  // ============================================================
+
+  /// Write to stdin of a running PTY command (command/exec/write).
+  void cxCommandExecWrite({
+    required String processId,
+    String? deltaBase64,
+    bool closeStdin = false,
+  }) {
+    _socket.send({
+      'type': 'cx_command_write',
+      'processId': processId,
+      if (deltaBase64 != null) 'deltaBase64': deltaBase64,
+      if (closeStdin) 'closeStdin': true,
+    });
+  }
+
+  /// Resize a PTY terminal (command/exec/resize).
+  void cxCommandExecResize({
+    required String processId,
+    required int rows,
+    required int cols,
+  }) {
+    _socket.send({
+      'type': 'cx_command_resize',
+      'processId': processId,
+      'rows': rows,
+      'cols': cols,
+    });
+  }
+
+  /// Terminate a running PTY command (command/exec/terminate).
+  Future<bool> cxCommandExecTerminate({required String processId}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_command_terminate',
+      'requestId': requestId,
+      'processId': processId,
+    });
+    await _waitFor(
+      'cx_command_terminated',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    return true;
+  }
+
+  /// Update thread metadata (e.g., git info) after branch switch.
+  Future<bool> cxUpdateThreadMetadata({
+    required String threadId,
+    Map<String, dynamic>? gitInfo,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_thread_metadata_update',
+      'requestId': requestId,
+      'threadId': threadId,
+      if (gitInfo != null) 'gitInfo': gitInfo,
+    });
+    await _waitFor(
+      'cx_thread_metadata_updated',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    return true;
+  }
 }

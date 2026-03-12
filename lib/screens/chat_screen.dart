@@ -8352,6 +8352,7 @@ Describe project-specific guidance for Codex here.
           },
           collaborationMode: codexSettings.collaborationMode.wireValue,
           personality: codexSettings.personality.wireValue,
+          serviceTier: codexSettings.serviceTier.wireValue,
         );
         _controller.clear();
         _userHasScrolledUp = false;
@@ -8546,6 +8547,7 @@ Describe your project here.
         fileAttachments: hasAttachments ? _attachedFiles : null,
         collaborationMode: codexSettings.collaborationMode.wireValue,
         personality: codexSettings.personality.wireValue,
+        serviceTier: codexSettings.serviceTier.wireValue,
       );
       _controller.clear();
       setState(() => _attachedFiles.clear());

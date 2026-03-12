@@ -4,6 +4,8 @@ type RuntimeNotificationParams = {
   sockets: Iterable<any>;
   send: (ws: any, message: any) => void;
   safeString: (value: unknown) => string;
+  cxThreadOwners?: Map<string, any>;
+  cxThreadCwds?: Map<string, any>;
 };
 
 /**
@@ -16,6 +18,8 @@ export function handleCodexRuntimeNotification({
   sockets,
   send,
   safeString,
+  cxThreadOwners,
+  cxThreadCwds,
 }: RuntimeNotificationParams): boolean {
   if (method === "thread/status/changed") {
     const statusThreadId = safeString(params.threadId);
@@ -52,6 +56,48 @@ export function handleCodexRuntimeNotification({
   }
 
   if (method === "thread/archived" || method === "thread/unarchived") {
+    for (const socket of sockets) {
+      send(socket, { type: "cx_global", data: { method, params } });
+    }
+    return true;
+  }
+
+  if (method === "thread/closed") {
+    const closedThreadId = safeString(params.threadId);
+    if (closedThreadId) {
+      // Clean up tracking maps
+      if (cxThreadOwners) cxThreadOwners.delete(closedThreadId);
+      if (cxThreadCwds) cxThreadCwds.delete(closedThreadId);
+    }
+    // Broadcast to all clients so they remove from active lists
+    for (const socket of sockets) {
+      send(socket, { type: "cx_global", data: { method, params } });
+    }
+    return true;
+  }
+
+  if (method === "account/login/completed") {
+    for (const socket of sockets) {
+      send(socket, { type: "cx_global", data: { method, params } });
+    }
+    return true;
+  }
+
+  if (method === "skills/changed") {
+    for (const socket of sockets) {
+      send(socket, { type: "cx_global", data: { method, params } });
+    }
+    return true;
+  }
+
+  if (method === "account/updated" || method === "account/rateLimits/updated") {
+    for (const socket of sockets) {
+      send(socket, { type: "cx_global", data: { method, params } });
+    }
+    return true;
+  }
+
+  if (method === "configWarning" || method === "deprecationNotice") {
     for (const socket of sockets) {
       send(socket, { type: "cx_global", data: { method, params } });
     }

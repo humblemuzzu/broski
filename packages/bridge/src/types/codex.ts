@@ -200,3 +200,91 @@ export type CodexAppInfo = {
 export type CodexPersonality = "none" | "friendly" | "pragmatic";
 
 export type CodexModeKind = "plan" | "default";
+
+// ============================================================================
+// CODEX PLUGIN TYPES (SDK mid-2026)
+// ============================================================================
+
+export type CodexPluginSource = {
+  type: string;
+  [key: string]: unknown;
+};
+
+export type CodexPluginInterface = {
+  type: string;
+  [key: string]: unknown;
+};
+
+export type CodexPluginSummary = {
+  id: string;
+  name: string;
+  source: CodexPluginSource;
+  installed: boolean;
+  enabled: boolean;
+  interface?: CodexPluginInterface;
+};
+
+export type CodexPluginMarketplace = {
+  name: string;
+  path: string;
+  plugins: CodexPluginSummary[];
+};
+
+// ============================================================================
+// CODEX HOOK TYPES (SDK mid-2026)
+// ============================================================================
+
+export type CodexHookRunStatus = 'running' | 'completed' | 'failed' | 'blocked' | 'stopped';
+
+export type CodexHookEventName = 'sessionStart' | 'stop';
+
+export type CodexHookRunEntry = {
+  type: string;
+  text?: string;
+  timestamp?: number;
+};
+
+export type CodexHookRunSummary = {
+  id: string;
+  eventName: CodexHookEventName;
+  handlerType: string;
+  executionMode: string;
+  scope: string;
+  sourcePath: string;
+  displayOrder: number;
+  status: CodexHookRunStatus;
+  statusMessage?: string;
+  startedAt: number;
+  completedAt?: number;
+  durationMs?: number;
+  entries: CodexHookRunEntry[];
+};
+
+// ============================================================================
+// CODEX SERVICE TIER + MISC TYPES (SDK mid-2026)
+// ============================================================================
+
+export type CodexServiceTier = 'fast' | 'flex';
+
+export type CodexMessagePhase = 'commentary' | 'final_answer';
+
+export type CodexDynamicToolCallStatus = 'inProgress' | 'completed' | 'failed';
+
+export type CodexModelUpgradeInfo = {
+  model: string;
+  upgradeCopy: string;
+  modelLink: string;
+  migrationMarkdown: string;
+};
+
+export type CodexModelAvailabilityNux = {
+  message: string;
+};
+
+export type CodexInputModality = 'text' | 'image';
+
+export type CodexCommandAction =
+  | { type: 'read'; command: string; name: string; path: string }
+  | { type: 'listFiles'; command: string; path?: string }
+  | { type: 'search'; command: string; query?: string; path?: string }
+  | { type: 'unknown'; command: string };

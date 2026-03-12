@@ -36,6 +36,15 @@ export function mapCodexThreadFromSdk({
       }
     : undefined;
 
+  const summary =
+    thread?.summary && typeof thread.summary === "object"
+      ? {
+          additions: Number(thread.summary.additions ?? 0),
+          deletions: Number(thread.summary.deletions ?? 0),
+          files: Number(thread.summary.files ?? 0),
+        }
+      : undefined;
+
   return {
     id: safeString(thread?.id),
     preview: safeString(thread?.preview),
@@ -53,6 +62,7 @@ export function mapCodexThreadFromSdk({
     ...(safeString(thread?.agentRole).trim()
       ? { agentRole: safeString(thread?.agentRole) }
       : {}),
+    ...(summary ? { summary } : {}),
     ...(threadName ? { threadName } : {}),
   } as CodexThread & { threadName?: string };
 }

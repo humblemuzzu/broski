@@ -6,6 +6,7 @@ import '../models/agent.dart';
 import '../models/agent_type.dart';
 import '../models/claude_code.dart';
 import '../models/codex.dart';
+import '../models/codex/codex_plugin.dart';
 import '../models/command.dart';
 import '../models/device.dart';
 import '../models/file_attachment.dart';

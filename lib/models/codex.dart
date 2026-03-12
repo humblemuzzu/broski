@@ -60,6 +60,10 @@ class CodexModel {
   final bool supportsPersonality;
   final List<String> supportedReasoningEfforts;
   final String defaultReasoningEffort;
+  final bool hidden;
+  final List<String> inputModalities;
+  final Map<String, dynamic>? upgradeInfo;
+  final Map<String, dynamic>? availabilityNux;
 
   const CodexModel({
     required this.id,
@@ -71,7 +75,23 @@ class CodexModel {
     this.supportsPersonality = false,
     this.supportedReasoningEfforts = const [],
     this.defaultReasoningEffort = 'medium',
+    this.hidden = false,
+    this.inputModalities = const ['text'],
+    this.upgradeInfo,
+    this.availabilityNux,
   });
+
+  /// Whether this model supports image input.
+  bool get supportsImages => inputModalities.contains('image');
+
+  /// Whether this model has an upgrade path available.
+  bool get hasUpgrade => upgradeInfo != null;
+
+  /// The upgrade copy text (e.g., "Upgrade to o4-mini").
+  String? get upgradeCopy => upgradeInfo?['upgradeCopy'] as String?;
+
+  /// The model to upgrade to.
+  String? get upgradeModel => upgradeInfo?['model'] as String?;
 
   factory CodexModel.fromJson(Map<String, dynamic> json) {
     return CodexModel(
@@ -91,6 +111,13 @@ class CodexModel {
           const [],
       defaultReasoningEffort:
           json['defaultReasoningEffort'] as String? ?? 'medium',
+      hidden: json['hidden'] as bool? ?? false,
+      inputModalities: (json['inputModalities'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const ['text'],
+      upgradeInfo: json['upgradeInfo'] as Map<String, dynamic>?,
+      availabilityNux: json['availabilityNux'] as Map<String, dynamic>?,
     );
   }
 }
@@ -220,6 +247,7 @@ class CodexSettings {
     this.skillsEnabled = false,
     this.collaborationMode = CodexCollaborationMode.defaultMode,
     this.personality = CodexPersonality.pragmatic,
+    this.serviceTier = CodexServiceTier.fast,
   });
 
   final CodexApprovalPolicy approvalPolicy;
@@ -231,6 +259,7 @@ class CodexSettings {
   final bool skillsEnabled;
   final CodexCollaborationMode collaborationMode;
   final CodexPersonality personality;
+  final CodexServiceTier serviceTier;
 
   CodexSettings copyWith({
     CodexApprovalPolicy? approvalPolicy,
@@ -242,6 +271,7 @@ class CodexSettings {
     bool? skillsEnabled,
     CodexCollaborationMode? collaborationMode,
     CodexPersonality? personality,
+    CodexServiceTier? serviceTier,
   }) {
     return CodexSettings(
       approvalPolicy: approvalPolicy ?? this.approvalPolicy,
@@ -253,6 +283,7 @@ class CodexSettings {
       skillsEnabled: skillsEnabled ?? this.skillsEnabled,
       collaborationMode: collaborationMode ?? this.collaborationMode,
       personality: personality ?? this.personality,
+      serviceTier: serviceTier ?? this.serviceTier,
     );
   }
 
@@ -338,6 +369,9 @@ class CodexSettings {
         json['collaborationMode'] as String?,
       ),
       personality: CodexPersonality.fromString(json['personality'] as String?),
+      serviceTier: CodexServiceTier.fromWireValue(
+        json['serviceTier'] as String? ?? 'fast',
+      ),
     );
   }
 
@@ -352,6 +386,7 @@ class CodexSettings {
       'skillsEnabled': skillsEnabled,
       'collaborationMode': collaborationMode.wireValue,
       'personality': personality.wireValue,
+      'serviceTier': serviceTier.wireValue,
     };
   }
 }
@@ -777,6 +812,38 @@ enum CodexPersonality {
       case 'pragmatic':
       default:
         return CodexPersonality.pragmatic;
+    }
+  }
+}
+
+enum CodexServiceTier {
+  fast,
+  flex;
+
+  String get wireValue {
+    switch (this) {
+      case CodexServiceTier.fast:
+        return 'fast';
+      case CodexServiceTier.flex:
+        return 'flex';
+    }
+  }
+
+  String get displayName {
+    switch (this) {
+      case CodexServiceTier.fast:
+        return 'Fast';
+      case CodexServiceTier.flex:
+        return 'Flex';
+    }
+  }
+
+  static CodexServiceTier fromWireValue(String value) {
+    switch (value) {
+      case 'flex':
+        return CodexServiceTier.flex;
+      default:
+        return CodexServiceTier.fast;
     }
   }
 }

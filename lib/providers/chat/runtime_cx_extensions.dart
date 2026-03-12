@@ -57,6 +57,25 @@ extension _RuntimeCodexExtensions on ChatSessionNotifier {
       case 'collab/resume/begin':
       case 'collab/resume/end':
         return true;
+      // New notification methods (Phase 1+3 SDK update)
+      case 'model/rerouted':
+      case 'serverRequest/resolved':
+      case 'hook/started':
+      case 'hook/completed':
+      case 'item/fileChange/outputDelta':
+      case 'item/mcpToolCall/progress':
+      case 'item/plan/delta':
+      case 'thread/closed':
+      case 'thread/name/updated':
+      case 'thread/status/changed':
+      case 'skills/changed':
+      case 'account/updated':
+      case 'account/login/completed':
+      case 'account/rateLimits/updated':
+      case 'configWarning':
+      case 'deprecationNotice':
+      case 'command/exec/outputDelta':
+        return true;
       default:
         return false;
     }
