@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'providers/font_provider.dart';
 import 'providers/theme_provider.dart';
 import 'screens/root_screen.dart';
 import 'services/notification_service.dart';
@@ -79,9 +80,10 @@ class BroskiApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeState = ref.watch(themeProvider);
+    final fontState = ref.watch(fontProvider);
 
-    // Show loading indicator while theme is loading
-    if (themeState.isLoading) {
+    // Show loading indicator while theme or fonts are loading
+    if (themeState.isLoading || fontState.isLoading) {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: BroskiTheme.black(),
@@ -90,11 +92,23 @@ class BroskiApp extends ConsumerWidget {
       );
     }
 
+    // AppTypography statics are synced atomically inside FontNotifier
+    // (setUIFont / setCodeFont / _loadFonts) so we don't need to do it here.
+    final uiFont = fontState.preference.uiFont;
+
+    // Build once — ThemeMode.dark means only darkTheme is used,
+    // but we pass it to both slots for consistency.
+    final appTheme = BroskiTheme.fromThemeId(
+      themeState.themeId,
+      uiFontFamily: uiFont.fontFamily,
+      uiFontIsAsset: uiFont.isAsset,
+    );
+
     return MaterialApp(
       title: 'Broski',
       debugShowCheckedModeBanner: false,
-      theme: BroskiTheme.fromThemeId(themeState.themeId),
-      darkTheme: BroskiTheme.fromThemeId(themeState.themeId),
+      theme: appTheme,
+      darkTheme: appTheme,
       themeMode: ThemeMode.dark, // Always use dark mode
       builder: _tabletAwareBuilder,
       home: const RootScreen(),

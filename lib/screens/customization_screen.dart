@@ -6,6 +6,7 @@ import '../models/glow_style.dart';
 import '../models/highlight_color.dart';
 import '../models/nav_bar_style.dart';
 import '../models/prompt_accent_color.dart';
+import '../providers/font_provider.dart';
 import '../providers/glow_style_provider.dart';
 import '../providers/highlights_provider.dart';
 import '../providers/input_style_provider.dart';
@@ -17,6 +18,7 @@ import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'appearance_screen.dart';
 import 'background_screen.dart';
+import 'font_selector_screen.dart';
 import 'theme_selector_screen.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
@@ -34,6 +36,8 @@ class CustomizationScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final currentThemeInfo = ref.watch(currentThemeInfoProvider);
+    final currentUIFont = ref.watch(currentUIFontProvider);
+    final currentCodeFont = ref.watch(currentCodeFontProvider);
     final inputStyle = ref.watch(inputStyleProvider);
     final navBarStyle = ref.watch(navBarStyleProvider);
     final notificationsEnabled = ref.watch(notificationsEnabledProvider);
@@ -110,6 +114,18 @@ class CustomizationScreen extends ConsumerWidget {
                     context,
                     MaterialPageRoute(
                       builder: (_) => const ThemeSelectorScreen(),
+                    ),
+                  ),
+                ),
+                _Divider(),
+                _NavigationTile(
+                  title: 'Typography',
+                  subtitle: '${currentUIFont.displayName} / ${currentCodeFont.displayName}',
+                  icon: AppIcons.textFields,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const FontSelectorScreen(),
                     ),
                   ),
                 ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
+import 'app_typography.dart';
 import 'design_tokens.dart';
 import 'opencode_theme.dart';
 import 'themes/all_themes.dart';
@@ -8,96 +10,117 @@ import 'themes/all_themes.dart';
 ///
 /// Uses OpenCodeTheme extension to provide semantic color tokens
 /// that match the OpenCode CLI design system.
-/// Typography: Geist Sans (bundled) for UI, JetBrains Mono for code.
+/// Typography is user-configurable via the font provider.
 class BroskiTheme {
-  static const _fontFamily = 'GeistSans';
-
-  /// Build a ThemeData from a specific OpenCodeTheme
-  /// Use [isLight] to switch base theme (affects system UI colors)
+  /// Build a ThemeData from a specific OpenCodeTheme.
+  ///
+  /// [uiFontFamily] overrides the font used for all text theme styles.
+  /// [uiFontIsAsset] indicates whether the font is bundled (true) or a
+  /// Google Font that needs [GoogleFonts.getFont] for proper loading (false).
+  /// Use [isLight] to switch base theme (affects system UI colors).
   static ThemeData fromOpenCodeTheme(
     OpenCodeTheme ocTheme, {
     bool isLight = false,
+    String? uiFontFamily,
+    bool uiFontIsAsset = true,
   }) {
+    final fontFamily = uiFontFamily ?? AppTypography.uiFontFamily;
+    final isAsset = uiFontFamily != null ? uiFontIsAsset : AppTypography.uiFontIsAsset;
     final base = isLight ? ThemeData.light() : ThemeData.dark();
 
+    // Helper: create a TextStyle with the correct font loading strategy
+    TextStyle ts({
+      required double fontSize,
+      FontWeight? fontWeight,
+      double? letterSpacing,
+      double? height,
+      Color? color,
+    }) {
+      if (isAsset) {
+        return TextStyle(
+          fontFamily: fontFamily,
+          fontSize: fontSize,
+          fontWeight: fontWeight,
+          letterSpacing: letterSpacing,
+          height: height,
+          color: color,
+        );
+      }
+      return GoogleFonts.getFont(
+        fontFamily,
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        letterSpacing: letterSpacing,
+        height: height,
+        color: color,
+      );
+    }
+
     final textTheme = base.textTheme.copyWith(
-      displayLarge: TextStyle(
-        fontFamily: _fontFamily,
+      displayLarge: ts(
         fontSize: 32,
         fontWeight: FontWeight.w700,
         letterSpacing: -0.5,
         color: ocTheme.text,
       ),
-      headlineLarge: TextStyle(
-        fontFamily: _fontFamily,
+      headlineLarge: ts(
         fontSize: 28,
         fontWeight: FontWeight.w700,
         letterSpacing: -0.3,
         color: ocTheme.text,
       ),
-      headlineMedium: TextStyle(
-        fontFamily: _fontFamily,
+      headlineMedium: ts(
         fontSize: 22,
         fontWeight: FontWeight.w600,
         letterSpacing: -0.2,
         color: ocTheme.text,
       ),
-      headlineSmall: TextStyle(
-        fontFamily: _fontFamily,
+      headlineSmall: ts(
         fontSize: 18,
         fontWeight: FontWeight.w600,
         color: ocTheme.text,
       ),
-      bodyLarge: TextStyle(
-        fontFamily: _fontFamily,
+      bodyLarge: ts(
         fontSize: 16,
         color: ocTheme.text,
         height: 1.5,
       ),
-      bodyMedium: TextStyle(
-        fontFamily: _fontFamily,
+      bodyMedium: ts(
         fontSize: 15,
         color: ocTheme.text,
         height: 1.5,
       ),
-      bodySmall: TextStyle(
-        fontFamily: _fontFamily,
+      bodySmall: ts(
         fontSize: 13,
         color: ocTheme.textMuted,
         height: 1.4,
       ),
-      titleLarge: TextStyle(
-        fontFamily: _fontFamily,
+      titleLarge: ts(
         fontSize: 20,
         fontWeight: FontWeight.w600,
         color: ocTheme.text,
       ),
-      titleMedium: TextStyle(
-        fontFamily: _fontFamily,
+      titleMedium: ts(
         fontSize: 16,
         fontWeight: FontWeight.w600,
         color: ocTheme.text,
       ),
-      titleSmall: TextStyle(
-        fontFamily: _fontFamily,
+      titleSmall: ts(
         fontSize: 14,
         fontWeight: FontWeight.w600,
         color: ocTheme.text,
       ),
-      labelLarge: TextStyle(
-        fontFamily: _fontFamily,
+      labelLarge: ts(
         fontSize: 14,
         fontWeight: FontWeight.w600,
         color: ocTheme.text,
       ),
-      labelMedium: TextStyle(
-        fontFamily: _fontFamily,
+      labelMedium: ts(
         fontSize: 12,
         fontWeight: FontWeight.w500,
         color: ocTheme.textMuted,
       ),
-      labelSmall: TextStyle(
-        fontFamily: _fontFamily,
+      labelSmall: ts(
         fontSize: 11,
         fontWeight: FontWeight.w500,
         color: ocTheme.textMuted,
@@ -105,8 +128,7 @@ class BroskiTheme {
       ),
     );
 
-    const buttonTextStyle = TextStyle(
-      fontFamily: _fontFamily,
+    final buttonTextStyle = ts(
       fontSize: 14,
       fontWeight: FontWeight.w600,
     );
@@ -331,12 +353,25 @@ class BroskiTheme {
     );
   }
 
-  /// Build theme from theme ID
-  static ThemeData fromThemeId(String themeId) {
+  /// Build theme from theme ID.
+  ///
+  /// Pass [uiFontFamily] and [uiFontIsAsset] to override the UI font.
+  /// When omitted, falls back to [AppTypography.uiFontFamily] (which is
+  /// kept in sync by the font provider).
+  static ThemeData fromThemeId(
+    String themeId, {
+    String? uiFontFamily,
+    bool uiFontIsAsset = true,
+  }) {
     final themeInfo = getThemeInfoById(themeId);
     final theme = themeInfo?.theme ?? opencodeDarkTheme;
     final isLight = themeInfo?.isLight ?? false;
-    return fromOpenCodeTheme(theme, isLight: isLight);
+    return fromOpenCodeTheme(
+      theme,
+      isLight: isLight,
+      uiFontFamily: uiFontFamily,
+      uiFontIsAsset: uiFontIsAsset,
+    );
   }
 
   /// Pure Black Theme (OpenCode-inspired) - Default for mobile
