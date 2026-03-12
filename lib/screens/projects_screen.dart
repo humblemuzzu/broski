@@ -25,6 +25,7 @@ import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../utils/error_utils.dart';
+import 'sheets/add_project_sheet.dart';
 
 class ProjectsScreen extends ConsumerStatefulWidget {
   const ProjectsScreen({super.key});
@@ -554,9 +555,9 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                       child: _ModernHeader(
                         connection: connection,
                         onRefresh: _refresh,
-                        onAddProject: agentType == AgentType.opencode
-                            ? _showAddProject
-                            : null,
+                        onAddProject: connection.isOfflineMode
+                            ? null
+                            : _showAddProject,
                       ),
                     ),
                     // OpenCode warning if not running
@@ -868,15 +869,10 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     );
   }
 
-  void _showAddProject() {
-    final theme = Theme.of(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Add project - coming soon'),
-        backgroundColor: theme.colorScheme.surface,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+  Future<void> _showAddProject() async {
+    final project = await showAddProjectSheet(context);
+    if (project == null || !mounted) return;
+    await _openProject(context, project);
   }
 }
 
