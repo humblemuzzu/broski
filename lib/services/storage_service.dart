@@ -91,6 +91,8 @@ class StorageService {
   static const _cachedCustomToolsKey = 'broski_cached_custom_tools';
   static const _cachedPluginsKey = 'broski_cached_plugins';
   static const _cachedPiSessionsKey = 'broski_cached_pi_sessions';
+  static const _cachedPiProjectsKey = 'broski_cached_pi_projects';
+  static const _cachedCCProjectsKey = 'broski_cached_cc_projects';
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
@@ -138,6 +140,8 @@ class StorageService {
       _cachedCustomToolsKey,
       _cachedPluginsKey,
       _cachedPiSessionsKey,
+      _cachedPiProjectsKey,
+      _cachedCCProjectsKey,
     ];
 
     for (final key in keysToDelete) {
@@ -1354,6 +1358,68 @@ class StorageService {
           .toList();
       _memoryCache[_cachedPiSessionsKey] = sessions;
       return sessions;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // ============================================================
+  // Pi Projects Cache
+  // ============================================================
+
+  /// Cache Pi projects (derived from Pi session cwd values)
+  Future<void> cachePiProjects(List<ProjectSummary> projects) async {
+    _memoryCache[_cachedPiProjectsKey] = projects;
+    _updateCacheTimestamp(_cachedPiProjectsKey);
+    final json = jsonEncode(projects.map((p) => _projectToJson(p)).toList());
+    await _storage.write(key: _cachedPiProjectsKey, value: json);
+  }
+
+  /// Load cached Pi projects
+  Future<List<ProjectSummary>> getCachedPiProjects() async {
+    final memCached = _memoryCache[_cachedPiProjectsKey];
+    if (memCached != null && memCached is List<ProjectSummary>) {
+      return memCached;
+    }
+    final raw = await _storage.read(key: _cachedPiProjectsKey);
+    if (raw == null) return [];
+    try {
+      final list = jsonDecode(raw) as List<dynamic>;
+      final projects =
+          list.map((item) => ProjectSummary.fromJson(item as Map<String, dynamic>)).toList();
+      _memoryCache[_cachedPiProjectsKey] = projects;
+      return projects;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // ============================================================
+  // Claude Code Projects Cache
+  // ============================================================
+
+  /// Cache Claude Code projects
+  Future<void> cacheCCProjects(List<ProjectSummary> projects) async {
+    _memoryCache[_cachedCCProjectsKey] = projects;
+    _updateCacheTimestamp(_cachedCCProjectsKey);
+    final json = jsonEncode(projects.map((p) => _projectToJson(p)).toList());
+    await _storage.write(key: _cachedCCProjectsKey, value: json);
+  }
+
+  /// Load cached Claude Code projects
+  Future<List<ProjectSummary>> getCachedCCProjects() async {
+    final memCached = _memoryCache[_cachedCCProjectsKey];
+    if (memCached != null && memCached is List<ProjectSummary>) {
+      return memCached;
+    }
+    final raw = await _storage.read(key: _cachedCCProjectsKey);
+    if (raw == null) return [];
+    try {
+      final list = jsonDecode(raw) as List<dynamic>;
+      final projects =
+          list.map((item) => ProjectSummary.fromJson(item as Map<String, dynamic>)).toList();
+      _memoryCache[_cachedCCProjectsKey] = projects;
+      return projects;
     } catch (_) {
       return [];
     }

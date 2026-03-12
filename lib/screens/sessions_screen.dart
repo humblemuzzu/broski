@@ -7609,7 +7609,7 @@ class _PiSessionCard extends StatelessWidget {
 }
 
 /// Project picker for creating a new Pi session.
-/// Shows system projects from the bridge + unique CWDs from existing Pi sessions.
+/// Shows Pi-only projects: derived from Pi sessions (via bridge pi_list_projects).
 class _PiNewSessionContent extends ConsumerWidget {
   const _PiNewSessionContent({required this.onSelectProject});
 
@@ -7618,27 +7618,27 @@ class _PiNewSessionContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ocTheme = OpenCodeTheme.of(context);
-    final bridgeProjectsAsync = ref.watch(projectsForSessionsProvider);
-    final piProjectsAsync = ref.watch(piFilterProjectsProvider);
+    final piProjectsLiveAsync = ref.watch(piProjectsForSessionsProvider);
+    final piSessionProjectsAsync = ref.watch(piFilterProjectsProvider);
 
-    // Merge bridge projects + Pi-specific CWDs (deduplicated by path)
-    final bridgeProjects = bridgeProjectsAsync.valueOrNull ?? const [];
-    final piProjects = piProjectsAsync.valueOrNull ?? const [];
+    // Merge bridge-discovered Pi projects + session-derived Pi projects (deduped)
+    final liveProjects = piProjectsLiveAsync.valueOrNull ?? const [];
+    final sessionProjects = piSessionProjectsAsync.valueOrNull ?? const [];
     final isLoading =
-        bridgeProjectsAsync.isLoading && piProjectsAsync.isLoading;
+        piProjectsLiveAsync.isLoading && piSessionProjectsAsync.isLoading;
 
     final byPath = <String, ProjectSummary>{};
-    for (final p in bridgeProjects) {
+    for (final p in liveProjects) {
       byPath[p.path] = p;
     }
-    for (final p in piProjects) {
+    for (final p in sessionProjects) {
       byPath.putIfAbsent(p.path, () => p);
     }
     final allProjects = byPath.values.toList()
       ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 
     // Separate: projects that already have Pi sessions vs fresh projects
-    final piPaths = piProjects.map((p) => p.path).toSet();
+    final piPaths = sessionProjects.map((p) => p.path).toSet();
     final piActiveProjects = allProjects
         .where((p) => piPaths.contains(p.path))
         .toList();

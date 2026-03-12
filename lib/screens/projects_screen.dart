@@ -13,6 +13,7 @@ import '../providers/connection_provider.dart';
 import '../providers/highlights_provider.dart';
 import '../providers/permission_rules_provider.dart';
 import '../providers/selection_provider.dart';
+import '../providers/pi_provider.dart';
 import '../providers/service_providers.dart';
 import '../providers/tool_settings_provider.dart';
 import '../theme/design_tokens.dart';
@@ -72,48 +73,43 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
   Future<List<ProjectSummary>> _loadProjects(AgentType agentType) async {
     final connection = ref.read(connectionProvider);
     final storage = ref.read(storageServiceProvider);
-    // In offline mode, return cached projects
+
+    // Each agent has its own isolated cache — no cross-contamination.
+    Future<List<ProjectSummary>> getCached() => switch (agentType) {
+      AgentType.opencode => storage.getCachedProjects(),
+      AgentType.codex => storage.getCachedCodexProjects(),
+      AgentType.claudeCode => storage.getCachedCCProjects(),
+      AgentType.pi => storage.getCachedPiProjects(),
+    };
+
+    Future<void> setCache(List<ProjectSummary> projects) => switch (agentType) {
+      AgentType.opencode => storage.cacheProjects(projects),
+      AgentType.codex => storage.cacheCodexProjects(projects),
+      AgentType.claudeCode => storage.cacheCCProjects(projects),
+      AgentType.pi => storage.cachePiProjects(projects),
+    };
+
+    // Offline mode: return per-agent cached projects
     if (connection.isOfflineMode) {
-      if (agentType == AgentType.opencode || agentType == AgentType.pi) {
-        return storage.getCachedProjects();
-      }
-      if (agentType == AgentType.codex) return storage.getCachedCodexProjects();
-    }
-    // Pi currently uses explicit cwd entry/session-based flow.
-    // Keep Projects tab cache-only for Pi to avoid coupling to OpenCode project APIs.
-    if (agentType == AgentType.pi) {
-      return storage.getCachedProjects();
+      return getCached();
     }
 
-    // Try live data first, fallback to cache on failure
+    // Try live data first, fallback to per-agent cache on failure
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final projects = switch (agentType) {
         AgentType.claudeCode => await bridge.ccListProjects(),
         AgentType.codex => await bridge.cxListProjects(),
         AgentType.opencode => await bridge.listProjects(),
-        AgentType.pi => await bridge.listProjects(),
+        AgentType.pi => await ref.read(piBridgeServiceProvider).listProjects(),
       };
-      // Cache for offline use
       if (projects.isNotEmpty) {
-        if (agentType == AgentType.opencode || agentType == AgentType.pi) {
-          await storage.cacheProjects(projects);
-        } else if (agentType == AgentType.codex) {
-          await storage.cacheCodexProjects(projects);
-        }
+        await setCache(projects);
       }
       return projects;
     } catch (e) {
-      // On any error (timeout, connection issues), try cached data
-      if (agentType == AgentType.opencode || agentType == AgentType.pi) {
-        final cached = await storage.getCachedProjects();
-        if (cached.isNotEmpty) return cached;
-      }
-      if (agentType == AgentType.codex) {
-        final cached = await storage.getCachedCodexProjects();
-        if (cached.isNotEmpty) return cached;
-      }
-      // No cached data available, rethrow to show error
+      final cached = await getCached();
+      if (cached.isNotEmpty) return cached;
       rethrow;
     }
   }

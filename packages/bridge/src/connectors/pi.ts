@@ -1,5 +1,5 @@
 import { rm } from 'node:fs/promises'
-import { resolve, sep } from 'node:path'
+import { basename, resolve, sep } from 'node:path'
 import {
   AuthStorage,
   createAgentSession,
@@ -17,6 +17,7 @@ import type { ThinkingLevel } from '@mariozechner/pi-agent-core'
 import type { Model } from '@mariozechner/pi-ai'
 import type {
   PiCommandPayload,
+  ProjectSummary,
   PiForkMessagePayload,
   PiModelPayload,
   PiQueueState,
@@ -262,6 +263,37 @@ export async function listSessions(cwd?: string): Promise<PiSessionInfo[]> {
   const mapped = sessions.map(mapSessionInfo)
   await enrichSessionsWithStats(mapped)
   return mapped
+}
+
+export async function listProjects(): Promise<ProjectSummary[]> {
+  const sessions = await SessionManager.listAll()
+  const byPath = new Map<string, { path: string; name: string; lastOpened: number }>()
+
+  for (const session of sessions) {
+    const cwd = session.cwd
+    if (!cwd) continue
+
+    const path = resolve(cwd)
+    const lastOpened = session.modified.getTime()
+    const existing = byPath.get(path)
+
+    if (!existing || lastOpened > existing.lastOpened) {
+      byPath.set(path, {
+        path,
+        name: basename(path) || path,
+        lastOpened,
+      })
+    }
+  }
+
+  return Array.from(byPath.values())
+    .sort((a, b) => b.lastOpened - a.lastOpened)
+    .map((p) => ({
+      id: p.path,
+      name: p.name,
+      path: p.path,
+      lastOpened: p.lastOpened,
+    }))
 }
 
 export function listAvailableModels(): PiModelPayload[] {

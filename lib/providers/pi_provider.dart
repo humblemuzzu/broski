@@ -97,6 +97,53 @@ final piStreamMessagesProvider = StreamProvider.autoDispose<PiStreamMessage>((
 /// Filter CWD for Pi sessions list (null = show all).
 final piSessionsFilterCwdProvider = StateProvider<String?>((ref) => null);
 
+/// Project list for Pi sessions screen (used by Projects tab & "New Session" sheet).
+/// Online: calls `pi_list_projects` (derives from Pi sessions on the bridge).
+/// Offline: uses cached Pi projects, falls back to deriving from cached sessions.
+final piProjectsForSessionsProvider = FutureProvider<List<ProjectSummary>>((
+  ref,
+) async {
+  final piBridge = ref.watch(piBridgeServiceProvider);
+  final storage = ref.watch(storageServiceProvider);
+  final connection = ref.read(connectionProvider);
+
+  Future<List<ProjectSummary>> fromCachedSessions() async {
+    final cached = await storage.getCachedPiSessions();
+    final byPath = <String, ProjectSummary>{};
+    for (final s in cached) {
+      final path = s.cwd;
+      if (path.isEmpty) continue;
+      final parts = path.split('/').where((p) => p.isNotEmpty).toList();
+      final name = parts.isEmpty ? path : parts.last;
+      byPath[path] = ProjectSummary(id: path, name: name, path: path);
+    }
+    final projects = byPath.values.toList();
+    projects.sort(
+      (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+    );
+    return projects;
+  }
+
+  if (connection.isOfflineMode) {
+    final cached = await storage.getCachedPiProjects();
+    if (cached.isNotEmpty) return cached;
+    return await fromCachedSessions();
+  }
+
+  try {
+    final projects = await piBridge.listProjects();
+    if (projects.isNotEmpty) {
+      await storage.cachePiProjects(projects);
+      return projects;
+    }
+    return await fromCachedSessions();
+  } catch (_) {
+    final cached = await storage.getCachedPiProjects();
+    if (cached.isNotEmpty) return cached;
+    return await fromCachedSessions();
+  }
+});
+
 /// Unique projects derived from Pi sessions (for project filter chip).
 final piFilterProjectsProvider = FutureProvider<List<ProjectSummary>>((
   ref,

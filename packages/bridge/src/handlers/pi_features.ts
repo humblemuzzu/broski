@@ -343,6 +343,12 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
       return true
     }
 
+    case 'pi_list_projects': {
+      const projects = await pi.listProjects()
+      reply({ type: 'pi_projects', data: projects, requestId: message.requestId })
+      return true
+    }
+
     case 'pi_new_session': {
       const instance = await pi.getOrCreateInstance(cwd)
       const options: Record<string, unknown> = {}

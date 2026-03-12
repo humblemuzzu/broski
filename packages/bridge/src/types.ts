@@ -945,6 +945,7 @@ export type ClientMessage =
   | { type: 'pi_cycle_thinking_level'; projectPath?: string }
   | { type: 'pi_cycle_model'; projectPath?: string; direction?: 'forward' | 'backward' }
   | { type: 'pi_list_sessions'; projectPath?: string }
+  | { type: 'pi_list_projects' }
   | { type: 'pi_new_session'; projectPath?: string; name?: string; provider?: string; modelId?: string; thinkingLevel?: string }
   | { type: 'pi_switch_session'; sessionPath: string; projectPath?: string }
   | { type: 'pi_delete_session'; sessionPath: string; projectPath?: string }
@@ -1989,6 +1990,7 @@ export type ServerMessage =
   | { type: 'pi_model_set'; data: PiModelPayload | null; requestId?: string }
   | { type: 'pi_thinking_level'; data: { level: string }; requestId?: string }
   | { type: 'pi_sessions'; data: PiSessionInfo[]; requestId?: string }
+  | { type: 'pi_projects'; data: ProjectSummary[]; requestId?: string }
   | { type: 'pi_session_created'; data: boolean; requestId?: string }
   | { type: 'pi_session_switched'; data: boolean; requestId?: string }
   | { type: 'pi_session_deleted'; data: boolean; requestId?: string }

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../models/file_attachment.dart';
 import '../models/pi.dart';
+import '../models/project.dart';
 import 'websocket_service.dart';
 
 export 'bridge/bridge_pi_tools.dart';
@@ -366,6 +367,21 @@ class PiBridgeService {
     return data
         .whereType<Map<String, dynamic>>()
         .map((entry) => PiSessionInfo.fromJson(entry))
+        .toList();
+  }
+
+  Future<List<ProjectSummary>> listProjects() async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'pi_list_projects',
+      'requestId': requestId,
+    });
+
+    final response = await _waitFor('pi_projects', requestId: requestId);
+    final data = response['data'] as List<dynamic>? ?? const [];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map((entry) => ProjectSummary.fromJson(entry))
         .toList();
   }
 
