@@ -980,6 +980,18 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
       case AgentType.pi:
         return [
           _SettingsTile(
+            title: 'AI Usage',
+            subtitle: 'Your AI provider limits & credits',
+            icon: AppIcons.dataUsage,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const SubscriptionUsageScreen(),
+              ),
+            ),
+          ),
+          _Divider(),
+          _SettingsTile(
             title: 'Terminal Sessions',
             subtitle: 'PTY terminal sessions',
             icon: AppIcons.terminal,
