@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
-import { Inter, Instrument_Serif } from "next/font/google";
+import { Outfit, Instrument_Serif } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 
-const inter = Inter({
+const outfit = Outfit({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  display: "swap",
 });
 
 const instrumentSerif = Instrument_Serif({
@@ -74,7 +75,7 @@ export default function RootLayout({
         </Script>
       </head>
       <body
-        className={`${inter.variable} ${instrumentSerif.variable} font-sans antialiased`}
+        className={`${outfit.variable} ${instrumentSerif.variable} font-sans antialiased`}
       >
         {children}
       </body>
