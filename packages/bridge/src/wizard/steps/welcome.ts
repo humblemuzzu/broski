@@ -15,7 +15,7 @@ export async function runWelcomeStep(
   await prompter.note(
     `${brand('Control your AI coding agents from your phone.')}\n\n` +
     `${muted('This wizard will help you configure:')}\n` +
-    `  ${bold('1.')} Agent detection (OpenCode, Claude Code, Codex)\n` +
+    `  ${bold('1.')} Agent detection (OpenCode, Claude Code, Codex, Pi)\n` +
     `  ${bold('2.')} Network & connectivity\n` +
     `  ${bold('3.')} Security (TLS, auth tokens)\n` +
     `  ${bold('4.')} Background service (daemon)`,

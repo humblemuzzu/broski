@@ -25,7 +25,7 @@ export default function DocsPage() {
         <div className="mb-6">
           <h3 className="text-base font-medium mb-2 text-muted-foreground">The Problem</h3>
           <p className="text-muted-foreground mb-4">
-            You&apos;re working with an AI coding agent like Claude Code or OpenCode on your system. 
+            You&apos;re working with an AI coding agent like Claude Code, OpenCode, or Pi on your system. 
             It&apos;s powerful, but you have to be at your system to use it. What if you want to:
           </p>
           <ul className="text-muted-foreground space-y-1 ml-4 list-disc">
@@ -69,7 +69,7 @@ export default function DocsPage() {
           <div className="text-center">
             <div className="px-4 py-3 bg-muted border border-border rounded-lg">
               <div className="font-semibold">AI Agent</div>
-              <div className="text-xs text-muted-foreground">Claude/OpenCode</div>
+              <div className="text-xs text-muted-foreground">Claude/OC/Pi</div>
             </div>
             <div className="text-xs text-muted-foreground mt-1">Your System</div>
           </div>
@@ -113,6 +113,7 @@ export default function DocsPage() {
             [<strong key="cc">Claude Code</strong>, "Anthropic's official CLI for Claude", "Fully Supported"],
             [<strong key="oc">OpenCode</strong>, "Open-source AI coding assistant (multi-provider)", "Fully Supported"],
             [<strong key="cx">Codex</strong>, "OpenAI's CLI agent for GPT models", "Fully Supported"],
+            [<strong key="pi">Pi</strong>, "Open-source multi-provider agent (extensions, session tree)", "Fully Supported"],
           ]}
         />
 
@@ -154,7 +155,7 @@ export default function DocsPage() {
       <CardGrid>
         <FeatureCard
           title="Real-time Chat"
-          description="Stream responses from Claude Code, OpenCode, or Codex at 60fps."
+          description="Stream responses from Claude Code, OpenCode, Codex, or Pi at 60fps."
           color="primary"
         />
         <FeatureCard
@@ -196,7 +197,7 @@ export default function DocsPage() {
         <Card
           href="/docs/backends"
           title="AI Backends"
-          description="Claude Code, OpenCode, Codex setup guides."
+          description="Claude Code, OpenCode, Codex, Pi setup guides."
         />
         <Card
           href="/docs/security"

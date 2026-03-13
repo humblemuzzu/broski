@@ -13,7 +13,7 @@
 
 **Your AI coding agents, in your pocket.**
 
-*The universal mobile companion for [OpenCode](https://github.com/opencode-ai/opencode), [Claude Code](https://claude.ai/code), and [Codex](https://github.com/openai/codex)*
+*The universal mobile companion for [OpenCode](https://github.com/opencode-ai/opencode), [Claude Code](https://claude.ai/code), [Codex](https://github.com/openai/codex), and [Pi](https://github.com/mariozechner/pi-coding-agent)*
 
 [![Stars](https://img.shields.io/github/stars/humblemuzzu/broski?style=flat)](https://github.com/humblemuzzu/broski/stargazers)
 [![License](https://img.shields.io/github/license/humblemuzzu/broski?style=flat)](LICENSE)
@@ -23,6 +23,7 @@
 ![OpenCode](https://img.shields.io/badge/OpenCode-fab283?style=flat)
 ![Claude Code](https://img.shields.io/badge/Claude_Code-cc785c?style=flat&logo=anthropic&logoColor=white)
 ![Codex](https://img.shields.io/badge/Codex-10a37f?style=flat&logo=openai&logoColor=white)
+![Pi](https://img.shields.io/badge/Pi-6366f1?style=flat)
 
 [Quick Start](#-quick-start) •
 [Features](#-features) •
@@ -34,11 +35,11 @@
 
 </div>
 
-> **Note**: This project is not built by the OpenCode, Anthropic, or OpenAI teams. It's an independent mobile client that works with their SDKs and CLIs.
+> **Note**: This project is not built by the OpenCode, Anthropic, OpenAI, or Pi teams. It's an independent mobile client that works with their SDKs and CLIs.
 
 ## What is Broski?
 
-Broski turns your phone into a remote control for your AI coding agents—[OpenCode](https://github.com/opencode-ai/opencode), [Claude Code](https://claude.ai/code), and [Codex](https://github.com/openai/codex).
+Broski turns your phone into a remote control for your AI coding agents—[OpenCode](https://github.com/opencode-ai/opencode), [Claude Code](https://claude.ai/code), [Codex](https://github.com/openai/codex), and [Pi](https://github.com/mariozechner/pi-coding-agent).
 
 **The problem:** Your AI agent runs on your Mac. You're on the couch, at a coffee shop, on a flight. You want to ship that feature.
 
@@ -51,7 +52,8 @@ Broski turns your phone into a remote control for your AI coding agents—[OpenC
 │   Broski    │         │   Bridge    │         │  OpenCode (SDK)     │
 │  (iPhone)   │ ──WS──► │   (Mac)     │ ──────► │  Claude Code (SDK)  │
 │             │         │             │         │  Codex (app-server) │
-└─────────────┘         └─────────────┘         └─────────────────────┘
+└─────────────┘         └─────────────┘         │  Pi (event-driven)  │
+                                                └─────────────────────┘
 ```
 
 </div>
@@ -65,7 +67,7 @@ Broski turns your phone into a remote control for your AI coding agents—[OpenC
 <td width="50%">
 
 ### Multi-Agent Support
-Connect to **OpenCode**, **Claude Code**, or **Codex**. Switch between agents seamlessly. Use whichever AI coding tool you prefer.
+Connect to **OpenCode**, **Claude Code**, **Codex**, or **Pi**. Switch between agents seamlessly. Use whichever AI coding tool you prefer.
 
 </td>
 <td width="50%">
@@ -152,6 +154,7 @@ That's it.
 | **[OpenCode](https://github.com/opencode-ai/opencode)** | Full support | Sessions, MCP, providers, terminal, file browser, git |
 | **[Claude Code](https://claude.ai/code)** | Full support | Sessions, skills, hooks, plugins, subagents, undo/rewind |
 | **[Codex](https://github.com/openai/codex)** | Full support | Sessions, threads, streaming, app-server protocol |
+| **[Pi](https://github.com/mariozechner/pi-coding-agent)** | Full support | Sessions, extensions, session tree, multi-provider, dynamic models |
 
 ### Chat Interface
 
@@ -243,6 +246,7 @@ That's it.
 | [OpenCode](https://github.com/opencode-ai/opencode) | `npm i -g opencode` | Open source AI coding agent |
 | [Claude Code](https://claude.ai/code) | `npm i -g @anthropic-ai/claude-code` | Anthropic's official CLI |
 | [Codex](https://github.com/openai/codex) | `npm i -g @openai/codex` | OpenAI's coding agent |
+| [Pi](https://github.com/mariozechner/pi-coding-agent) | `npm i -g @mariozechner/pi-coding-agent` | Open-source multi-provider agent |
 
 ### Bridge
 
@@ -302,6 +306,7 @@ The bridge auto-detects which AI agents are available:
 - **OpenCode**: SDK-based, spawns automatically or attaches to running instance
 - **Claude Code**: Uses Claude Agent SDK, requires `ANTHROPIC_API_KEY` or `~/.claude/settings.json`
 - **Codex**: Uses JSON-RPC app-server protocol, requires Codex CLI installed
+- **Pi**: Event-driven AgentSession, dynamic model registry, requires Pi CLI installed
 
 ---
 
@@ -343,11 +348,12 @@ Broski is a thin UI layer. Your AI agents do all the heavy lifting.
 | **OpenCode Connector** | `@opencode-ai/sdk` | Full OpenCode SDK integration |
 | **Claude Code Connector** | `@anthropic-ai/claude-agent-sdk` | Claude Agent SDK integration |
 | **Codex Connector** | JSON-RPC | Codex app-server protocol |
+| **Pi Connector** | `@mariozechner/pi-coding-agent` | Event-driven AgentSession integration |
 
 ### Key Design Decisions
 
 - **Thin client**: App only renders UI. All AI logic stays on Mac.
-- **Multi-agent**: Unified interface for OpenCode, Claude Code, and Codex.
+- **Multi-agent**: Unified interface for OpenCode, Claude Code, Codex, and Pi.
 - **SDK-based**: Uses official SDKs (`@opencode-ai/sdk`, `@anthropic-ai/claude-agent-sdk`).
 - **Peer-to-peer**: No cloud servers. Direct phone ↔ Mac connection.
 - **RTT-adaptive**: Event batching adjusts to connection latency (4ms local → 150ms high-latency).
@@ -379,7 +385,8 @@ broski/
 │       ├── connectors/
 │       │   ├── opencode.ts       # OpenCode SDK connector
 │       │   ├── claude-code.ts    # Claude Code SDK connector
-│       │   └── codex.ts          # Codex app-server connector
+│       │   ├── codex.ts          # Codex app-server connector
+│       │   └── pi.ts             # Pi event-driven connector
 │       ├── plugins.ts            # Plugin system
 │       ├── custom-tools.ts       # Custom MCP tools
 │       └── ...
@@ -482,7 +489,7 @@ broski status
 - [x] Appearance customization
 - [x] Background notifications
 - [x] L1/L2 tiered caching
-- [x] **Multi-agent support** (OpenCode, Claude Code, Codex)
+- [x] **Multi-agent support** (OpenCode, Claude Code, Codex, Pi)
 - [x] **Cross-device real-time sync**
 - [x] **Claude Code skills, hooks, plugins**
 - [x] **Subagent visualization**
@@ -524,6 +531,7 @@ broski status
 | [@opencode-ai/sdk](https://github.com/opencode-ai/opencode) | OpenCode integration |
 | [@anthropic-ai/claude-agent-sdk](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk) | Claude Code integration |
 | JSON-RPC | Codex app-server protocol |
+| [@mariozechner/pi-coding-agent](https://www.npmjs.com/package/@mariozechner/pi-coding-agent) | Pi agent integration |
 
 ---
 
@@ -557,7 +565,7 @@ See [AGENTS.md](AGENTS.md) for code conventions.
 | Bridge server | ~5,000 LOC |
 | Screens | 25+ |
 | Widgets | 18+ |
-| Agent connectors | 3 (OpenCode, Claude Code, Codex) |
+| Agent connectors | 4 (OpenCode, Claude Code, Codex, Pi) |
 | SDK features | 25+ per agent |
 | Color tokens | 50+ |
 

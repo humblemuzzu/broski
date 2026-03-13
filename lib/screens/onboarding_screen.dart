@@ -925,6 +925,30 @@ class _UnifiedIntelligencePageState extends State<_UnifiedIntelligencePage>
                                 ),
                                 name: 'Claude Code',
                               ),
+                              const SizedBox(height: 19),
+                              // Pi card
+                              _AgentCard(
+                                iconWidget: Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF7C3AED),
+                                    borderRadius: Radii.brMd,
+                                  ),
+                                  child: const Center(
+                                    child: Text(
+                                      'π',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                        fontFamily: 'GeistSans',
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                name: 'Pi',
+                              ),
                             ],
                           ),
                         ),

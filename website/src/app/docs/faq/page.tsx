@@ -23,7 +23,7 @@ export default function FAQPage() {
             <h3 className="font-semibold mb-2">What is Broski?</h3>
             <p className="text-muted-foreground">
               Broski is a mobile companion app that turns your phone into a remote control for AI coding agents. 
-              It connects to Claude Code, OpenCode, or Codex running on your system, letting you chat with AI, 
+              It connects to Claude Code, OpenCode, Codex, or Pi running on your system, letting you chat with AI, 
               view code changes, and approve actions from anywhere.
             </p>
           </div>
@@ -80,7 +80,7 @@ export default function FAQPage() {
             <ul className="text-muted-foreground space-y-2">
               <li>&#8226; A Mac, Windows PC, or Linux machine</li>
               <li>&#8226; Broski bridge installed on your computer</li>
-              <li>&#8226; Claude Code, OpenCode, or Codex CLI installed</li>
+              <li>&#8226; Claude Code, OpenCode, Codex, or Pi CLI installed</li>
               <li>&#8226; An AI provider account (Claude, OpenAI, etc.)</li>
               <li>&#8226; An iPhone/iPad (iOS 15+) or Android device (8.0+)</li>
               <li>&#8226; Same WiFi network OR Tailscale for remote access</li>
@@ -283,7 +283,7 @@ export default function FAQPage() {
             <h3 className="font-semibold mb-2">Can I switch between backends?</h3>
             <p className="text-muted-foreground">
               Yes! Go to Settings &gt; AI Backend in the app to switch between Claude Code, 
-              OpenCode, and Codex. The bridge will reconnect with the selected backend. 
+              OpenCode, Codex, and Pi. The bridge will reconnect with the selected backend. 
               Note that sessions are per-backend - they don&apos;t transfer.
             </p>
           </div>
@@ -309,7 +309,7 @@ export default function FAQPage() {
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">How do I configure my API key?</h3>
             <p className="text-muted-foreground">
-              API keys are configured in OpenCode/Claude Code, not in Broski. Set environment variables 
+              API keys are configured in your chosen backend (OpenCode, Claude Code, Codex, or Pi), not in Broski. Set environment variables 
               like <code className="px-1 py-0.5 bg-muted rounded text-sm">ANTHROPIC_API_KEY</code> or use 
               <code className="px-1 py-0.5 bg-muted rounded text-sm">claude login</code> for Claude Code.
             </p>

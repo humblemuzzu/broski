@@ -5,7 +5,7 @@ import { Callout } from "@/components/docs/callout";
 
 export const metadata: Metadata = {
   title: "AI Backend Issues - Broski",
-  description: "Troubleshoot issues specific to OpenCode, Claude Code, and Codex backends",
+  description: "Troubleshoot issues specific to OpenCode, Claude Code, Codex, and Pi backends",
 };
 
 export default function AIBackendsTroubleshootingPage() {
@@ -13,7 +13,7 @@ export default function AIBackendsTroubleshootingPage() {
     <article className="max-w-3xl">
       <h1 id="ai-backends" className="text-4xl font-bold mb-4">AI Backend Issues</h1>
       <p className="text-xl text-muted-foreground mb-8">
-        Troubleshoot issues specific to OpenCode, Claude Code, and Codex backends.
+        Troubleshoot issues specific to OpenCode, Claude Code, Codex, and Pi backends.
       </p>
 
       {/* OpenCode Issues */}
@@ -264,6 +264,82 @@ codex
         />
       </section>
 
+      {/* Pi Issues */}
+      <section className="mb-12">
+        <h2 id="pi-issues" className="text-2xl font-semibold mb-4">Pi Issues</h2>
+        
+        <Callout type="info" title="Pi is an open-source multi-provider agent">
+          Pi connects to any AI provider. Most issues relate to provider API key configuration.
+        </Callout>
+
+        <div className="space-y-6">
+          <div className="border border-border rounded-lg p-4">
+            <div className="font-medium mb-2">&quot;Pi not found&quot;</div>
+            <p className="text-sm text-muted-foreground mb-3">
+              Bridge can&apos;t find the Pi binary.
+            </p>
+            <CodeBlock language="bash">{`# Check if Pi is installed
+which pi
+
+# If not found, install it
+npm i -g @mariozechner/pi-coding-agent
+
+# Then reload your shell
+source ~/.bashrc  # or ~/.zshrc`}</CodeBlock>
+          </div>
+
+          <div className="border border-border rounded-lg p-4">
+            <div className="font-medium mb-2">No Models Available</div>
+            <p className="text-sm text-muted-foreground mb-3">
+              Pi needs at least one AI provider API key to discover models.
+            </p>
+            <CodeBlock language="bash">{`# Check your API keys
+echo $ANTHROPIC_API_KEY
+echo $OPENAI_API_KEY
+echo $GOOGLE_GENERATIVE_AI_API_KEY
+
+# Set an API key (add to ~/.bashrc or ~/.zshrc)
+export ANTHROPIC_API_KEY=sk-ant-...`}</CodeBlock>
+          </div>
+
+          <div className="border border-border rounded-lg p-4">
+            <div className="font-medium mb-2">Context Limit / Auto-Compaction Issues</div>
+            <p className="text-sm text-muted-foreground mb-3">
+              Session context exceeds model limit.
+            </p>
+            <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+              <li>Use the compact command from the chat overflow menu</li>
+              <li>Enable auto-compaction in Pi settings</li>
+              <li>Fork the session to start fresh with a summary</li>
+              <li>Switch to a model with a larger context window</li>
+            </ul>
+          </div>
+
+          <div className="border border-border rounded-lg p-4">
+            <div className="font-medium mb-2">Extension Errors</div>
+            <p className="text-sm text-muted-foreground mb-3">
+              A Pi extension is failing or not loading.
+            </p>
+            <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+              <li>Check extension paths in Pi settings</li>
+              <li>Verify the extension package is installed</li>
+              <li>Check bridge logs for extension error messages</li>
+            </ul>
+          </div>
+        </div>
+
+        <h3 id="pi-common-mistakes" className="text-lg font-semibold mt-6 mb-3">Common Mistakes - Pi</h3>
+        <SimpleTable
+          headers={["Mistake", "Fix"]}
+          rows={[
+            ["No API key set", "Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or another provider key"],
+            ["Pi not found on PATH", "Run npm i -g @mariozechner/pi-coding-agent"],
+            ["Wrong model name", "Use the model picker in Broski — Pi auto-discovers available models"],
+            ["Context too long", "Use compact command or enable auto-compaction"],
+            ["Extension not loading", "Check extension paths and npm package installation"],
+          ]}
+        />
+      </section>
       {/* Environment Variables */}
       <section className="mb-12">
         <h2 id="env-vars" className="text-2xl font-semibold mb-4">Environment Variables Reference</h2>
@@ -274,6 +350,7 @@ codex
             [<code key="2" className="text-xs">OPENAI_API_KEY</code>, "OpenCode (Codex)", "OpenAI API key"],
             [<code key="3" className="text-xs">GOOGLE_AI_API_KEY</code>, "OpenCode", "Google Gemini API key"],
             [<code key="4" className="text-xs">OPENCODE_PORT</code>, "OpenCode", "Server port (default: 4096)"],
+            [<code key="5" className="text-xs">GROQ_API_KEY</code>, "Pi", "Groq API key"],
           ]}
         />
 
@@ -294,7 +371,7 @@ source ~/.zshrc`}</CodeBlock>
         </p>
         <ol className="text-muted-foreground space-y-2 list-decimal list-inside mb-4">
           <li>Go to Settings → AI Backend</li>
-          <li>Select OpenCode, Claude Code, or Codex</li>
+          <li>Select OpenCode, Claude Code, Codex, or Pi</li>
           <li>The bridge will reconnect with the selected backend</li>
         </ol>
         
@@ -324,8 +401,12 @@ curl http://localhost:4096/path
 claude --version
 cat ~/.claude/settings.json | head -5
 
+# For Pi:
+which pi
+pi --version
+
 # Check what processes are running
-ps aux | grep -E "(opencode|claude|codex|broski)"`}</CodeBlock>
+ps aux | grep -E "(opencode|claude|codex|pi|broski)"`}</CodeBlock>
       </section>
 
       {/* Next Steps */}
@@ -343,6 +424,10 @@ ps aux | grep -E "(opencode|claude|codex|broski)"`}</CodeBlock>
           <a href="/docs/backends/codex" className="block p-4 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/30 transition-colors">
             <h3 className="font-medium mb-1">Codex</h3>
             <p className="text-sm text-muted-foreground">Full Codex documentation</p>
+          </a>
+          <a href="/docs/backends/pi" className="block p-4 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/30 transition-colors">
+            <h3 className="font-medium mb-1">Pi</h3>
+            <p className="text-sm text-muted-foreground">Full Pi documentation</p>
           </a>
           <a href="/docs/troubleshooting/errors" className="block p-4 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/30 transition-colors">
             <h3 className="font-medium mb-1">Error Reference</h3>

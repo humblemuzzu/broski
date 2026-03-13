@@ -7,6 +7,7 @@ import type { CheckResult } from '../types'
 const OPENCODE_FIX = 'Install OpenCode: curl -fsSL https://opencode.ai/install | bash (or bun add -g opencode-ai)'
 const CLAUDE_FIX = 'Install Claude Code: curl -fsSL https://claude.ai/install.sh | bash'
 const CODEX_FIX = 'Install Codex: npm i -g @openai/codex'
+const PI_FIX = 'Install Pi: npm i -g @mariozechner/pi-coding-agent'
 
 export async function runDependencyChecks(): Promise<CheckResult[]> {
   const results: CheckResult[] = []
@@ -69,17 +70,30 @@ export async function runDependencyChecks(): Promise<CheckResult[]> {
     results.push({ id: 'codex', category: 'dependencies', status: 'ok', message: 'Codex found' })
   }
 
-  const any = Boolean(opencode || claude || codex)
+  const pi = findBinary('pi')
+  if (!pi) {
+    results.push({
+      id: 'pi',
+      category: 'dependencies',
+      status: 'warning',
+      message: 'Pi not found',
+      fix: PI_FIX,
+    })
+  } else {
+    results.push({ id: 'pi', category: 'dependencies', status: 'ok', message: 'Pi found' })
+  }
+
+  const any = Boolean(opencode || claude || codex || pi)
   if (!any) {
     results.push({
       id: 'any_agent',
       category: 'dependencies',
       status: 'error',
-      message: 'No supported AI backend found (OpenCode/Claude/Codex)',
+      message: 'No supported AI backend found (OpenCode/Claude/Codex/Pi)',
       fix: OPENCODE_FIX,
     })
   } else {
-    const names = [opencode && 'OpenCode', claude && 'Claude Code', codex && 'Codex'].filter(Boolean)
+    const names = [opencode && 'OpenCode', claude && 'Claude Code', codex && 'Codex', pi && 'Pi'].filter(Boolean)
     results.push({
       id: 'any_agent',
       category: 'dependencies',

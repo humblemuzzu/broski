@@ -121,7 +121,7 @@ export default function Home() {
 
           {/* Subheadline */}
           <p className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-xl mx-auto px-2 animate-fade-in-delay-3">
-            The mobile-first interface for Claude Code, OpenCode, and beyond. 
+            The mobile-first interface for Claude Code, OpenCode, Codex, and Pi. 
             Ship code while away from your desk.
           </p>
 
@@ -254,7 +254,7 @@ export default function Home() {
               </div>
               <h3 className="text-lg font-medium">Multiple Backends</h3>
               <p className="text-muted-foreground text-sm leading-relaxed">
-                Connect to Claude Code, OpenCode, or your own setup. 
+                Connect to Claude Code, OpenCode, Codex, or Pi. 
                 One interface, many possibilities.
               </p>
             </div>

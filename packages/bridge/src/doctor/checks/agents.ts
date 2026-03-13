@@ -2,6 +2,7 @@ import { homedir } from 'node:os'
 import { resolve } from 'node:path'
 import type { CheckResult } from '../types'
 import { dirExists } from '../utils'
+import { findBinary } from '../../platform'
 
 export async function runAgentChecks(): Promise<CheckResult[]> {
   const results: CheckResult[] = []
@@ -56,6 +57,33 @@ export async function runAgentChecks(): Promise<CheckResult[]> {
     status: 'info',
     message: codexPath ? `Codex config directory found: ${codexPath}` : 'No Codex config directory found yet',
   })
+
+  // Pi config check
+  try {
+    const piPath = findBinary('pi')
+    if (piPath) {
+      results.push({
+        id: 'pi_config',
+        category: 'agents',
+        status: 'ok',
+        message: 'Pi agent available',
+      })
+    } else {
+      results.push({
+        id: 'pi_config',
+        category: 'agents',
+        status: 'info',
+        message: 'Pi agent not installed (optional)',
+      })
+    }
+  } catch {
+    results.push({
+      id: 'pi_config',
+      category: 'agents',
+      status: 'info',
+      message: 'Pi agent not installed (optional)',
+    })
+  }
 
   return results
 }

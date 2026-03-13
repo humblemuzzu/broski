@@ -28,6 +28,7 @@ export const BroskiConfigSchema = z.object({
     opencode: z.boolean().default(true),
     claudeCode: z.boolean().default(false),
     codex: z.boolean().default(false),
+    pi: z.boolean().default(false),
   }).default({}),
   pi: z.object({
     enabled: z.boolean().optional(),

@@ -6,22 +6,26 @@ export type AgentsResult = {
   opencode: boolean
   claudeCode: boolean
   codex: boolean
+  pi: boolean
 }
 
 interface DetectedAgents {
   opencode: { found: boolean; path: string | null }
   claudeCode: { found: boolean; path: string | null }
   codex: { found: boolean; path: string | null }
+  pi: { found: boolean; path: string | null }
 }
 
 function detectAgents(): DetectedAgents {
   const oc = findBinary('opencode')
   const cc = findBinary('claude')
   const cx = findBinary('codex')
+  const pi = findBinary('pi')
   return {
     opencode: { found: !!oc, path: oc },
     claudeCode: { found: !!cc, path: cc },
     codex: { found: !!cx, path: cx },
+    pi: { found: !!pi, path: pi },
   }
 }
 
@@ -30,7 +34,7 @@ export async function runAgentsStep(
   options: { isQuick: boolean },
 ): Promise<AgentsResult> {
   const detected = detectAgents()
-  const foundCount = [detected.opencode, detected.claudeCode, detected.codex]
+  const foundCount = [detected.opencode, detected.claudeCode, detected.codex, detected.pi]
     .filter(a => a.found).length
 
   if (options.isQuick) {
@@ -44,6 +48,9 @@ export async function runAgentsStep(
     }
     if (detected.codex.found) {
       lines.push(`  ${success('✓')} Codex ${muted(`(${detected.codex.path})`)}`)
+    }
+    if (detected.pi.found) {
+      lines.push(`  ${success('✓')} Pi ${muted(`(${detected.pi.path})`)}`)
     }
 
     if (foundCount === 0) {
@@ -62,6 +69,7 @@ export async function runAgentsStep(
       opencode: detected.opencode.found,
       claudeCode: detected.claudeCode.found,
       codex: detected.codex.found,
+      pi: detected.pi.found,
     }
   }
 
@@ -84,6 +92,11 @@ export async function runAgentsStep(
         label: `Codex ${detected.codex.found ? success('(detected)') : warning('(not found)')}`,
         hint: detected.codex.found ? detected.codex.path ?? undefined : 'npm i -g @openai/codex',
       },
+      {
+        value: 'pi',
+        label: `Pi ${detected.pi.found ? success('(detected)') : warning('(not found)')}`,
+        hint: detected.pi.found ? detected.pi.path ?? undefined : 'npm i -g @mariozechner/pi-coding-agent',
+      },
     ],
   })
 
@@ -98,6 +111,9 @@ export async function runAgentsStep(
   if (selected.includes('codex') && !detected.codex.found) {
     warnings.push(`  ${warning('⚠')} Codex not found. Install: ${bold('npm i -g @openai/codex')}`)
   }
+  if (selected.includes('pi') && !detected.pi.found) {
+    warnings.push(`  ${warning('⚠')} Pi not found. Install: ${bold('npm i -g @mariozechner/pi-coding-agent')}`)
+  }
   if (warnings.length > 0) {
     await prompter.note(warnings.join('\n'), 'Missing Agents')
   }
@@ -106,5 +122,6 @@ export async function runAgentsStep(
     opencode: selected.includes('opencode'),
     claudeCode: selected.includes('claudeCode'),
     codex: selected.includes('codex'),
+    pi: selected.includes('pi'),
   }
 }

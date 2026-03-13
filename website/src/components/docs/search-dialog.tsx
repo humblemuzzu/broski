@@ -19,7 +19,7 @@ interface SearchResult {
 // Search index - all docs content
 const searchIndex: SearchResult[] = [
   // Getting Started
-  { title: "Introduction", href: "/docs", section: "What is Broski?", content: "Broski is a mobile companion app for AI coding agents. Control Claude Code, OpenCode, or Codex from your phone.", category: "Get Started" },
+  { title: "Introduction", href: "/docs", section: "What is Broski?", content: "Broski is a mobile companion app for AI coding agents. Control Claude Code, OpenCode, Codex, or Pi from your phone.", category: "Get Started" },
   { title: "Quick Start", href: "/docs/setup", section: "Prerequisites", content: "Mac running macOS 12+, Node.js 18+ or Bun, iPhone or iPad running iOS 15+", category: "Get Started" },
   { title: "Quick Start", href: "/docs/setup", section: "Install the Bridge", content: "bunx broski or npx broski to start the bridge server", category: "Get Started" },
   { title: "Quick Start", href: "/docs/setup", section: "Scan QR Code", content: "Open Broski app and scan the QR code displayed in terminal", category: "Get Started" },
@@ -44,7 +44,7 @@ const searchIndex: SearchResult[] = [
   { title: "File Browser", href: "/docs/app/files", section: "File Viewer", content: "Syntax highlighting line numbers copy button images pinch zoom", category: "Mobile App" },
   { title: "Settings", href: "/docs/app/settings", section: "Connection", content: "Active connection device manager disconnect local IP port Tailscale", category: "Mobile App" },
   { title: "Settings", href: "/docs/app/settings", section: "Appearance", content: "27 themes icon packs input bar style navigation style customization", category: "Mobile App" },
-  { title: "Settings", href: "/docs/app/settings", section: "AI Backend", content: "OpenCode Claude Code Codex switch backend providers models API keys", category: "Mobile App" },
+  { title: "Settings", href: "/docs/app/settings", section: "AI Backend", content: "OpenCode Claude Code Codex Pi switch backend providers models API keys", category: "Mobile App" },
   { title: "Settings", href: "/docs/app/settings", section: "OpenCode Settings", content: "Terminal sessions skills commands agents plugins MCP tools permissions", category: "Mobile App" },
   { title: "Settings", href: "/docs/app/settings", section: "Claude Code Settings", content: "Subagents custom tools plugins hooks MCP commands skills", category: "Mobile App" },
   { title: "Settings", href: "/docs/app/settings", section: "About", content: "Replay onboarding clear cache version support legal privacy terms", category: "Mobile App" },
@@ -65,7 +65,7 @@ const searchIndex: SearchResult[] = [
   { title: "Background Service", href: "/docs/bridge/background-service", section: "systemd", content: "Linux systemd user service for persistent bridge", category: "Bridge" },
   
   // AI Backends
-  { title: "AI Backends Overview", href: "/docs/backends", section: "Comparison", content: "Compare OpenCode and Claude Code backends, choose the right one", category: "AI Backends" },
+  { title: "AI Backends Overview", href: "/docs/backends", section: "Comparison", content: "Compare OpenCode, Claude Code, Codex, and Pi backends, choose the right one", category: "AI Backends" },
   { title: "Claude Code", href: "/docs/backends/claude-code", section: "Setup", content: "npm install -g @anthropic-ai/claude-code, Anthropic official SDK", category: "AI Backends" },
   { title: "Claude Code", href: "/docs/backends/claude-code", section: "Features", content: "Extended thinking, subagents, file checkpointing, plugins", category: "AI Backends" },
   { title: "Claude Code", href: "/docs/backends/claude-code", section: "Authentication", content: "ANTHROPIC_API_KEY or claude login for OAuth", category: "AI Backends" },
@@ -74,6 +74,9 @@ const searchIndex: SearchResult[] = [
   { title: "OpenCode", href: "/docs/backends/opencode", section: "MCP Integration", content: "Full Model Context Protocol support for custom tools", category: "AI Backends" },
   { title: "Codex", href: "/docs/backends/codex", section: "Setup", content: "OpenAI official CLI agent with sandbox and own tooling", category: "AI Backends" },
   { title: "Codex", href: "/docs/backends/codex", section: "Models", content: "GPT-4 Turbo, GPT-4, GPT-3.5 Turbo, o1 models", category: "AI Backends" },
+  { title: "Pi", href: "/docs/backends/pi", section: "Setup", content: "npm install -g @mariozechner/pi-coding-agent, multi-provider, extension system, open source", category: "AI Backends" },
+  { title: "Pi", href: "/docs/backends/pi", section: "Features", content: "Multi-provider support, extensions, skills, auto-compaction, session tree, fork, HTML export", category: "AI Backends" },
+  { title: "Pi", href: "/docs/backends/pi", section: "Providers", content: "Anthropic, OpenAI, Google Gemini, Groq, Mistral, Ollama, any OpenAI-compatible provider", category: "AI Backends" },
   
   // Troubleshooting
   { title: "Common Issues", href: "/docs/troubleshooting", section: "Quick Diagnostics", content: "broski doctor command, check system requirements, verify installation", category: "Troubleshooting" },
@@ -97,7 +100,7 @@ const searchIndex: SearchResult[] = [
   { title: "Privacy & Security", href: "/docs/reference/privacy", section: "Authentication", content: "Token generation, storage, validation security", category: "Reference" },
   
   // FAQ
-  { title: "FAQ", href: "/docs/faq", section: "What is Broski?", content: "Mobile companion app for AI coding agents, remote control for OpenCode and Claude Code", category: "FAQ" },
+  { title: "FAQ", href: "/docs/faq", section: "What is Broski?", content: "Mobile companion app for AI coding agents, remote control for OpenCode, Claude Code, Codex, and Pi", category: "FAQ" },
   { title: "FAQ", href: "/docs/faq", section: "Is Broski free?", content: "Yes, completely free. You need your own AI provider subscription.", category: "FAQ" },
   { title: "FAQ", href: "/docs/faq", section: "Platforms supported", content: "iOS 15+, Android 8+, macOS 12+, Windows 10+, Linux", category: "FAQ" },
   { title: "FAQ", href: "/docs/faq", section: "OpenCode vs Claude Code", content: "OpenCode supports multiple providers, Claude Code is Anthropic official", category: "FAQ" },

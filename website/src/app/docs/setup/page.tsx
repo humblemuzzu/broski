@@ -33,7 +33,7 @@ export default function SetupPage() {
             </li>
             <li className="flex items-start gap-3">
               <span className="text-primary mt-1">&#10003;</span>
-              <span>At least one AI coding agent installed (Claude Code, OpenCode, or Codex CLI)</span>
+              <span>At least one AI coding agent installed (Claude Code, OpenCode, Codex, or Pi)</span>
             </li>
           </ul>
         </div>
@@ -78,7 +78,7 @@ broski doctor --fix`}</CodeBlock>
         <CodeBlock language="bash">{`# Pairing readiness (token + TLS + QR)
 broski doctor --profile pairing
 
-# Backend readiness (OpenCode/Claude/Codex)
+# Backend readiness (OpenCode/Claude/Codex/Pi)
 broski doctor --profile agents`}</CodeBlock>
 
         <Callout type="warning" title="Failed checks?">
@@ -209,7 +209,8 @@ sudo ufw allow 18274/tcp`}</CodeBlock>
             <CodeBlock language="bash">{`# Check installed agents
 which claude    # Claude Code
 which opencode  # OpenCode
-which codex     # Codex CLI`}</CodeBlock>
+which codex     # Codex CLI
+which pi        # Pi`}</CodeBlock>
           </div>
 
           <div className="border border-border/50 rounded-lg p-4">

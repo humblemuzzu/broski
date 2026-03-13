@@ -5,7 +5,7 @@ import { SimpleTable, Callout, CodeBlock } from "@/components/docs";
 
 export const metadata: Metadata = {
   title: "AI Backends - Broski",
-  description: "Claude Code, OpenCode, and Codex support",
+  description: "Claude Code, OpenCode, Codex, and Pi support",
 };
 
 export default function BackendsOverviewPage() {
@@ -97,6 +97,19 @@ export default function BackendsOverviewPage() {
             <p className="text-xs text-muted-foreground">OpenAI&apos;s official agent &mdash; native sandbox, own tooling system</p>
           </div>
         </Link>
+
+        <Link 
+          href="/docs/backends/pi"
+          className="flex items-center gap-4 p-4 border border-border/40 rounded-lg hover:border-[#7c3aed]/40 hover:bg-[#7c3aed]/5 transition-colors"
+        >
+          <div className="w-8 h-8 rounded-full bg-[#7c3aed]/10 flex items-center justify-center shrink-0">
+            <span className="text-[#7c3aed] font-bold text-sm">π</span>
+          </div>
+          <div>
+            <div className="font-medium text-sm">Pi</div>
+            <p className="text-xs text-muted-foreground">Open-source agent &mdash; multi-provider, extensions, session tree</p>
+          </div>
+        </Link>
       </div>
 
       <h2 id="decision-guide" className="text-xl font-semibold mb-4">Which Backend Should I Use?</h2>
@@ -126,19 +139,29 @@ export default function BackendsOverviewPage() {
             <li>Use OpenAI models exclusively</li>
           </ul>
         </div>
+        <div className="p-4 rounded-lg border border-border/40 bg-card/30">
+          <div className="font-medium mb-2 text-sm">Use Pi if you...</div>
+          <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
+            <li>Want multi-provider flexibility with an extension system</li>
+            <li>Need session tree navigation with fork and branch support</li>
+            <li>Prefer open-source with customizable skills and tools</li>
+          </ul>
+        </div>
       </div>
 
       <h2 id="comparison" className="text-xl font-semibold mb-4">Feature Comparison</h2>
       
       <SimpleTable
-        headers={["Feature", "Claude Code", "OpenCode", "Codex"]}
+        headers={["Feature", "Claude Code", "OpenCode", "Codex", "Pi"]}
         rows={[
-          ["Provider", "Anthropic", "75+ providers", "OpenAI"],
-          ["Own Tooling", "Yes", "Yes", "Yes"],
-          ["MCP Support", "Yes", "Full", "Yes"],
-          ["Subagents", "Yes", "Yes", "Yes"],
-          ["Sandbox Mode", "No", "No", "Yes (built-in)"],
-          ["Open Source", "No", "Yes", "Yes"],
+          ["Provider", "Anthropic", "75+ providers", "OpenAI", "Multi (any)"],
+          ["Own Tooling", "Yes", "Yes", "Yes", "Yes"],
+          ["MCP Support", "Yes", "Full", "Yes", "No"],
+          ["Subagents", "Yes", "Yes", "Yes", "No"],
+          ["Sandbox Mode", "No", "No", "Yes (built-in)", "No"],
+          ["Extensions", "Plugins", "Plugins", "Apps", "Yes (plugin API)"],
+          ["Session Tree", "No", "No", "No", "Yes"],
+          ["Open Source", "No", "Yes", "Yes", "Yes"],
         ]}
       />
 
@@ -155,6 +178,7 @@ export default function BackendsOverviewPage() {
           ["Switch OpenCode → Claude Code", "OpenCode sessions hidden, Claude Code sessions shown"],
           ["Switch Claude Code → OpenCode", "Claude Code sessions hidden, OpenCode sessions shown"],
           ["Sessions deleted?", "No — both session sets are preserved"],
+          ["Switch to/from Pi", "Pi sessions hidden/shown, other sessions preserved"],
           ["Transfer sessions?", "No — sessions cannot migrate between backends"],
         ]}
       />
