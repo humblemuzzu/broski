@@ -1001,11 +1001,20 @@ export type ClientMessage =
   | { type: 'pi_abort_compaction'; projectPath?: string }
   | { type: 'pi_abort_branch_summary'; projectPath?: string }
   | { type: 'pi_abort_bash'; projectPath?: string }
+  // Pi Bash Execution
+  | { type: 'pi_execute_bash'; command: string; excludeFromContext?: boolean; projectPath?: string }
   // Pi Queue Management
   | { type: 'pi_clear_queue'; projectPath?: string }
   | { type: 'pi_get_queue'; projectPath?: string }
   // Pi Misc
   | { type: 'pi_get_last_assistant_text'; projectPath?: string }
+  // Pi Label Management
+  | { type: 'pi_set_label'; entryId: string; label?: string; projectPath?: string }
+  | { type: 'pi_get_label'; entryId: string; projectPath?: string }
+  | { type: 'pi_get_labels'; projectPath?: string }
+  // Pi Tree & Custom Messages
+  | { type: 'pi_get_tree'; projectPath?: string }
+  | { type: 'pi_send_custom_message'; customType: string; content?: string; display?: boolean; details?: any; triggerTurn?: boolean; deliverAs?: 'steer' | 'followUp' | 'nextTurn'; projectPath?: string }
   // Subscription Usage Tracking
   | { type: 'get_subscription_usage' }
   | { type: 'get_provider_usage'; providerId: 'claude' | 'openai' }
@@ -2053,6 +2062,14 @@ export type ServerMessage =
   | { type: 'pi_get_queue'; projectPath?: string }
   // Pi Misc
   | { type: 'pi_get_last_assistant_text'; projectPath?: string }
+  | { type: 'pi_bash_result'; data: { output: string; exitCode: number | null; cancelled: boolean; truncated: boolean; fullOutputPath?: string | null; error?: string }; requestId?: string }
+  // Pi Label Management
+  | { type: 'pi_label_set'; data: { success: boolean; entryId?: string; label?: string | null; error?: string }; requestId?: string }
+  | { type: 'pi_label'; data: { entryId: string; label: string | null }; requestId?: string }
+  | { type: 'pi_labels'; data: Array<{ entryId: string; label: string }>; requestId?: string }
+  // Pi Tree & Custom Messages
+  | { type: 'pi_tree'; data: { nodes: any[]; leafId: string | null; error?: string }; requestId?: string }
+  | { type: 'pi_custom_message_sent'; data: { success: boolean; error?: string }; requestId?: string }
   // Subscription Usage Tracking
   | { type: 'subscription_usage'; data: SubscriptionUsage; requestId?: string }
   | { type: 'provider_usage'; data: ProviderUsage; requestId?: string }

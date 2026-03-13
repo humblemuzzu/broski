@@ -47,6 +47,7 @@ export type PiSessionInfo = {
   modified: number
   messageCount: number
   firstMessage: string
+  allMessagesText?: string
   summary?: { additions: number; deletions: number; files: number }
 }
 
@@ -101,3 +102,4 @@ export type PiStreamMessage =
   | { type: 'retry-end'; success: boolean; attempt: number; finalError?: string }
   | { type: 'extension-ui-request'; id: string; method: string; [key: string]: any }
   | { type: 'error'; message: string; code?: string }
+  | { type: 'bash-output'; content: string }

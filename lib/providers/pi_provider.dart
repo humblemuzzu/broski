@@ -208,6 +208,28 @@ final piQueueProvider = FutureProvider.family<PiQueueState, String?>((
   return bridge.getQueue(projectPath: projectPath);
 });
 
+final piLabelsProvider = FutureProvider.family<List<PiLabel>, String?>((
+  ref,
+  projectPath,
+) async {
+  final connection = ref.read(connectionProvider);
+  if (connection.isOfflineMode) return const [];
+
+  final bridge = ref.watch(piBridgeServiceProvider);
+  return bridge.getLabels(projectPath: projectPath);
+});
+
+final piSessionTreeProvider = FutureProvider.family<PiSessionTree, String?>((
+  ref,
+  projectPath,
+) async {
+  final connection = ref.read(connectionProvider);
+  if (connection.isOfflineMode) return const PiSessionTree();
+
+  final bridge = ref.watch(piBridgeServiceProvider);
+  return bridge.getSessionTree(projectPath: projectPath);
+});
+
 /// Prefetch messages for the top N Pi sessions to speed up opening.
 void prefetchTopPiSessions(
   WidgetRef ref,

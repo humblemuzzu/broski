@@ -215,4 +215,143 @@ extension PiBridgeTools on PiBridgeService {
     final data = response['data'] as Map<String, dynamic>? ?? const {};
     return data['text'] as String?;
   }
+
+  // ── Bash Execution ─────────────────────────────────────────────
+
+  /// Execute a bash command and inject its output into the agent's context.
+  /// Different from PTY — this is a single-shot command the agent can see.
+  Future<PiBashResult> executeBash(
+    String command, {
+    bool excludeFromContext = false,
+    String? projectPath,
+  }) async {
+    final requestId = generateRequestId();
+    sendMessage({
+      'type': 'pi_execute_bash',
+      'requestId': requestId,
+      'command': command,
+      if (excludeFromContext) 'excludeFromContext': true,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+
+    final response = await waitForResponse(
+      'pi_bash_result',
+      requestId: requestId,
+      timeout: const Duration(minutes: 5),
+    );
+    final data = response['data'] as Map<String, dynamic>? ?? const {};
+    return PiBashResult.fromJson(data);
+  }
+
+  // ── Label Management ───────────────────────────────────────────
+
+  /// Set or clear a label (bookmark) on a session entry.
+  Future<bool> setLabel(
+    String entryId, {
+    String? label,
+    String? projectPath,
+  }) async {
+    final requestId = generateRequestId();
+    sendMessage({
+      'type': 'pi_set_label',
+      'requestId': requestId,
+      'entryId': entryId,
+      if (label != null) 'label': label,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+
+    final response = await waitForResponse(
+      'pi_label_set',
+      requestId: requestId,
+    );
+    final data = response['data'] as Map<String, dynamic>? ?? const {};
+    return data['success'] as bool? ?? false;
+  }
+
+  /// Get a single label for a specific entry.
+  Future<String?> getLabel(
+    String entryId, {
+    String? projectPath,
+  }) async {
+    final requestId = generateRequestId();
+    sendMessage({
+      'type': 'pi_get_label',
+      'requestId': requestId,
+      'entryId': entryId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+
+    final response = await waitForResponse(
+      'pi_label',
+      requestId: requestId,
+    );
+    final data = response['data'] as Map<String, dynamic>? ?? const {};
+    return data['label'] as String?;
+  }
+
+  /// Get all labels (bookmarks) in the current session.
+  Future<List<PiLabel>> getLabels({String? projectPath}) async {
+    final requestId = generateRequestId();
+    sendMessage({
+      'type': 'pi_get_labels',
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+
+    final response = await waitForResponse('pi_labels', requestId: requestId);
+    final data = response['data'] as List<dynamic>? ?? const [];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map((entry) => PiLabel.fromJson(entry))
+        .toList();
+  }
+
+  // ── Session Tree ───────────────────────────────────────────────
+
+  /// Get the session tree structure with all entries and their relationships.
+  Future<PiSessionTree> getSessionTree({String? projectPath}) async {
+    final requestId = generateRequestId();
+    sendMessage({
+      'type': 'pi_get_tree',
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+
+    final response = await waitForResponse('pi_tree', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? const {};
+    return PiSessionTree.fromJson(data);
+  }
+
+  // ── Custom Messages ────────────────────────────────────────────
+
+  /// Send a custom message to the Pi session (for extension integration).
+  Future<bool> sendCustomMessage({
+    required String customType,
+    String? content,
+    bool display = true,
+    Map<String, dynamic>? details,
+    bool triggerTurn = false,
+    String? deliverAs,
+    String? projectPath,
+  }) async {
+    final requestId = generateRequestId();
+    sendMessage({
+      'type': 'pi_send_custom_message',
+      'requestId': requestId,
+      'customType': customType,
+      if (content != null) 'content': content,
+      'display': display,
+      if (details != null) 'details': details,
+      if (triggerTurn) 'triggerTurn': true,
+      if (deliverAs != null) 'deliverAs': deliverAs,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+
+    final response = await waitForResponse(
+      'pi_custom_message_sent',
+      requestId: requestId,
+    );
+    final data = response['data'] as Map<String, dynamic>? ?? const {};
+    return data['success'] as bool? ?? false;
+  }
 }

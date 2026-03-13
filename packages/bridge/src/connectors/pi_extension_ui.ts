@@ -251,6 +251,11 @@ export function createPiExtensionUiBridge(
 
     setTheme: (_theme: unknown) => ({ success: false, error: 'Theme switching not supported in bridge mode' }),
 
+    onTerminalInput: (): (() => void) => {
+      // Terminal input is not available in bridge mode.
+      return () => {}
+    },
+
     getToolsExpanded: () => false,
 
     setToolsExpanded: (expanded: boolean) => {

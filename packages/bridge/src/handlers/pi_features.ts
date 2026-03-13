@@ -1,5 +1,6 @@
 import { resolve } from 'node:path'
 import type { ThinkingLevel } from '@mariozechner/pi-agent-core'
+import type { Model } from '@mariozechner/pi-ai'
 import * as pi from '../connectors/pi'
 import { mapPiStreamToRuntimeEvent } from '../runtime/pi-runtime-event-mapper'
 import {
@@ -15,6 +16,10 @@ import type {
 } from '../types/pi'
 import * as piTools from './pi_tools'
 import * as piAbort from './pi_abort'
+import * as piBash from './pi_bash'
+import * as piLabels from './pi_labels'
+import * as piTree from './pi_tree'
+import * as piCustomMessage from './pi_custom_message'
 
 type Reply = (message: ServerMessage) => void
 
@@ -222,6 +227,10 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
   // Delegate to sub-handlers first
   if (await piTools.handle(message, reply)) return true
   if (await piAbort.handle(message, reply)) return true
+  if (await piBash.handle(message, reply, broadcast)) return true
+  if (await piLabels.handle(message, reply)) return true
+  if (await piTree.handle(message, reply)) return true
+  if (await piCustomMessage.handle(message, reply)) return true
 
   switch (message.type) {
     case 'pi_chat': {
@@ -398,18 +407,30 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
 
     case 'pi_new_session': {
       const instance = await pi.getOrCreateInstance(cwd)
-      const options: Record<string, unknown> = {}
-      if (typeof message.name === 'string' && message.name.trim()) {
-        options.name = message.name.trim()
-      }
+
+      // Collect desired overrides before creating the session
+      const desiredName = typeof message.name === 'string' && message.name.trim() ? message.name.trim() : undefined
+      let desiredModel: Model<any> | undefined
       if (typeof message.provider === 'string' && typeof message.modelId === 'string') {
-        const model = pi.getModelRegistry().find(message.provider, message.modelId)
-        if (model) options.model = model
+        desiredModel = pi.getModelRegistry().find(message.provider, message.modelId)
       }
-      if (typeof message.thinkingLevel === 'string') {
-        options.thinkingLevel = parseThinkingLevel(message.thinkingLevel)
+      const desiredThinkingLevel = typeof message.thinkingLevel === 'string'
+        ? parseThinkingLevel(message.thinkingLevel)
+        : undefined
+
+      // newSession() only accepts { parentSession?, setup? } — apply overrides after creation
+      const created = await instance.session.newSession()
+
+      if (created) {
+        try {
+          if (desiredModel) await instance.session.setModel(desiredModel)
+          if (desiredThinkingLevel) instance.session.setThinkingLevel(desiredThinkingLevel)
+          if (desiredName) instance.session.setSessionName(desiredName)
+        } catch {
+          // Overrides failed (e.g. no API key for model) — session was created with defaults
+        }
       }
-      const created = await instance.session.newSession(Object.keys(options).length > 0 ? options : undefined)
+
       await ensureStreamBridge(cwd, broadcast)
       reply({ type: 'pi_session_created', data: created, requestId: message.requestId })
       void broadcastPiRuntimeSessions(broadcast)

@@ -232,6 +232,76 @@ class _PiSettingsSheetContentState
             onChanged: (v) => _updateNestedSetting('images', 'autoResize', v),
           ),
 
+          const SizedBox(height: 16),
+          // ── Model & Transport ─────────────────────────────────
+          const _SectionTitle(title: 'Model & Transport'),
+          _DropdownRow(
+            label: 'API Transport',
+            value: settings['transport'] as String? ?? 'auto',
+            options: const ['auto', 'sse', 'websocket'],
+            onChanged: (v) => _updateSetting('transport', v),
+          ),
+          _TextRow(
+            label: 'Enabled Models',
+            hint: 'e.g. anthropic/*,openai/gpt-5*',
+            value: _joinedList(settings, 'enabledModels'),
+            onChanged: (v) => _updateSetting(
+              'enabledModels',
+              v.isEmpty
+                  ? null
+                  : v.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList(),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+          // ── Thinking Budgets ──────────────────────────────────
+          const _SectionTitle(title: 'Thinking Budgets'),
+          _NumberRow(
+            label: 'Minimal',
+            value: _nestedInt(settings, 'thinkingBudgets', 'minimal', 1024),
+            min: 128,
+            max: 65536,
+            step: 256,
+            onChanged: (v) =>
+                _updateNestedSetting('thinkingBudgets', 'minimal', v),
+          ),
+          _NumberRow(
+            label: 'Low',
+            value: _nestedInt(settings, 'thinkingBudgets', 'low', 4096),
+            min: 128,
+            max: 65536,
+            step: 512,
+            onChanged: (v) =>
+                _updateNestedSetting('thinkingBudgets', 'low', v),
+          ),
+          _NumberRow(
+            label: 'Medium',
+            value: _nestedInt(settings, 'thinkingBudgets', 'medium', 10240),
+            min: 128,
+            max: 131072,
+            step: 1024,
+            onChanged: (v) =>
+                _updateNestedSetting('thinkingBudgets', 'medium', v),
+          ),
+          _NumberRow(
+            label: 'High',
+            value: _nestedInt(settings, 'thinkingBudgets', 'high', 32768),
+            min: 128,
+            max: 131072,
+            step: 1024,
+            onChanged: (v) =>
+                _updateNestedSetting('thinkingBudgets', 'high', v),
+          ),
+          _NumberRow(
+            label: 'Xhigh',
+            value: _nestedInt(settings, 'thinkingBudgets', 'xhigh', 65536),
+            min: 1024,
+            max: 131072,
+            step: 2048,
+            onChanged: (v) =>
+                _updateNestedSetting('thinkingBudgets', 'xhigh', v),
+          ),
+
           const SizedBox(height: 24),
           // ── Save Button ───────────────────────────────────────
           SizedBox(
@@ -271,6 +341,14 @@ class _PiSettingsSheetContentState
   ) {
     final nested = settings[parent] as Map<String, dynamic>?;
     return nested?[key] as bool? ?? fallback;
+  }
+
+  String _joinedList(Map<String, dynamic> settings, String key) {
+    final value = settings[key];
+    if (value is List) {
+      return value.whereType<String>().join(', ');
+    }
+    return '';
   }
 }
 
@@ -377,5 +455,117 @@ class _NumberRow extends StatelessWidget {
       return '${(n / 1000).toStringAsFixed(n % 1000 == 0 ? 0 : 1)}K';
     }
     return n.toString();
+  }
+}
+
+class _DropdownRow extends StatelessWidget {
+  const _DropdownRow({
+    required this.label,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String value;
+  final List<String> options;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
+          ),
+          DropdownButton<String>(
+            value: options.contains(value) ? value : options.first,
+            isDense: true,
+            underline: const SizedBox.shrink(),
+            items: options
+                .map(
+                  (o) => DropdownMenuItem(value: o, child: Text(o)),
+                )
+                .toList(),
+            onChanged: (v) {
+              if (v != null) onChanged(v);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TextRow extends StatefulWidget {
+  const _TextRow({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+    this.hint,
+  });
+
+  final String label;
+  final String value;
+  final ValueChanged<String> onChanged;
+  final String? hint;
+
+  @override
+  State<_TextRow> createState() => _TextRowState();
+}
+
+class _TextRowState extends State<_TextRow> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.value);
+  }
+
+  @override
+  void didUpdateWidget(_TextRow old) {
+    super.didUpdateWidget(old);
+    if (old.value != widget.value && _controller.text != widget.value) {
+      _controller.text = widget.value;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(widget.label, style: Theme.of(context).textTheme.bodyMedium),
+          const SizedBox(height: 4),
+          TextField(
+            controller: _controller,
+            decoration: InputDecoration(
+              hintText: widget.hint,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 8,
+              ),
+              border: const OutlineInputBorder(),
+            ),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontFamily: 'monospace',
+            ),
+            onChanged: widget.onChanged,
+          ),
+        ],
+      ),
+    );
   }
 }

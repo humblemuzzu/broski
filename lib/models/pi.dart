@@ -244,6 +244,7 @@ class PiSessionInfo {
   final DateTime modified;
   final int messageCount;
   final String firstMessage;
+  final String? allMessagesText;
   final SessionSummaryStats? summary;
 
   const PiSessionInfo({
@@ -256,6 +257,7 @@ class PiSessionInfo {
     required this.modified,
     required this.messageCount,
     required this.firstMessage,
+    this.allMessagesText,
     this.summary,
   });
 
@@ -274,6 +276,7 @@ class PiSessionInfo {
       ),
       messageCount: json['messageCount'] as int? ?? 0,
       firstMessage: json['firstMessage'] as String? ?? '',
+      allMessagesText: json['allMessagesText'] as String?,
       summary: json['summary'] == null
           ? null
           : SessionSummaryStats.fromJson(
@@ -293,6 +296,7 @@ class PiSessionInfo {
       'modified': modified.millisecondsSinceEpoch,
       'messageCount': messageCount,
       'firstMessage': firstMessage,
+      if (allMessagesText != null) 'allMessagesText': allMessagesText,
     };
   }
 }
@@ -521,6 +525,11 @@ class PiStreamMessage {
       type == 'extension-ui-request' ? raw['id'] as String? : null;
 
   bool get isError => type == 'error';
+
+  String? get bashOutputContent =>
+      type == 'bash-output' ? raw['content'] as String? : null;
+
+  bool get isBashOutput => type == 'bash-output';
 }
 
 /// Tool info from Pi's getAllTools() + active status.
@@ -599,4 +608,131 @@ class PiQueueState {
   int get total => steering.length + followUp.length;
   bool get isEmpty => steering.isEmpty && followUp.isEmpty;
   bool get isNotEmpty => !isEmpty;
+}
+
+/// Result from executing a bash command in the agent's context.
+class PiBashResult {
+  final String output;
+  final int? exitCode;
+  final bool cancelled;
+  final bool truncated;
+  final String? fullOutputPath;
+  final String? error;
+
+  const PiBashResult({
+    this.output = '',
+    this.exitCode,
+    this.cancelled = false,
+    this.truncated = false,
+    this.fullOutputPath,
+    this.error,
+  });
+
+  factory PiBashResult.fromJson(Map<String, dynamic> json) {
+    return PiBashResult(
+      output: json['output'] as String? ?? '',
+      exitCode: (json['exitCode'] as num?)?.toInt(),
+      cancelled: json['cancelled'] as bool? ?? false,
+      truncated: json['truncated'] as bool? ?? false,
+      fullOutputPath: json['fullOutputPath'] as String?,
+      error: json['error'] as String?,
+    );
+  }
+
+  bool get isSuccess => error == null && exitCode == 0;
+}
+
+/// A label (bookmark) on a session entry.
+class PiLabel {
+  final String entryId;
+  final String label;
+
+  const PiLabel({required this.entryId, required this.label});
+
+  factory PiLabel.fromJson(Map<String, dynamic> json) {
+    return PiLabel(
+      entryId: json['entryId'] as String? ?? '',
+      label: json['label'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {'entryId': entryId, 'label': label};
+}
+
+/// A node in the session tree (serialized from bridge).
+class PiTreeNode {
+  final String id;
+  final String? parentId;
+  final String type;
+  final String timestamp;
+  final String? label;
+  final String? role;
+  final String? text;
+  final int childCount;
+
+  const PiTreeNode({
+    required this.id,
+    this.parentId,
+    required this.type,
+    required this.timestamp,
+    this.label,
+    this.role,
+    this.text,
+    this.childCount = 0,
+  });
+
+  factory PiTreeNode.fromJson(Map<String, dynamic> json) {
+    return PiTreeNode(
+      id: json['id'] as String? ?? '',
+      parentId: json['parentId'] as String?,
+      type: json['type'] as String? ?? '',
+      timestamp: json['timestamp'] as String? ?? '',
+      label: json['label'] as String?,
+      role: json['role'] as String?,
+      text: json['text'] as String?,
+      childCount: json['childCount'] as int? ?? 0,
+    );
+  }
+
+  bool get isMessage => type == 'message';
+  bool get isUserMessage => isMessage && role == 'user';
+  bool get isAssistantMessage => isMessage && role == 'assistant';
+  bool get isCompaction => type == 'compaction';
+  bool get isBranchSummary => type == 'branch_summary';
+  bool get isFork => childCount > 1;
+}
+
+/// Session tree with nodes and current leaf position.
+class PiSessionTree {
+  final List<PiTreeNode> nodes;
+  final String? leafId;
+  final String? error;
+
+  const PiSessionTree({
+    this.nodes = const [],
+    this.leafId,
+    this.error,
+  });
+
+  factory PiSessionTree.fromJson(Map<String, dynamic> json) {
+    final rawNodes = json['nodes'] as List<dynamic>? ?? const [];
+    return PiSessionTree(
+      nodes: rawNodes
+          .whereType<Map<String, dynamic>>()
+          .map((n) => PiTreeNode.fromJson(n))
+          .toList(),
+      leafId: json['leafId'] as String?,
+      error: json['error'] as String?,
+    );
+  }
+
+  bool get hasError => error != null;
+
+  /// Get only fork points (nodes with more than one child).
+  List<PiTreeNode> get forkPoints =>
+      nodes.where((n) => n.isFork).toList();
+
+  /// Get only labeled nodes.
+  List<PiTreeNode> get labeledNodes =>
+      nodes.where((n) => n.label != null).toList();
 }
