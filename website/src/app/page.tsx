@@ -21,8 +21,11 @@ import {
   ChevronRight,
   Folder,
   File,
-  WifiOff,
   Signal,
+  Smartphone,
+  Monitor,
+  Quote,
+  Minus,
 } from "lucide-react";
 
 // ─── Helpers ─────────────────────────────────────────────
@@ -604,7 +607,7 @@ function HowItWorks() {
           <div className="hidden md:block absolute top-12 left-[16.7%] right-[16.7%] h-px bg-gradient-to-r from-transparent via-surface-2 to-transparent" />
           <div className="grid md:grid-cols-3 gap-10 md:gap-8">
             {[
-              { n: "01", title: "Install the bridge", desc: "One command on your Mac.", code: "npx broski-bridge" },
+              { n: "01", title: "Install the bridge", desc: "One command on your Mac.", code: "broski-bridge" },
               { n: "02", title: "Scan the QR code", desc: "Open the app. Point your camera. Done.", code: null },
               { n: "03", title: "You're in", desc: "Full access to all your sessions. From anywhere.", code: null },
             ].map((s, i) => (
@@ -688,8 +691,14 @@ function Pricing() {
               <span className="text-5xl sm:text-6xl font-bold tracking-[-0.04em]">$9.99</span>
               <span className="text-lg text-muted-foreground ml-1">/month</span>
             </div>
-            <p className="text-muted-foreground mb-1">7-day free trial. Cancel anytime.</p>
-            <p className="text-muted-foreground/50 text-sm">No tiers. No limits. Full access.</p>
+            <p className="text-muted-foreground mb-6">7-day free trial. Cancel anytime.</p>
+            <div className="grid grid-cols-2 gap-2 text-left max-w-xs mx-auto">
+              {["All 4 agents", "25+ screens", "Unlimited sessions", "File browser", "Built-in terminal", "Priority support"].map((f, i) => (
+                <div key={i} className="flex items-center gap-2 text-[13px] text-muted-foreground">
+                  <Check className="w-3.5 h-3.5 text-primary/50 shrink-0" />{f}
+                </div>
+              ))}
+            </div>
           </div>
         </Reveal>
       </div>
@@ -744,6 +753,314 @@ function Footer() {
   );
 }
 
+// ─── Stats Bar ───────────────────────────────────────────
+
+function StatsBar() {
+  const stats = [
+    { value: 25, suffix: "+", label: "Screens" },
+    { value: 4, suffix: "", label: "Agents" },
+    { value: 60, suffix: "s", label: "Setup" },
+    { value: 0, suffix: "", label: "Cloud servers", override: "Zero" },
+  ];
+  return (
+    <section className="py-16 md:py-20 px-6 border-y border-surface-2">
+      <div className="max-w-5xl mx-auto">
+        <Reveal>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-4">
+            {stats.map((s, i) => (
+              <div key={i} className="text-center">
+                <div className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-[-0.04em] text-foreground mb-1">
+                  {s.override ? s.override : <AnimatedNumber target={s.value} suffix={s.suffix} />}
+                </div>
+                <div className="text-sm text-muted-foreground/60">{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
+// ─── App Showcase ────────────────────────────────────────
+
+function AppShowcase() {
+  const screens = [
+    { title: "Chat with your agent", desc: "Rich markdown, code blocks, and diffs — all rendered natively." },
+    { title: "Browse project files", desc: "Navigate your codebase, preview files, and review changes." },
+    { title: "Full terminal access", desc: "When you need raw power, the terminal is right there." },
+  ];
+  return (
+    <section className="py-24 md:py-32 lg:py-40 px-6">
+      <div className="max-w-6xl mx-auto">
+        <Reveal>
+          <p className="text-[11px] tracking-[0.25em] uppercase text-muted-foreground/50 mb-5 font-medium text-center">Inside the app</p>
+        </Reveal>
+        <Reveal delay={100}>
+          <h2 className="text-3xl sm:text-4xl md:text-[2.75rem] font-bold tracking-[-0.03em] leading-[1.1] mb-6 text-center">
+            Built for your <span className="font-serif italic text-primary">thumbs.</span>
+          </h2>
+        </Reveal>
+        <Reveal delay={150}>
+          <p className="text-muted-foreground text-center max-w-lg mx-auto mb-14">
+            Every screen designed for mobile from day one. Not a desktop UI crammed into a small display.
+          </p>
+        </Reveal>
+
+        {/* Large screenshot placeholders */}
+        <div className="space-y-6">
+          {screens.map((screen, i) => (
+            <Reveal key={i} delay={200 + i * 100}>
+              <div className={`group rounded-2xl border border-surface-2 bg-surface-glass backdrop-blur-md overflow-hidden hover:border-primary/15 transition-all duration-300 ${i % 2 === 0 ? "" : "md:flex-row-reverse"} md:flex md:items-center`}>
+                {/* Image placeholder */}
+                <div className="relative md:w-[55%] aspect-[16/10] md:aspect-auto md:h-[320px] bg-gradient-to-br from-card via-surface-1 to-card overflow-hidden shrink-0">
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    {/* Stylized phone in context */}
+                    <div className="w-[140px] sm:w-[160px] rounded-[1.75rem] border border-surface-2 bg-background aspect-[9/19.5] shadow-[0_4px_40px_rgba(0,0,0,0.2)] overflow-hidden">
+                      <div className="absolute top-1.5 left-1/2 -translate-x-1/2 w-[48px] h-[14px] bg-background rounded-full z-10" />
+                      <div className="w-full h-full pt-7 px-2 pb-2">
+                        {i === 0 && <ChatDemo />}
+                        {i === 1 && <FilesDemo />}
+                        {i === 2 && <TerminalDemo />}
+                      </div>
+                    </div>
+                  </div>
+                  {/* Decorative grid dots */}
+                  <div className="absolute inset-0 opacity-30" style={{ backgroundImage: "radial-gradient(rgba(168,162,158,0.15) 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
+                </div>
+                {/* Text */}
+                <div className="p-6 sm:p-8 md:p-10 md:flex-1">
+                  <h3 className="text-xl sm:text-2xl font-bold tracking-[-0.02em] mb-3">{screen.title}</h3>
+                  <p className="text-muted-foreground leading-relaxed max-w-md">{screen.desc}</p>
+                  <div className="mt-4 flex items-center gap-1.5 text-sm text-primary/60">
+                    <Smartphone className="w-3.5 h-3.5" />
+                    <span>Native iOS</span>
+                  </div>
+                </div>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+
+        {/* Screenshot placeholder note */}
+        <Reveal delay={500}>
+          <p className="text-center text-sm text-muted-foreground/40 mt-8">
+            Real app screenshots coming soon — currently in TestFlight beta
+          </p>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
+// ─── Comparison Table ────────────────────────────────────
+
+function ComparisonTable() {
+  const rows = [
+    { feature: "Interface", broski: "Native mobile UI", ssh: "Raw terminal", wrappers: "Web view" },
+    { feature: "Setup time", broski: "60 seconds", ssh: "15+ minutes", wrappers: "5+ minutes" },
+    { feature: "Network switch", broski: "Seamless", ssh: "Disconnects", wrappers: "Often drops" },
+    { feature: "Agent support", broski: "4 agents, native", ssh: "Generic", wrappers: "1-2 agents" },
+    { feature: "File browsing", broski: "Built-in", ssh: "CLI only", wrappers: "Limited" },
+    { feature: "Code diffs", broski: "Native viewer", ssh: "Terminal diff", wrappers: "Basic" },
+    { feature: "Session management", broski: "Multi-session", ssh: "tmux required", wrappers: "Single" },
+    { feature: "Works offline", broski: "Cached data", ssh: "No", wrappers: "No" },
+  ];
+  return (
+    <section className="py-24 md:py-32 lg:py-40 px-6">
+      <div className="max-w-4xl mx-auto">
+        <Reveal>
+          <h2 className="text-3xl sm:text-4xl md:text-[2.75rem] font-bold tracking-[-0.03em] leading-[1.1] mb-4 text-center">
+            Broski vs <span className="font-serif italic text-primary">everything else.</span>
+          </h2>
+        </Reveal>
+        <Reveal delay={100}>
+          <p className="text-muted-foreground text-center max-w-lg mx-auto mb-12">
+            Not all mobile coding experiences are created equal.
+          </p>
+        </Reveal>
+
+        <Reveal delay={200}>
+          <div className="rounded-2xl border border-surface-2 bg-surface-glass backdrop-blur-md overflow-hidden">
+            {/* Header */}
+            <div className="grid grid-cols-4 gap-0 border-b border-surface-2 text-sm font-semibold">
+              <div className="p-4 text-muted-foreground/50" />
+              <div className="p-4 text-primary border-x border-surface-2 bg-primary/[0.03]">Broski</div>
+              <div className="p-4 text-muted-foreground/60">SSH + Tailscale</div>
+              <div className="p-4 text-muted-foreground/60">Terminal wrappers</div>
+            </div>
+            {/* Rows */}
+            {rows.map((row, i) => (
+              <div key={i} className={`grid grid-cols-4 gap-0 text-[13px] ${i < rows.length - 1 ? "border-b border-surface-2" : ""}`}>
+                <div className="p-3.5 sm:p-4 text-muted-foreground font-medium">{row.feature}</div>
+                <div className="p-3.5 sm:p-4 text-foreground border-x border-surface-2 bg-primary/[0.02] font-medium">{row.broski}</div>
+                <div className="p-3.5 sm:p-4 text-muted-foreground/60">{row.ssh}</div>
+                <div className="p-3.5 sm:p-4 text-muted-foreground/60">{row.wrappers}</div>
+              </div>
+            ))}
+          </div>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
+// ─── Testimonials ────────────────────────────────────────
+
+function Testimonials() {
+  const quotes = [
+    {
+      text: "Finally I can check on my Claude Code sessions from the couch without SSH nightmares. This is what mobile coding should feel like.",
+      name: "Early beta tester",
+      role: "iOS Developer",
+    },
+    {
+      text: "The connection literally never drops. I walked from WiFi to cellular mid-session and it just kept going. Witchcraft.",
+      name: "Early beta tester",
+      role: "Full-stack Engineer",
+    },
+    {
+      text: "I run 3 agents on different projects simultaneously. Being able to monitor all of them from one app while commuting is a game changer.",
+      name: "Early beta tester",
+      role: "Startup Founder",
+    },
+  ];
+  return (
+    <section className="py-24 md:py-32 lg:py-40 px-6">
+      <div className="max-w-5xl mx-auto">
+        <Reveal>
+          <p className="text-[11px] tracking-[0.25em] uppercase text-muted-foreground/50 mb-5 font-medium text-center">Early reactions</p>
+        </Reveal>
+        <Reveal delay={100}>
+          <h2 className="text-3xl sm:text-4xl md:text-[2.75rem] font-bold tracking-[-0.03em] leading-[1.1] mb-14 text-center">
+            People are <span className="font-serif italic text-primary">loving it.</span>
+          </h2>
+        </Reveal>
+
+        <div className="grid md:grid-cols-3 gap-4">
+          {quotes.map((q, i) => (
+            <Reveal key={i} delay={200 + i * 100}>
+              <div className="group h-full p-6 rounded-2xl border border-surface-2 bg-surface-glass backdrop-blur-md hover:border-primary/15 hover:-translate-y-1 transition-all duration-300 flex flex-col">
+                <Quote className="w-5 h-5 text-primary/30 mb-4 shrink-0" />
+                <p className="text-[14px] text-foreground/90 leading-relaxed flex-1 mb-5">
+                  &ldquo;{q.text}&rdquo;
+                </p>
+                <div className="flex items-center gap-3 pt-4 border-t border-surface-2">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+                    {q.name[0]}
+                  </div>
+                  <div>
+                    <div className="text-[13px] font-medium">{q.name}</div>
+                    <div className="text-[11px] text-muted-foreground/50">{q.role}</div>
+                  </div>
+                </div>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Architecture Diagram ────────────────────────────────
+
+function ArchitectureDiagram() {
+  return (
+    <section className="py-24 md:py-32 lg:py-40 px-6">
+      <div className="max-w-4xl mx-auto">
+        <Reveal>
+          <p className="text-[11px] tracking-[0.25em] uppercase text-muted-foreground/50 mb-5 font-medium text-center">Architecture</p>
+        </Reveal>
+        <Reveal delay={100}>
+          <h2 className="text-3xl sm:text-4xl md:text-[2.75rem] font-bold tracking-[-0.03em] leading-[1.1] mb-6 text-center">
+            How it <span className="font-serif italic text-primary">works.</span>
+          </h2>
+        </Reveal>
+        <Reveal delay={150}>
+          <p className="text-muted-foreground text-center max-w-lg mx-auto mb-14">
+            Your phone talks to a lightweight bridge on your Mac. The bridge talks to your agents. Simple.
+          </p>
+        </Reveal>
+
+        <Reveal delay={250}>
+          <div className="relative p-6 sm:p-10 rounded-2xl border border-surface-2 bg-surface-glass backdrop-blur-md">
+            {/* The 3-part flow */}
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6 md:gap-0">
+              {/* Phone */}
+              <div className="flex flex-col items-center gap-3 md:w-1/4">
+                <div className="w-16 h-16 rounded-2xl bg-primary/[0.08] border border-primary/20 flex items-center justify-center">
+                  <Smartphone className="w-7 h-7 text-primary" />
+                </div>
+                <div className="text-center">
+                  <div className="text-sm font-semibold">Your iPhone</div>
+                  <div className="text-[11px] text-muted-foreground/50">Broski app</div>
+                </div>
+              </div>
+
+              {/* Arrow 1 */}
+              <div className="flex flex-col md:flex-row items-center gap-1 md:flex-1">
+                <div className="hidden md:block flex-1 h-px bg-gradient-to-r from-primary/30 to-primary/10" />
+                <div className="md:hidden w-px h-8 bg-gradient-to-b from-primary/30 to-primary/10" />
+                <div className="text-[10px] text-muted-foreground/40 px-2 whitespace-nowrap">WebSocket</div>
+                <div className="hidden md:block flex-1 h-px bg-gradient-to-r from-primary/10 to-primary/30" />
+                <div className="md:hidden w-px h-8 bg-gradient-to-b from-primary/10 to-primary/30" />
+              </div>
+
+              {/* Bridge */}
+              <div className="flex flex-col items-center gap-3 md:w-1/4">
+                <div className="w-16 h-16 rounded-2xl bg-surface-1 border border-surface-2 flex items-center justify-center">
+                  <Monitor className="w-7 h-7 text-muted-foreground" />
+                </div>
+                <div className="text-center">
+                  <div className="text-sm font-semibold">Bridge</div>
+                  <div className="text-[11px] text-muted-foreground/50">On your Mac</div>
+                </div>
+              </div>
+
+              {/* Arrow 2 */}
+              <div className="flex flex-col md:flex-row items-center gap-1 md:flex-1">
+                <div className="hidden md:block flex-1 h-px bg-gradient-to-r from-surface-2 to-surface-2/50" />
+                <div className="md:hidden w-px h-8 bg-gradient-to-b from-surface-2 to-surface-2/50" />
+                <div className="text-[10px] text-muted-foreground/40 px-2 whitespace-nowrap">SDK</div>
+                <div className="hidden md:block flex-1 h-px bg-gradient-to-r from-surface-2/50 to-surface-2" />
+                <div className="md:hidden w-px h-8 bg-gradient-to-b from-surface-2/50 to-surface-2" />
+              </div>
+
+              {/* Agents */}
+              <div className="flex flex-col items-center gap-3 md:w-1/4">
+                <div className="w-16 h-16 rounded-2xl bg-surface-1 border border-surface-2 flex items-center justify-center">
+                  <TerminalSquare className="w-7 h-7 text-muted-foreground" />
+                </div>
+                <div className="text-center">
+                  <div className="text-sm font-semibold">Your agents</div>
+                  <div className="text-[11px] text-muted-foreground/50">Claude Code, etc.</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom labels */}
+            <div className="mt-8 pt-6 border-t border-surface-2 grid grid-cols-3 gap-4 text-center">
+              <div>
+                <div className="text-lg font-bold text-foreground">Local</div>
+                <div className="text-[11px] text-muted-foreground/50">Same network or Tailscale</div>
+              </div>
+              <div>
+                <div className="text-lg font-bold text-foreground">Private</div>
+                <div className="text-[11px] text-muted-foreground/50">No data leaves your machines</div>
+              </div>
+              <div>
+                <div className="text-lg font-bold text-foreground">&lt;4ms</div>
+                <div className="text-[11px] text-muted-foreground/50">Local network latency</div>
+              </div>
+            </div>
+          </div>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
 // ─── Page ────────────────────────────────────────────────
 
 export default function Home() {
@@ -751,11 +1068,16 @@ export default function Home() {
     <main className="min-h-screen bg-background text-foreground selection:bg-primary/20">
       <Navbar />
       <Hero />
+      <StatsBar />
       <Problem />
       <AgentsSection />
+      <AppShowcase />
       <BentoFeatures />
+      <ComparisonTable />
       <HowItWorks />
+      <ArchitectureDiagram />
       <Security />
+      <Testimonials />
       <Pricing />
       <FinalCTA />
       <Footer />
