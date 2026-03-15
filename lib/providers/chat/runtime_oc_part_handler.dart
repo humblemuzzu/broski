@@ -206,6 +206,17 @@ extension _RuntimeOcPartHandler on ChatSessionNotifier {
         : 'attachment:${DateTime.now().microsecondsSinceEpoch}';
 
     final current = _messages[messageId] ?? message;
+
+    // For data URIs (e.g. base64-encoded images), don't use the raw URI as
+    // the display output — it would render as a huge block of binary text.
+    final isDataUri = url.startsWith('data:');
+    final displayOutput = fileName ??
+        (isDataUri
+            ? (mime.isNotEmpty
+                ? mime.split('/').last
+                : 'attachment')
+            : url);
+
     final attachmentTool = ToolCall(
       callId: callId,
       partId: partId.isNotEmpty ? partId : callId,
@@ -215,9 +226,14 @@ extension _RuntimeOcPartHandler on ChatSessionNotifier {
       input: {
         if (fileName != null) 'filename': fileName,
         'mime': mime,
-        'url': url,
+        // Data URIs are not stored: OC renders image content through the
+        // message text/render stream, not through file-part ToolCall
+        // attachments.  Storing multi-MB base64 payloads here would bloat
+        // ChatMessage memory without providing any displayable value.
+        if (!isDataUri) 'url': url,
+        if (isDataUri) 'isDataUri': true,
       },
-      output: fileName ?? url,
+      output: displayOutput,
       metadata: const {'source': 'file_part'},
     );
 

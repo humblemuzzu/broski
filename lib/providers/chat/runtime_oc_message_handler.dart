@@ -135,6 +135,14 @@ extension _RuntimeOcMessageHandler on ChatSessionNotifier {
 
     final existing = _messages[messageId];
     if (existing == null) {
+      // When a new assistant message arrives, start a fresh runtime turn so
+      // that thinking/text/tools from the previous turn don't bleed into this
+      // message.  Without this, the OpenCode mapper never emits agent_started
+      // events, so the runtime turn is never reset between user turns.
+      if (role == MessageRole.assistant) {
+        _resetRuntimeTurnForNewOcAssistantMessage(messageId: messageId);
+      }
+
       _addMessage(
         ChatMessage(
           id: messageId,
@@ -442,5 +450,69 @@ extension _RuntimeOcMessageHandler on ChatSessionNotifier {
     if (state.pendingQuestion?.id == requestId) {
       state = state.copyWith(pendingQuestion: null);
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Runtime turn reset for new OC assistant messages
+  // ---------------------------------------------------------------------------
+
+  /// Creates a fresh [RuntimeChatTurnState] for a new assistant message,
+  /// ensuring that accumulated thinking/text/tools from the previous turn
+  /// don't bleed into the new message.
+  ///
+  /// Also finalizes the previous turn's message (marks it as not streaming)
+  /// so the UI doesn't show a stale streaming indicator.
+  void _resetRuntimeTurnForNewOcAssistantMessage({
+    required String messageId,
+  }) {
+    final sessionKey = buildRuntimeChatSessionKey(
+      backend: AgentType.opencode,
+      sessionId: state.effectiveSessionId,
+      cwd: state.effectivePath,
+    );
+    final currentTurn = _runtimeChatTurns[sessionKey];
+
+    // Finalize the previous turn's message — mark it as not streaming so
+    // the UI stops showing a spinner on the old message.
+    if (currentTurn != null &&
+        currentTurn.messageId != null &&
+        currentTurn.messageId!.isNotEmpty &&
+        currentTurn.messageId != messageId) {
+      // Cancel any pending text debounce timer from the old turn to prevent
+      // it from re-setting isStreaming=true on the finalized old message.
+      _textDebounceTimer?.cancel();
+      _textDebounceTimer = null;
+
+      // Flush any pending text buffers for the old message immediately.
+      final oldMsgId = currentTurn.messageId!;
+      final oldBuffer = _pendingTextBuffers.remove(oldMsgId);
+      final oldMessage = _messages[oldMsgId];
+      if (oldMessage != null) {
+        var finalized = oldMessage;
+        if (oldBuffer != null && oldBuffer.isNotEmpty) {
+          finalized = finalized.copyWith(
+            text: finalized.text + oldBuffer.toString(),
+          );
+        }
+        if (finalized.isStreaming ||
+            (oldBuffer != null && oldBuffer.isNotEmpty)) {
+          _updateMessage(oldMsgId, finalized.copyWith(isStreaming: false));
+        }
+      }
+    }
+
+    final nextTurnIndex = (currentTurn?.turnIndex ?? -1) + 1;
+
+    _runtimeChatTurns[sessionKey] = RuntimeChatTurnState(
+      backend: AgentType.opencode,
+      sessionKey: sessionKey,
+      sessionId: state.effectiveSessionId,
+      cwd: state.effectivePath,
+      messageId: messageId,
+      isStreaming: true,
+      turnIndex: nextTurnIndex,
+      recentEventFingerprints:
+          currentTurn?.recentEventFingerprints ?? const [],
+    );
   }
 }

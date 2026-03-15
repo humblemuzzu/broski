@@ -11,9 +11,33 @@ function extractMessageId(source: any): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined
 }
 
+function extractPartId(source: any): string | undefined {
+  const value = source?.partID ?? source?.partId ?? source?.part_id ?? source?.id
+  return typeof value === 'string' && value.length > 0 ? value : undefined
+}
+
 function extractToolCallId(source: any): string | undefined {
   const value = source?.callID ?? source?.callId ?? source?.call_id ?? source?.id
   return typeof value === 'string' && value.length > 0 ? value : undefined
+}
+
+/**
+ * Mutable context passed into the mapper so it can track part types across
+ * events.  The caller (server.ts / enqueueSdkEvent) creates this once and
+ * re-uses it for the lifetime of the OC connection.
+ */
+export interface OpenCodeMapperContext {
+  /** Part IDs that belong to reasoning parts (not regular text). */
+  reasoningPartIds: Set<string>
+  /** Last-emitted reasoning text per partID — used to compute real deltas. */
+  lastReasoningTextByPartId: Map<string, string>
+}
+
+export function createOpenCodeMapperContext(): OpenCodeMapperContext {
+  return {
+    reasoningPartIds: new Set(),
+    lastReasoningTextByPartId: new Map(),
+  }
 }
 
 function baseEvent<TType extends BroskiRuntimeEvent['type']>(
@@ -34,6 +58,7 @@ function baseEvent<TType extends BroskiRuntimeEvent['type']>(
 
 export function mapOpenCodeSdkEventToRuntimeEvent(
   event: unknown,
+  ctx?: OpenCodeMapperContext,
 ): BroskiRuntimeEvent | null {
   const envelope = event as { directory?: unknown; payload?: any } | null
   const payload = envelope?.payload
@@ -83,6 +108,29 @@ export function mapOpenCodeSdkEventToRuntimeEvent(
       if (properties.field !== 'text' || typeof properties.delta !== 'string') {
         return null
       }
+      // Check if this delta belongs to a reasoning part — if so, route it as
+      // a thinking delta instead of a text delta.  Without this guard the
+      // reasoning content leaks into the visible response text while ALSO
+      // appearing in the dedicated Thinking card (duplication bug).
+      //
+      // NOTE: OC SDK guarantees message.part.updated arrives before any
+      // message.part.delta for the same partID (sequential awaits on one event
+      // loop).  If that ordering ever changes, deltas arriving before the part
+      // is registered will leak as assistant_text_delta.
+      const deltaPartId = extractPartId(properties)
+      if (deltaPartId && ctx?.reasoningPartIds.has(deltaPartId)) {
+        // Track accumulated reasoning text so the final message.part.updated
+        // can diff correctly and avoid re-emitting the entire thinking content.
+        if (ctx) {
+          const prev = ctx.lastReasoningTextByPartId.get(deltaPartId) ?? ''
+          ctx.lastReasoningTextByPartId.set(deltaPartId, prev + properties.delta)
+        }
+        return {
+          ...baseEvent('assistant_thinking_delta', { sourceType: payloadType }, sessionId, cwd),
+          ...(extractMessageId(properties) ? { messageId: extractMessageId(properties) } : {}),
+          delta: properties.delta,
+        }
+      }
       return {
         ...baseEvent('assistant_text_delta', { sourceType: payloadType }, sessionId, cwd),
         ...(extractMessageId(properties) ? { messageId: extractMessageId(properties) } : {}),
@@ -97,11 +145,34 @@ export function mapOpenCodeSdkEventToRuntimeEvent(
       const partMessageId = extractMessageId(part)
 
       if (part.type === 'reasoning') {
-        const delta = typeof properties.delta === 'string'
-          ? properties.delta
-          : typeof part.text === 'string'
-            ? part.text
+        // Register this part as reasoning so future message.part.delta events
+        // for it are routed as thinking deltas, not text deltas.
+        const reasoningPartId = extractPartId(part)
+        if (reasoningPartId && ctx) {
+          ctx.reasoningPartIds.add(reasoningPartId)
+        }
+
+        // Compute the real delta.  properties.delta is the true incremental
+        // delta when present.  Otherwise part.text is the FULL accumulated
+        // reasoning text — we must diff against what we already emitted to
+        // avoid duplicating content in the Thinking card.
+        let delta: string
+        if (typeof properties.delta === 'string') {
+          delta = properties.delta
+        } else if (typeof part.text === 'string') {
+          const prev = (reasoningPartId && ctx)
+            ? (ctx.lastReasoningTextByPartId.get(reasoningPartId) ?? '')
             : ''
+          delta = part.text.startsWith(prev)
+            ? part.text.slice(prev.length)
+            : part.text  // text was replaced, not appended — emit in full
+        } else {
+          delta = ''
+        }
+        // Track the full text so the next update can diff correctly.
+        if (reasoningPartId && ctx && typeof part.text === 'string') {
+          ctx.lastReasoningTextByPartId.set(reasoningPartId, part.text)
+        }
         if (!delta) return null
         return {
           ...baseEvent('assistant_thinking_delta', { sourceType: payloadType }, partSessionId, cwd),

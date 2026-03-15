@@ -67,7 +67,7 @@ import {
   mapCodexModelToSummary,
   mapCodexThreadToRuntimeSession,
 } from './runtime/codex-runtime-read-models'
-import { mapOpenCodeSdkEventToRuntimeEvent } from './runtime/opencode-runtime-event-mapper'
+import { mapOpenCodeSdkEventToRuntimeEvent, createOpenCodeMapperContext } from './runtime/opencode-runtime-event-mapper'
 import {
   mapOpenCodeProvidersToRuntimeModels,
   mapOpenCodeSessionToRuntimeSession,
@@ -3785,6 +3785,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
   let eventCount = 0
   let eventCountResetTimer: Timer | null = null
 
+  // Context for the OC runtime event mapper — tracks reasoning partIDs so that
+  // message.part.delta events for reasoning parts are routed as thinking deltas
+  // instead of leaking into the visible response text.
+  const ocMapperCtx = createOpenCodeMapperContext()
+
   const extractSessionId = (event: any): string | null => {
     const payload = event?.payload ?? null
     const properties = payload?.properties ?? null
@@ -3939,7 +3944,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     }
 
     const priority = getEventPriority(event)
-    const runtimeEvent = mapOpenCodeSdkEventToRuntimeEvent(event)
+    const runtimeEvent = mapOpenCodeSdkEventToRuntimeEvent(event, ocMapperCtx)
 
     if (DEBUG_RTS) {
       const eventType = getEventType(event)

@@ -5,7 +5,7 @@ import { mapClaudeCodeStreamToRuntimeEvent } from '../runtime/claude-code-runtim
 import { buildClaudeCodeRuntimeState } from '../runtime/claude-code-runtime-read-models'
 import { mapCodexStreamToRuntimeEvent } from '../runtime/codex-runtime-event-mapper'
 import { buildCodexRuntimeState } from '../runtime/codex-runtime-read-models'
-import { mapOpenCodeSdkEventToRuntimeEvent } from '../runtime/opencode-runtime-event-mapper'
+import { mapOpenCodeSdkEventToRuntimeEvent, createOpenCodeMapperContext } from '../runtime/opencode-runtime-event-mapper'
 import { mapPiSessionsToRuntimeSessions, mapPiStateToRuntimeState } from '../runtime/pi-runtime-read-models'
 
 function readServerSource(): string {
@@ -144,6 +144,189 @@ describe('Runtime Abstraction', () => {
     })
     expect(tool?.type).toBe('tool_finished')
     expect(tool?.backendData).toMatchObject({ metadata: { exitCode: 0 } })
+  })
+
+  test('OpenCode mapper routes reasoning part deltas as thinking, not text', () => {
+    const ctx = createOpenCodeMapperContext()
+
+    // First, a message.part.updated announces a reasoning part with an id.
+    const reasoningAnnounce = mapOpenCodeSdkEventToRuntimeEvent({
+      directory: '/tmp/repo',
+      payload: {
+        type: 'message.part.updated',
+        properties: {
+          sessionID: 'oc-1',
+          part: {
+            id: 'reasoning-part-1',
+            type: 'reasoning',
+            sessionID: 'oc-1',
+            messageID: 'msg-1',
+            text: 'Let me think',
+          },
+        },
+      },
+    }, ctx)
+    expect(reasoningAnnounce?.type).toBe('assistant_thinking_delta')
+    // Part ID should now be tracked as reasoning
+    expect(ctx.reasoningPartIds.has('reasoning-part-1')).toBe(true)
+
+    // A message.part.delta for the same partID with field='text' must be
+    // routed as assistant_thinking_delta, NOT assistant_text_delta.
+    const reasoningDelta = mapOpenCodeSdkEventToRuntimeEvent({
+      directory: '/tmp/repo',
+      payload: {
+        type: 'message.part.delta',
+        properties: {
+          sessionID: 'oc-1',
+          messageID: 'msg-1',
+          partID: 'reasoning-part-1',
+          field: 'text',
+          delta: ' about this',
+        },
+      },
+    }, ctx)
+    expect(reasoningDelta?.type).toBe('assistant_thinking_delta')
+    expect((reasoningDelta as any).delta).toBe(' about this')
+
+    // A message.part.delta for a normal text part must still be text.
+    const textDelta = mapOpenCodeSdkEventToRuntimeEvent({
+      directory: '/tmp/repo',
+      payload: {
+        type: 'message.part.delta',
+        properties: {
+          sessionID: 'oc-1',
+          messageID: 'msg-1',
+          partID: 'text-part-1',
+          field: 'text',
+          delta: 'Hello world',
+        },
+      },
+    }, ctx)
+    expect(textDelta?.type).toBe('assistant_text_delta')
+    expect((textDelta as any).delta).toBe('Hello world')
+  })
+
+  test('OpenCode mapper computes real reasoning deltas from full text', () => {
+    const ctx = createOpenCodeMapperContext()
+
+    // First update: reasoning part with 'Hello'
+    const first = mapOpenCodeSdkEventToRuntimeEvent({
+      directory: '/tmp/repo',
+      payload: {
+        type: 'message.part.updated',
+        properties: {
+          sessionID: 'oc-1',
+          part: {
+            id: 'r-1',
+            type: 'reasoning',
+            sessionID: 'oc-1',
+            messageID: 'msg-1',
+            text: 'Hello',
+          },
+        },
+      },
+    }, ctx)
+    expect(first?.type).toBe('assistant_thinking_delta')
+    expect((first as any).delta).toBe('Hello')
+
+    // Second update: full text is now 'Hello world' — delta should be ' world'
+    const second = mapOpenCodeSdkEventToRuntimeEvent({
+      directory: '/tmp/repo',
+      payload: {
+        type: 'message.part.updated',
+        properties: {
+          sessionID: 'oc-1',
+          part: {
+            id: 'r-1',
+            type: 'reasoning',
+            sessionID: 'oc-1',
+            messageID: 'msg-1',
+            text: 'Hello world',
+          },
+        },
+      },
+    }, ctx)
+    expect(second?.type).toBe('assistant_thinking_delta')
+    expect((second as any).delta).toBe(' world')
+  })
+
+  test('OpenCode mapper deduplicates reasoning when deltas precede final part.updated', () => {
+    const ctx = createOpenCodeMapperContext()
+
+    // Step 1: message.part.updated announces reasoning part with empty text
+    const announce = mapOpenCodeSdkEventToRuntimeEvent({
+      directory: '/tmp/repo',
+      payload: {
+        type: 'message.part.updated',
+        properties: {
+          sessionID: 'oc-1',
+          part: {
+            id: 'r-dedup',
+            type: 'reasoning',
+            sessionID: 'oc-1',
+            messageID: 'msg-1',
+            text: '',
+          },
+        },
+      },
+    }, ctx)
+    // Empty delta — returns null (no content to emit)
+    expect(announce).toBeNull()
+
+    // Step 2: message.part.delta events stream the reasoning text
+    const delta1 = mapOpenCodeSdkEventToRuntimeEvent({
+      directory: '/tmp/repo',
+      payload: {
+        type: 'message.part.delta',
+        properties: {
+          sessionID: 'oc-1',
+          messageID: 'msg-1',
+          partID: 'r-dedup',
+          field: 'text',
+          delta: 'Think',
+        },
+      },
+    }, ctx)
+    expect(delta1?.type).toBe('assistant_thinking_delta')
+    expect((delta1 as any).delta).toBe('Think')
+
+    const delta2 = mapOpenCodeSdkEventToRuntimeEvent({
+      directory: '/tmp/repo',
+      payload: {
+        type: 'message.part.delta',
+        properties: {
+          sessionID: 'oc-1',
+          messageID: 'msg-1',
+          partID: 'r-dedup',
+          field: 'text',
+          delta: 'ing done',
+        },
+      },
+    }, ctx)
+    expect(delta2?.type).toBe('assistant_thinking_delta')
+    expect((delta2 as any).delta).toBe('ing done')
+
+    // Step 3: Final message.part.updated with full accumulated text.
+    // Since deltas already tracked the text, the diff should be empty → null.
+    const finalUpdate = mapOpenCodeSdkEventToRuntimeEvent({
+      directory: '/tmp/repo',
+      payload: {
+        type: 'message.part.updated',
+        properties: {
+          sessionID: 'oc-1',
+          part: {
+            id: 'r-dedup',
+            type: 'reasoning',
+            sessionID: 'oc-1',
+            messageID: 'msg-1',
+            text: 'Thinking done',
+          },
+        },
+      },
+    }, ctx)
+    // Delta = '' because lastReasoningTextByPartId already has 'Thinking done'
+    // from the accumulated deltas. So the mapper returns null (no new content).
+    expect(finalUpdate).toBeNull()
   })
 
   test('Codex mapper emits tool updates for output deltas and raw tool items', () => {
