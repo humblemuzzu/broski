@@ -338,7 +338,10 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
     case 'pi_list_models': {
       const models = pi.listAvailableModels()
       reply({ type: 'pi_models', data: models, requestId: message.requestId })
-      emitPiRuntimeModels(reply, models)
+      // Use broadcast (not reply) for runtime_models so the message doesn't
+      // carry the request-specific requestId, which would pollute the Flutter
+      // bridge service's early-response cache with unhandled messages.
+      emitPiRuntimeModels(broadcast, models)
       return true
     }
 
