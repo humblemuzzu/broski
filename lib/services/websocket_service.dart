@@ -1,11 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show HttpClient, X509Certificate;
 
-import 'package:crypto/crypto.dart';
-import 'package:flutter/foundation.dart' show compute, debugPrint, kIsWeb;
+import 'package:flutter/foundation.dart' show compute, debugPrint;
 import 'package:web_socket_channel/web_socket_channel.dart';
-import 'package:web_socket_channel/io.dart';
+
+import 'websocket/websocket_connector.dart';
 
 enum ConnectionStatus { disconnected, connecting, connected }
 
@@ -49,11 +48,7 @@ class WebSocketService {
 
   // During the cloud-auth handshake, the bridge only accepts a very small set
   // of message types (until `auth_session_ok`). Everything else must be queued.
-  static const _handshakeAllowedTypes = {
-    'auth_session',
-    'client_ping',
-    'pong',
-  };
+  static const _handshakeAllowedTypes = {'auth_session', 'client_ping', 'pong'};
 
   // Unified heartbeat state — a single timer handles both:
   //   1. Client ping/pong (is the network path alive?)
@@ -138,6 +133,13 @@ class WebSocketService {
     _isHandshaking = false;
   }
 
+  void clearQueuedMessages() {
+    _batchTimer?.cancel();
+    _batchTimer = null;
+    _pendingBatch.clear();
+    _reconnectQueue.clear();
+  }
+
   /// Whether the connection appears healthy (received pong recently).
   bool get isHealthy {
     if (_status != ConnectionStatus.connected) return false;
@@ -181,47 +183,11 @@ class WebSocketService {
 
     _setStatus(ConnectionStatus.connecting);
     _isReconnecting = true;
-    if (kIsWeb) {
-      final protocols = authToken != null
-          ? <String>['broski-auth.$authToken']
-          : null;
-      // Web: no custom headers; use subprotocol for auth (server extracts it).
-      _channel = WebSocketChannel.connect(uri, protocols: protocols);
-    } else {
-      HttpClient? client;
-      if (uri.scheme == 'wss') {
-        if (pinnedCertSha256 != null) {
-          // QR code flow: pin to the exact certificate fingerprint
-          final normalizedPinned = pinnedCertSha256.replaceAll('=', '');
-          client = HttpClient()
-            ..badCertificateCallback =
-                (X509Certificate cert, String host, int port) {
-                  final digest = sha256.convert(cert.der).bytes;
-                  final fp = base64Url.encode(digest).replaceAll('=', '');
-                  return fp == normalizedPinned;
-                };
-        } else {
-          // Manual entry flow: no cert fingerprint available, accept
-          // self-signed certificates. The user explicitly chose this host
-          // and TLS still provides encryption; auth token handles identity.
-          client = HttpClient()
-            ..badCertificateCallback =
-                (X509Certificate cert, String host, int port) => true;
-        }
-      }
-
-      final headers = <String, dynamic>{};
-      if (authToken != null) {
-        headers['Authorization'] = 'Bearer $authToken';
-      }
-
-      _channel = IOWebSocketChannel.connect(
-        uri,
-        headers: headers.isEmpty ? null : headers,
-        protocols: null,
-        customClient: client,
-      );
-    }
+    _channel = createWebSocketChannel(
+      uri,
+      authToken: authToken,
+      pinnedCertSha256: pinnedCertSha256,
+    );
 
     // Wait for the connection to be ready
     try {

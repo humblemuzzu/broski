@@ -68,6 +68,20 @@ class ConnectionInfo {
     'certSha256': certSha256,
   };
 
+  bool sameIdentity(ConnectionInfo other) {
+    // `version` is intentionally excluded: bridge software updates do not
+    // change the connection target or auth credentials.
+    return localIP == other.localIP &&
+        tailscaleIP == other.tailscaleIP &&
+        magicDNSHostname == other.magicDNSHostname &&
+        funnelURL == other.funnelURL &&
+        hotspotIP == other.hotspotIP &&
+        port == other.port &&
+        authToken == other.authToken &&
+        tlsEnabled == other.tlsEnabled &&
+        certSha256 == other.certSha256;
+  }
+
   static ConnectionInfo? parseQrPayload(String raw) {
     try {
       final data = jsonDecode(raw) as Map<String, dynamic>;

@@ -1,4 +1,3 @@
-
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -19,11 +18,13 @@ import '../widgets/onboarding_widgets.dart';
 import '../theme/design_tokens.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../utils/error_utils.dart';
+
 class ScanScreen extends ConsumerStatefulWidget {
   const ScanScreen({super.key});
   @override
   ConsumerState<ScanScreen> createState() => _ScanScreenState();
 }
+
 class _ScanScreenState extends ConsumerState<ScanScreen>
     with TickerProviderStateMixin {
   final MobileScannerController _scannerController = MobileScannerController();
@@ -53,35 +54,30 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       ref.listenManual(connectionProvider, (previous, next) {
-        // Reset scan flag when connection attempt fails or disconnects
-        // after we initiated a scan (i.e., _handledScan was true).
-        if (_handledScan &&
+        final justFailed =
             next.status == ConnectionStatus.disconnected &&
-            previous?.status == ConnectionStatus.connecting) {
+            previous?.status == ConnectionStatus.connecting &&
+            next.lastEvent == ConnectionEvent.failed;
+
+        if (_handledScan && justFailed) {
           setState(() => _handledScan = false);
         }
 
-        // Show error feedback when a connection attempt fails (covers both
-        // QR-scan and manual-entry flows).
-        if (next.status == ConnectionStatus.disconnected &&
-            previous?.status == ConnectionStatus.connecting &&
-            next.error != null &&
-            next.error!.isNotEmpty) {
+        if (justFailed && next.error != null && next.error!.isNotEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(next.error!),
               backgroundColor: Colors.red.withValues(alpha: 0.85),
               behavior: SnackBarBehavior.floating,
               duration: const Duration(seconds: 4),
-              shape: RoundedRectangleBorder(
-                borderRadius: Radii.brMd,
-              ),
+              shape: RoundedRectangleBorder(borderRadius: Radii.brMd),
             ),
           );
         }
       });
     });
   }
+
   @override
   void dispose() {
     _scannerController.dispose();
@@ -89,6 +85,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
     _cornerPulseController.dispose();
     super.dispose();
   }
+
   void _handleScan(String raw) {
     if (_handledScan) return;
     final info = ConnectionInfo.parseQrPayload(raw);
@@ -101,11 +98,13 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
     notifier.cancelPendingReconnect();
     notifier.connect(info);
   }
+
   void _toggleFlash() {
     _scannerController.toggleTorch();
     HapticFeedback.lightImpact();
     setState(() => _flashOn = !_flashOn);
   }
+
   Future<void> _pickFromGallery() async {
     if (_processingImage) return;
     setState(() => _processingImage = true);
@@ -143,9 +142,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
             content: const Text('No QR code found in the selected image.'),
             backgroundColor: Colors.white.withValues(alpha: 0.1),
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: Radii.brMd,
-            ),
+            shape: RoundedRectangleBorder(borderRadius: Radii.brMd),
           ),
         );
       }
@@ -157,14 +154,13 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
             content: Text('Failed to process image: ${humanizeError(e)}'),
             backgroundColor: Colors.red.withValues(alpha: 0.8),
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: Radii.brMd,
-            ),
+            shape: RoundedRectangleBorder(borderRadius: Radii.brMd),
           ),
         );
       }
     }
   }
+
   void _dismiss() {
     // If in onboarding flow, go back to bridge setup
     final onboarding = ref.read(onboardingProvider);
@@ -183,6 +179,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
       }
     }
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -260,9 +257,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                       children: [
                         // Flash toggle
                         _ControlButton(
-                          icon: _flashOn
-                              ? AppIcons.flashOn
-                              : AppIcons.flashOff,
+                          icon: _flashOn ? AppIcons.flashOn : AppIcons.flashOff,
                           onTap: _toggleFlash,
                           isActive: _flashOn,
                         ),
@@ -289,10 +284,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                         ),
                         SizedBox(width: Spacing.lg),
                         // Close / back button
-                        _ControlButton(
-                          icon: AppIcons.close,
-                          onTap: _dismiss,
-                        ),
+                        _ControlButton(icon: AppIcons.close, onTap: _dismiss),
                       ],
                     ),
                     SizedBox(height: Spacing.xl),
@@ -403,6 +395,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
       ),
     );
   }
+
   Future<void> _showManualEntry(BuildContext context) async {
     final hostController = TextEditingController();
     final portController = TextEditingController(text: '18274');
@@ -430,6 +423,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
         setState(() => parseError = 'Could not parse QR data');
       }
     }
+
     final result = await DetailSheet.show<ConnectionInfo>(
       context: context,
       title: 'Manual Connection',
@@ -645,9 +639,12 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
       ),
     );
     if (result != null) {
-      ref.read(connectionProvider.notifier).connect(result);
+      final notifier = ref.read(connectionProvider.notifier);
+      notifier.cancelPendingReconnect();
+      notifier.connect(result);
     }
   }
+
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
@@ -691,6 +688,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
     );
   }
 }
+
 // =============================================================================
 // SCAN OVERLAY WITH ANIMATED LINE AND CORNER BRACKETS
 // =============================================================================
@@ -791,6 +789,7 @@ class _ScanOverlay extends StatelessWidget {
     );
   }
 }
+
 class _OverlayPainter extends CustomPainter {
   _OverlayPainter({required this.scanRect});
   final Rect scanRect;
@@ -809,10 +808,12 @@ class _OverlayPainter extends CustomPainter {
     );
     canvas.restore();
   }
+
   @override
   bool shouldRepaint(covariant _OverlayPainter oldDelegate) =>
       oldDelegate.scanRect != scanRect;
 }
+
 class _CornerBracket extends StatelessWidget {
   const _CornerBracket({required this.opacity, required this.rotation});
   final double opacity;
@@ -831,6 +832,7 @@ class _CornerBracket extends StatelessWidget {
     );
   }
 }
+
 class _CornerBracketPainter extends CustomPainter {
   _CornerBracketPainter({required this.color, required this.rotation});
   final Color color;
@@ -868,10 +870,12 @@ class _CornerBracketPainter extends CustomPainter {
     }
     canvas.drawPath(path, paint);
   }
+
   @override
   bool shouldRepaint(covariant _CornerBracketPainter old) =>
       old.color != color || old.rotation != rotation;
 }
+
 class _ControlButton extends StatelessWidget {
   const _ControlButton({
     required this.icon,

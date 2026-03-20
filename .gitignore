@@ -151,3 +151,7 @@ convex/_generated/
 
 # docs/
 docs/assets/
+docs/tla/
+
+# Pi agent local state
+.pi/

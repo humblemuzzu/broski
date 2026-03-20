@@ -9,11 +9,12 @@ import '../models/agent_type.dart';
 import '../models/connection.dart';
 import '../models/connection_quality.dart';
 import '../models/device.dart';
-import '../services/bridge_service.dart';
 import '../services/network_monitor_service.dart';
 import '../services/storage_service.dart';
 import '../services/websocket_service.dart';
 import 'app_subscription_provider.dart';
+import 'connection/connection_endpoint_racer.dart';
+import 'connection/connection_error_policy.dart';
 import 'onboarding_provider.dart';
 import 'service_providers.dart';
 
@@ -216,23 +217,6 @@ class ReconnectPolicy {
   );
 }
 
-/// Result of a connection attempt to a specific endpoint.
-class _ConnectionResult {
-  final ConnectionType type;
-  final Uri uri;
-  final String host;
-  final bool success;
-  final Object? error;
-
-  _ConnectionResult({
-    required this.type,
-    required this.uri,
-    required this.host,
-    required this.success,
-    this.error,
-  });
-}
-
 /// Compute backoff delay using exponential backoff with jitter.
 /// This is the Claudis algorithm for robust reconnection.
 int computeBackoff(ReconnectPolicy policy, int attempt, Random random) {
@@ -278,7 +262,8 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
   int _failureStreak = 0;
   bool _isConnecting = false;
   bool _licenseRetryAttempted = false; // Prevents infinite license sync loop
-  bool _onboardingRetryAttempted = false; // One retry for Local Network permission timeout
+  bool _onboardingRetryAttempted =
+      false; // One retry for Local Network permission timeout
   final _random = Random();
 
   // Current reconnection policy (can be adjusted based on conditions)
@@ -299,7 +284,8 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
   // App lifecycle tracking
   bool _wasBackgrounded = false;
   DateTime? _backgroundedAt;
-  bool _isBackgrounding = false; // Prevents reconnect scheduling during intentional background
+  bool _isBackgrounding =
+      false; // Prevents reconnect scheduling during intentional background
 
   Future<void> _loadSavedConnection() async {
     final saved = await _storage.loadConnection();
@@ -362,14 +348,20 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     ConnectionInfo info, {
     ConnectionType? preferredType,
   }) async {
-    debugPrint('[Connection] connect() called - _isConnecting: $_isConnecting, attempts: $_reconnectAttempts');
+    debugPrint(
+      '[Connection] connect() called - _isConnecting: $_isConnecting, attempts: $_reconnectAttempts',
+    );
     if (_isConnecting) {
       debugPrint('[Connection] connect() SKIPPED - already connecting');
       return;
     }
     _isConnecting = true;
-    _isBackgrounding = false; // Clear backgrounding flag when starting new connection
+    _isBackgrounding =
+        false; // Clear backgrounding flag when starting new connection
     _reconnectTimer?.cancel();
+    if (state.connection != null && !state.connection!.sameIdentity(info)) {
+      _socket.clearQueuedMessages();
+    }
     _socket.beginHandshake();
 
     // Clear dedupe cache on new connection
@@ -419,20 +411,14 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
           : ConnectionEvent.connected;
 
       debugPrint(
-        '[Connection] Connected via ${result.type.name}, event: ${connectionEvent.name}',
-      );
-
-      state = state.copyWith(
-        isReconnecting: false,
-        error: null,
-        connectionType: result.type,
-        connectedHost: result.host,
-        lastEvent: connectionEvent,
+        '[Connection] Socket ready via ${result.type.name}, completing auth handshake',
       );
 
       final subState = _ref.read(appSubscriptionProvider);
       final sessionToken = await _storage.getAppSessionToken();
-      debugPrint('[Connection] Auth check - entitled: ${subState.entitled}, hasSessionToken: ${sessionToken != null}');
+      debugPrint(
+        '[Connection] Auth check - entitled: ${subState.entitled}, hasSessionToken: ${sessionToken != null}',
+      );
 
       // If the user is locally entitled, cloud auth must be present.
       // Without it, the bridge will (correctly) reject us, which otherwise
@@ -453,6 +439,15 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
       _socket.endHandshake();
       debugPrint('[Connection] Handshake ended, queue flushed');
 
+      state = state.copyWith(
+        status: ConnectionStatus.connected,
+        isReconnecting: false,
+        error: null,
+        connectionType: result.type,
+        connectedHost: result.host,
+        lastEvent: connectionEvent,
+      );
+
       await _registerThisDevice();
     } catch (error) {
       debugPrint('[Connection] connect() FAILED: $error');
@@ -462,7 +457,9 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
       _failureStreak++;
       final errString = '$error';
       final lower = errString.toLowerCase();
-      debugPrint('[Connection] Error analysis - isLicense: ${lower.contains('license')}, isAuth: ${lower.contains('401') || lower.contains('unauthorized')}');
+      debugPrint(
+        '[Connection] Error analysis - isLicense: ${lower.contains('license')}, isAuth: ${lower.contains('401') || lower.contains('unauthorized')}',
+      );
       final isMissingSessionToken =
           lower.contains('missing sign-in token') ||
           lower.contains('missing session token');
@@ -483,42 +480,49 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
       final isPinError =
           lower.contains('handshake') && lower.contains('certificate');
 
-      // For license errors: server is authoritative. 
+      // For license errors: server is authoritative.
       // If server says LICENSE_REQUIRED, that's final - don't retry endlessly.
       // Only try ONE sync refresh if locally entitled, then STOP.
       if (isLicenseError && !isTooManyMachines) {
         final subState = _ref.read(appSubscriptionProvider);
-        
+
         if (_licenseRetryAttempted) {
           // Already tried sync once - server still says no. STOP.
-          debugPrint('[Connection] License retry already attempted - STOPPING (server is authoritative)');
+          debugPrint(
+            '[Connection] License retry already attempted - STOPPING (server is authoritative)',
+          );
           // Server is authoritative — sync entitlement state so UI shows paywall
           _ref.read(appSubscriptionProvider.notifier).seedEntitlement(false);
           state = state.copyWith(
             status: ConnectionStatus.disconnected,
-            error: 'Subscription not active on server. Please check your subscription status.',
+            error:
+                'Subscription not active on server. Please check your subscription status.',
             lastEvent: ConnectionEvent.failed,
             isReconnecting: false,
           );
           return;
         }
-        
+
         if (subState.entitled) {
           // Local says entitled, server says no - try ONE sync
           _licenseRetryAttempted = true;
-          debugPrint('[Connection] License error but locally entitled - trying ONE sync (then stop)');
+          debugPrint(
+            '[Connection] License error but locally entitled - trying ONE sync (then stop)',
+          );
           state = state.copyWith(
             status: ConnectionStatus.disconnected,
             error: 'Verifying subscription...',
             lastEvent: ConnectionEvent.failed,
             isReconnecting: true,
           );
-          
+
           Future.microtask(() async {
             try {
-              await _ref.read(appSubscriptionProvider.notifier).configureAndRefresh();
+              await _ref
+                  .read(appSubscriptionProvider.notifier)
+                  .configureAndRefresh();
               await Future.delayed(const Duration(seconds: 2));
-              
+
               // After sync, try ONE more time - but flag is set so if it fails again we stop
               debugPrint('[Connection] Sync done - trying ONE more connection');
               if (state.connection != null) {
@@ -540,18 +544,22 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
       // Determine error message
       String errorMessage;
       if (isTooManyMachines) {
-        errorMessage = 'Machine limit reached (3 max). Remove a device in Account settings.';
+        errorMessage =
+            'Machine limit reached (3 max). Remove a device in Account settings.';
       } else if (isMissingSessionToken) {
         errorMessage = 'Sign-in expired. Please sign out and sign in again.';
-      } else if (lower.contains('license signing') || lower.contains('cloud auth failed')) {
+      } else if (lower.contains('license signing') ||
+          lower.contains('cloud auth failed')) {
         // Server-side configuration issue - not a user problem
-        errorMessage = 'Server configuration error. Please contact support or try again later.';
+        errorMessage =
+            'Server configuration error. Please contact support or try again later.';
       } else if (isLicenseError) {
         errorMessage = 'Subscription required. Subscribe to Pro in Settings.';
       } else if (isAuthError) {
         errorMessage = 'Authentication failed. Scan a new QR code.';
       } else if (isPinError) {
-        errorMessage = 'Secure connection failed (certificate mismatch). Scan a new QR code.';
+        errorMessage =
+            'Secure connection failed (certificate mismatch). Scan a new QR code.';
       } else {
         errorMessage = errString;
       }
@@ -591,8 +599,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
         status: ConnectionStatus.disconnected,
         error: errorMessage,
         lastEvent: ConnectionEvent.failed,
-        isReconnecting:
-            !isAuthError && !isLicenseError && !isTooManyMachines,
+        isReconnecting: !isAuthError && !isLicenseError && !isTooManyMachines,
       );
       // Don't auto-reconnect for auth/license errors - user needs to take action
       if (!isAuthError && !isLicenseError && !isTooManyMachines) {
@@ -604,10 +611,11 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
   }
 
   /// Build list of endpoints to try, ordered by preference.
-  List<({ConnectionType type, Uri uri, String host, bool isFunnel})>
-  _buildEndpointsToTry(ConnectionInfo info, ConnectionType? preferredType) {
-    final endpoints =
-        <({ConnectionType type, Uri uri, String host, bool isFunnel})>[];
+  List<ConnectionEndpoint> _buildEndpointsToTry(
+    ConnectionInfo info,
+    ConnectionType? preferredType,
+  ) {
+    final endpoints = <ConnectionEndpoint>[];
 
     bool isValidHostname(String host) {
       if (host.isEmpty || host.length > 253) return false;
@@ -702,7 +710,14 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
 
       final scheme = isSecure ? 'wss' : 'ws';
       final baseUri = Uri.parse('$scheme://$host:${info.port}');
-      endpoints.add((type: type, uri: baseUri, host: host, isFunnel: isFunnel));
+      endpoints.add(
+        ConnectionEndpoint(
+          type: type,
+          uri: baseUri,
+          host: host,
+          isFunnel: isFunnel,
+        ),
+      );
     }
 
     // If preferred type specified, add it first
@@ -771,45 +786,57 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     if (info.funnelURL != null && info.funnelURL!.isNotEmpty) {
       final funnelWss = info.funnelURL!.replaceFirst('https://', 'wss://');
       final baseFunnelUri = Uri.parse(funnelWss);
-      endpoints.add((
-        type: ConnectionType.unknown,
-        uri: baseFunnelUri,
-        host: baseFunnelUri.host,
-        isFunnel: true,
-      ));
+      endpoints.add(
+        ConnectionEndpoint(
+          type: ConnectionType.unknown,
+          uri: baseFunnelUri,
+          host: baseFunnelUri.host,
+          isFunnel: true,
+        ),
+      );
     }
 
     return endpoints;
   }
 
-  Future<_ConnectionResult?> _tryConnectConcurrent(
-    List<({ConnectionType type, Uri uri, String host, bool isFunnel})>
-    endpoints,
+  Future<ConnectionAttemptResult?> _tryConnectConcurrent(
+    List<ConnectionEndpoint> endpoints,
     ConnectionInfo info,
   ) async {
     if (endpoints.isEmpty) return null;
 
-    // First connection attempt gets a generous timeout (10s) to allow for
-    // iOS Local Network permission dialog, which can block the socket for
-    // several seconds. Subsequent retries use a normal 3s timeout.
     final connectTimeout = _reconnectAttempts == 0
         ? const Duration(seconds: 10)
         : const Duration(seconds: 3);
-
+    final remaining = List<ConnectionEndpoint>.from(endpoints);
     Object? lastError;
 
-    for (final ep in endpoints) {
-      debugPrint('[Connection] Trying ${ep.type.name}: ${ep.uri} (timeout: ${connectTimeout.inSeconds}s)');
+    while (remaining.isNotEmpty) {
+      final candidate = await raceConnectionEndpoints(
+        remaining,
+        info,
+        connectTimeout: connectTimeout,
+      );
+      if (candidate == null) return null;
+      if (!candidate.success) {
+        return candidate;
+      }
+
+      debugPrint(
+        '[Connection] Trying ${candidate.type.name}: ${candidate.uri}',
+      );
 
       try {
         final shouldPin =
             info.tlsEnabled &&
             info.certSha256 != null &&
             info.certSha256!.isNotEmpty &&
-            !ep.isFunnel;
+            !remaining
+                .firstWhere((endpoint) => endpoint.uri == candidate.uri)
+                .isFunnel;
         await _socket
             .connect(
-              ep.uri,
+              candidate.uri,
               authToken: info.authToken,
               pinnedCertSha256: shouldPin ? info.certSha256 : null,
             )
@@ -817,24 +844,22 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
               connectTimeout,
               onTimeout: () => throw TimeoutException('Connection timeout'),
             );
-        debugPrint('[Connection] SUCCESS: Connected via ${ep.type.name}');
-        return _ConnectionResult(
-          type: ep.type,
-          uri: ep.uri,
-          host: ep.host,
-          success: true,
+        debugPrint(
+          '[Connection] SUCCESS: Connected via ${candidate.type.name}',
         );
-      } catch (e) {
-        debugPrint('[Connection] FAILED ${ep.type.name}: $e');
-        lastError = e;
+        return candidate;
+      } catch (error) {
+        debugPrint('[Connection] FAILED ${candidate.type.name}: $error');
+        lastError = error;
+        remaining.removeWhere((endpoint) => endpoint.uri == candidate.uri);
       }
     }
 
-    final lastEp = endpoints.last;
-    return _ConnectionResult(
-      type: lastEp.type,
-      uri: lastEp.uri,
-      host: lastEp.host,
+    final lastCandidate = endpoints.last;
+    return ConnectionAttemptResult(
+      type: lastCandidate.type,
+      uri: lastCandidate.uri,
+      host: lastCandidate.host,
       success: false,
       error: lastError,
     );
@@ -959,6 +984,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     _isConnecting = false;
     _failureStreak = 0;
     _reconnectAttempts = 0;
+    _socket.clearQueuedMessages();
   }
 
   Future<void> clearConnection() async {
@@ -1057,7 +1083,12 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
   }
 
   void _handleStatus(ConnectionStatus status) {
-    debugPrint('[Connection] _handleStatus: $status (current: ${state.status}, isConnecting: $_isConnecting, isBackgrounding: $_isBackgrounding, isReconnecting: ${state.isReconnecting})');
+    debugPrint(
+      '[Connection] _handleStatus: $status (current: ${state.status}, isConnecting: $_isConnecting, isBackgrounding: $_isBackgrounding, isReconnecting: ${state.isReconnecting})',
+    );
+    if (status == ConnectionStatus.connected && _isConnecting) {
+      return;
+    }
     // Only schedule reconnect if we unexpectedly disconnected (not during intentional reconnect)
     // Skip if we're intentionally backgrounding - we'll handle reconnect in _handleAppResumed
     if (status == ConnectionStatus.disconnected &&
@@ -1067,16 +1098,11 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
         !state.isOfflineMode) {
       final sub = _ref.read(appSubscriptionProvider);
       debugPrint('[Connection] Disconnected - entitled: ${sub.entitled}');
-      
-      // Don't reconnect if there was a license error (server is authoritative)
-      final errorLower = (state.error ?? '').toLowerCase();
-      final isLicenseError = errorLower.contains('subscription') || 
-                             errorLower.contains('license') ||
-                             _licenseRetryAttempted;
-      
-      if (!sub.entitled || isLicenseError) {
-        // Unpaid users or license errors should never enter reconnect loops.
-        debugPrint('[Connection] NOT scheduling reconnect - entitled: ${sub.entitled}, licenseError: $isLicenseError');
+      if (blocksAutoReconnect(
+        entitled: sub.entitled,
+        error: state.error,
+        licenseRetryAttempted: _licenseRetryAttempted,
+      )) {
         state = state.copyWith(isReconnecting: false);
         return;
       }
@@ -1308,7 +1334,8 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
   void _handleAppBackgrounded() {
     _wasBackgrounded = true;
     _backgroundedAt = DateTime.now();
-    _isBackgrounding = true; // Set BEFORE forceClose - _handleStatus checks this
+    _isBackgrounding =
+        true; // Set BEFORE forceClose - _handleStatus checks this
 
     // Cancel any existing reconnect timer
     _reconnectTimer?.cancel();
