@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_typography.dart';
 import '../theme/design_tokens.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../models/agent.dart';
 import '../models/agent_type.dart';
@@ -30,6 +29,20 @@ import 'sheets/cc_mcp_sheet.dart';
 import 'sheets/cc_tools_sheet.dart';
 import 'sheets/cc_commands_sheet.dart';
 import 'sheets/cc_model_sheet.dart';
+import 'sheets/pi_model_sheet.dart';
+import 'sheets/pi_skills_sheet.dart';
+import 'sheets/cc_memory_scope_picker.dart';
+import 'dialogs/share_dialog.dart';
+import 'dialogs/help_dialog.dart';
+import 'dialogs/timeline_dialog.dart';
+import 'dialogs/fork_dialog.dart';
+import 'dialogs/rename_dialog.dart';
+import '../widgets/chat/action_tile.dart';
+import '../widgets/chat/action_row.dart';
+import '../widgets/chat/agent_card.dart';
+import '../widgets/chat/permission_preset_card.dart';
+import '../widgets/chat/command_autocomplete.dart';
+import '../widgets/chat/custom_tool_autocomplete.dart';
 import '../widgets/chat/cc_queue_bar.dart';
 
 import 'sheets/cx_skills_sheet_content.dart';
@@ -69,7 +82,6 @@ import '../services/haptics_service.dart';
 import '../services/image_picker_service.dart';
 import '../services/websocket_service.dart';
 import '../theme/opencode_theme.dart';
-import '../widgets/command_source_badge.dart';
 import '../widgets/diff_viewer.dart';
 import '../widgets/export_session_sheet.dart';
 import '../widgets/file_tagging.dart';
@@ -1796,101 +1808,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
   }
 
-  void _showShareDialog(String url) {
-    final theme = OpenCodeTheme.of(context);
-    DetailSheet.show(
-      context: context,
-      title: 'Session Shared',
-      initialSize: 0.35,
-      child: Padding(
-        padding: Insets.screenH,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Anyone with this link can view your session:',
-              style: AppTypography.labelLarge(color: theme.textMuted),
-            ),
-            SizedBox(height: Spacing.lg),
-            Container(
-              padding: Insets.chip,
-              decoration: BoxDecoration(
-                color: theme.bgDeep,
-                borderRadius: Radii.brXs,
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      url,
-                      style: AppTypography.bodySmall(color: theme.info),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () {
-                      Clipboard.setData(ClipboardData(text: url));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text('Link copied'),
-                          backgroundColor: theme.backgroundPanel,
-                          duration: const Duration(seconds: 2),
-                        ),
-                      );
-                    },
-                    icon: Icon(AppIcons.copy, color: theme.textMuted, size: 20),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: Spacing.xl),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () async {
-                      final uri = Uri.parse(url);
-                      if (await canLaunchUrl(uri)) {
-                        await launchUrl(
-                          uri,
-                          mode: LaunchMode.externalApplication,
-                        );
-                      }
-                    },
-                    icon: const Icon(AppIcons.openExternal, size: 18),
-                    label: const Text('Open in Browser'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: theme.text,
-                      side: BorderSide(color: theme.borderSubtle),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                  ),
-                ),
-                SizedBox(width: Spacing.md),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Share.share(url, subject: 'Check out my coding session');
-                      Navigator.pop(context);
-                    },
-                    icon: const Icon(AppIcons.share, size: 18),
-                    label: const Text('Share'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: theme.primary,
-                      foregroundColor: theme.selectedListItemText,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: Spacing.md),
-          ],
-        ),
-      ),
-    );
-  }
+  void _showShareDialog(String url) => showShareDialog(context, url);
 
   // Feature 8: Unshare Session
   Future<void> _unshareSession() async {
@@ -2231,55 +2149,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     _inputFocusNode.requestFocus();
   }
 
-  void _showMemoryScopePicker() {
-    final theme = OpenCodeTheme.of(context);
-    DetailSheet.show(
-      context: context,
-      title: 'Memory Scope',
-      initialSize: 0.35,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: Icon(AppIcons.person, color: theme.info),
-            title: Text('User memory', style: TextStyle(color: theme.text)),
-            subtitle: Text(
-              'Persists across projects for your account.',
-              style: AppTypography.label(color: theme.textMuted),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              _insertMemoryPromptTemplate('user');
-            },
-          ),
-          ListTile(
-            leading: Icon(AppIcons.work, color: theme.accent),
-            title: Text('Project memory', style: TextStyle(color: theme.text)),
-            subtitle: Text(
-              'Shared context for this project.',
-              style: AppTypography.label(color: theme.textMuted),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              _insertMemoryPromptTemplate('project');
-            },
-          ),
-          ListTile(
-            leading: Icon(AppIcons.computer, color: theme.warning),
-            title: Text('Local memory', style: TextStyle(color: theme.text)),
-            subtitle: Text(
-              'Only for this machine/workspace.',
-              style: AppTypography.label(color: theme.textMuted),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              _insertMemoryPromptTemplate('local');
-            },
-          ),
-        ],
-      ),
-    );
-  }
+  void _showMemoryScopePicker() => showMemoryScopePicker(
+    context,
+    onScopeSelected: _insertMemoryPromptTemplate,
+  );
 
   /// Call setState and restore focus if it was previously focused.
   /// This is the KEY fix - we always restore focus after setState if the
@@ -2552,155 +2425,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
   }
 
-  void _showPiModelSheet() {
-    final theme = OpenCodeTheme.of(context);
-    final chatState = ref.read(chatSessionProvider);
-    final cwd = chatState.piCwd;
-    DetailSheet.show(
-      context: context,
-      title: 'Pi Model',
-      initialSize: 0.6,
-      child: Consumer(
-        builder: (context, ref, _) {
-          final modelsAsync = ref.watch(piModelsProvider(cwd));
-          final currentModel = ref.watch(
-            chatSessionProvider.select((s) => s.piModel),
-          );
-          return modelsAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Padding(
-              padding: Insets.cardLg,
-              child: Text(
-                'Failed to load models: $e',
-                style: TextStyle(color: theme.error),
-              ),
-            ),
-            data: (models) {
-              if (models.isEmpty) {
-                return Padding(
-                  padding: Insets.cardLg,
-                  child: Text(
-                    'No models available',
-                    style: TextStyle(color: theme.textMuted),
-                  ),
-                );
-              }
-              // Group models by provider
-              final grouped = <String, List<PiModel>>{};
-              for (final model in models) {
-                grouped.putIfAbsent(model.provider, () => []).add(model);
-              }
-              // Use Column (not ListView) — DetailSheet's SingleChildScrollView handles scrolling
-              return Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    for (final entry in grouped.entries) ...[
-                      Padding(
-                        padding: const EdgeInsets.only(top: 12, bottom: 8),
-                        child: Text(
-                          entry.key.toUpperCase(),
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: theme.textMuted,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                      for (final model in entry.value)
-                        _buildPiModelTile(model, currentModel, theme),
-                    ],
-                  ],
-                ),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildPiModelTile(
-    PiModel model,
-    String? currentModel,
-    OpenCodeTheme theme,
-  ) {
-    final isSelected =
-        currentModel == model.id || currentModel == model.modelRef;
-    return ListTile(
-      dense: true,
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(
-        isSelected ? AppIcons.radioChecked : AppIcons.radioUnchecked,
-        size: 18,
-        color: isSelected ? theme.accent : theme.textMuted,
-      ),
-      title: Row(
-        children: [
-          Expanded(
-            child: Text(
-              model.name.isNotEmpty ? model.name : model.id,
-              style: AppTypography.bodySmall(color: theme.text),
-            ),
-          ),
-          if (model.reasoning)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-              decoration: BoxDecoration(
-                color: theme.warning.withValues(alpha: 0.12),
-                borderRadius: Radii.brXs,
-              ),
-              child: Text(
-                'Thinking',
-                style: TextStyle(
-                  color: theme.warning,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          if (model.supportsImages) ...[
-            const SizedBox(width: 4),
-            Icon(AppIcons.image, size: 12, color: theme.info),
-          ],
-        ],
-      ),
-      subtitle: Text(
-        '${model.provider} • ${_formatContextWindow(model.contextWindow)}'
-        '${model.cost.input > 0 ? ' • \$${model.cost.input.toStringAsFixed(2)}/\$${model.cost.output.toStringAsFixed(2)} per MTok' : ''}',
-        style: AppTypography.label(color: theme.textMuted),
-      ),
-      onTap: () async {
-        Navigator.pop(context);
-        final piBridge = ref.read(piBridgeServiceProvider);
-        final chatState = ref.read(chatSessionProvider);
-        try {
-          await piBridge.setModel(
-            provider: model.provider,
-            modelId: model.id,
-            projectPath: chatState.piCwd,
-          );
-          ref
-              .read(chatSessionProvider.notifier)
-              .setPiModel(model.modelRef, modelData: model);
-        } catch (e) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Failed to set model: $e')));
-        }
-      },
-    );
-  }
-
-  String _formatContextWindow(int tokens) {
-    if (tokens >= 1000000) return '${(tokens / 1000000).toStringAsFixed(0)}M';
-    if (tokens >= 1000) return '${(tokens / 1000).toStringAsFixed(0)}K';
-    return '$tokens';
-  }
+  void _showPiModelSheet() => showPiModelSheet(context);
 
   Future<void> _cyclePiThinkingLevel() async {
     final piBridge = ref.read(piBridgeServiceProvider);
@@ -2718,73 +2443,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
   }
 
-  void _showPiSkillsSheet() {
-    final chatState = ref.read(chatSessionProvider);
-    final cwd = chatState.piCwd;
-    final theme = OpenCodeTheme.of(context);
-    DetailSheet.show(
-      context: context,
-      title: 'Pi Skills',
-      initialSize: 0.5,
-      child: Consumer(
-        builder: (context, ref, _) {
-          final commandsAsync = ref.watch(piCommandsProvider(cwd));
-          return commandsAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Padding(
-              padding: Insets.cardLg,
-              child: Text(
-                'Failed to load: $e',
-                style: TextStyle(color: theme.error),
-              ),
-            ),
-            data: (commands) {
-              if (commands.isEmpty) {
-                return Padding(
-                  padding: Insets.cardLg,
-                  child: Center(
-                    child: Text(
-                      'No commands found',
-                      style: TextStyle(color: theme.textMuted),
-                    ),
-                  ),
-                );
-              }
-              return ListView.builder(
-                shrinkWrap: true,
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                itemCount: commands.length,
-                itemBuilder: (context, index) {
-                  final cmd = commands[index];
-                  return ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(
-                      AppIcons.bolt,
-                      size: 16,
-                      color: theme.primary,
-                    ),
-                    title: Text(
-                      cmd.name,
-                      style: AppTypography.bodySmall(color: theme.text),
-                    ),
-                    subtitle: cmd.description != null
-                        ? Text(
-                            cmd.description!,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTypography.label(color: theme.textMuted),
-                          )
-                        : null,
-                  );
-                },
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
+  void _showPiSkillsSheet() => showPiSkillsSheet(context);
 
   void _showPiSidebarSheet() {
     final chatState = ref.read(chatSessionProvider);
@@ -3341,173 +3000,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   // Slash Command Implementations
   // ============================================================
   /// Show help dialog with all available commands
-  void _showHelpDialog() {
-    final theme = OpenCodeTheme.of(context);
-    DetailSheet.show(
-      context: context,
-      title: 'Available Commands',
-      initialSize: 0.7,
-      maxSize: 0.9,
-      minSize: 0.5,
-      child: Padding(
-        padding: Insets.screenH,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildCommandSection('Session Actions', [
-              ('/undo', 'Undo last message'),
-              ('/redo', 'Redo last message'),
-              ('/compact', 'Compact session to free context'),
-              ('/fork', 'Fork session from a message'),
-              ('/rename', 'Rename session'),
-              ('/share', 'Share session publicly'),
-              ('/unshare', 'Remove public share'),
-            ], theme),
-            _buildCommandSection('Navigation', [
-              ('/new', 'Create new session'),
-              ('/clear', 'Alias for /new'),
-              ('/session', 'List all sessions'),
-              ('/resume', 'Alias for /session'),
-              ('/timeline', 'Jump to a message'),
-            ], theme),
-            _buildCommandSection('Configuration', [
-              ('/models', 'List available models'),
-              ('/agents', 'List available agents'),
-              ('/thinking', 'Toggle thinking visibility'),
-            ], theme),
-            _buildCommandSection('Export', [
-              ('/copy', 'Copy transcript to clipboard'),
-              ('/export', 'Export transcript to file'),
-            ], theme),
-            if (_commands.any((c) => !c.builtin))
-              _buildCommandSection(
-                'Custom Commands',
-                _commands
-                    .where((c) => !c.builtin)
-                    .map(
-                      (c) => ('/${c.name}', c.description ?? 'No description'),
-                    )
-                    .toList(),
-                theme,
-              ),
-            SizedBox(height: Spacing.xl),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCommandSection(
-    String title,
-    List<(String, String)> commands,
-    OpenCodeTheme theme,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: Insets.chipV,
-          child: Text(
-            title,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: theme.primary,
-            ),
-          ),
-        ),
-        ...commands.map(
-          (cmd) => Padding(
-            padding: Insets.chipV,
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: theme.bgDeep,
-                    borderRadius: Radii.brXs,
-                  ),
-                  child: Text(
-                    cmd.$1,
-                    style: AppTypography.code(color: theme.accent),
-                  ),
-                ),
-                SizedBox(width: Spacing.md),
-                Expanded(
-                  child: Text(
-                    cmd.$2,
-                    style: AppTypography.bodySmall(color: theme.textMuted),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        SizedBox(height: Spacing.sm),
-      ],
-    );
-  }
+  void _showHelpDialog() => showHelpDialog(context, commands: _commands);
 
   /// Show rename session dialog
-  void _showRenameSessionDialog() {
-    final theme = OpenCodeTheme.of(context);
-    final controller = TextEditingController(text: widget.session.title);
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: theme.backgroundPanel,
-        title: Text('Rename Session', style: TextStyle(color: theme.text)),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          style: TextStyle(color: theme.text),
-          decoration: InputDecoration(
-            hintText: 'Enter new title',
-            hintStyle: TextStyle(color: theme.textMuted),
-            border: OutlineInputBorder(borderRadius: Radii.brSm),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: TextStyle(color: theme.textMuted)),
-          ),
-          TextButton(
-            onPressed: () async {
-              final newTitle = controller.text.trim();
-              if (newTitle.isEmpty) return;
-              Navigator.pop(context);
-              try {
-                final bridge = ref.read(bridgeServiceProvider);
-                await bridge.updateSession(
-                  widget.session.id,
-                  title: newTitle,
-                  projectPath: widget.project.path,
-                );
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Session renamed to "$newTitle"')),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Failed to rename: ${humanizeError(e)}'),
-                    ),
-                  );
-                }
-              }
-            },
-            child: Text('Rename', style: TextStyle(color: theme.primary)),
-          ),
-        ],
-      ),
-    );
-  }
+  void _showRenameSessionDialog() => showRenameSessionDialog(
+    context,
+    ref: ref,
+    session: widget.session,
+    project: widget.project,
+  );
 
   /// Copy transcript to clipboard
   void _copyTranscriptToClipboard() {
@@ -3623,7 +3124,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   /// Show timeline dialog to jump to a specific message
   void _showTimelineDialog() {
-    final theme = OpenCodeTheme.of(context);
     final chatState = ref.read(chatSessionProvider);
     if (chatState.messages.isEmpty) {
       ScaffoldMessenger.of(
@@ -3631,62 +3131,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ).showSnackBar(const SnackBar(content: Text('No messages in session')));
       return;
     }
-    DetailSheet.show(
-      context: context,
-      title: 'Jump to Message',
-      initialSize: 0.6,
-      minSize: 0.4,
-      maxSize: 0.9,
-      child: ListView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: chatState.messages.length,
-        itemBuilder: (context, index) {
-          final msg = chatState.messages[index];
-          final isUser = msg.role == MessageRole.user;
-          return ListTile(
-            leading: CircleAvatar(
-              backgroundColor: isUser ? theme.primary : theme.accent,
-              radius: 16,
-              child: Icon(
-                isUser ? AppIcons.person : AppIcons.agent,
-                size: 16,
-                color: theme.selectedListItemText,
-              ),
-            ),
-            title: Text(
-              isUser ? 'You' : 'Assistant',
-              style: TextStyle(fontWeight: FontWeight.w500, color: theme.text),
-            ),
-            subtitle: Text(
-              msg.text.length > 60
-                  ? '${msg.text.substring(0, 60)}...'
-                  : msg.text,
-              style: TextStyle(color: theme.textMuted),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              // Scroll to the message
-              final targetIndex = chatState.messages.length - 1 - index;
-              if (_scrollController.hasClients) {
-                _scrollController.animateTo(
-                  targetIndex * 120.0, // Approximate message height
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                );
-              }
-            },
-          );
-        },
-      ),
-    );
+    showTimelineDialog(context, scrollController: _scrollController);
   }
 
   /// Show fork dialog to create a branch from a specific message
   void _showForkDialog() {
-    final theme = OpenCodeTheme.of(context);
     final chatState = ref.read(chatSessionProvider);
     if (chatState.messages.isEmpty) {
       ScaffoldMessenger.of(
@@ -3694,118 +3143,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ).showSnackBar(const SnackBar(content: Text('No messages to fork from')));
       return;
     }
-    DetailSheet.show(
-      context: context,
-      title: 'Fork Session',
-      initialSize: 0.6,
-      minSize: 0.4,
-      maxSize: 0.9,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: Insets.bottomSm,
-            child: Text(
-              'Select a message to fork from',
-              style: AppTypography.bodySmall(color: theme.textMuted),
-            ),
-          ),
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: chatState.messages.length,
-            itemBuilder: (context, index) {
-              final msg = chatState.messages[index];
-              final isUser = msg.role == MessageRole.user;
-              return ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: isUser ? theme.primary : theme.accent,
-                  radius: 16,
-                  child: Icon(
-                    isUser ? AppIcons.person : AppIcons.agent,
-                    size: 16,
-                    color: theme.selectedListItemText,
-                  ),
-                ),
-                title: Text(
-                  isUser ? 'You' : 'Assistant',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w500,
-                    color: theme.text,
-                  ),
-                ),
-                subtitle: Text(
-                  msg.text.length > 60
-                      ? '${msg.text.substring(0, 60)}...'
-                      : msg.text,
-                  style: TextStyle(color: theme.textMuted),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                trailing: Icon(AppIcons.forkRight, color: theme.primary),
-                onTap: () async {
-                  Navigator.pop(context);
-                  try {
-                    final bridge = ref.read(bridgeServiceProvider);
-                    final forkedSession = await bridge.forkSession(
-                      widget.session.id,
-                      messageId: msg.id,
-                      projectPath: widget.project.path,
-                    );
-                    if (mounted) {
-                      String? initialPrompt;
-                      final idx = chatState.messages.indexWhere(
-                        (m) => m.id == msg.id,
-                      );
-                      if (idx >= 0) {
-                        for (var i = idx; i >= 0; i--) {
-                          final m = chatState.messages[i];
-                          if (m.role == MessageRole.user &&
-                              m.text.trim().isNotEmpty) {
-                            initialPrompt = m.text.trim();
-                            break;
-                          }
-                        }
-                        initialPrompt ??= msg.text.trim();
-                      }
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Forked to "${forkedSession.title}"'),
-                          action: SnackBarAction(
-                            label: 'Open',
-                            onPressed: () {
-                              // Navigate to the forked session
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => ChatScreen(
-                                    project: widget.project,
-                                    session: forkedSession,
-                                    initialPrompt: initialPrompt,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      );
-                    }
-                  } catch (e) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Failed to fork: ${humanizeError(e)}'),
-                        ),
-                      );
-                    }
-                  }
-                },
-              );
-            },
-          ),
-        ],
-      ),
-    );
+    showForkDialog(context, session: widget.session, project: widget.project);
   }
 
   /// Toggle thinking/reasoning visibility
@@ -4163,7 +3501,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             child: Visibility(
               visible: _showCommandAutocomplete && _commands.isNotEmpty,
               maintainState: true,
-              child: _CommandAutocomplete(
+              child: CommandAutocomplete(
                 commands: _filteredCommands,
                 onSelect: _selectCommand,
               ),
@@ -4177,7 +3515,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             child: Visibility(
               visible: _showCustomToolAutocomplete,
               maintainState: true,
-              child: _CustomToolAutocomplete(
+              child: CustomToolAutocomplete(
                 query: _customToolQuery,
                 onSelect: _handleCustomToolSelection,
               ),
@@ -7526,7 +6864,7 @@ class _SessionActionsContent extends StatelessWidget {
                 ),
               ),
               SizedBox(height: Spacing.md),
-              _ActionRow(
+              ActionRow(
                 icon: AppIcons.gridView,
                 label: 'Project Tools',
                 subtitle: 'Skills, commands, agents, MCP, plugins',
@@ -7548,7 +6886,7 @@ class _SessionActionsContent extends StatelessWidget {
               SizedBox(height: Spacing.md),
               Row(
                 children: [
-                  _ActionTile(
+                  ActionTile(
                     icon: AppIcons.info,
                     label: 'Info',
                     theme: theme,
@@ -7562,21 +6900,21 @@ class _SessionActionsContent extends StatelessWidget {
                     },
                   ),
                   const SizedBox(width: 10),
-                  _ActionTile(
+                  ActionTile(
                     icon: AppIcons.add,
                     label: 'New',
                     theme: theme,
                     onTap: () => onAction('new_session'),
                   ),
                   const SizedBox(width: 10),
-                  _ActionTile(
+                  ActionTile(
                     icon: AppIcons.callSplit,
                     label: 'Fork',
                     theme: theme,
                     onTap: () => onAction('fork'),
                   ),
                   const SizedBox(width: 10),
-                  _ActionTile(
+                  ActionTile(
                     icon: isSessionShared ? AppIcons.unlink : AppIcons.share,
                     label: isSessionShared ? 'Unshare' : 'Share',
                     theme: theme,
@@ -7597,7 +6935,7 @@ class _SessionActionsContent extends StatelessWidget {
                 ),
               ),
               SizedBox(height: Spacing.md),
-              _ActionRow(
+              ActionRow(
                 icon: AppIcons.compress,
                 label: isCompacting ? 'Compacting...' : 'Compact',
                 subtitle: 'Summarize context to free space',
@@ -7606,7 +6944,7 @@ class _SessionActionsContent extends StatelessWidget {
                 onTap: () => onAction('compact'),
               ),
               SizedBox(height: Spacing.sm),
-              _ActionRow(
+              ActionRow(
                 icon: AppIcons.autoFix,
                 label: 'Initialize Project',
                 subtitle: 'Create AGENTS.md for this project',
@@ -7627,7 +6965,7 @@ class _SessionActionsContent extends StatelessWidget {
               ),
               SizedBox(height: Spacing.md),
               if (isStreaming) ...[
-                _ActionRow(
+                ActionRow(
                   icon: AppIcons.stop,
                   label: 'Stop Agent',
                   subtitle: 'Abort the current AI response',
@@ -7637,7 +6975,7 @@ class _SessionActionsContent extends StatelessWidget {
                 ),
                 SizedBox(height: Spacing.sm),
               ],
-              _ActionRow(
+              ActionRow(
                 icon: AppIcons.undo,
                 label: 'Undo Last Changes',
                 subtitle: 'Revert recent file modifications',
@@ -7646,7 +6984,7 @@ class _SessionActionsContent extends StatelessWidget {
                 onTap: () => onAction('undo'),
               ),
               SizedBox(height: Spacing.sm),
-              _ActionRow(
+              ActionRow(
                 icon: AppIcons.cleaning,
                 label: 'Clear Instance',
                 subtitle: 'Reset project context completely',
@@ -7662,118 +7000,7 @@ class _SessionActionsContent extends StatelessWidget {
   }
 }
 
-/// Square action tile for grid layout
-class _ActionTile extends StatelessWidget {
-  const _ActionTile({
-    required this.icon,
-    required this.label,
-    required this.theme,
-    required this.onTap,
-  });
-  final IconData icon;
-  final String label;
-  final OpenCodeTheme theme;
-  final VoidCallback onTap;
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            color: theme.backgroundPanel,
-            borderRadius: Radii.brMd,
-            border: Border.all(color: theme.borderSubtle),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 22, color: theme.text),
-              const SizedBox(height: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: theme.text,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
-/// Row action item for list layout
-class _ActionRow extends StatelessWidget {
-  const _ActionRow({
-    required this.icon,
-    required this.label,
-    required this.subtitle,
-    required this.theme,
-    required this.onTap,
-    this.color,
-    this.enabled = true,
-  });
-  final IconData icon;
-  final String label;
-  final String subtitle;
-  final OpenCodeTheme theme;
-  final VoidCallback onTap;
-  final Color? color;
-  final bool enabled;
-  @override
-  Widget build(BuildContext context) {
-    final effectiveColor = enabled ? (color ?? theme.text) : theme.textMuted;
-    return GestureDetector(
-      onTap: enabled ? onTap : null,
-      child: Container(
-        padding: Insets.cardMd,
-        decoration: BoxDecoration(
-          color: theme.backgroundPanel,
-          borderRadius: Radii.brMd,
-          border: Border.all(color: theme.borderSubtle),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: Insets.cardXs,
-              decoration: BoxDecoration(
-                color: effectiveColor.withValues(alpha: 0.1),
-                borderRadius: Radii.brSm,
-              ),
-              child: Icon(icon, size: 18, color: effectiveColor),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: effectiveColor,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: AppTypography.label(color: theme.textMuted),
-                  ),
-                ],
-              ),
-            ),
-            Icon(AppIcons.chevronRight, size: 20, color: theme.textMuted),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 /// Claude Code actions content for DetailSheet
 class _ClaudeCodeActionsContent extends StatelessWidget {
@@ -7894,7 +7121,7 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
                 ),
               ),
               SizedBox(height: Spacing.md),
-              _ActionRow(
+              ActionRow(
                 icon: AppIcons.gridView,
                 label: 'Project Tools',
                 subtitle: 'Manage skills, commands, hooks, MCP, plugins',
@@ -7905,28 +7132,28 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
               SizedBox(height: Spacing.md),
               Row(
                 children: [
-                  _ActionTile(
+                  ActionTile(
                     icon: AppIcons.tune,
                     label: 'Tools',
                     theme: theme,
                     onTap: () => onAction('cc_tools'),
                   ),
                   const SizedBox(width: 10),
-                  _ActionTile(
+                  ActionTile(
                     icon: AppIcons.bolt,
                     label: 'Commands',
                     theme: theme,
                     onTap: () => onAction('cc_commands'),
                   ),
                   const SizedBox(width: 10),
-                  _ActionTile(
+                  ActionTile(
                     icon: AppIcons.autoAwesome,
                     label: 'Skills',
                     theme: theme,
                     onTap: () => onAction('cc_skills'),
                   ),
                   const SizedBox(width: 10),
-                  _ActionTile(
+                  ActionTile(
                     icon: AppIcons.link,
                     label: 'Hooks',
                     theme: theme,
@@ -7946,7 +7173,7 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
                 ),
               ),
               SizedBox(height: Spacing.md),
-              _ActionRow(
+              ActionRow(
                 icon: AppIcons.hub,
                 label: 'MCP Servers',
                 subtitle: 'Configure Model Context Protocol servers',
@@ -7965,7 +7192,7 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
                 ),
               ),
               SizedBox(height: Spacing.md),
-              _ActionRow(
+              ActionRow(
                 icon: AppIcons.callSplit,
                 label: 'Fork Session',
                 subtitle: 'Create a new branch from current conversation',
@@ -7984,7 +7211,7 @@ class _ClaudeCodeActionsContent extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: Spacing.md),
-                _ActionRow(
+                ActionRow(
                   icon: AppIcons.stop,
                   label: 'Stop Agent',
                   subtitle: 'Abort the current AI response',
@@ -8113,7 +7340,7 @@ class _CodexActionsContent extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _ActionRow(
+              ActionRow(
                 icon: AppIcons.gridView,
                 label: 'Project Tools',
                 subtitle: 'Skills, agents, MCP, config',
@@ -8135,35 +7362,35 @@ class _CodexActionsContent extends StatelessWidget {
               SizedBox(height: Spacing.md),
               Row(
                 children: [
-                  _ActionTile(
+                  ActionTile(
                     icon: AppIcons.tune,
                     label: 'Settings',
                     theme: theme,
                     onTap: () => onAction('cx_settings'),
                   ),
                   const SizedBox(width: 10),
-                  _ActionTile(
+                  ActionTile(
                     icon: AppIcons.autoAwesome,
                     label: 'Skills',
                     theme: theme,
                     onTap: () => onAction('cx_skills'),
                   ),
                   const SizedBox(width: 10),
-                  _ActionTile(
+                  ActionTile(
                     icon: AppIcons.hub,
                     label: 'MCP',
                     theme: theme,
                     onTap: () => onAction('cx_mcp'),
                   ),
                   const SizedBox(width: 10),
-                  _ActionTile(
+                  ActionTile(
                     icon: AppIcons.shieldCheck,
                     label: 'Auth',
                     theme: theme,
                     onTap: () => onAction('cx_auth'),
                   ),
                   const SizedBox(width: 10),
-                  _ActionTile(
+                  ActionTile(
                     icon: AppIcons.extension_,
                     label: 'Apps',
                     theme: theme,
@@ -8183,7 +7410,7 @@ class _CodexActionsContent extends StatelessWidget {
                 ),
               ),
               SizedBox(height: Spacing.md),
-              _ActionRow(
+              ActionRow(
                 icon: AppIcons.description,
                 label: 'AGENTS.md',
                 subtitle: 'Edit project agent instructions',
@@ -8191,7 +7418,7 @@ class _CodexActionsContent extends StatelessWidget {
                 onTap: () => onAction('cx_agents'),
               ),
               SizedBox(height: Spacing.sm),
-              _ActionRow(
+              ActionRow(
                 icon: AppIcons.toc,
                 label: 'Config',
                 subtitle: 'View and edit Codex configuration',
@@ -8213,7 +7440,7 @@ class _CodexActionsContent extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: _ActionRow(
+                    child: ActionRow(
                       icon: AppIcons.rateReview,
                       label: 'Review',
                       subtitle: 'Review pending changes',
@@ -8224,7 +7451,7 @@ class _CodexActionsContent extends StatelessWidget {
                 ],
               ),
               SizedBox(height: Spacing.sm),
-              _ActionRow(
+              ActionRow(
                 icon: AppIcons.feedback,
                 label: 'Feedback',
                 subtitle: 'Send feedback to Codex team',
@@ -8243,7 +7470,7 @@ class _CodexActionsContent extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: Spacing.md),
-                _ActionRow(
+                ActionRow(
                   icon: AppIcons.stop,
                   label: 'Stop Agent',
                   subtitle: 'Abort the current AI response',
@@ -8614,21 +7841,21 @@ class _PiActionsContent extends ConsumerWidget {
               SizedBox(height: Spacing.md),
               Row(
                 children: [
-                  _ActionTile(
+                  ActionTile(
                     icon: AppIcons.autoAwesome,
                     label: 'Model',
                     theme: theme,
                     onTap: () => onAction('pi_model'),
                   ),
                   const SizedBox(width: 10),
-                  _ActionTile(
+                  ActionTile(
                     icon: AppIcons.bolt,
                     label: 'Skills',
                     theme: theme,
                     onTap: () => onAction('pi_skills'),
                   ),
                   const SizedBox(width: 10),
-                  _ActionTile(
+                  ActionTile(
                     icon: AppIcons.callSplit,
                     label: 'Sidebar',
                     theme: theme,
@@ -8639,14 +7866,14 @@ class _PiActionsContent extends ConsumerWidget {
               SizedBox(height: Spacing.md),
               Row(
                 children: [
-                  _ActionTile(
+                  ActionTile(
                     icon: AppIcons.compress,
                     label: 'Compact',
                     theme: theme,
                     onTap: () => onAction('pi_compact'),
                   ),
                   const SizedBox(width: 10),
-                  _ActionTile(
+                  ActionTile(
                     icon: AppIcons.add,
                     label: 'New Chat',
                     theme: theme,
@@ -8669,7 +7896,7 @@ class _PiActionsContent extends ConsumerWidget {
                   ),
                 ),
                 SizedBox(height: Spacing.md),
-                _ActionRow(
+                ActionRow(
                   icon: AppIcons.stop,
                   label: 'Stop Agent',
                   subtitle: 'Abort the current AI response',
@@ -9977,7 +9204,7 @@ class _AgentAndPermissionContentState
                           padding: EdgeInsets.only(
                             right: agent == primaryAgents.last ? 0 : 10,
                           ),
-                          child: _AgentCard(
+                          child: AgentCard(
                             agent: agent,
                             isSelected: isSelected,
                             theme: widget.theme,
@@ -10182,7 +9409,7 @@ class _AgentAndPermissionContentState
                 children: PermissionPreset.values
                     .where((p) => p != PermissionPreset.custom)
                     .map(
-                      (preset) => _PermissionPresetCard(
+                      (preset) => PermissionPresetCard(
                         preset: preset,
                         isSelected: preset == selectedPreset,
                         theme: widget.theme,
@@ -10203,153 +9430,7 @@ class _AgentAndPermissionContentState
   }
 }
 
-/// Card for primary agents (Build/Plan)
-class _AgentCard extends StatelessWidget {
-  const _AgentCard({
-    required this.agent,
-    required this.isSelected,
-    required this.theme,
-    required this.onTap,
-  });
-  final Agent agent;
-  final bool isSelected;
-  final OpenCodeTheme theme;
-  final VoidCallback onTap;
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: Insets.cardMd,
-        decoration: BoxDecoration(
-          color: isSelected
-              ? agent.resolveColor(theme).withValues(alpha: 0.12)
-              : theme.backgroundPanel,
-          borderRadius: Radii.brLg,
-          border: Border.all(
-            color: isSelected ? agent.resolveColor(theme) : theme.borderSubtle,
-            width: isSelected ? 1.5 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(
-                color: agent.resolveColor(theme),
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          agent.displayName,
-                          style: TextStyle(
-                            color: theme.text,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      if (agent.variant != null &&
-                          agent.variant!.isNotEmpty) ...[
-                        const SizedBox(width: 6),
-                        VariantBadge.small(variant: agent.variant),
-                      ],
-                    ],
-                  ),
-                  Text(
-                    agent.shortDescription,
-                    style: AppTypography.caption(color: theme.textMuted),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (agent.model != null)
-                    Text(
-                      agent.model!.displayName,
-                      style: TextStyle(
-                        color: theme.textMuted.withValues(alpha: 0.7),
-                        fontSize: 10,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            if (isSelected)
-              Icon(
-                AppIcons.checkCircle,
-                color: agent.resolveColor(theme),
-                size: 20,
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
-/// Compact permission preset card for grid
-class _PermissionPresetCard extends StatelessWidget {
-  const _PermissionPresetCard({
-    required this.preset,
-    required this.isSelected,
-    required this.theme,
-    required this.onTap,
-  });
-  final PermissionPreset preset;
-  final bool isSelected;
-  final OpenCodeTheme theme;
-  final VoidCallback onTap;
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? theme.primary.withValues(alpha: 0.1)
-              : theme.backgroundPanel,
-          borderRadius: Radii.brMd,
-          border: Border.all(
-            color: isSelected ? theme.primary : theme.borderSubtle,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              preset.shortName,
-              style: TextStyle(
-                color: isSelected ? theme.primary : theme.text,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            SizedBox(height: Spacing.xxs),
-            Text(
-              preset.description,
-              style: TextStyle(color: theme.textMuted, fontSize: 10),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 /// Chip widget for variant/thinking level selection
 class _VariantChip extends StatelessWidget {
@@ -10656,426 +9737,7 @@ class _ModelSelectorContentState extends ConsumerState<_ModelSelectorContent> {
   }
 }
 
-// Feature 2: Slash command autocomplete popup with grouping
-class _CommandAutocomplete extends StatelessWidget {
-  const _CommandAutocomplete({required this.commands, required this.onSelect});
-  final List<SlashCommand> commands;
-  final void Function(SlashCommand) onSelect;
-  @override
-  Widget build(BuildContext context) {
-    final theme = OpenCodeTheme.of(context);
-    final kCard = theme.backgroundPanel;
-    final kBorder = theme.borderSubtle;
-    final kOnBackground = theme.text;
-    final kMuted = theme.textMuted;
-    final kAccent = theme.primary;
-    final kSuccess = theme.success;
-    final kInfo = theme.info;
-    if (commands.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    // Group commands by source (command / mcp / skill)
-    final groups = CommandGroups.fromCommands(commands);
-    return Container(
-      constraints: const BoxConstraints(maxHeight: 280),
-      decoration: BoxDecoration(
-        color: kCard,
-        borderRadius: Radii.brLg,
-        border: Border.all(color: kBorder),
-        boxShadow: [
-          BoxShadow(
-            color: theme.bgDeep.withValues(alpha: 0.4),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: Radii.brLg,
-        child: ListView(
-          shrinkWrap: true,
-          padding: Insets.chipV,
-          children: [
-            // Commands section (built-in / source == 'command')
-            if (groups.commands.isNotEmpty) ...[
-              _buildSectionHeader(
-                'Commands',
-                AppIcons.terminal,
-                kAccent,
-                kMuted,
-                groups.commands.length,
-              ),
-              ...groups.commands.map(
-                (cmd) => _buildCommandTile(
-                  cmd,
-                  kOnBackground,
-                  kMuted,
-                  kAccent,
-                  kSuccess,
-                  kInfo,
-                ),
-              ),
-            ],
-            // Skills section
-            if (groups.skillCommands.isNotEmpty) ...[
-              if (groups.commands.isNotEmpty) SizedBox(height: Spacing.sm),
-              _buildSectionHeader(
-                'Skills',
-                AppIcons.autoAwesome,
-                kInfo,
-                kMuted,
-                groups.skillCommands.length,
-              ),
-              ...groups.skillCommands.map(
-                (cmd) => _buildCommandTile(
-                  cmd,
-                  kOnBackground,
-                  kMuted,
-                  kInfo,
-                  kSuccess,
-                  kInfo,
-                ),
-              ),
-            ],
-            // MCP commands section
-            if (groups.mcpCommands.isNotEmpty) ...[
-              if (groups.commands.isNotEmpty || groups.skillCommands.isNotEmpty)
-                SizedBox(height: Spacing.sm),
-              _buildSectionHeader(
-                'MCP',
-                AppIcons.extension_,
-                kSuccess,
-                kMuted,
-                groups.mcpCommands.length,
-              ),
-              ...groups.mcpCommands.map(
-                (cmd) => _buildCommandTile(
-                  cmd,
-                  kOnBackground,
-                  kMuted,
-                  kSuccess,
-                  kSuccess,
-                  kInfo,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildSectionHeader(
-    String title,
-    IconData icon,
-    Color iconColor,
-    Color textColor,
-    int count,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Row(
-        children: [
-          Icon(icon, size: 14, color: iconColor),
-          const SizedBox(width: 6),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: textColor,
-              letterSpacing: 0.5,
-            ),
-          ),
-          SizedBox(width: Spacing.xs),
-          Text(
-            '($count)',
-            style: TextStyle(
-              fontSize: 11,
-              color: textColor.withValues(alpha: 0.6),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCommandTile(
-    SlashCommand command,
-    Color textColor,
-    Color mutedColor,
-    Color accentColor,
-    Color agentColor,
-    Color modelColor,
-  ) {
-    return InkWell(
-      onTap: () => onSelect(command),
-      child: Container(
-        padding: Insets.buttonSm,
-        child: Row(
-          children: [
-            // Command icon
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: accentColor.withValues(alpha: 0.15),
-                borderRadius: Radii.brSm,
-              ),
-              child: Icon(
-                command.source == CommandSource.mcp
-                    ? AppIcons.extension_
-                    : command.source == CommandSource.skill
-                    ? AppIcons.autoAwesome
-                    : AppIcons.terminal,
-                size: 16,
-                color: accentColor,
-              ),
-            ),
-            SizedBox(width: Spacing.md),
-            // Command name and description
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        command.displayName,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: textColor,
-                        ),
-                      ),
-                      // Agent badge
-                      if (command.hasAgent) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: agentColor.withValues(alpha: 0.15),
-                            borderRadius: Radii.brXs,
-                          ),
-                          child: Text(
-                            '@${command.agent}',
-                            style: TextStyle(
-                              fontSize: 9,
-                              color: agentColor,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                      // Model badge
-                      if (command.hasModel) ...[
-                        SizedBox(width: Spacing.xs),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: modelColor.withValues(alpha: 0.15),
-                            borderRadius: Radii.brXs,
-                          ),
-                          child: Text(
-                            command.shortModelName ?? '',
-                            style: TextStyle(
-                              fontSize: 9,
-                              color: modelColor,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                      // Source badge (MCP / SKILL)
-                      if (command.source != null &&
-                          command.source != CommandSource.command) ...[
-                        SizedBox(width: Spacing.xs),
-                        CommandSourceBadge(source: command.source),
-                      ],
-                      // Subtask badge
-                      if (command.subtask) ...[
-                        SizedBox(width: Spacing.xs),
-                        Icon(
-                          AppIcons.subdirectory,
-                          size: 12,
-                          color: mutedColor,
-                        ),
-                      ],
-                    ],
-                  ),
-                  SizedBox(height: Spacing.xxs),
-                  Text(
-                    command.shortDescription,
-                    style: TextStyle(fontSize: 12, color: mutedColor),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CustomToolAutocomplete extends ConsumerWidget {
-  const _CustomToolAutocomplete({required this.query, required this.onSelect});
-  final String query;
-  final void Function(ClaudeCodeCustomTool tool) onSelect;
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = OpenCodeTheme.of(context);
-    final toolsAsync = ref.watch(ccCustomToolsProvider);
-    final kCard = theme.backgroundPanel;
-    final kBorder = theme.borderSubtle;
-    final kText = theme.text;
-    final kMuted = theme.textMuted;
-    return toolsAsync.when(
-      loading: () => Container(
-        padding: Insets.card,
-        decoration: BoxDecoration(
-          color: kCard,
-          borderRadius: Radii.brLg,
-          border: Border.all(color: kBorder),
-        ),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator(strokeWidth: 2, color: kMuted),
-            ),
-            const SizedBox(width: 10),
-            Text('Loading tools…', style: TextStyle(color: kMuted)),
-          ],
-        ),
-      ),
-      error: (e, _) => Container(
-        padding: Insets.card,
-        decoration: BoxDecoration(
-          color: kCard,
-          borderRadius: Radii.brLg,
-          border: Border.all(color: kBorder),
-        ),
-        child: Text(
-          'Failed to load tools: ${humanizeError(e)}',
-          style: TextStyle(color: theme.error),
-        ),
-      ),
-      data: (tools) {
-        final enabled = tools.where((t) => t.enabled).toList();
-        final q = query.trim().toLowerCase();
-        final filtered = q.isEmpty
-            ? enabled
-            : enabled
-                  .where(
-                    (t) =>
-                        t.name.toLowerCase().contains(q) ||
-                        t.description.toLowerCase().contains(q),
-                  )
-                  .toList();
-        if (filtered.isEmpty) {
-          return Container(
-            padding: Insets.card,
-            decoration: BoxDecoration(
-              color: kCard,
-              borderRadius: Radii.brLg,
-              border: Border.all(color: kBorder),
-            ),
-            child: Text('No matching tools', style: TextStyle(color: kMuted)),
-          );
-        }
-        return Container(
-          constraints: const BoxConstraints(maxHeight: 280),
-          decoration: BoxDecoration(
-            color: kCard,
-            borderRadius: Radii.brLg,
-            border: Border.all(color: kBorder),
-            boxShadow: [
-              BoxShadow(
-                color: theme.bgDeep.withValues(alpha: 0.4),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: Radii.brLg,
-            child: ListView.builder(
-              padding: Insets.chipV,
-              itemCount: filtered.length,
-              itemBuilder: (context, index) {
-                final tool = filtered[index];
-                return InkWell(
-                  onTap: () => onSelect(tool),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: theme.warning.withValues(alpha: 0.15),
-                            borderRadius: Radii.brSm,
-                          ),
-                          child: Icon(
-                            AppIcons.build,
-                            size: 16,
-                            color: theme.warning,
-                          ),
-                        ),
-                        SizedBox(width: Spacing.md),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                tool.name,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: kText,
-                                ),
-                              ),
-                              SizedBox(height: Spacing.xxs),
-                              Text(
-                                tool.mcpToolName,
-                                style: TextStyle(fontSize: 11, color: kMuted),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
-                        Icon(
-                          AppIcons.chevronRight,
-                          color: kMuted.withValues(alpha: 0.7),
-                          size: 18,
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
 
 // Extracted to lib/widgets/chat/retry_status_banner.dart
 // Extracted to lib/widgets/chat/revert_state_banner.dart
