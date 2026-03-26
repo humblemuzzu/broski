@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 class AppConfig {
   static String get convexHttpBaseUrl {
     const fromEnv = String.fromEnvironment('CONVEX_HTTP_BASE_URL');

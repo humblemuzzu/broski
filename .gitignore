@@ -122,6 +122,12 @@ reference/
 config.json
 *.xcscheme
 
+# Build artifacts and temp files that shouldn't be tracked
+chart.png
+geist-1.7.0.tgz
+logs.md
+analysis.log
+
 # Continuous Claude
 .claude/cache/
 .claude/skills/

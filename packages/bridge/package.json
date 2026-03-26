@@ -44,10 +44,14 @@
     "build:mac-intel": "sh scripts/build.sh --target darwin-x64",
     "build:linux": "sh scripts/build.sh --target linux-x64",
     "build:linux-arm": "sh scripts/build.sh --target linux-arm64",
-    "build:windows": "sh scripts/build.sh --target windows-x64"
+    "build:windows": "sh scripts/build.sh --target windows-x64",
+    "lint": "biome check src/",
+    "format": "biome format --write src/",
+    "typecheck": "tsc --noEmit",
+    "check": "biome check src/ && tsc --noEmit"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.2.74",
+    "@anthropic-ai/claude-agent-sdk": "^0.2.84",
     "@clack/prompts": "^1.0.0",
     "@mariozechner/pi-coding-agent": "^0.57.1",
     "@opencode-ai/sdk": "file:../../reference/opencode/packages/sdk/js",
@@ -57,7 +61,8 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@biomejs/biome": "^2.4.9",
+    "@types/bun": "^1.2.16"
   },
   "engines": {
     "bun": ">=1.0.0"
