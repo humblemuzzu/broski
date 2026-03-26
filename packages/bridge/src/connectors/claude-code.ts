@@ -1,5 +1,5 @@
 import { query } from '@anthropic-ai/claude-agent-sdk'
-import type { ElicitationRequest, ElicitationResult, Options, Query as SDKQuery } from '@anthropic-ai/claude-agent-sdk'
+import type { ElicitationRequest, ElicitationResult, Options, Query as SDKQuery, McpServerStatus as SDKMcpServerStatus, SDKPartialAssistantMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
 import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
@@ -11,6 +11,7 @@ import type {
   ClaudeCodeSession,
   ClaudeCodeSkill,
   ClaudeCodeHook,
+  ClaudeCodeHookEvent,
   ClaudeCodeCommand,
   ClaudeCodeConfig,
   ClaudeCodePermissionMode,
@@ -441,6 +442,8 @@ type ClaudeTranscriptLine = {
   gitBranch?: string
   slug?: string
   isMeta?: boolean
+  parent_tool_use_id?: string
+  toolUseResult?: unknown
   message?: {
     role?: string
     content?: unknown
@@ -451,6 +454,18 @@ type ClaudeTranscriptLine = {
       cache_read_input_tokens?: number
     }
   }
+}
+
+/** Content block shape from Claude Code JSONL transcripts (parsed from JSON). */
+type TranscriptContentBlock = {
+  type: string
+  text?: string
+  thinking?: string
+  id?: string
+  name?: string
+  input?: unknown
+  tool_use_id?: string
+  content?: unknown
 }
 
 function safeParseJsonLine(line: string): any | null {
@@ -477,9 +492,9 @@ function extractFirstTextContent(content: unknown): string | null {
   if (Array.isArray(content)) {
     for (const block of content) {
       if (block && typeof block === 'object') {
-        const type = (block as any).type
-        if (type === 'text' && typeof (block as any).text === 'string') {
-          return (block as any).text
+        const b = block as TranscriptContentBlock
+        if (b.type === 'text' && typeof b.text === 'string') {
+          return b.text
         }
       }
     }
@@ -500,11 +515,11 @@ function toolResultToText(result: unknown): string {
     const parts: string[] = []
     for (const item of result) {
       if (item && typeof item === 'object') {
-        const type = (item as any).type
-        if (type === 'text' && typeof (item as any).text === 'string') {
-          parts.push((item as any).text)
-        } else if (typeof (item as any).text === 'string') {
-          parts.push((item as any).text)
+        const b = item as TranscriptContentBlock
+        if (b.type === 'text' && typeof b.text === 'string') {
+          parts.push(b.text)
+        } else if (typeof b.text === 'string') {
+          parts.push(b.text)
         } else {
           parts.push(JSON.stringify(item))
         }
@@ -608,7 +623,7 @@ async function readSessionPreview(filePath: string, maxBytes: number = 200_000):
       if (!slug && typeof parsed.slug === 'string') slug = parsed.slug
       if (!model && typeof parsed.message?.model === 'string') model = parsed.message.model
 
-      const parentToolUseId = (parsed as any)?.parent_tool_use_id as string | undefined
+      const parentToolUseId = parsed.parent_tool_use_id
       if (parentToolUseId && parentToolUseId.length > 0) {
         isBackground = true
       }
@@ -617,10 +632,11 @@ async function readSessionPreview(filePath: string, maxBytes: number = 200_000):
       if (Array.isArray(content)) {
         for (const block of content) {
           if (!block || typeof block !== 'object') continue
-          if ((block as any)?.type !== 'tool_use') continue
-          const toolName = (block as any)?.name as string | undefined
+          const b = block as TranscriptContentBlock
+          if (b.type !== 'tool_use') continue
+          const toolName = b.name
           if (toolName !== 'Task') continue
-          const toolInput = (block as any)?.input as Record<string, unknown> | undefined
+          const toolInput = b.input as Record<string, unknown> | undefined
           const rawSubagent = toolInput?.['subagent_type']
           const taskSubagent = typeof rawSubagent === 'string'
             ? rawSubagent.trim()
@@ -836,7 +852,7 @@ async function discoverClaudeProjects(
 }
 
 export async function listSessions(cwd?: string): Promise<ClaudeCodeSession[]> {
-  const sessions: ClaudeCodeSession[] = []
+  const sessions: (ClaudeCodeSession & { _filePath?: string })[] = []
 
   try {
     let projectDirs: string[] = []
@@ -907,13 +923,13 @@ export async function listSessions(cwd?: string): Promise<ClaudeCodeSession[]> {
     // Compute diff stats in parallel for all sessions (cached by mtime)
     await Promise.all(
       sessions.map(async (session) => {
-        const fp = (session as any)._filePath as string | undefined
+        const fp = session._filePath
         if (!fp) return
         const summary = await computeCCSessionStats(fp, session.id)
         if (summary && (summary.additions > 0 || summary.deletions > 0 || summary.files > 0)) {
           session.summary = summary
         }
-        delete (session as any)._filePath
+        delete session._filePath
       }),
     )
 
@@ -994,12 +1010,13 @@ export async function getSessionMessages(
         if (Array.isArray(content)) {
           for (const block of content) {
             if (!block || typeof block !== 'object') continue
-            if ((block as any).type !== 'tool_result') continue
-            const toolUseId = (block as any).tool_use_id as string | undefined
+            const trBlock = block as TranscriptContentBlock
+            if (trBlock.type !== 'tool_result') continue
+            const toolUseId = trBlock.tool_use_id
             if (!toolUseId) continue
 
-            const toolOutput = toolResultToText((block as any).content)
-            const toolUseResult = (parsed as any).toolUseResult
+            const toolOutput = toolResultToText(trBlock.content)
+            const toolUseResult = parsed.toolUseResult
 
             const idx = toolIndexById.get(toolUseId)
             if (!idx) continue
@@ -1065,17 +1082,17 @@ export async function getSessionMessages(
         if (Array.isArray(content)) {
           for (const block of content) {
             if (!block || typeof block !== 'object') continue
-            const type = (block as any).type as string | undefined
-            if (type === 'thinking' && typeof (block as any).thinking === 'string') {
-              thinking += (block as any).thinking
+            const b = block as TranscriptContentBlock
+            if (b.type === 'thinking' && typeof b.thinking === 'string') {
+              thinking += b.thinking
             }
-            if (type === 'text' && typeof (block as any).text === 'string') {
-              textOut += (block as any).text
+            if (b.type === 'text' && typeof b.text === 'string') {
+              textOut += b.text
             }
-            if (type === 'tool_use') {
-              const toolUseId = (block as any).id as string | undefined
-              const tool = (block as any).name as string | undefined
-              const input = (block as any).input
+            if (b.type === 'tool_use') {
+              const toolUseId = b.id
+              const tool = b.name
+              const input = b.input
               if (toolUseId && tool) {
                 toolCalls.push({
                   toolUseId,
@@ -1346,7 +1363,7 @@ export async function listHooks(cwd?: string): Promise<ClaudeCodeHook[]> {
         const description = typeof entry?.description === 'string' ? entry.description : undefined
         hooks.push({
           id: `${source}:${hooksJsonPath}:${event}:${idx++}`,
-          event: event as any,
+          event: event as ClaudeCodeHookEvent,
           matcher: matcherValue,
           enabled,
           description,
@@ -1920,38 +1937,39 @@ function normalizeMcpServerStatuses(statuses: unknown): ClaudeCodeMcpServerStatu
   return statuses
     .map((item) => {
       if (!item || typeof item !== 'object') return null
-      const name = String((item as any).name ?? '').trim()
-      const status = String((item as any).status ?? '').trim()
+      const raw = item as Partial<SDKMcpServerStatus>
+      const name = String(raw.name ?? '').trim()
+      const status = String(raw.status ?? '').trim()
       if (!name) return null
       if (status !== 'connected' && status !== 'failed' && status !== 'needs-auth' && status !== 'pending' && status !== 'disabled') {
         return null
       }
-      const info = (item as any).serverInfo
+      const info = raw.serverInfo
       const serverInfo = info && typeof info === 'object'
         ? {
-            name: String((info as any).name ?? '').trim(),
-            version: String((info as any).version ?? '').trim(),
+            name: String(info.name ?? '').trim(),
+            version: String(info.version ?? '').trim(),
           }
         : undefined
-      const errorMsg = typeof (item as any).error === 'string' ? (item as any).error : undefined
-      const scope = typeof (item as any).scope === 'string' ? (item as any).scope : undefined
-      const rawTools = Array.isArray((item as any).tools) ? (item as any).tools : undefined
-      const tools = rawTools?.map((t: any) => {
+      const errorMsg = typeof raw.error === 'string' ? raw.error : undefined
+      const scope = typeof raw.scope === 'string' ? raw.scope : undefined
+      const rawTools = raw.tools
+      const tools = rawTools?.map((t) => {
         const entry: { name: string; description?: string; annotations?: { readOnly?: boolean; destructive?: boolean; openWorld?: boolean } } = {
           name: String(t?.name ?? ''),
         }
         if (typeof t?.description === 'string') entry.description = t.description
         if (t?.annotations && typeof t.annotations === 'object') {
-          const ann: any = {}
+          const ann: { readOnly?: boolean; destructive?: boolean; openWorld?: boolean } = {}
           if (typeof t.annotations.readOnly === 'boolean') ann.readOnly = t.annotations.readOnly
           if (typeof t.annotations.destructive === 'boolean') ann.destructive = t.annotations.destructive
           if (typeof t.annotations.openWorld === 'boolean') ann.openWorld = t.annotations.openWorld
           if (Object.keys(ann).length > 0) entry.annotations = ann
         }
         return entry
-      }).filter((t: any) => t.name) ?? undefined
+      }).filter((t) => t.name) ?? undefined
       // Forward server config (B12: URLs, transport type)
-      const rawConfig = (item as any).config
+      const rawConfig = raw.config
       const config = rawConfig && typeof rawConfig === 'object' ? rawConfig : undefined
       return {
         name,
@@ -2598,12 +2616,11 @@ export async function queryClaudeCode(
       // Stream events: prefer these for real-time deltas (avoids double-emitting full assistant blocks)
       if (message?.type === 'stream_event' && message?.event) {
         sawStreamEvents = true
-        const event = message.event as any
-        const eventType = event?.type as string | undefined
+        const event = message.event
 
-        if (eventType === 'content_block_start') {
-          const block = event?.content_block
-          const index = typeof event?.index === 'number' ? event.index : undefined
+        if (event.type === 'content_block_start') {
+          const block = event.content_block
+          const index = event.index
           if (block?.type === 'text' && typeof block?.text === 'string' && block.text.length > 0) {
             emit({ type: 'assistant-message-delta', content: block.text })
           }
@@ -2645,22 +2662,22 @@ export async function queryClaudeCode(
           }
         }
 
-        if (eventType === 'content_block_delta') {
-          const delta = event?.delta
-          const deltaType = delta?.type as string | undefined
-          if (deltaType === 'text_delta' && typeof delta?.text === 'string') {
+        if (event.type === 'content_block_delta') {
+          const delta = event.delta
+          const deltaType = delta.type as string // widen for forward-compat (e.g. reasoning_delta)
+          if (deltaType === 'text_delta' && 'text' in delta && typeof delta.text === 'string') {
             emit({ type: 'assistant-message-delta', content: delta.text })
           } else if (
             (deltaType === 'thinking_delta' || deltaType === 'reasoning_delta') &&
-            typeof delta?.thinking === 'string'
+            'thinking' in delta && typeof delta.thinking === 'string'
           ) {
             emit({
               type: 'thinking-delta',
               content: delta.thinking,
-              partId: typeof event?.index === 'number' ? `thinking_${event.index}` : undefined,
+              partId: `thinking_${event.index}`,
             })
-          } else if (deltaType === 'input_json_delta' && typeof delta?.partial_json === 'string') {
-            const index = typeof event?.index === 'number' ? event.index : undefined
+          } else if (deltaType === 'input_json_delta' && 'partial_json' in delta && typeof delta.partial_json === 'string') {
+            const index = event.index
             const toolUseId = typeof index === 'number' ? toolUseIdByStreamIndex.get(index) : undefined
             if (toolUseId) {
               const nextJson = `${toolInputJsonBufferByToolUseId.get(toolUseId) ?? ''}${delta.partial_json}`
@@ -2688,8 +2705,8 @@ export async function queryClaudeCode(
           }
         }
 
-        if (eventType === 'content_block_stop') {
-          const index = typeof event?.index === 'number' ? event.index : undefined
+        if (event.type === 'content_block_stop') {
+          const index = event.index as number | undefined
           if (typeof index === 'number') {
             const toolUseId = toolUseIdByStreamIndex.get(index)
             if (toolUseId) {
@@ -2775,7 +2792,7 @@ export async function queryClaudeCode(
               type: 'tool-result',
               toolUseId: block.tool_use_id,
               result: block.content,
-              toolUseResult: (message as any).toolUseResult,
+              toolUseResult: (message as SDKUserMessage).tool_use_result,
             })
           }
         }
@@ -2795,7 +2812,7 @@ export async function queryClaudeCode(
           // reflects the actual current context window occupancy, NOT cumulative totals.
           // See: https://docs.anthropic.com/en/docs/about-claude/models (iterations field)
           let lastIterContextTokens: number | undefined
-          const iterations = (message.usage as any).iterations
+          const iterations = message.usage.iterations
           if (Array.isArray(iterations) && iterations.length > 0) {
             // Walk backwards to find the last message-type iteration (skip compaction iterations)
             for (let i = iterations.length - 1; i >= 0; i--) {

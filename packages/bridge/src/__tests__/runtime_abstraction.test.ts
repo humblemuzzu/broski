@@ -473,14 +473,16 @@ describe('Runtime Abstraction', () => {
 
   test('server emits runtime_state snapshots for reconnect paths', () => {
     const src = readServerSource()
-    expect(src).toContain("backend: 'claude-code'")
-    expect(src).toContain('buildClaudeCodeRuntimeState({')
-    expect(src).toContain("backend: 'codex'")
-    expect(src).toContain('buildCodexRuntimeState({')
-    expect(src).toContain("backend: 'opencode'")
+    // biome may format to double quotes — check either style
+    const has = (needle: string) => src.includes(needle) || src.includes(needle.replace(/'/g, '"'))
+    expect(has("backend: 'claude-code'")).toBe(true)
+    expect(src).toContain('buildClaudeCodeRuntimeState(')
+    expect(has("backend: 'codex'")).toBe(true)
+    expect(src).toContain('buildCodexRuntimeState(')
+    expect(has("backend: 'opencode'")).toBe(true)
     expect(src).toContain('mapOpenCodeStatusToRuntimeState(')
     expect(src).toContain('buildPiActiveRuntimeStateMessages()')
     expect(src).toContain('findPiActiveRuntimeStateMessage(nextSessionId)')
-    expect(src).toContain("type: 'runtime_state'")
+    expect(has("type: 'runtime_state'")).toBe(true)
   })
 })
