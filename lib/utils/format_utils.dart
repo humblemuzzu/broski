@@ -1,0 +1,56 @@
+/// Shared formatting utilities used across the app.
+///
+/// Replaces duplicated _formatTokens(), _getModelName(), and magic constants
+/// that were copy-pasted across chat_screen.dart, pi_session_sidebar_sheet.dart,
+/// and various action content widgets.
+
+/// Default context window size used across all agents when not specified.
+const int kDefaultContextWindow = 200000;
+
+/// Format a token count for display (e.g., 1500 → "1.5K", 2000000 → "2.0M").
+String formatTokens(int count) {
+  if (count >= 1000000) return '${(count / 1000000).toStringAsFixed(1)}M';
+  if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}K';
+  return count.toString();
+}
+
+/// Format a context window size for display (e.g., 200000 → "200K").
+String formatContextWindow(int windowSize) {
+  if (windowSize >= 1000000) return '${(windowSize / 1000000).toStringAsFixed(0)}M';
+  if (windowSize >= 1000) return '${(windowSize / 1000).toStringAsFixed(0)}K';
+  return windowSize.toString();
+}
+
+/// Get a short display name for a model string.
+///
+/// Handles all agent model formats:
+/// - Claude Code: "claude-sonnet-4-..." → "Sonnet", "claude-opus-..." → "Opus"
+/// - Codex/OpenAI: "o1-..." → "o1", "gpt-4-..." → "GPT-4"
+/// - Pi/Generic: "provider/model-name" → "model-name" (truncated)
+///
+/// [fallback] is returned when model is null/empty. Defaults to "Default".
+/// [maxLength] truncation length for unrecognized models.
+String getModelDisplayName(
+  String? model, {
+  String fallback = 'Default',
+  int maxLength = 16,
+}) {
+  if (model == null || model.isEmpty) return fallback;
+  final m = model.toLowerCase();
+
+  // Claude Code tier names
+  if (m.contains('opus')) return 'Opus';
+  if (m.contains('sonnet')) return 'Sonnet';
+  if (m.contains('haiku')) return 'Haiku';
+
+  // OpenAI model families
+  if (m.contains('o1')) return 'o1';
+  if (m.contains('o3')) return 'o3';
+  if (m.contains('gpt-4')) return 'GPT-4';
+
+  // Provider/model format (e.g., "anthropic/claude-sonnet-4")
+  final parts = model.split('/');
+  final name = parts.length > 1 ? parts.last : model;
+
+  return name.length > maxLength ? '${name.substring(0, maxLength)}…' : name;
+}

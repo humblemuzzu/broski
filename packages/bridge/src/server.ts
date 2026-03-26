@@ -26,6 +26,7 @@ import { buildCodexApprovalDecision } from './handlers/codex/approval-decision'
 import { handleCxCommandPty } from './handlers/codex/cx_command_pty'
 import { mapCodexThreadFromSdk } from './handlers/codex/map-thread'
 import { handleCodexRuntimeNotification } from './handlers/codex/runtime-notifications'
+import { extractCodexErrorDetails } from './handlers/codex/cx_error_extract'
 import { handleGitFeature } from './handlers/git'
 import * as ocMessages from './handlers/oc_messages'
 import * as ocSessions from './handlers/oc_sessions'
@@ -95,26 +96,6 @@ const TOKEN_FILE = resolve(homedir(), '.broski', 'token.json')
 const DEBUG_RTS = !isCompiledBinary() && process.env.BROSKI_DEBUG_RTS === '1'
 const DEBUG_CX_GLOBAL = !isCompiledBinary() && process.env.BROSKI_DEBUG_CX_GLOBAL === '1'
 const BRIDGE_PROTOCOL_VERSION = '1.0.0'
-
-function structuredPatchToUnifiedDiff(filePath: string, patches: unknown): string | null {
-  if (!Array.isArray(patches) || patches.length === 0) return null
-  const header = `--- a/${filePath}\n+++ b/${filePath}\n`
-  let body = ''
-  for (const hunk of patches) {
-    if (!hunk || typeof hunk !== 'object') continue
-    const oldStart = Number((hunk as any).oldStart ?? 0)
-    const oldLines = Number((hunk as any).oldLines ?? 0)
-    const newStart = Number((hunk as any).newStart ?? 0)
-    const newLines = Number((hunk as any).newLines ?? 0)
-    body += `@@ -${oldStart},${oldLines} +${newStart},${newLines} @@\n`
-    const lines = Array.isArray((hunk as any).lines) ? (hunk as any).lines : []
-    for (const line of lines) {
-      if (typeof line !== 'string') continue
-      body += `${line}\n`
-    }
-  }
-  return header + body
-}
 
 function isLoopbackAddress(address: string | undefined): boolean {
   if (!address) return false
@@ -1642,45 +1623,18 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
             // Handle turn/completed with failed status (different from turn/failed notification)
             if (turnStatus === 'failed' && turnError && threadId) {
-              const errorMessage = typeof turnError === 'string' ? turnError : (turnError?.message ?? turnError?.additionalDetails ?? JSON.stringify(turnError))
-              const errorCode = turnError?.codexErrorInfo ?? turnError?.code ?? 'turn_failed'
-
               logError(`[Codex] turn/completed with failed status:`, JSON.stringify(turnError, null, 2))
 
-              // Extract structured error info (ModelCap, ServerOverloaded, etc.) — #13
-              const codexErrorInfoTC = turnError?.codexErrorInfo ?? turnError?.details?.codexErrorInfo
-              let modelCapModelTC: string | undefined
-              let modelCapRetrySecondsTC: number | undefined
-              if (codexErrorInfoTC && typeof codexErrorInfoTC === 'object') {
-                const infoType = typeof codexErrorInfoTC === 'string' ? codexErrorInfoTC : (codexErrorInfoTC.type ?? Object.keys(codexErrorInfoTC)[0])
-                if (infoType === 'ModelCap' || infoType === 'modelCap' || codexErrorInfoTC.ModelCap) {
-                  const cap = codexErrorInfoTC.ModelCap ?? codexErrorInfoTC
-                  modelCapModelTC = cap.model ?? cap.modelName
-                  modelCapRetrySecondsTC = cap.reset_after_seconds ?? cap.resetAfterSeconds
-                }
-                if (infoType === 'ServerOverloaded' || infoType === 'serverOverloaded') {
-                  modelCapRetrySecondsTC = codexErrorInfoTC.retryAfterSeconds ?? codexErrorInfoTC.retry_after_seconds
-                }
-              }
-
-              // Derive a stable error code string from codexErrorInfo (#13)
-              let derivedErrorCode = typeof errorCode === 'string' ? errorCode : JSON.stringify(errorCode)
-              if (codexErrorInfoTC && typeof codexErrorInfoTC === 'object') {
-                const infoType = codexErrorInfoTC.type ?? (typeof codexErrorInfoTC === 'string' ? codexErrorInfoTC : undefined)
-                if (infoType === 'serverOverloaded' || infoType === 'ServerOverloaded') derivedErrorCode = 'server_overloaded'
-                else if (infoType === 'contextWindowExceeded' || infoType === 'ContextWindowExceeded') derivedErrorCode = 'context_window_exceeded'
-                else if (infoType === 'usageLimitExceeded' || infoType === 'UsageLimitExceeded') derivedErrorCode = 'usage_limit_exceeded'
-              }
-
+              const errDetails = extractCodexErrorDetails(turnError, 'turn_failed')
               emitCxStream(
                 threadId,
                 {
                   type: 'error',
-                  message: errorMessage,
-                  code: derivedErrorCode,
+                  message: errDetails.errorMessage,
+                  code: errDetails.derivedErrorCode,
                   details: turnError,
-                  modelCapModel: modelCapModelTC,
-                  modelCapRetrySeconds: modelCapRetrySecondsTC
+                  modelCapModel: errDetails.modelCapModel,
+                  modelCapRetrySeconds: errDetails.modelCapRetrySeconds
                 },
                 owner
               )
@@ -1695,43 +1649,16 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
               cxActiveTurns.delete(threadId)
 
               // CRITICAL: Emit error to client so UI knows the turn failed
-              const errorMessage = typeof error === 'string' ? error : (error?.message ?? error?.additionalDetails ?? JSON.stringify(error))
-              const errorCode = error?.codexErrorInfo ?? error?.code ?? n.method
-
-              // Extract structured error info (ModelCap, ServerOverloaded, etc.) — #13
-              const codexErrorInfoTF = error?.codexErrorInfo ?? error?.details?.codexErrorInfo
-              let modelCapModelTF: string | undefined
-              let modelCapRetrySecondsTF: number | undefined
-              if (codexErrorInfoTF && typeof codexErrorInfoTF === 'object') {
-                const infoType = typeof codexErrorInfoTF === 'string' ? codexErrorInfoTF : (codexErrorInfoTF.type ?? Object.keys(codexErrorInfoTF)[0])
-                if (infoType === 'ModelCap' || infoType === 'modelCap' || codexErrorInfoTF.ModelCap) {
-                  const cap = codexErrorInfoTF.ModelCap ?? codexErrorInfoTF
-                  modelCapModelTF = cap.model ?? cap.modelName
-                  modelCapRetrySecondsTF = cap.reset_after_seconds ?? cap.resetAfterSeconds
-                }
-                if (infoType === 'ServerOverloaded' || infoType === 'serverOverloaded') {
-                  modelCapRetrySecondsTF = codexErrorInfoTF.retryAfterSeconds ?? codexErrorInfoTF.retry_after_seconds
-                }
-              }
-
-              // Derive a stable error code string from codexErrorInfo (#13)
-              let derivedErrorCodeTF = typeof errorCode === 'string' ? errorCode : JSON.stringify(errorCode)
-              if (codexErrorInfoTF && typeof codexErrorInfoTF === 'object') {
-                const infoType = codexErrorInfoTF.type ?? (typeof codexErrorInfoTF === 'string' ? codexErrorInfoTF : undefined)
-                if (infoType === 'serverOverloaded' || infoType === 'ServerOverloaded') derivedErrorCodeTF = 'server_overloaded'
-                else if (infoType === 'contextWindowExceeded' || infoType === 'ContextWindowExceeded') derivedErrorCodeTF = 'context_window_exceeded'
-                else if (infoType === 'usageLimitExceeded' || infoType === 'UsageLimitExceeded') derivedErrorCodeTF = 'usage_limit_exceeded'
-              }
-
+              const errDetails = extractCodexErrorDetails(error, n.method)
               emitCxStream(
                 threadId,
                 {
                   type: 'error',
-                  message: errorMessage,
-                  code: derivedErrorCodeTF,
+                  message: errDetails.errorMessage,
+                  code: errDetails.derivedErrorCode,
                   details: error,
-                  modelCapModel: modelCapModelTF,
-                  modelCapRetrySeconds: modelCapRetrySecondsTF
+                  modelCapModel: errDetails.modelCapModel,
+                  modelCapRetrySeconds: errDetails.modelCapRetrySeconds
                 },
                 owner
               )
