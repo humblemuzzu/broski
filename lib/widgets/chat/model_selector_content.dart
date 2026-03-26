@@ -73,7 +73,6 @@ class _ModelSelectorContentState extends ConsumerState<ModelSelectorContent> {
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-    final kOnBackground = theme.text;
     final kMuted = theme.textMuted;
     if (_loading) {
       return const Padding(

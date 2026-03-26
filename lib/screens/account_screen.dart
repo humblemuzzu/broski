@@ -792,7 +792,7 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
             ),
             SizedBox(height: Spacing.sm),
             DropdownButtonFormField<String>(
-              value: _selectedReason,
+              initialValue: _selectedReason,
               decoration: const InputDecoration(
                 hintText: 'Select a reason',
                 border: OutlineInputBorder(),

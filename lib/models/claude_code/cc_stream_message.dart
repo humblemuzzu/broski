@@ -1,3 +1,4 @@
+import 'package:broski/utils/format_utils.dart';
 import 'cc_model.dart';
 import 'cc_permission.dart';
 
@@ -566,7 +567,7 @@ class CCTokenUsage extends ClaudeCodeStreamMessage {
         .map((entry) => entry.contextWindow)
         .firstWhere((entry) => entry > 0, orElse: () => 0);
     if (firstFromModels != null && firstFromModels > 0) return firstFromModels;
-    return 200000;
+    return kDefaultContextWindow;
   }
 
   /// Context window used percentage (0-100)

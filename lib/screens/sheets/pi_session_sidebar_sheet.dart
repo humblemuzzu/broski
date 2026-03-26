@@ -1,3 +1,4 @@
+import 'package:broski/utils/format_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -119,11 +120,6 @@ class _PiSessionSidebarContentState
     ref.invalidate(piStateProvider(widget.cwd));
   }
 
-  String _formatTokens(int count) {
-    if (count >= 1000000) return '${(count / 1000000).toStringAsFixed(1)}M';
-    if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}K';
-    return count.toString();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -221,7 +217,7 @@ class _PiSessionSidebarContentState
     // Falls back to cumulative input tokens only if SDK data unavailable.
     final ctxUsage = stats.contextUsage;
     final contextWindow =
-        ctxUsage?.contextWindow ?? piState?.model?.contextWindow ?? 200000;
+        ctxUsage?.contextWindow ?? piState?.model?.contextWindow ?? kDefaultContextWindow;
     final contextUsed = ctxUsage?.tokens ?? stats.tokens.input;
     final contextPercent = ctxUsage?.percent ??
         (contextWindow > 0
@@ -256,7 +252,7 @@ class _PiSessionSidebarContentState
               ),
               const Spacer(),
               Text(
-                '${_formatTokens(contextUsed)} / ${_formatTokens(contextWindow)}',
+                '${formatTokens(contextUsed)} / ${formatTokens(contextWindow)}',
                 style: AppTypography.caption(color: theme.textMuted),
               ),
             ],
@@ -281,20 +277,20 @@ class _PiSessionSidebarContentState
             children: [
               _StatChip(
                 label: 'In',
-                value: _formatTokens(stats.tokens.input),
+                value: formatTokens(stats.tokens.input),
                 theme: theme,
               ),
               SizedBox(width: Spacing.sm),
               _StatChip(
                 label: 'Out',
-                value: _formatTokens(stats.tokens.output),
+                value: formatTokens(stats.tokens.output),
                 theme: theme,
               ),
               if (stats.tokens.cacheRead > 0) ...[
                 SizedBox(width: Spacing.sm),
                 _StatChip(
                   label: 'Cache',
-                  value: _formatTokens(stats.tokens.cacheRead),
+                  value: formatTokens(stats.tokens.cacheRead),
                   theme: theme,
                 ),
               ],

@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/file_attachment.dart';
-import '../services/bridge_service.dart';
 import 'service_providers.dart';
 
 class FileSearchState {

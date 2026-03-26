@@ -125,7 +125,7 @@ void showCcToolsSheet(
                           ),
                         );
                       },
-                      activeColor: theme.accent,
+                      activeThumbColor: theme.accent,
                     ),
                   ),
                   SizedBox(height: Spacing.lg),

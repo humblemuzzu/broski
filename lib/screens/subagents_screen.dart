@@ -102,7 +102,7 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
                   Icon(
                     AppIcons.agent,
                     size: 64,
-                    color: oc.textMuted.withOpacity(0.7),
+                    color: oc.textMuted.withValues(alpha: 0.7),
                   ),
                   SizedBox(height: Spacing.lg),
                   Text(
@@ -114,7 +114,7 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
                     'Subagents can handle focused subtasks\nwith specialized instructions.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: oc.textMuted.withOpacity(0.7),
+                      color: oc.textMuted.withValues(alpha: 0.7),
                       fontSize: 14,
                     ),
                   ),
@@ -343,7 +343,7 @@ class _SubagentCard extends StatelessWidget {
                                   vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: oc.primary.withOpacity(0.2),
+                                  color: oc.primary.withValues(alpha: 0.2),
                                   borderRadius: Radii.brXs,
                                 ),
                                 child: Text(
@@ -371,7 +371,7 @@ class _SubagentCard extends StatelessWidget {
                   PopupMenuButton<String>(
                     icon: Icon(
                       AppIcons.moreVertical,
-                      color: oc.textMuted.withOpacity(0.7),
+                      color: oc.textMuted.withValues(alpha: 0.7),
                     ),
                     onSelected: (value) {
                       switch (value) {
@@ -506,7 +506,7 @@ class _FilesystemAgentCard extends StatelessWidget {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: oc.textMuted.withOpacity(0.15),
+                          color: oc.textMuted.withValues(alpha: 0.15),
                           borderRadius: Radii.brXs,
                         ),
                         child: Text(
@@ -587,7 +587,7 @@ class _InfoChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: oc.textMuted.withOpacity(0.7)),
+          Icon(icon, size: 14, color: oc.textMuted.withValues(alpha: 0.7)),
           SizedBox(width: Spacing.xs),
           Text(label, style: AppTypography.label(color: oc.textMuted)),
         ],
@@ -687,7 +687,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
               Text(
                 'A unique identifier for this subagent (cannot be changed later)',
                 style: TextStyle(
-                  color: oc.textMuted.withOpacity(0.7),
+                  color: oc.textMuted.withValues(alpha: 0.7),
                   fontSize: 12,
                 ),
               ),
@@ -709,7 +709,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
             Text(
               'Claude uses this to decide when to invoke the subagent',
               style: TextStyle(
-                color: oc.textMuted.withOpacity(0.7),
+                color: oc.textMuted.withValues(alpha: 0.7),
                 fontSize: 12,
               ),
             ),
@@ -731,7 +731,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
             Text(
               'Defines the subagent\'s role, expertise, and behavior',
               style: TextStyle(
-                color: oc.textMuted.withOpacity(0.7),
+                color: oc.textMuted.withValues(alpha: 0.7),
                 fontSize: 12,
               ),
             ),
@@ -770,7 +770,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
             Text(
               'Inherit uses the main model; others override it',
               style: TextStyle(
-                color: oc.textMuted.withOpacity(0.7),
+                color: oc.textMuted.withValues(alpha: 0.7),
                 fontSize: 12,
               ),
             ),
@@ -820,7 +820,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
             Text(
               'Override permission mode for this subagent only',
               style: TextStyle(
-                color: oc.textMuted.withOpacity(0.7),
+                color: oc.textMuted.withValues(alpha: 0.7),
                 fontSize: 12,
               ),
             ),
@@ -874,7 +874,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
             Text(
               'Worktree isolation runs the subagent in a temporary git worktree.',
               style: TextStyle(
-                color: oc.textMuted.withOpacity(0.7),
+                color: oc.textMuted.withValues(alpha: 0.7),
                 fontSize: 12,
               ),
             ),
@@ -891,7 +891,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
             Text(
               'Comma-separated list of tool names. Leave empty to inherit all tools.',
               style: TextStyle(
-                color: oc.textMuted.withOpacity(0.7),
+                color: oc.textMuted.withValues(alpha: 0.7),
                 fontSize: 12,
               ),
             ),
@@ -911,7 +911,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
             Text(
               'Tools this subagent cannot use. Supports wildcards like Bash(npm *)',
               style: TextStyle(
-                color: oc.textMuted.withOpacity(0.7),
+                color: oc.textMuted.withValues(alpha: 0.7),
                 fontSize: 12,
               ),
             ),
@@ -968,7 +968,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
   InputDecoration _inputDecoration(String hint, OpenCodeTheme oc) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: TextStyle(color: oc.textMuted.withOpacity(0.7)),
+      hintStyle: TextStyle(color: oc.textMuted.withValues(alpha: 0.7)),
       filled: true,
       fillColor: oc.backgroundElement,
       border: OutlineInputBorder(
@@ -985,7 +985,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
       ),
       disabledBorder: OutlineInputBorder(
         borderRadius: Radii.brSm,
-        borderSide: BorderSide(color: oc.border.withOpacity(0.5)),
+        borderSide: BorderSide(color: oc.border.withValues(alpha: 0.5)),
       ),
     );
   }

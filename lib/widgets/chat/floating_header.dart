@@ -6,10 +6,8 @@ import '../../models/session_context.dart';
 import '../../models/vcs.dart';
 import '../../providers/selection_provider.dart';
 import '../../theme/app_icons.dart';
-import '../../theme/app_typography.dart';
 import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
-import '../../widgets/variant_badge.dart';
 import 'cc_actions_content.dart';
 import 'codex_actions_content.dart';
 import 'detail_sheet.dart';
@@ -353,111 +351,6 @@ class FloatingHeader extends StatelessWidget {
               ),
           ],
         ),
-      ),
-    );
-  }
-
-  void _showAgentPicker(BuildContext context) {
-    // Show all non-hidden agents, primary first
-    final visibleAgents = agents.where((a) => !a.hidden).toList()
-      ..sort((a, b) {
-        // Primary/all agents first, then subagents
-        final aPrimary = a.isPrimary ? 0 : 1;
-        final bPrimary = b.isPrimary ? 0 : 1;
-        if (aPrimary != bPrimary) return aPrimary - bPrimary;
-        return a.name.compareTo(b.name);
-      });
-    final theme = OpenCodeTheme.of(context);
-    DetailSheet.show(
-      context: context,
-      title: 'Select Agent',
-      initialSize: 0.45,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(height: Spacing.sm),
-          for (final agent in visibleAgents)
-            ListTile(
-              contentPadding: Insets.screenH,
-              leading: Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: agent.resolveColor(theme),
-                  shape: BoxShape.circle,
-                ),
-              ),
-              title: Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      agent.displayName,
-                      style: TextStyle(
-                        color: theme.text,
-                        fontWeight: agent.name == currentAgent
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                      ),
-                    ),
-                  ),
-                  if (agent.variant != null && agent.variant!.isNotEmpty) ...[
-                    const SizedBox(width: 6),
-                    VariantBadge.small(variant: agent.variant),
-                  ],
-                  if (!agent.isPrimary) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 5,
-                        vertical: 1,
-                      ),
-                      decoration: BoxDecoration(
-                        color: theme.textMuted.withValues(alpha: 0.12),
-                        borderRadius: Radii.brXs,
-                      ),
-                      child: Text(
-                        'sub',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                          color: theme.textMuted,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    agent.shortDescription,
-                    style: AppTypography.label(color: theme.textMuted),
-                  ),
-                  if (agent.model != null) ...[
-                    SizedBox(height: Spacing.xxs),
-                    Text(
-                      agent.model!.displayName,
-                      style: TextStyle(
-                        color: theme.textMuted.withValues(alpha: 0.7),
-                        fontSize: 11,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              trailing: agent.name == currentAgent
-                  ? Icon(AppIcons.check, color: theme.success, size: 20)
-                  : null,
-              onTap: () {
-                onAgentChanged?.call(agent.name);
-                Navigator.pop(context);
-              },
-            ),
-          SizedBox(height: Spacing.sm),
-        ],
       ),
     );
   }

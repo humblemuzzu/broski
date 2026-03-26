@@ -33,7 +33,7 @@ void showCodexFeedbackSheet(BuildContext context, WidgetRef ref) {
               Padding(
                 padding: Insets.screenH,
                 child: DropdownButtonFormField<String>(
-                  value: classification,
+                  initialValue: classification,
                   items: const [
                     DropdownMenuItem(value: 'bug', child: Text('Bug')),
                     DropdownMenuItem(

@@ -53,6 +53,7 @@ class PermissionRulesScreen extends ConsumerWidget {
                           ),
                           SizedBox(height: Spacing.sm),
                           DropdownButtonFormField<PermissionPreset>(
+                            // ignore: deprecated_member_use
                             value: state.preset,
                             decoration: InputDecoration(
                               filled: true,

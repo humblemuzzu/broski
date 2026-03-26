@@ -374,7 +374,9 @@ class _IconPackTile extends ConsumerWidget {
           children: [
             Radio<IconPack>(
               value: pack.id,
+              // ignore: deprecated_member_use
               groupValue: isSelected ? pack.id : null,
+              // ignore: deprecated_member_use
               onChanged: (v) {
                 if (v != null) {
                   ref.read(appearanceProvider.notifier).setIconPack(v);

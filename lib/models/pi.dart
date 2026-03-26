@@ -1,3 +1,4 @@
+import 'package:broski/utils/format_utils.dart';
 import 'session.dart' show SessionSummaryStats;
 
 class PiModelCost {
@@ -397,14 +398,14 @@ class PiContextUsage {
 
   const PiContextUsage({
     this.tokens,
-    this.contextWindow = 200000,
+    this.contextWindow = kDefaultContextWindow,
     this.percent,
   });
 
   factory PiContextUsage.fromJson(Map<String, dynamic> json) {
     return PiContextUsage(
       tokens: (json['tokens'] as num?)?.toInt(),
-      contextWindow: json['contextWindow'] as int? ?? 200000,
+      contextWindow: json['contextWindow'] as int? ?? kDefaultContextWindow,
       percent: (json['percent'] as num?)?.toDouble(),
     );
   }

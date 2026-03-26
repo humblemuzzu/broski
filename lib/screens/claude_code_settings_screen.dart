@@ -588,6 +588,7 @@ class _ClaudeCodeSettingsScreenState
                         title: 'Permission Mode',
                         child:
                             DropdownButtonFormField<ClaudeCodePermissionMode>(
+                              // ignore: deprecated_member_use
                               value:
                                   cfg?.permissionMode ??
                                   ClaudeCodePermissionMode.defaultMode,
@@ -617,6 +618,7 @@ class _ClaudeCodeSettingsScreenState
                         oc: oc,
                         title: 'Model',
                         child: DropdownButtonFormField<String?>(
+                          // ignore: deprecated_member_use
                           value: cfg?.model,
                           decoration: const InputDecoration(
                             labelText: 'Default model',
@@ -669,6 +671,7 @@ class _ClaudeCodeSettingsScreenState
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             DropdownButtonFormField<String>(
+                              // ignore: deprecated_member_use
                               value: systemPromptMode,
                               decoration: const InputDecoration(
                                 labelText: 'Prompt mode',
@@ -1290,6 +1293,7 @@ class _ClaudeCodeSettingsScreenState
                         oc: oc,
                         title: 'Language',
                         child: DropdownButtonFormField<String?>(
+                          // ignore: deprecated_member_use
                           value: dropdownLanguage,
                           decoration: const InputDecoration(
                             labelText: 'Response language',
@@ -1391,6 +1395,7 @@ class _ClaudeCodeSettingsScreenState
                         oc: oc,
                         title: 'Release channel',
                         child: DropdownButtonFormField<String?>(
+                          // ignore: deprecated_member_use
                           value: releaseValue,
                           decoration: const InputDecoration(
                             labelText: 'Update track',

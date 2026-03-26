@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/codex.dart';
 import '../models/project.dart';
-import '../services/bridge_service.dart';
 import '../services/storage_service.dart';
 import 'connection_provider.dart';
 import 'service_providers.dart';

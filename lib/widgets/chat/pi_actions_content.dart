@@ -1,3 +1,4 @@
+import 'package:broski/utils/format_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -36,11 +37,6 @@ class PiActionsContent extends ConsumerWidget {
     return name.length > 20 ? '${name.substring(0, 20)}…' : name;
   }
 
-  String _formatTokens(int count) {
-    if (count >= 1000000) return '${(count / 1000000).toStringAsFixed(1)}M';
-    if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}K';
-    return count.toString();
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -138,7 +134,7 @@ class PiActionsContent extends ConsumerWidget {
             final contextWindow =
                 ctxUsage?.contextWindow ??
                 chatState.piModelData?.contextWindow ??
-                200000;
+                kDefaultContextWindow;
             final contextTokens = ctxUsage?.tokens ?? stats.tokens.input;
             final contextPct =
                 ctxUsage?.percent ??
@@ -165,7 +161,7 @@ class PiActionsContent extends ConsumerWidget {
                         Icon(AppIcons.memory, size: 13, color: theme.info),
                         const SizedBox(width: 6),
                         Text(
-                          '${_formatTokens(contextTokens)} / ${_formatTokens(contextWindow)}',
+                          '${formatTokens(contextTokens)} / ${formatTokens(contextWindow)}',
                           style: AppTypography.caption(color: theme.textMuted),
                         ),
                         const SizedBox(width: 6),
@@ -221,11 +217,11 @@ class PiActionsContent extends ConsumerWidget {
                     Row(
                       children: [
                         Text(
-                          'In ${_formatTokens(stats.tokens.input)}',
+                          'In ${formatTokens(stats.tokens.input)}',
                           style: AppTypography.caption(color: theme.textMuted),
                         ),
                         Text(
-                          '  Out ${_formatTokens(stats.tokens.output)}',
+                          '  Out ${formatTokens(stats.tokens.output)}',
                           style: AppTypography.caption(color: theme.textMuted),
                         ),
                         const Spacer(),
@@ -243,7 +239,7 @@ class PiActionsContent extends ConsumerWidget {
                         children: [
                           if (stats.tokens.cacheRead > 0)
                             Text(
-                              'R ${_formatTokens(stats.tokens.cacheRead)}',
+                              'R ${formatTokens(stats.tokens.cacheRead)}',
                               style: AppTypography.caption(
                                 color: theme.info.withValues(alpha: 0.7),
                               ),
@@ -258,7 +254,7 @@ class PiActionsContent extends ConsumerWidget {
                             ),
                           if (stats.tokens.cacheWrite > 0)
                             Text(
-                              'W ${_formatTokens(stats.tokens.cacheWrite)}',
+                              'W ${formatTokens(stats.tokens.cacheWrite)}',
                               style: AppTypography.caption(
                                 color: theme.warning.withValues(alpha: 0.7),
                               ),

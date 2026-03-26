@@ -1,3 +1,4 @@
+import 'package:broski/utils/format_utils.dart';
 // Session context information for sidebar display
 // Includes token usage, cost, LSP servers, and modified files
 
@@ -40,7 +41,7 @@ class SessionContext {
         output: 0,
         total: 0,
         contextTokens: 0,
-        contextWindow: 200000,
+        contextWindow: kDefaultContextWindow,
       ),
       cost: 0.0,
       lsp: [],
@@ -62,7 +63,7 @@ class SessionContext {
     double? totalCostUsd,
     double? budgetLimitUsd,
     List<ModifiedFile> modifiedFiles = const [],
-    int contextWindow = 200000, // SDK v2.1.6+: Allow custom context window
+    int contextWindow = kDefaultContextWindow, // SDK v2.1.6+: Allow custom context window
     // Per-turn context tokens from SDK usage.iterations[-1].
     // This is the actual context window occupancy (input + cacheRead + cacheWrite
     // for a single API call), NOT cumulative across all turns.
@@ -108,7 +109,7 @@ class SessionContext {
     int cachedInputTokens = 0,
     int reasoningTokens = 0,
     int cacheWriteTokens = 0,
-    int contextWindow = 200000,
+    int contextWindow = kDefaultContextWindow,
     int contextTokens = 0,
   }) {
     final total = inputTokens + outputTokens;
@@ -138,7 +139,7 @@ class SessionContext {
     int outputTokens = 0,
     int cacheReadTokens = 0,
     int cacheWriteTokens = 0,
-    int contextWindow = 200000,
+    int contextWindow = kDefaultContextWindow,
 
     /// Actual tokens in the context window from Pi's estimateContextTokens.
     /// This is NOT the cumulative cache — it's what's actually occupying the window right now.
@@ -232,7 +233,7 @@ class TokenUsage {
       output: json['output'] as int? ?? 0,
       total: json['total'] as int? ?? 0,
       contextTokens: serverContextTokens ?? computedContextTokens,
-      contextWindow: json['contextWindow'] as int? ?? 200000,
+      contextWindow: json['contextWindow'] as int? ?? kDefaultContextWindow,
       reasoning: json['reasoning'] as int?,
       cacheRead: cacheRead,
       cacheWrite: cacheWrite,

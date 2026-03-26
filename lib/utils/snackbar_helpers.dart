@@ -1,26 +1,62 @@
 import 'package:flutter/material.dart';
 import 'package:broski/theme/opencode_theme.dart';
 
-/// Show an error snackbar with consistent theming.
-void showErrorSnackBar(BuildContext context, String message) {
+/// Shows a success snackbar with consistent theming.
+void showSuccess(
+  BuildContext context,
+  String message, {
+  SnackBarAction? action,
+}) {
   final theme = OpenCodeTheme.of(context);
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
-      content: Text(message),
-      backgroundColor: theme.error,
+      content: Text(message, style: TextStyle(color: theme.text)),
+      backgroundColor: theme.backgroundPanel,
+      behavior: SnackBarBehavior.floating,
+      action: action,
     ),
   );
 }
 
-/// Show a success/info snackbar with consistent theming.
-void showSuccessSnackBar(BuildContext context, String message) {
+/// Shows an error snackbar with consistent theming.
+void showError(BuildContext context, String message, {SnackBarAction? action}) {
   final theme = OpenCodeTheme.of(context);
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
-      content: Text(message),
-      backgroundColor: theme.backgroundPanel,
+      content: Text(message, style: TextStyle(color: theme.text)),
+      backgroundColor: theme.error.withValues(alpha: 0.9),
+      behavior: SnackBarBehavior.floating,
+      action: action,
     ),
   );
+}
+
+/// Shows an info snackbar with consistent theming.
+void showInfo(BuildContext context, String message, {SnackBarAction? action}) {
+  final theme = OpenCodeTheme.of(context);
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(message, style: TextStyle(color: theme.text)),
+      backgroundColor: theme.backgroundPanel,
+      behavior: SnackBarBehavior.floating,
+      action: action,
+    ),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Legacy helpers — kept for backward compatibility with existing callers.
+// Prefer showSuccess / showError / showInfo for new code.
+// ---------------------------------------------------------------------------
+
+/// Show an error snackbar (legacy — use [showError] for new code).
+void showErrorSnackBar(BuildContext context, String message) {
+  showError(context, message);
+}
+
+/// Show a success/info snackbar (legacy — use [showSuccess] for new code).
+void showSuccessSnackBar(BuildContext context, String message) {
+  showSuccess(context, message);
 }
 
 /// Show a snackbar with an action button.
@@ -31,15 +67,13 @@ void showActionSnackBar(
   required VoidCallback onAction,
 }) {
   final theme = OpenCodeTheme.of(context);
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(message),
-      backgroundColor: theme.backgroundPanel,
-      action: SnackBarAction(
-        label: actionLabel,
-        textColor: theme.primary,
-        onPressed: onAction,
-      ),
+  showSuccess(
+    context,
+    message,
+    action: SnackBarAction(
+      label: actionLabel,
+      textColor: theme.primary,
+      onPressed: onAction,
     ),
   );
 }

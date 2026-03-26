@@ -189,7 +189,7 @@ class _SwitchTile extends StatelessWidget {
               style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
             ),
       activeTrackColor: ocTheme.primary.withValues(alpha: 0.4),
-      activeColor: ocTheme.primary,
+      activeThumbColor: ocTheme.primary,
       inactiveTrackColor: ocTheme.borderSubtle,
     );
   }

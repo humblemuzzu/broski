@@ -2050,38 +2050,19 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     return { agent, id }
   }
 
-  const stopCcExternalTail = (sessionId: string) => {
-    const existing = ccExternalTails.get(sessionId)
+  const stopExternalTail = (map: Map<string, { stop: () => void }>, id: string) => {
+    const existing = map.get(id)
     if (!existing) return
     try {
       existing.stop()
     } catch {
       // ignore
     }
-    ccExternalTails.delete(sessionId)
+    map.delete(id)
   }
-
-  const stopCxExternalTail = (threadId: string) => {
-    const existing = cxExternalTails.get(threadId)
-    if (!existing) return
-    try {
-      existing.stop()
-    } catch {
-      // ignore
-    }
-    cxExternalTails.delete(threadId)
-  }
-
-  const stopOcExternalTail = (sessionId: string) => {
-    const existing = ocExternalTails.get(sessionId)
-    if (!existing) return
-    try {
-      existing.stop()
-    } catch {
-      // ignore
-    }
-    ocExternalTails.delete(sessionId)
-  }
+  const stopCcExternalTail = (sessionId: string) => stopExternalTail(ccExternalTails, sessionId)
+  const stopCxExternalTail = (threadId: string) => stopExternalTail(cxExternalTails, threadId)
+  const stopOcExternalTail = (sessionId: string) => stopExternalTail(ocExternalTails, sessionId)
 
   /**
    * OpenCode External Tail: Polls session messages to detect changes from external TUI sessions.
@@ -4155,52 +4136,55 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
       return jsonResponse({ status: 'ok', version })
     }
 
-    if (url.pathname === '/projects') {
-      if (requireEntitlement) {
-        const cloudSession = safeString(request.headers.get('x-broski-session')).trim()
-        if (!cloudSession) {
-          return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
-        }
-        const tokenHash = createHash('sha256').update(cloudSession, 'utf8').digest('hex')
-        const cached = entitlementCache.get(tokenHash)
-        const now = Date.now()
-        if (cached && now - cached.checkedAt <= ENTITLEMENT_CACHE_TTL_MS) {
-          if (!cached.entitled) return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
-        } else if (convexHttpBaseUrl) {
-          try {
-            const refreshed = await refreshLocalLicenseFromCloud({
-              convexHttpBaseUrl,
-              sessionToken: cloudSession
-            })
-            if (!refreshed.ok) {
-              if (refreshed.status === 401) return publicJson({ error: 'INVALID_SESSION' }, 401)
-              if (refreshed.status === 403) return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
-
-              const nowSec = Math.floor(Date.now() / 1000)
-              if (localLicense?.entitled && localLicense.sessionTokenHash === tokenHash && nowSec <= localLicense.exp) {
-                // allow via local license
-              } else if (!(cached && cached.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS)) {
-                return publicJson({ error: 'CLOUD_AUTH_FAILED' }, 503)
-              }
-            } else {
-              if (refreshed.state.entitled) localLicense = refreshed.state
-              entitlementCache.set(tokenHash, {
-                checkedAt: now,
-                appUserId: refreshed.state.appUserId,
-                entitled: refreshed.state.entitled,
-                ...(refreshed.state.status ? { status: refreshed.state.status } : {})
-              })
-              if (!refreshed.state.entitled) return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
-            }
-          } catch {
-            if (!(cached && cached.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS)) {
+    // Shared HTTP entitlement check for authenticated endpoints
+    const checkHttpEntitlement = async (req: Request): Promise<Response | null> => {
+      if (!requireEntitlement) return null
+      const cloudSession = safeString(req.headers.get('x-broski-session')).trim()
+      if (!cloudSession) return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
+      const tokenHash = createHash('sha256').update(cloudSession, 'utf8').digest('hex')
+      const cached = entitlementCache.get(tokenHash)
+      const now = Date.now()
+      if (cached && now - cached.checkedAt <= ENTITLEMENT_CACHE_TTL_MS) {
+        if (!cached.entitled) return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
+      } else if (convexHttpBaseUrl) {
+        try {
+          const refreshed = await refreshLocalLicenseFromCloud({
+            convexHttpBaseUrl,
+            sessionToken: cloudSession
+          })
+          if (!refreshed.ok) {
+            if (refreshed.status === 401) return publicJson({ error: 'INVALID_SESSION' }, 401)
+            if (refreshed.status === 403) return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
+            const nowSec = Math.floor(Date.now() / 1000)
+            if (localLicense?.entitled && localLicense.sessionTokenHash === tokenHash && nowSec <= localLicense.exp) {
+              // allow via local license
+            } else if (!(cached && cached.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS)) {
               return publicJson({ error: 'CLOUD_AUTH_FAILED' }, 503)
             }
+          } else {
+            if (refreshed.state.entitled) localLicense = refreshed.state
+            entitlementCache.set(tokenHash, {
+              checkedAt: now,
+              appUserId: refreshed.state.appUserId,
+              entitled: refreshed.state.entitled,
+              ...(refreshed.state.status ? { status: refreshed.state.status } : {})
+            })
+            if (!refreshed.state.entitled) return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
           }
-        } else {
-          return publicJson({ error: 'CLOUD_AUTH_UNAVAILABLE' }, 503)
+        } catch {
+          if (!(cached && cached.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS)) {
+            return publicJson({ error: 'CLOUD_AUTH_FAILED' }, 503)
+          }
         }
+      } else {
+        return publicJson({ error: 'CLOUD_AUTH_UNAVAILABLE' }, 503)
       }
+      return null
+    }
+
+    if (url.pathname === '/projects') {
+      const denied = await checkHttpEntitlement(request)
+      if (denied) return denied
       if (!opencode) {
         return jsonResponse({ error: 'OpenCode not available' }, 503)
       }
@@ -4213,51 +4197,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
     }
 
     if (url.pathname === '/browse') {
-      if (requireEntitlement) {
-        const cloudSession = safeString(request.headers.get('x-broski-session')).trim()
-        if (!cloudSession) {
-          return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
-        }
-        const tokenHash = createHash('sha256').update(cloudSession, 'utf8').digest('hex')
-        const cached = entitlementCache.get(tokenHash)
-        const now = Date.now()
-        if (cached && now - cached.checkedAt <= ENTITLEMENT_CACHE_TTL_MS) {
-          if (!cached.entitled) return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
-        } else if (convexHttpBaseUrl) {
-          try {
-            const refreshed = await refreshLocalLicenseFromCloud({
-              convexHttpBaseUrl,
-              sessionToken: cloudSession
-            })
-            if (!refreshed.ok) {
-              if (refreshed.status === 401) return publicJson({ error: 'INVALID_SESSION' }, 401)
-              if (refreshed.status === 403) return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
-
-              const nowSec = Math.floor(Date.now() / 1000)
-              if (localLicense?.entitled && localLicense.sessionTokenHash === tokenHash && nowSec <= localLicense.exp) {
-                // allow via local license
-              } else if (!(cached && cached.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS)) {
-                return publicJson({ error: 'CLOUD_AUTH_FAILED' }, 503)
-              }
-            } else {
-              if (refreshed.state.entitled) localLicense = refreshed.state
-              entitlementCache.set(tokenHash, {
-                checkedAt: now,
-                appUserId: refreshed.state.appUserId,
-                entitled: refreshed.state.entitled,
-                ...(refreshed.state.status ? { status: refreshed.state.status } : {})
-              })
-              if (!refreshed.state.entitled) return publicJson({ error: 'LICENSE_REQUIRED' }, 402)
-            }
-          } catch {
-            if (!(cached && cached.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS)) {
-              return publicJson({ error: 'CLOUD_AUTH_FAILED' }, 503)
-            }
-          }
-        } else {
-          return publicJson({ error: 'CLOUD_AUTH_UNAVAILABLE' }, 503)
-        }
-      }
+      const denied = await checkHttpEntitlement(request)
+      if (denied) return denied
       const path = url.searchParams.get('path')
       if (!path) {
         return jsonResponse({ error: 'Missing path' }, 400)

@@ -107,7 +107,7 @@ void showCodexSettingsSheet(BuildContext context) {
                     'Allow network in Codex sandbox',
                     style: AppTypography.label(color: theme.textMuted),
                   ),
-                  activeColor: theme.primary,
+                  activeThumbColor: theme.primary,
                 ),
               SizedBox(height: Spacing.md),
               chipGroup<CodexReasoningEffort>(
@@ -150,7 +150,7 @@ void showCodexSettingsSheet(BuildContext context) {
                   'Allow Codex to discover skills from disk',
                   style: AppTypography.label(color: theme.textMuted),
                 ),
-                activeColor: theme.primary,
+                activeThumbColor: theme.primary,
               ),
               SizedBox(height: Spacing.md),
               chipGroup<CodexPersonality>(

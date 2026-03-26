@@ -507,7 +507,7 @@ class _CustomToolEditorScreenState
                 ),
                 SizedBox(height: Spacing.lg),
                 DropdownButtonFormField<CustomToolParameterType>(
-                  value: type,
+                  initialValue: type,
                   decoration: const InputDecoration(labelText: 'Type'),
                   items: CustomToolParameterType.values.map((t) {
                     return DropdownMenuItem(
@@ -620,7 +620,7 @@ class _HttpConfigSection extends StatelessWidget {
             SizedBox(
               width: 120,
               child: DropdownButtonFormField<HttpMethod>(
-                value: method,
+                initialValue: method,
                 decoration: const InputDecoration(labelText: 'Method'),
                 items: HttpMethod.values.map((m) {
                   return DropdownMenuItem(value: m, child: Text(m.displayName));

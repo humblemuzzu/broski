@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_typography.dart';
 import '../theme/design_tokens.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:broski/utils/format_utils.dart';
 
 import '../models/agent.dart';
 import '../models/agent_type.dart';
@@ -1280,7 +1281,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         totalCostUsd: tokenUsage?.totalCostUsd,
         budgetLimitUsd: ccConfig?.maxBudgetUsd,
         // SDK v2.1.6+: Use context window from token usage if available
-        contextWindow: tokenUsage?.effectiveContextWindow ?? 200000,
+        contextWindow: tokenUsage?.effectiveContextWindow ?? kDefaultContextWindow,
         // Per-turn context tokens from iterations[-1] (actual window occupancy)
         lastIterContextTokens: tokenUsage?.lastIterContextTokens,
         // Avoid client-side "made up" file summaries for Claude Code.
@@ -1309,7 +1310,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       final tokenUsage = chatState.cxTokenUsage;
       final total = tokenUsage?.total;
       final last = tokenUsage?.last;
-      final contextWindow = tokenUsage?.modelContextWindow ?? 200000;
+      final contextWindow = tokenUsage?.modelContextWindow ?? kDefaultContextWindow;
       // Cumulative totals across the thread (for display)
       final inputTokens = total?.inputTokens ?? 0;
       final outputTokens = total?.outputTokens ?? 0;
@@ -1356,7 +1357,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           contextWindow:
               ctxUsage?.contextWindow ??
               chatState.piModelData?.contextWindow ??
-              200000,
+              kDefaultContextWindow,
           actualContextTokens: ctxUsage?.tokens ?? 0,
         );
         if (mounted) {

@@ -64,8 +64,8 @@ class PurchaseService {
       throw Exception('No purchasable package found');
     }
 
-    // In v9.x, purchasePackage returns PurchaseResult which contains customerInfo
-    final result = await Purchases.purchasePackage(monthly);
+    // In v9.x, purchase(PurchaseParams) returns PurchaseResult which contains customerInfo
+    final result = await Purchases.purchase(PurchaseParams.package(monthly));
     return result.customerInfo;
   }
 

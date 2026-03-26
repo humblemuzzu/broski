@@ -214,7 +214,7 @@ class _CxSkillsSheetContentState extends State<CxSkillsSheetContent> {
                 : Switch.adaptive(
                     value: enabled,
                     onChanged: (_) => _toggleSkill(path, enabled),
-                    activeColor: theme.primary,
+                    activeThumbColor: theme.primary,
                   ),
         ],
       ),

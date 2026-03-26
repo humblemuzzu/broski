@@ -495,7 +495,7 @@ class _HookEditorScreenState extends State<HookEditorScreen> {
               Text('Event', style: AppTypography.label(color: oc.textMuted)),
               const SizedBox(height: 6),
               DropdownButtonFormField<String>(
-                value: _selectedEvent,
+                initialValue: _selectedEvent,
                 decoration: InputDecoration(
                   filled: true,
                   fillColor: oc.backgroundElement,
