@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -16,6 +15,13 @@ import '../models/claude_code.dart';
 import '../models/codex.dart';
 import '../models/pi.dart';
 import 'sheets/cx_apps_sheet.dart';
+import 'sheets/cx_agents_sheet.dart';
+import 'sheets/cx_auth_sheet.dart';
+import 'sheets/cx_config_sheet.dart';
+import 'sheets/cx_feedback_sheet.dart';
+import 'sheets/cx_mcp_sheet.dart';
+import 'sheets/cx_rollback_sheet.dart';
+import 'sheets/cx_settings_sheet.dart';
 import 'sheets/cx_model_sheet.dart';
 import 'sheets/cx_remote_skills_sheet.dart';
 import 'sheets/cc_skills_sheet.dart';
@@ -75,7 +81,6 @@ import '../widgets/chat/detail_sheet.dart';
 import '../widgets/permission_prompt.dart';
 import '../widgets/permission_rules_sheet.dart';
 import '../widgets/question_prompt_sheet.dart';
-import '../widgets/rollback_sheet.dart';
 import '../widgets/session_sidebar.dart';
 import '../widgets/chat/compact_tool_card.dart';
 import '../widgets/chat/compact_edit_card.dart';
@@ -103,6 +108,14 @@ import '../utils/error_utils.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
+import '../widgets/chat/glass_pill.dart';  
+import '../widgets/chat/pill_glow_painter.dart';  
+import '../widgets/chat/glow_border_painter.dart';  
+import '../widgets/chat/retry_status_banner.dart';  
+import '../widgets/chat/revert_state_banner.dart';  
+import '../widgets/chat/cc_undo_turn_bar.dart';  
+import '../widgets/chat/subagent_activity.dart';  
+import '../widgets/chat/status_indicator.dart';
 
 // Utility function for color opacity (from expense_tracker)
 Color fade(Color color, double opacity) {
@@ -2831,744 +2844,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   void _showCodexAgentsSheet() {
-    final theme = OpenCodeTheme.of(context);
     final chatState = ref.read(chatSessionProvider);
     final cwd = chatState.cxCwd ?? widget.cxThread?.cwd ?? widget.cxDraftCwd;
     if (cwd == null || cwd.isEmpty) return;
-    final controller = TextEditingController();
-    bool loaded = false;
-    bool exists = false;
-    String? path;
-    DetailSheet.show(
-      context: context,
-      title: 'Agents',
-      initialSize: 0.6,
-      child: StatefulBuilder(
-        builder: (context, setSheetState) {
-          Future<void> load() async {
-            if (loaded) return;
-            loaded = true;
-            final bridge = ref.read(bridgeServiceProvider);
-            final res = await bridge.cxReadAgentsMd(cwd);
-            exists = res['exists'] == true;
-            path = res['path']?.toString();
-            controller.text = (res['content'] ?? '').toString();
-            setSheetState(() {});
-          }
-
-          void insertTemplate() {
-            controller.text =
-                '''
-# AGENTS.md
-<INSTRUCTIONS>
-Describe project-specific guidance for Codex here.
-- Goal:
-- Constraints:
-- Style:
-- Commands to run:
-</INSTRUCTIONS>
-'''
-                    .trim();
-            setSheetState(() {});
-          }
-
-          unawaited(load());
-          return Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                  child: Text(
-                    path ?? cwd,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.caption(color: theme.textMuted),
-                  ),
-                ),
-                if (!exists)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                    child: Row(
-                      children: [
-                        Icon(AppIcons.info, size: 16, color: theme.textMuted),
-                        SizedBox(width: Spacing.sm),
-                        Expanded(
-                          child: Text(
-                            'No AGENTS.md found. Create one to guide Codex for this project.',
-                            style: TextStyle(
-                              color: theme.textMuted,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: insertTemplate,
-                          child: const Text('Insert template'),
-                        ),
-                      ],
-                    ),
-                  ),
-                Padding(
-                  padding: Insets.screenH,
-                  child: SizedBox(
-                    height: 300,
-                    child: TextField(
-                      controller: controller,
-                      expands: true,
-                      maxLines: null,
-                      minLines: null,
-                      style: AppTypography.codeSmall(color: theme.text),
-                      decoration: InputDecoration(
-                        hintText: 'Project instructions for Codex…',
-                        filled: true,
-                        fillColor: theme.background,
-                        border: OutlineInputBorder(
-                          borderRadius: Radii.brMd,
-                          borderSide: BorderSide(
-                            color: theme.borderSubtle.withValues(alpha: 0.35),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(height: Spacing.md),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () async {
-                            final ok = await ref
-                                .read(bridgeServiceProvider)
-                                .cxWriteAgentsMd(
-                                  cwd: cwd,
-                                  content: controller.text,
-                                );
-                            if (!context.mounted) return;
-                            final messenger = ScaffoldMessenger.of(context);
-                            messenger.showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  ok ? 'Saved AGENTS.md' : 'Save failed',
-                                ),
-                                backgroundColor: ok
-                                    ? theme.backgroundPanel
-                                    : theme.error,
-                              ),
-                            );
-                            Navigator.pop(context);
-                          },
-                          child: const Text('Save'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    ).whenComplete(controller.dispose);
+    showCodexAgentsSheet(context, ref, cwd);
   }
 
-  void _showCodexAuthSheet() {
-    final theme = OpenCodeTheme.of(context);
-    final apiKeyController = TextEditingController();
-    String? loginId;
-    String? authUrl;
-    DetailSheet.show(
-      context: context,
-      title: 'Authentication',
-      initialSize: 0.5,
-      child: StatefulBuilder(
-        builder: (context, setSheetState) {
-          Future<void> startChatgptLogin() async {
-            final bridge = ref.read(bridgeServiceProvider);
-            final res = await bridge.cxLoginStartChatgpt();
-            loginId = res['loginId']?.toString();
-            authUrl = res['authUrl']?.toString();
-            setSheetState(() {});
-          }
 
-          Future<void> cancelLogin() async {
-            final id = loginId;
-            if (id == null || id.isEmpty) return;
-            final bridge = ref.read(bridgeServiceProvider);
-            await bridge.cxLoginCancel(id);
-            setSheetState(() {
-              loginId = null;
-              authUrl = null;
-            });
-          }
+  void _showCodexAuthSheet() => showCodexAuthSheet(context, ref);
 
-          return Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(height: Spacing.sm),
-                Padding(
-                  padding: Insets.screenH,
-                  child: FutureBuilder<Map<String, dynamic>>(
-                    future: ref.read(bridgeServiceProvider).cxAccountRead(),
-                    builder: (context, snapshot) {
-                      final loading =
-                          snapshot.connectionState == ConnectionState.waiting;
-                      if (loading) {
-                        return const Padding(
-                          padding: Insets.screenV,
-                          child: Center(child: CircularProgressIndicator()),
-                        );
-                      }
-                      if (snapshot.hasError) {
-                        return Text(
-                          'Failed to read account: ${humanizeError(snapshot.error ?? "Unknown error")}',
-                          style: TextStyle(
-                            color: theme.textMuted,
-                            fontSize: 12,
-                          ),
-                        );
-                      }
-                      final account = snapshot.data?['account'];
-                      final requires =
-                          snapshot.data?['requiresOpenaiAuth'] == true;
-                      return Container(
-                        padding: Insets.cardSm,
-                        decoration: BoxDecoration(
-                          color: theme.background,
-                          borderRadius: Radii.brMd,
-                          border: Border.all(
-                            color: theme.borderSubtle.withValues(alpha: 0.25),
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Status',
-                              style: TextStyle(
-                                color: theme.textMuted,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              account == null
-                                  ? (requires
-                                        ? 'Not logged in (OpenAI auth required)'
-                                        : 'Not logged in (auth not required)')
-                                  : 'Logged in: ${account['type'] ?? account['authMode'] ?? ''}',
-                              style: TextStyle(
-                                color: theme.text,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                SizedBox(height: Spacing.md),
-                Padding(
-                  padding: Insets.screenH,
-                  child: FutureBuilder<Map<String, dynamic>>(
-                    future: ref.read(bridgeServiceProvider).cxRateLimitsRead(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const SizedBox.shrink();
-                      }
-                      if (snapshot.hasError) {
-                        return const SizedBox.shrink();
-                      }
-                      final limits = snapshot.data?['rateLimits'];
-                      if (limits is! Map) return const SizedBox.shrink();
-                      final primary = limits['primary'];
-                      if (primary is! Map) return const SizedBox.shrink();
-                      // #14: Show limit_name if present
-                      final limitName =
-                          limits['limitName'] as String? ??
-                          limits['limit_name'] as String?;
-                      final label = limitName != null && limitName.isNotEmpty
-                          ? '$limitName: ${primary['usedPercent'] ?? 0}% used'
-                          : 'Rate limits: ${primary['usedPercent'] ?? 0}% used';
-                      final resetsAt = primary['resetsAt'];
-                      final resetsStr = resetsAt != null
-                          ? ', resets at $resetsAt'
-                          : '';
-                      return Padding(
-                        padding: Insets.bottomMd,
-                        child: Text(
-                          '$label$resetsStr',
-                          style: TextStyle(
-                            color: theme.textMuted,
-                            fontSize: 12,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Padding(
-                  padding: Insets.screenH,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: startChatgptLogin,
-                          child: const Text('Login (ChatGPT)'),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () async {
-                            await ref.read(bridgeServiceProvider).cxLogout();
-                            if (!context.mounted) return;
-                            Navigator.pop(context);
-                          },
-                          child: const Text('Logout'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(height: Spacing.md),
-                Padding(
-                  padding: Insets.screenH,
-                  child: TextField(
-                    controller: apiKeyController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'API key (optional)',
-                      hintText: 'sk-...',
-                    ),
-                  ),
-                ),
-                SizedBox(height: Spacing.sm),
-                Padding(
-                  padding: Insets.screenH,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () async {
-                            final key = apiKeyController.text.trim();
-                            if (key.isEmpty) return;
-                            await ref
-                                .read(bridgeServiceProvider)
-                                .cxLoginStartApiKey(key);
-                            if (!context.mounted) return;
-                            Navigator.pop(context);
-                          },
-                          child: const Text('Login (API key)'),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: TextButton(
-                          onPressed: cancelLogin,
-                          child: const Text('Cancel login'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (authUrl != null && authUrl!.isNotEmpty) ...[
-                  SizedBox(height: Spacing.md),
-                  Padding(
-                    padding: Insets.screenH,
-                    child: Text(
-                      'ChatGPT login URL (open on the host machine running Broski Bridge):',
-                      style: AppTypography.label(color: theme.textMuted),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Padding(
-                    padding: Insets.screenH,
-                    child: SelectableText(
-                      authUrl!,
-                      style: AppTypography.codeSmall(color: theme.text),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Padding(
-                    padding: Insets.screenH,
-                    child: Row(
-                      children: [
-                        TextButton(
-                          onPressed: () async {
-                            final uri = Uri.tryParse(authUrl!);
-                            if (uri == null) return;
-                            await launchUrl(
-                              uri,
-                              mode: LaunchMode.externalApplication,
-                            );
-                          },
-                          child: const Text('Open'),
-                        ),
-                        SizedBox(width: Spacing.sm),
-                        TextButton(
-                          onPressed: () async {
-                            await Clipboard.setData(
-                              ClipboardData(text: authUrl!),
-                            );
-                          },
-                          child: const Text('Copy'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-                SizedBox(height: Spacing.lg),
-              ],
-            ),
-          );
-        },
-      ),
-    ).whenComplete(apiKeyController.dispose);
-  }
 
-  void _showCodexFeedbackSheet() {
-    final theme = OpenCodeTheme.of(context);
-    final reasonController = TextEditingController();
-    String classification = 'bug';
-    bool includeLogs = false;
-    DetailSheet.show(
-      context: context,
-      title: 'Feedback',
-      initialSize: 0.6,
-      child: StatefulBuilder(
-        builder: (context, setSheetState) {
-          return Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(height: Spacing.sm),
-                Padding(
-                  padding: Insets.screenH,
-                  child: DropdownButtonFormField<String>(
-                    value: classification,
-                    items: const [
-                      DropdownMenuItem(value: 'bug', child: Text('Bug')),
-                      DropdownMenuItem(
-                        value: 'feature',
-                        child: Text('Feature request'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'bad_output',
-                        child: Text('Bad output'),
-                      ),
-                      DropdownMenuItem(value: 'other', child: Text('Other')),
-                    ],
-                    onChanged: (v) =>
-                        setSheetState(() => classification = v ?? 'bug'),
-                    decoration: const InputDecoration(
-                      labelText: 'Classification',
-                    ),
-                  ),
-                ),
-                SizedBox(height: Spacing.sm),
-                Padding(
-                  padding: Insets.screenH,
-                  child: TextField(
-                    controller: reasonController,
-                    maxLines: 3,
-                    decoration: const InputDecoration(
-                      labelText: 'Reason (optional)',
-                    ),
-                  ),
-                ),
-                SizedBox(height: Spacing.sm),
-                Padding(
-                  padding: Insets.screenH,
-                  child: SwitchListTile(
-                    value: includeLogs,
-                    onChanged: (v) => setSheetState(() => includeLogs = v),
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(
-                      'Include logs',
-                      style: TextStyle(
-                        color: theme.text,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    subtitle: Text(
-                      'Attach Codex logs from the host machine',
-                      style: AppTypography.label(color: theme.textMuted),
-                    ),
-                    activeThumbColor: theme.primary,
-                  ),
-                ),
-                SizedBox(height: Spacing.md),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () async {
-                            final bridge = ref.read(bridgeServiceProvider);
-                            final chatState = ref.read(chatSessionProvider);
-                            final res = await bridge.cxFeedbackUpload(
-                              classification: classification,
-                              reason: reasonController.text.trim().isEmpty
-                                  ? null
-                                  : reasonController.text.trim(),
-                              threadId: chatState.cxThreadId,
-                              includeLogs: includeLogs,
-                            );
-                            final threadId = res['threadId']?.toString() ?? '';
-                            if (!context.mounted) return;
-                            Navigator.pop(context);
-                            if (threadId.isEmpty) return;
-                            final thread = await bridge.cxResumeThread(
-                              threadId,
-                            );
-                            if (!context.mounted) return;
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    ChatScreen.codex(cxThread: thread),
-                              ),
-                            );
-                          },
-                          child: const Text('Submit'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    ).whenComplete(reasonController.dispose);
-  }
+  void _showCodexFeedbackSheet() => showCodexFeedbackSheet(context, ref);
 
-  void _showCodexSettingsSheet() {
-    final theme = OpenCodeTheme.of(context);
-    DetailSheet.show(
-      context: context,
-      title: 'Codex Settings',
-      initialSize: 0.7,
-      child: Consumer(
-        builder: (context, ref, _) {
-          final settings = ref.watch(codexSettingsProvider);
-          final notifier = ref.read(codexSettingsProvider.notifier);
-          Widget chipGroup<T>({
-            required String label,
-            required List<T> values,
-            required T selected,
-            required String Function(T) display,
-            required void Function(T) onSelected,
-          }) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: theme.textMuted,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                SizedBox(height: Spacing.sm),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: values.map((v) {
-                    final isSelected = v == selected;
-                    return ChoiceChip(
-                      label: Text(display(v)),
-                      selected: isSelected,
-                      onSelected: (_) => onSelected(v),
-                      labelStyle: TextStyle(
-                        color: isSelected ? theme.background : theme.text,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      selectedColor: theme.primary,
-                      backgroundColor: theme.background,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: Radii.brMd,
-                        side: BorderSide(
-                          color: theme.borderSubtle.withValues(alpha: 0.3),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ],
-            );
-          }
 
-          return Padding(
-            padding: Insets.screenH,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                chipGroup<CodexApprovalPolicy>(
-                  label: 'Approvals',
-                  values: CodexApprovalPolicy.values,
-                  selected: settings.approvalPolicy,
-                  display: (v) => v.wireValue,
-                  onSelected: notifier.setApprovalPolicy,
-                ),
-                SizedBox(height: Spacing.lg),
-                chipGroup<CodexSandboxMode>(
-                  label: 'Sandbox',
-                  values: CodexSandboxMode.values,
-                  selected: settings.sandboxMode,
-                  display: (v) => v.threadWireValue,
-                  onSelected: notifier.setSandboxMode,
-                ),
-                SizedBox(height: Spacing.md),
-                if (settings.sandboxMode == CodexSandboxMode.workspaceWrite)
-                  SwitchListTile(
-                    value: settings.networkAccessEnabled,
-                    onChanged: notifier.setNetworkAccessEnabled,
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(
-                      'Network access',
-                      style: TextStyle(
-                        color: theme.text,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    subtitle: Text(
-                      'Allow network in Codex sandbox',
-                      style: AppTypography.label(color: theme.textMuted),
-                    ),
-                    activeColor: theme.primary,
-                  ),
-                SizedBox(height: Spacing.md),
-                chipGroup<CodexReasoningEffort>(
-                  label: 'Reasoning effort',
-                  values: CodexReasoningEffort.values,
-                  selected: settings.reasoningEffort,
-                  display: (v) => v.wireValue,
-                  onSelected: notifier.setReasoningEffort,
-                ),
-                SizedBox(height: Spacing.lg),
-                chipGroup<CodexReasoningSummary>(
-                  label: 'Reasoning summary',
-                  values: CodexReasoningSummary.values,
-                  selected: settings.reasoningSummary,
-                  display: (v) => v.wireValue,
-                  onSelected: notifier.setReasoningSummary,
-                ),
-                SizedBox(height: Spacing.md),
-                chipGroup<CodexWebSearchMode>(
-                  label: 'Web search',
-                  values: CodexWebSearchMode.values,
-                  selected: settings.webSearchMode,
-                  display: (v) => v.name[0].toUpperCase() + v.name.substring(1),
-                  onSelected: notifier.setWebSearchMode,
-                ),
-                SwitchListTile(
-                  value: settings.skillsEnabled,
-                  onChanged: notifier.setSkillsEnabled,
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    'Skills discovery',
-                    style: TextStyle(
-                      color: theme.text,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  subtitle: Text(
-                    'Allow Codex to discover skills from disk',
-                    style: AppTypography.label(color: theme.textMuted),
-                  ),
-                  activeColor: theme.primary,
-                ),
-                SizedBox(height: Spacing.md),
-                chipGroup<CodexPersonality>(
-                  label: 'Personality',
-                  values: CodexPersonality.values,
-                  selected: settings.personality,
-                  display: (v) => v.displayName,
-                  onSelected: notifier.setPersonality,
-                ),
-                SizedBox(height: Spacing.lg),
-                // Collaboration mode: plan vs default (ModeKind from SDK)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Collaboration mode',
-                      style: TextStyle(
-                        color: theme.textMuted,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    SizedBox(height: Spacing.sm),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: CodexCollaborationMode.values.map((mode) {
-                        final isSelected = settings.collaborationMode == mode;
-                        return ChoiceChip(
-                          label: Text(mode.displayName),
-                          selected: isSelected,
-                          onSelected: (_) {
-                            notifier.setCollaborationMode(mode);
-                          },
-                          labelStyle: TextStyle(
-                            color: isSelected ? theme.background : theme.text,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          selectedColor: theme.primary,
-                          backgroundColor: theme.background,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: Radii.brMd,
-                            side: BorderSide(
-                              color: theme.borderSubtle.withValues(alpha: 0.3),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
+  void _showCodexSettingsSheet() => showCodexSettingsSheet(context);
+
 
   void _showCodexSkillsSheet() {
     final theme = OpenCodeTheme.of(context);
@@ -3590,182 +2880,14 @@ Describe project-specific guidance for Codex here.
     );
   }
 
-  void _showCodexMcpSheet() {
-    final theme = OpenCodeTheme.of(context);
-    DetailSheet.show(
-      context: context,
-      title: 'MCP Servers',
-      initialSize: 0.5,
-      child: FutureBuilder<List<Map<String, dynamic>>>(
-        future: ref.read(bridgeServiceProvider).cxListMcpServerStatus(),
-        builder: (context, snapshot) {
-          final loading = snapshot.connectionState == ConnectionState.waiting;
-          final servers = snapshot.data ?? const <Map<String, dynamic>>[];
-          return Padding(
-            padding: Insets.screenH,
-            child: loading
-                ? const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                : snapshot.hasError
-                ? Padding(
-                    padding: Insets.screenV,
-                    child: Text(
-                      'Failed to load MCP servers: ${humanizeError(snapshot.error ?? "Unknown error")}',
-                      style: AppTypography.label(color: theme.textMuted),
-                    ),
-                  )
-                : servers.isEmpty
-                ? Padding(
-                    padding: Insets.screenV,
-                    child: Text(
-                      'No MCP servers configured.',
-                      style: AppTypography.bodySmall(color: theme.textMuted),
-                    ),
-                  )
-                : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: servers.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final s = entry.value;
-                      final name = (s['name'] ?? '').toString();
-                      final auth = (s['authStatus'] ?? '').toString();
-                      final tools = (s['tools'] is Map)
-                          ? (s['tools'] as Map).length
-                          : (s['tools'] as List?)?.length ?? 0;
-                      final resources = (s['resources'] as List?)?.length ?? 0;
-                      final templates =
-                          (s['resourceTemplates'] as List?)?.length ?? 0;
-                      return Column(
-                        children: [
-                          if (index > 0)
-                            Divider(
-                              color: theme.borderSubtle.withValues(alpha: 0.35),
-                            ),
-                          ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            leading: Icon(
-                              AppIcons.hub,
-                              color: theme.accent,
-                              size: 18,
-                            ),
-                            title: Text(
-                              name.isEmpty ? 'server' : name,
-                              style: TextStyle(
-                                color: theme.text,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            subtitle: Text(
-                              '$auth • $tools tools • $resources resources • $templates templates',
-                              style: TextStyle(
-                                color: theme.textMuted,
-                                fontSize: 12,
-                              ),
-                            ),
-                            trailing: null,
-                          ),
-                        ],
-                      );
-                    }).toList(),
-                  ),
-          );
-        },
-      ),
-    );
-  }
+  void _showCodexMcpSheet() => showCodexMcpSheet(context, ref);
 
-  void _showCodexRollbackSheet() {
-    final theme = OpenCodeTheme.of(context);
-    final chatState = ref.read(chatSessionProvider);
-    final threadId = chatState.cxThreadId;
-    if (threadId == null || threadId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('No Codex thread to rollback.'),
-          backgroundColor: theme.backgroundPanel,
-        ),
-      );
-      return;
-    }
-    final turns = chatState.messages
-        .where((m) => m.role == MessageRole.user)
-        .length;
-    final maxTurns = turns <= 0 ? 1 : turns;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) {
-        return RollbackSheet(
-          maxTurns: maxTurns,
-          onRollback: (numTurns) async {
-            final bridge = ref.read(bridgeServiceProvider);
-            await bridge.cxThreadRollback(
-              threadId: threadId,
-              numTurns: numTurns,
-            );
-            final items = await bridge.cxGetThreadMessages(threadId);
-            ref
-                .read(chatSessionProvider.notifier)
-                .hydrateCodexTranscript(items);
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Rolled back $numTurns turn${numTurns == 1 ? '' : 's'}',
-                  ),
-                  backgroundColor: theme.backgroundPanel,
-                ),
-              );
-              Navigator.pop(context);
-            }
-          },
-        );
-      },
-    );
-  }
 
-  void _showCodexConfigSheet() {
-    final theme = OpenCodeTheme.of(context);
-    DetailSheet.show(
-      context: context,
-      title: 'Codex Config',
-      initialSize: 0.6,
-      child: FutureBuilder<Map<String, dynamic>>(
-        future: ref.read(bridgeServiceProvider).cxReadConfig(),
-        builder: (context, snapshot) {
-          final loading = snapshot.connectionState == ConnectionState.waiting;
-          final config = snapshot.data ?? const <String, dynamic>{};
-          final configJson = const JsonEncoder.withIndent('  ').convert(config);
-          return Padding(
-            padding: Insets.screenH,
-            child: loading
-                ? const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                : snapshot.hasError
-                ? Padding(
-                    padding: Insets.screenV,
-                    child: Text(
-                      'Failed to read config: ${humanizeError(snapshot.error ?? "Unknown error")}',
-                      style: AppTypography.label(color: theme.textMuted),
-                    ),
-                  )
-                : SingleChildScrollView(
-                    child: SelectableText(
-                      configJson,
-                      style: AppTypography.codeSmall(color: theme.textMuted),
-                    ),
-                  ),
-          );
-        },
-      ),
-    );
-  }
+  void _showCodexRollbackSheet() => showCodexRollbackSheet(context, ref);
+
+
+  void _showCodexConfigSheet() => showCodexConfigSheet(context, ref);
+
 
   Future<void> _startCodexReview() async {
     final chatState = ref.read(chatSessionProvider);
@@ -5126,7 +4248,7 @@ Describe project-specific guidance for Codex here.
               left: 16,
               right: 16,
               top: MediaQuery.of(context).padding.top + 50,
-              child: _RetryStatusBanner(status: sessionStatus),
+              child: RetryStatusBanner(status: sessionStatus),
             ),
           // Task 2: Revert state banner
           if (widget.isOpenCode && sessionRevert != null)
@@ -5136,7 +4258,7 @@ Describe project-specific guidance for Codex here.
               top:
                   MediaQuery.of(context).padding.top +
                   (sessionStatus.isRetry ? 90 : 50),
-              child: _RevertStateBanner(onUndoRevert: _unrevertSession),
+              child: RevertStateBanner(onUndoRevert: _unrevertSession),
             ),
           // Floating header at top (glass pills)
           Positioned(
@@ -5211,7 +4333,7 @@ Describe project-specific guidance for Codex here.
               left: 0,
               right: 0,
               top: MediaQuery.of(context).padding.top + 44,
-              child: _SubagentActivityIndicator(
+              child: SubagentActivityIndicator(
                 messages: messages,
                 isStreaming: ccIsStreaming,
               ),
@@ -6027,7 +5149,7 @@ Describe project-specific guidance for Codex here.
               builder: (context) {
                 final ccState = ref.watch(ccChatProvider);
                 if (!ccState.canUndo) return const SizedBox.shrink();
-                return _CCUndoTurnBar(
+                return CCUndoTurnBar(
                   changedFiles: _extractChangedFilePaths(message),
                   onUndo: _ccRewindToCheckpoint,
                 );
@@ -7756,19 +6878,19 @@ class _FloatingHeader extends StatelessWidget {
         child: Row(
           children: [
             // Back button
-            _GlassPill(
+            GlassPill(
               onTap: onBack,
               child: Icon(AppIcons.back, color: kOnBackground, size: 22),
             ),
             SizedBox(width: Spacing.sm),
             // Combined: Project + backend badge
             Expanded(
-              child: _GlassPill(
+              child: GlassPill(
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // Status dot
-                    _StatusIndicator(
+                    StatusIndicator(
                       isConnected: isConnected,
                       sessionStatus: sessionStatus,
                     ),
@@ -7880,7 +7002,7 @@ class _FloatingHeader extends StatelessWidget {
             SizedBox(width: Spacing.sm),
             // Context usage pill — taps to open sidebar
             if (ctx case final c? when hasContext)
-              _GlassPill(
+              GlassPill(
                 onTap: onOpenSidebar,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -7914,7 +7036,7 @@ class _FloatingHeader extends StatelessWidget {
             // Menu button (contains all secondary options)
             // For Claude Code: bottom sheet menu
             if (isClaudeCode && onMenu != null)
-              _GlassPill(
+              GlassPill(
                 compact: true,
                 constraints: const BoxConstraints(maxWidth: 32, maxHeight: 32),
                 child: GestureDetector(
@@ -7936,7 +7058,7 @@ class _FloatingHeader extends StatelessWidget {
               )
             // For Codex: bottom sheet menu
             else if (isCodex && onMenu != null)
-              _GlassPill(
+              GlassPill(
                 compact: true,
                 constraints: const BoxConstraints(maxWidth: 32, maxHeight: 32),
                 child: GestureDetector(
@@ -7958,7 +7080,7 @@ class _FloatingHeader extends StatelessWidget {
               )
             // For Pi: bottom sheet menu
             else if (isPi && onMenu != null)
-              _GlassPill(
+              GlassPill(
                 compact: true,
                 constraints: const BoxConstraints(maxWidth: 32, maxHeight: 32),
                 child: GestureDetector(
@@ -7980,7 +7102,7 @@ class _FloatingHeader extends StatelessWidget {
               )
             // For OpenCode: bottom sheet menu
             else if (onMenu != null)
-              _GlassPill(
+              GlassPill(
                 compact: true,
                 constraints: const BoxConstraints(maxWidth: 32, maxHeight: 32),
                 child: GestureDetector(
@@ -9566,49 +8688,7 @@ class _PiActionsContent extends ConsumerWidget {
   }
 }
 
-// Glass pill widget for header elements
-// FIX: Removed expensive BackdropFilter - uses simple semi-transparent background instead
-// BackdropFilter causes severe frame drops during scrolling as it rasterizes everything behind it
-class _GlassPill extends StatelessWidget {
-  const _GlassPill({
-    required this.child,
-    this.onTap,
-    this.compact = false,
-    this.constraints,
-  });
-  final Widget child;
-  final VoidCallback? onTap;
-  final bool compact;
-  final BoxConstraints? constraints;
-  @override
-  Widget build(BuildContext context) {
-    final theme = OpenCodeTheme.of(context);
-    final kCard = theme.backgroundPanel;
-    final borderRadius = compact ? Radii.brLg : Radii.brXl;
-    // FIX: Simple semi-transparent container instead of expensive BackdropFilter
-    // The visual difference is minimal but performance improvement is significant
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        constraints: constraints,
-        padding: compact
-            ? Insets.cardXs
-            : const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          // Slightly higher opacity to compensate for lack of blur
-          color: kCard.withValues(alpha: 0.85),
-          borderRadius: borderRadius,
-          // Add subtle border for definition
-          border: Border.all(
-            color: theme.border.withValues(alpha: 0.3),
-            width: 0.5,
-          ),
-        ),
-        child: child,
-      ),
-    );
-  }
-}
+// Extracted to lib/widgets/chat/glass_pill.dart
 
 // Floating input bar with streaming mode support
 class _FloatingInputBar extends ConsumerWidget {
@@ -10005,7 +9085,7 @@ class _FloatingInputBar extends ConsumerWidget {
         // Full pill glow — accent border all around
         final color = accentColor ?? kMuted;
         return CustomPaint(
-          foregroundPainter: _PillGlowPainter(
+          foregroundPainter: PillGlowPainter(
             color: color,
             radius: radius,
             strokeWidth: 3.0,
@@ -10022,49 +9102,7 @@ class _FloatingInputBar extends ConsumerWidget {
   }
 }
 
-/// CustomPainter that draws a glowing border around a fully rounded pill shape.
-class _PillGlowPainter extends CustomPainter {
-  _PillGlowPainter({
-    required this.color,
-    required this.radius,
-    required this.strokeWidth,
-  });
-  final Color color;
-  final double radius;
-  final double strokeWidth;
-  @override
-  void paint(Canvas canvas, Size size) {
-    final hw = strokeWidth / 2;
-    final rect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(
-        hw,
-        hw,
-        size.width - strokeWidth,
-        size.height - strokeWidth,
-      ),
-      Radius.circular(radius - hw),
-    );
-    // 1) Outer glow
-    final glowPaint = Paint()
-      ..color = color.withValues(alpha: 0.45)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth + 8
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
-    canvas.drawRRect(rect, glowPaint);
-    // 2) Solid accent line
-    final solidPaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth;
-    canvas.drawRRect(rect, solidPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _PillGlowPainter oldDelegate) =>
-      oldDelegate.color != color ||
-      oldDelegate.radius != radius ||
-      oldDelegate.strokeWidth != strokeWidth;
-}
+// Extracted to lib/widgets/chat/pill_glow_painter.dart
 
 // CLI-style input bar (OpenCode terminal aesthetic)
 class _CliStyleInputBar extends StatefulWidget {
@@ -10841,7 +9879,7 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
         // Full ∩-shaped glow border (left + top + right)
         return CustomPaint(
           key: const ValueKey('cli-input-container'),
-          foregroundPainter: _GlowBorderPainter(
+          foregroundPainter: GlowBorderPainter(
             color: agentColor,
             radius: radius,
             strokeWidth: 3.5,
@@ -10865,57 +9903,7 @@ class _CliStyleInputBarState extends State<_CliStyleInputBar> {
   }
 }
 
-/// CustomPainter that draws a glowing ∩-shaped border (left + top + right)
-/// on the CLI input bar container.
-class _GlowBorderPainter extends CustomPainter {
-  _GlowBorderPainter({
-    required this.color,
-    required this.radius,
-    required this.strokeWidth,
-  });
-  final Color color;
-  final double radius;
-  final double strokeWidth;
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Inset the path by half stroke width so the stroke sits on the container edge
-    final hw = strokeWidth / 2;
-    final r = radius - hw; // adjusted corner radius
-    final path = Path()
-      // Start at bottom-left edge
-      ..moveTo(hw, size.height)
-      // Up the left side to the start of the top-left corner
-      ..lineTo(hw, radius)
-      // Top-left rounded corner
-      ..arcToPoint(Offset(radius, hw), radius: Radius.circular(r))
-      // Across the top
-      ..lineTo(size.width - radius, hw)
-      // Top-right rounded corner
-      ..arcToPoint(Offset(size.width - hw, radius), radius: Radius.circular(r))
-      // Down the right side to the bottom
-      ..lineTo(size.width - hw, size.height);
-    // 1) Draw the outer glow (blurred, wider stroke)
-    final glowPaint = Paint()
-      ..color = color.withValues(alpha: 0.45)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth + 8
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
-    canvas.drawPath(path, glowPaint);
-    // 2) Draw the solid accent line on top
-    final solidPaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.butt;
-    canvas.drawPath(path, solidPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _GlowBorderPainter oldDelegate) =>
-      oldDelegate.color != color ||
-      oldDelegate.radius != radius ||
-      oldDelegate.strokeWidth != strokeWidth;
-}
+// Extracted to lib/widgets/chat/glow_border_painter.dart
 
 /// Content widget for agent and permission selection in DetailSheet
 class _AgentAndPermissionContent extends ConsumerStatefulWidget {
@@ -12089,456 +11077,8 @@ class _CustomToolAutocomplete extends ConsumerWidget {
   }
 }
 
-// Task 1: Retry status countdown banner
-class _RetryStatusBanner extends StatefulWidget {
-  const _RetryStatusBanner({required this.status});
-  final SessionStatus status;
-  @override
-  State<_RetryStatusBanner> createState() => _RetryStatusBannerState();
-}
-
-class _RetryStatusBannerState extends State<_RetryStatusBanner> {
-  Timer? _countdownTimer;
-  int _remainingSeconds = 0;
-  @override
-  void initState() {
-    super.initState();
-    _startCountdown();
-  }
-
-  @override
-  void didUpdateWidget(_RetryStatusBanner oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.status.next != oldWidget.status.next) {
-      _startCountdown();
-    }
-  }
-
-  void _startCountdown() {
-    _countdownTimer?.cancel();
-    final nextTimestamp = widget.status.next;
-    if (nextTimestamp == null || nextTimestamp == 0) {
-      _remainingSeconds = 0;
-      return;
-    }
-    _updateRemaining();
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      _updateRemaining();
-    });
-  }
-
-  void _updateRemaining() {
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final next = widget.status.next ?? 0;
-    // next could be seconds or milliseconds — handle both
-    final nextMs = next > 1e12 ? next : next * 1000;
-    final remaining = ((nextMs - now) / 1000).ceil();
-    setState(() {
-      _remainingSeconds = remaining > 0 ? remaining : 0;
-    });
-    if (remaining <= 0) {
-      _countdownTimer?.cancel();
-    }
-  }
-
-  @override
-  void dispose() {
-    _countdownTimer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = OpenCodeTheme.of(context);
-    final attempt = widget.status.attempt ?? 0;
-    final message = widget.status.message ?? 'Retrying...';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: theme.warning.withValues(alpha: 0.15),
-        borderRadius: Radii.brMd,
-        border: Border.all(color: theme.warning.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        children: [
-          Icon(AppIcons.refresh, color: theme.warning, size: 18),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Retry #$attempt: $message'
-              '${_remainingSeconds > 0 ? '. Next attempt in ${_remainingSeconds}s' : ''}',
-              style: TextStyle(
-                color: theme.text,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Task 2: Revert state banner
-class _RevertStateBanner extends StatelessWidget {
-  const _RevertStateBanner({required this.onUndoRevert});
-  final VoidCallback onUndoRevert;
-  @override
-  Widget build(BuildContext context) {
-    final theme = OpenCodeTheme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: theme.info.withValues(alpha: 0.15),
-        borderRadius: Radii.brMd,
-        border: Border.all(color: theme.info.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        children: [
-          Icon(AppIcons.history, color: theme.info, size: 18),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Session reverted',
-              style: TextStyle(
-                color: theme.text,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: onUndoRevert,
-            style: TextButton.styleFrom(
-              foregroundColor: theme.info,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: const Text(
-              'Undo Revert',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Claude Code: Turn-level undo bar shown after assistant messages that
-/// modified files. The SDK only supports `rewindFiles(userMessageId)` which
-/// reverts ALL file changes back to a checkpoint — there is no per-file undo.
-/// This bar makes that behaviour transparent instead of misleading per-card
-/// undo buttons.
-///
-/// Design matches the compact card system: bgRaised, circular(12), cardBorderSubtle,
-/// JetBrains Mono for paths, DetailSheet for the expanded file list.
-class _CCUndoTurnBar extends StatelessWidget {
-  const _CCUndoTurnBar({required this.changedFiles, required this.onUndo});
-
-  /// Paths of files changed in this turn (extracted from tool call inputs).
-  final List<String> changedFiles;
-
-  /// Called when the user taps undo. Should call rewindToCheckpoint().
-  final VoidCallback onUndo;
-  @override
-  Widget build(BuildContext context) {
-    final theme = OpenCodeTheme.of(context);
-    final fileCount = changedFiles.length;
-    final label = fileCount == 1
-        ? '1 file changed'
-        : '$fileCount files changed';
-    return GestureDetector(
-      onTap: () => _showChangedFilesSheet(context),
-      child: Container(
-        margin: Insets.chipV,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: theme.bgRaised,
-          borderRadius: Radii.brMd,
-          border: Border.all(color: theme.cardBorderSubtle),
-        ),
-        child: Row(
-          children: [
-            Icon(AppIcons.history, color: theme.warning, size: 16),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                color: theme.cardHeaderText,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            SizedBox(width: Spacing.sm),
-            Expanded(
-              child: Text(
-                changedFiles.map((p) => p.split('/').last).join(', '),
-                style: AppTypography.label(color: theme.textMuted),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            SizedBox(width: Spacing.sm),
-            SizedBox(
-              height: 28,
-              child: OutlinedButton.icon(
-                onPressed: onUndo,
-                icon: Icon(AppIcons.undo, size: 14, color: theme.warning),
-                label: Text(
-                  'Undo',
-                  style: TextStyle(
-                    color: theme.warning,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: theme.warning.withValues(alpha: 0.5)),
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  shape: RoundedRectangleBorder(borderRadius: Radii.brSm),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showChangedFilesSheet(BuildContext context) {
-    final theme = OpenCodeTheme.of(context);
-    DetailSheet.show(
-      context: context,
-      title: 'Undo File Changes',
-      initialSize: 0.35,
-      minSize: 0.2,
-      maxSize: 0.6,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // File list section
-          DetailSection(
-            label: '${changedFiles.length} files changed this turn',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (final path in changedFiles)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 3),
-                    child: Row(
-                      children: [
-                        Icon(
-                          AppIcons.description,
-                          color: theme.textMuted,
-                          size: 15,
-                        ),
-                        SizedBox(width: Spacing.sm),
-                        Expanded(
-                          child: Text(
-                            path,
-                            style: AppTypography.codeSmall(color: theme.text),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          // Undo button (matches edit/write card undo style: OutlinedButton, warning color)
-          Padding(
-            padding: Insets.card,
-            child: SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  onUndo();
-                },
-                icon: const Icon(AppIcons.undo, size: 18),
-                label: const Text('Undo all changes from this turn'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: theme.warning,
-                  side: BorderSide(color: theme.warning.withValues(alpha: 0.5)),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Compact indicator shown below the floating header when Claude Code
-/// subagents (Task tool calls) are actively running.
-class _SubagentActivityIndicator extends StatelessWidget {
-  const _SubagentActivityIndicator({
-    required this.messages,
-    required this.isStreaming,
-  });
-  final List<ChatMessage> messages;
-  final bool isStreaming;
-  @override
-  Widget build(BuildContext context) {
-    if (!isStreaming) return const SizedBox.shrink();
-    // Find running Task tool calls from the most recent assistant message
-    final activeSubagentNames = <String>[];
-    for (var i = messages.length - 1; i >= 0; i--) {
-      final msg = messages[i];
-      if (msg.role != MessageRole.assistant) continue;
-      for (final tool in msg.toolCalls) {
-        final name = tool.name.toLowerCase();
-        if ((name == 'task' || name == 'dispatch_agent') &&
-            (tool.status == 'running' || tool.status == 'pending')) {
-          final subagentType =
-              tool.input['subagent_type'] as String? ??
-              tool.input['agent'] as String? ??
-              tool.input['agentName'] as String? ??
-              tool.title ??
-              'subagent';
-          activeSubagentNames.add(subagentType);
-        }
-      }
-      // Only check the most recent assistant message
-      break;
-    }
-    if (activeSubagentNames.isEmpty) return const SizedBox.shrink();
-    final theme = OpenCodeTheme.of(context);
-    final label = activeSubagentNames.join(', ');
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: theme.info.withValues(alpha: 0.1),
-          borderRadius: Radii.brMd,
-          border: Border.all(color: theme.info.withValues(alpha: 0.2)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 10,
-              height: 10,
-              child: CircularProgressIndicator(
-                strokeWidth: 1.5,
-                color: theme.info,
-              ),
-            ),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                label,
-                style: AppTypography.caption(color: theme.info),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// Feature 13: Animated status indicator for session state
-class _StatusIndicator extends StatefulWidget {
-  const _StatusIndicator({
-    required this.isConnected,
-    required this.sessionStatus,
-  });
-  final bool isConnected;
-  final SessionStatus sessionStatus;
-  @override
-  State<_StatusIndicator> createState() => _StatusIndicatorState();
-}
-
-class _StatusIndicatorState extends State<_StatusIndicator>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 1200),
-      vsync: this,
-    );
-    _updateAnimation();
-  }
-
-  @override
-  void didUpdateWidget(_StatusIndicator oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _updateAnimation();
-  }
-
-  void _updateAnimation() {
-    if (widget.sessionStatus.isBusy || widget.sessionStatus.isRetry) {
-      _controller.repeat();
-    } else {
-      _controller.stop();
-      _controller.value = 0;
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = OpenCodeTheme.of(context);
-    final status = widget.sessionStatus;
-    // Connection color
-    Color baseColor;
-    if (!widget.isConnected) {
-      baseColor = theme.error; // Red - disconnected
-    } else if (status.isBusy) {
-      baseColor = theme.info; // Blue - busy/working
-    } else if (status.isRetry) {
-      baseColor = theme.warning; // Yellow - retry
-    } else {
-      baseColor = theme.success; // Green - idle/connected
-    }
-    // Pulsing animation for busy/retry states
-    if (status.isBusy || status.isRetry) {
-      return AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) {
-          final opacity =
-              0.4 + (0.6 * (0.5 + 0.5 * (_controller.value * 2 - 1).abs()));
-          return Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: baseColor.withValues(alpha: opacity),
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: baseColor.withValues(alpha: 0.3),
-                  blurRadius: 4,
-                  spreadRadius: 1,
-                ),
-              ],
-            ),
-          );
-        },
-      );
-    }
-    // Static indicator for idle/disconnected
-    return Container(
-      width: 6,
-      height: 6,
-      decoration: BoxDecoration(color: baseColor, shape: BoxShape.circle),
-    );
-  }
-}
+// Extracted to lib/widgets/chat/retry_status_banner.dart
+// Extracted to lib/widgets/chat/revert_state_banner.dart
+// Extracted to lib/widgets/chat/cc_undo_turn_bar.dart
+// Extracted to lib/widgets/chat/subagent_activity.dart
+// Extracted to lib/widgets/chat/status_indicator.dart
