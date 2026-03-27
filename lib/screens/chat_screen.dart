@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../theme/app_typography.dart';
 import '../theme/design_tokens.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:broski/utils/format_utils.dart';
@@ -25,14 +24,16 @@ import 'sheets/cc_commands_sheet.dart';
 import 'sheets/cc_model_sheet.dart';
 import 'sheets/pi_model_sheet.dart';
 import 'sheets/cc_memory_scope_picker.dart';
+import 'sheets/attachment_options_sheet.dart';
 import 'dialogs/share_dialog.dart';
 import 'dialogs/help_dialog.dart';
 import 'dialogs/timeline_dialog.dart';
 import 'dialogs/fork_dialog.dart';
 import 'dialogs/rename_dialog.dart';
+import 'dialogs/models_dialog.dart';
+import 'dialogs/agents_dialog.dart';
 import '../widgets/chat/floating_header.dart';
 import '../widgets/chat/floating_input_bar.dart';
-import '../widgets/chat/model_selector_content.dart';
 import '../widgets/chat/command_autocomplete.dart';
 import '../widgets/chat/custom_tool_autocomplete.dart';
 import '../widgets/chat/cc_queue_bar.dart';
@@ -74,12 +75,10 @@ import '../services/haptics_service.dart';
 import '../services/image_picker_service.dart';
 import '../services/websocket_service.dart';
 import '../theme/opencode_theme.dart';
-import '../widgets/diff_viewer.dart';
 import '../widgets/export_session_sheet.dart';
 import '../widgets/file_tagging.dart';
 import '../widgets/retry_indicator.dart';
 import '../widgets/message_bubble.dart';
-import '../widgets/chat/compact_thinking_card.dart';
 import '../widgets/chat/detail_sheet.dart';
 import '../widgets/permission_prompt.dart';
 import '../widgets/question_prompt_sheet.dart';
@@ -108,9 +107,11 @@ import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../widgets/chat/retry_status_banner.dart';
 import '../widgets/chat/revert_state_banner.dart';
-import '../widgets/chat/cc_undo_turn_bar.dart';
 import '../widgets/chat/subagent_activity.dart';
 import '../widgets/chat/cli_input_bar.dart';
+import '../widgets/chat/files_persisted_card.dart';
+import '../widgets/chat/message_group.dart';
+import '../widgets/chat/message_helpers.dart';
 
 // Utility function for color opacity (from expense_tracker)
 Color fade(Color color, double opacity) {
@@ -2201,47 +2202,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     });
   }
 
-  void _showAttachmentOptions(BuildContext context) {
-    final theme = OpenCodeTheme.of(context);
-    DetailSheet.show(
-      context: context,
-      title: 'Add Attachment',
-      initialSize: 0.3,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: Icon(AppIcons.camera, color: theme.primary),
-            title: Text('Take Photo', style: TextStyle(color: theme.text)),
-            onTap: () {
-              Navigator.pop(context);
-              _pickImageFromCamera();
-            },
-          ),
-          ListTile(
-            leading: Icon(AppIcons.photoLibrary, color: theme.primary),
-            title: Text(
-              'Choose from Gallery',
-              style: TextStyle(color: theme.text),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              _pickImageFromGallery();
-            },
-          ),
-          ListTile(
-            leading: Icon(AppIcons.attach, color: theme.info),
-            title: Text('Attach File (@)', style: TextStyle(color: theme.text)),
-            subtitle: Text(
-              'Type @ in the input to search files',
-              style: AppTypography.label(color: theme.textMuted),
-            ),
-            onTap: () => Navigator.pop(context),
-          ),
-        ],
-      ),
-    );
-  }
+  void _showAttachmentOptions(BuildContext context) => showAttachmentOptions(
+    context,
+    onPickCamera: _pickImageFromCamera,
+    onPickGallery: _pickImageFromGallery,
+  );
 
   void _showClaudeCodeToolsSheet() => showCcToolsSheet(
     context,
@@ -2925,78 +2890,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   /// Show models selection dialog
-  void _showModelsDialog() {
-    // Use existing model selector
-    _showModelSelector(context);
-  }
+  void _showModelsDialog() => showModelsDialog(context, ref);
 
   /// Show agents selection dialog
-  void _showAgentsDialog() {
-    final theme = OpenCodeTheme.of(context);
-    DetailSheet.show(
-      context: context,
-      title: 'Available Agents',
-      initialSize: 0.4,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(height: Spacing.sm),
-          if (_agents.isEmpty)
-            Padding(
-              padding: Insets.card,
-              child: Text(
-                'No agents available',
-                style: TextStyle(color: theme.textMuted),
-              ),
-            )
-          else
-            ...List.generate(_agents.length, (index) {
-              final agent = _agents[index];
-              final isSelected = _selectedAgent == agent.name;
-              return ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: isSelected ? theme.primary : theme.bgDeep,
-                  child: Icon(
-                    AppIcons.agent,
-                    color: isSelected
-                        ? theme.selectedListItemText
-                        : theme.textMuted,
-                    size: 20,
-                  ),
-                ),
-                title: Text(
-                  agent.name,
-                  style: TextStyle(
-                    color: theme.text,
-                    fontWeight: isSelected
-                        ? FontWeight.w600
-                        : FontWeight.normal,
-                  ),
-                ),
-                subtitle: agent.description != null
-                    ? Text(
-                        agent.description!,
-                        style: AppTypography.label(color: theme.textMuted),
-                      )
-                    : null,
-                trailing: isSelected
-                    ? Icon(AppIcons.checkCircle, color: theme.primary)
-                    : null,
-                onTap: () {
-                  setState(() => _selectedAgent = agent.name);
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Selected ${agent.name} agent')),
-                  );
-                },
-              );
-            }),
-          SizedBox(height: Spacing.sm),
-        ],
-      ),
-    );
-  }
+  void _showAgentsDialog() => showAgentsDialog(
+        context,
+        agents: _agents,
+        selectedAgent: _selectedAgent,
+        onAgentSelected: (name) => setState(() => _selectedAgent = name),
+      );
+
 
   @override
   void dispose() {
@@ -3854,40 +3757,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
   }
 
-  /// Task 3: Build a compaction divider marker
-  Widget _buildCompactionDivider() {
-    final theme = OpenCodeTheme.of(context);
-    return Padding(
-      padding: Insets.screenV,
-      child: Row(
-        children: [
-          Expanded(
-            child: Divider(
-              color: theme.textMuted.withValues(alpha: 0.3),
-              thickness: 1,
-            ),
-          ),
-          Padding(
-            padding: Insets.cardH,
-            child: Text(
-              'Context compacted',
-              style: TextStyle(
-                color: theme.textMuted,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Divider(
-              color: theme.textMuted.withValues(alpha: 0.3),
-              thickness: 1,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   // _buildSubtaskChip removed — using CompactAgentCard.fromNotification() instead
   /// Task 7: Build a muted retry indicator
@@ -3897,60 +3766,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
   }
 
-  /// SDK v1.2.1: Context overflow error with action buttons
-  Widget _buildContextOverflowError(ChatMessage message) {
-    final theme = OpenCodeTheme.of(context);
-    return Padding(
-      padding: Insets.screenV,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: theme.warning.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: theme.warning.withValues(alpha: 0.3)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '⚠️ ${message.text}',
-              style: TextStyle(
-                color: theme.warning,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                TextButton.icon(
-                  onPressed: () {
-                    // Trigger /compact via the existing slash command flow
-                    final bridge = ref.read(bridgeServiceProvider);
-                    final chatState = ref.read(chatSessionProvider);
-                    final sessionId = chatState.session?.id;
-                    if (sessionId != null) {
-                      bridge.executeCommand(
-                        sessionId: sessionId,
-                        command: 'compact',
-                        arguments: '',
-                        projectPath: chatState.projectPath,
-                      );
-                    }
-                  },
-                  icon: Icon(Icons.compress, size: 16, color: theme.accent),
-                  label: Text(
-                    'Compact',
-                    style: TextStyle(color: theme.accent, fontSize: 12),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   /// SDK v1.2.1: Agent indicator pill badge (like VariantBadge)
   Widget _buildAgentPill(String agentName) {
@@ -3975,46 +3790,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
   }
 
-  /// SDK v1.2.1: Enhanced compaction divider with auto/manual/overflow.
+  /// SDK v1.2.1: Enhanced compaction divider — delegates to message_group.dart.
   Widget _buildCompactionDividerEnhanced({
     required bool auto,
     bool overflow = false,
-  }) {
-    final theme = OpenCodeTheme.of(context);
-    final label = overflow
-        ? 'Context compacted (overflow)'
-        : (auto ? 'Context compacted (auto)' : 'Context compacted');
-    return Padding(
-      padding: Insets.screenV,
-      child: Row(
-        children: [
-          Expanded(
-            child: Divider(
-              color: theme.textMuted.withValues(alpha: 0.3),
-              thickness: 1,
-            ),
-          ),
-          Padding(
-            padding: Insets.cardH,
-            child: Text(
-              label,
-              style: TextStyle(
-                color: theme.textMuted,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Divider(
-              color: theme.textMuted.withValues(alpha: 0.3),
-              thickness: 1,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  }) =>
+      buildCompactionDividerEnhanced(context, auto: auto, overflow: overflow);
 
   /// SDK v1.2.1: Patch card — compact file list (like CompactEditCard style)
   Widget _buildPatchCard(List<String> files) {
@@ -4075,193 +3856,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     return toolName == 'write';
   }
 
-  /// Check if a tool is an edit/patch tool (handles all backend naming conventions)
-  /// - OpenCode: 'edit', 'patch'
-  /// - Claude Code: 'str_replace_editor', 'edit'
-  /// - Codex: 'applypatch', 'ApplyPatch'
-  bool _isEditTool(String toolName) {
-    return toolName == 'edit' ||
-        toolName == 'multiedit' ||
-        toolName == 'patch' ||
-        toolName == 'applypatch' ||
-        toolName == 'str_replace_editor' ||
-        toolName == 'str_replace' ||
-        toolName == 'file_editor';
-  }
+  /// Edit tool check — delegates to message_helpers.dart.
+  bool _isEditTool(String toolName) => isEditTool(toolName);
 
-  /// Whether an assistant message contains any file-modifying tool calls.
-  bool _messageHasFileChanges(ChatMessage message) {
-    return message.toolCalls.any((t) {
-      final name = t.name.toLowerCase().replaceFirst('mcp_', '');
-      return _isFileModificationTool(name);
-    });
-  }
 
-  /// Extract file paths from file-modifying tool calls in a message.
-  /// Uses the same field-name heuristics as CompactEditCard._getFilePath().
-  List<String> _extractChangedFilePaths(ChatMessage message) {
-    final paths = <String>{};
-    for (final tool in message.toolCalls) {
-      final name = tool.name.toLowerCase().replaceFirst('mcp_', '');
-      if (!_isFileModificationTool(name)) continue;
-      final path =
-          tool.input['filePath'] as String? ??
-          tool.input['path'] as String? ??
-          tool.input['file_path'] as String? ??
-          tool.input['file'] as String?;
-      if (path != null && path.isNotEmpty) {
-        paths.add(path);
-        continue;
-      }
-      // Codex live: changes array
-      final changes = tool.input['changes'];
-      if (changes is List && changes.isNotEmpty) {
-        for (final c in changes) {
-          if (c is Map<String, dynamic>) {
-            final cp = c['path'] as String?;
-            if (cp != null && cp.isNotEmpty) paths.add(cp);
-          }
-        }
-      }
-    }
-    return paths.toList();
-  }
-
-  /// Check if a tool is a file modification tool (edit, write, patch)
-  /// These tools produce diffs that are shown inline in their compact cards
-  bool _isFileModificationTool(String toolName) {
-    return _isEditTool(toolName) ||
-        toolName == 'write' ||
-        toolName == 'create' ||
-        toolName == 'touch';
-  }
-
-  /// Check if a diff came from a file modification tool (to avoid duplicate display)
-  /// For Claude Code and Codex, file tools and diffs represent the same changes,
-  /// so we hide diffs when file modification tools are present.
-  bool _isDiffFromEditTool(DiffEntry diff, List<ToolCall> tools) {
-    // If there are any file modification tools in this message, hide all diffs
-    // The CompactEditCard/CompactWriteCard already show the changes inline
-    return tools.any((t) {
-      final name = t.name.toLowerCase().replaceFirst('mcp_', '');
-      return _isFileModificationTool(name);
-    });
-  }
-
+  /// Delegates to MessageGroup widget — extracted to message_group.dart.
   Widget _buildMessageGroup(ChatMessage message) {
-    // Task 3: Compaction marker — render as centered divider instead of error bubble
-    if (message.error == 'context_compacted') {
-      return _buildCompactionDivider();
-    }
-    if (message.error == 'context_compacted_overflow') {
-      return _buildCompactionDividerEnhanced(auto: true, overflow: true);
-    }
-    // SDK v1.2.1: Context overflow — show with action buttons
-    if (message.error == 'ContextOverflowError') {
-      return _buildContextOverflowError(message);
-    }
-    // ── SDK 0.2.42: Variant-tagged system messages → compact cards ──
-    if (message.role == MessageRole.system && message.variant != null) {
-      final card = _buildVariantCard(message);
-      if (card != null) {
-        return Padding(
-          padding: EdgeInsets.only(bottom: Spacing.sm),
-          child: card,
-        );
-      }
-    }
-    // PERF: RepaintBoundary isolates this message's painting from others.
-    // Changes to one message don't trigger repaints of nearby messages.
-    return RepaintBoundary(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Reasoning/thinking content (shows model's thinking process)
-          if (message.hasReasoning)
-            Padding(
-              padding: Insets.bottomSm,
-              child: CompactThinkingCard(message: message),
-            ),
-          // Claude Code with ordered parts: Render in arrival order (text-tool-text interleaved)
-          // OpenCode or no parts: Use fixed order (text first, then all tools)
-          if (message.hasOrderedParts)
-            ..._buildOrderedParts(message)
-          else ...[
-            // Feature 6: Pass fork callback to message bubble
-            if (message.text.trim().isNotEmpty || message.isStreaming)
-              MessageBubble(
-                message: message,
-                onForkFromHere: message.role == MessageRole.assistant
-                    ? (messageId) => _forkSession(messageId: messageId)
-                    : null,
-                onResumeFromHere:
-                    widget.isClaudeCode && message.role == MessageRole.assistant
-                    ? (messageId) => _setClaudeResumeFromHere(messageId)
-                    : null,
-                onDeleteMessage:
-                    widget.isOpenCode && message.role == MessageRole.assistant
-                    ? (messageId) => deleteOpenCodeMessageFromChat(
-                        context: context,
-                        ref: ref,
-                        sessionId: message.sessionId,
-                        messageId: messageId,
-                        projectPath:
-                            ref.read(chatSessionProvider).projectPath ??
-                            widget.project.path,
-                      )
-                    : null,
-                onRollback: widget.isCodex ? _showCodexRollbackSheet : null,
-              ),
-            // Tool calls - using new compact card components
-            for (final tool in message.toolCalls)
-              Padding(
-                padding: Insets.topSm,
-                child: _buildToolCard(tool, message.id),
-              ),
-          ],
-          // Diffs - only show standalone diffs that aren't from edit tools
-          // (edit tool diffs are now shown inline in CompactEditCard)
-          for (final diff in message.diffs)
-            if (!_isDiffFromEditTool(diff, message.toolCalls))
-              Padding(
-                padding: Insets.topSm,
-                child: DiffViewer(
-                  diff: diff,
-                  messageId: message.id,
-                  // Claude Code: no per-diff undo (turn-level rewind only)
-                  onUndo: widget.isClaudeCode
-                      ? null
-                      : (messageId, partId) =>
-                            _revertMessage(messageId, partId: partId),
-                  onViewFull: () => _openDiffView(diff, messageId: message.id),
-                ),
-              ),
-          // Subtask notifications (background task completions)
-          for (final subtask in message.subtaskNotifications)
-            Padding(
-              padding: Insets.topSm,
-              child: CompactAgentCard.fromNotification(notification: subtask),
-            ),
-          // Claude Code: Turn-level undo bar after assistant messages with file changes.
-          // Uses the SDK's rewindFiles(userMessageId) which reverts ALL files to a
-          // checkpoint — no per-file undo exists in the SDK.
-          if (widget.isClaudeCode &&
-              message.role == MessageRole.assistant &&
-              !message.isStreaming &&
-              _messageHasFileChanges(message))
-            Builder(
-              builder: (context) {
-                final ccState = ref.watch(ccChatProvider);
-                if (!ccState.canUndo) return const SizedBox.shrink();
-                return CCUndoTurnBar(
-                  changedFiles: _extractChangedFilePaths(message),
-                  onUndo: _ccRewindToCheckpoint,
-                );
-              },
-            ),
-          SizedBox(height: Spacing.lg),
-        ],
-      ),
+    return MessageGroup(
+      message: message,
+      isClaudeCode: widget.isClaudeCode,
+      isOpenCode: widget.isOpenCode,
+      isCodex: widget.isCodex,
+      projectPath: widget.project.path,
+      onFork: ({String? messageId}) => _forkSession(messageId: messageId),
+      onResumeFromHere: _setClaudeResumeFromHere,
+      onRevert: (messageId, {String? partId}) =>
+          _revertMessage(messageId, partId: partId),
+      onOpenDiffView: (diff, {String? messageId}) =>
+          _openDiffView(diff, messageId: messageId),
+      onCcRewind: _ccRewindToCheckpoint,
+      onCodexRollback: _showCodexRollbackSheet,
+      buildVariantCard: _buildVariantCard,
+      buildOrderedParts: _buildOrderedParts,
+      buildToolCard: _buildToolCard,
     );
   }
 
@@ -4436,36 +4053,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     return null; // Unknown variant, fall through to default rendering
   }
 
-  /// Build a compact card for files-persisted events
-  Widget _buildFilesPersistedCard(ChatMessage message) {
-    final theme = OpenCodeTheme.of(context);
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 3),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: theme.bgRaised,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: theme.success.withValues(alpha: 0.25),
-          width: 0.5,
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.save_outlined, size: 16, color: theme.success),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              message.text.replaceFirst('💾 ', ''),
-              style: TextStyle(fontSize: 12, color: theme.text, height: 1.3),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  /// Files-persisted card — delegates to FilesPersistedCard widget.
+  Widget _buildFilesPersistedCard(ChatMessage message) =>
+      FilesPersistedCard(message: message);
 
   /// Build widgets for ordered parts (Claude Code sequential rendering)
   /// Returns widgets in arrival order: text segments and tool calls interleaved
@@ -4788,27 +4378,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
   }
 
-  void _showModelSelector(BuildContext context) {
-    final theme = OpenCodeTheme.of(context);
-    DetailSheet.show(
-      context: context,
-      title: 'Select Model',
-      initialSize: 0.5,
-      child: ModelSelectorContent(
-        onModelSelected: (model) {
-          ref.read(selectionProvider.notifier).selectModelFromString(model);
-          Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Switched to $model'),
-              backgroundColor: theme.backgroundPanel,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        },
-      ),
-    );
-  }
+  void _showModelSelector(BuildContext context) =>
+      showModelsDialog(context, ref);
+
 
   /// Auto-send a pending CC message when the turn completes.
   /// Uses the same CC send flow as _sendMessage (config, model, sessionId, etc.)
