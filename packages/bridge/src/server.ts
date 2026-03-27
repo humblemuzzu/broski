@@ -1,9 +1,9 @@
 import type { ServerWebSocket } from "bun";
-import { mkdir, open, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { watch as fsWatch, type FSWatcher } from "node:fs";
 import { homedir } from "node:os";
-import { basename, dirname, join, resolve, sep } from "node:path";
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { dirname, join, resolve, sep } from "node:path";
+import { createHash } from "node:crypto";
 import type { OpenCodeConnector } from "./connectors/opencode";
 import type {
 	AgentStatusInfo,
@@ -81,7 +81,7 @@ import {
 import { PtyManager } from "./pty/manager";
 import { PtyRuntime } from "./pty/runtime";
 import { ensureTlsMaterial, isTlsEnabledByEnv, type TlsMaterial } from "./tls";
-import { getDefaultAllowedPaths, IS_WINDOWS, isCompiledBinary } from "./platform";
+import { isCompiledBinary } from "./platform";
 import { loadLocalLicenseState, refreshLocalLicenseFromCloud, type LocalLicenseState } from "./license";
 import type { BridgeLogger } from "./logging/logger";
 import { startClaudeCodeExternalTail as _startClaudeCodeExternalTail } from "./cc-external-tail";
@@ -89,9 +89,26 @@ import { resolveCodexExternalSessionFile as _resolveCodexExternalSessionFile, st
 import { startOpenCodeExternalTail as _startOpenCodeExternalTail } from "./oc-external-tail";
 import { createFetchHandler, type HandleHttpDeps, type FetchHandlerDeps } from "./http-handler";
 import { toErrorMessage, toPublicErrorMessage, buildProxyPortAllowlist } from "./http-utils";
+// Extracted modules
+import {
+	type AuthTokenState,
+	createNewAuthState,
+	loadOrCreateAuthState,
+	loadOrCreateAuthToken,
+	validateAuthToken,
+} from "./auth-token";
+import {
+	isLoopbackAddress,
+	isTailscaleAddress,
+	hasPrototypePoisonKeys,
+	isSafeClaudeCommandName,
+	resolveClaudeCommandFilePath,
+	getSecurePath,
+} from "./security";
 
-const TOKEN_FILE_LEGACY = resolve(homedir(), ".broski", "token");
-const TOKEN_FILE = resolve(homedir(), ".broski", "token.json");
+// Re-export for backward compatibility (external consumers import from './server')
+export { loadOrCreateAuthState, loadOrCreateAuthToken, type AuthTokenState } from "./auth-token";
+
 // Debug flags are dev-only — disabled in compiled binaries to prevent leaking
 // session IDs, file paths, and internal state in production console output.
 // All log calls go through the leveled logger (logUser/logInfo/logDebug/logError)
@@ -99,33 +116,6 @@ const TOKEN_FILE = resolve(homedir(), ".broski", "token.json");
 const DEBUG_RTS = !isCompiledBinary() && process.env.BROSKI_DEBUG_RTS === "1";
 const DEBUG_CX_GLOBAL = !isCompiledBinary() && process.env.BROSKI_DEBUG_CX_GLOBAL === "1";
 const BRIDGE_PROTOCOL_VERSION = "1.0.0";
-
-function isLoopbackAddress(address: string | undefined): boolean {
-	if (!address) return false;
-	if (address === "127.0.0.1" || address === "::1") return true;
-	if (address.startsWith("::ffff:127.")) return true;
-	return false;
-}
-
-function isTailscaleAddress(address: string | undefined): boolean {
-	if (!address) return false;
-	const a = address.trim().toLowerCase();
-	// IPv6-mapped IPv4
-	const v4 = a.startsWith("::ffff:") ? a.slice("::ffff:".length) : a;
-
-	// IPv4: 100.64.0.0/10
-	const m = v4.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-	if (m) {
-		const o1 = Number(m[1]);
-		const o2 = Number(m[2]);
-		if (o1 === 100 && o2 >= 64 && o2 <= 127) return true;
-		return false;
-	}
-
-	// IPv6 (Tailscale ULA range)
-	if (a.startsWith("fd7a:115c:a1e0:")) return true;
-	return false;
-}
 
 function safeString(value: unknown): string {
 	return typeof value === "string" ? value : "";
@@ -139,241 +129,9 @@ function isTruthyEnv(value: string | undefined, fallback: boolean): boolean {
 	return fallback;
 }
 
-function hasPrototypePoisonKeys(value: unknown, depth = 0): boolean {
-	if (!value || typeof value !== "object") return false;
-	if (depth > 50) return true;
-	if (Array.isArray(value)) {
-		for (const v of value) {
-			if (hasPrototypePoisonKeys(v, depth + 1)) return true;
-		}
-		return false;
-	}
-	const obj = value as Record<string, unknown>;
-	// Disallow keys commonly used for prototype pollution.
-	if (Object.prototype.hasOwnProperty.call(obj, "__proto__")) return true;
-	if (Object.prototype.hasOwnProperty.call(obj, "prototype")) return true;
-	if (Object.prototype.hasOwnProperty.call(obj, "constructor")) return true;
-	for (const k of Object.keys(obj)) {
-		if (hasPrototypePoisonKeys(obj[k], depth + 1)) return true;
-	}
-	return false;
-}
-
-function isSafeClaudeCommandName(name: string): boolean {
-	const trimmed = (name || "").trim();
-	if (trimmed.length < 1 || trimmed.length > 128) return false;
-	if (trimmed.includes("/") || trimmed.includes("\\")) return false;
-	return trimmed === basename(trimmed);
-}
-
-function resolveClaudeCommandFilePath(params: {
-	cwd: string;
-	source: "project" | "user";
-	name: string;
-}): string | null {
-	const baseDir =
-		params.source === "project" ? join(params.cwd, ".claude", "commands") : join(homedir(), ".claude", "commands");
-
-	const parts = params.name.split(":");
-	if (parts.some((p) => p.length === 0)) return null;
-
-	const file = parts.length > 0 ? parts[parts.length - 1] : undefined;
-	if (!file) return null;
-
-	const dirParts = parts.slice(0, -1);
-	const filePath = join(baseDir, ...dirParts, `${file}.md`);
-
-	const resolvedBase = resolve(baseDir);
-	const resolvedFile = resolve(filePath);
-	if (resolvedFile !== resolvedBase && !resolvedFile.startsWith(resolvedBase + sep)) return null;
-	return resolvedFile;
-}
-
-
 function mapCodexThread(thread: any, nameOverride?: string): CodexThread & { threadName?: string } {
 	return mapCodexThreadFromSdk({ thread, nameOverride, safeString });
 }
-
-// Security: Generate a random auth token
-function generateAuthToken(): string {
-	return randomBytes(24).toString("base64url");
-}
-
-type AuthTokenState = {
-	version: 1;
-	token: string;
-	createdAt: number;
-	expiresAt: number;
-	lastUsedAt?: number;
-};
-
-function getTokenTtlMs(tokenTtlDays?: number): number {
-	const envDays = Number(process.env.BROSKI_TOKEN_TTL_DAYS ?? "7");
-	const days = tokenTtlDays ?? (Number.isFinite(envDays) ? envDays : 7);
-	const ttlMs = Math.floor((Number.isFinite(days) ? days : 7) * 24 * 60 * 60 * 1000);
-	// Minimum: 1 hour, Maximum: 90 days (defense-in-depth against misconfig)
-	return Math.min(Math.max(ttlMs, 60 * 60 * 1000), 90 * 24 * 60 * 60 * 1000);
-}
-
-function isLikelyValidToken(token: string): boolean {
-	// Base64url token generated by generateAuthToken(). Keep this strict to avoid weird inputs.
-	if (!token) return false;
-	if (token.length < 16 || token.length > 128) return false;
-	return /^[A-Za-z0-9_-]+$/.test(token);
-}
-
-async function persistAuthState(state: AuthTokenState): Promise<void> {
-	await mkdir(dirname(TOKEN_FILE), { recursive: true });
-	await writeFile(TOKEN_FILE, JSON.stringify(state), { mode: 0o600 });
-}
-
-async function createNewAuthState(now = Date.now(), tokenTtlDays?: number): Promise<AuthTokenState> {
-	const token = generateAuthToken();
-	const ttlMs = getTokenTtlMs(tokenTtlDays);
-	const state: AuthTokenState = {
-		version: 1,
-		token,
-		createdAt: now,
-		expiresAt: now + ttlMs,
-		lastUsedAt: now,
-	};
-	await persistAuthState(state);
-	// Best-effort: remove legacy token file to avoid confusion.
-	try {
-		await rm(TOKEN_FILE_LEGACY, { force: true });
-	} catch {
-		// ignore
-	}
-	return state;
-}
-
-export async function loadOrCreateAuthState(forceNew = false, tokenTtlDays?: number): Promise<AuthTokenState> {
-	const now = Date.now();
-
-	if (!forceNew) {
-		// New format.
-		try {
-			const raw = await readFile(TOKEN_FILE, "utf-8");
-			const parsed = JSON.parse(raw) as Partial<AuthTokenState>;
-			const token = typeof parsed.token === "string" ? parsed.token.trim() : "";
-			const createdAt = Number(parsed.createdAt ?? 0) || now;
-			const expiresAt = Number(parsed.expiresAt ?? 0) || createdAt + getTokenTtlMs(tokenTtlDays);
-			const lastUsedAt = Number(parsed.lastUsedAt ?? 0) || undefined;
-
-			if (parsed.version === 1 && isLikelyValidToken(token)) {
-				if (now > expiresAt) {
-					// Rotate on read if expired.
-					return await createNewAuthState(now, tokenTtlDays);
-				}
-				const state: AuthTokenState = {
-					version: 1,
-					token,
-					createdAt,
-					expiresAt,
-					...(lastUsedAt ? { lastUsedAt } : {}),
-				};
-				// Touch last-used (best-effort).
-				void persistAuthState({ ...state, lastUsedAt: now }).catch(() => {});
-				return state;
-			}
-		} catch {
-			// fall through
-		}
-
-		// Legacy format migration.
-		try {
-			const existing = await readFile(TOKEN_FILE_LEGACY, "utf-8");
-			const token = existing.trim();
-			if (isLikelyValidToken(token)) {
-				const ttlMs = getTokenTtlMs(tokenTtlDays);
-				const state: AuthTokenState = {
-					version: 1,
-					token,
-					createdAt: now,
-					expiresAt: now + ttlMs,
-					lastUsedAt: now,
-				};
-				await persistAuthState(state);
-				try {
-					await rm(TOKEN_FILE_LEGACY, { force: true });
-				} catch {
-					// ignore
-				}
-				return state;
-			}
-		} catch {
-			// fall through
-		}
-	}
-
-	return await createNewAuthState(now, tokenTtlDays);
-}
-
-// Load or create persistent auth token (compat API for older callers)
-export async function loadOrCreateAuthToken(forceNew = false, tokenTtlDays?: number): Promise<string> {
-	const state = await loadOrCreateAuthState(forceNew, tokenTtlDays);
-	return state.token;
-}
-
-// Security: Constant-time token comparison to prevent timing attacks
-function tokenSha256(token: string): Buffer {
-	return createHash("sha256").update(token, "utf8").digest();
-}
-
-function validateAuthToken(provided: string, expectedToken: string): boolean {
-	try {
-		if (!isLikelyValidToken(provided)) return false;
-		const providedHash = tokenSha256(provided);
-		const expectedHash = tokenSha256(expectedToken);
-		return timingSafeEqual(providedHash, expectedHash);
-	} catch {
-		return false;
-	}
-}
-
-const SECURITY_ALLOWED_BASE_PATHS = (() => {
-	const defaults = getDefaultAllowedPaths();
-	// In compiled binaries, NEVER allow env var to override allowed paths.
-	// An attacker could set BROSKI_ALLOWED_BASE_PATHS=/ to read any file.
-	if (isCompiledBinary()) return defaults.map((p) => resolve(p));
-	const raw = (process.env.BROSKI_ALLOWED_BASE_PATHS ?? "").trim();
-	const bases = raw
-		? raw
-				.split(",")
-				.map((p) => p.trim())
-				.filter(Boolean)
-		: defaults;
-	return bases.map((p) => resolve(p));
-})();
-
-function isSecureBasePath(realPath: string): boolean {
-	return SECURITY_ALLOWED_BASE_PATHS.some((base) => realPath === base || realPath.startsWith(base + sep));
-}
-
-async function getSecurePath(requestedPath: string): Promise<string | null> {
-	try {
-		if (!requestedPath || typeof requestedPath !== "string") return null;
-		if (requestedPath.length > 4096) return null;
-		if (requestedPath.includes("\0")) return null;
-		// Reject ASCII control chars (helps avoid odd filesystem edge cases).
-		if (/[\u0000-\u001F]/.test(requestedPath)) return null;
-
-		const expandedPath = requestedPath.startsWith("~") ? requestedPath.replace(/^~/, homedir()) : requestedPath;
-
-		const abs = resolve(expandedPath);
-		// Check the logical path (pre-symlink resolution) is within allowed bases.
-		if (!isSecureBasePath(abs)) return null;
-
-		const rp = await realpath(abs).catch(() => null);
-		if (!rp) return null;
-
-		// Check the real path (post-symlink resolution) is still within allowed bases.
-		return isSecureBasePath(rp) ? rp : null;
-	} catch {
-		return null;
-	}
-}
-
 
 // File operations: thin wrappers binding getSecurePath to extracted functions (file-ops.ts)
 async function listFilesDirectly(filePath: string) {
