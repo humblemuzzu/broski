@@ -33,7 +33,7 @@ import 'dialogs/rename_dialog.dart';
 import 'dialogs/models_dialog.dart';
 import 'dialogs/agents_dialog.dart';
 import '../widgets/chat/floating_header.dart';
-import '../widgets/chat/floating_input_bar.dart';
+import '../widgets/chat/input_bar_content.dart';
 import '../widgets/chat/command_autocomplete.dart';
 import '../widgets/chat/custom_tool_autocomplete.dart';
 import '../widgets/chat/cc_queue_bar.dart';
@@ -63,13 +63,9 @@ import '../providers/pi_provider.dart';
 import 'pi/pi_extension_ui_request_handler.dart';
 import 'sheets/pi_session_sidebar_sheet.dart';
 import '../providers/file_search_provider.dart';
-import '../providers/input_style_provider.dart';
 import '../providers/opencode_variant_provider.dart';
 import '../providers/claude_code_variant_provider.dart';
-import '../providers/glow_style_provider.dart';
-import '../providers/prompt_accent_provider.dart';
 import '../providers/selection_provider.dart';
-import '../models/prompt_accent_color.dart';
 import '../providers/service_providers.dart';
 import '../services/haptics_service.dart';
 import '../services/image_picker_service.dart';
@@ -108,7 +104,6 @@ import 'package:broski/theme/app_icons.dart';
 import '../widgets/chat/retry_status_banner.dart';
 import '../widgets/chat/revert_state_banner.dart';
 import '../widgets/chat/subagent_activity.dart';
-import '../widgets/chat/cli_input_bar.dart';
 import '../widgets/chat/files_persisted_card.dart';
 import '../widgets/chat/message_group.dart';
 import '../widgets/chat/message_helpers.dart';
@@ -366,7 +361,6 @@ class ChatScreen extends ConsumerStatefulWidget {
 
 class _ChatScreenState extends ConsumerState<ChatScreen>
     with SingleTickerProviderStateMixin {
-
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final HapticsService _haptics = HapticsService();
@@ -2894,12 +2888,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   /// Show agents selection dialog
   void _showAgentsDialog() => showAgentsDialog(
-        context,
-        agents: _agents,
-        selectedAgent: _selectedAgent,
-        onAgentSelected: (name) => setState(() => _selectedAgent = name),
-      );
-
+    context,
+    agents: _agents,
+    selectedAgent: _selectedAgent,
+    onAgentSelected: (name) => setState(() => _selectedAgent = name),
+  );
 
   @override
   void dispose() {
@@ -3351,7 +3344,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   // PERF: Input bar version that takes individual params instead of full chatState
-  // This allows using select() in the build method for better performance
+  // This allows using select() in the build method for better performance.
+  // Delegates to ChatInputBarContent (extracted widget).
   Widget _buildInputBarWithParams({
     required BridgeConnectionState connection,
     required List<ChatMessage> messages,
@@ -3359,350 +3353,41 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     CCSessionInit? ccInit,
     String? ccModel,
   }) {
-    final inputStyle = ref.watch(inputStyleProvider);
-    // Busy logic per agent:
-    // - CC: busy only if streaming AND already has a queued message (allow 1 queue)
-    // - Codex: never busy — if streaming, _sendMessage steers the agent mid-turn
-    // - OpenCode: never busy — SDK's promptAsync() queues server-side
-    final pendingCCMessage = widget.isClaudeCode
-        ? ref.watch(chatSessionProvider.select((s) => s.pendingCCMessage))
-        : null;
-    final isBusy = widget.isClaudeCode
-        ? (ccIsStreaming && pendingCCMessage != null)
-        : false;
-    final hasContent =
-        _controller.text.trim().isNotEmpty || _attachedFiles.isNotEmpty;
-    final canSend =
-        connection.isConnected &&
-        !connection.isOfflineMode &&
-        !isBusy &&
-        hasContent;
-    // Get CC config for Claude Code mode
-    final ccConfig = widget.isClaudeCode
-        ? ref.watch(ccConfigProvider).valueOrNull
-        : null;
-    // Get custom prompt accent color and glow style
-    final promptAccent = ref.watch(promptAccentProvider);
-    final glowStyle = ref.watch(glowStyleProvider);
-    final theme = OpenCodeTheme.of(context);
-    final customAccent = promptAccent == PromptAccentColor.themePrimary
-        ? null
-        : promptAccent.getColor(theme.primary);
-    // Determine backend type for both input bar styles
-    final backend = widget.isClaudeCode
-        ? AgentType.claudeCode
-        : widget.isCodex
-        ? AgentType.codex
-        : widget.isPi
-        ? AgentType.pi
-        : AgentType.opencode;
-    // Build project for power sheet
-    final powerProject = widget.isOpenCode
-        ? widget.project
-        : ProjectSummary(
-            id: '',
-            name: widget.projectName,
-            path: widget.effectivePath,
-          );
-    Widget inputBar;
-    if (inputStyle == InputBarStyle.cli) {
-      inputBar = CliStyleInputBar(
-        controller: _controller,
-        focusNode: _inputFocusNode,
-        onSend: () =>
-            _sendMessageWithParams(connection, messages, ccIsStreaming),
-        isBusy: isBusy,
-        canSend: canSend,
-        backend: backend,
-        project: powerProject,
-        isOfflineMode: connection.isOfflineMode,
-        currentAgent: widget.isOpenCode ? _selectedAgent : null,
-        agents: widget.isOpenCode ? _agents : const [],
-        onAgentChanged: widget.isOpenCode
-            ? (agent) => setState(() => _selectedAgent = agent)
-            : null,
-        currentModel: widget.isOpenCode
-            ? ref.watch(selectionProvider).model
-            : null,
-        onModelTap: widget.isClaudeCode
-            ? () => _showClaudeCodeModelSheet()
-            : widget.isCodex
-            ? () => _showCodexModelSheet()
-            : widget.isPi
-            ? () => _showPiModelSheet()
-            : () => _showModelsDialog(),
-        attachedFiles: _attachedFiles,
-        onRemoveAttachment: _removeAttachedFile,
-        showFileAutocomplete: _showFileAutocomplete,
-        onFileSelect: _handleFileSelection,
-        onAttachTap: () => _showAttachmentOptions(context),
-        onTakePhoto: _pickImageFromCamera,
-        attachIcon: AppIcons.add,
-        // Claude Code specific
-        ccPermissionMode: widget.isClaudeCode
-            ? (ccConfig?.permissionMode ?? ccInit?.permissionMode)
-            : null,
-        ccModel: widget.isClaudeCode
-            ? (ccConfig?.model ??
-                  ccModel ??
-                  ccInit?.model ??
-                  widget.ccSession?.model ??
-                  widget.ccDraftModel)
-            : null,
-        onCCModelTap: widget.isClaudeCode
-            ? () => _showClaudeCodeModelSheet()
-            : null,
-        onCCPermissionModeChanged: widget.isClaudeCode
-            ? (mode) async {
-                final messenger = ScaffoldMessenger.of(context);
-                final notifier = ref.read(ccConfigProvider.notifier);
-                final existing = ref.read(ccConfigProvider).valueOrNull;
-                await notifier.updateConfig(
-                  existing?.copyWith(permissionMode: mode) ??
-                      ClaudeCodeConfig(
-                        permissionMode: mode,
-                        allowedTools: const [],
-                        disallowedTools: const [],
-                      ),
-                );
-
-                final liveState = ref.read(chatSessionProvider);
-                final sessionId = liveState.ccSessionId;
-                final canApplyLive =
-                    liveState.ccIsStreaming &&
-                    sessionId != null &&
-                    sessionId.isNotEmpty;
-                if (!canApplyLive) return;
-
-                final ok = await ref
-                    .read(bridgeServiceProvider)
-                    .ccSetPermissionMode(
-                      sessionId: sessionId,
-                      mode: mode.wireValue,
-                    );
-                if (!mounted) return;
-                messenger.showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      ok
-                          ? 'Permission mode applied to current Claude turn.'
-                          : 'Saved as default. Live turn update failed.',
-                    ),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              }
-            : null,
-        // Codex specific
-        codexModel: widget.isCodex
-            ? ref.watch(chatSessionProvider.select((s) => s.cxModel))
-            : null,
-        onCodexModelTap: widget.isCodex ? () => _showCodexModelSheet() : null,
-        // Codex Collaboration Mode (SDK v0.87.0+)
-        codexCollabMode: widget.isCodex
-            ? ref.watch(codexSettingsProvider).collaborationMode
-            : null,
-        onCodexCollabModeChanged: widget.isCodex
-            ? (mode) => ref
-                  .read(codexSettingsProvider.notifier)
-                  .setCollaborationMode(mode)
-            : null,
-        customAccentColor: customAccent,
-        glowStyle: glowStyle,
-        // Variant/Thinking Level (all backends)
-        currentVariant: widget.isOpenCode
-            ? ref
-                  .watch(openCodeVariantProvider)
-                  .getVariant(ref.watch(selectionProvider).model)
-            : widget.isClaudeCode
-            ? ref.watch(claudeCodeVariantProvider).selectedVariant
-            : widget.isCodex
-            ? ref.watch(codexSettingsProvider).reasoningEffort.wireValue
-            : widget.isPi
-            ? ref
-                  .watch(chatSessionProvider.select((s) => s.piThinkingLevel))
-                  ?.wireValue
-            : null,
-        availableVariants: widget.isOpenCode
-            ? ref
-                  .watch(openCodeVariantProvider)
-                  .getAvailableVariants(ref.watch(selectionProvider).model)
-            : widget.isClaudeCode
-            ? claudeCodeVariants
-            : widget.isCodex
-            ? CodexReasoningEffort.values.map((e) => e.wireValue).toList()
-            : widget.isPi
-            ? PiThinkingLevel.values.map((e) => e.wireValue).toList()
-            : const [],
-        onVariantChanged: widget.isOpenCode
-            ? (v) {
-                final model = ref.read(selectionProvider).model;
-                if (model != null && v != null) {
-                  ref
-                      .read(openCodeVariantProvider.notifier)
-                      .setVariant(model, v);
-                } else if (model != null && v == null) {
-                  ref
-                      .read(openCodeVariantProvider.notifier)
-                      .clearVariant(model);
-                }
-              }
-            : widget.isClaudeCode
-            ? (v) => ref.read(claudeCodeVariantProvider.notifier).setVariant(v)
-            : widget.isCodex
-            ? (v) => _setCodexReasoningEffort(v)
-            : widget.isPi
-            ? (v) => _setPiThinkingLevel(v)
-            : null,
-      );
-    } else {
-      // FloatingInputBar uses the backend/project declared above
-      inputBar = FloatingInputBar(
-        controller: _controller,
-        focusNode: _inputFocusNode,
-        onSend: () =>
-            _sendMessageWithParams(connection, messages, ccIsStreaming),
-        isBusy: isBusy,
-        canSend: canSend,
-        backend: backend,
-        project: powerProject,
-        isOfflineMode: connection.isOfflineMode,
-        attachedFiles: _attachedFiles,
-        onRemoveAttachment: _removeAttachedFile,
-        showFileAutocomplete: _showFileAutocomplete,
-        onFileSelect: _handleFileSelection,
-        onAttachTap: () => _showAttachmentOptions(context),
-        onTakePhoto: _pickImageFromCamera,
-        attachIcon: AppIcons.add,
-        // Model selector
-        currentModel: widget.isClaudeCode
-            ? ref.watch(chatSessionProvider.select((s) => s.ccModel))
-            : widget.isCodex
-            ? ref.watch(chatSessionProvider.select((s) => s.cxModel))
-            : widget.isPi
-            ? ref.watch(chatSessionProvider.select((s) => s.piModel))
-            : ref.watch(selectionProvider).model?.displayString,
-        onModelTap: widget.isClaudeCode
-            ? () => _showClaudeCodeModelSheet()
-            : widget.isCodex
-            ? () => _showCodexModelSheet()
-            : widget.isPi
-            ? () => _showPiModelSheet()
-            : () => _showModelsDialog(),
-        // OpenCode specific
-        agents: widget.isOpenCode ? _agents : const [],
-        currentAgent: widget.isOpenCode ? _selectedAgent : null,
-        onAgentChanged: widget.isOpenCode
-            ? (agent) => setState(() => _selectedAgent = agent)
-            : null,
-        // Claude Code specific
-        ccPermissionMode: widget.isClaudeCode
-            ? (ref.watch(ccConfigProvider).valueOrNull?.permissionMode ??
-                  ref
-                      .watch(chatSessionProvider.select((s) => s.ccInit))
-                      ?.permissionMode)
-            : null,
-        onCCPermissionModeChanged: widget.isClaudeCode
-            ? (mode) async {
-                final messenger = ScaffoldMessenger.of(context);
-                final notifier = ref.read(ccConfigProvider.notifier);
-                final existing = ref.read(ccConfigProvider).valueOrNull;
-                await notifier.updateConfig(
-                  existing?.copyWith(permissionMode: mode) ??
-                      ClaudeCodeConfig(
-                        permissionMode: mode,
-                        allowedTools: const [],
-                        disallowedTools: const [],
-                      ),
-                );
-
-                final liveState = ref.read(chatSessionProvider);
-                final sessionId = liveState.ccSessionId;
-                final canApplyLive =
-                    liveState.ccIsStreaming &&
-                    sessionId != null &&
-                    sessionId.isNotEmpty;
-                if (!canApplyLive) return;
-
-                final ok = await ref
-                    .read(bridgeServiceProvider)
-                    .ccSetPermissionMode(
-                      sessionId: sessionId,
-                      mode: mode.wireValue,
-                    );
-                if (!mounted) return;
-                messenger.showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      ok
-                          ? 'Permission mode applied to current Claude turn.'
-                          : 'Saved as default. Live turn update failed.',
-                    ),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              }
-            : null,
-        // Codex specific
-        codexCollabMode: widget.isCodex
-            ? ref.watch(codexSettingsProvider).collaborationMode
-            : null,
-        onCodexCollabModeChanged: widget.isCodex
-            ? (mode) => ref
-                  .read(codexSettingsProvider.notifier)
-                  .setCollaborationMode(mode)
-            : null,
-        // Variant/Thinking Level (all backends)
-        currentVariant: widget.isOpenCode
-            ? ref
-                  .watch(openCodeVariantProvider)
-                  .getVariant(ref.watch(selectionProvider).model)
-            : widget.isClaudeCode
-            ? ref.watch(claudeCodeVariantProvider).selectedVariant
-            : widget.isCodex
-            ? ref.watch(codexSettingsProvider).reasoningEffort.wireValue
-            : widget.isPi
-            ? ref
-                  .watch(chatSessionProvider.select((s) => s.piThinkingLevel))
-                  ?.wireValue
-            : null,
-        availableVariants: widget.isOpenCode
-            ? ref
-                  .watch(openCodeVariantProvider)
-                  .getAvailableVariants(ref.watch(selectionProvider).model)
-            : widget.isClaudeCode
-            ? claudeCodeVariants
-            : widget.isCodex
-            ? CodexReasoningEffort.values.map((e) => e.wireValue).toList()
-            : widget.isPi
-            ? PiThinkingLevel.values.map((e) => e.wireValue).toList()
-            : const [],
-        onVariantChanged: widget.isOpenCode
-            ? (v) {
-                final model = ref.read(selectionProvider).model;
-                if (model != null && v != null) {
-                  ref
-                      .read(openCodeVariantProvider.notifier)
-                      .setVariant(model, v);
-                } else if (model != null && v == null) {
-                  ref
-                      .read(openCodeVariantProvider.notifier)
-                      .clearVariant(model);
-                }
-              }
-            : widget.isClaudeCode
-            ? (v) => ref.read(claudeCodeVariantProvider.notifier).setVariant(v)
-            : widget.isCodex
-            ? (v) => _setCodexReasoningEffort(v)
-            : widget.isPi
-            ? (v) => _setPiThinkingLevel(v)
-            : null,
-        // Glow style and accent color
-        glowStyle: glowStyle,
-        accentColor: customAccent,
-      );
-    }
-    return inputBar;
+    return ChatInputBarContent(
+      controller: _controller,
+      focusNode: _inputFocusNode,
+      attachedFiles: _attachedFiles,
+      showFileAutocomplete: _showFileAutocomplete,
+      connection: connection,
+      ccIsStreaming: ccIsStreaming,
+      ccInit: ccInit,
+      ccModel: ccModel,
+      isClaudeCode: widget.isClaudeCode,
+      isCodex: widget.isCodex,
+      isPi: widget.isPi,
+      selectedAgent: _selectedAgent,
+      agents: _agents,
+      project: widget.project,
+      projectName: widget.projectName,
+      effectivePath: widget.effectivePath,
+      ccSessionModel: widget.ccSession?.model,
+      ccDraftModel: widget.ccDraftModel,
+      onSend: () => _sendMessageWithParams(connection, messages, ccIsStreaming),
+      onRemoveAttachment: _removeAttachedFile,
+      onFileSelect: _handleFileSelection,
+      onAttachTap: () => _showAttachmentOptions(context),
+      onTakePhoto: _pickImageFromCamera,
+      onAgentChanged: (agent) => setState(() => _selectedAgent = agent),
+      onModelTap: widget.isClaudeCode
+          ? _showClaudeCodeModelSheet
+          : widget.isCodex
+          ? _showCodexModelSheet
+          : widget.isPi
+          ? _showPiModelSheet
+          : _showModelsDialog,
+      onSetCodexReasoningEffort: _setCodexReasoningEffort,
+      onSetPiThinkingLevel: _setPiThinkingLevel,
+    );
   }
 
   /// Builds the appropriate compact card for a tool call
@@ -3757,7 +3442,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
   }
 
-
   // _buildSubtaskChip removed — using CompactAgentCard.fromNotification() instead
   /// Task 7: Build a muted retry indicator
   Widget _buildRetryIndicator(int attempt, String? errorMessage) {
@@ -3765,7 +3449,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       retryInfo: RetryInfo(attempt: attempt, errorMessage: errorMessage),
     );
   }
-
 
   /// SDK v1.2.1: Agent indicator pill badge (like VariantBadge)
   Widget _buildAgentPill(String agentName) {
@@ -3794,8 +3477,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   Widget _buildCompactionDividerEnhanced({
     required bool auto,
     bool overflow = false,
-  }) =>
-      buildCompactionDividerEnhanced(context, auto: auto, overflow: overflow);
+  }) => buildCompactionDividerEnhanced(context, auto: auto, overflow: overflow);
 
   /// SDK v1.2.1: Patch card — compact file list (like CompactEditCard style)
   Widget _buildPatchCard(List<String> files) {
@@ -3858,7 +3540,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   /// Edit tool check — delegates to message_helpers.dart.
   bool _isEditTool(String toolName) => isEditTool(toolName);
-
 
   /// Delegates to MessageGroup widget — extracted to message_group.dart.
   Widget _buildMessageGroup(ChatMessage message) {
@@ -4380,7 +4061,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   void _showModelSelector(BuildContext context) =>
       showModelsDialog(context, ref);
-
 
   /// Auto-send a pending CC message when the turn completes.
   /// Uses the same CC send flow as _sendMessage (config, model, sessionId, etc.)
