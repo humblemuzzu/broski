@@ -20,7 +20,6 @@ import 'sheets/cc_model_sheet.dart';
 import 'sheets/pi_model_sheet.dart';
 import 'sheets/cc_memory_scope_picker.dart';
 import 'sheets/attachment_options_sheet.dart';
-import 'dialogs/share_dialog.dart';
 import 'dialogs/help_dialog.dart';
 import 'dialogs/timeline_dialog.dart';
 import 'dialogs/fork_dialog.dart';
@@ -52,6 +51,8 @@ import 'chat/commands_loader.dart';
 import 'chat/context_loader.dart';
 import 'chat/session_forker.dart';
 import 'chat/session_compactor.dart';
+import 'chat/session_actions.dart';
+import 'chat/session_setup.dart';
 import 'chat/project_initializer.dart';
 import 'chat/permission_responder.dart';
 import 'chat/transcript_exporter.dart';
@@ -77,7 +78,6 @@ import '../providers/codex_settings_provider.dart';
 import '../providers/pi_provider.dart';
 import 'pi/pi_extension_ui_request_handler.dart';
 import '../providers/file_search_provider.dart';
-import '../providers/opencode_variant_provider.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../services/haptics_service.dart';
@@ -92,8 +92,6 @@ import '../widgets/power_sheet.dart';
 import '../widgets/app_background.dart';
 import '../widgets/opencode_branding.dart';
 import '../providers/appearance_provider.dart';
-import 'diff_view_screen.dart';
-import '../utils/error_utils.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import '../widgets/chat/retry_status_banner.dart';
@@ -605,20 +603,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   void _maybeSendInitialPrompt() {
-    if (_initialPromptSent) return;
-    final prompt = widget.initialPrompt?.trim() ?? '';
-    if (prompt.isEmpty) return;
-    final connection = ref.read(connectionProvider);
-    if (!connection.isConnected) return;
-    final chatState = ref.read(chatSessionProvider);
-    // Avoid sending twice if we already have messages (e.g., opening an existing session).
-    if (chatState.messages.isNotEmpty) {
-      _initialPromptSent = true;
-      return;
-    }
-    _initialPromptSent = true;
-    _controller.text = prompt;
-    _sendMessage(connection, chatState);
+    _initialPromptSent = maybeSendInitialPrompt(
+      ref: ref,
+      initialPrompt: widget.initialPrompt,
+      alreadySent: _initialPromptSent,
+      controller: _controller,
+      sendMessage: _sendMessage,
+    );
   }
 
   Future<void> _hydrateSession() async {
@@ -691,20 +682,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   /// Load available variants (thinking levels) for OpenCode models.
-  Future<void> _loadOpenCodeVariants() async {
-    if (!widget.isOpenCode) return;
-    final bridge = ref.read(bridgeServiceProvider);
-    try {
-      final providersData = await bridge.listProviders();
-      if (!mounted) return;
-      ref
-          .read(openCodeVariantProvider.notifier)
-          .updateAvailableVariants(providersData);
-    } catch (e) {
-      // Silently fail - variants are optional
-      debugPrint('Failed to load OpenCode variants: $e');
-    }
-  }
+  Future<void> _loadOpenCodeVariants() =>
+      loadOpenCodeVariants(ref: ref, isOpenCode: widget.isOpenCode);
 
   /// Load slash commands for Claude Code
 
@@ -726,35 +705,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   // Feature 10: Load VCS/Git info
   Future<void> _loadVcsInfo() async {
-    final storage = ref.read(storageServiceProvider);
-    final connection = ref.read(connectionProvider);
-    // Offline mode - use cached VCS info
-    if (connection.isOfflineMode) {
-      final cachedVcs = await storage.getCachedSessionVcs(widget.session.id);
-      if (mounted && cachedVcs != null) {
-        setState(() => _vcsInfo = cachedVcs);
-        ref.read(chatSessionProvider.notifier).setVcsInfo(cachedVcs);
-      }
-      return;
-    }
-    try {
-      final bridge = ref.read(bridgeServiceProvider);
-      final vcsInfo = await bridge.getVcsInfo(projectPath: widget.project.path);
-      if (mounted) {
-        setState(() => _vcsInfo = vcsInfo);
-        ref.read(chatSessionProvider.notifier).setVcsInfo(vcsInfo);
-        // Cache for offline use
-        if (vcsInfo.isAvailable) {
-          await storage.cacheSessionVcs(widget.session.id, vcsInfo);
-        }
-      }
-    } catch (e) {
-      // On error, try cached data
-      final cachedVcs = await storage.getCachedSessionVcs(widget.session.id);
-      if (mounted && cachedVcs != null) {
-        setState(() => _vcsInfo = cachedVcs);
-        ref.read(chatSessionProvider.notifier).setVcsInfo(cachedVcs);
-      }
+    final vcsInfo = await loadVcsInfo(
+      ref: ref,
+      sessionId: widget.session.id,
+      projectPath: widget.project.path,
+    );
+    if (mounted && vcsInfo != null) {
+      setState(() => _vcsInfo = vcsInfo);
     }
   }
 
@@ -768,214 +725,66 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
   }
 
-  void _setClaudeResumeFromHere(String messageId) {
-    if (messageId.isEmpty) return;
-    _haptics.lightImpact();
-    setState(() => _ccResumeSessionAtMessageId = messageId);
-    final theme = OpenCodeTheme.of(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text(
-          'Claude will resume from this message on your next send.',
-        ),
-        backgroundColor: theme.backgroundPanel,
-      ),
-    );
-  }
+  void _setClaudeResumeFromHere(String messageId) => setClaudeResumeFromHere(
+    context: context,
+    messageId: messageId,
+    haptics: _haptics,
+    onResumeIdChanged: (id) => setState(() => _ccResumeSessionAtMessageId = id),
+  );
 
   // Feature 7: Revert/Undo changes
-  Future<void> _revertMessage(String messageId, {String? partId}) async {
-    _haptics.mediumImpact();
-    try {
-      final bridge = ref.read(bridgeServiceProvider);
-      await bridge.revertMessage(
-        widget.session.id,
+  Future<void> _revertMessage(String messageId, {String? partId}) =>
+      revertMessage(
+        context: context,
+        ref: ref,
+        sessionId: widget.session.id,
         messageId: messageId,
-        partId: partId,
         projectPath: widget.project.path,
+        haptics: _haptics,
+        onRefreshContext: _loadSessionContext,
+        partId: partId,
       );
-      if (!mounted) return;
-      final theme = OpenCodeTheme.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Changes reverted'),
-          backgroundColor: theme.backgroundPanel,
-        ),
-      );
-      // Refresh session context to update modified files
-      _loadSessionContext();
-    } catch (e) {
-      if (!mounted) return;
-      final theme = OpenCodeTheme.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to revert: ${humanizeError(e)}'),
-          backgroundColor: theme.error,
-        ),
-      );
-    }
-  }
 
-  void _openDiffView(DiffEntry diff, {String? messageId}) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => DiffViewScreen(
-          diff: diff,
-          messageId: messageId,
-          onUndo: (msgId, partId) => _revertMessage(msgId, partId: partId),
-        ),
-      ),
-    );
-  }
+  void _openDiffView(DiffEntry diff, {String? messageId}) => openDiffView(
+    context: context,
+    diff: diff,
+    messageId: messageId,
+    onUndo: _revertMessage,
+  );
 
   // Feature 7: Unrevert session (reserved for future use)
   // ignore: unused_element
-  Future<void> _unrevertSession() async {
-    try {
-      final bridge = ref.read(bridgeServiceProvider);
-      await bridge.unrevertSession(
-        widget.session.id,
-        projectPath: widget.project.path,
-      );
-      if (!mounted) return;
-      final theme = OpenCodeTheme.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Revert undone'),
-          backgroundColor: theme.backgroundPanel,
-        ),
-      );
-      _loadSessionContext();
-    } catch (e) {
-      if (!mounted) return;
-      final theme = OpenCodeTheme.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to undo revert: ${humanizeError(e)}'),
-          backgroundColor: theme.error,
-        ),
-      );
-    }
-  }
+  Future<void> _unrevertSession() => unrevertSession(
+    context: context,
+    ref: ref,
+    sessionId: widget.session.id,
+    projectPath: widget.project.path,
+    onRefreshContext: _loadSessionContext,
+  );
 
   // Claude Code: Rewind files to the most recent checkpoint.
-  // Uses the SDK's `rewindFiles(userMessageId)` which reverts ALL tracked files
-  // to their state at that user message. Pops the checkpoint from the stack so
-  // subsequent undos go further back.
-  Future<void> _ccRewindToCheckpoint() async {
-    _haptics.mediumImpact();
-    final theme = OpenCodeTheme.of(context);
-    final ccChatState = ref.read(ccChatProvider);
-    if (!ccChatState.canUndo) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('No file changes to undo'),
-          backgroundColor: theme.backgroundPanel,
-        ),
-      );
-      return;
-    }
-    final remaining = ccChatState.checkpoints.length - 1;
-    try {
-      final ccChat = ref.read(ccChatProvider.notifier);
-      final success = await ccChat.rewindToCheckpoint(
-        cwd: widget.effectivePath,
-      );
-      if (!mounted) return;
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              remaining > 0
-                  ? 'File changes reverted ($remaining more undo${remaining == 1 ? '' : 's'} available)'
-                  : 'File changes reverted',
-            ),
-            backgroundColor: theme.backgroundPanel,
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Failed to revert file changes'),
-            backgroundColor: theme.error,
-          ),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to revert: ${humanizeError(e)}'),
-          backgroundColor: theme.error,
-        ),
-      );
-    }
-  }
+  Future<void> _ccRewindToCheckpoint() => ccRewindToCheckpoint(
+    context: context,
+    ref: ref,
+    effectivePath: widget.effectivePath,
+    haptics: _haptics,
+  );
 
   // Feature 8: Share Session
-  Future<void> _shareSession() async {
-    _haptics.mediumImpact();
-    try {
-      final bridge = ref.read(bridgeServiceProvider);
-      final sharedSession = await bridge.shareSession(
-        widget.session.id,
-        projectPath: widget.project.path,
-      );
-      if (!mounted) return;
-      final shareUrl = sharedSession.share?.url;
-      if (shareUrl == null || shareUrl.isEmpty) {
-        final theme = OpenCodeTheme.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Failed to get share URL'),
-            backgroundColor: theme.error,
-          ),
-        );
-        return;
-      }
-      // Show share dialog
-      _showShareDialog(shareUrl);
-    } catch (e) {
-      if (!mounted) return;
-      final theme = OpenCodeTheme.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to share session: ${humanizeError(e)}'),
-          backgroundColor: theme.error,
-        ),
-      );
-    }
-  }
-
-  void _showShareDialog(String url) => showShareDialog(context, url);
-
+  Future<void> _shareSession() => shareSession(
+    context: context,
+    ref: ref,
+    sessionId: widget.session.id,
+    projectPath: widget.project.path,
+    haptics: _haptics,
+  );
   // Feature 8: Unshare Session
-  Future<void> _unshareSession() async {
-    try {
-      final bridge = ref.read(bridgeServiceProvider);
-      await bridge.unshareSession(
-        widget.session.id,
-        projectPath: widget.project.path,
-      );
-      if (!mounted) return;
-      final theme = OpenCodeTheme.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Session is no longer shared'),
-          backgroundColor: theme.backgroundPanel,
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      final theme = OpenCodeTheme.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to unshare: ${humanizeError(e)}'),
-          backgroundColor: theme.error,
-        ),
-      );
-    }
-  }
+  Future<void> _unshareSession() => unshareSession(
+    context: context,
+    ref: ref,
+    sessionId: widget.session.id,
+    projectPath: widget.project.path,
+  );
 
   // Feature 9: Summarize/Compact Session
   Future<void> _compactSession() async {
@@ -2239,4 +2048,3 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
   }
 }
-
