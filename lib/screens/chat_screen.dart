@@ -16,22 +16,14 @@ import '../models/codex.dart';
 import '../models/pi.dart';
 import 'sheets/cx_apps_sheet.dart';
 import 'sheets/cx_agents_sheet.dart';
-import 'sheets/cx_auth_sheet.dart';
-import 'sheets/cx_config_sheet.dart';
-import 'sheets/cx_feedback_sheet.dart';
-import 'sheets/cx_mcp_sheet.dart';
 import 'sheets/cx_rollback_sheet.dart';
-import 'sheets/cx_settings_sheet.dart';
 import 'sheets/cx_model_sheet.dart';
 import 'sheets/cx_remote_skills_sheet.dart';
-import 'sheets/cc_skills_sheet.dart';
-import 'sheets/cc_hooks_sheet.dart';
 import 'sheets/cc_mcp_sheet.dart';
 import 'sheets/cc_tools_sheet.dart';
 import 'sheets/cc_commands_sheet.dart';
 import 'sheets/cc_model_sheet.dart';
 import 'sheets/pi_model_sheet.dart';
-import 'sheets/pi_skills_sheet.dart';
 import 'sheets/cc_memory_scope_picker.dart';
 import 'dialogs/share_dialog.dart';
 import 'dialogs/help_dialog.dart';
@@ -58,6 +50,9 @@ import '../providers/chat_provider.dart';
 import 'chat/mcp_oauth_snackbar.dart';
 import 'chat/oc_message_delete_action.dart';
 import 'chat/cc_elicitation_form_dialog.dart';
+import 'chat/command_handler.dart';
+import 'chat/menu_handlers.dart';
+import 'chat/send_message.dart';
 import '../providers/claude_code_provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/app_subscription_provider.dart';
@@ -103,8 +98,6 @@ import '../models/todo.dart';
 import '../widgets/multi_agent_tree.dart';
 import '../widgets/power_sheet.dart';
 import '../widgets/project_tools_sheet.dart';
-import 'sessions_screen.dart';
-import '../utils/opencode_id.dart';
 import '../widgets/app_background.dart';
 import '../widgets/opencode_branding.dart';
 import '../providers/appearance_provider.dart';
@@ -113,10 +106,10 @@ import '../utils/error_utils.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
-import '../widgets/chat/retry_status_banner.dart';  
-import '../widgets/chat/revert_state_banner.dart';  
-import '../widgets/chat/cc_undo_turn_bar.dart';  
-import '../widgets/chat/subagent_activity.dart';  
+import '../widgets/chat/retry_status_banner.dart';
+import '../widgets/chat/revert_state_banner.dart';
+import '../widgets/chat/cc_undo_turn_bar.dart';
+import '../widgets/chat/subagent_activity.dart';
 import '../widgets/chat/cli_input_bar.dart';
 
 // Utility function for color opacity (from expense_tracker)
@@ -372,9 +365,6 @@ class ChatScreen extends ConsumerStatefulWidget {
 
 class _ChatScreenState extends ConsumerState<ChatScreen>
     with SingleTickerProviderStateMixin {
-  String _newClientMessageId() {
-    return OpenCodeId.newMessageId();
-  }
 
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -1281,7 +1271,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         totalCostUsd: tokenUsage?.totalCostUsd,
         budgetLimitUsd: ccConfig?.maxBudgetUsd,
         // SDK v2.1.6+: Use context window from token usage if available
-        contextWindow: tokenUsage?.effectiveContextWindow ?? kDefaultContextWindow,
+        contextWindow:
+            tokenUsage?.effectiveContextWindow ?? kDefaultContextWindow,
         // Per-turn context tokens from iterations[-1] (actual window occupancy)
         lastIterContextTokens: tokenUsage?.lastIterContextTokens,
         // Avoid client-side "made up" file summaries for Claude Code.
@@ -1310,7 +1301,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       final tokenUsage = chatState.cxTokenUsage;
       final total = tokenUsage?.total;
       final last = tokenUsage?.last;
-      final contextWindow = tokenUsage?.modelContextWindow ?? kDefaultContextWindow;
+      final contextWindow =
+          tokenUsage?.modelContextWindow ?? kDefaultContextWindow;
       // Cumulative totals across the thread (for display)
       final inputTokens = total?.inputTokens ?? 0;
       final outputTokens = total?.outputTokens ?? 0;
@@ -2251,117 +2243,54 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
   }
 
-  void _showClaudeCodeToolsSheet() => showCcToolsSheet(context, onShowMemoryScopePicker: _showMemoryScopePicker);
+  void _showClaudeCodeToolsSheet() => showCcToolsSheet(
+    context,
+    onShowMemoryScopePicker: _showMemoryScopePicker,
+  );
 
-  void _showClaudeCodeCommandsSheet() => showCcCommandsSheet(context, controller: _controller, inputFocusNode: _inputFocusNode);
+  void _showClaudeCodeCommandsSheet() => showCcCommandsSheet(
+    context,
+    controller: _controller,
+    inputFocusNode: _inputFocusNode,
+  );
 
-  void _showClaudeCodeSkillsSheet() => showCcSkillsSheet(context);
+  void _showClaudeCodeMcpSheet() => showCcMcpSheet(
+    context,
+    fallbackCwd: widget.ccSession?.cwd ?? widget.ccDraftCwd,
+  );
 
-  void _showClaudeCodeHooksSheet() => showCcHooksSheet(context);
+  void _handleClaudeCodeMenuAction(String value) => handleClaudeCodeMenuAction(
+    context,
+    value,
+    onStop: _stopGeneration,
+    onShowProjectTools: _showProjectToolsSheet,
+    onShowModel: _showClaudeCodeModelSheet,
+    onShowTools: _showClaudeCodeToolsSheet,
+    onShowCommands: _showClaudeCodeCommandsSheet,
+    onShowMcp: _showClaudeCodeMcpSheet,
+    onFork: _forkSession,
+  );
 
-  void _showClaudeCodeMcpSheet() => showCcMcpSheet(context, fallbackCwd: widget.ccSession?.cwd ?? widget.ccDraftCwd);
+  void _handleCodexMenuAction(String value) => handleCodexMenuAction(
+    context,
+    ref,
+    value,
+    onStop: _stopGeneration,
+    onShowProjectTools: _showProjectToolsSheet,
+    onShowSkills: _showCodexSkillsSheet,
+    onShowAgents: _showCodexAgentsSheet,
+    onStartReview: _startCodexReview,
+  );
 
-  void _handleClaudeCodeMenuAction(String value) {
-    switch (value) {
-      case 'stop':
-        _stopGeneration();
-        break;
-      case 'project_tools':
-        _showProjectToolsSheet();
-        break;
-      case 'cc_model':
-        _showClaudeCodeModelSheet();
-        break;
-      case 'cc_tools':
-        _showClaudeCodeToolsSheet();
-        break;
-      case 'cc_commands':
-        _showClaudeCodeCommandsSheet();
-        break;
-      case 'cc_skills':
-        _showClaudeCodeSkillsSheet();
-        break;
-      case 'cc_hooks':
-        _showClaudeCodeHooksSheet();
-        break;
-      case 'cc_mcp':
-        _showClaudeCodeMcpSheet();
-        break;
-      case 'cc_fork':
-        _forkSession();
-        break;
-    }
-  }
-
-  void _handleCodexMenuAction(String value) {
-    switch (value) {
-      case 'stop':
-        _stopGeneration();
-        break;
-      case 'project_tools':
-        _showProjectToolsSheet();
-        break;
-      case 'cx_model':
-        _showCodexModelSheet();
-        break;
-      case 'cx_settings':
-        _showCodexSettingsSheet();
-        break;
-      case 'cx_skills':
-        _showCodexSkillsSheet();
-        break;
-      case 'cx_mcp':
-        _showCodexMcpSheet();
-        break;
-      case 'cx_auth':
-        _showCodexAuthSheet();
-        break;
-      case 'cx_agents':
-        _showCodexAgentsSheet();
-        break;
-      case 'cx_config':
-        _showCodexConfigSheet();
-        break;
-      case 'cx_review':
-        _startCodexReview();
-        break;
-      case 'cx_feedback':
-        _showCodexFeedbackSheet();
-        break;
-      case 'cx_apps':
-        _showCodexAppsSheet();
-        break;
-      case 'cx_remote_skills':
-        _showCodexRemoteSkillsSheet();
-        break;
-    }
-  }
-
-  void _handlePiMenuAction(String value) {
-    switch (value) {
-      case 'stop':
-        _stopGeneration();
-        break;
-      case 'pi_model':
-        _showPiModelSheet();
-        break;
-      case 'pi_thinking':
-        _cyclePiThinkingLevel();
-        break;
-      case 'pi_skills':
-        _showPiSkillsSheet();
-        break;
-      case 'pi_sidebar':
-        _showPiSidebarSheet();
-        break;
-      case 'pi_compact':
-        _piCompact();
-        break;
-      case 'pi_new_session':
-        _piNewSession();
-        break;
-    }
-  }
+  void _handlePiMenuAction(String value) => handlePiMenuAction(
+    context,
+    value,
+    onStop: _stopGeneration,
+    onCycleThinking: _cyclePiThinkingLevel,
+    onShowSidebar: _showPiSidebarSheet,
+    onCompact: _piCompact,
+    onNewSession: _piNewSession,
+  );
 
   Future<void> _piCompact() async {
     final piBridge = ref.read(piBridgeServiceProvider);
@@ -2433,8 +2362,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
   }
 
-  void _showPiSkillsSheet() => showPiSkillsSheet(context);
-
   void _showPiSidebarSheet() {
     final chatState = ref.read(chatSessionProvider);
     final cwd = chatState.piCwd;
@@ -2499,16 +2426,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     showCodexAgentsSheet(context, ref, cwd);
   }
 
-
-  void _showCodexAuthSheet() => showCodexAuthSheet(context, ref);
-
-
-  void _showCodexFeedbackSheet() => showCodexFeedbackSheet(context, ref);
-
-
-  void _showCodexSettingsSheet() => showCodexSettingsSheet(context);
-
-
   void _showCodexSkillsSheet() {
     final theme = OpenCodeTheme.of(context);
     final chatState = ref.read(chatSessionProvider);
@@ -2529,14 +2446,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
   }
 
-  void _showCodexMcpSheet() => showCodexMcpSheet(context, ref);
-
-
   void _showCodexRollbackSheet() => showCodexRollbackSheet(context, ref);
-
-
-  void _showCodexConfigSheet() => showCodexConfigSheet(context, ref);
-
 
   Future<void> _startCodexReview() async {
     final chatState = ref.read(chatSessionProvider);
@@ -2607,7 +2517,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     CxModelSheet.show(context);
   }
 
-  void _showClaudeCodeModelSheet() => showCcModelSheet(context, ccSessionCwd: widget.ccSession?.cwd, ccSessionModel: widget.ccSession?.model, ccDraftCwd: widget.ccDraftCwd, ccDraftModel: widget.ccDraftModel);
+  void _showClaudeCodeModelSheet() => showCcModelSheet(
+    context,
+    ccSessionCwd: widget.ccSession?.cwd,
+    ccSessionModel: widget.ccSession?.model,
+    ccDraftCwd: widget.ccDraftCwd,
+    ccDraftModel: widget.ccDraftModel,
+  );
 
   bool _modelSupportsImages(SelectedModel? model) {
     if (model == null) return true;
@@ -2820,171 +2736,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   // Feature 2: Handle command selection from autocomplete
-  void _selectCommand(SlashCommand command) async {
-    final bridge = ref.read(bridgeServiceProvider);
-    final chatState = ref.read(chatSessionProvider);
-    final selectedModel = ref.read(selectionProvider).model;
-    // Handle built-in commands
-    if (command.builtin) {
-      switch (command.name) {
-        case 'undo':
-          if (chatState.messages.isNotEmpty) {
-            try {
-              await bridge.revertMessage(
-                widget.session.id,
-                messageId: chatState.messages.last.id,
-                projectPath: widget.project.path,
-              );
-              if (mounted) {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(const SnackBar(content: Text('Message undone')));
-              }
-            } catch (e) {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Failed to undo: ${humanizeError(e)}'),
-                  ),
-                );
-              }
-            }
-          } else {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('No messages to undo')),
-              );
-            }
-          }
-          break;
-        case 'redo':
-          try {
-            await bridge.unrevertSession(
-              widget.session.id,
-              projectPath: widget.project.path,
-            );
-            if (mounted) {
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(const SnackBar(content: Text('Message redone')));
-            }
-          } catch (e) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Failed to redo: ${humanizeError(e)}')),
-              );
-            }
-          }
-          break;
-        case 'compact':
-        case 'summarize':
-          if (selectedModel != null) {
-            try {
-              final success = await bridge.summarizeSession(
-                widget.session.id,
-                providerID: selectedModel.providerID,
-                modelID: selectedModel.modelID,
-                projectPath: widget.project.path,
-              );
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  success
-                      ? const SnackBar(content: Text('Session compacted'))
-                      : const SnackBar(
-                          content: Text('Failed to compact session'),
-                        ),
-                );
-              }
-            } catch (e) {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Failed to compact: ${humanizeError(e)}'),
-                  ),
-                );
-              }
-            }
-          } else {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Model not configured')),
-              );
-            }
-          }
-          break;
-        case 'share':
-          _shareSession();
-          break;
-        case 'unshare':
-          _unshareSession();
-          break;
-        case 'new':
-        case 'clear':
-          if (mounted) {
-            Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (_) => const SessionsScreen()));
-          }
-          break;
-        case 'session':
-        case 'resume':
-        case 'continue':
-          if (mounted) {
-            Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (_) => const SessionsScreen()));
-          }
-          break;
-        case 'help':
-          _showHelpDialog();
-          break;
-        case 'rename':
-          _showRenameSessionDialog();
-          break;
-        case 'copy':
-          _copyTranscriptToClipboard();
-          break;
-        case 'export':
-          _exportTranscript();
-          break;
-        case 'timeline':
-          _showTimelineDialog();
-          break;
-        case 'fork':
-          _showForkDialog();
-          break;
-        case 'thinking':
-          _toggleThinkingVisibility();
-          break;
-        case 'models':
-          _showModelsDialog();
-          break;
-        case 'agents':
-          _showAgentsDialog();
-          break;
-        default:
-          _controller.text = '/${command.name} ';
-          _controller.selection = TextSelection.fromPosition(
-            TextPosition(offset: _controller.text.length),
-          );
-          break;
-      }
-      setState(() {
-        _showCommandAutocomplete = false;
-        _commandFilter = '';
-      });
-      return;
-    }
-    // Handle custom commands (insert text for user to edit)
-    _controller.text = '/${command.name} ';
-    _controller.selection = TextSelection.fromPosition(
-      TextPosition(offset: _controller.text.length),
-    );
-    setState(() {
+  void _selectCommand(SlashCommand command) => handleSlashCommand(
+    context: context,
+    ref: ref,
+    command: command,
+    session: widget.session,
+    project: widget.project,
+    controller: _controller,
+    callbacks: CommandCallbacks(
+      shareSession: _shareSession,
+      unshareSession: _unshareSession,
+      showHelp: _showHelpDialog,
+      showRename: _showRenameSessionDialog,
+      copyTranscript: _copyTranscriptToClipboard,
+      exportTranscript: _exportTranscript,
+      showTimeline: _showTimelineDialog,
+      showFork: _showForkDialog,
+      toggleThinking: _toggleThinkingVisibility,
+      showModels: _showModelsDialog,
+      showAgents: _showAgentsDialog,
+    ),
+    onDismiss: () => setState(() {
       _showCommandAutocomplete = false;
       _commandFilter = '';
-    });
-  }
+    }),
+  );
 
   // ============================================================
   // Slash Command Implementations
@@ -5118,752 +4894,43 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     BridgeConnectionState connection,
     ChatSessionState chatState,
   ) {
-    final entitlement = ref.read(appSubscriptionProvider).entitled;
-    if (!entitlement) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Subscription required to send messages.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-    final text = _controller.text.trim();
-    final hasAttachments = _attachedFiles.isNotEmpty;
-    if (text.isEmpty && !hasAttachments) return;
-    if (!connection.isConnected) return;
-    // Check for streaming state (different per agent)
-    if (widget.isClaudeCode) {
-      if (chatState.ccIsStreaming) {
-        // CC SDK single-message mode doesn't support mid-turn queuing.
-        // Queue the message locally and auto-send when the turn completes.
-        final chat = ref.read(chatSessionProvider.notifier);
-        chat.setPendingCCMessage(
-          text,
-          attachments: hasAttachments ? _attachedFiles.toList() : null,
-        );
-        _controller.clear();
-        setState(() => _attachedFiles.clear());
-        return;
-      }
-    } else if (widget.isCodex) {
-      // Codex mid-turn: steer the agent instead of blocking.
-      // Uses the SDK turn/steer RPC to nudge the agent with the new message.
-      if (chatState.cxIsStreaming) {
-        final threadId = chatState.cxThreadId;
-        if (threadId != null && threadId.isNotEmpty) {
-          ref
-              .read(bridgeServiceProvider)
-              .cxSteer(threadId: threadId, prompt: text);
-          // Show the steer message in chat so the user sees what they sent
-          ref.read(chatSessionProvider.notifier).appendUserMessage(text);
-          _controller.clear();
-          setState(() => _attachedFiles.clear());
-        }
-        return;
-      }
-    } else if (widget.isPi) {
-      // Pi mid-turn: steer the agent
-      if (chatState.piIsStreaming) {
-        final piBridge = ref.read(piBridgeServiceProvider);
-        piBridge.steer(message: text, projectPath: chatState.piCwd);
-        ref.read(chatSessionProvider.notifier).appendUserMessage(text);
-        _controller.clear();
-        setState(() => _attachedFiles.clear());
-        return;
-      }
-    }
-    // OpenCode: no block — SDK's promptAsync() returns 204 immediately
-    // and the server queues messages internally.
-    final bridge = ref.read(bridgeServiceProvider);
-    final chat = ref.read(chatSessionProvider.notifier);
-    final selectedModel = ref.read(selectionProvider).model;
-    // Parse @agent mention from message text
-    // Pattern: @agentname followed by space or end of string
-    // This extracts the agent to use for this message
-    String? messageAgent = _selectedAgent;
-    final agentMatch = RegExp(r'@(\w+)(?:\s|$)').firstMatch(text);
-    if (agentMatch != null) {
-      final mentionedAgent = agentMatch.group(1)?.toLowerCase();
-      // Check if this matches a known agent
-      final matchedAgent = _agents.firstWhere(
-        (a) => a.name.toLowerCase() == mentionedAgent,
-        orElse: () => Agent(name: '', mode: AgentMode.primary),
-      );
-      if (matchedAgent.name.isNotEmpty) {
-        messageAgent = matchedAgent.name;
-      }
-    }
-    // OpenCode Plan Mode: Use plan agent when in plan mode (unless overridden)
-    // SDK v1.1.18+: plan_enter/plan_exit tools toggle between "plan" and "build" agents
-    if (widget.isOpenCode && messageAgent == null) {
-      final agentMode = chatState.ocAgentMode;
-      if (agentMode == 'plan') {
-        messageAgent = 'plan';
-      }
-    }
-    // Claude Code mode
-    if (widget.isClaudeCode) {
-      final ccConfig = ref.read(ccConfigProvider).valueOrNull;
-      final cwd = chatState.ccCwd ?? widget.ccSession?.cwd ?? widget.ccDraftCwd;
-      final model =
-          ccConfig?.model ??
-          chatState.ccModel ??
-          chatState.ccInit?.model ??
-          widget.ccSession?.model ??
-          widget.ccDraftModel;
-      final activeSubagent = messageAgent ?? ccConfig?.activeSubagent;
-      // Build display message with file attachments (same UX as OpenCode)
-      String displayText = text;
-      if (hasAttachments) {
-        final attachmentLabels = <String>[];
-        int imageCount = 0;
-        for (final f in _attachedFiles) {
-          if (f.isImage) {
-            imageCount++;
-            attachmentLabels.add('[Image $imageCount]');
-          } else {
-            attachmentLabels.add(f.displayPath);
-          }
-        }
-        if (attachmentLabels.isNotEmpty) {
-          displayText = '$text\n${attachmentLabels.join(' ')}';
-        }
-      }
-      chat.appendUserMessage(displayText);
-      chat.setCCStreaming(true);
-      // Get Claude Code thinking level variant
-      final ccVariant = ref.read(claudeCodeVariantProvider).selectedVariant;
-      bridge.ccChat(
-        sessionId: chatState.ccSessionId,
-        prompt: text,
-        cwd: cwd,
-        model: model,
-        permissionMode: ccConfig?.permissionMode,
-        allowedTools: ccConfig?.allowedTools,
-        disallowedTools: ccConfig?.disallowedTools,
-        maxTurns: ccConfig?.maxTurns,
-        maxBudgetUsd: ccConfig?.maxBudgetUsd,
-        betas: ccConfig?.betas,
-        variant: ccVariant,
-        thinking: ccConfig?.thinking,
-        effort: ccConfig?.effort,
-        activeSubagent: activeSubagent,
-        resumeSessionAt: _ccResumeSessionAtMessageId,
-        outputFormat: ccConfig?.outputFormat,
-        sandbox: ccConfig?.sandbox,
-        enableAgentTeams: ccConfig?.enableAgentTeams,
-        enableClaudeAiMcpServers: ccConfig?.enableClaudeAiMcpServers,
-        fileAttachments: hasAttachments ? _attachedFiles : null,
-      );
-      _ccResumeSessionAtMessageId = null;
-      _controller.clear();
-      setState(() => _attachedFiles.clear());
-      _userHasScrolledUp = false;
-      _scrollToBottom();
-      return;
-    }
-    // Codex mode
-    if (widget.isCodex) {
-      final cwd = chatState.cxCwd ?? widget.cxThread?.cwd ?? widget.cxDraftCwd;
-      if (cwd == null || cwd.isEmpty) return;
-      final codexSettings = ref.read(codexSettingsProvider);
-      // Basic local slash commands (client-side) for Codex draft state
-      if (text.startsWith('/model ')) {
-        final nextModel = text.substring('/model '.length).trim();
-        if (nextModel.isNotEmpty) {
-          chat.appendUserMessage(text);
-          chat.setCodexModel(nextModel);
-          _controller.clear();
-          _userHasScrolledUp = false;
-          _scrollToBottom();
-        }
-        return;
-      }
-      if (text.startsWith('/approvals')) {
-        final arg = text.replaceFirst('/approvals', '').trim().toLowerCase();
-        final notifier = ref.read(codexSettingsProvider.notifier);
-        final next = switch (arg) {
-          'untrusted' ||
-          'unless-trusted' ||
-          'unlessTrusted' => CodexApprovalPolicy.unlessTrusted,
-          'on-failure' ||
-          'onfailure' ||
-          'onFailure' => CodexApprovalPolicy.onFailure,
-          'never' => CodexApprovalPolicy.never,
-          'on-request' ||
-          'onrequest' ||
-          'onRequest' ||
-          '' => CodexApprovalPolicy.onRequest,
-          _ => CodexApprovalPolicy.onRequest,
-        };
-        chat.appendUserMessage(text);
-        notifier.setApprovalPolicy(next);
-        _controller.clear();
+    sendMessage(
+      context: context,
+      ref: ref,
+      connection: connection,
+      chatState: chatState,
+      controller: _controller,
+      attachedFiles: _attachedFiles,
+      selectedAgent: _selectedAgent,
+      agents: _agents,
+      isClaudeCode: widget.isClaudeCode,
+      isCodex: widget.isCodex,
+      isPi: widget.isPi,
+      ccSession: widget.ccSession,
+      ccDraftCwd: widget.ccDraftCwd,
+      ccDraftModel: widget.ccDraftModel,
+      ccResumeSessionAtMessageId: _ccResumeSessionAtMessageId,
+      cxThread: widget.cxThread,
+      cxDraftCwd: widget.cxDraftCwd,
+      piSession: widget.piSession,
+      piDraftCwd: widget.piDraftCwd,
+      sessionId: widget.session.id,
+      projectPath: widget.project.path,
+      clearAttachments: () => setState(() => _attachedFiles.clear()),
+      scrollToBottom: () {
         _userHasScrolledUp = false;
         _scrollToBottom();
-        return;
-      }
-      if (text.startsWith('/sandbox')) {
-        final arg = text.replaceFirst('/sandbox', '').trim().toLowerCase();
-        final notifier = ref.read(codexSettingsProvider.notifier);
-        final next = switch (arg) {
-          'read-only' || 'readonly' || 'readOnly' => CodexSandboxMode.readOnly,
-          'workspace-write' ||
-          'workspacewrite' ||
-          'workspaceWrite' => CodexSandboxMode.workspaceWrite,
-          'danger-full-access' ||
-          'dangerfullaccess' ||
-          'dangerFullAccess' => CodexSandboxMode.dangerFullAccess,
-          _ => CodexSandboxMode.readOnly,
-        };
-        chat.appendUserMessage(text);
-        notifier.setSandboxMode(next);
-        _controller.clear();
-        _userHasScrolledUp = false;
-        _scrollToBottom();
-        return;
-      }
-      if (text.startsWith('/effort')) {
-        final arg = text.replaceFirst('/effort', '').trim().toLowerCase();
-        final notifier = ref.read(codexSettingsProvider.notifier);
-        final next = switch (arg) {
-          'minimal' => CodexReasoningEffort.minimal,
-          'low' => CodexReasoningEffort.low,
-          'high' => CodexReasoningEffort.high,
-          'xhigh' => CodexReasoningEffort.xhigh,
-          'medium' || '' => CodexReasoningEffort.medium,
-          _ => CodexReasoningEffort.medium,
-        };
-        chat.appendUserMessage(text);
-        notifier.setReasoningEffort(next);
-        _controller.clear();
-        _userHasScrolledUp = false;
-        _scrollToBottom();
-        return;
-      }
-      if (text.startsWith('/summary')) {
-        final arg = text.replaceFirst('/summary', '').trim().toLowerCase();
-        final notifier = ref.read(codexSettingsProvider.notifier);
-        final next = switch (arg) {
-          'concise' => CodexReasoningSummary.concise,
-          'detailed' => CodexReasoningSummary.detailed,
-          'none' => CodexReasoningSummary.none,
-          'auto' || '' => CodexReasoningSummary.auto,
-          _ => CodexReasoningSummary.auto,
-        };
-        chat.appendUserMessage(text);
-        notifier.setReasoningSummary(next);
-        _controller.clear();
-        _userHasScrolledUp = false;
-        _scrollToBottom();
-        return;
-      }
-      if (text.startsWith('/websearch')) {
-        final arg = text.replaceFirst('/websearch', '').trim().toLowerCase();
-        final mode = switch (arg) {
-          'live' || 'on' || 'true' || '1' => CodexWebSearchMode.live,
-          'cached' => CodexWebSearchMode.cached,
-          _ => CodexWebSearchMode.disabled,
-        };
-        chat.appendUserMessage(text);
-        ref.read(codexSettingsProvider.notifier).setWebSearchMode(mode);
-        _controller.clear();
-        _userHasScrolledUp = false;
-        _scrollToBottom();
-        return;
-      }
-      if (text.startsWith('/skills')) {
-        final arg = text.replaceFirst('/skills', '').trim().toLowerCase();
-        final enabled = arg == 'on' || arg == 'true' || arg == '1';
-        chat.appendUserMessage(text);
-        ref.read(codexSettingsProvider.notifier).setSkillsEnabled(enabled);
-        _controller.clear();
-        _userHasScrolledUp = false;
-        _scrollToBottom();
-        return;
-      }
-      if (text.startsWith('/personality')) {
-        final arg = text.replaceFirst('/personality', '').trim().toLowerCase();
-        final p = switch (arg) {
-          'none' => CodexPersonality.none,
-          'friendly' => CodexPersonality.friendly,
-          'pragmatic' || '' => CodexPersonality.pragmatic,
-          _ => CodexPersonality.pragmatic,
-        };
-        chat.appendUserMessage(text);
-        ref.read(codexSettingsProvider.notifier).setPersonality(p);
-        chat.appendLocalAssistantMessage(
-          'Personality set to: ${p.displayName}',
-        );
-        _controller.clear();
-        _userHasScrolledUp = false;
-        _scrollToBottom();
-        return;
-      }
-      if (text.startsWith('/collab')) {
-        final arg = text.replaceFirst('/collab', '').trim().toLowerCase();
-        final mode = switch (arg) {
-          'plan' => CodexCollaborationMode.plan,
-          'default' || '' => CodexCollaborationMode.defaultMode,
-          _ => CodexCollaborationMode.defaultMode,
-        };
-        chat.appendUserMessage(text);
-        ref.read(codexSettingsProvider.notifier).setCollaborationMode(mode);
-        chat.appendLocalAssistantMessage(
-          'Collaboration mode set to: ${mode.displayName}',
-        );
-        _controller.clear();
-        _userHasScrolledUp = false;
-        _scrollToBottom();
-        return;
-      }
-      if (text.startsWith('/rename')) {
-        final name = text.replaceFirst('/rename', '').trim();
-        final threadId = chatState.cxThreadId;
-        chat.appendUserMessage(text);
-        if (threadId == null || threadId.isEmpty) {
-          chat.appendLocalAssistantMessage('No Codex thread yet to rename.');
-        } else if (name.isEmpty) {
-          chat.appendLocalAssistantMessage('Usage: /rename <name>');
-        } else {
-          () async {
-            try {
-              await ref
-                  .read(bridgeServiceProvider)
-                  .cxRenameThread(threadId: threadId, name: name);
-              if (mounted) {
-                chat.appendLocalAssistantMessage('Thread renamed to: $name');
-              }
-            } catch (e) {
-              if (mounted) {
-                chat.appendLocalAssistantMessage(
-                  'Rename failed: ${humanizeError(e)}',
-                );
-              }
-            }
-          }();
-        }
-        _controller.clear();
-        _userHasScrolledUp = false;
-        _scrollToBottom();
-        return;
-      }
-      if (text == '/fork') {
-        final threadId = chatState.cxThreadId;
-        chat.appendUserMessage(text);
-        if (threadId == null || threadId.isEmpty) {
-          chat.appendLocalAssistantMessage('No Codex thread yet to fork.');
-        } else {
-          () async {
-            try {
-              final forked = await ref
-                  .read(bridgeServiceProvider)
-                  .cxThreadFork(threadId: threadId);
-              if (mounted) {
-                chat.appendLocalAssistantMessage(
-                  'Thread forked! New thread: ${forked.displayTitle}',
-                );
-              }
-            } catch (e) {
-              if (mounted) {
-                chat.appendLocalAssistantMessage(
-                  'Fork failed: ${humanizeError(e)}',
-                );
-              }
-            }
-          }();
-        }
-        _controller.clear();
-        _userHasScrolledUp = false;
-        _scrollToBottom();
-        return;
-      }
-      if (text == '/apps') {
-        chat.appendUserMessage(text);
-        _showCodexAppsSheet();
-        _controller.clear();
-        _userHasScrolledUp = false;
-        _scrollToBottom();
-        return;
-      }
-      if (text == '/remote-skills') {
-        chat.appendUserMessage(text);
-        _showCodexRemoteSkillsSheet();
-        _controller.clear();
-        _userHasScrolledUp = false;
-        _scrollToBottom();
-        return;
-      }
-      if (text.startsWith('/review')) {
-        _controller.clear();
-        _userHasScrolledUp = false;
-        _scrollToBottom();
-        unawaited(_startCodexReview());
-        return;
-      }
-      if (text.startsWith('/diff')) {
-        chat.appendUserMessage(text);
-        final diffs = ref.read(chatSessionProvider).sessionDiffs;
-        if (diffs.isEmpty) {
-          chat.appendLocalAssistantMessage(
-            'No diff reported for this thread yet.',
-          );
-        } else {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) return;
-            _openDiffView(diffs.first);
-          });
-        }
-        _controller.clear();
-        _userHasScrolledUp = false;
-        _scrollToBottom();
-        return;
-      }
-      if (text.startsWith('/status')) {
-        _controller.clear();
-        // Load fresh context data and open the sidebar
-        _loadSessionContext();
-        Scaffold.of(context).openEndDrawer();
-        return;
-      }
-      if (text.startsWith('/compact')) {
-        chat.appendUserMessage(text);
-        chat.setCodexStreaming(true);
-        bridge.cxChat(
-          threadId: chatState.cxThreadId,
-          cwd: cwd,
-          prompt:
-              'Compact/summarize this thread so far into a short, reusable memory.\n'
-              'Include: goal, constraints, current progress, key decisions, next steps.\n'
-              'Keep it concise and actionable.',
-          model: chatState.cxModel,
-          effort: codexSettings.reasoningEffort.wireValue,
-          summary: codexSettings.reasoningSummary.wireValue,
-          approvalPolicy: codexSettings.approvalPolicy.wireValue,
-          sandbox: codexSettings.sandboxMode.threadWireValue,
-          sandboxPolicy: switch (codexSettings.sandboxMode) {
-            CodexSandboxMode.readOnly => const <String, dynamic>{
-              'type': 'readOnly',
-            },
-            CodexSandboxMode.dangerFullAccess => const <String, dynamic>{
-              'type': 'dangerFullAccess',
-            },
-            CodexSandboxMode.workspaceWrite => <String, dynamic>{
-              'type': 'workspaceWrite',
-              'writableRoots': [cwd],
-              'networkAccess': codexSettings.networkAccessEnabled,
-            },
-          },
-          config: <String, dynamic>{
-            'web_search': codexSettings.webSearchMode.wireValue,
-            'features.skills': codexSettings.skillsEnabled,
-            'model_reasoning_effort': codexSettings.reasoningEffort.wireValue,
-            'model_reasoning_summary': codexSettings.reasoningSummary.wireValue,
-            if (codexSettings.sandboxMode == CodexSandboxMode.workspaceWrite)
-              'sandbox_workspace_write.network_access':
-                  codexSettings.networkAccessEnabled,
-          },
-          collaborationMode: codexSettings.collaborationMode.wireValue,
-          personality: codexSettings.personality.wireValue,
-          serviceTier: codexSettings.serviceTier.wireValue,
-        );
-        _controller.clear();
-        _userHasScrolledUp = false;
-        _scrollToBottom();
-        return;
-      }
-      if (text.startsWith('/undo')) {
-        final threadId = chatState.cxThreadId;
-        chat.appendUserMessage(text);
-        _controller.clear();
-        _userHasScrolledUp = false;
-        _scrollToBottom();
-        if (threadId == null || threadId.isEmpty) {
-          chat.appendLocalAssistantMessage('No Codex thread yet to undo.');
-        } else {
-          // Run async undo operation
-          () async {
-            try {
-              final reverted = await ref
-                  .read(bridgeServiceProvider)
-                  .cxUndoFiles(threadId: threadId);
-              if (reverted.isEmpty) {
-                chat.appendLocalAssistantMessage('No file changes to undo.');
-              } else {
-                chat.appendLocalAssistantMessage(
-                  'Reverted ${reverted.length} path(s):\n- ${reverted.join('\n- ')}',
-                );
-              }
-            } catch (e) {
-              chat.appendLocalAssistantMessage(
-                'Undo failed: ${humanizeError(e)}',
-              );
-            }
-          }();
-        }
-        return;
-      }
-      if (text.startsWith('/rollback')) {
-        chat.appendUserMessage(text);
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          _showCodexRollbackSheet();
-        });
-        _controller.clear();
-        _userHasScrolledUp = false;
-        _scrollToBottom();
-        return;
-      }
-      if (text.startsWith('/agents')) {
-        chat.appendUserMessage(text);
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          _showCodexAgentsSheet();
-        });
-        _controller.clear();
-        _userHasScrolledUp = false;
-        _scrollToBottom();
-        return;
-      }
-      // /init - Create AGENTS.md with template (like Claude Code's /init)
-      if (text.startsWith('/init')) {
-        chat.appendUserMessage(text);
-        _controller.clear();
-        _userHasScrolledUp = false;
-        _scrollToBottom();
-        () async {
-          try {
-            final agentsData = await bridge.cxReadAgentsMd(cwd);
-            if (agentsData['exists'] == true) {
-              chat.appendLocalAssistantMessage(
-                'AGENTS.md already exists at ${agentsData['path']}.\n'
-                'Use /agents to edit it.',
-              );
-            } else {
-              // Create with template
-              const template = '''# AGENTS.md
-## Project Overview
-Describe your project here.
-## Build Commands
-- `flutter run` - Run the app
-- `flutter test` - Run tests
-## Code Style
-- Follow existing patterns
-- Use meaningful variable names
-## Constraints
-- Don't modify generated files
-- Always run tests before committing
-''';
-              final success = await bridge.cxWriteAgentsMd(
-                cwd: cwd,
-                content: template,
-              );
-              if (success) {
-                chat.appendLocalAssistantMessage(
-                  'Created AGENTS.md at ${agentsData['path']}.\n'
-                  'Use /agents to customize it.',
-                );
-              } else {
-                chat.appendLocalAssistantMessage('Failed to create AGENTS.md.');
-              }
-            }
-          } catch (e) {
-            chat.appendLocalAssistantMessage(humanizeError(e));
-          }
-        }();
-        return;
-      }
-      // /mcp - List MCP server status
-      if (text.startsWith('/mcp')) {
-        chat.appendUserMessage(text);
-        _controller.clear();
-        _userHasScrolledUp = false;
-        _scrollToBottom();
-        () async {
-          try {
-            final servers = await bridge.cxListMcpServerStatus();
-            if (servers.isEmpty) {
-              chat.appendLocalAssistantMessage(
-                'No MCP servers configured.\n'
-                'Add servers to ~/.codex/config.toml under [mcp_servers].',
-              );
-            } else {
-              final buf = StringBuffer('MCP Servers:\n');
-              for (final s in servers) {
-                final name = s['name'] ?? 'unknown';
-                final status = s['status'] ?? 'unknown';
-                final icon = status == 'connected' ? '●' : '○';
-                buf.writeln('$icon $name ($status)');
-              }
-              chat.appendLocalAssistantMessage(buf.toString().trim());
-            }
-          } catch (e) {
-            chat.appendLocalAssistantMessage(
-              'Failed to list MCP servers: ${humanizeError(e)}',
-            );
-          }
-        }();
-        return;
-      }
-      // Build display message with file attachments (same UX as OpenCode)
-      String displayText = text;
-      if (hasAttachments) {
-        final attachmentLabels = <String>[];
-        int imageCount = 0;
-        for (final f in _attachedFiles) {
-          if (f.isImage) {
-            imageCount++;
-            attachmentLabels.add('[Image $imageCount]');
-          } else {
-            attachmentLabels.add(f.displayPath);
-          }
-        }
-        if (attachmentLabels.isNotEmpty) {
-          displayText = '$text\n${attachmentLabels.join(' ')}';
-        }
-      }
-      chat.appendUserMessage(displayText);
-      chat.setCodexStreaming(true);
-      final sandboxPolicy = switch (codexSettings.sandboxMode) {
-        CodexSandboxMode.readOnly => const <String, dynamic>{
-          'type': 'readOnly',
-        },
-        CodexSandboxMode.dangerFullAccess => const <String, dynamic>{
-          'type': 'dangerFullAccess',
-        },
-        CodexSandboxMode.workspaceWrite => <String, dynamic>{
-          'type': 'workspaceWrite',
-          'writableRoots': [cwd],
-          'networkAccess': codexSettings.networkAccessEnabled,
-        },
-      };
-      final config = <String, dynamic>{
-        'web_search': codexSettings.webSearchMode.wireValue,
-        'features.skills': codexSettings.skillsEnabled,
-        'model_reasoning_effort': codexSettings.reasoningEffort.wireValue,
-        'model_reasoning_summary': codexSettings.reasoningSummary.wireValue,
-        if (codexSettings.sandboxMode == CodexSandboxMode.workspaceWrite)
-          'sandbox_workspace_write.network_access':
-              codexSettings.networkAccessEnabled,
-      };
-      bridge.cxChat(
-        threadId: chatState.cxThreadId,
-        cwd: cwd,
-        prompt: text,
-        model: chatState.cxModel,
-        effort: codexSettings.reasoningEffort.wireValue,
-        summary: codexSettings.reasoningSummary.wireValue,
-        approvalPolicy: codexSettings.approvalPolicy.wireValue,
-        sandbox: codexSettings.sandboxMode.threadWireValue,
-        sandboxPolicy: sandboxPolicy,
-        config: config,
-        fileAttachments: hasAttachments ? _attachedFiles : null,
-        collaborationMode: codexSettings.collaborationMode.wireValue,
-        personality: codexSettings.personality.wireValue,
-        serviceTier: codexSettings.serviceTier.wireValue,
-      );
-      _controller.clear();
-      setState(() => _attachedFiles.clear());
-      _userHasScrolledUp = false;
-      _scrollToBottom();
-      return;
-    }
-    // Pi mode
-    if (widget.isPi) {
-      final piBridge = ref.read(piBridgeServiceProvider);
-      final cwd = chatState.piCwd ?? widget.piSession?.cwd ?? widget.piDraftCwd;
-      // Build display message with file attachments
-      String displayText = text;
-      if (hasAttachments) {
-        final attachmentLabels = <String>[];
-        int imageCount = 0;
-        for (final f in _attachedFiles) {
-          if (f.isImage) {
-            imageCount++;
-            attachmentLabels.add('[Image $imageCount]');
-          } else {
-            attachmentLabels.add(f.displayPath);
-          }
-        }
-        if (attachmentLabels.isNotEmpty) {
-          displayText = '$text\n${attachmentLabels.join(' ')}';
-        }
-      }
-      chat.appendUserMessage(displayText);
-      chat.setPiStreaming(true);
-      piBridge.chat(
-        prompt: text,
-        projectPath: cwd,
-        fileAttachments: hasAttachments ? _attachedFiles : null,
-      );
-      _controller.clear();
-      setState(() => _attachedFiles.clear());
-      _userHasScrolledUp = false;
-      _scrollToBottom();
-      return;
-    }
-    // OpenCode mode
-    // Feature 2: Check if this is a slash command (attachments not supported for commands)
-    if (text.startsWith('/') && !hasAttachments) {
-      final parts = text.substring(1).split(' ');
-      final commandName = parts[0];
-      final arguments = parts.length > 1 ? parts.sublist(1).join(' ') : '';
-      // Show user's command in chat
-      chat.appendUserMessage(text);
-      // Execute the command
-      bridge.executeCommand(
-        sessionId: widget.session.id,
-        command: commandName,
-        arguments: arguments,
-        projectPath: widget.project.path,
-        agent: messageAgent,
-        model: selectedModel != null
-            ? '${selectedModel.providerID}/${selectedModel.modelID}'
-            : null,
-      );
-    } else {
-      // Build display message with file attachments
-      // For images: show "[Image 1]" instead of raw filename
-      // For files: show the @path
-      String displayText = text;
-      if (hasAttachments) {
-        final attachmentLabels = <String>[];
-        int imageCount = 0;
-        for (final f in _attachedFiles) {
-          if (f.isImage) {
-            imageCount++;
-            attachmentLabels.add('[Image $imageCount]');
-          } else {
-            attachmentLabels.add(f.displayPath);
-          }
-        }
-        if (attachmentLabels.isNotEmpty) {
-          displayText = '$text\n${attachmentLabels.join(' ')}';
-        }
-      }
-      final clientMessageId = _newClientMessageId();
-      chat.appendUserMessage(displayText, messageId: clientMessageId);
-      // Get variant (thinking level) for OpenCode models
-      final variantState = ref.read(openCodeVariantProvider);
-      final variant = variantState.getVariant(selectedModel);
-      bridge.sendChat(
-        sessionId: widget.session.id,
-        content: text,
-        messageId: clientMessageId,
-        projectPath: widget.project.path,
-        providerID: selectedModel?.providerID,
-        modelID: selectedModel?.modelID,
-        agent: messageAgent,
-        fileAttachments: hasAttachments ? _attachedFiles : null,
-        variant: variant,
-      );
-    }
-    _controller.clear();
-    setState(() => _attachedFiles.clear());
-    // User sent a message - they want to see the response, so reset scroll intent
-    _userHasScrolledUp = false;
-    _scrollToBottom();
+      },
+      onCcResumeIdCleared: () => _ccResumeSessionAtMessageId = null,
+      isMounted: () => mounted,
+      showCodexAppsSheet: _showCodexAppsSheet,
+      showCodexRemoteSkillsSheet: _showCodexRemoteSkillsSheet,
+      startCodexReview: _startCodexReview,
+      openDiffView: (diff) => _openDiffView(diff),
+      loadSessionContext: _loadSessionContext,
+      showCodexRollbackSheet: _showCodexRollbackSheet,
+      showCodexAgentsSheet: _showCodexAgentsSheet,
+    );
   }
 
   void _scrollToBottom({bool animate = true}) {
@@ -6127,8 +5194,6 @@ Describe your project here.
 
 /// Session actions content for DetailSheet
 
-
-
 /// Claude Code actions content for DetailSheet
 
 /// Codex actions content for DetailSheet
@@ -6144,8 +5209,6 @@ Describe your project here.
 // Extracted to lib/widgets/chat/cli_input_bar.dart (CliStyleInputBar + VariantChip)
 
 // Model selector content for DetailSheet
-
-
 
 // Extracted to lib/widgets/chat/retry_status_banner.dart
 // Extracted to lib/widgets/chat/revert_state_banner.dart
