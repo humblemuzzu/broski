@@ -71,6 +71,10 @@ import * as ccHooksMcp from "./handlers/cc_hooks_mcp";
 import * as ccLiveSession from "./handlers/cc_live_session";
 import * as ccCustomTools from "./handlers/cc_custom_tools";
 import * as ccPlugins from "./handlers/cc_plugins";
+import * as devicesHandler from "./handlers/devices";
+import * as sessionViewHandler from "./handlers/session_view";
+import * as cxRouting from "./handlers/cx_routing";
+import * as miscHandler from "./handlers/misc";
 import { mapClaudeCodeStreamToRuntimeEvent } from "./runtime/claude-code-runtime-event-mapper";
 import {
 	buildClaudeCodeRuntimeState,
@@ -5185,348 +5189,115 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			})
 		)
 			return;
+		// ── Extracted handler routing ──────────────────────────────────────
+		// Device management (register_device, list_devices, disconnect_device)
+		if (await devicesHandler.handle(ws, message as Record<string, unknown>, reply, {
+			sockets,
+			contexts,
+			ALLOWED_DEVICE_IDS,
+			BRIDGE_PROTOCOL_VERSION,
+			getDeviceInfo,
+			getAllDevices,
+			findSocketByDeviceId,
+			send,
+			broadcast,
+			sendStatus,
+			logUser,
+			logError,
+			safeString,
+			claudeCode,
+			opencode,
+			ccPermissionWaiters,
+			ccElicitationWaiters,
+			cxApprovalWaiters,
+			cxActiveTurns,
+			cxThreadCwds,
+			ocSessionProjectPaths,
+			buildClaudeCodeRuntimeState,
+			buildCodexRuntimeState,
+			mapOpenCodeStatusToRuntimeState,
+			listPiActiveSessionSnapshots,
+			buildPiActiveRuntimeStateMessages,
+		})) return;
+
+		// Session view (set_view)
+		if (await sessionViewHandler.handle(ws, message as Record<string, unknown>, reply, {
+			contexts,
+			sockets,
+			send,
+			sendStatus,
+			logInfo,
+			logDebug,
+			DEBUG_RTS,
+			currentAgent,
+			ensureClaudeWatchDir,
+			makeSessionKey,
+			updateSessionWatchers,
+			sessionWatchers,
+			claudeCode,
+			ccSessionOwners,
+			ccSessionCwds,
+			buildClaudeCodeRuntimeState,
+			replayBufferedEvents,
+			cxActiveTurns,
+			cxThreadOwners,
+			cxThreadCwds,
+			buildCodexRuntimeState,
+			ocSessionOwners,
+			ocSessionProjectPaths,
+			findPiActiveRuntimeStateMessage,
+		})) return;
+
+		// Codex (cx_*) routing
+		if (await cxRouting.handle(message as Record<string, unknown>, reply, {
+			ws,
+			ensureCodexClient,
+			codexClient,
+			codexFs,
+			safeString,
+			getSecurePath,
+			logInfo,
+			logError,
+			logDebug,
+			DEBUG_CX_GLOBAL,
+			send,
+			broadcastToSessionWatchers,
+			cxProjectCache,
+			setProjectCache: (cache) => { cxProjectCache = cache; },
+			cxThreadCache,
+			CODEX_PROJECT_CACHE_TTL_MS,
+			CODEX_THREAD_CACHE_TTL_MS,
+			cxThreadNames,
+			cxThreadOwners,
+			cxThreadCwds,
+			cxActiveTurns,
+			cxApprovalWaiters,
+			mapCodexThread,
+			mapCodexThreadToRuntimeSession,
+			invalidateCodexCaches,
+			buildCodexRuntimeState,
+			emitCxStream,
+			ensureUndoStack,
+			applyCodexUndo,
+		})) return;
+
+		// Misc (pong, client_ping, restart_opencode, set_agent, get_agents_status, usage)
+		if (await miscHandler.handle(ws, message as Record<string, unknown>, reply, {
+			contexts,
+			send,
+			log,
+			getCurrentAgent: () => currentAgent,
+			setCurrentAgent: (agent) => { currentAgent = agent; },
+			ensureClaudeWatchDir,
+			claudeCode,
+			checkCodexAvailable,
+			getBackendsStatus,
+			restartOpenCode: options.restartOpenCode,
+		})) return;
+
+		// ── Remaining inline cases (small, deep closure coupling) ─────────
 		switch (message.type) {
-			// case "auth_session" — extracted to handlers/auth.ts
-			case "register_device": {
-				if (!message.deviceId || typeof message.deviceId !== "string" || message.deviceId.length > 128) {
-					reply({ type: "error", message: "Invalid deviceId" });
-					try {
-						ws.close(4004, "Invalid deviceId");
-					} catch {
-						// ignore
-					}
-					break;
-				}
-				if (ALLOWED_DEVICE_IDS.size > 0 && !ALLOWED_DEVICE_IDS.has(message.deviceId)) {
-					reply({ type: "error", message: "Device not allowed" });
-					try {
-						ws.close(4004, "Device not allowed");
-					} catch {
-						// ignore
-					}
-					break;
-				}
-				const existing = contexts.get(ws) ?? {
-					lastPongAt: Date.now(),
-					lastRttMs: 0,
-					connectionType: "unknown" as const,
-					connectedAt: Date.now(),
-				};
-				contexts.set(ws, {
-					...existing,
-					deviceId: message.deviceId,
-					deviceName: message.deviceName,
-					platform: message.platform,
-					protocolVersion: safeString(message.protocolVersion) || undefined,
-				});
-				const deviceInfo = getDeviceInfo(ws);
-				if (deviceInfo) {
-					reply({
-						type: "device_registered",
-						data: deviceInfo,
-						protocolVersion: BRIDGE_PROTOCOL_VERSION,
-					});
-					broadcast({ type: "device_connected", data: deviceInfo });
-				}
-				logUser(`Device registered: ${message.deviceName} (${message.platform})`);
-				void sendStatus(ws);
-
-				// ── Push active sessions on connect ─────────────────────────
-				// On (re)connect, immediately tell the app which sessions are
-				// actively running across all backends. This avoids the "stale
-				// session list" problem where users don't know what completed
-				// while the app was backgrounded.
-				void (async () => {
-					try {
-						const activeCC = claudeCode.listActiveSessions().map((s) => ({
-							sessionId: s.sessionId,
-							cwd: s.cwd,
-							startedAt: s.startedAt,
-						}));
-
-						const activeCX = Array.from(cxActiveTurns.entries()).map(([threadId, turnId]) => ({
-							threadId,
-							turnId,
-							cwd: cxThreadCwds.get(threadId) ?? "",
-						}));
-
-						let activeOC: Array<{ sessionId: string; projectPath?: string; statusType: "busy" | "retry" }> = [];
-						if (opencode) {
-							try {
-								const statuses = await opencode.getSessionStatus().catch(() => ({}));
-								activeOC = Object.entries(statuses)
-									.filter(([, s]) => s?.type === "busy" || s?.type === "retry")
-									.map(([id, s]) => ({
-										sessionId: id,
-										projectPath: ocSessionProjectPaths.get(id),
-										statusType: s?.type === "retry" ? "retry" : "busy",
-									}));
-							} catch {
-								// best-effort
-							}
-						}
-
-						// Also include sessions with pending permissions (across all backends)
-						const pendingCCPerms = Array.from(ccPermissionWaiters.keys()).map((key) => {
-							const parts = key.split(":");
-							return { sessionId: parts[0], toolUseId: parts[1] };
-						});
-						const pendingCCElicitations = Array.from(ccElicitationWaiters.keys()).map((key) => {
-							const parts = key.split(":");
-							return { sessionId: parts[0], requestId: parts[1] };
-						});
-						const pendingCXPerms = Array.from(cxApprovalWaiters.keys());
-
-						for (const active of activeCC) {
-							send(ws, {
-								type: "runtime_state",
-								backend: "claude-code",
-								data: buildClaudeCodeRuntimeState({
-									sessionId: active.sessionId,
-									cwd: active.cwd,
-									isStreaming: true,
-								}),
-							} satisfies ServerMessage);
-						}
-
-						for (const active of activeCX) {
-							send(ws, {
-								type: "runtime_state",
-								backend: "codex",
-								data: buildCodexRuntimeState({
-									threadId: active.threadId,
-									cwd: active.cwd,
-									isStreaming: true,
-								}),
-							} satisfies ServerMessage);
-						}
-
-						for (const active of activeOC) {
-							send(ws, {
-								type: "runtime_state",
-								backend: "opencode",
-								data: mapOpenCodeStatusToRuntimeState(
-									active.sessionId,
-									active.statusType === "retry"
-										? { type: "retry", attempt: 0, message: "", next: 0 }
-										: { type: "busy" },
-									active.projectPath,
-								),
-							} satisfies ServerMessage);
-						}
-
-						const activePI = listPiActiveSessionSnapshots();
-						for (const runtimeStateMessage of buildPiActiveRuntimeStateMessages()) {
-							send(ws, runtimeStateMessage);
-						}
-
-						send(ws, {
-							type: "sessions_active",
-							data: {
-								claudeCode: activeCC,
-								codex: activeCX,
-								opencode: activeOC,
-								pi: activePI,
-								pendingPermissions: {
-									claudeCode: pendingCCPerms,
-									claudeCodeElicitations: pendingCCElicitations,
-									codex: pendingCXPerms,
-								},
-							},
-						} as ServerMessage);
-					} catch (err) {
-						logError("[sessions_active] Failed to build active sessions snapshot:", err);
-					}
-				})();
-				break;
-			}
-			case "list_devices": {
-				const devices = getAllDevices();
-				reply({ type: "devices", data: devices });
-				break;
-			}
-			case "disconnect_device": {
-				const targetWs = findSocketByDeviceId(message.deviceId);
-				if (targetWs && targetWs !== ws) {
-					const targetCtx = contexts.get(targetWs);
-					try {
-						targetWs.close(4001, "Disconnected by another device");
-					} catch {
-						// ignore
-					}
-					broadcast({
-						type: "device_disconnected",
-						data: {
-							deviceId: message.deviceId,
-							deviceName: targetCtx?.deviceName,
-						},
-					});
-				}
-				break;
-			}
-			case "set_view": {
-				const existing = contexts.get(ws) ?? {
-					lastPongAt: Date.now(),
-					lastRttMs: 0,
-					connectionType: "unknown" as const,
-					connectedAt: Date.now(),
-				};
-				const prevKey = makeSessionKey(existing.viewAgent, existing.sessionId);
-				const nextAgent =
-					message.agent ?? existing.viewAgent ?? (message.projectPath || message.sessionId ? currentAgent : undefined);
-				const nextSessionId = message.sessionId || undefined;
-
-				if (DEBUG_RTS) {
-					logDebug(
-						`[RTS] set_view: agent=${nextAgent}, sessionId=${nextSessionId}, projectPath=${message.projectPath}, prevKey=${prevKey}`,
-					);
-				}
-
-				if (nextAgent === "claude-code") {
-					const cwd = message.projectPath && message.projectPath !== "global" ? message.projectPath : undefined;
-					if (cwd) {
-						ensureClaudeWatchDir(join(cwd, ".claude", "skills"), "skills", cwd);
-						ensureClaudeWatchDir(join(cwd, ".claude", "plugins"), "plugins", cwd);
-						ensureClaudeWatchDir(join(cwd, ".claude", "commands"), "commands", cwd);
-						ensureClaudeWatchDir(join(cwd, ".claude", "hooks"), "hooks", cwd);
-						ensureClaudeWatchDir(join(cwd, ".mcp.json"), "mcp", cwd, false);
-					}
-				}
-
-				contexts.set(ws, {
-					...existing,
-					projectPath: message.projectPath || undefined,
-					sessionId: nextSessionId,
-					viewAgent: nextAgent,
-				});
-
-				// Track project path for OpenCode external tails
-				if (nextAgent === "opencode" && nextSessionId && message.projectPath) {
-					ocSessionProjectPaths.set(nextSessionId, message.projectPath);
-					if (DEBUG_RTS) {
-						logDebug(
-							`[RTS] set_view: Stored projectPath for OpenCode session ${nextSessionId}: ${message.projectPath}`,
-						);
-					}
-				}
-
-				// ── Re-bind ownership for active sessions on reconnect ───────
-				// When the app reconnects after backgrounding, the old socket is dead.
-				// If this session is still actively streaming (in the bridge process),
-				// re-bind the new socket as owner so live events flow to it immediately.
-				if (nextAgent === "claude-code" && nextSessionId) {
-					const ccActiveList = claudeCode.listActiveSessions();
-					const activeSession = ccActiveList.find((s) => s.sessionId === nextSessionId);
-					const isActive = activeSession != null;
-					if (isActive) {
-						const prevOwner = ccSessionOwners.get(nextSessionId);
-						// Re-bind if no owner or owner is a dead/different socket
-						if (!prevOwner || !sockets.has(prevOwner)) {
-							ccSessionOwners.set(nextSessionId, ws);
-							logInfo(
-								`[RTS] set_view: Re-bound CC session ${nextSessionId} owner (was ${prevOwner ? "stale" : "absent"})`,
-							);
-						}
-						send(ws, {
-							type: "runtime_state",
-							backend: "claude-code",
-							data: buildClaudeCodeRuntimeState({
-								sessionId: nextSessionId,
-								cwd: activeSession?.cwd ?? ccSessionCwds.get(nextSessionId) ?? message.projectPath,
-								isStreaming: true,
-							}),
-						});
-						// Replay any buffered events from the disconnect gap
-						replayBufferedEvents(ws, "claude-code", nextSessionId);
-					}
-				}
-				if (nextAgent === "codex" && nextSessionId) {
-					const isActive = cxActiveTurns.has(nextSessionId);
-					if (isActive) {
-						const prevOwner = cxThreadOwners.get(nextSessionId);
-						if (!prevOwner || !sockets.has(prevOwner)) {
-							cxThreadOwners.set(nextSessionId, ws);
-							logInfo(
-								`[RTS] set_view: Re-bound CX thread ${nextSessionId} owner (was ${prevOwner ? "stale" : "absent"})`,
-							);
-						}
-						send(ws, {
-							type: "runtime_state",
-							backend: "codex",
-							data: buildCodexRuntimeState({
-								threadId: nextSessionId,
-								cwd: cxThreadCwds.get(nextSessionId),
-								isStreaming: true,
-							}),
-						});
-						replayBufferedEvents(ws, "codex", nextSessionId);
-					}
-				}
-				if (nextAgent === "opencode" && nextSessionId) {
-					const prevOwner = ocSessionOwners.get(nextSessionId);
-					if (!prevOwner || !sockets.has(prevOwner)) {
-						// Re-bind OC ownership so external tail stops (SDK stream delivers events)
-						ocSessionOwners.set(nextSessionId, ws);
-						if (DEBUG_RTS) {
-							logDebug(`[RTS] set_view: Re-bound OC session ${nextSessionId} owner`);
-						}
-					}
-				}
-				if (nextAgent === "pi" && nextSessionId) {
-					const runtimeStateMessage = findPiActiveRuntimeStateMessage(nextSessionId);
-					if (runtimeStateMessage) {
-						send(ws, runtimeStateMessage);
-					}
-				}
-
-				const nextKey = makeSessionKey(nextAgent, nextSessionId);
-				updateSessionWatchers(ws, prevKey, nextKey);
-
-				if (DEBUG_RTS) {
-					const watchers = sessionWatchers.get(nextKey ?? "");
-					logDebug(`[RTS] set_view: nextKey=${nextKey}, watchers=${watchers?.size ?? 0}`);
-				}
-
-				void sendStatus(ws);
-				break;
-			}
-			case "pong": {
-				const ctx = contexts.get(ws);
-				if (!ctx) break;
-				ctx.lastPongAt = Date.now();
-				ctx.lastRttMs = Math.max(0, ctx.lastPongAt - message.sentAt);
-				if (ctx.pendingPing?.id === message.id) {
-					ctx.pendingPing = undefined;
-				}
-				if (ctx.connectionType === "unknown") {
-					ctx.connectionType = ctx.lastRttMs > 30 ? "tailscale" : "local";
-				}
-				send(ws, {
-					type: "connection_metrics",
-					data: {
-						rttMs: ctx.lastRttMs,
-						lastPongAt: ctx.lastPongAt,
-						connectionType: ctx.connectionType,
-					},
-				});
-				break;
-			}
-			case "client_ping": {
-				// Client-initiated ping for app lifecycle detection - respond immediately
-				send(ws, {
-					type: "client_pong",
-					id: message.id,
-					sentAt: message.sentAt,
-					receivedAt: Date.now(),
-				});
-				break;
-			}
-			case "restart_opencode": {
-				const ok = await options.restartOpenCode?.();
-				reply({ type: "opencode_restarted", data: ok === true });
-				break;
-			}
-			// Feature 14: PTY Terminal Sessions (OpenCode when available, native fallback otherwise)
+			// PTY Terminal Sessions
 			case "list_pty":
 			case "create_pty":
 			case "get_pty":
@@ -5539,6 +5310,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 				await ptyRuntime.handleMessage(ws, message, reply);
 				break;
 			}
+			// Git operations
 			case "git_diff":
 			case "git_status":
 			case "git_log":
@@ -5572,322 +5344,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 				}
 				break;
 			}
-			case "cx_list_projects":
-			case "cx_list_threads":
-			case "cx_warmup":
-			case "cx_start_thread":
-			case "cx_resume_thread":
-			case "cx_archive_thread": {
-				const handled = await handleCxThreads(message, reply, {
-					ensureCodexClient,
-					codexClient,
-					codexFs,
-					safeString,
-					getSecurePath,
-					logInfo,
-					logError,
-					cxProjectCache,
-					setProjectCache: (cache) => {
-						cxProjectCache = cache;
-					},
-					cxThreadCache,
-					CODEX_PROJECT_CACHE_TTL_MS,
-					CODEX_THREAD_CACHE_TTL_MS,
-					cxThreadNames,
-					cxThreadOwners,
-					cxThreadCwds,
-					mapCodexThread,
-					mapCodexThreadToRuntimeSession,
-					invalidateCodexCaches,
-					ws,
-				});
-				if (!handled) {
-					reply({ type: "error", message: `Unhandled thread feature: ${message.type}` });
-				}
-				break;
-			}
-			case "cx_get_thread_messages":
-			case "cx_undo_files": {
-				const filesHandled = await handleCxFiles(message, reply, {
-					safeString,
-					logInfo,
-					codexFs,
-					ensureUndoStack,
-					applyCodexUndo,
-				});
-				if (!filesHandled) {
-					reply({ type: "error", message: `Unhandled files feature: ${message.type}` });
-				}
-				break;
-			}
-			case "cx_model_list":
-			case "cx_config_read":
-			case "cx_config_value_write": {
-				const configHandled = await handleCxConfig(message, reply, {
-					ensureCodexClient,
-					safeString,
-				});
-				if (!configHandled) {
-					reply({ type: "error", message: `Unhandled config feature: ${message.type}` });
-				}
-				break;
-			}
-			case "cx_external_config_detect":
-			case "cx_external_config_import": {
-				const extConfigHandled = await handleCxExternalConfig(message, reply, {
-					ensureCodexClient,
-					safeString,
-				});
-				if (!extConfigHandled) {
-					reply({ type: "error", message: `Unhandled external config feature: ${message.type}` });
-				}
-				break;
-			}
-			case "cx_skills_list":
-			case "cx_get_skill":
-			case "cx_save_skill":
-			case "cx_delete_skill":
-			case "cx_list_prompts": {
-				const skillsHandled = await handleCxSkills(message, reply, {
-					ensureCodexClient,
-					safeString,
-				});
-				if (!skillsHandled) {
-					reply({ type: "error", message: `Unhandled skills feature: ${message.type}` });
-				}
-				break;
-			}
-			case "cx_mcp_status_list":
-			case "cx_mcp_reload":
-			case "cx_review_start": {
-				const mcpHandled = await handleCxMcp(message, reply, {
-					ensureCodexClient,
-					safeString,
-					cxThreadOwners,
-					cxThreadCwds,
-					cxActiveTurns,
-					mapCodexThread,
-					ws,
-				});
-				if (!mcpHandled) {
-					reply({ type: "error", message: `Unhandled MCP feature: ${message.type}` });
-				}
-				break;
-			}
-			case "cx_account_read":
-			case "cx_login_start":
-			case "cx_login_cancel":
-			case "cx_logout":
-			case "cx_rate_limits_read":
-			case "cx_feedback_upload": {
-				const accountHandled = await handleCxAccount(message, reply, {
-					ensureCodexClient,
-				});
-				if (!accountHandled) {
-					reply({ type: "error", message: `Unhandled account feature: ${message.type}` });
-				}
-				break;
-			}
-			case "cx_agents_read":
-			case "cx_agents_write": {
-				const agentsHandled = await handleCxAgents(message, reply, {
-					safeString,
-					getSecurePath,
-				});
-				if (!agentsHandled) {
-					reply({ type: "error", message: `Unhandled agents feature: ${message.type}` });
-				}
-				break;
-			}
-
-			case "cx_chat":
-			case "cx_abort": {
-				const chatHandled = await handleCxChat(message, reply, {
-					ensureCodexClient,
-					safeString,
-					logInfo,
-					logError,
-					logDebug,
-					DEBUG_CX_GLOBAL,
-					cxThreadOwners,
-					cxThreadCwds,
-					cxActiveTurns,
-					cxApprovalWaiters,
-					mapCodexThread,
-					emitCxStream,
-					send,
-					broadcastToSessionWatchers,
-					buildCodexRuntimeState,
-					ws,
-				});
-				if (!chatHandled) {
-					reply({ type: "error", message: `Unhandled chat feature: ${message.type}` });
-				}
-				break;
-			}
-			case "cx_thread_fork":
-			case "cx_thread_rollback": {
-				const handled = await handleCxThreads(message, reply, {
-					ensureCodexClient,
-					codexClient,
-					codexFs,
-					safeString,
-					getSecurePath,
-					logInfo,
-					logError,
-					cxProjectCache,
-					setProjectCache: (cache) => {
-						cxProjectCache = cache;
-					},
-					cxThreadCache,
-					CODEX_PROJECT_CACHE_TTL_MS,
-					CODEX_THREAD_CACHE_TTL_MS,
-					cxThreadNames,
-					cxThreadOwners,
-					cxThreadCwds,
-					mapCodexThread,
-					mapCodexThreadToRuntimeSession,
-					invalidateCodexCaches,
-					ws,
-				});
-				if (!handled) {
-					reply({ type: "error", message: `Unhandled thread feature: ${message.type}` });
-				}
-				break;
-			}
-			case "cx_permission_response":
-			case "cx_user_input_response": {
-				const chatHandled2 = await handleCxChat(message, reply, {
-					ensureCodexClient,
-					safeString,
-					logInfo,
-					logError,
-					logDebug,
-					DEBUG_CX_GLOBAL,
-					cxThreadOwners,
-					cxThreadCwds,
-					cxActiveTurns,
-					cxApprovalWaiters,
-					mapCodexThread,
-					emitCxStream,
-					send,
-					broadcastToSessionWatchers,
-					buildCodexRuntimeState,
-					ws,
-				});
-				if (!chatHandled2) {
-					reply({ type: "error", message: `Unhandled chat feature: ${message.type}` });
-				}
-				break;
-			}
-			// Codex plugin marketplace — delegated to modular handler
-			case "cx_plugin_list":
-			case "cx_plugin_install":
-			case "cx_plugin_uninstall": {
-				const handled = await handleCxPlugins(message, reply, {
-					ensureCodexClient,
-					safeString,
-				});
-				if (!handled) {
-					reply({
-						type: "error",
-						message: `Unhandled plugin feature: ${message.type}`,
-					});
-				}
-				break;
-			}
-			// New Codex features (mid-2026 SDK) — delegated to modular handler
-			case "cx_steer":
-			case "cx_thread_rename":
-			case "cx_thread_unarchive":
-			case "cx_thread_compact":
-			case "cx_remote_skills_list":
-			case "cx_remote_skill_install":
-			case "cx_skill_config_write":
-			case "cx_apps_list":
-			case "cx_command_exec":
-			case "cx_experimental_features":
-			case "cx_config_batch_write":
-			case "cx_config_requirements_read":
-			case "cx_thread_loaded_list":
-			case "cx_thread_read":
-			case "cx_mcp_oauth_login":
-			case "cx_thread_unsubscribe":
-			case "cx_collaboration_modes":
-			case "cx_background_terminals_clean": {
-				const handled = await handleCodexFeature(message, reply, {
-					ensureCodexClient,
-					cxActiveTurns,
-					cxThreadNames,
-					safeString,
-				});
-				if (!handled) {
-					reply({
-						type: "error",
-						message: `Unhandled Codex feature: ${message.type}`,
-					});
-				}
-				break;
-			}
-			case "cx_command_write":
-			case "cx_command_resize":
-			case "cx_command_terminate":
-			case "cx_thread_metadata_update": {
-				const handled = await handleCxCommandPty(message, reply, {
-					ensureCodexClient,
-					safeString,
-				});
-				if (!handled) {
-					reply({ type: "error", message: `Unhandled command: ${message.type}` });
-				}
-				break;
-			}
-			case "set_agent": {
-				currentAgent = message.agent;
-				log(`Agent switched to: ${currentAgent}`);
-				if (currentAgent === "claude-code") {
-					const ctx = contexts.get(ws);
-					const cwd = ctx?.projectPath && ctx.projectPath !== "global" ? ctx.projectPath : undefined;
-					if (cwd) {
-						ensureClaudeWatchDir(join(cwd, ".claude", "skills"), "skills", cwd);
-						ensureClaudeWatchDir(join(cwd, ".claude", "plugins"), "plugins", cwd);
-						ensureClaudeWatchDir(join(cwd, ".claude", "commands"), "commands", cwd);
-						ensureClaudeWatchDir(join(cwd, ".claude", "hooks"), "hooks", cwd);
-						ensureClaudeWatchDir(join(cwd, ".mcp.json"), "mcp", cwd, false);
-					}
-					const envKey = !!process.env.ANTHROPIC_API_KEY;
-					const available = await claudeCode.checkClaudeCodeAvailable();
-					log(
-						`[Claude Code] Auth: ${available ? "OK" : "MISSING"} (${envKey ? "ANTHROPIC_API_KEY" : "~/.claude/settings.json"})`,
-					);
-					if (!available) {
-						log(
-							`[Claude Code] Set ANTHROPIC_API_KEY or run 'claude login' on this machine before using Claude Code from Broski.`,
-						);
-					}
-				}
-				if (currentAgent === "codex") {
-					const available = await checkCodexAvailable();
-					log(`[Codex] ${available ? "OK" : "MISSING"} (requires 'codex' in PATH)`);
-				}
-				if (currentAgent === "pi") {
-					const status = await pi.isPiAvailable();
-					log(
-						`[Pi] ${status.available ? "OK" : "MISSING"} (${status.authenticated ? `${status.modelCount} authenticated models` : "no authenticated providers"})`,
-					);
-				}
-				break;
-			}
-			case "get_agents_status": {
-				const backends = await getBackendsStatus();
-				reply({ type: "agents_status", data: backends });
-				break;
-			}
-			// ── CC handlers (extracted from server.ts) ──────────────────────
-			// Route CC messages to modular handler files.
-			// cc_chat, cc_abort, and cc_permission_response stay inline due to
-			// deep coupling with socket/waiter state.
-			// cc_elicitation_response is handled before this switch in cc_elicitation.ts.
+			// CC session routing (delegated to modular handlers)
 			case "cc_list_projects":
 			case "cc_list_sessions":
 			case "cc_get_session":
@@ -5987,7 +5444,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 				reply({ type: "error", message: "Unhandled CC plugins message" });
 				break;
 			}
-			// case "cc_chat" — extracted to handlers/cc_chat.ts
+			// cc_chat extracted to handlers/cc_chat.ts
 			case "cc_abort": {
 				await claudeCode.abortClaudeCode(message.sessionId);
 				break;
@@ -6012,26 +5469,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 				}
 				break;
 			}
-			// ── End of CC handlers ──────────────────────────────────────────
-			// cc_list_skills through cc_reload_plugins extracted to handlers/cc_*.ts
-			// Only cc_chat, cc_abort, cc_permission_response remain inline.
-			// Subscription Usage Tracking
-			case "get_subscription_usage": {
-				const subscriptionTracker = await import("./subscription-tracker");
-				const usage = await subscriptionTracker.getSubscriptionUsage();
-				reply({ type: "subscription_usage", data: usage });
-				break;
-			}
-			case "get_provider_usage": {
-				const subscriptionTracker = await import("./subscription-tracker");
-				const usage = await subscriptionTracker.getProviderUsage(message.providerId);
-				reply({ type: "provider_usage", data: usage });
-				break;
-			}
 			default: {
 				reply({ type: "error", message: "Unknown message type" });
 			}
 		}
+
 	};
 
 	const handleMessage = async (ws: ServerWebSocket<unknown>, raw: string | Uint8Array) => {

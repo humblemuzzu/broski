@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/design_tokens.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:broski/utils/format_utils.dart';
 
 import '../models/agent.dart';
 import '../models/agent_type.dart';
@@ -54,9 +53,17 @@ import 'chat/cc_elicitation_form_dialog.dart';
 import 'chat/command_handler.dart';
 import 'chat/menu_handlers.dart';
 import 'chat/send_message.dart';
+import 'chat/session_hydrator.dart';
+import 'chat/commands_loader.dart';
+import 'chat/context_loader.dart';
+import 'chat/session_forker.dart';
+import 'chat/session_compactor.dart';
+import 'chat/project_initializer.dart';
+import 'chat/permission_responder.dart';
+import 'chat/transcript_exporter.dart';
+import '../widgets/chat/variant_card_builder.dart';
 import '../providers/claude_code_provider.dart';
 import '../providers/connection_provider.dart';
-import '../providers/app_subscription_provider.dart';
 
 import '../providers/codex_settings_provider.dart';
 import '../providers/pi_provider.dart';
@@ -71,7 +78,6 @@ import '../services/haptics_service.dart';
 import '../services/image_picker_service.dart';
 import '../services/websocket_service.dart';
 import '../theme/opencode_theme.dart';
-import '../widgets/export_session_sheet.dart';
 import '../widgets/file_tagging.dart';
 import '../widgets/retry_indicator.dart';
 import '../widgets/message_bubble.dart';
@@ -83,11 +89,7 @@ import '../widgets/chat/compact_tool_card.dart';
 import '../widgets/chat/compact_edit_card.dart';
 import '../widgets/chat/compact_write_card.dart';
 import '../widgets/chat/compact_todos_card.dart';
-import '../widgets/chat/compact_task_notification_card.dart';
-import '../widgets/chat/compact_tool_summary_chip.dart';
-import '../widgets/chat/compact_hook_card.dart';
 import '../widgets/chat/compact_agent_card.dart';
-import '../widgets/chat/cc_system_message_cards.dart';
 
 import '../models/todo.dart';
 import '../widgets/multi_agent_tree.dart';
@@ -100,11 +102,9 @@ import 'diff_view_screen.dart';
 import '../utils/error_utils.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
-import 'package:broski/theme/app_icons.dart';
 import '../widgets/chat/retry_status_banner.dart';
 import '../widgets/chat/revert_state_banner.dart';
 import '../widgets/chat/subagent_activity.dart';
-import '../widgets/chat/files_persisted_card.dart';
 import '../widgets/chat/message_group.dart';
 import '../widgets/chat/message_helpers.dart';
 
@@ -629,536 +629,72 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   Future<void> _hydrateSession() async {
-    final connection = ref.read(connectionProvider);
-    final storage = ref.read(storageServiceProvider);
-    final chat = ref.read(chatSessionProvider.notifier);
-    // Reset pagination state
-    setState(() {
-      _loadingMoreMessages = false;
-      _hasLoadedAllMessages = false;
-    });
-    // Claude Code mode - set up CC session in provider (session ID may be assigned on first turn)
-    if (widget.isClaudeCode) {
-      final cwd = widget.ccSession?.cwd ?? widget.ccDraftCwd ?? '';
-      chat.setCCSession(
-        sessionId: widget.ccSession?.id ?? '',
-        cwd: cwd,
-        model: widget.ccSession?.model ?? widget.ccDraftModel,
-        title: widget.ccSession?.displayTitle ?? widget.ccDraftTitle,
-      );
-      // If this is an existing Claude Code session, hydrate transcript
-      final sessionId = widget.ccSession?.id;
-      if (sessionId != null && sessionId.isNotEmpty) {
-        // Offline mode - use cached CC messages
-        if (connection.isOfflineMode) {
-          final cachedMessages = await storage.getCachedCCMessages(sessionId);
-          if (cachedMessages.isNotEmpty) {
-            chat.hydrate(cachedMessages.map((m) => _messageToRaw(m)).toList());
-          }
-        } else {
-          try {
-            final items = await ref
-                .read(bridgeServiceProvider)
-                .ccGetSessionMessages(sessionId, cwd: cwd);
-            chat.hydrateClaudeCodeTranscript(items);
-            // Cache CC messages for offline use
-            final chatState = ref.read(chatSessionProvider);
-            if (chatState.messages.isNotEmpty) {
-              await storage.cacheCCSessionMessages(
-                sessionId,
-                chatState.messages,
-              );
+    final shouldLoadContext = await hydrateSession(
+      ref: ref,
+      widget: widget,
+      resyncingAfterReconnect: _resyncingAfterReconnect,
+      setPaginationState:
+          ({required bool loadingMore, required bool loadedAll}) {
+            if (mounted) {
+              setState(() {
+                _loadingMoreMessages = loadingMore;
+                _hasLoadedAllMessages = loadedAll;
+              });
             }
-          } catch (_) {
-            // On error, try cached messages
-            final cachedMessages = await storage.getCachedCCMessages(sessionId);
-            if (cachedMessages.isNotEmpty) {
-              chat.hydrate(
-                cachedMessages.map((m) => _messageToRaw(m)).toList(),
-              );
-            }
-          }
-        }
-      }
-      _scrollToBottom(animate: false);
-      setState(() => _hasLoadedAllMessages = true);
-      return;
-    }
-    // Codex mode - set up thread in provider (thread ID may be assigned on first turn)
-    if (widget.isCodex) {
-      final cwd = widget.cxThread?.cwd ?? widget.cxDraftCwd ?? '';
-      final threadId = widget.cxThread?.id ?? '';
-      chat.setCodexThread(
-        threadId: threadId,
-        cwd: cwd,
-        model: widget.cxThread?.modelProvider ?? widget.cxDraftModel,
-      );
-      if (threadId.isNotEmpty) {
-        if (connection.isOfflineMode) {
-          final cached = await storage.getCachedCodexMessages(threadId);
-          if (cached.isNotEmpty) {
-            chat.hydrate(cached.map((m) => _messageToRaw(m)).toList());
-          }
-        } else {
-          try {
-            final items = await ref
-                .read(bridgeServiceProvider)
-                .cxGetThreadMessages(threadId);
-            chat.hydrateCodexTranscript(items);
-            final chatState = ref.read(chatSessionProvider);
-            if (chatState.messages.isNotEmpty) {
-              await storage.cacheCodexThreadMessages(
-                threadId,
-                chatState.messages,
-              );
-            }
-          } catch (_) {
-            final cached = await storage.getCachedCodexMessages(threadId);
-            if (cached.isNotEmpty) {
-              chat.hydrate(cached.map((m) => _messageToRaw(m)).toList());
-            }
-          }
-        }
-      }
-      _scrollToBottom(animate: false);
-      setState(() => _hasLoadedAllMessages = true);
-      return;
-    }
-    // Pi mode - set up Pi session in provider
-    if (widget.isPi) {
-      final cwd = widget.piSession?.cwd ?? widget.piDraftCwd ?? '';
-      final widgetSessionId = widget.piSession?.id ?? '';
-      final isDraft = widget.piSession == null;
-      final piBridge = ref.read(piBridgeServiceProvider);
-
-      // On reconnect, the session is already alive in the bridge — don't
-      // create a new one or switch sessions. Just re-sync state and hydrate.
-      if (_resyncingAfterReconnect) {
-        if (!connection.isOfflineMode) {
-          try {
-            final piState = await piBridge.getState(projectPath: cwd);
-            chat.setPiModel(
-              piState.model != null
-                  ? '${piState.model!.provider}/${piState.model!.id}'
-                  : null,
-              modelData: piState.model,
-            );
-            chat.setPiThinkingLevel(piState.thinkingLevel);
-          } catch (_) {
-            // Best effort
-          }
-          // Re-hydrate transcript to pick up any messages from the gap.
-          // getMessages works by CWD so this works even if session ID is empty.
-          try {
-            final items = await piBridge.getMessages(projectPath: cwd);
-            chat.hydratePiTranscript(items);
-          } catch (_) {
-            // Best effort
-          }
-        }
-        _scrollToBottom(animate: false);
-        setState(() => _hasLoadedAllMessages = true);
-        _loadSessionContext();
-        return;
-      }
-
-      // Initial load path — only runs on first open, not on reconnect.
-      // Draft mode: create a new session so we don't resume an existing one.
-      // Existing session: switch to the specific session by path.
-      if (isDraft && !connection.isOfflineMode) {
-        try {
-          await piBridge.newSession(projectPath: cwd);
-        } catch (_) {
-          // Best effort — first message will still create one
-        }
-      } else if (widget.piSession?.path != null &&
-          (widget.piSession?.path.isNotEmpty ?? false)) {
-        try {
-          await piBridge.switchSession(
-            sessionPath: widget.piSession!.path,
-            projectPath: cwd,
-          );
-        } catch (_) {
-          // Best effort
-        }
-      }
-      chat.setPiSession(
-        sessionId: widgetSessionId,
-        cwd: cwd,
-        model: widget.piSession?.name,
-      );
-      // Existing session: hydrate transcript
-      if (widgetSessionId.isNotEmpty && !connection.isOfflineMode) {
-        try {
-          final items = await piBridge.getMessages(projectPath: cwd);
-          chat.hydratePiTranscript(items);
-        } catch (_) {
-          // Best effort
-        }
-      }
-      // Fetch state to sync model/thinking level and pick up session ID
-      if (!connection.isOfflineMode) {
-        try {
-          final piState = await piBridge.getState(projectPath: cwd);
-          if (piState.sessionId.isNotEmpty && widgetSessionId.isEmpty) {
-            // New session was created by newSession() — adopt its ID
-            chat.setPiSession(
-              sessionId: piState.sessionId,
-              cwd: cwd,
-              model: piState.model != null
-                  ? '${piState.model!.provider}/${piState.model!.id}'
-                  : null,
-              thinkingLevel: piState.thinkingLevel,
-            );
-            // Draft: don't hydrate — it's a fresh session with no messages
-          }
-          // Set model data after setPiSession to ensure it's not overwritten
-          chat.setPiModel(
-            piState.model != null
-                ? '${piState.model!.provider}/${piState.model!.id}'
-                : null,
-            modelData: piState.model,
-          );
-          chat.setPiThinkingLevel(piState.thinkingLevel);
-        } catch (_) {
-          // Best effort
-        }
-      }
-      _scrollToBottom(animate: false);
-      setState(() => _hasLoadedAllMessages = true);
-      _loadSessionContext();
-      return;
-    }
-    // OpenCode mode - set up OC session in provider
-    chat.setSession(widget.session, projectPath: widget.project.path);
-    // In offline mode, load from cache (all messages)
-    if (connection.isOfflineMode) {
-      final cachedMessages = await storage.getCachedMessages(widget.session.id);
-      if (cachedMessages.isNotEmpty) {
-        // Hydrate provider with cached messages format
-        chat.hydrate(cachedMessages.map((m) => _messageToRaw(m)).toList());
-      }
-      setState(() => _hasLoadedAllMessages = true); // Cache has all messages
-      _scrollToBottom(animate: false);
-      return;
-    }
-    final bridge = ref.read(bridgeServiceProvider);
-    final messages = await bridge.getSessionMessages(
-      widget.session.id,
-      projectPath: widget.project.path,
-      limit: 20, // Initial load: only fetch last 20 messages for speed
-    );
-    chat.hydrate(messages);
-    // If we got fewer than 20 messages, we already have all of them
-    if (messages.length < 20) {
-      setState(() => _hasLoadedAllMessages = true);
-    }
-    _scrollToBottom(animate: false);
-    // Load context after messages
-    _loadSessionContext();
-    // Cache messages for offline use
-    final chatState = ref.read(chatSessionProvider);
-    if (chatState.messages.isNotEmpty) {
-      await storage.cacheSessionMessages(widget.session.id, chatState.messages);
-    }
-  }
-
-  /// Convert ChatMessage to raw format for hydrate
-  Map<String, dynamic> _messageToRaw(ChatMessage m) {
-    return {
-      'info': {
-        'id': m.id,
-        'sessionID': m.sessionId,
-        'role': m.role == MessageRole.user ? 'user' : 'assistant',
-        'time': {'created': m.createdAt.millisecondsSinceEpoch},
-      },
-      'parts': [
-        if (m.text.isNotEmpty) {'type': 'text', 'text': m.text},
-        ...m.toolCalls.map(
-          (t) => {
-            'type': 'tool',
-            'id': t.partId,
-            'callID': t.callId,
-            'tool': t.name,
-            'state': {
-              'status': t.status,
-              'title': t.title,
-              'input': t.input,
-              'output': t.output,
-              'metadata': t.metadata,
-            },
           },
-        ),
-      ],
-    };
+      scrollToBottom: ({bool animate = true}) =>
+          _scrollToBottom(animate: animate),
+    );
+    if (shouldLoadContext) _loadSessionContext();
   }
 
   // Feature 2 & 3: Load available commands and agents
   Future<void> _loadCommandsAndAgents() async {
-    final bridge = ref.read(bridgeServiceProvider);
-    final storage = ref.read(storageServiceProvider);
-    final connection = ref.read(connectionProvider);
-    // Claude Code mode - load CC commands
+    // Claude Code mode
     if (widget.isClaudeCode) {
-      await _loadClaudeCodeCommands();
+      final commands = await loadClaudeCodeCommands(
+        ref: ref,
+        cwd: widget.ccSession?.cwd ?? widget.ccDraftCwd,
+      );
+      if (mounted) setState(() => _commands = commands);
       return;
     }
-    // Codex mode - built-in commands (app-server features)
-    // Full parity with Codex CLI slash commands
+    // Codex mode
     if (widget.isCodex) {
-      if (!mounted) return;
-      setState(() {
-        _agents = const [];
-        _commands = const [
-          // Core commands
-          SlashCommand(
-            name: 'model',
-            description: 'Change model',
-            builtin: true,
-          ),
-          SlashCommand(
-            name: 'approvals',
-            description:
-                'Set approval policy (untrusted/on-failure/on-request/never)',
-            builtin: true,
-          ),
-          SlashCommand(
-            name: 'status',
-            description:
-                'Open sidebar with context usage, tokens & session info',
-            builtin: true,
-          ),
-          // Reasoning commands
-          SlashCommand(
-            name: 'reasoning',
-            description: 'Set reasoning effort (minimal/low/medium/high/xhigh)',
-            builtin: true,
-          ),
-          SlashCommand(
-            name: 'reasoningsummary',
-            description: 'Set reasoning summary (auto/concise/detailed/none)',
-            builtin: true,
-          ),
-          // Feature toggles
-          SlashCommand(
-            name: 'websearch',
-            description: 'Toggle web search (on/off)',
-            builtin: true,
-          ),
-          SlashCommand(
-            name: 'skills',
-            description: 'Toggle skills discovery (on/off)',
-            builtin: true,
-          ),
-          // Session commands
-          SlashCommand(
-            name: 'compact',
-            description: 'Summarize/compact thread context',
-            builtin: true,
-          ),
-          SlashCommand(
-            name: 'diff',
-            description: 'Show file changes diff',
-            builtin: true,
-          ),
-          SlashCommand(
-            name: 'undo',
-            description: 'Undo last file changes',
-            builtin: true,
-          ),
-          SlashCommand(
-            name: 'review',
-            description: 'Start code review of uncommitted changes',
-            builtin: true,
-          ),
-          // Project commands
-          SlashCommand(
-            name: 'agents',
-            description: 'Edit AGENTS.md project instructions',
-            builtin: true,
-          ),
-          SlashCommand(
-            name: 'init',
-            description: 'Create AGENTS.md with template',
-            builtin: true,
-          ),
-          SlashCommand(
-            name: 'mcp',
-            description: 'List MCP server status',
-            builtin: true,
-          ),
-        ];
-      });
-      return;
-    }
-    // Pi mode - load commands from bridge
-    if (widget.isPi) {
-      if (connection.isOfflineMode || !mounted) return;
-      try {
-        final piBridge = ref.read(piBridgeServiceProvider);
-        final cwd = widget.piSession?.cwd ?? widget.piDraftCwd;
-        final piCommands = await piBridge.listCommands(projectPath: cwd);
-        if (!mounted) return;
+      if (mounted) {
         setState(() {
           _agents = const [];
-          _commands = piCommands
-              .map(
-                (c) => SlashCommand(
-                  name: c.name,
-                  description: c.description ?? c.source,
-                  builtin: false,
-                ),
-              )
-              .toList();
-        });
-      } catch (_) {
-        // Best effort
-      }
-      return;
-    }
-    // OpenCode mode - offline support
-    if (connection.isOfflineMode) {
-      final cachedCommands = await storage.getCachedCommands();
-      final cachedAgents = await storage.getCachedAgents();
-      if (mounted) {
-        setState(() {
-          _commands = cachedCommands.isNotEmpty ? cachedCommands : [];
-          _agents = cachedAgents.isNotEmpty ? cachedAgents : kDefaultAgents;
+          _commands = kCodexBuiltinCommands;
         });
       }
       return;
     }
-    try {
-      final commands = await bridge.listCommands(
-        projectPath: widget.project.path,
+    // Pi mode
+    if (widget.isPi) {
+      final commands = await loadPiCommands(
+        ref: ref,
+        cwd: widget.piSession?.cwd ?? widget.piDraftCwd,
       );
-      final agents = await bridge.listAgents(projectPath: widget.project.path);
-      // Cache for offline use
-      if (commands.isNotEmpty) {
-        await storage.cacheCommands(commands);
-      }
-      if (agents.isNotEmpty) {
-        await storage.cacheAgents(agents);
-      }
-      // Built-in OpenCode commands (matching TUI)
-      final builtInCommands = [
-        const SlashCommand(
-          name: 'undo',
-          description: 'Undo last message',
-          builtin: true,
-        ),
-        const SlashCommand(
-          name: 'redo',
-          description: 'Redo last message',
-          builtin: true,
-        ),
-        const SlashCommand(
-          name: 'compact',
-          description: 'Compact session',
-          builtin: true,
-        ),
-        const SlashCommand(
-          name: 'summarize',
-          description: 'Compact session (alias)',
-          builtin: true,
-        ),
-        const SlashCommand(
-          name: 'unshare',
-          description: 'Unshare session',
-          builtin: true,
-        ),
-        const SlashCommand(
-          name: 'rename',
-          description: 'Rename session',
-          builtin: true,
-        ),
-        const SlashCommand(
-          name: 'copy',
-          description: 'Copy transcript to clipboard',
-          builtin: true,
-        ),
-        const SlashCommand(
-          name: 'export',
-          description: 'Export transcript to file',
-          builtin: true,
-        ),
-        const SlashCommand(
-          name: 'timeline',
-          description: 'Jump to message',
-          builtin: true,
-        ),
-        const SlashCommand(
-          name: 'fork',
-          description: 'Fork session',
-          builtin: true,
-        ),
-        const SlashCommand(
-          name: 'thinking',
-          description: 'Toggle thinking visibility',
-          builtin: true,
-        ),
-        const SlashCommand(
-          name: 'share',
-          description: 'Share session',
-          builtin: true,
-        ),
-        const SlashCommand(
-          name: 'new',
-          description: 'Create new session',
-          builtin: true,
-        ),
-        const SlashCommand(
-          name: 'clear',
-          description: 'Create new session (alias)',
-          builtin: true,
-        ),
-        const SlashCommand(
-          name: 'models',
-          description: 'List models',
-          builtin: true,
-        ),
-        const SlashCommand(
-          name: 'agents',
-          description: 'List agents',
-          builtin: true,
-        ),
-        const SlashCommand(
-          name: 'session',
-          description: 'List sessions',
-          builtin: true,
-        ),
-        const SlashCommand(
-          name: 'resume',
-          description: 'List sessions (alias)',
-          builtin: true,
-        ),
-        const SlashCommand(
-          name: 'continue',
-          description: 'List sessions (alias)',
-          builtin: true,
-        ),
-        const SlashCommand(
-          name: 'help',
-          description: 'Show available commands',
-          builtin: true,
-        ),
-      ];
-      if (mounted) {
+      if (mounted)
         setState(() {
-          _commands = [...builtInCommands, ...commands];
-          _agents = agents.isNotEmpty ? agents : kDefaultAgents;
+          _agents = const [];
+          _commands = commands;
         });
-      }
-      // Also load variants for thinking level support (SDK v1.1.23+)
-      _loadOpenCodeVariants();
-    } catch (e) {
-      // Use defaults if loading fails
-      if (mounted) {
-        setState(() {
-          _agents = kDefaultAgents;
-        });
-      }
+      return;
     }
+    // OpenCode mode
+    final result = await loadOpenCodeCommandsAndAgents(
+      ref: ref,
+      projectPath: widget.project.path,
+    );
+    if (mounted) {
+      setState(() {
+        _commands = result.commands;
+        _agents = result.agents;
+      });
+    }
+    // Also load variants for thinking level support (SDK v1.1.23+)
+    if (result.commands.isNotEmpty) _loadOpenCodeVariants();
   }
 
   /// Load available variants (thinking levels) for OpenCode models.
@@ -1178,251 +714,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   /// Load slash commands for Claude Code
-  Future<void> _loadClaudeCodeCommands() async {
-    final bridge = ref.read(bridgeServiceProvider);
-    final cwd = widget.ccSession?.cwd ?? widget.ccDraftCwd;
-    try {
-      // Fetch custom commands from .claude/commands/ directories
-      final ccCommands = await bridge.ccListCommands(cwd: cwd);
-      // Built-in slash commands (from Claude Code init payload when available).
-      // Fallback to a small default list when init is not available (e.g. draft screen).
-      const builtInDescriptions = <String, String>{
-        'compact': 'Summarize conversation to free context',
-        'clear': 'Clear conversation and start fresh',
-        'help': 'Show available commands',
-      };
-      final initSlash =
-          ref.read(chatSessionProvider).ccInit?.slashCommands ??
-          const <String>[];
-      final builtInNames = initSlash.isNotEmpty
-          ? initSlash
-                .map((s) => s.toString().trim())
-                .where((s) => s.startsWith('/'))
-                .map((s) => s.replaceFirst('/', ''))
-                .where((s) => s.isNotEmpty)
-                .toSet()
-                .toList()
-          : const ['compact', 'clear', 'help'];
-      final builtInCommands = builtInNames
-          .map(
-            (name) => SlashCommand(
-              name: name,
-              description: builtInDescriptions[name] ?? 'Claude Code command',
-              builtin: true,
-            ),
-          )
-          .toList();
-      // Convert CC commands to SlashCommand and merge
-      final customCommands = ccCommands
-          .map((c) => c.toSlashCommand(builtin: false))
-          .toList();
-      if (mounted) {
-        setState(() {
-          _commands = [...builtInCommands, ...customCommands];
-        });
-      }
-    } catch (e) {
-      // Use just built-in commands if loading fails
-      if (mounted) {
-        setState(() {
-          _commands = const [
-            SlashCommand(
-              name: 'compact',
-              description: 'Summarize conversation to free context',
-              builtin: true,
-            ),
-            SlashCommand(
-              name: 'clear',
-              description: 'Clear conversation and start fresh',
-              builtin: true,
-            ),
-            SlashCommand(
-              name: 'help',
-              description: 'Show available commands',
-              builtin: true,
-            ),
-          ];
-        });
-      }
-    }
-  }
 
   Future<void> _loadSessionContext() async {
     if (_loadingContext) return;
     setState(() => _loadingContext = true);
-    final storage = ref.read(storageServiceProvider);
-    final connection = ref.read(connectionProvider);
-    // Claude Code mode - build context from stream state
-    if (widget.isClaudeCode) {
-      final chatState = ref.read(chatSessionProvider);
-      final tokenUsage = chatState.ccTokenUsage;
-      final ccConfig = ref.read(ccConfigProvider).valueOrNull;
-      final context = SessionContext.fromClaudeCode(
-        inputTokens: tokenUsage?.inputTokens ?? 0,
-        outputTokens: tokenUsage?.outputTokens ?? 0,
-        cacheReadTokens: tokenUsage?.cacheReadTokens ?? 0,
-        cacheWriteTokens: tokenUsage?.cacheCreationTokens ?? 0,
-        reasoningTokens: 0, // SDK doesn't report reasoning in cumulative usage
-        totalCostUsd: tokenUsage?.totalCostUsd,
-        budgetLimitUsd: ccConfig?.maxBudgetUsd,
-        // SDK v2.1.6+: Use context window from token usage if available
-        contextWindow:
-            tokenUsage?.effectiveContextWindow ?? kDefaultContextWindow,
-        // Per-turn context tokens from iterations[-1] (actual window occupancy)
-        lastIterContextTokens: tokenUsage?.lastIterContextTokens,
-        // Avoid client-side "made up" file summaries for Claude Code.
-        // Only show what the SDK reports directly (usage/cost).
-        modifiedFiles: const [],
-      );
-      // Cache CC context for offline
-      final sessionId = chatState.ccSessionId ?? widget.ccSession?.id ?? '';
-      if (sessionId.isNotEmpty) {
-        await storage.cacheSessionContext(sessionId, context);
-      }
+    final result = await loadSessionContext(ref: ref, widget: widget);
+    if (mounted) {
       setState(() {
-        _sessionContext = context;
+        _sessionContext = result;
         _loadingContext = false;
       });
-      return;
-    }
-    // Codex mode - build context from stream token usage
-    // Codex SDK provides TokenUsageBreakdown with:
-    //   totalTokens, inputTokens, cachedInputTokens, outputTokens, reasoningOutputTokens
-    // and ThreadTokenUsage with:
-    //   total (cumulative), last (last turn), modelContextWindow
-    // NOTE: Codex SDK does NOT provide cost information.
-    if (widget.isCodex) {
-      final chatState = ref.read(chatSessionProvider);
-      final tokenUsage = chatState.cxTokenUsage;
-      final total = tokenUsage?.total;
-      final last = tokenUsage?.last;
-      final contextWindow =
-          tokenUsage?.modelContextWindow ?? kDefaultContextWindow;
-      // Cumulative totals across the thread (for display)
-      final inputTokens = total?.inputTokens ?? 0;
-      final outputTokens = total?.outputTokens ?? 0;
-      final cachedInputTokens = total?.cachedInputTokens ?? 0;
-      final reasoningTokens = total?.reasoningOutputTokens ?? 0;
-      final cacheWriteTokens = total?.cacheWriteTokens ?? 0;
-      // Context tokens = LAST turn's input tokens (what's currently in the window)
-      // Codex SDK: inputTokens includes cachedInputTokens (OpenAI convention)
-      // Using last turn since it reflects the current context state
-      final contextTokens = last?.inputTokens ?? inputTokens;
-      final context = SessionContext.fromCodex(
-        inputTokens: inputTokens,
-        outputTokens: outputTokens,
-        cachedInputTokens: cachedInputTokens,
-        reasoningTokens: reasoningTokens,
-        cacheWriteTokens: cacheWriteTokens,
-        contextWindow: contextWindow,
-        contextTokens: contextTokens,
-      );
-      final threadId = chatState.cxThreadId ?? widget.cxThread?.id ?? '';
-      if (threadId.isNotEmpty) {
-        await storage.cacheSessionContext(threadId, context);
-      }
-      setState(() {
-        _sessionContext = context;
-        _loadingContext = false;
-      });
-      return;
-    }
-    // Pi mode - build context from session stats
-    if (widget.isPi) {
-      try {
-        final piBridge = ref.read(piBridgeServiceProvider);
-        final chatState = ref.read(chatSessionProvider);
-        final cwd = chatState.piCwd;
-        final stats = await piBridge.getSessionStats(projectPath: cwd);
-        final ctxUsage = stats.contextUsage;
-        final context = SessionContext.fromPi(
-          inputTokens: stats.tokens.input,
-          outputTokens: stats.tokens.output,
-          cacheReadTokens: stats.tokens.cacheRead,
-          cacheWriteTokens: stats.tokens.cacheWrite,
-          totalCost: stats.cost,
-          contextWindow:
-              ctxUsage?.contextWindow ??
-              chatState.piModelData?.contextWindow ??
-              kDefaultContextWindow,
-          actualContextTokens: ctxUsage?.tokens ?? 0,
-        );
-        if (mounted) {
-          setState(() {
-            _sessionContext = context;
-            _loadingContext = false;
-          });
-        }
-      } catch (_) {
-        if (mounted) {
-          setState(() {
-            _sessionContext = SessionContext.empty();
-            _loadingContext = false;
-          });
-        }
-      }
-      return;
-    }
-    // OpenCode offline mode - use cached data
-    if (connection.isOfflineMode) {
-      final cachedContext = await storage.getCachedSessionContext(
-        widget.session.id,
-      );
-      final cachedTodos = await storage.getCachedSessionTodos(
-        widget.session.id,
-      );
-      if (mounted) {
-        setState(() {
-          _sessionContext = cachedContext ?? SessionContext.empty();
-          _loadingContext = false;
-        });
-        if (cachedTodos.isNotEmpty) {
-          ref.read(chatSessionProvider.notifier).setTodos(cachedTodos);
-        }
-      }
-      return;
-    }
-    // OpenCode mode - fetch from bridge
-    try {
-      final bridge = ref.read(bridgeServiceProvider);
-      // Load context and todos in parallel
-      final contextFuture = bridge.getSessionContext(
-        widget.session.id,
-        projectPath: widget.project.path,
-      );
-      final todosFuture = bridge.getTodos(
-        widget.session.id,
-        projectPath: widget.project.path,
-      );
-      final contextData = await contextFuture;
-      final todosData = await todosFuture;
-      final context = SessionContext.fromJson(contextData);
-      // Cache for offline use
-      await storage.cacheSessionContext(widget.session.id, context);
-      if (todosData.isNotEmpty) {
-        await storage.cacheSessionTodos(widget.session.id, todosData);
-      }
-      if (mounted) {
-        setState(() {
-          _sessionContext = context;
-          _loadingContext = false;
-        });
-        // Update todos in provider
-        ref.read(chatSessionProvider.notifier).setTodos(todosData);
-      }
-    } catch (e) {
-      // On error, try cached data
-      final cachedContext = await storage.getCachedSessionContext(
-        widget.session.id,
-      );
-      if (mounted) {
-        setState(() {
-          if (cachedContext != null) {
-            _sessionContext = cachedContext;
-          }
-          _loadingContext = false;
-        });
-      }
     }
   }
 
@@ -1465,145 +766,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   Future<void> _forkSession({String? messageId}) async {
-    _haptics.mediumImpact();
-    final theme = OpenCodeTheme.of(context);
-    try {
-      final bridge = ref.read(bridgeServiceProvider);
-      final chatState = ref.read(chatSessionProvider);
-      String? initialPrompt;
-      if (messageId != null && messageId.isNotEmpty) {
-        final idx = chatState.messages.indexWhere((m) => m.id == messageId);
-        if (idx >= 0) {
-          for (var i = idx; i >= 0; i--) {
-            final m = chatState.messages[i];
-            if (m.role == MessageRole.user && m.text.trim().isNotEmpty) {
-              initialPrompt = m.text.trim();
-              break;
-            }
-          }
-          initialPrompt ??= chatState.messages[idx].text.trim();
-        }
-      }
-      if (widget.isClaudeCode) {
-        final sessionId = chatState.ccSessionId ?? widget.ccSession?.id;
-        if (sessionId == null || sessionId.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Cannot fork: no active session'),
-              backgroundColor: theme.error,
-            ),
-          );
-          return;
-        }
-        final forkedCC = await bridge.ccForkSession(
-          sessionId,
-          messageId: messageId,
-          cwd: chatState.ccCwd ?? widget.ccSession?.cwd,
-        );
-        if (!mounted) return;
-        if (forkedCC == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Failed to fork session'),
-              backgroundColor: theme.error,
-            ),
-          );
-          return;
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Session forked: ${forkedCC.displayTitle}'),
-            backgroundColor: theme.backgroundPanel,
-            action: SnackBarAction(
-              label: 'Open',
-              textColor: theme.primary,
-              onPressed: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ChatScreen.claudeCode(
-                      ccSession: forkedCC,
-                      initialPrompt: initialPrompt,
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        );
-      } else if (widget.isCodex) {
-        final threadId = chatState.cxThreadId ?? widget.cxThread?.id;
-        if (threadId == null || threadId.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Cannot fork: no active thread'),
-              backgroundColor: theme.error,
-            ),
-          );
-          return;
-        }
-        final forked = await bridge.cxThreadFork(threadId: threadId);
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Thread forked: ${forked.preview}'),
-            backgroundColor: theme.backgroundPanel,
-            action: SnackBarAction(
-              label: 'Open',
-              textColor: theme.primary,
-              onPressed: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ChatScreen.codex(
-                      cxThread: forked,
-                      initialPrompt: initialPrompt,
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        );
-      } else {
-        final forkedSession = await bridge.forkSession(
-          widget.session.id,
-          messageId: messageId,
-          projectPath: widget.project.path,
-        );
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Session forked: ${forkedSession.title}'),
-            backgroundColor: theme.backgroundPanel,
-            action: SnackBarAction(
-              label: 'Open',
-              textColor: theme.primary,
-              onPressed: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ChatScreen(
-                      project: widget.project,
-                      session: forkedSession,
-                      initialPrompt: initialPrompt,
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to fork session: ${humanizeError(e)}'),
-          backgroundColor: theme.error,
-        ),
-      );
-    }
+    return forkSession(
+      context: context,
+      ref: ref,
+      widget: widget,
+      haptics: _haptics,
+      messageId: messageId,
+    );
   }
 
   void _setClaudeResumeFromHere(String messageId) {
@@ -1817,173 +986,25 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   // Feature 9: Summarize/Compact Session
   Future<void> _compactSession() async {
-    final theme = OpenCodeTheme.of(context);
-    final selectedModel = ref.read(selectionProvider).model;
-    if (selectedModel == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please select a model first'),
-          backgroundColor: theme.error,
-        ),
-      );
-      return;
-    }
-    // Confirm compact
-    final confirm = await showDialog<bool>(
+    return compactSession(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: theme.backgroundPanel,
-        title: Text('Compact Session?', style: TextStyle(color: theme.text)),
-        content: Text(
-          'This will summarize older messages to free up context window space. This cannot be undone.',
-          style: TextStyle(color: theme.textMuted),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('Compact', style: TextStyle(color: theme.primary)),
-          ),
-        ],
-      ),
+      ref: ref,
+      sessionId: widget.session.id,
+      projectPath: widget.project.path,
+      haptics: _haptics,
+      onRefreshContext: _loadSessionContext,
     );
-    if (confirm != true) return;
-    _haptics.mediumImpact();
-    ref.read(chatSessionProvider.notifier).setCompacting(true);
-    try {
-      final bridge = ref.read(bridgeServiceProvider);
-      final success = await bridge.summarizeSession(
-        widget.session.id,
-        providerID: selectedModel.providerID,
-        modelID: selectedModel.modelID,
-        projectPath: widget.project.path,
-      );
-      if (!mounted) return;
-      if (success) {
-        final theme = OpenCodeTheme.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Session compacted successfully'),
-            backgroundColor: theme.backgroundPanel,
-          ),
-        );
-        // Refresh context to show updated token count
-        _loadSessionContext();
-      } else {
-        ref.read(chatSessionProvider.notifier).setCompacting(false);
-        final theme = OpenCodeTheme.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Failed to compact session'),
-            backgroundColor: theme.error,
-          ),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ref.read(chatSessionProvider.notifier).setCompacting(false);
-      final theme = OpenCodeTheme.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to compact: ${humanizeError(e)}'),
-          backgroundColor: theme.error,
-        ),
-      );
-    }
   }
 
   // Feature 20: Initialize Project (Create AGENTS.md)
   Future<void> _initializeProject() async {
-    final theme = OpenCodeTheme.of(context);
-    final selectedModel = ref.read(selectionProvider).model;
-    if (selectedModel == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please select a model first'),
-          backgroundColor: theme.error,
-        ),
-      );
-      return;
-    }
-    // Confirm initialization
-    final confirm = await showDialog<bool>(
+    return initializeProject(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: theme.backgroundPanel,
-        title: Text('Initialize Project?', style: TextStyle(color: theme.text)),
-        content: Text(
-          'This will analyze your project and create an AGENTS.md file with project-specific instructions for the AI.',
-          style: TextStyle(color: theme.textMuted),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('Initialize', style: TextStyle(color: theme.success)),
-          ),
-        ],
-      ),
+      ref: ref,
+      sessionId: widget.session.id,
+      projectPath: widget.project.path,
+      haptics: _haptics,
     );
-    if (confirm != true) return;
-    _haptics.mediumImpact();
-    if (!mounted) return;
-    final messenger = ScaffoldMessenger.of(context);
-    // Show a loading message
-    messenger.showSnackBar(
-      SnackBar(
-        content: const Text('Initializing project...'),
-        backgroundColor: theme.backgroundPanel,
-        duration: const Duration(seconds: 2),
-      ),
-    );
-    try {
-      final bridge = ref.read(bridgeServiceProvider);
-      // Get the latest message ID (used for init)
-      final chatState = ref.read(chatSessionProvider);
-      final messageId = chatState.messages.isNotEmpty
-          ? chatState.messages.last.id
-          : 'init';
-      final success = await bridge.initSession(
-        sessionId: widget.session.id,
-        providerID: selectedModel.providerID,
-        modelID: selectedModel.modelID,
-        messageID: messageId,
-        projectPath: widget.project.path,
-      );
-      if (!mounted) return;
-      if (success) {
-        final theme = OpenCodeTheme.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Project initialized! AGENTS.md created.'),
-            backgroundColor: theme.success,
-          ),
-        );
-      } else {
-        final theme = OpenCodeTheme.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Failed to initialize project'),
-            backgroundColor: theme.error,
-          ),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      final theme = OpenCodeTheme.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to initialize: ${humanizeError(e)}'),
-          backgroundColor: theme.error,
-        ),
-      );
-    }
   }
 
   /// Dismiss keyboard if the input field is focused.
@@ -2761,73 +1782,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   /// Export transcript (show options)
-  void _exportTranscript() {
-    final theme = OpenCodeTheme.of(context);
-    final chatState = ref.read(chatSessionProvider);
-    if (chatState.messages.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('No messages to export')));
-      return;
-    }
-    DetailSheet.show(
-      context: context,
-      title: 'Export Transcript',
-      initialSize: 0.4,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: Icon(AppIcons.copy, color: theme.primary),
-            title: Text(
-              'Copy to Clipboard',
-              style: TextStyle(color: theme.text),
-            ),
-            subtitle: Text(
-              'Copy as markdown',
-              style: TextStyle(color: theme.textMuted),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              _copyTranscriptToClipboard();
-            },
-          ),
-          ListTile(
-            leading: Icon(AppIcons.share, color: theme.primary),
-            title: Text('Share', style: TextStyle(color: theme.text)),
-            subtitle: Text(
-              'Share transcript via system share',
-              style: TextStyle(color: theme.textMuted),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              _shareTranscript();
-            },
-          ),
-          ListTile(
-            leading: Icon(AppIcons.tune, color: theme.primary),
-            title: Text('Export options…', style: TextStyle(color: theme.text)),
-            subtitle: Text(
-              'Choose format, include tools, and more',
-              style: TextStyle(color: theme.textMuted),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
-                builder: (_) => ExportSessionSheet(
-                  title: widget.effectiveTitle,
-                  messages: chatState.messages,
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
+  void _exportTranscript() => exportTranscript(
+    context: context,
+    ref: ref,
+    effectiveTitle: widget.effectiveTitle,
+    onCopyToClipboard: _copyTranscriptToClipboard,
+    onShare: _shareTranscript,
+  );
 
   /// Share transcript via system share sheet
   void _shareTranscript() {
@@ -3564,179 +2525,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   /// Build a compact card widget for variant-tagged system messages.
-  /// Returns null if the variant is not recognized (falls through to default rendering).
-  Widget? _buildVariantCard(ChatMessage message) {
-    final variant = message.variant!;
-
-    // Task notification: variant = 'task-notification:completed' etc.
-    if (variant.startsWith('task-notification:')) {
-      final status = variant.replaceFirst('task-notification:', '');
-      // Extract taskId from message id (pattern: cc-task-{taskId}-{timestamp})
-      final idParts = message.id.split('-');
-      final taskId = idParts.length >= 3 ? idParts[2] : '';
-      return CompactTaskNotificationCard(
-        taskId: taskId,
-        status: status,
-        summary: message.text.replaceFirst(RegExp(r'^[✅❌⏳]\s*Task:\s*'), ''),
-        onStop:
-            status != 'completed' && status != 'failed' && status != 'stopped'
-            ? () {
-                final ccState = ref.read(ccChatProvider);
-                final sessionId = ccState.sessionId;
-                if (sessionId != null &&
-                    sessionId.isNotEmpty &&
-                    taskId.isNotEmpty) {
-                  ref
-                      .read(bridgeServiceProvider)
-                      .ccStopTask(sessionId: sessionId, taskId: taskId);
-                }
-              }
-            : null,
-      );
-    }
-
-    // Tool use summary: variant = 'tool-use-summary'
-    if (variant == 'tool-use-summary') {
-      return CompactToolSummaryChip(summary: message.text);
-    }
-
-    // Files persisted: variant = 'files-persisted'
-    if (variant == 'files-persisted') {
-      return _buildFilesPersistedCard(message);
-    }
-
-    // Hook events: variant = 'hook:running' or 'hook:success' etc.
-    if (variant.startsWith('hook:')) {
-      final status = variant.replaceFirst('hook:', '');
-      // Parse hook info from text: "⚡ Hook: {name} ({event})" or "⚡ Hook: {name} ({event}) — {outcome}"
-      final hookText = message.text.replaceFirst(RegExp(r'^⚡\s*Hook:\s*'), '');
-      final match = RegExp(r'^(.+?)\s*\(([^)]+)\)').firstMatch(hookText);
-      final hookName = match?.group(1) ?? hookText;
-      final hookEvent = match?.group(2) ?? '';
-      // Check for output after " — "
-      final dashIdx = hookText.indexOf(' — ');
-      final output = dashIdx > 0 ? hookText.substring(dashIdx + 3) : null;
-      return CompactHookCard(
-        hookName: hookName,
-        hookEvent: hookEvent,
-        status: status,
-        output: output,
-      );
-    }
-
-    // Status compacting: variant = 'status-compacting'
-    if (variant == 'status-compacting') {
-      final theme = OpenCodeTheme.of(context);
-      return Container(
-        margin: const EdgeInsets.symmetric(vertical: 3),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: theme.bgRaised,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: theme.accent.withValues(alpha: 0.2),
-            width: 0.5,
-          ),
-        ),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator(
-                strokeWidth: 1.5,
-                color: theme.accent,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'Compacting conversation…',
-                style: TextStyle(fontSize: 12, color: theme.textMuted),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // Assistant error: variant = 'assistant-error:{errorType}'
-    if (variant.startsWith('assistant-error:')) {
-      final theme = OpenCodeTheme.of(context);
-      return Container(
-        margin: const EdgeInsets.symmetric(vertical: 3),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: theme.error.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: theme.error.withValues(alpha: 0.3),
-            width: 0.5,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.warning_amber_rounded, size: 16, color: theme.error),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                message.text,
-                style: TextStyle(fontSize: 12, color: theme.text, height: 1.3),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // Auth status: variant = 'auth-status'
-    if (variant == 'auth-status') {
-      final theme = OpenCodeTheme.of(context);
-      return Container(
-        margin: const EdgeInsets.symmetric(vertical: 3),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: theme.bgRaised,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: theme.accent.withValues(alpha: 0.2),
-            width: 0.5,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.vpn_key_rounded, size: 14, color: theme.accent),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                message.text,
-                style: TextStyle(fontSize: 12, color: theme.textMuted),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    final ccSystemCard = buildCcSystemMessageCard(
-      context: context,
-      message: message,
-      variant: variant,
-    );
-    if (ccSystemCard != null) {
-      return ccSystemCard;
-    }
-
-    return null; // Unknown variant, fall through to default rendering
-  }
-
-  /// Files-persisted card — delegates to FilesPersistedCard widget.
-  Widget _buildFilesPersistedCard(ChatMessage message) =>
-      FilesPersistedCard(message: message);
+  Widget? _buildVariantCard(ChatMessage message) =>
+      buildVariantCard(context: context, ref: ref, message: message);
 
   /// Build widgets for ordered parts (Claude Code sequential rendering)
   /// Returns widgets in arrival order: text segments and tool calls interleaved
@@ -4375,70 +3165,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     String? message,
     Object? execpolicyAmendment,
   }) async {
-    final entitlement = ref.read(appSubscriptionProvider).entitled;
-    if (!entitlement) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Subscription required to approve tools.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      Navigator.pop(context);
-      return;
-    }
-    final bridge = ref.read(bridgeServiceProvider);
-    final chat = ref.read(chatSessionProvider.notifier);
-    if (widget.isClaudeCode) {
-      final elicitationRequestId =
-          request.metadata['ccElicitationRequestId'] as String?;
-      if (elicitationRequestId != null && elicitationRequestId.isNotEmpty) {
-        final mode = request.metadata['ccElicitationMode'] as String?;
-        var action = switch (response) {
-          'once' || 'always' => 'accept',
-          'reject' => 'decline',
-          _ => 'cancel',
-        };
-
-        Map<String, dynamic>? content;
-        if (mode == 'form' && action == 'accept') {
-          content = await _showElicitationFormInputDialog(request);
-          if (content == null) {
-            action = 'cancel';
-          }
-        }
-
-        bridge.ccRespondToElicitation(
-          sessionId: request.sessionId,
-          requestId: elicitationRequestId,
-          action: action,
-          content: content,
-        );
-      } else {
-        bridge.ccRespondToPermission(
-          sessionId: request.sessionId,
-          toolUseId: request.id,
-          response: response,
-        );
-      }
-    } else if (widget.isCodex) {
-      bridge.cxRespondToPermission(
-        requestId: request.id,
-        response: response,
-        execpolicyAmendment: execpolicyAmendment,
-      );
-    } else {
-      bridge.respondToPermission(
-        sessionId: request.sessionId,
-        permissionId: request.id,
-        response: response,
-        message: message,
-        projectPath: widget.project.path,
-      );
-    }
-    chat.resolvePermission(request.id);
-    if (mounted && Navigator.of(context).canPop()) {
-      Navigator.pop(context);
-    }
+    return respondToPermission(
+      context: context,
+      ref: ref,
+      request: request,
+      response: response,
+      isClaudeCode: widget.isClaudeCode,
+      isCodex: widget.isCodex,
+      projectPath: widget.project.path,
+      showElicitationFormDialog: _showElicitationFormInputDialog,
+      message: message,
+      execpolicyAmendment: execpolicyAmendment,
+    );
   }
 }
 

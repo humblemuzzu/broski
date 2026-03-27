@@ -1,0 +1,107 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../providers/chat_provider.dart';
+import '../../providers/selection_provider.dart';
+import '../../providers/service_providers.dart';
+import '../../services/haptics_service.dart';
+import '../../theme/opencode_theme.dart';
+import '../../utils/error_utils.dart';
+
+/// Initializes a project by creating AGENTS.md.
+/// Extracted from `_ChatScreenState._initializeProject` in `chat_screen.dart`.
+Future<void> initializeProject({
+  required BuildContext context,
+  required WidgetRef ref,
+  required String sessionId,
+  required String projectPath,
+  required HapticsService haptics,
+}) async {
+  final theme = OpenCodeTheme.of(context);
+  final selectedModel = ref.read(selectionProvider).model;
+  if (selectedModel == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Please select a model first'),
+        backgroundColor: theme.error,
+      ),
+    );
+    return;
+  }
+  // Confirm initialization
+  final confirm = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      backgroundColor: theme.backgroundPanel,
+      title: Text('Initialize Project?', style: TextStyle(color: theme.text)),
+      content: Text(
+        'This will analyze your project and create an AGENTS.md file with project-specific instructions for the AI.',
+        style: TextStyle(color: theme.textMuted),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: Text('Initialize', style: TextStyle(color: theme.success)),
+        ),
+      ],
+    ),
+  );
+  if (confirm != true) return;
+  haptics.mediumImpact();
+  if (!context.mounted) return;
+  final messenger = ScaffoldMessenger.of(context);
+  // Show a loading message
+  messenger.showSnackBar(
+    SnackBar(
+      content: const Text('Initializing project...'),
+      backgroundColor: theme.backgroundPanel,
+      duration: const Duration(seconds: 2),
+    ),
+  );
+  try {
+    final bridge = ref.read(bridgeServiceProvider);
+    // Get the latest message ID (used for init)
+    final chatState = ref.read(chatSessionProvider);
+    final messageId = chatState.messages.isNotEmpty
+        ? chatState.messages.last.id
+        : 'init';
+    final success = await bridge.initSession(
+      sessionId: sessionId,
+      providerID: selectedModel.providerID,
+      modelID: selectedModel.modelID,
+      messageID: messageId,
+      projectPath: projectPath,
+    );
+    if (!context.mounted) return;
+    if (success) {
+      final theme = OpenCodeTheme.of(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Project initialized! AGENTS.md created.'),
+          backgroundColor: theme.success,
+        ),
+      );
+    } else {
+      final theme = OpenCodeTheme.of(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Failed to initialize project'),
+          backgroundColor: theme.error,
+        ),
+      );
+    }
+  } catch (e) {
+    if (!context.mounted) return;
+    final theme = OpenCodeTheme.of(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Failed to initialize: ${humanizeError(e)}'),
+        backgroundColor: theme.error,
+      ),
+    );
+  }
+}
