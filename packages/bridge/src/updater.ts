@@ -267,7 +267,7 @@ export function startPeriodicUpdateCheck(
 
   // Don't prevent process exit
   if (periodicTimer && typeof periodicTimer === 'object' && 'unref' in periodicTimer) {
-    (periodicTimer as any).unref()
+    (periodicTimer as { unref: () => void }).unref()
   }
 }
 

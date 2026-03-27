@@ -28,7 +28,7 @@ export async function handle(
     }
     case 'add_mcp': {
       const oc = requireOpenCode()
-      const status = await oc.addMcp(message.name, (message as any).config ?? {}, message.projectPath)
+      const status = await oc.addMcp(message.name, message.config ?? {}, message.projectPath)
       reply({ type: 'mcp_added', data: status })
       return true
     }
@@ -58,7 +58,7 @@ export async function handle(
     }
     case 'mcp_auth_callback': {
       const oc = requireOpenCode()
-      const ok = await oc.mcpAuthCallback(message.name, (message as any).code, message.projectPath)
+      const ok = await oc.mcpAuthCallback(message.name, message.code, message.projectPath)
       reply({ type: 'mcp_auth_completed', data: ok, name: message.name })
       return true
     }

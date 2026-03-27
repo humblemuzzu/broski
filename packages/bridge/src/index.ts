@@ -998,7 +998,7 @@ async function main() {
   if (cli.subCommand === 'setup') {
     const { runOnboardingWizard } = await import('./wizard/onboarding')
     if (cli.nonInteractive) {
-      await runOnboardingWizard(null as any, {
+      await runOnboardingWizard(null, {
         nonInteractive: true,
         agents: cli.setupAgents.length > 0 ? cli.setupAgents : undefined,
         networkMode: cli.setupNetworkMode || undefined,

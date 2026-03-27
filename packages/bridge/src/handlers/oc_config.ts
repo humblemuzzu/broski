@@ -62,7 +62,7 @@ export async function handle(
     case 'set_global_config': {
       const oc = ctx.requireOpenCode()
       const config = await oc.updateGlobalConfig(
-        (message as any).config ?? {},
+        message.config ?? {},
       )
       reply({ type: 'global_config', data: config })
       return true

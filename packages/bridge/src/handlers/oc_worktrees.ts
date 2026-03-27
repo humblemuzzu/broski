@@ -33,11 +33,11 @@ export async function handle(
     }
     case 'reset_worktree': {
       const oc = requireOpenCode()
-      const success = await oc.resetWorktree((message as any).worktreeDirectory, message.projectPath)
+      const success = await oc.resetWorktree(message.worktreeDirectory, message.projectPath)
       reply({
         type: 'worktree_reset',
         data: success,
-        worktreeDirectory: (message as any).worktreeDirectory,
+        worktreeDirectory: message.worktreeDirectory,
       })
       return true
     }

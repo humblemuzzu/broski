@@ -493,7 +493,7 @@ export function mapCodexStreamToRuntimeEvent(
       return {
         ...baseEvent('backend_event', ctx),
         kind: streamMessage.type,
-        payload: (streamMessage as any).data ?? streamMessage,
+        payload: streamMessage.data ?? streamMessage,
       }
   }
 }

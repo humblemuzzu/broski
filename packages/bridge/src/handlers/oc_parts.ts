@@ -37,9 +37,9 @@ export async function handle(
     case 'delete_part': {
       const oc = requireOpenCode()
       const ok = await oc.deletePart(
-        (message as any).sessionId,
-        (message as any).messageId,
-        (message as any).partId,
+        message.sessionId,
+        message.messageId,
+        message.partId,
         message.projectPath,
       )
       reply({ type: 'part_deleted', data: ok })
@@ -48,10 +48,10 @@ export async function handle(
     case 'update_part': {
       const oc = requireOpenCode()
       const result = await oc.updatePart(
-        (message as any).sessionId,
-        (message as any).messageId,
-        (message as any).partId,
-        (message as any).part ?? {},
+        message.sessionId,
+        message.messageId,
+        message.partId,
+        message.part ?? {},
         message.projectPath,
       )
       reply({ type: 'part_updated', data: result ?? {} })

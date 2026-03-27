@@ -49,7 +49,7 @@ function parseLicenseClaims(params: {
   machineIdHash: string
 }): LocalLicenseState | null {
   try {
-    const claims = JSON.parse(params.claimsJson) as any
+    const claims = JSON.parse(params.claimsJson) as Record<string, unknown>
     const appUserId = String(claims.appUserId ?? '')
     const sessionTokenHash = String(claims.sessionTokenHash ?? '')
     const exp = Number(claims.exp ?? 0)
@@ -104,7 +104,7 @@ export async function refreshLocalLicenseFromCloud(params: {
     signal: AbortSignal.timeout(10_000),
   })
 
-  const json = await res.json().catch(() => null) as any
+  const json = await res.json().catch(() => null) as Record<string, unknown> | null
   if (!res.ok || !json || json.ok !== true) {
     const code = String(json?.errorCode ?? json?.code ?? json?.error ?? 'CLOUD_AUTH_FAILED')
     const message = String(json?.errorMessage ?? json?.message ?? json?.error ?? 'Cloud auth failed')

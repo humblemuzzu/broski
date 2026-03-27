@@ -72,8 +72,8 @@ export async function handle(
         message.projectPath,
         message.agent,
         message.model,
-        (message as any).variant,
-        (message as any).parts,
+        message.variant,
+        message.parts,
       )
       reply({ type: 'command_executed', data: result, sessionId: message.sessionId })
       return true
@@ -142,8 +142,8 @@ export async function handle(
     case 'update_project': {
       const oc = requireOpenCode()
       const project = await oc.updateProject(
-        (message as any).projectId,
-        { name: (message as any).name, icon: (message as any).icon },
+        message.projectId,
+        { name: message.name, icon: message.icon },
         message.projectPath,
       )
       reply({ type: 'project_updated', data: project })

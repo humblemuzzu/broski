@@ -520,9 +520,9 @@ export async function getThreadMessagesFromFs(threadId: string): Promise<Transcr
           const output = safeStr(payload?.output)
           
           // Find and update the matching tool call in current assistant
-          const toolCalls = (currentAssistant as any)?.toolCalls
+          const toolCalls = (currentAssistant as TranscriptMessage | null)?.toolCalls
           if (Array.isArray(toolCalls)) {
-            for (const tc of toolCalls as TranscriptToolCall[]) {
+            for (const tc of toolCalls) {
               if (tc.itemId === callId) {
                 tc.status = 'completed'
                 tc.output = headTailTruncate(output, 50, 30)

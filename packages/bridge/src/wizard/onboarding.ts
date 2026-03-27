@@ -204,12 +204,16 @@ async function runNonInteractiveSetup(options: OnboardingOptions): Promise<void>
 }
 
 export async function runOnboardingWizard(
-  prompter: WizardPrompter,
+  prompter: WizardPrompter | null,
   options?: OnboardingOptions,
 ): Promise<void> {
   if (options?.nonInteractive) {
     await runNonInteractiveSetup(options)
     return
+  }
+
+  if (!prompter) {
+    throw new Error('Prompter is required for interactive setup mode')
   }
 
   try {

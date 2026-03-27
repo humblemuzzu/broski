@@ -31,7 +31,7 @@ export async function handle(
   switch (message.type) {
     case 'chat': {
       const oc = ctx.requireOpenCode()
-      const msgId = ctx.safeString((message as any).messageId)
+      const msgId = ctx.safeString(message.messageId)
       if (msgId) {
         const key = `${message.sessionId}:${msgId}`
         const now = Date.now()
@@ -59,9 +59,9 @@ export async function handle(
         message.agent,
         message.fileAttachments,
         message.variant,
-        (message as any).noReply,
-        (message as any).system,
-        (message as any).format,
+        message.noReply,
+        message.system,
+        message.format,
       )
       return true
     }

@@ -9,16 +9,16 @@ type OpenCodeProviderLike = {
   getProviderAuth: (dir?: string) => Promise<any>
   providerOauthAuthorize: (
     id: string,
-    method: string,
+    method: number,
     dir?: string,
   ) => Promise<any>
   providerOauthCallback: (
     id: string,
-    method: string,
+    method: number,
     code?: string,
     dir?: string,
   ) => Promise<boolean>
-  authSet: (providerId: string, auth: any) => Promise<boolean>
+  authSet: (providerId: string, auth: Record<string, unknown>) => Promise<boolean>
   authRemove: (providerId: string) => Promise<boolean>
 }
 
@@ -54,52 +54,52 @@ export async function handle(
     case 'provider_oauth_authorize': {
       const oc = requireOpenCode()
       const data = await oc.providerOauthAuthorize(
-        (message as any).providerId,
-        (message as any).method,
+        message.providerId,
+        message.method,
         message.projectPath,
       )
       reply({
         type: 'provider_oauth_authorized',
         data,
-        providerId: (message as any).providerId,
+        providerId: message.providerId,
       })
       return true
     }
     case 'provider_oauth_callback': {
       const oc = requireOpenCode()
       const ok = await oc.providerOauthCallback(
-        (message as any).providerId,
-        (message as any).method,
-        (message as any).code,
+        message.providerId,
+        message.method,
+        message.code,
         message.projectPath,
       )
       reply({
         type: 'provider_oauth_callback',
         data: ok,
-        providerId: (message as any).providerId,
+        providerId: message.providerId,
       })
       return true
     }
     case 'auth_set': {
       const oc = requireOpenCode()
       const ok = await oc.authSet(
-        (message as any).providerId,
-        (message as any).auth,
+        message.providerId,
+        message.auth,
       )
       reply({
         type: 'auth_set_result',
         data: ok,
-        providerId: (message as any).providerId,
+        providerId: message.providerId,
       })
       return true
     }
     case 'auth_remove': {
       const oc = requireOpenCode()
-      const ok = await oc.authRemove((message as any).providerId)
+      const ok = await oc.authRemove(message.providerId)
       reply({
         type: 'auth_removed_result',
         data: ok,
-        providerId: (message as any).providerId,
+        providerId: message.providerId,
       })
       return true
     }

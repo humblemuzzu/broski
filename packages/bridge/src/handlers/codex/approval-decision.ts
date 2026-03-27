@@ -6,6 +6,7 @@ type CodexApprovalReply = {
   networkPolicyAmendment?: { host: string; action: "allow" | "deny" };
   answers?: Record<string, { answers: string[] }>;
   formData?: Record<string, unknown>;
+  data?: Record<string, unknown>;
 };
 
 type BuildApprovalDecisionParams = {
@@ -71,7 +72,7 @@ export function buildCodexApprovalDecision({
       return { action: "cancel" };
     }
     // Check if there's form data from the Flutter side
-    const formData = (response as any).formData ?? (response as any).data;
+    const formData = response.formData ?? response.data;
     if (formData && typeof formData === "object") {
       return { action: "submit", data: formData };
     }
@@ -128,7 +129,7 @@ export function buildCodexApprovalDecision({
     const proposed = Array.isArray(proposedInput) ? proposedInput : [];
     const first = proposed.find(
       (entry: any) => entry && typeof entry === "object",
-    ) as any;
+    );
 
     const host = safeString(first?.host) || contextHost;
     if (!host) return null;

@@ -180,6 +180,7 @@ export type ClientMessage =
 			variant?: string;
 			noReply?: boolean;
 			system?: string;
+			format?: { type: "text" } | { type: "json_schema"; json_schema: Record<string, unknown> };
 	  }
 	| { type: "abort"; sessionId: string; projectPath?: string }
 	| {
@@ -576,6 +577,15 @@ export type ClientMessage =
 	// OpenCode project operations
 	| { type: "oc_init_git"; projectPath?: string }
 	| { type: "oc_get_paths"; projectPath?: string }
+	// OpenCode shell command
+	| {
+			type: "oc_session_shell";
+			sessionId: string;
+			command: string;
+			projectPath?: string;
+			agent?: string;
+			model?: string;
+	  }
 	// Claude Code-specific messages
 	| { type: "cc_list_projects" }
 	| { type: "cc_list_sessions"; cwd?: string }
@@ -1540,6 +1550,7 @@ export type ServerMessage =
 	// OpenCode project operations
 	| { type: "oc_git_initialized"; data: any; requestId?: string }
 	| { type: "oc_paths"; data: any; requestId?: string }
+	| { type: "oc_session_shell_result"; data: unknown; requestId?: string }
 	// Message editing
 	| {
 			type: "oc_message_deleted";

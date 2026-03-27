@@ -349,8 +349,8 @@ export async function handleCxChat(
         ctx.cxApprovalWaiters.delete(message.requestId)
         waiter.resolve({
           response: message.response,
-          execpolicyAmendment: (message as any).execpolicyAmendment,
-          networkPolicyAmendment: (message as any).networkPolicyAmendment
+          execpolicyAmendment: message.execpolicyAmendment,
+          networkPolicyAmendment: message.networkPolicyAmendment
         })
       }
       break

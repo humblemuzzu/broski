@@ -1,4 +1,4 @@
-import type { AgentType, AgentStatusInfo } from './types'
+import type { AgentType, AgentStatusInfo, FileAttachment } from './types'
 import * as opencode from './connectors/opencode'
 import * as claudeCode from './connectors/claude-code'
 import { checkCodexAvailable } from './connectors/codex'
@@ -12,7 +12,7 @@ export type QueryOptions = {
   model?: string
   subagent?: string  // For OpenCode subagent selection (build/plan)
   disabledTools?: string[]
-  fileAttachments?: any[]
+  fileAttachments?: FileAttachment[]
 }
 
 export async function getAgentStatus(): Promise<Record<AgentType, AgentStatusInfo>> {
@@ -70,7 +70,7 @@ export async function routeQuery(
         const finalPrompt = await claudeCode.preparePromptWithAttachments(
           prompt,
           cwd,
-          fileAttachments as any,
+          fileAttachments,
         )
         return claudeCode.queryClaudeCode(
           finalPrompt,

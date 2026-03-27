@@ -222,9 +222,9 @@ export async function handleCcChat(
       additionalDirectories: message.additionalDirectories,
       agentProgressSummaries: message.agentProgressSummaries ?? cfg.agentProgressSummaries,
     },
-    (streamMsg: any) => {
+    (streamMsg: ClaudeCodeStreamMessage) => {
       const streamMsgWithId = (() => {
-        const t = (streamMsg as any)?.type
+        const t = streamMsg.type
         if (
           t === 'assistant-message' ||
           t === 'assistant-message-delta' ||
@@ -246,15 +246,12 @@ export async function handleCcChat(
           t === 'rate-limit-info' ||
           t === 'prompt-suggestion'
         ) {
-          return { ...(streamMsg as any), messageId: ccMessageId }
+          return { ...streamMsg, messageId: ccMessageId }
         }
         return streamMsg
       })()
-      if (
-        (streamMsg as any)?.type === 'session-created' &&
-        typeof (streamMsg as any)?.sessionId === 'string'
-      ) {
-        actualSessionId = (streamMsg as any).sessionId
+      if (streamMsg.type === 'session-created') {
+        actualSessionId = streamMsg.sessionId
         // Set the CURRENT ws as owner (may be stale later, but set_view will update)
         ccSessionOwners.set(actualSessionId, ws)
         ccSessionCwds.set(actualSessionId, cwd)
@@ -337,7 +334,7 @@ export async function handleCcChat(
           hasSuggestions: req.hasSuggestions,
           description: req.description,
           agentId: req.agentId,
-        } as any,
+        } as ClaudeCodeStreamMessage,
       )
 
       // Wait for a response from the client
