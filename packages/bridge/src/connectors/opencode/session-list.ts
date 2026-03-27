@@ -61,8 +61,7 @@ export async function listOpenCodeSessionsInternal(args: {
   if (directory != null && directory.length > 0) {
     // session.list does not support cursor/archived; use experimental when needed.
     if (options?.cursor !== undefined || options?.archived !== undefined) {
-      const sessions =
-        (await client.experimental.session.list(
+      const result = await client.experimental.session.list(
           {
             directory,
             ...(options?.roots !== undefined ? { roots: options.roots } : {}),
@@ -73,12 +72,12 @@ export async function listOpenCodeSessionsInternal(args: {
             ...(options?.archived !== undefined ? { archived: options.archived } : {}),
           },
           { responseStyle: 'data' },
-        )) ?? []
+        )
+      const sessions = result.data ?? []
       return sessions.map(mapGlobalSession)
     }
 
-    const sessions =
-      (await client.session.list(
+    const result2 = await client.session.list(
         {
           directory,
           ...(options?.roots !== undefined ? { roots: options.roots } : {}),
@@ -87,12 +86,12 @@ export async function listOpenCodeSessionsInternal(args: {
           ...(options?.limit !== undefined ? { limit: options.limit } : {}),
         },
         { responseStyle: 'data' },
-      )) ?? []
-    return sessions.map((session) => mapSession(session))
+      )
+    const sessions = result2.data ?? []
+    return sessions.map((session: Session) => mapSession(session))
   }
 
-  const sessions =
-    (await client.experimental.session.list(
+  const result3 = await client.experimental.session.list(
       {
         ...(options?.roots !== undefined ? { roots: options.roots } : {}),
         ...(options?.start !== undefined ? { start: options.start } : {}),
@@ -102,11 +101,12 @@ export async function listOpenCodeSessionsInternal(args: {
         ...(options?.archived !== undefined ? { archived: options.archived } : {}),
       },
       { responseStyle: 'data' },
-    )) ?? []
+    )
+  const sessions = result3.data ?? []
 
   return sessions
     .map(mapGlobalSession)
-    .sort((a, b) => (b.time?.updated ?? 0) - (a.time?.updated ?? 0))
+    .sort((a: SessionSummary, b: SessionSummary) => (b.time?.updated ?? 0) - (a.time?.updated ?? 0))
 }
 
 function mapGlobalSession(session: GlobalSession): SessionSummary {

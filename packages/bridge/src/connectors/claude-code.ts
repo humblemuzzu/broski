@@ -424,7 +424,7 @@ async function getProjectSessionsDir(cwd: string): Promise<string> {
         const normBase = base.toLowerCase()
         return normName.endsWith(normBase)
       })
-    if (candidates.length > 0) return candidates[0]
+    if (candidates.length > 0) return candidates[0] ?? direct
   } catch {
     // ignore
   }
@@ -745,7 +745,7 @@ export async function listProjects(): Promise<ProjectSummary[]> {
       // If no .jsonl files or no cwd in preview, decode the directory name
       // back to a real filesystem path.
       if (!cwd) {
-        cwd = await decodeProjectDirName(entry.name)
+        cwd = (await decodeProjectDirName(entry.name)) ?? undefined
       }
 
       if (!cwd) continue
@@ -1021,13 +1021,14 @@ export async function getSessionMessages(
             const idx = toolIndexById.get(toolUseId)
             if (!idx) continue
             const msg = messages[idx.messageIndex]
+            if (!msg) continue
             const tool = msg.toolCalls?.[idx.toolIndex]
             if (!tool) continue
 
             const nextToolCalls = [...(msg.toolCalls ?? [])]
             const nextTool = {
               ...tool,
-              status: 'completed',
+              status: 'completed' as const,
               output: toolOutput || tool.output,
               metadata: {
                 ...(tool.metadata ?? {}),
@@ -1053,8 +1054,8 @@ export async function getSessionMessages(
               ]
             }
 
-            messages[idx.messageIndex] = {
-              ...msg,
+            messages[idx.messageIndex] = { ...msg, text: msg.text ?? '',
+
               toolCalls: nextToolCalls,
               diffs: nextDiffs,
             }
@@ -1121,7 +1122,7 @@ export async function getSessionMessages(
 
         if (builtToolCalls) {
           for (let i = 0; i < builtToolCalls.length; i++) {
-            toolIndexById.set(builtToolCalls[i].toolUseId, { messageIndex: msgIndex, toolIndex: i })
+            const tc = builtToolCalls[i]; if (tc) toolIndexById.set(tc.toolUseId, { messageIndex: msgIndex, toolIndex: i })
           }
         }
       }
@@ -1214,7 +1215,7 @@ export async function renameSession(sessionId: string, name: string, cwd?: strin
     // The first line contains session metadata - update the title
     if (lines.length > 0) {
       try {
-        const firstLine = JSON.parse(lines[0])
+        const firstLine = JSON.parse(lines[0] ?? '')
         firstLine.title = name
         lines[0] = JSON.stringify(firstLine)
         await Bun.write(sessionFile, lines.join('\n'))
@@ -1305,17 +1306,17 @@ function parseSkillFile(name: string, content: string): ClaudeCodeSkill {
 
   const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/)
   if (frontmatterMatch) {
-    const frontmatter = frontmatterMatch[1]
+    const frontmatter = frontmatterMatch[1] ?? ''
 
     const descMatch = frontmatter.match(/description:\s*(.+)/)
-    if (descMatch) description = descMatch[1].trim()
+    if (descMatch) description = descMatch[1]?.trim()
 
     const autoMatch = frontmatter.match(/auto-invoke:\s*(true|false)/)
     if (autoMatch) autoInvoke = autoMatch[1] === 'true'
 
     const tagsMatch = frontmatter.match(/tags:\s*\[([^\]]+)\]/)
     if (tagsMatch) {
-      tags.push(...tagsMatch[1].split(',').map((t) => t.trim().replace(/['"]/g, '')))
+      tags.push(...(tagsMatch[1] ?? '').split(',').map((t) => t.trim().replace(/['"]/g, '')))
     }
   }
 
@@ -1323,12 +1324,12 @@ function parseSkillFile(name: string, content: string): ClaudeCodeSkill {
   let context: 'fork' | undefined
 
   if (frontmatterMatch) {
-    const frontmatter = frontmatterMatch[1]
+    const frontmatter = frontmatterMatch[1] ?? ''
     const agentMatch = frontmatter.match(/agent:\s*(.+)/)
-    if (agentMatch) agent = agentMatch[1].trim()
+    if (agentMatch) agent = agentMatch[1]?.trim()
 
     const contextMatch = frontmatter.match(/context:\s*(.+)/)
-    if (contextMatch && contextMatch[1].trim() === 'fork') context = 'fork'
+    if (contextMatch && contextMatch[1]?.trim() === 'fork') context = 'fork'
   }
 
   return { name, description, autoInvoke, tags: tags.length > 0 ? tags : undefined, agent, context }
@@ -1520,16 +1521,16 @@ function parseCommandFile(name: string, content: string): ClaudeCodeCommand {
 
   const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/)
   if (frontmatterMatch) {
-    const frontmatter = frontmatterMatch[1]
+    const frontmatter = frontmatterMatch[1] ?? ''
 
     const descMatch = frontmatter.match(/description:\s*(.+)/)
-    if (descMatch) description = descMatch[1].trim()
+    if (descMatch) description = descMatch[1]?.trim()
 
     const agentMatch = frontmatter.match(/agent:\s*(.+)/)
-    if (agentMatch) agent = agentMatch[1].trim()
+    if (agentMatch) agent = agentMatch[1]?.trim()
 
     const modelMatch = frontmatter.match(/model:\s*(.+)/)
-    if (modelMatch) model = modelMatch[1].trim()
+    if (modelMatch) model = modelMatch[1]?.trim()
 
     const subtaskMatch = frontmatter.match(/subtask:\s*(true|false)/)
     if (subtaskMatch) subtask = subtaskMatch[1] === 'true'
@@ -1556,17 +1557,17 @@ function parseAgentFile(name: string, content: string): Omit<ClaudeCodeFilesyste
   // Parse YAML frontmatter if present
   const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/)
   if (frontmatterMatch) {
-    const frontmatter = frontmatterMatch[1]
+    const frontmatter = frontmatterMatch[1] ?? ''
 
     const descMatch = frontmatter.match(/description:\s*(.+)/)
-    if (descMatch) description = descMatch[1].trim()
+    if (descMatch) description = descMatch[1]?.trim()
 
     const modelMatch = frontmatter.match(/model:\s*(.+)/)
-    if (modelMatch) model = modelMatch[1].trim()
+    if (modelMatch) model = modelMatch[1]?.trim()
 
     const memoryMatch = frontmatter.match(/memory:\s*(.+)/)
     if (memoryMatch) {
-      const scope = memoryMatch[1].trim().replace(/['"]/g, '') as 'user' | 'project' | 'local'
+      const scope = (memoryMatch[1] ?? '').trim().replace(/['"]/g, '') as 'user' | 'project' | 'local'
       if (scope === 'user' || scope === 'project' || scope === 'local') {
         memory = scope
       }
@@ -1579,7 +1580,7 @@ function parseAgentFile(name: string, content: string): Omit<ClaudeCodeFilesyste
 
     const isolationMatch = frontmatter.match(/isolation:\s*(.+)/)
     if (isolationMatch) {
-      const iso = isolationMatch[1].trim().replace(/['"]/g, '')
+      const iso = (isolationMatch[1] ?? '').trim().replace(/['"]/g, '')
       if (iso === 'worktree') {
         isolation = 'worktree'
       }
@@ -1588,12 +1589,12 @@ function parseAgentFile(name: string, content: string): Omit<ClaudeCodeFilesyste
     // Tools can be comma-separated or YAML array
     const toolsMatch = frontmatter.match(/tools:\s*\[([^\]]*)\]/)
     if (toolsMatch) {
-      tools = toolsMatch[1].split(',').map(t => t.trim().replace(/["']/g, '')).filter(Boolean)
+      tools = (toolsMatch[1] ?? '').split(',').map(t => t.trim().replace(/["']/g, '')).filter(Boolean)
     } else {
       // Check for YAML list format
       const toolsListMatch = frontmatter.match(/tools:\s*\n((?:\s+-\s+.+\n?)+)/)
       if (toolsListMatch) {
-        tools = toolsListMatch[1]
+        tools = (toolsListMatch[1] ?? '')
           .split('\n')
           .map(line => line.replace(/^\s*-\s*/, '').trim())
           .filter(Boolean)
@@ -1689,7 +1690,7 @@ function classifyMemorySource(
 
   const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/)
   if (frontmatterMatch) {
-    const frontmatter = frontmatterMatch[1].toLowerCase()
+    const frontmatter = (frontmatterMatch[1] ?? '').toLowerCase()
     const normalized = frontmatter.replace(/\s+/g, ' ')
     if (/(^|\s)(source|memory_source|origin|type):\s*['"]?auto['"]?(\s|$)/.test(normalized)) {
       return 'auto'
@@ -2331,7 +2332,12 @@ export async function queryClaudeCode(
     }
 
     if (systemPrompt) {
-      sdkOptions.systemPrompt = systemPrompt
+      // Narrow preset type to match SDK's literal 'claude_code' requirement
+      if (typeof systemPrompt === 'string') {
+        sdkOptions.systemPrompt = systemPrompt
+      } else if (systemPrompt.type === 'preset' && systemPrompt.preset === 'claude_code') {
+        sdkOptions.systemPrompt = { type: 'preset', preset: 'claude_code' as const, append: systemPrompt.append }
+      }
     }
 
     // Custom subagents: Convert from our format to SDK's AgentDefinition format
@@ -2342,7 +2348,7 @@ export async function queryClaudeCode(
       if (Array.isArray(sdkOptions.allowedTools) && !sdkOptions.allowedTools.includes('Task')) {
         sdkOptions.allowedTools = [...sdkOptions.allowedTools, 'Task']
       }
-      sdkOptions.agents = agents
+      sdkOptions.agents = agents as Record<string, import('@anthropic-ai/claude-agent-sdk').AgentDefinition>
     }
 
     // Custom MCP Tools: Load user-defined custom tools
@@ -2380,19 +2386,7 @@ export async function queryClaudeCode(
     }
 
     if (onPermissionRequest) {
-      sdkOptions.canUseTool = async (
-        toolName: string,
-        input: Record<string, unknown>,
-        ctx: {
-          signal: AbortSignal
-          toolUseID: string
-          suggestions?: unknown[]
-          blockedPath?: string
-          decisionReason?: string
-          description?: string
-          agentID?: string
-        },
-      ) => {
+      sdkOptions.canUseTool = async (toolName, input, ctx) => {
         // Compliance: honour abort signal — if session was aborted while
         // waiting for permission, reject immediately.
         if (ctx.signal?.aborted) {
@@ -2537,7 +2531,7 @@ export async function queryClaudeCode(
       // Extract parent_tool_use_id from SDK message for subagent context tracking.
       // When non-null, this message originated from inside a subagent's execution.
       const parentToolUseId = 'parent_tool_use_id' in message ? (message.parent_tool_use_id as string | undefined) : undefined
-      const emit = (msg: Record<string, unknown>) => onMessage(parentToolUseId ? { ...msg, parentToolUseId } : msg)
+      const emit = (msg: Record<string, unknown>) => onMessage((parentToolUseId ? { ...msg, parentToolUseId } : msg) as ClaudeCodeStreamMessage)
 
       // System init: session created + capabilities snapshot (tools/commands/etc)
       if (message?.type === 'system' && message?.subtype === 'init') {
@@ -2593,7 +2587,7 @@ export async function queryClaudeCode(
           // B15: forward active betas and output style
           ...(Array.isArray(message.betas) && message.betas.length > 0 ? { betas: message.betas } : {}),
           ...(message.output_style ? { outputStyle: message.output_style } : {}),
-          ...(Array.isArray(message.available_output_styles) && message.available_output_styles.length > 0 ? { availableOutputStyles: message.available_output_styles } : {}),
+          ...(() => { const aos = (message as Record<string, unknown>).available_output_styles; return Array.isArray(aos) && aos.length > 0 ? { availableOutputStyles: aos } : {}; })(),
           ...(message.cwd ? { cwd: message.cwd } : {}),
           supportedModels: capabilities?.supportedModels,
           accountInfo: capabilities?.accountInfo,
@@ -2787,6 +2781,7 @@ export async function queryClaudeCode(
 
         const content = message.message?.content || []
         for (const block of content) {
+          if (typeof block === 'string') continue
           if (block?.type === 'tool_result') {
             emit({
               type: 'tool-result',
@@ -2800,7 +2795,7 @@ export async function queryClaudeCode(
 
       // Result / token usage + cost (end of conversation - cumulative totals)
       if (message?.type === 'result') {
-        if (typeof message.result === 'string' && message.result.trim().length > 0) {
+        if ('result' in message && typeof message.result === 'string' && message.result.trim().length > 0) {
           emit({ type: 'assistant-message', content: message.result })
         }
         if (message.usage) {
@@ -2860,7 +2855,7 @@ export async function queryClaudeCode(
           })
         }
 
-        const errors = Array.isArray(message.errors)
+        const errors = 'errors' in message && Array.isArray(message.errors)
           ? message.errors.filter((err: unknown): err is string => typeof err === 'string')
           : []
         const permissionDenials = normalizePermissionDenials(message.permission_denials)
@@ -2879,7 +2874,7 @@ export async function queryClaudeCode(
           ...(typeof message.fast_mode_state === 'string' ? { fastModeState: message.fast_mode_state } : {}),
         })
 
-        if (message.structured_output !== undefined) {
+        if ('structured_output' in message && message.structured_output !== undefined) {
           emit({
             type: 'structured-output',
             data: message.structured_output,

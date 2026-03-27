@@ -37,10 +37,10 @@ export class ClackPrompter implements WizardPrompter {
   }): Promise<T> {
     const result = await clack.select({
       message: params.message,
-      options: params.options,
+      options: params.options as Parameters<typeof clack.select>[0]['options'],
       initialValue: params.initialValue,
     })
-    return assertNotCancelled(result)
+    return assertNotCancelled(result) as T
   }
 
   async multiselect<T>(params: {
@@ -50,10 +50,10 @@ export class ClackPrompter implements WizardPrompter {
   }): Promise<T[]> {
     const result = await clack.multiselect({
       message: params.message,
-      options: params.options,
+      options: params.options as Parameters<typeof clack.multiselect>[0]['options'],
       required: params.required,
     })
-    return assertNotCancelled(result)
+    return assertNotCancelled(result) as T[]
   }
 
   async text(params: {
@@ -66,7 +66,7 @@ export class ClackPrompter implements WizardPrompter {
       message: params.message,
       placeholder: params.placeholder,
       defaultValue: params.defaultValue,
-      validate: params.validate,
+      validate: params.validate as Parameters<typeof clack.text>[0]['validate'],
     })
     return assertNotCancelled(result)
   }

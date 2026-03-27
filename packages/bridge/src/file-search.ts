@@ -309,7 +309,7 @@ function fuzzyScore(query: string, target: string): number {
   const idx = lowerTarget.indexOf(lowerQuery)
   if (idx !== -1) {
     // Prefer matches at word boundaries
-    const isWordBoundary = idx === 0 || ['/','_','-','.'].includes(lowerTarget[idx - 1])
+    const isWordBoundary = idx === 0 || ['/','_','-','.'].includes(lowerTarget[idx - 1]!)
     return 500 + (isWordBoundary ? 100 : 0) + (100 - target.length)
   }
   
@@ -331,7 +331,7 @@ function fuzzyScore(query: string, target: string): number {
     }
     
     // Bonus for matches at word boundaries
-    if (foundIdx === 0 || ['/','_','-','.'].includes(lowerTarget[foundIdx - 1])) {
+    if (foundIdx === 0 || ['/','_','-','.'].includes(lowerTarget[foundIdx - 1]!)) {
       score += 10
     }
     

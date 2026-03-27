@@ -49,7 +49,7 @@ export function getPluginFilePath(params: {
   cwd?: string
   name: string
 }): string {
-  return join(pluginDirs(params.source, params.cwd)[0], params.name)
+  return join(pluginDirs(params.source, params.cwd)[0]!, params.name)
 }
 
 export async function resolvePluginFilePath(params: {
@@ -61,19 +61,19 @@ export async function resolvePluginFilePath(params: {
   for (const candidate of candidates) {
     if (await fileExists(candidate)) return candidate
   }
-  return candidates[0]
+  return candidates[0]!
 }
 
 export async function listPluginFiles(cwd?: string): Promise<OpenCodePluginFile[]> {
   const out: OpenCodePluginFile[] = []
 
   const dirs: Array<{ source: OpenCodePluginSource; dir: string }> = [
-    { source: 'user', dir: pluginDirs('user')[0] },
-    { source: 'user', dir: pluginDirs('user')[1] },
+    { source: 'user', dir: pluginDirs('user')[0]! },
+    { source: 'user', dir: pluginDirs('user')[1]! },
   ]
   if (cwd) {
-    dirs.unshift({ source: 'project', dir: pluginDirs('project', cwd)[1] })
-    dirs.unshift({ source: 'project', dir: pluginDirs('project', cwd)[0] })
+    dirs.unshift({ source: 'project', dir: pluginDirs('project', cwd)[1]! })
+    dirs.unshift({ source: 'project', dir: pluginDirs('project', cwd)[0]! })
   }
 
   for (const { source, dir } of dirs) {

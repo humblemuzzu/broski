@@ -1,12 +1,12 @@
-import type { ServerMessage } from '../types'
+import type { ServerMessage, ClaudeCodeMemoryEntry, ClaudeCodeFilesystemAgent } from '../types'
 
-type ReplyFn = (msg: ServerMessage | Record<string, unknown>) => void
+type ReplyFn = (msg: ServerMessage) => void
 
 type HandlerContext = {
   claudeCode: {
-    listMemories: (scope: string, cwd?: string) => Promise<unknown[]>
-    deleteMemory: (scope: string, filename: string, cwd?: string) => Promise<boolean>
-    listAgents: (cwd?: string) => Promise<unknown[]>
+    listMemories: (scope?: 'user' | 'project' | 'local', cwd?: string) => Promise<ClaudeCodeMemoryEntry[]>
+    deleteMemory: (scope: 'user' | 'project' | 'local', filename: string, cwd?: string) => Promise<boolean>
+    listAgents: (cwd?: string) => Promise<ClaudeCodeFilesystemAgent[]>
   }
 }
 
@@ -19,21 +19,23 @@ export async function handle(
   switch (type) {
     case 'cc_list_memories': {
       const memories = await ctx.claudeCode.listMemories(
-        message.scope as string,
+        message.scope as 'user' | 'project' | 'local' | undefined,
         message.cwd as string | undefined,
       )
       reply({ type: 'cc_memories', data: memories })
       return true
     }
     case 'cc_delete_memory': {
+      const filename = message.filename as string
+      const scope = message.scope as 'user' | 'project' | 'local'
       const ok = await ctx.claudeCode.deleteMemory(
-        message.scope as string,
-        message.filename as string,
+        scope,
+        filename,
         message.cwd as string | undefined,
       )
       reply({
         type: 'cc_memory_deleted',
-        data: { ok, filename: message.filename, scope: message.scope },
+        data: { ok, filename, scope },
       })
       return true
     }

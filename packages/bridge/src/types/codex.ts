@@ -87,7 +87,8 @@ export type CodexStreamMessage =
   | { type: "collab_close_begin"; data: CodexCollabCloseBeginEvent }
   | { type: "collab_close_end"; data: CodexCollabCloseEndEvent }
   | { type: "collab_resume_begin"; data: CodexCollabResumeBeginEvent }
-  | { type: "collab_resume_end"; data: CodexCollabResumeEndEvent };
+  | { type: "collab_resume_end"; data: CodexCollabResumeEndEvent }
+  | { type: "info"; message: string };
 
 // ============================================================================
 // CODEX MULTI-AGENT COLLABORATION TYPES (SDK v0.87.0+)

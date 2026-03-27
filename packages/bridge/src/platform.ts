@@ -236,7 +236,7 @@ export async function getProcessOnPort(port: number): Promise<{ pid: number; nam
         let name = `PID ${pid}`
         if (tl.ok && tl.stdout) {
           const match = tl.stdout.match(/"([^"]+)"/)
-          if (match) name = match[1]
+          if (match) name = match[1]!
         }
         return { pid, name }
       }
@@ -251,7 +251,7 @@ export async function getProcessOnPort(port: number): Promise<{ pid: number; nam
     for (const line of lines.slice(1)) { // skip header
       const parts = line.split(/\s+/)
       if (parts.length >= 2) {
-        const name = parts[0]
+        const name = parts[0] ?? ''
         const pid = Number(parts[1])
         if (Number.isFinite(pid) && pid > 0) return { pid, name }
       }
@@ -303,7 +303,7 @@ export function findProcessByPattern(pattern: string): number[] {
       if (match) {
         const name = match[1]
         const pid = Number(match[2])
-        if (name.toLowerCase().includes(pattern.toLowerCase()) && Number.isFinite(pid) && pid > 0) {
+        if (name?.toLowerCase().includes(pattern.toLowerCase()) && Number.isFinite(pid) && pid > 0) {
           pids.push(pid)
         }
       }
@@ -733,7 +733,7 @@ async function getWindowsDaemonStatus(type: DaemonType, configPath: string): Pro
   let pid: number | null = null
   if (running) {
     const pids = findProcessByPattern('broski')
-    if (pids.length > 0) pid = pids[0]
+    if (pids.length > 0) pid = pids[0] ?? null
   }
 
   return { installed, running, type, configPath, pid }

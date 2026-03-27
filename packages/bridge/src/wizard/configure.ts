@@ -61,6 +61,7 @@ export async function runConfigure(
           security: {
             tls: result.tls,
             tokenTtlDays: result.tokenTtlDays,
+            verifyCodeSignature: updatedConfig.security.verifyCodeSignature,
           },
         }
         break
@@ -74,6 +75,7 @@ export async function runConfigure(
             opencode: result.opencode,
             claudeCode: result.claudeCode,
             codex: result.codex,
+            pi: result.pi ?? updatedConfig.agents.pi,
           },
         }
         break

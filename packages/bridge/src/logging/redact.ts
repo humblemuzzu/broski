@@ -48,7 +48,7 @@ export function redactSensitiveText(text: string, options?: RedactOptions): stri
   let result = text
   for (const pattern of DEFAULT_PATTERNS) {
     result = result.replace(pattern, (...args: string[]) => {
-      const full = args[0]
+      const full = args[0]!
       const groups = args.slice(1, Math.max(1, args.length - 2))
       return redactMatch(full, groups)
     })

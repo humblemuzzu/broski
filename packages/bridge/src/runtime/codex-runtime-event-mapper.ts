@@ -496,4 +496,5 @@ export function mapCodexStreamToRuntimeEvent(
         payload: streamMessage.data ?? streamMessage,
       }
   }
+  return null
 }

@@ -36,7 +36,7 @@ export function normalizeSupportedModels(models: unknown): ClaudeCodeSupportedMo
         supportsFastMode: typeof typed.supportsFastMode === 'boolean'
           ? typed.supportsFastMode
           : undefined,
-      } satisfies ClaudeCodeSupportedModel
+      } as ClaudeCodeSupportedModel
     })
     .filter((item): item is ClaudeCodeSupportedModel => item != null)
 

@@ -1,5 +1,5 @@
 import type { AgentType, AgentStatusInfo, FileAttachment } from './types'
-import * as opencode from './connectors/opencode'
+import { OpenCodeConnector } from './connectors/opencode'
 import * as claudeCode from './connectors/claude-code'
 import { checkCodexAvailable } from './connectors/codex'
 import * as pi from './connectors/pi'
@@ -15,8 +15,14 @@ export type QueryOptions = {
   fileAttachments?: FileAttachment[]
 }
 
+let _opencodeConnector: OpenCodeConnector | null = null
+
+export function setOpenCodeConnector(connector: OpenCodeConnector | null): void {
+  _opencodeConnector = connector
+}
+
 export async function getAgentStatus(): Promise<Record<AgentType, AgentStatusInfo>> {
-  const opencodeAvailable = await opencode.checkAvailable()
+  const opencodeAvailable = _opencodeConnector ? await _opencodeConnector.isRunning().catch(() => false) : false
   const claudeCodeAvailable = await claudeCode.checkClaudeCodeAvailable()
   const codexAvailable = await checkCodexAvailable()
   const piStatus = await pi.isPiAvailable()
@@ -52,18 +58,25 @@ export async function routeQuery(
 
   switch (agentType) {
     case 'opencode':
-      return opencode.sendPrompt(
-        sessionId!,
-        prompt,
-        cwd,
-        model ? { providerID: 'anthropic', modelID: model } : undefined,
-        subagent,
-        disabledTools,
-        fileAttachments,
-        onMessage,
-        onComplete,
-        onError,
-      )
+      if (!_opencodeConnector) {
+        return onError(new Error('OpenCode backend is not available'))
+      }
+      try {
+        const result = await _opencodeConnector.sendPrompt(
+          sessionId!,
+          prompt,
+          cwd,
+          undefined, // messageId
+          model ? { providerID: 'anthropic', modelID: model } : undefined,
+          subagent,
+          fileAttachments,
+        )
+        onMessage(result)
+        onComplete(sessionId!)
+      } catch (err) {
+        onError(err instanceof Error ? err : new Error(String(err)))
+      }
+      return
 
     case 'claude-code':
       {
@@ -97,7 +110,9 @@ export async function routeQuery(
 export async function abortQuery(agent: AgentType, sessionId: string): Promise<void> {
   switch (agent) {
     case 'opencode':
-      return opencode.abortSession(sessionId)
+      if (!_opencodeConnector) return
+      await _opencodeConnector.abortSession(sessionId)
+      return
     case 'claude-code':
       return claudeCode.abortClaudeCode(sessionId)
     case 'codex':

@@ -1,19 +1,25 @@
-import type { ServerMessage } from '../types'
+import type {
+  ServerMessage,
+  ProjectSummary,
+  ClaudeCodeSession,
+  ClaudeCodeTranscriptMessage,
+} from '../types'
+import type { BroskiSessionSummary } from '../types/runtime'
 
-type ReplyFn = (msg: ServerMessage | Record<string, unknown>) => void
+type ReplyFn = (msg: ServerMessage) => void
 
 type HandlerContext = {
   claudeCode: {
-    listProjects: () => Promise<unknown[]>
-    listSessions: (cwd?: string) => Promise<unknown[]>
-    getSession: (sessionId: string, cwd?: string) => Promise<unknown | null>
-    getSessionMessages: (sessionId: string, cwd?: string, limit?: number) => Promise<unknown[]>
+    listProjects: () => Promise<ProjectSummary[]>
+    listSessions: (cwd?: string) => Promise<ClaudeCodeSession[]>
+    getSession: (sessionId: string, cwd?: string) => Promise<ClaudeCodeSession | null>
+    getSessionMessages: (sessionId: string, cwd?: string, limit?: number) => Promise<ClaudeCodeTranscriptMessage[]>
     deleteSession: (sessionId: string, cwd?: string) => Promise<boolean>
-    forkSession: (sessionId: string, messageId: string, cwd?: string) => Promise<unknown>
-    renameSession: (sessionId: string, name: string, cwd?: string) => Promise<unknown>
-    listActiveSessions: () => { sessionId: string; cwd: string; startedAt: string }[]
+    forkSession: (sessionId: string, messageId: string, cwd?: string) => Promise<ClaudeCodeSession | null>
+    renameSession: (sessionId: string, name: string, cwd?: string) => Promise<ClaudeCodeSession | null>
+    listActiveSessions: () => { sessionId: string; cwd: string; startedAt: number | undefined }[]
   }
-  mapClaudeCodeSessionToRuntimeSession: (session: unknown) => unknown
+  mapClaudeCodeSessionToRuntimeSession: (session: ClaudeCodeSession) => BroskiSessionSummary
 }
 
 export async function handle(
@@ -51,27 +57,29 @@ export async function handle(
       return true
     }
     case 'cc_get_session_messages': {
+      const sessionId = message.sessionId as string
       const items = await ctx.claudeCode.getSessionMessages(
-        message.sessionId as string,
+        sessionId,
         message.cwd as string | undefined,
         message.limit as number | undefined,
       )
       reply({
         type: 'cc_session_messages',
         data: items,
-        sessionId: message.sessionId,
+        sessionId,
       })
       return true
     }
     case 'cc_delete_session': {
+      const sessionId = message.sessionId as string
       const deleted = await ctx.claudeCode.deleteSession(
-        message.sessionId as string,
+        sessionId,
         message.cwd as string | undefined,
       )
       reply({
         type: 'cc_session_deleted',
         data: deleted,
-        sessionId: message.sessionId,
+        sessionId,
       })
       return true
     }
@@ -94,12 +102,11 @@ export async function handle(
       return true
     }
     case 'cc_background_session': {
-      // Background session support - mark session as backgrounded
-      // For now, this is a client-side state change acknowledgment
+      const sessionId = message.sessionId as string
       reply({
         type: 'cc_session_backgrounded',
         data: true,
-        sessionId: message.sessionId,
+        sessionId,
       })
       return true
     }

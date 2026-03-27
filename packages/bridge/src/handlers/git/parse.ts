@@ -76,7 +76,7 @@ export function parseGitStatus(stdout: string) {
 
     if (kind === '2') {
       const [left, right] = line.split('\t')
-      const leftParts = left.trim().split(/\s+/)
+      const leftParts = (left ?? '').trim().split(/\s+/)
       path = leftParts[leftParts.length - 1] || ''
       oldPath = right?.trim() || undefined
     } else {
@@ -173,9 +173,9 @@ export function parseRepoFromRemote(remoteUrl: string): RepoRef | null {
   const sshMatch = url.match(/^git@([^:]+):([^/]+)\/([^\s]+?)(?:\.git)?$/)
   if (sshMatch) {
     return {
-      host: sshMatch[1],
-      owner: sshMatch[2],
-      repo: sshMatch[3],
+      host: sshMatch[1]!,
+      owner: sshMatch[2]!,
+      repo: sshMatch[3]!,
     }
   }
 
@@ -190,8 +190,8 @@ export function parseRepoFromRemote(remoteUrl: string): RepoRef | null {
     if (parts.length < 2) return null
     return {
       host,
-      owner: parts[0],
-      repo: parts[1],
+      owner: parts[0]!,
+      repo: parts[1]!,
     }
   } catch {
     return null

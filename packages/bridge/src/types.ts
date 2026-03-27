@@ -584,7 +584,7 @@ export type ClientMessage =
 			command: string;
 			projectPath?: string;
 			agent?: string;
-			model?: string;
+			model?: string | { providerID: string; modelID: string };
 	  }
 	// Claude Code-specific messages
 	| { type: "cc_list_projects" }
@@ -938,6 +938,23 @@ export type ClientMessage =
 			scopes?: string[];
 			timeoutSecs?: number;
 	  }
+	// Codex external config detection/import
+	| { type: "cx_external_config_detect" }
+	| { type: "cx_external_config_import"; source: string }
+	// Codex plugin marketplace
+	| { type: "cx_plugin_list"; cursor?: string | null; limit?: number | null }
+	| { type: "cx_plugin_install"; pluginId: string }
+	| { type: "cx_plugin_uninstall"; pluginId: string }
+	// Codex thread lifecycle
+	| { type: "cx_thread_unsubscribe"; threadId: string }
+	| { type: "cx_collaboration_modes" }
+	| { type: "cx_background_terminals_clean" }
+	// Codex command PTY
+	| { type: "cx_command_write"; processId: string; deltaBase64?: string; closeStdin?: boolean }
+	| { type: "cx_command_resize"; processId: string; rows?: number; cols?: number }
+	| { type: "cx_command_terminate"; processId: string }
+	// Codex thread metadata update
+	| { type: "cx_thread_metadata_update"; threadId: string; gitInfo?: Record<string, unknown> }
 	// Claude Code File Checkpointing (Undo/Revert)
 	| {
 			type: "cc_rewind_checkpoint";
@@ -2070,7 +2087,7 @@ export type ServerMessage =
 	| { type: "pi_retry_aborted"; data: boolean; requestId?: string }
 	| { type: "pi_state"; data: PiStatePayload; requestId?: string }
 	| { type: "pi_models"; data: PiModelPayload[]; requestId?: string }
-	| { type: "pi_model_set"; data: PiModelPayload | null; requestId?: string }
+	| { type: "pi_model_set"; data: PiModelPayload | null; isScoped?: boolean; requestId?: string }
 	| { type: "pi_thinking_level"; data: { level: string }; requestId?: string }
 	| { type: "pi_sessions"; data: PiSessionInfo[]; requestId?: string }
 	| { type: "pi_projects"; data: ProjectSummary[]; requestId?: string }
@@ -2108,23 +2125,23 @@ export type ServerMessage =
 	| { type: "runtime_models"; backend: "opencode" | "claude-code" | "codex" | "pi"; data: BroskiModelSummary[] }
 	| { type: "runtime_sessions"; backend: "opencode" | "claude-code" | "codex" | "pi"; data: BroskiSessionSummary[] }
 	| { type: "runtime_state"; backend: "opencode" | "claude-code" | "codex" | "pi"; data: BroskiRuntimeState }
-	// Pi Tool Management
-	| { type: "pi_get_tools"; projectPath?: string }
-	| { type: "pi_get_active_tools"; projectPath?: string }
-	| { type: "pi_set_active_tools"; toolNames: string[]; projectPath?: string }
-	// Pi Model Capabilities
-	| { type: "pi_get_thinking_capabilities"; projectPath?: string }
-	| { type: "pi_list_all_models"; projectPath?: string }
-	| { type: "pi_refresh_models"; projectPath?: string }
-	// Pi Granular Abort
-	| { type: "pi_abort_compaction"; projectPath?: string }
-	| { type: "pi_abort_branch_summary"; projectPath?: string }
-	| { type: "pi_abort_bash"; projectPath?: string }
-	// Pi Queue Management
-	| { type: "pi_clear_queue"; projectPath?: string }
-	| { type: "pi_get_queue"; projectPath?: string }
-	// Pi Misc
-	| { type: "pi_get_last_assistant_text"; projectPath?: string }
+	// Pi Tool Management (responses)
+	| { type: "pi_tools"; data: (PiToolInfo & { active: boolean })[]; requestId?: string }
+	| { type: "pi_active_tools"; data: string[]; requestId?: string }
+	| { type: "pi_active_tools_set"; data: string[]; requestId?: string }
+	// Pi Model Capabilities (responses)
+	| { type: "pi_thinking_capabilities"; data: PiThinkingCapabilities; requestId?: string }
+	| { type: "pi_all_models"; data: PiModelPayload[]; requestId?: string }
+	| { type: "pi_models_refreshed"; data: PiModelPayload[]; requestId?: string }
+	// Pi Granular Abort (responses)
+	| { type: "pi_compaction_aborted"; data: boolean; requestId?: string }
+	| { type: "pi_branch_summary_aborted"; data: boolean; requestId?: string }
+	| { type: "pi_bash_aborted"; data: boolean; requestId?: string }
+	// Pi Queue Management (responses)
+	| { type: "pi_queue_cleared"; data: PiQueueState; requestId?: string }
+	| { type: "pi_queue"; data: PiQueueState; requestId?: string }
+	// Pi Misc (responses)
+	| { type: "pi_last_assistant_text"; data: { text: string | null }; requestId?: string }
 	| {
 			type: "pi_bash_result";
 			data: {

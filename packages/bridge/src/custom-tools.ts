@@ -293,7 +293,7 @@ export async function saveCustomTool(tool: CustomToolDefinition): Promise<Custom
   const updatedTool = {
     ...tool,
     updatedAt: now,
-    createdAt: existingIndex >= 0 ? tools[existingIndex].createdAt : now,
+    createdAt: existingIndex >= 0 ? tools[existingIndex]!.createdAt : now,
   }
   
   if (existingIndex >= 0) {
@@ -482,7 +482,7 @@ async function handleScriptTool(
       }
     }
 
-    const file = base[0]
+    const file = base[0]!
     const finalArgs: string[] = [...base.slice(1)]
     if (config.args?.length) {
       for (const a of config.args) {

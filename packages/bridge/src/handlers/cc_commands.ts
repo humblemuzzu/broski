@@ -1,12 +1,12 @@
-import type { ServerMessage } from '../types'
+import type { ServerMessage, ClaudeCodeCommand } from '../types'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { resolve, sep } from 'node:path'
 
-type ReplyFn = (msg: ServerMessage | Record<string, unknown>) => void
+type ReplyFn = (msg: ServerMessage) => void
 
 type HandlerContext = {
   claudeCode: {
-    listCommands: (cwd?: string) => Promise<unknown[]>
+    listCommands: (cwd?: string) => Promise<ClaudeCodeCommand[]>
   }
   safeString: (value: unknown) => string
   getSecurePath: (path: string) => Promise<string | null>
@@ -32,7 +32,7 @@ export async function handle(
     }
     case 'cc_get_command': {
       const name = ctx.safeString(message.name)
-      const source = message.source as string
+      const source = message.source as 'user' | 'project' | 'plugin'
       let cwd = ctx.safeString(message.cwd).trim() || process.cwd()
 
       if (!ctx.isSafeClaudeCommandName(name)) {
@@ -92,7 +92,7 @@ export async function handle(
           }
           cwd = secureCwd
         }
-        const resolved = ctx.resolveClaudeCommandFilePath({ cwd, source: source as 'project' | 'user', name })
+        const resolved = ctx.resolveClaudeCommandFilePath({ cwd, source, name })
         if (!resolved) {
           reply({
             type: 'cc_command_file',
@@ -126,7 +126,7 @@ export async function handle(
     }
     case 'cc_save_command': {
       const name = ctx.safeString(message.name)
-      const source = message.source as string
+      const source = message.source as 'user' | 'project'
       let cwd = ctx.safeString(message.cwd).trim() || process.cwd()
 
       if (source !== 'project' && source !== 'user') {
@@ -156,7 +156,7 @@ export async function handle(
         cwd = secureCwd
       }
 
-      const cmdPath = ctx.resolveClaudeCommandFilePath({ cwd, source: source as 'project' | 'user', name })
+      const cmdPath = ctx.resolveClaudeCommandFilePath({ cwd, source, name })
       if (!cmdPath) {
         reply({
           type: 'cc_command_saved',
@@ -182,7 +182,7 @@ export async function handle(
     }
     case 'cc_delete_command': {
       const name = ctx.safeString(message.name)
-      const source = message.source as string
+      const source = message.source as 'user' | 'project'
       let cwd = ctx.safeString(message.cwd).trim() || process.cwd()
 
       if (source !== 'project' && source !== 'user') {
@@ -212,7 +212,7 @@ export async function handle(
         cwd = secureCwd
       }
 
-      const cmdPath = ctx.resolveClaudeCommandFilePath({ cwd, source: source as 'project' | 'user', name })
+      const cmdPath = ctx.resolveClaudeCommandFilePath({ cwd, source, name })
       if (!cmdPath) {
         reply({
           type: 'cc_command_deleted',

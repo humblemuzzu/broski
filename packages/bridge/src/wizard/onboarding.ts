@@ -167,8 +167,10 @@ async function runNonInteractiveSetup(options: OnboardingOptions): Promise<void>
     log('Daemon: skipped (--no-daemon)')
   }
 
-  // 6. Write config
+  // 6. Write config (spread defaults for cloud/pi sections not configured by quick setup)
+  const defaults = getDefaultConfig()
   const finalConfig: BroskiConfig = {
+    ...defaults,
     version: 1,
     wizard: {
       completedSetup: true,
@@ -183,6 +185,7 @@ async function runNonInteractiveSetup(options: OnboardingOptions): Promise<void>
     security: {
       tls: tlsEnabled,
       tokenTtlDays,
+      verifyCodeSignature: defaults.security.verifyCodeSignature,
     },
     agents: {
       opencode: agents.opencode,
@@ -265,8 +268,10 @@ export async function runOnboardingWizard(
     // 7. Daemon step
     const daemon = await runDaemonStep(prompter)
 
-    // 8. Assemble final config
+    // 8. Assemble final config (spread defaults for sections not configured by wizard)
+    const wizardDefaults = getDefaultConfig()
     const finalConfig: BroskiConfig = {
+      ...wizardDefaults,
       version: 1,
       wizard: {
         completedSetup: true,
@@ -281,6 +286,7 @@ export async function runOnboardingWizard(
       security: {
         tls: security.tls,
         tokenTtlDays: security.tokenTtlDays,
+        verifyCodeSignature: wizardDefaults.security.verifyCodeSignature,
       },
       agents: {
         opencode: agents.opencode,

@@ -1,4 +1,4 @@
-import type { ClientMessage, ServerMessage } from '../types'
+import type { AgentType, ClientMessage, ServerMessage } from '../types'
 
 type Reply = (message: ServerMessage) => void
 
@@ -10,7 +10,7 @@ type OpenCodeChatLike = {
     format?: any,
   ) => Promise<any>
   abortSession: (id: string, dir?: string) => Promise<boolean>
-  respondToPermission: (id: string, response: string, message?: string, dir?: string) => Promise<boolean>
+  respondToPermission: (id: string, response: 'once' | 'always' | 'reject', message?: string, dir?: string) => Promise<boolean>
 }
 
 export type OcChatCtx = {
@@ -20,7 +20,7 @@ export type OcChatCtx = {
   sessionOwners: Map<string, unknown>
   ws: unknown
   syncExternalTailForKey: (key: string | null) => void
-  makeSessionKey: (agent: string | undefined, sessionId: string | undefined) => string | null
+  makeSessionKey: (agent: AgentType | undefined, sessionId: string | undefined) => string | null
 }
 
 export async function handle(

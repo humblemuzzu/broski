@@ -1,11 +1,11 @@
-import type { ServerMessage } from '../types'
+import type { ServerMessage, ClaudeCodeSkill } from '../types'
 import { resolve, sep } from 'node:path'
 
-type ReplyFn = (msg: ServerMessage | Record<string, unknown>) => void
+type ReplyFn = (msg: ServerMessage) => void
 
 type HandlerContext = {
   claudeCode: {
-    listSkills: (cwd?: string) => Promise<unknown[]>
+    listSkills: (cwd?: string) => Promise<ClaudeCodeSkill[]>
   }
   safeString: (value: unknown) => string
 }
@@ -29,8 +29,9 @@ export async function handle(
         return true
       }
 
+      const source = message.source as 'user' | 'project' | 'plugin'
       let skillPath: string | null = null
-      if (message.source === 'plugin') {
+      if (source === 'plugin') {
         const requestedPath = ctx.safeString(message.path)
         if (!requestedPath) {
           reply({ type: 'error', message: 'Missing skill path' })
@@ -51,21 +52,23 @@ export async function handle(
           return true
         }
       } else {
+        const validSource: 'user' | 'project' = source
         skillPath = skillFiles.getClaudeCodeSkillFilePath({
           name: message.name as string,
-          source: message.source as string,
+          source: validSource,
           cwd: message.cwd as string,
         })
       }
 
       try {
+        const name = message.name as string
         const content = await skillFiles.readSkillFile(skillPath)
         reply({
           type: 'cc_skill',
           data: {
-            name: message.name,
-            path: skillPath,
-            source: message.source,
+            name,
+            path: skillPath ?? '',
+            source,
             content,
           },
         })
@@ -80,9 +83,10 @@ export async function handle(
         reply({ type: 'cc_skill_saved', data: { ok: false } })
         return true
       }
+      const source = message.source as 'user' | 'project'
       const path = skillFiles.getClaudeCodeSkillFilePath({
         name: message.name as string,
-        source: message.source as string,
+        source,
         cwd: message.cwd as string,
       })
       try {
@@ -99,9 +103,10 @@ export async function handle(
         reply({ type: 'cc_skill_deleted', data: { ok: false } })
         return true
       }
+      const source = message.source as 'user' | 'project'
       const path = skillFiles.getClaudeCodeSkillFilePath({
         name: message.name as string,
-        source: message.source as string,
+        source,
         cwd: message.cwd as string,
       })
       try {

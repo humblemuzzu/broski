@@ -39,7 +39,7 @@ async function fileExists(path: string): Promise<boolean> {
 function parseFrontmatterDescription(content: string): string | undefined {
   const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/)
   if (!frontmatterMatch) return
-  const frontmatter = frontmatterMatch[1]
+  const frontmatter = frontmatterMatch[1]!
   const descMatch = frontmatter.match(/(?:^|\n)description:\s*(.+)\s*$/m)
   return descMatch?.[1]?.trim() || undefined
 }
@@ -76,7 +76,7 @@ export async function resolveCommandFilePath(params: {
   for (const candidate of candidates) {
     if (await fileExists(candidate)) return candidate
   }
-  return candidates[1] // legacy singular
+  return candidates[1]! // legacy singular
 }
 
 export async function resolveAgentFilePath(params: {
@@ -88,7 +88,7 @@ export async function resolveAgentFilePath(params: {
   for (const candidate of candidates) {
     if (await fileExists(candidate)) return candidate
   }
-  return candidates[1] // legacy singular
+  return candidates[1]! // legacy singular
 }
 
 async function listMarkdownFiles(baseDir: string): Promise<string[]> {
@@ -121,11 +121,11 @@ async function listMarkdownFiles(baseDir: string): Promise<string[]> {
 export async function listCommandFiles(cwd?: string): Promise<MarkdownFileEntry[]> {
   const out: MarkdownFileEntry[] = []
   const dirs: Array<{ source: OpenCodeFileSource; dir: string }> = []
-  dirs.push({ source: 'user', dir: commandDirs('user')[0] })
-  dirs.push({ source: 'user', dir: commandDirs('user')[1] })
+  dirs.push({ source: 'user', dir: commandDirs('user')[0]! })
+  dirs.push({ source: 'user', dir: commandDirs('user')[1]! })
   if (cwd) {
-    dirs.unshift({ source: 'project', dir: commandDirs('project', cwd)[1] })
-    dirs.unshift({ source: 'project', dir: commandDirs('project', cwd)[0] })
+    dirs.unshift({ source: 'project', dir: commandDirs('project', cwd)[1]! })
+    dirs.unshift({ source: 'project', dir: commandDirs('project', cwd)[0]! })
   }
 
   for (const { source, dir } of dirs) {
@@ -155,11 +155,11 @@ export async function listCommandFiles(cwd?: string): Promise<MarkdownFileEntry[
 export async function listAgentFiles(cwd?: string): Promise<MarkdownFileEntry[]> {
   const out: MarkdownFileEntry[] = []
   const dirs: Array<{ source: OpenCodeFileSource; dir: string }> = []
-  dirs.push({ source: 'user', dir: agentDirs('user')[0] })
-  dirs.push({ source: 'user', dir: agentDirs('user')[1] })
+  dirs.push({ source: 'user', dir: agentDirs('user')[0]! })
+  dirs.push({ source: 'user', dir: agentDirs('user')[1]! })
   if (cwd) {
-    dirs.unshift({ source: 'project', dir: agentDirs('project', cwd)[1] })
-    dirs.unshift({ source: 'project', dir: agentDirs('project', cwd)[0] })
+    dirs.unshift({ source: 'project', dir: agentDirs('project', cwd)[1]! })
+    dirs.unshift({ source: 'project', dir: agentDirs('project', cwd)[0]! })
   }
 
   for (const { source, dir } of dirs) {

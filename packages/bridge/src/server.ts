@@ -17,6 +17,7 @@ import type {
 	FileAttachment,
 	PermissionResponse,
 	ServerMessage,
+	SessionStatusInfo,
 } from "./types";
 import * as claudeCode from "./connectors/claude-code";
 import * as codexFs from "./connectors/codex-fs";
@@ -564,6 +565,19 @@ async function getSecurePath(requestedPath: string): Promise<string | null> {
 	}
 }
 
+/**
+ * Module-level error logger used by standalone utility functions that live
+ * outside the `createBridgeServer` closure (and therefore don't have access
+ * to the bridge-logger instance).  Falls back to stderr.
+ */
+function moduleLogError(message: string, ...args: unknown[]): void {
+	if (args.length > 0) {
+		console.error(message, ...args);
+	} else {
+		console.error(message);
+	}
+}
+
 async function listFilesDirectly(filePath: string): Promise<
 	Array<{
 		name: string;
@@ -574,7 +588,7 @@ async function listFilesDirectly(filePath: string): Promise<
 > {
 	const securePath = await getSecurePath(filePath);
 	if (!securePath) {
-		logError(`[listFilesDirectly] Access denied: ${filePath}`);
+		moduleLogError(`[listFilesDirectly] Access denied: ${filePath}`);
 		return [];
 	}
 
@@ -609,7 +623,7 @@ async function listFilesDirectly(filePath: string): Promise<
 
 		return items;
 	} catch (error) {
-		logError(`[listFilesDirectly] Error listing ${securePath}:`, error);
+		moduleLogError(`[listFilesDirectly] Error listing ${securePath}:`, error);
 		return [];
 	}
 }
@@ -623,7 +637,7 @@ async function readFileDirectly(filePath: string): Promise<{
 }> {
 	const securePath = await getSecurePath(filePath);
 	if (!securePath) {
-		logError(`[readFileDirectly] Access denied: ${filePath}`);
+		moduleLogError(`[readFileDirectly] Access denied: ${filePath}`);
 		return {
 			type: "text",
 			content: "",
@@ -698,7 +712,7 @@ async function readFileDirectly(filePath: string): Promise<{
 			await fh.close().catch(() => {});
 		}
 	} catch (error) {
-		logError(`[readFileDirectly] Error reading ${securePath}:`, error);
+		moduleLogError(`[readFileDirectly] Error reading ${securePath}:`, error);
 		return {
 			type: "text",
 			content: "",
@@ -716,7 +730,7 @@ async function readFileBinaryDirectly(
 > {
 	const securePath = await getSecurePath(filePath);
 	if (!securePath) {
-		logError(`[readFileBinaryDirectly] Access denied: ${filePath}`);
+		moduleLogError(`[readFileBinaryDirectly] Access denied: ${filePath}`);
 		return { error: "access_denied" };
 	}
 
@@ -755,7 +769,7 @@ async function readFileBinaryDirectly(
 			await fh.close().catch(() => {});
 		}
 	} catch (error) {
-		logError(`[readFileBinaryDirectly] Error reading ${securePath}:`, error);
+		moduleLogError(`[readFileBinaryDirectly] Error reading ${securePath}:`, error);
 		return { error: "not_found" };
 	}
 }
@@ -1313,7 +1327,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 				pi: {
 					available: piStatus.available,
 					authMethod: piStatus.authenticated ? "configured" : "not-configured",
-					version: piStatus.version,
+					version: 'version' in piStatus ? piStatus.version : undefined,
 				},
 			};
 
@@ -2210,7 +2224,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			if (stopped) return;
 			try {
 				// Get session status
-				const statusMap = await oc.getSessionStatus(projectPath).catch(() => ({}));
+				const statusMap = await oc.getSessionStatus(projectPath).catch((): Record<string, SessionStatusInfo> => ({}));
 				const status = statusMap[sessionId];
 				const newStatus = status?.type ?? "idle";
 
@@ -2352,7 +2366,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
 						// For tool parts, check for state changes
 						if (part.type === "tool" && part.state) {
-							const stateKey = `${part.state.status}:${JSON.stringify(part.state.output ?? "")}`;
+							const stateKey = `${part.state.status}:${JSON.stringify(part.state.status === 'completed' ? part.state.output : '')}`;
 							const prevState = lastToolStateByPartId.get(partId);
 							const stateChanged = stateKey !== prevState;
 
@@ -2466,7 +2480,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 				}
 			} catch (err) {
 				if (DEBUG_RTS) {
-					logDebug(`[RTS] OC External: Poll error for session ${sessionId}:`, err);
+					logDebug(`[RTS] OC External: Poll error for session ${sessionId}: ${err}`);
 				}
 			}
 		};
@@ -2879,7 +2893,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 					const txt = buf.subarray(0, res.bytesRead).toString("utf-8");
 					const lines = txt.split("\n").filter(Boolean);
 					for (let i = lines.length - 1; i >= 0; i--) {
-						const line = lines[i].trim();
+						const line = lines[i]!.trim();
 						if (!line) continue;
 						let parsed: any;
 						try {
@@ -3086,7 +3100,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			} catch (err) {
 				// If the file was rotated/deleted, reset and retry.
 				if (DEBUG_RTS) {
-					logDebug(`[RTS] CC External: Error in pump for session ${sessionId}:`, err);
+					logDebug(`[RTS] CC External: Error in pump for session ${sessionId}: ${err}`);
 				}
 				await closeHandle();
 				filePath = null;
@@ -3543,7 +3557,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 				}
 			} catch (err) {
 				if (DEBUG_RTS) {
-					logDebug(`[RTS] CX External: Error in pump for thread ${threadId}:`, err);
+					logDebug(`[RTS] CX External: Error in pump for thread ${threadId}: ${err}`);
 				}
 				await closeHandle();
 				filePath = null;

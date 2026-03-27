@@ -1,6 +1,6 @@
-import type { ServerMessage } from '../types'
+import type { ServerMessage, ClaudeCodePlugin, ClaudeCodePluginConfig } from '../types'
 
-type ReplyFn = (msg: ServerMessage | Record<string, unknown>) => void
+type ReplyFn = (msg: ServerMessage) => void
 
 export async function handle(
   message: Record<string, unknown>,
@@ -22,32 +22,36 @@ export async function handle(
     }
     case 'cc_toggle_plugin': {
       const plugins = await import('../plugins')
-      const success = await plugins.togglePlugin(message.name as string, message.enabled as boolean)
+      const name = message.name as string
+      const enabled = message.enabled as boolean
+      const success = await plugins.togglePlugin(name, enabled)
       reply({
         type: 'cc_plugin_toggled',
         data: success,
-        name: message.name,
-        enabled: message.enabled,
+        name,
+        enabled,
       })
       return true
     }
     case 'cc_add_plugin_path': {
       const plugins = await import('../plugins')
-      const success = await plugins.addPluginPath(message.path as string)
+      const path = message.path as string
+      const success = await plugins.addPluginPath(path)
       reply({
         type: 'cc_plugin_path_added',
         data: success,
-        path: message.path,
+        path,
       })
       return true
     }
     case 'cc_remove_plugin_path': {
       const plugins = await import('../plugins')
-      const success = await plugins.removePluginPath(message.path as string)
+      const path = message.path as string
+      const success = await plugins.removePluginPath(path)
       reply({
         type: 'cc_plugin_path_removed',
         data: success,
-        path: message.path,
+        path,
       })
       return true
     }

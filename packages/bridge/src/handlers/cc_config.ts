@@ -1,26 +1,33 @@
-import type { ServerMessage } from '../types'
+import type {
+  ServerMessage,
+  ClaudeCodeConfig,
+  ClaudeCodeSupportedModel,
+  ClaudeCodeAccountInfo,
+  ClaudeCodeMcpServerStatus,
+} from '../types'
+import type { BroskiModelSummary } from '../types/runtime'
 
-type ReplyFn = (msg: ServerMessage | Record<string, unknown>) => void
+type ReplyFn = (msg: ServerMessage) => void
 
 type HandlerContext = {
   claudeCode: {
-    getConfig: (cwd?: string) => Promise<unknown>
-    setConfig: (config: unknown, cwd?: string) => Promise<unknown>
-    getSupportedModels: (cwd?: string) => Promise<unknown[]>
-    getAccountInfo: (cwd?: string) => Promise<unknown>
-    getMcpServerStatus: (cwd?: string) => Promise<unknown>
+    getConfig: (cwd?: string) => Promise<ClaudeCodeConfig>
+    setConfig: (config: Partial<ClaudeCodeConfig>, cwd?: string) => Promise<ClaudeCodeConfig>
+    getSupportedModels: (cwd?: string) => Promise<ClaudeCodeSupportedModel[]>
+    getAccountInfo: (cwd?: string) => Promise<ClaudeCodeAccountInfo>
+    getMcpServerStatus: (cwd?: string) => Promise<ClaudeCodeMcpServerStatus[]>
     rewindToCheckpoint: (
       sessionId: string,
       checkpointUuid: string,
-      cwd?: string,
+      cwd: string,
     ) => Promise<{
       success: boolean
-      filesChanged?: unknown
+      filesChanged?: string[]
       insertions?: number
       deletions?: number
     }>
   }
-  mapClaudeCodeModelToSummary: (model: unknown) => unknown
+  mapClaudeCodeModelToSummary: (model: ClaudeCodeSupportedModel) => BroskiModelSummary
 }
 
 export async function handle(
@@ -36,7 +43,7 @@ export async function handle(
       return true
     }
     case 'cc_set_config': {
-      const config = await ctx.claudeCode.setConfig(message.config, message.cwd as string | undefined)
+      const config = await ctx.claudeCode.setConfig(message.config as Partial<ClaudeCodeConfig>, message.cwd as string | undefined)
       reply({ type: 'cc_config_updated', data: config })
       return true
     }
@@ -46,7 +53,7 @@ export async function handle(
       reply({
         type: 'runtime_models',
         backend: 'claude-code',
-        data: (models as unknown[]).map(ctx.mapClaudeCodeModelToSummary),
+        data: models.map(ctx.mapClaudeCodeModelToSummary),
       })
       return true
     }
@@ -61,17 +68,19 @@ export async function handle(
       return true
     }
     case 'cc_rewind_checkpoint': {
+      const sessionId = message.sessionId as string
+      const checkpointUuid = message.checkpointUuid as string
       const result = await ctx.claudeCode.rewindToCheckpoint(
-        message.sessionId as string,
-        message.checkpointUuid as string,
-        message.cwd as string | undefined,
+        sessionId,
+        checkpointUuid,
+        (message.cwd as string) || process.cwd(),
       )
       reply({
         type: 'cc_checkpoint_rewound',
         data: {
           success: result.success,
-          sessionId: message.sessionId,
-          checkpointUuid: message.checkpointUuid,
+          sessionId,
+          checkpointUuid,
           ...(result.filesChanged ? { filesChanged: result.filesChanged } : {}),
           ...(typeof result.insertions === 'number' ? { insertions: result.insertions } : {}),
           ...(typeof result.deletions === 'number' ? { deletions: result.deletions } : {}),

@@ -118,7 +118,7 @@ export function listThreadsFromDb(
 
   try {
     const conditions: string[] = []
-    const params: unknown[] = []
+    const params: (string | number | boolean | null)[] = []
 
     // Filter: cwd
     if (options?.cwd) {

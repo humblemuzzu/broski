@@ -914,7 +914,7 @@ async function bootstrapAttachOpenCode(verbose: boolean): Promise<OpencodeBootst
   }
 
   if (instances.length === 1) {
-    const inst = instances[0]
+    const inst = instances[0]!
     console.log(`✓ Found OpenCode at ${inst.url}`)
     return { server: { url: inst.url, managed: false } }
   }
@@ -928,7 +928,7 @@ async function bootstrapAttachOpenCode(verbose: boolean): Promise<OpencodeBootst
   if (selected == null) {
     throw new Error('Attach cancelled')
   }
-  const inst = instances[selected]
+  const inst = instances[selected]!
   console.log(`✓ Using OpenCode at ${inst.url}`)
   return { server: { url: inst.url, managed: false } }
 }

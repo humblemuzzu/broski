@@ -1,4 +1,5 @@
 import type { ClientMessage, ServerMessage } from '../types'
+import type { Auth } from '@opencode-ai/sdk/v2'
 import { mapOpenCodeProvidersToRuntimeModels } from '../runtime/opencode-runtime-read-models'
 
 type Reply = (message: ServerMessage) => void
@@ -18,7 +19,7 @@ type OpenCodeProviderLike = {
     code?: string,
     dir?: string,
   ) => Promise<boolean>
-  authSet: (providerId: string, auth: Record<string, unknown>) => Promise<boolean>
+  authSet: (providerId: string, auth: Auth) => Promise<boolean>
   authRemove: (providerId: string) => Promise<boolean>
 }
 
@@ -84,7 +85,7 @@ export async function handle(
       const oc = requireOpenCode()
       const ok = await oc.authSet(
         message.providerId,
-        message.auth,
+        message.auth as Auth,
       )
       reply({
         type: 'auth_set_result',

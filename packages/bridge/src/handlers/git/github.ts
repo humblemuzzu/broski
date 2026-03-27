@@ -137,7 +137,7 @@ async function githubApi<T = any>(
     return { ok: false, status: response.status, data: null, text }
   }
 
-  if (headers.Accept.includes('diff')) {
+  if (headers.Accept!.includes('diff')) {
     return { ok: true, status: response.status, data: null, text }
   }
 

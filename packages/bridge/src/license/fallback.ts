@@ -99,15 +99,15 @@ export function createFallbackLicenseCrypto(): LicenseCrypto {
       const parts = jws.split('.')
       if (parts.length !== 3) return false
       const [h, p, s] = parts
-      const header = JSON.parse(Buffer.from(h, 'base64url').toString('utf8'))
+      const header = JSON.parse(Buffer.from(h!, 'base64url').toString('utf8'))
       if (header?.alg !== 'EdDSA') return false
       if (header?.typ !== LICENSE_JWS_TYP) return false
       if (header?.kid !== LICENSE_JWS_KID) return false
       const signingInput = Buffer.from(`${h}.${p}`, 'utf8')
-      const sig = Buffer.from(s, 'base64url')
+      const sig = Buffer.from(s!, 'base64url')
       const ok = verify(null, signingInput, pubKey, sig)
       if (!ok) return false
-      const payload = JSON.parse(Buffer.from(p, 'base64url').toString('utf8'))
+      const payload = JSON.parse(Buffer.from(p!, 'base64url').toString('utf8'))
       if (payload?.machineIdHash !== machineIdHash) return false
       const exp = Number(payload?.exp ?? 0)
       const now = Math.floor(Date.now() / 1000)
@@ -155,7 +155,7 @@ export function createFallbackLicenseCrypto(): LicenseCrypto {
         if (!verifyJwsImpl(jws, machineIdHash)) return ''
         const parts = jws.split('.')
         if (parts.length !== 3) return ''
-        const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'))
+        const payload = JSON.parse(Buffer.from(parts[1]!, 'base64url').toString('utf8'))
         if (payload?.machineIdHash !== machineIdHash) return ''
         return JSON.stringify(payload)
       } catch {

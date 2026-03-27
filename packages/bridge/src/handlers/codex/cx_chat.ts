@@ -5,7 +5,7 @@
  */
 
 import type { CodexAppServerClient } from '../../connectors/codex'
-import type { CodexStreamMessage, CodexThread, ServerMessage } from '../../types'
+import type { AgentType, CodexStreamMessage, CodexThread, ServerMessage } from '../../types'
 import { resolve } from 'node:path'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { randomBytes } from 'node:crypto'
@@ -13,8 +13,7 @@ import { randomBytes } from 'node:crypto'
 /** Pending approval / user-input waiter */
 type ApprovalWaiter = {
   resolve: (value: any) => void
-  reject: (err: Error) => void
-  timer: any
+  timer: Timer
 }
 
 export type CxChatHandlerContext = {
@@ -33,7 +32,7 @@ export type CxChatHandlerContext = {
   mapCodexThread: (thread: any, nameOverride?: string) => CodexThread & { threadName?: string }
   emitCxStream: (threadId: string, data: CodexStreamMessage, owner?: any) => void
   send: (ws: any, msg: ServerMessage) => void
-  broadcastToSessionWatchers: (backend: string, sessionId: string, msg: ServerMessage, excludeWs?: any) => void
+  broadcastToSessionWatchers: (backend: AgentType, sessionId: string, msg: ServerMessage, excludeWs?: any) => void
   buildCodexRuntimeState: (params: { threadId: string; cwd?: string; isStreaming: boolean }) => any
   ws: any
 }

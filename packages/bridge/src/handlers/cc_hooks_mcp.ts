@@ -1,13 +1,13 @@
-import type { ServerMessage } from '../types'
+import type { ServerMessage, ClaudeCodeHook } from '../types'
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { homedir } from 'node:os'
 
-type ReplyFn = (msg: ServerMessage | Record<string, unknown>) => void
+type ReplyFn = (msg: ServerMessage) => void
 
 type HandlerContext = {
   claudeCode: {
-    listHooks: (cwd?: string) => Promise<unknown[]>
+    listHooks: (cwd?: string) => Promise<ClaudeCodeHook[]>
   }
   safeString: (value: unknown) => string
   getSecurePath: (path: string) => Promise<string | null>
@@ -30,7 +30,7 @@ export async function handle(
       // 1. settings.json → "hooks" key (standard Claude Code CLI approach)
       // 2. hooks/hooks.json (standalone file, used by some plugins/projects)
       // Returns merged content as {"hooks": {...}} so the Flutter UI sees everything.
-      const src = message.source as string
+      const src = message.source as 'project' | 'user'
       const cwd = ctx.safeString(message.cwd).trim()
       if (src === 'project' && !cwd) {
         reply({
@@ -101,7 +101,7 @@ export async function handle(
       // Write hooks to the appropriate location.
       // Strategy: if settings.json already has a "hooks" key, update it there.
       // Otherwise, write to hooks/hooks.json (backward-compatible).
-      const src = message.source as string
+      const src = message.source as 'project' | 'user'
       const cwd = ctx.safeString(message.cwd).trim()
       if (src === 'project' && !cwd) {
         reply({

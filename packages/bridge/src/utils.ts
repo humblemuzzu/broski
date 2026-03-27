@@ -104,7 +104,7 @@ export function headTailTruncateBytes(
   let tailLines: string[] = []
   let tailBytes = 0
   for (let i = lines.length - 1; i >= 0; i--) {
-    const line = lines[i]
+    const line = lines[i]!
     const lineBytes = Buffer.byteLength(line + '\n', 'utf8')
     if (tailBytes + lineBytes > tailBudget) break
     tailLines.unshift(line)

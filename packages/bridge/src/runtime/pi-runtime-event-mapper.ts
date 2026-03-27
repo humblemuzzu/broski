@@ -131,4 +131,5 @@ export function mapPiStreamToRuntimeEvent(
     case 'turn-end':
       return null
   }
+  return null
 }

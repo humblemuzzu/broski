@@ -92,7 +92,7 @@ function parseJsonSafe<T = unknown>(v: unknown): T | undefined {
 function mapProjectRow(row: DbRow): ProjectSummary {
   const worktree = str(row.worktree)
   const parts = worktree.split('/').filter(Boolean)
-  const fallbackName = parts.length > 0 ? parts[parts.length - 1] : worktree
+  const fallbackName = parts.length > 0 ? parts[parts.length - 1]! : worktree
   return {
     id: str(row.id),
     name: strOrUndefined(row.name as string) ?? fallbackName,
@@ -108,8 +108,8 @@ function mapSessionRow(row: DbRow, projectRow?: DbRow): SessionSummary {
   const hasSummary = additions > 0 || deletions > 0 || files > 0
 
   const shareUrl = strOrUndefined(row.share_url as string)
-  const revert = parseJsonSafe<Record<string, unknown>>(row.revert)
-  const permission = parseJsonSafe<Record<string, unknown>>(row.permission)
+  const revert = parseJsonSafe<SessionSummary['revert']>(row.revert)
+  const permission = parseJsonSafe<SessionSummary['permission']>(row.permission)
 
   return {
     id: str(row.id),
@@ -233,7 +233,7 @@ export function listSessionsFromDb(
     `
     params.push(limit)
 
-    const rows = db.query(sql).all(...params) as DbRow[]
+    const rows = db.query(sql).all(...(params as (string | number | bigint | boolean | null)[])) as DbRow[]
 
     return rows.map((row) => {
       const projectRow =

@@ -2,7 +2,8 @@ import { existsSync, readFileSync } from 'node:fs'
 import { createHash, randomBytes } from 'node:crypto'
 import { dirname, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { dlopen, FFIType, ptr } from 'bun:ffi'
+import { dlopen, FFIType, ptr, type Pointer } from 'bun:ffi'
+import type { Library } from 'bun:ffi'
 import { isCompiledBinary } from '../platform'
 import type { PtySession } from '../types'
 
@@ -16,8 +17,6 @@ const EAGAIN = process.platform === 'darwin' ? 35 : 11
 const EWOULDBLOCK = process.platform === 'darwin' ? 35 : 11
 const EINTR = 4
 const READ_POLL_TIMEOUT_MS = 120
-
-type NativeLib = ReturnType<typeof dlopen>
 
 const SYMBOLS = {
   pty_create: {
@@ -43,6 +42,8 @@ const SYMBOLS = {
   pty_waitpid: { returns: FFIType.int, args: [FFIType.int] },
   pty_errno: { returns: FFIType.int, args: [] },
 } as const
+
+type NativeLib = Library<typeof SYMBOLS>
 
 export type NativePtySession = PtySession & {
   masterFd: number
@@ -237,10 +238,10 @@ export async function nativeCreatePty(opts: {
     slavePathOut.length,
     rows,
     cols,
-    shellBuf ? ptr(shellBuf) : 0,
-    cwdBuf ? ptr(cwdBuf) : 0,
-    termBuf ? ptr(termBuf) : 0,
-    commandBuf ? ptr(commandBuf) : 0,
+    shellBuf ? ptr(shellBuf) : null,
+    cwdBuf ? ptr(cwdBuf) : null,
+    termBuf ? ptr(termBuf) : null,
+    commandBuf ? ptr(commandBuf) : null,
   )
 
   if (fd < 0) {
@@ -256,7 +257,7 @@ export async function nativeCreatePty(opts: {
     args: opts.args ?? [],
     cwd: opts.cwd || process.cwd(),
     status: 'running',
-    pid: pidOut[0],
+    pid: pidOut[0] ?? 0,
     masterFd: fd,
     slavePath: slavePathOut.toString('utf8').replace(/\0.*$/, ''),
     rows,

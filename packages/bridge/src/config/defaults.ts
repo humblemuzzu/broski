@@ -33,6 +33,7 @@ export function getDefaultConfig(): BroskiConfig {
       opencode: true,
       claudeCode: false,
       codex: false,
+      pi: false,
     },
     pi: {
       enabled: false,

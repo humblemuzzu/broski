@@ -3,7 +3,7 @@ import type { ClientMessage, ServerMessage } from '../types'
 type Reply = (message: ServerMessage) => void
 
 type OpenCodeShellLike = {
-  shellCommand: (id: string, command: string, dir?: string, agent?: string, model?: string) => Promise<unknown>
+  shellCommand: (id: string, command: string, dir?: string, agent?: string, model?: { providerID: string; modelID: string }) => Promise<unknown>
 }
 
 export async function handle(
@@ -14,12 +14,13 @@ export async function handle(
   if (message.type !== 'oc_session_shell') return false
 
   const oc = requireOpenCode()
+  const model = message.model && typeof message.model === 'object' ? message.model : undefined
   const result = await oc.shellCommand(
     message.sessionId,
     message.command,
     message.projectPath,
     message.agent,
-    message.model,
+    model,
   )
   reply({ type: 'oc_session_shell_result', data: result })
   return true

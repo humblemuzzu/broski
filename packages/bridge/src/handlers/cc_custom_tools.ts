@@ -1,6 +1,7 @@
 import type { ServerMessage } from '../types'
+import type { CustomToolDefinition } from '../custom-tools'
 
-type ReplyFn = (msg: ServerMessage | Record<string, unknown>) => void
+type ReplyFn = (msg: ServerMessage) => void
 
 export async function handle(
   message: Record<string, unknown>,
@@ -16,14 +17,16 @@ export async function handle(
     }
     case 'cc_get_custom_tool': {
       const customTools = await import('../custom-tools')
-      const tool = await customTools.getCustomTool(message.id as string)
+      const id = message.id as string
+      const tool = await customTools.getCustomTool(id)
       reply({ type: 'cc_custom_tool', data: tool || null })
       return true
     }
     case 'cc_save_custom_tool': {
       const customTools = await import('../custom-tools')
+      const toolDef = message.tool as Partial<CustomToolDefinition>
       // Validate the tool definition
-      const validation = customTools.validateCustomTool(message.tool)
+      const validation = customTools.validateCustomTool(toolDef)
       if (!validation.valid) {
         reply({
           type: 'error',
@@ -32,9 +35,8 @@ export async function handle(
         return true
       }
       // Generate ID if not present
-      const toolDef = message.tool as Record<string, unknown>
-      const toolToSave = {
-        ...toolDef,
+      const toolToSave: CustomToolDefinition = {
+        ...(toolDef as CustomToolDefinition),
         id: toolDef.id || customTools.generateToolId(),
       }
       const savedTool = await customTools.saveCustomTool(toolToSave)
@@ -43,17 +45,21 @@ export async function handle(
     }
     case 'cc_delete_custom_tool': {
       const customTools = await import('../custom-tools')
-      const deleted = await customTools.deleteCustomTool(message.id as string)
+      const id = message.id as string
+      const deleted = await customTools.deleteCustomTool(id)
       reply({
         type: 'cc_custom_tool_deleted',
         data: deleted,
-        id: message.id,
+        id,
       })
       return true
     }
     case 'cc_test_custom_tool': {
       const customTools = await import('../custom-tools')
-      const result = await customTools.testCustomTool(message.tool, message.testArgs)
+      const result = await customTools.testCustomTool(
+        message.tool as CustomToolDefinition,
+        (message.testArgs as Record<string, unknown>) ?? {},
+      )
       reply({ type: 'cc_custom_tool_test_result', data: result })
       return true
     }

@@ -1,3 +1,4 @@
+// @ts-expect-error -- qrcode-terminal has no type declarations
 import qrcode from 'qrcode-terminal'
 
 export interface ConnectionInfo {
@@ -31,10 +32,10 @@ export function displayQRCode(info: ConnectionInfo): void {
   console.log('  Scan this QR code with the Broski app:')
   console.log('')
 
-  qrcode.generate(data, { small: true }, (qr) => {
+  qrcode.generate(data, { small: true }, (qr: string) => {
     const indented = qr
       .split('\n')
-      .map((line) => `    ${line}`)
+      .map((line: string) => `    ${line}`)
       .join('\n')
     console.log(indented)
   })

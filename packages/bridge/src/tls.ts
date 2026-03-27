@@ -80,7 +80,7 @@ export function checkCertExpiry(certPath: string): CertExpiryInfo {
       // Output format: "notAfter=Mon DD HH:MM:SS YYYY GMT"
       const match = result.stdout.match(/notAfter=(.+)/)
       if (match) {
-        const expiresAt = new Date(match[1].trim())
+        const expiresAt = new Date(match[1]!.trim())
         if (!isNaN(expiresAt.getTime())) {
           const now = new Date()
           const msRemaining = expiresAt.getTime() - now.getTime()
@@ -111,12 +111,12 @@ export function checkCertExpiry(certPath: string): CertExpiryInfo {
       const tag = der[i]
       if (tag !== 0x17 && tag !== 0x18) continue
       const len = der[i + 1]
-      if (len < 10 || i + 2 + len > der.length) continue
+      if (len === undefined || len < 10 || i + 2 + len > der.length) continue
 
       timeCount++
       if (timeCount === 2) {
         // This is notAfter
-        const timeStr = der.subarray(i + 2, i + 2 + len).toString('ascii')
+        const timeStr = der.subarray(i + 2, i + 2 + len!).toString('ascii')
         let expiresAt: Date
         if (tag === 0x17) {
           // UTCTime: YYMMDDHHMMSSZ

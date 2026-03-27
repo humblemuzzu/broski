@@ -1,6 +1,6 @@
-import type { ServerMessage } from '../types'
+import type { ServerMessage, ClaudeCodePermissionMode } from '../types'
 
-type ReplyFn = (msg: ServerMessage | Record<string, unknown>) => void
+type ReplyFn = (msg: ServerMessage) => void
 
 type HandlerContext = {
   claudeCode: {
@@ -9,8 +9,11 @@ type HandlerContext = {
     toggleMcpServer: (sessionId: string, serverName: string, enabled: boolean) => Promise<boolean>
     setPermissionMode: (sessionId: string, mode: string) => Promise<boolean>
     setModel: (sessionId: string, model: string) => Promise<boolean>
-    getInitializationResult: (sessionId: string) => Promise<unknown>
-    setMcpServers: (sessionId: string, servers: Record<string, unknown>) => Promise<unknown>
+    getInitializationResult: (sessionId: string) => Promise<Record<string, unknown> | null>
+    setMcpServers: (
+      sessionId: string,
+      servers: Record<string, unknown>,
+    ) => Promise<{ added: string[]; removed: string[]; errors: Record<string, string> } | null>
   }
 }
 
@@ -22,60 +25,66 @@ export async function handle(
   const type = message.type as string
   switch (type) {
     case 'cc_stop_task': {
+      const taskId = message.taskId as string
       const ok = await ctx.claudeCode.stopTask(
         message.sessionId as string,
-        message.taskId as string,
+        taskId,
       )
       reply({
         type: 'cc_task_stopped',
-        data: { ok, taskId: message.taskId },
+        data: { ok, taskId },
       })
       return true
     }
     case 'cc_reconnect_mcp_server': {
+      const serverName = message.serverName as string
       const ok = await ctx.claudeCode.reconnectMcpServer(
         message.sessionId as string,
-        message.serverName as string,
+        serverName,
       )
       reply({
         type: 'cc_mcp_server_reconnected',
-        data: { ok, serverName: message.serverName },
+        data: { ok, serverName },
       })
       return true
     }
     case 'cc_toggle_mcp_server': {
+      const serverName = message.serverName as string
+      const enabled = message.enabled as boolean
       const ok = await ctx.claudeCode.toggleMcpServer(
         message.sessionId as string,
-        message.serverName as string,
-        message.enabled as boolean,
+        serverName,
+        enabled,
       )
       reply({
         type: 'cc_mcp_server_toggled',
         data: {
           ok,
-          serverName: message.serverName,
-          enabled: message.enabled,
+          serverName,
+          enabled,
         },
       })
       return true
     }
     case 'cc_set_permission_mode': {
+      const mode = message.mode as ClaudeCodePermissionMode
       const ok = await ctx.claudeCode.setPermissionMode(
         message.sessionId as string,
-        message.mode as string,
+        mode,
       )
       reply({
         type: 'cc_permission_mode_set',
-        data: { ok, mode: message.mode },
+        data: { ok, mode },
       })
       return true
     }
     case 'cc_set_model': {
+      const model = message.model as string | undefined
       const ok = await ctx.claudeCode.setModel(
         message.sessionId as string,
-        message.model as string,
+        model ?? '',
       )
-      reply({ type: 'cc_model_set', data: { ok, model: message.model } })
+      reply({ type: 'cc_model_set', data: { ok, model } })
       return true
     }
     case 'cc_initialization_result': {

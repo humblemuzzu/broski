@@ -32,7 +32,7 @@ export function validateSkillName(name: string): boolean {
 function parseDescriptionFromFrontmatter(content: string): string | undefined {
   const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/)
   if (!frontmatterMatch) return
-  const frontmatter = frontmatterMatch[1]
+  const frontmatter = frontmatterMatch[1]!
   const descMatch = frontmatter.match(/(?:^|\n)description:\s*(.+)\s*$/m)
   return descMatch?.[1]?.trim() || undefined
 }
@@ -244,9 +244,9 @@ export type CodexPrompt = {
 function parsePromptFrontmatter(content: string): { description?: string; argumentHint?: string } {
   const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/)
   if (!frontmatterMatch) return {}
-  const fm = frontmatterMatch[1]
+  const fm = frontmatterMatch[1]!
   const descMatch = fm.match(/(?:^|\n)description:\s*"?(.+?)"?\s*$/m)
-  const hintMatch = fm.match(/(?:^|\n)argument-hint:\s*"?(.+?)"?\s*$/m)
+  const hintMatch = fm!.match(/(?:^|\n)argument-hint:\s*"?(.+?)"?\s*$/m)
   return {
     description: descMatch?.[1]?.trim() || undefined,
     argumentHint: hintMatch?.[1]?.trim() || undefined,

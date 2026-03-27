@@ -44,7 +44,7 @@ function extractUserPrompt(message: string): string {
   if (message.startsWith('# Context from my IDE setup:')) {
     const lines = message.split('\n')
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim()
+      const line = lines[i]!.trim()
       if (line && !line.startsWith('#') && !line.startsWith('-') && !line.startsWith('##')) {
         return lines.slice(i).join('\n').trim()
       }
@@ -547,7 +547,7 @@ export async function getThreadMessagesFromFs(threadId: string): Promise<Transcr
           if (name === 'apply_patch') {
             // Parse the patch to extract file changes
             const patchMatch = input.match(/\*\*\* Update File: ([^\n]+)/)
-            const file = patchMatch ? patchMatch[1] : 'unknown'
+            const file = patchMatch?.[1] ?? 'unknown'
             
             a.toolCalls.push({
               itemId: callId,
