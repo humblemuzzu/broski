@@ -1,54 +1,47 @@
-import type { ClientMessage } from '../types'
+import type { ClientMessage } from "../types";
 
 export type ClaudeElicitationReply = {
-  action: 'accept' | 'decline' | 'cancel'
-  content?: Record<string, unknown>
-}
+	action: "accept" | "decline" | "cancel";
+	content?: Record<string, unknown>;
+};
 
 type WaiterEntry = {
-  resolve: (response: ClaudeElicitationReply) => void
-  timer: Timer
-}
+	resolve: (response: ClaudeElicitationReply) => void;
+	timer: Timer;
+};
 
 /**
  * Handles Claude Code elicitation responses from the mobile client.
  *
  * This keeps new CC interaction handling out of server.ts's giant switch.
  */
-export function handle(
-  message: ClientMessage,
-  waiters: Map<string, WaiterEntry>,
-): boolean {
-  if (message.type !== 'cc_elicitation_response') {
-    return false
-  }
+export function handle(message: ClientMessage, waiters: Map<string, WaiterEntry>): boolean {
+	if (message.type !== "cc_elicitation_response") {
+		return false;
+	}
 
-  const key = `${message.sessionId}:${message.requestId}`
-  const waiter = waiters.get(key)
-  if (!waiter) {
-    return true
-  }
+	const key = `${message.sessionId}:${message.requestId}`;
+	const waiter = waiters.get(key);
+	if (!waiter) {
+		return true;
+	}
 
-  clearTimeout(waiter.timer)
-  waiters.delete(key)
+	clearTimeout(waiter.timer);
+	waiters.delete(key);
 
-  const rawAction = message.action
-  const action: 'accept' | 'decline' | 'cancel' =
-    rawAction === 'accept' || rawAction === 'decline' || rawAction === 'cancel'
-      ? rawAction
-      : 'cancel'
+	const rawAction = message.action;
+	const action: "accept" | "decline" | "cancel" =
+		rawAction === "accept" || rawAction === "decline" || rawAction === "cancel" ? rawAction : "cancel";
 
-  const content =
-    message.content &&
-    typeof message.content === 'object' &&
-    !Array.isArray(message.content)
-      ? (message.content as Record<string, unknown>)
-      : undefined
+	const content =
+		message.content && typeof message.content === "object" && !Array.isArray(message.content)
+			? (message.content as Record<string, unknown>)
+			: undefined;
 
-  waiter.resolve({
-    action,
-    ...(content ? { content } : {}),
-  })
+	waiter.resolve({
+		action,
+		...(content ? { content } : {}),
+	});
 
-  return true
+	return true;
 }

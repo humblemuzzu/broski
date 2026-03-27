@@ -6,17 +6,17 @@
  * lived inline in server.ts. This file consolidates the routing,
  * following the same pattern as cx_routing.ts.
  */
-import type { ServerMessage, ClaudeCodeSupportedModel } from "../types";
-import type { BroskiSessionSummary, BroskiModelSummary } from "../types/runtime";
-import * as ccSessions from "./cc_sessions";
-import * as ccSkills from "./cc_skills";
+import type { ClaudeCodeSupportedModel, ServerMessage } from "../types";
+import type { BroskiModelSummary, BroskiSessionSummary } from "../types/runtime";
 import * as ccCommands from "./cc_commands";
-import * as ccMemory from "./cc_memory";
 import * as ccConfig from "./cc_config";
+import * as ccCustomTools from "./cc_custom_tools";
 import * as ccHooksMcp from "./cc_hooks_mcp";
 import * as ccLiveSession from "./cc_live_session";
-import * as ccCustomTools from "./cc_custom_tools";
+import * as ccMemory from "./cc_memory";
 import * as ccPlugins from "./cc_plugins";
+import * as ccSessions from "./cc_sessions";
+import * as ccSkills from "./cc_skills";
 
 type ReplyFn = (msg: ServerMessage) => void;
 
@@ -27,18 +27,11 @@ export type CcRoutingContext = {
 	safeString: (value: unknown) => string;
 	getSecurePath: (path: string) => Promise<string | null>;
 	isSafeClaudeCommandName: (name: string) => boolean;
-	resolveClaudeCommandFilePath: (params: {
-		cwd: string;
-		source: "project" | "user";
-		name: string;
-	}) => string | null;
+	resolveClaudeCommandFilePath: (params: { cwd: string; source: "project" | "user"; name: string }) => string | null;
 	ccPermissionWaiters: Map<
 		string,
 		{
-			resolve: (response: {
-				response: "once" | "always" | "reject";
-				updatedInput?: Record<string, unknown>;
-			}) => void;
+			resolve: (response: { response: "once" | "always" | "reject"; updatedInput?: Record<string, unknown> }) => void;
 			timer: Timer;
 		}
 	>;
@@ -116,7 +109,10 @@ export async function handle(
 	if (!type.startsWith("cc_")) return false;
 
 	if (SESSION_OPS.has(type)) {
-		const ccSessionCtx = { claudeCode: ctx.claudeCode, mapClaudeCodeSessionToRuntimeSession: ctx.mapClaudeCodeSessionToRuntimeSession };
+		const ccSessionCtx = {
+			claudeCode: ctx.claudeCode,
+			mapClaudeCodeSessionToRuntimeSession: ctx.mapClaudeCodeSessionToRuntimeSession,
+		};
 		if (await ccSessions.handle(message, reply, ccSessionCtx)) return true;
 		reply({ type: "error", message: "Unhandled CC session message" });
 		return true;

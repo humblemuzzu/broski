@@ -1,27 +1,27 @@
-import type { ClientMessage, ServerMessage } from '../types'
+import type { ClientMessage, ServerMessage } from "../types";
 
-type Reply = (message: ServerMessage) => void
+type Reply = (message: ServerMessage) => void;
 
 type OpenCodeShellLike = {
-  shellCommand: (id: string, command: string, dir?: string, agent?: string, model?: { providerID: string; modelID: string }) => Promise<unknown>
-}
+	shellCommand: (
+		id: string,
+		command: string,
+		dir?: string,
+		agent?: string,
+		model?: { providerID: string; modelID: string },
+	) => Promise<unknown>;
+};
 
 export async function handle(
-  message: ClientMessage & { requestId?: string },
-  reply: Reply,
-  requireOpenCode: () => OpenCodeShellLike,
+	message: ClientMessage & { requestId?: string },
+	reply: Reply,
+	requireOpenCode: () => OpenCodeShellLike,
 ): Promise<boolean> {
-  if (message.type !== 'oc_session_shell') return false
+	if (message.type !== "oc_session_shell") return false;
 
-  const oc = requireOpenCode()
-  const model = message.model && typeof message.model === 'object' ? message.model : undefined
-  const result = await oc.shellCommand(
-    message.sessionId,
-    message.command,
-    message.projectPath,
-    message.agent,
-    model,
-  )
-  reply({ type: 'oc_session_shell_result', data: result })
-  return true
+	const oc = requireOpenCode();
+	const model = message.model && typeof message.model === "object" ? message.model : undefined;
+	const result = await oc.shellCommand(message.sessionId, message.command, message.projectPath, message.agent, model);
+	reply({ type: "oc_session_shell_result", data: result });
+	return true;
 }

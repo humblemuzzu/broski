@@ -1,3 +1,3 @@
-export { BroskiConfigSchema, type BroskiConfig } from './schema'
-export { getDefaultConfig } from './defaults'
-export { getConfigPath, readConfig, writeConfig, updateConfig } from './read-write'
+export { getDefaultConfig } from "./defaults";
+export { getConfigPath, readConfig, updateConfig, writeConfig } from "./read-write";
+export { type BroskiConfig, BroskiConfigSchema } from "./schema";

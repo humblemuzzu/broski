@@ -3,10 +3,11 @@
  *
  * Extracted from server.ts — these are pure functions with no closure dependencies.
  */
+
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 const TOKEN_FILE_LEGACY = resolve(homedir(), ".broski", "token");
 const TOKEN_FILE = resolve(homedir(), ".broski", "token.json");

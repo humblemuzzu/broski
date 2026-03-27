@@ -1,8 +1,8 @@
-import { describe, it, expect, afterEach } from "bun:test";
-import { FileTailer } from "../file-tailer";
-import { writeFile, mkdir, rm, appendFile } from "node:fs/promises";
-import { join } from "node:path";
+import { afterEach, describe, expect, it } from "bun:test";
+import { appendFile, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { FileTailer } from "../file-tailer";
 
 const TMP = join(tmpdir(), `file-tailer-test-${Date.now()}`);
 

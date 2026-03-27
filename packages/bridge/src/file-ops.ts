@@ -6,8 +6,9 @@
  *
  * Extracted from server.ts to reduce file size.
  */
-import { lstat, open, readdir } from "node:fs/promises";
+
 import { constants as fsConstants } from "node:fs";
+import { lstat, open, readdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
 type GetSecurePath = (requestedPath: string) => Promise<string | null>;

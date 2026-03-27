@@ -6,20 +6,20 @@
  * lived inline in server.ts. This file consolidates the routing.
  */
 import type { ServerWebSocket } from "bun";
-import type { AgentType, CodexThread, PermissionResponse, ServerMessage, CodexStreamMessage } from "../types";
-import type { BroskiSessionSummary } from "../types/runtime";
 import type { CodexAppServerClient } from "../connectors/codex";
-import { handleCxThreads } from "./codex/cx_threads";
-import { handleCxChat } from "./codex/cx_chat";
-import { handleCxConfig } from "./codex/cx_config";
-import { handleCxSkills } from "./codex/cx_skills";
-import { handleCxMcp } from "./codex/cx_mcp";
+import type { AgentType, CodexStreamMessage, CodexThread, PermissionResponse, ServerMessage } from "../types";
+import type { BroskiSessionSummary } from "../types/runtime";
 import { handleCxAccount } from "./codex/cx_account";
 import { handleCxAgents } from "./codex/cx_agents";
-import { handleCxFiles } from "./codex/cx_files";
-import { handleCxExternalConfig } from "./codex/cx_external_config";
-import { handleCxPlugins } from "./codex/cx_plugins";
+import { handleCxChat } from "./codex/cx_chat";
 import { handleCxCommandPty } from "./codex/cx_command_pty";
+import { handleCxConfig } from "./codex/cx_config";
+import { handleCxExternalConfig } from "./codex/cx_external_config";
+import { handleCxFiles } from "./codex/cx_files";
+import { handleCxMcp } from "./codex/cx_mcp";
+import { handleCxPlugins } from "./codex/cx_plugins";
+import { handleCxSkills } from "./codex/cx_skills";
+import { handleCxThreads } from "./codex/cx_threads";
 import { handleCodexFeature } from "./codex_features";
 
 type ReplyFn = (msg: ServerMessage) => void;
@@ -70,16 +70,8 @@ export type CxRoutingContext = {
 	mapCodexThread: (thread: unknown, nameOverride?: string) => CodexThread & { threadName?: string };
 	mapCodexThreadToRuntimeSession: (thread: CodexThread) => BroskiSessionSummary;
 	invalidateCodexCaches: (cwd?: string) => void;
-	buildCodexRuntimeState: (params: {
-		threadId: string;
-		cwd?: string;
-		isStreaming: boolean;
-	}) => Record<string, unknown>;
-	emitCxStream: (
-		threadId: string,
-		streamMsg: CodexStreamMessage,
-		owner?: ServerWebSocket<unknown> | null,
-	) => void;
+	buildCodexRuntimeState: (params: { threadId: string; cwd?: string; isStreaming: boolean }) => Record<string, unknown>;
+	emitCxStream: (threadId: string, streamMsg: CodexStreamMessage, owner?: ServerWebSocket<unknown> | null) => void;
 	// File undo
 	ensureUndoStack: (threadId: string) => string[];
 	applyCodexUndo: (threadId: string, key: string) => Promise<string[]>;

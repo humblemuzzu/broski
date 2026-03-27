@@ -44,8 +44,8 @@
  * It does not share this infrastructure and should not be refactored to use FileTailer.
  */
 
+import { type FSWatcher, watch as fsWatch } from "node:fs";
 import { open, stat } from "node:fs/promises";
-import { watch as fsWatch, type FSWatcher } from "node:fs";
 import { dirname } from "node:path";
 
 // ── Public interface ────────────────────────────────────────────────────────
@@ -136,11 +136,17 @@ export class FileTailer {
 				});
 				this.watcher.on("error", () => {
 					if (this.watcher) {
-						try { this.watcher.close(); } catch { /* ignore */ }
+						try {
+							this.watcher.close();
+						} catch {
+							/* ignore */
+						}
 						this.watcher = null;
 					}
 				});
-			} catch { /* ignore — polling will handle */ }
+			} catch {
+				/* ignore — polling will handle */
+			}
 
 			// Watch parent directory for more reliable notifications
 			try {
@@ -153,11 +159,17 @@ export class FileTailer {
 				});
 				this.dirWatcher.on("error", () => {
 					if (this.dirWatcher) {
-						try { this.dirWatcher.close(); } catch { /* ignore */ }
+						try {
+							this.dirWatcher.close();
+						} catch {
+							/* ignore */
+						}
 						this.dirWatcher = null;
 					}
 				});
-			} catch { /* ignore — polling will handle */ }
+			} catch {
+				/* ignore — polling will handle */
+			}
 		});
 
 		this.log(`Started tailing`);
@@ -171,11 +183,19 @@ export class FileTailer {
 			this.pollTimer = null;
 		}
 		if (this.watcher) {
-			try { this.watcher.close(); } catch { /* ignore */ }
+			try {
+				this.watcher.close();
+			} catch {
+				/* ignore */
+			}
 			this.watcher = null;
 		}
 		if (this.dirWatcher) {
-			try { this.dirWatcher.close(); } catch { /* ignore */ }
+			try {
+				this.dirWatcher.close();
+			} catch {
+				/* ignore */
+			}
 			this.dirWatcher = null;
 		}
 		void this.closeHandle();
@@ -192,7 +212,11 @@ export class FileTailer {
 
 	private async closeHandle(): Promise<void> {
 		if (!this.fileHandle) return;
-		try { await this.fileHandle.close(); } catch { /* ignore */ }
+		try {
+			await this.fileHandle.close();
+		} catch {
+			/* ignore */
+		}
 		this.fileHandle = null;
 	}
 

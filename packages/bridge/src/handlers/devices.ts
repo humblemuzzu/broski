@@ -1,9 +1,5 @@
 import type { ServerWebSocket } from "bun";
-import type {
-	AgentType,
-	DeviceInfo,
-	ServerMessage,
-} from "../types";
+import type { AgentType, DeviceInfo, ServerMessage } from "../types";
 import type { ClaudeElicitationReply } from "./cc_elicitation";
 
 type ReplyFn = (msg: ServerMessage) => void;
@@ -69,11 +65,7 @@ export type DevicesHandlerContext = {
 		cwd?: string;
 		isStreaming: boolean;
 	}) => Record<string, unknown>;
-	buildCodexRuntimeState: (params: {
-		threadId: string;
-		cwd?: string;
-		isStreaming: boolean;
-	}) => Record<string, unknown>;
+	buildCodexRuntimeState: (params: { threadId: string; cwd?: string; isStreaming: boolean }) => Record<string, unknown>;
 	mapOpenCodeStatusToRuntimeState: (
 		sessionId: string,
 		status: import("../types").SessionStatusInfo,
@@ -168,10 +160,7 @@ export async function handle(
 	}
 }
 
-async function pushActiveSessionsOnConnect(
-	ws: ServerWebSocket<unknown>,
-	ctx: DevicesHandlerContext,
-): Promise<void> {
+async function pushActiveSessionsOnConnect(ws: ServerWebSocket<unknown>, ctx: DevicesHandlerContext): Promise<void> {
 	try {
 		const activeCC = ctx.claudeCode.listActiveSessions().map((s) => ({
 			sessionId: s.sessionId,
@@ -241,9 +230,7 @@ async function pushActiveSessionsOnConnect(
 				backend: "opencode",
 				data: ctx.mapOpenCodeStatusToRuntimeState(
 					active.sessionId,
-					active.statusType === "retry"
-						? { type: "retry", attempt: 0, message: "", next: 0 }
-						: { type: "busy" },
+					active.statusType === "retry" ? { type: "retry", attempt: 0, message: "", next: 0 } : { type: "busy" },
 					active.projectPath,
 				),
 			} as ServerMessage);

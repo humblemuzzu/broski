@@ -4,10 +4,11 @@
  * Handles: pong, client_ping, restart_opencode, set_agent, get_agents_status,
  * get_subscription_usage, get_provider_usage
  */
-import type { ServerWebSocket } from "bun";
+
 import { join } from "node:path";
-import type { AgentStatusInfo, AgentType, ServerMessage } from "../types";
+import type { ServerWebSocket } from "bun";
 import * as pi from "../connectors/pi";
+import type { AgentStatusInfo, AgentType, ServerMessage } from "../types";
 
 type ReplyFn = (msg: ServerMessage) => void;
 
@@ -29,7 +30,12 @@ export type MiscHandlerContext = {
 	// set_agent
 	getCurrentAgent: () => AgentType;
 	setCurrentAgent: (agent: AgentType) => void;
-	ensureClaudeWatchDir: (path: string, kind: "skills" | "plugins" | "hooks" | "commands" | "mcp", cwd?: string, recursive?: boolean) => void;
+	ensureClaudeWatchDir: (
+		path: string,
+		kind: "skills" | "plugins" | "hooks" | "commands" | "mcp",
+		cwd?: string,
+		recursive?: boolean,
+	) => void;
 	claudeCode: {
 		checkClaudeCodeAvailable: () => Promise<boolean>;
 	};
@@ -88,8 +94,7 @@ export async function handle(
 			ctx.log(`Agent switched to: ${agent}`);
 			if (agent === "claude-code") {
 				const connCtx = ctx.contexts.get(ws);
-				const cwd =
-					connCtx?.projectPath && connCtx.projectPath !== "global" ? connCtx.projectPath : undefined;
+				const cwd = connCtx?.projectPath && connCtx.projectPath !== "global" ? connCtx.projectPath : undefined;
 				if (cwd) {
 					ctx.ensureClaudeWatchDir(join(cwd, ".claude", "skills"), "skills", cwd);
 					ctx.ensureClaudeWatchDir(join(cwd, ".claude", "plugins"), "plugins", cwd);

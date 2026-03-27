@@ -8,22 +8,22 @@
  */
 import type { ServerWebSocket } from "bun";
 import type { AgentType, ClientMessage, ServerMessage } from "../types";
-import * as ocSessions from "./oc_sessions";
-import * as ocMessages from "./oc_messages";
-import * as ocWorkspaces from "./oc_workspaces";
-import * as ocWorktrees from "./oc_worktrees";
-import * as ocSessionOps from "./oc_session_ops";
+import * as ocChat from "./oc_chat";
 import * as ocConfig from "./oc_config";
-import * as ocProviders from "./oc_providers";
+import * as ocCustomization from "./oc_customization";
 import * as ocFeatures from "./oc_features";
 import * as ocFiles from "./oc_files";
 import * as ocMcp from "./oc_mcp";
-import * as ocChat from "./oc_chat";
+import * as ocMessages from "./oc_messages";
 import * as ocParts from "./oc_parts";
-import * as ocQuestions from "./oc_questions";
-import * as ocShell from "./oc_shell";
-import * as ocCustomization from "./oc_customization";
 import * as ocProject from "./oc_project";
+import * as ocProviders from "./oc_providers";
+import * as ocQuestions from "./oc_questions";
+import * as ocSessionOps from "./oc_session_ops";
+import * as ocSessions from "./oc_sessions";
+import * as ocShell from "./oc_shell";
+import * as ocWorkspaces from "./oc_workspaces";
+import * as ocWorktrees from "./oc_worktrees";
 
 type ReplyFn = (msg: ServerMessage) => void;
 
@@ -31,11 +31,19 @@ export type OcRoutingContext = {
 	requireOpenCode: () => any;
 	safeString: (v: unknown) => string;
 	getSecurePath: (p: string) => Promise<string | null>;
-	readFileDirectly: (filePath: string) => Promise<{ type: "text" | "binary"; content: string; mime: string; mimeType: string; encoding?: "base64" }>;
-	readFileBinaryDirectly: (filePath: string, maxSizeMb?: number) => Promise<
-		{ base64: string; mime: string; size: number } | { error: "not_found" | "too_large" | "access_denied"; size?: number }
+	readFileDirectly: (
+		filePath: string,
+	) => Promise<{ type: "text" | "binary"; content: string; mime: string; mimeType: string; encoding?: "base64" }>;
+	readFileBinaryDirectly: (
+		filePath: string,
+		maxSizeMb?: number,
+	) => Promise<
+		| { base64: string; mime: string; size: number }
+		| { error: "not_found" | "too_large" | "access_denied"; size?: number }
 	>;
-	listFilesDirectly: (filePath: string) => Promise<Array<{ name: string; type: "file" | "directory"; path: string; absolute: string }>>;
+	listFilesDirectly: (
+		filePath: string,
+	) => Promise<Array<{ name: string; type: "file" | "directory"; path: string; absolute: string }>>;
 	fileSearch: {
 		searchFilesAndDirs: (opts: { query: string; cwd: string; limit: number; includeDirs: boolean }) => Promise<any>;
 	};

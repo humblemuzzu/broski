@@ -1,5 +1,5 @@
-import type { ServerWebSocket } from "bun";
 import { join } from "node:path";
+import type { ServerWebSocket } from "bun";
 import type { AgentType, ServerMessage } from "../types";
 
 type ReplyFn = (msg: ServerMessage) => void;
@@ -25,7 +25,12 @@ export type SessionViewHandlerContext = {
 	logDebug: (msg: string) => void;
 	DEBUG_RTS: boolean;
 	currentAgent: AgentType;
-	ensureClaudeWatchDir: (path: string, kind: "skills" | "plugins" | "hooks" | "commands" | "mcp", cwd?: string, recursive?: boolean) => void;
+	ensureClaudeWatchDir: (
+		path: string,
+		kind: "skills" | "plugins" | "hooks" | "commands" | "mcp",
+		cwd?: string,
+		recursive?: boolean,
+	) => void;
 	makeSessionKey: (agent: AgentType | undefined, sessionId: string | undefined) => string | null;
 	updateSessionWatchers: (ws: ServerWebSocket<unknown>, prevKey: string | null, nextKey: string | null) => void;
 	sessionWatchers: Map<string, Set<ServerWebSocket<unknown>>>;
@@ -45,11 +50,7 @@ export type SessionViewHandlerContext = {
 	cxActiveTurns: Map<string, string>;
 	cxThreadOwners: Map<string, ServerWebSocket<unknown>>;
 	cxThreadCwds: Map<string, string>;
-	buildCodexRuntimeState: (params: {
-		threadId: string;
-		cwd?: string;
-		isStreaming: boolean;
-	}) => Record<string, unknown>;
+	buildCodexRuntimeState: (params: { threadId: string; cwd?: string; isStreaming: boolean }) => Record<string, unknown>;
 	// OpenCode
 	ocSessionOwners: Map<string, ServerWebSocket<unknown>>;
 	ocSessionProjectPaths: Map<string, string>;
@@ -60,7 +61,7 @@ export type SessionViewHandlerContext = {
 export async function handle(
 	ws: ServerWebSocket<unknown>,
 	message: Record<string, unknown>,
-	reply: ReplyFn,
+	_reply: ReplyFn,
 	ctx: SessionViewHandlerContext,
 ): Promise<boolean> {
 	if ((message.type as string) !== "set_view") return false;
@@ -85,8 +86,7 @@ export async function handle(
 	}
 
 	if (nextAgent === "claude-code") {
-		const cwd =
-			message.projectPath && message.projectPath !== "global" ? (message.projectPath as string) : undefined;
+		const cwd = message.projectPath && message.projectPath !== "global" ? (message.projectPath as string) : undefined;
 		if (cwd) {
 			ctx.ensureClaudeWatchDir(join(cwd, ".claude", "skills"), "skills", cwd);
 			ctx.ensureClaudeWatchDir(join(cwd, ".claude", "plugins"), "plugins", cwd);
@@ -107,9 +107,7 @@ export async function handle(
 	if (nextAgent === "opencode" && nextSessionId && message.projectPath) {
 		ctx.ocSessionProjectPaths.set(nextSessionId, message.projectPath as string);
 		if (ctx.DEBUG_RTS) {
-			ctx.logDebug(
-				`[RTS] set_view: Stored projectPath for OpenCode session ${nextSessionId}: ${message.projectPath}`,
-			);
+			ctx.logDebug(`[RTS] set_view: Stored projectPath for OpenCode session ${nextSessionId}: ${message.projectPath}`);
 		}
 	}
 

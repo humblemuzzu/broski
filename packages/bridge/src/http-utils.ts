@@ -57,7 +57,7 @@ export function toPublicErrorMessage(error: unknown): string {
 		if (!msg || msg.length === 0) return "Request failed";
 		if (msg.length > 300) return "Request failed";
 		if (containsFilesystemPath(msg)) return "Request failed";
-		if (msg.length > 200) return msg.slice(0, 197) + "...";
+		if (msg.length > 200) return `${msg.slice(0, 197)}...`;
 		return msg;
 	};
 
@@ -117,11 +117,26 @@ export function extractTokenFromRequest(_url: URL, request: Request): string | n
 // ── Proxy Port Allowlist ───────────────────────────────────────────────
 
 const DEFAULT_ALLOWED_PROXY_PORTS = new Set([
-	3000, 3001, 3002, 3003, // React, Next.js, Remix
-	4000, 4001, 4200, 4321, // Angular, Astro
-	5000, 5001, 5173, 5174, 5175, // Flask, Vite
-	8000, 8001, 8080, 8081, 8888, // Django, generic
-	9000, 9001, // PHP, misc
+	3000,
+	3001,
+	3002,
+	3003, // React, Next.js, Remix
+	4000,
+	4001,
+	4200,
+	4321, // Angular, Astro
+	5000,
+	5001,
+	5173,
+	5174,
+	5175, // Flask, Vite
+	8000,
+	8001,
+	8080,
+	8081,
+	8888, // Django, generic
+	9000,
+	9001, // PHP, misc
 ]);
 
 export function buildProxyPortAllowlist(): Set<number> {
@@ -173,7 +188,7 @@ export async function checkHttpEntitlement(req: Request, deps: HttpEntitlementDe
 				const nowSec = Math.floor(Date.now() / 1000);
 				if (localLicense?.entitled && localLicense.sessionTokenHash === tokenHash && nowSec <= localLicense.exp) {
 					// allow via local license
-				} else if (!(cached && cached.entitled && now - cached.checkedAt <= deps.OFFLINE_GRACE_MS)) {
+				} else if (!(cached?.entitled && now - cached.checkedAt <= deps.OFFLINE_GRACE_MS)) {
 					return publicJson({ error: "CLOUD_AUTH_FAILED" }, 503);
 				}
 			} else {
@@ -187,7 +202,7 @@ export async function checkHttpEntitlement(req: Request, deps: HttpEntitlementDe
 				if (!refreshed.state.entitled) return publicJson({ error: "LICENSE_REQUIRED" }, 402);
 			}
 		} catch {
-			if (!(cached && cached.entitled && now - cached.checkedAt <= deps.OFFLINE_GRACE_MS)) {
+			if (!(cached?.entitled && now - cached.checkedAt <= deps.OFFLINE_GRACE_MS)) {
 				return publicJson({ error: "CLOUD_AUTH_FAILED" }, 503);
 			}
 		}
@@ -202,8 +217,15 @@ export async function checkHttpEntitlement(req: Request, deps: HttpEntitlementDe
 export function buildProxyForwardHeaders(request: Request): Headers {
 	const h = new Headers();
 	const allow = new Set([
-		"accept", "accept-language", "content-type", "cache-control",
-		"pragma", "if-none-match", "if-modified-since", "user-agent", "cookie",
+		"accept",
+		"accept-language",
+		"content-type",
+		"cache-control",
+		"pragma",
+		"if-none-match",
+		"if-modified-since",
+		"user-agent",
+		"cookie",
 	]);
 	for (const [k, v] of request.headers.entries()) {
 		const key = k.toLowerCase();

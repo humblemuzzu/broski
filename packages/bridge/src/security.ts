@@ -52,9 +52,9 @@ export function hasPrototypePoisonKeys(value: unknown, depth = 0): boolean {
 	}
 	const obj = value as Record<string, unknown>;
 	// Disallow keys commonly used for prototype pollution.
-	if (Object.prototype.hasOwnProperty.call(obj, "__proto__")) return true;
-	if (Object.prototype.hasOwnProperty.call(obj, "prototype")) return true;
-	if (Object.prototype.hasOwnProperty.call(obj, "constructor")) return true;
+	if (Object.hasOwn(obj, "__proto__")) return true;
+	if (Object.hasOwn(obj, "prototype")) return true;
+	if (Object.hasOwn(obj, "constructor")) return true;
 	for (const k of Object.keys(obj)) {
 		if (hasPrototypePoisonKeys(obj[k], depth + 1)) return true;
 	}

@@ -8,20 +8,20 @@ import { join, resolve, sep } from "node:path";
 import type { ServerWebSocket } from "bun";
 import type { OpenCodeConnector } from "./connectors/opencode";
 import {
+	buildProxyForwardHeaders,
+	buildProxyShim,
+	checkHttpEntitlement,
+	extractTokenFromRequest,
+	type HttpEntitlementDeps,
+	isAllowedBrowserRequest,
+	isAllowedOrigin,
+	isAllowedProxyPort,
 	jsonResponse,
 	publicJson,
-	toErrorMessage,
-	toPublicErrorMessage,
-	isAllowedProxyPort,
-	isAllowedOrigin,
-	isAllowedBrowserRequest,
-	extractTokenFromRequest,
-	checkHttpEntitlement,
-	buildProxyForwardHeaders,
 	rewriteProxyCookies,
 	rewriteProxyRedirects,
-	buildProxyShim,
-	type HttpEntitlementDeps,
+	toErrorMessage,
+	toPublicErrorMessage,
 } from "./http-utils";
 
 // ── handleHttpRequest Dependencies ─────────────────────────────────────
@@ -100,9 +100,9 @@ export async function handleHttpRequest(request: Request, deps: HandleHttpDeps):
 			if (text.includes("<head")) {
 				text = text.replace(/<head([^>]*)>/i, `<head$1><base href="${prefix}/">${shim}`);
 			} else {
-				text = `<base href="${prefix}/">\n${shim}\n` + text;
+				text = `<base href="${prefix}/">\n${shim}\n${text}`;
 			}
-			text = text.replace(/(href|src|action)=([\"'])\//gi, `$1=$2${prefix}/`).replace(/url\(\//gi, `url(${prefix}/`);
+			text = text.replace(/(href|src|action)=(["'])\//gi, `$1=$2${prefix}/`).replace(/url\(\//gi, `url(${prefix}/`);
 			return new Response(text, { status: upstreamRes.status, headers });
 		}
 
@@ -198,7 +198,7 @@ export interface FetchHandlerDeps {
  * Extracted from `makeFetch` in server.ts.
  */
 export function createFetchHandler(serverLabel: string, deps: FetchHandlerDeps) {
-	return async (request: Request, serverInstance: any): Promise<Response | void> => {
+	return async (request: Request, serverInstance: any): Promise<Response | undefined> => {
 		const url = new URL(request.url);
 
 		const isLoopbackHostHeader = (() => {

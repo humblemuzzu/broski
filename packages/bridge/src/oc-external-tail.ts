@@ -135,8 +135,7 @@ export function startOpenCodeExternalTail(
 							if (initialSyncDone) {
 								hadChanges = true;
 								// Compute delta: if text was appended (not replaced), extract the new portion
-								const delta =
-									prevText && part.text.startsWith(prevText) ? part.text.slice(prevText.length) : undefined;
+								const delta = prevText && part.text.startsWith(prevText) ? part.text.slice(prevText.length) : undefined;
 
 								if (ctx.DEBUG_RTS) {
 									ctx.logDebug(`[RTS] OC External: Text part ${partId} updated, delta=${delta?.length ?? "full"}`);
@@ -179,8 +178,8 @@ export function startOpenCodeExternalTail(
 
 					// For tool parts, check for state changes
 					if (part.type === "tool" && part.state) {
-						const stateOutput = 'output' in part.state ? (part.state as { output?: unknown }).output : undefined;
-						const stateKey = `${part.state.status}:${JSON.stringify(stateOutput ?? '')}`;
+						const stateOutput = "output" in part.state ? (part.state as { output?: unknown }).output : undefined;
+						const stateKey = `${part.state.status}:${JSON.stringify(stateOutput ?? "")}`;
 						const prevState = lastToolStateByPartId.get(partId);
 						const stateChanged = stateKey !== prevState;
 
@@ -328,4 +327,4 @@ export function startOpenCodeExternalTail(
 			}
 		},
 	};
-	}
+}

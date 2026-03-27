@@ -3,13 +3,12 @@
  *
  * Monitors CC session JSONL files on disk and emits streaming events
  * for sessions owned by external Claude CLI/TUI instances.
- * 
+ *
  * Extracted from server.ts (675 lines) to reduce file size.
  */
-import { watch as fsWatch, type FSWatcher } from "node:fs";
+import { type FSWatcher, watch as fsWatch } from "node:fs";
 import { open, stat } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
-import { homedir } from "node:os";
+import { dirname } from "node:path";
 import type { ClaudeCodeStreamMessage } from "./types";
 
 export type CcExternalTailContext = {
@@ -22,10 +21,7 @@ export type CcExternalTailContext = {
 	DEBUG_RTS: boolean;
 };
 
-export function startClaudeCodeExternalTail(
-	sessionId: string,
-	ctx: CcExternalTailContext,
-): { stop: () => void } {
+export function startClaudeCodeExternalTail(sessionId: string, ctx: CcExternalTailContext): { stop: () => void } {
 	let stopped = false;
 	let filePath: string | null = null;
 	let fileHandle: any | null = null;
@@ -698,4 +694,4 @@ export function startClaudeCodeExternalTail(
 			}
 		},
 	};
-	}
+}

@@ -1,10 +1,78 @@
-import type { ServerWebSocket } from "bun";
+import { createHash } from "node:crypto";
+import { type FSWatcher, watch as fsWatch } from "node:fs";
 import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { watch as fsWatch, type FSWatcher } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve, sep } from "node:path";
-import { createHash } from "node:crypto";
+import type { ServerWebSocket } from "bun";
+// Extracted modules
+import { type AuthTokenState, createNewAuthState, validateAuthToken } from "./auth-token";
+import { startClaudeCodeExternalTail as _startClaudeCodeExternalTail } from "./cc-external-tail";
+import * as claudeCode from "./connectors/claude-code";
+import { CodexAppServerClient, checkCodexAvailable } from "./connectors/codex";
+import * as codexFs from "./connectors/codex-fs";
 import type { OpenCodeConnector } from "./connectors/opencode";
+import * as pi from "./connectors/pi";
+import {
+	resolveCodexExternalSessionFile as _resolveCodexExternalSessionFile,
+	startCodexExternalTail as _startCodexExternalTail,
+} from "./cx-external-tail";
+import {
+	listFilesDirectly as _listFilesDirectly,
+	readFileBinaryDirectly as _readFileBinaryDirectly,
+	readFileDirectly as _readFileDirectly,
+} from "./file-ops";
+import * as fileSearch from "./file-search";
+import { handleAuth } from "./handlers/auth";
+import { handleCcChat } from "./handlers/cc_chat";
+import type { ClaudeElicitationReply } from "./handlers/cc_elicitation";
+import * as ccElicitation from "./handlers/cc_elicitation";
+import * as ccRouting from "./handlers/cc_routing";
+import { buildCodexApprovalDecision } from "./handlers/codex/approval-decision";
+import { extractCodexErrorDetails } from "./handlers/codex/cx_error_extract";
+import { mapCodexThreadFromSdk } from "./handlers/codex/map-thread";
+import { handleCodexRuntimeNotification } from "./handlers/codex/runtime-notifications";
+import * as cxRouting from "./handlers/cx_routing";
+import * as devicesHandler from "./handlers/devices";
+import { handleGitFeature } from "./handlers/git";
+import * as miscHandler from "./handlers/misc";
+import * as ocRouting from "./handlers/oc_routing";
+import * as piFeatures from "./handlers/pi_features";
+import * as sessionViewHandler from "./handlers/session_view";
+import { createFetchHandler, type FetchHandlerDeps, type HandleHttpDeps } from "./http-handler";
+import { buildProxyPortAllowlist, toErrorMessage, toPublicErrorMessage } from "./http-utils";
+import { type LocalLicenseState, loadLocalLicenseState, refreshLocalLicenseFromCloud } from "./license";
+import type { BridgeLogger } from "./logging/logger";
+import { startOpenCodeExternalTail as _startOpenCodeExternalTail } from "./oc-external-tail";
+import { isCompiledBinary } from "./platform";
+import { PtyManager } from "./pty/manager";
+import { PtyRuntime } from "./pty/runtime";
+import { mapClaudeCodeStreamToRuntimeEvent } from "./runtime/claude-code-runtime-event-mapper";
+import {
+	buildClaudeCodeRuntimeState,
+	mapClaudeCodeModelToSummary,
+	mapClaudeCodeSessionToRuntimeSession,
+} from "./runtime/claude-code-runtime-read-models";
+import { mapCodexStreamToRuntimeEvent } from "./runtime/codex-runtime-event-mapper";
+import { buildCodexRuntimeState, mapCodexThreadToRuntimeSession } from "./runtime/codex-runtime-read-models";
+import {
+	createOpenCodeMapperContext,
+	mapOpenCodeSdkEventToRuntimeEvent,
+} from "./runtime/opencode-runtime-event-mapper";
+import { mapOpenCodeStatusToRuntimeState } from "./runtime/opencode-runtime-read-models";
+import {
+	buildPiActiveRuntimeStateMessages,
+	findPiActiveRuntimeStateMessage,
+	listPiActiveSessionSnapshots,
+} from "./runtime/pi-runtime-bootstrap";
+import {
+	getSecurePath,
+	hasPrototypePoisonKeys,
+	isLoopbackAddress,
+	isSafeClaudeCommandName,
+	isTailscaleAddress,
+	resolveClaudeCommandFilePath,
+} from "./security";
+import { ensureTlsMaterial, isTlsEnabledByEnv, type TlsMaterial } from "./tls";
 import type {
 	AgentStatusInfo,
 	AgentType,
@@ -13,89 +81,12 @@ import type {
 	CodexStreamMessage,
 	CodexThread,
 	DeviceInfo,
-	FileAttachment,
 	PermissionResponse,
 	ServerMessage,
-	SessionStatusInfo,
 } from "./types";
-import * as claudeCode from "./connectors/claude-code";
-import * as codexFs from "./connectors/codex-fs";
-import * as fileSearch from "./file-search";
-import {
-	listFilesDirectly as _listFilesDirectly,
-	readFileDirectly as _readFileDirectly,
-	readFileBinaryDirectly as _readFileBinaryDirectly,
-} from "./file-ops";
-import { CodexAppServerClient, checkCodexAvailable } from "./connectors/codex";
-import * as pi from "./connectors/pi";
-import { buildCodexApprovalDecision } from "./handlers/codex/approval-decision";
-import { mapCodexThreadFromSdk } from "./handlers/codex/map-thread";
-import { handleCodexRuntimeNotification } from "./handlers/codex/runtime-notifications";
-import { extractCodexErrorDetails } from "./handlers/codex/cx_error_extract";
-import { handleGitFeature } from "./handlers/git";
-import * as ocRouting from "./handlers/oc_routing";
-import * as piFeatures from "./handlers/pi_features";
-import * as ccElicitation from "./handlers/cc_elicitation";
-import type { ClaudeElicitationReply } from "./handlers/cc_elicitation";
-import { handleAuth } from "./handlers/auth";
-import { handleCcChat } from "./handlers/cc_chat";
-import * as ccRouting from "./handlers/cc_routing";
-import * as devicesHandler from "./handlers/devices";
-import * as sessionViewHandler from "./handlers/session_view";
-import * as cxRouting from "./handlers/cx_routing";
-import * as miscHandler from "./handlers/misc";
-import { mapClaudeCodeStreamToRuntimeEvent } from "./runtime/claude-code-runtime-event-mapper";
-import {
-	buildClaudeCodeRuntimeState,
-	mapClaudeCodeModelToSummary,
-	mapClaudeCodeSessionToRuntimeSession,
-} from "./runtime/claude-code-runtime-read-models";
-import { mapCodexStreamToRuntimeEvent } from "./runtime/codex-runtime-event-mapper";
-import {
-	buildCodexRuntimeState,
-	mapCodexModelToSummary,
-	mapCodexThreadToRuntimeSession,
-} from "./runtime/codex-runtime-read-models";
-import {
-	mapOpenCodeSdkEventToRuntimeEvent,
-	createOpenCodeMapperContext,
-} from "./runtime/opencode-runtime-event-mapper";
-import { mapOpenCodeStatusToRuntimeState } from "./runtime/opencode-runtime-read-models";
-import {
-	buildPiActiveRuntimeStateMessages,
-	findPiActiveRuntimeStateMessage,
-	listPiActiveSessionSnapshots,
-} from "./runtime/pi-runtime-bootstrap";
-import { PtyManager } from "./pty/manager";
-import { PtyRuntime } from "./pty/runtime";
-import { ensureTlsMaterial, isTlsEnabledByEnv, type TlsMaterial } from "./tls";
-import { isCompiledBinary } from "./platform";
-import { loadLocalLicenseState, refreshLocalLicenseFromCloud, type LocalLicenseState } from "./license";
-import type { BridgeLogger } from "./logging/logger";
-import { startClaudeCodeExternalTail as _startClaudeCodeExternalTail } from "./cc-external-tail";
-import { resolveCodexExternalSessionFile as _resolveCodexExternalSessionFile, startCodexExternalTail as _startCodexExternalTail } from "./cx-external-tail";
-import { startOpenCodeExternalTail as _startOpenCodeExternalTail } from "./oc-external-tail";
-import { createFetchHandler, type HandleHttpDeps, type FetchHandlerDeps } from "./http-handler";
-import { toErrorMessage, toPublicErrorMessage, buildProxyPortAllowlist } from "./http-utils";
-// Extracted modules
-import {
-	type AuthTokenState,
-	createNewAuthState,
-	loadOrCreateAuthState,
-	loadOrCreateAuthToken,
-	validateAuthToken,
-} from "./auth-token";
-import {
-	isLoopbackAddress,
-	isTailscaleAddress,
-	hasPrototypePoisonKeys,
-	isSafeClaudeCommandName,
-	resolveClaudeCommandFilePath,
-	getSecurePath,
-} from "./security";
 
 // Re-export for backward compatibility (external consumers import from './server')
-export { loadOrCreateAuthState, loadOrCreateAuthToken, type AuthTokenState } from "./auth-token";
+export { type AuthTokenState, loadOrCreateAuthState, loadOrCreateAuthToken } from "./auth-token";
 
 // Debug flags are dev-only — disabled in compiled binaries to prevent leaking
 // session IDs, file paths, and internal state in production console output.
@@ -408,7 +399,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		const cached = entitlementCache.get(tokenHash);
 		// Only use cache if entitled=true. If cache says NOT entitled, always do fresh check
 		// (subscription might have just renewed, especially in sandbox where they renew every 5 min)
-		if (cached && cached.entitled && now - cached.checkedAt <= ENTITLEMENT_CACHE_TTL_MS) {
+		if (cached?.entitled && now - cached.checkedAt <= ENTITLEMENT_CACHE_TTL_MS) {
 			contexts.set(ws, {
 				...ctx,
 				cloudAuthed: true,
@@ -455,7 +446,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 					return;
 				}
 
-				if (cached && cached.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS) {
+				if (cached?.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS) {
 					contexts.set(ws, {
 						...ctx,
 						cloudAuthed: true,
@@ -525,7 +516,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 				return;
 			}
 
-			if (cached && cached.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS) {
+			if (cached?.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS) {
 				contexts.set(ws, {
 					...ctx,
 					cloudAuthed: true,
@@ -685,7 +676,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 				pi: {
 					available: piStatus.available,
 					authMethod: piStatus.authenticated ? "configured" : "not-configured",
-					version: 'version' in piStatus ? piStatus.version : undefined,
+					version: "version" in piStatus ? piStatus.version : undefined,
 				},
 			};
 
@@ -1501,7 +1492,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
 	const getDeviceInfo = (ws: ServerWebSocket<unknown>): DeviceInfo | null => {
 		const ctx = contexts.get(ws);
-		if (!ctx || !ctx.deviceId) return null;
+		if (!ctx?.deviceId) return null;
 		return {
 			deviceId: ctx.deviceId,
 			deviceName: ctx.deviceName ?? "Unknown Device",
@@ -1572,7 +1563,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		});
 	};
 
-
 	const startClaudeCodeExternalTail = (sessionId: string): { stop: () => void } => {
 		return _startClaudeCodeExternalTail(sessionId, {
 			claudeCode,
@@ -1583,8 +1573,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		});
 	};
 
-	const resolveCodexExternalSessionFile = (threadId: string) =>
-		_resolveCodexExternalSessionFile(threadId);
+	const resolveCodexExternalSessionFile = (threadId: string) => _resolveCodexExternalSessionFile(threadId);
 
 	const startCodexExternalTail = (threadId: string): { stop: () => void } => {
 		return _startCodexExternalTail(threadId, {
@@ -2193,10 +2182,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			OFFLINE_GRACE_MS,
 			entitlementCache,
 			getLocalLicense: () => localLicense,
-			setLocalLicense: (l) => { localLicense = l; },
+			setLocalLicense: (l) => {
+				localLicense = l;
+			},
 		},
 	};
-
 
 	const MAX_WS_MESSAGE_BYTES = Math.max(
 		1024 * 1024, // 1MB minimum
@@ -2208,7 +2198,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		burst: Math.max(10, Math.min(Number(process.env.BROSKI_RATE_LIMIT_BURST ?? "150"), 20000)),
 		blockMs: Math.max(1000, Math.min(Number(process.env.BROSKI_RATE_LIMIT_BLOCK_MS ?? "10000"), 60_000)),
 	};
-
 
 	const rateLimiters = new Map<
 		ServerWebSocket<unknown>,
@@ -2224,8 +2213,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 					.filter(Boolean)
 			: [],
 	);
-
-
 
 	const rotateExpiredAuthToken = async (): Promise<void> => {
 		const now = Date.now();
@@ -2463,7 +2450,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
 	const makeFetch = (serverLabel: string) => createFetchHandler(serverLabel, fetchHandlerDeps);
 
-
 	const secureServer = Bun.serve({
 		// If TLS is disabled, only bind to loopback to avoid exposing plaintext traffic on LAN/WiFi.
 		...(tlsMaterial ? {} : { hostname: "127.0.0.1" }),
@@ -2595,20 +2581,23 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			return;
 		}
 
-		if (await ocRouting.handle(message, reply, {
-			requireOpenCode,
-			safeString,
-			getSecurePath,
-			readFileDirectly,
-			readFileBinaryDirectly,
-			listFilesDirectly,
-			fileSearch,
-			recentChatMessageIds,
-			ocSessionOwners,
-			ws,
-			syncExternalTailForKey,
-			makeSessionKey,
-		})) return;
+		if (
+			await ocRouting.handle(message, reply, {
+				requireOpenCode,
+				safeString,
+				getSecurePath,
+				readFileDirectly,
+				readFileBinaryDirectly,
+				listFilesDirectly,
+				fileSearch,
+				recentChatMessageIds,
+				ocSessionOwners,
+				ws,
+				syncExternalTailForKey,
+				makeSessionKey,
+			})
+		)
+			return;
 		if (ccElicitation.handle(message, ccElicitationWaiters)) return;
 
 		if (
@@ -2657,109 +2646,125 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			return;
 		// ── Extracted handler routing ──────────────────────────────────────
 		// Device management (register_device, list_devices, disconnect_device)
-		if (await devicesHandler.handle(ws, message as Record<string, unknown>, reply, {
-			sockets,
-			contexts,
-			ALLOWED_DEVICE_IDS,
-			BRIDGE_PROTOCOL_VERSION,
-			getDeviceInfo,
-			getAllDevices,
-			findSocketByDeviceId,
-			send,
-			broadcast,
-			sendStatus,
-			logUser,
-			logError,
-			safeString,
-			claudeCode,
-			opencode,
-			ccPermissionWaiters,
-			ccElicitationWaiters,
-			cxApprovalWaiters,
-			cxActiveTurns,
-			cxThreadCwds,
-			ocSessionProjectPaths,
-			buildClaudeCodeRuntimeState,
-			buildCodexRuntimeState,
-			mapOpenCodeStatusToRuntimeState,
-			listPiActiveSessionSnapshots,
-			buildPiActiveRuntimeStateMessages,
-		})) return;
+		if (
+			await devicesHandler.handle(ws, message as Record<string, unknown>, reply, {
+				sockets,
+				contexts,
+				ALLOWED_DEVICE_IDS,
+				BRIDGE_PROTOCOL_VERSION,
+				getDeviceInfo,
+				getAllDevices,
+				findSocketByDeviceId,
+				send,
+				broadcast,
+				sendStatus,
+				logUser,
+				logError,
+				safeString,
+				claudeCode,
+				opencode,
+				ccPermissionWaiters,
+				ccElicitationWaiters,
+				cxApprovalWaiters,
+				cxActiveTurns,
+				cxThreadCwds,
+				ocSessionProjectPaths,
+				buildClaudeCodeRuntimeState,
+				buildCodexRuntimeState,
+				mapOpenCodeStatusToRuntimeState,
+				listPiActiveSessionSnapshots,
+				buildPiActiveRuntimeStateMessages,
+			})
+		)
+			return;
 
 		// Session view (set_view)
-		if (await sessionViewHandler.handle(ws, message as Record<string, unknown>, reply, {
-			contexts,
-			sockets,
-			send,
-			sendStatus,
-			logInfo,
-			logDebug,
-			DEBUG_RTS,
-			currentAgent,
-			ensureClaudeWatchDir,
-			makeSessionKey,
-			updateSessionWatchers,
-			sessionWatchers,
-			claudeCode,
-			ccSessionOwners,
-			ccSessionCwds,
-			buildClaudeCodeRuntimeState,
-			replayBufferedEvents,
-			cxActiveTurns,
-			cxThreadOwners,
-			cxThreadCwds,
-			buildCodexRuntimeState,
-			ocSessionOwners,
-			ocSessionProjectPaths,
-			findPiActiveRuntimeStateMessage,
-		})) return;
+		if (
+			await sessionViewHandler.handle(ws, message as Record<string, unknown>, reply, {
+				contexts,
+				sockets,
+				send,
+				sendStatus,
+				logInfo,
+				logDebug,
+				DEBUG_RTS,
+				currentAgent,
+				ensureClaudeWatchDir,
+				makeSessionKey,
+				updateSessionWatchers,
+				sessionWatchers,
+				claudeCode,
+				ccSessionOwners,
+				ccSessionCwds,
+				buildClaudeCodeRuntimeState,
+				replayBufferedEvents,
+				cxActiveTurns,
+				cxThreadOwners,
+				cxThreadCwds,
+				buildCodexRuntimeState,
+				ocSessionOwners,
+				ocSessionProjectPaths,
+				findPiActiveRuntimeStateMessage,
+			})
+		)
+			return;
 
 		// Codex (cx_*) routing
-		if (await cxRouting.handle(message as Record<string, unknown>, reply, {
-			ws,
-			ensureCodexClient,
-			codexClient,
-			codexFs,
-			safeString,
-			getSecurePath,
-			logInfo,
-			logError,
-			logDebug,
-			DEBUG_CX_GLOBAL,
-			send,
-			broadcastToSessionWatchers,
-			cxProjectCache,
-			setProjectCache: (cache) => { cxProjectCache = cache; },
-			cxThreadCache,
-			CODEX_PROJECT_CACHE_TTL_MS,
-			CODEX_THREAD_CACHE_TTL_MS,
-			cxThreadNames,
-			cxThreadOwners,
-			cxThreadCwds,
-			cxActiveTurns,
-			cxApprovalWaiters,
-			mapCodexThread,
-			mapCodexThreadToRuntimeSession,
-			invalidateCodexCaches,
-			buildCodexRuntimeState,
-			emitCxStream,
-			ensureUndoStack,
-			applyCodexUndo,
-		})) return;
+		if (
+			await cxRouting.handle(message as Record<string, unknown>, reply, {
+				ws,
+				ensureCodexClient,
+				codexClient,
+				codexFs,
+				safeString,
+				getSecurePath,
+				logInfo,
+				logError,
+				logDebug,
+				DEBUG_CX_GLOBAL,
+				send,
+				broadcastToSessionWatchers,
+				cxProjectCache,
+				setProjectCache: (cache) => {
+					cxProjectCache = cache;
+				},
+				cxThreadCache,
+				CODEX_PROJECT_CACHE_TTL_MS,
+				CODEX_THREAD_CACHE_TTL_MS,
+				cxThreadNames,
+				cxThreadOwners,
+				cxThreadCwds,
+				cxActiveTurns,
+				cxApprovalWaiters,
+				mapCodexThread,
+				mapCodexThreadToRuntimeSession,
+				invalidateCodexCaches,
+				buildCodexRuntimeState,
+				emitCxStream,
+				ensureUndoStack,
+				applyCodexUndo,
+			})
+		)
+			return;
 
 		// Misc (pong, client_ping, restart_opencode, set_agent, get_agents_status, usage)
-		if (await miscHandler.handle(ws, message as Record<string, unknown>, reply, {
-			contexts,
-			send,
-			log,
-			getCurrentAgent: () => currentAgent,
-			setCurrentAgent: (agent) => { currentAgent = agent; },
-			ensureClaudeWatchDir,
-			claudeCode,
-			checkCodexAvailable,
-			getBackendsStatus,
-			restartOpenCode: options.restartOpenCode,
-		})) return;
+		if (
+			await miscHandler.handle(ws, message as Record<string, unknown>, reply, {
+				contexts,
+				send,
+				log,
+				getCurrentAgent: () => currentAgent,
+				setCurrentAgent: (agent) => {
+					currentAgent = agent;
+				},
+				ensureClaudeWatchDir,
+				claudeCode,
+				checkCodexAvailable,
+				getBackendsStatus,
+				restartOpenCode: options.restartOpenCode,
+			})
+		)
+			return;
 
 		// ── Remaining inline cases (small, deep closure coupling) ─────────
 		switch (message.type) {
@@ -2827,7 +2832,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 				}
 			}
 		}
-
 	};
 
 	const handleMessage = async (ws: ServerWebSocket<unknown>, raw: string | Uint8Array) => {
@@ -3013,4 +3017,3 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		}),
 	};
 }
-

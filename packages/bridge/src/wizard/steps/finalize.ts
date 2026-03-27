@@ -1,65 +1,62 @@
-import type { WizardPrompter } from '../prompter'
-import type { BroskiConfig } from '../../config/schema'
-import { bold, success, muted, brand } from '../palette'
+import type { BroskiConfig } from "../../config/schema";
+import { bold, brand, muted, success } from "../palette";
+import type { WizardPrompter } from "../prompter";
 
 function formatAgents(config: BroskiConfig): string {
-  const agents: string[] = []
-  if (config.agents.opencode) agents.push('OpenCode')
-  if (config.agents.claudeCode) agents.push('Claude Code')
-  if (config.agents.codex) agents.push('Codex')
-  return agents.length > 0 ? agents.join(', ') : muted('none configured')
+	const agents: string[] = [];
+	if (config.agents.opencode) agents.push("OpenCode");
+	if (config.agents.claudeCode) agents.push("Claude Code");
+	if (config.agents.codex) agents.push("Codex");
+	return agents.length > 0 ? agents.join(", ") : muted("none configured");
 }
 
 function formatNetwork(config: BroskiConfig): string {
-  const modeLabels: Record<string, string> = {
-    'local': 'Same Wi-Fi',
-    'tailscale': 'Tailscale',
-    'hotspot-iphone': 'iPhone Hotspot',
-    'hotspot-android': 'Android Hotspot',
-  }
-  const label = modeLabels[config.network.mode] ?? config.network.mode
-  return `${label} (port ${config.network.port})`
+	const modeLabels: Record<string, string> = {
+		local: "Same Wi-Fi",
+		tailscale: "Tailscale",
+		"hotspot-iphone": "iPhone Hotspot",
+		"hotspot-android": "Android Hotspot",
+	};
+	const label = modeLabels[config.network.mode] ?? config.network.mode;
+	return `${label} (port ${config.network.port})`;
 }
 
 function formatSecurity(config: BroskiConfig): string {
-  const tls = config.security.tls ? success('TLS enabled') : 'TLS disabled'
-  return `${tls}, token expires in ${config.security.tokenTtlDays}d`
+	const tls = config.security.tls ? success("TLS enabled") : "TLS disabled";
+	return `${tls}, token expires in ${config.security.tokenTtlDays}d`;
 }
 
 function formatDaemon(config: BroskiConfig): string {
-  if (!config.daemon.installed) return muted('not installed')
-  const typeLabels: Record<string, string> = {
-    'launchagent': 'LaunchAgent',
-    'systemd': 'systemd',
-    'taskscheduler': 'Task Scheduler',
-  }
-  return success(`Installed (${typeLabels[config.daemon.type] ?? config.daemon.type})`)
+	if (!config.daemon.installed) return muted("not installed");
+	const typeLabels: Record<string, string> = {
+		launchagent: "LaunchAgent",
+		systemd: "systemd",
+		taskscheduler: "Task Scheduler",
+	};
+	return success(`Installed (${typeLabels[config.daemon.type] ?? config.daemon.type})`);
 }
 
-export async function runFinalizeStep(
-  prompter: WizardPrompter,
-  config: BroskiConfig,
-): Promise<void> {
-  // Summary card
-  await prompter.note(
-    `  ${bold('Agents:')}    ${formatAgents(config)}\n` +
-    `  ${bold('Network:')}   ${formatNetwork(config)}\n` +
-    `  ${bold('Security:')}  ${formatSecurity(config)}\n` +
-    `  ${bold('Daemon:')}    ${formatDaemon(config)}`,
-    'Configuration Summary',
-  )
+export async function runFinalizeStep(prompter: WizardPrompter, config: BroskiConfig): Promise<void> {
+	// Summary card
+	await prompter.note(
+		`  ${bold("Agents:")}    ${formatAgents(config)}\n` +
+			`  ${bold("Network:")}   ${formatNetwork(config)}\n` +
+			`  ${bold("Security:")}  ${formatSecurity(config)}\n` +
+			`  ${bold("Daemon:")}    ${formatDaemon(config)}`,
+		"Configuration Summary",
+	);
 
-  // Next steps
-  await prompter.note(
-    `  ${brand('broski')}              ${muted('— Start the bridge')}\n` +
-    `  ${brand('broski qr')}           ${muted('— Show QR code to pair your phone')}\n` +
-    `  ${brand('broski doctor')}       ${muted('— Run diagnostics')}\n` +
-    `  ${brand('broski doctor --fix')} ${muted('— Apply safe fixes')}\n` +
-    `  ${brand('broski logs --export')} ${muted('— Export support bundle')}\n` +
-    `  ${brand('broski configure')}    ${muted('— Change settings')}\n` +
-    `  ${brand('broski troubleshoot')} ${muted('— Guided troubleshooting')}`,
-    'Next Steps',
-  )
+	// Next steps
+	await prompter.note(
+		`  ${brand("broski")}              ${muted("— Start the bridge")}\n` +
+			`  ${brand("broski qr")}           ${muted("— Show QR code to pair your phone")}\n` +
+			`  ${brand("broski doctor")}       ${muted("— Run diagnostics")}\n` +
+			`  ${brand("broski doctor --fix")} ${muted("— Apply safe fixes")}\n` +
+			`  ${brand("broski logs --export")} ${muted("— Export support bundle")}\n` +
+			`  ${brand("broski configure")}    ${muted("— Change settings")}\n` +
+			`  ${brand("broski troubleshoot")} ${muted("— Guided troubleshooting")}`,
+		"Next Steps",
+	);
 
-  await prompter.outro(success('You\'re all set! ') + brand('Vibe code from anywhere.'))
+	await prompter.outro(success("You're all set! ") + brand("Vibe code from anywhere."));
 }

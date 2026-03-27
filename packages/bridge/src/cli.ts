@@ -1,350 +1,389 @@
-import { stdin as input, stdout as output } from 'node:process'
-import readline from 'node:readline/promises'
-import { isCompiledBinary } from './platform'
+import { stdin as input, stdout as output } from "node:process";
+import readline from "node:readline/promises";
+import { isCompiledBinary } from "./platform";
 
-export type OpencodeMode = 'managed' | 'manual' | 'attach'
-export type SubCommand = 'serve' | 'doctor' | 'setup-tailscale' | 'install' | 'uninstall' | 'status' | 'stop' | 'restart' | 'qr' | 'version' | 'update' | 'setup' | 'configure' | 'troubleshoot' | 'logs' | 'show-token' | 'account' | null
+export type OpencodeMode = "managed" | "manual" | "attach";
+export type SubCommand =
+	| "serve"
+	| "doctor"
+	| "setup-tailscale"
+	| "install"
+	| "uninstall"
+	| "status"
+	| "stop"
+	| "restart"
+	| "qr"
+	| "version"
+	| "update"
+	| "setup"
+	| "configure"
+	| "troubleshoot"
+	| "logs"
+	| "show-token"
+	| "account"
+	| null;
 
 export type CliOptions = {
-  subCommand: SubCommand
-  bridgePort: number
-  opencodeMode: OpencodeMode
-  opencodeUrl?: string
-  opencodeHostname: string
-  opencodePort: number
-  verbose: boolean
-  help: boolean
-  enableFunnel: boolean
-  newToken: boolean
-  detectHotspot: boolean
-  daemon: boolean
-  skipWizard: boolean
-  setupQuick: boolean
-  setupAdvanced: boolean
-  nonInteractive: boolean
-  setupAgents: string[]
-  setupNetworkMode: string
-  setupTls: boolean | null
-  setupNoTls: boolean
-  setupTokenTtl: number | null
-  setupNoDaemon: boolean
-  doctorJson: boolean
-  doctorFix: boolean
-  doctorDeep: boolean
-  doctorProfile: string
-  doctorExport: boolean
-  logsFollow: boolean
-  logsJson: boolean
-  logsPlain: boolean
-  logsLines: number
-  logsIntervalMs: number
-  logsExport: boolean
-  logsIncludeErrors: boolean
-  logsRedact: boolean
-}
+	subCommand: SubCommand;
+	bridgePort: number;
+	opencodeMode: OpencodeMode;
+	opencodeUrl?: string;
+	opencodeHostname: string;
+	opencodePort: number;
+	verbose: boolean;
+	help: boolean;
+	enableFunnel: boolean;
+	newToken: boolean;
+	detectHotspot: boolean;
+	daemon: boolean;
+	skipWizard: boolean;
+	setupQuick: boolean;
+	setupAdvanced: boolean;
+	nonInteractive: boolean;
+	setupAgents: string[];
+	setupNetworkMode: string;
+	setupTls: boolean | null;
+	setupNoTls: boolean;
+	setupTokenTtl: number | null;
+	setupNoDaemon: boolean;
+	doctorJson: boolean;
+	doctorFix: boolean;
+	doctorDeep: boolean;
+	doctorProfile: string;
+	doctorExport: boolean;
+	logsFollow: boolean;
+	logsJson: boolean;
+	logsPlain: boolean;
+	logsLines: number;
+	logsIntervalMs: number;
+	logsExport: boolean;
+	logsIncludeErrors: boolean;
+	logsRedact: boolean;
+};
 
-const DEFAULT_BRIDGE_PORT = 18274
+const DEFAULT_BRIDGE_PORT = 18274;
 
 function parseNumber(value: string | undefined, fallback: number): number {
-  if (!value) return fallback
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : fallback
+	if (!value) return fallback;
+	const parsed = Number(value);
+	return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
-  const args = argv.slice(2)
+	const args = argv.slice(2);
 
-  let subCommand: SubCommand = null
-  let bridgePort = parseNumber(env.BROSKI_PORT, DEFAULT_BRIDGE_PORT)
-  let opencodeMode: OpencodeMode = 'managed'
-  let opencodeUrl: string | undefined = env.OPENCODE_BASE_URL
-  let opencodeHostname = env.BROSKI_OPENCODE_HOSTNAME ?? '127.0.0.1'
-  let opencodePort = parseNumber(env.BROSKI_OPENCODE_PORT, 0)
-  let verbose = false // Set below after arg parsing; gated by isCompiledBinary
-  let help = false
-  let enableFunnel = env.BROSKI_ENABLE_FUNNEL === '1'
-  let newToken = false
-  let detectHotspot = false
-  let daemon = false
-  let skipWizard = false
-  let setupQuick = false
-  let setupAdvanced = false
-  let nonInteractive = false
-  let setupAgents: string[] = []
-  let setupNetworkMode = ''
-  let setupTls: boolean | null = null
-  let setupNoTls = false
-  let setupTokenTtl: number | null = null
-  let setupNoDaemon = false
-  let doctorJson = false
-  let doctorFix = false
-  let doctorDeep = false
-  let doctorProfile = 'all'
-  let doctorExport = false
-  let logsFollow = false
-  let logsJson = false
-  let logsPlain = false
-  let logsLines = 200
-  let logsIntervalMs = 1000
-  let logsExport = false
-  let logsIncludeErrors = true
-  let logsRedact = isCompiledBinary()
+	let subCommand: SubCommand = null;
+	let bridgePort = parseNumber(env.BROSKI_PORT, DEFAULT_BRIDGE_PORT);
+	let opencodeMode: OpencodeMode = "managed";
+	let opencodeUrl: string | undefined = env.OPENCODE_BASE_URL;
+	let opencodeHostname = env.BROSKI_OPENCODE_HOSTNAME ?? "127.0.0.1";
+	let opencodePort = parseNumber(env.BROSKI_OPENCODE_PORT, 0);
+	let verbose = false; // Set below after arg parsing; gated by isCompiledBinary
+	let help = false;
+	let enableFunnel = env.BROSKI_ENABLE_FUNNEL === "1";
+	let newToken = false;
+	let detectHotspot = false;
+	let daemon = false;
+	let skipWizard = false;
+	let setupQuick = false;
+	let setupAdvanced = false;
+	let nonInteractive = false;
+	let setupAgents: string[] = [];
+	let setupNetworkMode = "";
+	let setupTls: boolean | null = null;
+	let setupNoTls = false;
+	let setupTokenTtl: number | null = null;
+	let setupNoDaemon = false;
+	let doctorJson = false;
+	let doctorFix = false;
+	let doctorDeep = false;
+	let doctorProfile = "all";
+	let doctorExport = false;
+	let logsFollow = false;
+	let logsJson = false;
+	let logsPlain = false;
+	let logsLines = 200;
+	let logsIntervalMs = 1000;
+	let logsExport = false;
+	let logsIncludeErrors = true;
+	let logsRedact = isCompiledBinary();
 
-  const firstArg = args[0]
-  if (firstArg === 'doctor') {
-    subCommand = 'doctor'
-  } else if (firstArg === 'setup-tailscale') {
-    subCommand = 'setup-tailscale'
-  } else if (firstArg === 'install') {
-    subCommand = 'install'
-  } else if (firstArg === 'uninstall') {
-    subCommand = 'uninstall'
-  } else if (firstArg === 'status') {
-    subCommand = 'status'
-  } else if (firstArg === 'stop') {
-    subCommand = 'stop'
-  } else if (firstArg === 'restart') {
-    subCommand = 'restart'
-  } else if (firstArg === 'qr') {
-    subCommand = 'qr'
-  } else if (firstArg === 'version') {
-    subCommand = 'version'
-  } else if (firstArg === 'update') {
-    subCommand = 'update'
-  } else if (firstArg === 'setup') {
-    subCommand = 'setup'
-  } else if (firstArg === 'configure') {
-    subCommand = 'configure'
-  } else if (firstArg === 'troubleshoot') {
-    subCommand = 'troubleshoot'
-  } else if (firstArg === 'logs') {
-    subCommand = 'logs'
-  } else if (firstArg === 'show-token') {
-    subCommand = 'show-token'
-  } else if (firstArg === 'account') {
-    subCommand = 'account'
-  } else if (firstArg === 'serve' || !firstArg?.startsWith('-')) {
-    subCommand = 'serve'
-  }
+	const firstArg = args[0];
+	if (firstArg === "doctor") {
+		subCommand = "doctor";
+	} else if (firstArg === "setup-tailscale") {
+		subCommand = "setup-tailscale";
+	} else if (firstArg === "install") {
+		subCommand = "install";
+	} else if (firstArg === "uninstall") {
+		subCommand = "uninstall";
+	} else if (firstArg === "status") {
+		subCommand = "status";
+	} else if (firstArg === "stop") {
+		subCommand = "stop";
+	} else if (firstArg === "restart") {
+		subCommand = "restart";
+	} else if (firstArg === "qr") {
+		subCommand = "qr";
+	} else if (firstArg === "version") {
+		subCommand = "version";
+	} else if (firstArg === "update") {
+		subCommand = "update";
+	} else if (firstArg === "setup") {
+		subCommand = "setup";
+	} else if (firstArg === "configure") {
+		subCommand = "configure";
+	} else if (firstArg === "troubleshoot") {
+		subCommand = "troubleshoot";
+	} else if (firstArg === "logs") {
+		subCommand = "logs";
+	} else if (firstArg === "show-token") {
+		subCommand = "show-token";
+	} else if (firstArg === "account") {
+		subCommand = "account";
+	} else if (firstArg === "serve" || !firstArg?.startsWith("-")) {
+		subCommand = "serve";
+	}
 
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i]
-    if (arg === 'doctor' || arg === 'setup-tailscale' || arg === 'serve' || arg === 'install' || arg === 'uninstall' || arg === 'status' || arg === 'stop' || arg === 'restart' || arg === 'qr' || arg === 'version' || arg === 'update' || arg === 'setup' || arg === 'configure' || arg === 'troubleshoot' || arg === 'logs' || arg === 'show-token' || arg === 'account') {
-      continue
-    }
-    if (arg === '--help' || arg === '-h') {
-      help = true
-      continue
-    }
-    if (arg === '--version' || arg === '-V') {
-      subCommand = 'version'
-      continue
-    }
-    if (arg === '--verbose' || arg === '-v') {
-      // Verbose mode is dev-only — silently ignore in compiled binaries
-      // to prevent leaking tokens, API keys, and internal state.
-      verbose = !isCompiledBinary()
-      continue
-    }
-    if (arg === '--port' || arg === '--bridge-port') {
-      bridgePort = parseNumber(args[i + 1], bridgePort)
-      i++
-      continue
-    }
-    if (arg === '--opencode-url') {
-      opencodeUrl = args[i + 1]
-      i++
-      continue
-    }
-    if (arg === '--opencode-hostname') {
-      opencodeHostname = args[i + 1] ?? opencodeHostname
-      i++
-      continue
-    }
-    if (arg === '--opencode-port') {
-      opencodePort = parseNumber(args[i + 1], opencodePort)
-      i++
-      continue
-    }
-    if (arg === '--attach') {
-      opencodeMode = 'attach'
-      continue
-    }
-    if (arg === '--manual') {
-      opencodeMode = 'manual'
-      continue
-    }
-    if (arg === '--managed') {
-      opencodeMode = 'managed'
-      continue
-    }
-    if (arg === '--funnel') {
-      enableFunnel = true
-      continue
-    }
-    if (arg === '--new-token') {
-      newToken = true
-      continue
-    }
-    if (arg === '--hotspot' || arg === '--detect-hotspot') {
-      detectHotspot = true
-      continue
-    }
-    if (arg === '--daemon') {
-      daemon = true
-      continue
-    }
-    if (arg === '--skip-wizard') {
-      skipWizard = true
-      continue
-    }
-    if (arg === '--quick') {
-      setupQuick = true
-      continue
-    }
-    if (arg === '--advanced') {
-      setupAdvanced = true
-      continue
-    }
-    if (arg === '--non-interactive') {
-      nonInteractive = true
-      continue
-    }
-    if (arg === '--agents') {
-      const val = args[i + 1]
-      if (val) {
-        setupAgents = val.split(',').map(s => s.trim()).filter(Boolean)
-        i++
-      }
-      continue
-    }
-    if (arg === '--network-mode') {
-      setupNetworkMode = args[i + 1] ?? ''
-      i++
-      continue
-    }
-    if (arg === '--tls') {
-      setupTls = true
-      continue
-    }
-    if (arg === '--no-tls') {
-      setupNoTls = true
-      continue
-    }
-    if (arg === '--token-ttl') {
-      setupTokenTtl = parseNumber(args[i + 1], 7)
-      i++
-      continue
-    }
-    if (arg === '--no-daemon') {
-      setupNoDaemon = true
-      continue
-    }
-    if (arg === '--follow') {
-      logsFollow = true
-      continue
-    }
-    if (arg === '--json') {
-      if (subCommand === 'doctor') doctorJson = true
-      else logsJson = true
-      continue
-    }
-    if (arg === '--plain') {
-      logsPlain = true
-      continue
-    }
-    if (arg === '--lines') {
-      logsLines = Math.max(1, parseNumber(args[i + 1], logsLines))
-      i++
-      continue
-    }
-    if (arg === '--interval') {
-      logsIntervalMs = Math.max(100, parseNumber(args[i + 1], logsIntervalMs))
-      i++
-      continue
-    }
-    if (arg === '--export') {
-      if (subCommand === 'doctor') doctorExport = true
-      else logsExport = true
-      continue
-    }
-    if (arg === '--fix' || arg === '--repair') {
-      doctorFix = true
-      continue
-    }
-    if (arg === '--deep') {
-      doctorDeep = true
-      continue
-    }
-    if (arg === '--profile') {
-      doctorProfile = (args[i + 1] ?? 'all').trim() || 'all'
-      i++
-      continue
-    }
-    if (arg === '--no-errors') {
-      logsIncludeErrors = false
-      continue
-    }
-    if (arg === '--redact') {
-      logsRedact = true
-      continue
-    }
-    if (arg === '--no-redact') {
-      logsRedact = false
-      continue
-    }
-  }
+	for (let i = 0; i < args.length; i++) {
+		const arg = args[i];
+		if (
+			arg === "doctor" ||
+			arg === "setup-tailscale" ||
+			arg === "serve" ||
+			arg === "install" ||
+			arg === "uninstall" ||
+			arg === "status" ||
+			arg === "stop" ||
+			arg === "restart" ||
+			arg === "qr" ||
+			arg === "version" ||
+			arg === "update" ||
+			arg === "setup" ||
+			arg === "configure" ||
+			arg === "troubleshoot" ||
+			arg === "logs" ||
+			arg === "show-token" ||
+			arg === "account"
+		) {
+			continue;
+		}
+		if (arg === "--help" || arg === "-h") {
+			help = true;
+			continue;
+		}
+		if (arg === "--version" || arg === "-V") {
+			subCommand = "version";
+			continue;
+		}
+		if (arg === "--verbose" || arg === "-v") {
+			// Verbose mode is dev-only — silently ignore in compiled binaries
+			// to prevent leaking tokens, API keys, and internal state.
+			verbose = !isCompiledBinary();
+			continue;
+		}
+		if (arg === "--port" || arg === "--bridge-port") {
+			bridgePort = parseNumber(args[i + 1], bridgePort);
+			i++;
+			continue;
+		}
+		if (arg === "--opencode-url") {
+			opencodeUrl = args[i + 1];
+			i++;
+			continue;
+		}
+		if (arg === "--opencode-hostname") {
+			opencodeHostname = args[i + 1] ?? opencodeHostname;
+			i++;
+			continue;
+		}
+		if (arg === "--opencode-port") {
+			opencodePort = parseNumber(args[i + 1], opencodePort);
+			i++;
+			continue;
+		}
+		if (arg === "--attach") {
+			opencodeMode = "attach";
+			continue;
+		}
+		if (arg === "--manual") {
+			opencodeMode = "manual";
+			continue;
+		}
+		if (arg === "--managed") {
+			opencodeMode = "managed";
+			continue;
+		}
+		if (arg === "--funnel") {
+			enableFunnel = true;
+			continue;
+		}
+		if (arg === "--new-token") {
+			newToken = true;
+			continue;
+		}
+		if (arg === "--hotspot" || arg === "--detect-hotspot") {
+			detectHotspot = true;
+			continue;
+		}
+		if (arg === "--daemon") {
+			daemon = true;
+			continue;
+		}
+		if (arg === "--skip-wizard") {
+			skipWizard = true;
+			continue;
+		}
+		if (arg === "--quick") {
+			setupQuick = true;
+			continue;
+		}
+		if (arg === "--advanced") {
+			setupAdvanced = true;
+			continue;
+		}
+		if (arg === "--non-interactive") {
+			nonInteractive = true;
+			continue;
+		}
+		if (arg === "--agents") {
+			const val = args[i + 1];
+			if (val) {
+				setupAgents = val
+					.split(",")
+					.map((s) => s.trim())
+					.filter(Boolean);
+				i++;
+			}
+			continue;
+		}
+		if (arg === "--network-mode") {
+			setupNetworkMode = args[i + 1] ?? "";
+			i++;
+			continue;
+		}
+		if (arg === "--tls") {
+			setupTls = true;
+			continue;
+		}
+		if (arg === "--no-tls") {
+			setupNoTls = true;
+			continue;
+		}
+		if (arg === "--token-ttl") {
+			setupTokenTtl = parseNumber(args[i + 1], 7);
+			i++;
+			continue;
+		}
+		if (arg === "--no-daemon") {
+			setupNoDaemon = true;
+			continue;
+		}
+		if (arg === "--follow") {
+			logsFollow = true;
+			continue;
+		}
+		if (arg === "--json") {
+			if (subCommand === "doctor") doctorJson = true;
+			else logsJson = true;
+			continue;
+		}
+		if (arg === "--plain") {
+			logsPlain = true;
+			continue;
+		}
+		if (arg === "--lines") {
+			logsLines = Math.max(1, parseNumber(args[i + 1], logsLines));
+			i++;
+			continue;
+		}
+		if (arg === "--interval") {
+			logsIntervalMs = Math.max(100, parseNumber(args[i + 1], logsIntervalMs));
+			i++;
+			continue;
+		}
+		if (arg === "--export") {
+			if (subCommand === "doctor") doctorExport = true;
+			else logsExport = true;
+			continue;
+		}
+		if (arg === "--fix" || arg === "--repair") {
+			doctorFix = true;
+			continue;
+		}
+		if (arg === "--deep") {
+			doctorDeep = true;
+			continue;
+		}
+		if (arg === "--profile") {
+			doctorProfile = (args[i + 1] ?? "all").trim() || "all";
+			i++;
+			continue;
+		}
+		if (arg === "--no-errors") {
+			logsIncludeErrors = false;
+			continue;
+		}
+		if (arg === "--redact") {
+			logsRedact = true;
+			continue;
+		}
+		if (arg === "--no-redact") {
+			logsRedact = false;
+		}
+	}
 
-  if (opencodeUrl) {
-    opencodeMode = 'manual'
-  }
+	if (opencodeUrl) {
+		opencodeMode = "manual";
+	}
 
-  // Allow BROSKI_VERBOSE env var only in dev mode
-  if (!verbose && env.BROSKI_VERBOSE === '1') {
-    verbose = !isCompiledBinary()
-  }
+	// Allow BROSKI_VERBOSE env var only in dev mode
+	if (!verbose && env.BROSKI_VERBOSE === "1") {
+		verbose = !isCompiledBinary();
+	}
 
-  return {
-    subCommand,
-    bridgePort,
-    opencodeMode,
-    opencodeUrl,
-    opencodeHostname,
-    opencodePort,
-    verbose,
-    help,
-    enableFunnel,
-    newToken,
-    detectHotspot,
-    daemon,
-    skipWizard,
-    setupQuick,
-    setupAdvanced,
-    nonInteractive,
-    setupAgents,
-    setupNetworkMode,
-    setupTls,
-    setupNoTls,
-    setupTokenTtl,
-    setupNoDaemon,
-    doctorJson,
-    doctorFix,
-    doctorDeep,
-    doctorProfile,
-    doctorExport,
-    logsFollow,
-    logsJson,
-    logsPlain,
-    logsLines,
-    logsIntervalMs,
-    logsExport,
-    logsIncludeErrors,
-    logsRedact,
-  }
+	return {
+		subCommand,
+		bridgePort,
+		opencodeMode,
+		opencodeUrl,
+		opencodeHostname,
+		opencodePort,
+		verbose,
+		help,
+		enableFunnel,
+		newToken,
+		detectHotspot,
+		daemon,
+		skipWizard,
+		setupQuick,
+		setupAdvanced,
+		nonInteractive,
+		setupAgents,
+		setupNetworkMode,
+		setupTls,
+		setupNoTls,
+		setupTokenTtl,
+		setupNoDaemon,
+		doctorJson,
+		doctorFix,
+		doctorDeep,
+		doctorProfile,
+		doctorExport,
+		logsFollow,
+		logsJson,
+		logsPlain,
+		logsLines,
+		logsIntervalMs,
+		logsExport,
+		logsIncludeErrors,
+		logsRedact,
+	};
 }
 
 export function printHelp(): void {
-  console.log(`
+	console.log(
+		`
 Usage:
   broski [command] [options]
 
@@ -433,25 +472,26 @@ Examples:
   broski logs --export           Export redacted diagnostics bundle
   broski --verbose               Start with debug logging
   broski --hotspot               Prioritize hotspot IP (for mobile tethering)
-`.trim())
+`.trim(),
+	);
 }
 
 export async function promptForChoice(prompt: string, choices: string[]): Promise<number | null> {
-  if (choices.length === 0) return null
-  const rl = readline.createInterface({ input, output })
-  try {
-    // eslint-disable-next-line no-console
-    console.log(prompt)
-    for (let i = 0; i < choices.length; i++) {
-      // eslint-disable-next-line no-console
-      console.log(`  ${i + 1}) ${choices[i]}`)
-    }
-    const answer = (await rl.question(`Select 1-${choices.length} (or press Enter to cancel): `)).trim()
-    if (!answer) return null
-    const idx = Number(answer)
-    if (!Number.isFinite(idx) || idx < 1 || idx > choices.length) return null
-    return idx - 1
-  } finally {
-    rl.close()
-  }
+	if (choices.length === 0) return null;
+	const rl = readline.createInterface({ input, output });
+	try {
+		// eslint-disable-next-line no-console
+		console.log(prompt);
+		for (let i = 0; i < choices.length; i++) {
+			// eslint-disable-next-line no-console
+			console.log(`  ${i + 1}) ${choices[i]}`);
+		}
+		const answer = (await rl.question(`Select 1-${choices.length} (or press Enter to cancel): `)).trim();
+		if (!answer) return null;
+		const idx = Number(answer);
+		if (!Number.isFinite(idx) || idx < 1 || idx > choices.length) return null;
+		return idx - 1;
+	} finally {
+		rl.close();
+	}
 }

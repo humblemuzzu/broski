@@ -6,10 +6,10 @@
  *
  * Extracted from server.ts (~450 lines) to reduce file size.
  */
-import { watch as fsWatch, type FSWatcher } from "node:fs";
+import { type FSWatcher, watch as fsWatch } from "node:fs";
 import { open, stat } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
 import { homedir } from "node:os";
+import { dirname, resolve } from "node:path";
 import type { CodexStreamMessage } from "./types";
 
 export type CxExternalTailContext = {
@@ -50,12 +50,9 @@ export async function resolveCodexExternalSessionFile(threadId: string): Promise
 	}
 
 	return best?.path ?? null;
-	}
+}
 
-export function startCodexExternalTail(
-	threadId: string,
-	ctx: CxExternalTailContext,
-): { stop: () => void } {
+export function startCodexExternalTail(threadId: string, ctx: CxExternalTailContext): { stop: () => void } {
 	let stopped = false;
 	let filePath: string | null = null;
 	let fileHandle: any | null = null;
@@ -373,7 +370,6 @@ export function startCodexExternalTail(
 						if (ctx.DEBUG_RTS) {
 							ctx.logDebug(`[RTS] CX External: item/started (fileChange) for thread ${threadId}`);
 						}
-						continue;
 					}
 				}
 			}
@@ -388,7 +384,9 @@ export function startCodexExternalTail(
 			}
 		} catch (err) {
 			if (ctx.DEBUG_RTS) {
-				ctx.logDebug(`[RTS] CX External: Error in pump for thread ${threadId}: ${err instanceof Error ? err.stack : err}`);
+				ctx.logDebug(
+					`[RTS] CX External: Error in pump for thread ${threadId}: ${err instanceof Error ? err.stack : err}`,
+				);
 			}
 			await closeHandle();
 			filePath = null;
@@ -473,4 +471,4 @@ export function startCodexExternalTail(
 			}
 		},
 	};
-	}
+}
