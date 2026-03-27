@@ -269,10 +269,7 @@ extension PiBridgeTools on PiBridgeService {
   }
 
   /// Get a single label for a specific entry.
-  Future<String?> getLabel(
-    String entryId, {
-    String? projectPath,
-  }) async {
+  Future<String?> getLabel(String entryId, {String? projectPath}) async {
     final requestId = generateRequestId();
     sendMessage({
       'type': 'pi_get_label',
@@ -281,10 +278,7 @@ extension PiBridgeTools on PiBridgeService {
       if (projectPath != null) 'projectPath': projectPath,
     });
 
-    final response = await waitForResponse(
-      'pi_label',
-      requestId: requestId,
-    );
+    final response = await waitForResponse('pi_label', requestId: requestId);
     final data = response['data'] as Map<String, dynamic>? ?? const {};
     return data['label'] as String?;
   }

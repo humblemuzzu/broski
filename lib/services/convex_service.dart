@@ -179,16 +179,14 @@ class ConvexService {
 
 /// Response model for /me/machines endpoint
 class MachinesResponse {
-  MachinesResponse({
-    required this.maxMachines,
-    required this.machines,
-  });
+  MachinesResponse({required this.maxMachines, required this.machines});
 
   final int maxMachines;
   final List<MachineInfo> machines;
 
   factory MachinesResponse.fromJson(Map<String, dynamic> json) {
-    final machinesList = (json['machines'] as List?)
+    final machinesList =
+        (json['machines'] as List?)
             ?.map((m) => MachineInfo.fromJson(m as Map<String, dynamic>))
             .toList() ??
         [];
@@ -217,8 +215,12 @@ class MachineInfo {
     return MachineInfo(
       id: json['id'] as String,
       machineIdHash: json['machineIdHash'] as String,
-      firstSeenAt: DateTime.fromMillisecondsSinceEpoch(json['firstSeenAt'] as int),
-      lastSeenAt: DateTime.fromMillisecondsSinceEpoch(json['lastSeenAt'] as int),
+      firstSeenAt: DateTime.fromMillisecondsSinceEpoch(
+        json['firstSeenAt'] as int,
+      ),
+      lastSeenAt: DateTime.fromMillisecondsSinceEpoch(
+        json['lastSeenAt'] as int,
+      ),
     );
   }
 
@@ -234,7 +236,7 @@ class MachineInfo {
   }
 
   /// Returns a shortened machine ID for display
-  String get shortId => machineIdHash.length > 8 
-      ? '${machineIdHash.substring(0, 8)}...' 
+  String get shortId => machineIdHash.length > 8
+      ? '${machineIdHash.substring(0, 8)}...'
       : machineIdHash;
 }

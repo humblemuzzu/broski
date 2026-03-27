@@ -41,91 +41,91 @@ class AIBackendScreen extends ConsumerWidget {
       body: AdaptiveContainer(
         width: ContentWidth.standard,
         child: ListView(
-        padding: Insets.screenAll,
-        children: [
-          Container(
-            padding: Insets.card,
-            decoration: BoxDecoration(
-              color: ocTheme.backgroundPanel,
-              borderRadius: Radii.brMd,
-              border: Border.all(color: ocTheme.borderSubtle),
-            ),
-            child: Text(
-              'Choose your default AI backend. You can switch anytime.',
-              style: TextStyle(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
-                fontSize: 13,
-                height: 1.35,
+          padding: Insets.screenAll,
+          children: [
+            Container(
+              padding: Insets.card,
+              decoration: BoxDecoration(
+                color: ocTheme.backgroundPanel,
+                borderRadius: Radii.brMd,
+                border: Border.all(color: ocTheme.borderSubtle),
+              ),
+              child: Text(
+                'Choose your default AI backend. You can switch anytime.',
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
+                  fontSize: 13,
+                  height: 1.35,
+                ),
               ),
             ),
-          ),
-          SizedBox(height: Spacing.xl),
-          _BackendOptionCard(
-            title: 'OpenCode',
-            icon: const _BackendLogo(agentType: AgentType.opencode),
-            isSelected: currentAgent == AgentType.opencode,
-            onTap: () => _selectAgent(ref, AgentType.opencode),
-          ),
-          SizedBox(height: Spacing.lg),
-          _BackendOptionCard(
-            title: 'Claude Code',
-            icon: const _BackendLogo(agentType: AgentType.claudeCode),
-            isSelected: currentAgent == AgentType.claudeCode,
-            onTap: () => _selectAgent(ref, AgentType.claudeCode),
-          ),
-          SizedBox(height: Spacing.lg),
-          _BackendOptionCard(
-            title: 'Codex',
-            icon: const _BackendLogo(agentType: AgentType.codex),
-            isSelected: currentAgent == AgentType.codex,
-            onTap: () => _selectAgent(ref, AgentType.codex),
-          ),
-          SizedBox(height: Spacing.lg),
-          _BackendOptionCard(
-            title: 'Pi',
-            icon: const _BackendLogo(agentType: AgentType.pi),
-            isSelected: currentAgent == AgentType.pi,
-            onTap: () => _selectAgent(ref, AgentType.pi),
-          ),
-          SizedBox(height: Spacing.xl),
-          Container(
-            padding: Insets.card,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withValues(alpha: 0.1),
-              borderRadius: Radii.brMd,
-              border: Border.all(
-                color: theme.colorScheme.primary.withValues(alpha: 0.3),
-              ),
+            SizedBox(height: Spacing.xl),
+            _BackendOptionCard(
+              title: 'OpenCode',
+              icon: const _BackendLogo(agentType: AgentType.opencode),
+              isSelected: currentAgent == AgentType.opencode,
+              onTap: () => _selectAgent(ref, AgentType.opencode),
             ),
-            child: Row(
-              children: [
-                Icon(
-                  AppIcons.checkCircle,
-                  color: theme.colorScheme.primary,
-                  size: 20,
+            SizedBox(height: Spacing.lg),
+            _BackendOptionCard(
+              title: 'Claude Code',
+              icon: const _BackendLogo(agentType: AgentType.claudeCode),
+              isSelected: currentAgent == AgentType.claudeCode,
+              onTap: () => _selectAgent(ref, AgentType.claudeCode),
+            ),
+            SizedBox(height: Spacing.lg),
+            _BackendOptionCard(
+              title: 'Codex',
+              icon: const _BackendLogo(agentType: AgentType.codex),
+              isSelected: currentAgent == AgentType.codex,
+              onTap: () => _selectAgent(ref, AgentType.codex),
+            ),
+            SizedBox(height: Spacing.lg),
+            _BackendOptionCard(
+              title: 'Pi',
+              icon: const _BackendLogo(agentType: AgentType.pi),
+              isSelected: currentAgent == AgentType.pi,
+              onTap: () => _selectAgent(ref, AgentType.pi),
+            ),
+            SizedBox(height: Spacing.xl),
+            Container(
+              padding: Insets.card,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                borderRadius: Radii.brMd,
+                border: Border.all(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.3),
                 ),
-                SizedBox(width: Spacing.md),
-                Text(
-                  'Current: ',
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                    fontSize: 14,
-                  ),
-                ),
-                Text(
-                  currentAgent.displayName,
-                  style: TextStyle(
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    AppIcons.checkCircle,
                     color: theme.colorScheme.primary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
+                    size: 20,
                   ),
-                ),
-              ],
+                  SizedBox(width: Spacing.md),
+                  Text(
+                    'Current: ',
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                      fontSize: 14,
+                    ),
+                  ),
+                  Text(
+                    currentAgent.displayName,
+                    style: TextStyle(
+                      color: theme.colorScheme.primary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 100),
-        ],
-      ),
+            const SizedBox(height: 100),
+          ],
+        ),
       ),
     );
   }

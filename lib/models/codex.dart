@@ -112,7 +112,8 @@ class CodexModel {
       defaultReasoningEffort:
           json['defaultReasoningEffort'] as String? ?? 'medium',
       hidden: json['hidden'] as bool? ?? false,
-      inputModalities: (json['inputModalities'] as List<dynamic>?)
+      inputModalities:
+          (json['inputModalities'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           const ['text'],
@@ -434,7 +435,8 @@ class CodexThread {
   final CodexThreadStatus? status; // SDK thread.status (mid-2026)
   final String? agentNickname; // SDK thread.agentNickname
   final String? agentRole; // SDK thread.agentRole
-  final SessionSummaryStats? summary; // Code diff stats (additions/deletions/files)
+  final SessionSummaryStats?
+  summary; // Code diff stats (additions/deletions/files)
 
   const CodexThread({
     required this.id,

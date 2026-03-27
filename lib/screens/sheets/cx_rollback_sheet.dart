@@ -6,6 +6,7 @@ import '../../providers/chat_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../theme/opencode_theme.dart';
 import '../../widgets/rollback_sheet.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Shows the Codex rollback sheet. Extracted from chat_screen.dart.
 ///
@@ -15,12 +16,7 @@ void showCodexRollbackSheet(BuildContext context, WidgetRef ref) {
   final chatState = ref.read(chatSessionProvider);
   final threadId = chatState.cxThreadId;
   if (threadId == null || threadId.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('No Codex thread to rollback.'),
-        backgroundColor: theme.backgroundPanel,
-      ),
-    );
+    showSuccess(context, 'No Codex thread to rollback.');
     return;
   }
   final turns = chatState.messages
@@ -36,14 +32,9 @@ void showCodexRollbackSheet(BuildContext context, WidgetRef ref) {
         maxTurns: maxTurns,
         onRollback: (numTurns) async {
           final bridge = ref.read(bridgeServiceProvider);
-          await bridge.cxThreadRollback(
-            threadId: threadId,
-            numTurns: numTurns,
-          );
+          await bridge.cxThreadRollback(threadId: threadId, numTurns: numTurns);
           final items = await bridge.cxGetThreadMessages(threadId);
-          ref
-              .read(chatSessionProvider.notifier)
-              .hydrateCodexTranscript(items);
+          ref.read(chatSessionProvider.notifier).hydrateCodexTranscript(items);
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(

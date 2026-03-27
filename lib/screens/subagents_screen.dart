@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import '../theme/app_typography.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +12,8 @@ import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+
 /// Screen for managing Claude Code custom subagents.
 /// Subagents are separate agent instances that can be spawned to handle focused subtasks.
 class SubagentsScreen extends ConsumerStatefulWidget {
@@ -20,6 +21,7 @@ class SubagentsScreen extends ConsumerStatefulWidget {
   @override
   ConsumerState<SubagentsScreen> createState() => _SubagentsScreenState();
 }
+
 class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
   List<Map<String, dynamic>> _filesystemAgents = [];
   bool _loadingFsAgents = false;
@@ -32,6 +34,7 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
       _loadFilesystemAgents();
     });
   }
+
   void _loadFilesystemAgents() async {
     setState(() => _loadingFsAgents = true);
     try {
@@ -54,6 +57,7 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
       if (mounted) setState(() => _loadingFsAgents = false);
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -85,153 +89,146 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
       body: AdaptiveContainer(
         width: ContentWidth.standard,
         child: configAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Text(humanizeError(e), style: TextStyle(color: oc.error)),
-        ),
-        data: (config) {
-          final subagents = config.subagents;
-          final hasFilesystem = _filesystemAgents.isNotEmpty;
-          final hasConfig = subagents.isNotEmpty;
-          // Empty state: only show when BOTH filesystem and config agents are empty
-          if (!hasFilesystem && !hasConfig && !_loadingFsAgents) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    AppIcons.agent,
-                    size: 64,
-                    color: oc.textMuted.withValues(alpha: 0.7),
-                  ),
-                  SizedBox(height: Spacing.lg),
-                  Text(
-                    'No subagents configured',
-                    style: TextStyle(color: oc.textMuted, fontSize: 16),
-                  ),
-                  SizedBox(height: Spacing.sm),
-                  Text(
-                    'Subagents can handle focused subtasks\nwith specialized instructions.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(
+            child: Text(humanizeError(e), style: TextStyle(color: oc.error)),
+          ),
+          data: (config) {
+            final subagents = config.subagents;
+            final hasFilesystem = _filesystemAgents.isNotEmpty;
+            final hasConfig = subagents.isNotEmpty;
+            // Empty state: only show when BOTH filesystem and config agents are empty
+            if (!hasFilesystem && !hasConfig && !_loadingFsAgents) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      AppIcons.agent,
+                      size: 64,
                       color: oc.textMuted.withValues(alpha: 0.7),
-                      fontSize: 14,
+                    ),
+                    SizedBox(height: Spacing.lg),
+                    Text(
+                      'No subagents configured',
+                      style: TextStyle(color: oc.textMuted, fontSize: 16),
+                    ),
+                    SizedBox(height: Spacing.sm),
+                    Text(
+                      'Subagents can handle focused subtasks\nwith specialized instructions.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: oc.textMuted.withValues(alpha: 0.7),
+                        fontSize: 14,
+                      ),
+                    ),
+                    SizedBox(height: Spacing.xxl),
+                    ElevatedButton.icon(
+                      onPressed: () => _showSubagentEditor(context, null),
+                      icon: const Icon(AppIcons.add),
+                      label: const Text('Add Subagent'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: oc.primary,
+                        foregroundColor: oc.selectedListItemText,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+            return ListView(
+              padding: Insets.card,
+              children: [
+                // Filesystem agents section (read-only)
+                if (_loadingFsAgents)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: Spacing.lg),
+                    child: Center(
+                      child: SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: oc.textMuted,
+                        ),
+                      ),
                     ),
                   ),
-                  SizedBox(height: Spacing.xxl),
-                  ElevatedButton.icon(
-                    onPressed: () => _showSubagentEditor(context, null),
-                    icon: const Icon(AppIcons.add),
-                    label: const Text('Add Subagent'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: oc.primary,
-                      foregroundColor: oc.selectedListItemText,
+                if (hasFilesystem) ...[
+                  Padding(
+                    padding: Insets.bottomSm,
+                    child: Row(
+                      children: [
+                        Icon(AppIcons.folder, size: 14, color: oc.textMuted),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Project Agents (.claude/agents/)',
+                          style: TextStyle(
+                            color: oc.textMuted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+                  for (final agent in _filesystemAgents)
+                    _FilesystemAgentCard(
+                      name: agent['name'] as String? ?? 'Unknown',
+                      description: agent['description'] as String? ?? '',
+                      source: agent['source'] as String? ?? 'filesystem',
+                      memoryScope: agent['memory'] as String?,
+                      background: agent['background'] as bool? ?? false,
+                      isolation: agent['isolation'] as String?,
+                    ),
                 ],
-              ),
+                // Divider between filesystem and config sections
+                if (hasFilesystem && hasConfig)
+                  Padding(
+                    padding: Insets.cardV,
+                    child: Divider(color: oc.border, height: 1),
+                  ),
+                // Config agents section header
+                if (hasConfig) ...[
+                  Padding(
+                    padding: Insets.bottomSm,
+                    child: Row(
+                      children: [
+                        Icon(AppIcons.settings, size: 14, color: oc.textMuted),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Configured Subagents',
+                          style: TextStyle(
+                            color: oc.textMuted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  for (final subagent in subagents)
+                    _SubagentCard(
+                      subagent: subagent,
+                      isActive: config.activeSubagent == subagent.name,
+                      onTap: () => _showSubagentEditor(context, subagent),
+                      onSetActive: () => _setActiveSubagent(
+                        subagent.name,
+                        config.activeSubagent == subagent.name,
+                      ),
+                      onDelete: () => _deleteSubagent(subagent.name),
+                    ),
+                ],
+              ],
             );
-          }
-          return ListView(
-            padding: Insets.card,
-            children: [
-              // Filesystem agents section (read-only)
-              if (_loadingFsAgents)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: Spacing.lg),
-                  child: Center(
-                    child: SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: oc.textMuted,
-                      ),
-                    ),
-                  ),
-                ),
-              if (hasFilesystem) ...[
-                Padding(
-                  padding: Insets.bottomSm,
-                  child: Row(
-                    children: [
-                      Icon(
-                        AppIcons.folder,
-                        size: 14,
-                        color: oc.textMuted,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Project Agents (.claude/agents/)',
-                        style: TextStyle(
-                          color: oc.textMuted,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                for (final agent in _filesystemAgents)
-                  _FilesystemAgentCard(
-                    name: agent['name'] as String? ?? 'Unknown',
-                    description: agent['description'] as String? ?? '',
-                    source: agent['source'] as String? ?? 'filesystem',
-                    memoryScope: agent['memory'] as String?,
-                    background: agent['background'] as bool? ?? false,
-                    isolation: agent['isolation'] as String?,
-                  ),
-              ],
-              // Divider between filesystem and config sections
-              if (hasFilesystem && hasConfig)
-                Padding(
-                  padding: Insets.cardV,
-                  child: Divider(color: oc.border, height: 1),
-                ),
-              // Config agents section header
-              if (hasConfig) ...[
-                Padding(
-                  padding: Insets.bottomSm,
-                  child: Row(
-                    children: [
-                      Icon(
-                        AppIcons.settings,
-                        size: 14,
-                        color: oc.textMuted,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Configured Subagents',
-                        style: TextStyle(
-                          color: oc.textMuted,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                for (final subagent in subagents)
-                  _SubagentCard(
-                    subagent: subagent,
-                    isActive: config.activeSubagent == subagent.name,
-                    onTap: () => _showSubagentEditor(context, subagent),
-                    onSetActive: () => _setActiveSubagent(
-                      subagent.name,
-                      config.activeSubagent == subagent.name,
-                    ),
-                    onDelete: () => _deleteSubagent(subagent.name),
-                  ),
-              ],
-            ],
-          );
-        },
-      ),
+          },
+        ),
       ),
     );
   }
+
   Future<void> _showSubagentEditor(
     BuildContext context,
     ClaudeCodeSubagent? existing,
@@ -251,10 +248,12 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
       }
     }
   }
+
   Future<void> _setActiveSubagent(String name, bool isCurrentlyActive) async {
     final notifier = ref.read(ccConfigProvider.notifier);
     await notifier.setActiveSubagent(isCurrentlyActive ? null : name);
   }
+
   Future<void> _deleteSubagent(String name) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -268,7 +267,9 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Theme.of(ctx).extension<OpenCodeTheme>()!.error),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(ctx).extension<OpenCodeTheme>()!.error,
+            ),
             child: const Text('Delete'),
           ),
         ],
@@ -279,6 +280,7 @@ class _SubagentsScreenState extends ConsumerState<SubagentsScreen> {
     }
   }
 }
+
 class _SubagentCard extends StatelessWidget {
   final ClaudeCodeSubagent subagent;
   final bool isActive;
@@ -403,11 +405,7 @@ class _SubagentCard extends StatelessWidget {
                         value: 'delete',
                         child: Row(
                           children: [
-                            Icon(
-                              AppIcons.delete,
-                              size: 20,
-                              color: oc.error,
-                            ),
+                            Icon(AppIcons.delete, size: 20, color: oc.error),
                             SizedBox(width: Spacing.sm),
                             Text('Delete', style: TextStyle(color: oc.error)),
                           ],
@@ -447,6 +445,7 @@ class _SubagentCard extends StatelessWidget {
     );
   }
 }
+
 /// Read-only card for filesystem-based agents (.claude/agents/).
 /// These are managed on the user's system, not from the app.
 class _FilesystemAgentCard extends StatelessWidget {
@@ -554,7 +553,10 @@ class _FilesystemAgentCard extends StatelessWidget {
                       runSpacing: 6,
                       children: [
                         if (background)
-                          _InfoChip(icon: AppIcons.pending, label: 'Background'),
+                          _InfoChip(
+                            icon: AppIcons.pending,
+                            label: 'Background',
+                          ),
                         if (isolation == 'worktree')
                           _InfoChip(icon: AppIcons.copy, label: 'Worktree'),
                       ],
@@ -569,6 +571,7 @@ class _FilesystemAgentCard extends StatelessWidget {
     );
   }
 }
+
 class _InfoChip extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -595,6 +598,7 @@ class _InfoChip extends StatelessWidget {
     );
   }
 }
+
 // =============================================================================
 // SUBAGENT EDITOR SCREEN
 // =============================================================================
@@ -604,6 +608,7 @@ class _SubagentEditorScreen extends StatefulWidget {
   @override
   State<_SubagentEditorScreen> createState() => _SubagentEditorScreenState();
 }
+
 class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _descriptionController;
@@ -636,6 +641,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
     _background = existing?.background ?? false;
     _isolation = existing?.isolation;
   }
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -645,6 +651,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
     _disallowedToolsController.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -669,292 +676,293 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
       body: AdaptiveContainer(
         width: ContentWidth.standard,
         child: SingleChildScrollView(
-        padding: Insets.card,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Name field
-            _buildLabel('Name', oc),
-            SizedBox(height: Spacing.sm),
-            TextField(
-              controller: _nameController,
-              enabled: !isEditing, // Can't change name when editing
-              decoration: _inputDecoration('e.g., code-reviewer', oc),
-              style: TextStyle(color: oc.text),
-            ),
-            if (!isEditing) ...[
+          padding: Insets.card,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Name field
+              _buildLabel('Name', oc),
+              SizedBox(height: Spacing.sm),
+              TextField(
+                controller: _nameController,
+                enabled: !isEditing, // Can't change name when editing
+                decoration: _inputDecoration('e.g., code-reviewer', oc),
+                style: TextStyle(color: oc.text),
+              ),
+              if (!isEditing) ...[
+                SizedBox(height: Spacing.xs),
+                Text(
+                  'A unique identifier for this subagent (cannot be changed later)',
+                  style: TextStyle(
+                    color: oc.textMuted.withValues(alpha: 0.7),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+              SizedBox(height: Spacing.xxl),
+              // Description field
+              _buildLabel('Description', oc),
+              SizedBox(height: Spacing.sm),
+              TextField(
+                controller: _descriptionController,
+                decoration: _inputDecoration(
+                  'When should Claude use this subagent?',
+                  oc,
+                ),
+                style: TextStyle(color: oc.text),
+                maxLines: 2,
+              ),
               SizedBox(height: Spacing.xs),
               Text(
-                'A unique identifier for this subagent (cannot be changed later)',
+                'Claude uses this to decide when to invoke the subagent',
                 style: TextStyle(
                   color: oc.textMuted.withValues(alpha: 0.7),
                   fontSize: 12,
                 ),
               ),
-            ],
-            SizedBox(height: Spacing.xxl),
-            // Description field
-            _buildLabel('Description', oc),
-            SizedBox(height: Spacing.sm),
-            TextField(
-              controller: _descriptionController,
-              decoration: _inputDecoration(
-                'When should Claude use this subagent?',
-                oc,
+              SizedBox(height: Spacing.xxl),
+              // Prompt field
+              _buildLabel('System Prompt', oc),
+              SizedBox(height: Spacing.sm),
+              TextField(
+                controller: _promptController,
+                decoration: _inputDecoration(
+                  'Instructions for the subagent...',
+                  oc,
+                ),
+                style: TextStyle(color: oc.text),
+                maxLines: 6,
+                minLines: 4,
               ),
-              style: TextStyle(color: oc.text),
-              maxLines: 2,
-            ),
-            SizedBox(height: Spacing.xs),
-            Text(
-              'Claude uses this to decide when to invoke the subagent',
-              style: TextStyle(
-                color: oc.textMuted.withValues(alpha: 0.7),
-                fontSize: 12,
-              ),
-            ),
-            SizedBox(height: Spacing.xxl),
-            // Prompt field
-            _buildLabel('System Prompt', oc),
-            SizedBox(height: Spacing.sm),
-            TextField(
-              controller: _promptController,
-              decoration: _inputDecoration(
-                'Instructions for the subagent...',
-                oc,
-              ),
-              style: TextStyle(color: oc.text),
-              maxLines: 6,
-              minLines: 4,
-            ),
-            SizedBox(height: Spacing.xs),
-            Text(
-              'Defines the subagent\'s role, expertise, and behavior',
-              style: TextStyle(
-                color: oc.textMuted.withValues(alpha: 0.7),
-                fontSize: 12,
-              ),
-            ),
-            SizedBox(height: Spacing.xxl),
-            // Model dropdown
-            _buildLabel('Model', oc),
-            SizedBox(height: Spacing.sm),
-            Container(
-              padding: Insets.cardH,
-              decoration: BoxDecoration(
-                color: oc.backgroundElement,
-                borderRadius: Radii.brSm,
-                border: Border.all(color: oc.border),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<ClaudeCodeSubagentModel>(
-                  value: _model,
-                  isExpanded: true,
-                  dropdownColor: oc.backgroundElement,
-                  style: TextStyle(color: oc.text),
-                  items: ClaudeCodeSubagentModel.values.map((m) {
-                    return DropdownMenuItem(
-                      value: m,
-                      child: Text(m.displayName),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() => _model = value);
-                    }
-                  },
+              SizedBox(height: Spacing.xs),
+              Text(
+                'Defines the subagent\'s role, expertise, and behavior',
+                style: TextStyle(
+                  color: oc.textMuted.withValues(alpha: 0.7),
+                  fontSize: 12,
                 ),
               ),
-            ),
-            SizedBox(height: Spacing.xs),
-            Text(
-              'Inherit uses the main model; others override it',
-              style: TextStyle(
-                color: oc.textMuted.withValues(alpha: 0.7),
-                fontSize: 12,
-              ),
-            ),
-            SizedBox(height: Spacing.xxl),
-            // Permission Mode dropdown (SDK v2.0.43)
-            _buildLabel('Permission Mode (optional)', oc),
-            SizedBox(height: Spacing.sm),
-            Container(
-              padding: Insets.cardH,
-              decoration: BoxDecoration(
-                color: oc.backgroundElement,
-                borderRadius: Radii.brSm,
-                border: Border.all(color: oc.border),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<ClaudeCodePermissionMode?>(
-                  value: _permissionMode,
-                  isExpanded: true,
-                  dropdownColor: oc.backgroundElement,
-                  style: TextStyle(color: oc.text),
-                  hint: Text(
-                    'Inherit from config',
-                    style: TextStyle(color: oc.textMuted),
-                  ),
-                  items: [
-                    DropdownMenuItem<ClaudeCodePermissionMode?>(
-                      value: null,
-                      child: Text(
-                        'Inherit from config',
-                        style: TextStyle(color: oc.textMuted),
-                      ),
-                    ),
-                    ...ClaudeCodePermissionMode.values.map((m) {
+              SizedBox(height: Spacing.xxl),
+              // Model dropdown
+              _buildLabel('Model', oc),
+              SizedBox(height: Spacing.sm),
+              Container(
+                padding: Insets.cardH,
+                decoration: BoxDecoration(
+                  color: oc.backgroundElement,
+                  borderRadius: Radii.brSm,
+                  border: Border.all(color: oc.border),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<ClaudeCodeSubagentModel>(
+                    value: _model,
+                    isExpanded: true,
+                    dropdownColor: oc.backgroundElement,
+                    style: TextStyle(color: oc.text),
+                    items: ClaudeCodeSubagentModel.values.map((m) {
                       return DropdownMenuItem(
                         value: m,
                         child: Text(m.displayName),
                       );
-                    }),
-                  ],
-                  onChanged: (value) {
-                    setState(() => _permissionMode = value);
-                  },
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _model = value);
+                      }
+                    },
+                  ),
                 ),
               ),
-            ),
-            SizedBox(height: Spacing.xs),
-            Text(
-              'Override permission mode for this subagent only',
-              style: TextStyle(
-                color: oc.textMuted.withValues(alpha: 0.7),
-                fontSize: 12,
+              SizedBox(height: Spacing.xs),
+              Text(
+                'Inherit uses the main model; others override it',
+                style: TextStyle(
+                  color: oc.textMuted.withValues(alpha: 0.7),
+                  fontSize: 12,
+                ),
               ),
-            ),
-            SizedBox(height: Spacing.xxl),
-            _buildLabel('Background Task', oc),
-            const SizedBox(height: Spacing.sm),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              value: _background,
-              title: const Text('Run subagent in background by default'),
-              subtitle: const Text(
-                'When enabled, this subagent can keep running while you continue chatting.',
-              ),
-              onChanged: (value) {
-                setState(() => _background = value);
-              },
-            ),
-            SizedBox(height: Spacing.xxl),
-            _buildLabel('Isolation', oc),
-            SizedBox(height: Spacing.sm),
-            Container(
-              padding: Insets.cardH,
-              decoration: BoxDecoration(
-                color: oc.backgroundElement,
-                borderRadius: Radii.brSm,
-                border: Border.all(color: oc.border),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String?>(
-                  value: _isolation,
-                  isExpanded: true,
-                  dropdownColor: oc.backgroundElement,
-                  style: TextStyle(color: oc.text),
-                  items: const [
-                    DropdownMenuItem<String?>(
-                      value: null,
-                      child: Text('None'),
+              SizedBox(height: Spacing.xxl),
+              // Permission Mode dropdown (SDK v2.0.43)
+              _buildLabel('Permission Mode (optional)', oc),
+              SizedBox(height: Spacing.sm),
+              Container(
+                padding: Insets.cardH,
+                decoration: BoxDecoration(
+                  color: oc.backgroundElement,
+                  borderRadius: Radii.brSm,
+                  border: Border.all(color: oc.border),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<ClaudeCodePermissionMode?>(
+                    value: _permissionMode,
+                    isExpanded: true,
+                    dropdownColor: oc.backgroundElement,
+                    style: TextStyle(color: oc.text),
+                    hint: Text(
+                      'Inherit from config',
+                      style: TextStyle(color: oc.textMuted),
                     ),
-                    DropdownMenuItem<String?>(
-                      value: 'worktree',
-                      child: Text('Worktree isolation'),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    setState(() => _isolation = value);
-                  },
+                    items: [
+                      DropdownMenuItem<ClaudeCodePermissionMode?>(
+                        value: null,
+                        child: Text(
+                          'Inherit from config',
+                          style: TextStyle(color: oc.textMuted),
+                        ),
+                      ),
+                      ...ClaudeCodePermissionMode.values.map((m) {
+                        return DropdownMenuItem(
+                          value: m,
+                          child: Text(m.displayName),
+                        );
+                      }),
+                    ],
+                    onChanged: (value) {
+                      setState(() => _permissionMode = value);
+                    },
+                  ),
                 ),
               ),
-            ),
-            SizedBox(height: Spacing.xs),
-            Text(
-              'Worktree isolation runs the subagent in a temporary git worktree.',
-              style: TextStyle(
-                color: oc.textMuted.withValues(alpha: 0.7),
-                fontSize: 12,
-              ),
-            ),
-            SizedBox(height: Spacing.xxl),
-            // Tools field
-            _buildLabel('Allowed Tools (optional)', oc),
-            SizedBox(height: Spacing.sm),
-            TextField(
-              controller: _toolsController,
-              decoration: _inputDecoration('e.g., Read, Grep, Glob', oc),
-              style: TextStyle(color: oc.text),
-            ),
-            SizedBox(height: Spacing.xs),
-            Text(
-              'Comma-separated list of tool names. Leave empty to inherit all tools.',
-              style: TextStyle(
-                color: oc.textMuted.withValues(alpha: 0.7),
-                fontSize: 12,
-              ),
-            ),
-            SizedBox(height: Spacing.xxxl),
-            // Disallowed Tools field (SDK v2.0.30)
-            _buildLabel('Disallowed Tools (optional)', oc),
-            SizedBox(height: Spacing.sm),
-            TextField(
-              controller: _disallowedToolsController,
-              decoration: _inputDecoration(
-                'e.g., Bash, Write, Task(agent-name)',
-                oc,
-              ),
-              style: TextStyle(color: oc.text),
-            ),
-            SizedBox(height: Spacing.xs),
-            Text(
-              'Tools this subagent cannot use. Supports wildcards like Bash(npm *)',
-              style: TextStyle(
-                color: oc.textMuted.withValues(alpha: 0.7),
-                fontSize: 12,
-              ),
-            ),
-            SizedBox(height: Spacing.xxxl),
-            // Common tool presets
-            Text(
-              'Tool Presets',
-              style: TextStyle(
-                color: oc.textMuted,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            SizedBox(height: Spacing.md),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _PresetChip(
-                  label: 'Read-only',
-                  onTap: () => _toolsController.text = 'Read, Grep, Glob',
+              SizedBox(height: Spacing.xs),
+              Text(
+                'Override permission mode for this subagent only',
+                style: TextStyle(
+                  color: oc.textMuted.withValues(alpha: 0.7),
+                  fontSize: 12,
                 ),
-                _PresetChip(
-                  label: 'Test runner',
-                  onTap: () => _toolsController.text = 'Bash, Read, Grep',
+              ),
+              SizedBox(height: Spacing.xxl),
+              _buildLabel('Background Task', oc),
+              const SizedBox(height: Spacing.sm),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _background,
+                title: const Text('Run subagent in background by default'),
+                subtitle: const Text(
+                  'When enabled, this subagent can keep running while you continue chatting.',
                 ),
-                _PresetChip(
-                  label: 'Code editor',
-                  onTap: () =>
-                      _toolsController.text = 'Read, Edit, Write, Grep, Glob',
+                onChanged: (value) {
+                  setState(() => _background = value);
+                },
+              ),
+              SizedBox(height: Spacing.xxl),
+              _buildLabel('Isolation', oc),
+              SizedBox(height: Spacing.sm),
+              Container(
+                padding: Insets.cardH,
+                decoration: BoxDecoration(
+                  color: oc.backgroundElement,
+                  borderRadius: Radii.brSm,
+                  border: Border.all(color: oc.border),
                 ),
-                _PresetChip(
-                  label: 'All tools',
-                  onTap: () => _toolsController.text = '',
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String?>(
+                    value: _isolation,
+                    isExpanded: true,
+                    dropdownColor: oc.backgroundElement,
+                    style: TextStyle(color: oc.text),
+                    items: const [
+                      DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('None'),
+                      ),
+                      DropdownMenuItem<String?>(
+                        value: 'worktree',
+                        child: Text('Worktree isolation'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      setState(() => _isolation = value);
+                    },
+                  ),
                 ),
-              ],
-            ),
-          ],
+              ),
+              SizedBox(height: Spacing.xs),
+              Text(
+                'Worktree isolation runs the subagent in a temporary git worktree.',
+                style: TextStyle(
+                  color: oc.textMuted.withValues(alpha: 0.7),
+                  fontSize: 12,
+                ),
+              ),
+              SizedBox(height: Spacing.xxl),
+              // Tools field
+              _buildLabel('Allowed Tools (optional)', oc),
+              SizedBox(height: Spacing.sm),
+              TextField(
+                controller: _toolsController,
+                decoration: _inputDecoration('e.g., Read, Grep, Glob', oc),
+                style: TextStyle(color: oc.text),
+              ),
+              SizedBox(height: Spacing.xs),
+              Text(
+                'Comma-separated list of tool names. Leave empty to inherit all tools.',
+                style: TextStyle(
+                  color: oc.textMuted.withValues(alpha: 0.7),
+                  fontSize: 12,
+                ),
+              ),
+              SizedBox(height: Spacing.xxxl),
+              // Disallowed Tools field (SDK v2.0.30)
+              _buildLabel('Disallowed Tools (optional)', oc),
+              SizedBox(height: Spacing.sm),
+              TextField(
+                controller: _disallowedToolsController,
+                decoration: _inputDecoration(
+                  'e.g., Bash, Write, Task(agent-name)',
+                  oc,
+                ),
+                style: TextStyle(color: oc.text),
+              ),
+              SizedBox(height: Spacing.xs),
+              Text(
+                'Tools this subagent cannot use. Supports wildcards like Bash(npm *)',
+                style: TextStyle(
+                  color: oc.textMuted.withValues(alpha: 0.7),
+                  fontSize: 12,
+                ),
+              ),
+              SizedBox(height: Spacing.xxxl),
+              // Common tool presets
+              Text(
+                'Tool Presets',
+                style: TextStyle(
+                  color: oc.textMuted,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              SizedBox(height: Spacing.md),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _PresetChip(
+                    label: 'Read-only',
+                    onTap: () => _toolsController.text = 'Read, Grep, Glob',
+                  ),
+                  _PresetChip(
+                    label: 'Test runner',
+                    onTap: () => _toolsController.text = 'Bash, Read, Grep',
+                  ),
+                  _PresetChip(
+                    label: 'Code editor',
+                    onTap: () =>
+                        _toolsController.text = 'Read, Edit, Write, Grep, Glob',
+                  ),
+                  _PresetChip(
+                    label: 'All tools',
+                    onTap: () => _toolsController.text = '',
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
+
   Widget _buildLabel(String text, OpenCodeTheme oc) {
     return Text(
       text,
@@ -965,6 +973,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
       ),
     );
   }
+
   InputDecoration _inputDecoration(String hint, OpenCodeTheme oc) {
     return InputDecoration(
       hintText: hint,
@@ -989,26 +998,21 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
       ),
     );
   }
+
   void _save() {
     final name = _nameController.text.trim();
     final description = _descriptionController.text.trim();
     final prompt = _promptController.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Name is required')));
+      showInfo(context, 'Name is required');
       return;
     }
     if (description.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Description is required')));
+      showInfo(context, 'Description is required');
       return;
     }
     if (prompt.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('System prompt is required')),
-      );
+      showInfo(context, 'System prompt is required');
       return;
     }
     // Parse tools
@@ -1045,6 +1049,7 @@ class _SubagentEditorScreenState extends State<_SubagentEditorScreen> {
     Navigator.pop(context, subagent);
   }
 }
+
 class _PresetChip extends StatelessWidget {
   final String label;
   final VoidCallback onTap;

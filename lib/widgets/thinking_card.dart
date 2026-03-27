@@ -1,10 +1,10 @@
-
 import 'package:flutter/material.dart';
 import '../models/message.dart';
 import '../theme/app_typography.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'package:broski/theme/app_icons.dart';
+
 /// A collapsible card that displays model reasoning/thinking content.
 /// Collapsed by default, tap to expand and see the full thinking process.
 class ThinkingCard extends StatefulWidget {
@@ -13,6 +13,7 @@ class ThinkingCard extends StatefulWidget {
   @override
   State<ThinkingCard> createState() => _ThinkingCardState();
 }
+
 class _ThinkingCardState extends State<ThinkingCard>
     with SingleTickerProviderStateMixin {
   bool _isExpanded = false;
@@ -34,11 +35,13 @@ class _ThinkingCardState extends State<ThinkingCard>
       ).chain(CurveTween(curve: Curves.easeInOut)),
     );
   }
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
+
   void _toggle() {
     setState(() {
       _isExpanded = !_isExpanded;
@@ -49,6 +52,7 @@ class _ThinkingCardState extends State<ThinkingCard>
       }
     });
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -150,6 +154,7 @@ class _ThinkingCardState extends State<ThinkingCard>
       ),
     );
   }
+
   Widget _buildThinkingIcon(
     OpenCodeTheme theme,
     Color thinkingColor,
@@ -178,6 +183,7 @@ class _ThinkingCardState extends State<ThinkingCard>
       ),
     );
   }
+
   Widget _buildExpandedContent(OpenCodeTheme theme, Color thinkingColor) {
     final message = widget.message;
     final reasoningText = message.reasoningText;
@@ -201,9 +207,9 @@ class _ThinkingCardState extends State<ThinkingCard>
             child: SingleChildScrollView(
               child: SelectableText(
                 reasoningText,
-                style: AppTypography.codeSmall(color: theme.textMuted).copyWith(
-                  height: 1.5,
-                ),
+                style: AppTypography.codeSmall(
+                  color: theme.textMuted,
+                ).copyWith(height: 1.5),
               ),
             ),
           ),
@@ -211,6 +217,7 @@ class _ThinkingCardState extends State<ThinkingCard>
       ),
     );
   }
+
   String _formatDuration(int ms) {
     if (ms < 1000) return '${ms}ms';
     final seconds = ms / 1000;
@@ -219,6 +226,7 @@ class _ThinkingCardState extends State<ThinkingCard>
     return '${minutes.toStringAsFixed(1)}m';
   }
 }
+
 /// A compact inline version of the thinking indicator for tight spaces.
 class ThinkingChip extends StatelessWidget {
   const ThinkingChip({
@@ -285,6 +293,7 @@ class ThinkingChip extends StatelessWidget {
       ),
     );
   }
+
   String _formatDuration(int ms) {
     if (ms < 1000) return '${ms}ms';
     final seconds = ms / 1000;

@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import '../../theme/app_typography.dart';
 
@@ -6,6 +5,7 @@ import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../../utils/error_utils.dart';
+
 class GitCommitSheet extends StatefulWidget {
   const GitCommitSheet({
     super.key,
@@ -24,9 +24,7 @@ class GitCommitSheet extends StatefulWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom,
-        ),
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: GitCommitSheet(
           initialMessage: initialMessage,
           onCommit: onCommit,
@@ -34,9 +32,11 @@ class GitCommitSheet extends StatefulWidget {
       ),
     );
   }
+
   @override
   State<GitCommitSheet> createState() => _GitCommitSheetState();
 }
+
 class _GitCommitSheetState extends State<GitCommitSheet> {
   late final TextEditingController _controller;
   bool _saving = false;
@@ -45,11 +45,13 @@ class _GitCommitSheetState extends State<GitCommitSheet> {
     super.initState();
     _controller = TextEditingController(text: widget.initialMessage ?? '');
   }
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
+
   Future<void> _commit() async {
     final msg = _controller.text.trim();
     if (msg.isEmpty) return;
@@ -79,6 +81,7 @@ class _GitCommitSheetState extends State<GitCommitSheet> {
       if (mounted) setState(() => _saving = false);
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -123,7 +126,11 @@ class _GitCommitSheetState extends State<GitCommitSheet> {
                     alignment: Alignment.centerRight,
                     child: IconButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      icon: Icon(AppIcons.close, color: theme.textMuted, size: 24),
+                      icon: Icon(
+                        AppIcons.close,
+                        color: theme.textMuted,
+                        size: 24,
+                      ),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
@@ -174,9 +181,7 @@ class _GitCommitSheetState extends State<GitCommitSheet> {
                         backgroundColor: theme.primary,
                         foregroundColor: theme.selectedListItemText,
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: Radii.brMd,
-                        ),
+                        shape: RoundedRectangleBorder(borderRadius: Radii.brMd),
                       ),
                       child: _saving
                           ? SizedBox(

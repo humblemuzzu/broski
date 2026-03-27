@@ -9,6 +9,7 @@ import '../../theme/opencode_theme.dart';
 import '../../utils/error_utils.dart';
 import '../dialogs/share_dialog.dart';
 import '../diff_view_screen.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Reverts a single message's file changes.
 /// Extracted from `_ChatScreenState._revertMessage` in `chat_screen.dart`.
@@ -32,23 +33,11 @@ Future<void> revertMessage({
       projectPath: projectPath,
     );
     if (!context.mounted) return;
-    final theme = OpenCodeTheme.of(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Changes reverted'),
-        backgroundColor: theme.backgroundPanel,
-      ),
-    );
+    showSuccess(context, 'Changes reverted');
     onRefreshContext();
   } catch (e) {
     if (!context.mounted) return;
-    final theme = OpenCodeTheme.of(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Failed to revert: ${humanizeError(e)}'),
-        backgroundColor: theme.error,
-      ),
-    );
+    showError(context, 'Failed to revert: ${humanizeError(e)}');
   }
 }
 
@@ -84,23 +73,11 @@ Future<void> unrevertSession({
     final bridge = ref.read(bridgeServiceProvider);
     await bridge.unrevertSession(sessionId, projectPath: projectPath);
     if (!context.mounted) return;
-    final theme = OpenCodeTheme.of(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Revert undone'),
-        backgroundColor: theme.backgroundPanel,
-      ),
-    );
+    showSuccess(context, 'Revert undone');
     onRefreshContext();
   } catch (e) {
     if (!context.mounted) return;
-    final theme = OpenCodeTheme.of(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Failed to undo revert: ${humanizeError(e)}'),
-        backgroundColor: theme.error,
-      ),
-    );
+    showError(context, 'Failed to undo revert: ${humanizeError(e)}');
   }
 }
 
@@ -116,12 +93,7 @@ Future<void> ccRewindToCheckpoint({
   final theme = OpenCodeTheme.of(context);
   final ccChatState = ref.read(ccChatProvider);
   if (!ccChatState.canUndo) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('No file changes to undo'),
-        backgroundColor: theme.backgroundPanel,
-      ),
-    );
+    showSuccess(context, 'No file changes to undo');
     return;
   }
   final remaining = ccChatState.checkpoints.length - 1;
@@ -141,21 +113,11 @@ Future<void> ccRewindToCheckpoint({
         ),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Failed to revert file changes'),
-          backgroundColor: theme.error,
-        ),
-      );
+      showError(context, 'Failed to revert file changes');
     }
   } catch (e) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Failed to revert: ${humanizeError(e)}'),
-        backgroundColor: theme.error,
-      ),
-    );
+    showError(context, 'Failed to revert: ${humanizeError(e)}');
   }
 }
 
@@ -178,25 +140,13 @@ Future<void> shareSession({
     if (!context.mounted) return;
     final shareUrl = sharedSession.share?.url;
     if (shareUrl == null || shareUrl.isEmpty) {
-      final theme = OpenCodeTheme.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Failed to get share URL'),
-          backgroundColor: theme.error,
-        ),
-      );
+      showError(context, 'Failed to get share URL');
       return;
     }
     showShareDialog(context, shareUrl);
   } catch (e) {
     if (!context.mounted) return;
-    final theme = OpenCodeTheme.of(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Failed to share session: ${humanizeError(e)}'),
-        backgroundColor: theme.error,
-      ),
-    );
+    showError(context, 'Failed to share session: ${humanizeError(e)}');
   }
 }
 
@@ -212,21 +162,9 @@ Future<void> unshareSession({
     final bridge = ref.read(bridgeServiceProvider);
     await bridge.unshareSession(sessionId, projectPath: projectPath);
     if (!context.mounted) return;
-    final theme = OpenCodeTheme.of(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Session is no longer shared'),
-        backgroundColor: theme.backgroundPanel,
-      ),
-    );
+    showSuccess(context, 'Session is no longer shared');
   } catch (e) {
     if (!context.mounted) return;
-    final theme = OpenCodeTheme.of(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Failed to unshare: ${humanizeError(e)}'),
-        backgroundColor: theme.error,
-      ),
-    );
+    showError(context, 'Failed to unshare: ${humanizeError(e)}');
   }
 }

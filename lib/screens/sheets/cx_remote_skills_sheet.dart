@@ -8,6 +8,7 @@ import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../../utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Bottom sheet to browse and install skills from the Codex public skills marketplace.
 class CxRemoteSkillsSheet extends ConsumerStatefulWidget {
@@ -65,14 +66,10 @@ class _CxRemoteSkillsSheetState extends ConsumerState<CxRemoteSkillsSheet> {
       final bridge = ref.read(bridgeServiceProvider);
       await bridge.cxInstallRemoteSkill(hazelnutId: skill.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Installed "${skill.name}"')));
+      showInfo(context, 'Installed "${skill.name}"');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to install: ${humanizeError(e)}')),
-      );
+      showInfo(context, 'Failed to install: ${humanizeError(e)}');
     } finally {
       if (mounted) setState(() => _installing.remove(skill.id));
     }

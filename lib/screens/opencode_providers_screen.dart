@@ -12,6 +12,7 @@ import '../utils/error_utils.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import '../widgets/opencode/provider_card.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 class OpenCodeProvidersScreen extends ConsumerStatefulWidget {
   const OpenCodeProvidersScreen({super.key});
@@ -77,11 +78,9 @@ class _OpenCodeProvidersScreenState
     setState(() => _actionInProgress = true);
     try {
       final bridge = ref.read(bridgeServiceProvider);
-      final ok = await bridge.authSet(
-        provider.details.id,
-        {'token': result},
-        projectPath: _projectPath,
-      );
+      final ok = await bridge.authSet(provider.details.id, {
+        'token': result,
+      }, projectPath: _projectPath);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -92,12 +91,7 @@ class _OpenCodeProvidersScreenState
       if (ok) _invalidate();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed: ${humanizeError(e)}'),
-          backgroundColor: oc.error,
-        ),
-      );
+      showError(context, 'Failed: ${humanizeError(e)}');
     } finally {
       if (mounted) setState(() => _actionInProgress = false);
     }
@@ -146,12 +140,7 @@ class _OpenCodeProvidersScreenState
       if (ok) _invalidate();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed: ${humanizeError(e)}'),
-          backgroundColor: oc.error,
-        ),
-      );
+      showError(context, 'Failed: ${humanizeError(e)}');
     } finally {
       if (mounted) setState(() => _actionInProgress = false);
     }
@@ -171,12 +160,7 @@ class _OpenCodeProvidersScreenState
       );
       if (!mounted) return;
       if (authResult == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Failed to start OAuth'),
-            backgroundColor: oc.error,
-          ),
-        );
+        showError(context, 'Failed to start OAuth');
         return;
       }
 
@@ -206,12 +190,7 @@ class _OpenCodeProvidersScreenState
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('OAuth failed: ${humanizeError(e)}'),
-          backgroundColor: oc.error,
-        ),
-      );
+      showError(context, 'OAuth failed: ${humanizeError(e)}');
     } finally {
       if (mounted) setState(() => _actionInProgress = false);
     }

@@ -223,10 +223,7 @@ class FontPreference {
     this.codeFont = CodeFont.jetBrainsMono,
   });
 
-  FontPreference copyWith({
-    UIFont? uiFont,
-    CodeFont? codeFont,
-  }) {
+  FontPreference copyWith({UIFont? uiFont, CodeFont? codeFont}) {
     return FontPreference(
       uiFont: uiFont ?? this.uiFont,
       codeFont: codeFont ?? this.codeFont,
@@ -234,9 +231,9 @@ class FontPreference {
   }
 
   Map<String, dynamic> toJson() => {
-        'uiFont': uiFont.fontFamily,
-        'codeFont': codeFont.fontFamily,
-      };
+    'uiFont': uiFont.fontFamily,
+    'codeFont': codeFont.fontFamily,
+  };
 
   factory FontPreference.fromJson(Map<String, dynamic> json) {
     return FontPreference(

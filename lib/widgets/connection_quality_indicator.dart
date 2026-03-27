@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,6 +6,7 @@ import '../providers/connection_provider.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'package:broski/theme/app_icons.dart';
+
 class ConnectionQualityIndicator extends ConsumerWidget {
   const ConnectionQualityIndicator({super.key, this.compact = false});
   final bool compact;
@@ -34,12 +34,17 @@ class ConnectionQualityIndicator extends ConsumerWidget {
       decoration: BoxDecoration(
         color: metrics.resolveQualityColor(theme).withValues(alpha: 0.1),
         borderRadius: Radii.brMd,
-        border: Border.all(color: metrics.resolveQualityColor(theme).withValues(alpha: 0.3)),
+        border: Border.all(
+          color: metrics.resolveQualityColor(theme).withValues(alpha: 0.3),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _SignalBars(bars: metrics.signalBars, color: metrics.resolveQualityColor(theme)),
+          _SignalBars(
+            bars: metrics.signalBars,
+            color: metrics.resolveQualityColor(theme),
+          ),
           const SizedBox(width: 6),
           Icon(metrics.typeIcon, size: 14, color: theme.textMuted),
           SizedBox(width: Spacing.xs),
@@ -55,6 +60,7 @@ class ConnectionQualityIndicator extends ConsumerWidget {
       ),
     );
   }
+
   Widget _buildCompactIndicator(
     ConnectionMetrics metrics,
     OpenCodeTheme theme,
@@ -79,6 +85,7 @@ class ConnectionQualityIndicator extends ConsumerWidget {
       ],
     );
   }
+
   Widget _buildDisconnectedIndicator(OpenCodeTheme theme) {
     return Container(
       padding: Insets.chip,
@@ -105,6 +112,7 @@ class ConnectionQualityIndicator extends ConsumerWidget {
     );
   }
 }
+
 class _SignalBars extends StatelessWidget {
   const _SignalBars({
     required this.bars,
@@ -137,6 +145,7 @@ class _SignalBars extends StatelessWidget {
     );
   }
 }
+
 class ConnectionTypeBadge extends ConsumerWidget {
   const ConnectionTypeBadge({super.key});
   @override

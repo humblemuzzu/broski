@@ -50,9 +50,7 @@ class _CxExperimentalFeaturesContent extends ConsumerWidget {
             decoration: BoxDecoration(
               color: theme.primary.withValues(alpha: 0.06),
               borderRadius: Radii.brSm,
-              border: Border.all(
-                color: theme.primary.withValues(alpha: 0.15),
-              ),
+              border: Border.all(color: theme.primary.withValues(alpha: 0.15)),
             ),
             child: Row(
               children: [
@@ -95,8 +93,7 @@ class _CxExperimentalFeaturesContent extends ConsumerWidget {
                           const SizedBox(height: 2),
                           Text(
                             description,
-                            style:
-                                AppTypography.label(color: theme.textMuted),
+                            style: AppTypography.label(color: theme.textMuted),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),

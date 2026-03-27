@@ -16,6 +16,7 @@ import '../utils/error_utils.dart';
 import 'opencode/opencode_session_behavior_card.dart';
 import 'opencode/opencode_mcp_server_card.dart';
 import 'opencode/opencode_mcp_auth_card.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 class OpenCodeMcpConfigScreen extends ConsumerStatefulWidget {
   const OpenCodeMcpConfigScreen({super.key});
@@ -97,7 +98,6 @@ class _OpenCodeMcpConfigScreenState
   }) async {
     if (_savingSessionBehavior) return;
     setState(() => _savingSessionBehavior = true);
-    final oc = OpenCodeTheme.of(context);
 
     final nextCompaction = <String, dynamic>{
       ..._compaction(),
@@ -121,12 +121,7 @@ class _OpenCodeMcpConfigScreenState
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to update settings: ${humanizeError(e)}'),
-          backgroundColor: oc.error,
-        ),
-      );
+      showError(context, 'Failed to update settings: ${humanizeError(e)}');
     } finally {
       if (mounted) {
         setState(() => _savingSessionBehavior = false);
@@ -148,12 +143,7 @@ class _OpenCodeMcpConfigScreenState
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Restart failed: ${humanizeError(e)}'),
-          backgroundColor: oc.error,
-        ),
-      );
+      showError(context, 'Restart failed: ${humanizeError(e)}');
     }
   }
 
@@ -258,7 +248,6 @@ class _OpenCodeMcpConfigScreenState
     );
     if (cfg == null) return;
     if (!mounted) return;
-    final oc = OpenCodeTheme.of(context);
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final updated = await bridge.addMcpServer(
@@ -270,21 +259,11 @@ class _OpenCodeMcpConfigScreenState
       setState(() {
         _status = updated;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Added MCP server "$name"'),
-          backgroundColor: oc.backgroundPanel,
-        ),
-      );
+      showSuccess(context, 'Added MCP server "$name"');
       await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to add server: ${humanizeError(e)}'),
-          backgroundColor: oc.error,
-        ),
-      );
+      showError(context, 'Failed to add server: ${humanizeError(e)}');
     }
   }
 

@@ -75,12 +75,15 @@ abstract final class MarkdownStyles {
       ),
 
       // -- Inline code --
-      code: AppTypography.codeLarge(color: theme.markdownCode)
-          .copyWith(backgroundColor: theme.backgroundElement),
+      code: AppTypography.codeLarge(
+        color: theme.markdownCode,
+      ).copyWith(backgroundColor: theme.backgroundElement),
 
       // -- Code blocks — tighter padding for mobile --
-      codeblockPadding:
-          const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      codeblockPadding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 10,
+      ),
       codeblockDecoration: BoxDecoration(
         color: theme.backgroundElement,
         borderRadius: Radii.brMd,
@@ -103,8 +106,7 @@ abstract final class MarkdownStyles {
         fontStyle: FontStyle.italic,
         height: 1.6,
       ),
-      blockquotePadding:
-          const EdgeInsets.only(left: 16, top: 8, bottom: 8),
+      blockquotePadding: const EdgeInsets.only(left: 16, top: 8, bottom: 8),
       blockquoteDecoration: BoxDecoration(
         border: Border(
           left: BorderSide(color: theme.markdownBlockQuote, width: 3),
@@ -113,8 +115,7 @@ abstract final class MarkdownStyles {
 
       // -- Horizontal rule --
       horizontalRuleDecoration: BoxDecoration(
-        border:
-            Border(top: BorderSide(color: theme.dividerSection, width: 1)),
+        border: Border(top: BorderSide(color: theme.dividerSection, width: 1)),
       ),
 
       // -- Tables (fallback — AdaptiveTable handles most tables) --
@@ -195,12 +196,15 @@ abstract final class MarkdownStyles {
       ),
 
       // -- Inline code — 13px, uses markdownCode token --
-      code: AppTypography.code(color: theme.markdownCode)
-          .copyWith(backgroundColor: theme.backgroundElement),
+      code: AppTypography.code(
+        color: theme.markdownCode,
+      ).copyWith(backgroundColor: theme.backgroundElement),
 
       // -- Code blocks --
-      codeblockPadding:
-          const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      codeblockPadding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 10,
+      ),
       codeblockDecoration: BoxDecoration(
         color: theme.backgroundElement,
         borderRadius: Radii.brSm,
@@ -223,8 +227,7 @@ abstract final class MarkdownStyles {
         fontStyle: FontStyle.italic,
         height: 1.5,
       ),
-      blockquotePadding:
-          const EdgeInsets.only(left: 12, top: 6, bottom: 6),
+      blockquotePadding: const EdgeInsets.only(left: 12, top: 6, bottom: 6),
       blockquoteDecoration: BoxDecoration(
         border: Border(
           left: BorderSide(color: theme.markdownBlockQuote, width: 3),
@@ -233,8 +236,7 @@ abstract final class MarkdownStyles {
 
       // -- Horizontal rule --
       horizontalRuleDecoration: BoxDecoration(
-        border:
-            Border(top: BorderSide(color: theme.dividerSection, width: 1)),
+        border: Border(top: BorderSide(color: theme.dividerSection, width: 1)),
       ),
 
       // -- Tables (fallback — AdaptiveTable handles most tables) --
@@ -333,9 +335,9 @@ abstract final class MarkdownStyles {
       ),
 
       // -- Inline code --
-      code: AppTypography.code(color: theme.markdownCode).copyWith(
-        backgroundColor: theme.backgroundPanel,
-      ),
+      code: AppTypography.code(
+        color: theme.markdownCode,
+      ).copyWith(backgroundColor: theme.backgroundPanel),
 
       // -- Code blocks --
       codeblockDecoration: BoxDecoration(
@@ -382,13 +384,14 @@ abstract final class MarkdownStyles {
       ),
       tableBorder: TableBorder.all(color: theme.borderSubtle, width: 1),
       tableHeadAlign: TextAlign.left,
-      tableCellsPadding:
-          const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      tableCellsPadding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 8,
+      ),
 
       // -- Horizontal rule --
       horizontalRuleDecoration: BoxDecoration(
-        border:
-            Border(top: BorderSide(color: theme.dividerSection, width: 1)),
+        border: Border(top: BorderSide(color: theme.dividerSection, width: 1)),
       ),
 
       // -- Block spacing --

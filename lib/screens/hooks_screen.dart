@@ -13,6 +13,7 @@ import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 class HooksScreen extends ConsumerStatefulWidget {
   const HooksScreen({super.key});
@@ -202,7 +203,6 @@ class _HooksScreenState extends ConsumerState<HooksScreen>
 
   Future<void> _save() async {
     final cwd = _cwd();
-    final oc = OpenCodeTheme.of(context);
     if (_source == SkillSource.project && cwd == null) return;
     final content = const JsonEncoder.withIndent(
       '  ',
@@ -217,28 +217,13 @@ class _HooksScreenState extends ConsumerState<HooksScreen>
       if (!mounted) return;
       if (ok) {
         setState(() => _dirty = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Hooks saved'),
-            backgroundColor: oc.backgroundPanel,
-          ),
-        );
+        showSuccess(context, 'Hooks saved');
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Failed to save hooks'),
-            backgroundColor: oc.error,
-          ),
-        );
+        showError(context, 'Failed to save hooks');
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to save: ${humanizeError(e)}'),
-          backgroundColor: oc.error,
-        ),
-      );
+      showError(context, 'Failed to save: ${humanizeError(e)}');
     }
   }
 
@@ -459,9 +444,7 @@ class _HookEditorScreenState extends State<HookEditorScreen> {
         _HookEditResult(event: event, value: decoded.cast<String, dynamic>()),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Invalid JSON: ${humanizeError(e)}')),
-      );
+      showInfo(context, 'Invalid JSON: ${humanizeError(e)}');
     }
   }
 

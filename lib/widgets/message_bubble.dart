@@ -269,17 +269,17 @@ class MessageBubble extends StatelessWidget {
                     // cost as plain Text — single RenderParagraph, no widget
                     // tree. Full AdaptiveMarkdownBody kicks in once stable.
                     message.isStreaming
-                        ? Text.rich(
-                            buildInlineMarkdown(message.text, theme),
-                          )
+                        ? Text.rich(buildInlineMarkdown(message.text, theme))
                         : AdaptiveMarkdownBody(
                             data: message.text,
                             selectable: true,
                             styleSheet: _buildMarkdownStyle(theme),
                             onTapLink: (_, href, __) {
                               if (href != null) {
-                                launchUrl(Uri.parse(href),
-                                    mode: LaunchMode.externalApplication);
+                                launchUrl(
+                                  Uri.parse(href),
+                                  mode: LaunchMode.externalApplication,
+                                );
                               }
                             },
                           ),

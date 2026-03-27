@@ -11,6 +11,8 @@ import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import '../../utils/error_utils.dart';
 import '../../widgets/chat/detail_sheet.dart';
+import '../../widgets/chat/section_header.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Shows the Codex Plugins marketplace sheet. Extracted as top-level function.
 void showCxPluginsSheet(BuildContext context) {
@@ -55,9 +57,7 @@ class _CxPluginsSheetState extends ConsumerState<CxPluginsSheet> {
       ref.invalidate(codexPluginsProvider);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Install failed: ${humanizeError(e)}')),
-        );
+        showInfo(context, 'Install failed: ${humanizeError(e)}');
       }
     } finally {
       if (mounted) setState(() => _actionInProgress.remove(key));
@@ -73,9 +73,7 @@ class _CxPluginsSheetState extends ConsumerState<CxPluginsSheet> {
       ref.invalidate(codexPluginsProvider);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Uninstall failed: ${humanizeError(e)}')),
-        );
+        showInfo(context, 'Uninstall failed: ${humanizeError(e)}');
       }
     } finally {
       if (mounted) setState(() => _actionInProgress.remove(key));
@@ -143,7 +141,10 @@ class _CxPluginsSheetState extends ConsumerState<CxPluginsSheet> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (installed.isNotEmpty) ...[
-                _SectionHeader(label: 'INSTALLED', theme: ocTheme),
+                Padding(
+                  padding: Insets.bottomSm,
+                  child: SectionHeader(title: 'INSTALLED', theme: ocTheme),
+                ),
                 SizedBox(height: Spacing.xs),
                 ...installed.map(
                   (e) => _PluginTile(
@@ -161,7 +162,10 @@ class _CxPluginsSheetState extends ConsumerState<CxPluginsSheet> {
                 SizedBox(height: Spacing.lg),
               ],
               if (available.isNotEmpty) ...[
-                _SectionHeader(label: 'AVAILABLE', theme: ocTheme),
+                Padding(
+                  padding: Insets.bottomSm,
+                  child: SectionHeader(title: 'AVAILABLE', theme: ocTheme),
+                ),
                 SizedBox(height: Spacing.xs),
                 ...available.map(
                   (e) => _PluginTile(
@@ -205,30 +209,6 @@ class _PluginEntry {
     required this.marketplaceName,
     required this.marketplacePath,
   });
-}
-
-/// Uppercase section label (INSTALLED / AVAILABLE).
-class _SectionHeader extends StatelessWidget {
-  final String label;
-  final OpenCodeTheme theme;
-
-  const _SectionHeader({required this.label, required this.theme});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: Insets.bottomSm,
-      child: Text(
-        label,
-        style: TextStyle(
-          color: theme.textMuted,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.5,
-        ),
-      ),
-    );
-  }
 }
 
 /// Single plugin row with install/remove action button.

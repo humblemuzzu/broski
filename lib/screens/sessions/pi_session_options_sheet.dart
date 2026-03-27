@@ -7,6 +7,7 @@ import '../../providers/pi_provider.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/opencode_theme.dart';
 import '../../widgets/chat/detail_sheet.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Shows the Pi session options sheet (stop, rename, highlight, fork, delete).
 /// Extracted from sessions_screen.dart to match CC/CX patterns.
@@ -113,20 +114,10 @@ Future<void> _stopPiSession(
   try {
     await ref.read(piBridgeServiceProvider).abort(projectPath: session.cwd);
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Stop signal sent'),
-        backgroundColor: OpenCodeTheme.of(context).backgroundPanel,
-      ),
-    );
+    showSuccess(context, 'Stop signal sent');
   } catch (e) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Failed to stop session: $e'),
-        backgroundColor: OpenCodeTheme.of(context).error,
-      ),
-    );
+    showError(context, 'Failed to stop session: $e');
   }
 }
 
@@ -168,12 +159,7 @@ Future<void> _renamePiSession(
     onRenamed();
   } catch (e) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Failed to rename session: $e'),
-        backgroundColor: OpenCodeTheme.of(context).error,
-      ),
-    );
+    showError(context, 'Failed to rename session: $e');
   }
 }
 
@@ -214,21 +200,11 @@ Future<void> _deletePiSession(
         .deleteSession(sessionPath: session.path, projectPath: session.cwd);
     ref.invalidate(piSessionsProvider(null));
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Session deleted'),
-        backgroundColor: OpenCodeTheme.of(context).backgroundPanel,
-      ),
-    );
+    showSuccess(context, 'Session deleted');
     onDeleted();
   } catch (e) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Failed to delete session: $e'),
-        backgroundColor: OpenCodeTheme.of(context).error,
-      ),
-    );
+    showError(context, 'Failed to delete session: $e');
   }
 }
 
@@ -244,12 +220,7 @@ Future<void> _forkPiSession(
     final messages = await bridge.getForkMessages(projectPath: session.cwd);
     if (messages.isEmpty) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('No messages to fork from'),
-          backgroundColor: OpenCodeTheme.of(context).backgroundPanel,
-        ),
-      );
+      showSuccess(context, 'No messages to fork from');
       return;
     }
     // Fork at the latest user message
@@ -260,29 +231,14 @@ Future<void> _forkPiSession(
     );
     if (result.cancelled) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Fork was cancelled'),
-          backgroundColor: OpenCodeTheme.of(context).backgroundPanel,
-        ),
-      );
+      showSuccess(context, 'Fork was cancelled');
       return;
     }
     ref.invalidate(piSessionsProvider(null));
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Session forked'),
-        backgroundColor: OpenCodeTheme.of(context).backgroundPanel,
-      ),
-    );
+    showSuccess(context, 'Session forked');
   } catch (e) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Failed to fork session: $e'),
-        backgroundColor: OpenCodeTheme.of(context).error,
-      ),
-    );
+    showError(context, 'Failed to fork session: $e');
   }
 }

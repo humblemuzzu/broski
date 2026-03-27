@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/message.dart';
-import '../../theme/opencode_theme.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Handles OpenCode overflow menu actions (with messages list available).
 /// Extracted from `_ChatScreenState._handleMenuActionWithMessages`.
@@ -21,7 +21,6 @@ void handleOcMenuAction({
   required VoidCallback onCcRewind,
   required VoidCallback onClearInstance,
 }) {
-  final theme = OpenCodeTheme.of(context);
   switch (value) {
     case 'stop':
       onStopGeneration();
@@ -30,12 +29,7 @@ void handleOcMenuAction({
     case 'sidebar':
       Scaffold.of(context).openEndDrawer();
     case 'new_session':
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('New session - coming soon'),
-          backgroundColor: theme.backgroundPanel,
-        ),
-      );
+      showSuccess(context, 'New session - coming soon');
     case 'fork':
       onFork();
     case 'share':
@@ -63,12 +57,7 @@ void handleOcMenuAction({
         if (lastEditMessage != null) {
           onRevert(lastEditMessage.id);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('No file changes to undo'),
-              backgroundColor: theme.backgroundPanel,
-            ),
-          );
+          showSuccess(context, 'No file changes to undo');
         }
       }
     case 'clear_instance':

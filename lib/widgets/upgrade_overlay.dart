@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +7,7 @@ import '../screens/paywall_screen.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'package:broski/theme/app_icons.dart';
+
 /// Overlay widget that shows "Upgrade to Pro" for unpaid users.
 /// Wraps content and shows a lock overlay when user is not entitled.
 ///
@@ -24,10 +24,13 @@ class UpgradeOverlay extends ConsumerWidget {
     this.message = 'Subscribe to Pro to unlock this feature',
     this.showChild = false,
   });
+
   /// The child widget to show underneath (blurred/dimmed when locked)
   final Widget child;
+
   /// Custom message to show on the overlay
   final String message;
+
   /// If true, shows child behind the overlay (dimmed). If false, replaces entirely.
   final bool showChild;
   @override
@@ -42,10 +45,7 @@ class UpgradeOverlay extends ConsumerWidget {
       children: [
         // Optionally show the child behind (dimmed)
         if (showChild)
-          Opacity(
-            opacity: 0.15,
-            child: IgnorePointer(child: child),
-          ),
+          Opacity(opacity: 0.15, child: IgnorePointer(child: child)),
         // Lock overlay
         _LockOverlay(
           message: message,
@@ -56,6 +56,7 @@ class UpgradeOverlay extends ConsumerWidget {
     );
   }
 }
+
 class _LockOverlay extends StatelessWidget {
   const _LockOverlay({
     required this.message,
@@ -84,10 +85,7 @@ class _LockOverlay extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: ocTheme.bgHover,
-                    border: Border.all(
-                      color: ocTheme.borderSubtle,
-                      width: 1,
-                    ),
+                    border: Border.all(color: ocTheme.borderSubtle, width: 1),
                   ),
                   child: Icon(
                     AppIcons.lock,
@@ -119,10 +117,7 @@ class _LockOverlay extends StatelessWidget {
                 ),
                 SizedBox(height: Spacing.xxxl),
                 // Subscribe button
-                _SubscribeButton(
-                  priceText: priceText,
-                  isLoading: isLoading,
-                ),
+                _SubscribeButton(priceText: priceText, isLoading: isLoading),
                 SizedBox(height: Spacing.lg),
                 // Restore purchases link
                 const _RestorePurchasesLink(),
@@ -134,11 +129,9 @@ class _LockOverlay extends StatelessWidget {
     );
   }
 }
+
 class _SubscribeButton extends ConsumerWidget {
-  const _SubscribeButton({
-    required this.priceText,
-    required this.isLoading,
-  });
+  const _SubscribeButton({required this.priceText, required this.isLoading});
   final String priceText;
   final bool isLoading;
   @override
@@ -206,6 +199,7 @@ class _SubscribeButton extends ConsumerWidget {
     );
   }
 }
+
 class _RestorePurchasesLink extends ConsumerWidget {
   const _RestorePurchasesLink();
   @override
@@ -231,6 +225,7 @@ class _RestorePurchasesLink extends ConsumerWidget {
     );
   }
 }
+
 /// A simpler inline banner for settings screen
 class SubscribeBanner extends ConsumerWidget {
   const SubscribeBanner({super.key});
@@ -251,67 +246,62 @@ class SubscribeBanner extends ConsumerWidget {
           ),
         );
       },
-      child: Builder(builder: (context) {
-        final ocTheme = OpenCodeTheme.of(context);
-        return Container(
-          margin: Insets.section,
-          padding: Insets.card,
-          decoration: BoxDecoration(
-            color: ocTheme.backgroundPanel,
-            borderRadius: Radii.brLg,
-            border: Border.all(
-              color: ocTheme.borderSubtle,
-              width: 1,
+      child: Builder(
+        builder: (context) {
+          final ocTheme = OpenCodeTheme.of(context);
+          return Container(
+            margin: Insets.section,
+            padding: Insets.card,
+            decoration: BoxDecoration(
+              color: ocTheme.backgroundPanel,
+              borderRadius: Radii.brLg,
+              border: Border.all(color: ocTheme.borderSubtle, width: 1),
             ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: ocTheme.bgHighlight,
-                  borderRadius: Radii.brMd,
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: ocTheme.bgHighlight,
+                    borderRadius: Radii.brMd,
+                  ),
+                  child: Icon(
+                    AppIcons.subscription,
+                    color: ocTheme.warning,
+                    size: 24,
+                  ),
                 ),
-                child: Icon(
-                  AppIcons.subscription,
-                  color: ocTheme.warning,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Upgrade to Pro',
-                      style: TextStyle(
-                        color: ocTheme.text,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Upgrade to Pro',
+                        style: TextStyle(
+                          color: ocTheme.text,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                    SizedBox(height: Spacing.xxs),
-                    Text(
-                      'Unlock all features • ${sub.monthlyPriceText ?? '\$9.99'}/mo',
-                      style: TextStyle(
-                        color: ocTheme.textMuted,
-                        fontSize: 13,
+                      SizedBox(height: Spacing.xxs),
+                      Text(
+                        'Unlock all features • ${sub.monthlyPriceText ?? '\$9.99'}/mo',
+                        style: TextStyle(
+                          color: ocTheme.textMuted,
+                          fontSize: 13,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              Icon(
-                AppIcons.chevronRight,
-                color: ocTheme.textMuted,
-                size: 24,
-              ),
-            ],
-          ),
-        );
-      }),
+                Icon(AppIcons.chevronRight, color: ocTheme.textMuted, size: 24),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }

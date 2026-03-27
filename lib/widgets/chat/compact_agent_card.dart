@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +14,7 @@ import '../../theme/opencode_theme.dart';
 import '../../theme/tool_style.dart';
 import 'detail_sheet.dart';
 import 'package:broski/theme/app_icons.dart';
+
 /// A compact card for Task/subagent tool calls and subtask notifications.
 /// Shows agent name and brief description.
 /// Tapping opens sheet with prompt, tool calls, and output.
@@ -22,10 +22,12 @@ class CompactAgentCard extends ConsumerWidget {
   final ToolCall? _tool;
   final SubtaskNotification? _notification;
   final String? messageId;
+
   /// Create from a ToolCall (Task tool)
   const CompactAgentCard({super.key, required ToolCall tool, this.messageId})
     : _tool = tool,
       _notification = null;
+
   /// Create from a SubtaskNotification (background task completion)
   const CompactAgentCard.fromNotification({
     super.key,
@@ -33,8 +35,10 @@ class CompactAgentCard extends ConsumerWidget {
     this.messageId,
   }) : _notification = notification,
        _tool = null;
+
   /// Whether this card is for a notification (vs a tool call)
   bool get _isNotification => _notification != null;
+
   /// Extract agent type
   String get _agentType {
     if (_isNotification) {
@@ -47,6 +51,7 @@ class CompactAgentCard extends ConsumerWidget {
         tool.input['name'] as String? ??
         'general';
   }
+
   /// Extract description
   String get _description {
     if (_isNotification) {
@@ -56,6 +61,7 @@ class CompactAgentCard extends ConsumerWidget {
     if (tool == null) return '';
     return tool.input['description'] as String? ?? '';
   }
+
   /// Extract prompt
   String get _prompt {
     if (_isNotification) {
@@ -65,6 +71,7 @@ class CompactAgentCard extends ConsumerWidget {
     if (tool == null) return '';
     return tool.input['prompt'] as String? ?? '';
   }
+
   /// Get status string
   String get _status {
     if (_isNotification) {
@@ -74,6 +81,7 @@ class CompactAgentCard extends ConsumerWidget {
     if (tool == null) return 'running';
     return tool.status;
   }
+
   /// Get output
   String? get _output {
     if (_isNotification) {
@@ -86,6 +94,7 @@ class CompactAgentCard extends ConsumerWidget {
     }
     return _tool?.output;
   }
+
   /// Get agent-specific icon
   IconData _getAgentIcon() {
     switch (_agentType.toLowerCase()) {
@@ -107,6 +116,7 @@ class CompactAgentCard extends ConsumerWidget {
         return AppIcons.agent;
     }
   }
+
   /// Get agent-specific color
   Color _getAgentColor(OpenCodeTheme theme) {
     switch (_agentType.toLowerCase()) {
@@ -126,10 +136,12 @@ class CompactAgentCard extends ConsumerWidget {
         return theme.info;
     }
   }
+
   String _capitalize(String s) {
     if (s.isEmpty) return s;
     return s[0].toUpperCase() + s.substring(1);
   }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = OpenCodeTheme.of(context);
@@ -171,10 +183,7 @@ class CompactAgentCard extends ConsumerWidget {
         clipBehavior: Clip.antiAlias,
         child: Container(
           padding: EdgeInsets.symmetric(horizontal: Spacing.md, vertical: 10),
-          decoration: BoxDecoration(
-            color: headerBg,
-            borderRadius: Radii.brMd,
-          ),
+          decoration: BoxDecoration(color: headerBg, borderRadius: Radii.brMd),
           child: Row(
             children: [
               // Agent icon
@@ -250,6 +259,7 @@ class CompactAgentCard extends ConsumerWidget {
       ),
     );
   }
+
   /// Extract step-level token usage from tool metadata (populated by chat_provider).
   Map<String, dynamic>? get _stepTokens {
     final meta = _tool?.metadata;
@@ -342,8 +352,10 @@ class CompactAgentCard extends ConsumerWidget {
                     styleSheet: _buildMarkdownStyle(theme),
                     onTapLink: (_, href, __) {
                       if (href != null) {
-                        launchUrl(Uri.parse(href),
-                            mode: LaunchMode.externalApplication);
+                        launchUrl(
+                          Uri.parse(href),
+                          mode: LaunchMode.externalApplication,
+                        );
                       }
                     },
                   ),
@@ -352,6 +364,7 @@ class CompactAgentCard extends ConsumerWidget {
       ),
     );
   }
+
   void _showFullActivitySheet(
     BuildContext context,
     List<Map<String, String>> nestedTools,
@@ -421,9 +434,11 @@ class CompactAgentCard extends ConsumerWidget {
       ),
     );
   }
+
   /// Build markdown style matching the main chat
   MarkdownStyleSheet _buildMarkdownStyle(OpenCodeTheme theme) =>
       MarkdownStyles.compact(theme);
+
   /// Parse nested tool calls from tool metadata (populated by chat_provider)
   List<Map<String, String>> _parseNestedToolCalls() {
     try {
@@ -454,6 +469,7 @@ class CompactAgentCard extends ConsumerWidget {
     }
   }
 }
+
 /// A row displaying a nested tool call within the agent detail sheet
 class _NestedToolRow extends StatelessWidget {
   final String toolName;
@@ -493,6 +509,7 @@ class _NestedToolRow extends StatelessWidget {
       ),
     );
   }
+
   String _capitalize(String s) {
     if (s.isEmpty) return s;
     return s[0].toUpperCase() + s.substring(1);
@@ -561,17 +578,41 @@ class _TokenUsageSection extends StatelessWidget {
               runSpacing: 4,
               children: [
                 if (total > 0)
-                  _TokenChip(label: 'Total', value: _fmt(total), color: theme.text),
+                  _TokenChip(
+                    label: 'Total',
+                    value: _fmt(total),
+                    color: theme.text,
+                  ),
                 if (input > 0)
-                  _TokenChip(label: 'In', value: _fmt(input), color: theme.info),
+                  _TokenChip(
+                    label: 'In',
+                    value: _fmt(input),
+                    color: theme.info,
+                  ),
                 if (output > 0)
-                  _TokenChip(label: 'Out', value: _fmt(output), color: theme.success),
+                  _TokenChip(
+                    label: 'Out',
+                    value: _fmt(output),
+                    color: theme.success,
+                  ),
                 if (reasoning > 0)
-                  _TokenChip(label: 'Think', value: _fmt(reasoning), color: theme.accent),
+                  _TokenChip(
+                    label: 'Think',
+                    value: _fmt(reasoning),
+                    color: theme.accent,
+                  ),
                 if (cacheRead > 0)
-                  _TokenChip(label: 'Cache↓', value: _fmt(cacheRead), color: theme.textMuted),
+                  _TokenChip(
+                    label: 'Cache↓',
+                    value: _fmt(cacheRead),
+                    color: theme.textMuted,
+                  ),
                 if (cacheWrite > 0)
-                  _TokenChip(label: 'Cache↑', value: _fmt(cacheWrite), color: theme.textMuted),
+                  _TokenChip(
+                    label: 'Cache↑',
+                    value: _fmt(cacheWrite),
+                    color: theme.textMuted,
+                  ),
               ],
             ),
           ],

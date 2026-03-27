@@ -6,6 +6,7 @@ import '../../theme/app_typography.dart';
 import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import '../../widgets/chat/detail_sheet.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Shows the agents selection sheet. Extracted from chat_screen.dart.
 ///
@@ -55,8 +56,7 @@ void showAgentsDialog(
                 agent.name,
                 style: TextStyle(
                   color: theme.text,
-                  fontWeight:
-                      isSelected ? FontWeight.w600 : FontWeight.normal,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
               subtitle: agent.description != null
@@ -71,9 +71,7 @@ void showAgentsDialog(
               onTap: () {
                 onAgentSelected(agent.name);
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Selected ${agent.name} agent')),
-                );
+                showInfo(context, 'Selected ${agent.name} agent');
               },
             );
           }),

@@ -33,10 +33,7 @@ Widget? buildCcSystemMessageCard({
             ),
           ),
           const SizedBox(height: 6),
-          Text(
-            message.text,
-            style: AppTypography.codeSmall(color: theme.text),
-          ),
+          Text(message.text, style: AppTypography.codeSmall(color: theme.text)),
         ],
       ),
     );

@@ -9,6 +9,7 @@ import '../../providers/selection_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../utils/error_utils.dart';
 import '../sessions_screen.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Callbacks from [_ChatScreenState] that slash commands delegate to.
 class CommandCallbacks {
@@ -71,22 +72,16 @@ Future<void> handleSlashCommand({
               projectPath: project.path,
             );
             if (context.mounted) {
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(const SnackBar(content: Text('Message undone')));
+              showInfo(context, 'Message undone');
             }
           } catch (e) {
             if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Failed to undo: ${humanizeError(e)}')),
-              );
+              showInfo(context, 'Failed to undo: ${humanizeError(e)}');
             }
           }
         } else {
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('No messages to undo')),
-            );
+            showInfo(context, 'No messages to undo');
           }
         }
         break;
@@ -94,15 +89,11 @@ Future<void> handleSlashCommand({
         try {
           await bridge.unrevertSession(session.id, projectPath: project.path);
           if (context.mounted) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('Message redone')));
+            showInfo(context, 'Message redone');
           }
         } catch (e) {
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Failed to redo: ${humanizeError(e)}')),
-            );
+            showInfo(context, 'Failed to redo: ${humanizeError(e)}');
           }
         }
         break;
@@ -127,18 +118,12 @@ Future<void> handleSlashCommand({
             }
           } catch (e) {
             if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Failed to compact: ${humanizeError(e)}'),
-                ),
-              );
+              showInfo(context, 'Failed to compact: ${humanizeError(e)}');
             }
           }
         } else {
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Model not configured')),
-            );
+            showInfo(context, 'Model not configured');
           }
         }
         break;

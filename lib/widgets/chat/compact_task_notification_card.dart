@@ -64,11 +64,7 @@ class CompactTaskNotificationCard extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
           children: [
-            Icon(
-              _statusIcon(),
-              size: 16,
-              color: _statusColor(theme),
-            ),
+            Icon(_statusIcon(), size: 16, color: _statusColor(theme)),
             const SizedBox(width: 8),
             Expanded(
               child: Column(
@@ -103,8 +99,10 @@ class CompactTaskNotificationCard extends ConsumerWidget {
               GestureDetector(
                 onTap: onStop,
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: theme.error.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),

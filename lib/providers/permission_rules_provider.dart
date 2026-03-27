@@ -71,4 +71,3 @@ final permissionRulesProvider =
     StateNotifierProvider<PermissionRulesNotifier, PermissionRulesState>((ref) {
       return PermissionRulesNotifier(StorageService());
     });
-

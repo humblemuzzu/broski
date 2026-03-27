@@ -19,8 +19,7 @@ void showCxRateLimitsSheet(BuildContext context) {
   );
 }
 
-final _cxRateLimitsProvider =
-    FutureProvider<Map<String, dynamic>>((ref) async {
+final _cxRateLimitsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final bridge = ref.watch(bridgeServiceProvider);
   return bridge.cxReadRateLimits();
 });
@@ -72,9 +71,15 @@ class _CxRateLimitsContent extends ConsumerWidget {
               if (limits.isNotEmpty)
                 ...limits.map((limit) {
                   if (limit is! Map) return const SizedBox.shrink();
-                  final name = limit['name']?.toString() ?? limit['type']?.toString() ?? 'Unknown';
+                  final name =
+                      limit['name']?.toString() ??
+                      limit['type']?.toString() ??
+                      'Unknown';
                   final used = (limit['used'] as num?)?.toDouble() ?? 0;
-                  final max = (limit['limit'] as num?)?.toDouble() ?? (limit['max'] as num?)?.toDouble() ?? 1;
+                  final max =
+                      (limit['limit'] as num?)?.toDouble() ??
+                      (limit['max'] as num?)?.toDouble() ??
+                      1;
                   final ratio = max > 0 ? (used / max).clamp(0.0, 1.0) : 0.0;
                   final usedStr = _formatNumber(used);
                   final maxStr = _formatNumber(max);
@@ -88,11 +93,15 @@ class _CxRateLimitsContent extends ConsumerWidget {
                           children: [
                             Text(
                               name,
-                              style: AppTypography.labelLarge(color: theme.text),
+                              style: AppTypography.labelLarge(
+                                color: theme.text,
+                              ),
                             ),
                             Text(
                               '$usedStr / $maxStr',
-                              style: AppTypography.label(color: theme.textMuted),
+                              style: AppTypography.label(
+                                color: theme.textMuted,
+                              ),
                             ),
                           ],
                         ),
@@ -106,8 +115,8 @@ class _CxRateLimitsContent extends ConsumerWidget {
                             color: ratio > 0.9
                                 ? theme.error
                                 : ratio > 0.7
-                                    ? Colors.orange
-                                    : theme.primary,
+                                ? Colors.orange
+                                : theme.primary,
                           ),
                         ),
                       ],
@@ -118,25 +127,31 @@ class _CxRateLimitsContent extends ConsumerWidget {
                 // Fallback: render raw data as key-value pairs
                 ...data.entries
                     .where((e) => e.key != 'limits')
-                    .map((e) => Padding(
-                          padding: const EdgeInsets.only(bottom: 6),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                e.key,
-                                style: AppTypography.label(color: theme.textMuted),
+                    .map(
+                      (e) => Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              e.key,
+                              style: AppTypography.label(
+                                color: theme.textMuted,
                               ),
-                              Flexible(
-                                child: Text(
-                                  '${e.value}',
-                                  style: AppTypography.labelLarge(color: theme.text),
-                                  textAlign: TextAlign.end,
+                            ),
+                            Flexible(
+                              child: Text(
+                                '${e.value}',
+                                style: AppTypography.labelLarge(
+                                  color: theme.text,
                                 ),
+                                textAlign: TextAlign.end,
                               ),
-                            ],
-                          ),
-                        )),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
               ],
               if (resetsAt.isNotEmpty) ...[
                 SizedBox(height: Spacing.sm),

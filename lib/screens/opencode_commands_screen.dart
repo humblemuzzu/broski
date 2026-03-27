@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -14,12 +13,15 @@ import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+
 class OpenCodeCommandsScreen extends ConsumerStatefulWidget {
   const OpenCodeCommandsScreen({super.key});
   @override
   ConsumerState<OpenCodeCommandsScreen> createState() =>
       _OpenCodeCommandsScreenState();
 }
+
 class _OpenCodeCommandsScreenState
     extends ConsumerState<OpenCodeCommandsScreen> {
   List<OpenCodeMarkdownFile> _files = const [];
@@ -31,6 +33,7 @@ class _OpenCodeCommandsScreenState
     super.initState();
     _load();
   }
+
   Future<void> _load() async {
     setState(() {
       _isLoading = true;
@@ -54,6 +57,7 @@ class _OpenCodeCommandsScreenState
       });
     }
   }
+
   Future<void> _open(OpenCodeMarkdownFile file) async {
     final selection = ref.read(selectionProvider);
     final cwd = selection.project?.path;
@@ -95,11 +99,10 @@ class _OpenCodeCommandsScreenState
       if (changed == true) await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to load command: ${humanizeError(e)}')));
+      showInfo(context, 'Failed to load command: ${humanizeError(e)}');
     }
   }
+
   Future<void> _create() async {
     final selection = ref.read(selectionProvider);
     final cwd = selection.project?.path;
@@ -126,9 +129,7 @@ class _OpenCodeCommandsScreenState
           for (final s in sources)
             ListTile(
               leading: Icon(
-                s == SkillSource.project
-                    ? AppIcons.folder
-                    : AppIcons.person,
+                s == SkillSource.project ? AppIcons.folder : AppIcons.person,
               ),
               title: Text(s.displayName),
               onTap: () => Navigator.pop(context, s),
@@ -170,6 +171,7 @@ class _OpenCodeCommandsScreenState
     );
     if (changed == true) await _load();
   }
+
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
@@ -200,86 +202,89 @@ class _OpenCodeCommandsScreenState
       body: AdaptiveContainer(
         width: ContentWidth.standard,
         child: SafeArea(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _error != null
-            ? Center(
-                child: Padding(
-                  padding: Insets.card,
-                  child: Text(
-                    _error!,
-                    style: TextStyle(color: oc.textMuted),
-                    textAlign: TextAlign.center,
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+              ? Center(
+                  child: Padding(
+                    padding: Insets.card,
+                    child: Text(
+                      _error!,
+                      style: TextStyle(color: oc.textMuted),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
-                ),
-              )
-            : RefreshIndicator(
-                onRefresh: _load,
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                  children: [
-                    if (selection.project == null)
-                      Padding(
-                        padding: Insets.bottomMd,
-                        child: Text(
-                          'Select a project to manage project-level commands.',
-                          style: TextStyle(color: oc.textMuted),
-                        ),
-                      ),
-                    if (_files.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 24),
-                        child: Center(
+                )
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                    children: [
+                      if (selection.project == null)
+                        Padding(
+                          padding: Insets.bottomMd,
                           child: Text(
-                            'No custom commands found',
+                            'Select a project to manage project-level commands.',
                             style: TextStyle(color: oc.textMuted),
                           ),
                         ),
-                      )
-                    else ...[
-                      for (final entry in [
-                        SkillSource.project,
-                        SkillSource.user,
-                      ])
-                        if (bySource[entry]?.isNotEmpty == true) ...[
-                          Padding(
-                            padding: const EdgeInsets.only(top: 12, bottom: 6),
+                      if (_files.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 24),
+                          child: Center(
                             child: Text(
-                              entry.displayName,
-                              style: TextStyle(
-                                color: oc.textMuted,
-                                fontWeight: FontWeight.w600,
-                              ),
+                              'No custom commands found',
+                              style: TextStyle(color: oc.textMuted),
                             ),
                           ),
-                          ...bySource[entry]!.map(
-                            (f) => Card(
-                              color: oc.backgroundPanel,
-                              child: ListTile(
-                                title: Text(
-                                  '/${f.name}',
-                                  style: TextStyle(color: oc.text),
-                                ),
-                                subtitle: Text(
-                                  f.description ?? f.path,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(color: oc.textMuted),
-                                ),
-                                trailing: Icon(
-                                  AppIcons.chevronRight,
+                        )
+                      else ...[
+                        for (final entry in [
+                          SkillSource.project,
+                          SkillSource.user,
+                        ])
+                          if (bySource[entry]?.isNotEmpty == true) ...[
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                top: 12,
+                                bottom: 6,
+                              ),
+                              child: Text(
+                                entry.displayName,
+                                style: TextStyle(
                                   color: oc.textMuted,
+                                  fontWeight: FontWeight.w600,
                                 ),
-                                onTap: () => _open(f),
                               ),
                             ),
-                          ),
-                        ],
+                            ...bySource[entry]!.map(
+                              (f) => Card(
+                                color: oc.backgroundPanel,
+                                child: ListTile(
+                                  title: Text(
+                                    '/${f.name}',
+                                    style: TextStyle(color: oc.text),
+                                  ),
+                                  subtitle: Text(
+                                    f.description ?? f.path,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(color: oc.textMuted),
+                                  ),
+                                  trailing: Icon(
+                                    AppIcons.chevronRight,
+                                    color: oc.textMuted,
+                                  ),
+                                  onTap: () => _open(f),
+                                ),
+                              ),
+                            ),
+                          ],
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-      ),
+        ),
       ),
     );
   }

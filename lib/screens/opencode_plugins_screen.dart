@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_typography.dart';
@@ -13,12 +12,15 @@ import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+
 class OpenCodePluginsScreen extends ConsumerStatefulWidget {
   const OpenCodePluginsScreen({super.key});
   @override
   ConsumerState<OpenCodePluginsScreen> createState() =>
       _OpenCodePluginsScreenState();
 }
+
 class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
   List<OpenCodePluginFile> _files = const [];
   bool _loading = true;
@@ -28,6 +30,7 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
     super.initState();
     _load();
   }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -50,6 +53,7 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
       });
     }
   }
+
   Future<void> _open(OpenCodePluginFile file) async {
     final cwd = ref.read(selectionProvider).project?.path;
     final bridge = ref.read(bridgeServiceProvider);
@@ -79,11 +83,10 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
       await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to open: ${humanizeError(e)}')),
-      );
+      showInfo(context, 'Failed to open: ${humanizeError(e)}');
     }
   }
+
   Future<void> _create() async {
     final cwd = ref.read(selectionProvider).project?.path;
     final sources = <SkillSource>[
@@ -163,12 +166,11 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
     );
     if (!mounted) return;
     if (!ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to create plugin file')),
-      );
+      showInfo(context, 'Failed to create plugin file');
     }
     await _load();
   }
+
   Future<void> _delete(OpenCodePluginFile file) async {
     final cwd = ref.read(selectionProvider).project?.path;
     final confirmed = await showDialog<bool>(
@@ -183,7 +185,9 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Theme.of(ctx).extension<OpenCodeTheme>()!.error),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(ctx).extension<OpenCodeTheme>()!.error,
+            ),
             child: const Text('Delete'),
           ),
         ],
@@ -198,12 +202,11 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
     );
     if (!mounted) return;
     if (!ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to delete plugin file')),
-      );
+      showInfo(context, 'Failed to delete plugin file');
     }
     await _load();
   }
+
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
@@ -211,9 +214,10 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
     for (final f in _files) {
       grouped.putIfAbsent(f.source, () => []).add(f);
     }
-    final order = [SkillSource.project, SkillSource.user]
-        .where(grouped.containsKey)
-        .toList();
+    final order = [
+      SkillSource.project,
+      SkillSource.user,
+    ].where(grouped.containsKey).toList();
     return Scaffold(
       backgroundColor: oc.background,
       appBar: AppBar(
@@ -237,99 +241,103 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
       body: AdaptiveContainer(
         width: ContentWidth.standard,
         child: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-          ? Center(
-              child: Padding(
-                padding: Insets.cardLg,
-                child: Text(_error!, style: TextStyle(color: oc.textMuted)),
-              ),
-            )
-          : _files.isEmpty
-          ? Center(
-              child: Padding(
-                padding: Insets.cardLg,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(AppIcons.extension_, color: oc.textMuted, size: 56),
-                    SizedBox(height: Spacing.md),
-                    Text('No plugin files', style: TextStyle(color: oc.text)),
-                    SizedBox(height: Spacing.sm),
-                    Text(
-                      'Create a plugin file to add OpenCode hooks.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: oc.textMuted),
-                    ),
-                    SizedBox(height: Spacing.lg),
-                    ElevatedButton.icon(
-                      onPressed: _create,
-                      icon: const Icon(AppIcons.add),
-                      label: const Text('Create'),
-                    ),
-                  ],
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+            ? Center(
+                child: Padding(
+                  padding: Insets.cardLg,
+                  child: Text(_error!, style: TextStyle(color: oc.textMuted)),
                 ),
-              ),
-            )
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-              children: [
-                for (final source in order) ...[
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Text(
-                      source.displayName.toUpperCase(),
-                      style: TextStyle(
-                        color: oc.textMuted,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
+              )
+            : _files.isEmpty
+            ? Center(
+                child: Padding(
+                  padding: Insets.cardLg,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(AppIcons.extension_, color: oc.textMuted, size: 56),
+                      SizedBox(height: Spacing.md),
+                      Text('No plugin files', style: TextStyle(color: oc.text)),
+                      SizedBox(height: Spacing.sm),
+                      Text(
+                        'Create a plugin file to add OpenCode hooks.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: oc.textMuted),
+                      ),
+                      SizedBox(height: Spacing.lg),
+                      ElevatedButton.icon(
+                        onPressed: _create,
+                        icon: const Icon(AppIcons.add),
+                        label: const Text('Create'),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            : ListView(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                children: [
+                  for (final source in order) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Text(
+                        source.displayName.toUpperCase(),
+                        style: TextStyle(
+                          color: oc.textMuted,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8,
+                        ),
                       ),
                     ),
-                  ),
-                  ...grouped[source]!.map((f) {
-                    return Card(
-                      color: oc.backgroundElement,
-                      margin: const EdgeInsets.only(bottom: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: Radii.brMd,
-                        side: BorderSide(color: oc.border),
-                      ),
-                      child: ListTile(
-                        onTap: () => _open(f),
-                        title: Text(
-                          f.name,
-                          style: TextStyle(
-                            color: oc.text,
-                            fontWeight: FontWeight.w600,
+                    ...grouped[source]!.map((f) {
+                      return Card(
+                        color: oc.backgroundElement,
+                        margin: const EdgeInsets.only(bottom: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: Radii.brMd,
+                          side: BorderSide(color: oc.border),
+                        ),
+                        child: ListTile(
+                          onTap: () => _open(f),
+                          title: Text(
+                            f.name,
+                            style: TextStyle(
+                              color: oc.text,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          subtitle: Text(
+                            f.path,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.label(color: oc.textMuted),
+                          ),
+                          trailing: PopupMenuButton<String>(
+                            onSelected: (v) {
+                              if (v == 'open') _open(f);
+                              if (v == 'delete') _delete(f);
+                            },
+                            itemBuilder: (_) => const [
+                              PopupMenuItem(value: 'open', child: Text('Open')),
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Text('Delete'),
+                              ),
+                            ],
                           ),
                         ),
-                        subtitle: Text(
-                          f.path,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTypography.label(color: oc.textMuted),
-                        ),
-                        trailing: PopupMenuButton<String>(
-                          onSelected: (v) {
-                            if (v == 'open') _open(f);
-                            if (v == 'delete') _delete(f);
-                          },
-                          itemBuilder: (_) => const [
-                            PopupMenuItem(value: 'open', child: Text('Open')),
-                            PopupMenuItem(value: 'delete', child: Text('Delete')),
-                          ],
-                        ),
-                      ),
-                    );
-                  }),
+                      );
+                    }),
+                  ],
                 ],
-              ],
-            ),
+              ),
       ),
     );
   }
 }
+
 class _PluginEditorScreen extends StatefulWidget {
   const _PluginEditorScreen({
     required this.title,
@@ -342,6 +350,7 @@ class _PluginEditorScreen extends StatefulWidget {
   @override
   State<_PluginEditorScreen> createState() => _PluginEditorScreenState();
 }
+
 class _PluginEditorScreenState extends State<_PluginEditorScreen> {
   late final TextEditingController _controller;
   bool _saving = false;
@@ -350,13 +359,14 @@ class _PluginEditorScreenState extends State<_PluginEditorScreen> {
     super.initState();
     _controller = TextEditingController(text: widget.initialContent);
   }
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
+
   Future<void> _save() async {
-    final oc = OpenCodeTheme.of(context);
     setState(() => _saving = true);
     try {
       final ok = await widget.onSave(_controller.text);
@@ -364,14 +374,13 @@ class _PluginEditorScreenState extends State<_PluginEditorScreen> {
       if (ok) {
         Navigator.pop(context);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: const Text('Save failed'), backgroundColor: oc.error),
-        );
+        showError(context, 'Save failed');
       }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
@@ -389,7 +398,10 @@ class _PluginEditorScreenState extends State<_PluginEditorScreen> {
               child: SizedBox(
                 width: 20,
                 height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, color: oc.primary),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: oc.primary,
+                ),
               ),
             )
           else
@@ -397,7 +409,10 @@ class _PluginEditorScreenState extends State<_PluginEditorScreen> {
               onPressed: _save,
               child: Text(
                 'Save',
-                style: TextStyle(color: oc.primary, fontWeight: FontWeight.w700),
+                style: TextStyle(
+                  color: oc.primary,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
         ],
@@ -405,22 +420,22 @@ class _PluginEditorScreenState extends State<_PluginEditorScreen> {
       body: AdaptiveContainer(
         width: ContentWidth.standard,
         child: Padding(
-        padding: Insets.card,
-        child: TextField(
-          controller: _controller,
-          maxLines: null,
-          expands: true,
-          style: AppTypography.code(),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: oc.backgroundElement,
-            border: OutlineInputBorder(
-              borderRadius: Radii.brMd,
-              borderSide: BorderSide(color: oc.border),
+          padding: Insets.card,
+          child: TextField(
+            controller: _controller,
+            maxLines: null,
+            expands: true,
+            style: AppTypography.code(),
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: oc.backgroundElement,
+              border: OutlineInputBorder(
+                borderRadius: Radii.brMd,
+                borderSide: BorderSide(color: oc.border),
+              ),
             ),
           ),
         ),
-      ),
       ),
     );
   }

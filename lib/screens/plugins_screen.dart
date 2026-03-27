@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,11 +11,13 @@ import '../widgets/claude_code_help.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
+
 class PluginsScreen extends ConsumerStatefulWidget {
   const PluginsScreen({super.key});
   @override
   ConsumerState<PluginsScreen> createState() => _PluginsScreenState();
 }
+
 class _PluginsScreenState extends ConsumerState<PluginsScreen> {
   @override
   void initState() {
@@ -26,6 +27,7 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen> {
       ref.read(ccPluginsProvider.notifier).load();
     });
   }
+
   @override
   Widget build(BuildContext context) {
     final pluginsAsync = ref.watch(ccPluginsProvider);
@@ -59,23 +61,25 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen> {
       body: AdaptiveContainer(
         width: ContentWidth.standard,
         child: pluginsAsync.when(
-        data: (plugins) => plugins.isEmpty
-            ? _EmptyState(onAddPlugin: () => _addPluginPath(context))
-            : _PluginsList(
-                plugins: plugins,
-                onTogglePlugin: (plugin, enabled) =>
-                    _togglePlugin(plugin, enabled),
-                onViewDetails: (plugin) => _showPluginDetails(context, plugin),
-              ),
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => _ErrorState(
-          error: error.toString(),
-          onRetry: () => ref.read(ccPluginsProvider.notifier).load(),
+          data: (plugins) => plugins.isEmpty
+              ? _EmptyState(onAddPlugin: () => _addPluginPath(context))
+              : _PluginsList(
+                  plugins: plugins,
+                  onTogglePlugin: (plugin, enabled) =>
+                      _togglePlugin(plugin, enabled),
+                  onViewDetails: (plugin) =>
+                      _showPluginDetails(context, plugin),
+                ),
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, _) => _ErrorState(
+            error: error.toString(),
+            onRetry: () => ref.read(ccPluginsProvider.notifier).load(),
+          ),
         ),
-      ),
       ),
     );
   }
+
   Future<void> _togglePlugin(ClaudeCodePlugin plugin, bool enabled) async {
     final success = await ref
         .read(ccPluginsProvider.notifier)
@@ -89,6 +93,7 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen> {
       );
     }
   }
+
   void _addPluginPath(BuildContext context) {
     final controller = TextEditingController();
     final theme = Theme.of(context);
@@ -157,6 +162,7 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen> {
       ),
     );
   }
+
   void _showPluginDetails(BuildContext context, ClaudeCodePlugin plugin) {
     DetailSheet.show(
       context: context,
@@ -188,6 +194,7 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen> {
     );
   }
 }
+
 class _EmptyState extends StatelessWidget {
   final VoidCallback onAddPlugin;
   const _EmptyState({required this.onAddPlugin});
@@ -240,6 +247,7 @@ class _EmptyState extends StatelessWidget {
     );
   }
 }
+
 class _ErrorState extends StatelessWidget {
   final String error;
   final VoidCallback onRetry;
@@ -285,6 +293,7 @@ class _ErrorState extends StatelessWidget {
     );
   }
 }
+
 class _PluginsList extends StatelessWidget {
   final List<ClaudeCodePlugin> plugins;
   final void Function(ClaudeCodePlugin, bool) onTogglePlugin;
@@ -319,11 +328,7 @@ class _PluginsList extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(
-                AppIcons.info,
-                color: theme.colorScheme.primary,
-                size: 20,
-              ),
+              Icon(AppIcons.info, color: theme.colorScheme.primary, size: 20),
               SizedBox(width: Spacing.md),
               Expanded(
                 child: Text(
@@ -376,6 +381,7 @@ class _PluginsList extends StatelessWidget {
     );
   }
 }
+
 class _SectionHeader extends StatelessWidget {
   final String title;
   final int count;
@@ -416,6 +422,7 @@ class _SectionHeader extends StatelessWidget {
     );
   }
 }
+
 class _PluginCard extends StatelessWidget {
   final ClaudeCodePlugin plugin;
   final void Function(bool) onToggle;
@@ -533,10 +540,7 @@ class _PluginCard extends StatelessWidget {
                       label: 'hooks',
                     ),
                   if (plugin.hasMcpServers == true)
-                    const _ComponentBadge(
-                      icon: AppIcons.dns,
-                      label: 'MCP',
-                    ),
+                    const _ComponentBadge(icon: AppIcons.dns, label: 'MCP'),
                 ],
               ),
             ],
@@ -546,6 +550,7 @@ class _PluginCard extends StatelessWidget {
     );
   }
 }
+
 class _ComponentBadge extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -579,6 +584,7 @@ class _ComponentBadge extends StatelessWidget {
     );
   }
 }
+
 class _PluginDetailsContent extends StatelessWidget {
   final ClaudeCodePlugin plugin;
   final VoidCallback onRemovePath;
@@ -631,12 +637,7 @@ class _PluginDetailsContent extends StatelessWidget {
             title: 'Path',
             child: Row(
               children: [
-                Expanded(
-                  child: Text(
-                    plugin.path,
-                    style: AppTypography.code(),
-                  ),
-                ),
+                Expanded(child: Text(plugin.path, style: AppTypography.code())),
                 IconButton(
                   icon: const Icon(AppIcons.copy, size: 18),
                   onPressed: () {
@@ -725,8 +726,7 @@ class _PluginDetailsContent extends StatelessWidget {
             SizedBox(height: Spacing.xl),
           ],
           // Other components
-          if (plugin.hasHooks == true ||
-              plugin.hasMcpServers == true) ...[
+          if (plugin.hasHooks == true || plugin.hasMcpServers == true) ...[
             _DetailSection(
               title: 'Components',
               child: Wrap(
@@ -753,10 +753,7 @@ class _PluginDetailsContent extends StatelessWidget {
           // but we offer the option anyway since the bridge validates
           OutlinedButton.icon(
             onPressed: onRemovePath,
-            icon: Icon(
-              AppIcons.remove,
-              color: theme.colorScheme.error,
-            ),
+            icon: Icon(AppIcons.remove, color: theme.colorScheme.error),
             label: Text(
               'Remove Plugin Path',
               style: TextStyle(color: theme.colorScheme.error),
@@ -772,6 +769,7 @@ class _PluginDetailsContent extends StatelessWidget {
     );
   }
 }
+
 class _DetailSection extends StatelessWidget {
   final String title;
   final Widget child;
@@ -795,6 +793,7 @@ class _DetailSection extends StatelessWidget {
     );
   }
 }
+
 class _ComponentChip extends StatelessWidget {
   final IconData icon;
   final String label;

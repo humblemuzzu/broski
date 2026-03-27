@@ -24,6 +24,7 @@ import 'pi_new_session.dart';
 import 'pi_session_options_sheet.dart';
 import 'pi_active_sessions_section.dart';
 import 'pi_highlighted_sessions_section.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Pi sessions view. Extracted from sessions_screen.dart.
 class PiSessionsView extends ConsumerStatefulWidget {
@@ -132,20 +133,10 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
       );
       ref.invalidate(piSessionsProvider(null));
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Session deleted'),
-          backgroundColor: OpenCodeTheme.of(context).backgroundPanel,
-        ),
-      );
+      showSuccess(context, 'Session deleted');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to delete session: $e'),
-          backgroundColor: OpenCodeTheme.of(context).error,
-        ),
-      );
+      showError(context, 'Failed to delete session: $e');
     }
   }
 

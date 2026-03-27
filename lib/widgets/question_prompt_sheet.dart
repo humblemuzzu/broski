@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import '../theme/app_typography.dart';
 
@@ -6,6 +5,7 @@ import '../models/question.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'package:broski/theme/app_icons.dart';
+
 class QuestionPromptSheet extends StatefulWidget {
   const QuestionPromptSheet({
     super.key,
@@ -19,6 +19,7 @@ class QuestionPromptSheet extends StatefulWidget {
   @override
   State<QuestionPromptSheet> createState() => _QuestionPromptSheetState();
 }
+
 class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
   late final List<List<String>> _answers;
   late final List<String> _custom;
@@ -33,26 +34,31 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
     _custom = List.generate(_totalQuestions, (_) => '');
     _currentPage = 0;
   }
+
   bool get _currentAnswered {
     final a = _answers[_currentPage];
     return a.any((s) => s.trim().isNotEmpty);
   }
+
   bool get _allAnswered {
     for (final a in _answers) {
       if (!a.any((s) => s.trim().isNotEmpty)) return false;
     }
     return true;
   }
+
   void _submit() {
     if (_submitted) return;
     setState(() => _submitted = true);
     widget.onReply(_answers);
   }
+
   void _dismiss() {
     if (_submitted) return;
     setState(() => _submitted = true);
     widget.onReject();
   }
+
   void _pickSingle(int qi, String value) {
     setState(() {
       _answers[qi]
@@ -71,6 +77,7 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
       });
     }
   }
+
   void _toggleMulti(int qi, String value) {
     setState(() {
       final existing = _answers[qi];
@@ -81,6 +88,7 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
       }
     });
   }
+
   Future<void> _editCustom(int qi, {required bool multiple}) async {
     final theme = OpenCodeTheme.of(context);
     final controller = TextEditingController(text: _custom[qi]);
@@ -184,6 +192,7 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
       });
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -215,6 +224,7 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
       ),
     );
   }
+
   Widget _buildHeader(OpenCodeTheme theme) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 14, 12, 0),
@@ -227,11 +237,7 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
               color: theme.primary.withValues(alpha: 0.12),
               borderRadius: Radii.brMd,
             ),
-            child: Icon(
-              AppIcons.help,
-              size: 17,
-              color: theme.primary,
-            ),
+            child: Icon(AppIcons.help, size: 17, color: theme.primary),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -260,9 +266,7 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
             icon: Icon(AppIcons.close, size: 20, color: theme.textMuted),
             style: IconButton.styleFrom(
               backgroundColor: theme.bgRaised,
-              shape: RoundedRectangleBorder(
-                borderRadius: Radii.brMd,
-              ),
+              shape: RoundedRectangleBorder(borderRadius: Radii.brMd),
               minimumSize: const Size(36, 36),
               maximumSize: const Size(36, 36),
             ),
@@ -271,6 +275,7 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
       ),
     );
   }
+
   Widget _buildProgressDots(OpenCodeTheme theme) {
     return Padding(
       padding: const EdgeInsets.only(top: 12),
@@ -297,6 +302,7 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
       ),
     );
   }
+
   Widget _buildQuestionBody(
     OpenCodeTheme theme,
     QuestionInfo question,
@@ -366,6 +372,7 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
       ],
     );
   }
+
   Widget _buildFooter(OpenCodeTheme theme) {
     final showBackNext = !_isSingle;
     final isLast = _currentPage == _totalQuestions - 1;
@@ -410,6 +417,7 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
     );
   }
 }
+
 // ---------------------------------------------------------------------------
 // Option tile - modern card-style option
 // ---------------------------------------------------------------------------
@@ -473,11 +481,7 @@ class _OptionTile extends StatelessWidget {
                     ),
                   ),
                   child: isSelected
-                      ? Icon(
-                          AppIcons.check,
-                          size: 14,
-                          color: theme.bgSheet,
-                        )
+                      ? Icon(AppIcons.check, size: 14, color: theme.bgSheet)
                       : isCustom
                       ? Icon(
                           AppIcons.edit,
@@ -529,6 +533,7 @@ class _OptionTile extends StatelessWidget {
     );
   }
 }
+
 // ---------------------------------------------------------------------------
 // Footer button
 // ---------------------------------------------------------------------------

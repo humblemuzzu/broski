@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +10,7 @@ import '../providers/service_providers.dart';
 import '../theme/design_tokens.dart';
 import '../utils/responsive.dart';
 import 'package:broski/theme/app_icons.dart';
+
 /// "System Linked" screen shown after successful QR scan connection.
 /// Displays connection stats and detected projects/sessions/agents.
 class SystemLinkedScreen extends ConsumerStatefulWidget {
@@ -18,6 +18,7 @@ class SystemLinkedScreen extends ConsumerStatefulWidget {
   @override
   ConsumerState<SystemLinkedScreen> createState() => _SystemLinkedScreenState();
 }
+
 class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
     with TickerProviderStateMixin {
   late AnimationController _entryController;
@@ -50,6 +51,7 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
     });
     _loadStats();
   }
+
   Future<void> _loadStats() async {
     try {
       final bridge = ref.read(bridgeServiceProvider);
@@ -120,6 +122,7 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
       }
     }
   }
+
   @override
   void dispose() {
     _entryController.dispose();
@@ -127,10 +130,12 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
     _pulseController.dispose();
     super.dispose();
   }
+
   void _enterWorkspace() {
     HapticFeedback.mediumImpact();
     ref.read(onboardingProvider.notifier).completeOnboarding();
   }
+
   @override
   Widget build(BuildContext context) {
     final connectionState = ref.watch(connectionProvider);
@@ -154,7 +159,7 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
           padding: EdgeInsets.symmetric(
             horizontal: Responsive.onboardingHPadding(context, 32),
           ),
-            child: Column(
+          child: Column(
             children: [
               const Spacer(flex: 2),
               // Green check circle
@@ -323,6 +328,7 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
       ),
     );
   }
+
   String _getDeviceName(BridgeConnectionState state) {
     if (state.connectionType == ConnectionType.tailscale ||
         state.connectionType == ConnectionType.magicDNS) {
@@ -330,6 +336,7 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
     }
     return 'MacBook Pro';
   }
+
   Widget _divider() {
     return Padding(
       padding: Insets.cardV,
@@ -337,6 +344,7 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
     );
   }
 }
+
 class _StatRow extends StatelessWidget {
   const _StatRow({required this.label, required this.value, this.valueColor});
   final String label;

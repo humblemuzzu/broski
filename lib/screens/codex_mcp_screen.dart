@@ -11,6 +11,7 @@ import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 class CodexMcpScreen extends ConsumerStatefulWidget {
   const CodexMcpScreen({super.key});
@@ -80,7 +81,6 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
   }
 
   Future<void> _save() async {
-    final oc = OpenCodeTheme.of(context);
     final servers = _mcpServers();
     try {
       final bridge = ref.read(bridgeServiceProvider);
@@ -95,21 +95,11 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
       );
       if (!mounted) return;
       setState(() => _dirty = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Saved Codex MCP config'),
-          backgroundColor: oc.backgroundPanel,
-        ),
-      );
+      showSuccess(context, 'Saved Codex MCP config');
       await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to save: ${humanizeError(e)}'),
-          backgroundColor: oc.error,
-        ),
-      );
+      showError(context, 'Failed to save: ${humanizeError(e)}');
     }
   }
 
@@ -136,12 +126,7 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
       await _load(); // Refresh status after reload
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to reload: ${humanizeError(e)}'),
-          backgroundColor: oc.error,
-        ),
-      );
+      showError(context, 'Failed to reload: ${humanizeError(e)}');
     }
   }
 
@@ -280,13 +265,7 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('OAuth login failed: ${humanizeError(e)}'),
-          backgroundColor: oc.error,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      showError(context, 'OAuth login failed: ${humanizeError(e)}');
     }
   }
 
@@ -539,9 +518,7 @@ class _CodexMcpServerEditorScreenState
       }
       Navigator.pop(context, decoded.cast<String, dynamic>());
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Invalid JSON: ${humanizeError(e)}')),
-      );
+      showInfo(context, 'Invalid JSON: ${humanizeError(e)}');
     }
   }
 

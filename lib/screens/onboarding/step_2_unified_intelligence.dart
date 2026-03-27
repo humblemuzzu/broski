@@ -343,29 +343,11 @@ class _GridLinesPainter extends CustomPainter {
     final h = size.height;
     final w = size.width;
     // Line 1 (left ~30% x)
-    _drawFadedLine(
-      canvas,
-      size,
-      x: w * 0.30,
-      startY: h * 0.18,
-      endY: h * 0.88,
-    );
+    _drawFadedLine(canvas, size, x: w * 0.30, startY: h * 0.18, endY: h * 0.88);
     // Line 2 (center ~50% x)
-    _drawFadedLine(
-      canvas,
-      size,
-      x: w * 0.50,
-      startY: h * 0.24,
-      endY: h * 0.90,
-    );
+    _drawFadedLine(canvas, size, x: w * 0.50, startY: h * 0.24, endY: h * 0.90);
     // Line 3 (right ~70% x)
-    _drawFadedLine(
-      canvas,
-      size,
-      x: w * 0.70,
-      startY: h * 0.14,
-      endY: h * 0.92,
-    );
+    _drawFadedLine(canvas, size, x: w * 0.70, startY: h * 0.14, endY: h * 0.92);
   }
 
   void _drawFadedLine(

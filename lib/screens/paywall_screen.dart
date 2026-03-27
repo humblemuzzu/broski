@@ -1,4 +1,3 @@
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../theme/app_typography.dart';
@@ -15,8 +14,10 @@ import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import '../utils/responsive.dart';
 import 'package:broski/theme/app_icons.dart';
+
 class PaywallScreen extends ConsumerWidget {
   const PaywallScreen({super.key, this.showCloseButton = true});
+
   /// Whether to show the X close button (for Apple compliance).
   /// Set to false only during initial onboarding before any content is shown.
   final bool showCloseButton;
@@ -42,6 +43,7 @@ class PaywallScreen extends ConsumerWidget {
       Navigator.of(context).pop();
     }
   }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(appAuthProvider);
@@ -51,11 +53,11 @@ class PaywallScreen extends ConsumerWidget {
       backgroundColor: const Color(0xFF0A0A0A),
       body: SafeArea(
         child: Stack(
-            children: [
-              Padding(
-                padding: Responsive.isTablet(context)
-                    ? const EdgeInsets.symmetric(horizontal: 80, vertical: 24)
-                    : Insets.section,
+          children: [
+            Padding(
+              padding: Responsive.isTablet(context)
+                  ? const EdgeInsets.symmetric(horizontal: 80, vertical: 24)
+                  : Insets.section,
               child: Column(
                 children: [
                   // Main card with background image
@@ -285,81 +287,82 @@ class PaywallScreen extends ConsumerWidget {
                         ],
                         // Subscribe button
                         Center(
-                        child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxWidth: Responsive.buttonMaxWidth(context),
-                        ),
-                        child: GestureDetector(
-                          onTap: sub.isLoading
-                              ? null
-                              : () => ref
-                                    .read(appSubscriptionProvider.notifier)
-                                    .purchaseMonthly(),
-                          child: Container(
-                            width: double.infinity,
-                            height: 58,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: Radii.brFull,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: Responsive.buttonMaxWidth(context),
                             ),
-                            child: Center(
-                              child: AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 250),
-                                child: sub.isLoading
-                                    ? Row(
-                                        key: const ValueKey('loading'),
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          SizedBox(
-                                            width: 18,
-                                            height: 18,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              color: const Color(
-                                                0xFF111111,
-                                              ).withValues(alpha: 0.6),
-                                            ),
+                            child: GestureDetector(
+                              onTap: sub.isLoading
+                                  ? null
+                                  : () => ref
+                                        .read(appSubscriptionProvider.notifier)
+                                        .purchaseMonthly(),
+                              child: Container(
+                                width: double.infinity,
+                                height: 58,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: Radii.brFull,
+                                ),
+                                child: Center(
+                                  child: AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 250),
+                                    child: sub.isLoading
+                                        ? Row(
+                                            key: const ValueKey('loading'),
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              SizedBox(
+                                                width: 18,
+                                                height: 18,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                      color: const Color(
+                                                        0xFF111111,
+                                                      ).withValues(alpha: 0.6),
+                                                    ),
+                                              ),
+                                              const SizedBox(width: 10),
+                                              const Text(
+                                                'Hold tight...',
+                                                style: TextStyle(
+                                                  color: Color(0xFF111111),
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w600,
+                                                  letterSpacing: 0.2,
+                                                ),
+                                              ),
+                                            ],
+                                          )
+                                        : Row(
+                                            key: const ValueKey('cta'),
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              const Text(
+                                                "I'm In",
+                                                style: TextStyle(
+                                                  color: Color(0xFF111111),
+                                                  fontSize: 17,
+                                                  fontWeight: FontWeight.w700,
+                                                  letterSpacing: 0.3,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 10),
+                                              Icon(
+                                                AppIcons.forward,
+                                                color: const Color(0xFF111111),
+                                                size: 20,
+                                              ),
+                                            ],
                                           ),
-                                          const SizedBox(width: 10),
-                                          const Text(
-                                            'Hold tight...',
-                                            style: TextStyle(
-                                              color: Color(0xFF111111),
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                              letterSpacing: 0.2,
-                                            ),
-                                          ),
-                                        ],
-                                      )
-                                    : Row(
-                                        key: const ValueKey('cta'),
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          const Text(
-                                            "I'm In",
-                                            style: TextStyle(
-                                              color: Color(0xFF111111),
-                                              fontSize: 17,
-                                              fontWeight: FontWeight.w700,
-                                              letterSpacing: 0.3,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 10),
-                                          Icon(
-                                            AppIcons.forward,
-                                            color: const Color(0xFF111111),
-                                            size: 20,
-                                          ),
-                                        ],
-                                      ),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        ),
                         ),
                         const SizedBox(height: 14),
                         // Subscription disclosure + legal links (Apple 3.1.2)
@@ -552,11 +555,12 @@ class PaywallScreen extends ConsumerWidget {
                 ),
               ),
           ],
-          ),
+        ),
       ),
     );
   }
 }
+
 class _FeatureItem extends StatelessWidget {
   const _FeatureItem({required this.icon, required this.label});
   final IconData icon;

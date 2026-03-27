@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/service_providers.dart';
 import '../../theme/opencode_theme.dart';
 import '../../utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Shows a confirmation dialog and deletes a message part.
 Future<bool> deleteOpenCodePart(
@@ -61,12 +62,7 @@ Future<bool> deleteOpenCodePart(
     return ok;
   } catch (error) {
     if (!context.mounted) return false;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Failed to delete part: ${humanizeError(error)}'),
-        backgroundColor: OpenCodeTheme.of(context).error,
-      ),
-    );
+    showError(context, 'Failed to delete part: ${humanizeError(error)}');
     return false;
   }
 }
@@ -138,12 +134,7 @@ Future<bool> editOpenCodePart(
     return updated != null;
   } catch (error) {
     if (!context.mounted) return false;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Failed to update part: ${humanizeError(error)}'),
-        backgroundColor: OpenCodeTheme.of(context).error,
-      ),
-    );
+    showError(context, 'Failed to update part: ${humanizeError(error)}');
     return false;
   }
 }

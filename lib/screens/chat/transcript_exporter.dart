@@ -6,6 +6,7 @@ import '../../theme/opencode_theme.dart';
 import '../../widgets/chat/detail_sheet.dart';
 import '../../widgets/export_session_sheet.dart';
 import 'package:broski/theme/app_icons.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Shows the export transcript sheet (copy, share, or advanced options).
 /// Extracted from `_ChatScreenState._exportTranscript` in `chat_screen.dart`.
@@ -19,9 +20,7 @@ void exportTranscript({
   final theme = OpenCodeTheme.of(context);
   final chatState = ref.read(chatSessionProvider);
   if (chatState.messages.isEmpty) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('No messages to export')));
+    showInfo(context, 'No messages to export');
     return;
   }
   DetailSheet.show(

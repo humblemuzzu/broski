@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +13,8 @@ import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+
 /// Dedicated account / personal-info screen.
 ///
 /// Contains: profile header, manage subscription, restore purchases,
@@ -51,179 +52,180 @@ class AccountScreen extends ConsumerWidget {
       body: AdaptiveContainer(
         width: ContentWidth.standard,
         child: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        children: [
-          // ── Profile card ──────────────────────────────────────────
-          Container(
-            padding: Insets.screenAll,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surface.withValues(alpha: 0.5),
-              borderRadius: Radii.brXl,
-              border: Border.all(color: ocTheme.borderSubtle),
-            ),
-            child: Row(
-              children: [
-                // Avatar
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(
-                      _initials(displayName, email),
-                      style: TextStyle(
-                        color: theme.colorScheme.primary,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          children: [
+            // ── Profile card ──────────────────────────────────────────
+            Container(
+              padding: Insets.screenAll,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface.withValues(alpha: 0.5),
+                borderRadius: Radii.brXl,
+                border: Border.all(color: ocTheme.borderSubtle),
+              ),
+              child: Row(
+                children: [
+                  // Avatar
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        _initials(displayName, email),
+                        style: TextStyle(
+                          color: theme.colorScheme.primary,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                SizedBox(width: Spacing.lg),
-                // Name + email + sign-in method
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        displayName,
-                        style: TextStyle(
-                          color: theme.colorScheme.onSurface,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (email != null) ...[
-                        SizedBox(height: Spacing.xs),
+                  SizedBox(width: Spacing.lg),
+                  // Name + email + sign-in method
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          email,
+                          displayName,
                           style: TextStyle(
-                            color: theme.colorScheme.onSurface.withValues(
-                              alpha: 0.6,
-                            ),
-                            fontSize: 13,
+                            color: theme.colorScheme.onSurface,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
+                        if (email != null) ...[
+                          SizedBox(height: Spacing.xs),
+                          Text(
+                            email,
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.6,
+                              ),
+                              fontSize: 13,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                        const SizedBox(height: 6),
+                        _SignInBadge(provider: provider),
                       ],
-                      const SizedBox(height: 6),
-                      _SignInBadge(provider: provider),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(height: Spacing.xxl),
-          // ── Subscription section ──────────────────────────────────
-          _SectionLabel(title: 'Subscription'),
-          const SizedBox(height: 10),
-          Container(
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surface.withValues(alpha: 0.5),
-              borderRadius: Radii.brLg,
-              border: Border.all(color: ocTheme.borderSubtle),
-            ),
-            child: Column(
-              children: [
-                if (appSub.managementUrl != null) ...[
-                  _Tile(
-                    title: 'Manage Subscription',
-                    subtitle: 'Billing, plan changes, cancel anytime',
-                    icon: AppIcons.creditCard,
-                    onTap: () => launchUrl(
-                      Uri.parse(appSub.managementUrl!),
-                      mode: LaunchMode.externalApplication,
                     ),
                   ),
-                  _TileDivider(),
                 ],
-                _Tile(
-                  title: 'Restore Purchases',
-                  subtitle: 'Reinstalled or switched devices',
-                  icon: AppIcons.restore,
-                  onTap: () {
-                    if (appSub.isLoading) return;
-                    ref
-                        .read(appSubscriptionProvider.notifier)
-                        .restorePurchases();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Restoring purchases...',
-                          style: TextStyle(color: ocTheme.text),
-                        ),
-                        backgroundColor: ocTheme.backgroundPanel,
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-          SizedBox(height: Spacing.xxl),
-          // ── Registered Machines ───────────────────────────────────
-          _SectionLabel(title: 'Registered Devices'),
-          const SizedBox(height: 10),
-          const _MachinesSection(),
-          SizedBox(height: Spacing.xxl),
-          // ── Sign out ──────────────────────────────────────────────
-          _SectionLabel(title: 'Session'),
-          const SizedBox(height: 10),
-          Container(
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surface.withValues(alpha: 0.5),
-              borderRadius: Radii.brLg,
-              border: Border.all(color: ocTheme.borderSubtle),
-            ),
-            child: _Tile(
-              title: 'Sign Out',
-              subtitle: 'Remove this device from your account',
-              icon: AppIcons.logout,
-              onTap: () async {
-                final confirmed = await _confirmSignOut(context);
-                if (!confirmed || !context.mounted) return;
-                await ref.read(appAuthProvider.notifier).signOut();
-                if (context.mounted) {
-                  Navigator.of(context).popUntil((route) => route.isFirst);
-                }
-              },
-            ),
-          ),
-          SizedBox(height: Spacing.xxl),
-          // ── Danger zone ───────────────────────────────────────────
-          _SectionLabel(title: 'Danger Zone'),
-          const SizedBox(height: 10),
-          Container(
-            decoration: BoxDecoration(
-              color: theme.colorScheme.error.withValues(alpha: 0.05),
-              borderRadius: Radii.brLg,
-              border: Border.all(
-                color: theme.colorScheme.error.withValues(alpha: 0.2),
               ),
             ),
-            child: _Tile(
-              title: 'Delete Account',
-              subtitle: 'Permanently delete all your data',
-              icon: AppIcons.delete,
-              iconColor: theme.colorScheme.error,
-              titleColor: theme.colorScheme.error,
-              onTap: () => _showDeleteAccountDialog(context),
+            SizedBox(height: Spacing.xxl),
+            // ── Subscription section ──────────────────────────────────
+            _SectionLabel(title: 'Subscription'),
+            const SizedBox(height: 10),
+            Container(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface.withValues(alpha: 0.5),
+                borderRadius: Radii.brLg,
+                border: Border.all(color: ocTheme.borderSubtle),
+              ),
+              child: Column(
+                children: [
+                  if (appSub.managementUrl != null) ...[
+                    _Tile(
+                      title: 'Manage Subscription',
+                      subtitle: 'Billing, plan changes, cancel anytime',
+                      icon: AppIcons.creditCard,
+                      onTap: () => launchUrl(
+                        Uri.parse(appSub.managementUrl!),
+                        mode: LaunchMode.externalApplication,
+                      ),
+                    ),
+                    _TileDivider(),
+                  ],
+                  _Tile(
+                    title: 'Restore Purchases',
+                    subtitle: 'Reinstalled or switched devices',
+                    icon: AppIcons.restore,
+                    onTap: () {
+                      if (appSub.isLoading) return;
+                      ref
+                          .read(appSubscriptionProvider.notifier)
+                          .restorePurchases();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Restoring purchases...',
+                            style: TextStyle(color: ocTheme.text),
+                          ),
+                          backgroundColor: ocTheme.backgroundPanel,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 60),
-        ],
-      ),
+            SizedBox(height: Spacing.xxl),
+            // ── Registered Machines ───────────────────────────────────
+            _SectionLabel(title: 'Registered Devices'),
+            const SizedBox(height: 10),
+            const _MachinesSection(),
+            SizedBox(height: Spacing.xxl),
+            // ── Sign out ──────────────────────────────────────────────
+            _SectionLabel(title: 'Session'),
+            const SizedBox(height: 10),
+            Container(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface.withValues(alpha: 0.5),
+                borderRadius: Radii.brLg,
+                border: Border.all(color: ocTheme.borderSubtle),
+              ),
+              child: _Tile(
+                title: 'Sign Out',
+                subtitle: 'Remove this device from your account',
+                icon: AppIcons.logout,
+                onTap: () async {
+                  final confirmed = await _confirmSignOut(context);
+                  if (!confirmed || !context.mounted) return;
+                  await ref.read(appAuthProvider.notifier).signOut();
+                  if (context.mounted) {
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                  }
+                },
+              ),
+            ),
+            SizedBox(height: Spacing.xxl),
+            // ── Danger zone ───────────────────────────────────────────
+            _SectionLabel(title: 'Danger Zone'),
+            const SizedBox(height: 10),
+            Container(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.error.withValues(alpha: 0.05),
+                borderRadius: Radii.brLg,
+                border: Border.all(
+                  color: theme.colorScheme.error.withValues(alpha: 0.2),
+                ),
+              ),
+              child: _Tile(
+                title: 'Delete Account',
+                subtitle: 'Permanently delete all your data',
+                icon: AppIcons.delete,
+                iconColor: theme.colorScheme.error,
+                titleColor: theme.colorScheme.error,
+                onTap: () => _showDeleteAccountDialog(context),
+              ),
+            ),
+            const SizedBox(height: 60),
+          ],
+        ),
       ),
     );
   }
+
   // ── Helpers ──────────────────────────────────────────────────────
   String _initials(String name, String? email) {
     if (name.isNotEmpty && name != 'Broski User') {
@@ -238,6 +240,7 @@ class AccountScreen extends ConsumerWidget {
     }
     return 'B';
   }
+
   Future<bool> _confirmSignOut(BuildContext context) async {
     return await showDialog<bool>(
           context: context,
@@ -260,6 +263,7 @@ class AccountScreen extends ConsumerWidget {
         ) ??
         false;
   }
+
   void _showDeleteAccountDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -268,6 +272,7 @@ class AccountScreen extends ConsumerWidget {
     );
   }
 }
+
 // ─── Shared widgets ─────────────────────────────────────────────────
 class _SignInBadge extends StatelessWidget {
   const _SignInBadge({this.provider});
@@ -308,6 +313,7 @@ class _SignInBadge extends StatelessWidget {
     );
   }
 }
+
 class _SectionLabel extends StatelessWidget {
   const _SectionLabel({required this.title});
   final String title;
@@ -325,6 +331,7 @@ class _SectionLabel extends StatelessWidget {
     );
   }
 }
+
 class _Tile extends StatelessWidget {
   const _Tile({
     required this.title,
@@ -386,6 +393,7 @@ class _Tile extends StatelessWidget {
     );
   }
 }
+
 class _TileDivider extends StatelessWidget {
   const _TileDivider();
   @override
@@ -399,12 +407,14 @@ class _TileDivider extends StatelessWidget {
     );
   }
 }
+
 // ─── Machines section ───────────────────────────────────────────────
 class _MachinesSection extends ConsumerStatefulWidget {
   const _MachinesSection();
   @override
   ConsumerState<_MachinesSection> createState() => _MachinesSectionState();
 }
+
 class _MachinesSectionState extends ConsumerState<_MachinesSection> {
   MachinesResponse? _machines;
   bool _loading = true;
@@ -414,6 +424,7 @@ class _MachinesSectionState extends ConsumerState<_MachinesSection> {
     super.initState();
     _loadMachines();
   }
+
   Future<void> _loadMachines() async {
     setState(() {
       _loading = true;
@@ -446,6 +457,7 @@ class _MachinesSectionState extends ConsumerState<_MachinesSection> {
       }
     }
   }
+
   Future<void> _revokeMachine(MachineInfo machine) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -462,7 +474,9 @@ class _MachinesSectionState extends ConsumerState<_MachinesSection> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Theme.of(ctx).extension<OpenCodeTheme>()!.error),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(ctx).extension<OpenCodeTheme>()!.error,
+            ),
             child: const Text('Remove'),
           ),
         ],
@@ -479,15 +493,11 @@ class _MachinesSectionState extends ConsumerState<_MachinesSection> {
       _loadMachines();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to remove device: ${humanizeError(e)}'),
-            backgroundColor: OpenCodeTheme.of(context).error,
-          ),
-        );
+        showError(context, 'Failed to remove device: ${humanizeError(e)}');
       }
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -524,10 +534,7 @@ class _MachinesSectionState extends ConsumerState<_MachinesSection> {
               style: TextStyle(color: ocTheme.textMuted),
             ),
             SizedBox(height: Spacing.sm),
-            TextButton(
-              onPressed: _loadMachines,
-              child: const Text('Retry'),
-            ),
+            TextButton(onPressed: _loadMachines, child: const Text('Retry')),
           ],
         ),
       );
@@ -617,11 +624,9 @@ class _MachinesSectionState extends ConsumerState<_MachinesSection> {
     );
   }
 }
+
 class _MachineRow extends StatelessWidget {
-  const _MachineRow({
-    required this.machine,
-    required this.onRevoke,
-  });
+  const _MachineRow({required this.machine, required this.onRevoke});
   final MachineInfo machine;
   final VoidCallback onRevoke;
   @override
@@ -661,10 +666,7 @@ class _MachineRow extends StatelessWidget {
                 SizedBox(height: Spacing.xxs),
                 Text(
                   'Last seen ${machine.lastSeenAgo}',
-                  style: TextStyle(
-                    color: ocTheme.textMuted,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
                 ),
               ],
             ),
@@ -683,6 +685,7 @@ class _MachineRow extends StatelessWidget {
     );
   }
 }
+
 // ─── Delete account dialog (moved from settings_screen) ─────────────
 class _DeleteAccountDialog extends ConsumerStatefulWidget {
   const _DeleteAccountDialog();
@@ -690,6 +693,7 @@ class _DeleteAccountDialog extends ConsumerStatefulWidget {
   ConsumerState<_DeleteAccountDialog> createState() =>
       _DeleteAccountDialogState();
 }
+
 class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
   final _confirmController = TextEditingController();
   final _feedbackController = TextEditingController();
@@ -712,6 +716,7 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
     _feedbackController.dispose();
     super.dispose();
   }
+
   Future<void> _performDelete() async {
     if (!_canDelete || _isDeleting) return;
     setState(() {
@@ -741,6 +746,7 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
       }
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -880,6 +886,7 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
       ],
     );
   }
+
   Widget _bulletPoint(String text, ThemeData theme) {
     return Padding(
       padding: const EdgeInsets.only(left: 8, bottom: 4),

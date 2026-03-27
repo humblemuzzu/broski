@@ -7,9 +7,10 @@ import 'service_providers.dart';
 ///
 /// Parameterized by cwd (optional).
 final codexPluginsProvider =
-    FutureProvider.family<List<CodexPluginMarketplace>, String?>(
-  (ref, cwd) async {
-    final bridge = ref.watch(bridgeServiceProvider);
-    return bridge.cxListPlugins(cwd: cwd);
-  },
-);
+    FutureProvider.family<List<CodexPluginMarketplace>, String?>((
+      ref,
+      cwd,
+    ) async {
+      final bridge = ref.watch(bridgeServiceProvider);
+      return bridge.cxListPlugins(cwd: cwd);
+    });

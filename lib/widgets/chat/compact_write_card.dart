@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/card_style.dart';
@@ -9,6 +8,7 @@ import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import 'detail_sheet.dart';
 import 'package:broski/theme/app_icons.dart';
+
 /// A compact card for Write (new file creation) operations with inline preview.
 /// Shows file path and a few lines of the content being written.
 /// Tapping opens full content view in a detail sheet.
@@ -18,6 +18,7 @@ class CompactWriteCard extends ConsumerWidget {
   final ToolCall tool;
   final String? messageId;
   final void Function(String messageId, String? partId)? onUndo;
+
   /// Max lines to show in inline preview
   static const int _maxPreviewLines = 5;
   const CompactWriteCard({
@@ -26,6 +27,7 @@ class CompactWriteCard extends ConsumerWidget {
     this.messageId,
     this.onUndo,
   });
+
   /// Get the file path from tool input
   /// Handles different backend naming conventions:
   /// - OpenCode: filePath
@@ -37,13 +39,16 @@ class CompactWriteCard extends ConsumerWidget {
         tool.input['file_path'] as String? ??
         'Unknown';
   }
+
   /// Get content being written
   String get _content => tool.input['content'] as String? ?? '';
+
   /// Build preview content lines (limited to _maxPreviewLines)
   List<String> _buildPreviewLines() {
     if (_content.isEmpty) return [];
     return _content.split('\n');
   }
+
   /// Count total lines
   int get _totalLines => _content.isEmpty ? 0 : _content.split('\n').length;
   @override
@@ -97,7 +102,12 @@ class CompactWriteCard extends ConsumerWidget {
           children: [
             // Header row: Write + file path + line count badge with distinct background
             Container(
-              padding: EdgeInsets.fromLTRB(Spacing.md, 10, Spacing.md, Spacing.sm),
+              padding: EdgeInsets.fromLTRB(
+                Spacing.md,
+                10,
+                Spacing.md,
+                Spacing.sm,
+              ),
               decoration: BoxDecoration(
                 color: headerBg,
                 border: Border(
@@ -109,11 +119,7 @@ class CompactWriteCard extends ConsumerWidget {
               ),
               child: Row(
                 children: [
-                  Icon(
-                    AppIcons.add,
-                    size: 16,
-                    color: theme.toolWrite,
-                  ),
+                  Icon(AppIcons.add, size: 16, color: theme.toolWrite),
                   SizedBox(width: 6),
                   Text(
                     'Write',
@@ -136,10 +142,7 @@ class CompactWriteCard extends ConsumerWidget {
                   if (!isRunning && _totalLines > 0) ...[
                     SizedBox(width: Spacing.sm),
                     Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
+                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: theme.diffAdded.withValues(alpha: 0.15),
                         borderRadius: Radii.brXs,
@@ -187,7 +190,11 @@ class CompactWriteCard extends ConsumerWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(AppIcons.expandMore, size: 14, color: theme.textMuted),
+                      Icon(
+                        AppIcons.expandMore,
+                        size: 14,
+                        color: theme.textMuted,
+                      ),
                       SizedBox(width: Spacing.xs),
                       Text(
                         '${previewLines.length - _maxPreviewLines} more lines',
@@ -215,6 +222,7 @@ class CompactWriteCard extends ConsumerWidget {
       ),
     );
   }
+
   void _showDetailSheet(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final canUndo =
@@ -275,6 +283,7 @@ class CompactWriteCard extends ConsumerWidget {
     );
   }
 }
+
 /// Inline content line for the card preview (green for new file)
 class _InlineContentLine extends StatelessWidget {
   final String text;
@@ -295,13 +304,15 @@ class _InlineContentLine extends StatelessWidget {
           children: [
             TextSpan(
               text: '+ ',
-              style: AppTypography.codeSmall(color: color).copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+              style: AppTypography.codeSmall(
+                color: color,
+              ).copyWith(fontWeight: FontWeight.w600),
             ),
             TextSpan(
               text: text.isEmpty ? ' ' : text,
-              style: AppTypography.codeSmall(color: color.withValues(alpha: 0.9)),
+              style: AppTypography.codeSmall(
+                color: color.withValues(alpha: 0.9),
+              ),
             ),
           ],
         ),
@@ -311,6 +322,7 @@ class _InlineContentLine extends StatelessWidget {
     );
   }
 }
+
 /// Full content view for the detail sheet
 class _FullContentView extends StatelessWidget {
   final String content;
@@ -349,9 +361,9 @@ class _FullContentView extends StatelessWidget {
                   children: [
                     TextSpan(
                       text: '+ ',
-                      style: AppTypography.codeSmall(color: color).copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: AppTypography.codeSmall(
+                        color: color,
+                      ).copyWith(fontWeight: FontWeight.bold),
                     ),
                     TextSpan(
                       text: line.isEmpty ? ' ' : line,

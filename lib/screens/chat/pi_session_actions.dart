@@ -5,6 +5,7 @@ import '../../models/pi.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/pi_provider.dart';
 import '../sheets/pi_session_sidebar_sheet.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Compact the Pi session context.
 /// Extracted from `_ChatScreenState._piCompact`.
@@ -17,15 +18,11 @@ Future<void> piCompact({
   try {
     await piBridge.compact(projectPath: chatState.piCwd);
     if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Context compacted')));
+      showInfo(context, 'Context compacted');
     }
   } catch (e) {
     if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Compact failed: $e')));
+      showInfo(context, 'Compact failed: $e');
     }
   }
 }
@@ -54,15 +51,11 @@ Future<void> piNewSession({
         );
     ref.invalidate(piSessionsProvider(null));
     if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('New session created')));
+      showInfo(context, 'New session created');
     }
   } catch (e) {
     if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed: $e')));
+      showInfo(context, 'Failed: $e');
     }
   }
 }
@@ -82,9 +75,7 @@ Future<void> cyclePiThinkingLevel({
     ref.read(chatSessionProvider.notifier).setPiThinkingLevel(newLevel);
   } catch (e) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Failed to cycle thinking level: $e')),
-    );
+    showInfo(context, 'Failed to cycle thinking level: $e');
   }
 }
 
@@ -106,15 +97,11 @@ Future<void> forkPiSessionFromEntry({
     if (!result.cancelled) {
       ref.invalidate(piStateProvider(chatState.piCwd));
       ref.invalidate(piSessionsProvider(null));
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Session forked')));
+      showInfo(context, 'Session forked');
     }
   } catch (e) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Failed to fork session: $e')));
+    showInfo(context, 'Failed to fork session: $e');
   }
 }
 

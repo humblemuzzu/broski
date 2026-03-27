@@ -159,7 +159,11 @@ class AppearanceSettings {
   factory AppearanceSettings.fromMap(Map<String, dynamic> map) {
     final enabledScreensList = map['enabledScreens'] as List<dynamic>?;
     return AppearanceSettings(
-      iconPack: IconPack.values[(map['iconPack'] as int? ?? 0).clamp(0, IconPack.values.length - 1)],
+      iconPack:
+          IconPack.values[(map['iconPack'] as int? ?? 0).clamp(
+            0,
+            IconPack.values.length - 1,
+          )],
       useToolColors: map['useToolColors'] as bool? ?? true,
       showToolBorders: map['showToolBorders'] as bool? ?? true,
       cardBorderRadius: (map['cardBorderRadius'] as num?)?.toDouble() ?? 12.0,

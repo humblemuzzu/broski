@@ -10,6 +10,7 @@ import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../../utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Bottom sheet to browse Codex apps/connectors marketplace.
 class CxAppsSheet extends ConsumerStatefulWidget {
@@ -154,9 +155,7 @@ class _CxAppsSheetState extends ConsumerState<CxAppsSheet> {
             onTap: app.installUrl != null
                 ? () {
                     // Could open URL in browser
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Install: ${app.installUrl}')),
-                    );
+                    showInfo(context, 'Install: ${app.installUrl}');
                   }
                 : null,
           );

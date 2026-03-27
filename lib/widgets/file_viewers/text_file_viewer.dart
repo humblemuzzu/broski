@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/app_typography.dart';
@@ -6,6 +5,7 @@ import '../../theme/design_tokens.dart';
 
 import '../../theme/opencode_theme.dart';
 import 'package:broski/theme/app_icons.dart';
+
 class TextFileViewer extends StatelessWidget {
   const TextFileViewer({
     super.key,
@@ -67,9 +67,9 @@ class TextFileViewer extends StatelessWidget {
                 ),
                 child: SelectableText(
                   content,
-                  style: AppTypography.code(color: theme.text).copyWith(
-                    height: 1.6,
-                  ),
+                  style: AppTypography.code(
+                    color: theme.text,
+                  ).copyWith(height: 1.6),
                 ),
               ),
             ),

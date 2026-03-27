@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_typography.dart';
@@ -11,11 +10,14 @@ import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+
 class CodexAgentsScreen extends ConsumerStatefulWidget {
   const CodexAgentsScreen({super.key});
   @override
   ConsumerState<CodexAgentsScreen> createState() => _CodexAgentsScreenState();
 }
+
 class _CodexAgentsScreenState extends ConsumerState<CodexAgentsScreen> {
   final _ctrl = TextEditingController();
   bool _loading = true;
@@ -27,11 +29,13 @@ class _CodexAgentsScreenState extends ConsumerState<CodexAgentsScreen> {
     super.initState();
     _load();
   }
+
   @override
   void dispose() {
     _ctrl.dispose();
     super.dispose();
   }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -64,6 +68,7 @@ class _CodexAgentsScreenState extends ConsumerState<CodexAgentsScreen> {
       });
     }
   }
+
   Future<void> _save() async {
     if (_saving) return;
     final selection = ref.read(selectionProvider);
@@ -75,23 +80,18 @@ class _CodexAgentsScreenState extends ConsumerState<CodexAgentsScreen> {
       final ok = await bridge.cxWriteAgentsMd(cwd: cwd, content: _ctrl.text);
       if (!mounted) return;
       if (ok) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Saved')));
+        showInfo(context, 'Saved');
       } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Save failed')));
+        showInfo(context, 'Save failed');
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Save failed: ${humanizeError(e)}')));
+      showInfo(context, 'Save failed: ${humanizeError(e)}');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
@@ -119,66 +119,66 @@ class _CodexAgentsScreenState extends ConsumerState<CodexAgentsScreen> {
       body: AdaptiveContainer(
         width: ContentWidth.standard,
         child: SafeArea(
-        child: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : _error != null
-            ? Center(
-                child: Padding(
-                  padding: Insets.card,
-                  child: Text(
-                    _error!,
-                    style: TextStyle(color: oc.textMuted),
-                    textAlign: TextAlign.center,
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+              ? Center(
+                  child: Padding(
+                    padding: Insets.card,
+                    child: Text(
+                      _error!,
+                      style: TextStyle(color: oc.textMuted),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
-                ),
-              )
-            : !hasProject
-            ? Center(
-                child: Padding(
-                  padding: Insets.card,
-                  child: Text(
-                    'Select a project to edit `AGENTS.md`.',
-                    style: TextStyle(color: oc.textMuted),
-                    textAlign: TextAlign.center,
+                )
+              : !hasProject
+              ? Center(
+                  child: Padding(
+                    padding: Insets.card,
+                    child: Text(
+                      'Select a project to edit `AGENTS.md`.',
+                      style: TextStyle(color: oc.textMuted),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
-                ),
-              )
-            : Padding(
-                padding: Insets.card,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if ((_path ?? '').isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Text(
-                          _path!,
-                          style: AppTypography.label(color: oc.textMuted),
-                          overflow: TextOverflow.ellipsis,
+                )
+              : Padding(
+                  padding: Insets.card,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if ((_path ?? '').isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Text(
+                            _path!,
+                            style: AppTypography.label(color: oc.textMuted),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                    Expanded(
-                      child: TextField(
-                        controller: _ctrl,
-                        expands: true,
-                        minLines: null,
-                        maxLines: null,
-                        style: AppTypography.code(color: oc.text),
-                        decoration: InputDecoration(
-                          labelText: 'AGENTS.md',
-                          alignLabelWithHint: true,
-                          filled: true,
-                          fillColor: oc.backgroundPanel,
-                          border: OutlineInputBorder(
-                            borderRadius: Radii.brMd,
+                      Expanded(
+                        child: TextField(
+                          controller: _ctrl,
+                          expands: true,
+                          minLines: null,
+                          maxLines: null,
+                          style: AppTypography.code(color: oc.text),
+                          decoration: InputDecoration(
+                            labelText: 'AGENTS.md',
+                            alignLabelWithHint: true,
+                            filled: true,
+                            fillColor: oc.backgroundPanel,
+                            border: OutlineInputBorder(
+                              borderRadius: Radii.brMd,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-      ),
+        ),
       ),
     );
   }

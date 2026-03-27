@@ -9,6 +9,7 @@ import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 class OpenCodeWorkspacesScreen extends ConsumerStatefulWidget {
   const OpenCodeWorkspacesScreen({super.key});
@@ -111,11 +112,7 @@ class _OpenCodeWorkspacesScreenState
       await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to create workspace: ${humanizeError(e)}'),
-        ),
-      );
+      showInfo(context, 'Failed to create workspace: ${humanizeError(e)}');
     }
   }
 
@@ -146,11 +143,7 @@ class _OpenCodeWorkspacesScreenState
       await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to delete workspace: ${humanizeError(e)}'),
-        ),
-      );
+      showInfo(context, 'Failed to delete workspace: ${humanizeError(e)}');
     }
   }
 

@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import '../theme/app_typography.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +11,8 @@ import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+
 /// Memory viewer for Claude Code.
 /// Shows actual memory entries from ~/.claude/memory/ (user),
 /// .claude/memory/ (project), and ~/.claude/memory-local/ (local).
@@ -21,6 +22,7 @@ class ClaudeCodeMemoryScreen extends ConsumerStatefulWidget {
   ConsumerState<ClaudeCodeMemoryScreen> createState() =>
       _ClaudeCodeMemoryScreenState();
 }
+
 class _ClaudeCodeMemoryScreenState
     extends ConsumerState<ClaudeCodeMemoryScreen> {
   bool _loading = true;
@@ -32,6 +34,7 @@ class _ClaudeCodeMemoryScreenState
     super.initState();
     _load();
   }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -57,6 +60,7 @@ class _ClaudeCodeMemoryScreenState
       });
     }
   }
+
   Future<void> _deleteMemory(ClaudeCodeMemoryEntry entry) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -70,7 +74,12 @@ class _ClaudeCodeMemoryScreenState
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text('Delete', style: TextStyle(color: Theme.of(ctx).extension<OpenCodeTheme>()!.error)),
+            child: Text(
+              'Delete',
+              style: TextStyle(
+                color: Theme.of(ctx).extension<OpenCodeTheme>()!.error,
+              ),
+            ),
           ),
         ],
       ),
@@ -87,12 +96,11 @@ class _ClaudeCodeMemoryScreenState
       _load(); // Refresh
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to delete: ${humanizeError(e)}')));
+        showInfo(context, 'Failed to delete: ${humanizeError(e)}');
       }
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -120,112 +128,109 @@ class _ClaudeCodeMemoryScreenState
       body: AdaptiveContainer(
         width: ContentWidth.standard,
         child: Column(
-        children: [
-          // Info banner
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: Container(
-              padding: Insets.cardSm,
-              decoration: BoxDecoration(
-                color: theme.backgroundPanel,
-                borderRadius: Radii.brMd,
-                border: Border.all(
-                  color: theme.borderSubtle.withValues(alpha: 0.3),
+          children: [
+            // Info banner
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Container(
+                padding: Insets.cardSm,
+                decoration: BoxDecoration(
+                  color: theme.backgroundPanel,
+                  borderRadius: Radii.brMd,
+                  border: Border.all(
+                    color: theme.borderSubtle.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(AppIcons.psychology, color: theme.accent, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Claude automatically records and recalls memories as it works. '
+                        'User memories are global, project memories are per-repo, '
+                        'and local memories are machine-specific.',
+                        style: AppTypography.label(color: theme.textMuted),
+                      ),
+                    ),
+                  ],
                 ),
               ),
+            ),
+            // Scope filter chips
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               child: Row(
                 children: [
-                  Icon(
-                    AppIcons.psychology,
-                    color: theme.accent,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Claude automatically records and recalls memories as it works. '
-                      'User memories are global, project memories are per-repo, '
-                      'and local memories are machine-specific.',
-                      style: AppTypography.label(color: theme.textMuted),
-                    ),
-                  ),
+                  _scopeChip(theme, 'all', 'All', _memories.length),
+                  const SizedBox(width: 6),
+                  _scopeChip(theme, 'user', 'User', userCount),
+                  const SizedBox(width: 6),
+                  _scopeChip(theme, 'project', 'Project', projectCount),
+                  const SizedBox(width: 6),
+                  _scopeChip(theme, 'local', 'Local', localCount),
                 ],
               ),
             ),
-          ),
-          // Scope filter chips
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Row(
-              children: [
-                _scopeChip(theme, 'all', 'All', _memories.length),
-                const SizedBox(width: 6),
-                _scopeChip(theme, 'user', 'User', userCount),
-                const SizedBox(width: 6),
-                _scopeChip(theme, 'project', 'Project', projectCount),
-                const SizedBox(width: 6),
-                _scopeChip(theme, 'local', 'Local', localCount),
-              ],
-            ),
-          ),
-          // Content
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                ? Center(
-                    child: Padding(
-                      padding: Insets.cardLg,
-                      child: Text(
-                        _error!,
-                        style: AppTypography.bodySmall(color: theme.error),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  )
-                : filtered.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          AppIcons.memory,
-                          color: theme.textMuted,
-                          size: 48,
-                        ),
-                        SizedBox(height: Spacing.md),
-                        Text(
-                          _memories.isEmpty
-                              ? 'No memories yet.\nClaude will create memories as you work together.'
-                              : 'No $_filterScope memories found.',
-                          style: TextStyle(
-                            color: theme.textMuted,
-                            fontSize: 13,
-                          ),
+            // Content
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _error != null
+                  ? Center(
+                      child: Padding(
+                        padding: Insets.cardLg,
+                        child: Text(
+                          _error!,
+                          style: AppTypography.bodySmall(color: theme.error),
                           textAlign: TextAlign.center,
                         ),
-                      ],
+                      ),
+                    )
+                  : filtered.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            AppIcons.memory,
+                            color: theme.textMuted,
+                            size: 48,
+                          ),
+                          SizedBox(height: Spacing.md),
+                          Text(
+                            _memories.isEmpty
+                                ? 'No memories yet.\nClaude will create memories as you work together.'
+                                : 'No $_filterScope memories found.',
+                            style: TextStyle(
+                              color: theme.textMuted,
+                              fontSize: 13,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: Insets.card,
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final entry = filtered[index];
+                        return _MemoryCard(
+                          theme: theme,
+                          entry: entry,
+                          onDelete: () => _deleteMemory(entry),
+                        );
+                      },
                     ),
-                  )
-                : ListView.separated(
-                    padding: Insets.card,
-                    itemCount: filtered.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (context, index) {
-                      final entry = filtered[index];
-                      return _MemoryCard(
-                        theme: theme,
-                        entry: entry,
-                        onDelete: () => _deleteMemory(entry),
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
+            ),
+          ],
+        ),
       ),
     );
   }
+
   Widget _scopeChip(
     OpenCodeTheme theme,
     String scope,
@@ -258,6 +263,7 @@ class _ClaudeCodeMemoryScreenState
     );
   }
 }
+
 class _MemoryCard extends StatefulWidget {
   const _MemoryCard({
     required this.theme,
@@ -270,6 +276,7 @@ class _MemoryCard extends StatefulWidget {
   @override
   State<_MemoryCard> createState() => _MemoryCardState();
 }
+
 class _MemoryCardState extends State<_MemoryCard> {
   bool _expanded = false;
   Color _scopeColor(String scope) {
@@ -284,6 +291,7 @@ class _MemoryCardState extends State<_MemoryCard> {
         return widget.theme.textMuted;
     }
   }
+
   IconData _scopeIcon(String scope) {
     switch (scope) {
       case 'user':
@@ -396,9 +404,7 @@ class _MemoryCardState extends State<_MemoryCard> {
                     ),
                   const Spacer(),
                   Icon(
-                    _expanded
-                        ? AppIcons.expandLess
-                        : AppIcons.expandMore,
+                    _expanded ? AppIcons.expandLess : AppIcons.expandMore,
                     color: theme.textMuted,
                     size: 20,
                   ),

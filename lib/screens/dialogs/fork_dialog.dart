@@ -13,6 +13,7 @@ import '../../theme/opencode_theme.dart';
 import '../../utils/error_utils.dart';
 import '../../widgets/chat/detail_sheet.dart';
 import '../chat_screen.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Shows the fork dialog to create a branch from a specific message.
 /// Extracted from chat_screen.dart.
@@ -133,11 +134,7 @@ void showForkDialog(
                       );
                     } catch (e) {
                       if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Failed to fork: ${humanizeError(e)}'),
-                        ),
-                      );
+                      showInfo(context, 'Failed to fork: ${humanizeError(e)}');
                     }
                   },
                 );

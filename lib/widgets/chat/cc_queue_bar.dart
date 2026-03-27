@@ -1,7 +1,7 @@
-
 import 'package:flutter/material.dart';
 import '../../theme/design_tokens.dart';
 import 'package:broski/theme/app_icons.dart';
+
 /// A bar shown above the main input when a Claude Code message is queued
 /// for auto-send. Displays a preview of the pending message with a cancel button.
 /// Inspired by CxSteerBar but for queued (not live) messages.
@@ -15,8 +15,10 @@ class CCQueueBar extends StatelessWidget {
     required this.mutedColor,
     required this.surfaceColor,
   });
+
   /// The queued message text (preview shown to user).
   final String pendingMessage;
+
   /// Called when the user cancels the queued message.
   final VoidCallback onCancel;
   final Color primaryColor;
@@ -34,19 +36,12 @@ class CCQueueBar extends StatelessWidget {
       decoration: BoxDecoration(
         color: surfaceColor,
         border: Border(
-          top: BorderSide(
-            color: primaryColor.withValues(alpha: 0.3),
-            width: 1,
-          ),
+          top: BorderSide(color: primaryColor.withValues(alpha: 0.3), width: 1),
         ),
       ),
       child: Row(
         children: [
-          Icon(
-            AppIcons.schedule,
-            size: 14,
-            color: primaryColor,
-          ),
+          Icon(AppIcons.schedule, size: 14, color: primaryColor),
           const SizedBox(width: 6),
           Expanded(
             child: Column(
@@ -64,10 +59,7 @@ class CCQueueBar extends StatelessWidget {
                 SizedBox(height: Spacing.xxs),
                 Text(
                   preview,
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: textColor, fontSize: 12),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -80,11 +72,7 @@ class CCQueueBar extends StatelessWidget {
             width: 28,
             child: IconButton(
               onPressed: onCancel,
-              icon: Icon(
-                AppIcons.close,
-                size: 16,
-                color: mutedColor,
-              ),
+              icon: Icon(AppIcons.close, size: 16, color: mutedColor),
               padding: EdgeInsets.zero,
               tooltip: 'Cancel queued message',
             ),

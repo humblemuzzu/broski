@@ -1,4 +1,3 @@
-
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -9,7 +8,9 @@ import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'chat/detail_sheet.dart';
 import 'package:broski/theme/app_icons.dart';
+
 enum ExportFormat { markdown, json, text }
+
 /// Shows an export session sheet using DetailSheet.
 Future<void> showExportSessionSheet({
   required BuildContext context,
@@ -25,6 +26,7 @@ Future<void> showExportSessionSheet({
     child: _ExportSessionSheetContent(title: title, messages: messages),
   );
 }
+
 /// Legacy widget for backwards compatibility.
 /// Prefer using [showExportSessionSheet] instead.
 class ExportSessionSheet extends StatefulWidget {
@@ -38,6 +40,7 @@ class ExportSessionSheet extends StatefulWidget {
   @override
   State<ExportSessionSheet> createState() => _ExportSessionSheetState();
 }
+
 class _ExportSessionSheetState extends State<ExportSessionSheet> {
   @override
   Widget build(BuildContext context) {
@@ -52,6 +55,7 @@ class _ExportSessionSheetState extends State<ExportSessionSheet> {
     );
   }
 }
+
 /// The actual content of the export session sheet.
 class _ExportSessionSheetContent extends StatefulWidget {
   const _ExportSessionSheetContent({
@@ -64,6 +68,7 @@ class _ExportSessionSheetContent extends StatefulWidget {
   State<_ExportSessionSheetContent> createState() =>
       _ExportSessionSheetContentState();
 }
+
 class _ExportSessionSheetContentState
     extends State<_ExportSessionSheetContent> {
   final _filenameCtrl = TextEditingController();
@@ -80,11 +85,13 @@ class _ExportSessionSheetContentState
     final ts = DateTime.now().toIso8601String().replaceAll(':', '-');
     _filenameCtrl.text = 'session-$ts.md';
   }
+
   @override
   void dispose() {
     _filenameCtrl.dispose();
     super.dispose();
   }
+
   List<ChatMessage> get _filtered {
     return widget.messages.where((m) {
       if (m.role == MessageRole.user) return _includeUsers;
@@ -92,6 +99,7 @@ class _ExportSessionSheetContentState
       return true;
     }).toList();
   }
+
   String _toMarkdown() {
     final buf = StringBuffer();
     buf.writeln('# ${widget.title}');
@@ -143,6 +151,7 @@ class _ExportSessionSheetContentState
     }
     return buf.toString();
   }
+
   String _toText() {
     final buf = StringBuffer();
     buf.writeln(widget.title);
@@ -159,6 +168,7 @@ class _ExportSessionSheetContentState
     }
     return buf.toString();
   }
+
   String _toJson() {
     final payload = {
       'title': widget.title,
@@ -189,6 +199,7 @@ class _ExportSessionSheetContentState
     };
     return const JsonEncoder.withIndent('  ').convert(payload);
   }
+
   String _render() {
     return switch (_format) {
       ExportFormat.markdown => _toMarkdown(),
@@ -196,6 +207,7 @@ class _ExportSessionSheetContentState
       ExportFormat.json => _toJson(),
     };
   }
+
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
@@ -213,9 +225,7 @@ class _ExportSessionSheetContentState
               labelStyle: TextStyle(color: oc.textMuted),
               filled: true,
               fillColor: oc.backgroundElement,
-              border: OutlineInputBorder(
-                borderRadius: Radii.brMd,
-              ),
+              border: OutlineInputBorder(borderRadius: Radii.brMd),
             ),
           ),
           SizedBox(height: Spacing.md),
@@ -305,6 +315,7 @@ class _ExportSessionSheetContentState
     );
   }
 }
+
 class _FormatChip extends StatelessWidget {
   const _FormatChip({
     required this.label,

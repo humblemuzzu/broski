@@ -384,8 +384,10 @@ class CompactToolCard extends ConsumerWidget {
                   styleSheet: _buildMarkdownStyle(theme),
                   onTapLink: (_, href, __) {
                     if (href != null) {
-                      launchUrl(Uri.parse(href),
-                          mode: LaunchMode.externalApplication);
+                      launchUrl(
+                        Uri.parse(href),
+                        mode: LaunchMode.externalApplication,
+                      );
                     }
                   },
                 ),

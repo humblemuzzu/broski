@@ -1,4 +1,3 @@
-
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -11,6 +10,7 @@ import '../providers/file_search_provider.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'package:broski/theme/app_icons.dart';
+
 void showImagePreview(BuildContext context, FileAttachment attachment) {
   if (!attachment.isImage || attachment.base64Data == null) return;
   final theme = OpenCodeTheme.of(context);
@@ -70,6 +70,7 @@ void showImagePreview(BuildContext context, FileAttachment attachment) {
     ),
   );
 }
+
 class FileAutocomplete extends ConsumerWidget {
   const FileAutocomplete({
     super.key,
@@ -184,6 +185,7 @@ class FileAutocomplete extends ConsumerWidget {
     );
   }
 }
+
 class _FileAutocompleteItem extends StatelessWidget {
   const _FileAutocompleteItem({
     required this.path,
@@ -243,6 +245,7 @@ class _FileAutocompleteItem extends StatelessWidget {
     );
   }
 }
+
 class AttachedFilesChips extends StatelessWidget {
   const AttachedFilesChips({
     super.key,
@@ -279,6 +282,7 @@ class AttachedFilesChips extends StatelessWidget {
     );
   }
 }
+
 class _AttachedFileChip extends StatelessWidget {
   const _AttachedFileChip({
     required this.attachment,
@@ -326,19 +330,13 @@ class _AttachedFileChip extends StatelessWidget {
             else if (isImage)
               Padding(
                 padding: const EdgeInsets.only(left: 4),
-                child: Icon(
-                  AppIcons.image,
-                  size: 14,
-                  color: theme.primary,
-                ),
+                child: Icon(AppIcons.image, size: 14, color: theme.primary),
               )
             else
               Padding(
                 padding: const EdgeInsets.only(left: 4),
                 child: Icon(
-                  isDirectory
-                      ? AppIcons.folder
-                      : AppIcons.description,
+                  isDirectory ? AppIcons.folder : AppIcons.description,
                   size: 14,
                   color: isDirectory ? theme.warning : theme.info,
                 ),
@@ -358,11 +356,7 @@ class _AttachedFileChip extends StatelessWidget {
               borderRadius: Radii.brMd,
               child: Padding(
                 padding: const EdgeInsets.all(2),
-                child: Icon(
-                  AppIcons.close,
-                  size: 14,
-                  color: theme.textMuted,
-                ),
+                child: Icon(AppIcons.close, size: 14, color: theme.textMuted),
               ),
             ),
           ],
@@ -371,6 +365,7 @@ class _AttachedFileChip extends StatelessWidget {
     );
   }
 }
+
 // =============================================================================
 // Agent @ mention autocomplete
 // =============================================================================
@@ -487,6 +482,7 @@ class AgentAutocomplete extends StatelessWidget {
       ),
     );
   }
+
   Widget _buildSectionHeader(
     String title,
     IconData icon,
@@ -522,6 +518,7 @@ class AgentAutocomplete extends StatelessWidget {
     );
   }
 }
+
 class _AgentAutocompleteItem extends StatelessWidget {
   const _AgentAutocompleteItem({required this.agent, required this.onTap});
   final Agent agent;
@@ -545,9 +542,7 @@ class _AgentAutocompleteItem extends StatelessWidget {
                 borderRadius: Radii.brSm,
               ),
               child: Icon(
-                agent.isPrimary
-                    ? AppIcons.person
-                    : AppIcons.agent,
+                agent.isPrimary ? AppIcons.person : AppIcons.agent,
                 size: 14,
                 color: agentColor,
               ),

@@ -1,4 +1,3 @@
-
 import 'package:csv/csv.dart';
 import 'package:flutter/material.dart';
 import '../../theme/app_typography.dart';
@@ -6,6 +5,7 @@ import '../../theme/app_typography.dart';
 import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import 'package:broski/theme/app_icons.dart';
+
 class CsvFileViewer extends StatefulWidget {
   const CsvFileViewer({
     super.key,
@@ -17,6 +17,7 @@ class CsvFileViewer extends StatefulWidget {
   @override
   State<CsvFileViewer> createState() => _CsvFileViewerState();
 }
+
 class _CsvFileViewerState extends State<CsvFileViewer> {
   late List<List<dynamic>> _rows;
   bool _hasHeader = true;
@@ -25,10 +26,12 @@ class _CsvFileViewerState extends State<CsvFileViewer> {
     super.initState();
     _parseCSV();
   }
+
   void _parseCSV() {
     const converter = CsvToListConverter();
     _rows = converter.convert(widget.content);
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -131,7 +134,9 @@ class _CsvFileViewerState extends State<CsvFileViewer> {
                                 (cell) => DataCell(
                                   Text(
                                     cell.toString(),
-                                    style: AppTypography.codeSmall(color: theme.text),
+                                    style: AppTypography.codeSmall(
+                                      color: theme.text,
+                                    ),
                                   ),
                                 ),
                               )

@@ -9,6 +9,7 @@ import '../../theme/app_typography.dart';
 import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import '../../widgets/chat/detail_sheet.dart';
+import '../../widgets/chat/section_header.dart';
 
 Future<void> showPiSessionSidebarSheet({
   required BuildContext context,
@@ -120,7 +121,6 @@ class _PiSessionSidebarContentState
     ref.invalidate(piStateProvider(widget.cwd));
   }
 
-
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -142,7 +142,7 @@ class _PiSessionSidebarContentState
         SizedBox(height: Spacing.lg),
 
         // ── Runtime Controls ──────────────────────────────────────
-        _SectionHeader(title: 'CONTROLS', theme: theme),
+        SectionHeader(title: 'CONTROLS', theme: theme),
         SizedBox(height: Spacing.sm),
         _buildControlsGrid(theme, effectiveState),
         SizedBox(height: Spacing.lg),
@@ -150,7 +150,7 @@ class _PiSessionSidebarContentState
         // ── Fork Points ───────────────────────────────────────────
         Row(
           children: [
-            _SectionHeader(title: 'FORK POINTS', theme: theme),
+            SectionHeader(title: 'FORK POINTS', theme: theme),
             const Spacer(),
             GestureDetector(
               onTap: _loadForks,
@@ -177,7 +177,7 @@ class _PiSessionSidebarContentState
         SizedBox(height: Spacing.lg),
 
         // ── Session History ───────────────────────────────────────
-        _SectionHeader(title: 'SESSION HISTORY', theme: theme),
+        SectionHeader(title: 'SESSION HISTORY', theme: theme),
         SizedBox(height: Spacing.sm),
         sessionsAsync.when(
           data: (sessions) {
@@ -217,9 +217,12 @@ class _PiSessionSidebarContentState
     // Falls back to cumulative input tokens only if SDK data unavailable.
     final ctxUsage = stats.contextUsage;
     final contextWindow =
-        ctxUsage?.contextWindow ?? piState?.model?.contextWindow ?? kDefaultContextWindow;
+        ctxUsage?.contextWindow ??
+        piState?.model?.contextWindow ??
+        kDefaultContextWindow;
     final contextUsed = ctxUsage?.tokens ?? stats.tokens.input;
-    final contextPercent = ctxUsage?.percent ??
+    final contextPercent =
+        ctxUsage?.percent ??
         (contextWindow > 0
             ? (contextUsed / contextWindow * 100).clamp(0.0, 100.0)
             : 0.0);
@@ -519,25 +522,6 @@ class _PiSessionSidebarContentState
     if (diff.inHours < 24) return '${diff.inHours}h ago';
     if (diff.inDays < 7) return '${diff.inDays}d ago';
     return '${dt.month}/${dt.day}';
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, required this.theme});
-  final String title;
-  final OpenCodeTheme theme;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w600,
-        color: theme.textMuted,
-        letterSpacing: 0.5,
-      ),
-    );
   }
 }
 

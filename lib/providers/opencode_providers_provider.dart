@@ -20,18 +20,19 @@ class OcProviderDisplay {
 
 /// Fetches all providers merged with auth methods and connection status.
 final ocProvidersDisplayProvider =
-    FutureProvider.family<List<OcProviderDisplay>, String?>(
-  (ref, projectPath) async {
-    final bridge = ref.read(bridgeServiceProvider);
-    final info = await bridge.listAllProviders(projectPath: projectPath);
-    final authMap = await bridge.getProviderAuth(projectPath: projectPath);
+    FutureProvider.family<List<OcProviderDisplay>, String?>((
+      ref,
+      projectPath,
+    ) async {
+      final bridge = ref.read(bridgeServiceProvider);
+      final info = await bridge.listAllProviders(projectPath: projectPath);
+      final authMap = await bridge.getProviderAuth(projectPath: projectPath);
 
-    return info.all.map((p) {
-      return OcProviderDisplay(
-        details: p,
-        authMethods: authMap[p.id] ?? const [],
-        isConnected: info.isConnected(p.id),
-      );
-    }).toList();
-  },
-);
+      return info.all.map((p) {
+        return OcProviderDisplay(
+          details: p,
+          authMethods: authMap[p.id] ?? const [],
+          isConnected: info.isConnected(p.id),
+        );
+      }).toList();
+    });

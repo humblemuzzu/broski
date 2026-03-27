@@ -25,7 +25,9 @@ class BroskiTheme {
     bool uiFontIsAsset = true,
   }) {
     final fontFamily = uiFontFamily ?? AppTypography.uiFontFamily;
-    final isAsset = uiFontFamily != null ? uiFontIsAsset : AppTypography.uiFontIsAsset;
+    final isAsset = uiFontFamily != null
+        ? uiFontIsAsset
+        : AppTypography.uiFontIsAsset;
     final base = isLight ? ThemeData.light() : ThemeData.dark();
 
     // Helper: create a TextStyle with the correct font loading strategy
@@ -80,21 +82,9 @@ class BroskiTheme {
         fontWeight: FontWeight.w600,
         color: ocTheme.text,
       ),
-      bodyLarge: ts(
-        fontSize: 16,
-        color: ocTheme.text,
-        height: 1.5,
-      ),
-      bodyMedium: ts(
-        fontSize: 15,
-        color: ocTheme.text,
-        height: 1.5,
-      ),
-      bodySmall: ts(
-        fontSize: 13,
-        color: ocTheme.textMuted,
-        height: 1.4,
-      ),
+      bodyLarge: ts(fontSize: 16, color: ocTheme.text, height: 1.5),
+      bodyMedium: ts(fontSize: 15, color: ocTheme.text, height: 1.5),
+      bodySmall: ts(fontSize: 13, color: ocTheme.textMuted, height: 1.4),
       titleLarge: ts(
         fontSize: 20,
         fontWeight: FontWeight.w600,
@@ -128,10 +118,7 @@ class BroskiTheme {
       ),
     );
 
-    final buttonTextStyle = ts(
-      fontSize: 14,
-      fontWeight: FontWeight.w600,
-    );
+    final buttonTextStyle = ts(fontSize: 14, fontWeight: FontWeight.w600);
 
     return base.copyWith(
       // Attach OpenCodeTheme as extension
@@ -217,9 +204,7 @@ class BroskiTheme {
           foregroundColor: ocTheme.selectedListItemText,
           elevation: 0,
           padding: Insets.button,
-          shape: RoundedRectangleBorder(
-            borderRadius: Radii.brMd,
-          ),
+          shape: RoundedRectangleBorder(borderRadius: Radii.brMd),
           textStyle: buttonTextStyle,
         ),
       ),
@@ -229,9 +214,7 @@ class BroskiTheme {
           foregroundColor: ocTheme.text,
           side: BorderSide(color: ocTheme.border),
           padding: Insets.button,
-          shape: RoundedRectangleBorder(
-            borderRadius: Radii.brMd,
-          ),
+          shape: RoundedRectangleBorder(borderRadius: Radii.brMd),
           textStyle: buttonTextStyle,
         ),
       ),
@@ -271,9 +254,7 @@ class BroskiTheme {
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: ocTheme.backgroundPanel,
         modalBackgroundColor: ocTheme.backgroundPanel,
-        shape: const RoundedRectangleBorder(
-          borderRadius: Radii.sheetTop,
-        ),
+        shape: const RoundedRectangleBorder(borderRadius: Radii.sheetTop),
       ),
 
       snackBarTheme: SnackBarThemeData(

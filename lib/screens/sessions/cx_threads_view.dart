@@ -29,6 +29,7 @@ import '../../utils/error_utils.dart';
 import '../../utils/responsive.dart';
 import '../../widgets/adaptive_container.dart';
 import '../../widgets/sessions/sort_chip.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Codex threads view. Extracted from sessions_screen.dart.
 class CodexThreadsView extends ConsumerStatefulWidget {
@@ -330,11 +331,7 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
                 widget.onRefresh();
               } catch (e) {
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Rename failed: ${humanizeError(e)}'),
-                    ),
-                  );
+                  showInfo(context, 'Rename failed: ${humanizeError(e)}');
                 }
               }
             },
@@ -352,15 +349,11 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
           .cxThreadFork(threadId: thread.id);
       widget.onRefresh();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Forked: ${forked.displayTitle}')),
-        );
+        showInfo(context, 'Forked: ${forked.displayTitle}');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Fork failed: ${humanizeError(e)}')),
-        );
+        showInfo(context, 'Fork failed: ${humanizeError(e)}');
       }
     }
   }
@@ -368,17 +361,10 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
   /// Stop/abort a Codex thread
   void _stopThread(CodexThread thread) {
     final bridge = ref.read(bridgeServiceProvider);
-    final ocTheme = OpenCodeTheme.of(context);
     // Send abort to bridge
     bridge.cxAbort(threadId: thread.id);
     // Show confirmation
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Stop signal sent to thread'),
-        backgroundColor: ocTheme.backgroundPanel,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    showSuccess(context, 'Stop signal sent to thread');
   }
 
   Future<void> _archiveThread(CodexThread thread) async {

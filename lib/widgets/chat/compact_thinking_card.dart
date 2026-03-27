@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/card_style.dart';
@@ -9,6 +8,7 @@ import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import 'detail_sheet.dart';
 import 'package:broski/theme/app_icons.dart';
+
 /// A compact single-line card for thinking/reasoning display.
 /// Tapping opens DetailSheet with full thinking content.
 ///
@@ -23,6 +23,7 @@ class CompactThinkingCard extends ConsumerWidget {
     final minutes = seconds / 60;
     return '${minutes.toStringAsFixed(1)}m';
   }
+
   void _showDetailSheet(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final reasoningText = message.reasoningText;
@@ -65,9 +66,9 @@ class CompactThinkingCard extends ConsumerWidget {
                 reasoningText.isNotEmpty
                     ? reasoningText
                     : 'No thinking content',
-                style: AppTypography.codeSmall(color: theme.text).copyWith(
-                  height: 1.5,
-                ),
+                style: AppTypography.codeSmall(
+                  color: theme.text,
+                ).copyWith(height: 1.5),
               ),
             ),
           ],
@@ -75,6 +76,7 @@ class CompactThinkingCard extends ConsumerWidget {
       ),
     );
   }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = OpenCodeTheme.of(context);
@@ -128,10 +130,7 @@ class CompactThinkingCard extends ConsumerWidget {
         clipBehavior: Clip.antiAlias,
         child: Container(
           padding: EdgeInsets.symmetric(horizontal: Spacing.md, vertical: 10),
-          decoration: BoxDecoration(
-            color: headerBg,
-            borderRadius: Radii.brMd,
-          ),
+          decoration: BoxDecoration(color: headerBg, borderRadius: Radii.brMd),
           child: Row(
             children: [
               // Icon or spinner

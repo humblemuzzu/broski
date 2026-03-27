@@ -15,8 +15,8 @@ extension _RuntimeOcMessageHandler on ChatSessionNotifier {
     final payloadMap = payload is Map<String, dynamic>
         ? payload
         : payload is Map
-            ? payload.cast<String, dynamic>()
-            : <String, dynamic>{};
+        ? payload.cast<String, dynamic>()
+        : <String, dynamic>{};
 
     switch (event.kind) {
       case 'message.updated':
@@ -56,37 +56,22 @@ extension _RuntimeOcMessageHandler on ChatSessionNotifier {
         );
 
       case 'project.updated':
-        developer.log(
-          'OC project updated',
-          name: 'ChatProvider',
-        );
+        developer.log('OC project updated', name: 'ChatProvider');
 
       case 'pty.created':
       case 'pty.updated':
       case 'pty.exited':
       case 'pty.deleted':
-        developer.log(
-          'OC PTY event: ${event.kind}',
-          name: 'ChatProvider',
-        );
+        developer.log('OC PTY event: ${event.kind}', name: 'ChatProvider');
 
       case 'worktree.ready':
-        developer.log(
-          'OC worktree ready',
-          name: 'ChatProvider',
-        );
+        developer.log('OC worktree ready', name: 'ChatProvider');
 
       case 'worktree.failed':
-        developer.log(
-          'OC worktree creation failed',
-          name: 'ChatProvider',
-        );
+        developer.log('OC worktree creation failed', name: 'ChatProvider');
 
       case 'lsp.updated':
-        developer.log(
-          'OC LSP status updated',
-          name: 'ChatProvider',
-        );
+        developer.log('OC LSP status updated', name: 'ChatProvider');
 
       case 'file.edited':
         developer.log(
@@ -121,8 +106,8 @@ extension _RuntimeOcMessageHandler on ChatSessionNotifier {
     final role = roleRaw == 'user'
         ? MessageRole.user
         : roleRaw == 'system'
-            ? MessageRole.system
-            : MessageRole.assistant;
+        ? MessageRole.system
+        : MessageRole.assistant;
     final created =
         info['time']?['created'] as int? ??
         DateTime.now().millisecondsSinceEpoch;
@@ -159,8 +144,10 @@ extension _RuntimeOcMessageHandler on ChatSessionNotifier {
     }
 
     if (existing.role != role) {
-      final updated = _copyWithRole(existing, role)
-          .copyWith(variant: variant, finish: finish, error: msgErrorName);
+      final updated = _copyWithRole(
+        existing,
+        role,
+      ).copyWith(variant: variant, finish: finish, error: msgErrorName);
       _updateMessage(messageId, updated);
 
       if (role == MessageRole.user && !messageId.startsWith('local-')) {
@@ -420,21 +407,20 @@ extension _RuntimeOcMessageHandler on ChatSessionNotifier {
   // -- OC permission/question removal via backend_event -----------------------
 
   void _handleRuntimeOcPermissionReplied(Map<String, dynamic> properties) {
-    final requestId = (properties['permissionID'] ??
-            properties['requestID'] ??
-            properties['requestId'] ??
-            properties['id'])
-        ?.toString();
+    final requestId =
+        (properties['permissionID'] ??
+                properties['requestID'] ??
+                properties['requestId'] ??
+                properties['id'])
+            ?.toString();
     if (requestId == null || requestId.isEmpty) return;
     state = state.copyWith(
-      permissions:
-          state.permissions.where((p) => p.id != requestId).toList(),
+      permissions: state.permissions.where((p) => p.id != requestId).toList(),
     );
   }
 
   void _handleRuntimeOcQuestionReplied(Map<String, dynamic> properties) {
-    final requestId = (properties['requestID'] ??
-            properties['requestId'])
+    final requestId = (properties['requestID'] ?? properties['requestId'])
         ?.toString();
     if (requestId == null || requestId.isEmpty) return;
     if (state.pendingQuestion?.id == requestId) {
@@ -443,8 +429,7 @@ extension _RuntimeOcMessageHandler on ChatSessionNotifier {
   }
 
   void _handleRuntimeOcQuestionRejected(Map<String, dynamic> properties) {
-    final requestId = (properties['requestID'] ??
-            properties['requestId'])
+    final requestId = (properties['requestID'] ?? properties['requestId'])
         ?.toString();
     if (requestId == null || requestId.isEmpty) return;
     if (state.pendingQuestion?.id == requestId) {
@@ -462,9 +447,7 @@ extension _RuntimeOcMessageHandler on ChatSessionNotifier {
   ///
   /// Also finalizes the previous turn's message (marks it as not streaming)
   /// so the UI doesn't show a stale streaming indicator.
-  void _resetRuntimeTurnForNewOcAssistantMessage({
-    required String messageId,
-  }) {
+  void _resetRuntimeTurnForNewOcAssistantMessage({required String messageId}) {
     final sessionKey = buildRuntimeChatSessionKey(
       backend: AgentType.opencode,
       sessionId: state.effectiveSessionId,
@@ -511,8 +494,7 @@ extension _RuntimeOcMessageHandler on ChatSessionNotifier {
       messageId: messageId,
       isStreaming: true,
       turnIndex: nextTurnIndex,
-      recentEventFingerprints:
-          currentTurn?.recentEventFingerprints ?? const [],
+      recentEventFingerprints: currentTurn?.recentEventFingerprints ?? const [],
     );
   }
 }

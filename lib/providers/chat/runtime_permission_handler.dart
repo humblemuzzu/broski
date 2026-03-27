@@ -57,17 +57,18 @@ extension _RuntimePermissionHandler on ChatSessionNotifier {
     if (event.backend == AgentType.opencode) {
       final toolData = metadata['tool'] as Map<String, dynamic>?;
       tool = toolData != null ? ToolReference.fromJson(toolData) : null;
-      patterns = (metadata['patterns'] as List<dynamic>?)
+      patterns =
+          (metadata['patterns'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           const [];
-      always = (metadata['always'] as List<dynamic>?)
+      always =
+          (metadata['always'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           const [];
       command ??= metadata['metadata'] is Map<String, dynamic>
-          ? (metadata['metadata'] as Map<String, dynamic>)['command']
-              as String?
+          ? (metadata['metadata'] as Map<String, dynamic>)['command'] as String?
           : null;
     }
 
@@ -116,8 +117,8 @@ extension _RuntimePermissionHandler on ChatSessionNotifier {
     final inputMap = input is Map<String, dynamic>
         ? input
         : input is Map
-            ? input.cast<String, dynamic>()
-            : <String, dynamic>{};
+        ? input.cast<String, dynamic>()
+        : <String, dynamic>{};
 
     final rawQuestions = inputMap['questions'];
     final parsedQuestions = <QuestionInfo>[];
@@ -127,8 +128,8 @@ extension _RuntimePermissionHandler on ChatSessionNotifier {
         final raw = q is Map<String, dynamic>
             ? q
             : q is Map
-                ? q.cast<String, dynamic>()
-                : null;
+            ? q.cast<String, dynamic>()
+            : null;
         if (raw == null) continue;
 
         final questionText = (raw['question'] as String?)?.trim() ?? '';
@@ -141,8 +142,8 @@ extension _RuntimePermissionHandler on ChatSessionNotifier {
             final optionMap = o is Map<String, dynamic>
                 ? o
                 : o is Map
-                    ? o.cast<String, dynamic>()
-                    : null;
+                ? o.cast<String, dynamic>()
+                : null;
             if (optionMap == null) continue;
             options.add(
               QuestionOption(
@@ -181,9 +182,7 @@ extension _RuntimePermissionHandler on ChatSessionNotifier {
   // User input requested (CX + OC)
   // ---------------------------------------------------------------------------
 
-  void _handleRuntimeUserInputRequested(
-    RuntimeUserInputRequestedEvent event,
-  ) {
+  void _handleRuntimeUserInputRequested(RuntimeUserInputRequestedEvent event) {
     final request = event.request;
     final sessionId = event.sessionId ?? state.effectiveSessionId ?? '';
 
@@ -282,14 +281,16 @@ extension _RuntimePermissionHandler on ChatSessionNotifier {
       permissions: [permissionRequest, ...state.permissions],
     );
 
-    _addMessage(ChatMessage(
-      id: 'cc-elicitation-$requestId',
-      sessionId: sessionId,
-      role: MessageRole.system,
-      createdAt: DateTime.fromMillisecondsSinceEpoch(timestampMs),
-      text: message,
-      variant: 'cc-elicitation-request',
-    ));
+    _addMessage(
+      ChatMessage(
+        id: 'cc-elicitation-$requestId',
+        sessionId: sessionId,
+        role: MessageRole.system,
+        createdAt: DateTime.fromMillisecondsSinceEpoch(timestampMs),
+        text: message,
+        variant: 'cc-elicitation-request',
+      ),
+    );
   }
 
   void _handleCcElicitationCompleteBackend(
@@ -298,8 +299,7 @@ extension _RuntimePermissionHandler on ChatSessionNotifier {
     int timestampMs,
   ) {
     final mcpServerName = payload['mcpServerName'] as String? ?? '';
-    final serverName =
-        mcpServerName.isNotEmpty ? mcpServerName : 'MCP server';
+    final serverName = mcpServerName.isNotEmpty ? mcpServerName : 'MCP server';
     final elicitationId = payload['elicitationId'] as String? ?? '';
 
     final remainingPermissions = state.permissions.where((permission) {
@@ -314,8 +314,7 @@ extension _RuntimePermissionHandler on ChatSessionNotifier {
         pendingElicitationId = value is String ? value : null;
       }
 
-      if (elicitationId.isNotEmpty &&
-          pendingElicitationId == elicitationId) {
+      if (elicitationId.isNotEmpty && pendingElicitationId == elicitationId) {
         return false;
       }
       if (elicitationId.isEmpty &&
@@ -330,13 +329,15 @@ extension _RuntimePermissionHandler on ChatSessionNotifier {
       state = state.copyWith(permissions: remainingPermissions);
     }
 
-    _addMessage(ChatMessage(
-      id: 'cc-elicitation-complete-$timestampMs',
-      sessionId: state.ccSessionId ?? sessionId,
-      role: MessageRole.system,
-      createdAt: DateTime.fromMillisecondsSinceEpoch(timestampMs),
-      text: '✅ $serverName authentication completed',
-      variant: 'cc-elicitation-complete',
-    ));
+    _addMessage(
+      ChatMessage(
+        id: 'cc-elicitation-complete-$timestampMs',
+        sessionId: state.ccSessionId ?? sessionId,
+        role: MessageRole.system,
+        createdAt: DateTime.fromMillisecondsSinceEpoch(timestampMs),
+        text: '✅ $serverName authentication completed',
+        variant: 'cc-elicitation-complete',
+      ),
+    );
   }
 }

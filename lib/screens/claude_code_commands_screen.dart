@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -14,12 +13,15 @@ import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+
 class ClaudeCodeCommandsScreen extends ConsumerStatefulWidget {
   const ClaudeCodeCommandsScreen({super.key});
   @override
   ConsumerState<ClaudeCodeCommandsScreen> createState() =>
       _ClaudeCodeCommandsScreenState();
 }
+
 class _ClaudeCodeCommandsScreenState
     extends ConsumerState<ClaudeCodeCommandsScreen> {
   List<ClaudeCodeCommand> _commands = const [];
@@ -31,6 +33,7 @@ class _ClaudeCodeCommandsScreenState
     super.initState();
     _load();
   }
+
   SkillSource _sourceFor(ClaudeCodeCommand c) {
     final s = (c.source ?? '').trim();
     if (s == 'project') return SkillSource.project;
@@ -38,6 +41,7 @@ class _ClaudeCodeCommandsScreenState
     if (s == 'plugin') return SkillSource.plugin;
     return SkillSource.user;
   }
+
   Future<void> _load() async {
     setState(() {
       _isLoading = true;
@@ -61,6 +65,7 @@ class _ClaudeCodeCommandsScreenState
       });
     }
   }
+
   Future<void> _open(ClaudeCodeCommand command) async {
     final selection = ref.read(selectionProvider);
     final cwd = selection.project?.path;
@@ -109,11 +114,10 @@ class _ClaudeCodeCommandsScreenState
       if (changed == true) await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to load command: ${humanizeError(e)}')));
+      showInfo(context, 'Failed to load command: ${humanizeError(e)}');
     }
   }
+
   Future<void> _create() async {
     final selection = ref.read(selectionProvider);
     final cwd = selection.project?.path;
@@ -140,9 +144,7 @@ class _ClaudeCodeCommandsScreenState
           for (final s in sources)
             ListTile(
               leading: Icon(
-                s == SkillSource.project
-                    ? AppIcons.folder
-                    : AppIcons.person,
+                s == SkillSource.project ? AppIcons.folder : AppIcons.person,
               ),
               title: Text(s.displayName),
               onTap: () => Navigator.pop(context, s),
@@ -185,6 +187,7 @@ class _ClaudeCodeCommandsScreenState
     );
     if (changed == true) await _load();
   }
+
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
@@ -215,89 +218,92 @@ class _ClaudeCodeCommandsScreenState
       body: AdaptiveContainer(
         width: ContentWidth.standard,
         child: SafeArea(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _error != null
-            ? Center(
-                child: Padding(
-                  padding: Insets.card,
-                  child: Text(
-                    _error!,
-                    style: TextStyle(color: oc.textMuted),
-                    textAlign: TextAlign.center,
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+              ? Center(
+                  child: Padding(
+                    padding: Insets.card,
+                    child: Text(
+                      _error!,
+                      style: TextStyle(color: oc.textMuted),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
-                ),
-              )
-            : RefreshIndicator(
-                onRefresh: _load,
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                  children: [
-                    if (selection.project == null)
-                      Padding(
-                        padding: Insets.bottomMd,
-                        child: Text(
-                          'Select a project to include project/plugin commands.',
-                          style: TextStyle(color: oc.textMuted),
-                        ),
-                      ),
-                    if (_commands.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 24),
-                        child: Center(
+                )
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                    children: [
+                      if (selection.project == null)
+                        Padding(
+                          padding: Insets.bottomMd,
                           child: Text(
-                            'No commands found',
+                            'Select a project to include project/plugin commands.',
                             style: TextStyle(color: oc.textMuted),
                           ),
                         ),
-                      )
-                    else ...[
-                      for (final entry in [
-                        SkillSource.project,
-                        SkillSource.user,
-                        SkillSource.plugin,
-                      ])
-                        if (bySource[entry]?.isNotEmpty == true) ...[
-                          Padding(
-                            padding: const EdgeInsets.only(top: 12, bottom: 6),
+                      if (_commands.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 24),
+                          child: Center(
                             child: Text(
-                              entry.displayName,
-                              style: TextStyle(
-                                color: oc.textMuted,
-                                fontWeight: FontWeight.w600,
-                              ),
+                              'No commands found',
+                              style: TextStyle(color: oc.textMuted),
                             ),
                           ),
-                          ...bySource[entry]!.map(
-                            (c) => Card(
-                              color: oc.backgroundPanel,
-                              child: ListTile(
-                                title: Text(
-                                  '/${c.name}',
-                                  style: TextStyle(color: oc.text),
-                                ),
-                                subtitle: Text(
-                                  c.description ?? c.path ?? '',
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(color: oc.textMuted),
-                                ),
-                                trailing: Icon(
-                                  entry == SkillSource.plugin
-                                      ? AppIcons.lock
-                                      : AppIcons.chevronRight,
+                        )
+                      else ...[
+                        for (final entry in [
+                          SkillSource.project,
+                          SkillSource.user,
+                          SkillSource.plugin,
+                        ])
+                          if (bySource[entry]?.isNotEmpty == true) ...[
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                top: 12,
+                                bottom: 6,
+                              ),
+                              child: Text(
+                                entry.displayName,
+                                style: TextStyle(
                                   color: oc.textMuted,
+                                  fontWeight: FontWeight.w600,
                                 ),
-                                onTap: () => _open(c),
                               ),
                             ),
-                          ),
-                        ],
+                            ...bySource[entry]!.map(
+                              (c) => Card(
+                                color: oc.backgroundPanel,
+                                child: ListTile(
+                                  title: Text(
+                                    '/${c.name}',
+                                    style: TextStyle(color: oc.text),
+                                  ),
+                                  subtitle: Text(
+                                    c.description ?? c.path ?? '',
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(color: oc.textMuted),
+                                  ),
+                                  trailing: Icon(
+                                    entry == SkillSource.plugin
+                                        ? AppIcons.lock
+                                        : AppIcons.chevronRight,
+                                    color: oc.textMuted,
+                                  ),
+                                  onTap: () => _open(c),
+                                ),
+                              ),
+                            ),
+                          ],
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-      ),
+        ),
       ),
     );
   }

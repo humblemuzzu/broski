@@ -7,6 +7,7 @@ import '../../providers/service_providers.dart';
 import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import '../../utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Shows the rename session dialog. Extracted from chat_screen.dart.
 void showRenameSessionDialog(
@@ -50,17 +51,11 @@ void showRenameSessionDialog(
                 projectPath: project.path,
               );
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Session renamed to "$newTitle"')),
-                );
+                showInfo(context, 'Session renamed to "$newTitle"');
               }
             } catch (e) {
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Failed to rename: ${humanizeError(e)}'),
-                  ),
-                );
+                showInfo(context, 'Failed to rename: ${humanizeError(e)}');
               }
             }
           },

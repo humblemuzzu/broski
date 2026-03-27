@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/service_providers.dart';
-import '../../theme/opencode_theme.dart';
 import '../../utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Shows a dialog to run a shell command in the context of the current
 /// OpenCode session. The agent sees the output and can respond to it.
@@ -82,19 +82,9 @@ Future<void> showOcShellCommandDialog(
     );
     if (!context.mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Running: $command'),
-        backgroundColor: OpenCodeTheme.of(context).backgroundPanel,
-      ),
-    );
+    showSuccess(context, 'Running: $command');
   } catch (error) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Shell command failed: ${humanizeError(error)}'),
-        backgroundColor: OpenCodeTheme.of(context).error,
-      ),
-    );
+    showError(context, 'Shell command failed: ${humanizeError(error)}');
   }
 }

@@ -199,9 +199,7 @@ extension BridgeServiceMisc on BridgeService {
   // Project Management
   // ============================================================
 
-  Future<Map<String, dynamic>?> getCurrentProject({
-    String? projectPath,
-  }) async {
+  Future<Map<String, dynamic>?> getCurrentProject({String? projectPath}) async {
     final requestId = _generateRequestId();
     _socket.send({
       'type': 'get_current_project',

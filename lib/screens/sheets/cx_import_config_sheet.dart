@@ -9,6 +9,7 @@ import '../../widgets/chat/detail_sheet.dart';
 import '../../providers/service_providers.dart';
 import '../../providers/chat_provider.dart';
 import '../../utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Shows the external agent config import sheet.
 void showCxImportConfigSheet(BuildContext context) {
@@ -20,13 +21,12 @@ void showCxImportConfigSheet(BuildContext context) {
   );
 }
 
-final _cxExternalConfigsProvider =
-    FutureProvider<List<Map<String, dynamic>>>((ref) async {
+final _cxExternalConfigsProvider = FutureProvider<List<Map<String, dynamic>>>((
+  ref,
+) async {
   final bridge = ref.watch(bridgeServiceProvider);
   final cwd = ref.watch(chatSessionProvider).cxCwd;
-  return bridge.cxDetectExternalConfigs(
-    cwds: cwd != null ? [cwd] : null,
-  );
+  return bridge.cxDetectExternalConfigs(cwds: cwd != null ? [cwd] : null);
 });
 
 class _CxImportConfigContent extends ConsumerStatefulWidget {
@@ -50,15 +50,11 @@ class _CxImportConfigContentState
         configPath: configPath,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Imported config from $source')),
-        );
+        showInfo(context, 'Imported config from $source');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Import failed: ${humanizeError(e)}')),
-        );
+        showInfo(context, 'Import failed: ${humanizeError(e)}');
       }
     } finally {
       if (mounted) setState(() => _importingSource = null);
@@ -109,8 +105,13 @@ class _CxImportConfigContentState
               SizedBox(height: Spacing.md),
               ...configs.map((cfg) {
                 final source =
-                    cfg['source']?.toString() ?? cfg['name']?.toString() ?? 'Unknown';
-                final path = cfg['path']?.toString() ?? cfg['configPath']?.toString() ?? '';
+                    cfg['source']?.toString() ??
+                    cfg['name']?.toString() ??
+                    'Unknown';
+                final path =
+                    cfg['path']?.toString() ??
+                    cfg['configPath']?.toString() ??
+                    '';
                 final description = cfg['description']?.toString() ?? '';
                 final configTypes = cfg['configTypes'] as List<dynamic>? ?? [];
                 final isImporting = _importingSource == source;
@@ -133,13 +134,17 @@ class _CxImportConfigContentState
                           children: [
                             Text(
                               source,
-                              style: AppTypography.labelLarge(color: theme.text),
+                              style: AppTypography.labelLarge(
+                                color: theme.text,
+                              ),
                             ),
                             if (path.isNotEmpty) ...[
                               const SizedBox(height: 2),
                               Text(
                                 path,
-                                style: AppTypography.label(color: theme.textMuted),
+                                style: AppTypography.label(
+                                  color: theme.textMuted,
+                                ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -148,7 +153,9 @@ class _CxImportConfigContentState
                               const SizedBox(height: 2),
                               Text(
                                 description,
-                                style: AppTypography.label(color: theme.textMuted),
+                                style: AppTypography.label(
+                                  color: theme.textMuted,
+                                ),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -164,7 +171,9 @@ class _CxImportConfigContentState
                                       vertical: 1,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: theme.primary.withValues(alpha: 0.1),
+                                      color: theme.primary.withValues(
+                                        alpha: 0.1,
+                                      ),
                                       borderRadius: Radii.brXs,
                                     ),
                                     child: Text(
@@ -195,7 +204,8 @@ class _CxImportConfigContentState
                                 size: 18,
                                 color: theme.primary,
                               ),
-                              onPressed: () => _import(source, configPath: path),
+                              onPressed: () =>
+                                  _import(source, configPath: path),
                               tooltip: 'Import',
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(

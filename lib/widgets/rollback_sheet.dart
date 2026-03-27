@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import '../theme/app_typography.dart';
 
@@ -6,6 +5,7 @@ import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'chat/detail_sheet.dart';
 import 'package:broski/theme/app_icons.dart';
+
 /// Shows a rollback sheet using DetailSheet.
 /// Returns Future that completes when the sheet is dismissed.
 Future<void> showRollbackSheet({
@@ -22,6 +22,7 @@ Future<void> showRollbackSheet({
     child: _RollbackSheetContent(maxTurns: maxTurns, onRollback: onRollback),
   );
 }
+
 /// Legacy widget for backwards compatibility.
 /// Prefer using [showRollbackSheet] instead.
 class RollbackSheet extends StatefulWidget {
@@ -35,6 +36,7 @@ class RollbackSheet extends StatefulWidget {
   @override
   State<RollbackSheet> createState() => _RollbackSheetState();
 }
+
 class _RollbackSheetState extends State<RollbackSheet> {
   @override
   Widget build(BuildContext context) {
@@ -50,6 +52,7 @@ class _RollbackSheetState extends State<RollbackSheet> {
     );
   }
 }
+
 /// The actual content of the rollback sheet.
 class _RollbackSheetContent extends StatefulWidget {
   const _RollbackSheetContent({
@@ -61,6 +64,7 @@ class _RollbackSheetContent extends StatefulWidget {
   @override
   State<_RollbackSheetContent> createState() => _RollbackSheetContentState();
 }
+
 class _RollbackSheetContentState extends State<_RollbackSheetContent> {
   int _turns = 1;
   bool _working = false;
@@ -69,6 +73,7 @@ class _RollbackSheetContentState extends State<_RollbackSheetContent> {
     super.initState();
     _turns = widget.maxTurns < 1 ? 1 : 1;
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);

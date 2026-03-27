@@ -145,7 +145,10 @@ class AppSubscriptionNotifier extends StateNotifier<AppSubscriptionState> {
     return null;
   }
 
-  Future<void> _syncToConvex(CustomerInfo info, {required bool entitled}) async {
+  Future<void> _syncToConvex(
+    CustomerInfo info, {
+    required bool entitled,
+  }) async {
     final token = await _storage.getAppSessionToken();
     if (token == null) return;
 
@@ -175,18 +178,18 @@ class AppSubscriptionNotifier extends StateNotifier<AppSubscriptionState> {
 
 final appSubscriptionProvider =
     StateNotifierProvider<AppSubscriptionNotifier, AppSubscriptionState>((ref) {
-  final notifier = AppSubscriptionNotifier(ref);
+      final notifier = AppSubscriptionNotifier(ref);
 
-  ref.listen(appAuthProvider, (prev, next) {
-    if ((prev?.user?.appUserId) != (next.user?.appUserId)) {
-      if (next.user == null) {
-        notifier.signOut();
-      } else {
-        notifier.seedEntitlement(next.user!.isEntitled);
-        notifier.configureAndRefresh();
-      }
-    }
-  });
+      ref.listen(appAuthProvider, (prev, next) {
+        if ((prev?.user?.appUserId) != (next.user?.appUserId)) {
+          if (next.user == null) {
+            notifier.signOut();
+          } else {
+            notifier.seedEntitlement(next.user!.isEntitled);
+            notifier.configureAndRefresh();
+          }
+        }
+      });
 
-  return notifier;
-});
+      return notifier;
+    });

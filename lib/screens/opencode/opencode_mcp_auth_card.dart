@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../services/bridge_service.dart';
 import '../../theme/opencode_theme.dart';
 import '../../utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Handles MCP OAuth authentication flows.
 ///
@@ -92,12 +93,7 @@ Future<bool> _mcpAuthOneShotFlow({
     return ok;
   } catch (e) {
     if (!context.mounted) return false;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Auth failed: ${humanizeError(e)}'),
-        backgroundColor: oc.error,
-      ),
-    );
+    showError(context, 'Auth failed: ${humanizeError(e)}');
     return false;
   }
 }
@@ -114,12 +110,7 @@ Future<bool> _mcpAuthManualFlow({
     final result = await bridge.mcpAuthStart(name, projectPath: projectPath);
     if (!context.mounted) return false;
     if (result == null || result['authorizationUrl'] == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to start auth for "$name"'),
-          backgroundColor: oc.error,
-        ),
-      );
+      showError(context, 'Failed to start auth for "$name"');
       return false;
     }
     final url = result['authorizationUrl'] as String;
@@ -183,12 +174,7 @@ Future<bool> _mcpAuthManualFlow({
     return ok;
   } catch (e) {
     if (!context.mounted) return false;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Auth failed: ${humanizeError(e)}'),
-        backgroundColor: oc.error,
-      ),
-    );
+    showError(context, 'Auth failed: ${humanizeError(e)}');
     return false;
   }
 }

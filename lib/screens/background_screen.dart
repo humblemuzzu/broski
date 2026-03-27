@@ -1,4 +1,3 @@
-
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -12,6 +11,8 @@ import '../widgets/chat/detail_sheet.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+
 /// Screen for configuring custom background wallpaper, shade, and per-screen toggles.
 ///
 /// Extracted from AppearanceScreen to separate background settings from tool card settings.
@@ -35,10 +36,7 @@ class BackgroundScreen extends ConsumerWidget {
           ),
         ),
         leading: IconButton(
-          icon: Icon(
-            AppIcons.back,
-            color: theme.colorScheme.onSurface,
-          ),
+          icon: Icon(AppIcons.back, color: theme.colorScheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
@@ -63,29 +61,30 @@ class BackgroundScreen extends ConsumerWidget {
       body: AdaptiveContainer(
         width: ContentWidth.standard,
         child: ListView(
-        padding: Insets.screenAll,
-        children: [
-          // Custom Background Image Section
-          _SectionHeader(title: 'Wallpaper'),
-          SizedBox(height: Spacing.md),
-          _BackgroundSection(settings: settings),
-          SizedBox(height: Spacing.xxxl),
-          // Background Shade Picker
-          _SectionHeader(title: 'Background Shade'),
-          SizedBox(height: Spacing.md),
-          const _BackgroundShadePreview(),
-          SizedBox(height: Spacing.xxxl),
-          // Per-screen background toggles
-          _SectionHeader(title: 'Screen Selection'),
-          SizedBox(height: Spacing.md),
-          const _ScreenBackgroundToggles(),
-          const SizedBox(height: 100),
-        ],
-      ),
+          padding: Insets.screenAll,
+          children: [
+            // Custom Background Image Section
+            _SectionHeader(title: 'Wallpaper'),
+            SizedBox(height: Spacing.md),
+            _BackgroundSection(settings: settings),
+            SizedBox(height: Spacing.xxxl),
+            // Background Shade Picker
+            _SectionHeader(title: 'Background Shade'),
+            SizedBox(height: Spacing.md),
+            const _BackgroundShadePreview(),
+            SizedBox(height: Spacing.xxxl),
+            // Per-screen background toggles
+            _SectionHeader(title: 'Screen Selection'),
+            SizedBox(height: Spacing.md),
+            const _ScreenBackgroundToggles(),
+            const SizedBox(height: 100),
+          ],
+        ),
       ),
     );
   }
 }
+
 // Section header widget
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.title});
@@ -103,6 +102,7 @@ class _SectionHeader extends StatelessWidget {
     );
   }
 }
+
 // Settings card container
 class _SettingsCard extends StatelessWidget {
   const _SettingsCard({required this.child});
@@ -120,6 +120,7 @@ class _SettingsCard extends StatelessWidget {
     );
   }
 }
+
 // Divider
 class _Divider extends StatelessWidget {
   @override
@@ -133,6 +134,7 @@ class _Divider extends StatelessWidget {
     );
   }
 }
+
 // Background section with custom image picker
 class _BackgroundSection extends ConsumerWidget {
   const _BackgroundSection({required this.settings});
@@ -245,6 +247,7 @@ class _BackgroundSection extends ConsumerWidget {
       ),
     );
   }
+
   void _showBackgroundOptions(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     DetailSheet.show(
@@ -275,9 +278,7 @@ class _BackgroundSection extends ConsumerWidget {
                   .read(appearanceProvider.notifier)
                   .pickBackgroundImage();
               if (context.mounted && !success) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Failed to set background')),
-                );
+                showInfo(context, 'Failed to set background');
               }
             },
           ),
@@ -291,10 +292,7 @@ class _BackgroundSection extends ConsumerWidget {
                   color: theme.colorScheme.error.withValues(alpha: 0.15),
                   borderRadius: Radii.brMd,
                 ),
-                child: Icon(
-                  AppIcons.delete,
-                  color: theme.colorScheme.error,
-                ),
+                child: Icon(AppIcons.delete, color: theme.colorScheme.error),
               ),
               title: const Text('Remove Background'),
               subtitle: const Text('Go back to theme default'),
@@ -310,6 +308,7 @@ class _BackgroundSection extends ConsumerWidget {
     );
   }
 }
+
 // Slider with custom label formatting
 class _SliderTileWithLabel extends StatelessWidget {
   const _SliderTileWithLabel({
@@ -380,6 +379,7 @@ class _SliderTileWithLabel extends StatelessWidget {
     );
   }
 }
+
 // Selectable background shade picker
 class _BackgroundShadePreview extends ConsumerWidget {
   const _BackgroundShadePreview();
@@ -529,14 +529,15 @@ class _BackgroundShadePreview extends ConsumerWidget {
                           ),
                           child: Text(
                             '#${shade.$3.toARGB32().toRadixString(16).substring(2).toUpperCase()}',
-                            style: AppTypography.codeSmall(
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.7,
-                              ),
-                            ).copyWith(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style:
+                                AppTypography.codeSmall(
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.7,
+                                  ),
+                                ).copyWith(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                ),
                           ),
                         ),
                     ],
@@ -550,6 +551,7 @@ class _BackgroundShadePreview extends ConsumerWidget {
     );
   }
 }
+
 // Per-screen background toggle section
 class _ScreenBackgroundToggles extends ConsumerWidget {
   const _ScreenBackgroundToggles();
@@ -689,6 +691,7 @@ class _ScreenBackgroundToggles extends ConsumerWidget {
     );
   }
 }
+
 class _ScreenToggleChip extends StatelessWidget {
   const _ScreenToggleChip({
     required this.screenId,

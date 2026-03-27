@@ -7,6 +7,7 @@ import '../../providers/service_providers.dart';
 import '../../services/haptics_service.dart';
 import '../../theme/opencode_theme.dart';
 import '../../utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Compacts (summarizes) the current OpenCode session.
 /// Extracted from `_ChatScreenState._compactSession` in `chat_screen.dart`.
@@ -21,12 +22,7 @@ Future<void> compactSession({
   final theme = OpenCodeTheme.of(context);
   final selectedModel = ref.read(selectionProvider).model;
   if (selectedModel == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Please select a model first'),
-        backgroundColor: theme.error,
-      ),
-    );
+    showError(context, 'Please select a model first');
     return;
   }
   // Confirm compact
@@ -64,34 +60,16 @@ Future<void> compactSession({
     );
     if (!context.mounted) return;
     if (success) {
-      final theme = OpenCodeTheme.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Session compacted successfully'),
-          backgroundColor: theme.backgroundPanel,
-        ),
-      );
+      showSuccess(context, 'Session compacted successfully');
       // Refresh context to show updated token count
       onRefreshContext();
     } else {
       ref.read(chatSessionProvider.notifier).setCompacting(false);
-      final theme = OpenCodeTheme.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Failed to compact session'),
-          backgroundColor: theme.error,
-        ),
-      );
+      showError(context, 'Failed to compact session');
     }
   } catch (e) {
     if (!context.mounted) return;
     ref.read(chatSessionProvider.notifier).setCompacting(false);
-    final theme = OpenCodeTheme.of(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Failed to compact: ${humanizeError(e)}'),
-        backgroundColor: theme.error,
-      ),
-    );
+    showError(context, 'Failed to compact: ${humanizeError(e)}');
   }
 }

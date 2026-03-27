@@ -17,6 +17,7 @@ import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 class SkillsScreen extends ConsumerStatefulWidget {
   const SkillsScreen({required this.backend, super.key});
@@ -47,9 +48,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
         if (eventCwd != null && eventCwd.isNotEmpty && cwd != eventCwd) {
           return;
         }
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Skills updated')));
+        showInfo(context, 'Skills updated');
         _load(forceReload: true);
       });
     }
@@ -174,9 +173,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
       await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load skill: ${humanizeError(e)}')),
-      );
+      showInfo(context, 'Failed to load skill: ${humanizeError(e)}');
     }
   }
 
@@ -269,16 +266,12 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
       );
       if (!mounted) return;
       if (!ok) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Failed to delete skill')));
+        showInfo(context, 'Failed to delete skill');
       }
       await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to delete skill: ${humanizeError(e)}')),
-      );
+      showInfo(context, 'Failed to delete skill: ${humanizeError(e)}');
     }
   }
 
@@ -562,38 +555,27 @@ description: $description
   }
 
   Future<void> _save() async {
-    final theme = OpenCodeTheme.of(context);
     final selection = ref.read(selectionProvider);
     final cwd = widget.cwd ?? selection.project?.path;
     final name = _isCreate ? _name.text.trim() : widget.existing!.name;
     if (name.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Skill name is required')));
+      showInfo(context, 'Skill name is required');
       return;
     }
     final nameOk =
         RegExp(r'^[a-z0-9]+(-[a-z0-9]+)*$').hasMatch(name) && name.length <= 64;
     if (!nameOk) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Invalid skill name (use lowercase a-z, 0-9, hyphens)'),
-        ),
-      );
+      showInfo(context, 'Invalid skill name (use lowercase a-z, 0-9, hyphens)');
       return;
     }
     final source = _isCreate ? widget.createSource : widget.existing!.source;
     if (source == null) return;
     if (!source.isEditable) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('This skill is read-only')));
+      showInfo(context, 'This skill is read-only');
       return;
     }
     if (source == SkillSource.project && cwd == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select a project to create repo skills')),
-      );
+      showInfo(context, 'Select a project to create repo skills');
       return;
     }
     if (_isCreate) {
@@ -648,21 +630,11 @@ description: $description
       if (ok) {
         Navigator.pop(context);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to save "$name"'),
-            backgroundColor: theme.error,
-          ),
-        );
+        showError(context, 'Failed to save "$name"');
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to save: ${humanizeError(e)}'),
-          backgroundColor: theme.error,
-        ),
-      );
+      showError(context, 'Failed to save: ${humanizeError(e)}');
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }

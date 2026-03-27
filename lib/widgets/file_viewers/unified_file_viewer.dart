@@ -1,4 +1,3 @@
-
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -13,7 +12,9 @@ import 'markdown_file_viewer.dart';
 import 'pdf_file_viewer.dart';
 import 'text_file_viewer.dart';
 import 'package:broski/theme/app_icons.dart';
+
 enum FileViewerType { image, pdf, markdown, code, csv, text }
+
 class UnifiedFileViewer extends StatelessWidget {
   const UnifiedFileViewer({
     super.key,
@@ -35,6 +36,7 @@ class UnifiedFileViewer extends StatelessWidget {
     if (FileContent.isCodePath(filePath)) return FileViewerType.code;
     return FileViewerType.text;
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -75,6 +77,7 @@ class UnifiedFileViewer extends StatelessWidget {
         return TextFileViewer(content: textContent!, filename: filename);
     }
   }
+
   Widget _buildNoDataError(OpenCodeTheme theme, String message) {
     return Center(
       child: Column(

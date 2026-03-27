@@ -8,6 +8,7 @@ import '../../services/haptics_service.dart';
 import '../../theme/opencode_theme.dart';
 import '../../utils/error_utils.dart';
 import '../chat_screen.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Forks the current session (CC, Codex, or OpenCode).
 /// Extracted from `_ChatScreenState._forkSession` in `chat_screen.dart`.
@@ -40,12 +41,7 @@ Future<void> forkSession({
     if (widget.isClaudeCode) {
       final sessionId = chatState.ccSessionId ?? widget.ccSession?.id;
       if (sessionId == null || sessionId.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Cannot fork: no active session'),
-            backgroundColor: theme.error,
-          ),
-        );
+        showError(context, 'Cannot fork: no active session');
         return;
       }
       final forkedCC = await bridge.ccForkSession(
@@ -55,12 +51,7 @@ Future<void> forkSession({
       );
       if (!context.mounted) return;
       if (forkedCC == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Failed to fork session'),
-            backgroundColor: theme.error,
-          ),
-        );
+        showError(context, 'Failed to fork session');
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
@@ -87,12 +78,7 @@ Future<void> forkSession({
     } else if (widget.isCodex) {
       final threadId = chatState.cxThreadId ?? widget.cxThread?.id;
       if (threadId == null || threadId.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Cannot fork: no active thread'),
-            backgroundColor: theme.error,
-          ),
-        );
+        showError(context, 'Cannot fork: no active thread');
         return;
       }
       final forked = await bridge.cxThreadFork(threadId: threadId);
@@ -150,11 +136,6 @@ Future<void> forkSession({
     }
   } catch (e) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Failed to fork session: ${humanizeError(e)}'),
-        backgroundColor: theme.error,
-      ),
-    );
+    showError(context, 'Failed to fork session: ${humanizeError(e)}');
   }
 }

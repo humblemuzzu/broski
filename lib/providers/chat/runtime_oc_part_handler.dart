@@ -26,8 +26,9 @@ extension _RuntimeOcPartHandler on ChatSessionNotifier {
     var message = _messages[messageId];
     final knownRole = _rolesByMessageId[messageId];
     final resolvedRole = knownRole ?? message?.role ?? MessageRole.assistant;
-    final effectiveSessionId =
-        partSessionId.isNotEmpty ? partSessionId : sessionId;
+    final effectiveSessionId = partSessionId.isNotEmpty
+        ? partSessionId
+        : sessionId;
     if (message == null) {
       message = ChatMessage(
         id: messageId,
@@ -210,11 +211,10 @@ extension _RuntimeOcPartHandler on ChatSessionNotifier {
     // For data URIs (e.g. base64-encoded images), don't use the raw URI as
     // the display output — it would render as a huge block of binary text.
     final isDataUri = url.startsWith('data:');
-    final displayOutput = fileName ??
+    final displayOutput =
+        fileName ??
         (isDataUri
-            ? (mime.isNotEmpty
-                ? mime.split('/').last
-                : 'attachment')
+            ? (mime.isNotEmpty ? mime.split('/').last : 'attachment')
             : url);
 
     final attachmentTool = ToolCall(
@@ -261,9 +261,7 @@ extension _RuntimeOcPartHandler on ChatSessionNotifier {
       sessionId: sessionId,
     );
     final current = _messages[messageId] ?? message;
-    final exists = current.subtaskNotifications.any(
-      (s) => s.id == subtask.id,
-    );
+    final exists = current.subtaskNotifications.any((s) => s.id == subtask.id);
     if (!exists) {
       _updateMessage(
         messageId,

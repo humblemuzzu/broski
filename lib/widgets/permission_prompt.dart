@@ -282,10 +282,7 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                               widget.request.displayTitle) ...[
                         Text(
                           widget.request.title,
-                          style: TextStyle(
-                          color: theme.text,
-                          fontSize: 14,
-                        ),
+                          style: TextStyle(color: theme.text, fontSize: 14),
                         ),
                         SizedBox(height: Spacing.sm),
                       ],

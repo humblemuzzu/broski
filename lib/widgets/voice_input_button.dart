@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,6 +7,7 @@ import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'voice_recording_sheet.dart';
 import 'package:broski/theme/app_icons.dart';
+
 /// A mic button that triggers voice input recording.
 ///
 /// Shows different states:
@@ -22,10 +22,13 @@ class VoiceInputButton extends ConsumerWidget {
     this.size = 24,
     this.padding = Insets.cardXs,
   });
+
   /// Called when transcription completes successfully with the transcribed text.
   final void Function(String text) onTranscription;
+
   /// Icon size
   final double size;
+
   /// Button padding
   final EdgeInsets padding;
   @override
@@ -66,6 +69,7 @@ class VoiceInputButton extends ConsumerWidget {
       ),
     );
   }
+
   Widget _buildIcon(
     SttState state,
     IconData icon,
@@ -84,6 +88,7 @@ class VoiceInputButton extends ConsumerWidget {
     }
     return Icon(icon, size: size, color: color);
   }
+
   void _handleTap(BuildContext context, WidgetRef ref, SttState state) async {
     if (!state.isConfigured) {
       _showConfigurePrompt(context);
@@ -98,6 +103,7 @@ class VoiceInputButton extends ConsumerWidget {
       onTranscription(transcribedText);
     }
   }
+
   void _showConfigurePrompt(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
     showDialog(
@@ -132,6 +138,7 @@ class VoiceInputButton extends ConsumerWidget {
     );
   }
 }
+
 /// Pulsing mic icon for recording state
 class _PulsingMic extends StatefulWidget {
   const _PulsingMic({required this.size, required this.color});
@@ -140,6 +147,7 @@ class _PulsingMic extends StatefulWidget {
   @override
   State<_PulsingMic> createState() => _PulsingMicState();
 }
+
 class _PulsingMicState extends State<_PulsingMic>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
@@ -156,11 +164,13 @@ class _PulsingMicState extends State<_PulsingMic>
       end: 1.0,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -174,7 +184,11 @@ class _PulsingMicState extends State<_PulsingMic>
               color: widget.color.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
-            child: Icon(AppIcons.mic, size: widget.size - 8, color: widget.color),
+            child: Icon(
+              AppIcons.mic,
+              size: widget.size - 8,
+              color: widget.color,
+            ),
           ),
         );
       },

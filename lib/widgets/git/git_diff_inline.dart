@@ -44,9 +44,7 @@ class GitDiffInline extends StatelessWidget {
         ),
         child: SelectableText(
           diff,
-          style: AppTypography.codeSmall().copyWith(
-            height: 1.45,
-          ),
+          style: AppTypography.codeSmall().copyWith(height: 1.45),
         ),
       ),
     );

@@ -126,10 +126,7 @@ extension BridgeOpenCodeUpdates on BridgeService {
       'requestId': requestId,
       if (projectPath != null) 'projectPath': projectPath,
     });
-    final response = await _waitFor(
-      'oc_git_initialized',
-      requestId: requestId,
-    );
+    final response = await _waitFor('oc_git_initialized', requestId: requestId);
     // initGit returns the updated Project object on success, not a boolean
     return response['data'] != null;
   }

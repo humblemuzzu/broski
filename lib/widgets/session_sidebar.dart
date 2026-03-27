@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import '../theme/app_typography.dart';
 
@@ -10,6 +9,7 @@ import '../models/todo.dart';
 import '../models/vcs.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
+import 'chat/section_header.dart';
 import 'connection_quality_indicator.dart';
 import 'status_indicator.dart';
 import 'package:broski/theme/app_icons.dart';
@@ -28,6 +28,7 @@ class CodexSessionInfo {
   final String? cwd;
   final CodexSettings settings;
 }
+
 /// Session sidebar showing plan/todos, context usage, LSP servers, and modified files
 /// Designed to match the OpenCode desktop sidebar shown in the screenshot
 class SessionSidebar extends StatelessWidget {
@@ -120,6 +121,7 @@ class SessionSidebar extends StatelessWidget {
       ),
     );
   }
+
   Widget _buildHeader(BuildContext context, OpenCodeTheme theme) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
@@ -191,6 +193,7 @@ class SessionSidebar extends StatelessWidget {
       ),
     );
   }
+
   Widget _buildContextSection(BuildContext context, OpenCodeTheme theme) {
     final ctx = sessionContext;
     final usagePercent = ctx.contextUsagePercent;
@@ -224,7 +227,9 @@ class SessionSidebar extends StatelessWidget {
                 children: [
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
-                    width: constraints.maxWidth * (usagePercent / 100).clamp(0.0, 1.0),
+                    width:
+                        constraints.maxWidth *
+                        (usagePercent / 100).clamp(0.0, 1.0),
                     decoration: BoxDecoration(
                       color: usagePercent > 80
                           ? theme.error
@@ -253,7 +258,9 @@ class SessionSidebar extends StatelessWidget {
             if (remainingTokens > 0)
               _StatItem(
                 theme: theme,
-                label: ctx.tokens.formatCount(remainingTokens.clamp(0, ctx.tokens.contextWindow)),
+                label: ctx.tokens.formatCount(
+                  remainingTokens.clamp(0, ctx.tokens.contextWindow),
+                ),
                 sublabel: 'remaining',
                 icon: AppIcons.dataUsage,
               ),
@@ -329,6 +336,7 @@ class SessionSidebar extends StatelessWidget {
       ],
     );
   }
+
   /// Claude Code specific info section showing model, permission mode, tools
   Widget _buildClaudeCodeInfoSection(
     BuildContext context,
@@ -438,6 +446,7 @@ class SessionSidebar extends StatelessWidget {
       ],
     );
   }
+
   /// Codex session info section showing model, approvals, sandbox, effort.
   Widget _buildCodexInfoSection(BuildContext context, OpenCodeTheme theme) {
     final info = cxInfo;
@@ -563,6 +572,7 @@ class SessionSidebar extends StatelessWidget {
       ],
     );
   }
+
   Widget _buildClaudeCodeSkillsSection(
     BuildContext context,
     OpenCodeTheme theme,
@@ -589,10 +599,7 @@ class SessionSidebar extends StatelessWidget {
                   borderRadius: Radii.brFull,
                   border: Border.all(color: theme.borderSubtle),
                 ),
-                child: Text(
-                  s,
-                  style: AppTypography.label(color: theme.text),
-                ),
+                child: Text(s, style: AppTypography.label(color: theme.text)),
               ),
           ],
         ),
@@ -607,6 +614,7 @@ class SessionSidebar extends StatelessWidget {
       ],
     );
   }
+
   Widget _buildPlanSection(BuildContext context, OpenCodeTheme theme) {
     if (todos.isEmpty) {
       return _SidebarSection(
@@ -672,6 +680,7 @@ class SessionSidebar extends StatelessWidget {
       ],
     );
   }
+
   Widget _buildLspSection(BuildContext context, OpenCodeTheme theme) {
     final lspServers = sessionContext.lsp;
     if (lspServers.isEmpty) {
@@ -713,6 +722,7 @@ class SessionSidebar extends StatelessWidget {
       ],
     );
   }
+
   Widget _buildChangesSection(BuildContext context, OpenCodeTheme theme) {
     if (sessionDiffs.isEmpty) {
       return _SidebarSection(
@@ -798,6 +808,7 @@ class SessionSidebar extends StatelessWidget {
       ],
     );
   }
+
   Widget _buildModifiedFilesSection(BuildContext context, OpenCodeTheme theme) {
     final files = sessionContext.modifiedFiles;
     if (files.isEmpty) {
@@ -815,11 +826,7 @@ class SessionSidebar extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(
-                  AppIcons.checkCircle,
-                  color: theme.success,
-                  size: 16,
-                ),
+                Icon(AppIcons.checkCircle, color: theme.success, size: 16),
                 SizedBox(width: Spacing.sm),
                 Text(
                   'No files modified yet',
@@ -885,6 +892,7 @@ class SessionSidebar extends StatelessWidget {
     );
   }
 }
+
 /// Section container with title and optional icon
 class _SidebarSection extends StatelessWidget {
   const _SidebarSection({
@@ -910,15 +918,7 @@ class _SidebarSection extends StatelessWidget {
               Icon(icon, size: 14, color: theme.textMuted),
               const SizedBox(width: 6),
             ],
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: theme.textMuted,
-                letterSpacing: 0.5,
-              ),
-            ),
+            SectionHeader(title: title, theme: theme),
             if (trailing != null) ...[const Spacer(), trailing!],
           ],
         ),
@@ -928,6 +928,7 @@ class _SidebarSection extends StatelessWidget {
     );
   }
 }
+
 /// Stat item with icon and label
 class _StatItem extends StatelessWidget {
   const _StatItem({
@@ -964,16 +965,14 @@ class _StatItem extends StatelessWidget {
           ),
           if (sublabel != null) ...[
             SizedBox(width: Spacing.xs),
-            Text(
-              sublabel!,
-              style: AppTypography.label(color: theme.textMuted),
-            ),
+            Text(sublabel!, style: AppTypography.label(color: theme.textMuted)),
           ],
         ],
       ),
     );
   }
 }
+
 /// Info row for Claude Code sidebar (icon, label, value)
 class _InfoRow extends StatelessWidget {
   const _InfoRow({
@@ -1013,6 +1012,7 @@ class _InfoRow extends StatelessWidget {
     );
   }
 }
+
 class _McpServerRow extends StatelessWidget {
   const _McpServerRow({required this.name, required this.status});
   final String name;
@@ -1056,6 +1056,7 @@ class _McpServerRow extends StatelessWidget {
     );
   }
 }
+
 /// LSP server item showing status and name
 class _LspServerItem extends StatelessWidget {
   const _LspServerItem({required this.theme, required this.server});
@@ -1112,6 +1113,7 @@ class _LspServerItem extends StatelessWidget {
     );
   }
 }
+
 /// Modified file item showing path and diff stats
 class _ModifiedFileItem extends StatelessWidget {
   const _ModifiedFileItem({required this.theme, required this.file});
@@ -1156,6 +1158,7 @@ class _ModifiedFileItem extends StatelessWidget {
     );
   }
 }
+
 class _DiffFileItem extends StatelessWidget {
   const _DiffFileItem({required this.theme, required this.diff, this.onOpen});
   final OpenCodeTheme theme;
@@ -1202,6 +1205,7 @@ class _DiffFileItem extends StatelessWidget {
       ),
     );
   }
+
   String _shortPath(String path) {
     if (path.isEmpty) return 'file';
     final parts = path.split('/');
@@ -1210,6 +1214,7 @@ class _DiffFileItem extends StatelessWidget {
     return parts.sublist(start).join('/');
   }
 }
+
 /// Todo item showing status icon and content
 class _TodoItem extends StatelessWidget {
   const _TodoItem({required this.theme, required this.todo});
@@ -1300,6 +1305,7 @@ class _TodoItem extends StatelessWidget {
       ),
     );
   }
+
   Color _getStatusColor(StatusType status) {
     switch (status) {
       case StatusType.success:
@@ -1315,6 +1321,7 @@ class _TodoItem extends StatelessWidget {
     }
   }
 }
+
 /// Compact token breakdown row for the context section.
 class _TokenRow extends StatelessWidget {
   const _TokenRow({

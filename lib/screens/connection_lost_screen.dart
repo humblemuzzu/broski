@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_typography.dart';
@@ -9,12 +8,14 @@ import '../providers/service_providers.dart';
 import '../theme/opencode_theme.dart';
 import '../utils/responsive.dart';
 import 'package:broski/theme/app_icons.dart';
+
 class ConnectionLostScreen extends ConsumerStatefulWidget {
   const ConnectionLostScreen({super.key});
   @override
   ConsumerState<ConnectionLostScreen> createState() =>
       _ConnectionLostScreenState();
 }
+
 class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
   bool _hasCachedData = false;
   bool _checkingCache = true;
@@ -23,6 +24,7 @@ class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
     super.initState();
     _checkCachedData();
   }
+
   Future<void> _checkCachedData() async {
     final storage = ref.read(storageServiceProvider);
     final hasData = await storage.hasCachedData();
@@ -33,6 +35,7 @@ class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
       });
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final connection = ref.watch(connectionProvider);
@@ -47,7 +50,7 @@ class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
           padding: Responsive.isTablet(context)
               ? const EdgeInsets.all(60)
               : Insets.cardLg,
-            child: Column(
+          child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // Animated icon based on state
@@ -153,9 +156,7 @@ class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
                               .enterOfflineMode();
                         },
                   icon: Icon(
-                    _hasCachedData
-                        ? AppIcons.cloudOff
-                        : AppIcons.visibility,
+                    _hasCachedData ? AppIcons.cloudOff : AppIcons.visibility,
                     size: 20,
                   ),
                   label: Text(_hasCachedData ? 'Browse Offline' : 'Preview UI'),
@@ -163,9 +164,7 @@ class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
                     backgroundColor: ocTheme.primary,
                     foregroundColor: ocTheme.selectedListItemText,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: Radii.brMd,
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: Radii.brMd),
                   ),
                 ),
               ),

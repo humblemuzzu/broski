@@ -67,9 +67,12 @@ class _AddProjectContentState extends ConsumerState<_AddProjectContent> {
         if (item is Map<String, dynamic>) {
           final name = item['name'] as String? ?? '';
           final type = item['type'] as String? ?? 'file';
-          final absolute = item['absolute'] as String? ?? item['path'] as String? ?? '';
+          final absolute =
+              item['absolute'] as String? ?? item['path'] as String? ?? '';
           if (type == 'directory') {
-            items.add(_BrowseItem(name: name, path: absolute, isDirectory: true));
+            items.add(
+              _BrowseItem(name: name, path: absolute, isDirectory: true),
+            );
           }
         }
       }
@@ -99,10 +102,7 @@ class _AddProjectContentState extends ConsumerState<_AddProjectContent> {
       _browse(previous);
     } else {
       // Go to parent directory
-      final parent = _currentPath.substring(
-        0,
-        _currentPath.lastIndexOf('/'),
-      );
+      final parent = _currentPath.substring(0, _currentPath.lastIndexOf('/'));
       if (parent.isNotEmpty) {
         _browse(parent);
       }
@@ -111,8 +111,7 @@ class _AddProjectContentState extends ConsumerState<_AddProjectContent> {
 
   void _selectCurrentFolder() {
     if (_currentPath.isEmpty) return;
-    final parts =
-        _currentPath.split('/').where((p) => p.isNotEmpty).toList();
+    final parts = _currentPath.split('/').where((p) => p.isNotEmpty).toList();
     final name = parts.isEmpty ? 'Project' : parts.last;
     final project = ProjectSummary(
       id: _currentPath,
@@ -142,8 +141,7 @@ class _AddProjectContentState extends ConsumerState<_AddProjectContent> {
             children: [
               // Back button
               IconButton(
-                onPressed:
-                    _currentPath.length > 1 ? _navigateBack : null,
+                onPressed: _currentPath.length > 1 ? _navigateBack : null,
                 icon: Icon(
                   AppIcons.back,
                   color: _currentPath.length > 1
@@ -153,10 +151,7 @@ class _AddProjectContentState extends ConsumerState<_AddProjectContent> {
                 ),
                 tooltip: 'Back',
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(
-                  minWidth: 36,
-                  minHeight: 36,
-                ),
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
               ),
               const SizedBox(width: 8),
               // Current path
@@ -198,10 +193,10 @@ class _AddProjectContentState extends ConsumerState<_AddProjectContent> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: ocTheme.primary,
                 foregroundColor: ocTheme.background,
-                disabledBackgroundColor:
-                    ocTheme.primary.withValues(alpha: 0.3),
-                disabledForegroundColor:
-                    ocTheme.background.withValues(alpha: 0.5),
+                disabledBackgroundColor: ocTheme.primary.withValues(alpha: 0.3),
+                disabledForegroundColor: ocTheme.background.withValues(
+                  alpha: 0.5,
+                ),
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: Radii.brMd),
               ),
@@ -213,54 +208,42 @@ class _AddProjectContentState extends ConsumerState<_AddProjectContent> {
         // Directory listing
         Expanded(
           child: _loading
-              ? Center(
-                  child: CircularProgressIndicator(color: ocTheme.primary),
-                )
+              ? Center(child: CircularProgressIndicator(color: ocTheme.primary))
               : _error != null
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              AppIcons.error,
-                              color: ocTheme.error,
-                              size: 32,
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Cannot browse this directory',
-                              style: TextStyle(
-                                color: ocTheme.text,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(AppIcons.error, color: ocTheme.error, size: 32),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Cannot browse this directory',
+                          style: TextStyle(color: ocTheme.text, fontSize: 14),
                         ),
-                      ),
-                    )
-                  : _items.isEmpty
-                      ? Center(
-                          child: Text(
-                            'No subdirectories',
-                            style: TextStyle(
-                              color: ocTheme.textMuted,
-                              fontSize: 14,
-                            ),
-                          ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(8, 0, 8, 24),
-                          itemCount: _items.length,
-                          itemBuilder: (context, index) {
-                            final item = _items[index];
-                            return _FolderTile(
-                              item: item,
-                              onTap: () => _navigateTo(item.path),
-                            );
-                          },
-                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : _items.isEmpty
+              ? Center(
+                  child: Text(
+                    'No subdirectories',
+                    style: TextStyle(color: ocTheme.textMuted, fontSize: 14),
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(8, 0, 8, 24),
+                  itemCount: _items.length,
+                  itemBuilder: (context, index) {
+                    final item = _items[index];
+                    return _FolderTile(
+                      item: item,
+                      onTap: () => _navigateTo(item.path),
+                    );
+                  },
+                ),
         ),
       ],
     );

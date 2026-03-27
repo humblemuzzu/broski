@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/service_providers.dart';
 import '../../theme/opencode_theme.dart';
 import '../../utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 Future<void> deleteOpenCodeMessageFromChat({
   required BuildContext context,
@@ -50,18 +51,11 @@ Future<void> deleteOpenCodeMessageFromChat({
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(ok ? 'Message deleted' : 'Failed to delete message'),
-        backgroundColor: ok
-            ? oc.backgroundPanel
-            : oc.error,
+        backgroundColor: ok ? oc.backgroundPanel : oc.error,
       ),
     );
   } catch (error) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Failed to delete message: ${humanizeError(error)}'),
-        backgroundColor: OpenCodeTheme.of(context).error,
-      ),
-    );
+    showError(context, 'Failed to delete message: ${humanizeError(error)}');
   }
 }

@@ -172,9 +172,7 @@ extension RuntimeCcMetadataHandler on ChatSessionNotifier {
     final toolUseId = event.toolCallId;
     if (toolUseId == null || toolUseId.isEmpty) return;
 
-    final toolMeta = _ccMetadataFromToolUseResult(
-      backendData['toolUseResult'],
-    );
+    final toolMeta = _ccMetadataFromToolUseResult(backendData['toolUseResult']);
 
     final parentToolUseId = backendData['parentToolUseId']?.toString();
     if (parentToolUseId != null && parentToolUseId.isNotEmpty) {

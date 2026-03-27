@@ -10,6 +10,7 @@ import '../widgets/claude_code_help.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 class CustomToolsScreen extends ConsumerStatefulWidget {
   const CustomToolsScreen({super.key});
@@ -86,12 +87,7 @@ class _CustomToolsScreenState extends ConsumerState<CustomToolsScreen> {
 
   void _editTool(BuildContext context, ClaudeCodeCustomTool tool) {
     if (tool.handler == CustomToolHandlerType.builtin) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Built-in tools cannot be edited.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      showInfo(context, 'Built-in tools cannot be edited.');
       return;
     }
     Navigator.push(
@@ -116,12 +112,7 @@ class _CustomToolsScreenState extends ConsumerState<CustomToolsScreen> {
 
   void _confirmDeleteTool(BuildContext context, ClaudeCodeCustomTool tool) {
     if (tool.handler == CustomToolHandlerType.builtin) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Built-in tools cannot be deleted.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      showInfo(context, 'Built-in tools cannot be deleted.');
       return;
     }
     final ocTheme = OpenCodeTheme.of(context);
@@ -144,12 +135,7 @@ class _CustomToolsScreenState extends ConsumerState<CustomToolsScreen> {
                   .read(ccCustomToolsProvider.notifier)
                   .deleteTool(tool.id);
               if (!success && mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Failed to delete tool'),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
+                showInfo(context, 'Failed to delete tool');
               }
             },
             style: ElevatedButton.styleFrom(

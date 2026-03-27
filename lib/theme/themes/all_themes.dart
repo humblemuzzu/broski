@@ -38,7 +38,9 @@ const opencodeLightTheme = OpenCodeTheme(
   secondary: Color(0xFF2563EB), // Blue - links, accents
   accent: Color(0xFF0D9488), // Teal - special highlights (no purple)
   error: Color(0xFFDC2626), // Red - refined, not too harsh
-  warning: Color(0xFFCB7B05), // Amber-orange - warnings (distinct from primary, darker)
+  warning: Color(
+    0xFFCB7B05,
+  ), // Amber-orange - warnings (distinct from primary, darker)
   success: Color(0xFF059669), // Green - success states
   info: Color(0xFF0891B2), // Cyan - info states
   // Text colors - high contrast but not harsh
@@ -47,13 +49,19 @@ const opencodeLightTheme = OpenCodeTheme(
   selectedListItemText: Color(0xFFFFFFFF), // White on selected items
   // Background colors - gray bg so white cards FLOAT visibly above
   background: Color(0xFFEDEDEC), // Warm gray — cards are clearly brighter
-  backgroundPanel: Color(0xFFFFFFFF), // Pure white for cards (floats above gray bg)
-  backgroundElement: Color(0xFFD5D5D4), // Input bar bg — clearly darker than screen (1.25:1)
+  backgroundPanel: Color(
+    0xFFFFFFFF,
+  ), // Pure white for cards (floats above gray bg)
+  backgroundElement: Color(
+    0xFFD5D5D4,
+  ), // Input bar bg — clearly darker than screen (1.25:1)
   backgroundMenu: Color(0xFFFFFFFF), // White for menus
   // Extended background scale for light theme
   bgDeep: Color(0xFFE5E5E4), // Deepest recessed layer
   bgRaised: Color(0xFFFFFFFF), // Pure white - cards float above gray bg
-  bgSheet: Color(0xFFF5F5F4), // Sheet/modal background — slightly lighter than screen
+  bgSheet: Color(
+    0xFFF5F5F4,
+  ), // Sheet/modal background — slightly lighter than screen
   bgHover: Color(0xFFE5E5E4), // Hover state — slightly darker than screen
   bgActive: Color(0xFFDADAD9), // Active/pressed — clearly darker
   bgHighlight: Color(0xFFFEF3C7), // Amber highlight
@@ -66,7 +74,9 @@ const opencodeLightTheme = OpenCodeTheme(
   cardBorderSubtle: Color(0x66B8B8B8), // 40% opacity, darker base
   dividerSection: Color(0x266B7280), // 15% of textMuted
   // Card header theming - light mode uses clearly darker header
-  cardHeaderBg: Color(0xFFDDDDDC), // Clearly distinct from white card body (1.36:1 step)
+  cardHeaderBg: Color(
+    0xFFDDDDDC,
+  ), // Clearly distinct from white card body (1.36:1 step)
   cardHeaderBorder: Color(0xFFCCCCCC), // Visible border
   cardHeaderText: Color(0xFF374151), // Dark gray text
   // Tool-specific colors for light theme (readable, professional)
@@ -874,7 +884,9 @@ const oneDarkTheme = OpenCodeTheme(
   // Card header theming - Atom inspired blue step
   cardHeaderBg: Color(0xFF3e4451), // One Dark gutter bg
   cardHeaderBorder: Color(0xFF555c68), // Blue-gray border
-  cardHeaderText: Color(0xFFB0B8C8), // Brightened from #98a0b0 for 4.7:1 contrast
+  cardHeaderText: Color(
+    0xFFB0B8C8,
+  ), // Brightened from #98a0b0 for 4.7:1 contrast
   toolThinking: Color(0xFF61afef), // Blue
   toolEdit: Color(0xFFd19a66), // Orange
   toolRead: Color(0xFF56b6c2), // Cyan
@@ -954,7 +966,9 @@ const solarizedDarkTheme = OpenCodeTheme(
   // Card header theming - Solarized base tones (raised higher)
   cardHeaderBg: Color(0xFF174652), // Raised from #073642 for 1.5:1 step
   cardHeaderBorder: Color(0xFF2a5058), // Teal-gray border
-  cardHeaderText: Color(0xFFA8B6B6), // Brightened from #93a1a1 for 4.9:1 on header
+  cardHeaderText: Color(
+    0xFFA8B6B6,
+  ), // Brightened from #93a1a1 for 4.9:1 on header
   toolThinking: Color(0xFF268bd2), // Blue
   toolEdit: Color(0xFFcb4b16), // Orange
   toolRead: Color(0xFF2aa198), // Cyan
@@ -1674,7 +1688,9 @@ const palenightDarkTheme = OpenCodeTheme(
   // Card header theming - soft purple
   cardHeaderBg: Color(0xFF3b4158), // Palenight highlight
   cardHeaderBorder: Color(0xFF505575), // Purple-gray border
-  cardHeaderText: Color(0xFFA8B0CD), // Brightened from #9098b5 for 4.8:1 contrast
+  cardHeaderText: Color(
+    0xFFA8B0CD,
+  ), // Brightened from #9098b5 for 4.8:1 contrast
   toolThinking: Color(0xFF82aaff), // Blue
   toolEdit: Color(0xFFf78c6c), // Orange
   toolRead: Color(0xFF89ddff), // Cyan
@@ -1754,7 +1770,9 @@ const catppuccinFrappeDarkTheme = OpenCodeTheme(
   // Card header theming - muted pastel
   cardHeaderBg: Color(0xFF414559), // Frappe surface1
   cardHeaderBorder: Color(0xFF5a5e75), // Muted border
-  cardHeaderText: Color(0xFFB5BDDE), // Brightened from #a5adce for 5.1:1 contrast
+  cardHeaderText: Color(
+    0xFFB5BDDE,
+  ), // Brightened from #a5adce for 5.1:1 contrast
   toolThinking: Color(0xFF8da4e2), // Blue
   toolEdit: Color(0xFFef9f76), // Orange/Peach
   toolRead: Color(0xFF81c8be), // Teal
@@ -1994,7 +2012,9 @@ const everforestDarkTheme = OpenCodeTheme(
   // Card header theming - nature calm
   cardHeaderBg: Color(0xFF3d484d), // Everforest bg2
   cardHeaderBorder: Color(0xFF566560), // Green-gray border
-  cardHeaderText: Color(0xFFC8C0A8), // Brightened from #b0a890 for 4.7:1 contrast
+  cardHeaderText: Color(
+    0xFFC8C0A8,
+  ), // Brightened from #b0a890 for 4.7:1 contrast
   toolThinking: Color(0xFF7fbbb3), // Blue-green
   toolEdit: Color(0xFFe69875), // Orange
   toolRead: Color(0xFF7fbbb3), // Aqua
@@ -2154,7 +2174,9 @@ const zenburnDarkTheme = OpenCodeTheme(
   // Card header theming - low contrast
   cardHeaderBg: Color(0xFF5f5f5f), // Zenburn bg+1
   cardHeaderBorder: Color(0xFF707070), // Gray border
-  cardHeaderText: Color(0xFFE0E0D0), // Brightened from #c0c0b0 for 4.8:1 contrast
+  cardHeaderText: Color(
+    0xFFE0E0D0,
+  ), // Brightened from #c0c0b0 for 4.8:1 contrast
   toolThinking: Color(0xFF8cd0d3), // Cyan
   toolEdit: Color(0xFFdfaf8f), // Orange
   toolRead: Color(0xFF93e0e3), // Light cyan
@@ -2650,9 +2672,13 @@ const lucentOrngDarkTheme = OpenCodeTheme(
   cardBorderSubtle: Color(0x403c3c3c),
   dividerSection: Color(0x10808080),
   // Card header theming - transparent orange (raised higher)
-  cardHeaderBg: Color(0x50ffffff), // Semi-transparent white (stronger for visibility)
+  cardHeaderBg: Color(
+    0x50ffffff,
+  ), // Semi-transparent white (stronger for visibility)
   cardHeaderBorder: Color(0x60ffffff), // Visible border
-  cardHeaderText: Color(0xFFFFFFFF), // Pure white for visibility on transparent bg
+  cardHeaderText: Color(
+    0xFFFFFFFF,
+  ), // Pure white for visibility on transparent bg
   toolThinking: Color(0xFF56b6c2), // Cyan
   toolEdit: Color(0xFFEC5B2B), // Orange
   toolRead: Color(0xFF56b6c2), // Cyan

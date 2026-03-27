@@ -1,4 +1,3 @@
-
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -15,6 +14,7 @@ import '../utils/responsive.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../providers/onboarding_provider.dart'
     show onboardingProvider, kDevBypassOnboarding;
+
 /// Standalone "Identify Yourself" auth screen used during onboarding.
 /// Auto-advances to the paywall step once the user signs in.
 class OnboardingAuthScreen extends ConsumerStatefulWidget {
@@ -23,6 +23,7 @@ class OnboardingAuthScreen extends ConsumerStatefulWidget {
   ConsumerState<OnboardingAuthScreen> createState() =>
       _OnboardingAuthScreenState();
 }
+
 class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _scanController;
@@ -34,17 +35,20 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
       duration: const Duration(milliseconds: 2400),
     )..repeat(reverse: true);
   }
+
   @override
   void dispose() {
     _scanController.dispose();
     super.dispose();
   }
+
   Future<void> _launchUrl(String url) async {
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(appAuthProvider);
@@ -87,10 +91,9 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                   const SizedBox(width: 10),
                   Text(
                     'SYSTEM ONLINE',
-                    style: AppTypography.code(color: Colors.white.withValues(alpha: 0.55)).copyWith(
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 1.5,
-                    ),
+                    style: AppTypography.code(
+                      color: Colors.white.withValues(alpha: 0.55),
+                    ).copyWith(fontWeight: FontWeight.w500, letterSpacing: 1.5),
                   ),
                 ],
               ),
@@ -129,7 +132,10 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
               Center(
                 child: _ScanBox(
                   scanController: _scanController,
-                  boxWidth: math.min(screenWidth - 56, Responsive.isTablet(context) ? 400.0 : 320.0),
+                  boxWidth: math.min(
+                    screenWidth - 56,
+                    Responsive.isTablet(context) ? 400.0 : 320.0,
+                  ),
                 ),
               ),
               const Spacer(flex: 2),
@@ -172,7 +178,9 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                           isLoading: state.isLoading,
                           onPressed: () {
                             HapticFeedback.lightImpact();
-                            ref.read(appAuthProvider.notifier).signInWithApple();
+                            ref
+                                .read(appAuthProvider.notifier)
+                                .signInWithApple();
                           },
                         ),
                         const SizedBox(height: 14),
@@ -197,9 +205,9 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
               Center(
                 child: Text.rich(
                   TextSpan(
-                    style: AppTypography.codeSmall(color: Colors.white.withValues(alpha: 0.35)).copyWith(
-                      height: 1.5,
-                    ),
+                    style: AppTypography.codeSmall(
+                      color: Colors.white.withValues(alpha: 0.35),
+                    ).copyWith(height: 1.5),
                     children: [
                       const TextSpan(text: 'By identifying, you agree to the '),
                       WidgetSpan(
@@ -208,12 +216,15 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                               _launchUrl('https://broskiapp.com/legal/terms'),
                           child: Text(
                             'Terms of Service',
-                            style: AppTypography.codeSmall(color: Colors.white.withValues(alpha: 0.55)).copyWith(
-                              decoration: TextDecoration.underline,
-                              decorationColor: Colors.white.withValues(
-                                alpha: 0.35,
-                              ),
-                            ),
+                            style:
+                                AppTypography.codeSmall(
+                                  color: Colors.white.withValues(alpha: 0.55),
+                                ).copyWith(
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: Colors.white.withValues(
+                                    alpha: 0.35,
+                                  ),
+                                ),
                           ),
                         ),
                       ),
@@ -224,12 +235,15 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                               _launchUrl('https://broskiapp.com/legal/privacy'),
                           child: Text(
                             'Privacy Policy',
-                            style: AppTypography.codeSmall(color: Colors.white.withValues(alpha: 0.55)).copyWith(
-                              decoration: TextDecoration.underline,
-                              decorationColor: Colors.white.withValues(
-                                alpha: 0.35,
-                              ),
-                            ),
+                            style:
+                                AppTypography.codeSmall(
+                                  color: Colors.white.withValues(alpha: 0.55),
+                                ).copyWith(
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: Colors.white.withValues(
+                                    alpha: 0.35,
+                                  ),
+                                ),
                           ),
                         ),
                       ),
@@ -266,6 +280,7 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
     );
   }
 }
+
 // =============================================================================
 // SCAN BOX
 // =============================================================================
@@ -403,18 +418,16 @@ class _ScanBox extends StatelessWidget {
               children: [
                 Text(
                   'ID: UNKNOWN',
-                  style: AppTypography.codeSmall(color: Colors.white.withValues(alpha: 0.40)).copyWith(
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 1.2,
-                  ),
+                  style: AppTypography.codeSmall(
+                    color: Colors.white.withValues(alpha: 0.40),
+                  ).copyWith(fontWeight: FontWeight.w500, letterSpacing: 1.2),
                 ),
                 SizedBox(height: Spacing.xs),
                 Text(
                   'ACCESS: PENDING',
-                  style: AppTypography.codeSmall(color: Colors.white.withValues(alpha: 0.40)).copyWith(
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 1.2,
-                  ),
+                  style: AppTypography.codeSmall(
+                    color: Colors.white.withValues(alpha: 0.40),
+                  ).copyWith(fontWeight: FontWeight.w500, letterSpacing: 1.2),
                 ),
               ],
             ),
@@ -457,6 +470,7 @@ class _ScanBox extends StatelessWidget {
     );
   }
 }
+
 class _CornerBracket extends StatelessWidget {
   const _CornerBracket({required this.rotation, required this.color});
   final double rotation;
@@ -473,6 +487,7 @@ class _CornerBracket extends StatelessWidget {
     );
   }
 }
+
 class _CornerBracketPainter extends CustomPainter {
   _CornerBracketPainter({required this.color});
   final Color color;
@@ -489,9 +504,11 @@ class _CornerBracketPainter extends CustomPainter {
       ..lineTo(size.width * 0.45, 0);
     canvas.drawPath(path, paint);
   }
+
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+
 // =============================================================================
 // AUTH BUTTON
 // =============================================================================

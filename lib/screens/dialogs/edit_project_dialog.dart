@@ -5,9 +5,26 @@ import '../../theme/opencode_theme.dart';
 
 /// Common project emoji icons for the picker grid.
 const _projectEmojis = [
-  '📁', '📱', '🚀', '⚡', '🔧', '💻', '🎮', '🌐',
-  '🤖', '📦', '🔒', '🎨', '📊', '🏗️', '⭐', '🧪',
-  '🔬', '📝', '🎯', '💡',
+  '📁',
+  '📱',
+  '🚀',
+  '⚡',
+  '🔧',
+  '💻',
+  '🎮',
+  '🌐',
+  '🤖',
+  '📦',
+  '🔒',
+  '🎨',
+  '📊',
+  '🏗️',
+  '⭐',
+  '🧪',
+  '🔬',
+  '📝',
+  '🎯',
+  '💡',
 ];
 
 /// Shows a dialog to edit a project's name and icon.
@@ -52,15 +69,17 @@ class _EditProjectDialog extends StatefulWidget {
     required String projectId,
     String? name,
     Map<String, dynamic>? icon,
-  }) onSave;
+  })
+  onSave;
 
   @override
   State<_EditProjectDialog> createState() => _EditProjectDialogState();
 }
 
 class _EditProjectDialogState extends State<_EditProjectDialog> {
-  late final TextEditingController _nameController =
-      TextEditingController(text: widget.currentName);
+  late final TextEditingController _nameController = TextEditingController(
+    text: widget.currentName,
+  );
   String? _selectedIcon;
   bool _saving = false;
 
@@ -107,8 +126,10 @@ class _EditProjectDialogState extends State<_EditProjectDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Name',
-                style: TextStyle(color: theme.textMuted, fontSize: 13)),
+            Text(
+              'Name',
+              style: TextStyle(color: theme.textMuted, fontSize: 13),
+            ),
             const SizedBox(height: 6),
             TextField(
               controller: _nameController,
@@ -134,8 +155,10 @@ class _EditProjectDialogState extends State<_EditProjectDialog> {
               ),
             ),
             const SizedBox(height: 16),
-            Text('Icon',
-                style: TextStyle(color: theme.textMuted, fontSize: 13)),
+            Text(
+              'Icon',
+              style: TextStyle(color: theme.textMuted, fontSize: 13),
+            ),
             const SizedBox(height: 6),
             Wrap(
               spacing: 8,

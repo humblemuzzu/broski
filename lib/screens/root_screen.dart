@@ -1,4 +1,3 @@
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -22,6 +21,7 @@ import 'paywall_screen.dart';
 import 'scan_screen.dart';
 import 'system_linked_screen.dart';
 import 'package:broski/theme/app_icons.dart';
+
 class RootScreen extends ConsumerWidget {
   const RootScreen({super.key});
   @override
@@ -58,8 +58,9 @@ class RootScreen extends ConsumerWidget {
         if (subState.error != null) {
           return _SubscriptionErrorScreen(
             message: subState.error!,
-            onRetry: () =>
-                ref.read(appSubscriptionProvider.notifier).configureAndRefresh(),
+            onRetry: () => ref
+                .read(appSubscriptionProvider.notifier)
+                .configureAndRefresh(),
           );
         }
         return const _LoadingScreen();
@@ -78,14 +79,16 @@ class RootScreen extends ConsumerWidget {
             connectionState.isConnecting ||
             connectionState.isReconnecting) {
           Future.microtask(
-            () => ref.read(connectionProvider.notifier).enterUnpaidPreviewMode(),
+            () =>
+                ref.read(connectionProvider.notifier).enterUnpaidPreviewMode(),
           );
         }
         return const MainShell();
       }
     }
     // DEV BYPASS: auto-enter offline mode so we land in MainShell (debug only)
-    if (kDebugMode && kDevBypassOnboarding &&
+    if (kDebugMode &&
+        kDevBypassOnboarding &&
         connectionState.devBypassAutoOfflineEnabled &&
         !connectionState.isOfflineMode &&
         !connectionState.isConnected &&
@@ -126,6 +129,7 @@ class RootScreen extends ConsumerWidget {
     return const ScanScreen();
   }
 }
+
 class _LoadingScreen extends StatelessWidget {
   const _LoadingScreen();
   @override
@@ -156,6 +160,7 @@ class _LoadingScreen extends StatelessWidget {
     );
   }
 }
+
 class _SubscriptionErrorScreen extends StatelessWidget {
   const _SubscriptionErrorScreen({
     required this.message,
@@ -202,9 +207,7 @@ class _SubscriptionErrorScreen extends StatelessWidget {
                       backgroundColor: theme.primary,
                       foregroundColor: theme.selectedListItemText,
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: Radii.brMd,
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: Radii.brMd),
                     ),
                     child: const Text('Retry'),
                   ),
@@ -217,6 +220,7 @@ class _SubscriptionErrorScreen extends StatelessWidget {
     );
   }
 }
+
 /// Minimal connecting screen for post-onboarding reconnections.
 class _ConnectingScreen extends ConsumerWidget {
   const _ConnectingScreen();
@@ -228,24 +232,24 @@ class _ConnectingScreen extends ConsumerWidget {
       backgroundColor: ocTheme.background,
       body: SafeArea(
         child: Center(
-            child: Padding(
-              padding: Responsive.isTablet(context)
-                  ? const EdgeInsets.all(60)
-                  : Insets.xxxl,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 48,
-                    height: 48,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      color: ocTheme.primary,
-                    ),
+          child: Padding(
+            padding: Responsive.isTablet(context)
+                ? const EdgeInsets.all(60)
+                : Insets.xxxl,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: ocTheme.primary,
                   ),
-                  SizedBox(height: Spacing.xxl),
-                  Text(
-                    'Connecting...',
+                ),
+                SizedBox(height: Spacing.xxl),
+                Text(
+                  'Connecting...',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
@@ -273,10 +277,7 @@ class _ConnectingScreen extends ConsumerWidget {
                     child: Text(
                       state.error!,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: ocTheme.error,
-                        fontSize: 13,
-                      ),
+                      style: TextStyle(color: ocTheme.error, fontSize: 13),
                     ),
                   ),
                 ],
@@ -302,6 +303,7 @@ class _ConnectingScreen extends ConsumerWidget {
     );
   }
 }
+
 /// Animated onboarding flow with smooth transitions.
 /// Converted to ConsumerWidget to auto-advance auth/paywall steps.
 class _OnboardingFlow extends ConsumerWidget {
@@ -354,6 +356,7 @@ class _OnboardingFlow extends ConsumerWidget {
     }
     return content;
   }
+
   Widget _buildCurrentScreen(OnboardingState state) {
     switch (state.currentStep) {
       case OnboardingStep.welcome:
@@ -370,6 +373,7 @@ class _OnboardingFlow extends ConsumerWidget {
     }
   }
 }
+
 /// DEV ONLY: Edge-swipe gesture wrapper + floating skip button.
 /// Swipe from right edge = advance, swipe from left edge = go back.
 /// Also shows a floating "Skip All >>" button at top-right.
@@ -379,6 +383,7 @@ class _DevSwipeWrapper extends ConsumerStatefulWidget {
   @override
   ConsumerState<_DevSwipeWrapper> createState() => _DevSwipeWrapperState();
 }
+
 class _DevSwipeWrapperState extends ConsumerState<_DevSwipeWrapper> {
   double _dragStartX = 0;
   bool _isDragging = false;
@@ -421,36 +426,40 @@ class _DevSwipeWrapperState extends ConsumerState<_DevSwipeWrapper> {
                 HapticFeedback.mediumImpact();
                 ref.read(onboardingProvider.notifier).completeOnboarding();
               },
-              child: Builder(builder: (context) {
-                final ocTheme = OpenCodeTheme.of(context);
-                return Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: ocTheme.error.withValues(alpha: 0.15),
-                    borderRadius: Radii.brXl,
-                    border: Border.all(color: ocTheme.error.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'DEV SKIP',
-                        style: TextStyle(
-                          color: ocTheme.error,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.5,
-                        ),
+              child: Builder(
+                builder: (context) {
+                  final ocTheme = OpenCodeTheme.of(context);
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: ocTheme.error.withValues(alpha: 0.15),
+                      borderRadius: Radii.brXl,
+                      border: Border.all(
+                        color: ocTheme.error.withValues(alpha: 0.3),
                       ),
-                      SizedBox(width: Spacing.xs),
-                      Icon(AppIcons.skip, color: ocTheme.error, size: 16),
-                    ],
-                  ),
-                );
-              }),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'DEV SKIP',
+                          style: TextStyle(
+                            color: ocTheme.error,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        SizedBox(width: Spacing.xs),
+                        Icon(AppIcons.skip, color: ocTheme.error, size: 16),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
           ),
           // Edge swipe hint indicators (subtle arrows)
@@ -459,14 +468,16 @@ class _DevSwipeWrapperState extends ConsumerState<_DevSwipeWrapper> {
             top: 0,
             bottom: 0,
             child: Center(
-              child: Builder(builder: (context) {
-                final ocTheme = OpenCodeTheme.of(context);
-                return Icon(
-                  AppIcons.chevronLeft,
-                  color: ocTheme.textMuted.withValues(alpha: 0.15),
-                  size: 28,
-                );
-              }),
+              child: Builder(
+                builder: (context) {
+                  final ocTheme = OpenCodeTheme.of(context);
+                  return Icon(
+                    AppIcons.chevronLeft,
+                    color: ocTheme.textMuted.withValues(alpha: 0.15),
+                    size: 28,
+                  );
+                },
+              ),
             ),
           ),
           Positioned(
@@ -474,14 +485,16 @@ class _DevSwipeWrapperState extends ConsumerState<_DevSwipeWrapper> {
             top: 0,
             bottom: 0,
             child: Center(
-              child: Builder(builder: (context) {
-                final ocTheme = OpenCodeTheme.of(context);
-                return Icon(
-                  AppIcons.chevronRight,
-                  color: ocTheme.textMuted.withValues(alpha: 0.15),
-                  size: 28,
-                );
-              }),
+              child: Builder(
+                builder: (context) {
+                  final ocTheme = OpenCodeTheme.of(context);
+                  return Icon(
+                    AppIcons.chevronRight,
+                    color: ocTheme.textMuted.withValues(alpha: 0.15),
+                    size: 28,
+                  );
+                },
+              ),
             ),
           ),
         ],
@@ -489,6 +502,7 @@ class _DevSwipeWrapperState extends ConsumerState<_DevSwipeWrapper> {
     );
   }
 }
+
 /// Wraps [ScanScreen] during onboarding to detect when connection succeeds
 /// and show the SystemLinkedScreen before transitioning to MainShell.
 class _OnboardingScanWrapper extends ConsumerWidget {
@@ -513,8 +527,7 @@ class _OnboardingScanWrapper extends ConsumerWidget {
         const ScanScreen(),
 
         // Semi-transparent connecting overlay (doesn't destroy the camera)
-        if (connectionState.isConnecting)
-          const _ConnectingOverlay(),
+        if (connectionState.isConnecting) const _ConnectingOverlay(),
       ],
     );
   }

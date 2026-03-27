@@ -129,10 +129,7 @@ extension BridgeServiceSessionsLifecycle on BridgeService {
   // Share / Unshare
   // ============================================================
 
-  Future<SessionSummary> shareSession(
-    String sessionId, {
-    String? projectPath,
-  }) {
+  Future<SessionSummary> shareSession(String sessionId, {String? projectPath}) {
     final dedupeKey = 'share:$sessionId';
     return _deduplicatedRequest(
       dedupeKey,

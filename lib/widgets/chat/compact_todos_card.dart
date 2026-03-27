@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import '../../theme/app_typography.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +9,7 @@ import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import 'detail_sheet.dart';
 import 'package:broski/theme/app_icons.dart';
+
 /// An inline card showing the current todo list.
 /// Displayed in chat flow when todos are updated via TodoWrite.
 /// Tapping opens full todo list in a sheet.
@@ -77,11 +77,7 @@ class CompactTodosCard extends ConsumerWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(
-                        AppIcons.checklist,
-                        size: 16,
-                        color: theme.toolTodo,
-                      ),
+                      Icon(AppIcons.checklist, size: 16, color: theme.toolTodo),
                       SizedBox(width: 6),
                       Text(
                         'Update Todos',
@@ -114,7 +110,12 @@ class CompactTodosCard extends ConsumerWidget {
             ),
             // Progress bar
             Padding(
-              padding: EdgeInsets.fromLTRB(Spacing.md, Spacing.sm, Spacing.md, 0),
+              padding: EdgeInsets.fromLTRB(
+                Spacing.md,
+                Spacing.sm,
+                Spacing.md,
+                0,
+              ),
               child: ClipRRect(
                 borderRadius: Radii.brNone,
                 child: LinearProgressIndicator(
@@ -156,6 +157,7 @@ class CompactTodosCard extends ConsumerWidget {
       ),
     );
   }
+
   Widget _buildTodoRow(Todo todo, OpenCodeTheme theme) {
     final (icon, color) = _getStatusIconAndColor(todo.status, theme);
     return Padding(
@@ -184,6 +186,7 @@ class CompactTodosCard extends ConsumerWidget {
       ),
     );
   }
+
   (IconData, Color) _getStatusIconAndColor(
     TodoStatus status,
     OpenCodeTheme theme,
@@ -199,6 +202,7 @@ class CompactTodosCard extends ConsumerWidget {
         return (AppIcons.checkBoxBlank, theme.textMuted);
     }
   }
+
   void _showDetailSheet(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final completed = todos
@@ -220,6 +224,7 @@ class CompactTodosCard extends ConsumerWidget {
     );
   }
 }
+
 /// Detailed todo item for the sheet view
 class _TodoDetailItem extends StatelessWidget {
   final Todo todo;
@@ -267,10 +272,7 @@ class _TodoDetailItem extends StatelessWidget {
                   Padding(
                     padding: EdgeInsets.only(top: Spacing.xs),
                     child: Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
+                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: theme.error.withValues(alpha: 0.15),
                         borderRadius: Radii.brXs,
@@ -292,6 +294,7 @@ class _TodoDetailItem extends StatelessWidget {
       ),
     );
   }
+
   (IconData, Color) _getStatusIconAndColor(
     TodoStatus status,
     OpenCodeTheme theme,

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/pi_provider.dart';
 import '../../widgets/chat/detail_sheet.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Shows the Pi settings sheet with typed controls.
 /// Extracted per AGENTS.md — chat_screen only calls this function.
@@ -72,15 +73,11 @@ class _PiSettingsSheetContentState
         projectPath: widget.projectPath,
       );
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Settings saved')));
+        showInfo(context, 'Settings saved');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to save: $e')));
+        showInfo(context, 'Failed to save: $e');
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -249,7 +246,11 @@ class _PiSettingsSheetContentState
               'enabledModels',
               v.isEmpty
                   ? null
-                  : v.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList(),
+                  : v
+                        .split(',')
+                        .map((s) => s.trim())
+                        .where((s) => s.isNotEmpty)
+                        .toList(),
             ),
           ),
 
@@ -271,8 +272,7 @@ class _PiSettingsSheetContentState
             min: 128,
             max: 65536,
             step: 512,
-            onChanged: (v) =>
-                _updateNestedSetting('thinkingBudgets', 'low', v),
+            onChanged: (v) => _updateNestedSetting('thinkingBudgets', 'low', v),
           ),
           _NumberRow(
             label: 'Medium',
@@ -485,9 +485,7 @@ class _DropdownRow extends StatelessWidget {
             isDense: true,
             underline: const SizedBox.shrink(),
             items: options
-                .map(
-                  (o) => DropdownMenuItem(value: o, child: Text(o)),
-                )
+                .map((o) => DropdownMenuItem(value: o, child: Text(o)))
                 .toList(),
             onChanged: (v) {
               if (v != null) onChanged(v);
@@ -559,9 +557,9 @@ class _TextRowState extends State<_TextRow> {
               ),
               border: const OutlineInputBorder(),
             ),
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              fontFamily: 'monospace',
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(fontFamily: 'monospace'),
             onChanged: widget.onChanged,
           ),
         ],

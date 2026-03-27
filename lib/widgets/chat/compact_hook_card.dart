@@ -61,11 +61,7 @@ class CompactHookCard extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          Icon(
-            _statusIcon(),
-            size: 14,
-            color: _statusColor(theme),
-          ),
+          Icon(_statusIcon(), size: 14, color: _statusColor(theme)),
           const SizedBox(width: 8),
           Expanded(
             child: Text.rich(
@@ -89,10 +85,7 @@ class CompactHookCard extends ConsumerWidget {
                   ),
                   TextSpan(
                     text: ' · $hookEvent',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: theme.textMuted,
-                    ),
+                    style: TextStyle(fontSize: 11, color: theme.textMuted),
                   ),
                 ],
               ),

@@ -1,4 +1,3 @@
-
 import 'dart:async';
 import 'dart:io';
 
@@ -13,6 +12,7 @@ import 'package:broski/theme/app_icons.dart';
 import '../utils/responsive.dart';
 import '../providers/onboarding_provider.dart'
     show onboardingProvider, kDevBypassOnboarding;
+
 /// "Run the Bridge" screen shown after paywall during onboarding.
 /// Pixel-perfect terminal mockup matching Figma design.
 class BridgeSetupScreen extends ConsumerStatefulWidget {
@@ -20,6 +20,7 @@ class BridgeSetupScreen extends ConsumerStatefulWidget {
   @override
   ConsumerState<BridgeSetupScreen> createState() => _BridgeSetupScreenState();
 }
+
 class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
     with TickerProviderStateMixin {
   late AnimationController _cursorController;
@@ -76,12 +77,14 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
       }
     });
   }
+
   @override
   void dispose() {
     _cursorController.dispose();
     _entryController.dispose();
     super.dispose();
   }
+
   void _copyCommand(int index, String command) {
     Clipboard.setData(ClipboardData(text: command));
     HapticFeedback.lightImpact();
@@ -90,6 +93,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
       if (mounted) setState(() => _copiedIndex = -1);
     });
   }
+
   @override
   Widget build(BuildContext context) {
     final entry = CurvedAnimation(
@@ -103,9 +107,9 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
           padding: Responsive.isTablet(context)
               ? const EdgeInsets.symmetric(horizontal: 80, vertical: 24)
               : Insets.section,
-            child: Column(
-              children: [
-                // ── Main dark card
+          child: Column(
+            children: [
+              // ── Main dark card
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
@@ -295,6 +299,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
       ),
     );
   }
+
   // ---------------------------------------------------------------------------
   // Widgets
   // ---------------------------------------------------------------------------
@@ -333,6 +338,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
       ],
     );
   }
+
   /// Full terminal card with traffic lights, prompt, command, and cursor.
   Widget _terminalCard({
     required int index,
@@ -454,6 +460,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
       ),
     );
   }
+
   /// Compact option card for step 2 choices (wizard vs daemon).
   Widget _optionCard({
     required int index,
@@ -563,6 +570,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
       ),
     );
   }
+
   Widget _dot(Color color) {
     return Container(
       width: 12,

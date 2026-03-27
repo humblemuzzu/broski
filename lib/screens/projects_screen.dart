@@ -27,6 +27,7 @@ import 'package:broski/theme/app_icons.dart';
 import '../utils/error_utils.dart';
 import 'dialogs/project_context_menu.dart';
 import 'sheets/add_project_sheet.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 class ProjectsScreen extends ConsumerStatefulWidget {
   const ProjectsScreen({super.key});
@@ -213,12 +214,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to create session: ${humanizeError(e)}'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
-      );
+      showError(context, 'Failed to create session: ${humanizeError(e)}');
     }
   }
 
@@ -354,12 +350,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to create worktree: ${humanizeError(e)}'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
-      );
+      showError(context, 'Failed to create worktree: ${humanizeError(e)}');
     } finally {
       if (mounted) setState(() => _creatingWorktreeForPath = null);
     }
@@ -377,12 +368,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       );
       if (!mounted) return;
       if (!ok) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Failed to delete worktree'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
+        showError(context, 'Failed to delete worktree');
         return;
       }
       final current = ref.read(_projectWorktreesProvider)[project.path] ?? [];
@@ -392,20 +378,10 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
             .where((w) => w.directory != worktree.directory)
             .toList(),
       };
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Worktree deleted'),
-          backgroundColor: OpenCodeTheme.of(context).backgroundPanel,
-        ),
-      );
+      showSuccess(context, 'Worktree deleted');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to delete worktree: ${humanizeError(e)}'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
-      );
+      showError(context, 'Failed to delete worktree: ${humanizeError(e)}');
     }
   }
 
@@ -427,12 +403,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to reset worktree: ${humanizeError(e)}'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
-      );
+      showError(context, 'Failed to reset worktree: ${humanizeError(e)}');
     }
   }
 
@@ -464,12 +435,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
               await Clipboard.setData(ClipboardData(text: worktree.directory));
               if (!mounted) return;
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('Path copied'),
-                  backgroundColor: ocTheme.backgroundPanel,
-                ),
-              );
+              showSuccess(context, 'Path copied');
             },
           ),
           ListTile(
@@ -623,7 +589,8 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                                 project: project,
                                 highlightColor: highlights.color,
                                 onTap: () => _openProject(context, project),
-                                onLongPress: () => _showProjectContextMenu(project),
+                                onLongPress: () =>
+                                    _showProjectContextMenu(project),
                               ),
                             );
                           }, childCount: highlightedProjects.length),
@@ -667,7 +634,8 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                               isLoading: isLoading,
                               worktrees: worktrees ?? [],
                               onTap: () => _openProject(context, project),
-                              onLongPress: () => _showProjectContextMenu(project),
+                              onLongPress: () =>
+                                  _showProjectContextMenu(project),
                               onToggleExpand: agentType == AgentType.opencode
                                   ? () => _toggleProjectExpansion(project)
                                   : null,

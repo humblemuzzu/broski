@@ -70,7 +70,10 @@ abstract final class Insets {
 
   // List item padding
   static const listItem = EdgeInsets.symmetric(horizontal: 16, vertical: 12);
-  static const listItemDense = EdgeInsets.symmetric(horizontal: 16, vertical: 8);
+  static const listItemDense = EdgeInsets.symmetric(
+    horizontal: 16,
+    vertical: 8,
+  );
 
   // Button padding
   static const button = EdgeInsets.symmetric(horizontal: 24, vertical: 14);

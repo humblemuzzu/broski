@@ -50,6 +50,7 @@ import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -76,454 +77,458 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           width: ContentWidth.standard,
           child: CustomScrollView(
             slivers: [
-            const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                child: Text(
-                  'Settings',
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurface,
-                    fontSize: 32,
-                    fontWeight: FontWeight.w700,
+              const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                  child: Text(
+                    'Settings',
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface,
+                      fontSize: 32,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
-            ),
-            // Subscribe banner for unpaid users
-            const SliverToBoxAdapter(child: SubscribeBanner()),
-            const SliverToBoxAdapter(child: _SectionDivider()),
-            const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxl)),
-            SliverToBoxAdapter(child: SectionHeader(title: 'Connection')),
-            const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
-            if (connection.connection != null && connection.isConnected) ...[
+              // Subscribe banner for unpaid users
+              const SliverToBoxAdapter(child: SubscribeBanner()),
+              const SliverToBoxAdapter(child: _SectionDivider()),
+              const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxl)),
+              SliverToBoxAdapter(child: SectionHeader(title: 'Connection')),
+              const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
+              if (connection.connection != null && connection.isConnected) ...[
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: Insets.screenH,
+                    child: _ActiveConnectionCard(connection: connection),
+                  ),
+                ),
+              ] else
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: Insets.screenH,
+                    child: _SettingsCard(
+                      child: _SettingsTile(
+                        title: 'No Connection',
+                        subtitle: 'Connect to a Mac to use Broski',
+                        icon: AppIcons.unlink,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const ScanScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
+              SliverToBoxAdapter(child: SectionHeader(title: 'AI')),
+              const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: Insets.screenH,
-                  child: _ActiveConnectionCard(connection: connection),
+                  child: _SettingsCard(
+                    child: Column(
+                      children: [
+                        _SettingsTile(
+                          title: 'AI Backend',
+                          subtitle: currentAgent.displayName,
+                          icon: AppIcons.agent,
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.primary.withValues(
+                                    alpha: 0.15,
+                                  ),
+                                  borderRadius: Radii.brSm,
+                                ),
+                                child: Text(
+                                  switch (currentAgent) {
+                                    AgentType.opencode => 'OC',
+                                    AgentType.claudeCode => 'CC',
+                                    AgentType.codex => 'CX',
+                                    AgentType.pi => 'PI',
+                                  },
+                                  style: TextStyle(
+                                    color: theme.colorScheme.primary,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(width: Spacing.sm),
+                              Icon(
+                                AppIcons.chevronRight,
+                                size: 20,
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const AIBackendScreen(),
+                            ),
+                          ),
+                        ),
+                        _Divider(),
+                        _PowerFeaturesTile(
+                          currentAgent: currentAgent,
+                          isExpanded: _powerFeaturesExpanded,
+                          onToggle: () => setState(
+                            () => _powerFeaturesExpanded =
+                                !_powerFeaturesExpanded,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ] else
+              SliverToBoxAdapter(
+                child: AnimatedCrossFade(
+                  firstChild: const SizedBox.shrink(),
+                  secondChild: Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: _PowerFeaturesExpandedCard(
+                      currentAgent: currentAgent,
+                    ),
+                  ),
+                  crossFadeState: _powerFeaturesExpanded
+                      ? CrossFadeState.showSecond
+                      : CrossFadeState.showFirst,
+                  duration: const Duration(milliseconds: 200),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
+              SliverToBoxAdapter(child: SectionHeader(title: 'Project')),
+              const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: Insets.screenH,
+                  child: _SettingsCard(
+                    child: Column(
+                      children: [
+                        _SettingsTile(
+                          title: 'Current project',
+                          subtitle: selection.project == null
+                              ? 'Pick a project for project-scoped power features'
+                              : '${selection.project!.name} • ${selection.project!.path}',
+                          icon: AppIcons.folder,
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (selection.project != null)
+                                IconButton(
+                                  tooltip: 'Clear project',
+                                  onPressed: () => ref
+                                      .read(selectionProvider.notifier)
+                                      .clearProject(),
+                                  icon: Icon(
+                                    AppIcons.close,
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.6),
+                                  ),
+                                ),
+                              Icon(
+                                AppIcons.chevronRight,
+                                size: 20,
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                          onTap: () async {
+                            final picked =
+                                await DetailSheet.show<ProjectSummary>(
+                                  context: context,
+                                  title: 'Select Project',
+                                  initialSize: 0.5,
+                                  child: _ProjectPickerContent(
+                                    onSelect: (p) => Navigator.pop(context, p),
+                                  ),
+                                );
+                            if (picked == null) return;
+                            ref
+                                .read(selectionProvider.notifier)
+                                .selectProject(picked);
+                          },
+                        ),
+                        _Divider(),
+                        _SettingsTile(
+                          title: 'Git & GitHub',
+                          subtitle: selection.project == null
+                              ? 'Select a project first'
+                              : 'Status, commits, branches, PRs, issues',
+                          icon: AppIcons.sourceCode,
+                          onTap: () async {
+                            final selected = selection.project;
+                            if (selected == null) {
+                              showInfo(context, 'Select a project first');
+                              return;
+                            }
+                            await GitPanelSheet.show(
+                              context: context,
+                              projectPath: selected.path,
+                              projectName: selected.name,
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
+              SliverToBoxAdapter(
+                child: SectionHeader(title: 'Personalization'),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: Insets.screenH,
+                  child: _SettingsCard(
+                    child: Column(
+                      children: [
+                        _SettingsTile(
+                          title: 'Customization',
+                          subtitle: 'Theme, input bar, navigation',
+                          icon: AppIcons.palette,
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 14,
+                                height: 14,
+                                decoration: BoxDecoration(
+                                  color:
+                                      currentThemeInfo?.primaryColor ??
+                                      theme.colorScheme.primary,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.2),
+                                  ),
+                                ),
+                              ),
+                              SizedBox(width: Spacing.sm),
+                              Icon(
+                                AppIcons.chevronRight,
+                                size: 20,
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const CustomizationScreen(),
+                            ),
+                          ),
+                        ),
+                        _Divider(),
+                        _SettingsTile(
+                          title: 'Voice Input',
+                          subtitle: 'Speech-to-text settings',
+                          icon: AppIcons.mic,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const VoiceSettingsScreen(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              // ── Account ─────────────────────────────────────────
+              const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
+              SliverToBoxAdapter(child: SectionHeader(title: 'Account')),
+              const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: Insets.screenH,
                   child: _SettingsCard(
                     child: _SettingsTile(
-                      title: 'No Connection',
-                      subtitle: 'Connect to a Mac to use Broski',
-                      icon: AppIcons.unlink,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const ScanScreen()),
-                        );
-                      },
+                      title:
+                          appAuth.user?.displayName ??
+                          appAuth.user?.email ??
+                          'Account',
+                      subtitle: appAuth.user != null
+                          ? 'Subscription, sign out, and more'
+                          : 'Sign in to manage your account',
+                      icon: AppIcons.person,
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (appAuth.user != null)
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primary,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          SizedBox(width: Spacing.sm),
+                          Icon(
+                            AppIcons.chevronRight,
+                            size: 20,
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const AccountScreen(),
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
-            const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
-            SliverToBoxAdapter(child: SectionHeader(title: 'AI')),
-            const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: Insets.screenH,
-                child: _SettingsCard(
-                  child: Column(
-                    children: [
-                      _SettingsTile(
-                        title: 'AI Backend',
-                        subtitle: currentAgent.displayName,
-                        icon: AppIcons.agent,
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.primary.withValues(
-                                  alpha: 0.15,
-                                ),
-                                borderRadius: Radii.brSm,
-                              ),
-                              child: Text(
-                                switch (currentAgent) {
-                                  AgentType.opencode => 'OC',
-                                  AgentType.claudeCode => 'CC',
-                                  AgentType.codex => 'CX',
-                                  AgentType.pi => 'PI',
-                                },
-                                style: TextStyle(
-                                  color: theme.colorScheme.primary,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                            SizedBox(width: Spacing.sm),
-                            Icon(
-                              AppIcons.chevronRight,
-                              size: 20,
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const AIBackendScreen(),
-                          ),
-                        ),
-                      ),
-                      _Divider(),
-                      _PowerFeaturesTile(
-                        currentAgent: currentAgent,
-                        isExpanded: _powerFeaturesExpanded,
-                        onToggle: () => setState(
-                          () =>
-                              _powerFeaturesExpanded = !_powerFeaturesExpanded,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: AnimatedCrossFade(
-                firstChild: const SizedBox.shrink(),
-                secondChild: Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: _PowerFeaturesExpandedCard(currentAgent: currentAgent),
-                ),
-                crossFadeState: _powerFeaturesExpanded
-                    ? CrossFadeState.showSecond
-                    : CrossFadeState.showFirst,
-                duration: const Duration(milliseconds: 200),
-              ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
-            SliverToBoxAdapter(child: SectionHeader(title: 'Project')),
-            const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: Insets.screenH,
-                child: _SettingsCard(
-                  child: Column(
-                    children: [
-                      _SettingsTile(
-                        title: 'Current project',
-                        subtitle: selection.project == null
-                            ? 'Pick a project for project-scoped power features'
-                            : '${selection.project!.name} • ${selection.project!.path}',
-                        icon: AppIcons.folder,
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (selection.project != null)
-                              IconButton(
-                                tooltip: 'Clear project',
-                                onPressed: () => ref
-                                    .read(selectionProvider.notifier)
-                                    .clearProject(),
-                                icon: Icon(
-                                  AppIcons.close,
-                                  color: theme.colorScheme.onSurface.withValues(
-                                    alpha: 0.6,
-                                  ),
-                                ),
-                              ),
-                            Icon(
-                              AppIcons.chevronRight,
-                              size: 20,
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                        onTap: () async {
-                          final picked = await DetailSheet.show<ProjectSummary>(
-                            context: context,
-                            title: 'Select Project',
-                            initialSize: 0.5,
-                            child: _ProjectPickerContent(
-                              onSelect: (p) => Navigator.pop(context, p),
-                            ),
-                          );
-                          if (picked == null) return;
-                          ref
-                              .read(selectionProvider.notifier)
-                              .selectProject(picked);
-                        },
-                      ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'Git & GitHub',
-                        subtitle: selection.project == null
-                            ? 'Select a project first'
-                            : 'Status, commits, branches, PRs, issues',
-                        icon: AppIcons.sourceCode,
-                        onTap: () async {
-                          final selected = selection.project;
-                          if (selected == null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Select a project first'),
-                              ),
-                            );
-                            return;
-                          }
-                          await GitPanelSheet.show(
-                            context: context,
-                            projectPath: selected.path,
-                            projectName: selected.name,
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
-            SliverToBoxAdapter(child: SectionHeader(title: 'Personalization')),
-            const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: Insets.screenH,
-                child: _SettingsCard(
-                  child: Column(
-                    children: [
-                      _SettingsTile(
-                        title: 'Customization',
-                        subtitle: 'Theme, input bar, navigation',
-                        icon: AppIcons.palette,
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 14,
-                              height: 14,
-                              decoration: BoxDecoration(
-                                color:
-                                    currentThemeInfo?.primaryColor ??
-                                    theme.colorScheme.primary,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: theme.colorScheme.onSurface.withValues(
-                                    alpha: 0.2,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            SizedBox(width: Spacing.sm),
-                            Icon(
-                              AppIcons.chevronRight,
-                              size: 20,
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const CustomizationScreen(),
-                          ),
-                        ),
-                      ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'Voice Input',
-                        subtitle: 'Speech-to-text settings',
-                        icon: AppIcons.mic,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const VoiceSettingsScreen(),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            // ── Account ─────────────────────────────────────────
-            const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
-            SliverToBoxAdapter(child: SectionHeader(title: 'Account')),
-            const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: Insets.screenH,
-                child: _SettingsCard(
-                  child: _SettingsTile(
-                    title:
-                        appAuth.user?.displayName ??
-                        appAuth.user?.email ??
-                        'Account',
-                    subtitle: appAuth.user != null
-                        ? 'Subscription, sign out, and more'
-                        : 'Sign in to manage your account',
-                    icon: AppIcons.person,
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
+              // ── App ───────────────────────────────────────────────
+              const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
+              SliverToBoxAdapter(child: SectionHeader(title: 'App')),
+              const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: Insets.screenH,
+                  child: _SettingsCard(
+                    child: Column(
                       children: [
-                        if (appAuth.user != null)
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.primary,
-                              shape: BoxShape.circle,
-                            ),
+                        _SettingsTile(
+                          title: 'Clear Cache',
+                          subtitle: 'Delete cached sessions & offline data',
+                          icon: AppIcons.delete,
+                          onTap: () => _showClearCacheDialog(context, ref),
+                        ),
+                        _Divider(),
+                        _SettingsTile(
+                          title: 'Replay Onboarding',
+                          subtitle: 'Re-run the first-launch setup',
+                          icon: AppIcons.replay,
+                          onTap: () => _replayOnboarding(context, ref),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              // ── Support ──────────────────────────────────────────
+              const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
+              SliverToBoxAdapter(child: SectionHeader(title: 'Support')),
+              const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: Insets.screenH,
+                  child: _SettingsCard(
+                    child: Column(
+                      children: [
+                        _SettingsTile(
+                          title: 'Setup Guide',
+                          subtitle: 'How to connect your Mac',
+                          icon: AppIcons.menuBook,
+                          onTap: () => launchUrl(
+                            Uri.parse('https://broskiapp.com/docs/setup'),
+                            mode: LaunchMode.externalApplication,
                           ),
-                        SizedBox(width: Spacing.sm),
-                        Icon(
-                          AppIcons.chevronRight,
-                          size: 20,
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.5,
+                        ),
+                        _Divider(),
+                        _SettingsTile(
+                          title: 'Contact Support',
+                          subtitle: 'broskiappp@gmail.com',
+                          icon: AppIcons.help,
+                          onTap: () => launchUrl(
+                            Uri.parse('mailto:broskiappp@gmail.com'),
                           ),
                         ),
                       ],
                     ),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const AccountScreen()),
-                    ),
                   ),
                 ),
               ),
-            ),
-            // ── App ───────────────────────────────────────────────
-            const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
-            SliverToBoxAdapter(child: SectionHeader(title: 'App')),
-            const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: Insets.screenH,
-                child: _SettingsCard(
-                  child: Column(
-                    children: [
-                      _SettingsTile(
-                        title: 'Clear Cache',
-                        subtitle: 'Delete cached sessions & offline data',
-                        icon: AppIcons.delete,
-                        onTap: () => _showClearCacheDialog(context, ref),
-                      ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'Replay Onboarding',
-                        subtitle: 'Re-run the first-launch setup',
-                        icon: AppIcons.replay,
-                        onTap: () => _replayOnboarding(context, ref),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            // ── Support ──────────────────────────────────────────
-            const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
-            SliverToBoxAdapter(child: SectionHeader(title: 'Support')),
-            const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: Insets.screenH,
-                child: _SettingsCard(
-                  child: Column(
-                    children: [
-                      _SettingsTile(
-                        title: 'Setup Guide',
-                        subtitle: 'How to connect your Mac',
-                        icon: AppIcons.menuBook,
-                        onTap: () => launchUrl(
-                          Uri.parse('https://broskiapp.com/docs/setup'),
-                          mode: LaunchMode.externalApplication,
-                        ),
-                      ),
-                      _Divider(),
-                      _SettingsTile(
-                        title: 'Contact Support',
-                        subtitle: 'broskiappp@gmail.com',
-                        icon: AppIcons.help,
-                        onTap: () =>
-                            launchUrl(Uri.parse('mailto:broskiappp@gmail.com')),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            // ── Legal ────────────────────────────────────────────
-            const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxl)),
-            SliverToBoxAdapter(child: SectionHeader(title: 'Legal')),
-            const SliverToBoxAdapter(child: SizedBox(height: 10)),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: Insets.screenH,
-                child: _SettingsCard(
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surface.withValues(alpha: 0.2),
-                    borderRadius: Radii.brLg,
-                    border: Border.all(
-                      color: ocTheme.borderSubtle.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      _LinkTile(
-                        title: 'Privacy Policy',
-                        icon: AppIcons.privacy,
-                        url: 'https://broskiapp.com/legal/privacy',
-                      ),
-                      _Divider(),
-                      _LinkTile(
-                        title: 'Terms of Service',
-                        icon: AppIcons.description,
-                        url: 'https://broskiapp.com/legal/terms',
-                      ),
-                      _Divider(),
-                      _LinkTile(
-                        title: 'EULA',
-                        icon: AppIcons.gavel,
-                        url:
-                            'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/',
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            // ── Version (bottom) ─────────────────────────────────
-            const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
-            SliverToBoxAdapter(
-              child: Center(
+              // ── Legal ────────────────────────────────────────────
+              const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxl)),
+              SliverToBoxAdapter(child: SectionHeader(title: 'Legal')),
+              const SliverToBoxAdapter(child: SizedBox(height: 10)),
+              SliverToBoxAdapter(
                 child: Padding(
-                  padding: Insets.bottomSm,
-                  child: Text(
-                    'Broski v$appVersion',
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface.withValues(
-                        alpha: 0.25,
+                  padding: Insets.screenH,
+                  child: _SettingsCard(
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface.withValues(alpha: 0.2),
+                      borderRadius: Radii.brLg,
+                      border: Border.all(
+                        color: ocTheme.borderSubtle.withValues(alpha: 0.3),
                       ),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                    ),
+                    child: Column(
+                      children: [
+                        _LinkTile(
+                          title: 'Privacy Policy',
+                          icon: AppIcons.privacy,
+                          url: 'https://broskiapp.com/legal/privacy',
+                        ),
+                        _Divider(),
+                        _LinkTile(
+                          title: 'Terms of Service',
+                          icon: AppIcons.description,
+                          url: 'https://broskiapp.com/legal/terms',
+                        ),
+                        _Divider(),
+                        _LinkTile(
+                          title: 'EULA',
+                          icon: AppIcons.gavel,
+                          url:
+                              'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/',
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 40)),
-          ],
+              // ── Version (bottom) ─────────────────────────────────
+              const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
+              SliverToBoxAdapter(
+                child: Center(
+                  child: Padding(
+                    padding: Insets.bottomSm,
+                    child: Text(
+                      'Broski v$appVersion',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.25,
+                        ),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 40)),
+            ],
           ),
         ),
       ),
@@ -578,9 +583,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               final storage = ref.read(storageServiceProvider);
               await storage.clearCache();
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Cache cleared successfully')),
-                );
+                showInfo(context, 'Cache cleared successfully');
               }
             },
             child: const Text('Clear'),

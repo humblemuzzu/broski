@@ -15,7 +15,12 @@ class _ParsedTable {
 }
 
 class _ColumnLayout {
-  const _ColumnLayout(this.widths, this.totalWidth, this.needsScroll, this.isCompact);
+  const _ColumnLayout(
+    this.widths,
+    this.totalWidth,
+    this.needsScroll,
+    this.isCompact,
+  );
   final Map<int, TableColumnWidth> widths;
   final double totalWidth;
   final bool needsScroll;
@@ -28,11 +33,7 @@ class _ColumnLayout {
 /// (longest-word) widths, keeps icon columns compact, distributes remaining
 /// space to text columns, and scrolls horizontally only when truly needed.
 class AdaptiveTable extends StatelessWidget {
-  const AdaptiveTable({
-    super.key,
-    required this.markdown,
-    required this.theme,
-  });
+  const AdaptiveTable({super.key, required this.markdown, required this.theme});
 
   final String markdown;
   final OpenCodeTheme theme;
@@ -59,10 +60,7 @@ class AdaptiveTable extends StatelessWidget {
 
         final table = Table(
           columnWidths: layout.widths,
-          border: TableBorder.all(
-            color: theme.borderSubtle,
-            width: _borderW,
-          ),
+          border: TableBorder.all(color: theme.borderSubtle, width: _borderW),
           defaultVerticalAlignment: TableCellVerticalAlignment.top,
           children: [
             _headerRow(parsed, layout),
@@ -89,19 +87,19 @@ class AdaptiveTable extends StatelessWidget {
   }
 
   TextStyle get _headerStyle => TextStyle(
-        fontFamily: AppTypography.uiFontFamily,
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-        color: theme.text,
-        height: 1.4,
-      );
+    fontFamily: AppTypography.uiFontFamily,
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
+    color: theme.text,
+    height: 1.4,
+  );
 
   TextStyle get _bodyStyle => TextStyle(
-        fontFamily: AppTypography.uiFontFamily,
-        fontSize: 14,
-        color: theme.text,
-        height: 1.5,
-      );
+    fontFamily: AppTypography.uiFontFamily,
+    fontSize: 14,
+    color: theme.text,
+    height: 1.5,
+  );
 
   _ColumnLayout _calcWidths(_ParsedTable table, double available) {
     final n = table.columnCount;
@@ -159,8 +157,9 @@ class AdaptiveTable extends StatelessWidget {
       ];
       final leftover = forContent - totalNatural;
       if (textCols.isNotEmpty && leftover > 0) {
-        final textVolume =
-            textCols.map((i) => volume[i]).reduce((a, b) => a + b);
+        final textVolume = textCols
+            .map((i) => volume[i])
+            .reduce((a, b) => a + b);
         for (final i in textCols) {
           final share = textVolume > 0
               ? (volume[i] / textVolume) * leftover
@@ -188,10 +187,8 @@ class AdaptiveTable extends StatelessWidget {
 
         // Blend: 50% growth-based, 50% volume-based.
         final blended = List.generate(n, (i) {
-          final gShare =
-              totalGrow > 0 ? growths[i] / totalGrow : 1.0 / n;
-          final vShare =
-              totalVol > 0 ? volume[i] / totalVol : 1.0 / n;
+          final gShare = totalGrow > 0 ? growths[i] / totalGrow : 1.0 / n;
+          final vShare = totalVol > 0 ? volume[i] / totalVol : 1.0 / n;
           return (gShare + vShare) / 2;
         });
         final totalBlended = blended.reduce((a, b) => a + b);
@@ -263,10 +260,7 @@ class AdaptiveTable extends StatelessWidget {
       verticalAlignment: TableCellVerticalAlignment.top,
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: hPad, vertical: _padV),
-        child: Text.rich(
-          _inlineSpan(text, style),
-          textAlign: align,
-        ),
+        child: Text.rich(_inlineSpan(text, style), textAlign: align),
       ),
     );
   }
@@ -296,9 +290,7 @@ class AdaptiveTable extends StatelessWidget {
   /// Only `/` and `\` — NOT `_` or `-` which appear in prose, CLI flags,
   /// and compound words where invisible chars corrupt clipboard copies.
   static String _addBreakHints(String text) {
-    return text
-        .replaceAll('/', '/\u200B')
-        .replaceAll('\\', '\\\u200B');
+    return text.replaceAll('/', '/\u200B').replaceAll('\\', '\\\u200B');
   }
 
   List<InlineSpan> _nodesToSpans(List<md.Node> nodes, TextStyle style) {
@@ -310,40 +302,51 @@ class AdaptiveTable extends StatelessWidget {
         final children = node.children ?? [];
         switch (node.tag) {
           case 'strong':
-            spans.addAll(_nodesToSpans(
-              children,
-              style.copyWith(
-                fontWeight: FontWeight.w600,
-                color: theme.markdownStrong,
+            spans.addAll(
+              _nodesToSpans(
+                children,
+                style.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: theme.markdownStrong,
+                ),
               ),
-            ));
+            );
           case 'em':
-            spans.addAll(_nodesToSpans(
-              children,
-              style.copyWith(
-                fontStyle: FontStyle.italic,
-                color: theme.markdownEmph,
+            spans.addAll(
+              _nodesToSpans(
+                children,
+                style.copyWith(
+                  fontStyle: FontStyle.italic,
+                  color: theme.markdownEmph,
+                ),
               ),
-            ));
+            );
           case 'code':
-            spans.add(TextSpan(
-              text: node.textContent, // verbatim — no break hints in code
-              style: AppTypography.codeSmall(color: theme.markdownCode)
-                  .copyWith(backgroundColor: theme.backgroundElement),
-            ));
-          case 'del':
-            spans.addAll(_nodesToSpans(
-              children,
-              style.copyWith(decoration: TextDecoration.lineThrough),
-            ));
-          case 'a':
-            spans.add(TextSpan(
-              text: node.textContent,
-              style: style.copyWith(
-                color: theme.markdownLink,
-                decoration: TextDecoration.underline,
+            spans.add(
+              TextSpan(
+                text: node.textContent, // verbatim — no break hints in code
+                style: AppTypography.codeSmall(
+                  color: theme.markdownCode,
+                ).copyWith(backgroundColor: theme.backgroundElement),
               ),
-            ));
+            );
+          case 'del':
+            spans.addAll(
+              _nodesToSpans(
+                children,
+                style.copyWith(decoration: TextDecoration.lineThrough),
+              ),
+            );
+          case 'a':
+            spans.add(
+              TextSpan(
+                text: node.textContent,
+                style: style.copyWith(
+                  color: theme.markdownLink,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            );
           default:
             spans.add(TextSpan(text: node.textContent, style: style));
         }
@@ -386,8 +389,10 @@ class AdaptiveTable extends StatelessWidget {
   }
 
   static _ParsedTable? _parseGfmTable(String markdown) {
-    final lines =
-        markdown.split('\n').where((l) => l.trim().isNotEmpty).toList();
+    final lines = markdown
+        .split('\n')
+        .where((l) => l.trim().isNotEmpty)
+        .toList();
     if (lines.length < 2) return null;
 
     final headers = _parseRow(lines[0]);
@@ -412,10 +417,9 @@ class AdaptiveTable extends StatelessWidget {
     for (int i = 2; i < lines.length; i++) {
       final cells = _parseRow(lines[i]);
       if (cells == null) continue;
-      rows.add(List.generate(
-        headers.length,
-        (j) => j < cells.length ? cells[j] : '',
-      ));
+      rows.add(
+        List.generate(headers.length, (j) => j < cells.length ? cells[j] : ''),
+      );
     }
 
     return _ParsedTable(headers, rows, alignments);

@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -10,12 +9,14 @@ import '../theme/opencode_theme.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
+
 class VoiceSettingsScreen extends ConsumerStatefulWidget {
   const VoiceSettingsScreen({super.key});
   @override
   ConsumerState<VoiceSettingsScreen> createState() =>
       _VoiceSettingsScreenState();
 }
+
 class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
   final _groqKeyController = TextEditingController();
   final _openaiKeyController = TextEditingController();
@@ -33,12 +34,14 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
       _openaiKeyController.text = settings.openaiApiKey ?? '';
     });
   }
+
   @override
   void dispose() {
     _groqKeyController.dispose();
     _openaiKeyController.dispose();
     super.dispose();
   }
+
   Future<void> _testApiKey(SttProvider provider) async {
     final controller = provider == SttProvider.groq
         ? _groqKeyController
@@ -70,12 +73,14 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
       if (mounted) setState(() => _testResult = null);
     });
   }
+
   Future<void> _openProviderDocs(SttProvider provider) async {
     final url = provider == SttProvider.groq
         ? 'https://console.groq.com/keys'
         : 'https://platform.openai.com/api-keys';
     await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
   }
+
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -93,317 +98,322 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
       body: AdaptiveContainer(
         width: ContentWidth.standard,
         child: ListView(
-        padding: Insets.card,
-        children: [
-          // Info box
-          Container(
-            padding: Insets.cardMd,
-            decoration: BoxDecoration(
-              color: ocTheme.primary.withValues(alpha: 0.1),
-              borderRadius: Radii.brMd,
-              border: Border.all(color: ocTheme.primary.withValues(alpha: 0.3)),
-            ),
-            child: Row(
-              children: [
-                Icon(AppIcons.mic, color: ocTheme.primary, size: 20),
-                SizedBox(width: Spacing.md),
-                Expanded(
-                  child: Text(
-                    'Speak to type messages. Your voice is transcribed using your own API keys (BYOK).',
-                    style: TextStyle(
-                      color: ocTheme.primary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
+          padding: Insets.card,
+          children: [
+            // Info box
+            Container(
+              padding: Insets.cardMd,
+              decoration: BoxDecoration(
+                color: ocTheme.primary.withValues(alpha: 0.1),
+                borderRadius: Radii.brMd,
+                border: Border.all(
+                  color: ocTheme.primary.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(AppIcons.mic, color: ocTheme.primary, size: 20),
+                  SizedBox(width: Spacing.md),
+                  Expanded(
+                    child: Text(
+                      'Speak to type messages. Your voice is transcribed using your own API keys (BYOK).',
+                      style: TextStyle(
+                        color: ocTheme.primary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: Spacing.lg),
+            // Provider Selection
+            _Section(
+              title: 'Provider',
+              children: [
+                _ProviderTile(
+                  provider: SttProvider.groq,
+                  isSelected: settings.provider == SttProvider.groq,
+                  subtitle: '10x cheaper, 20x faster',
+                  badge: 'Recommended',
+                  onTap: () => notifier.setProvider(SttProvider.groq),
+                ),
+                _ProviderTile(
+                  provider: SttProvider.openai,
+                  isSelected: settings.provider == SttProvider.openai,
+                  subtitle: 'Most familiar, well-documented',
+                  onTap: () => notifier.setProvider(SttProvider.openai),
+                ),
+              ],
+            ),
+            SizedBox(height: Spacing.md),
+            // Model Selection
+            _Section(
+              title: 'Model',
+              children: [
+                ...SttModels.forProvider(settings.provider).map(
+                  (model) => _ModelTile(
+                    model: model,
+                    isSelected: settings.modelId == model.id,
+                    onTap: () => notifier.setModel(model.id),
                   ),
                 ),
               ],
             ),
-          ),
-          SizedBox(height: Spacing.lg),
-          // Provider Selection
-          _Section(
-            title: 'Provider',
-            children: [
-              _ProviderTile(
-                provider: SttProvider.groq,
-                isSelected: settings.provider == SttProvider.groq,
-                subtitle: '10x cheaper, 20x faster',
-                badge: 'Recommended',
-                onTap: () => notifier.setProvider(SttProvider.groq),
-              ),
-              _ProviderTile(
-                provider: SttProvider.openai,
-                isSelected: settings.provider == SttProvider.openai,
-                subtitle: 'Most familiar, well-documented',
-                onTap: () => notifier.setProvider(SttProvider.openai),
-              ),
-            ],
-          ),
-          SizedBox(height: Spacing.md),
-          // Model Selection
-          _Section(
-            title: 'Model',
-            children: [
-              ...SttModels.forProvider(settings.provider).map(
-                (model) => _ModelTile(
-                  model: model,
-                  isSelected: settings.modelId == model.id,
-                  onTap: () => notifier.setModel(model.id),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: Spacing.md),
-          // API Key Input
-          _Section(
-            title: '${settings.provider.displayName} API Key',
-            children: [
-              Padding(
-                padding: Insets.card,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Key input field
-                    TextField(
-                      controller: settings.provider == SttProvider.groq
-                          ? _groqKeyController
-                          : _openaiKeyController,
-                      obscureText: settings.provider == SttProvider.groq
-                          ? !_showGroqKey
-                          : !_showOpenaiKey,
-                      style: TextStyle(color: ocTheme.text, fontSize: 14),
-                      decoration: InputDecoration(
-                        hintText: 'Enter your API key',
-                        hintStyle: TextStyle(color: ocTheme.textMuted),
-                        filled: true,
-                        fillColor: ocTheme.background,
-                        border: OutlineInputBorder(
-                          borderRadius: Radii.brMd,
-                          borderSide: BorderSide(color: ocTheme.borderSubtle),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: Radii.brMd,
-                          borderSide: BorderSide(color: ocTheme.borderSubtle),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: Radii.brMd,
-                          borderSide: BorderSide(color: ocTheme.primary),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            settings.provider == SttProvider.groq
-                                ? (_showGroqKey
-                                      ? AppIcons.visibilityOff
-                                      : AppIcons.visibility)
-                                : (_showOpenaiKey
-                                      ? AppIcons.visibilityOff
-                                      : AppIcons.visibility),
-                            color: ocTheme.textMuted,
-                            size: 20,
+            SizedBox(height: Spacing.md),
+            // API Key Input
+            _Section(
+              title: '${settings.provider.displayName} API Key',
+              children: [
+                Padding(
+                  padding: Insets.card,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Key input field
+                      TextField(
+                        controller: settings.provider == SttProvider.groq
+                            ? _groqKeyController
+                            : _openaiKeyController,
+                        obscureText: settings.provider == SttProvider.groq
+                            ? !_showGroqKey
+                            : !_showOpenaiKey,
+                        style: TextStyle(color: ocTheme.text, fontSize: 14),
+                        decoration: InputDecoration(
+                          hintText: 'Enter your API key',
+                          hintStyle: TextStyle(color: ocTheme.textMuted),
+                          filled: true,
+                          fillColor: ocTheme.background,
+                          border: OutlineInputBorder(
+                            borderRadius: Radii.brMd,
+                            borderSide: BorderSide(color: ocTheme.borderSubtle),
                           ),
-                          onPressed: () {
-                            setState(() {
-                              if (settings.provider == SttProvider.groq) {
-                                _showGroqKey = !_showGroqKey;
-                              } else {
-                                _showOpenaiKey = !_showOpenaiKey;
-                              }
-                            });
-                          },
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: Radii.brMd,
+                            borderSide: BorderSide(color: ocTheme.borderSubtle),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: Radii.brMd,
+                            borderSide: BorderSide(color: ocTheme.primary),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              settings.provider == SttProvider.groq
+                                  ? (_showGroqKey
+                                        ? AppIcons.visibilityOff
+                                        : AppIcons.visibility)
+                                  : (_showOpenaiKey
+                                        ? AppIcons.visibilityOff
+                                        : AppIcons.visibility),
+                              color: ocTheme.textMuted,
+                              size: 20,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                if (settings.provider == SttProvider.groq) {
+                                  _showGroqKey = !_showGroqKey;
+                                } else {
+                                  _showOpenaiKey = !_showOpenaiKey;
+                                }
+                              });
+                            },
+                          ),
                         ),
+                        onChanged: (value) {
+                          // Auto-save when typing stops
+                        },
                       ),
-                      onChanged: (value) {
-                        // Auto-save when typing stops
-                      },
-                    ),
-                    SizedBox(height: Spacing.md),
-                    // Action buttons
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _testingKey
-                                ? null
-                                : () => _testApiKey(settings.provider),
-                            icon: _testingKey
-                                ? SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: ocTheme.primary,
-                                    ),
-                                  )
-                                : Icon(AppIcons.check, size: 18),
-                            label: Text(
-                              _testingKey ? 'Testing...' : 'Test Key',
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: ocTheme.primary,
-                              side: BorderSide(color: ocTheme.primary),
-                              padding: Insets.cardV,
+                      SizedBox(height: Spacing.md),
+                      // Action buttons
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _testingKey
+                                  ? null
+                                  : () => _testApiKey(settings.provider),
+                              icon: _testingKey
+                                  ? SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: ocTheme.primary,
+                                      ),
+                                    )
+                                  : Icon(AppIcons.check, size: 18),
+                              label: Text(
+                                _testingKey ? 'Testing...' : 'Test Key',
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: ocTheme.primary,
+                                side: BorderSide(color: ocTheme.primary),
+                                padding: Insets.cardV,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        OutlinedButton.icon(
-                          onPressed: () {
-                            if (settings.provider == SttProvider.groq) {
-                              _groqKeyController.clear();
-                              notifier.clearApiKey(SttProvider.groq);
-                            } else {
-                              _openaiKeyController.clear();
-                              notifier.clearApiKey(SttProvider.openai);
-                            }
-                          },
-                          icon: Icon(AppIcons.delete, size: 18),
-                          label: const Text('Clear'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: ocTheme.error,
-                            side: BorderSide(color: ocTheme.error),
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 12,
-                              horizontal: 16,
+                          const SizedBox(width: 10),
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              if (settings.provider == SttProvider.groq) {
+                                _groqKeyController.clear();
+                                notifier.clearApiKey(SttProvider.groq);
+                              } else {
+                                _openaiKeyController.clear();
+                                notifier.clearApiKey(SttProvider.openai);
+                              }
+                            },
+                            icon: Icon(AppIcons.delete, size: 18),
+                            label: const Text('Clear'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: ocTheme.error,
+                              side: BorderSide(color: ocTheme.error),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 12,
+                                horizontal: 16,
+                              ),
                             ),
+                          ),
+                        ],
+                      ),
+                      // Test result message
+                      if (_testResult != null) ...[
+                        SizedBox(height: Spacing.md),
+                        Container(
+                          padding: Insets.cardXs,
+                          decoration: BoxDecoration(
+                            color: _testResult!.contains('valid')
+                                ? ocTheme.success.withValues(alpha: 0.1)
+                                : ocTheme.error.withValues(alpha: 0.1),
+                            borderRadius: Radii.brSm,
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _testResult!.contains('valid')
+                                    ? AppIcons.checkCircle
+                                    : AppIcons.error,
+                                color: _testResult!.contains('valid')
+                                    ? ocTheme.success
+                                    : ocTheme.error,
+                                size: 18,
+                              ),
+                              SizedBox(width: Spacing.sm),
+                              Expanded(
+                                child: Text(
+                                  _testResult!,
+                                  style: TextStyle(
+                                    color: _testResult!.contains('valid')
+                                        ? ocTheme.success
+                                        : ocTheme.error,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
-                    ),
-                    // Test result message
-                    if (_testResult != null) ...[
                       SizedBox(height: Spacing.md),
-                      Container(
-                        padding: Insets.cardXs,
-                        decoration: BoxDecoration(
-                          color: _testResult!.contains('valid')
-                              ? ocTheme.success.withValues(alpha: 0.1)
-                              : ocTheme.error.withValues(alpha: 0.1),
-                          borderRadius: Radii.brSm,
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              _testResult!.contains('valid')
-                                  ? AppIcons.checkCircle
-                                  : AppIcons.error,
-                              color: _testResult!.contains('valid')
-                                  ? ocTheme.success
-                                  : ocTheme.error,
-                              size: 18,
-                            ),
-                            SizedBox(width: Spacing.sm),
-                            Expanded(
-                              child: Text(
-                                _testResult!,
+                      // Get key link
+                      InkWell(
+                        onTap: () => _openProviderDocs(settings.provider),
+                        borderRadius: Radii.brSm,
+                        child: Padding(
+                          padding: Insets.chipV,
+                          child: Row(
+                            children: [
+                              Icon(
+                                AppIcons.openExternal,
+                                color: ocTheme.primary,
+                                size: 16,
+                              ),
+                              SizedBox(width: Spacing.sm),
+                              Text(
+                                settings.provider == SttProvider.groq
+                                    ? 'Get your Groq API key'
+                                    : 'Get your OpenAI API key',
                                 style: TextStyle(
-                                  color: _testResult!.contains('valid')
-                                      ? ocTheme.success
-                                      : ocTheme.error,
+                                  color: ocTheme.primary,
                                   fontSize: 13,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ],
-                    SizedBox(height: Spacing.md),
-                    // Get key link
-                    InkWell(
-                      onTap: () => _openProviderDocs(settings.provider),
-                      borderRadius: Radii.brSm,
-                      child: Padding(
-                        padding: Insets.chipV,
-                        child: Row(
-                          children: [
-                            Icon(
-                              AppIcons.openExternal,
-                              color: ocTheme.primary,
-                              size: 16,
-                            ),
-                            SizedBox(width: Spacing.sm),
-                            Text(
-                              settings.provider == SttProvider.groq
-                                  ? 'Get your Groq API key'
-                                  : 'Get your OpenAI API key',
-                              style: TextStyle(
-                                color: ocTheme.primary,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: Spacing.md),
+            // Configuration status
+            _Section(
+              title: 'Status',
+              children: [
+                ListTile(
+                  leading: Icon(
+                    settings.isConfigured
+                        ? AppIcons.checkCircle
+                        : AppIcons.warning,
+                    color: settings.isConfigured
+                        ? ocTheme.success
+                        : ocTheme.warning,
+                  ),
+                  title: Text(
+                    settings.isConfigured ? 'Ready to use' : 'Not configured',
+                    style: TextStyle(color: ocTheme.text),
+                  ),
+                  subtitle: Text(
+                    settings.isConfigured
+                        ? '${settings.provider.displayName} - ${settings.model.displayName}'
+                        : 'Add your ${settings.provider.displayName} API key above',
+                    style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: Spacing.md),
+            // Cost comparison
+            _Section(
+              title: 'Cost Comparison',
+              children: [
+                Padding(
+                  padding: Insets.card,
+                  child: Column(
+                    children: [
+                      _CostRow(
+                        provider: 'Groq',
+                        cost: '\$0.04/hour',
+                        speed: '216x realtime',
+                        isHighlighted: settings.provider == SttProvider.groq,
                       ),
-                    ),
-                  ],
+                      SizedBox(height: Spacing.sm),
+                      _CostRow(
+                        provider: 'OpenAI',
+                        cost: '\$0.36/hour',
+                        speed: '5-10x realtime',
+                        isHighlighted: settings.provider == SttProvider.openai,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          SizedBox(height: Spacing.md),
-          // Configuration status
-          _Section(
-            title: 'Status',
-            children: [
-              ListTile(
-                leading: Icon(
-                  settings.isConfigured ? AppIcons.checkCircle : AppIcons.warning,
-                  color: settings.isConfigured
-                      ? ocTheme.success
-                      : ocTheme.warning,
-                ),
-                title: Text(
-                  settings.isConfigured ? 'Ready to use' : 'Not configured',
-                  style: TextStyle(color: ocTheme.text),
-                ),
-                subtitle: Text(
-                  settings.isConfigured
-                      ? '${settings.provider.displayName} - ${settings.model.displayName}'
-                      : 'Add your ${settings.provider.displayName} API key above',
-                  style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: Spacing.md),
-          // Cost comparison
-          _Section(
-            title: 'Cost Comparison',
-            children: [
-              Padding(
-                padding: Insets.card,
-                child: Column(
-                  children: [
-                    _CostRow(
-                      provider: 'Groq',
-                      cost: '\$0.04/hour',
-                      speed: '216x realtime',
-                      isHighlighted: settings.provider == SttProvider.groq,
-                    ),
-                    SizedBox(height: Spacing.sm),
-                    _CostRow(
-                      provider: 'OpenAI',
-                      cost: '\$0.36/hour',
-                      speed: '5-10x realtime',
-                      isHighlighted: settings.provider == SttProvider.openai,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 }
+
 class _Section extends StatelessWidget {
   const _Section({required this.title, required this.children});
   final String title;
@@ -437,6 +447,7 @@ class _Section extends StatelessWidget {
     );
   }
 }
+
 class _ProviderTile extends StatelessWidget {
   const _ProviderTile({
     required this.provider,
@@ -534,6 +545,7 @@ class _ProviderTile extends StatelessWidget {
     );
   }
 }
+
 class _ModelTile extends StatelessWidget {
   const _ModelTile({
     required this.model,
@@ -611,6 +623,7 @@ class _ModelTile extends StatelessWidget {
     );
   }
 }
+
 class _CostRow extends StatelessWidget {
   const _CostRow({
     required this.provider,

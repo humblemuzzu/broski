@@ -21,7 +21,8 @@ class VariantBadge extends StatelessWidget {
   const VariantBadge.small({super.key, required this.variant}) : isSmall = true;
 
   /// Larger badge for pickers and dialogs.
-  const VariantBadge.medium({super.key, required this.variant}) : isSmall = false;
+  const VariantBadge.medium({super.key, required this.variant})
+    : isSmall = false;
 
   @override
   Widget build(BuildContext context) {
@@ -67,4 +68,3 @@ class VariantBadge extends StatelessWidget {
     }
   }
 }
-

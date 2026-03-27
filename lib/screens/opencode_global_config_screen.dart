@@ -11,6 +11,7 @@ import '../utils/error_utils.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// View and edit OpenCode global configuration.
 class OpenCodeGlobalConfigScreen extends ConsumerStatefulWidget {
@@ -77,13 +78,7 @@ class _State extends ConsumerState<OpenCodeGlobalConfigScreen> {
       setState(() => _config = res.isNotEmpty ? res : merged);
     } catch (e) {
       if (!mounted) return;
-      final oc = OpenCodeTheme.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to save: ${humanizeError(e)}'),
-          backgroundColor: oc.error,
-        ),
-      );
+      showError(context, 'Failed to save: ${humanizeError(e)}');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -124,9 +119,7 @@ class _State extends ConsumerState<OpenCodeGlobalConfigScreen> {
           TextButton(
             onPressed: () {
               Clipboard.setData(ClipboardData(text: text));
-              ScaffoldMessenger.of(
-                ctx,
-              ).showSnackBar(const SnackBar(content: Text('Copied')));
+              showInfo(context, 'Copied');
             },
             child: const Text('Copy'),
           ),

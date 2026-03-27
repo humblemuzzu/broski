@@ -1,10 +1,10 @@
-
 import 'package:flutter/material.dart';
 
 import '../../models/git.dart';
 import '../../widgets/chat/detail_sheet.dart';
 import '../../theme/design_tokens.dart';
 import 'package:broski/theme/app_icons.dart';
+
 class GitBranchSheet extends StatefulWidget {
   const GitBranchSheet({
     super.key,
@@ -32,9 +32,11 @@ class GitBranchSheet extends StatefulWidget {
       ),
     );
   }
+
   @override
   State<GitBranchSheet> createState() => _GitBranchSheetState();
 }
+
 class _GitBranchSheetState extends State<GitBranchSheet> {
   final _controller = TextEditingController();
   bool _creating = false;
@@ -43,6 +45,7 @@ class _GitBranchSheetState extends State<GitBranchSheet> {
     _controller.dispose();
     super.dispose();
   }
+
   Future<void> _create() async {
     final name = _controller.text.trim();
     if (name.isEmpty) return;
@@ -54,6 +57,7 @@ class _GitBranchSheetState extends State<GitBranchSheet> {
       if (mounted) setState(() => _creating = false);
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final local = widget.branches.where((b) => !b.isRemote).toList();

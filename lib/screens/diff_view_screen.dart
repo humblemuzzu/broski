@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_typography.dart';
@@ -10,6 +9,7 @@ import '../utils/diff_utils.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
+
 class DiffViewScreen extends StatefulWidget {
   const DiffViewScreen({
     super.key,
@@ -18,13 +18,16 @@ class DiffViewScreen extends StatefulWidget {
     this.messageId,
   });
   final DiffEntry diff;
+
   /// Undo handler (calls session.revert with messageID/partID).
   final void Function(String messageId, String partId)? onUndo;
+
   /// Message ID owning this diff (needed for undo).
   final String? messageId;
   @override
   State<DiffViewScreen> createState() => _DiffViewScreenState();
 }
+
 class _DiffViewScreenState extends State<DiffViewScreen> {
   late String _diffText;
   late List<DiffLine> _lines;
@@ -36,6 +39,7 @@ class _DiffViewScreenState extends State<DiffViewScreen> {
     _diffText = _resolveDiffText();
     _lines = UnifiedDiff.parse(_diffText);
   }
+
   String _resolveDiffText() {
     final d = widget.diff;
     if (d.diff != null && d.diff!.trim().isNotEmpty) {
@@ -48,6 +52,7 @@ class _DiffViewScreenState extends State<DiffViewScreen> {
       after: d.after,
     );
   }
+
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -118,11 +123,7 @@ class _DiffViewScreenState extends State<DiffViewScreen> {
           IconButton(
             tooltip: 'Reset zoom',
             onPressed: () => setState(() => _fontSize = 12.5),
-            icon: Icon(
-              AppIcons.textFields,
-              size: 20,
-              color: ocTheme.textMuted,
-            ),
+            icon: Icon(AppIcons.textFields, size: 20, color: ocTheme.textMuted),
           ),
           if (canUndo)
             IconButton(
@@ -136,38 +137,39 @@ class _DiffViewScreenState extends State<DiffViewScreen> {
       body: AdaptiveContainer(
         width: ContentWidth.standard,
         child: GestureDetector(
-        onScaleStart: (_) => _scaleStartFont = _fontSize,
-        onScaleUpdate: (details) {
-          if (details.pointerCount < 2) return;
-          final next = (_scaleStartFont * details.scale).clamp(10.0, 20.0);
-          if (next == _fontSize) return;
-          setState(() => _fontSize = next);
-        },
-        child: Container(
-          margin: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-          decoration: BoxDecoration(
-            color: ocTheme.backgroundPanel,
-            borderRadius: Radii.brMd,
-            border: Border.all(color: ocTheme.borderSubtle),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: ListView.builder(
-            padding: Insets.chipV,
-            itemCount: contentLines.length,
-            itemBuilder: (context, index) {
-              final line = contentLines[index];
-              return _DiffRow(
-                line: line,
-                fontSize: _fontSize,
-                gutterDigits: gutterDigits,
-              );
-            },
+          onScaleStart: (_) => _scaleStartFont = _fontSize,
+          onScaleUpdate: (details) {
+            if (details.pointerCount < 2) return;
+            final next = (_scaleStartFont * details.scale).clamp(10.0, 20.0);
+            if (next == _fontSize) return;
+            setState(() => _fontSize = next);
+          },
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+            decoration: BoxDecoration(
+              color: ocTheme.backgroundPanel,
+              borderRadius: Radii.brMd,
+              border: Border.all(color: ocTheme.borderSubtle),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: ListView.builder(
+              padding: Insets.chipV,
+              itemCount: contentLines.length,
+              itemBuilder: (context, index) {
+                final line = contentLines[index];
+                return _DiffRow(
+                  line: line,
+                  fontSize: _fontSize,
+                  gutterDigits: gutterDigits,
+                );
+              },
+            ),
           ),
         ),
       ),
-      ),
     );
   }
+
   Future<void> _copy(BuildContext context) async {
     await Clipboard.setData(ClipboardData(text: _diffText));
     if (!context.mounted) return;
@@ -181,11 +183,13 @@ class _DiffViewScreenState extends State<DiffViewScreen> {
       ),
     );
   }
+
   String _fileName(String path) {
     if (path.isEmpty) return 'file';
     final parts = path.split('/');
     return parts.isNotEmpty ? parts.last : path;
   }
+
   int _maxLine(Iterable<int?> values) {
     var maxValue = 0;
     for (final v in values) {
@@ -194,11 +198,13 @@ class _DiffViewScreenState extends State<DiffViewScreen> {
     }
     return maxValue;
   }
+
   int _digits(int value) {
     if (value <= 0) return 1;
     return value.toString().length;
   }
 }
+
 class _DiffRow extends StatelessWidget {
   const _DiffRow({
     required this.line,
@@ -222,10 +228,9 @@ class _DiffRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         child: Text(
           line.text,
-          style: AppTypography.code(color: ocTheme.textMuted.withValues(alpha: 0.5)).copyWith(
-            fontSize: fontSize - 2,
-            height: 1.4,
-          ),
+          style: AppTypography.code(
+            color: ocTheme.textMuted.withValues(alpha: 0.5),
+          ).copyWith(fontSize: fontSize - 2, height: 1.4),
         ),
       );
     }
@@ -248,36 +253,34 @@ class _DiffRow extends StatelessWidget {
               child: Text(
                 line.newLine?.toString() ?? '',
                 textAlign: TextAlign.right,
-                style: AppTypography.code(color: ocTheme.textMuted.withValues(alpha: 0.4)).copyWith(
-                  fontSize: fontSize - 2,
-                  height: 1.6,
-                ),
+                style: AppTypography.code(
+                  color: ocTheme.textMuted.withValues(alpha: 0.4),
+                ).copyWith(fontSize: fontSize - 2, height: 1.6),
               ),
             ),
           if (showGutter) SizedBox(width: Spacing.sm),
           // Prefix (+/-/space)
           Text(
             prefix,
-            style: AppTypography.code(color: fg.withValues(alpha: 0.7)).copyWith(
-              fontSize: fontSize,
-              height: 1.6,
-            ),
+            style: AppTypography.code(
+              color: fg.withValues(alpha: 0.7),
+            ).copyWith(fontSize: fontSize, height: 1.6),
           ),
           SizedBox(width: Spacing.xs),
           // Content
           Expanded(
             child: Text(
               line.text,
-              style: AppTypography.code(color: fg).copyWith(
-                fontSize: fontSize,
-                height: 1.6,
-              ),
+              style: AppTypography.code(
+                color: fg,
+              ).copyWith(fontSize: fontSize, height: 1.6),
             ),
           ),
         ],
       ),
     );
   }
+
   Color _background(DiffLineKind kind, OpenCodeTheme ocTheme) {
     switch (kind) {
       case DiffLineKind.added:
@@ -292,6 +295,7 @@ class _DiffRow extends StatelessWidget {
         return Colors.transparent;
     }
   }
+
   Color _foreground(DiffLineKind kind, OpenCodeTheme ocTheme) {
     switch (kind) {
       case DiffLineKind.added:

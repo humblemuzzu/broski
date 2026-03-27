@@ -5,6 +5,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../models/message.dart';
 import '../../providers/chat_provider.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Copy transcript to clipboard as markdown.
 /// Extracted from `_ChatScreenState._copyTranscriptToClipboard`.
@@ -15,9 +16,7 @@ void copyTranscriptToClipboard({
 }) {
   final chatState = ref.read(chatSessionProvider);
   if (chatState.messages.isEmpty) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('No messages to copy')));
+    showInfo(context, 'No messages to copy');
     return;
   }
   final buffer = StringBuffer();
@@ -31,9 +30,7 @@ void copyTranscriptToClipboard({
     buffer.writeln();
   }
   Clipboard.setData(ClipboardData(text: buffer.toString()));
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('Transcript copied to clipboard')),
-  );
+  showInfo(context, 'Transcript copied to clipboard');
 }
 
 /// Share transcript via system share sheet.

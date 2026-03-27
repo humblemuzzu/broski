@@ -20,9 +20,7 @@ Future<bool> showProjectContextMenu({
   final result = await showModalBottomSheet<String>(
     context: context,
     backgroundColor: oc.backgroundPanel,
-    shape: const RoundedRectangleBorder(
-      borderRadius: Radii.sheetTop,
-    ),
+    shape: const RoundedRectangleBorder(borderRadius: Radii.sheetTop),
     builder: (ctx) => SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -40,18 +38,20 @@ Future<bool> showProjectContextMenu({
           ),
           ListTile(
             leading: Icon(AppIcons.star, color: oc.textMuted),
-            title: Text('Toggle Highlight',
-                style: TextStyle(color: oc.text)),
-            subtitle: Text('Pin to top of project list',
-                style: TextStyle(color: oc.textMuted, fontSize: 12)),
+            title: Text('Toggle Highlight', style: TextStyle(color: oc.text)),
+            subtitle: Text(
+              'Pin to top of project list',
+              style: TextStyle(color: oc.textMuted, fontSize: 12),
+            ),
             onTap: () => Navigator.pop(ctx, 'highlight'),
           ),
           ListTile(
             leading: Icon(AppIcons.edit, color: oc.textMuted),
-            title: Text('Edit Project',
-                style: TextStyle(color: oc.text)),
-            subtitle: Text('Change name or icon',
-                style: TextStyle(color: oc.textMuted, fontSize: 12)),
+            title: Text('Edit Project', style: TextStyle(color: oc.text)),
+            subtitle: Text(
+              'Change name or icon',
+              style: TextStyle(color: oc.textMuted, fontSize: 12),
+            ),
             onTap: () => Navigator.pop(ctx, 'edit'),
           ),
           SizedBox(height: Spacing.sm),
@@ -75,16 +75,16 @@ Future<bool> showProjectContextMenu({
       projectId: project.id,
       currentName: project.name,
       currentIcon: project.icon,
-      onSave: ({
-        required String projectId,
-        String? name,
-        Map<String, dynamic>? icon,
-      }) =>
-          bridge.updateProject(
-        projectId: projectId,
-        name: name,
-        icon: icon,
-      ),
+      onSave:
+          ({
+            required String projectId,
+            String? name,
+            Map<String, dynamic>? icon,
+          }) => bridge.updateProject(
+            projectId: projectId,
+            name: name,
+            icon: icon,
+          ),
     );
     return saved == true;
   }

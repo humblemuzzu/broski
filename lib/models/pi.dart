@@ -554,11 +554,7 @@ class PiTool {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'name': name,
-      'description': description,
-      'active': active,
-    };
+    return {'name': name, 'description': description, 'active': active};
   }
 }
 
@@ -592,10 +588,7 @@ class PiQueueState {
   final List<String> steering;
   final List<String> followUp;
 
-  const PiQueueState({
-    this.steering = const [],
-    this.followUp = const [],
-  });
+  const PiQueueState({this.steering = const [], this.followUp = const []});
 
   factory PiQueueState.fromJson(Map<String, dynamic> json) {
     final rawSteering = json['steering'] as List<dynamic>? ?? const [];
@@ -709,11 +702,7 @@ class PiSessionTree {
   final String? leafId;
   final String? error;
 
-  const PiSessionTree({
-    this.nodes = const [],
-    this.leafId,
-    this.error,
-  });
+  const PiSessionTree({this.nodes = const [], this.leafId, this.error});
 
   factory PiSessionTree.fromJson(Map<String, dynamic> json) {
     final rawNodes = json['nodes'] as List<dynamic>? ?? const [];
@@ -730,8 +719,7 @@ class PiSessionTree {
   bool get hasError => error != null;
 
   /// Get only fork points (nodes with more than one child).
-  List<PiTreeNode> get forkPoints =>
-      nodes.where((n) => n.isFork).toList();
+  List<PiTreeNode> get forkPoints => nodes.where((n) => n.isFork).toList();
 
   /// Get only labeled nodes.
   List<PiTreeNode> get labeledNodes =>

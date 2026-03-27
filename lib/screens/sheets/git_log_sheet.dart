@@ -41,10 +41,7 @@ class GitLogSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (entries.isEmpty) {
-      return Padding(
-        padding: Insets.card,
-        child: Text('No commits yet.'),
-      );
+      return Padding(padding: Insets.card, child: Text('No commits yet.'));
     }
 
     return Padding(
@@ -53,10 +50,7 @@ class GitLogSheet extends StatelessWidget {
         children: entries.map((entry) {
           return ListTile(
             dense: true,
-            leading: Text(
-              entry.shortHash,
-              style: AppTypography.codeSmall(),
-            ),
+            leading: Text(entry.shortHash, style: AppTypography.codeSmall()),
             title: Text(
               entry.subject.isEmpty ? '(no subject)' : entry.subject,
               maxLines: 1,

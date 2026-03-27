@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import '../models/message.dart';
 import '../theme/app_typography.dart';
@@ -7,6 +6,7 @@ import '../theme/opencode_theme.dart';
 import '../utils/diff_utils.dart';
 import 'diff_status_badge.dart';
 import 'package:broski/theme/app_icons.dart';
+
 class DiffViewer extends StatefulWidget {
   const DiffViewer({
     super.key,
@@ -16,15 +16,19 @@ class DiffViewer extends StatefulWidget {
     this.onViewFull,
   });
   final DiffEntry diff;
+
   /// Message ID this diff belongs to (needed for undo)
   final String messageId;
+
   /// Callback for Feature 7: Undo changes (revert specific part when possible)
   final void Function(String messageId, String? partId)? onUndo;
+
   /// Open full-screen diff view
   final VoidCallback? onViewFull;
   @override
   State<DiffViewer> createState() => _DiffViewerState();
 }
+
 class _DiffViewerState extends State<DiffViewer> {
   bool _isExpanded = false;
   @override
@@ -104,9 +108,7 @@ class _DiffViewerState extends State<DiffViewer> {
                   ),
                 ),
                 Icon(
-                  _isExpanded
-                      ? AppIcons.chevronUp
-                      : AppIcons.chevronDown,
+                  _isExpanded ? AppIcons.chevronUp : AppIcons.chevronDown,
                   color: theme.textMuted.withValues(alpha: 0.6),
                   size: 20,
                 ),
@@ -124,11 +126,7 @@ class _DiffViewerState extends State<DiffViewer> {
                     TextButton.icon(
                       onPressed: () =>
                           widget.onUndo!(widget.messageId, widget.diff.partId),
-                      icon: Icon(
-                        AppIcons.undo,
-                        size: 13,
-                        color: theme.warning,
-                      ),
+                      icon: Icon(AppIcons.undo, size: 13, color: theme.warning),
                       label: Text(
                         'Undo',
                         style: AppTypography.label(color: theme.warning),
@@ -142,11 +140,7 @@ class _DiffViewerState extends State<DiffViewer> {
                   const Spacer(),
                   TextButton.icon(
                     onPressed: widget.onViewFull,
-                    icon: Icon(
-                      AppIcons.expand,
-                      size: 13,
-                      color: theme.info,
-                    ),
+                    icon: Icon(AppIcons.expand, size: 13, color: theme.info),
                     label: Text(
                       'View full',
                       style: TextStyle(
@@ -169,12 +163,14 @@ class _DiffViewerState extends State<DiffViewer> {
       ),
     );
   }
+
   String _getFileName(String path) {
     if (path.isEmpty) return 'file';
     final parts = path.split('/');
     return parts.last;
   }
 }
+
 class _DiffPreview extends StatefulWidget {
   const _DiffPreview({required this.diff, required this.maxLines});
   final DiffEntry diff;
@@ -182,6 +178,7 @@ class _DiffPreview extends StatefulWidget {
   @override
   State<_DiffPreview> createState() => _DiffPreviewState();
 }
+
 class _DiffPreviewState extends State<_DiffPreview> {
   String? _lastDiffText;
   List<DiffLine> _contentLines = const [];
@@ -190,6 +187,7 @@ class _DiffPreviewState extends State<_DiffPreview> {
     super.initState();
     _recompute();
   }
+
   @override
   void didUpdateWidget(covariant _DiffPreview oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -199,6 +197,7 @@ class _DiffPreviewState extends State<_DiffPreview> {
       // No-op: we slice from cached lines in build().
     }
   }
+
   String _computeDiffText() {
     final diff = widget.diff;
     return (diff.diff != null && diff.diff!.trim().isNotEmpty)
@@ -209,6 +208,7 @@ class _DiffPreviewState extends State<_DiffPreview> {
             after: diff.after,
           );
   }
+
   void _recompute() {
     final diffText = _computeDiffText();
     if (diffText == _lastDiffText) return;
@@ -225,6 +225,7 @@ class _DiffPreviewState extends State<_DiffPreview> {
     }
     _contentLines = contentLines;
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -240,7 +241,9 @@ class _DiffPreviewState extends State<_DiffPreview> {
       child: previewLines.isEmpty
           ? Text(
               'No preview available',
-              style: AppTypography.codeSmall(color: theme.textMuted.withValues(alpha: 0.6)),
+              style: AppTypography.codeSmall(
+                color: theme.textMuted.withValues(alpha: 0.6),
+              ),
             )
           : Column(
               children: [
@@ -250,6 +253,7 @@ class _DiffPreviewState extends State<_DiffPreview> {
     );
   }
 }
+
 class _PreviewRow extends StatelessWidget {
   const _PreviewRow({required this.line});
   final DiffLine line;
@@ -275,10 +279,7 @@ class _PreviewRow extends StatelessWidget {
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 1),
       padding: Insets.chip,
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: Radii.brSm,
-      ),
+      decoration: BoxDecoration(color: bg, borderRadius: Radii.brSm),
       child: Text(
         '$prefix ${line.text.isEmpty ? ' ' : line.text}',
         style: AppTypography.codeSmall(color: fg).copyWith(height: 1.4),

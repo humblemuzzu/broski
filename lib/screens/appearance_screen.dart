@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_typography.dart';
@@ -12,6 +11,7 @@ import '../theme/tool_style.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
+
 class AppearanceScreen extends ConsumerWidget {
   const AppearanceScreen({super.key});
   @override
@@ -32,10 +32,7 @@ class AppearanceScreen extends ConsumerWidget {
           ),
         ),
         leading: IconButton(
-          icon: Icon(
-            AppIcons.back,
-            color: theme.colorScheme.onSurface,
-          ),
+          icon: Icon(AppIcons.back, color: theme.colorScheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
@@ -55,88 +52,90 @@ class AppearanceScreen extends ConsumerWidget {
       body: AdaptiveContainer(
         width: ContentWidth.standard,
         child: ListView(
-        padding: Insets.screenAll,
-        children: [
-          // Live Preview Section
-          _SectionHeader(title: 'Preview'),
-          SizedBox(height: Spacing.md),
-          _ToolPreviewCard(settings: settings),
-          SizedBox(height: Spacing.xxxl),
-          // Icon Pack Section
-          _SectionHeader(title: 'Icon Style'),
-          SizedBox(height: Spacing.md),
-          _IconPackSelector(settings: settings),
-          SizedBox(height: Spacing.xxxl),
-          // Tool Colors Toggle
-          _SectionHeader(title: 'Colors'),
-          SizedBox(height: Spacing.md),
-          _SettingsCard(
-            child: Column(
-              children: [
-                _ToggleTile(
-                  title: 'Tool Colors',
-                  subtitle: 'Use unique colors for each tool type',
-                  value: settings.useToolColors,
-                  onChanged: (v) =>
-                      ref.read(appearanceProvider.notifier).setUseToolColors(v),
-                ),
-                _Divider(),
-                _ToggleTile(
-                  title: 'Colored Borders',
-                  subtitle: 'Show colored borders on tool cards',
-                  value: settings.showToolBorders,
-                  onChanged: (v) => ref
-                      .read(appearanceProvider.notifier)
-                      .setShowToolBorders(v),
-                ),
-              ],
+          padding: Insets.screenAll,
+          children: [
+            // Live Preview Section
+            _SectionHeader(title: 'Preview'),
+            SizedBox(height: Spacing.md),
+            _ToolPreviewCard(settings: settings),
+            SizedBox(height: Spacing.xxxl),
+            // Icon Pack Section
+            _SectionHeader(title: 'Icon Style'),
+            SizedBox(height: Spacing.md),
+            _IconPackSelector(settings: settings),
+            SizedBox(height: Spacing.xxxl),
+            // Tool Colors Toggle
+            _SectionHeader(title: 'Colors'),
+            SizedBox(height: Spacing.md),
+            _SettingsCard(
+              child: Column(
+                children: [
+                  _ToggleTile(
+                    title: 'Tool Colors',
+                    subtitle: 'Use unique colors for each tool type',
+                    value: settings.useToolColors,
+                    onChanged: (v) => ref
+                        .read(appearanceProvider.notifier)
+                        .setUseToolColors(v),
+                  ),
+                  _Divider(),
+                  _ToggleTile(
+                    title: 'Colored Borders',
+                    subtitle: 'Show colored borders on tool cards',
+                    value: settings.showToolBorders,
+                    onChanged: (v) => ref
+                        .read(appearanceProvider.notifier)
+                        .setShowToolBorders(v),
+                  ),
+                ],
+              ),
             ),
-          ),
-          SizedBox(height: Spacing.xxxl),
-          // Card Style Section
-          _SectionHeader(title: 'Card Style'),
-          SizedBox(height: Spacing.md),
-          _SettingsCard(
-            child: Column(
-              children: [
-                _SliderTile(
-                  title: 'Corner Radius',
-                  value: settings.cardBorderRadius,
-                  min: 4,
-                  max: 24,
-                  divisions: 10,
-                  onChanged: (v) => ref
-                      .read(appearanceProvider.notifier)
-                      .setCardBorderRadius(v),
-                ),
-                _Divider(),
-                _ToggleTile(
-                  title: 'Compact Mode',
-                  subtitle: 'Smaller cards and tighter spacing',
-                  value: settings.compactMode,
-                  onChanged: (v) =>
-                      ref.read(appearanceProvider.notifier).setCompactMode(v),
-                ),
-              ],
+            SizedBox(height: Spacing.xxxl),
+            // Card Style Section
+            _SectionHeader(title: 'Card Style'),
+            SizedBox(height: Spacing.md),
+            _SettingsCard(
+              child: Column(
+                children: [
+                  _SliderTile(
+                    title: 'Corner Radius',
+                    value: settings.cardBorderRadius,
+                    min: 4,
+                    max: 24,
+                    divisions: 10,
+                    onChanged: (v) => ref
+                        .read(appearanceProvider.notifier)
+                        .setCardBorderRadius(v),
+                  ),
+                  _Divider(),
+                  _ToggleTile(
+                    title: 'Compact Mode',
+                    subtitle: 'Smaller cards and tighter spacing',
+                    value: settings.compactMode,
+                    onChanged: (v) =>
+                        ref.read(appearanceProvider.notifier).setCompactMode(v),
+                  ),
+                ],
+              ),
             ),
-          ),
-          SizedBox(height: Spacing.xxxl),
-          // Card Header Section
-          _SectionHeader(title: 'Card Headers'),
-          SizedBox(height: Spacing.md),
-          const _CardHeaderStyleSelector(),
-          SizedBox(height: Spacing.xxxl),
-          // Tool Color Reference
-          _SectionHeader(title: 'Tool Color Reference'),
-          SizedBox(height: Spacing.md),
-          _ToolColorGrid(),
-          const SizedBox(height: 100),
-        ],
-      ),
+            SizedBox(height: Spacing.xxxl),
+            // Card Header Section
+            _SectionHeader(title: 'Card Headers'),
+            SizedBox(height: Spacing.md),
+            const _CardHeaderStyleSelector(),
+            SizedBox(height: Spacing.xxxl),
+            // Tool Color Reference
+            _SectionHeader(title: 'Tool Color Reference'),
+            SizedBox(height: Spacing.md),
+            _ToolColorGrid(),
+            const SizedBox(height: 100),
+          ],
+        ),
       ),
     );
   }
 }
+
 // Section header widget
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.title});
@@ -154,6 +153,7 @@ class _SectionHeader extends StatelessWidget {
     );
   }
 }
+
 // Settings card container
 class _SettingsCard extends StatelessWidget {
   const _SettingsCard({required this.child});
@@ -171,6 +171,7 @@ class _SettingsCard extends StatelessWidget {
     );
   }
 }
+
 // Live preview of all tool types
 class _ToolPreviewCard extends StatelessWidget {
   const _ToolPreviewCard({required this.settings});
@@ -233,6 +234,7 @@ class _ToolPreviewCard extends StatelessWidget {
     );
   }
 }
+
 // Mini tool card for preview
 class _MiniToolCard extends StatelessWidget {
   const _MiniToolCard({
@@ -317,6 +319,7 @@ class _MiniToolCard extends StatelessWidget {
     );
   }
 }
+
 // Icon pack selector — lets users choose between 3 Lucide icon sets
 class _IconPackSelector extends StatelessWidget {
   const _IconPackSelector({required this.settings});
@@ -481,6 +484,7 @@ class _ToggleTile extends StatelessWidget {
     );
   }
 }
+
 // Slider tile widget
 class _SliderTile extends StatelessWidget {
   const _SliderTile({
@@ -549,6 +553,7 @@ class _SliderTile extends StatelessWidget {
     );
   }
 }
+
 // Divider
 class _Divider extends StatelessWidget {
   @override
@@ -562,6 +567,7 @@ class _Divider extends StatelessWidget {
     );
   }
 }
+
 // Tool color reference grid
 class _ToolColorGrid extends StatelessWidget {
   @override
@@ -643,6 +649,7 @@ class _ToolColorGrid extends StatelessWidget {
     );
   }
 }
+
 /// Card header style selector - lets users choose header and border styles
 class _CardHeaderStyleSelector extends ConsumerWidget {
   const _CardHeaderStyleSelector();
@@ -779,6 +786,7 @@ class _CardHeaderStyleSelector extends ConsumerWidget {
     );
   }
 }
+
 /// Option chip for style selection
 class _StyleOptionChip extends StatelessWidget {
   const _StyleOptionChip({
@@ -853,6 +861,7 @@ class _StyleOptionChip extends StatelessWidget {
     );
   }
 }
+
 /// Preview card showing current header/border style
 class _CardStylePreview extends StatelessWidget {
   const _CardStylePreview({required this.cardStyle});
@@ -961,7 +970,9 @@ class _CardStylePreview extends StatelessWidget {
               children: [
                 Text(
                   'lib/example.dart',
-                  style: AppTypography.codeSmall(color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
+                  style: AppTypography.codeSmall(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                  ),
                 ),
                 SizedBox(height: Spacing.sm),
                 // Diff preview lines
@@ -985,6 +996,7 @@ class _CardStylePreview extends StatelessWidget {
     );
   }
 }
+
 class _DiffPreviewLine extends StatelessWidget {
   const _DiffPreviewLine({
     required this.text,

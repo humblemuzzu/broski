@@ -33,8 +33,13 @@ Future<void> handlePiExtensionUiRequest({
     if (text.isNotEmpty) {
       final current = composerController.text;
       final selection = composerController.selection;
-      final before = current.substring(0, selection.baseOffset.clamp(0, current.length));
-      final after = current.substring(selection.extentOffset.clamp(0, current.length));
+      final before = current.substring(
+        0,
+        selection.baseOffset.clamp(0, current.length),
+      );
+      final after = current.substring(
+        selection.extentOffset.clamp(0, current.length),
+      );
       composerController.text = '$before$text$after';
       composerController.selection = TextSelection.fromPosition(
         TextPosition(offset: before.length + text.length),

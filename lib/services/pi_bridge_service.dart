@@ -372,10 +372,7 @@ class PiBridgeService {
 
   Future<List<ProjectSummary>> listProjects() async {
     final requestId = _generateRequestId();
-    _socket.send({
-      'type': 'pi_list_projects',
-      'requestId': requestId,
-    });
+    _socket.send({'type': 'pi_list_projects', 'requestId': requestId});
 
     final response = await _waitFor('pi_projects', requestId: requestId);
     final data = response['data'] as List<dynamic>? ?? const [];

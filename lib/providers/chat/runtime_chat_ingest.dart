@@ -187,6 +187,7 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
 
     return activeSessionId.isEmpty && activeCwd.isEmpty;
   }
+
   void _applyRuntimeStateToChat(
     AgentType backend, {
     required RuntimeState? runtimeState,
@@ -260,6 +261,7 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
         ? const SessionStatus.busy()
         : const SessionStatus.idle();
   }
+
   Map<String, dynamic> _runtimeToolMetadataForEvent(RuntimeEvent event) {
     final metadata = <String, dynamic>{};
     final backendData = event.backendData;
@@ -303,6 +305,7 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
 
     return metadata;
   }
+
   void _appendCodexRuntimeDiffMetadata(
     Map<String, dynamic> metadata,
     RuntimeEvent event,
@@ -324,6 +327,7 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
     metadata['filediff'] = {'file': path, 'path': path, 'diff': diff};
     metadata['diff'] = diff;
   }
+
   void _addRuntimeErrorMessage(RuntimeErrorEvent event) {
     final sessionId = event.sessionId ?? state.effectiveSessionId ?? '';
     if (sessionId.isEmpty) return;

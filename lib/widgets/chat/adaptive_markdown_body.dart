@@ -54,8 +54,9 @@ class AdaptiveMarkdownBody extends StatelessWidget {
     final blockSpacing = styleSheet?.blockSpacing ?? 16.0;
 
     return Column(
-      crossAxisAlignment:
-          fitContent ? CrossAxisAlignment.start : CrossAxisAlignment.stretch,
+      crossAxisAlignment: fitContent
+          ? CrossAxisAlignment.start
+          : CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: _buildChildren(segments, theme, blockSpacing),
     );
@@ -75,13 +76,15 @@ class AdaptiveMarkdownBody extends StatelessWidget {
       if (seg.isTable) {
         widgets.add(AdaptiveTable(markdown: seg.content, theme: theme));
       } else {
-        widgets.add(MarkdownBody(
-          data: seg.content,
-          selectable: selectable,
-          styleSheet: styleSheet,
-          onTapLink: onTapLink,
-          fitContent: fitContent,
-        ));
+        widgets.add(
+          MarkdownBody(
+            data: seg.content,
+            selectable: selectable,
+            styleSheet: styleSheet,
+            onTapLink: onTapLink,
+            fitContent: fitContent,
+          ),
+        );
       }
     }
     return widgets;
@@ -150,9 +153,7 @@ class AdaptiveMarkdownBody extends StatelessWidget {
           i++;
         }
 
-        segments.add(
-          _Segment(tableBuf.toString().trimRight(), isTable: true),
-        );
+        segments.add(_Segment(tableBuf.toString().trimRight(), isTable: true));
         continue;
       }
 
@@ -161,9 +162,7 @@ class AdaptiveMarkdownBody extends StatelessWidget {
     }
 
     _flushText(buffer, segments);
-    return segments.isEmpty
-        ? [_Segment(markdown, isTable: false)]
-        : segments;
+    return segments.isEmpty ? [_Segment(markdown, isTable: false)] : segments;
   }
 
   static void _flushText(StringBuffer buffer, List<_Segment> segments) {

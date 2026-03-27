@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,12 +9,14 @@ import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../utils/error_utils.dart';
+
 class DeviceManagerScreen extends ConsumerStatefulWidget {
   const DeviceManagerScreen({super.key});
   @override
   ConsumerState<DeviceManagerScreen> createState() =>
       _DeviceManagerScreenState();
 }
+
 class _DeviceManagerScreenState extends ConsumerState<DeviceManagerScreen> {
   List<DeviceInfo>? _devices;
   bool _loading = true;
@@ -25,6 +26,7 @@ class _DeviceManagerScreenState extends ConsumerState<DeviceManagerScreen> {
     super.initState();
     _loadDevices();
   }
+
   Future<void> _loadDevices() async {
     setState(() {
       _loading = true;
@@ -47,6 +49,7 @@ class _DeviceManagerScreenState extends ConsumerState<DeviceManagerScreen> {
       }
     }
   }
+
   Future<void> _disconnectDevice(DeviceInfo device) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -60,7 +63,9 @@ class _DeviceManagerScreenState extends ConsumerState<DeviceManagerScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Theme.of(ctx).extension<OpenCodeTheme>()!.error),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(ctx).extension<OpenCodeTheme>()!.error,
+            ),
             child: const Text('Disconnect'),
           ),
         ],
@@ -72,6 +77,7 @@ class _DeviceManagerScreenState extends ConsumerState<DeviceManagerScreen> {
       _loadDevices();
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final connection = ref.watch(connectionProvider);
@@ -84,7 +90,10 @@ class _DeviceManagerScreenState extends ConsumerState<DeviceManagerScreen> {
         title: const Text('Devices'),
         backgroundColor: Colors.transparent,
         actions: [
-          IconButton(icon: const Icon(AppIcons.refresh), onPressed: _loadDevices),
+          IconButton(
+            icon: const Icon(AppIcons.refresh),
+            onPressed: _loadDevices,
+          ),
         ],
       ),
       body: AdaptiveContainer(
@@ -93,6 +102,7 @@ class _DeviceManagerScreenState extends ConsumerState<DeviceManagerScreen> {
       ),
     );
   }
+
   Widget _buildBody(
     ThemeData theme,
     OpenCodeTheme ocTheme,
@@ -163,6 +173,7 @@ class _DeviceManagerScreenState extends ConsumerState<DeviceManagerScreen> {
     );
   }
 }
+
 class _DeviceCard extends StatelessWidget {
   const _DeviceCard({
     required this.device,
@@ -192,6 +203,7 @@ class _DeviceCard extends StatelessWidget {
         return AppIcons.devices;
     }
   }
+
   Color _getConnectionColor() {
     switch (device.connectionType.toLowerCase()) {
       case 'local':
@@ -202,6 +214,7 @@ class _DeviceCard extends StatelessWidget {
         return ocTheme.textMuted;
     }
   }
+
   @override
   Widget build(BuildContext context) {
     return Card(

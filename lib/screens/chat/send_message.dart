@@ -19,6 +19,7 @@ import '../../providers/selection_provider.dart';
 import '../../providers/service_providers.dart';
 import '../../utils/opencode_id.dart';
 import 'codex_slash_commands.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Builds display text with file attachment labels appended.
 String _buildDisplayText(String text, List<FileAttachment> attachedFiles) {
@@ -74,12 +75,7 @@ void sendMessage({
 }) {
   final entitlement = ref.read(appSubscriptionProvider).entitled;
   if (!entitlement) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Subscription required to send messages.'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    showInfo(context, 'Subscription required to send messages.');
     return;
   }
   final text = controller.text.trim();

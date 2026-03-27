@@ -14,7 +14,11 @@ import 'package:broski/widgets/chat/detail_sheet.dart';
 /// Design matches the compact card system: bgRaised, circular(12), cardBorderSubtle,
 /// JetBrains Mono for paths, DetailSheet for the expanded file list.
 class CCUndoTurnBar extends StatelessWidget {
-  const CCUndoTurnBar({super.key, required this.changedFiles, required this.onUndo});
+  const CCUndoTurnBar({
+    super.key,
+    required this.changedFiles,
+    required this.onUndo,
+  });
 
   /// Paths of files changed in this turn (extracted from tool call inputs).
   final List<String> changedFiles;

@@ -171,7 +171,9 @@ extension RuntimeCcSystemMessages on ChatSessionNotifier {
       if (durationMs is num) '${(durationMs / 1000).toStringAsFixed(1)}s',
     ];
     // Prefer AI-generated summary (from agentProgressSummaries) over raw description
-    final displayText = (summary != null && summary.isNotEmpty) ? summary : description;
+    final displayText = (summary != null && summary.isNotEmpty)
+        ? summary
+        : description;
     final progressText = usageParts.isEmpty
         ? displayText
         : '$displayText (${usageParts.join(', ')})';
@@ -373,8 +375,9 @@ extension RuntimeCcSystemMessages on ChatSessionNotifier {
   void _handleCcSessionInit(Map<String, dynamic> payloadMap) {
     final previousSessionId = state.ccSessionId ?? '';
     final rawSessionId = payloadMap['sessionId']?.toString() ?? '';
-    final nextSessionId =
-        rawSessionId.isNotEmpty ? rawSessionId : previousSessionId;
+    final nextSessionId = rawSessionId.isNotEmpty
+        ? rawSessionId
+        : previousSessionId;
 
     final model = payloadMap['model']?.toString() ?? '';
     state = state.copyWith(

@@ -109,9 +109,7 @@ void showCodexFeedbackSheet(BuildContext context, WidgetRef ref) {
                           if (!context.mounted) return;
                           Navigator.pop(context);
                           if (threadId.isEmpty) return;
-                          final thread = await bridge.cxResumeThread(
-                            threadId,
-                          );
+                          final thread = await bridge.cxResumeThread(threadId);
                           if (!context.mounted) return;
                           Navigator.push(
                             context,

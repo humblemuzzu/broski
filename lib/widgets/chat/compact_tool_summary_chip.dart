@@ -7,10 +7,7 @@ import '../../theme/opencode_theme.dart';
 class CompactToolSummaryChip extends ConsumerWidget {
   final String summary;
 
-  const CompactToolSummaryChip({
-    super.key,
-    required this.summary,
-  });
+  const CompactToolSummaryChip({super.key, required this.summary});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -29,11 +26,7 @@ class CompactToolSummaryChip extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.summarize_outlined,
-            size: 14,
-            color: theme.textMuted,
-          ),
+          Icon(Icons.summarize_outlined, size: 14, color: theme.textMuted),
           const SizedBox(width: 8),
           Expanded(
             child: Text(

@@ -51,11 +51,7 @@ void showPiSkillsSheet(BuildContext context) {
                 return ListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
-                  leading: Icon(
-                    AppIcons.bolt,
-                    size: 16,
-                    color: theme.primary,
-                  ),
+                  leading: Icon(AppIcons.bolt, size: 16, color: theme.primary),
                   title: Text(
                     cmd.name,
                     style: AppTypography.bodySmall(color: theme.text),

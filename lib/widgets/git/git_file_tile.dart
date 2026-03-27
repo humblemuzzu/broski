@@ -1,10 +1,10 @@
-
 import 'package:flutter/material.dart';
 import 'package:broski/theme/opencode_theme.dart';
 
 import '../../models/git.dart';
 import 'git_status_badge.dart';
 import 'package:broski/theme/app_icons.dart';
+
 class GitFileTile extends StatelessWidget {
   const GitFileTile({
     super.key,
@@ -36,10 +36,7 @@ class GitFileTile extends StatelessWidget {
               'from ${change.oldPath}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 11,
-                color: ocTheme.textMuted,
-              ),
+              style: TextStyle(fontSize: 11, color: ocTheme.textMuted),
             )
           : null,
       leading: GitStatusBadge(status: change.status),

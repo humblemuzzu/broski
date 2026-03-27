@@ -10,6 +10,7 @@ import '../../utils/error_utils.dart';
 import '../../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../../utils/responsive.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// MCP server list with individual server cards showing
 /// status, connect/disconnect, and authentication controls.
@@ -186,9 +187,7 @@ class _JsonObjectEditorScreenState extends State<JsonObjectEditorScreen> {
       }
       Navigator.pop(context, decoded.cast<String, dynamic>());
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Invalid JSON: ${humanizeError(e)}')),
-      );
+      showInfo(context, 'Invalid JSON: ${humanizeError(e)}');
     }
   }
 

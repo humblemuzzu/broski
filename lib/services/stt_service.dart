@@ -98,7 +98,9 @@ class SttService {
     } on TimeoutException {
       return TranscriptionResult.failure('Request timed out. Try again.');
     } catch (e) {
-      return TranscriptionResult.failure('Transcription failed: ${humanizeError(e)}');
+      return TranscriptionResult.failure(
+        'Transcription failed: ${humanizeError(e)}',
+      );
     }
   }
 

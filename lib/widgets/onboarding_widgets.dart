@@ -1,9 +1,9 @@
-
 import 'package:flutter/material.dart';
 import '../theme/app_typography.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'package:broski/theme/app_icons.dart';
+
 /// Step indicator showing current progress in onboarding flow
 class OnboardingProgress extends StatelessWidget {
   const OnboardingProgress({
@@ -36,6 +36,7 @@ class OnboardingProgress extends StatelessWidget {
     );
   }
 }
+
 /// Consistent scaffold for onboarding screens
 class OnboardingScaffold extends StatelessWidget {
   const OnboardingScaffold({
@@ -71,11 +72,7 @@ class OnboardingScaffold extends StatelessWidget {
                   if (onBack != null)
                     IconButton(
                       onPressed: onBack,
-                      icon: Icon(
-                        AppIcons.back,
-                        color: theme.text,
-                        size: 20,
-                      ),
+                      icon: Icon(AppIcons.back, color: theme.text, size: 20),
                       style: IconButton.styleFrom(
                         backgroundColor: theme.backgroundPanel,
                         padding: Insets.cardSm,
@@ -113,6 +110,7 @@ class OnboardingScaffold extends StatelessWidget {
     );
   }
 }
+
 /// Primary button for onboarding with loading state
 class OnboardingButton extends StatefulWidget {
   const OnboardingButton({
@@ -131,7 +129,9 @@ class OnboardingButton extends StatefulWidget {
   @override
   State<OnboardingButton> createState() => _OnboardingButtonState();
 }
+
 enum OnboardingButtonVariant { primary, secondary, ghost }
+
 class _OnboardingButtonState extends State<OnboardingButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
@@ -148,11 +148,13 @@ class _OnboardingButtonState extends State<OnboardingButton>
       end: 0.98,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -234,6 +236,7 @@ class _OnboardingButtonState extends State<OnboardingButton>
     );
   }
 }
+
 /// Option card for selecting choices in onboarding
 class OnboardingOptionCard extends StatelessWidget {
   const OnboardingOptionCard({
@@ -333,6 +336,7 @@ class OnboardingOptionCard extends StatelessWidget {
     );
   }
 }
+
 /// Feature row for welcome screen highlights
 class OnboardingFeatureRow extends StatelessWidget {
   const OnboardingFeatureRow({
@@ -394,6 +398,7 @@ class OnboardingFeatureRow extends StatelessWidget {
     );
   }
 }
+
 /// Info card for explanatory content
 class OnboardingInfoCard extends StatelessWidget {
   const OnboardingInfoCard({
@@ -452,6 +457,7 @@ class OnboardingInfoCard extends StatelessWidget {
     );
   }
 }
+
 /// Step indicator for numbered instructions
 class OnboardingStepItem extends StatelessWidget {
   const OnboardingStepItem({
@@ -521,6 +527,7 @@ class OnboardingStepItem extends StatelessWidget {
     );
   }
 }
+
 /// Command box for displaying terminal commands
 class OnboardingCommandBox extends StatelessWidget {
   const OnboardingCommandBox({
@@ -545,10 +552,7 @@ class OnboardingCommandBox extends StatelessWidget {
           Icon(AppIcons.terminal, color: theme.textMuted, size: 18),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              command,
-              style: AppTypography.code(color: theme.text),
-            ),
+            child: Text(command, style: AppTypography.code(color: theme.text)),
           ),
           GestureDetector(
             onTap: onCopy,

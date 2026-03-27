@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -11,6 +10,7 @@ import '../theme/opencode_theme.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
+
 /// Screen for displaying AI provider usage limits and credits.
 ///
 /// Shows the user's own AI usage (Claude, OpenAI) -- not Broski usage.
@@ -21,6 +21,7 @@ class SubscriptionUsageScreen extends ConsumerStatefulWidget {
   ConsumerState<SubscriptionUsageScreen> createState() =>
       _SubscriptionUsageScreenState();
 }
+
 class _SubscriptionUsageScreenState
     extends ConsumerState<SubscriptionUsageScreen> {
   ClaudeCodeAccountInfo? _claudeAccountInfo;
@@ -33,12 +34,14 @@ class _SubscriptionUsageScreenState
       _refreshAll();
     });
   }
+
   Future<void> _refreshAll() async {
     await Future.wait([
       ref.read(subscriptionUsageProvider.notifier).refresh(),
       _refreshClaudeAccountInfo(),
     ]);
   }
+
   Future<void> _refreshClaudeAccountInfo() async {
     if (_isRefreshingAccountInfo) return;
     setState(() {
@@ -69,6 +72,7 @@ class _SubscriptionUsageScreenState
       }
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(subscriptionUsageProvider);
@@ -114,13 +118,14 @@ class _SubscriptionUsageScreenState
       body: AdaptiveContainer(
         width: ContentWidth.standard,
         child: RefreshIndicator(
-        onRefresh: _refreshAll,
-        color: ocTheme.primary,
-        child: _buildBody(context, state),
-      ),
+          onRefresh: _refreshAll,
+          color: ocTheme.primary,
+          child: _buildBody(context, state),
+        ),
       ),
     );
   }
+
   Widget _buildBody(BuildContext context, SubscriptionUsageState state) {
     final ocTheme = OpenCodeTheme.of(context);
     if (state.isLoading && state.usage == null) {
@@ -232,6 +237,7 @@ class _SubscriptionUsageScreenState
       ],
     );
   }
+
   Widget _buildLoadingSkeleton(BuildContext context) {
     return ListView(
       padding: Insets.listItemDense,
@@ -243,6 +249,7 @@ class _SubscriptionUsageScreenState
     );
   }
 }
+
 class _ClaudeAccountCard extends StatelessWidget {
   const _ClaudeAccountCard({required this.accountInfo});
   final ClaudeCodeAccountInfo accountInfo;
@@ -274,11 +281,7 @@ class _ClaudeAccountCard extends StatelessWidget {
               color: ocTheme.primary.withValues(alpha: 0.12),
               borderRadius: Radii.brMd,
             ),
-            child: Icon(
-              AppIcons.shieldCheck,
-              color: ocTheme.primary,
-              size: 20,
-            ),
+            child: Icon(AppIcons.shieldCheck, color: ocTheme.primary, size: 20),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -319,6 +322,7 @@ class _ClaudeAccountCard extends StatelessWidget {
     );
   }
 }
+
 /// Provider usage card with all details.
 class _ProviderCard extends StatelessWidget {
   const _ProviderCard({required this.provider});
@@ -434,11 +438,7 @@ class _ProviderCard extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    Icon(
-                      AppIcons.error,
-                      size: 18,
-                      color: ocTheme.error,
-                    ),
+                    Icon(AppIcons.error, size: 18, color: ocTheme.error),
                     SizedBox(width: Spacing.sm),
                     Expanded(
                       child: Text(
@@ -556,11 +556,7 @@ class _ProviderCard extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      Icon(
-                        AppIcons.wallet,
-                        size: 20,
-                        color: ocTheme.textMuted,
-                      ),
+                      Icon(AppIcons.wallet, size: 20, color: ocTheme.textMuted),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(
@@ -697,11 +693,7 @@ class _ProviderCard extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    Icon(
-                      AppIcons.info,
-                      color: ocTheme.textMuted,
-                      size: 20,
-                    ),
+                    Icon(AppIcons.info, color: ocTheme.textMuted, size: 20),
                     SizedBox(width: Spacing.md),
                     Expanded(
                       child: Text(
@@ -724,6 +716,7 @@ class _ProviderCard extends StatelessWidget {
     );
   }
 }
+
 /// Section header with title.
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.title});
@@ -745,6 +738,7 @@ class _SectionHeader extends StatelessWidget {
     );
   }
 }
+
 /// Usage bar with vertical layout - text on top, bar below.
 class _UsageBarVertical extends StatelessWidget {
   const _UsageBarVertical({
@@ -849,6 +843,7 @@ class _UsageBarVertical extends StatelessWidget {
     );
   }
 }
+
 /// Loading skeleton for provider card.
 class _SkeletonProviderCard extends StatelessWidget {
   @override
@@ -921,6 +916,7 @@ class _SkeletonProviderCard extends StatelessWidget {
     );
   }
 }
+
 /// Skeleton box for loading state.
 class _SkeletonBox extends StatelessWidget {
   const _SkeletonBox({this.width, this.height, this.borderRadius = 8});

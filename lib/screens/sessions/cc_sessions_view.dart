@@ -28,6 +28,7 @@ import '../../utils/error_utils.dart';
 import '../../utils/responsive.dart';
 import '../../widgets/adaptive_container.dart';
 import '../../widgets/sessions/sort_chip.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Claude Code sessions view. Extracted from sessions_screen.dart.
 class CCActiveSessionsSection extends ConsumerWidget {
@@ -405,21 +406,10 @@ class ClaudeCodeSessionsViewState
         .read(ccSessionsProvider.notifier)
         .deleteSession(session.id, cwd: session.cwd);
     if (!mounted) return;
-    final ocTheme = OpenCodeTheme.of(context);
     if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Session deleted'),
-          backgroundColor: ocTheme.backgroundPanel,
-        ),
-      );
+      showSuccess(context, 'Session deleted');
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Failed to delete session'),
-          backgroundColor: ocTheme.error,
-        ),
-      );
+      showError(context, 'Failed to delete session');
     }
   }
 
@@ -536,17 +526,10 @@ class ClaudeCodeSessionsViewState
   /// Stop/abort a Claude Code session
   void _stopCCSession(ClaudeCodeSession session) {
     final bridge = ref.read(bridgeServiceProvider);
-    final ocTheme = OpenCodeTheme.of(context);
     // Send abort to bridge
     bridge.ccAbort(session.id);
     // Show confirmation
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Stop signal sent to session'),
-        backgroundColor: ocTheme.backgroundPanel,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    showSuccess(context, 'Stop signal sent to session');
   }
 
   /// Rename a Claude Code session
@@ -595,52 +578,27 @@ class ClaudeCodeSessionsViewState
     );
     if (!mounted) return;
     if (result != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Renamed to "$name"'),
-          backgroundColor: ocTheme.backgroundPanel,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      showSuccess(context, 'Renamed to "$name"');
       // Refresh sessions list
       _refresh();
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Failed to rename session'),
-          backgroundColor: ocTheme.error,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      showError(context, 'Failed to rename session');
     }
   }
 
   /// Fork a Claude Code session
   Future<void> _forkCCSession(ClaudeCodeSession session) async {
     final bridge = ref.read(bridgeServiceProvider);
-    final ocTheme = OpenCodeTheme.of(context);
     try {
       final forked = await bridge.ccForkSession(session.id, cwd: session.cwd);
       if (!mounted) return;
       if (forked != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Forked: ${forked.displayTitle}'),
-            backgroundColor: ocTheme.backgroundPanel,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        showSuccess(context, 'Forked: ${forked.displayTitle}');
         _refresh();
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Fork failed: ${humanizeError(e)}'),
-          backgroundColor: ocTheme.error,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      showError(context, 'Fork failed: ${humanizeError(e)}');
     }
   }
 

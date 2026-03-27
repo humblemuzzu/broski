@@ -32,13 +32,13 @@ class CodexPlugin {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'installed': installed,
-        'enabled': enabled,
-        if (source != null) 'source': source,
-        if (pluginInterface != null) 'interface': pluginInterface,
-      };
+    'id': id,
+    'name': name,
+    'installed': installed,
+    'enabled': enabled,
+    if (source != null) 'source': source,
+    if (pluginInterface != null) 'interface': pluginInterface,
+  };
 }
 
 class CodexPluginMarketplace {
@@ -56,10 +56,9 @@ class CodexPluginMarketplace {
     return CodexPluginMarketplace(
       name: json['name'] as String? ?? '',
       path: json['path'] as String? ?? '',
-      plugins: (json['plugins'] as List<dynamic>?)
-              ?.map(
-                (e) => CodexPlugin.fromJson(e as Map<String, dynamic>),
-              )
+      plugins:
+          (json['plugins'] as List<dynamic>?)
+              ?.map((e) => CodexPlugin.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const [],
     );

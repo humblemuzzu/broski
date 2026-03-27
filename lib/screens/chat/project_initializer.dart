@@ -7,6 +7,7 @@ import '../../providers/service_providers.dart';
 import '../../services/haptics_service.dart';
 import '../../theme/opencode_theme.dart';
 import '../../utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Initializes a project by creating AGENTS.md.
 /// Extracted from `_ChatScreenState._initializeProject` in `chat_screen.dart`.
@@ -20,12 +21,7 @@ Future<void> initializeProject({
   final theme = OpenCodeTheme.of(context);
   final selectedModel = ref.read(selectionProvider).model;
   if (selectedModel == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Please select a model first'),
-        backgroundColor: theme.error,
-      ),
-    );
+    showError(context, 'Please select a model first');
     return;
   }
   // Confirm initialization
@@ -86,22 +82,10 @@ Future<void> initializeProject({
         ),
       );
     } else {
-      final theme = OpenCodeTheme.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Failed to initialize project'),
-          backgroundColor: theme.error,
-        ),
-      );
+      showError(context, 'Failed to initialize project');
     }
   } catch (e) {
     if (!context.mounted) return;
-    final theme = OpenCodeTheme.of(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Failed to initialize: ${humanizeError(e)}'),
-        backgroundColor: theme.error,
-      ),
-    );
+    showError(context, 'Failed to initialize: ${humanizeError(e)}');
   }
 }

@@ -1,10 +1,10 @@
-
 import 'package:flutter/material.dart';
 
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import '../utils/responsive.dart';
 import 'package:broski/theme/app_icons.dart';
+
 /// Glassmorphic floating island navigation bar.
 ///
 /// Uses a high-opacity semi-transparent background instead of a live
@@ -87,6 +87,7 @@ class GlasmorphicNavBar extends StatelessWidget {
     );
   }
 }
+
 class _GlassNavItem extends StatefulWidget {
   const _GlassNavItem({
     required this.icon,
@@ -101,6 +102,7 @@ class _GlassNavItem extends StatefulWidget {
   @override
   State<_GlassNavItem> createState() => _GlassNavItemState();
 }
+
 class _GlassNavItemState extends State<_GlassNavItem>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
@@ -117,20 +119,25 @@ class _GlassNavItemState extends State<_GlassNavItem>
       end: 0.95,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
+
   void _handleTapDown(TapDownDetails details) {
     _controller.forward();
   }
+
   void _handleTapUp(TapUpDetails details) {
     _controller.reverse();
   }
+
   void _handleTapCancel() {
     _controller.reverse();
   }
+
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);

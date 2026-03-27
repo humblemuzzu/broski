@@ -46,9 +46,7 @@ class ProviderCard extends StatelessWidget {
           ListTile(
             onTap: onToggleExpand,
             leading: Icon(
-              provider.isConnected
-                  ? Icons.check_circle
-                  : Icons.circle_outlined,
+              provider.isConnected ? Icons.check_circle : Icons.circle_outlined,
               color: provider.isConnected ? oc.success : oc.textMuted,
               size: 20,
             ),
@@ -131,9 +129,7 @@ class _ModelList extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border(top: BorderSide(color: oc.borderSubtle)),
       ),
-      child: Column(
-        children: [for (final m in sorted) _ModelTile(model: m)],
-      ),
+      child: Column(children: [for (final m in sorted) _ModelTile(model: m)]),
     );
   }
 }
@@ -172,8 +168,9 @@ class _ModelTile extends StatelessWidget {
                     color: model.isDeprecated ? oc.textMuted : oc.text,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    decoration:
-                        model.isDeprecated ? TextDecoration.lineThrough : null,
+                    decoration: model.isDeprecated
+                        ? TextDecoration.lineThrough
+                        : null,
                   ),
                 ),
                 if (_subtitle.isNotEmpty)
@@ -186,8 +183,7 @@ class _ModelTile extends StatelessWidget {
           ),
           if (model.reasoning)
             _capIcon(Icons.psychology, oc.accent, 'Reasoning'),
-          if (model.toolCall)
-            _capIcon(Icons.build_outlined, oc.info, 'Tools'),
+          if (model.toolCall) _capIcon(Icons.build_outlined, oc.info, 'Tools'),
           if (model.supportsImages)
             _capIcon(Icons.image_outlined, oc.secondary, 'Vision'),
           if (model.contextWindow != null)

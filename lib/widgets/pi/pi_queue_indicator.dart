@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/pi_provider.dart';
 import '../../services/pi_bridge_service.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Compact queue indicator shown above chat input when Pi has pending messages.
 /// Shows counts of steering/follow-up messages with a clear button.
@@ -35,11 +36,7 @@ class PiQueueIndicator extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.queue_outlined,
-            size: 16,
-            color: colorScheme.primary,
-          ),
+          Icon(Icons.queue_outlined, size: 16, color: colorScheme.primary),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
@@ -65,11 +62,7 @@ class PiQueueIndicator extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(width: 2),
-                  Icon(
-                    Icons.close,
-                    size: 14,
-                    color: colorScheme.primary,
-                  ),
+                  Icon(Icons.close, size: 14, color: colorScheme.primary),
                 ],
               ),
             ),
@@ -85,9 +78,7 @@ class PiQueueIndicator extends ConsumerWidget {
       await bridge.clearQueue(projectPath: projectPath);
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to clear queue: $e')),
-        );
+        showInfo(context, 'Failed to clear queue: $e');
       }
     }
   }

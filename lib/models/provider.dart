@@ -161,11 +161,13 @@ class ModelModalities {
 
   factory ModelModalities.fromJson(Map<String, dynamic> json) {
     return ModelModalities(
-      input: (json['input'] as List<dynamic>?)
+      input:
+          (json['input'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           const [],
-      output: (json['output'] as List<dynamic>?)
+      output:
+          (json['output'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           const [],

@@ -920,7 +920,9 @@ class _ClaudeCodeSettingsScreenState
                         child: SwitchListTile(
                           contentPadding: EdgeInsets.zero,
                           value: cfg?.enableClaudeAiMcpServers ?? true,
-                          title: const Text('Enable Claude.ai managed MCP servers'),
+                          title: const Text(
+                            'Enable Claude.ai managed MCP servers',
+                          ),
                           subtitle: const Text(
                             'Disable to opt out of Claude.ai-provided MCP servers for this workspace.',
                           ),

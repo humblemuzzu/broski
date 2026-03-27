@@ -56,7 +56,10 @@ void showTimelineDialog(
               ),
               title: Text(
                 isUser ? 'You' : 'Assistant',
-                style: TextStyle(fontWeight: FontWeight.w500, color: theme.text),
+                style: TextStyle(
+                  fontWeight: FontWeight.w500,
+                  color: theme.text,
+                ),
               ),
               subtitle: Text(
                 msg.text.length > 60

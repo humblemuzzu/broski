@@ -6,6 +6,7 @@ import '../../providers/pi_provider.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
+import '../../widgets/chat/section_header.dart';
 import '../../widgets/sessions/pi_project_tile.dart';
 
 /// Project picker for creating a new Pi session.
@@ -87,14 +88,9 @@ class PiNewSessionContent extends ConsumerWidget {
         if (piActiveProjects.isNotEmpty) ...[
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
-            child: Text(
-              'PROJECTS WITH PI SESSIONS',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: ocTheme.textMuted,
-                letterSpacing: 0.5,
-              ),
+            child: SectionHeader(
+              title: 'PROJECTS WITH PI SESSIONS',
+              theme: ocTheme,
             ),
           ),
           for (final project in piActiveProjects)
@@ -109,15 +105,7 @@ class PiNewSessionContent extends ConsumerWidget {
         if (otherProjects.isNotEmpty) ...[
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
-            child: Text(
-              'OTHER PROJECTS',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: ocTheme.textMuted,
-                letterSpacing: 0.5,
-              ),
-            ),
+            child: SectionHeader(title: 'OTHER PROJECTS', theme: ocTheme),
           ),
           for (final project in otherProjects)
             PiProjectTile(

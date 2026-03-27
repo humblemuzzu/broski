@@ -10,6 +10,7 @@ import '../theme/opencode_theme.dart';
 import '../utils/error_utils.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Screen for managing git worktrees.
 ///
@@ -76,11 +77,7 @@ class _OpenCodeWorktreesScreenState
       if (mounted) await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to create worktree: ${humanizeError(e)}'),
-        ),
-      );
+      showInfo(context, 'Failed to create worktree: ${humanizeError(e)}');
     }
   }
 
@@ -99,9 +96,7 @@ class _OpenCodeWorktreesScreenState
       if (mounted) await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to reset: ${humanizeError(e)}')),
-      );
+      showInfo(context, 'Failed to reset: ${humanizeError(e)}');
     }
   }
 
@@ -120,9 +115,7 @@ class _OpenCodeWorktreesScreenState
       if (mounted) await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to delete: ${humanizeError(e)}')),
-      );
+      showInfo(context, 'Failed to delete: ${humanizeError(e)}');
     }
   }
 

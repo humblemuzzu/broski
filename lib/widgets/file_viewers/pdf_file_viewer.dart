@@ -1,4 +1,3 @@
-
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -8,6 +7,7 @@ import 'package:pdfrx/pdfrx.dart';
 import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import 'package:broski/theme/app_icons.dart';
+
 class PdfFileViewer extends StatefulWidget {
   const PdfFileViewer({super.key, required this.data, required this.filename});
   final Uint8List data;
@@ -15,6 +15,7 @@ class PdfFileViewer extends StatefulWidget {
   @override
   State<PdfFileViewer> createState() => _PdfFileViewerState();
 }
+
 class _PdfFileViewerState extends State<PdfFileViewer> {
   final _controller = PdfViewerController();
   int _currentPage = 1;

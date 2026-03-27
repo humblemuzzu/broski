@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_typography.dart';
@@ -10,6 +9,8 @@ import '../theme/opencode_theme.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+
 class CustomToolEditorScreen extends ConsumerStatefulWidget {
   final ClaudeCodeCustomTool? tool;
   const CustomToolEditorScreen({super.key, this.tool});
@@ -17,6 +18,7 @@ class CustomToolEditorScreen extends ConsumerStatefulWidget {
   ConsumerState<CustomToolEditorScreen> createState() =>
       _CustomToolEditorScreenState();
 }
+
 class _CustomToolEditorScreenState
     extends ConsumerState<CustomToolEditorScreen> {
   late final _nameController = TextEditingController();
@@ -44,6 +46,7 @@ class _CustomToolEditorScreenState
     super.initState();
     _initializeForm();
   }
+
   void _initializeForm() {
     final tool = widget.tool;
     if (tool != null) {
@@ -76,6 +79,7 @@ class _CustomToolEditorScreenState
       _httpMethod = HttpMethod.get;
     }
   }
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -89,6 +93,7 @@ class _CustomToolEditorScreenState
     _timeoutController.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -124,190 +129,194 @@ class _CustomToolEditorScreenState
       body: AdaptiveContainer(
         width: ContentWidth.standard,
         child: SingleChildScrollView(
-        padding: Insets.card,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Basic Info Section
-            _SectionHeader(title: 'Basic Info'),
-            SizedBox(height: Spacing.md),
-            TextFormField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Tool Name',
-                hintText: 'e.g., get_weather',
-                helperText:
-                    'Alphanumeric and underscores only. Will appear as mcp__broski-custom-tools__<name>',
+          padding: Insets.card,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Basic Info Section
+              _SectionHeader(title: 'Basic Info'),
+              SizedBox(height: Spacing.md),
+              TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Tool Name',
+                  hintText: 'e.g., get_weather',
+                  helperText:
+                      'Alphanumeric and underscores only. Will appear as mcp__broski-custom-tools__<name>',
+                ),
               ),
-            ),
-            SizedBox(height: Spacing.lg),
-            TextFormField(
-              controller: _descriptionController,
-              decoration: const InputDecoration(
-                labelText: 'Description',
-                hintText: 'Describe what this tool does...',
+              SizedBox(height: Spacing.lg),
+              TextFormField(
+                controller: _descriptionController,
+                decoration: const InputDecoration(
+                  labelText: 'Description',
+                  hintText: 'Describe what this tool does...',
+                ),
+                maxLines: 2,
               ),
-              maxLines: 2,
-            ),
-            SizedBox(height: Spacing.lg),
-            SwitchListTile(
-              title: const Text('Enabled'),
-              subtitle: const Text('Tool is available for Claude to use'),
-              value: _enabled,
-              onChanged: (value) => setState(() => _enabled = value),
-              contentPadding: EdgeInsets.zero,
-            ),
-            SizedBox(height: Spacing.xxl),
-            // Handler Type Section
-            _SectionHeader(title: 'Handler Type'),
-            SizedBox(height: Spacing.md),
-            SegmentedButton<CustomToolHandlerType>(
-              segments:
-                  const [
-                    CustomToolHandlerType.http,
-                    CustomToolHandlerType.script,
-                  ].map((type) {
-                    return ButtonSegment(
-                      value: type,
-                      label: Text(type.displayName),
-                      icon: Icon(
-                        type == CustomToolHandlerType.http
-                            ? AppIcons.http
-                            : AppIcons.terminal,
+              SizedBox(height: Spacing.lg),
+              SwitchListTile(
+                title: const Text('Enabled'),
+                subtitle: const Text('Tool is available for Claude to use'),
+                value: _enabled,
+                onChanged: (value) => setState(() => _enabled = value),
+                contentPadding: EdgeInsets.zero,
+              ),
+              SizedBox(height: Spacing.xxl),
+              // Handler Type Section
+              _SectionHeader(title: 'Handler Type'),
+              SizedBox(height: Spacing.md),
+              SegmentedButton<CustomToolHandlerType>(
+                segments:
+                    const [
+                      CustomToolHandlerType.http,
+                      CustomToolHandlerType.script,
+                    ].map((type) {
+                      return ButtonSegment(
+                        value: type,
+                        label: Text(type.displayName),
+                        icon: Icon(
+                          type == CustomToolHandlerType.http
+                              ? AppIcons.http
+                              : AppIcons.terminal,
+                        ),
+                      );
+                    }).toList(),
+                selected: {_handlerType},
+                onSelectionChanged: (selected) {
+                  setState(() => _handlerType = selected.first);
+                },
+              ),
+              SizedBox(height: Spacing.sm),
+              Text(
+                _handlerType.description,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+              SizedBox(height: Spacing.xxl),
+              // Handler Config Section
+              if (_handlerType == CustomToolHandlerType.http)
+                _HttpConfigSection(
+                  urlController: _urlController,
+                  method: _httpMethod,
+                  onMethodChanged: (method) =>
+                      setState(() => _httpMethod = method),
+                  headersController: _headersController,
+                  bodyTemplateController: _bodyTemplateController,
+                )
+              else if (_handlerType == CustomToolHandlerType.script)
+                _ScriptConfigSection(
+                  commandController: _commandController,
+                  argsController: _argsController,
+                  cwdController: _cwdController,
+                  timeoutController: _timeoutController,
+                )
+              else
+                const SizedBox.shrink(),
+              SizedBox(height: Spacing.xxl),
+              // Parameters Section
+              _SectionHeader(
+                title: 'Parameters',
+                action: IconButton(
+                  icon: const Icon(AppIcons.add),
+                  onPressed: _addParameter,
+                  tooltip: 'Add Parameter',
+                ),
+              ),
+              SizedBox(height: Spacing.md),
+              if (_parameters.isEmpty)
+                Container(
+                  padding: Insets.card,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.5,
+                    ),
+                    borderRadius: Radii.brMd,
+                    border: Border.all(
+                      color: theme.colorScheme.outline.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      'No parameters defined.\nParameters let you pass values to your tool.',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.6,
+                        ),
                       ),
+                    ),
+                  ),
+                )
+              else
+                Column(
+                  children: _parameters.asMap().entries.map((entry) {
+                    return _ParameterCard(
+                      parameter: entry.value,
+                      onEdit: () => _editParameter(entry.key),
+                      onDelete: () => _deleteParameter(entry.key),
                     );
                   }).toList(),
-              selected: {_handlerType},
-              onSelectionChanged: (selected) {
-                setState(() => _handlerType = selected.first);
-              },
-            ),
-            SizedBox(height: Spacing.sm),
-            Text(
-              _handlerType.description,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
-            ),
-            SizedBox(height: Spacing.xxl),
-            // Handler Config Section
-            if (_handlerType == CustomToolHandlerType.http)
-              _HttpConfigSection(
-                urlController: _urlController,
-                method: _httpMethod,
-                onMethodChanged: (method) =>
-                    setState(() => _httpMethod = method),
-                headersController: _headersController,
-                bodyTemplateController: _bodyTemplateController,
-              )
-            else if (_handlerType == CustomToolHandlerType.script)
-              _ScriptConfigSection(
-                commandController: _commandController,
-                argsController: _argsController,
-                cwdController: _cwdController,
-                timeoutController: _timeoutController,
-              )
-            else
-              const SizedBox.shrink(),
-            SizedBox(height: Spacing.xxl),
-            // Parameters Section
-            _SectionHeader(
-              title: 'Parameters',
-              action: IconButton(
-                icon: const Icon(AppIcons.add),
-                onPressed: _addParameter,
-                tooltip: 'Add Parameter',
-              ),
-            ),
-            SizedBox(height: Spacing.md),
-            if (_parameters.isEmpty)
-              Container(
-                padding: Insets.card,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest.withValues(
-                    alpha: 0.5,
-                  ),
-                  borderRadius: Radii.brMd,
-                  border: Border.all(
-                    color: theme.colorScheme.outline.withValues(alpha: 0.2),
-                  ),
                 ),
-                child: Center(
-                  child: Text(
-                    'No parameters defined.\nParameters let you pass values to your tool.',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                    ),
-                  ),
-                ),
-              )
-            else
-              Column(
-                children: _parameters.asMap().entries.map((entry) {
-                  return _ParameterCard(
-                    parameter: entry.value,
-                    onEdit: () => _editParameter(entry.key),
-                    onDelete: () => _deleteParameter(entry.key),
-                  );
-                }).toList(),
-              ),
-            // Test Result
-            if (_testResult != null) ...[
-              SizedBox(height: Spacing.xxl),
-              _SectionHeader(title: 'Test Result'),
-              SizedBox(height: Spacing.md),
-              Builder(builder: (context) {
-              final ocTheme = OpenCodeTheme.of(context);
-              final statusColor = _testSuccess ? ocTheme.success : ocTheme.error;
-              return Container(
-                padding: Insets.card,
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.1),
-                  borderRadius: Radii.brMd,
-                  border: Border.all(
-                    color: statusColor.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          _testSuccess
-                              ? AppIcons.checkCircle
-                              : AppIcons.error,
-                          color: statusColor,
-                          size: 20,
+              // Test Result
+              if (_testResult != null) ...[
+                SizedBox(height: Spacing.xxl),
+                _SectionHeader(title: 'Test Result'),
+                SizedBox(height: Spacing.md),
+                Builder(
+                  builder: (context) {
+                    final ocTheme = OpenCodeTheme.of(context);
+                    final statusColor = _testSuccess
+                        ? ocTheme.success
+                        : ocTheme.error;
+                    return Container(
+                      padding: Insets.card,
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.1),
+                        borderRadius: Radii.brMd,
+                        border: Border.all(
+                          color: statusColor.withValues(alpha: 0.3),
                         ),
-                        SizedBox(width: Spacing.sm),
-                        Text(
-                          _testSuccess ? 'Success' : 'Failed',
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            color: statusColor,
-                            fontWeight: FontWeight.w600,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                _testSuccess
+                                    ? AppIcons.checkCircle
+                                    : AppIcons.error,
+                                color: statusColor,
+                                size: 20,
+                              ),
+                              SizedBox(width: Spacing.sm),
+                              Text(
+                                _testSuccess ? 'Success' : 'Failed',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  color: statusColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: Spacing.sm),
-                    Text(
-                      _testResult!,
-                      style: AppTypography.codeSmall(),
-                    ),
-                  ],
+                          SizedBox(height: Spacing.sm),
+                          Text(_testResult!, style: AppTypography.codeSmall()),
+                        ],
+                      ),
+                    );
+                  },
                 ),
-              );
-              }),
+              ],
+              const SizedBox(height: 100),
             ],
-            const SizedBox(height: 100),
-          ],
+          ),
         ),
-      ),
       ),
     );
   }
+
   ClaudeCodeCustomTool _buildTool() {
     final dynamic handlerConfig;
     if (_handlerType == CustomToolHandlerType.http) {
@@ -359,6 +368,7 @@ class _CustomToolEditorScreenState
       updatedAt: 0,
     );
   }
+
   Future<void> _saveTool() async {
     final tool = _buildTool();
     final errors = tool.validate();
@@ -390,12 +400,7 @@ class _CustomToolEditorScreenState
           ),
         );
       } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to save tool'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        showInfo(context, 'Failed to save tool');
       }
     } finally {
       if (mounted) {
@@ -403,6 +408,7 @@ class _CustomToolEditorScreenState
       }
     }
   }
+
   Future<void> _testTool() async {
     final tool = _buildTool();
     final errors = tool.validate();
@@ -462,17 +468,21 @@ class _CustomToolEditorScreenState
       }
     }
   }
+
   void _addParameter() {
     _showParameterDialog(null, null);
   }
+
   void _editParameter(int index) {
     _showParameterDialog(index, _parameters[index]);
   }
+
   void _deleteParameter(int index) {
     setState(() {
       _parameters.removeAt(index);
     });
   }
+
   void _showParameterDialog(int? index, CustomToolParameter? existing) {
     final nameController = TextEditingController(text: existing?.name ?? '');
     final descController = TextEditingController(
@@ -541,12 +551,7 @@ class _CustomToolEditorScreenState
             ElevatedButton(
               onPressed: () {
                 if (nameController.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Parameter name is required'),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
+                  showInfo(context, 'Parameter name is required');
                   return;
                 }
                 final param = CustomToolParameter(
@@ -574,6 +579,7 @@ class _CustomToolEditorScreenState
     );
   }
 }
+
 class _SectionHeader extends StatelessWidget {
   final String title;
   final Widget? action;
@@ -595,6 +601,7 @@ class _SectionHeader extends StatelessWidget {
     );
   }
 }
+
 class _HttpConfigSection extends StatelessWidget {
   final TextEditingController urlController;
   final HttpMethod method;
@@ -668,6 +675,7 @@ class _HttpConfigSection extends StatelessWidget {
     );
   }
 }
+
 class _ScriptConfigSection extends StatelessWidget {
   final TextEditingController commandController;
   final TextEditingController argsController;
@@ -723,6 +731,7 @@ class _ScriptConfigSection extends StatelessWidget {
     );
   }
 }
+
 class _ParameterCard extends StatelessWidget {
   final CustomToolParameter parameter;
   final VoidCallback onEdit;

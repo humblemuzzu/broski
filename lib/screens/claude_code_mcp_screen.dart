@@ -1,4 +1,3 @@
-
 import 'dart:async';
 import 'dart:convert';
 
@@ -14,11 +13,15 @@ import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+
 class ClaudeCodeMcpScreen extends ConsumerStatefulWidget {
   const ClaudeCodeMcpScreen({super.key});
   @override
-  ConsumerState<ClaudeCodeMcpScreen> createState() => _ClaudeCodeMcpScreenState();
+  ConsumerState<ClaudeCodeMcpScreen> createState() =>
+      _ClaudeCodeMcpScreenState();
 }
+
 class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
   bool _loading = true;
   bool _dirty = false;
@@ -41,20 +44,20 @@ class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
       if (cwd == null || cwd.isEmpty) return;
       if (eventCwd != null && eventCwd.isNotEmpty && cwd != eventCwd) return;
       if (_dirty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('.mcp.json changed externally')),
-        );
+        showInfo(context, '.mcp.json changed externally');
         return;
       }
       _load();
     });
     _load();
   }
+
   @override
   void dispose() {
     _fsSub?.cancel();
     super.dispose();
   }
+
   Future<void> _load() async {
     final cwd = _cwd;
     if (cwd == null) {
@@ -75,7 +78,9 @@ class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
       final bridge = ref.read(bridgeServiceProvider);
       final content = await bridge.ccReadMcpFile(cwd: cwd);
       final decoded = jsonDecode(content);
-      final root = decoded is Map ? decoded.cast<String, dynamic>() : <String, dynamic>{};
+      final root = decoded is Map
+          ? decoded.cast<String, dynamic>()
+          : <String, dynamic>{};
       if (!mounted) return;
       setState(() {
         _root = root;
@@ -89,38 +94,35 @@ class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
       });
     }
   }
+
   Map<String, dynamic> _servers() {
     final v = _root['mcpServers'];
     if (v is Map) return v.cast<String, dynamic>();
     return {};
   }
+
   Future<void> _save() async {
     final cwd = _cwd;
     if (cwd == null) return;
-    final oc = OpenCodeTheme.of(context);
-    final content =
-        const JsonEncoder.withIndent('  ').convert(_root.isEmpty ? {'mcpServers': {}} : _root);
+    final content = const JsonEncoder.withIndent(
+      '  ',
+    ).convert(_root.isEmpty ? {'mcpServers': {}} : _root);
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final ok = await bridge.ccWriteMcpFile(cwd: cwd, content: content);
       if (!mounted) return;
       if (ok) {
         setState(() => _dirty = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: const Text('Saved .mcp.json'), backgroundColor: oc.backgroundPanel),
-        );
+        showSuccess(context, 'Saved .mcp.json');
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: const Text('Failed to save'), backgroundColor: oc.error),
-        );
+        showError(context, 'Failed to save');
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save: ${humanizeError(e)}'), backgroundColor: oc.error),
-      );
+      showError(context, 'Failed to save: ${humanizeError(e)}');
     }
   }
+
   Future<void> _addServer() async {
     final nameController = TextEditingController();
     final name = await showDialog<String>(
@@ -129,11 +131,16 @@ class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
         title: const Text('Add MCP server'),
         content: TextField(
           controller: nameController,
-          decoration: const InputDecoration(hintText: 'server name (e.g. filesystem)'),
+          decoration: const InputDecoration(
+            hintText: 'server name (e.g. filesystem)',
+          ),
           autofocus: true,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, nameController.text.trim()),
             child: const Text('Next'),
@@ -147,9 +154,9 @@ class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
       MaterialPageRoute(
         builder: (_) => _McpServerEditorScreen(
           title: name,
-          initialJson: const JsonEncoder.withIndent('  ').convert(
-            {'command': '', 'args': [], 'env': {}},
-          ),
+          initialJson: const JsonEncoder.withIndent(
+            '  ',
+          ).convert({'command': '', 'args': [], 'env': {}}),
         ),
       ),
     );
@@ -161,6 +168,7 @@ class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
       _dirty = true;
     });
   }
+
   Future<void> _editServer(String name, Map<String, dynamic> cfg) async {
     final config = await Navigator.push<Map<String, dynamic>>(
       context,
@@ -179,6 +187,7 @@ class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
       _dirty = true;
     });
   }
+
   Future<void> _deleteServer(String name) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -186,10 +195,15 @@ class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
         title: const Text('Remove MCP server'),
         content: Text('Remove "$name" from .mcp.json?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Theme.of(ctx).extension<OpenCodeTheme>()!.error),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(ctx).extension<OpenCodeTheme>()!.error,
+            ),
             child: const Text('Remove'),
           ),
         ],
@@ -203,6 +217,7 @@ class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
       _dirty = true;
     });
   }
+
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
@@ -241,87 +256,111 @@ class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
       body: AdaptiveContainer(
         width: ContentWidth.standard,
         child: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-          ? Center(
-              child: Padding(
-                padding: Insets.cardLg,
-                child: Text(_error!, style: TextStyle(color: oc.textMuted)),
-              ),
-            )
-          : names.isEmpty
-          ? Center(
-              child: Padding(
-                padding: Insets.cardLg,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(AppIcons.dns, color: oc.textMuted, size: 56),
-                    SizedBox(height: Spacing.md),
-                    Text('No MCP servers', style: TextStyle(color: oc.text)),
-                    SizedBox(height: Spacing.sm),
-                    Text(
-                      'Add servers to .mcp.json to enable MCP tools for Claude Code.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: oc.textMuted),
-                    ),
-                    SizedBox(height: Spacing.lg),
-                    ElevatedButton.icon(
-                      onPressed: _addServer,
-                      icon: const Icon(AppIcons.add),
-                      label: const Text('Add server'),
-                    ),
-                  ],
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+            ? Center(
+                child: Padding(
+                  padding: Insets.cardLg,
+                  child: Text(_error!, style: TextStyle(color: oc.textMuted)),
                 ),
+              )
+            : names.isEmpty
+            ? Center(
+                child: Padding(
+                  padding: Insets.cardLg,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(AppIcons.dns, color: oc.textMuted, size: 56),
+                      SizedBox(height: Spacing.md),
+                      Text('No MCP servers', style: TextStyle(color: oc.text)),
+                      SizedBox(height: Spacing.sm),
+                      Text(
+                        'Add servers to .mcp.json to enable MCP tools for Claude Code.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: oc.textMuted),
+                      ),
+                      SizedBox(height: Spacing.lg),
+                      ElevatedButton.icon(
+                        onPressed: _addServer,
+                        icon: const Icon(AppIcons.add),
+                        label: const Text('Add server'),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            : ListView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                itemCount: names.length,
+                itemBuilder: (context, idx) {
+                  final name = names[idx];
+                  final cfg = servers[name];
+                  final cmd = (cfg is Map)
+                      ? (cfg['command']?.toString() ?? '')
+                      : '';
+                  final args = (cfg is Map && cfg['args'] is List)
+                      ? (cfg['args'] as List).length
+                      : 0;
+                  return Card(
+                    color: oc.backgroundElement,
+                    margin: const EdgeInsets.only(bottom: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: Radii.brMd,
+                      side: BorderSide(color: oc.border),
+                    ),
+                    child: ListTile(
+                      onTap: () => _editServer(
+                        name,
+                        (cfg as Map).cast<String, dynamic>(),
+                      ),
+                      title: Text(
+                        name,
+                        style: TextStyle(
+                          color: oc.text,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      subtitle: Text(
+                        cmd.isNotEmpty
+                            ? '$cmd • args: $args'
+                            : 'Tap to configure',
+                        style: TextStyle(color: oc.textMuted),
+                      ),
+                      trailing: PopupMenuButton<String>(
+                        onSelected: (v) {
+                          if (v == 'edit')
+                            _editServer(
+                              name,
+                              (cfg as Map).cast<String, dynamic>(),
+                            );
+                          if (v == 'delete') _deleteServer(name);
+                        },
+                        itemBuilder: (_) => const [
+                          PopupMenuItem(value: 'edit', child: Text('Edit')),
+                          PopupMenuItem(value: 'delete', child: Text('Remove')),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-              itemCount: names.length,
-              itemBuilder: (context, idx) {
-                final name = names[idx];
-                final cfg = servers[name];
-                final cmd = (cfg is Map) ? (cfg['command']?.toString() ?? '') : '';
-                final args = (cfg is Map && cfg['args'] is List) ? (cfg['args'] as List).length : 0;
-                return Card(
-                  color: oc.backgroundElement,
-                  margin: const EdgeInsets.only(bottom: 10),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: Radii.brMd,
-                    side: BorderSide(color: oc.border),
-                  ),
-                  child: ListTile(
-                    onTap: () => _editServer(name, (cfg as Map).cast<String, dynamic>()),
-                    title: Text(name, style: TextStyle(color: oc.text, fontWeight: FontWeight.w700)),
-                    subtitle: Text(
-                      cmd.isNotEmpty ? '$cmd • args: $args' : 'Tap to configure',
-                      style: TextStyle(color: oc.textMuted),
-                    ),
-                    trailing: PopupMenuButton<String>(
-                      onSelected: (v) {
-                        if (v == 'edit') _editServer(name, (cfg as Map).cast<String, dynamic>());
-                        if (v == 'delete') _deleteServer(name);
-                      },
-                      itemBuilder: (_) => const [
-                        PopupMenuItem(value: 'edit', child: Text('Edit')),
-                        PopupMenuItem(value: 'delete', child: Text('Remove')),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
       ),
     );
   }
 }
+
 class _McpServerEditorScreen extends StatefulWidget {
-  const _McpServerEditorScreen({required this.title, required this.initialJson});
+  const _McpServerEditorScreen({
+    required this.title,
+    required this.initialJson,
+  });
   final String title;
   final String initialJson;
   @override
   State<_McpServerEditorScreen> createState() => _McpServerEditorScreenState();
 }
+
 class _McpServerEditorScreenState extends State<_McpServerEditorScreen> {
   late final TextEditingController _json;
   @override
@@ -329,22 +368,24 @@ class _McpServerEditorScreenState extends State<_McpServerEditorScreen> {
     super.initState();
     _json = TextEditingController(text: widget.initialJson);
   }
+
   @override
   void dispose() {
     _json.dispose();
     super.dispose();
   }
+
   void _done() {
     try {
       final decoded = jsonDecode(_json.text);
-      if (decoded is! Map) throw const FormatException('Config must be a JSON object');
+      if (decoded is! Map)
+        throw const FormatException('Config must be a JSON object');
       Navigator.pop(context, decoded.cast<String, dynamic>());
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Invalid JSON: ${humanizeError(e)}')),
-      );
+      showInfo(context, 'Invalid JSON: ${humanizeError(e)}');
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
@@ -368,22 +409,22 @@ class _McpServerEditorScreenState extends State<_McpServerEditorScreen> {
       body: AdaptiveContainer(
         width: ContentWidth.standard,
         child: Padding(
-        padding: Insets.card,
-        child: TextField(
-          controller: _json,
-          maxLines: null,
-          expands: true,
-          style: AppTypography.code(),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: oc.backgroundElement,
-            border: OutlineInputBorder(
-              borderRadius: Radii.brMd,
-              borderSide: BorderSide(color: oc.border),
+          padding: Insets.card,
+          child: TextField(
+            controller: _json,
+            maxLines: null,
+            expands: true,
+            style: AppTypography.code(),
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: oc.backgroundElement,
+              border: OutlineInputBorder(
+                borderRadius: Radii.brMd,
+                borderSide: BorderSide(color: oc.border),
+              ),
             ),
           ),
         ),
-      ),
       ),
     );
   }

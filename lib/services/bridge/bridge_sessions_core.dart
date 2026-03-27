@@ -31,9 +31,7 @@ extension BridgeServiceSessionsCore on BridgeService {
       final response = await _waitFor('projects', requestId: requestId);
       final data = response['data'] as List<dynamic>? ?? [];
       return data
-          .map(
-            (item) => ProjectSummary.fromJson(item as Map<String, dynamic>),
-          )
+          .map((item) => ProjectSummary.fromJson(item as Map<String, dynamic>))
           .toList();
     });
   }

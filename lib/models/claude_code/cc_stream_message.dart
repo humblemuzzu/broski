@@ -203,7 +203,9 @@ class CCSessionInit extends ClaudeCodeStreamMessage {
       claudeCodeVersion: json['claudeCodeVersion'] as String?,
       betas: (json['betas'] as List<dynamic>?)?.cast<String>() ?? const [],
       outputStyle: json['outputStyle'] as String?,
-      availableOutputStyles: (json['availableOutputStyles'] as List<dynamic>?)?.cast<String>() ?? const [],
+      availableOutputStyles:
+          (json['availableOutputStyles'] as List<dynamic>?)?.cast<String>() ??
+          const [],
       cwd: json['cwd'] as String?,
       fastModeState: json['fastModeState'] as String?,
       agents:

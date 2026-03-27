@@ -148,7 +148,8 @@ class FormatterInfo {
   factory FormatterInfo.fromJson(Map<String, dynamic> json) {
     return FormatterInfo(
       name: json['name'] as String? ?? '',
-      extensions: (json['extensions'] as List<dynamic>?)
+      extensions:
+          (json['extensions'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           const [],

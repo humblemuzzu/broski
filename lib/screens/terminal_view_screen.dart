@@ -1,4 +1,3 @@
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -18,6 +17,7 @@ import '../widgets/terminal_quick_toolbar.dart';
 import '../widgets/terminal_selection_overlay.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../utils/error_utils.dart';
+
 class TerminalViewScreen extends ConsumerStatefulWidget {
   const TerminalViewScreen({
     super.key,
@@ -29,6 +29,7 @@ class TerminalViewScreen extends ConsumerStatefulWidget {
   @override
   ConsumerState<TerminalViewScreen> createState() => _TerminalViewScreenState();
 }
+
 class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
   late Terminal _terminal;
   late final TerminalController _terminalController;
@@ -58,6 +59,7 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
     _outputThrottler = SmartOutputThrottler(onFlush: _terminal.write);
     _connectToPty();
   }
+
   @override
   void dispose() {
     _outputSubscription?.cancel();
@@ -68,6 +70,7 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
     _terminalFocusNode.dispose();
     super.dispose();
   }
+
   Future<void> _connectToPty() async {
     setState(() {
       _isConnecting = true;
@@ -129,15 +132,18 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
       }
     }
   }
+
   void _disconnectPty() {
     final bridge = ref.read(bridgeServiceProvider);
     bridge.disconnectPty(widget.ptyId);
   }
+
   void _sendInput(String data) {
     if (!_isConnected || data.isEmpty) return;
     final bridge = ref.read(bridgeServiceProvider);
     bridge.sendPtyInput(widget.ptyId, data);
   }
+
   void _scheduleResize(int rows, int cols) {
     if (!_isConnected) return;
     if (rows <= 0 || cols <= 0) return;
@@ -158,6 +164,7 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
       );
     });
   }
+
   void _applySettings(TerminalSettings settings) {
     _appliedSettings = settings;
     _normalizeSmartQuotesEnabled = settings.normalizeSmartQuotes;
@@ -178,6 +185,7 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
     // - Batch only during rapid typing or paste
     // - Throttle output only during floods (cat bigfile, npm install)
   }
+
   String _normalizeTerminalInput(String data) {
     if (!_normalizeSmartQuotesEnabled || data.isEmpty) return data;
     // iOS smart punctuation can emit curly quotes which break shells.
@@ -187,6 +195,7 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
         .replaceAll('\u2018', "'")
         .replaceAll('\u2019', "'");
   }
+
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -286,6 +295,7 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
       body: _buildBody(ocTheme, terminalSettings),
     );
   }
+
   Widget _buildBody(OpenCodeTheme ocTheme, TerminalSettings settings) {
     if (_isConnecting) {
       return Center(
@@ -380,6 +390,7 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
       ],
     );
   }
+
   TerminalTheme _buildTerminalTheme(OpenCodeTheme ocTheme) {
     return TerminalTheme(
       background: ocTheme.background,

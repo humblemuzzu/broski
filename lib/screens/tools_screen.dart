@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import '../theme/app_typography.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +15,7 @@ import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../utils/error_utils.dart';
+
 /// Feature 17: Tool List Screen
 /// Shows available AI tools (bash, read, write, edit, glob, grep, etc.)
 class ToolsScreen extends ConsumerStatefulWidget {
@@ -23,6 +23,7 @@ class ToolsScreen extends ConsumerStatefulWidget {
   @override
   ConsumerState<ToolsScreen> createState() => _ToolsScreenState();
 }
+
 class _ToolsScreenState extends ConsumerState<ToolsScreen> {
   List<ToolInfo>? _tools;
   List<FormatterInfo>? _formatters;
@@ -35,6 +36,7 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
     super.initState();
     _loadData();
   }
+
   Future<void> _loadData() async {
     setState(() {
       _isLoading = true;
@@ -138,6 +140,7 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
       }
     }
   }
+
   String _getToolDescription(String id) {
     switch (id.toLowerCase()) {
       case 'bash':
@@ -166,6 +169,7 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
         return 'AI tool';
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -196,13 +200,14 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
       body: AdaptiveContainer(
         width: ContentWidth.standard,
         child: _isLoading
-          ? Center(child: CircularProgressIndicator(color: theme.primary))
-          : _error != null
-          ? _buildError(theme)
-          : _buildContent(theme),
+            ? Center(child: CircularProgressIndicator(color: theme.primary))
+            : _error != null
+            ? _buildError(theme)
+            : _buildContent(theme),
       ),
     );
   }
+
   Widget _buildError(OpenCodeTheme theme) {
     return Center(
       child: Column(
@@ -233,6 +238,7 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
       ),
     );
   }
+
   Widget _buildContent(OpenCodeTheme theme) {
     if (_tools == null || _tools!.isEmpty) {
       return Center(
@@ -316,6 +322,7 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
     );
   }
 }
+
 // Tools summary card with enable/disable count
 class _ToolsSummary extends ConsumerWidget {
   const _ToolsSummary({required this.totalTools});
@@ -415,6 +422,7 @@ class _ToolsSummary extends ConsumerWidget {
     );
   }
 }
+
 /// Collapsible section with expand/collapse arrow
 class _CollapsibleSection extends StatelessWidget {
   const _CollapsibleSection({
@@ -514,6 +522,7 @@ class _CollapsibleSection extends StatelessWidget {
     );
   }
 }
+
 /// Compact chip for tool display - just icon + name, tap to toggle
 class _ToolChip extends ConsumerWidget {
   const _ToolChip({required this.tool});
@@ -568,6 +577,7 @@ class _ToolChip extends ConsumerWidget {
       ),
     );
   }
+
   IconData _getToolIcon(String id) {
     switch (id.toLowerCase()) {
       case 'bash':
@@ -596,6 +606,7 @@ class _ToolChip extends ConsumerWidget {
     }
   }
 }
+
 /// Compact chip for formatter display (SDK shape: name/extensions/enabled)
 class _FormatterChip extends StatelessWidget {
   const _FormatterChip({required this.formatter});

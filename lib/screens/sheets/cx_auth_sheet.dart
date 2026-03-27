@@ -66,10 +66,7 @@ void showCodexAuthSheet(BuildContext context, WidgetRef ref) {
                     if (snapshot.hasError) {
                       return Text(
                         'Failed to read account: ${humanizeError(snapshot.error ?? "Unknown error")}',
-                        style: TextStyle(
-                          color: theme.textMuted,
-                          fontSize: 12,
-                        ),
+                        style: TextStyle(color: theme.textMuted, fontSize: 12),
                       );
                     }
                     final account = snapshot.data?['account'];
@@ -145,10 +142,7 @@ void showCodexAuthSheet(BuildContext context, WidgetRef ref) {
                       padding: Insets.bottomMd,
                       child: Text(
                         '$label$resetsStr',
-                        style: TextStyle(
-                          color: theme.textMuted,
-                          fontSize: 12,
-                        ),
+                        style: TextStyle(color: theme.textMuted, fontSize: 12),
                       ),
                     );
                   },

@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_highlight/flutter_highlight.dart';
@@ -8,6 +7,7 @@ import '../../theme/design_tokens.dart';
 
 import '../../theme/opencode_theme.dart';
 import 'package:broski/theme/app_icons.dart';
+
 class CodeFileViewer extends StatelessWidget {
   const CodeFileViewer({
     super.key,
@@ -93,9 +93,9 @@ class CodeFileViewer extends StatelessWidget {
                           lines.length,
                           (index) => Text(
                             '${index + 1}',
-                            style: AppTypography.code(color: theme.textMuted.withValues(alpha: 0.5)).copyWith(
-                              height: 1.6,
-                            ),
+                            style: AppTypography.code(
+                              color: theme.textMuted.withValues(alpha: 0.5),
+                            ).copyWith(height: 1.6),
                           ),
                         ),
                       ),
@@ -105,9 +105,7 @@ class CodeFileViewer extends StatelessWidget {
                       content,
                       language: language,
                       theme: atomOneDarkTheme,
-                      textStyle: AppTypography.code().copyWith(
-                        height: 1.6,
-                      ),
+                      textStyle: AppTypography.code().copyWith(height: 1.6),
                       padding: EdgeInsets.zero,
                     ),
                   ],

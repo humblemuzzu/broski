@@ -217,14 +217,17 @@ extension _RuntimeCxHandlers on ChatSessionNotifier {
       // Review mode dividers
       case 'enteredReviewMode':
         final review = payloadMap['item']?['review'] ?? payloadMap['review'];
-        final reviewType = review is Map ? (review['target']?['type']?.toString() ?? '') : '';
+        final reviewType = review is Map
+            ? (review['target']?['type']?.toString() ?? '')
+            : '';
         _addMessage(
           ChatMessage(
             id: 'cx-review-entered-${DateTime.now().millisecondsSinceEpoch}',
             sessionId: state.cxThreadId ?? '',
             role: MessageRole.system,
             createdAt: DateTime.now(),
-            text: '🔍 Entered review mode${reviewType.isNotEmpty ? ' ($reviewType)' : ''}',
+            text:
+                '🔍 Entered review mode${reviewType.isNotEmpty ? ' ($reviewType)' : ''}',
             variant: 'cx-review-mode',
           ),
         );

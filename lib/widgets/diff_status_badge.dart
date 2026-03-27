@@ -32,10 +32,9 @@ class DiffStatusBadge extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: AppTypography.codeSmall(color: color).copyWith(
-          fontSize: 9,
-          fontWeight: FontWeight.w700,
-        ),
+        style: AppTypography.codeSmall(
+          color: color,
+        ).copyWith(fontSize: 9, fontWeight: FontWeight.w700),
       ),
     );
   }

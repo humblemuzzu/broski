@@ -5,6 +5,7 @@ import '../../models/message.dart';
 import '../../providers/app_subscription_provider.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/service_providers.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Responds to a permission request (approve/deny/always).
 /// Extracted from `_ChatScreenState._respondToPermission` in `chat_screen.dart`.
@@ -23,12 +24,7 @@ Future<void> respondToPermission({
 }) async {
   final entitlement = ref.read(appSubscriptionProvider).entitled;
   if (!entitlement) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Subscription required to approve tools.'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    showInfo(context, 'Subscription required to approve tools.');
     Navigator.pop(context);
     return;
   }

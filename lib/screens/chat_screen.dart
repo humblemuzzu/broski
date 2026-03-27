@@ -98,6 +98,7 @@ import '../widgets/chat/retry_status_banner.dart';
 import '../widgets/chat/revert_state_banner.dart';
 import '../widgets/chat/subagent_activity.dart';
 import '../widgets/chat/message_group.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 // Utility function for color opacity (from expense_tracker)
 Color fade(Color color, double opacity) {
@@ -1234,9 +1235,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   void _showTimelineDialog() {
     final chatState = ref.read(chatSessionProvider);
     if (chatState.messages.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('No messages in session')));
+      showInfo(context, 'No messages in session');
       return;
     }
     showTimelineDialog(context, scrollController: _scrollController);
@@ -1246,9 +1245,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   void _showForkDialog() {
     final chatState = ref.read(chatSessionProvider);
     if (chatState.messages.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('No messages to fork from')));
+      showInfo(context, 'No messages to fork from');
       return;
     }
     showForkDialog(context, session: widget.session, project: widget.project);

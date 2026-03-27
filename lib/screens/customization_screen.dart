@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -23,12 +22,14 @@ import 'theme_selector_screen.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
+
 /// Helper to get contrasting text color for a background
 Color _contrastColor(Color background) {
   // Calculate luminance and return white or black
   final luminance = background.computeLuminance();
   return luminance > 0.5 ? Colors.black : Colors.white;
 }
+
 /// Unified customization screen for all appearance and UX settings
 class CustomizationScreen extends ConsumerWidget {
   const CustomizationScreen({super.key});
@@ -60,170 +61,310 @@ class CustomizationScreen extends ConsumerWidget {
           ),
         ),
         leading: IconButton(
-          icon: Icon(
-            AppIcons.back,
-            color: theme.colorScheme.onSurface,
-          ),
+          icon: Icon(AppIcons.back, color: theme.colorScheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
       ),
       body: AdaptiveContainer(
         width: ContentWidth.standard,
         child: ListView(
-        padding: Insets.screenAll,
-        children: [
-          // Appearance Section
-          _SectionHeader(title: 'Appearance'),
-          SizedBox(height: Spacing.md),
-          _SettingsCard(
-            child: Column(
-              children: [
-                _NavigationTile(
-                  title: 'Color Theme',
-                  subtitle: currentThemeInfo?.name ?? 'OpenCode',
-                  icon: AppIcons.palette,
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 16,
-                        height: 16,
-                        decoration: BoxDecoration(
-                          color:
-                              currentThemeInfo?.primaryColor ??
-                              theme.colorScheme.primary,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: theme.colorScheme.onSurface.withValues(
-                              alpha: 0.2,
+          padding: Insets.screenAll,
+          children: [
+            // Appearance Section
+            _SectionHeader(title: 'Appearance'),
+            SizedBox(height: Spacing.md),
+            _SettingsCard(
+              child: Column(
+                children: [
+                  _NavigationTile(
+                    title: 'Color Theme',
+                    subtitle: currentThemeInfo?.name ?? 'OpenCode',
+                    icon: AppIcons.palette,
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 16,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color:
+                                currentThemeInfo?.primaryColor ??
+                                theme.colorScheme.primary,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.2,
+                              ),
                             ),
                           ),
                         ),
+                        SizedBox(width: Spacing.sm),
+                        Icon(
+                          AppIcons.chevronRight,
+                          size: 20,
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ThemeSelectorScreen(),
                       ),
-                      SizedBox(width: Spacing.sm),
-                      Icon(
-                        AppIcons.chevronRight,
-                        size: 20,
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.5,
+                    ),
+                  ),
+                  _Divider(),
+                  _NavigationTile(
+                    title: 'Typography',
+                    subtitle:
+                        '${currentUIFont.displayName} / ${currentCodeFont.displayName}',
+                    icon: AppIcons.textFields,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const FontSelectorScreen(),
+                      ),
+                    ),
+                  ),
+                  _Divider(),
+                  _NavigationTile(
+                    title: 'Tool Cards',
+                    subtitle: 'Icons, colors, and card styling',
+                    icon: AppIcons.dashboard,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AppearanceScreen(),
+                      ),
+                    ),
+                  ),
+                  _Divider(),
+                  _NavigationTile(
+                    title: 'Background',
+                    subtitle: 'Wallpaper, shade, and per-screen settings',
+                    icon: AppIcons.wallpaper,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const BackgroundScreen(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 28),
+            // Input Bar Section
+            _SectionHeader(title: 'Input Bar'),
+            SizedBox(height: Spacing.md),
+            _SettingsCard(
+              child: Column(
+                children: [
+                  _RadioTile(
+                    title: 'ChatGPT Style',
+                    subtitle: 'Rounded pill with send button',
+                    icon: AppIcons.chatBubble,
+                    isSelected: inputStyle == InputBarStyle.chatgpt,
+                    onTap: () => ref
+                        .read(inputStyleProvider.notifier)
+                        .setStyle(InputBarStyle.chatgpt),
+                  ),
+                  _Divider(),
+                  _RadioTile(
+                    title: 'CLI Style',
+                    subtitle: 'Terminal-like with agent selector',
+                    icon: AppIcons.terminal,
+                    isSelected: inputStyle == InputBarStyle.cli,
+                    onTap: () => ref
+                        .read(inputStyleProvider.notifier)
+                        .setStyle(InputBarStyle.cli),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 28),
+            // Prompt Glow Section — applies to both input bar styles
+            _SectionHeader(title: 'Prompt Glow'),
+            SizedBox(height: Spacing.md),
+            // Glow Style picker
+            _SettingsCard(
+              child: Column(
+                children: [
+                  _RadioTile(
+                    title: 'No Glow',
+                    subtitle: 'Clean, minimal input bar',
+                    icon: AppIcons.block,
+                    isSelected: glowStyle == GlowStyle.none,
+                    onTap: () => ref
+                        .read(glowStyleProvider.notifier)
+                        .setStyle(GlowStyle.none),
+                  ),
+                  _Divider(),
+                  _RadioTile(
+                    title: 'Left Only',
+                    subtitle: 'Accent glow on the left edge',
+                    icon: AppIcons.borderLeft,
+                    isSelected: glowStyle == GlowStyle.leftOnly,
+                    onTap: () => ref
+                        .read(glowStyleProvider.notifier)
+                        .setStyle(GlowStyle.leftOnly),
+                  ),
+                  _Divider(),
+                  _RadioTile(
+                    title: 'Full Border',
+                    subtitle: 'Glow along the entire visible border',
+                    icon: AppIcons.borderAll,
+                    isSelected: glowStyle == GlowStyle.fullBorder,
+                    onTap: () => ref
+                        .read(glowStyleProvider.notifier)
+                        .setStyle(GlowStyle.fullBorder),
+                  ),
+                ],
+              ),
+            ),
+            // Accent color picker (shown when glow is enabled)
+            if (glowStyle != GlowStyle.none) ...[
+              SizedBox(height: Spacing.lg),
+              _SettingsCard(
+                child: Padding(
+                  padding: Insets.card,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            AppIcons.palette,
+                            color: theme.colorScheme.primary,
+                            size: 22,
+                          ),
+                          SizedBox(width: Spacing.md),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Accent Color',
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onSurface,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                SizedBox(height: Spacing.xs),
+                                Text(
+                                  'Color of the glow border',
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.6),
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: Spacing.lg),
+                      // Color swatches
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: PromptAccentColor.values.map((color) {
+                          final isSelected = color == promptAccent;
+                          final displayColor = color.getColor(ocTheme.primary);
+                          return GestureDetector(
+                            onTap: () => ref
+                                .read(promptAccentProvider.notifier)
+                                .setColor(color),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: displayColor,
+                                borderRadius: Radii.brMd,
+                                border: Border.all(
+                                  color: isSelected
+                                      ? theme.colorScheme.onSurface
+                                      : Colors.transparent,
+                                  width: 2,
+                                ),
+                                boxShadow: isSelected
+                                    ? [
+                                        BoxShadow(
+                                          color: displayColor.withValues(
+                                            alpha: 0.4,
+                                          ),
+                                          blurRadius: 8,
+                                          spreadRadius: 1,
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: isSelected
+                                  ? Icon(
+                                      AppIcons.check,
+                                      color: _contrastColor(displayColor),
+                                      size: 20,
+                                    )
+                                  : null,
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      SizedBox(height: Spacing.md),
+                      // Selected color name
+                      Text(
+                        promptAccent.displayName,
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.5,
+                          ),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
                   ),
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const ThemeSelectorScreen(),
-                    ),
-                  ),
                 ),
-                _Divider(),
-                _NavigationTile(
-                  title: 'Typography',
-                  subtitle: '${currentUIFont.displayName} / ${currentCodeFont.displayName}',
-                  icon: AppIcons.textFields,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const FontSelectorScreen(),
-                    ),
+              ),
+            ],
+            const SizedBox(height: 28),
+            // Navigation Section
+            _SectionHeader(title: 'Navigation Bar'),
+            SizedBox(height: Spacing.md),
+            _SettingsCard(
+              child: Column(
+                children: [
+                  _RadioTile(
+                    title: 'Classic',
+                    subtitle: 'Simple rounded bar with labels',
+                    icon: AppIcons.viewAgenda,
+                    isSelected: navBarStyle == NavBarStyle.classic,
+                    onTap: () => ref
+                        .read(navBarStyleProvider.notifier)
+                        .setStyle(NavBarStyle.classic),
                   ),
-                ),
-                _Divider(),
-                _NavigationTile(
-                  title: 'Tool Cards',
-                  subtitle: 'Icons, colors, and card styling',
-                  icon: AppIcons.dashboard,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const AppearanceScreen()),
+                  _Divider(),
+                  _RadioTile(
+                    title: 'Glassmorphic',
+                    subtitle: 'Floating glass with blur effect',
+                    icon: AppIcons.blurOn,
+                    isSelected: navBarStyle == NavBarStyle.glassmorphic,
+                    onTap: () => ref
+                        .read(navBarStyleProvider.notifier)
+                        .setStyle(NavBarStyle.glassmorphic),
                   ),
-                ),
-                _Divider(),
-                _NavigationTile(
-                  title: 'Background',
-                  subtitle: 'Wallpaper, shade, and per-screen settings',
-                  icon: AppIcons.wallpaper,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const BackgroundScreen()),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 28),
-          // Input Bar Section
-          _SectionHeader(title: 'Input Bar'),
-          SizedBox(height: Spacing.md),
-          _SettingsCard(
-            child: Column(
-              children: [
-                _RadioTile(
-                  title: 'ChatGPT Style',
-                  subtitle: 'Rounded pill with send button',
-                  icon: AppIcons.chatBubble,
-                  isSelected: inputStyle == InputBarStyle.chatgpt,
-                  onTap: () => ref
-                      .read(inputStyleProvider.notifier)
-                      .setStyle(InputBarStyle.chatgpt),
-                ),
-                _Divider(),
-                _RadioTile(
-                  title: 'CLI Style',
-                  subtitle: 'Terminal-like with agent selector',
-                  icon: AppIcons.terminal,
-                  isSelected: inputStyle == InputBarStyle.cli,
-                  onTap: () => ref
-                      .read(inputStyleProvider.notifier)
-                      .setStyle(InputBarStyle.cli),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 28),
-          // Prompt Glow Section — applies to both input bar styles
-          _SectionHeader(title: 'Prompt Glow'),
-          SizedBox(height: Spacing.md),
-          // Glow Style picker
-          _SettingsCard(
-            child: Column(
-              children: [
-                _RadioTile(
-                  title: 'No Glow',
-                  subtitle: 'Clean, minimal input bar',
-                  icon: AppIcons.block,
-                  isSelected: glowStyle == GlowStyle.none,
-                  onTap: () => ref
-                      .read(glowStyleProvider.notifier)
-                      .setStyle(GlowStyle.none),
-                ),
-                _Divider(),
-                _RadioTile(
-                  title: 'Left Only',
-                  subtitle: 'Accent glow on the left edge',
-                  icon: AppIcons.borderLeft,
-                  isSelected: glowStyle == GlowStyle.leftOnly,
-                  onTap: () => ref
-                      .read(glowStyleProvider.notifier)
-                      .setStyle(GlowStyle.leftOnly),
-                ),
-                _Divider(),
-                _RadioTile(
-                  title: 'Full Border',
-                  subtitle: 'Glow along the entire visible border',
-                  icon: AppIcons.borderAll,
-                  isSelected: glowStyle == GlowStyle.fullBorder,
-                  onTap: () => ref
-                      .read(glowStyleProvider.notifier)
-                      .setStyle(GlowStyle.fullBorder),
-                ),
-              ],
-            ),
-          ),
-          // Accent color picker (shown when glow is enabled)
-          if (glowStyle != GlowStyle.none) ...[
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: 28),
+            // Highlights Section
+            _SectionHeader(title: 'Highlights'),
+            SizedBox(height: Spacing.md),
             _SettingsCard(
               child: Padding(
                 padding: Insets.card,
@@ -233,7 +374,7 @@ class CustomizationScreen extends ConsumerWidget {
                     Row(
                       children: [
                         Icon(
-                          AppIcons.palette,
+                          AppIcons.star,
                           color: theme.colorScheme.primary,
                           size: 22,
                         ),
@@ -243,7 +384,7 @@ class CustomizationScreen extends ConsumerWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Accent Color',
+                                'Highlight Color',
                                 style: TextStyle(
                                   color: theme.colorScheme.onSurface,
                                   fontSize: 15,
@@ -252,7 +393,7 @@ class CustomizationScreen extends ConsumerWidget {
                               ),
                               SizedBox(height: Spacing.xs),
                               Text(
-                                'Color of the glow border',
+                                'Color for pinned sessions and projects',
                                 style: TextStyle(
                                   color: theme.colorScheme.onSurface.withValues(
                                     alpha: 0.6,
@@ -270,12 +411,15 @@ class CustomizationScreen extends ConsumerWidget {
                     Wrap(
                       spacing: 10,
                       runSpacing: 10,
-                      children: PromptAccentColor.values.map((color) {
-                        final isSelected = color == promptAccent;
-                        final displayColor = color.getColor(ocTheme.primary);
+                      children: HighlightColor.values.map((color) {
+                        final isSelected = color == selectedHighlightColor;
+                        final displayColor = color.forBrightness(
+                          theme.brightness,
+                          themePrimary: ocTheme.primary,
+                        );
                         return GestureDetector(
                           onTap: () => ref
-                              .read(promptAccentProvider.notifier)
+                              .read(highlightsProvider.notifier)
                               .setColor(color),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
@@ -316,7 +460,7 @@ class CustomizationScreen extends ConsumerWidget {
                     SizedBox(height: Spacing.md),
                     // Selected color name
                     Text(
-                      promptAccent.displayName,
+                      selectedHighlightColor.displayName,
                       style: TextStyle(
                         color: theme.colorScheme.onSurface.withValues(
                           alpha: 0.5,
@@ -329,167 +473,29 @@ class CustomizationScreen extends ConsumerWidget {
                 ),
               ),
             ),
-          ],
-          const SizedBox(height: 28),
-          // Navigation Section
-          _SectionHeader(title: 'Navigation Bar'),
-          SizedBox(height: Spacing.md),
-          _SettingsCard(
-            child: Column(
-              children: [
-                _RadioTile(
-                  title: 'Classic',
-                  subtitle: 'Simple rounded bar with labels',
-                  icon: AppIcons.viewAgenda,
-                  isSelected: navBarStyle == NavBarStyle.classic,
-                  onTap: () => ref
-                      .read(navBarStyleProvider.notifier)
-                      .setStyle(NavBarStyle.classic),
-                ),
-                _Divider(),
-                _RadioTile(
-                  title: 'Glassmorphic',
-                  subtitle: 'Floating glass with blur effect',
-                  icon: AppIcons.blurOn,
-                  isSelected: navBarStyle == NavBarStyle.glassmorphic,
-                  onTap: () => ref
-                      .read(navBarStyleProvider.notifier)
-                      .setStyle(NavBarStyle.glassmorphic),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 28),
-          // Highlights Section
-          _SectionHeader(title: 'Highlights'),
-          SizedBox(height: Spacing.md),
-          _SettingsCard(
-            child: Padding(
-              padding: Insets.card,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        AppIcons.star,
-                        color: theme.colorScheme.primary,
-                        size: 22,
-                      ),
-                      SizedBox(width: Spacing.md),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Highlight Color',
-                              style: TextStyle(
-                                color: theme.colorScheme.onSurface,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            SizedBox(height: Spacing.xs),
-                            Text(
-                              'Color for pinned sessions and projects',
-                              style: TextStyle(
-                                color: theme.colorScheme.onSurface.withValues(
-                                  alpha: 0.6,
-                                ),
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: Spacing.lg),
-                  // Color swatches
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: HighlightColor.values.map((color) {
-                      final isSelected = color == selectedHighlightColor;
-                      final displayColor = color.forBrightness(
-                        theme.brightness,
-                        themePrimary: ocTheme.primary,
-                      );
-                      return GestureDetector(
-                        onTap: () => ref
-                            .read(highlightsProvider.notifier)
-                            .setColor(color),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: displayColor,
-                            borderRadius: Radii.brMd,
-                            border: Border.all(
-                              color: isSelected
-                                  ? theme.colorScheme.onSurface
-                                  : Colors.transparent,
-                              width: 2,
-                            ),
-                            boxShadow: isSelected
-                                ? [
-                                    BoxShadow(
-                                      color: displayColor.withValues(
-                                        alpha: 0.4,
-                                      ),
-                                      blurRadius: 8,
-                                      spreadRadius: 1,
-                                    ),
-                                  ]
-                                : null,
-                          ),
-                          child: isSelected
-                              ? Icon(
-                                  AppIcons.check,
-                                  color: _contrastColor(displayColor),
-                                  size: 20,
-                                )
-                              : null,
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  SizedBox(height: Spacing.md),
-                  // Selected color name
-                  Text(
-                    selectedHighlightColor.displayName,
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
+            const SizedBox(height: 28),
+            // Notifications Section
+            _SectionHeader(title: 'Notifications'),
+            SizedBox(height: Spacing.md),
+            _SettingsCard(
+              child: _ToggleTile(
+                title: 'Push Notifications',
+                subtitle: 'Alert when background sessions complete',
+                icon: AppIcons.notification,
+                value: notificationsEnabled,
+                onChanged: (v) => ref
+                    .read(notificationsEnabledProvider.notifier)
+                    .setEnabled(v),
               ),
             ),
-          ),
-          const SizedBox(height: 28),
-          // Notifications Section
-          _SectionHeader(title: 'Notifications'),
-          SizedBox(height: Spacing.md),
-          _SettingsCard(
-            child: _ToggleTile(
-              title: 'Push Notifications',
-              subtitle: 'Alert when background sessions complete',
-              icon: AppIcons.notification,
-              value: notificationsEnabled,
-              onChanged: (v) =>
-                  ref.read(notificationsEnabledProvider.notifier).setEnabled(v),
-            ),
-          ),
-          const SizedBox(height: 100),
-        ],
-      ),
+            const SizedBox(height: 100),
+          ],
+        ),
       ),
     );
   }
 }
+
 // Section header widget
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.title});
@@ -507,6 +513,7 @@ class _SectionHeader extends StatelessWidget {
     );
   }
 }
+
 // Settings card container
 class _SettingsCard extends StatelessWidget {
   const _SettingsCard({required this.child});
@@ -524,6 +531,7 @@ class _SettingsCard extends StatelessWidget {
     );
   }
 }
+
 // Navigation tile (opens another screen)
 class _NavigationTile extends StatelessWidget {
   const _NavigationTile({
@@ -585,6 +593,7 @@ class _NavigationTile extends StatelessWidget {
     );
   }
 }
+
 // Radio tile for single selection
 class _RadioTile extends StatelessWidget {
   const _RadioTile({
@@ -664,6 +673,7 @@ class _RadioTile extends StatelessWidget {
     );
   }
 }
+
 // Toggle tile with switch
 class _ToggleTile extends StatelessWidget {
   const _ToggleTile({
@@ -721,6 +731,7 @@ class _ToggleTile extends StatelessWidget {
     );
   }
 }
+
 // Divider
 class _Divider extends StatelessWidget {
   @override

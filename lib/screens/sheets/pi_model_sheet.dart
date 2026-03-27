@@ -9,6 +9,8 @@ import '../../theme/app_typography.dart';
 import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import '../../widgets/chat/detail_sheet.dart';
+import '../../widgets/chat/section_header.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Shows the Pi model picker sheet. Extracted from chat_screen.dart.
 void showPiModelSheet(BuildContext context) {
@@ -59,18 +61,19 @@ void showPiModelSheet(BuildContext context) {
                   for (final entry in grouped.entries) ...[
                     Padding(
                       padding: const EdgeInsets.only(top: 12, bottom: 8),
-                      child: Text(
-                        entry.key.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: theme.textMuted,
-                          letterSpacing: 0.5,
-                        ),
+                      child: SectionHeader(
+                        title: entry.key.toUpperCase(),
+                        theme: theme,
                       ),
                     ),
                     for (final model in entry.value)
-                      _buildPiModelTile(context, ref, model, currentModel, theme),
+                      _buildPiModelTile(
+                        context,
+                        ref,
+                        model,
+                        currentModel,
+                        theme,
+                      ),
                   ],
                 ],
               ),
@@ -89,8 +92,7 @@ Widget _buildPiModelTile(
   String? currentModel,
   OpenCodeTheme theme,
 ) {
-  final isSelected =
-      currentModel == model.id || currentModel == model.modelRef;
+  final isSelected = currentModel == model.id || currentModel == model.modelRef;
   return ListTile(
     dense: true,
     contentPadding: EdgeInsets.zero,
@@ -149,9 +151,7 @@ Widget _buildPiModelTile(
             .setPiModel(model.modelRef, modelData: model);
       } catch (e) {
         if (!context.mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to set model: $e')));
+        showInfo(context, 'Failed to set model: $e');
       }
     },
   );

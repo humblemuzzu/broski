@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,13 +24,16 @@ import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import '../widgets/glassmorphic_nav_bar.dart';
 import 'package:broski/theme/app_icons.dart';
+
 class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key});
   @override
   ConsumerState<MainShell> createState() => _MainShellState();
 }
+
 class _MainShellState extends ConsumerState<MainShell> {
   int _index = 0;
+
   /// Get the screen ID for the current tab index
   String _getScreenId(int index) {
     switch (index) {
@@ -47,6 +49,7 @@ class _MainShellState extends ConsumerState<MainShell> {
         return AppScreen.projects;
     }
   }
+
   @override
   void initState() {
     super.initState();
@@ -62,6 +65,7 @@ class _MainShellState extends ConsumerState<MainShell> {
           .setView(projectPath: 'global', agent: agent.wireValue);
     });
   }
+
   @override
   Widget build(BuildContext context) {
     final connection = ref.watch(connectionProvider);
@@ -182,6 +186,7 @@ class _MainShellState extends ConsumerState<MainShell> {
       ),
     );
   }
+
   Widget _buildNavBar(NavBarStyle style, BridgeConnectionState connection) {
     void onTap(int value) {
       setState(() => _index = value);
@@ -195,6 +200,7 @@ class _MainShellState extends ConsumerState<MainShell> {
         ref.read(sessionsRefreshTickProvider.notifier).state++;
       }
     }
+
     switch (style) {
       case NavBarStyle.classic:
         return _ModernBottomNav(currentIndex: _index, onTap: onTap);
@@ -203,6 +209,7 @@ class _MainShellState extends ConsumerState<MainShell> {
     }
   }
 }
+
 class _UpgradeBanner extends ConsumerWidget {
   const _UpgradeBanner();
   @override
@@ -219,7 +226,8 @@ class _UpgradeBanner extends ConsumerWidget {
             ),
           );
         },
-          child: Builder(builder: (context) {
+        child: Builder(
+          builder: (context) {
             final ocTheme = OpenCodeTheme.of(context);
             return Container(
               margin: const EdgeInsets.fromLTRB(16, 4, 16, 0),
@@ -234,11 +242,7 @@ class _UpgradeBanner extends ConsumerWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    AppIcons.subscription,
-                    color: ocTheme.warning,
-                    size: 16,
-                  ),
+                  Icon(AppIcons.subscription, color: ocTheme.warning, size: 16),
                   SizedBox(width: Spacing.sm),
                   Text(
                     'Upgrade',
@@ -257,11 +261,13 @@ class _UpgradeBanner extends ConsumerWidget {
                 ],
               ),
             );
-          }),
+          },
+        ),
       ),
     );
   }
 }
+
 class _UnpaidCenterCta extends ConsumerWidget {
   const _UnpaidCenterCta();
   @override
@@ -281,11 +287,7 @@ class _UnpaidCenterCta extends ConsumerWidget {
               borderRadius: Radii.brXl,
               border: Border.all(color: ocTheme.borderSubtle),
             ),
-            child: Icon(
-              AppIcons.lock,
-              color: ocTheme.textMuted,
-              size: 28,
-            ),
+            child: Icon(AppIcons.lock, color: ocTheme.textMuted, size: 28),
           ),
           const SizedBox(height: 18),
           Text(
@@ -325,9 +327,7 @@ class _UnpaidCenterCta extends ConsumerWidget {
                 backgroundColor: ocTheme.primary,
                 foregroundColor: ocTheme.selectedListItemText,
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: Radii.brLg,
-                ),
+                shape: RoundedRectangleBorder(borderRadius: Radii.brLg),
               ),
               child: const Text(
                 'Upgrade to connect',
@@ -340,6 +340,7 @@ class _UnpaidCenterCta extends ConsumerWidget {
     );
   }
 }
+
 class _OfflineBanner extends StatelessWidget {
   const _OfflineBanner({required this.onExit});
   final VoidCallback onExit;
@@ -381,6 +382,7 @@ class _OfflineBanner extends StatelessWidget {
     );
   }
 }
+
 class _ProtocolBanner extends StatelessWidget {
   const _ProtocolBanner({
     required this.bridgeVersion,
@@ -420,11 +422,7 @@ class _ProtocolBanner extends StatelessWidget {
             ),
             IconButton(
               onPressed: onDismiss,
-              icon: Icon(
-                AppIcons.close,
-                color: ocTheme.textMuted,
-                size: 18,
-              ),
+              icon: Icon(AppIcons.close, color: ocTheme.textMuted, size: 18),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               splashRadius: 16,
@@ -435,6 +433,7 @@ class _ProtocolBanner extends StatelessWidget {
     );
   }
 }
+
 class _ReconnectingBanner extends StatelessWidget {
   const _ReconnectingBanner({required this.onCancel});
   final VoidCallback onCancel;
@@ -489,6 +488,7 @@ class _ReconnectingBanner extends StatelessWidget {
     );
   }
 }
+
 class _ModernBottomNav extends StatelessWidget {
   const _ModernBottomNav({required this.currentIndex, required this.onTap});
   final int currentIndex;
@@ -547,6 +547,7 @@ class _ModernBottomNav extends StatelessWidget {
     );
   }
 }
+
 class _NavItem extends StatelessWidget {
   const _NavItem({
     required this.icon,

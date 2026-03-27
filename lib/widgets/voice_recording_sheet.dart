@@ -1,4 +1,3 @@
-
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -10,6 +9,7 @@ import '../providers/stt_provider.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'package:broski/theme/app_icons.dart';
+
 /// Shows a modern voice recording overlay and returns the transcribed text.
 ///
 /// Returns null if cancelled or failed.
@@ -34,6 +34,7 @@ Future<String?> showVoiceRecordingSheet(BuildContext context) async {
     },
   );
 }
+
 /// Modern voice recording overlay with waveform visualization
 class _VoiceRecordingOverlay extends ConsumerStatefulWidget {
   const _VoiceRecordingOverlay();
@@ -41,6 +42,7 @@ class _VoiceRecordingOverlay extends ConsumerStatefulWidget {
   ConsumerState<_VoiceRecordingOverlay> createState() =>
       _VoiceRecordingOverlayState();
 }
+
 class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
     with TickerProviderStateMixin {
   Timer? _durationTimer;
@@ -75,6 +77,7 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
       _startRecording();
     });
   }
+
   @override
   void dispose() {
     _durationTimer?.cancel();
@@ -83,6 +86,7 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
     _waveController.dispose();
     super.dispose();
   }
+
   Timer? _waveTimer;
   void _startWaveformAnimation() {
     _waveController.repeat();
@@ -104,11 +108,13 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
       }
     });
   }
+
   void _stopWaveformAnimation() {
     _waveTimer?.cancel();
     _waveTimer = null;
     _waveController.stop();
   }
+
   Future<void> _startRecording() async {
     final notifier = ref.read(sttProvider.notifier);
     final success = await notifier.startRecording();
@@ -134,6 +140,7 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
       HapticFeedback.heavyImpact();
     }
   }
+
   Future<void> _stopAndTranscribe() async {
     if (_isProcessing) return;
     setState(() {
@@ -157,6 +164,7 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
       HapticFeedback.heavyImpact();
     }
   }
+
   Future<void> _cancel() async {
     _durationTimer?.cancel();
     _stopWaveformAnimation();
@@ -167,6 +175,7 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
       Navigator.of(context).pop(null);
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final sttState = ref.watch(sttProvider);
@@ -187,10 +196,7 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
               decoration: BoxDecoration(
                 color: ocTheme.backgroundPanel,
                 borderRadius: Radii.brXxl,
-                border: Border.all(
-                  color: ocTheme.borderSubtle,
-                  width: 1,
-                ),
+                border: Border.all(color: ocTheme.borderSubtle, width: 1),
                 boxShadow: [
                   BoxShadow(
                     color: ocTheme.bgDeep.withValues(alpha: 0.4),
@@ -333,12 +339,14 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
       ),
     );
   }
+
   String _formatDuration(Duration d) {
     final minutes = d.inMinutes;
     final seconds = d.inSeconds % 60;
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 }
+
 /// Circular action button with optional loading state
 class _CircleButton extends StatelessWidget {
   const _CircleButton({
@@ -381,6 +389,7 @@ class _CircleButton extends StatelessWidget {
     );
   }
 }
+
 /// Animated waveform visualization with vertical bars
 class _AnimatedWaveform extends StatelessWidget {
   const _AnimatedWaveform({
@@ -423,6 +432,7 @@ class _AnimatedWaveform extends StatelessWidget {
     );
   }
 }
+
 /// Error display with retry option
 class _ErrorDisplay extends StatelessWidget {
   const _ErrorDisplay({required this.error, required this.onRetry});
@@ -432,71 +442,62 @@ class _ErrorDisplay extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Builder(builder: (context) {
-        final ocTheme = OpenCodeTheme.of(context);
-        return Container(
-          padding: Insets.card,
-          decoration: BoxDecoration(
-            color: ocTheme.error.withValues(alpha: 0.1),
-            borderRadius: Radii.brLg,
-            border: Border.all(
-              color: ocTheme.error.withValues(alpha: 0.3),
-              width: 1,
-            ),
-          ),
-          child: Column(
-            children: [
-              Icon(
-                AppIcons.error,
-                color: ocTheme.error,
-                size: 32,
-              ),
-              SizedBox(height: Spacing.md),
-              Text(
-                error,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: ocTheme.text,
-                  fontSize: 13,
+        Builder(
+          builder: (context) {
+            final ocTheme = OpenCodeTheme.of(context);
+            return Container(
+              padding: Insets.card,
+              decoration: BoxDecoration(
+                color: ocTheme.error.withValues(alpha: 0.1),
+                borderRadius: Radii.brLg,
+                border: Border.all(
+                  color: ocTheme.error.withValues(alpha: 0.3),
+                  width: 1,
                 ),
               ),
-              SizedBox(height: Spacing.lg),
-              GestureDetector(
-                onTap: onRetry,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 10,
+              child: Column(
+                children: [
+                  Icon(AppIcons.error, color: ocTheme.error, size: 32),
+                  SizedBox(height: Spacing.md),
+                  Text(
+                    error,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: ocTheme.text, fontSize: 13),
                   ),
-                  decoration: BoxDecoration(
-                    color: ocTheme.bgHighlight,
-                    borderRadius: Radii.brXl,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        AppIcons.refresh,
-                        color: ocTheme.text,
-                        size: 18,
+                  SizedBox(height: Spacing.lg),
+                  GestureDetector(
+                    onTap: onRetry,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 10,
                       ),
-                      SizedBox(width: Spacing.sm),
-                      Text(
-                        'Try Again',
-                        style: TextStyle(
-                          color: ocTheme.text,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      decoration: BoxDecoration(
+                        color: ocTheme.bgHighlight,
+                        borderRadius: Radii.brXl,
                       ),
-                    ],
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(AppIcons.refresh, color: ocTheme.text, size: 18),
+                          SizedBox(width: Spacing.sm),
+                          Text(
+                            'Try Again',
+                            style: TextStyle(
+                              color: ocTheme.text,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
-            ],
-          ),
-        );
-        }),
+            );
+          },
+        ),
       ],
     );
   }

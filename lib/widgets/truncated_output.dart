@@ -1,9 +1,9 @@
-
 import 'package:flutter/material.dart';
 import '../theme/app_typography.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'package:broski/theme/app_icons.dart';
+
 /// Widget for displaying truncated tool output with head-tail preservation.
 ///
 /// Handles two truncation patterns:
@@ -42,6 +42,7 @@ class TruncatedOutput extends StatelessWidget {
     // No truncation detected, show as-is
     return _CodeBox(text: output);
   }
+
   Widget _buildFileBasedTruncation(OpenCodeTheme theme, RegExpMatch match) {
     final path = (match.group(1) ?? '').trim();
     final head = output.substring(0, match.start).trimRight();
@@ -60,6 +61,7 @@ class TruncatedOutput extends StatelessWidget {
       ],
     );
   }
+
   Widget _buildHeadTailTruncation(OpenCodeTheme theme, RegExpMatch match) {
     final omittedLines = match.group(1) ?? '0';
     final omittedSize = match.group(2) ?? '';
@@ -106,6 +108,7 @@ class TruncatedOutput extends StatelessWidget {
     );
   }
 }
+
 /// Card showing truncation info with optional action button
 class _TruncationCard extends StatelessWidget {
   const _TruncationCard({
@@ -137,9 +140,9 @@ class _TruncationCard extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: AppTypography.codeSmall(color: theme.text).copyWith(
-                height: 1.4,
-              ),
+              style: AppTypography.codeSmall(
+                color: theme.text,
+              ).copyWith(height: 1.4),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -160,6 +163,7 @@ class _TruncationCard extends StatelessWidget {
     );
   }
 }
+
 class _CodeBox extends StatelessWidget {
   const _CodeBox({required this.text});
   final String text;
@@ -176,9 +180,7 @@ class _CodeBox extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: AppTypography.codeSmall(color: theme.text).copyWith(
-          height: 1.5,
-        ),
+        style: AppTypography.codeSmall(color: theme.text).copyWith(height: 1.5),
       ),
     );
   }

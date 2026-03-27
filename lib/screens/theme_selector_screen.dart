@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_typography.dart';
@@ -10,6 +9,7 @@ import '../theme/themes/all_themes.dart';
 import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
+
 /// Theme selector screen with live preview
 /// Layout: Top half shows component preview, bottom half shows theme list
 class ThemeSelectorScreen extends ConsumerStatefulWidget {
@@ -18,6 +18,7 @@ class ThemeSelectorScreen extends ConsumerStatefulWidget {
   ConsumerState<ThemeSelectorScreen> createState() =>
       _ThemeSelectorScreenState();
 }
+
 class _ThemeSelectorScreenState extends ConsumerState<ThemeSelectorScreen> {
   late String _previewThemeId;
   final TextEditingController _searchController = TextEditingController();
@@ -27,11 +28,13 @@ class _ThemeSelectorScreenState extends ConsumerState<ThemeSelectorScreen> {
     super.initState();
     _previewThemeId = ref.read(themeProvider).themeId;
   }
+
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
+
   List<ThemeInfo> get filteredThemes {
     if (_searchQuery.isEmpty) return allThemes;
     final query = _searchQuery.toLowerCase();
@@ -41,6 +44,7 @@ class _ThemeSelectorScreenState extends ConsumerState<ThemeSelectorScreen> {
           (t.description?.toLowerCase().contains(query) ?? false);
     }).toList();
   }
+
   List<dynamic> _buildSectionedList(List<ThemeInfo> themes) {
     if (_searchQuery.isNotEmpty) return themes;
     final items = <dynamic>[];
@@ -56,13 +60,16 @@ class _ThemeSelectorScreenState extends ConsumerState<ThemeSelectorScreen> {
     }
     return items;
   }
+
   void _selectTheme(String themeId) {
     setState(() => _previewThemeId = themeId);
   }
+
   void _applyTheme() {
     ref.read(themeProvider.notifier).setTheme(_previewThemeId);
     Navigator.of(context).pop();
   }
+
   @override
   Widget build(BuildContext context) {
     final currentThemeId = ref.watch(themeProvider).themeId;
@@ -94,86 +101,88 @@ class _ThemeSelectorScreenState extends ConsumerState<ThemeSelectorScreen> {
       body: AdaptiveContainer(
         width: ContentWidth.standard,
         child: Column(
-        children: [
-          // Top half: Preview
-          Expanded(
-            flex: 5,
-            child: _ThemePreview(
-              theme: previewTheme,
-              themeName: previewInfo?.name ?? 'Unknown',
-              themeDescription: previewInfo?.description,
+          children: [
+            // Top half: Preview
+            Expanded(
+              flex: 5,
+              child: _ThemePreview(
+                theme: previewTheme,
+                themeName: previewInfo?.name ?? 'Unknown',
+                themeDescription: previewInfo?.description,
+              ),
             ),
-          ),
-          // Divider
-          Container(height: 1, color: previewTheme.borderSubtle),
-          // Bottom half: Theme list with search
-          Expanded(
-            flex: 5,
-            child: Column(
-              children: [
-                // Search bar
-                Padding(
-                  padding: Insets.cardSm,
-                  child: TextField(
-                    controller: _searchController,
-                    style: TextStyle(color: previewTheme.text),
-                    decoration: InputDecoration(
-                      hintText: 'Search themes...',
-                      hintStyle: TextStyle(color: previewTheme.textMuted),
-                      prefixIcon: Icon(
-                        AppIcons.search,
-                        color: previewTheme.textMuted,
+            // Divider
+            Container(height: 1, color: previewTheme.borderSubtle),
+            // Bottom half: Theme list with search
+            Expanded(
+              flex: 5,
+              child: Column(
+                children: [
+                  // Search bar
+                  Padding(
+                    padding: Insets.cardSm,
+                    child: TextField(
+                      controller: _searchController,
+                      style: TextStyle(color: previewTheme.text),
+                      decoration: InputDecoration(
+                        hintText: 'Search themes...',
+                        hintStyle: TextStyle(color: previewTheme.textMuted),
+                        prefixIcon: Icon(
+                          AppIcons.search,
+                          color: previewTheme.textMuted,
+                        ),
+                        filled: true,
+                        fillColor: previewTheme.backgroundElement,
+                        border: OutlineInputBorder(
+                          borderRadius: Radii.brMd,
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
                       ),
-                      filled: true,
-                      fillColor: previewTheme.backgroundElement,
-                      border: OutlineInputBorder(
-                        borderRadius: Radii.brMd,
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
+                      onChanged: (value) =>
+                          setState(() => _searchQuery = value),
                     ),
-                    onChanged: (value) => setState(() => _searchQuery = value),
                   ),
-                ),
-                // Theme list with sections
-                Expanded(
-                  child: ListView.builder(
-                    padding: Insets.cardH,
-                    itemCount: _buildSectionedList(filteredThemes).length,
-                    itemBuilder: (context, index) {
-                      final item = _buildSectionedList(filteredThemes)[index];
-                      if (item is String) {
-                        return _SectionHeader(
-                          label: item,
+                  // Theme list with sections
+                  Expanded(
+                    child: ListView.builder(
+                      padding: Insets.cardH,
+                      itemCount: _buildSectionedList(filteredThemes).length,
+                      itemBuilder: (context, index) {
+                        final item = _buildSectionedList(filteredThemes)[index];
+                        if (item is String) {
+                          return _SectionHeader(
+                            label: item,
+                            previewTheme: previewTheme,
+                          );
+                        }
+                        final themeInfo = item as ThemeInfo;
+                        final isSelected = themeInfo.id == _previewThemeId;
+                        final isCurrent = themeInfo.id == currentThemeId;
+                        return _ThemeListItem(
+                          themeInfo: themeInfo,
+                          isSelected: isSelected,
+                          isCurrent: isCurrent,
+                          isDefault: themeInfo.id == defaultThemeId,
                           previewTheme: previewTheme,
+                          onTap: () => _selectTheme(themeInfo.id),
                         );
-                      }
-                      final themeInfo = item as ThemeInfo;
-                      final isSelected = themeInfo.id == _previewThemeId;
-                      final isCurrent = themeInfo.id == currentThemeId;
-                      return _ThemeListItem(
-                        themeInfo: themeInfo,
-                        isSelected: isSelected,
-                        isCurrent: isCurrent,
-                        isDefault: themeInfo.id == defaultThemeId,
-                        previewTheme: previewTheme,
-                        onTap: () => _selectTheme(themeInfo.id),
-                      );
-                    },
+                      },
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
 }
+
 /// Theme preview showing app components with the selected theme
 class _ThemePreview extends StatelessWidget {
   const _ThemePreview({
@@ -286,7 +295,9 @@ class _ThemePreview extends StatelessWidget {
                                 ),
                                 child: Text(
                                   'const greeting = "Hello";',
-                                  style: AppTypography.codeSmall(color: theme.syntaxString),
+                                  style: AppTypography.codeSmall(
+                                    color: theme.syntaxString,
+                                  ),
                                 ),
                               ),
                             ],
@@ -352,14 +363,16 @@ class _ThemePreview extends StatelessWidget {
                             children: [
                               Text(
                                 '+',
-                                style: AppTypography.codeSmall(color: theme.diffAdded).copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                style: AppTypography.codeSmall(
+                                  color: theme.diffAdded,
+                                ).copyWith(fontWeight: FontWeight.bold),
                               ),
                               SizedBox(width: Spacing.sm),
                               Text(
                                 'Added line',
-                                style: AppTypography.codeSmall(color: theme.diffAdded),
+                                style: AppTypography.codeSmall(
+                                  color: theme.diffAdded,
+                                ),
                               ),
                             ],
                           ),
@@ -385,7 +398,9 @@ class _ThemePreview extends StatelessWidget {
                               SizedBox(width: Spacing.sm),
                               Text(
                                 'Removed line',
-                                style: AppTypography.codeSmall(color: theme.diffRemoved),
+                                style: AppTypography.codeSmall(
+                                  color: theme.diffRemoved,
+                                ),
                               ),
                             ],
                           ),
@@ -402,6 +417,7 @@ class _ThemePreview extends StatelessWidget {
     );
   }
 }
+
 class _PreviewCard extends StatelessWidget {
   const _PreviewCard({required this.theme, required this.child});
   final OpenCodeTheme theme;
@@ -420,6 +436,7 @@ class _PreviewCard extends StatelessWidget {
     );
   }
 }
+
 class _StatusChip extends StatelessWidget {
   const _StatusChip({
     required this.label,
@@ -459,11 +476,9 @@ class _StatusChip extends StatelessWidget {
     );
   }
 }
+
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({
-    required this.label,
-    required this.previewTheme,
-  });
+  const _SectionHeader({required this.label, required this.previewTheme});
   final String label;
   final OpenCodeTheme previewTheme;
   @override
@@ -482,6 +497,7 @@ class _SectionHeader extends StatelessWidget {
     );
   }
 }
+
 /// Theme list item
 class _ThemeListItem extends StatelessWidget {
   const _ThemeListItem({
@@ -552,8 +568,9 @@ class _ThemeListItem extends StatelessWidget {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color:
-                                    previewTheme.primary.withValues(alpha: 0.12),
+                                color: previewTheme.primary.withValues(
+                                  alpha: 0.12,
+                                ),
                                 borderRadius: Radii.brXs,
                               ),
                               child: Text(

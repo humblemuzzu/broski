@@ -53,9 +53,7 @@ void showHelpDialog(
               'Custom Commands',
               commands
                   .where((c) => !c.builtin)
-                  .map(
-                    (c) => ('/${c.name}', c.description ?? 'No description'),
-                  )
+                  .map((c) => ('/${c.name}', c.description ?? 'No description'))
                   .toList(),
               theme,
             ),
@@ -91,10 +89,7 @@ Widget _buildCommandSection(
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: theme.bgDeep,
                   borderRadius: Radii.brXs,

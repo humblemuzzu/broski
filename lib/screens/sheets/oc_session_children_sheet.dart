@@ -7,6 +7,7 @@ import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import '../../utils/error_utils.dart';
 import '../../widgets/chat/detail_sheet.dart';
+import '../../widgets/chat/section_header.dart';
 
 /// Shows the OpenCode session fork tree sheet.
 ///
@@ -172,15 +173,7 @@ class _OcSessionChildrenContentState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Parent Session',
-                  style: TextStyle(
-                    color: oc.textMuted,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
-                ),
+                SectionHeader(title: 'Parent Session', theme: oc),
                 SizedBox(height: Spacing.xxs),
                 Text(
                   widget.sessionId,

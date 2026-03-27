@@ -1,4 +1,3 @@
-
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -23,12 +22,15 @@ import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+
 class BrowseScreen extends ConsumerStatefulWidget {
   const BrowseScreen({super.key, this.initialPath});
   final String? initialPath;
   @override
   ConsumerState<BrowseScreen> createState() => _BrowseScreenState();
 }
+
 class _BrowseScreenState extends ConsumerState<BrowseScreen>
     with SingleTickerProviderStateMixin {
   late String _path;
@@ -59,6 +61,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     _loadInitialPath();
     _loadFileStatus();
   }
+
   void _handleSelectionChange(SelectionState? previous, SelectionState next) {
     final nextProjectPath = next.project?.path;
     if (nextProjectPath == null || nextProjectPath.isEmpty) return;
@@ -69,6 +72,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     // This matches the "tap project, later Browse shows that project" expectation.
     _setPath(nextProjectPath, persist: false, userInitiated: false);
   }
+
   Future<void> _loadInitialPath() async {
     if (widget.initialPath != null) return;
     // If a project is already selected, prefer showing it in Browse (unless user navigated).
@@ -92,10 +96,12 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     });
     _loadFileStatus();
   }
+
   Future<void> _persistPath(String path) async {
     final storage = ref.read(storageServiceProvider);
     await storage.saveLastBrowsePath(path);
   }
+
   void _setPath(
     String path, {
     required bool persist,
@@ -112,6 +118,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     }
     _loadFileStatus();
   }
+
   // Feature 18: Load git file status
   Future<void> _loadFileStatus() async {
     try {
@@ -130,21 +137,25 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       // File status might not be available
     }
   }
+
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
+
   Future<List<dynamic>> _loadItems() {
     final bridge = ref.read(bridgeServiceProvider);
     return bridge.browse(_path);
   }
+
   Future<void> _refresh() async {
     setState(() {
       _itemsFuture = _loadItems();
     });
     await _itemsFuture;
   }
+
   Future<void> _viewFile(String filePath) async {
     setState(() {
       _viewingFilePath = filePath;
@@ -207,19 +218,14 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       }
     } catch (e) {
       if (mounted) {
-        final theme = OpenCodeTheme.of(context);
         setState(() {
           _isLoadingFile = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to load file: ${humanizeError(e)}'),
-            backgroundColor: theme.error,
-          ),
-        );
+        showError(context, 'Failed to load file: ${humanizeError(e)}');
       }
     }
   }
+
   Uint8List? _tryDecodeBase64(String content) {
     try {
       return base64Decode(content);
@@ -227,6 +233,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       return null;
     }
   }
+
   void _closeFileViewer() {
     setState(() {
       _viewingFilePath = null;
@@ -235,6 +242,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       _fileTooLargeMessage = null;
     });
   }
+
   // Feature 12: Search
   Future<void> _performSearch() async {
     final query = _searchController.text.trim();
@@ -304,17 +312,12 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       }
     } catch (e) {
       if (mounted) {
-        final theme = OpenCodeTheme.of(context);
         setState(() => _isSearching = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Search failed: ${humanizeError(e)}'),
-            backgroundColor: theme.error,
-          ),
-        );
+        showError(context, 'Search failed: ${humanizeError(e)}');
       }
     }
   }
+
   void _clearSearch() {
     setState(() {
       _searchController.clear();
@@ -323,6 +326,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       _symbolResults = null;
     });
   }
+
   bool _handleBackNavigation() {
     if (_viewingFilePath != null) {
       _closeFileViewer();
@@ -339,6 +343,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     }
     return false;
   }
+
   Widget _buildFileViewerScreen(OpenCodeTheme theme) {
     final filename = _viewingFilePath!.split('/').last;
     final language = FileContent.languageFromPath(_viewingFilePath!);
@@ -362,10 +367,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
                 fontWeight: FontWeight.w600,
               ),
             ),
-            Text(
-              language,
-              style: AppTypography.label(color: theme.textMuted),
-            ),
+            Text(language, style: AppTypography.label(color: theme.textMuted)),
           ],
         ),
         actions: [
@@ -377,12 +379,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
                 Clipboard.setData(
                   ClipboardData(text: _viewingFileContent!.content),
                 );
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('Copied to clipboard'),
-                    backgroundColor: theme.backgroundPanel,
-                  ),
-                );
+                showSuccess(context, 'Copied to clipboard');
               },
             ),
         ],
@@ -390,6 +387,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       body: _buildFileViewerBody(theme),
     );
   }
+
   Widget _buildFileViewerBody(OpenCodeTheme theme) {
     if (_isLoadingFile) {
       return Center(child: CircularProgressIndicator(color: theme.primary));
@@ -425,6 +423,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       mimeType: _viewingFileContent?.mime,
     );
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -562,6 +561,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       ),
     );
   }
+
   String _getDisplayPath() {
     final parts = _path.split('/');
     if (parts.length > 2) {
@@ -569,14 +569,13 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     }
     return _path;
   }
+
   void _showPathBreadcrumb() {
     final theme = OpenCodeTheme.of(context);
     showModalBottomSheet(
       context: context,
       backgroundColor: theme.backgroundPanel,
-      shape: const RoundedRectangleBorder(
-        borderRadius: Radii.sheetTop,
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: Radii.sheetTop),
       builder: (context) {
         final parts = _path.split('/').where((p) => p.isNotEmpty).toList();
         return Container(
@@ -604,7 +603,11 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
                     },
                   ),
                   for (var i = 0; i < parts.length; i++) ...[
-                    Icon(AppIcons.chevronRight, color: theme.textMuted, size: 20),
+                    Icon(
+                      AppIcons.chevronRight,
+                      color: theme.textMuted,
+                      size: 20,
+                    ),
                     _PathChip(
                       label: parts[i],
                       onTap: () {
@@ -623,6 +626,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       },
     );
   }
+
   Widget _buildSearchBar(OpenCodeTheme theme) {
     return TextField(
       controller: _searchController,
@@ -642,6 +646,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       onSubmitted: (_) => _performSearch(),
     );
   }
+
   String _getSearchHint() {
     switch (_searchType) {
       case SearchType.files:
@@ -652,6 +657,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         return 'Search symbols...';
     }
   }
+
   IconData _getSearchTypeIcon() {
     switch (_searchType) {
       case SearchType.files:
@@ -662,6 +668,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         return AppIcons.code;
     }
   }
+
   Widget _buildSearchResults(OpenCodeTheme theme) {
     if (_isSearching) {
       return Center(child: CircularProgressIndicator(color: theme.primary));
@@ -689,6 +696,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       ),
     );
   }
+
   Widget _buildFileSearchResults(OpenCodeTheme theme) {
     if (_fileResults!.isEmpty) {
       return Center(
@@ -709,6 +717,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       },
     );
   }
+
   Widget _buildTextSearchResults(OpenCodeTheme theme) {
     if (_textResults!.isEmpty) {
       return Center(
@@ -730,6 +739,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       },
     );
   }
+
   Widget _buildSymbolSearchResults(OpenCodeTheme theme) {
     if (_symbolResults!.isEmpty) {
       return Center(
@@ -751,6 +761,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       },
     );
   }
+
   Widget _buildFileBrowser(OpenCodeTheme theme) {
     return RefreshIndicator(
       onRefresh: _refresh,
@@ -855,6 +866,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       ),
     );
   }
+
   IconData _getFileIcon(String name) {
     final ext = name.split('.').last.toLowerCase();
     switch (ext) {
@@ -884,6 +896,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         return AppIcons.file;
     }
   }
+
   String _getFileSize(Map<String, dynamic> item) {
     final size = item['size'] as int?;
     if (size == null) return 'File';
@@ -891,10 +904,12 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     if (size < 1024 * 1024) return '${(size / 1024).toStringAsFixed(1)} KB';
     return '${(size / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
+
   void _navigate(String nextPath) {
     if (nextPath.isEmpty) return;
     _setPath(nextPath, persist: true, userInitiated: true);
   }
+
   void _goUp() {
     if (_path == '~') return;
     if (_path.startsWith('~/')) {
@@ -917,12 +932,14 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     }
     _navigate('/${parts.sublist(0, parts.length - 1).join('/')}');
   }
+
   String _joinPath(String base, String name) {
     if (base.isEmpty || base == '~') return '~/$name';
     if (base == '/') return '/$name';
     if (base.endsWith('/')) return '$base$name';
     return '$base/$name';
   }
+
   FileStatusInfo? _fileStatusFor(String absolutePath) {
     final selection = ref.read(selectionProvider);
     final projectPath = selection.project?.path;
@@ -936,6 +953,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     return _fileStatusMap?[relative];
   }
 }
+
 // File tile widget
 class _FileTile extends StatelessWidget {
   const _FileTile({
@@ -1004,6 +1022,7 @@ class _FileTile extends StatelessWidget {
     );
   }
 }
+
 // Feature 18: Git file status badge
 class _FileStatusBadge extends StatelessWidget {
   const _FileStatusBadge({required this.status});
@@ -1038,6 +1057,7 @@ class _FileStatusBadge extends StatelessWidget {
     );
   }
 }
+
 // Path chip for breadcrumb
 class _PathChip extends StatelessWidget {
   const _PathChip({required this.label, required this.onTap});
@@ -1067,6 +1087,7 @@ class _PathChip extends StatelessWidget {
     );
   }
 }
+
 // Search type item
 class _SearchTypeItem extends StatelessWidget {
   const _SearchTypeItem({
@@ -1101,6 +1122,7 @@ class _SearchTypeItem extends StatelessWidget {
     );
   }
 }
+
 // File search result tile
 class _FileResultTile extends StatelessWidget {
   const _FileResultTile({
@@ -1151,6 +1173,7 @@ class _FileResultTile extends StatelessWidget {
     );
   }
 }
+
 // Text search result tile
 class _TextResultTile extends StatelessWidget {
   const _TextResultTile({required this.result, required this.onTap});
@@ -1210,6 +1233,7 @@ class _TextResultTile extends StatelessWidget {
     );
   }
 }
+
 // Symbol search result tile
 class _SymbolResultTile extends StatelessWidget {
   const _SymbolResultTile({required this.result, required this.onTap});
@@ -1272,6 +1296,7 @@ class _SymbolResultTile extends StatelessWidget {
       ),
     );
   }
+
   Color _getSymbolColor(String kind, OpenCodeTheme theme) {
     switch (kind.toLowerCase()) {
       case 'class':

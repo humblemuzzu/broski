@@ -1,10 +1,11 @@
-
 import 'package:flutter/material.dart';
 
 import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
+import 'section_header.dart';
 import '../../utils/responsive.dart';
 import 'package:broski/theme/app_icons.dart';
+
 /// A reusable detail sheet for displaying tool/card details.
 /// Opens at 50% height, draggable to 90%.
 ///
@@ -26,6 +27,7 @@ class DetailSheet extends StatelessWidget {
     required this.child,
     this.trailing,
   });
+
   /// Static method to show the sheet as a modal bottom sheet
   static Future<T?> show<T>({
     required BuildContext context,
@@ -59,6 +61,7 @@ class DetailSheet extends StatelessWidget {
       ),
     );
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -103,7 +106,11 @@ class DetailSheet extends StatelessWidget {
                   alignment: Alignment.centerLeft,
                   child: IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: Icon(AppIcons.close, color: theme.textMuted, size: 24),
+                    icon: Icon(
+                      AppIcons.close,
+                      color: theme.textMuted,
+                      size: 24,
+                    ),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
@@ -121,6 +128,7 @@ class DetailSheet extends StatelessWidget {
     );
   }
 }
+
 /// A section within DetailSheet with label and content box.
 /// Used to organize content into labeled sections.
 class DetailSection extends StatelessWidget {
@@ -144,15 +152,7 @@ class DetailSection extends StatelessWidget {
           // Section label
           Padding(
             padding: Insets.bottomSm,
-            child: Text(
-              label.toUpperCase(),
-              style: TextStyle(
-                color: theme.textMuted,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
-              ),
-            ),
+            child: SectionHeader(title: label.toUpperCase(), theme: theme),
           ),
           // Content box
           Container(

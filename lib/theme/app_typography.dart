@@ -135,109 +135,91 @@ abstract final class AppTypography {
 
   /// 32px w700, -0.5 tracking — splash/hero text
   static TextStyle display({Color? color}) => _uiStyle(
-        fontSize: 32,
-        fontWeight: FontWeight.w700,
-        letterSpacing: -0.5,
-        color: color,
-      );
+    fontSize: 32,
+    fontWeight: FontWeight.w700,
+    letterSpacing: -0.5,
+    color: color,
+  );
 
   /// 28px w700, -0.3 tracking — screen titles
   static TextStyle h1({Color? color}) => _uiStyle(
-        fontSize: 28,
-        fontWeight: FontWeight.w700,
-        letterSpacing: -0.3,
-        color: color,
-      );
+    fontSize: 28,
+    fontWeight: FontWeight.w700,
+    letterSpacing: -0.3,
+    color: color,
+  );
 
   /// 22px w600, -0.2 tracking — section headings
   static TextStyle h2({Color? color}) => _uiStyle(
-        fontSize: 22,
-        fontWeight: FontWeight.w600,
-        letterSpacing: -0.2,
-        color: color,
-      );
+    fontSize: 22,
+    fontWeight: FontWeight.w600,
+    letterSpacing: -0.2,
+    color: color,
+  );
 
   /// 18px w600 — card titles, sub-section headings
-  static TextStyle h3({Color? color}) => _uiStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.w600,
-        color: color,
-      );
+  static TextStyle h3({Color? color}) =>
+      _uiStyle(fontSize: 18, fontWeight: FontWeight.w600, color: color);
 
   // ── Body Text ──
 
   /// 16px w400, 1.5 height — large body text
   static TextStyle bodyLarge({Color? color}) => _uiStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w400,
-        height: 1.5,
-        color: color,
-      );
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    height: 1.5,
+    color: color,
+  );
 
   /// 15px w400, 1.5 height — standard body text
   static TextStyle body({Color? color}) => _uiStyle(
-        fontSize: 15,
-        fontWeight: FontWeight.w400,
-        height: 1.5,
-        color: color,
-      );
+    fontSize: 15,
+    fontWeight: FontWeight.w400,
+    height: 1.5,
+    color: color,
+  );
 
   /// 13px w400, 1.4 height — secondary/small body text
   static TextStyle bodySmall({Color? color}) => _uiStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w400,
-        height: 1.4,
-        color: color,
-      );
+    fontSize: 13,
+    fontWeight: FontWeight.w400,
+    height: 1.4,
+    color: color,
+  );
 
   // ── Labels & Captions ──
 
   /// 14px w600 — button text, prominent labels
-  static TextStyle labelLarge({Color? color}) => _uiStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-        color: color,
-      );
+  static TextStyle labelLarge({Color? color}) =>
+      _uiStyle(fontSize: 14, fontWeight: FontWeight.w600, color: color);
 
   /// 12px w500 — secondary labels, metadata
-  static TextStyle label({Color? color}) => _uiStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-        color: color,
-      );
+  static TextStyle label({Color? color}) =>
+      _uiStyle(fontSize: 12, fontWeight: FontWeight.w500, color: color);
 
   /// 11px w500, +0.3 tracking — uppercase micro-labels
   static TextStyle labelSmall({Color? color}) => _uiStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w500,
-        letterSpacing: 0.3,
-        color: color,
-      );
+    fontSize: 11,
+    fontWeight: FontWeight.w500,
+    letterSpacing: 0.3,
+    color: color,
+  );
 
   /// 11px w400 — timestamps, helper text
-  static TextStyle caption({Color? color}) => _uiStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w400,
-        color: color,
-      );
+  static TextStyle caption({Color? color}) =>
+      _uiStyle(fontSize: 11, fontWeight: FontWeight.w400, color: color);
 
   // ── Code (user-selectable monospace) ──
 
   /// 13px monospace — code blocks, terminal output, diffs
-  static TextStyle code({Color? color}) => _codeStyle(
-        fontSize: 13,
-        color: color,
-      );
+  static TextStyle code({Color? color}) =>
+      _codeStyle(fontSize: 13, color: color);
 
   /// 11px monospace — compact code, line numbers, badges
-  static TextStyle codeSmall({Color? color}) => _codeStyle(
-        fontSize: 11,
-        color: color,
-      );
+  static TextStyle codeSmall({Color? color}) =>
+      _codeStyle(fontSize: 11, color: color);
 
   /// 14px monospace — terminal default size
-  static TextStyle codeLarge({Color? color}) => _codeStyle(
-        fontSize: 14,
-        color: color,
-      );
+  static TextStyle codeLarge({Color? color}) =>
+      _codeStyle(fontSize: 14, color: color);
 }

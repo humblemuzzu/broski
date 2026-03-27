@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import '../theme/app_typography.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +6,7 @@ import 'package:xterm/xterm.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'package:broski/theme/app_icons.dart';
+
 class TerminalQuickToolbar extends StatelessWidget {
   const TerminalQuickToolbar({super.key, required this.terminal});
   final Terminal terminal;
@@ -75,6 +75,7 @@ class TerminalQuickToolbar extends StatelessWidget {
     );
   }
 }
+
 class _KeyButton extends StatelessWidget {
   const _KeyButton({this.label, this.icon, required this.onTap});
   final String? label;

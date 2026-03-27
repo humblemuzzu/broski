@@ -13,6 +13,7 @@ import '../theme/app_typography.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'chat/detail_sheet.dart';
+import 'chat/section_header.dart';
 import 'package:broski/theme/app_icons.dart';
 
 // =============================================================================
@@ -248,7 +249,7 @@ class _ClaudeCodePermissionContentState
           _BackendBadge(label: 'Claude Code', theme: theme),
           SizedBox(height: Spacing.lg),
           // ── PERMISSION MODE ──
-          _SectionLabel(text: 'PERMISSION MODE', theme: theme),
+          SectionHeader(title: 'PERMISSION MODE', theme: theme),
           const SizedBox(height: 10),
           ...ClaudeCodePermissionMode.values.map(
             (mode) => _PermissionModeOption(
@@ -291,7 +292,7 @@ class _ClaudeCodePermissionContentState
           ),
           SizedBox(height: Spacing.xl),
           // ── ALLOWED TOOLS ──
-          _SectionLabel(text: 'ALLOWED TOOLS', theme: theme),
+          SectionHeader(title: 'ALLOWED TOOLS', theme: theme),
           SizedBox(height: Spacing.xs),
           Text(
             'Tools the agent can use without asking',
@@ -313,7 +314,7 @@ class _ClaudeCodePermissionContentState
           ),
           SizedBox(height: Spacing.xl),
           // ── DISALLOWED TOOLS ──
-          _SectionLabel(text: 'DISALLOWED TOOLS', theme: theme),
+          SectionHeader(title: 'DISALLOWED TOOLS', theme: theme),
           SizedBox(height: Spacing.xs),
           Text(
             'Tools the agent cannot use at all',
@@ -363,7 +364,7 @@ class _CodexPermissionContent extends ConsumerWidget {
           _BackendBadge(label: 'Codex', theme: theme),
           SizedBox(height: Spacing.lg),
           // ── APPROVAL POLICY ──
-          _SectionLabel(text: 'APPROVAL POLICY', theme: theme),
+          SectionHeader(title: 'APPROVAL POLICY', theme: theme),
           SizedBox(height: Spacing.xs),
           Text(
             'Controls when Codex asks for your approval',
@@ -380,7 +381,7 @@ class _CodexPermissionContent extends ConsumerWidget {
           ),
           SizedBox(height: Spacing.xl),
           // ── SANDBOX MODE ──
-          _SectionLabel(text: 'SANDBOX MODE', theme: theme),
+          SectionHeader(title: 'SANDBOX MODE', theme: theme),
           SizedBox(height: Spacing.xs),
           Text(
             'Controls filesystem access for the agent',
@@ -397,7 +398,7 @@ class _CodexPermissionContent extends ConsumerWidget {
           ),
           SizedBox(height: Spacing.xl),
           // ── NETWORK ACCESS ──
-          _SectionLabel(text: 'NETWORK ACCESS', theme: theme),
+          SectionHeader(title: 'NETWORK ACCESS', theme: theme),
           const SizedBox(height: 10),
           _ToggleRow(
             label: 'Allow network access',
@@ -519,7 +520,7 @@ class _OpenCodeRulesContentState extends State<_OpenCodeRulesContent> {
           _BackendBadge(label: 'OpenCode', theme: theme),
           SizedBox(height: Spacing.lg),
           // Quick presets section
-          _SectionLabel(text: 'QUICK PRESETS', theme: theme),
+          SectionHeader(title: 'QUICK PRESETS', theme: theme),
           const SizedBox(height: 10),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -543,7 +544,7 @@ class _OpenCodeRulesContentState extends State<_OpenCodeRulesContent> {
           // Rules section header
           Row(
             children: [
-              _SectionLabel(text: 'RULES', theme: theme),
+              SectionHeader(title: 'RULES', theme: theme),
               const Spacer(),
               Text(
                 '${_rules.length} rule${_rules.length == 1 ? '' : 's'}',
@@ -632,25 +633,6 @@ class _BackendBadge extends StatelessWidget {
         style: AppTypography.codeSmall(
           color: theme.primary,
         ).copyWith(fontWeight: FontWeight.w600),
-      ),
-    );
-  }
-}
-
-/// Uppercase section label.
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel({required this.text, required this.theme});
-  final String text;
-  final OpenCodeTheme theme;
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: TextStyle(
-        color: theme.textMuted,
-        fontSize: 11,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 0.5,
       ),
     );
   }

@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_typography.dart';
@@ -10,6 +9,8 @@ import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+
 class MarkdownFileEditorScreen extends StatefulWidget {
   const MarkdownFileEditorScreen({
     super.key,
@@ -43,6 +44,7 @@ class MarkdownFileEditorScreen extends StatefulWidget {
   State<MarkdownFileEditorScreen> createState() =>
       _MarkdownFileEditorScreenState();
 }
+
 class _MarkdownFileEditorScreenState extends State<MarkdownFileEditorScreen> {
   late final TextEditingController _nameCtrl;
   late final TextEditingController _contentCtrl;
@@ -53,27 +55,25 @@ class _MarkdownFileEditorScreenState extends State<MarkdownFileEditorScreen> {
     _nameCtrl = TextEditingController(text: widget.initialName);
     _contentCtrl = TextEditingController(text: widget.initialContent);
   }
+
   @override
   void dispose() {
     _nameCtrl.dispose();
     _contentCtrl.dispose();
     super.dispose();
   }
+
   Future<void> _save() async {
     if (widget.readOnly) return;
     final name = _nameCtrl.text.trim();
     final pattern = widget.namePattern;
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Name is required')),
-      );
+      showInfo(context, 'Name is required');
       return;
     }
     if (pattern != null && !pattern.hasMatch(name)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(widget.nameHint ?? 'Invalid name'),
-        ),
+        SnackBar(content: Text(widget.nameHint ?? 'Invalid name')),
       );
       return;
     }
@@ -89,18 +89,15 @@ class _MarkdownFileEditorScreenState extends State<MarkdownFileEditorScreen> {
         Navigator.pop(context, true);
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Save failed')),
-      );
+      showInfo(context, 'Save failed');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Save failed: ${humanizeError(e)}')),
-      );
+      showInfo(context, 'Save failed: ${humanizeError(e)}');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
+
   Future<void> _delete() async {
     if (widget.readOnly) return;
     final onDelete = widget.onDelete;
@@ -131,18 +128,15 @@ class _MarkdownFileEditorScreenState extends State<MarkdownFileEditorScreen> {
         Navigator.pop(context, true);
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Delete failed')),
-      );
+      showInfo(context, 'Delete failed');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Delete failed: ${humanizeError(e)}')),
-      );
+      showInfo(context, 'Delete failed: ${humanizeError(e)}');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
@@ -161,9 +155,7 @@ class _MarkdownFileEditorScreenState extends State<MarkdownFileEditorScreen> {
                 : () async {
                     await Clipboard.setData(ClipboardData(text: widget.path!));
                     if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Path copied')),
-                    );
+                    showInfo(context, 'Path copied');
                   },
             icon: const Icon(AppIcons.copy),
           ),
@@ -184,75 +176,71 @@ class _MarkdownFileEditorScreenState extends State<MarkdownFileEditorScreen> {
       body: AdaptiveContainer(
         width: ContentWidth.standard,
         child: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        widget.source.displayName,
-                        style: TextStyle(
-                          color: oc.textMuted,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const Spacer(),
-                      if (widget.path != null && widget.path!.isNotEmpty)
-                        Flexible(
-                          child: Text(
-                            widget.path!,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTypography.label(color: oc.textMuted),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          widget.source.displayName,
+                          style: TextStyle(
+                            color: oc.textMuted,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: _nameCtrl,
-                    readOnly: nameReadOnly,
-                    decoration: InputDecoration(
-                      labelText: 'Name',
-                      hintText: widget.nameHint,
-                      filled: true,
-                      fillColor: oc.backgroundPanel,
-                      border: OutlineInputBorder(
-                        borderRadius: Radii.brMd,
+                        const Spacer(),
+                        if (widget.path != null && widget.path!.isNotEmpty)
+                          Flexible(
+                            child: Text(
+                              widget.path!,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.label(color: oc.textMuted),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _nameCtrl,
+                      readOnly: nameReadOnly,
+                      decoration: InputDecoration(
+                        labelText: 'Name',
+                        hintText: widget.nameHint,
+                        filled: true,
+                        fillColor: oc.backgroundPanel,
+                        border: OutlineInputBorder(borderRadius: Radii.brMd),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: TextField(
-                  controller: _contentCtrl,
-                  readOnly: widget.readOnly,
-                  expands: true,
-                  minLines: null,
-                  maxLines: null,
-                  style: AppTypography.code(color: oc.text),
-                  decoration: InputDecoration(
-                    labelText: 'Content',
-                    alignLabelWithHint: true,
-                    filled: true,
-                    fillColor: oc.backgroundPanel,
-                    border: OutlineInputBorder(
-                      borderRadius: Radii.brMd,
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: TextField(
+                    controller: _contentCtrl,
+                    readOnly: widget.readOnly,
+                    expands: true,
+                    minLines: null,
+                    maxLines: null,
+                    style: AppTypography.code(color: oc.text),
+                    decoration: InputDecoration(
+                      labelText: 'Content',
+                      alignLabelWithHint: true,
+                      filled: true,
+                      fillColor: oc.backgroundPanel,
+                      border: OutlineInputBorder(borderRadius: Radii.brMd),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
       ),
     );
   }

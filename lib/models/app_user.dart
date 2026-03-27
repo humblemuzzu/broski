@@ -23,7 +23,9 @@ class AppUser {
       displayName: json['displayName'] as String?,
       photoUrl: json['photoUrl'] as String?,
       subscription: json['subscription'] is Map<String, dynamic>
-          ? AppSubscription.fromJson(json['subscription'] as Map<String, dynamic>)
+          ? AppSubscription.fromJson(
+              json['subscription'] as Map<String, dynamic>,
+            )
           : null,
     );
   }
@@ -53,4 +55,3 @@ class AppSubscription {
     );
   }
 }
-

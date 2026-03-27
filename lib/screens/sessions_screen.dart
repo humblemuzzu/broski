@@ -42,6 +42,7 @@ import '../widgets/sessions/child_session_card.dart';
 import '../widgets/sessions/highlighted_card.dart';
 import '../widgets/sessions/session_card.dart';
 import '../widgets/sessions/session_helpers.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 class SessionsScreen extends ConsumerStatefulWidget {
   const SessionsScreen({super.key});
@@ -619,22 +620,11 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       projectPath: session.directory,
     );
     if (!mounted) return;
-    final ocTheme = OpenCodeTheme.of(context);
     if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Session deleted'),
-          backgroundColor: ocTheme.backgroundPanel,
-        ),
-      );
+      showSuccess(context, 'Session deleted');
       _refresh();
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Failed to delete session'),
-          backgroundColor: ocTheme.error,
-        ),
-      );
+      showError(context, 'Failed to delete session');
     }
   }
 
@@ -774,17 +764,10 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
   /// Stop/abort a session
   void _stopSession(SessionSummary session) {
     final bridge = ref.read(bridgeServiceProvider);
-    final ocTheme = OpenCodeTheme.of(context);
     // Send abort to bridge (directory is the project path)
     bridge.abortSession(session.id, projectPath: session.directory);
     // Show confirmation
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Stop signal sent to session'),
-        backgroundColor: ocTheme.backgroundPanel,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    showSuccess(context, 'Stop signal sent to session');
     // Refresh session statuses after a short delay
     Future.delayed(const Duration(milliseconds: 500), () {
       ref.read(globalSessionStatusProvider.notifier).fetchAllStatuses();
@@ -831,7 +814,6 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
   /// Share a session and copy the URL to clipboard
   Future<void> _shareSession(SessionSummary session) async {
     final bridge = ref.read(bridgeServiceProvider);
-    final ocTheme = OpenCodeTheme.of(context);
     try {
       final updated = await bridge.shareSession(
         session.id,
@@ -844,23 +826,11 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       if (url.isNotEmpty) {
         await Clipboard.setData(ClipboardData(text: url));
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Share link copied to clipboard'),
-            backgroundColor: ocTheme.backgroundPanel,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        showSuccess(context, 'Share link copied to clipboard');
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Failed to share session'),
-          backgroundColor: ocTheme.error,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      showError(context, 'Failed to share session');
     }
   }
 
@@ -894,22 +864,10 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       if (!mounted) return;
       // Refresh sessions list
       ref.invalidate(sessionsListProvider);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Session unshared'),
-          backgroundColor: ocTheme.backgroundPanel,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      showSuccess(context, 'Session unshared');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Failed to unshare session'),
-          backgroundColor: ocTheme.error,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      showError(context, 'Failed to unshare session');
     }
   }
 
@@ -969,13 +927,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       _refresh();
     } catch (e) {
       if (!mounted) return;
-      final ocTheme = OpenCodeTheme.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to create session: ${humanizeError(e)}'),
-          backgroundColor: ocTheme.error,
-        ),
-      );
+      showError(context, 'Failed to create session: ${humanizeError(e)}');
     }
   }
 
@@ -1019,52 +971,27 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
         projectPath: session.directory,
       );
       if (!mounted) return;
-      final ocTheme = OpenCodeTheme.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Session renamed to "$newTitle"'),
-          backgroundColor: ocTheme.backgroundPanel,
-        ),
-      );
+      showSuccess(context, 'Session renamed to "$newTitle"');
       _refresh();
     } catch (e) {
       if (!mounted) return;
-      final ocTheme = OpenCodeTheme.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Failed to rename session'),
-          backgroundColor: ocTheme.error,
-        ),
-      );
+      showError(context, 'Failed to rename session');
     }
   }
 
   Future<void> _forkSession(SessionSummary session) async {
     final bridge = ref.read(bridgeServiceProvider);
-    final ocTheme = OpenCodeTheme.of(context);
     try {
       final forked = await bridge.forkSession(
         session.id,
         projectPath: session.directory,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Forked: ${forked.title}'),
-          backgroundColor: ocTheme.backgroundPanel,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      showSuccess(context, 'Forked: ${forked.title}');
       _refresh();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Fork failed: ${humanizeError(e)}'),
-          backgroundColor: ocTheme.error,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      showError(context, 'Fork failed: ${humanizeError(e)}');
     }
   }
 }

@@ -63,7 +63,8 @@ class SessionContext {
     double? totalCostUsd,
     double? budgetLimitUsd,
     List<ModifiedFile> modifiedFiles = const [],
-    int contextWindow = kDefaultContextWindow, // SDK v2.1.6+: Allow custom context window
+    int contextWindow =
+        kDefaultContextWindow, // SDK v2.1.6+: Allow custom context window
     // Per-turn context tokens from SDK usage.iterations[-1].
     // This is the actual context window occupancy (input + cacheRead + cacheWrite
     // for a single API call), NOT cumulative across all turns.
@@ -78,7 +79,8 @@ class SessionContext {
     //   2. RTS per-message replay: per-turn fields, no lastIterContextTokens
     //      → input + cacheRead + cacheWrite IS per-turn context (correct)
     final total = inputTokens + outputTokens;
-    final contextTokens = lastIterContextTokens ??
+    final contextTokens =
+        lastIterContextTokens ??
         (inputTokens + cacheReadTokens + cacheWriteTokens);
     return SessionContext(
       tokens: TokenUsage(

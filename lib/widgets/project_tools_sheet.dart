@@ -25,6 +25,7 @@ import '../screens/plugins_screen.dart';
 import '../screens/tools_screen.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
+import 'chat/section_header.dart';
 import 'chat/detail_sheet.dart';
 import 'package:broski/theme/app_icons.dart';
 
@@ -85,15 +86,7 @@ class _ProjectToolsContent extends StatelessWidget {
   Widget _sectionLabel(OpenCodeTheme theme, String text) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 18, 16, 10),
-      child: Text(
-        text.toUpperCase(),
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: theme.textMuted,
-          letterSpacing: 0.5,
-        ),
-      ),
+      child: SectionHeader(title: text.toUpperCase(), theme: theme),
     );
   }
 

@@ -119,10 +119,7 @@ class _OnboardingTerminalCardState extends State<OnboardingTerminalCard>
                       _tPromptLine('~/project', 'npm run build'),
                       _tLine('> vite build', null),
                       const SizedBox(height: 6),
-                      _tLine(
-                        'vite v4.4.9 building for production...',
-                        null,
-                      ),
+                      _tLine('vite v4.4.9 building for production...', null),
                       _tLine(
                         'transforming...',
                         Colors.white.withValues(alpha: 0.45),

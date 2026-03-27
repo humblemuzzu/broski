@@ -101,9 +101,7 @@ class _ActionButton extends StatelessWidget {
         style: TextButton.styleFrom(
           foregroundColor: ocTheme.text,
           backgroundColor: ocTheme.background,
-          shape: RoundedRectangleBorder(
-            borderRadius: Radii.brSm,
-          ),
+          shape: RoundedRectangleBorder(borderRadius: Radii.brSm),
         ),
         child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
       ),

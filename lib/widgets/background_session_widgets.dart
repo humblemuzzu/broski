@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,6 +6,7 @@ import '../providers/sessions_provider.dart';
 import '../theme/design_tokens.dart';
 import '../theme/opencode_theme.dart';
 import 'package:broski/theme/app_icons.dart';
+
 // ============================================================
 // Active Sessions Section
 // ============================================================
@@ -51,10 +51,7 @@ class ActiveSessionsSection extends ConsumerWidget {
           // Header
           Row(
             children: [
-              _PulsingIcon(
-                color: ocTheme.info,
-                icon: AppIcons.play,
-              ),
+              _PulsingIcon(color: ocTheme.info, icon: AppIcons.play),
               SizedBox(width: Spacing.md),
               Expanded(
                 child: Column(
@@ -97,6 +94,7 @@ class ActiveSessionsSection extends ConsumerWidget {
     );
   }
 }
+
 // ============================================================
 // Active Session Card
 // ============================================================
@@ -109,6 +107,7 @@ class _ActiveSessionCard extends StatelessWidget {
   String _getProjectName() {
     return session.directory.split('/').where((item) => item.isNotEmpty).last;
   }
+
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -205,6 +204,7 @@ class _ActiveSessionCard extends StatelessWidget {
     );
   }
 }
+
 // ============================================================
 // Floating Active Indicator
 // ============================================================
@@ -253,10 +253,7 @@ class FloatingActiveIndicator extends ConsumerWidget {
           child: Row(
             children: [
               // Pulsing indicator
-              _PulsingIcon(
-                color: ocTheme.info,
-                icon: AppIcons.play,
-              ),
+              _PulsingIcon(color: ocTheme.info, icon: AppIcons.play),
               SizedBox(width: Spacing.md),
               // Text
               Expanded(
@@ -288,6 +285,7 @@ class FloatingActiveIndicator extends ConsumerWidget {
     );
   }
 }
+
 // ============================================================
 // Helper Widgets
 // ============================================================
@@ -299,6 +297,7 @@ class _PulsingIcon extends StatefulWidget {
   @override
   State<_PulsingIcon> createState() => _PulsingIconState();
 }
+
 class _PulsingIconState extends State<_PulsingIcon>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
@@ -315,11 +314,13 @@ class _PulsingIconState extends State<_PulsingIcon>
       end: 1.0,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(

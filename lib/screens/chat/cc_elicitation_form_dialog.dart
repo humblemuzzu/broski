@@ -6,6 +6,7 @@ import '../../models/message.dart';
 import '../../theme/opencode_theme.dart';
 import '../../theme/design_tokens.dart';
 import '../../theme/app_typography.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 
 Future<Map<String, dynamic>?> showCcElicitationFormInputDialog(
   BuildContext context,
@@ -96,12 +97,7 @@ Future<Map<String, dynamic>?> showCcElicitationFormInputDialog(
                     dialogContext,
                   ).pop(decoded.cast<String, dynamic>());
                 } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Invalid JSON: $e'),
-                      backgroundColor: ocTheme.error,
-                    ),
-                  );
+                  showError(context, 'Invalid JSON: $e');
                 }
               },
               style: FilledButton.styleFrom(

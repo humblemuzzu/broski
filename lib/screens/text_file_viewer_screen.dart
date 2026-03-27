@@ -1,4 +1,3 @@
-
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -14,6 +13,7 @@ import '../utils/responsive.dart';
 import '../widgets/adaptive_container.dart';
 import 'package:broski/theme/app_icons.dart';
 import '../utils/error_utils.dart';
+
 class TextFileViewerScreen extends ConsumerStatefulWidget {
   const TextFileViewerScreen({
     super.key,
@@ -28,6 +28,7 @@ class TextFileViewerScreen extends ConsumerStatefulWidget {
   ConsumerState<TextFileViewerScreen> createState() =>
       _TextFileViewerScreenState();
 }
+
 class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
   bool _loading = true;
   String? _error;
@@ -39,6 +40,7 @@ class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
     super.initState();
     _load();
   }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -78,11 +80,13 @@ class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
       });
     }
   }
+
   String _formatBytes(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
+
   Widget _buildBinaryView(OpenCodeTheme oc) {
     final file = _fileContent;
     if (file == null) {
@@ -140,6 +144,7 @@ class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
       ),
     );
   }
+
   Widget _buildBinaryPlaceholder(
     OpenCodeTheme oc, {
     required String fileName,
@@ -172,18 +177,27 @@ class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
         SizedBox(height: Spacing.xs),
         Text(
           fileName,
-          style: TextStyle(fontFamily: AppTypography.uiFontFamily, fontSize: 12, color: oc.textMuted),
+          style: TextStyle(
+            fontFamily: AppTypography.uiFontFamily,
+            fontSize: 12,
+            color: oc.textMuted,
+          ),
         ),
         if (subtitle != null) ...[
           SizedBox(height: Spacing.xxs),
           Text(
             subtitle,
-            style: TextStyle(fontFamily: AppTypography.uiFontFamily, fontSize: 11, color: oc.textMuted),
+            style: TextStyle(
+              fontFamily: AppTypography.uiFontFamily,
+              fontSize: 11,
+              color: oc.textMuted,
+            ),
           ),
         ],
       ],
     );
   }
+
   @override
   Widget build(BuildContext context) {
     final oc = OpenCodeTheme.of(context);
@@ -210,28 +224,28 @@ class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
       body: AdaptiveContainer(
         width: ContentWidth.standard,
         child: SafeArea(
-        child: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : _error != null
-            ? Center(
-                child: Padding(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+              ? Center(
+                  child: Padding(
+                    padding: Insets.card,
+                    child: Text(_error!, style: TextStyle(color: oc.textMuted)),
+                  ),
+                )
+              : isBinary
+              ? _buildBinaryView(oc)
+              : Container(
+                  width: double.infinity,
                   padding: Insets.card,
-                  child: Text(_error!, style: TextStyle(color: oc.textMuted)),
-                ),
-              )
-            : isBinary
-            ? _buildBinaryView(oc)
-            : Container(
-                width: double.infinity,
-                padding: Insets.card,
-                child: SelectableText(
-                  _content,
-                  style: AppTypography.codeSmall(color: oc.text).copyWith(
-                    height: 1.5,
+                  child: SelectableText(
+                    _content,
+                    style: AppTypography.codeSmall(
+                      color: oc.text,
+                    ).copyWith(height: 1.5),
                   ),
                 ),
-              ),
-      ),
+        ),
       ),
     );
   }
