@@ -87,6 +87,8 @@ import type { BridgeLogger } from "./logging/logger";
 import { startClaudeCodeExternalTail as _startClaudeCodeExternalTail } from "./cc-external-tail";
 import { resolveCodexExternalSessionFile as _resolveCodexExternalSessionFile, startCodexExternalTail as _startCodexExternalTail } from "./cx-external-tail";
 import { startOpenCodeExternalTail as _startOpenCodeExternalTail } from "./oc-external-tail";
+import { createFetchHandler, type HandleHttpDeps, type FetchHandlerDeps } from "./http-handler";
+import { toErrorMessage, toPublicErrorMessage, buildProxyPortAllowlist } from "./http-utils";
 
 const TOKEN_FILE_LEGACY = resolve(homedir(), ".broski", "token");
 const TOKEN_FILE = resolve(homedir(), ".broski", "token.json");
@@ -2427,252 +2429,28 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		})().catch(() => {});
 	}, 60_000);
 
-	const handleHttp = async (request: Request): Promise<Response> => {
-		const url = new URL(request.url);
-		const accept = request.headers.get("accept") ?? "";
-		const wantsHtml = accept.includes("text/html");
+	const ALLOWED_PROXY_PORTS = buildProxyPortAllowlist();
 
-		// Reverse proxy for embedded previews (iframe-safe).
-		// Route format: /proxy/:port/* (only loopback access is allowed by makeFetch).
-		if (url.pathname.startsWith("/proxy/")) {
-			const rest = url.pathname.slice("/proxy/".length);
-			const slashIdx = rest.indexOf("/");
-			const portRaw = (slashIdx === -1 ? rest : rest.slice(0, slashIdx)).trim();
-			const port = Number(portRaw);
-			if (!Number.isFinite(port) || port < 1 || port > 65535) {
-				return publicJson({ error: "Invalid proxy port" }, 400);
-			}
-			// Security: Only allow proxying to known dev server ports
-			if (!isAllowedProxyPort(port)) {
-				logUser(`[Security] Proxy blocked: port ${port} not in allowlist`);
-				return publicJson({ error: "Port not allowed for proxy" }, 403);
-			}
-			const upstreamPath = slashIdx === -1 ? "/" : `/${rest.slice(slashIdx + 1)}`;
-
-			// Only allow proxying to loopback. (No arbitrary open proxy.)
-			const upstreamUrl = new URL(`${tlsEnabled ? "https" : "http"}://127.0.0.1:${port}${upstreamPath}`);
-			upstreamUrl.search = url.search;
-
-			const forwardHeaders = (() => {
-				const h = new Headers();
-				// Forward basic headers; keep it conservative.
-				const allow = new Set([
-					"accept",
-					"accept-language",
-					"content-type",
-					"cache-control",
-					"pragma",
-					"if-none-match",
-					"if-modified-since",
-					"user-agent",
-					"cookie",
-				]);
-				for (const [k, v] of request.headers.entries()) {
-					const key = k.toLowerCase();
-					if (!allow.has(key)) continue;
-					h.set(key, v);
-				}
-				// Ensure UA exists
-				if (!h.has("user-agent")) h.set("user-agent", "broski-bridge-proxy");
-				return h;
-			})();
-
-			const method = request.method.toUpperCase();
-			const hasBody = !["GET", "HEAD"].includes(method);
-			const upstreamRes = await fetch(upstreamUrl.toString(), {
-				method,
-				redirect: "manual",
-				headers: forwardHeaders,
-				body: hasBody ? request.body : undefined,
-				duplex: hasBody ? "half" : undefined,
-			} as RequestInit & { duplex?: string }).catch((err) => {
-				return new Response(`Proxy fetch failed: ${toErrorMessage(err)}`, {
-					status: 502,
-				});
-			});
-
-			// If fetch failed (we returned a Response above), pass it through.
-			if (upstreamRes instanceof Response && upstreamRes.headers?.get("content-type") == null) {
-				return upstreamRes;
-			}
-
-			const headers = new Headers(upstreamRes.headers);
-			// Strip frame-blocking headers so we can embed inside Broski.
-			headers.delete("x-frame-options");
-			headers.delete("frame-options");
-			headers.delete("content-security-policy");
-			headers.delete("content-security-policy-report-only");
-			headers.set("cache-control", "no-store");
-			headers.set("x-content-type-options", "nosniff");
-
-			// Rewrite cookies so upstream auth flows can work under /proxy/:port/
-			// Best-effort: remove Domain and set Path to the proxy prefix.
-			try {
-				const setCookies = (upstreamRes.headers as unknown as { getSetCookie?: () => string[] }).getSetCookie?.();
-				if (Array.isArray(setCookies) && setCookies.length > 0) {
-					headers.delete("set-cookie");
-					for (const sc of setCookies) {
-						const parts = sc.split(";").map((p) => p.trim());
-						const base = parts.shift() ?? "";
-						const attrs = parts.filter((p) => !/^domain=/i.test(p) && !/^path=/i.test(p));
-						attrs.push(`Path=/proxy/${port}/`);
-						headers.append("set-cookie", [base, ...attrs].join("; "));
-					}
-				}
-			} catch {
-				// ignore
-			}
-
-			// Rewrite redirects to stay inside proxy.
-			const location = headers.get("location");
-			if (location) {
-				try {
-					const locUrl = new URL(location, upstreamUrl);
-					if ((locUrl.hostname === "127.0.0.1" || locUrl.hostname === "localhost") && Number(locUrl.port) === port) {
-						const rewritten = `/proxy/${port}${locUrl.pathname}${locUrl.search}${locUrl.hash}`;
-						headers.set("location", rewritten);
-					}
-				} catch {
-					// ignore
-				}
-			}
-
-			const contentType = headers.get("content-type") ?? "";
-			const isHtml = contentType.includes("text/html");
-
-			if (isHtml) {
-				let text = await upstreamRes.text().catch(() => "");
-				const prefix = `/proxy/${port}`;
-				const wsPrefix = `/proxy-ws/${port}`;
-				const shim = `<script>(function(){try{var P=${JSON.stringify(prefix)};var W=${JSON.stringify(wsPrefix)};window.__BROSKI_PROXY_PREFIX__=P;function abs(u){try{if(typeof u!=='string')return u;if(u.startsWith(P+'/')||u===P)return u;if(u.startsWith('/'))return P+u;return u}catch{return u}};var of=window.fetch;if(of)window.fetch=function(input,init){try{if(typeof input==='string'){input=abs(input)}else if(input&&typeof input.url==='string'){var nu=abs(input.url);if(nu!==input.url)input=new Request(nu,input)} }catch{}return of.call(this,input,init)};var xo=XMLHttpRequest&&XMLHttpRequest.prototype&&XMLHttpRequest.prototype.open;if(xo)XMLHttpRequest.prototype.open=function(m,u){try{u=abs(u)}catch{}return xo.apply(this,arguments)};var oe=window.EventSource;if(oe)window.EventSource=function(u,c){try{u=abs(u)}catch{}return new oe(u,c)};var OWS=window.WebSocket;if(OWS){window.WebSocket=function(u,p){try{if(typeof u==='string'){if(u.startsWith('ws://localhost:')||u.startsWith('ws://127.0.0.1:')||u.startsWith('wss://localhost:')||u.startsWith('wss://127.0.0.1:')){var uu=new URL(u);u=(location.protocol==='https:'?'wss':'ws')+'://'+location.host+W+uu.pathname+uu.search+uu.hash}else if(u.startsWith('/')){u=(location.protocol==='https:'?'wss':'ws')+'://'+location.host+W+u}}}catch{}return new OWS(u,p)};window.WebSocket.prototype=OWS.prototype} }catch(e){}})();</script>`;
-				// Inject <base> so relative assets load from the proxy path.
-				if (text.includes("<head")) {
-					text = text.replace(/<head([^>]*)>/i, `<head$1><base href="${prefix}/">${shim}`);
-				} else {
-					text = `<base href="${prefix}/">\n${shim}\n` + text;
-				}
-				// Rewrite root-relative URLs ("/...") to proxy-prefixed paths.
-				text = text.replace(/(href|src|action)=([\"'])\//gi, `$1=$2${prefix}/`).replace(/url\(\//gi, `url(${prefix}/`);
-				return new Response(text, { status: upstreamRes.status, headers });
-			}
-
-			const buf = await upstreamRes.arrayBuffer();
-			return new Response(buf, { status: upstreamRes.status, headers });
-		}
-
-		// Serve embedded web dashboard (Vite build output) when present.
-		// Keep "/" JSON response for API callers (Accept does not include text/html).
-		if (
-			request.method === "GET" &&
-			(wantsHtml ||
-				url.pathname.startsWith("/assets/") ||
-				url.pathname === "/favicon.ico" ||
-				url.pathname === "/manifest.json" ||
-				url.pathname === "/robots.txt")
-		) {
-			const indexPath = join(webDistDir, "index.html");
-			const indexFile = Bun.file(indexPath);
-			if (await indexFile.exists()) {
-				const safePath = (() => {
-					if (url.pathname === "/" || url.pathname === "") return indexPath;
-					const target = resolve(webDistDir, `.${url.pathname}`);
-					const base = resolve(webDistDir) + sep;
-					if (!target.startsWith(base)) return null;
-					return target;
-				})();
-
-				if (safePath) {
-					const file = Bun.file(safePath);
-					if (await file.exists()) return new Response(file);
-				}
-				// SPA fallback
-				return new Response(indexFile);
-			}
-		}
-
-		if (url.pathname === "/") {
-			return jsonResponse({ status: "ok", version });
-		}
-
-		// Shared HTTP entitlement check for authenticated endpoints
-		const checkHttpEntitlement = async (req: Request): Promise<Response | null> => {
-			if (!requireEntitlement) return null;
-			const cloudSession = safeString(req.headers.get("x-broski-session")).trim();
-			if (!cloudSession) return publicJson({ error: "LICENSE_REQUIRED" }, 402);
-			const tokenHash = createHash("sha256").update(cloudSession, "utf8").digest("hex");
-			const cached = entitlementCache.get(tokenHash);
-			const now = Date.now();
-			if (cached && now - cached.checkedAt <= ENTITLEMENT_CACHE_TTL_MS) {
-				if (!cached.entitled) return publicJson({ error: "LICENSE_REQUIRED" }, 402);
-			} else if (convexHttpBaseUrl) {
-				try {
-					const refreshed = await refreshLocalLicenseFromCloud({
-						convexHttpBaseUrl,
-						sessionToken: cloudSession,
-					});
-					if (!refreshed.ok) {
-						if (refreshed.status === 401) return publicJson({ error: "INVALID_SESSION" }, 401);
-						if (refreshed.status === 403) return publicJson({ error: "LICENSE_REQUIRED" }, 402);
-						const nowSec = Math.floor(Date.now() / 1000);
-						if (localLicense?.entitled && localLicense.sessionTokenHash === tokenHash && nowSec <= localLicense.exp) {
-							// allow via local license
-						} else if (!(cached && cached.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS)) {
-							return publicJson({ error: "CLOUD_AUTH_FAILED" }, 503);
-						}
-					} else {
-						if (refreshed.state.entitled) localLicense = refreshed.state;
-						entitlementCache.set(tokenHash, {
-							checkedAt: now,
-							appUserId: refreshed.state.appUserId,
-							entitled: refreshed.state.entitled,
-							...(refreshed.state.status ? { status: refreshed.state.status } : {}),
-						});
-						if (!refreshed.state.entitled) return publicJson({ error: "LICENSE_REQUIRED" }, 402);
-					}
-				} catch {
-					if (!(cached && cached.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS)) {
-						return publicJson({ error: "CLOUD_AUTH_FAILED" }, 503);
-					}
-				}
-			} else {
-				return publicJson({ error: "CLOUD_AUTH_UNAVAILABLE" }, 503);
-			}
-			return null;
-		};
-
-		if (url.pathname === "/projects") {
-			const denied = await checkHttpEntitlement(request);
-			if (denied) return denied;
-			if (!opencode) {
-				return jsonResponse({ error: "OpenCode not available" }, 503);
-			}
-			try {
-				const data = await opencode.listProjects();
-				return jsonResponse(data);
-			} catch {
-				return jsonResponse({ error: "Request failed" }, 500);
-			}
-		}
-
-		if (url.pathname === "/browse") {
-			const denied = await checkHttpEntitlement(request);
-			if (denied) return denied;
-			const path = url.searchParams.get("path");
-			if (!path) {
-				return jsonResponse({ error: "Missing path" }, 400);
-			}
-
-			try {
-				// Use direct file listing (doesn't require OpenCode SDK)
-				const items = await listFilesDirectly(path as string);
-				return jsonResponse({ path, items });
-			} catch {
-				return jsonResponse({ error: "Request failed" }, 500);
-			}
-		}
-
-		return new Response("Not found", { status: 404 });
+	const httpDeps: HandleHttpDeps = {
+		tlsEnabled,
+		webDistDir,
+		version,
+		allowedProxyPorts: ALLOWED_PROXY_PORTS,
+		opencode,
+		listFilesDirectly,
+		logUser,
+		entitlementDeps: {
+			requireEntitlement,
+			safeString,
+			convexHttpBaseUrl,
+			ENTITLEMENT_CACHE_TTL_MS,
+			OFFLINE_GRACE_MS,
+			entitlementCache,
+			getLocalLicense: () => localLicense,
+			setLocalLicense: (l) => { localLicense = l; },
+		},
 	};
+
 
 	const MAX_WS_MESSAGE_BYTES = Math.max(
 		1024 * 1024, // 1MB minimum
@@ -2685,45 +2463,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		blockMs: Math.max(1000, Math.min(Number(process.env.BROSKI_RATE_LIMIT_BLOCK_MS ?? "10000"), 60_000)),
 	};
 
-	// Security: Proxy port allowlist for preview feature.
-	// Only common dev server ports are allowed to reduce attack surface.
-	// Users can extend via BROSKI_ALLOWED_PROXY_PORTS env var.
-	const DEFAULT_ALLOWED_PROXY_PORTS = new Set([
-		3000,
-		3001,
-		3002,
-		3003, // React, Next.js, Remix
-		4000,
-		4001,
-		4200,
-		4321, // Angular, Astro
-		5000,
-		5001,
-		5173,
-		5174,
-		5175, // Flask, Vite
-		8000,
-		8001,
-		8080,
-		8081,
-		8888, // Django, generic
-		9000,
-		9001, // PHP, misc
-	]);
-	const extraProxyPorts = (process.env.BROSKI_ALLOWED_PROXY_PORTS ?? "")
-		.split(",")
-		.map((p) => Number(p.trim()))
-		.filter((p) => Number.isFinite(p) && p > 0 && p < 65536);
-	const ALLOWED_PROXY_PORTS = new Set([...DEFAULT_ALLOWED_PROXY_PORTS, ...extraProxyPorts]);
-
-	const isAllowedProxyPort = (port: number): boolean => {
-		// Always allow configured ports
-		if (ALLOWED_PROXY_PORTS.has(port)) return true;
-		// Also allow high ports (>= 10000) commonly used for dev servers
-		// This balances security with usability
-		if (port >= 10000 && port <= 65535) return true;
-		return false;
-	};
 
 	const rateLimiters = new Map<
 		ServerWebSocket<unknown>,
@@ -2740,71 +2479,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			: [],
 	);
 
-	const isAllowedOrigin = (origin: string | null): boolean => {
-		// Browsers set Origin. Native clients usually don't.
-		if (!origin) return true;
-		if (origin.startsWith("file://")) return true;
-		// Allow local dev origins (if someone ever builds a web UI).
-		if (origin === "http://localhost" || origin === "http://127.0.0.1") return true;
-		if (origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:")) return true;
-		if (origin.startsWith("https://localhost:") || origin.startsWith("https://127.0.0.1:")) return true;
-		return false;
-	};
 
-	// Harden localhost-only HTTP endpoints against "malicious website" attacks.
-	// Browsers will send Origin and/or Sec-Fetch-Site for subresource requests.
-	// We only allow same-origin requests to hit tokenless loopback helpers like /proxy.
-	const isAllowedBrowserRequest = (request: Request): boolean => {
-		try {
-			const site = safeString(request.headers.get("sec-fetch-site")).toLowerCase().trim();
-			if (site && site !== "same-origin" && site !== "none") return false;
-
-			const origin = request.headers.get("origin");
-			if (origin != null && origin !== "" && !isAllowedOrigin(origin)) return false;
-			return true;
-		} catch {
-			return false;
-		}
-	};
-
-	const extractProtocolToken = (protocolHeader: string | null): string | null => {
-		if (!protocolHeader) return null;
-		// Header is comma-separated. We accept tokens in the form: "broski-auth.<token>".
-		const parts = protocolHeader
-			.split(",")
-			.map((p) => p.trim())
-			.filter(Boolean);
-		for (const p of parts) {
-			if (p.startsWith("broski-auth.")) {
-				const tok = p.slice("broski-auth.".length);
-				return tok || null;
-			}
-		}
-		return null;
-	};
-
-	const extractTokenFromRequest = (_url: URL, request: Request): string | null => {
-		const authHeader = request.headers.get("authorization");
-		const tokenFromHeader = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-		const tokenFromProtocol = extractProtocolToken(request.headers.get("sec-websocket-protocol"));
-		// Security: never allow tokens in URLs (leak via logs, history, referrers).
-		return tokenFromHeader || tokenFromProtocol;
-	};
-
-	const publicJson = (data: unknown, status = 200, extraHeaders: Record<string, string> = {}): Response => {
-		return new Response(JSON.stringify(data), {
-			status,
-			headers: {
-				"content-type": "application/json",
-				// Hardening headers (API-only, so we can be strict).
-				"cache-control": "no-store",
-				"x-content-type-options": "nosniff",
-				"x-frame-options": "DENY",
-				"referrer-policy": "no-referrer",
-				...extraHeaders,
-			},
-		});
-	};
 
 	const rotateExpiredAuthToken = async (): Promise<void> => {
 		const now = Date.now();
@@ -3022,157 +2697,26 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		},
 	} satisfies Bun.WebSocketHandler<unknown>;
 
-	const makeFetch = (serverLabel: string) => {
-		return async (request: Request, serverInstance: any): Promise<Response | void> => {
-			const url = new URL(request.url);
-
-			const isLoopbackHostHeader = (() => {
-				const host = safeString(request.headers.get("host")).toLowerCase().trim();
-				if (!host) return false;
-				return host.startsWith("127.0.0.1") || host.startsWith("localhost") || host.startsWith("[::1]");
-			})();
-
-			// Reject token-in-URL by default (tokens leak into logs, proxies, referrers).
-			if (!allowTokenInUrl && url.searchParams.has("token")) {
-				return publicJson({ error: "Token in URL not allowed" }, 400);
-			}
-
-			await rotateExpiredAuthToken();
-
-			const isWebSocketUpgrade = request.headers.get("upgrade")?.toLowerCase() === "websocket";
-			if (isWebSocketUpgrade) {
-				const isProxyWs = url.pathname.startsWith("/proxy-ws/");
-				if (!isProxyWs) {
-					if (sockets.size >= MAX_CLIENTS) {
-						logUser(`[Security] WS rejected: too many clients (${sockets.size} >= ${MAX_CLIENTS})`);
-						return new Response("Too many clients", { status: 429 });
-					}
-				}
-				const origin = request.headers.get("origin");
-				if (!isAllowedOrigin(origin)) {
-					logUser(`[Security] WS rejected (origin): ${origin}`);
-					return new Response("Forbidden", { status: 403 });
-				}
-			}
-
-			const requestIp = (() => {
-				try {
-					const ip = serverInstance?.requestIP?.(request);
-					if (!ip) return undefined;
-					if (typeof ip === "string") return ip;
-					return typeof ip.address === "string" ? ip.address : undefined;
-				} catch {
-					return undefined;
-				}
-			})();
-			const isLoopback = isLoopbackAddress(requestIp);
-			const isTailscale = isTailscaleAddress(requestIp);
-
-			// Transport hardening: if TLS is disabled, only allow loopback or Tailscale clients.
-			// (Tailscale provides encryption-in-transit; LAN/hotspot without TLS is sniffable.)
-			if (!tlsEnabled && !isLoopback && !isTailscale) {
-				return new Response("TLS required for non-local connections", {
-					status: 403,
-				});
-			}
-
-			// WebSocket proxy for embedded previews (loopback-only, no auth token).
-			// Route format: /proxy-ws/:port/*
-			if (isWebSocketUpgrade && url.pathname.startsWith("/proxy-ws/")) {
-				if (!isLoopback) return new Response("Forbidden", { status: 403 });
-				// Never expose preview proxy to Funnel/public hosts.
-				if (serverLabel === "loopback" && !isLoopbackHostHeader) return new Response("Forbidden", { status: 403 });
-				if (!isAllowedBrowserRequest(request)) return new Response("Forbidden", { status: 403 });
-				const rest = url.pathname.slice("/proxy-ws/".length);
-				const slashIdx = rest.indexOf("/");
-				const portRaw = (slashIdx === -1 ? rest : rest.slice(0, slashIdx)).trim();
-				const port = Number(portRaw);
-				if (!Number.isFinite(port) || port < 1 || port > 65535) {
-					return new Response("Invalid proxy port", { status: 400 });
-				}
-				// Security: Only allow proxying to known dev server ports
-				if (!isAllowedProxyPort(port)) {
-					logUser(`[Security] WS Proxy blocked: port ${port} not in allowlist`);
-					return new Response("Port not allowed for proxy", { status: 403 });
-				}
-				const upstreamPath = slashIdx === -1 ? "/" : `/${rest.slice(slashIdx + 1)}`;
-				const ok = serverInstance.upgrade(request, {
-					data: { kind: "proxy", port, path: upstreamPath, search: url.search },
-				});
-				if (ok) return;
-				return new Response("WebSocket upgrade failed", { status: 500 });
-			}
-
-			// Security: do not expose bridge auth tokens to browsers via HTTP endpoints.
-			// The web dashboard must not rely on a token-fetching bootstrap.
-
-			// Preview proxy is only allowed from loopback (iframe requests cannot attach auth headers).
-			if (!isWebSocketUpgrade && url.pathname.startsWith("/proxy/")) {
-				if (!isLoopback) return new Response("Forbidden", { status: 403 });
-				// Never expose preview proxy to Funnel/public hosts.
-				if (serverLabel === "loopback" && !isLoopbackHostHeader) return new Response("Forbidden", { status: 403 });
-				if (!isAllowedBrowserRequest(request)) return new Response("Forbidden", { status: 403 });
-				// Proxy requests (including POST) never require a bridge auth token.
-				try {
-					return await handleHttp(request);
-				} catch (error) {
-					log(`[HTTP] Error: ${toErrorMessage(error)}`);
-					return publicJson({ error: toPublicErrorMessage(error) }, 500);
-				}
-			}
-
-			const providedToken = extractTokenFromRequest(url, request);
-			const isValidToken = !!(
-				providedToken &&
-				validateAuthToken(providedToken, authToken) &&
-				Date.now() <= authExpiresAt
-			);
-
-			if (isWebSocketUpgrade) {
-				if (!isValidToken) {
-					logUser(`[Security] WS rejected (auth) via ${serverLabel}`);
-					return new Response("Unauthorized", { status: 401 });
-				}
-				if (serverInstance.upgrade(request)) return;
-				return new Response("WebSocket upgrade failed", { status: 500 });
-			}
-
-			if (!isValidToken) {
-				// Allow unauthenticated GETs for the embedded web dashboard only (static files).
-				// Everything else (including /projects, /browse, etc.) still requires auth.
-				const accept = request.headers.get("accept") ?? "";
-				const wantsHtml = accept.includes("text/html");
-				const looksLikeDashboardAsset =
-					wantsHtml ||
-					url.pathname.startsWith("/assets/") ||
-					url.pathname.startsWith("/proxy/") ||
-					url.pathname === "/favicon.ico" ||
-					url.pathname === "/manifest.json" ||
-					url.pathname === "/robots.txt";
-				if (request.method === "GET" && looksLikeDashboardAsset) {
-					// Do not serve the embedded dashboard over the Funnel-facing loopback backend.
-					// (It increases attack surface on a public hostname.)
-					if (serverLabel === "loopback" && !isLoopbackHostHeader) {
-						return publicJson({ error: "Unauthorized" }, 401);
-					}
-					try {
-						return await handleHttp(request);
-					} catch (error) {
-						log(`[HTTP] Error: ${toErrorMessage(error)}`);
-						return publicJson({ error: toPublicErrorMessage(error) }, 500);
-					}
-				}
-				return publicJson({ error: "Unauthorized" }, 401);
-			}
-
-			try {
-				return await handleHttp(request);
-			} catch (error) {
-				log(`[HTTP] Error: ${toErrorMessage(error)}`);
-				return publicJson({ error: toPublicErrorMessage(error) }, 500);
-			}
-		};
+	const fetchHandlerDeps: FetchHandlerDeps = {
+		httpDeps,
+		safeString,
+		allowTokenInUrl,
+		validateAuthToken,
+		getAuthToken: () => authToken,
+		getAuthExpiresAt: () => authExpiresAt,
+		rotateExpiredAuthToken,
+		sockets,
+		maxClients: MAX_CLIENTS,
+		tlsEnabled,
+		isLoopbackAddress,
+		isTailscaleAddress,
+		allowedProxyPorts: ALLOWED_PROXY_PORTS,
+		log,
+		logUser,
 	};
+
+	const makeFetch = (serverLabel: string) => createFetchHandler(serverLabel, fetchHandlerDeps);
+
 
 	const secureServer = Bun.serve({
 		// If TLS is disabled, only bind to loopback to avoid exposing plaintext traffic on LAN/WiFi.
@@ -3724,51 +3268,3 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	};
 }
 
-function jsonResponse(data: unknown, status = 200): Response {
-	return new Response(JSON.stringify(data), {
-		status,
-		headers: {
-			"content-type": "application/json",
-			"cache-control": "no-store",
-			"x-content-type-options": "nosniff",
-			"x-frame-options": "DENY",
-			"referrer-policy": "no-referrer",
-		},
-	});
-}
-
-function toErrorMessage(error: unknown): string {
-	if (error instanceof Error) return error.message;
-	return String(error);
-}
-
-function toPublicErrorMessage(error: unknown): string {
-	// Avoid leaking system details (paths, stack traces) to clients.
-	// We check for actual filesystem paths (starting with / or drive letters),
-	// NOT any string containing a slash (which would kill URLs, CLI commands, etc.).
-	const containsFilesystemPath = (s: string): boolean => {
-		// Unix absolute paths: /home/, /Users/, /tmp/, /var/, /etc/, /opt/, /root/
-		if (/(?:^|\s)\/(?:home|Users|tmp|var|etc|opt|root|private|nix)\//i.test(s)) return true;
-		// Windows paths: C:\, D:\, etc.
-		if (/[A-Z]:\\/i.test(s)) return true;
-		// Stack traces: "at Object.<anonymous> (/path" or "file://"
-		if (/\bat\s+\S+\s+\(\//.test(s)) return true;
-		if (/file:\/\//.test(s)) return true;
-		return false;
-	};
-
-	const sanitize = (msg: string): string => {
-		if (!msg || msg.length === 0) return "Request failed";
-		// Very long messages likely contain stack traces or verbose internal details
-		if (msg.length > 300) return "Request failed";
-		// Check for filesystem paths (but allow normal slashes in messages)
-		if (containsFilesystemPath(msg)) return "Request failed";
-		// Truncate moderately long messages but still show them
-		if (msg.length > 200) return msg.slice(0, 197) + "...";
-		return msg;
-	};
-
-	if (typeof error === "string") return sanitize(error);
-	if (error instanceof Error) return sanitize(error.message || "Request failed");
-	return "Request failed";
-}

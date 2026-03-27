@@ -1,0 +1,94 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../models/codex.dart';
+import '../../providers/chat_provider.dart';
+import '../../providers/codex_settings_provider.dart';
+import '../../providers/service_providers.dart';
+import '../../theme/opencode_theme.dart';
+import '../../widgets/chat/detail_sheet.dart';
+import '../sheets/cx_remote_skills_sheet.dart';
+import '../sheets/cx_skills_sheet_content.dart';
+
+/// Start a Codex review on uncommitted changes.
+/// Extracted from `_ChatScreenState._startCodexReview`.
+Future<void> startCodexReview({
+  required WidgetRef ref,
+  required String? cwd,
+}) async {
+  if (cwd == null || cwd.isEmpty) return;
+  final settings = ref.read(codexSettingsProvider);
+  final sandboxPolicy = switch (settings.sandboxMode) {
+    CodexSandboxMode.readOnly => const <String, dynamic>{'type': 'readOnly'},
+    CodexSandboxMode.dangerFullAccess => const <String, dynamic>{
+      'type': 'dangerFullAccess',
+    },
+    CodexSandboxMode.workspaceWrite => <String, dynamic>{
+      'type': 'workspaceWrite',
+      'writableRoots': [cwd],
+      'networkAccess': settings.networkAccessEnabled,
+    },
+  };
+  final config = <String, dynamic>{
+    'web_search': settings.webSearchMode.wireValue,
+    'features.skills': settings.skillsEnabled,
+    'model_reasoning_effort': settings.reasoningEffort.wireValue,
+    'model_reasoning_summary': settings.reasoningSummary.wireValue,
+    if (settings.sandboxMode == CodexSandboxMode.workspaceWrite)
+      'sandbox_workspace_write.network_access': settings.networkAccessEnabled,
+  };
+  final chatState = ref.read(chatSessionProvider);
+  ref.read(chatSessionProvider.notifier).appendUserMessage('/review');
+  ref.read(chatSessionProvider.notifier).setCodexStreaming(true);
+  await ref
+      .read(bridgeServiceProvider)
+      .cxStartReview(
+        threadId: chatState.cxThreadId,
+        cwd: cwd,
+        delivery: 'inline',
+        target: const {'type': 'uncommittedChanges'},
+        model: chatState.cxModel,
+        approvalPolicy: settings.approvalPolicy.wireValue,
+        sandbox: settings.sandboxMode.threadWireValue,
+        sandboxPolicy: sandboxPolicy,
+        config: config,
+      );
+}
+
+/// Show the Codex skills sheet.
+/// Extracted from `_ChatScreenState._showCodexSkillsSheet`.
+void showCodexSkillsSheet({
+  required BuildContext context,
+  required WidgetRef ref,
+  required String? cwd,
+}) {
+  final theme = OpenCodeTheme.of(context);
+  DetailSheet.show(
+    context: context,
+    title: 'Codex Skills',
+    initialSize: 0.6,
+    child: CxSkillsSheetContent(
+      bridge: ref.read(bridgeServiceProvider),
+      cwd: cwd,
+      theme: theme,
+      onBrowseRemote: () {
+        Navigator.pop(context);
+        CxRemoteSkillsSheet.show(context);
+      },
+    ),
+  );
+}
+
+/// Set Codex reasoning effort by wireValue string.
+/// Extracted from `_ChatScreenState._setCodexReasoningEffort`.
+void setCodexReasoningEffort({
+  required WidgetRef ref,
+  required String? wireValue,
+}) {
+  if (wireValue == null) return;
+  final effort = CodexReasoningEffort.values.firstWhere(
+    (e) => e.wireValue == wireValue,
+    orElse: () => CodexReasoningEffort.medium,
+  );
+  ref.read(codexSettingsProvider.notifier).setReasoningEffort(effort);
+}

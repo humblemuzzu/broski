@@ -2,13 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../theme/design_tokens.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../models/agent.dart';
-import '../models/agent_type.dart';
 import '../models/claude_code.dart';
 import '../models/codex.dart';
 import '../models/pi.dart';
@@ -37,7 +33,6 @@ import '../widgets/chat/command_autocomplete.dart';
 import '../widgets/chat/custom_tool_autocomplete.dart';
 import '../widgets/chat/cc_queue_bar.dart';
 
-import 'sheets/cx_skills_sheet_content.dart';
 import '../models/command.dart';
 import '../models/file_attachment.dart';
 import '../models/message.dart';
@@ -47,7 +42,6 @@ import '../models/session.dart';
 import '../models/session_context.dart';
 import '../models/vcs.dart';
 import '../providers/chat_provider.dart';
-import 'chat/mcp_oauth_snackbar.dart';
 import 'chat/oc_message_delete_action.dart';
 import 'chat/cc_elicitation_form_dialog.dart';
 import 'chat/command_handler.dart';
@@ -61,6 +55,20 @@ import 'chat/session_compactor.dart';
 import 'chat/project_initializer.dart';
 import 'chat/permission_responder.dart';
 import 'chat/transcript_exporter.dart';
+import 'chat/tool_card_builder.dart' as tcb;
+import 'chat/ordered_parts_builder.dart' as opb;
+import 'chat/question_prompt_handler.dart' as qph;
+import 'chat/auto_send_cc.dart' as ascc;
+import 'chat/oc_menu_handler.dart' as omh;
+import 'chat/stop_generation.dart' as sg;
+import 'chat/clear_instance_dialog.dart' as cid;
+import 'chat/pi_session_actions.dart' as psa;
+import 'chat/codex_actions.dart' as ca;
+import 'chat/project_tools_handler.dart' as pth;
+import 'chat/transcript_clipboard.dart' as tc;
+import 'chat/image_picker_handler.dart' as iph;
+import 'chat/text_change_handler.dart' as tch;
+import 'chat/scroll_handler.dart' as sh;
 import '../widgets/chat/variant_card_builder.dart';
 import '../providers/claude_code_provider.dart';
 import '../providers/connection_provider.dart';
@@ -68,10 +76,8 @@ import '../providers/connection_provider.dart';
 import '../providers/codex_settings_provider.dart';
 import '../providers/pi_provider.dart';
 import 'pi/pi_extension_ui_request_handler.dart';
-import 'sheets/pi_session_sidebar_sheet.dart';
 import '../providers/file_search_provider.dart';
 import '../providers/opencode_variant_provider.dart';
-import '../providers/claude_code_variant_provider.dart';
 import '../providers/selection_provider.dart';
 import '../providers/service_providers.dart';
 import '../services/haptics_service.dart';
@@ -79,22 +85,10 @@ import '../services/image_picker_service.dart';
 import '../services/websocket_service.dart';
 import '../theme/opencode_theme.dart';
 import '../widgets/file_tagging.dart';
-import '../widgets/retry_indicator.dart';
-import '../widgets/message_bubble.dart';
-import '../widgets/chat/detail_sheet.dart';
-import '../widgets/permission_prompt.dart';
-import '../widgets/question_prompt_sheet.dart';
 import '../widgets/session_sidebar.dart';
-import '../widgets/chat/compact_tool_card.dart';
-import '../widgets/chat/compact_edit_card.dart';
-import '../widgets/chat/compact_write_card.dart';
-import '../widgets/chat/compact_todos_card.dart';
-import '../widgets/chat/compact_agent_card.dart';
 
-import '../models/todo.dart';
 import '../widgets/multi_agent_tree.dart';
 import '../widgets/power_sheet.dart';
-import '../widgets/project_tools_sheet.dart';
 import '../widgets/app_background.dart';
 import '../widgets/opencode_branding.dart';
 import '../providers/appearance_provider.dart';
@@ -106,7 +100,6 @@ import '../widgets/chat/retry_status_banner.dart';
 import '../widgets/chat/revert_state_banner.dart';
 import '../widgets/chat/subagent_activity.dart';
 import '../widgets/chat/message_group.dart';
-import '../widgets/chat/message_helpers.dart';
 
 // Utility function for color opacity (from expense_tracker)
 Color fade(Color color, double opacity) {
@@ -1018,100 +1011,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   void _onTextChanged() {
     final text = _controller.text;
     final fileSearch = ref.read(fileSearchProvider.notifier);
-    // CRITICAL: Capture focus state BEFORE any setState calls.
-    // setState can cause focus loss on mobile during widget tree rebuilds.
     final hadFocus = _inputFocusNode.hasFocus;
-    // Detect slash command autocomplete - ONLY when input starts fresh with /
-    // Once there's a space after the command name, autocomplete closes
-    // e.g., "/" or "/init" or "/rev" triggers autocomplete
-    // but "/init " (with space) or "hello" does NOT
-    final isSlashCommand =
-        text.startsWith('/') && text.isNotEmpty && !text.contains(' ');
-    // Detect @ mention - check for @something at cursor position
-    final atMatch = RegExp(r'@(\S*)$').firstMatch(text);
-    if (isSlashCommand) {
-      final filter = text.substring(1).toLowerCase();
-      if (!_showCommandAutocomplete || _commandFilter != filter) {
-        _showCommandAutocomplete = true;
-        _showFileAutocomplete = false;
-        _showAgentAutocomplete = false;
-        _showCustomToolAutocomplete = false;
-        _commandFilter = filter;
-        _agentQuery = '';
-        fileSearch.clear();
-        _setStateAndRestoreFocus(hadFocus);
-      }
-    } else if (atMatch != null) {
-      final query = atMatch.group(1) ?? '';
-      final lowerQuery = query.toLowerCase();
-      // Claude Code: "@tool:" opens custom tools autocomplete
-      if (widget.isClaudeCode && lowerQuery.startsWith('tool:')) {
-        _showCommandAutocomplete = false;
-        _showFileAutocomplete = false;
-        _showAgentAutocomplete = false;
-        _showCustomToolAutocomplete = true;
-        _customToolQuery = query.length > 5 ? query.substring(5) : '';
-        _commandFilter = '';
-        _agentQuery = '';
-        fileSearch.clear();
-        _setStateAndRestoreFocus(hadFocus);
-        return;
-      }
-      // Check if this matches any agent name (prioritize agents over files)
-      // Only show agent autocomplete if:
-      // 1. Query is empty (just typed @) - show both options
-      // 2. Query matches an agent name prefix
-      final matchesAgent = _agents.any(
-        (a) =>
-            a.name.toLowerCase().startsWith(lowerQuery) ||
-            (a.description?.toLowerCase().contains(lowerQuery) ?? false),
-      );
-      // If query is short and could be an agent, show agent autocomplete first
-      // Once query is longer and doesn't match agents, fall back to file search
-      final shouldShowAgents =
-          query.isEmpty || (query.length <= 10 && matchesAgent);
-      if (shouldShowAgents && _agents.isNotEmpty) {
-        // Show agent autocomplete
-        _showCommandAutocomplete = false;
-        _showFileAutocomplete = false;
-        _showAgentAutocomplete = true;
-        _showCustomToolAutocomplete = false;
-        _agentQuery = query;
-        _commandFilter = '';
-        fileSearch.clear();
-        _setStateAndRestoreFocus(hadFocus);
-      } else {
-        // Show file autocomplete
-        _showCommandAutocomplete = false;
-        _showFileAutocomplete = true;
-        _showAgentAutocomplete = false;
-        _showCustomToolAutocomplete = false;
-        _agentQuery = '';
-        _commandFilter = '';
-        // Trigger file search AFTER updating state flags
-        _setStateAndRestoreFocus(hadFocus);
-        // Use effectivePath for both OpenCode (project.path) and Claude Code (ccSession.cwd)
-        fileSearch.setProjectPath(widget.effectivePath);
-        fileSearch.search(query);
-      }
-    } else {
-      // No autocomplete trigger - close any open autocomplete
-      final wasShowing =
-          _showCommandAutocomplete ||
-          _showFileAutocomplete ||
-          _showAgentAutocomplete ||
-          _showCustomToolAutocomplete;
-      if (wasShowing) {
-        _showCommandAutocomplete = false;
-        _showFileAutocomplete = false;
-        _showAgentAutocomplete = false;
-        _showCustomToolAutocomplete = false;
-        _commandFilter = '';
-        _agentQuery = '';
-        _customToolQuery = '';
-        fileSearch.clear();
-      }
-      _setStateAndRestoreFocus(hadFocus);
+    final result = tch.computeAutocomplete(
+      text: text,
+      agents: _agents,
+      isClaudeCode: widget.isClaudeCode,
+      effectivePath: widget.effectivePath,
+      currentShowCommand: _showCommandAutocomplete,
+      currentCommandFilter: _commandFilter,
+    );
+    _showCommandAutocomplete = result.showCommand;
+    _showFileAutocomplete = result.showFile;
+    _showAgentAutocomplete = result.showAgent;
+    _showCustomToolAutocomplete = result.showCustomTool;
+    _commandFilter = result.commandFilter;
+    _agentQuery = result.agentQuery;
+    _customToolQuery = result.customToolQuery;
+    if (result.clearFileSearch) fileSearch.clear();
+    _setStateAndRestoreFocus(hadFocus);
+    if (result.fileSearchQuery != null) {
+      fileSearch.setProjectPath(result.fileSearchProjectPath!);
+      fileSearch.search(result.fileSearchQuery!);
     }
   }
 
@@ -1127,25 +1047,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     });
   }
 
-  void _insertMemoryPromptTemplate(String scope) {
-    final template = switch (scope) {
-      'user' => 'When this is useful later, store it in user memory: ',
-      'project' =>
-        'If this should persist for the project, store it in project memory: ',
-      'local' =>
-        'If this should remain local to this machine, store it in local memory: ',
-      _ => 'Store this memory appropriately: ',
-    };
-    final currentText = _controller.text;
-    final prefix = currentText.trim().isEmpty
-        ? template
-        : '$currentText\n$template';
-    _controller.text = prefix;
-    _controller.selection = TextSelection.collapsed(
-      offset: _controller.text.length,
-    );
-    _inputFocusNode.requestFocus();
-  }
+  void _insertMemoryPromptTemplate(String scope) =>
+      tch.insertMemoryPromptTemplate(
+        controller: _controller,
+        focusNode: _inputFocusNode,
+        scope: scope,
+      );
 
   void _showMemoryScopePicker() => showMemoryScopePicker(
     context,
@@ -1272,122 +1179,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     onNewSession: _piNewSession,
   );
 
-  Future<void> _piCompact() async {
-    final piBridge = ref.read(piBridgeServiceProvider);
-    final chatState = ref.read(chatSessionProvider);
-    try {
-      await piBridge.compact(projectPath: chatState.piCwd);
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Context compacted')));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Compact failed: $e')));
-      }
-    }
-  }
+  Future<void> _piCompact() => psa.piCompact(context: context, ref: ref);
 
-  Future<void> _piNewSession() async {
-    final piBridge = ref.read(piBridgeServiceProvider);
-    final chatState = ref.read(chatSessionProvider);
-    final cwd = chatState.piCwd ?? '';
-    try {
-      await piBridge.newSession(projectPath: cwd);
-      // Fetch the new state to get new session ID
-      final piState = await piBridge.getState(projectPath: cwd);
-      ref
-          .read(chatSessionProvider.notifier)
-          .setPiSession(
-            sessionId: piState.sessionId,
-            cwd: cwd,
-            model: piState.model != null
-                ? '${piState.model!.provider}/${piState.model!.id}'
-                : null,
-            thinkingLevel: piState.thinkingLevel,
-          );
-      ref.invalidate(piSessionsProvider(null));
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('New session created')));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed: $e')));
-      }
-    }
-  }
+  Future<void> _piNewSession() => psa.piNewSession(context: context, ref: ref);
 
   void _showPiModelSheet() => showPiModelSheet(context);
 
-  Future<void> _cyclePiThinkingLevel() async {
-    final piBridge = ref.read(piBridgeServiceProvider);
-    final chatState = ref.read(chatSessionProvider);
-    try {
-      final newLevel = await piBridge.cycleThinkingLevel(
-        projectPath: chatState.piCwd,
-      );
-      ref.read(chatSessionProvider.notifier).setPiThinkingLevel(newLevel);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to cycle thinking level: $e')),
-      );
-    }
-  }
+  Future<void> _cyclePiThinkingLevel() =>
+      psa.cyclePiThinkingLevel(context: context, ref: ref);
 
-  void _showPiSidebarSheet() {
-    final chatState = ref.read(chatSessionProvider);
-    final cwd = chatState.piCwd;
-    if (cwd == null || cwd.isEmpty) return;
-    showPiSessionSidebarSheet(
-      context: context,
-      cwd: cwd,
-      currentSessionId: chatState.piSessionId ?? '',
-      state: null,
-      onOpenSession: (session) {
-        Navigator.pop(context);
-        ref
-            .read(chatSessionProvider.notifier)
-            .setPiSession(sessionId: session.id, cwd: session.cwd);
-      },
-      onForkFromEntry: (entryId) {
-        Navigator.pop(context);
-        _forkPiSessionFromEntry(entryId);
-      },
-    );
-  }
+  void _showPiSidebarSheet() => psa.showPiSidebarSheetAction(
+    context: context,
+    ref: ref,
+    onForkFromEntry: _forkPiSessionFromEntry,
+  );
 
-  Future<void> _forkPiSessionFromEntry(String entryId) async {
-    final piBridge = ref.read(piBridgeServiceProvider);
-    final chatState = ref.read(chatSessionProvider);
-    try {
-      final result = await piBridge.fork(
-        entryId: entryId,
-        projectPath: chatState.piCwd,
-      );
-      if (!mounted) return;
-      if (!result.cancelled) {
-        // After fork, reload state to pick up the new session branch
-        ref.invalidate(piStateProvider(chatState.piCwd));
-        ref.invalidate(piSessionsProvider(null));
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Session forked')));
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to fork session: $e')));
-    }
-  }
+  Future<void> _forkPiSessionFromEntry(String entryId) =>
+      psa.forkPiSessionFromEntry(context: context, ref: ref, entryId: entryId);
 
   void _showCodexAppsSheet() {
     // Delegate to modular sheet
@@ -1407,23 +1215,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   void _showCodexSkillsSheet() {
-    final theme = OpenCodeTheme.of(context);
     final chatState = ref.read(chatSessionProvider);
     final cwd = chatState.cxCwd ?? widget.cxThread?.cwd ?? widget.cxDraftCwd;
-    DetailSheet.show(
-      context: context,
-      title: 'Codex Skills',
-      initialSize: 0.6,
-      child: CxSkillsSheetContent(
-        bridge: ref.read(bridgeServiceProvider),
-        cwd: cwd,
-        theme: theme,
-        onBrowseRemote: () {
-          Navigator.pop(context); // close current sheet
-          CxRemoteSkillsSheet.show(context);
-        },
-      ),
-    );
+    ca.showCodexSkillsSheet(context: context, ref: ref, cwd: cwd);
   }
 
   void _showCodexRollbackSheet() => showCodexRollbackSheet(context, ref);
@@ -1431,66 +1225,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   Future<void> _startCodexReview() async {
     final chatState = ref.read(chatSessionProvider);
     final cwd = chatState.cxCwd ?? widget.cxThread?.cwd ?? widget.cxDraftCwd;
-    if (cwd == null || cwd.isEmpty) return;
-    final settings = ref.read(codexSettingsProvider);
-    final sandboxPolicy = switch (settings.sandboxMode) {
-      CodexSandboxMode.readOnly => const <String, dynamic>{'type': 'readOnly'},
-      CodexSandboxMode.dangerFullAccess => const <String, dynamic>{
-        'type': 'dangerFullAccess',
-      },
-      CodexSandboxMode.workspaceWrite => <String, dynamic>{
-        'type': 'workspaceWrite',
-        'writableRoots': [cwd],
-        'networkAccess': settings.networkAccessEnabled,
-      },
-    };
-    final config = <String, dynamic>{
-      'web_search': settings.webSearchMode.wireValue,
-      'features.skills': settings.skillsEnabled,
-      'model_reasoning_effort': settings.reasoningEffort.wireValue,
-      'model_reasoning_summary': settings.reasoningSummary.wireValue,
-      if (settings.sandboxMode == CodexSandboxMode.workspaceWrite)
-        'sandbox_workspace_write.network_access': settings.networkAccessEnabled,
-    };
-    ref.read(chatSessionProvider.notifier).appendUserMessage('/review');
-    ref.read(chatSessionProvider.notifier).setCodexStreaming(true);
-    await ref
-        .read(bridgeServiceProvider)
-        .cxStartReview(
-          threadId: chatState.cxThreadId,
-          cwd: cwd,
-          delivery: 'inline',
-          target: const {'type': 'uncommittedChanges'},
-          model: chatState.cxModel,
-          approvalPolicy: settings.approvalPolicy.wireValue,
-          sandbox: settings.sandboxMode.threadWireValue,
-          sandboxPolicy: sandboxPolicy,
-          config: config,
-        );
+    await ca.startCodexReview(ref: ref, cwd: cwd);
   }
 
   /// Set Codex reasoning effort by wireValue string (e.g., 'high', 'xhigh')
-  void _setCodexReasoningEffort(String? wireValue) {
-    if (wireValue == null) return;
-    final effort = CodexReasoningEffort.values.firstWhere(
-      (e) => e.wireValue == wireValue,
-      orElse: () => CodexReasoningEffort.medium,
-    );
-    ref.read(codexSettingsProvider.notifier).setReasoningEffort(effort);
-  }
+  void _setCodexReasoningEffort(String? wireValue) =>
+      ca.setCodexReasoningEffort(ref: ref, wireValue: wireValue);
 
-  void _setPiThinkingLevel(String? wireValue) {
-    if (wireValue == null) return;
-    final level = PiThinkingLevel.fromWireValue(wireValue);
-    final piBridge = ref.read(piBridgeServiceProvider);
-    final chatState = ref.read(chatSessionProvider);
-    piBridge
-        .setThinkingLevel(level: level, projectPath: chatState.piCwd)
-        .then(
-          (_) =>
-              ref.read(chatSessionProvider.notifier).setPiThinkingLevel(level),
-        );
-  }
+  void _setPiThinkingLevel(String? wireValue) =>
+      psa.setPiThinkingLevel(ref: ref, wireValue: wireValue);
 
   void _showCodexModelSheet() {
     // Delegate to modular dynamic sheet (fetches from Codex model/list API)
@@ -1505,48 +1248,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     ccDraftModel: widget.ccDraftModel,
   );
 
-  bool _modelSupportsImages(SelectedModel? model) {
-    if (model == null) return true;
-    final id = model.modelID.toLowerCase();
-    final provider = model.providerID.toLowerCase();
-    if (provider.contains('anthropic')) {
-      return id.contains('claude-3') ||
-          id.contains('claude-4') ||
-          id.contains('sonnet') ||
-          id.contains('opus') ||
-          id.contains('haiku');
-    }
-    if (provider.contains('openai')) {
-      return id.contains('gpt-4o') ||
-          id.contains('gpt-4-vision') ||
-          id.contains('gpt-4-turbo') ||
-          id.contains('o1') ||
-          id.contains('o3');
-    }
-    if (provider.contains('google')) {
-      return id.contains('gemini');
-    }
-    return true;
-  }
+  bool _modelSupportsImages(SelectedModel? model) =>
+      iph.modelSupportsImages(model);
 
-  void _showImageNotSupportedWarning() {
-    final model = ref.read(selectionProvider).model;
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Warning: ${model?.modelID ?? 'This model'} may not support images',
-        ),
-        backgroundColor: OpenCodeTheme.of(context).warning,
-        behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(
-          label: 'OK',
-          textColor: OpenCodeTheme.of(context).selectedListItemText,
-          onPressed: () {},
-        ),
-      ),
-    );
-  }
+  void _showImageNotSupportedWarning() =>
+      iph.showImageNotSupportedWarning(context, ref);
 
   Future<void> _pickImageFromGallery() async {
     final model = ref.read(selectionProvider).model;
@@ -1608,103 +1314,42 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   /// Handle auto-scroll when new content arrives
   /// Only scrolls if user hasn't intentionally scrolled up
   void _handleAutoScroll(ChatSessionState? previous, ChatSessionState next) {
-    if (widget.isOpenCode) {
-      _lastShownMcpOAuthUrl = maybeShowMcpOAuthFailureSnackbar(
-        context: context,
-        previous: previous?.mcpOAuthPending,
-        next: next.mcpOAuthPending,
-        lastShownUrl: _lastShownMcpOAuthUrl,
-      );
-    }
-
-    // Skip if user has scrolled up to view history
-    if (_userHasScrolledUp) return;
-    final messages = next.messages;
-    final currentCount = messages.length;
-    // FIX: Use pre-computed content length instead of recalculating every frame
-    final currentLength = next.contentLength;
-    // Detect if content has grown (new message or streaming content)
-    final hasNewMessage = currentCount > _previousMessageCount;
-    final hasNewContent = currentLength > _previousContentLength;
-    final isStreaming = _hasStreamingMessage(messages);
-    final hasRunningTools = _hasRunningTools(messages);
-    // Update tracking variables
-    _previousMessageCount = currentCount;
-    _previousContentLength = currentLength;
-    // Auto-scroll conditions:
-    // 1. New message arrived
-    // 2. Content grew (streaming text, new tool calls, etc.)
-    // 3. Currently streaming (keep scrolling as content flows)
-    // 4. Tools are running (OpenCode doesn't stream text during tool execution)
-    if (hasNewMessage || hasNewContent || isStreaming || hasRunningTools) {
-      // Use a short delay to let the ListView rebuild with new content
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        if (_userHasScrolledUp) return; // Double-check after frame
-        // During streaming or tool execution, use jumpTo for smoother continuous scroll
-        // After streaming completes, use animated scroll
-        if (isStreaming || hasRunningTools) {
-          _scrollToBottom(animate: false);
-        } else {
-          _scrollToBottom(animate: true);
-        }
-      });
-    }
+    sh.handleAutoScroll(
+      context: context,
+      isOpenCode: widget.isOpenCode,
+      previous: previous,
+      next: next,
+      userHasScrolledUp: _userHasScrolledUp,
+      previousMessageCount: _previousMessageCount,
+      previousContentLength: _previousContentLength,
+      setPreviousMessageCount: (v) => _previousMessageCount = v,
+      setPreviousContentLength: (v) => _previousContentLength = v,
+      scrollToBottom: ({bool animate = true}) =>
+          _scrollToBottom(animate: animate),
+      lastShownMcpOAuthUrl: _lastShownMcpOAuthUrl,
+      setLastShownMcpOAuthUrl: (v) => _lastShownMcpOAuthUrl = v,
+    );
   }
 
-  Future<void> _loadMoreMessages() async {
-    if (_loadingMoreMessages || _hasLoadedAllMessages) return;
-    final connection = ref.read(connectionProvider);
-    if (connection.isOfflineMode) {
-      // In offline mode, we already loaded everything from cache
-      setState(() => _hasLoadedAllMessages = true);
-      return;
-    }
-    setState(() => _loadingMoreMessages = true);
-    try {
-      final bridge = ref.read(bridgeServiceProvider);
-      final chat = ref.read(chatSessionProvider.notifier);
-      // Fetch ALL messages (no limit) to get full history
-      final allMessages = await bridge.getSessionMessages(
-        widget.session.id,
-        projectPath: widget.project.path,
-        // No limit = get all messages
-      );
-      // Remember current scroll position to maintain it after adding messages
-      final currentOffset = _scrollController.position.pixels;
-      final currentMax = _scrollController.position.maxScrollExtent;
-      // Hydrate with all messages
-      chat.hydrate(allMessages);
-      // After hydration, scroll to maintain relative position
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          final newMax = _scrollController.position.maxScrollExtent;
-          final addedHeight = newMax - currentMax;
-          _scrollController.jumpTo(currentOffset + addedHeight);
-        }
-      });
-      setState(() {
-        _loadingMoreMessages = false;
-        _hasLoadedAllMessages = true;
-      });
-    } catch (e) {
-      setState(() => _loadingMoreMessages = false);
-    }
-  }
+  Future<void> _loadMoreMessages() => sh.loadMoreMessages(
+    ref: ref,
+    loadingMoreMessages: _loadingMoreMessages,
+    hasLoadedAllMessages: _hasLoadedAllMessages,
+    sessionId: widget.session.id,
+    projectPath: widget.project.path,
+    scrollController: _scrollController,
+    setPaginationState: ({required bool loadingMore, required bool loadedAll}) {
+      if (mounted)
+        setState(() {
+          _loadingMoreMessages = loadingMore;
+          _hasLoadedAllMessages = loadedAll;
+        });
+    },
+    isMounted: () => mounted,
+  );
 
   bool _hasStreamingMessage(List<ChatMessage> messages) {
     return messages.any((msg) => msg.isStreaming);
-  }
-
-  /// Check if any tools are currently running (for auto-scroll during tool execution)
-  bool _hasRunningTools(List<ChatMessage> messages) {
-    return messages.any(
-      (msg) => msg.toolCalls.any(
-        (tool) =>
-            tool.status.toLowerCase() == 'running' ||
-            tool.status.toLowerCase() == 'pending',
-      ),
-    );
   }
 
   // Feature 2: Get filtered commands based on current input
@@ -1757,29 +1402,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   );
 
   /// Copy transcript to clipboard
-  void _copyTranscriptToClipboard() {
-    final chatState = ref.read(chatSessionProvider);
-    if (chatState.messages.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('No messages to copy')));
-      return;
-    }
-    final buffer = StringBuffer();
-    buffer.writeln('# Session: ${widget.session.title}');
-    buffer.writeln('Date: ${DateTime.now().toIso8601String()}');
-    buffer.writeln('---\n');
-    for (final msg in chatState.messages) {
-      final role = msg.role == MessageRole.user ? 'You' : 'Assistant';
-      buffer.writeln('## $role');
-      buffer.writeln(msg.text);
-      buffer.writeln();
-    }
-    Clipboard.setData(ClipboardData(text: buffer.toString()));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Transcript copied to clipboard')),
-    );
-  }
+  void _copyTranscriptToClipboard() => tc.copyTranscriptToClipboard(
+    context: context,
+    ref: ref,
+    sessionTitle: widget.session.title,
+  );
 
   /// Export transcript (show options)
   void _exportTranscript() => exportTranscript(
@@ -1791,22 +1418,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   );
 
   /// Share transcript via system share sheet
-  void _shareTranscript() {
-    final chatState = ref.read(chatSessionProvider);
-    final buffer = StringBuffer();
-    buffer.writeln('# Session: ${widget.session.title}');
-    buffer.writeln('---\n');
-    for (final msg in chatState.messages) {
-      final role = msg.role == MessageRole.user ? 'You' : 'Assistant';
-      buffer.writeln('## $role');
-      buffer.writeln(msg.text);
-      buffer.writeln();
-    }
-    Share.share(
-      buffer.toString(),
-      subject: 'Chat Session: ${widget.session.title}',
-    );
-  }
+  void _shareTranscript() =>
+      tc.shareTranscript(ref: ref, sessionTitle: widget.session.title);
 
   /// Show timeline dialog to jump to a specific message
   void _showTimelineDialog() {
@@ -2352,155 +1965,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   /// Builds the appropriate compact card for a tool call
-  Widget _buildToolCard(ToolCall tool, String messageId) {
-    final toolName = tool.name.toLowerCase().replaceFirst('mcp_', '');
-    // Edit/Patch tools -> CompactEditCard
-    // Handle different backend tool names:
-    // - OpenCode: 'edit', 'patch'
-    // - Claude Code: 'str_replace_editor', 'edit'
-    // - Codex: 'applypatch', 'ApplyPatch'
-    if (_isEditTool(toolName)) {
-      return CompactEditCard(
-        tool: tool,
-        messageId: messageId,
-        // Claude Code + Codex: no per-card undo (CC uses turn-level rewind
-        // via SDK's rewindFiles(); Codex uses /undo command with custom snapshots).
-        // OpenCode: per-message/part revert via SDK's session.revert().
-        onUndo: widget.isClaudeCode || widget.isCodex
-            ? null
-            : (msgId, partId) => _revertMessage(msgId, partId: partId),
-      );
-    }
-    // Write tool -> CompactWriteCard (new file creation with inline preview)
-    if (toolName == 'write') {
-      return CompactWriteCard(
-        tool: tool,
-        messageId: messageId,
-        // Claude Code: no per-card undo (turn-level rewind only)
-        onUndo: widget.isClaudeCode
-            ? null
-            : (msgId, partId) => _revertMessage(msgId, partId: partId),
-      );
-    }
-    // Task/subtask/agent tool -> CompactAgentCard
-    if (toolName == 'task' || toolName == 'subtask' || toolName == 'agent') {
-      return CompactAgentCard(tool: tool, messageId: messageId);
-    }
-    // TodoWrite tool -> CompactTodosCard
-    if (toolName == 'todowrite') {
-      final todos = _extractTodosFromTool(tool);
-      if (todos.isNotEmpty) {
-        return CompactTodosCard(todos: todos);
-      }
-    }
-    // All other tools -> CompactToolCard
-    return CompactToolCard(
-      tool: tool,
-      messageId: messageId,
-      onUndo: _canUndoTool(toolName)
-          ? (msgId, partId) => _revertMessage(msgId, partId: partId)
-          : null,
-    );
-  }
-
-  // _buildSubtaskChip removed — using CompactAgentCard.fromNotification() instead
-  /// Task 7: Build a muted retry indicator
-  Widget _buildRetryIndicator(int attempt, String? errorMessage) {
-    return RetryIndicator(
-      retryInfo: RetryInfo(attempt: attempt, errorMessage: errorMessage),
-    );
-  }
-
-  /// SDK v1.2.1: Agent indicator pill badge (like VariantBadge)
-  Widget _buildAgentPill(String agentName) {
-    final theme = OpenCodeTheme.of(context);
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        decoration: BoxDecoration(
-          color: theme.accent.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Text(
-          '🤖 $agentName',
-          style: TextStyle(
-            color: theme.accent,
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// SDK v1.2.1: Enhanced compaction divider — delegates to message_group.dart.
-  Widget _buildCompactionDividerEnhanced({
-    required bool auto,
-    bool overflow = false,
-  }) => buildCompactionDividerEnhanced(context, auto: auto, overflow: overflow);
-
-  /// SDK v1.2.1: Patch card — compact file list (like CompactEditCard style)
-  Widget _buildPatchCard(List<String> files) {
-    final theme = OpenCodeTheme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: theme.bgRaised,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: theme.borderSubtle),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '📝 Patched ${files.length} file${files.length != 1 ? 's' : ''}',
-            style: TextStyle(
-              color: theme.text,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 4),
-          for (final file in files)
-            Padding(
-              padding: const EdgeInsets.only(top: 1),
-              child: Text(
-                file,
-                style: TextStyle(
-                  color: theme.textMuted,
-                  fontSize: 11,
-                  fontFamily: 'monospace',
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  /// Extract todos from TodoWrite tool input
-  List<Todo> _extractTodosFromTool(ToolCall tool) {
-    try {
-      final todosRaw = tool.input['todos'];
-      if (todosRaw is! List) return [];
-      return todosRaw
-          .whereType<Map<String, dynamic>>()
-          .map((t) => Todo.fromJson(t))
-          .toList();
-    } catch (e) {
-      return [];
-    }
-  }
-
-  /// Check if a tool can be undone (write operations)
-  bool _canUndoTool(String toolName) {
-    return toolName == 'write';
-  }
-
-  /// Edit tool check — delegates to message_helpers.dart.
-  bool _isEditTool(String toolName) => isEditTool(toolName);
+  Widget _buildToolCard(ToolCall tool, String messageId) => tcb.buildToolCard(
+    tool: tool,
+    messageId: messageId,
+    isClaudeCode: widget.isClaudeCode,
+    isCodex: widget.isCodex,
+    onRevert: _revertMessage,
+  );
 
   /// Delegates to MessageGroup widget — extracted to message_group.dart.
   Widget _buildMessageGroup(ChatMessage message) {
@@ -2530,324 +2001,78 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   /// Build widgets for ordered parts (Claude Code sequential rendering)
   /// Returns widgets in arrival order: text segments and tool calls interleaved
-  List<Widget> _buildOrderedParts(ChatMessage message) {
-    final widgets = <Widget>[];
-    final toolsById = {for (final t in message.toolCalls) t.callId: t};
-    for (final part in message.parts) {
-      switch (part) {
-        case TextPart(:final text, :final isStreaming):
-          if (text.trim().isNotEmpty) {
-            // Create a mini ChatMessage for this text segment
-            final textMessage = ChatMessage(
-              id: '${message.id}-text-${part.sequence}',
-              sessionId: message.sessionId,
-              role: message.role,
-              createdAt: message.createdAt,
-              text: text,
-              isStreaming: isStreaming,
-            );
-            widgets.add(
-              Padding(
-                padding: EdgeInsets.only(top: widgets.isEmpty ? 0 : 8),
-                child: MessageBubble(
-                  message: textMessage,
-                  onForkFromHere: message.role == MessageRole.assistant
-                      ? (messageId) => _forkSession(messageId: message.id)
-                      : null,
-                  onResumeFromHere:
-                      widget.isClaudeCode &&
-                          message.role == MessageRole.assistant
-                      ? (messageId) => _setClaudeResumeFromHere(message.id)
-                      : null,
-                  onDeleteMessage:
-                      widget.isOpenCode && message.role == MessageRole.assistant
-                      ? (messageId) => deleteOpenCodeMessageFromChat(
-                          context: context,
-                          ref: ref,
-                          sessionId: message.sessionId,
-                          messageId: message.id,
-                          projectPath:
-                              ref.read(chatSessionProvider).projectPath ??
-                              widget.project.path,
-                        )
-                      : null,
-                  onRollback: widget.isCodex ? _showCodexRollbackSheet : null,
-                ),
-              ),
-            );
-          }
-        case ToolPart(:final callId):
-          final tool = toolsById[callId];
-          if (tool != null) {
-            widgets.add(
-              Padding(
-                padding: Insets.topSm,
-                child: _buildToolCard(tool, message.id),
-              ),
-            );
-          }
-        // Task 6: Subtask/agent delegation part — use existing CompactAgentCard
-        case SubtaskPart(:final agentName, :final description):
-          widgets.add(
-            Padding(
-              padding: Insets.topSm,
-              child: CompactAgentCard.fromNotification(
-                notification: SubtaskNotification(
-                  id: 'subtask-${message.id}-${part.sequence}',
-                  description: description ?? '',
-                  agent: agentName,
-                  sessionId: message.sessionId,
-                ),
-                messageId: message.id,
-              ),
-            ),
-          );
-        // Task 7: Retry attempt part
-        case RetryPart(:final attempt, :final errorMessage):
-          widgets.add(
-            Padding(
-              padding: Insets.topSm,
-              child: _buildRetryIndicator(attempt, errorMessage),
-            ),
-          );
-        // SDK v1.2.1: Agent indicator — small tinted pill badge
-        case AgentIndicatorPart(:final agentName):
-          widgets.add(
-            Padding(padding: Insets.topSm, child: _buildAgentPill(agentName)),
-          );
-        // SDK v1.2.1: Compaction divider with auto/manual indicator
-        case CompactionIndicatorPart(:final auto, :final overflow):
-          widgets.add(
-            _buildCompactionDividerEnhanced(auto: auto, overflow: overflow),
-          );
-        // SDK v1.2.1: Patch — compact file list
-        case PatchIndicatorPart(:final files):
-          widgets.add(
-            Padding(padding: Insets.topSm, child: _buildPatchCard(files)),
-          );
-
-        // Not rendered visually — internal plumbing data
-        case SnapshotPart():
-          break;
-        case StepStartIndicatorPart():
-          break;
-        case StepFinishIndicatorPart():
-          break;
-      }
-    }
-    // Fallback: if no widgets were built from parts but message has content,
-    // add the main text and tools (handles edge cases where parts are malformed)
-    if (widgets.isEmpty) {
-      if (message.text.trim().isNotEmpty) {
-        widgets.add(
-          MessageBubble(
-            message: message,
-            onForkFromHere: message.role == MessageRole.assistant
-                ? (messageId) => _forkSession(messageId: message.id)
-                : null,
-            onResumeFromHere:
-                widget.isClaudeCode && message.role == MessageRole.assistant
-                ? (messageId) => _setClaudeResumeFromHere(messageId)
-                : null,
-            onDeleteMessage:
-                widget.isOpenCode && message.role == MessageRole.assistant
-                ? (messageId) => deleteOpenCodeMessageFromChat(
-                    context: context,
-                    ref: ref,
-                    sessionId: message.sessionId,
-                    messageId: message.id,
-                    projectPath:
-                        ref.read(chatSessionProvider).projectPath ??
-                        widget.project.path,
-                  )
-                : null,
-            onRollback: widget.isCodex ? _showCodexRollbackSheet : null,
-          ),
-        );
-      }
-      for (final tool in message.toolCalls) {
-        widgets.add(
-          Padding(
-            padding: Insets.topSm,
-            child: _buildToolCard(tool, message.id),
-          ),
-        );
-      }
-    }
-    return widgets;
-  }
+  List<Widget> _buildOrderedParts(ChatMessage message) => opb.buildOrderedParts(
+    context: context,
+    message: message,
+    isClaudeCode: widget.isClaudeCode,
+    isOpenCode: widget.isOpenCode,
+    isCodex: widget.isCodex,
+    buildToolCardFn: _buildToolCard,
+    onFork: ({String? messageId}) => _forkSession(messageId: messageId),
+    onResumeFromHere: _setClaudeResumeFromHere,
+    onDeleteMessage: widget.isOpenCode
+        ? (messageId) => deleteOpenCodeMessageFromChat(
+            context: context,
+            ref: ref,
+            sessionId: message.sessionId,
+            messageId: message.id,
+            projectPath:
+                ref.read(chatSessionProvider).projectPath ??
+                widget.project.path,
+          )
+        : null,
+    onRollback: widget.isCodex ? _showCodexRollbackSheet : null,
+  );
 
   // PERF: Menu action handler that takes messages list directly (used with select())
-  void _handleMenuActionWithMessages(String value, List<ChatMessage> messages) {
-    final theme = OpenCodeTheme.of(context);
-    switch (value) {
-      case 'stop':
-        _stopGeneration();
-        break;
-      case 'project_tools':
-        _showProjectToolsSheet();
-        break;
-      case 'sidebar':
-        Scaffold.of(context).openEndDrawer();
-        break;
-      case 'new_session':
-        // TODO: Implement new session
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('New session - coming soon'),
-            backgroundColor: theme.backgroundPanel,
-          ),
-        );
-        break;
-      case 'fork':
-        _forkSession();
-        break;
-      case 'share':
-        _shareSession();
-        break;
-      case 'unshare':
-        _unshareSession();
-        break;
-      case 'compact':
-        _compactSession();
-        break;
-      case 'init':
-        _initializeProject();
-        break;
-      case 'undo':
-        if (widget.isClaudeCode) {
-          // Claude Code uses checkpoint-based revert (session-wide)
-          _ccRewindToCheckpoint();
-        } else {
-          // OpenCode uses per-message revert
-          ChatMessage? lastEditMessage;
-          for (final msg in messages.reversed) {
-            if (msg.role == MessageRole.assistant &&
-                msg.toolCalls.any(
-                  (tool) => tool.name == 'edit' || tool.name == 'write',
-                )) {
-              lastEditMessage = msg;
-              break;
-            }
-          }
-          if (lastEditMessage != null) {
-            _revertMessage(lastEditMessage.id);
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text('No file changes to undo'),
-                backgroundColor: theme.backgroundPanel,
-              ),
-            );
-          }
-        }
-        break;
-      case 'clear_instance':
-        _clearInstance();
-        break;
-    }
-  }
+  void _handleMenuActionWithMessages(
+    String value,
+    List<ChatMessage> messages,
+  ) => omh.handleOcMenuAction(
+    context: context,
+    value: value,
+    messages: messages,
+    isClaudeCode: widget.isClaudeCode,
+    onStopGeneration: _stopGeneration,
+    onShowProjectTools: _showProjectToolsSheet,
+    onFork: () => _forkSession(),
+    onShare: _shareSession,
+    onUnshare: _unshareSession,
+    onCompact: _compactSession,
+    onInit: _initializeProject,
+    onRevert: _revertMessage,
+    onCcRewind: _ccRewindToCheckpoint,
+    onClearInstance: _clearInstance,
+  );
 
-  void _showProjectToolsSheet() {
-    final backend = widget.isClaudeCode
-        ? AgentType.claudeCode
-        : widget.isCodex
-        ? AgentType.codex
-        : widget.isPi
-        ? AgentType.pi
-        : AgentType.opencode;
-    final project = backend == AgentType.opencode
-        ? widget.project
-        : ProjectSummary(
-            id: '',
-            name: widget.projectName,
-            path: widget.effectivePath,
-          );
-    // Ensure downstream power-feature screens resolve the correct cwd.
-    ref.read(selectionProvider.notifier).selectProject(project);
-    if (backend == AgentType.opencode && widget.session.id.isNotEmpty) {
-      ref.read(selectionProvider.notifier).selectSession(widget.session);
-    }
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => ProjectToolsSheet(backend: backend, project: project),
-    );
-  }
+  void _showProjectToolsSheet() => pth.showProjectToolsSheetAction(
+    context: context,
+    ref: ref,
+    isClaudeCode: widget.isClaudeCode,
+    isCodex: widget.isCodex,
+    isPi: widget.isPi,
+    projectName: widget.projectName,
+    effectivePath: widget.effectivePath,
+    project: widget.project,
+    session: widget.session,
+  );
 
-  Future<void> _clearInstance() async {
-    final theme = OpenCodeTheme.of(context);
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: theme.backgroundPanel,
-        title: Text('Clear Instance?', style: TextStyle(color: theme.text)),
-        content: Text(
-          'This will reset the project context on OpenCode server. '
-          'Caches and loaded files will be cleared.\n\n'
-          'Your chat history will remain.',
-          style: TextStyle(color: theme.textMuted),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('Clear', style: TextStyle(color: theme.warning)),
-          ),
-        ],
-      ),
-    );
-    if (confirm != true || !mounted) return;
-    final bridge = ref.read(bridgeServiceProvider);
-    final success = await bridge.disposeInstance(
-      projectPath: widget.project.path,
-    );
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          success ? 'Instance cleared' : 'Failed to clear instance',
-        ),
-        backgroundColor: theme.backgroundPanel,
-      ),
-    );
-  }
+  Future<void> _clearInstance() => cid.showClearInstanceDialog(
+    context: context,
+    ref: ref,
+    projectPath: widget.project.path,
+  );
 
   /// Stop AI generation for all backends
   /// Sends abort to bridge and clears local streaming states
-  void _stopGeneration() {
-    final bridge = ref.read(bridgeServiceProvider);
-    final notifier = ref.read(chatSessionProvider.notifier);
-    if (widget.isClaudeCode) {
-      final chatState = ref.read(chatSessionProvider);
-      final sid = chatState.ccSessionId;
-      if (sid != null && sid.isNotEmpty) {
-        bridge.ccAbort(sid);
-      }
-      notifier.setCCStreaming(false);
-    } else if (widget.isCodex) {
-      final chatState = ref.read(chatSessionProvider);
-      final tid = chatState.cxThreadId;
-      if (tid != null && tid.isNotEmpty) {
-        bridge.cxAbort(threadId: tid);
-      }
-      notifier.setCodexStreaming(false);
-    } else if (widget.isPi) {
-      final chatState = ref.read(chatSessionProvider);
-      final piBridge = ref.read(piBridgeServiceProvider);
-      piBridge.abort(projectPath: chatState.piCwd);
-      notifier.setPiStreaming(false);
-    } else {
-      // OpenCode - send abort and clear all streaming states
-      bridge.abortSession(widget.session.id, projectPath: widget.project.path);
-      // Also mark all streaming messages as complete to unstick the UI
-      notifier.markAllStreamingComplete();
-    }
-  }
+  void _stopGeneration() => sg.stopGeneration(
+    ref: ref,
+    isClaudeCode: widget.isClaudeCode,
+    isCodex: widget.isCodex,
+    isPi: widget.isPi,
+    sessionId: widget.session.id,
+    projectPath: widget.project.path,
+  );
 
   void _showModelSelector(BuildContext context) =>
       showModelsDialog(context, ref);
@@ -2855,70 +2080,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   /// Auto-send a pending CC message when the turn completes.
   /// Uses the same CC send flow as _sendMessage (config, model, sessionId, etc.)
   void _autoSendPendingCCMessage() {
-    if (!widget.isClaudeCode || !mounted) return;
-    final chat = ref.read(chatSessionProvider.notifier);
-    final chatState = ref.read(chatSessionProvider);
-    final pendingText = chatState.pendingCCMessage;
-    final pendingAttachments = chatState.pendingCCAttachments;
-    if (pendingText == null || pendingText.isEmpty) return;
-    // Clear pending state first to prevent re-entry
-    chat.clearPendingCCMessage();
-    // Read all the same config values that _sendMessage reads for CC
-    final bridge = ref.read(bridgeServiceProvider);
-    final ccConfig = ref.read(ccConfigProvider).valueOrNull;
-    final cwd = chatState.ccCwd ?? widget.ccSession?.cwd ?? widget.ccDraftCwd;
-    final model =
-        ccConfig?.model ??
-        chatState.ccModel ??
-        chatState.ccInit?.model ??
-        widget.ccSession?.model ??
-        widget.ccDraftModel;
-    final activeSubagent = ccConfig?.activeSubagent;
-    final hasAttachments =
-        pendingAttachments != null && pendingAttachments.isNotEmpty;
-    // Build display message with file attachments
-    String displayText = pendingText;
-    if (hasAttachments) {
-      final attachmentLabels = <String>[];
-      int imageCount = 0;
-      for (final f in pendingAttachments) {
-        if (f.isImage) {
-          imageCount++;
-          attachmentLabels.add('[Image $imageCount]');
-        } else {
-          attachmentLabels.add(f.displayPath);
-        }
-      }
-      if (attachmentLabels.isNotEmpty) {
-        displayText = '$pendingText\n${attachmentLabels.join(' ')}';
-      }
-    }
-    chat.appendUserMessage(displayText);
-    chat.setCCStreaming(true);
-    final ccVariant = ref.read(claudeCodeVariantProvider).selectedVariant;
-    bridge.ccChat(
-      sessionId: chatState.ccSessionId,
-      prompt: pendingText,
-      cwd: cwd,
-      model: model,
-      permissionMode: ccConfig?.permissionMode,
-      allowedTools: ccConfig?.allowedTools,
-      disallowedTools: ccConfig?.disallowedTools,
-      maxTurns: ccConfig?.maxTurns,
-      maxBudgetUsd: ccConfig?.maxBudgetUsd,
-      betas: ccConfig?.betas,
-      variant: ccVariant,
-      thinking: ccConfig?.thinking,
-      effort: ccConfig?.effort,
-      activeSubagent: activeSubagent,
-      outputFormat: ccConfig?.outputFormat,
-      sandbox: ccConfig?.sandbox,
-      enableAgentTeams: ccConfig?.enableAgentTeams,
-      enableClaudeAiMcpServers: ccConfig?.enableClaudeAiMcpServers,
-      fileAttachments: hasAttachments ? pendingAttachments : null,
+    ascc.autoSendPendingCCMessage(
+      ref: ref,
+      isClaudeCode: widget.isClaudeCode,
+      isMounted: () => mounted,
+      ccSessionCwd: widget.ccSession?.cwd,
+      ccSessionModel: widget.ccSession?.model,
+      ccDraftCwd: widget.ccDraftCwd,
+      ccDraftModel: widget.ccDraftModel,
+      resetScrollAndScrollToBottom: () {
+        _userHasScrolledUp = false;
+        _scrollToBottom();
+      },
     );
-    _userHasScrolledUp = false;
-    _scrollToBottom();
   }
 
   // PERF: Version that takes individual params, used with select()
@@ -2992,165 +2166,51 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   // PERF: Separate method that takes just the permissions list, used with select()
   void _maybeShowPermissionPromptFromList(List<PermissionRequest> permissions) {
-    if (permissions.isEmpty) {
-      _activePermissionId = null;
-      return;
-    }
-    final request = permissions.first;
-    if (_activePermissionId == request.id) return;
-    _activePermissionId = request.id;
-    _haptics.mediumImpact();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final isCodex = widget.isCodex;
-      final isClaudeElicitation =
-          request.metadata['ccElicitationRequestId'] != null;
-      final alwaysLabel = isCodex
-          ? 'Session'
-          : isClaudeElicitation
-          ? 'Approve'
-          : 'Always';
-      VoidCallback? onExecpolicy;
-      String? execpolicyLabel;
-      if (isCodex) {
-        final method = request.metadata['method'] as String?;
-        final proposed = request.metadata['proposedExecpolicyAmendment'];
-        if (method == 'item/commandExecution/requestApproval' &&
-            proposed is List) {
-          final prefix = proposed
-              .whereType<String>()
-              .take(3)
-              .toList()
-              .join(' ');
-          if (prefix.isNotEmpty) {
-            execpolicyLabel = 'Always allow "$prefix…"';
-            onExecpolicy = () => _respondToPermission(
-              request,
-              'execpolicy',
-              execpolicyAmendment: proposed,
-            );
-          }
-        }
-      }
-      // Note: PermissionPrompt has its own DraggableScrollableSheet with pinned
-      // action buttons, so we use showModalBottomSheet directly instead of
-      // DetailSheet.show() which would create nested scrollable sheets.
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => PermissionPrompt(
-          request: request,
-          onApprove: () => _respondToPermission(request, 'once'),
-          onDeny: () => _respondToPermission(request, 'reject'),
-          onAlwaysAllow: isClaudeElicitation
-              ? () => _respondToPermission(request, 'once')
-              : () => _respondToPermission(request, 'always'),
-          approveAlwaysLabel: alwaysLabel,
-          onApproveWithExecpolicy: onExecpolicy,
-          approveWithExecpolicyLabel: execpolicyLabel,
-          onDenyWithMessage: (message) =>
-              _respondToPermission(request, 'reject', message: message),
-        ),
-      ).whenComplete(() => _activePermissionId = null);
-    });
+    qph.maybeShowPermissionPromptFromList(
+      context: context,
+      ref: ref,
+      permissions: permissions,
+      activePermissionId: _activePermissionId,
+      haptics: _haptics,
+      isCodex: widget.isCodex,
+      isClaudeCode: widget.isClaudeCode,
+      onRespond: (request, response, {message, execpolicyAmendment}) =>
+          _respondToPermission(
+            request,
+            response,
+            message: message,
+            execpolicyAmendment: execpolicyAmendment,
+          ),
+      setActivePermissionId: (id) => _activePermissionId = id,
+    );
   }
 
   void _maybeShowQuestionPrompt(QuestionRequest? request) {
-    if (!widget.isOpenCode && !widget.isClaudeCode) return;
-    if (request == null || request.id.isEmpty) {
-      _activeQuestionId = null;
-      return;
-    }
-    if (_activeQuestionId == request.id) return;
-    // Skip questions we already answered (prevents re-show on rebuild race)
-    if (_answeredQuestionIds.contains(request.id)) return;
-    _activeQuestionId = request.id;
-    _haptics.mediumImpact();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        isDismissible: false,
-        enableDrag: false,
-        builder: (_) {
-          return QuestionPromptSheet(
-            request: request,
-            onReply: (answers) {
-              _answeredQuestionIds.add(request.id);
-              ref
-                  .read(chatSessionProvider.notifier)
-                  .replyToPendingQuestion(answers);
-              if (mounted) Navigator.pop(context);
-            },
-            onReject: () {
-              _answeredQuestionIds.add(request.id);
-              ref.read(chatSessionProvider.notifier).rejectPendingQuestion();
-              if (mounted) Navigator.pop(context);
-            },
-          );
-        },
-      ).whenComplete(() => _activeQuestionId = null);
-    });
+    qph.maybeShowQuestionPrompt(
+      context: context,
+      ref: ref,
+      isOpenCode: widget.isOpenCode,
+      isClaudeCode: widget.isClaudeCode,
+      request: request,
+      activeQuestionId: _activeQuestionId,
+      answeredQuestionIds: _answeredQuestionIds,
+      haptics: _haptics,
+      setActiveQuestionId: (id) => _activeQuestionId = id,
+      isMounted: () => mounted,
+    );
   }
 
   void _maybeShowCodexQuestionPrompt(CodexUserInputRequest? request) {
     if (!widget.isCodex) return;
-    if (request == null || request.requestId.isEmpty) {
-      _activeCxQuestionId = null;
-      return;
-    }
-    if (_activeCxQuestionId == request.requestId) return;
-    _activeCxQuestionId = request.requestId;
-    _haptics.mediumImpact();
-    // Convert CodexUserInputRequest to QuestionRequest for the existing UI
-    final convertedRequest = QuestionRequest(
-      id: request.requestId,
-      sessionId: request.threadId,
-      questions: request.questions
-          .map(
-            (q) => QuestionInfo(
-              question: q.question,
-              header: q.header,
-              options: q.options
-                  .map(
-                    (o) => QuestionOption(
-                      label: o.label,
-                      description: o.description,
-                    ),
-                  )
-                  .toList(),
-              multiple: false, // Codex questions are single-select by default
-            ),
-          )
-          .toList(),
+    qph.maybeShowCodexQuestionPrompt(
+      context: context,
+      ref: ref,
+      request: request,
+      activeCxQuestionId: _activeCxQuestionId,
+      haptics: _haptics,
+      setActiveCxQuestionId: (id) => _activeCxQuestionId = id,
+      isMounted: () => mounted,
     );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        isDismissible: false,
-        enableDrag: false,
-        builder: (_) {
-          return QuestionPromptSheet(
-            request: convertedRequest,
-            onReply: (answers) {
-              ref
-                  .read(chatSessionProvider.notifier)
-                  .replyToCodexUserInput(answers);
-              if (mounted) Navigator.pop(context);
-            },
-            onReject: () {
-              ref.read(chatSessionProvider.notifier).rejectCodexUserInput();
-              if (mounted) Navigator.pop(context);
-            },
-          );
-        },
-      ).whenComplete(() => _activeCxQuestionId = null);
-    });
   }
 
   Future<Map<String, dynamic>?> _showElicitationFormInputDialog(
@@ -3180,28 +2240,3 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 }
 
-// Floating header - simplified and compact
-
-/// Session actions content for DetailSheet
-
-/// Claude Code actions content for DetailSheet
-
-/// Codex actions content for DetailSheet
-
-/// Pi actions content for DetailSheet
-
-// Extracted to lib/widgets/chat/glass_pill.dart
-
-// Floating input bar with streaming mode support
-
-// Extracted to lib/widgets/chat/pill_glow_painter.dart
-
-// Extracted to lib/widgets/chat/cli_input_bar.dart (CliStyleInputBar + VariantChip)
-
-// Model selector content for DetailSheet
-
-// Extracted to lib/widgets/chat/retry_status_banner.dart
-// Extracted to lib/widgets/chat/revert_state_banner.dart
-// Extracted to lib/widgets/chat/cc_undo_turn_bar.dart
-// Extracted to lib/widgets/chat/subagent_activity.dart
-// Extracted to lib/widgets/chat/status_indicator.dart

@@ -1,0 +1,44 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../models/agent_type.dart';
+import '../../models/project.dart';
+import '../../models/session.dart';
+import '../../providers/selection_provider.dart';
+import '../../widgets/project_tools_sheet.dart';
+
+/// Shows the project tools sheet.
+/// Extracted from `_ChatScreenState._showProjectToolsSheet`.
+void showProjectToolsSheetAction({
+  required BuildContext context,
+  required WidgetRef ref,
+  required bool isClaudeCode,
+  required bool isCodex,
+  required bool isPi,
+  required String projectName,
+  required String effectivePath,
+  required ProjectSummary project,
+  required SessionSummary session,
+}) {
+  final backend = isClaudeCode
+      ? AgentType.claudeCode
+      : isCodex
+      ? AgentType.codex
+      : isPi
+      ? AgentType.pi
+      : AgentType.opencode;
+  final resolvedProject = backend == AgentType.opencode
+      ? project
+      : ProjectSummary(id: '', name: projectName, path: effectivePath);
+  ref.read(selectionProvider.notifier).selectProject(resolvedProject);
+  if (backend == AgentType.opencode && session.id.isNotEmpty) {
+    ref.read(selectionProvider.notifier).selectSession(session);
+  }
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) =>
+        ProjectToolsSheet(backend: backend, project: resolvedProject),
+  );
+}
