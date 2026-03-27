@@ -1,0 +1,331 @@
+/**
+ * OpenCode external session tail.
+ *
+ * Polls OC session messages to detect changes from external TUI sessions.
+ * When the TUI runs, events don't reach global.event() stream, so we poll.
+ *
+ * Extracted from server.ts (~312 lines) to reduce file size.
+ */
+
+export type OcExternalTailContext = {
+	enqueueSdkEvent: (event: unknown) => void;
+	oc: any;
+	logDebug: (msg: string) => void;
+	DEBUG_RTS: boolean;
+};
+
+export function startOpenCodeExternalTail(
+	sessionId: string,
+	projectPath: string,
+	ctx: OcExternalTailContext,
+): { stop: () => void } {
+	// OC connector passed via context
+	let stopped = false;
+	let pollTimer: Timer | null = null;
+	let initialSyncDone = false; // Skip emitting events on first poll (historical messages)
+	const lastTextByPartId = new Map<string, string>();
+	const lastToolStateByPartId = new Map<string, string>();
+	const seenMessageIds = new Set<string>();
+	const seenPartIds = new Set<string>();
+	let lastSessionStatus: "idle" | "busy" | "retry" = "idle";
+	let lastEmittedStatus: "idle" | "busy" = "idle"; // What we last told the app (based on content changes, not API)
+	let idleCount = 0; // Track consecutive idle polls for adaptive polling
+	let lastChangeTime = Date.now(); // Track when we last detected content changes
+	let wasEverBusy = false; // Track if we've ever seen activity (to avoid false idle on startup)
+
+	const poll = async () => {
+		if (stopped) return;
+		try {
+			// Get session status
+			const statusMap = await ctx.oc.getSessionStatus(projectPath).catch((): Record<string, any> => ({}));
+			const status = statusMap[sessionId];
+			const newStatus = status?.type ?? "idle";
+
+			// Debug: Log raw status response on first few polls or when it changes
+			if (ctx.DEBUG_RTS && (idleCount < 3 || newStatus !== lastSessionStatus)) {
+				const sessionIds = Object.keys(statusMap);
+				ctx.logDebug(
+					`[RTS] OC External: getSessionStatus returned ${sessionIds.length} sessions: ${sessionIds.join(", ") || "(none)"}`,
+				);
+				if (status) {
+					ctx.logDebug(`[RTS] OC External: Session ${sessionId} raw status: ${JSON.stringify(status)}`);
+				} else {
+					ctx.logDebug(`[RTS] OC External: Session ${sessionId} NOT in status map, defaulting to idle`);
+				}
+			}
+
+			// Track idle state for adaptive polling
+			if (newStatus === "idle") {
+				idleCount++;
+			} else {
+				idleCount = 0;
+			}
+
+			if (newStatus !== lastSessionStatus) {
+				if (ctx.DEBUG_RTS) {
+					ctx.logDebug(`[RTS] OC External: Session ${sessionId} status changed: ${lastSessionStatus} -> ${newStatus}`);
+				}
+				lastSessionStatus = newStatus;
+
+				// Always emit session status events (important for UI state)
+				ctx.enqueueSdkEvent({
+					directory: projectPath,
+					payload: {
+						type: "session.status",
+						properties: {
+							sessionID: sessionId,
+							status: { type: newStatus },
+						},
+					},
+				});
+			}
+
+			// Get session messages
+			const messages = await ctx.oc.getSessionMessages(sessionId, projectPath).catch(() => null);
+			if (!messages || !Array.isArray(messages)) return;
+
+			let hadChanges = false;
+
+			for (const msg of messages) {
+				if (!msg?.info?.id) continue;
+				const msgId = msg.info.id;
+				const isNewMessage = !seenMessageIds.has(msgId);
+
+				if (isNewMessage) {
+					seenMessageIds.add(msgId);
+
+					// Only emit events AFTER initial sync
+					if (initialSyncDone) {
+						hadChanges = true;
+						if (ctx.DEBUG_RTS) {
+							ctx.logDebug(`[RTS] OC External: New message ${msgId} in session ${sessionId}`);
+						}
+
+						ctx.enqueueSdkEvent({
+							directory: projectPath,
+							payload: {
+								type: "message.updated",
+								properties: {
+									info: {
+										...msg.info,
+										sessionID: sessionId,
+									},
+								},
+							},
+						});
+					}
+				}
+
+				// Check parts for updates
+				const parts = Array.isArray(msg.parts) ? msg.parts : [];
+				for (const part of parts) {
+					if (!part?.id) continue;
+					const partId = part.id;
+					const isNewPart = !seenPartIds.has(partId);
+
+					// For text parts, check for content changes
+					if (part.type === "text" && typeof part.text === "string") {
+						const prevText = lastTextByPartId.get(partId) ?? "";
+						const textChanged = part.text !== prevText;
+
+						if (textChanged) {
+							lastTextByPartId.set(partId, part.text);
+
+							// Only emit events AFTER initial sync
+							if (initialSyncDone) {
+								hadChanges = true;
+								// Compute delta: if text was appended (not replaced), extract the new portion
+								const delta =
+									prevText && part.text.startsWith(prevText) ? part.text.slice(prevText.length) : undefined;
+
+								if (ctx.DEBUG_RTS) {
+									ctx.logDebug(`[RTS] OC External: Text part ${partId} updated, delta=${delta?.length ?? "full"}`);
+								}
+
+								if (delta) {
+									// Lightweight delta event — Flutter appends text incrementally (SDK v1.2.1)
+									ctx.enqueueSdkEvent({
+										directory: projectPath,
+										payload: {
+											type: "message.part.delta",
+											properties: {
+												sessionID: sessionId,
+												messageID: msgId,
+												partID: partId,
+												field: "text",
+												delta,
+											},
+										},
+									});
+								} else {
+									// Full replacement — text was edited, not appended
+									ctx.enqueueSdkEvent({
+										directory: projectPath,
+										payload: {
+											type: "message.part.updated",
+											properties: {
+												part: {
+													...part,
+													sessionID: sessionId,
+													messageID: msgId,
+												},
+											},
+										},
+									});
+								}
+							}
+						}
+					}
+
+					// For tool parts, check for state changes
+					if (part.type === "tool" && part.state) {
+						const stateOutput = 'output' in part.state ? (part.state as { output?: unknown }).output : undefined;
+						const stateKey = `${part.state.status}:${JSON.stringify(stateOutput ?? '')}`;
+						const prevState = lastToolStateByPartId.get(partId);
+						const stateChanged = stateKey !== prevState;
+
+						if (stateChanged) {
+							lastToolStateByPartId.set(partId, stateKey);
+
+							// Only emit events AFTER initial sync
+							if (initialSyncDone) {
+								hadChanges = true;
+								if (ctx.DEBUG_RTS) {
+									ctx.logDebug(`[RTS] OC External: Tool part ${partId} state changed to ${part.state.status}`);
+								}
+
+								ctx.enqueueSdkEvent({
+									directory: projectPath,
+									payload: {
+										type: "message.part.updated",
+										properties: {
+											part: {
+												...part,
+												sessionID: sessionId,
+												messageID: msgId,
+											},
+										},
+									},
+								});
+							}
+						}
+					}
+
+					// Track new parts
+					if (isNewPart) {
+						seenPartIds.add(partId);
+
+						// Only emit events AFTER initial sync, and for non-text parts (text handled above)
+						if (initialSyncDone && part.type !== "text") {
+							hadChanges = true;
+							ctx.enqueueSdkEvent({
+								directory: projectPath,
+								payload: {
+									type: "message.part.updated",
+									properties: {
+										part: {
+											...part,
+											sessionID: sessionId,
+											messageID: msgId,
+										},
+									},
+								},
+							});
+						}
+					}
+				}
+			}
+
+			// Mark initial sync as done after first poll
+			if (!initialSyncDone) {
+				initialSyncDone = true;
+				if (ctx.DEBUG_RTS) {
+					ctx.logDebug(
+						`[RTS] OC External: Initial sync complete for session ${sessionId}, ${seenMessageIds.size} messages, ${seenPartIds.size} parts`,
+					);
+				}
+			}
+
+			// Track when we last had changes for idle detection
+			if (hadChanges) {
+				idleCount = 0;
+				lastChangeTime = Date.now();
+
+				// Mark as busy when we see content changes (since API doesn't report status)
+				if (!wasEverBusy || lastEmittedStatus !== "busy") {
+					wasEverBusy = true;
+					lastEmittedStatus = "busy";
+					if (ctx.DEBUG_RTS) {
+						ctx.logDebug(`[RTS] OC External: Content changes detected, emitting busy status`);
+					}
+					ctx.enqueueSdkEvent({
+						directory: projectPath,
+						payload: {
+							type: "session.status",
+							properties: {
+								sessionID: sessionId,
+								status: { type: "busy" },
+							},
+						},
+					});
+				}
+			}
+
+			// Fallback idle detection: if we had changes before but none for 1.5 seconds, emit idle
+			// This is needed because getSessionStatus returns 0 sessions (doesn't track external sessions)
+			const timeSinceLastChange = Date.now() - lastChangeTime;
+			if (wasEverBusy && lastEmittedStatus === "busy" && timeSinceLastChange > 1500 && !hadChanges) {
+				if (ctx.DEBUG_RTS) {
+					ctx.logDebug(
+						`[RTS] OC External: Fallback idle detection - no changes for ${timeSinceLastChange}ms, emitting idle status`,
+					);
+				}
+				lastEmittedStatus = "idle";
+				ctx.enqueueSdkEvent({
+					directory: projectPath,
+					payload: {
+						type: "session.status",
+						properties: {
+							sessionID: sessionId,
+							status: { type: "idle" },
+						},
+					},
+				});
+			}
+		} catch (err) {
+			if (ctx.DEBUG_RTS) {
+				ctx.logDebug(`[RTS] OC External: Poll error for session ${sessionId}: ${err}`);
+			}
+		}
+	};
+
+	// Adaptive polling: faster when busy, slower when idle
+	const scheduleNextPoll = () => {
+		if (stopped) return;
+		// 150ms when active, up to 2000ms when idle for 10+ consecutive polls
+		const interval = idleCount > 10 ? 2000 : idleCount > 5 ? 1000 : 150;
+		pollTimer = setTimeout(() => {
+			void poll().then(scheduleNextPoll);
+		}, interval);
+	};
+
+	// Do initial poll, then start adaptive polling
+	void poll().then(scheduleNextPoll);
+
+	if (ctx.DEBUG_RTS) {
+		ctx.logDebug(`[RTS] OC External: Started polling for session ${sessionId} in ${projectPath}`);
+	}
+
+	return {
+		stop: () => {
+			stopped = true;
+			if (pollTimer) {
+				clearTimeout(pollTimer);
+				pollTimer = null;
+			}
+			if (ctx.DEBUG_RTS) {
+				ctx.logDebug(`[RTS] OC External: Stopped polling for session ${sessionId}`);
+			}
+		},
+	};
+	}
