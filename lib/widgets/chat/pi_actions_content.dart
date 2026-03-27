@@ -11,6 +11,8 @@ import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import 'action_row.dart';
 import 'action_tile.dart';
+import 'agent_status_bar.dart';
+import 'section_header.dart';
 
 /// Pi actions content. Extracted from chat_screen.dart.
 class PiActionsContent extends ConsumerWidget {
@@ -30,14 +32,6 @@ class PiActionsContent extends ConsumerWidget {
   final bool isStreaming;
   final void Function(String) onAction;
 
-  String _getModelName(String? model) {
-    if (model == null || model.isEmpty) return 'Default';
-    final parts = model.split('/');
-    final name = parts.length > 1 ? parts.last : model;
-    return name.length > 20 ? '${name.substring(0, 20)}…' : name;
-  }
-
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final chatState = ref.watch(chatSessionProvider);
@@ -50,80 +44,14 @@ class PiActionsContent extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         // Status bar (latency, model)
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-          child: Row(
-            children: [
-              // Latency
-              if (isConnected && rttMs != null) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: theme.info.withValues(alpha: 0.1),
-                    borderRadius: Radii.brSm,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(AppIcons.speed, size: 14, color: theme.info),
-                      const SizedBox(width: 6),
-                      Text(
-                        '${rttMs}ms',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: theme.info,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-              const Spacer(),
-              // Model selector
-              GestureDetector(
-                onTap: () => onAction('pi_model'),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: theme.primary.withValues(alpha: 0.1),
-                    borderRadius: Radii.brSm,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        AppIcons.autoAwesome,
-                        size: 14,
-                        color: theme.primary,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        _getModelName(piModel),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: theme.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      SizedBox(width: Spacing.xs),
-                      Icon(
-                        AppIcons.chevronRight,
-                        size: 16,
-                        color: theme.primary,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+        AgentStatusBar(
+          theme: theme,
+          isConnected: isConnected,
+          rttMs: rttMs,
+          modelName: getModelDisplayName(piModel, fallback: 'Default'),
+          modelColor: theme.primary,
+          onModelTap: () => onAction('pi_model'),
+          bottomPadding: 12,
         ),
         // Context & Cost summary
         statsAsync.when(
@@ -285,15 +213,7 @@ class PiActionsContent extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Thinking Level
-              Text(
-                'THINKING LEVEL',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: theme.textMuted,
-                  letterSpacing: 0.5,
-                ),
-              ),
+              SectionHeader(title: 'THINKING LEVEL', theme: theme),
               SizedBox(height: Spacing.md),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -350,15 +270,7 @@ class PiActionsContent extends ConsumerWidget {
               ),
               SizedBox(height: Spacing.xl),
               // Quick Actions
-              Text(
-                'ACTIONS',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: theme.textMuted,
-                  letterSpacing: 0.5,
-                ),
-              ),
+              SectionHeader(title: 'ACTIONS', theme: theme),
               SizedBox(height: Spacing.md),
               Row(
                 children: [
@@ -407,14 +319,10 @@ class PiActionsContent extends ConsumerWidget {
               ),
               if (isStreaming) ...[
                 SizedBox(height: Spacing.xl),
-                Text(
-                  'DANGER ZONE',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: theme.error.withValues(alpha: 0.7),
-                    letterSpacing: 0.5,
-                  ),
+                SectionHeader(
+                  title: 'DANGER ZONE',
+                  theme: theme,
+                  color: theme.error.withValues(alpha: 0.7),
                 ),
                 SizedBox(height: Spacing.md),
                 ActionRow(

@@ -1,3 +1,4 @@
+import 'package:broski/utils/format_utils.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/vcs.dart';
@@ -7,6 +8,8 @@ import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import 'action_row.dart';
 import 'action_tile.dart';
+import 'agent_status_bar.dart';
+import 'section_header.dart';
 
 /// OpenCode session actions content. Extracted from chat_screen.dart.
 class SessionActionsContent extends StatelessWidget {
@@ -35,17 +38,6 @@ class SessionActionsContent extends StatelessWidget {
   final bool isStreaming;
   final void Function(String) onAction;
   final VoidCallback? onOpenSidebar;
-  String _getModelName(SelectedModel? model) {
-    if (model == null) return 'Auto';
-    final parts = model.modelID.split('-');
-    if (parts.contains('opus')) return 'Opus';
-    if (parts.contains('sonnet')) return 'Sonnet';
-    if (parts.contains('haiku')) return 'Haiku';
-    if (parts.contains('gpt')) return 'GPT';
-    return model.modelID.length > 8
-        ? model.modelID.substring(0, 8)
-        : model.modelID;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,113 +45,54 @@ class SessionActionsContent extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         // Status bar (branch, latency, model)
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-          child: Row(
-            children: [
-              // Branch info
-              if (vcsInfo != null && vcsInfo!.isAvailable) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: theme.success.withValues(alpha: 0.1),
-                    borderRadius: Radii.brSm,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(AppIcons.callSplit, size: 14, color: theme.success),
-                      const SizedBox(width: 6),
-                      Text(
-                        vcsInfo!.branch ?? 'main',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: theme.success,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(width: Spacing.sm),
-              ],
-              // Latency
-              if (isConnected && rttMs != null) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: theme.info.withValues(alpha: 0.1),
-                    borderRadius: Radii.brSm,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(AppIcons.speed, size: 14, color: theme.info),
-                      const SizedBox(width: 6),
-                      Text(
-                        '${rttMs}ms',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: theme.info,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(width: Spacing.sm),
-              ],
-              const Spacer(),
-              // Model selector
-              GestureDetector(
-                onTap: () {
-                  Navigator.pop(context);
-                  onModelTap?.call();
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: theme.primary.withValues(alpha: 0.1),
-                    borderRadius: Radii.brSm,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        AppIcons.autoAwesome,
-                        size: 14,
-                        color: theme.primary,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        _getModelName(currentModel),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: theme.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      SizedBox(width: Spacing.xs),
-                      Icon(
-                        AppIcons.chevronRight,
-                        size: 16,
-                        color: theme.primary,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+        AgentStatusBar(
+          theme: theme,
+          isConnected: isConnected,
+          rttMs: rttMs,
+          modelName: getModelDisplayName(
+            currentModel?.modelID,
+            fallback: 'Auto',
+            maxLength: 8,
           ),
+          modelColor: theme.primary,
+          onModelTap: () {
+            Navigator.pop(context);
+            onModelTap?.call();
+          },
+          leading: (vcsInfo != null && vcsInfo!.isAvailable)
+              ? Padding(
+                  padding: EdgeInsets.only(right: Spacing.sm),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.success.withValues(alpha: 0.1),
+                      borderRadius: Radii.brSm,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          AppIcons.callSplit,
+                          size: 14,
+                          color: theme.success,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          vcsInfo!.branch ?? 'main',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.success,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : null,
         ),
         // Session actions
         Padding(
@@ -168,15 +101,7 @@ class SessionActionsContent extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Project tools (Option 3 entrypoint)
-              Text(
-                'PROJECT',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: theme.textMuted,
-                  letterSpacing: 0.5,
-                ),
-              ),
+              SectionHeader(title: 'PROJECT', theme: theme),
               SizedBox(height: Spacing.md),
               ActionRow(
                 icon: AppIcons.gridView,
@@ -188,15 +113,7 @@ class SessionActionsContent extends StatelessWidget {
               ),
               SizedBox(height: Spacing.xl),
               // Session section
-              Text(
-                'SESSION',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: theme.textMuted,
-                  letterSpacing: 0.5,
-                ),
-              ),
+              SectionHeader(title: 'SESSION', theme: theme),
               SizedBox(height: Spacing.md),
               Row(
                 children: [
@@ -239,15 +156,7 @@ class SessionActionsContent extends StatelessWidget {
               ),
               SizedBox(height: Spacing.xl),
               // Tools section
-              Text(
-                'TOOLS',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: theme.textMuted,
-                  letterSpacing: 0.5,
-                ),
-              ),
+              SectionHeader(title: 'TOOLS', theme: theme),
               SizedBox(height: Spacing.md),
               ActionRow(
                 icon: AppIcons.compress,
@@ -268,14 +177,10 @@ class SessionActionsContent extends StatelessWidget {
               ),
               SizedBox(height: Spacing.xl),
               // Danger zone
-              Text(
-                'DANGER ZONE',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: theme.error.withValues(alpha: 0.7),
-                  letterSpacing: 0.5,
-                ),
+              SectionHeader(
+                title: 'DANGER ZONE',
+                theme: theme,
+                color: theme.error.withValues(alpha: 0.7),
               ),
               SizedBox(height: Spacing.md),
               if (isStreaming) ...[

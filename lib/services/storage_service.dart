@@ -183,6 +183,73 @@ class StorageService {
     }
   }
 
+  // ============================================================
+  // Generic Cache Helpers (L1 + L2 two-tier caching)
+  // ============================================================
+
+  /// Cache a list of items (L1 memory + L2 secure storage).
+  Future<void> _putList<T>(
+    String key,
+    List<T> items,
+    Map<String, dynamic> Function(T) toJson,
+  ) async {
+    _memoryCache[key] = items;
+    _updateCacheTimestamp(key);
+    await _storage.write(
+      key: key,
+      value: jsonEncode(items.map(toJson).toList()),
+    );
+  }
+
+  /// Load a cached list (L1 memory → L2 secure storage fallback).
+  Future<List<T>> _getList<T>(
+    String key,
+    T Function(Map<String, dynamic>) fromJson,
+  ) async {
+    final mem = _memoryCache[key];
+    if (mem is List<T>) return mem;
+    final raw = await _storage.read(key: key);
+    if (raw == null) return [];
+    try {
+      final items = (jsonDecode(raw) as List)
+          .map((e) => fromJson(e as Map<String, dynamic>))
+          .toList();
+      _memoryCache[key] = items;
+      return items;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Cache a single object (L1 memory + L2 secure storage).
+  Future<void> _putObject<T>(
+    String key,
+    T item,
+    Map<String, dynamic> Function(T) toJson,
+  ) async {
+    _memoryCache[key] = item;
+    _updateCacheTimestamp(key);
+    await _storage.write(key: key, value: jsonEncode(toJson(item)));
+  }
+
+  /// Load a cached object (L1 memory → L2 secure storage fallback).
+  Future<T?> _getObject<T>(
+    String key,
+    T Function(Map<String, dynamic>) fromJson,
+  ) async {
+    final mem = _memoryCache[key];
+    if (mem is T) return mem;
+    final raw = await _storage.read(key: key);
+    if (raw == null) return null;
+    try {
+      final obj = fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      _memoryCache[key] = obj;
+      return obj;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Check if sessions cache is fresh (can skip network)
   bool isSessionsCacheFresh() => isCacheFresh(_cachedSessionsKey);
 
@@ -602,190 +669,56 @@ class StorageService {
   // Offline Mode Cache
   // ============================================================
 
-  /// Cache projects for offline viewing
-  /// Uses L1 (memory) + L2 (secure storage) tiered caching
-  Future<void> cacheProjects(List<ProjectSummary> projects) async {
-    // L1: Store in memory for instant access
-    _memoryCache[_cachedProjectsKey] = projects;
-    _updateCacheTimestamp(_cachedProjectsKey);
-
-    // L2: Persist to secure storage (async, non-blocking)
-    final json = jsonEncode(projects.map((p) => _projectToJson(p)).toList());
-    await _storage.write(key: _cachedProjectsKey, value: json);
-  }
-
-  /// Load cached projects
-  /// Checks L1 (memory) first, falls back to L2 (secure storage)
-  Future<List<ProjectSummary>> getCachedProjects() async {
-    // L1: Check memory cache first (sub-millisecond)
-    final memCached = _memoryCache[_cachedProjectsKey];
-    if (memCached != null && memCached is List<ProjectSummary>) {
-      return memCached;
-    }
-
-    // L2: Fall back to secure storage
-    final raw = await _storage.read(key: _cachedProjectsKey);
-    if (raw == null) return [];
-    try {
-      final List<dynamic> list = jsonDecode(raw);
-      final projects = list
-          .map((item) => ProjectSummary.fromJson(item as Map<String, dynamic>))
-          .toList();
-      // Promote to L1 cache for next read
-      _memoryCache[_cachedProjectsKey] = projects;
-      return projects;
-    } catch (_) {
-      return [];
-    }
-  }
-
-  /// Cache Codex models returned by `model/list`.
-  Future<void> cacheCodexModels(List<Map<String, dynamic>> models) async {
-    _memoryCache[_cachedCodexModelsKey] = models;
-    _updateCacheTimestamp(_cachedCodexModelsKey);
-    final json = jsonEncode(models);
-    await _storage.write(key: _cachedCodexModelsKey, value: json);
-  }
-
-  /// Load cached Codex models. L1 memory → L2 secure storage.
-  Future<List<Map<String, dynamic>>> getCachedCodexModels() async {
-    final memCached = _memoryCache[_cachedCodexModelsKey];
-    if (memCached != null && memCached is List<Map<String, dynamic>>) {
-      return memCached;
-    }
-    final raw = await _storage.read(key: _cachedCodexModelsKey);
-    if (raw == null) return [];
-    try {
-      final List<dynamic> list = jsonDecode(raw);
-      final models = list.whereType<Map<String, dynamic>>().toList();
-      _memoryCache[_cachedCodexModelsKey] = models;
-      return models;
-    } catch (_) {
-      return [];
-    }
-  }
-
-  /// Cache Codex projects (derived from Codex thread cwd values)
-  Future<void> cacheCodexProjects(List<ProjectSummary> projects) async {
-    _memoryCache[_cachedCodexProjectsKey] = projects;
-    _updateCacheTimestamp(_cachedCodexProjectsKey);
-
-    final json = jsonEncode(projects.map((p) => _projectToJson(p)).toList());
-    await _storage.write(key: _cachedCodexProjectsKey, value: json);
-  }
-
-  /// Load cached Codex projects
-  Future<List<ProjectSummary>> getCachedCodexProjects() async {
-    final memCached = _memoryCache[_cachedCodexProjectsKey];
-    if (memCached != null && memCached is List<ProjectSummary>) {
-      return memCached;
-    }
-
-    final raw = await _storage.read(key: _cachedCodexProjectsKey);
-    if (raw == null) return [];
-    try {
-      final List<dynamic> list = jsonDecode(raw);
-      final projects = list
-          .map((item) => ProjectSummary.fromJson(item as Map<String, dynamic>))
-          .toList();
-      _memoryCache[_cachedCodexProjectsKey] = projects;
-      return projects;
-    } catch (_) {
-      return [];
-    }
-  }
-
-  /// Cache sessions for offline viewing
-  /// Uses L1 (memory) + L2 (secure storage) tiered caching
-  Future<void> cacheSessions(List<SessionSummary> sessions) async {
-    // L1: Store in memory for instant access
-    _memoryCache[_cachedSessionsKey] = sessions;
-    _updateCacheTimestamp(_cachedSessionsKey);
-
-    // L2: Persist to secure storage (async, non-blocking)
-    final json = jsonEncode(sessions.map((s) => _sessionToJson(s)).toList());
-    await _storage.write(key: _cachedSessionsKey, value: json);
-  }
-
-  /// Load cached sessions
-  /// Checks L1 (memory) first, falls back to L2 (secure storage)
-  Future<List<SessionSummary>> getCachedSessions() async {
-    // L1: Check memory cache first (sub-millisecond)
-    final memCached = _memoryCache[_cachedSessionsKey];
-    if (memCached != null && memCached is List<SessionSummary>) {
-      return memCached;
-    }
-
-    // L2: Fall back to secure storage
-    final raw = await _storage.read(key: _cachedSessionsKey);
-    if (raw == null) return [];
-    try {
-      final List<dynamic> list = jsonDecode(raw);
-      final sessions = list
-          .map((item) => SessionSummary.fromJson(item as Map<String, dynamic>))
-          .toList();
-      // Promote to L1 cache for next read
-      _memoryCache[_cachedSessionsKey] = sessions;
-      return sessions;
-    } catch (_) {
-      return [];
-    }
-  }
-
   // Maximum messages to cache per session (context pruning)
   static const int _maxCachedMessagesPerSession = 50;
 
-  /// Cache messages for a specific session
-  /// Uses L1 (memory) + L2 (secure storage) tiered caching
-  /// Prunes old messages to prevent memory bloat (keeps last 50)
+  /// Cache projects for offline viewing
+  Future<void> cacheProjects(List<ProjectSummary> projects) =>
+      _putList(_cachedProjectsKey, projects, _projectToJson);
+
+  /// Load cached projects
+  Future<List<ProjectSummary>> getCachedProjects() =>
+      _getList(_cachedProjectsKey, (j) => ProjectSummary.fromJson(j));
+
+  /// Cache Codex models returned by `model/list`.
+  Future<void> cacheCodexModels(List<Map<String, dynamic>> models) =>
+      _putList(_cachedCodexModelsKey, models, (m) => m);
+
+  /// Load cached Codex models.
+  Future<List<Map<String, dynamic>>> getCachedCodexModels() =>
+      _getList(_cachedCodexModelsKey, (j) => j);
+
+  /// Cache Codex projects (derived from Codex thread cwd values)
+  Future<void> cacheCodexProjects(List<ProjectSummary> projects) =>
+      _putList(_cachedCodexProjectsKey, projects, _projectToJson);
+
+  /// Load cached Codex projects
+  Future<List<ProjectSummary>> getCachedCodexProjects() =>
+      _getList(_cachedCodexProjectsKey, (j) => ProjectSummary.fromJson(j));
+
+  /// Cache sessions for offline viewing
+  Future<void> cacheSessions(List<SessionSummary> sessions) =>
+      _putList(_cachedSessionsKey, sessions, _sessionToJson);
+
+  /// Load cached sessions
+  Future<List<SessionSummary>> getCachedSessions() =>
+      _getList(_cachedSessionsKey, (j) => SessionSummary.fromJson(j));
+
+  /// Cache messages for a specific session (prunes to last 50)
   Future<void> cacheSessionMessages(
     String sessionId,
     List<ChatMessage> messages,
   ) async {
     final key = '$_cachedMessagesPrefix$sessionId';
-
-    // Prune to last N messages (keep most recent)
-    final prunedMessages = messages.length > _maxCachedMessagesPerSession
+    final pruned = messages.length > _maxCachedMessagesPerSession
         ? messages.sublist(messages.length - _maxCachedMessagesPerSession)
         : messages;
-
-    // L1: Store in memory
-    _memoryCache[key] = prunedMessages;
-    _updateCacheTimestamp(key);
-
-    // L2: Persist to secure storage
-    final json = jsonEncode(
-      prunedMessages.map((m) => _messageToJson(m)).toList(),
-    );
-    await _storage.write(key: key, value: json);
+    await _putList(key, pruned, _messageToJson);
   }
 
   /// Load cached messages for a session
-  /// Checks L1 (memory) first, falls back to L2 (secure storage)
-  Future<List<ChatMessage>> getCachedMessages(String sessionId) async {
-    final key = '$_cachedMessagesPrefix$sessionId';
-
-    // L1: Check memory cache first
-    final memCached = _memoryCache[key];
-    if (memCached != null && memCached is List<ChatMessage>) {
-      return memCached;
-    }
-
-    // L2: Fall back to secure storage
-    final raw = await _storage.read(key: key);
-    if (raw == null) return [];
-    try {
-      final List<dynamic> list = jsonDecode(raw);
-      final messages = list
-          .map((item) => _messageFromJson(item as Map<String, dynamic>))
-          .toList();
-      // Promote to L1 cache
-      _memoryCache[key] = messages;
-      return messages;
-    } catch (_) {
-      return [];
-    }
-  }
+  Future<List<ChatMessage>> getCachedMessages(String sessionId) =>
+      _getList('$_cachedMessagesPrefix$sessionId', _messageFromJson);
 
   /// Check if we have any cached data for offline mode
   Future<bool> hasCachedData() async {
@@ -804,253 +737,79 @@ class StorageService {
   // ============================================================
 
   /// Cache session context for a specific session
-  Future<void> cacheSessionContext(
-    String sessionId,
-    SessionContext context,
-  ) async {
-    final key = '$_cachedSessionContextPrefix$sessionId';
-    _memoryCache[key] = context;
-    _updateCacheTimestamp(key);
-
-    final json = jsonEncode(_sessionContextToJson(context));
-    await _storage.write(key: key, value: json);
-  }
+  Future<void> cacheSessionContext(String sessionId, SessionContext context) =>
+      _putObject(
+        '$_cachedSessionContextPrefix$sessionId',
+        context,
+        _sessionContextToJson,
+      );
 
   /// Get cached session context
-  Future<SessionContext?> getCachedSessionContext(String sessionId) async {
-    final key = '$_cachedSessionContextPrefix$sessionId';
-
-    // L1
-    final memCached = _memoryCache[key];
-    if (memCached != null && memCached is SessionContext) {
-      return memCached;
-    }
-
-    // L2
-    final raw = await _storage.read(key: key);
-    if (raw == null) return null;
-    try {
-      final data = jsonDecode(raw) as Map<String, dynamic>;
-      final context = SessionContext.fromJson(data);
-      _memoryCache[key] = context;
-      return context;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Map<String, dynamic> _sessionContextToJson(SessionContext c) {
-    return {
-      'tokens': {
-        'input': c.tokens.input,
-        'output': c.tokens.output,
-        'total': c.tokens.total,
-        'contextWindow': c.tokens.contextWindow,
-      },
-      'cost': c.cost,
-      if (c.budgetLimitUsd != null) 'budgetLimitUsd': c.budgetLimitUsd,
-      'lsp': c.lsp.map((l) => _lspServerToJson(l)).toList(),
-      'modifiedFiles': c.modifiedFiles
-          .map((f) => _modifiedFileToJson(f))
-          .toList(),
-    };
-  }
-
-  Map<String, dynamic> _lspServerToJson(LspServer l) {
-    return {
-      'id': l.id,
-      'name': l.name,
-      'status': l.status.name,
-      'language': l.language,
-      'root': l.root,
-    };
-  }
-
-  Map<String, dynamic> _modifiedFileToJson(ModifiedFile f) {
-    return {'file': f.file, 'additions': f.additions, 'deletions': f.deletions};
-  }
+  Future<SessionContext?> getCachedSessionContext(String sessionId) =>
+      _getObject(
+        '$_cachedSessionContextPrefix$sessionId',
+        (j) => SessionContext.fromJson(j),
+      );
 
   // ============================================================
   // Todos/Plan Cache
   // ============================================================
 
   /// Cache todos for a session
-  Future<void> cacheSessionTodos(String sessionId, List<Todo> todos) async {
-    final key = '$_cachedTodosPrefix$sessionId';
-    _memoryCache[key] = todos;
-    _updateCacheTimestamp(key);
-
-    final json = jsonEncode(todos.map((t) => t.toJson()).toList());
-    await _storage.write(key: key, value: json);
-  }
+  Future<void> cacheSessionTodos(String sessionId, List<Todo> todos) =>
+      _putList('$_cachedTodosPrefix$sessionId', todos, (t) => t.toJson());
 
   /// Get cached todos for a session
-  Future<List<Todo>> getCachedSessionTodos(String sessionId) async {
-    final key = '$_cachedTodosPrefix$sessionId';
-
-    final memCached = _memoryCache[key];
-    if (memCached != null && memCached is List<Todo>) {
-      return memCached;
-    }
-
-    final raw = await _storage.read(key: key);
-    if (raw == null) return [];
-    try {
-      final List<dynamic> list = jsonDecode(raw);
-      final todos = list
-          .map((item) => Todo.fromJson(item as Map<String, dynamic>))
-          .toList();
-      _memoryCache[key] = todos;
-      return todos;
-    } catch (_) {
-      return [];
-    }
-  }
+  Future<List<Todo>> getCachedSessionTodos(String sessionId) =>
+      _getList('$_cachedTodosPrefix$sessionId', (j) => Todo.fromJson(j));
 
   // ============================================================
   // VCS/Git Info Cache
   // ============================================================
 
   /// Cache VCS info for a session
-  Future<void> cacheSessionVcs(String sessionId, VcsInfo vcs) async {
-    final key = '$_cachedVcsPrefix$sessionId';
-    _memoryCache[key] = vcs;
-    _updateCacheTimestamp(key);
-
-    final json = jsonEncode(vcs.toJson());
-    await _storage.write(key: key, value: json);
-  }
+  Future<void> cacheSessionVcs(String sessionId, VcsInfo vcs) =>
+      _putObject('$_cachedVcsPrefix$sessionId', vcs, (v) => v.toJson());
 
   /// Get cached VCS info for a session
-  Future<VcsInfo?> getCachedSessionVcs(String sessionId) async {
-    final key = '$_cachedVcsPrefix$sessionId';
-
-    final memCached = _memoryCache[key];
-    if (memCached != null && memCached is VcsInfo) {
-      return memCached;
-    }
-
-    final raw = await _storage.read(key: key);
-    if (raw == null) return null;
-    try {
-      final data = jsonDecode(raw) as Map<String, dynamic>;
-      final vcs = VcsInfo.fromJson(data);
-      _memoryCache[key] = vcs;
-      return vcs;
-    } catch (_) {
-      return null;
-    }
-  }
+  Future<VcsInfo?> getCachedSessionVcs(String sessionId) =>
+      _getObject('$_cachedVcsPrefix$sessionId', (j) => VcsInfo.fromJson(j));
 
   // ============================================================
   // Agents Cache
   // ============================================================
 
   /// Cache agents list
-  Future<void> cacheAgents(List<Agent> agents) async {
-    _memoryCache[_cachedAgentsKey] = agents;
-    _updateCacheTimestamp(_cachedAgentsKey);
-
-    final json = jsonEncode(agents.map((a) => a.toJson()).toList());
-    await _storage.write(key: _cachedAgentsKey, value: json);
-  }
+  Future<void> cacheAgents(List<Agent> agents) =>
+      _putList(_cachedAgentsKey, agents, (a) => a.toJson());
 
   /// Get cached agents
-  Future<List<Agent>> getCachedAgents() async {
-    final memCached = _memoryCache[_cachedAgentsKey];
-    if (memCached != null && memCached is List<Agent>) {
-      return memCached;
-    }
-
-    final raw = await _storage.read(key: _cachedAgentsKey);
-    if (raw == null) return [];
-    try {
-      final List<dynamic> list = jsonDecode(raw);
-      final agents = list
-          .map((item) => Agent.fromJson(item as Map<String, dynamic>))
-          .toList();
-      _memoryCache[_cachedAgentsKey] = agents;
-      return agents;
-    } catch (_) {
-      return [];
-    }
-  }
+  Future<List<Agent>> getCachedAgents() =>
+      _getList(_cachedAgentsKey, (j) => Agent.fromJson(j));
 
   // ============================================================
   // Commands Cache
   // ============================================================
 
   /// Cache slash commands list
-  Future<void> cacheCommands(List<SlashCommand> commands) async {
-    _memoryCache[_cachedCommandsKey] = commands;
-    _updateCacheTimestamp(_cachedCommandsKey);
-
-    final json = jsonEncode(commands.map((c) => c.toJson()).toList());
-    await _storage.write(key: _cachedCommandsKey, value: json);
-  }
+  Future<void> cacheCommands(List<SlashCommand> commands) =>
+      _putList(_cachedCommandsKey, commands, (c) => c.toJson());
 
   /// Get cached commands
-  Future<List<SlashCommand>> getCachedCommands() async {
-    final memCached = _memoryCache[_cachedCommandsKey];
-    if (memCached != null && memCached is List<SlashCommand>) {
-      return memCached;
-    }
-
-    final raw = await _storage.read(key: _cachedCommandsKey);
-    if (raw == null) return [];
-    try {
-      final List<dynamic> list = jsonDecode(raw);
-      final commands = list
-          .map((item) => SlashCommand.fromJson(item as Map<String, dynamic>))
-          .toList();
-      _memoryCache[_cachedCommandsKey] = commands;
-      return commands;
-    } catch (_) {
-      return [];
-    }
-  }
+  Future<List<SlashCommand>> getCachedCommands() =>
+      _getList(_cachedCommandsKey, (j) => SlashCommand.fromJson(j));
 
   // ============================================================
   // Tools Cache
   // ============================================================
 
   /// Cache tools list
-  Future<void> cacheTools(List<ToolInfo> tools) async {
-    _memoryCache[_cachedToolsKey] = tools;
-    _updateCacheTimestamp(_cachedToolsKey);
-
-    final json = jsonEncode(tools.map((t) => _toolInfoToJson(t)).toList());
-    await _storage.write(key: _cachedToolsKey, value: json);
-  }
+  Future<void> cacheTools(List<ToolInfo> tools) =>
+      _putList(_cachedToolsKey, tools, _toolInfoToJson);
 
   /// Get cached tools
-  Future<List<ToolInfo>> getCachedTools() async {
-    final memCached = _memoryCache[_cachedToolsKey];
-    if (memCached != null && memCached is List<ToolInfo>) {
-      return memCached;
-    }
-
-    final raw = await _storage.read(key: _cachedToolsKey);
-    if (raw == null) return [];
-    try {
-      final List<dynamic> list = jsonDecode(raw);
-      final tools = list
-          .map((item) => ToolInfo.fromJson(item as Map<String, dynamic>))
-          .toList();
-      _memoryCache[_cachedToolsKey] = tools;
-      return tools;
-    } catch (_) {
-      return [];
-    }
-  }
-
-  Map<String, dynamic> _toolInfoToJson(ToolInfo t) {
-    return {
-      'id': t.id,
-      'description': t.description,
-      'parameters': t.parameters,
-    };
-  }
+  Future<List<ToolInfo>> getCachedTools() =>
+      _getList(_cachedToolsKey, (j) => ToolInfo.fromJson(j));
 
   // ============================================================
   // MCP Servers Cache
@@ -1092,47 +851,17 @@ class StorageService {
     }
   }
 
-  Map<String, dynamic> _mcpServerToJson(McpServerStatus s) {
-    return {
-      'name': s.name,
-      'status': s.status.name,
-      'error': s.error,
-      'tools': s.tools,
-      'resources': s.resources,
-    };
-  }
-
   // ============================================================
   // Providers Cache
   // ============================================================
 
   /// Cache provider info
-  Future<void> cacheProviders(ProviderInfo info) async {
-    _memoryCache[_cachedProvidersKey] = info;
-    _updateCacheTimestamp(_cachedProvidersKey);
-
-    final json = jsonEncode(_providerInfoToJson(info));
-    await _storage.write(key: _cachedProvidersKey, value: json);
-  }
+  Future<void> cacheProviders(ProviderInfo info) =>
+      _putObject(_cachedProvidersKey, info, _providerInfoToJson);
 
   /// Get cached providers
-  Future<ProviderInfo?> getCachedProviders() async {
-    final memCached = _memoryCache[_cachedProvidersKey];
-    if (memCached != null && memCached is ProviderInfo) {
-      return memCached;
-    }
-
-    final raw = await _storage.read(key: _cachedProvidersKey);
-    if (raw == null) return null;
-    try {
-      final data = jsonDecode(raw) as Map<String, dynamic>;
-      final info = ProviderInfo.fromJson(data);
-      _memoryCache[_cachedProvidersKey] = info;
-      return info;
-    } catch (_) {
-      return null;
-    }
-  }
+  Future<ProviderInfo?> getCachedProviders() =>
+      _getObject(_cachedProvidersKey, (j) => ProviderInfo.fromJson(j));
 
   /// Cache provider auth methods
   Future<void> cacheProviderAuth(
@@ -1182,429 +911,145 @@ class StorageService {
     }
   }
 
-  Map<String, dynamic> _providerInfoToJson(ProviderInfo info) {
-    return {
-      'all': info.all.map((p) => _providerDetailsToJson(p)).toList(),
-      'default': info.defaults,
-      'connected': info.connected,
-    };
-  }
-
-  Map<String, dynamic> _providerDetailsToJson(ProviderDetails p) {
-    final modelsMap = <String, dynamic>{};
-    for (final entry in p.models.entries) {
-      modelsMap[entry.key] = _modelInfoToJson(entry.value);
-    }
-    return {'id': p.id, 'name': p.name, 'models': modelsMap};
-  }
-
-  Map<String, dynamic> _modelInfoToJson(ModelInfo m) {
-    return {
-      'name': m.name,
-      'contextWindow': m.contextWindow,
-      'pricing': {'input': m.inputPricing, 'output': m.outputPricing},
-    };
-  }
-
-  Map<String, dynamic> _providerAuthToJson(ProviderAuthMethod m) {
-    return {
-      'type': m.type == ProviderAuthType.oauth ? 'oauth' : 'api',
-      'name': m.name,
-      'description': m.description,
-      'url': m.url,
-    };
-  }
-
   // ============================================================
   // PTY Sessions Cache
   // ============================================================
 
   /// Cache PTY sessions list
-  Future<void> cachePtySessions(List<Map<String, dynamic>> sessions) async {
-    _memoryCache[_cachedPtySessionsKey] = sessions;
-    _updateCacheTimestamp(_cachedPtySessionsKey);
-
-    await _storage.write(
-      key: _cachedPtySessionsKey,
-      value: jsonEncode(sessions),
-    );
-  }
+  Future<void> cachePtySessions(List<Map<String, dynamic>> sessions) =>
+      _putList(_cachedPtySessionsKey, sessions, (s) => s);
 
   /// Get cached PTY sessions
-  Future<List<Map<String, dynamic>>> getCachedPtySessions() async {
-    final memCached = _memoryCache[_cachedPtySessionsKey];
-    if (memCached != null && memCached is List<Map<String, dynamic>>) {
-      return memCached;
-    }
-
-    final raw = await _storage.read(key: _cachedPtySessionsKey);
-    if (raw == null) return [];
-    try {
-      final List<dynamic> list = jsonDecode(raw);
-      final sessions = list.cast<Map<String, dynamic>>();
-      _memoryCache[_cachedPtySessionsKey] = sessions;
-      return sessions;
-    } catch (_) {
-      return [];
-    }
-  }
+  Future<List<Map<String, dynamic>>> getCachedPtySessions() =>
+      _getList(_cachedPtySessionsKey, (j) => j);
 
   // ============================================================
   // Claude Code Sessions Cache
   // ============================================================
 
   /// Cache Claude Code sessions list
-  Future<void> cacheCCSessions(List<ClaudeCodeSession> sessions) async {
-    _memoryCache[_cachedCCSessionsKey] = sessions;
-    _updateCacheTimestamp(_cachedCCSessionsKey);
-
-    final json = jsonEncode(sessions.map((s) => s.toJson()).toList());
-    await _storage.write(key: _cachedCCSessionsKey, value: json);
-  }
+  Future<void> cacheCCSessions(List<ClaudeCodeSession> sessions) =>
+      _putList(_cachedCCSessionsKey, sessions, (s) => s.toJson());
 
   /// Get cached Claude Code sessions
-  Future<List<ClaudeCodeSession>> getCachedCCSessions() async {
-    final memCached = _memoryCache[_cachedCCSessionsKey];
-    if (memCached != null && memCached is List<ClaudeCodeSession>) {
-      return memCached;
-    }
+  Future<List<ClaudeCodeSession>> getCachedCCSessions() =>
+      _getList(_cachedCCSessionsKey, (j) => ClaudeCodeSession.fromJson(j));
 
-    final raw = await _storage.read(key: _cachedCCSessionsKey);
-    if (raw == null) return [];
-    try {
-      final List<dynamic> list = jsonDecode(raw);
-      final sessions = list
-          .map(
-            (item) => ClaudeCodeSession.fromJson(item as Map<String, dynamic>),
-          )
-          .toList();
-      _memoryCache[_cachedCCSessionsKey] = sessions;
-      return sessions;
-    } catch (_) {
-      return [];
-    }
-  }
-
-  /// Cache Claude Code messages for a session
+  /// Cache Claude Code messages for a session (prunes to last 50)
   Future<void> cacheCCSessionMessages(
     String sessionId,
     List<ChatMessage> messages,
   ) async {
     final key = '$_cachedCCMessagesPrefix$sessionId';
-
-    // Prune to last N messages
-    final prunedMessages = messages.length > _maxCachedMessagesPerSession
+    final pruned = messages.length > _maxCachedMessagesPerSession
         ? messages.sublist(messages.length - _maxCachedMessagesPerSession)
         : messages;
-
-    _memoryCache[key] = prunedMessages;
-    _updateCacheTimestamp(key);
-
-    final json = jsonEncode(
-      prunedMessages.map((m) => _messageToJson(m)).toList(),
-    );
-    await _storage.write(key: key, value: json);
+    await _putList(key, pruned, _messageToJson);
   }
 
   /// Get cached Claude Code messages for a session
-  Future<List<ChatMessage>> getCachedCCMessages(String sessionId) async {
-    final key = '$_cachedCCMessagesPrefix$sessionId';
-
-    final memCached = _memoryCache[key];
-    if (memCached != null && memCached is List<ChatMessage>) {
-      return memCached;
-    }
-
-    final raw = await _storage.read(key: key);
-    if (raw == null) return [];
-    try {
-      final List<dynamic> list = jsonDecode(raw);
-      final messages = list
-          .map((item) => _messageFromJson(item as Map<String, dynamic>))
-          .toList();
-      _memoryCache[key] = messages;
-      return messages;
-    } catch (_) {
-      return [];
-    }
-  }
+  Future<List<ChatMessage>> getCachedCCMessages(String sessionId) =>
+      _getList('$_cachedCCMessagesPrefix$sessionId', _messageFromJson);
 
   // ============================================================
   // Pi Sessions Cache
   // ============================================================
 
   /// Cache Pi sessions list
-  Future<void> cachePiSessions(List<PiSessionInfo> sessions) async {
-    _memoryCache[_cachedPiSessionsKey] = sessions;
-    _updateCacheTimestamp(_cachedPiSessionsKey);
-
-    final json = jsonEncode(sessions.map((s) => s.toJson()).toList());
-    await _storage.write(key: _cachedPiSessionsKey, value: json);
-  }
+  Future<void> cachePiSessions(List<PiSessionInfo> sessions) =>
+      _putList(_cachedPiSessionsKey, sessions, (s) => s.toJson());
 
   /// Get cached Pi sessions
-  Future<List<PiSessionInfo>> getCachedPiSessions() async {
-    final memCached = _memoryCache[_cachedPiSessionsKey];
-    if (memCached != null && memCached is List<PiSessionInfo>) {
-      return memCached;
-    }
-
-    final raw = await _storage.read(key: _cachedPiSessionsKey);
-    if (raw == null) return [];
-    try {
-      final List<dynamic> list = jsonDecode(raw);
-      final sessions = list
-          .map((item) => PiSessionInfo.fromJson(item as Map<String, dynamic>))
-          .toList();
-      _memoryCache[_cachedPiSessionsKey] = sessions;
-      return sessions;
-    } catch (_) {
-      return [];
-    }
-  }
+  Future<List<PiSessionInfo>> getCachedPiSessions() =>
+      _getList(_cachedPiSessionsKey, (j) => PiSessionInfo.fromJson(j));
 
   // ============================================================
   // Pi Projects Cache
   // ============================================================
 
   /// Cache Pi projects (derived from Pi session cwd values)
-  Future<void> cachePiProjects(List<ProjectSummary> projects) async {
-    _memoryCache[_cachedPiProjectsKey] = projects;
-    _updateCacheTimestamp(_cachedPiProjectsKey);
-    final json = jsonEncode(projects.map((p) => _projectToJson(p)).toList());
-    await _storage.write(key: _cachedPiProjectsKey, value: json);
-  }
+  Future<void> cachePiProjects(List<ProjectSummary> projects) =>
+      _putList(_cachedPiProjectsKey, projects, _projectToJson);
 
   /// Load cached Pi projects
-  Future<List<ProjectSummary>> getCachedPiProjects() async {
-    final memCached = _memoryCache[_cachedPiProjectsKey];
-    if (memCached != null && memCached is List<ProjectSummary>) {
-      return memCached;
-    }
-    final raw = await _storage.read(key: _cachedPiProjectsKey);
-    if (raw == null) return [];
-    try {
-      final list = jsonDecode(raw) as List<dynamic>;
-      final projects =
-          list.map((item) => ProjectSummary.fromJson(item as Map<String, dynamic>)).toList();
-      _memoryCache[_cachedPiProjectsKey] = projects;
-      return projects;
-    } catch (_) {
-      return [];
-    }
-  }
+  Future<List<ProjectSummary>> getCachedPiProjects() =>
+      _getList(_cachedPiProjectsKey, (j) => ProjectSummary.fromJson(j));
 
   // ============================================================
   // Claude Code Projects Cache
   // ============================================================
 
   /// Cache Claude Code projects
-  Future<void> cacheCCProjects(List<ProjectSummary> projects) async {
-    _memoryCache[_cachedCCProjectsKey] = projects;
-    _updateCacheTimestamp(_cachedCCProjectsKey);
-    final json = jsonEncode(projects.map((p) => _projectToJson(p)).toList());
-    await _storage.write(key: _cachedCCProjectsKey, value: json);
-  }
+  Future<void> cacheCCProjects(List<ProjectSummary> projects) =>
+      _putList(_cachedCCProjectsKey, projects, _projectToJson);
 
   /// Load cached Claude Code projects
-  Future<List<ProjectSummary>> getCachedCCProjects() async {
-    final memCached = _memoryCache[_cachedCCProjectsKey];
-    if (memCached != null && memCached is List<ProjectSummary>) {
-      return memCached;
-    }
-    final raw = await _storage.read(key: _cachedCCProjectsKey);
-    if (raw == null) return [];
-    try {
-      final list = jsonDecode(raw) as List<dynamic>;
-      final projects =
-          list.map((item) => ProjectSummary.fromJson(item as Map<String, dynamic>)).toList();
-      _memoryCache[_cachedCCProjectsKey] = projects;
-      return projects;
-    } catch (_) {
-      return [];
-    }
-  }
+  Future<List<ProjectSummary>> getCachedCCProjects() =>
+      _getList(_cachedCCProjectsKey, (j) => ProjectSummary.fromJson(j));
+
   // ============================================================
   // Codex Threads Cache
   // ============================================================
 
-  Future<void> cacheCodexThreads(List<CodexThread> threads) async {
-    _memoryCache[_cachedCodexThreadsKey] = threads;
-    _updateCacheTimestamp(_cachedCodexThreadsKey);
+  /// Cache Codex threads list
+  Future<void> cacheCodexThreads(List<CodexThread> threads) =>
+      _putList(_cachedCodexThreadsKey, threads, (t) => t.toJson());
 
-    final json = jsonEncode(threads.map((t) => t.toJson()).toList());
-    await _storage.write(key: _cachedCodexThreadsKey, value: json);
-  }
+  /// Get cached Codex threads
+  Future<List<CodexThread>> getCachedCodexThreads() =>
+      _getList(_cachedCodexThreadsKey, (j) => CodexThread.fromJson(j));
 
-  Future<List<CodexThread>> getCachedCodexThreads() async {
-    final memCached = _memoryCache[_cachedCodexThreadsKey];
-    if (memCached != null && memCached is List<CodexThread>) {
-      return memCached;
-    }
-
-    final raw = await _storage.read(key: _cachedCodexThreadsKey);
-    if (raw == null) return [];
-    try {
-      final List<dynamic> list = jsonDecode(raw);
-      final threads = list
-          .map((item) => CodexThread.fromJson(item as Map<String, dynamic>))
-          .toList();
-      _memoryCache[_cachedCodexThreadsKey] = threads;
-      return threads;
-    } catch (_) {
-      return [];
-    }
-  }
-
+  /// Cache Codex thread messages (prunes to last 50)
   Future<void> cacheCodexThreadMessages(
     String threadId,
     List<ChatMessage> messages,
   ) async {
     final key = '$_cachedCodexMessagesPrefix$threadId';
-
-    final prunedMessages = messages.length > _maxCachedMessagesPerSession
+    final pruned = messages.length > _maxCachedMessagesPerSession
         ? messages.sublist(messages.length - _maxCachedMessagesPerSession)
         : messages;
-
-    _memoryCache[key] = prunedMessages;
-    _updateCacheTimestamp(key);
-
-    final json = jsonEncode(
-      prunedMessages.map((m) => _messageToJson(m)).toList(),
-    );
-    await _storage.write(key: key, value: json);
+    await _putList(key, pruned, _messageToJson);
   }
 
-  Future<List<ChatMessage>> getCachedCodexMessages(String threadId) async {
-    final key = '$_cachedCodexMessagesPrefix$threadId';
-
-    final memCached = _memoryCache[key];
-    if (memCached != null && memCached is List<ChatMessage>) {
-      return memCached;
-    }
-
-    final raw = await _storage.read(key: key);
-    if (raw == null) return [];
-    try {
-      final List<dynamic> list = jsonDecode(raw);
-      final messages = list
-          .map((item) => _messageFromJson(item as Map<String, dynamic>))
-          .toList();
-      _memoryCache[key] = messages;
-      return messages;
-    } catch (_) {
-      return [];
-    }
-  }
+  /// Get cached Codex thread messages
+  Future<List<ChatMessage>> getCachedCodexMessages(String threadId) =>
+      _getList('$_cachedCodexMessagesPrefix$threadId', _messageFromJson);
 
   // ============================================================
   // Subagents Cache
   // ============================================================
 
   /// Cache subagents config
-  Future<void> cacheSubagents(List<ClaudeCodeSubagent> subagents) async {
-    _memoryCache[_cachedSubagentsKey] = subagents;
-    _updateCacheTimestamp(_cachedSubagentsKey);
-
-    final json = jsonEncode(subagents.map((s) => s.toJson()).toList());
-    await _storage.write(key: _cachedSubagentsKey, value: json);
-  }
+  Future<void> cacheSubagents(List<ClaudeCodeSubagent> subagents) =>
+      _putList(_cachedSubagentsKey, subagents, (s) => s.toJson());
 
   /// Get cached subagents
-  Future<List<ClaudeCodeSubagent>> getCachedSubagents() async {
-    final memCached = _memoryCache[_cachedSubagentsKey];
-    if (memCached != null && memCached is List<ClaudeCodeSubagent>) {
-      return memCached;
-    }
-
-    final raw = await _storage.read(key: _cachedSubagentsKey);
-    if (raw == null) return [];
-    try {
-      final List<dynamic> list = jsonDecode(raw);
-      final subagents = list
-          .map(
-            (item) => ClaudeCodeSubagent.fromJson(item as Map<String, dynamic>),
-          )
-          .toList();
-      _memoryCache[_cachedSubagentsKey] = subagents;
-      return subagents;
-    } catch (_) {
-      return [];
-    }
-  }
+  Future<List<ClaudeCodeSubagent>> getCachedSubagents() =>
+      _getList(_cachedSubagentsKey, (j) => ClaudeCodeSubagent.fromJson(j));
 
   // ============================================================
   // Custom Tools Cache
   // ============================================================
 
   /// Cache custom tools config
-  Future<void> cacheCustomTools(List<ClaudeCodeCustomTool> tools) async {
-    _memoryCache[_cachedCustomToolsKey] = tools;
-    _updateCacheTimestamp(_cachedCustomToolsKey);
-
-    final json = jsonEncode(tools.map((t) => t.toJson()).toList());
-    await _storage.write(key: _cachedCustomToolsKey, value: json);
-  }
+  Future<void> cacheCustomTools(List<ClaudeCodeCustomTool> tools) =>
+      _putList(_cachedCustomToolsKey, tools, (t) => t.toJson());
 
   /// Get cached custom tools
-  Future<List<ClaudeCodeCustomTool>> getCachedCustomTools() async {
-    final memCached = _memoryCache[_cachedCustomToolsKey];
-    if (memCached != null && memCached is List<ClaudeCodeCustomTool>) {
-      return memCached;
-    }
-
-    final raw = await _storage.read(key: _cachedCustomToolsKey);
-    if (raw == null) return [];
-    try {
-      final List<dynamic> list = jsonDecode(raw);
-      final tools = list
-          .map(
-            (item) =>
-                ClaudeCodeCustomTool.fromJson(item as Map<String, dynamic>),
-          )
-          .toList();
-      _memoryCache[_cachedCustomToolsKey] = tools;
-      return tools;
-    } catch (_) {
-      return [];
-    }
-  }
+  Future<List<ClaudeCodeCustomTool>> getCachedCustomTools() =>
+      _getList(_cachedCustomToolsKey, (j) => ClaudeCodeCustomTool.fromJson(j));
 
   // ============================================================
   // Plugins Cache
   // ============================================================
 
   /// Cache plugins list
-  Future<void> cachePlugins(List<ClaudeCodePlugin> plugins) async {
-    _memoryCache[_cachedPluginsKey] = plugins;
-    _updateCacheTimestamp(_cachedPluginsKey);
-
-    final json = jsonEncode(plugins.map((p) => p.toJson()).toList());
-    await _storage.write(key: _cachedPluginsKey, value: json);
-  }
+  Future<void> cachePlugins(List<ClaudeCodePlugin> plugins) =>
+      _putList(_cachedPluginsKey, plugins, (p) => p.toJson());
 
   /// Get cached plugins
-  Future<List<ClaudeCodePlugin>> getCachedPlugins() async {
-    final memCached = _memoryCache[_cachedPluginsKey];
-    if (memCached != null && memCached is List<ClaudeCodePlugin>) {
-      return memCached;
-    }
-
-    final raw = await _storage.read(key: _cachedPluginsKey);
-    if (raw == null) return [];
-    try {
-      final List<dynamic> list = jsonDecode(raw);
-      final plugins = list
-          .map(
-            (item) => ClaudeCodePlugin.fromJson(item as Map<String, dynamic>),
-          )
-          .toList();
-      _memoryCache[_cachedPluginsKey] = plugins;
-      return plugins;
-    } catch (_) {
-      return [];
-    }
-  }
+  Future<List<ClaudeCodePlugin>> getCachedPlugins() =>
+      _getList(_cachedPluginsKey, (j) => ClaudeCodePlugin.fromJson(j));
 
   // ============================================================
   // JSON Serialization Helpers
@@ -1728,6 +1173,88 @@ class StorageService {
       diff: json['diff'] as String?,
       partId: json['partId'] as String?,
     );
+  }
+
+  Map<String, dynamic> _toolInfoToJson(ToolInfo t) {
+    return {
+      'id': t.id,
+      'description': t.description,
+      'parameters': t.parameters,
+    };
+  }
+
+  Map<String, dynamic> _mcpServerToJson(McpServerStatus s) {
+    return {
+      'name': s.name,
+      'status': s.status.name,
+      'error': s.error,
+      'tools': s.tools,
+      'resources': s.resources,
+    };
+  }
+
+  Map<String, dynamic> _sessionContextToJson(SessionContext c) {
+    return {
+      'tokens': {
+        'input': c.tokens.input,
+        'output': c.tokens.output,
+        'total': c.tokens.total,
+        'contextWindow': c.tokens.contextWindow,
+      },
+      'cost': c.cost,
+      if (c.budgetLimitUsd != null) 'budgetLimitUsd': c.budgetLimitUsd,
+      'lsp': c.lsp.map((l) => _lspServerToJson(l)).toList(),
+      'modifiedFiles': c.modifiedFiles
+          .map((f) => _modifiedFileToJson(f))
+          .toList(),
+    };
+  }
+
+  Map<String, dynamic> _lspServerToJson(LspServer l) {
+    return {
+      'id': l.id,
+      'name': l.name,
+      'status': l.status.name,
+      'language': l.language,
+      'root': l.root,
+    };
+  }
+
+  Map<String, dynamic> _modifiedFileToJson(ModifiedFile f) {
+    return {'file': f.file, 'additions': f.additions, 'deletions': f.deletions};
+  }
+
+  Map<String, dynamic> _providerInfoToJson(ProviderInfo info) {
+    return {
+      'all': info.all.map((p) => _providerDetailsToJson(p)).toList(),
+      'default': info.defaults,
+      'connected': info.connected,
+    };
+  }
+
+  Map<String, dynamic> _providerDetailsToJson(ProviderDetails p) {
+    final modelsMap = <String, dynamic>{};
+    for (final entry in p.models.entries) {
+      modelsMap[entry.key] = _modelInfoToJson(entry.value);
+    }
+    return {'id': p.id, 'name': p.name, 'models': modelsMap};
+  }
+
+  Map<String, dynamic> _modelInfoToJson(ModelInfo m) {
+    return {
+      'name': m.name,
+      'contextWindow': m.contextWindow,
+      'pricing': {'input': m.inputPricing, 'output': m.outputPricing},
+    };
+  }
+
+  Map<String, dynamic> _providerAuthToJson(ProviderAuthMethod m) {
+    return {
+      'type': m.type == ProviderAuthType.oauth ? 'oauth' : 'api',
+      'name': m.name,
+      'description': m.description,
+      'url': m.url,
+    };
   }
 
   // ============================================================

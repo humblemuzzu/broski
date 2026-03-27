@@ -1,3 +1,4 @@
+import 'package:broski/utils/format_utils.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/app_icons.dart';
@@ -5,6 +6,8 @@ import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import 'action_row.dart';
 import 'action_tile.dart';
+import 'agent_status_bar.dart';
+import 'section_header.dart';
 
 /// Claude Code actions content. Extracted from chat_screen.dart.
 class ClaudeCodeActionsContent extends StatelessWidget {
@@ -23,14 +26,6 @@ class ClaudeCodeActionsContent extends StatelessWidget {
   final String? ccModel;
   final bool isStreaming;
   final void Function(String) onAction;
-  String _getModelName(String? model) {
-    if (model == null || model.isEmpty) return 'Claude';
-    final m = model.toLowerCase();
-    if (m.contains('opus')) return 'Opus';
-    if (m.contains('sonnet')) return 'Sonnet';
-    if (m.contains('haiku')) return 'Haiku';
-    return model.length > 12 ? '${model.substring(0, 12)}...' : model;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,76 +33,13 @@ class ClaudeCodeActionsContent extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         // Status bar (latency, model)
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-          child: Row(
-            children: [
-              // Latency
-              if (isConnected && rttMs != null) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: theme.info.withValues(alpha: 0.1),
-                    borderRadius: Radii.brSm,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(AppIcons.speed, size: 14, color: theme.info),
-                      const SizedBox(width: 6),
-                      Text(
-                        '${rttMs}ms',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: theme.info,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-              const Spacer(),
-              // Model selector (onAction handles Navigator.pop)
-              GestureDetector(
-                onTap: () => onAction('cc_model'),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: theme.accent.withValues(alpha: 0.1),
-                    borderRadius: Radii.brSm,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(AppIcons.autoAwesome, size: 14, color: theme.accent),
-                      const SizedBox(width: 6),
-                      Text(
-                        _getModelName(ccModel),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: theme.accent,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      SizedBox(width: Spacing.xs),
-                      Icon(
-                        AppIcons.chevronRight,
-                        size: 16,
-                        color: theme.accent,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+        AgentStatusBar(
+          theme: theme,
+          isConnected: isConnected,
+          rttMs: rttMs,
+          modelName: getModelDisplayName(ccModel, fallback: 'Claude'),
+          modelColor: theme.accent,
+          onModelTap: () => onAction('cc_model'),
         ),
         // Actions
         Padding(
@@ -116,15 +48,7 @@ class ClaudeCodeActionsContent extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Configuration section
-              Text(
-                'CONFIGURATION',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: theme.textMuted,
-                  letterSpacing: 0.5,
-                ),
-              ),
+              SectionHeader(title: 'CONFIGURATION', theme: theme),
               SizedBox(height: Spacing.md),
               ActionRow(
                 icon: AppIcons.gridView,
@@ -168,15 +92,7 @@ class ClaudeCodeActionsContent extends StatelessWidget {
               ),
               SizedBox(height: Spacing.xl),
               // Integration section
-              Text(
-                'INTEGRATION',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: theme.textMuted,
-                  letterSpacing: 0.5,
-                ),
-              ),
+              SectionHeader(title: 'INTEGRATION', theme: theme),
               SizedBox(height: Spacing.md),
               ActionRow(
                 icon: AppIcons.hub,
@@ -187,15 +103,7 @@ class ClaudeCodeActionsContent extends StatelessWidget {
               ),
               SizedBox(height: Spacing.xl),
               // Session section
-              Text(
-                'SESSION',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: theme.textMuted,
-                  letterSpacing: 0.5,
-                ),
-              ),
+              SectionHeader(title: 'SESSION', theme: theme),
               SizedBox(height: Spacing.md),
               ActionRow(
                 icon: AppIcons.callSplit,
@@ -206,14 +114,10 @@ class ClaudeCodeActionsContent extends StatelessWidget {
               ),
               if (isStreaming) ...[
                 SizedBox(height: Spacing.xl),
-                Text(
-                  'DANGER ZONE',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: theme.error.withValues(alpha: 0.7),
-                    letterSpacing: 0.5,
-                  ),
+                SectionHeader(
+                  title: 'DANGER ZONE',
+                  theme: theme,
+                  color: theme.error.withValues(alpha: 0.7),
                 ),
                 SizedBox(height: Spacing.md),
                 ActionRow(

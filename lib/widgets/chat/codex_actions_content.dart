@@ -1,3 +1,4 @@
+import 'package:broski/utils/format_utils.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/app_icons.dart';
@@ -5,6 +6,8 @@ import '../../theme/design_tokens.dart';
 import '../../theme/opencode_theme.dart';
 import 'action_row.dart';
 import 'action_tile.dart';
+import 'agent_status_bar.dart';
+import 'section_header.dart';
 
 /// Codex actions content. Extracted from chat_screen.dart.
 class CodexActionsContent extends StatelessWidget {
@@ -23,14 +26,6 @@ class CodexActionsContent extends StatelessWidget {
   final String? codexModel;
   final bool isStreaming;
   final void Function(String) onAction;
-  String _getModelName(String? model) {
-    if (model == null || model.isEmpty) return 'Default';
-    final m = model.toLowerCase();
-    if (m.contains('o1')) return 'o1';
-    if (m.contains('o3')) return 'o3';
-    if (m.contains('gpt-4')) return 'GPT-4';
-    return model.length > 12 ? '${model.substring(0, 12)}...' : model;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,80 +33,13 @@ class CodexActionsContent extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         // Status bar (latency, model)
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-          child: Row(
-            children: [
-              // Latency
-              if (isConnected && rttMs != null) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: theme.info.withValues(alpha: 0.1),
-                    borderRadius: Radii.brSm,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(AppIcons.speed, size: 14, color: theme.info),
-                      const SizedBox(width: 6),
-                      Text(
-                        '${rttMs}ms',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: theme.info,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-              const Spacer(),
-              // Model selector (onAction handles Navigator.pop)
-              GestureDetector(
-                onTap: () => onAction('cx_model'),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: theme.primary.withValues(alpha: 0.1),
-                    borderRadius: Radii.brSm,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        AppIcons.autoAwesome,
-                        size: 14,
-                        color: theme.primary,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        _getModelName(codexModel),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: theme.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      SizedBox(width: Spacing.xs),
-                      Icon(
-                        AppIcons.chevronRight,
-                        size: 16,
-                        color: theme.primary,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+        AgentStatusBar(
+          theme: theme,
+          isConnected: isConnected,
+          rttMs: rttMs,
+          modelName: getModelDisplayName(codexModel, fallback: 'Default'),
+          modelColor: theme.primary,
+          onModelTap: () => onAction('cx_model'),
         ),
         // Actions
         Padding(
@@ -129,15 +57,7 @@ class CodexActionsContent extends StatelessWidget {
               ),
               SizedBox(height: Spacing.xl),
               // Configuration section
-              Text(
-                'CONFIGURATION',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: theme.textMuted,
-                  letterSpacing: 0.5,
-                ),
-              ),
+              SectionHeader(title: 'CONFIGURATION', theme: theme),
               SizedBox(height: Spacing.md),
               Row(
                 children: [
@@ -179,15 +99,7 @@ class CodexActionsContent extends StatelessWidget {
               ),
               SizedBox(height: Spacing.xl),
               // Project section
-              Text(
-                'PROJECT',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: theme.textMuted,
-                  letterSpacing: 0.5,
-                ),
-              ),
+              SectionHeader(title: 'PROJECT', theme: theme),
               SizedBox(height: Spacing.md),
               ActionRow(
                 icon: AppIcons.description,
@@ -206,15 +118,7 @@ class CodexActionsContent extends StatelessWidget {
               ),
               SizedBox(height: Spacing.xl),
               // Actions section
-              Text(
-                'ACTIONS',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: theme.textMuted,
-                  letterSpacing: 0.5,
-                ),
-              ),
+              SectionHeader(title: 'ACTIONS', theme: theme),
               SizedBox(height: Spacing.md),
               Row(
                 children: [
@@ -239,14 +143,10 @@ class CodexActionsContent extends StatelessWidget {
               ),
               if (isStreaming) ...[
                 SizedBox(height: Spacing.xl),
-                Text(
-                  'DANGER ZONE',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: theme.error.withValues(alpha: 0.7),
-                    letterSpacing: 0.5,
-                  ),
+                SectionHeader(
+                  title: 'DANGER ZONE',
+                  theme: theme,
+                  color: theme.error.withValues(alpha: 0.7),
                 ),
                 SizedBox(height: Spacing.md),
                 ActionRow(
