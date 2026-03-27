@@ -2366,7 +2366,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
 						// For tool parts, check for state changes
 						if (part.type === "tool" && part.state) {
-							const stateKey = `${part.state.status}:${JSON.stringify(part.state.status === 'completed' ? part.state.output : '')}`;
+							const stateOutput = 'output' in part.state ? (part.state as { output?: unknown }).output : undefined;
+							const stateKey = `${part.state.status}:${JSON.stringify(stateOutput ?? '')}`;
 							const prevState = lastToolStateByPartId.get(partId);
 							const stateChanged = stateKey !== prevState;
 
@@ -3557,7 +3558,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 				}
 			} catch (err) {
 				if (DEBUG_RTS) {
-					logDebug(`[RTS] CX External: Error in pump for thread ${threadId}: ${err}`);
+					logDebug(`[RTS] CX External: Error in pump for thread ${threadId}: ${err instanceof Error ? err.stack : err}`);
 				}
 				await closeHandle();
 				filePath = null;

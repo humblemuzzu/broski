@@ -942,8 +942,8 @@ export type ClientMessage =
 	| { type: "cx_external_config_detect" }
 	| { type: "cx_external_config_import"; source: string }
 	// Codex plugin marketplace
-	| { type: "cx_plugin_list"; cursor?: string | null; limit?: number | null }
-	| { type: "cx_plugin_install"; pluginId: string }
+	| { type: "cx_plugin_list"; cwd?: string }
+	| { type: "cx_plugin_install"; marketplacePath: string; pluginName: string }
 	| { type: "cx_plugin_uninstall"; pluginId: string }
 	// Codex thread lifecycle
 	| { type: "cx_thread_unsubscribe"; threadId: string }
