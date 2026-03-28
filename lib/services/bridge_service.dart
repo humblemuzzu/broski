@@ -63,6 +63,7 @@ part 'bridge/bridge_sessions_core.dart';
 part 'bridge/bridge_sessions_lifecycle.dart';
 part 'bridge/bridge_skills_universal.dart';
 part 'bridge/bridge_worktrees.dart';
+part 'bridge/bridge_unified.dart';
 
 class BridgeService {
   static const protocolVersion = '1.0.0';
@@ -144,24 +145,6 @@ class BridgeService {
   // ============================================================
 
   Stream<Map<String, dynamic>> get messages => _socket.messages;
-
-  Stream<Map<String, dynamic>> get sdkEvents =>
-      _socket.messages.expand((message) {
-        final type = message['type'];
-        if (type == 'sdk_event') {
-          final data = message['data'];
-          if (data is Map<String, dynamic>) return [data];
-          return const Iterable<Map<String, dynamic>>.empty();
-        }
-        if (type == 'sdk_event_batch') {
-          final data = message['data'];
-          if (data is List) {
-            return data.whereType<Map<String, dynamic>>();
-          }
-          return const Iterable<Map<String, dynamic>>.empty();
-        }
-        return const Iterable<Map<String, dynamic>>.empty();
-      });
 
   Future<void> authSession({required String sessionToken}) async {
     final requestId = _generateRequestId();

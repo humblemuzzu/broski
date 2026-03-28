@@ -22,36 +22,9 @@ export function handleCodexRuntimeNotification({
 	cxThreadCwds,
 }: RuntimeNotificationParams): boolean {
 	if (method === "thread/status/changed") {
-		const statusThreadId = safeString(params.threadId);
-		const statusType = safeString(params.status?.type);
-		if (!statusThreadId) return true;
-
-		for (const socket of sockets) {
-			if (statusType === "active") {
-				send(socket, {
-					type: "sdk_event",
-					data: {
-						payload: {
-							type: "session.status",
-							properties: {
-								sessionID: statusThreadId,
-								status: { type: "busy" },
-							},
-						},
-					},
-				});
-			} else {
-				send(socket, {
-					type: "sdk_event",
-					data: {
-						payload: {
-							type: "session.idle",
-							properties: { sessionID: statusThreadId },
-						},
-					},
-				});
-			}
-		}
+		// Legacy sdk_event sends removed in Phase 4 — runtime_state drives UI state.
+		// The thread/status/changed notification is now handled via runtime_state
+		// emitted from cx_chat.ts turn handlers.
 		return true;
 	}
 

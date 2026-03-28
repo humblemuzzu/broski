@@ -86,13 +86,6 @@ final piSessionStatsProvider = FutureProvider.family<PiSessionStats, String?>((
   return bridge.getSessionStats(projectPath: projectPath);
 });
 
-final piStreamMessagesProvider = StreamProvider.autoDispose<PiStreamMessage>((
-  ref,
-) {
-  final bridge = ref.watch(piBridgeServiceProvider);
-  return bridge.streamMessages;
-});
-
 /// Filter CWD for Pi sessions list (null = show all).
 final piSessionsFilterCwdProvider = StateProvider<String?>((ref) => null);
 

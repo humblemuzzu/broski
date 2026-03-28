@@ -42,48 +42,10 @@ extension CxStreamHandler on ChatSessionNotifier {
     _clearCxPendingUserInput();
   }
 
-  /// Helper to explicitly clear cxPendingUserInput (copyWith can't set null)
+  /// Helper to explicitly clear cxPendingUserInput.
   void _clearCxPendingUserInput() {
-    state = ChatSessionState(
-      session: state.session,
-      projectPath: state.projectPath,
-      messages: state.messages,
-      permissions: state.permissions,
-      sessionDiffs: state.sessionDiffs,
-      todos: state.todos,
-      vcsInfo: state.vcsInfo,
-      isCompacting: state.isCompacting,
-      sessionStatus: state.sessionStatus,
-      isClaudeCode: state.isClaudeCode,
-      ccSessionId: state.ccSessionId,
-      ccCwd: state.ccCwd,
-      ccModel: state.ccModel,
-      ccInit: state.ccInit,
-      ccTokenUsage: state.ccTokenUsage,
-      ccStructuredOutput: state.ccStructuredOutput,
-      ccIsStreaming: state.ccIsStreaming,
-      isCodex: state.isCodex,
-      cxThreadId: state.cxThreadId,
-      cxCwd: state.cxCwd,
-      cxModel: state.cxModel,
-      cxTokenUsage: state.cxTokenUsage,
-      cxIsStreaming: state.cxIsStreaming,
-      cxCollabTree: state.cxCollabTree,
-      cxPendingUserInput: null, // Explicitly cleared
-      pendingQuestion: state.pendingQuestion,
-      contentLength: state.contentLength,
-      ocAgentMode: state.ocAgentMode,
-      mcpOAuthPending: state.mcpOAuthPending,
-      pendingCCMessage: state.pendingCCMessage,
-      pendingCCAttachments: state.pendingCCAttachments,
-      isPi: state.isPi,
-      piSessionId: state.piSessionId,
-      piCwd: state.piCwd,
-      piModel: state.piModel,
-      piModelData: state.piModelData,
-      piThinkingLevel: state.piThinkingLevel,
-      piIsStreaming: state.piIsStreaming,
-    );
+    if (state.cxPendingUserInput == null) return;
+    state = state.copyWith(cxPendingUserInput: null);
   }
 
   void setCodexThread({
@@ -101,20 +63,15 @@ extension CxStreamHandler on ChatSessionNotifier {
     _textDebounceTimer?.cancel();
     _textDebounceTimer = null;
     _resetCCState();
-    state = ChatSessionState(
-      session: null,
+    state = CodexChatState(
       projectPath: cwd,
       messages: const [],
       permissions: const [],
       sessionDiffs: const [],
       todos: const [],
-      isClaudeCode: false,
-      isCodex: true,
       cxThreadId: threadId.isEmpty ? null : threadId,
       cxCwd: cwd,
       cxModel: model,
-      cxTokenUsage: null,
-      cxIsStreaming: false,
     );
     if (threadId.isNotEmpty) {
       _bridge.setView(sessionId: threadId, agent: 'codex');

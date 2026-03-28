@@ -220,10 +220,11 @@ describe("Source Invariants", () => {
 		});
 
 		test("emitCcStream called WITHOUT ws as owner for stream messages", () => {
-			// The new pattern: emitCcStream(actualSessionId, streamMsgWithId) — no ws
-			expect(ccChat).toContain("emitCcStream(actualSessionId, streamMsgWithId)");
+			// Phase 4: All stream messages route through emitCcStream (no direct cc_stream sends).
+			// The pattern uses streamSid (fallback to "unknown") instead of actualSessionId.
+			expect(ccChat).toContain("emitCcStream(streamSid, streamMsgWithId)");
 			// The OLD pattern with ws as 3rd arg should be gone:
-			expect(ccChat).not.toContain("emitCcStream(actualSessionId, streamMsgWithId, ws)");
+			expect(ccChat).not.toContain("emitCcStream(streamSid, streamMsgWithId, ws)");
 		});
 
 		test("sendSessionIdle uses enqueueSdkEvent (broadcast), not send(ws)", () => {

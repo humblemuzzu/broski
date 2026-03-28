@@ -8,6 +8,7 @@ import 'package:broski/models/file_attachment.dart';
 import 'package:broski/models/message.dart';
 import 'package:broski/models/pi.dart';
 import 'package:broski/models/project.dart';
+import 'package:broski/models/runtime/runtime_event.dart';
 import 'package:broski/models/question.dart';
 import 'package:broski/models/session.dart';
 import 'package:broski/models/session_context.dart';
@@ -400,8 +401,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   ProviderSubscription<AsyncValue<ClaudeCodeConfig>>? _ccConfigSubscription;
   // CC queue: listen for ccIsStreaming true→false to auto-send pending message
   ProviderSubscription<bool>? _ccQueueSubscription;
-  // Pi extension UI stream subscription
-  StreamSubscription<PiStreamMessage>? _piExtensionUiSub;
+  // Pi extension UI stream subscription (via unified runtime events)
+  StreamSubscription<RuntimeEvent>? _piExtensionUiSub;
   @override
   void initState() {
     super.initState();

@@ -101,12 +101,6 @@ extension BridgeServiceCcChat on BridgeService {
     });
   }
 
-  Stream<ClaudeCodeStreamMessage> get ccStreamMessages =>
-      _socket.messages.where((m) => m['type'] == 'cc_stream').map((m) {
-        final data = m['data'] as Map<String, dynamic>? ?? {};
-        return ClaudeCodeStreamMessage.fromJson(data);
-      });
-
   // ============================================================
   // Claude Code - Mid-session controls
   // ============================================================

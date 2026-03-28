@@ -196,7 +196,7 @@ extension _RuntimeCxHandlers on ChatSessionNotifier {
 
       // Plan text streaming delta
       case 'item/plan/delta':
-        // Plan deltas are handled via raw cx_stream passthrough
+        // Plan deltas arrive via collab tree backend_event (turn/plan/updated).
         break;
 
       // Terminal interaction — agent needs stdin during command

@@ -216,7 +216,6 @@ export function emitClaudeCodeSupplementalStreamEvents(
 		return "handled";
 	}
 
-
 	// SDKSessionStateChangedMessage: { type: 'system', subtype: 'session_state_changed', state: 'idle'|'running'|'requires_action' }
 	if (type === "system" && subtype === "session_state_changed") {
 		emit({

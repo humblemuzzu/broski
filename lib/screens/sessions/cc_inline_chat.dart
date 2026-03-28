@@ -1,4 +1,3 @@
-import 'package:broski/models/claude_code.dart';
 import 'package:broski/providers/claude_code_provider.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/app_typography.dart';
@@ -6,6 +5,7 @@ import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:broski/models/claude_code.dart';
 
 // ============================================================================
 // Claude Code Chat Screen
@@ -82,8 +82,8 @@ class _CCChatScreenState extends ConsumerState<CCChatScreen> {
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
     final chatState = ref.watch(ccChatProvider);
-    // Build display messages from stream messages
-    final displayMessages = _buildDisplayMessages(chatState.messages);
+    // Build display messages from runtime display items
+    final displayMessages = _buildDisplayMessages(chatState.displayItems);
     return Scaffold(
       backgroundColor: ocTheme.background,
       appBar: AppBar(
@@ -173,68 +173,51 @@ class _CCChatScreenState extends ConsumerState<CCChatScreen> {
     );
   }
 
-  /// Convert stream messages to display messages
-  List<_CCDisplayMessage> _buildDisplayMessages(
-    List<ClaudeCodeStreamMessage> messages,
-  ) {
+  /// Convert runtime display items to display messages for rendering.
+  /// Groups consecutive text items and interleaves tool items.
+  List<_CCDisplayMessage> _buildDisplayMessages(List<CCDisplayItem> items) {
     final display = <_CCDisplayMessage>[];
     String assistantText = '';
-    final toolCalls = <CCToolCall>[];
-    for (final msg in messages) {
-      if (msg is CCSessionCreated) {
-        // Session started - could show a system message if needed
-        continue;
-      }
-      if (msg is CCAssistantMessage) {
-        // Complete assistant message
-        if (assistantText.isNotEmpty || toolCalls.isNotEmpty) {
-          display.add(
-            _CCDisplayMessage(
-              role: 'assistant',
-              text: assistantText,
-              toolCalls: List.from(toolCalls),
+    final tools = <_CCToolInfo>[];
+
+    for (final item in items) {
+      switch (item.type) {
+        case 'text':
+          assistantText = item.content;
+        case 'tool':
+          tools.add(
+            _CCToolInfo(
+              name: item.toolName ?? 'tool',
+              input: item.toolInput,
+              status: item.toolStatus ?? 'running',
             ),
           );
-          assistantText = '';
-          toolCalls.clear();
-        }
-        assistantText = msg.content;
-      }
-      if (msg is CCAssistantMessageDelta) {
-        // Streaming delta - accumulate
-        assistantText += msg.content;
-      }
-      if (msg is CCToolCall) {
-        toolCalls.add(msg);
-      }
-      if (msg is CCToolResult) {
-        // Tool completed - could update tool call status
-      }
-      if (msg is CCTokenUsage) {
-        // End of turn - finalize assistant message
-        if (assistantText.isNotEmpty || toolCalls.isNotEmpty) {
-          display.add(
-            _CCDisplayMessage(
-              role: 'assistant',
-              text: assistantText,
-              toolCalls: List.from(toolCalls),
-            ),
-          );
-          assistantText = '';
-          toolCalls.clear();
-        }
-      }
-      if (msg is CCError) {
-        display.add(_CCDisplayMessage(role: 'error', text: msg.message));
+        case 'error':
+          // Flush any pending assistant text before the error
+          if (assistantText.isNotEmpty || tools.isNotEmpty) {
+            display.add(
+              _CCDisplayMessage(
+                role: 'assistant',
+                text: assistantText,
+                tools: List.from(tools),
+              ),
+            );
+            assistantText = '';
+            tools.clear();
+          }
+          display.add(_CCDisplayMessage(role: 'error', text: item.content));
+        default:
+          break;
       }
     }
-    // Add any in-progress content
-    if (assistantText.isNotEmpty || toolCalls.isNotEmpty) {
+
+    // Flush remaining content
+    if (assistantText.isNotEmpty || tools.isNotEmpty) {
       display.add(
         _CCDisplayMessage(
           role: 'assistant',
           text: assistantText,
-          toolCalls: List.from(toolCalls),
+          tools: List.from(tools),
         ),
       );
     }
@@ -242,15 +225,23 @@ class _CCChatScreenState extends ConsumerState<CCChatScreen> {
   }
 }
 
+/// Simple tool info for display in CC inline chat.
+class _CCToolInfo {
+  final String name;
+  final dynamic input;
+  final String status; // 'running', 'completed', 'failed'
+  const _CCToolInfo({required this.name, this.input, this.status = 'running'});
+}
+
 /// Display message model for CC chat
 class _CCDisplayMessage {
   final String role; // 'user', 'assistant', 'error'
   final String text;
-  final List<CCToolCall> toolCalls;
+  final List<_CCToolInfo> tools;
   const _CCDisplayMessage({
     required this.role,
     this.text = '',
-    this.toolCalls = const [],
+    this.tools = const [],
   });
 }
 
@@ -337,9 +328,9 @@ class _CCMessageBubble extends StatelessWidget {
               ),
             ),
           // Tool calls
-          if (message.toolCalls.isNotEmpty) ...[
+          if (message.tools.isNotEmpty) ...[
             const SizedBox(height: Spacing.sm),
-            ...message.toolCalls.map((tool) => _CCToolCallCard(tool: tool)),
+            ...message.tools.map((tool) => _CCToolCallCard(tool: tool)),
           ],
         ],
       ),
@@ -347,14 +338,15 @@ class _CCMessageBubble extends StatelessWidget {
   }
 }
 
-/// Tool call card for CC chat
+/// Tool call card for CC chat — uses [_CCToolInfo] from runtime events.
 class _CCToolCallCard extends StatelessWidget {
   const _CCToolCallCard({required this.tool});
-  final CCToolCall tool;
+  final _CCToolInfo tool;
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
     final isRunning = tool.status == 'running';
+    final isFailed = tool.status == 'failed';
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       padding: Insets.cardXs,
@@ -371,6 +363,8 @@ class _CCToolCallCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: isRunning
                   ? ocTheme.info.withValues(alpha: 0.15)
+                  : isFailed
+                  ? ocTheme.error.withValues(alpha: 0.15)
                   : ocTheme.success.withValues(alpha: 0.15),
               borderRadius: Radii.brSm,
             ),
@@ -384,6 +378,8 @@ class _CCToolCallCard extends StatelessWidget {
                         color: ocTheme.info,
                       ),
                     )
+                  : isFailed
+                  ? Icon(AppIcons.error, size: 14, color: ocTheme.error)
                   : Icon(AppIcons.check, size: 14, color: ocTheme.success),
             ),
           ),
@@ -393,7 +389,7 @@ class _CCToolCallCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  tool.tool,
+                  tool.name,
                   style: TextStyle(
                     color: ocTheme.text,
                     fontSize: 13,
@@ -421,11 +417,11 @@ class _CCToolCallCard extends StatelessWidget {
     if (input == null) return '';
     if (input is String) return input;
     if (input is Map) {
-      // Show first key-value or command
       if (input.containsKey('command')) return input['command'].toString();
       if (input.containsKey('path')) return input['path'].toString();
       if (input.containsKey('file_path')) return input['file_path'].toString();
-      return input.entries.first.value.toString();
+      if (input.isNotEmpty) return input.entries.first.value.toString();
+      return '';
     }
     return input.toString();
   }

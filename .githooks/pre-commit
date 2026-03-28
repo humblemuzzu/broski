@@ -17,7 +17,7 @@ dart analyze --fatal-warnings
 BRIDGE_CHANGED=$(git diff --cached --name-only -- packages/bridge/ | head -1)
 if [ -n "$BRIDGE_CHANGED" ]; then
   echo "  → biome check (bridge)"
-  cd packages/bridge && npx biome check src/ --diagnostic-level=error --exclude="src/__tests__/**"
+  cd packages/bridge && npx biome check src/ --diagnostic-level=error
 
   echo "  → tsc --noEmit (bridge)"
   bun run typecheck

@@ -58,17 +58,15 @@ export async function listOpenCodeSessionsInternal(args: {
 	if (directory != null && directory.length > 0) {
 		// session.list does not support cursor/archived; use experimental when needed.
 		if (options?.cursor !== undefined || options?.archived !== undefined) {
-			const result = await client.experimental.session.list(
-				{
-					directory,
-					...(options?.roots !== undefined ? { roots: options.roots } : {}),
-					...(options?.start !== undefined ? { start: options.start } : {}),
-					...(options?.cursor !== undefined ? { cursor: options.cursor } : {}),
-					...(options?.search ? { search: options.search } : {}),
-					...(options?.limit !== undefined ? { limit: options.limit } : {}),
-					...(options?.archived !== undefined ? { archived: options.archived } : {}),
-				},
-			);
+			const result = await client.experimental.session.list({
+				directory,
+				...(options?.roots !== undefined ? { roots: options.roots } : {}),
+				...(options?.start !== undefined ? { start: options.start } : {}),
+				...(options?.cursor !== undefined ? { cursor: options.cursor } : {}),
+				...(options?.search ? { search: options.search } : {}),
+				...(options?.limit !== undefined ? { limit: options.limit } : {}),
+				...(options?.archived !== undefined ? { archived: options.archived } : {}),
+			});
 			const sessions = result.data ?? [];
 			return sessions.map(mapGlobalSession);
 		}

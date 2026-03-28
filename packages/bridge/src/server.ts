@@ -12,9 +12,7 @@ import { CodexAppServerClient, checkCodexAvailable } from "./connectors/codex";
 import * as codexFs from "./connectors/codex-fs";
 import type { OpenCodeConnector } from "./connectors/opencode";
 import * as pi from "./connectors/pi";
-import {
-	startCodexExternalTail as _startCodexExternalTail,
-} from "./cx-external-tail";
+import { startCodexExternalTail as _startCodexExternalTail } from "./cx-external-tail";
 import {
 	listFilesDirectly as _listFilesDirectly,
 	readFileBinaryDirectly as _readFileBinaryDirectly,
@@ -37,6 +35,7 @@ import * as miscHandler from "./handlers/misc";
 import * as ocRouting from "./handlers/oc_routing";
 import * as piFeatures from "./handlers/pi_features";
 import * as sessionViewHandler from "./handlers/session_view";
+import * as unified from "./handlers/unified";
 import { createFetchHandler, type FetchHandlerDeps, type HandleHttpDeps } from "./http-handler";
 import { buildProxyPortAllowlist, toErrorMessage, toPublicErrorMessage } from "./http-utils";
 import { type LocalLicenseState, loadLocalLicenseState, refreshLocalLicenseFromCloud } from "./license";
@@ -1146,18 +1145,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 							}
 							broadcastToSessionWatchers("codex", threadId, runtimeStatePayload, owner);
 
-							// CRITICAL: Send session.idle to reset UI state
-							if (owner) {
-								send(owner, {
-									type: "sdk_event",
-									data: {
-										payload: {
-											type: "session.idle",
-											properties: { sessionID: threadId },
-										},
-									},
-								});
-							}
+							// Legacy sdk_event for session.idle removed in Phase 4.
+							// UI state is now driven by runtime_state (sent above).
 						}
 					}
 					// Handle thread/compacted (deprecated notification)
@@ -1239,15 +1228,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 						};
 						send(owner, runtimeStatePayload);
 						broadcastToSessionWatchers("codex", threadId, runtimeStatePayload, owner);
-						send(owner, {
-							type: "sdk_event",
-							data: {
-								payload: {
-									type: "session.status",
-									properties: { sessionID: threadId, status: { type: "busy" } },
-								},
-							},
-						});
+						// Legacy sdk_event removed in Phase 4 — runtime_state (above) drives UI state.
 					}
 					if (owner && n.method === "turn/completed" && threadId) {
 						const runtimeStatePayload: ServerMessage = {
@@ -1261,15 +1242,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 						};
 						send(owner, runtimeStatePayload);
 						broadcastToSessionWatchers("codex", threadId, runtimeStatePayload, owner);
-						send(owner, {
-							type: "sdk_event",
-							data: {
-								payload: {
-									type: "session.idle",
-									properties: { sessionID: threadId },
-								},
-							},
-						});
+						// Legacy sdk_event removed in Phase 4 — runtime_state (above) drives UI state.
 					}
 				},
 				onServerRequest: async (r) => {
@@ -1310,14 +1283,15 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 					if (requestMethod === "item/tool/call") {
 						logInfo(`[Codex] Dynamic tool call received: ${safeString(params.tool)} — not supported, declining`);
 						if (owner) {
-							send(owner, {
-								type: "cx_stream",
+							// Route through emitCxStream for runtime_event mapping
+							emitCxStream(
 								threadId,
-								data: {
+								{
 									type: "info",
 									message: `Dynamic tool "${safeString(params.tool)}" was requested but is not yet supported by Broski.`,
 								} satisfies CodexStreamMessage,
-							});
+								owner,
+							);
 						}
 						return {
 							contentItems: [
@@ -1392,16 +1366,17 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 							? "item/fileChange/requestApproval"
 							: requestMethod;
 
-					send(owner, {
-						type: "cx_stream",
+					// Route through emitCxStream so it maps to runtime_event
+					emitCxStream(
 						threadId,
-						data: {
+						{
 							type: "request",
 							requestId: String(r.id),
 							method: frontendMethod,
 							params: enrichedParams,
 						} satisfies CodexStreamMessage,
-					});
+						owner,
+					);
 
 					const response = await new Promise<CodexApprovalReply>((resolve) => {
 						const key = String(r.id);
@@ -1450,16 +1425,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 						send(owner, runtimeStatePayload);
 						broadcastToSessionWatchers("codex", threadId, runtimeStatePayload, owner);
 
-						// Reset UI state
-						send(owner, {
-							type: "sdk_event",
-							data: {
-								payload: {
-									type: "session.idle",
-									properties: { sessionID: threadId },
-								},
-							},
-						});
+						// Legacy sdk_event removed in Phase 4 — runtime_state (above) drives UI state.
 					}
 
 					// Clean up all state
@@ -1702,35 +1668,18 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		streamMsg: ClaudeCodeStreamMessage,
 		owner?: ServerWebSocket<unknown> | null,
 	) => {
-		const payload: ServerMessage = {
-			type: "cc_stream",
-			data: streamMsg,
-			sessionId,
-		};
 		// Always look up the CURRENT owner from the map, not a stale captured reference.
 		// This is critical: when the app disconnects and reconnects, the old `ws` is dead
 		// but `ccSessionOwners` gets updated to the new socket via `set_view`.
 		const resolvedOwner = owner ?? ccSessionOwners.get(sessionId) ?? null;
-		const key = makeSessionKey("claude-code", sessionId);
-		const watchers = key ? sessionWatchers.get(key) : null;
 
 		if (DEBUG_RTS) {
 			const msgType = "type" in streamMsg ? String((streamMsg as Record<string, unknown>).type) : "unknown";
-			logDebug(
-				`[RTS] emitCcStream: session=${sessionId}, msgType=${msgType}, owner=${!!resolvedOwner}, watchers=${watchers?.size ?? 0}`,
-			);
+			logDebug(`[RTS] emitCcStream: session=${sessionId}, msgType=${msgType}, owner=${!!resolvedOwner}`);
 		}
 
-		if (resolvedOwner) {
-			send(resolvedOwner, payload);
-		} else {
-			// No owner connected — buffer the event for reconnect replay.
-			// The external tail will also sync from disk, but this buffer
-			// bridges the gap for events that haven't been flushed to JSONL yet.
-			bufferCcEvent(sessionId, streamMsg);
-		}
-		broadcastToSessionWatchers("claude-code", sessionId, payload, resolvedOwner);
-
+		// Map to unified runtime_event — this is now the ONLY emission path.
+		// Legacy cc_stream was removed in Phase 4 (Flutter only reads runtime_event).
 		const runtimeEvent = mapClaudeCodeStreamToRuntimeEvent(streamMsg, {
 			backend: "claude-code",
 			sessionId,
@@ -1745,35 +1694,24 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		};
 		if (resolvedOwner) {
 			send(resolvedOwner, runtimePayload);
+		} else {
+			// No owner connected — buffer the raw stream message for reconnect replay.
+			// On replay, emitCcStream is re-called which re-maps to runtime_event.
+			bufferCcEvent(sessionId, streamMsg);
 		}
 		broadcastToSessionWatchers("claude-code", sessionId, runtimePayload, resolvedOwner);
 	};
 
 	const emitCxStream = (threadId: string, streamMsg: CodexStreamMessage, owner?: ServerWebSocket<unknown> | null) => {
-		const payload: ServerMessage = {
-			type: "cx_stream",
-			data: streamMsg,
-			threadId,
-		};
-		const key = makeSessionKey("codex", threadId);
-		const watchers = key ? sessionWatchers.get(key) : null;
 		const resolvedOwner = owner ?? cxThreadOwners.get(threadId) ?? null;
 
 		if (DEBUG_RTS) {
 			const msgType = "type" in streamMsg ? String((streamMsg as Record<string, unknown>).type) : "unknown";
-			logDebug(
-				`[RTS] emitCxStream: thread=${threadId}, msgType=${msgType}, owner=${!!resolvedOwner}, watchers=${watchers?.size ?? 0}`,
-			);
+			logDebug(`[RTS] emitCxStream: thread=${threadId}, msgType=${msgType}, owner=${!!resolvedOwner}`);
 		}
 
-		if (resolvedOwner) {
-			send(resolvedOwner, payload);
-		} else {
-			// No owner connected — buffer for reconnect replay
-			bufferCxEvent(threadId, streamMsg);
-		}
-		broadcastToSessionWatchers("codex", threadId, payload, resolvedOwner);
-
+		// Map to unified runtime_event — this is now the ONLY emission path.
+		// Legacy cx_stream was removed in Phase 4 (Flutter only reads runtime_event).
 		const runtimeEvent = mapCodexStreamToRuntimeEvent(streamMsg, {
 			backend: "codex",
 			threadId,
@@ -1788,6 +1726,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		};
 		if (resolvedOwner) {
 			send(resolvedOwner, runtimePayload);
+		} else {
+			// No owner connected — buffer for reconnect replay
+			bufferCxEvent(threadId, streamMsg);
 		}
 		broadcastToSessionWatchers("codex", threadId, runtimePayload, resolvedOwner);
 	};
@@ -2036,12 +1977,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			if (!filterEventForSocket(ws, event)) continue;
 			deliveredCount++;
 
-			if (priority === "immediate" || priority === "high") {
-				send(ws, { type: "sdk_event", data: event });
-			} else {
-				enqueueForClient(ws, event);
-			}
-
+			// Phase 4: Only send runtime_event. Legacy sdk_event/sdk_event_batch removed.
+			// Flutter only reads runtime_event for OpenCode events.
 			if (runtimeEvent) {
 				send(ws, {
 					type: "runtime_event",
@@ -2575,6 +2512,30 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 				reply({
 					type: "error",
 					message: `Unhandled Pi feature: ${message.type}`,
+					requestId: message.requestId,
+				});
+			}
+			return;
+		}
+
+		// ── Phase 4: Unified request messages ────────────────────────────────
+		if (message.type.startsWith("unified_")) {
+			const handled = await unified.handle(message, reply, {
+				claudeCode,
+				ensureCodexClient,
+				requireOpenCode: () => {
+					try {
+						return requireOpenCode();
+					} catch {
+						return null;
+					}
+				},
+				log: logInfo,
+			});
+			if (!handled) {
+				reply({
+					type: "error",
+					message: `Unhandled unified message: ${message.type}`,
 					requestId: message.requestId,
 				});
 			}

@@ -101,12 +101,7 @@ function broadcastPiStreamMessage(
 	sessionId: string,
 	streamMessage: PiStreamMessage,
 ): void {
-	broadcast({
-		type: "pi_stream",
-		data: streamMessage,
-		sessionId,
-	});
-
+	// Phase 4: Only send runtime_event. Legacy pi_stream removed.
 	const runtimeEvent = mapPiStreamToRuntimeEvent(streamMessage, {
 		backend: "pi",
 		sessionId,

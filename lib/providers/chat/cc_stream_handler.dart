@@ -43,15 +43,8 @@ extension CcStreamHandler on ChatSessionNotifier {
     _textDebounceTimer?.cancel();
     _textDebounceTimer = null;
     _resetCCState();
-    state = ChatSessionState(
-      session: null,
+    state = ClaudeCodeChatState(
       projectPath: cwd,
-      messages: const [],
-      permissions: const [],
-      sessionDiffs: const [],
-      todos: const [],
-      isClaudeCode: true,
-      isCodex: false,
       ccSessionId: sessionId.isEmpty ? null : sessionId,
       ccCwd: cwd,
       ccModel: model,
@@ -288,53 +281,12 @@ extension CcStreamHandler on ChatSessionNotifier {
     );
   }
 
-  /// Clear the pending CC message queue (cancel or after auto-send).
-  /// Uses full reconstruction because copyWith can't set nullable fields to null.
+  /// Clear the pending CC message queue (called on cancel or after auto-send).
   void clearPendingCCMessage() {
     if (state.pendingCCMessage == null && state.pendingCCAttachments == null) {
       return;
     }
-    state = ChatSessionState(
-      session: state.session,
-      projectPath: state.projectPath,
-      messages: state.messages,
-      permissions: state.permissions,
-      sessionDiffs: state.sessionDiffs,
-      todos: state.todos,
-      vcsInfo: state.vcsInfo,
-      isCompacting: state.isCompacting,
-      sessionStatus: state.sessionStatus,
-      isClaudeCode: state.isClaudeCode,
-      ccSessionId: state.ccSessionId,
-      ccCwd: state.ccCwd,
-      ccModel: state.ccModel,
-      ccInit: state.ccInit,
-      ccTokenUsage: state.ccTokenUsage,
-      ccStructuredOutput: state.ccStructuredOutput,
-      ccIsStreaming: state.ccIsStreaming,
-      isCodex: state.isCodex,
-      cxThreadId: state.cxThreadId,
-      cxCwd: state.cxCwd,
-      cxModel: state.cxModel,
-      cxTokenUsage: state.cxTokenUsage,
-      cxIsStreaming: state.cxIsStreaming,
-      cxCollabTree: state.cxCollabTree,
-      cxPendingUserInput: state.cxPendingUserInput,
-      pendingQuestion: state.pendingQuestion,
-      contentLength: state.contentLength,
-      ocAgentMode: state.ocAgentMode,
-      mcpOAuthPending: state.mcpOAuthPending,
-      // Explicitly cleared:
-      pendingCCMessage: null,
-      pendingCCAttachments: null,
-      isPi: state.isPi,
-      piSessionId: state.piSessionId,
-      piCwd: state.piCwd,
-      piModel: state.piModel,
-      piModelData: state.piModelData,
-      piThinkingLevel: state.piThinkingLevel,
-      piIsStreaming: state.piIsStreaming,
-    );
+    state = state.copyWith(pendingCCMessage: null, pendingCCAttachments: null);
   }
 
   void _handleRawBridgeMessage(Map<String, dynamic> msg) {

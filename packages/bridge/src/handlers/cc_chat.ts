@@ -115,18 +115,7 @@ export async function handleCcChat(
 				model,
 			}),
 		});
-		send(target, {
-			type: "sdk_event",
-			data: {
-				payload: {
-					type: "session.status",
-					properties: {
-						sessionID: sessionId,
-						status: { type: "busy" },
-					},
-				},
-			},
-		});
+		// Legacy sdk_event removed in Phase 4 — runtime_state (above) drives UI state.
 	};
 
 	const sendSessionIdle = (sessionId: string) => {
@@ -164,16 +153,9 @@ export async function handleCcChat(
 		const err =
 			'Claude Code is not signed in. Run "claude login" in your terminal on the Mac, or set ANTHROPIC_API_KEY.';
 		log(`[Claude Code] ${err}`);
-		const sid = actualSessionId || message.sessionId || "";
-		if (sid) {
-			emitCcStream(sid, { type: "error", message: err, code: "cc_auth_missing" }, ws);
-		} else {
-			send(ws, {
-				type: "cc_stream",
-				data: { type: "error", message: err, code: "cc_auth_missing" },
-				sessionId: "unknown",
-			});
-		}
+		// Use a fallback sessionId so the error reaches the app via runtime_event.
+		const sid = actualSessionId || message.sessionId || "unknown";
+		emitCcStream(sid, { type: "error", message: err, code: "cc_auth_missing" }, ws);
 		return true;
 	}
 
@@ -257,18 +239,10 @@ export async function handleCcChat(
 				sendSessionBusy(actualSessionId);
 			}
 
-			if (actualSessionId) {
-				// Don't pass `ws` as owner — let emitCcStream do dynamic lookup
-				// via ccSessionOwners.get(). This survives WebSocket reconnects.
-				emitCcStream(actualSessionId, streamMsgWithId);
-			} else {
-				const target = getOwnerSocket(actualSessionId || "") ?? ws;
-				send(target, {
-					type: "cc_stream",
-					data: streamMsgWithId,
-					sessionId: "unknown",
-				});
-			}
+			// Route through emitCcStream (uses dynamic owner lookup + runtime_event mapping).
+			// Fallback to "unknown" sessionId if actual session hasn't been created yet.
+			const streamSid = actualSessionId || "unknown";
+			emitCcStream(streamSid, streamMsgWithId);
 		},
 		(completedSessionId: any) => {
 			const sid = completedSessionId || actualSessionId || message.sessionId || "";
@@ -283,26 +257,13 @@ export async function handleCcChat(
 		},
 		(error: any) => {
 			log(`[Claude Code] error: ${error.message}`);
-			const sid = actualSessionId || message.sessionId || "";
-			if (sid) {
-				// Use dynamic lookup, not captured ws
-				emitCcStream(sid, {
-					type: "error",
-					message: error.message,
-					code: "cc_error",
-				});
-			} else {
-				const target = getOwnerSocket(sid) ?? ws;
-				send(target, {
-					type: "cc_stream",
-					data: {
-						type: "error",
-						message: error.message,
-						code: "cc_error",
-					},
-					sessionId: "unknown",
-				});
-			}
+			// Fallback to "unknown" sessionId if actual session hasn't been resolved yet.
+			const sid = actualSessionId || message.sessionId || "unknown";
+			emitCcStream(sid, {
+				type: "error",
+				message: error.message,
+				code: "cc_error",
+			});
 			sendSessionIdle(sid);
 			ccSessionOwners.delete(sid);
 			ccSessionCwds.delete(sid);
@@ -365,15 +326,8 @@ export async function handleCcChat(
 				requestedSchema: req.requestedSchema,
 			};
 
-			if (sid) {
-				emitCcStream(sid, elicitationStreamMsg);
-			} else {
-				send(ws, {
-					type: "cc_stream",
-					data: elicitationStreamMsg,
-					sessionId: "unknown",
-				});
-			}
+			// Fallback to "unknown" if sessionId not resolved yet.
+			emitCcStream(sid || "unknown", elicitationStreamMsg);
 
 			const elicitKey = `${sid}:${requestId}`;
 			const existingElicitation = ccElicitationWaiters.get(elicitKey);

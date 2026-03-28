@@ -20,20 +20,6 @@ class PiBridgeService {
 
   static const _requestIdPrefix = 'pi_req_';
 
-  Stream<PiStreamMessage> get streamMessages => _socket.messages
-      .where((message) => message['type'] == 'pi_stream')
-      .map((message) {
-        final data = message['data'];
-        if (data is Map<String, dynamic>) {
-          return PiStreamMessage.fromJson({
-            ...data,
-            if (message['sessionId'] is String)
-              'sessionId': message['sessionId'] as String,
-          });
-        }
-        return const PiStreamMessage(type: 'unknown', raw: {});
-      });
-
   void _dispatchMessage(Map<String, dynamic> message) {
     final requestId = message['requestId'];
     if (requestId is! String || !requestId.startsWith(_requestIdPrefix)) {

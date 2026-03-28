@@ -17,7 +17,13 @@ import type {
 	PiThinkingCapabilities,
 	PiToolInfo,
 } from "./types/pi";
-import type { BroskiModelSummary, BroskiRuntimeEvent, BroskiRuntimeState, BroskiSessionSummary } from "./types/runtime";
+import type {
+	BroskiBackend,
+	BroskiModelSummary,
+	BroskiRuntimeEvent,
+	BroskiRuntimeState,
+	BroskiSessionSummary,
+} from "./types/runtime";
 
 export type PermissionResponse = "once" | "always" | "reject" | "execpolicy";
 
@@ -1080,7 +1086,16 @@ export type ClientMessage =
 	  }
 	// Subscription Usage Tracking
 	| { type: "get_subscription_usage" }
-	| { type: "get_provider_usage"; providerId: "claude" | "openai" };
+	| { type: "get_provider_usage"; providerId: "claude" | "openai" }
+	// ── Phase 4: Unified request messages ──────────────────────────────────────
+	// These replace per-agent duplicates. Old messages still work for backward compat.
+	| { type: "unified_list_sessions"; backend: BroskiBackend; cwd?: string; requestId?: string }
+	| { type: "unified_abort"; backend: BroskiBackend; sessionId?: string; cwd?: string; requestId?: string }
+	| { type: "unified_list_models"; backend: BroskiBackend; cwd?: string; requestId?: string }
+	| { type: "unified_set_model"; backend: BroskiBackend; model: string; cwd?: string; requestId?: string }
+	| { type: "unified_delete_session"; backend: BroskiBackend; sessionId: string; cwd?: string; requestId?: string }
+	| { type: "unified_list_skills"; backend: BroskiBackend; cwd?: string; requestId?: string }
+	| { type: "unified_list_projects"; backend: BroskiBackend; requestId?: string };
 
 export type ProjectSummary = {
 	id: string;
@@ -2166,7 +2181,15 @@ export type ServerMessage =
 					codex: string[];
 				};
 			};
-	  };
+	  }
+	// ── Phase 4: Unified response messages ─────────────────────────────────────
+	| { type: "unified_sessions"; backend: BroskiBackend; data: unknown[]; requestId?: string }
+	| { type: "unified_models"; backend: BroskiBackend; data: unknown[]; requestId?: string }
+	| { type: "unified_skills"; backend: BroskiBackend; data: unknown[]; requestId?: string }
+	| { type: "unified_projects"; backend: BroskiBackend; data: unknown[]; requestId?: string }
+	| { type: "unified_session_deleted"; backend: BroskiBackend; data: boolean; requestId?: string }
+	| { type: "unified_model_set"; backend: BroskiBackend; data: boolean; requestId?: string }
+	| { type: "unified_aborted"; backend: BroskiBackend; data: boolean; requestId?: string };
 
 // Feature 11: File Content
 export type FileContent = {

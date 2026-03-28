@@ -38,7 +38,7 @@ part 'chat/runtime_permission_handler.dart';
 part 'chat/runtime_system_messages.dart';
 
 class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
-  ChatSessionNotifier(this._bridge) : super(const ChatSessionState()) {
+  ChatSessionNotifier(this._bridge) : super(const OpenCodeChatState()) {
     _rawSubscription = _bridge.messages.listen(
       (msg) => _handleRawBridgeMessage(msg),
     );

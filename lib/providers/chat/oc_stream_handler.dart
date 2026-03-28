@@ -16,16 +16,7 @@ extension OcStreamHandler on ChatSessionNotifier {
     _textDebounceTimer?.cancel();
     _textDebounceTimer = null;
     _resetCCState();
-    state = ChatSessionState(
-      session: session,
-      projectPath: projectPath,
-      messages: const [],
-      permissions: const [],
-      sessionDiffs: const [],
-      todos: const [],
-      isClaudeCode: false,
-      isCodex: false,
-    );
+    state = OpenCodeChatState(session: session, projectPath: projectPath);
   }
 
   /// Set OpenCode agent mode ("build" or "plan")

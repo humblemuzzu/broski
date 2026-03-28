@@ -25,21 +25,12 @@ extension PiStreamHandler on ChatSessionNotifier {
     _textDebounceTimer?.cancel();
     _textDebounceTimer = null;
     _resetCCState();
-    state = ChatSessionState(
-      session: null,
+    state = PiChatState(
       projectPath: cwd,
-      messages: const [],
-      permissions: const [],
-      sessionDiffs: const [],
-      todos: const [],
-      isClaudeCode: false,
-      isCodex: false,
-      isPi: true,
       piSessionId: sessionId.isEmpty ? null : sessionId,
       piCwd: cwd,
       piModel: model,
       piThinkingLevel: thinkingLevel,
-      piIsStreaming: false,
     );
     if (sessionId.isNotEmpty) {
       _bridge.setView(sessionId: sessionId, agent: 'pi');

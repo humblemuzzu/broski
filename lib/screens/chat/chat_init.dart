@@ -4,11 +4,14 @@ import 'package:broski/models/agent.dart';
 import 'package:broski/models/claude_code.dart';
 import 'package:broski/models/pi.dart';
 import 'package:broski/models/project.dart';
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/models/runtime/runtime_event.dart';
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/claude_code_provider.dart';
 import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/providers/selection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
+import 'package:broski/services/bridge/bridge_runtime.dart';
 import 'package:broski/screens/chat_screen.dart';
 import 'package:broski/screens/pi/pi_extension_ui_request_handler.dart';
 import 'package:broski/services/bridge_service.dart';
@@ -152,11 +155,16 @@ void setupTokenUsageListeners({
 /// Sets up the Pi extension UI stream listener that relays dialog/confirm/
 /// select prompts from the bridge to the Flutter UI.
 ///
+/// Uses the unified runtime event stream instead of the legacy pi_stream.
+/// Extension UI requests arrive as [RuntimeBackendEvent] with
+/// kind == 'extension-ui-request', and agent-end arrives as
+/// [RuntimeAgentFinishedEvent].
+///
 /// Returns the subscription (must be cancelled in `dispose()`), or `null`
 /// if the current session is not a Pi session.
 ///
 /// Extracted from `_ChatScreenState.initState` in `chat_screen.dart`.
-StreamSubscription<PiStreamMessage>? setupPiExtensionUiListener({
+StreamSubscription<RuntimeEvent>? setupPiExtensionUiListener({
   required WidgetRef ref,
   required BuildContext context,
   required ChatScreen widget,
@@ -165,18 +173,26 @@ StreamSubscription<PiStreamMessage>? setupPiExtensionUiListener({
   required void Function() onAgentEnd,
 }) {
   if (!widget.isPi) return null;
+  final bridge = ref.read(bridgeServiceProvider);
   final piBridge = ref.read(piBridgeServiceProvider);
-  return piBridge.streamMessages.listen((message) {
+  return bridge.runtimeEvents.where((e) => e.backend == AgentType.pi).listen((
+    event,
+  ) {
     if (!isMounted()) return;
-    if (message.type == 'extension-ui-request') {
-      handlePiExtensionUiRequest(
-        context: context,
-        bridge: piBridge,
-        request: message,
-        projectPath: widget.piSession?.cwd ?? widget.piDraftCwd,
-        composerController: composerController,
-      );
-    } else if (message.type == 'agent-end') {
+    if (event is RuntimeBackendEvent && event.kind == 'extension-ui-request') {
+      // Reconstruct PiStreamMessage from the runtime payload
+      final payload = event.payload;
+      if (payload is Map<String, dynamic>) {
+        final piMessage = PiStreamMessage.fromJson(payload);
+        handlePiExtensionUiRequest(
+          context: context,
+          bridge: piBridge,
+          request: piMessage,
+          projectPath: widget.piSession?.cwd ?? widget.piDraftCwd,
+          composerController: composerController,
+        );
+      }
+    } else if (event is RuntimeAgentFinishedEvent) {
       onAgentEnd();
     }
   });

@@ -118,14 +118,14 @@ export async function handleCxChat(
 			}
 
 			if (!threadId) {
-				ctx.send(ctx.ws, {
-					type: "cx_stream",
-					threadId: "unknown",
-					data: {
+				ctx.emitCxStream(
+					"unknown",
+					{
 						type: "error",
-						message: "Failed to create/resume Codex thread",
-					},
-				} as ServerMessage);
+						message: "Failed to create/resume Codex thread: " + String(threadId),
+					} as CodexStreamMessage,
+					ctx.ws,
+				);
 				break;
 			}
 
@@ -277,16 +277,7 @@ export async function handleCxChat(
 					ctx.send(ctx.ws, turnFailedRuntimeState);
 					ctx.broadcastToSessionWatchers("codex", threadId, turnFailedRuntimeState, ctx.ws);
 
-					// Send idle to reset UI
-					ctx.send(ctx.ws, {
-						type: "sdk_event",
-						data: {
-							payload: {
-								type: "session.idle",
-								properties: { sessionID: threadId },
-							},
-						},
-					} as ServerMessage);
+					// Legacy sdk_event removed in Phase 4 — runtime_state drives UI state.
 					break;
 				}
 
@@ -341,16 +332,7 @@ export async function handleCxChat(
 				ctx.send(ctx.ws, exceptionRuntimeState);
 				ctx.broadcastToSessionWatchers("codex", threadId, exceptionRuntimeState, ctx.ws);
 
-				// Send idle to reset UI
-				ctx.send(ctx.ws, {
-					type: "sdk_event",
-					data: {
-						payload: {
-							type: "session.idle",
-							properties: { sessionID: threadId },
-						},
-					},
-				} as ServerMessage);
+				// Legacy sdk_event removed in Phase 4 — runtime_state drives UI state.
 			}
 			break;
 		}
