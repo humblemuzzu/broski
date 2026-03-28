@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart';
-import '../theme/app_typography.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
 import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:flutter/material.dart';
 
 /// Step indicator showing current progress in onboarding flow
 class OnboardingProgress extends StatelessWidget {
@@ -282,7 +282,7 @@ class OnboardingOptionCard extends StatelessWidget {
               ),
               child: Icon(icon, color: effectiveIconColor, size: 26),
             ),
-            SizedBox(width: Spacing.lg),
+            const SizedBox(width: Spacing.lg),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -320,7 +320,7 @@ class OnboardingOptionCard extends StatelessWidget {
                         ),
                     ],
                   ),
-                  SizedBox(height: Spacing.xs),
+                  const SizedBox(height: Spacing.xs),
                   Text(
                     subtitle,
                     style: AppTypography.labelLarge(color: theme.textMuted),
@@ -328,7 +328,7 @@ class OnboardingOptionCard extends StatelessWidget {
                 ],
               ),
             ),
-            SizedBox(width: Spacing.sm),
+            const SizedBox(width: Spacing.sm),
             Icon(AppIcons.chevronRight, color: theme.textMuted, size: 24),
           ],
         ),
@@ -385,7 +385,7 @@ class OnboardingFeatureRow extends StatelessWidget {
                     fontSize: 15,
                   ),
                 ),
-                SizedBox(height: Spacing.xxs),
+                const SizedBox(height: Spacing.xxs),
                 Text(
                   subtitle,
                   style: AppTypography.bodySmall(color: theme.textMuted),
@@ -427,7 +427,7 @@ class OnboardingInfoCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, color: effectiveColor, size: 20),
-          SizedBox(width: Spacing.md),
+          const SizedBox(width: Spacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -440,7 +440,7 @@ class OnboardingInfoCard extends StatelessWidget {
                     fontSize: 14,
                   ),
                 ),
-                SizedBox(height: Spacing.xs),
+                const SizedBox(height: Spacing.xs),
                 Text(
                   content,
                   style: TextStyle(
@@ -509,7 +509,7 @@ class OnboardingStepItem extends StatelessWidget {
                 ),
               ),
               if (subtitle != null) ...[
-                SizedBox(height: Spacing.xs),
+                const SizedBox(height: Spacing.xs),
                 Text(
                   subtitle!,
                   style: TextStyle(
@@ -519,7 +519,10 @@ class OnboardingStepItem extends StatelessWidget {
                   ),
                 ),
               ],
-              if (content != null) ...[SizedBox(height: Spacing.md), content!],
+              if (content != null) ...[
+                const SizedBox(height: Spacing.md),
+                content!,
+              ],
             ],
           ),
         ),

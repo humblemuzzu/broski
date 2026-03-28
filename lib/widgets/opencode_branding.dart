@@ -1,6 +1,6 @@
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import '../theme/opencode_theme.dart';
 
 /// OpenCode branding widget - displays the official OpenCode logo
 /// Used in empty chat state for OpenCode sessions

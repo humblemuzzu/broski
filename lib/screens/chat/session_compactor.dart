@@ -1,13 +1,12 @@
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/services/haptics_service.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../providers/chat_provider.dart';
-import '../../providers/selection_provider.dart';
-import '../../providers/service_providers.dart';
-import '../../services/haptics_service.dart';
-import '../../theme/opencode_theme.dart';
-import '../../utils/error_utils.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Compacts (summarizes) the current OpenCode session.
 /// Extracted from `_ChatScreenState._compactSession` in `chat_screen.dart`.

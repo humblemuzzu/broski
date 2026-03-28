@@ -1,8 +1,7 @@
+import 'package:broski/models/permission_rule.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
-
-import '../../models/permission_rule.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
 
 /// Compact permission preset card for grid. Extracted from chat_screen.dart.
 class PermissionPresetCard extends StatelessWidget {
@@ -46,7 +45,7 @@ class PermissionPresetCard extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            SizedBox(height: Spacing.xxs),
+            const SizedBox(height: Spacing.xxs),
             Text(
               preset.description,
               style: TextStyle(color: theme.textMuted, fontSize: 10),

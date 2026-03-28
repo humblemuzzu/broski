@@ -1,9 +1,8 @@
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/services/storage_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/agent_type.dart';
-import '../services/storage_service.dart';
-import 'connection_provider.dart';
-import 'service_providers.dart';
 
 final agentTypeProvider = StateNotifierProvider<AgentTypeNotifier, AgentType>((
   ref,

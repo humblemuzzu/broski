@@ -1,20 +1,20 @@
 import 'dart:convert';
 
+import 'package:broski/models/card_style.dart';
+import 'package:broski/models/message.dart';
+import 'package:broski/providers/card_style_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/markdown_styles.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/theme/tool_style.dart';
+import 'package:broski/widgets/chat/adaptive_markdown_body.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'adaptive_markdown_body.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../theme/markdown_styles.dart';
-import '../../models/card_style.dart';
-import '../../models/message.dart';
-import '../../providers/card_style_provider.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../theme/tool_style.dart';
-import 'detail_sheet.dart';
-import 'package:broski/theme/app_icons.dart';
 
 /// A compact single-line card for tool calls.
 /// Tapping opens DetailSheet with full tool information.
@@ -246,7 +246,7 @@ class CompactToolCard extends ConsumerWidget {
             child: Row(
               children: [
                 Icon(AppIcons.error, color: theme.error, size: 16),
-                SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.sm),
                 Text('Error', style: TextStyle(color: theme.error)),
               ],
             ),
@@ -371,7 +371,7 @@ class CompactToolCard extends ConsumerWidget {
                         color: theme.info,
                       ),
                     ),
-                    SizedBox(width: Spacing.sm),
+                    const SizedBox(width: Spacing.sm),
                     Text(
                       'Fetching...',
                       style: TextStyle(color: theme.textMuted),
@@ -453,7 +453,7 @@ class CompactToolCard extends ConsumerWidget {
     return GestureDetector(
       onTap: () => _showDetailSheet(context),
       child: Container(
-        margin: EdgeInsets.symmetric(vertical: Spacing.xxs),
+        margin: const EdgeInsets.symmetric(vertical: Spacing.xxs),
         decoration: BoxDecoration(
           color: theme.bgRaised,
           borderRadius: Radii.brMd,
@@ -464,13 +464,16 @@ class CompactToolCard extends ConsumerWidget {
         ),
         clipBehavior: Clip.antiAlias,
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: Spacing.md, vertical: 10),
+          padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.md,
+            vertical: 10,
+          ),
           decoration: BoxDecoration(color: headerBg, borderRadius: Radii.brMd),
           child: Row(
             children: [
               // Icon with 6px spacing
               Icon(icon, size: 16, color: hasError ? theme.error : toolColor),
-              SizedBox(width: 6),
+              const SizedBox(width: 6),
               // Tool name (bold) - using cardHeaderText
               Text(
                 _getDisplayName(),
@@ -480,7 +483,7 @@ class CompactToolCard extends ConsumerWidget {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              SizedBox(width: Spacing.sm),
+              const SizedBox(width: Spacing.sm),
               // Preview text (muted, truncated, flexible)
               Expanded(
                 child: Text(
@@ -490,7 +493,7 @@ class CompactToolCard extends ConsumerWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              SizedBox(width: Spacing.sm),
+              const SizedBox(width: Spacing.sm),
               // Arrow or spinner
               if (isRunning)
                 SizedBox(

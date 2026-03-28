@@ -1,14 +1,13 @@
+import 'package:broski/config/app_config.dart';
+import 'package:broski/providers/app_auth_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/services/convex_service.dart';
+import 'package:broski/services/purchase_service.dart';
+import 'package:broski/services/storage_service.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
-import 'package:flutter/services.dart';
-
-import '../config/app_config.dart';
-import '../services/convex_service.dart';
-import '../services/purchase_service.dart';
-import '../services/storage_service.dart';
-import '../utils/error_utils.dart';
-import 'app_auth_provider.dart';
-import 'service_providers.dart';
 
 /// Tracks whether the paywall was dismissed this session (resets on app restart).
 /// Used to show paywall on every app open for unpaid users.

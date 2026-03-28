@@ -1,7 +1,6 @@
+import 'package:broski/models/codex/codex_plugin.dart';
+import 'package:broski/providers/service_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/codex/codex_plugin.dart';
-import 'service_providers.dart';
 
 /// Provider for listing Codex plugins from marketplace.
 ///

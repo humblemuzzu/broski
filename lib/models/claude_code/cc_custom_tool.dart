@@ -421,13 +421,13 @@ class ClaudeCodeCustomTool {
 
   /// Create a new empty custom tool with HTTP handler
   factory ClaudeCodeCustomTool.empty() {
-    return ClaudeCodeCustomTool(
+    return const ClaudeCodeCustomTool(
       id: '',
       name: '',
       description: '',
-      parameters: const [],
+      parameters: [],
       handler: CustomToolHandlerType.http,
-      handlerConfig: const HttpHandlerConfig(url: '', method: HttpMethod.get),
+      handlerConfig: HttpHandlerConfig(url: '', method: HttpMethod.get),
       enabled: true,
       createdAt: 0,
       updatedAt: 0,

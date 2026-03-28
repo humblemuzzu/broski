@@ -1,5 +1,5 @@
-import 'package:flutter_test/flutter_test.dart';
 import 'package:broski/providers/connection/connection_error_policy.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('blocksAutoReconnect', () {

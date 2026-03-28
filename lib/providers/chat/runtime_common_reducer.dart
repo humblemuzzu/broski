@@ -1,9 +1,9 @@
 import 'dart:convert';
 
-import '../../models/agent_type.dart';
-import '../../models/message.dart';
-import '../../models/runtime/runtime.dart';
-import 'runtime_common_models.dart';
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/models/message.dart';
+import 'package:broski/models/runtime/runtime.dart';
+import 'package:broski/providers/chat/runtime_common_models.dart';
 
 const _maxRuntimeChatFingerprints = 200;
 

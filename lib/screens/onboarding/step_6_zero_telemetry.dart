@@ -1,8 +1,8 @@
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/design_tokens.dart';
-import 'package:broski/theme/app_icons.dart';
 
 // =============================================================================
 // PAGE 6: ZERO TELEMETRY
@@ -88,7 +88,7 @@ class _ZeroTelemetryPageState extends State<ZeroTelemetryPage>
                           height: 280,
                           fit: BoxFit.contain,
                         ),
-                        SizedBox(height: Spacing.md),
+                        const SizedBox(height: Spacing.md),
                         // "LOCALHOST:3000" pill
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -182,21 +182,21 @@ class _ZeroTelemetryPageState extends State<ZeroTelemetryPage>
                         parent: _controller,
                         curve: const Interval(0.3, 0.7, curve: Curves.easeOut),
                       ),
-                      child: _FeatureRow(
+                      child: const _FeatureRow(
                         icon: AppIcons.computer,
                         title: 'Runs Locally',
                         subtitle:
                             'Your code, files, and terminal never leave\nyour machine. We just connect your\nphone to it.',
                       ),
                     ),
-                    SizedBox(height: Spacing.xxl),
+                    const SizedBox(height: Spacing.xxl),
                     // ── Feature row 2: No Training Data
                     FadeTransition(
                       opacity: CurvedAnimation(
                         parent: _controller,
                         curve: const Interval(0.4, 0.8, curve: Curves.easeOut),
                       ),
-                      child: _FeatureRow(
+                      child: const _FeatureRow(
                         icon: AppIcons.visibilityOff,
                         title: 'No Data Collection',
                         subtitle:
@@ -278,7 +278,7 @@ class _FeatureRow extends StatelessWidget {
             color: Colors.white.withValues(alpha: 0.7),
           ),
         ),
-        SizedBox(width: Spacing.lg),
+        const SizedBox(width: Spacing.lg),
         // Text
         Expanded(
           child: Column(
@@ -293,7 +293,7 @@ class _FeatureRow extends StatelessWidget {
                   color: Colors.white,
                 ),
               ),
-              SizedBox(height: Spacing.xs),
+              const SizedBox(height: Spacing.xs),
               Text(
                 subtitle,
                 style: TextStyle(

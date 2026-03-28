@@ -1,19 +1,18 @@
+import 'package:broski/models/message.dart';
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/claude_code_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/chat/oc_message_delete_action.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/chat/cc_undo_turn_bar.dart';
+import 'package:broski/widgets/chat/compact_agent_card.dart';
+import 'package:broski/widgets/chat/compact_thinking_card.dart';
+import 'package:broski/widgets/chat/message_helpers.dart';
+import 'package:broski/widgets/diff_viewer.dart';
+import 'package:broski/widgets/message_bubble.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/message.dart';
-import '../../providers/chat_provider.dart';
-import '../../providers/claude_code_provider.dart';
-import '../../providers/service_providers.dart';
-import '../../screens/chat/oc_message_delete_action.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../diff_viewer.dart';
-import '../message_bubble.dart';
-import 'cc_undo_turn_bar.dart';
-import 'compact_agent_card.dart';
-import 'compact_thinking_card.dart';
-import 'message_helpers.dart';
 
 // ── Public helper ──────────────────────────────────────────────────────────
 
@@ -145,7 +144,7 @@ class MessageGroup extends ConsumerWidget {
       final card = buildVariantCard(message);
       if (card != null) {
         return Padding(
-          padding: EdgeInsets.only(bottom: Spacing.sm),
+          padding: const EdgeInsets.only(bottom: Spacing.sm),
           child: card,
         );
       }
@@ -234,7 +233,7 @@ class MessageGroup extends ConsumerWidget {
                 );
               },
             ),
-          SizedBox(height: Spacing.lg),
+          const SizedBox(height: Spacing.lg),
         ],
       ),
     );

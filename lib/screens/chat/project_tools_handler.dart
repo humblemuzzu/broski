@@ -1,11 +1,10 @@
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/models/project.dart';
+import 'package:broski/models/session.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/widgets/project_tools_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/agent_type.dart';
-import '../../models/project.dart';
-import '../../models/session.dart';
-import '../../providers/selection_provider.dart';
-import '../../widgets/project_tools_sheet.dart';
 
 /// Shows the project tools sheet.
 /// Extracted from `_ChatScreenState._showProjectToolsSheet`.

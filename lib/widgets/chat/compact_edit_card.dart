@@ -1,13 +1,13 @@
+import 'package:broski/models/card_style.dart';
+import 'package:broski/models/message.dart';
+import 'package:broski/providers/card_style_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../models/card_style.dart';
-import '../../models/message.dart';
-import '../../providers/card_style_provider.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import 'detail_sheet.dart';
-import 'package:broski/theme/app_icons.dart';
 
 /// A compact card for Edit/Patch operations with inline diff preview.
 /// Shows file path and a few lines of the actual diff directly on the card.
@@ -33,7 +33,7 @@ class CompactEditCard extends ConsumerWidget {
   /// - OpenCode: filePath
   /// - Claude Code: path, file_path
   /// - Codex live: changes[0].path or path in item
-  /// - Codex transcript: extracted from patch "*** Update File: <path>"
+  /// - Codex transcript: extracted from patch "*** Update File: `<path>`"
   String _getFilePath() {
     // Try standard field names first
     final filePath =
@@ -265,7 +265,7 @@ class CompactEditCard extends ConsumerWidget {
           children: [
             // Header row: Edit + file path with distinct background
             Container(
-              padding: EdgeInsets.fromLTRB(
+              padding: const EdgeInsets.fromLTRB(
                 Spacing.md,
                 10,
                 Spacing.md,
@@ -283,7 +283,7 @@ class CompactEditCard extends ConsumerWidget {
               child: Row(
                 children: [
                   Icon(AppIcons.edit, size: 16, color: theme.toolEdit),
-                  SizedBox(width: 6),
+                  const SizedBox(width: 6),
                   Text(
                     'Edit',
                     style: TextStyle(
@@ -292,7 +292,7 @@ class CompactEditCard extends ConsumerWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  SizedBox(width: Spacing.sm),
+                  const SizedBox(width: Spacing.sm),
                   Expanded(
                     child: Text(
                       _getFilePath(),
@@ -322,7 +322,7 @@ class CompactEditCard extends ConsumerWidget {
               if (hasMoreLines)
                 Container(
                   width: double.infinity,
-                  padding: EdgeInsets.symmetric(
+                  padding: const EdgeInsets.symmetric(
                     horizontal: Spacing.md,
                     vertical: 6,
                   ),
@@ -335,7 +335,7 @@ class CompactEditCard extends ConsumerWidget {
                         size: 14,
                         color: theme.textMuted,
                       ),
-                      SizedBox(width: Spacing.xs),
+                      const SizedBox(width: Spacing.xs),
                       Text(
                         '${previewLines.length - _maxPreviewLines} more lines',
                         style: AppTypography.caption(color: theme.textMuted),
@@ -347,7 +347,12 @@ class CompactEditCard extends ConsumerWidget {
             // Running state placeholder
             if (isRunning)
               Padding(
-                padding: EdgeInsets.fromLTRB(Spacing.md, 0, Spacing.md, 10),
+                padding: const EdgeInsets.fromLTRB(
+                  Spacing.md,
+                  0,
+                  Spacing.md,
+                  10,
+                ),
                 child: Text(
                   'Applying changes...',
                   style: TextStyle(
@@ -438,7 +443,7 @@ class _InlineDiffLine extends StatelessWidget {
     final prefix = isAdded ? '+' : '-';
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: Spacing.md, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: 3),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
         border: Border(left: BorderSide(color: color, width: 3)),

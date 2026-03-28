@@ -1,14 +1,13 @@
+import 'package:broski/models/codex_remote_skill.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/codex_remote_skill.dart';
-import '../../providers/service_providers.dart';
-import '../../widgets/chat/detail_sheet.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import 'package:broski/theme/app_icons.dart';
-import '../../utils/error_utils.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Bottom sheet to browse and install skills from the Codex public skills marketplace.
 class CxRemoteSkillsSheet extends ConsumerStatefulWidget {
@@ -87,7 +86,7 @@ class _CxRemoteSkillsSheetState extends ConsumerState<CxRemoteSkillsSheet> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text('Error: $_error', style: TextStyle(color: ocTheme.error)),
-            SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.md),
             TextButton(onPressed: _load, child: const Text('Retry')),
           ],
         ),

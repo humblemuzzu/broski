@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import '../models/file_attachment.dart';
-import '../models/pi.dart';
-import '../models/project.dart';
-import 'websocket_service.dart';
+import 'package:broski/models/file_attachment.dart';
+import 'package:broski/models/pi.dart';
+import 'package:broski/models/project.dart';
+import 'package:broski/services/websocket_service.dart';
 
 export 'bridge/bridge_pi_tools.dart';
 

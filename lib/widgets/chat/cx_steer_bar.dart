@@ -1,7 +1,7 @@
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/opencode_theme.dart';
 
 /// Shown above the input bar when Codex is streaming, indicating that
 /// any new messages will steer/redirect the agent rather than queue.

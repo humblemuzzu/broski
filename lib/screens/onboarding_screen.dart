@@ -1,15 +1,14 @@
+import 'package:broski/providers/onboarding_provider.dart'
+    show onboardingProvider, kDevBypassOnboarding;
+import 'package:broski/screens/onboarding/step_0_code_from_couch.dart';
+import 'package:broski/screens/onboarding/step_1_architecture.dart';
+import 'package:broski/screens/onboarding/step_2_unified_intelligence.dart';
+import 'package:broski/screens/onboarding/step_3_superpowers.dart';
+import 'package:broski/screens/onboarding/step_4_full_terminal.dart';
+import 'package:broski/screens/onboarding/step_5_safety_net.dart';
+import 'package:broski/screens/onboarding/step_6_zero_telemetry.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../providers/onboarding_provider.dart'
-    show onboardingProvider, kDevBypassOnboarding;
-import 'onboarding/step_0_code_from_couch.dart';
-import 'onboarding/step_1_architecture.dart';
-import 'onboarding/step_2_unified_intelligence.dart';
-import 'onboarding/step_3_superpowers.dart';
-import 'onboarding/step_4_full_terminal.dart';
-import 'onboarding/step_5_safety_net.dart';
-import 'onboarding/step_6_zero_telemetry.dart';
 
 /// Premium onboarding experience for Broski.
 /// Inspired by modern mobile app onboarding patterns with developer-focused content.

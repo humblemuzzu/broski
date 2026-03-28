@@ -1,13 +1,12 @@
+import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/responsive.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../theme/app_typography.dart';
-import '../theme/design_tokens.dart';
-
-import '../providers/connection_provider.dart';
-import '../providers/service_providers.dart';
-import '../theme/opencode_theme.dart';
-import '../utils/responsive.dart';
-import 'package:broski/theme/app_icons.dart';
 
 class ConnectionLostScreen extends ConsumerStatefulWidget {
   const ConnectionLostScreen({super.key});
@@ -66,12 +65,12 @@ class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
               ] else ...[
                 Icon(AppIcons.wifiOff, size: 48, color: ocTheme.error),
               ],
-              SizedBox(height: Spacing.lg),
+              const SizedBox(height: Spacing.lg),
               Text(
                 isReconnecting ? 'Reconnecting...' : 'Connection lost',
                 style: theme.textTheme.titleLarge,
               ),
-              SizedBox(height: Spacing.sm),
+              const SizedBox(height: Spacing.sm),
               Text(
                 isReconnecting
                     ? 'Attempting to reconnect to your Mac. This happens automatically when the connection is restored.'
@@ -80,7 +79,7 @@ class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
                 textAlign: TextAlign.center,
               ),
               if (isReconnecting) ...[
-                SizedBox(height: Spacing.sm),
+                const SizedBox(height: Spacing.sm),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -100,7 +99,7 @@ class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
                 ),
               ],
               if (connection.error != null && !isReconnecting) ...[
-                SizedBox(height: Spacing.sm),
+                const SizedBox(height: Spacing.sm),
                 Container(
                   padding: Insets.cardXs,
                   decoration: BoxDecoration(
@@ -114,7 +113,7 @@ class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
                   ),
                 ),
               ],
-              SizedBox(height: Spacing.xxl),
+              const SizedBox(height: Spacing.xxl),
               ElevatedButton(
                 onPressed: connection.connection == null || isReconnecting
                     ? null
@@ -125,16 +124,16 @@ class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
                   isReconnecting ? 'Reconnecting...' : 'Retry connection',
                 ),
               ),
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               OutlinedButton(
                 onPressed: () =>
                     ref.read(connectionProvider.notifier).clearConnection(),
                 child: const Text('Scan new QR'),
               ),
               // Browse Offline button - always visible for UI preview
-              SizedBox(height: Spacing.xxl),
+              const SizedBox(height: Spacing.xxl),
               Divider(color: ocTheme.borderSubtle),
-              SizedBox(height: Spacing.lg),
+              const SizedBox(height: Spacing.lg),
               Text(
                 _hasCachedData
                     ? 'You can browse cached data offline'
@@ -144,7 +143,7 @@ class _ConnectionLostScreenState extends ConsumerState<ConnectionLostScreen> {
                 ),
                 textAlign: TextAlign.center,
               ),
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(

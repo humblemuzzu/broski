@@ -1,18 +1,17 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:broski/models/file_content.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/widgets/adaptive_container.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../theme/app_typography.dart';
-import '../theme/design_tokens.dart';
-
-import '../models/file_content.dart';
-import '../providers/service_providers.dart';
-import '../theme/opencode_theme.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
-import 'package:broski/theme/app_icons.dart';
-import '../utils/error_utils.dart';
 
 class TextFileViewerScreen extends ConsumerStatefulWidget {
   const TextFileViewerScreen({
@@ -118,7 +117,7 @@ class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
                 ),
               ),
             ),
-            SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.md),
             Text(
               '$fileName  ·  ${_formatBytes(_binaryData!.length)}',
               style: TextStyle(
@@ -164,7 +163,7 @@ class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
           ),
           child: Icon(icon, size: 32, color: oc.textMuted),
         ),
-        SizedBox(height: Spacing.md),
+        const SizedBox(height: Spacing.md),
         Text(
           label,
           style: TextStyle(
@@ -174,7 +173,7 @@ class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
             color: oc.text,
           ),
         ),
-        SizedBox(height: Spacing.xs),
+        const SizedBox(height: Spacing.xs),
         Text(
           fileName,
           style: TextStyle(
@@ -184,7 +183,7 @@ class _TextFileViewerScreenState extends ConsumerState<TextFileViewerScreen> {
           ),
         ),
         if (subtitle != null) ...[
-          SizedBox(height: Spacing.xxs),
+          const SizedBox(height: Spacing.xxs),
           Text(
             subtitle,
             style: TextStyle(

@@ -1,39 +1,37 @@
 import 'dart:async';
 
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/models/codex.dart';
+import 'package:broski/models/highlight_color.dart';
+import 'package:broski/models/project.dart';
+import 'package:broski/providers/codex_provider.dart';
+import 'package:broski/providers/highlights_provider.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/providers/sessions_provider.dart';
+import 'package:broski/screens/chat_screen.dart';
+import 'package:broski/screens/sheets/cx_new_thread_sheet.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/project_path_match.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/adaptive_container.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
+import 'package:broski/widgets/sessions/codex_active_threads_section.dart';
+import 'package:broski/widgets/sessions/cx_highlighted_card.dart';
+import 'package:broski/widgets/sessions/cx_thread_card.dart';
+import 'package:broski/widgets/sessions/session_helpers.dart';
+import 'package:broski/widgets/sessions/sessions_search_bar.dart';
+import 'package:broski/widgets/sessions/sort_chip.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../models/agent_type.dart';
-import '../../models/codex.dart';
-import '../../models/highlight_color.dart';
-import '../../models/project.dart';
-import '../../providers/codex_provider.dart';
-import '../../providers/highlights_provider.dart';
-import '../../providers/selection_provider.dart';
-import '../../providers/sessions_provider.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../utils/project_path_match.dart';
-import '../../widgets/chat/detail_sheet.dart';
-import '../../widgets/sessions/codex_active_threads_section.dart';
-import '../../widgets/sessions/cx_highlighted_card.dart';
-import '../../widgets/sessions/cx_thread_card.dart';
-import '../../widgets/sessions/session_helpers.dart';
-import '../../widgets/sessions/sessions_search_bar.dart';
-import '../chat_screen.dart';
-import '../sheets/cx_new_thread_sheet.dart';
-
-import '../../providers/service_providers.dart';
-import '../../utils/error_utils.dart';
-import '../../utils/responsive.dart';
-import '../../widgets/adaptive_container.dart';
-import '../../widgets/sessions/sort_chip.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
-
 /// Codex threads view. Extracted from sessions_screen.dart.
 class CodexThreadsView extends ConsumerStatefulWidget {
-  const CodexThreadsView({required this.onRefresh});
+  const CodexThreadsView({super.key, required this.onRefresh});
   final Future<void> Function() onRefresh;
   @override
   ConsumerState<CodexThreadsView> createState() => CodexThreadsViewState();
@@ -117,7 +115,7 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
                   "Hide threads whose titles match any filter. Use `/regex/` for regex, otherwise it's a case-insensitive substring match.",
                   style: TextStyle(color: ocTheme.textMuted, fontSize: 13),
                 ),
-                SizedBox(height: Spacing.md),
+                const SizedBox(height: Spacing.md),
                 Row(
                   children: [
                     Expanded(
@@ -172,7 +170,7 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
                     ),
                   ],
                 ),
-                SizedBox(height: Spacing.md),
+                const SizedBox(height: Spacing.md),
                 if (filters.isNotEmpty)
                   Align(
                     alignment: Alignment.centerRight,
@@ -396,25 +394,20 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
     final ok = await notifier.setThreadArchived(thread.id, archive: true);
     if (!mounted) return;
 
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(ok ? 'Thread archived' : 'Failed to archive thread'),
-        backgroundColor: ok
-            ? OpenCodeTheme.of(context).backgroundPanel
-            : OpenCodeTheme.of(context).error,
-        action: ok
-            ? SnackBarAction(
-                label: 'Undo',
-                onPressed: () {
-                  notifier
-                      .setThreadArchived(thread.id, archive: false)
-                      .then((_) => widget.onRefresh());
-                },
-              )
-            : null,
-      ),
-    );
+    if (ok) {
+      showActionSnackBar(
+        context,
+        'Thread archived',
+        actionLabel: 'Undo',
+        onAction: () {
+          notifier
+              .setThreadArchived(thread.id, archive: false)
+              .then((_) => widget.onRefresh());
+        },
+      );
+    } else {
+      showError(context, 'Failed to archive thread');
+    }
   }
 
   @override
@@ -493,7 +486,7 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
                             ),
                           ],
                         ),
-                        SizedBox(height: Spacing.sm),
+                        const SizedBox(height: Spacing.sm),
                         Text(
                           'Codex threads from app-server',
                           style: TextStyle(
@@ -526,12 +519,12 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
                                 },
                               ),
                             ),
-                            SizedBox(width: Spacing.sm),
+                            const SizedBox(width: Spacing.sm),
                             TitleFiltersChip(
                               count: titleFilterCount,
                               onTap: () => _showTitleFiltersSheet(context),
                             ),
-                            SizedBox(width: Spacing.sm),
+                            const SizedBox(width: Spacing.sm),
                             SortChip(
                               sortBy: _sortBy,
                               onChanged: (value) {
@@ -540,7 +533,7 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
                             ),
                           ],
                         ),
-                        SizedBox(height: Spacing.md),
+                        const SizedBox(height: Spacing.md),
                         SessionsSearchBar(
                           controller: _searchController,
                           onChanged: _onSearchChanged,
@@ -552,7 +545,7 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
                 ),
                 ...threadsAsync.when(
                   loading: () => [
-                    SliverToBoxAdapter(child: DelayedSkeletonList()),
+                    const SliverToBoxAdapter(child: DelayedSkeletonList()),
                   ],
                   error: (error, _) => [
                     SliverFillRemaining(
@@ -565,7 +558,7 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
                               color: ocTheme.error,
                               size: 48,
                             ),
-                            SizedBox(height: Spacing.lg),
+                            const SizedBox(height: Spacing.lg),
                             Text(
                               'Failed to load threads',
                               style: TextStyle(
@@ -574,7 +567,7 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-                            SizedBox(height: Spacing.sm),
+                            const SizedBox(height: Spacing.sm),
                             Padding(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 24,
@@ -642,7 +635,9 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
                           ),
                         ];
                       }
-                      return [SliverFillRemaining(child: CodexEmptyState())];
+                      return [
+                        const SliverFillRemaining(child: CodexEmptyState()),
+                      ];
                     }
                     final highlightedThreads = filtered
                         .where((t) => highlights.isSessionHighlighted(t.id))
@@ -780,6 +775,7 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
 
 class CodexHighlightedThreadsSection extends StatelessWidget {
   const CodexHighlightedThreadsSection({
+    super.key,
     required this.threads,
     required this.highlightColor,
     required this.onTap,
@@ -839,6 +835,8 @@ class CodexHighlightedThreadsSection extends StatelessWidget {
 }
 
 class CodexEmptyState extends StatelessWidget {
+  const CodexEmptyState({super.key});
+
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -854,7 +852,7 @@ class CodexEmptyState extends StatelessWidget {
             ),
             child: Icon(AppIcons.autoAwesome, size: 48, color: ocTheme.primary),
           ),
-          SizedBox(height: Spacing.xxl),
+          const SizedBox(height: Spacing.xxl),
           Text(
             'No Codex threads',
             style: TextStyle(
@@ -863,7 +861,7 @@ class CodexEmptyState extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          SizedBox(height: Spacing.sm),
+          const SizedBox(height: Spacing.sm),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 40),
             child: Text(

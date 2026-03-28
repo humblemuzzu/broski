@@ -1,14 +1,12 @@
+import 'package:broski/models/message.dart';
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/chat_screen.dart';
+import 'package:broski/services/haptics_service.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/message.dart';
-import '../../providers/chat_provider.dart';
-import '../../providers/service_providers.dart';
-import '../../services/haptics_service.dart';
-import '../../theme/opencode_theme.dart';
-import '../../utils/error_utils.dart';
-import '../chat_screen.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Forks the current session (CC, Codex, or OpenCode).
 /// Extracted from `_ChatScreenState._forkSession` in `chat_screen.dart`.
@@ -20,7 +18,6 @@ Future<void> forkSession({
   String? messageId,
 }) async {
   haptics.mediumImpact();
-  final theme = OpenCodeTheme.of(context);
   try {
     final bridge = ref.read(bridgeServiceProvider);
     final chatState = ref.read(chatSessionProvider);
@@ -54,26 +51,21 @@ Future<void> forkSession({
         showError(context, 'Failed to fork session');
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Session forked: ${forkedCC.displayTitle}'),
-          backgroundColor: theme.backgroundPanel,
-          action: SnackBarAction(
-            label: 'Open',
-            textColor: theme.primary,
-            onPressed: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ChatScreen.claudeCode(
-                    ccSession: forkedCC,
-                    initialPrompt: initialPrompt,
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
+      showActionSnackBar(
+        context,
+        'Session forked: ${forkedCC.displayTitle}',
+        actionLabel: 'Open',
+        onAction: () {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ChatScreen.claudeCode(
+                ccSession: forkedCC,
+                initialPrompt: initialPrompt,
+              ),
+            ),
+          );
+        },
       );
     } else if (widget.isCodex) {
       final threadId = chatState.cxThreadId ?? widget.cxThread?.id;
@@ -83,26 +75,21 @@ Future<void> forkSession({
       }
       final forked = await bridge.cxThreadFork(threadId: threadId);
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Thread forked: ${forked.preview}'),
-          backgroundColor: theme.backgroundPanel,
-          action: SnackBarAction(
-            label: 'Open',
-            textColor: theme.primary,
-            onPressed: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ChatScreen.codex(
-                    cxThread: forked,
-                    initialPrompt: initialPrompt,
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
+      showActionSnackBar(
+        context,
+        'Thread forked: ${forked.preview}',
+        actionLabel: 'Open',
+        onAction: () {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ChatScreen.codex(
+                cxThread: forked,
+                initialPrompt: initialPrompt,
+              ),
+            ),
+          );
+        },
       );
     } else {
       final forkedSession = await bridge.forkSession(
@@ -111,27 +98,22 @@ Future<void> forkSession({
         projectPath: widget.project.path,
       );
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Session forked: ${forkedSession.title}'),
-          backgroundColor: theme.backgroundPanel,
-          action: SnackBarAction(
-            label: 'Open',
-            textColor: theme.primary,
-            onPressed: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ChatScreen(
-                    project: widget.project,
-                    session: forkedSession,
-                    initialPrompt: initialPrompt,
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
+      showActionSnackBar(
+        context,
+        'Session forked: ${forkedSession.title}',
+        actionLabel: 'Open',
+        onAction: () {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ChatScreen(
+                project: widget.project,
+                session: forkedSession,
+                initialPrompt: initialPrompt,
+              ),
+            ),
+          );
+        },
       );
     }
   } catch (e) {

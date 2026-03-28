@@ -1,9 +1,8 @@
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
-
-import '../../theme/app_icons.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/opencode_theme.dart';
-import '../../widgets/chat/detail_sheet.dart';
 
 /// Shows the attachment options bottom sheet.
 /// Extracted from chat_screen.dart `_showAttachmentOptions`.

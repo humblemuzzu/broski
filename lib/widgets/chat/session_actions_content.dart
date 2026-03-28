@@ -1,15 +1,14 @@
+import 'package:broski/models/vcs.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/utils/format_utils.dart';
+import 'package:broski/widgets/chat/action_row.dart';
+import 'package:broski/widgets/chat/action_tile.dart';
+import 'package:broski/widgets/chat/agent_status_bar.dart';
+import 'package:broski/widgets/chat/section_header.dart';
 import 'package:flutter/material.dart';
-
-import '../../models/vcs.dart';
-import '../../providers/selection_provider.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import 'action_row.dart';
-import 'action_tile.dart';
-import 'agent_status_bar.dart';
-import 'section_header.dart';
 
 /// OpenCode session actions content. Extracted from chat_screen.dart.
 class SessionActionsContent extends StatelessWidget {
@@ -61,7 +60,7 @@ class SessionActionsContent extends StatelessWidget {
           },
           leading: (vcsInfo != null && vcsInfo!.isAvailable)
               ? Padding(
-                  padding: EdgeInsets.only(right: Spacing.sm),
+                  padding: const EdgeInsets.only(right: Spacing.sm),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
@@ -102,7 +101,7 @@ class SessionActionsContent extends StatelessWidget {
             children: [
               // Project tools (Option 3 entrypoint)
               SectionHeader(title: 'PROJECT', theme: theme),
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               ActionRow(
                 icon: AppIcons.gridView,
                 label: 'Project Tools',
@@ -111,10 +110,10 @@ class SessionActionsContent extends StatelessWidget {
                 color: theme.accent,
                 onTap: () => onAction('project_tools'),
               ),
-              SizedBox(height: Spacing.xl),
+              const SizedBox(height: Spacing.xl),
               // Session section
               SectionHeader(title: 'SESSION', theme: theme),
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               Row(
                 children: [
                   ActionTile(
@@ -154,10 +153,10 @@ class SessionActionsContent extends StatelessWidget {
                   ),
                 ],
               ),
-              SizedBox(height: Spacing.xl),
+              const SizedBox(height: Spacing.xl),
               // Tools section
               SectionHeader(title: 'TOOLS', theme: theme),
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               ActionRow(
                 icon: AppIcons.compress,
                 label: isCompacting ? 'Compacting...' : 'Compact',
@@ -166,7 +165,7 @@ class SessionActionsContent extends StatelessWidget {
                 enabled: !isCompacting,
                 onTap: () => onAction('compact'),
               ),
-              SizedBox(height: Spacing.sm),
+              const SizedBox(height: Spacing.sm),
               ActionRow(
                 icon: AppIcons.autoFix,
                 label: 'Initialize Project',
@@ -175,14 +174,14 @@ class SessionActionsContent extends StatelessWidget {
                 color: theme.success,
                 onTap: () => onAction('init'),
               ),
-              SizedBox(height: Spacing.xl),
+              const SizedBox(height: Spacing.xl),
               // Danger zone
               SectionHeader(
                 title: 'DANGER ZONE',
                 theme: theme,
                 color: theme.error.withValues(alpha: 0.7),
               ),
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               if (isStreaming) ...[
                 ActionRow(
                   icon: AppIcons.stop,
@@ -192,7 +191,7 @@ class SessionActionsContent extends StatelessWidget {
                   color: theme.error,
                   onTap: () => onAction('stop'),
                 ),
-                SizedBox(height: Spacing.sm),
+                const SizedBox(height: Spacing.sm),
               ],
               ActionRow(
                 icon: AppIcons.undo,
@@ -202,7 +201,7 @@ class SessionActionsContent extends StatelessWidget {
                 color: theme.warning,
                 onTap: () => onAction('undo'),
               ),
-              SizedBox(height: Spacing.sm),
+              const SizedBox(height: Spacing.sm),
               ActionRow(
                 icon: AppIcons.cleaning,
                 label: 'Clear Instance',

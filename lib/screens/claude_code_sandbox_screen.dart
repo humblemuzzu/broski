@@ -1,14 +1,13 @@
-import 'package:flutter/material.dart';
-import '../theme/app_typography.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/claude_code.dart';
-import '../providers/claude_code_provider.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
+import 'package:broski/models/claude_code.dart';
+import 'package:broski/providers/claude_code_provider.dart';
 import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/widgets/adaptive_container.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Dedicated Sandbox configuration screen for Claude Code.
 /// Surfaces all fields from SDK SandboxSettings + NetworkSandboxSettings.
@@ -126,7 +125,7 @@ class _ClaudeCodeSandboxScreenState
                 ],
               ),
             ),
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.lg),
             // Enable sandbox
             _buildCard(
               theme: theme,
@@ -211,7 +210,7 @@ class _ClaudeCodeSandboxScreenState
                     'Commands that always bypass the sandbox and run directly on the host.',
                     style: AppTypography.label(color: theme.textMuted),
                   ),
-                  SizedBox(height: Spacing.sm),
+                  const SizedBox(height: Spacing.sm),
                   _buildChipList(
                     theme: theme,
                     items: _sandbox.excludedCommands ?? [],
@@ -249,7 +248,7 @@ class _ClaudeCodeSandboxScreenState
                     'Network controls for sandboxed commands.',
                     style: AppTypography.label(color: theme.textMuted),
                   ),
-                  SizedBox(height: Spacing.sm),
+                  const SizedBox(height: Spacing.sm),
                   // Local binding
                   SwitchListTile(
                     dense: true,

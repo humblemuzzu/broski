@@ -1,10 +1,8 @@
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../providers/service_providers.dart';
-import '../../theme/opencode_theme.dart';
-import '../../utils/error_utils.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Shows a confirmation dialog and deletes a message part.
 Future<bool> deleteOpenCodePart(
@@ -52,13 +50,11 @@ Future<bool> deleteOpenCodePart(
     );
     if (!context.mounted) return ok;
 
-    final oc = OpenCodeTheme.of(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(ok ? 'Part deleted' : 'Failed to delete part'),
-        backgroundColor: ok ? oc.backgroundPanel : oc.error,
-      ),
-    );
+    if (ok) {
+      showSuccess(context, 'Part deleted');
+    } else {
+      showError(context, 'Failed to delete part');
+    }
     return ok;
   } catch (error) {
     if (!context.mounted) return false;
@@ -122,15 +118,11 @@ Future<bool> editOpenCodePart(
     );
     if (!context.mounted) return updated != null;
 
-    final oc = OpenCodeTheme.of(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          updated != null ? 'Part updated' : 'Failed to update part',
-        ),
-        backgroundColor: updated != null ? oc.backgroundPanel : oc.error,
-      ),
-    );
+    if (updated != null) {
+      showSuccess(context, 'Part updated');
+    } else {
+      showError(context, 'Failed to update part');
+    }
     return updated != null;
   } catch (error) {
     if (!context.mounted) return false;

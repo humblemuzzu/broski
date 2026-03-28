@@ -1,16 +1,15 @@
+import 'package:broski/models/claude_code.dart';
+import 'package:broski/providers/claude_code_provider.dart';
+import 'package:broski/screens/custom_tool_editor_screen.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/adaptive_container.dart';
+import 'package:broski/widgets/claude_code_help.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/claude_code.dart';
-import '../providers/claude_code_provider.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import 'custom_tool_editor_screen.dart';
-import '../widgets/claude_code_help.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
-import 'package:broski/theme/app_icons.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 class CustomToolsScreen extends ConsumerStatefulWidget {
   const CustomToolsScreen({super.key});
@@ -101,12 +100,7 @@ class _CustomToolsScreenState extends ConsumerState<CustomToolsScreen> {
         .read(ccCustomToolsProvider.notifier)
         .toggleTool(tool.id, enabled);
     if (!success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to ${enabled ? 'enable' : 'disable'} tool'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      showError(context, 'Failed to ${enabled ? 'enable' : 'disable'} tool');
     }
   }
 
@@ -168,14 +162,14 @@ class _EmptyState extends StatelessWidget {
               size: 64,
               color: ocTheme.primary.withValues(alpha: 0.5),
             ),
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.lg),
             Text(
               'No Custom Tools',
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
             ),
-            SizedBox(height: Spacing.sm),
+            const SizedBox(height: Spacing.sm),
             Text(
               'Create custom tools that Claude Code can use.\nHTTP APIs, scripts, and more.',
               textAlign: TextAlign.center,
@@ -183,7 +177,7 @@ class _EmptyState extends StatelessWidget {
                 color: ocTheme.text.withValues(alpha: 0.7),
               ),
             ),
-            SizedBox(height: Spacing.xxl),
+            const SizedBox(height: Spacing.xxl),
             ElevatedButton.icon(
               onPressed: onCreateTool,
               icon: const Icon(AppIcons.add),
@@ -215,14 +209,14 @@ class _ErrorState extends StatelessWidget {
               size: 64,
               color: ocTheme.error.withValues(alpha: 0.5),
             ),
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.lg),
             Text(
               'Failed to Load Tools',
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
             ),
-            SizedBox(height: Spacing.sm),
+            const SizedBox(height: Spacing.sm),
             Text(
               error,
               textAlign: TextAlign.center,
@@ -230,7 +224,7 @@ class _ErrorState extends StatelessWidget {
                 color: ocTheme.text.withValues(alpha: 0.7),
               ),
             ),
-            SizedBox(height: Spacing.xxl),
+            const SizedBox(height: Spacing.xxl),
             ElevatedButton.icon(
               onPressed: onRetry,
               icon: const Icon(AppIcons.refresh),
@@ -276,7 +270,7 @@ class _ToolsList extends StatelessWidget {
               child: Row(
                 children: [
                   Icon(AppIcons.info, color: ocTheme.primary, size: 20),
-                  SizedBox(width: Spacing.md),
+                  const SizedBox(width: Spacing.md),
                   Expanded(
                     child: Text(
                       'Custom tools appear in Claude Code as mcp__broski-custom-tools__<name>',
@@ -346,7 +340,7 @@ class _ToolCard extends StatelessWidget {
                       size: 22,
                     ),
                   ),
-                  SizedBox(width: Spacing.md),
+                  const SizedBox(width: Spacing.md),
                   // Tool info
                   Expanded(
                     child: Column(
@@ -358,7 +352,7 @@ class _ToolCard extends StatelessWidget {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        SizedBox(height: Spacing.xxs),
+                        const SizedBox(height: Spacing.xxs),
                         Text(
                           tool.handler.displayName,
                           style: theme.textTheme.bodySmall?.copyWith(
@@ -373,7 +367,7 @@ class _ToolCard extends StatelessWidget {
                 ],
               ),
               if (tool.description.isNotEmpty) ...[
-                SizedBox(height: Spacing.md),
+                const SizedBox(height: Spacing.md),
                 Text(
                   tool.description,
                   style: theme.textTheme.bodyMedium?.copyWith(
@@ -383,7 +377,7 @@ class _ToolCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               // Parameters and actions row
               Row(
                 children: [

@@ -1,8 +1,8 @@
-import '../../models/agent_type.dart';
-import '../../models/message.dart';
-import '../chat_provider.dart';
-import 'runtime_event_models.dart';
-import 'runtime_shadow_state.dart';
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/models/message.dart';
+import 'package:broski/providers/chat/runtime_event_models.dart';
+import 'package:broski/providers/chat/runtime_shadow_state.dart';
+import 'package:broski/providers/chat_provider.dart';
 
 RuntimeVisibleSnapshot? buildVisibleRuntimeSnapshot(ChatSessionState state) {
   final backend = _resolveBackend(state);

@@ -1,14 +1,13 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:broski/providers/stt_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../providers/stt_provider.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import 'package:broski/theme/app_icons.dart';
 
 /// Shows a modern voice recording overlay and returns the transcribed text.
 ///
@@ -237,7 +236,7 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
                         ),
                       ],
                     ),
-                    SizedBox(height: Spacing.xxxl),
+                    const SizedBox(height: Spacing.xxxl),
                     // Waveform visualization
                     if (hasError)
                       _ErrorDisplay(
@@ -262,7 +261,7 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
                           color: ocTheme.primary,
                         ),
                       ),
-                    SizedBox(height: Spacing.xxxl),
+                    const SizedBox(height: Spacing.xxxl),
                     // Bottom row: Language indicator
                     Row(
                       children: [
@@ -282,7 +281,7 @@ class _VoiceRecordingOverlayState extends ConsumerState<_VoiceRecordingOverlay>
                             size: 18,
                           ),
                         ),
-                        SizedBox(width: Spacing.md),
+                        const SizedBox(width: Spacing.md),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -458,13 +457,13 @@ class _ErrorDisplay extends StatelessWidget {
               child: Column(
                 children: [
                   Icon(AppIcons.error, color: ocTheme.error, size: 32),
-                  SizedBox(height: Spacing.md),
+                  const SizedBox(height: Spacing.md),
                   Text(
                     error,
                     textAlign: TextAlign.center,
                     style: TextStyle(color: ocTheme.text, fontSize: 13),
                   ),
-                  SizedBox(height: Spacing.lg),
+                  const SizedBox(height: Spacing.lg),
                   GestureDetector(
                     onTap: onRetry,
                     child: Container(
@@ -480,7 +479,7 @@ class _ErrorDisplay extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(AppIcons.refresh, color: ocTheme.text, size: 18),
-                          SizedBox(width: Spacing.sm),
+                          const SizedBox(width: Spacing.sm),
                           Text(
                             'Try Again',
                             style: TextStyle(

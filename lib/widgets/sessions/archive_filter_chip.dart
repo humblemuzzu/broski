@@ -1,9 +1,8 @@
+import 'package:broski/providers/session_archive_filter_provider.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../providers/session_archive_filter_provider.dart';
-import '../../theme/opencode_theme.dart';
-import '../../theme/design_tokens.dart';
 
 /// A filter chip that toggles showing archived sessions.
 /// Extracted as a standalone widget per modular architecture rules.

@@ -1,10 +1,8 @@
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../providers/service_providers.dart';
-import '../../theme/opencode_theme.dart';
-import '../../utils/error_utils.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 Future<void> deleteOpenCodeMessageFromChat({
   required BuildContext context,
@@ -47,13 +45,11 @@ Future<void> deleteOpenCodeMessageFromChat({
     );
     if (!context.mounted) return;
 
-    final oc = OpenCodeTheme.of(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(ok ? 'Message deleted' : 'Failed to delete message'),
-        backgroundColor: ok ? oc.backgroundPanel : oc.error,
-      ),
-    );
+    if (ok) {
+      showSuccess(context, 'Message deleted');
+    } else {
+      showError(context, 'Failed to delete message');
+    }
   } catch (error) {
     if (!context.mounted) return;
     showError(context, 'Failed to delete message: ${humanizeError(error)}');

@@ -1,9 +1,8 @@
+import 'package:broski/models/project.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
-
-import '../../models/project.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
 
 /// Project tile for Pi session creation. Extracted from sessions_screen.dart.
 class PiProjectTile extends StatelessWidget {

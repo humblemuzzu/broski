@@ -54,7 +54,7 @@ class NotificationService {
         requestSoundPermission: false,
       );
 
-      final settings = InitializationSettings(
+      const settings = InitializationSettings(
         android: androidSettings,
         iOS: darwinSettings,
         macOS: darwinSettings,

@@ -1,7 +1,7 @@
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:broski/theme/app_icons.dart';
-import 'opencode_theme.dart';
 
 /// Tool type enumeration for consistent styling
 enum ToolType {

@@ -1,15 +1,13 @@
+import 'package:broski/models/message.dart';
+import 'package:broski/providers/claude_code_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/dialogs/share_dialog.dart';
+import 'package:broski/screens/diff_view_screen.dart';
+import 'package:broski/services/haptics_service.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/message.dart';
-import '../../providers/claude_code_provider.dart';
-import '../../providers/service_providers.dart';
-import '../../services/haptics_service.dart';
-import '../../theme/opencode_theme.dart';
-import '../../utils/error_utils.dart';
-import '../dialogs/share_dialog.dart';
-import '../diff_view_screen.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Reverts a single message's file changes.
 /// Extracted from `_ChatScreenState._revertMessage` in `chat_screen.dart`.
@@ -90,7 +88,6 @@ Future<void> ccRewindToCheckpoint({
   required HapticsService haptics,
 }) async {
   haptics.mediumImpact();
-  final theme = OpenCodeTheme.of(context);
   final ccChatState = ref.read(ccChatProvider);
   if (!ccChatState.canUndo) {
     showSuccess(context, 'No file changes to undo');
@@ -102,15 +99,11 @@ Future<void> ccRewindToCheckpoint({
     final success = await ccChat.rewindToCheckpoint(cwd: effectivePath);
     if (!context.mounted) return;
     if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            remaining > 0
-                ? 'File changes reverted ($remaining more undo${remaining == 1 ? '' : 's'} available)'
-                : 'File changes reverted',
-          ),
-          backgroundColor: theme.backgroundPanel,
-        ),
+      showSuccess(
+        context,
+        remaining > 0
+            ? 'File changes reverted ($remaining more undo${remaining == 1 ? '' : 's'} available)'
+            : 'File changes reverted',
       );
     } else {
       showError(context, 'Failed to revert file changes');

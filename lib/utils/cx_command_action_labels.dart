@@ -1,4 +1,4 @@
-import '../theme/app_icons.dart';
+import 'package:broski/theme/app_icons.dart';
 import 'package:flutter/widgets.dart';
 
 /// Maps Codex SDK `commandActions[0].type` to a human-readable label and icon.
@@ -33,12 +33,15 @@ class CxCommandActionLabel {
   );
 
   static final Map<String, CxCommandActionLabel> _map = {
-    'read': CxCommandActionLabel(label: 'Read File', icon: AppIcons.fileText),
-    'listFiles': CxCommandActionLabel(
+    'read': const CxCommandActionLabel(
+      label: 'Read File',
+      icon: AppIcons.fileText,
+    ),
+    'listFiles': const CxCommandActionLabel(
       label: 'List Files',
       icon: AppIcons.folder,
     ),
-    'search': CxCommandActionLabel(
+    'search': const CxCommandActionLabel(
       label: 'Search Files',
       icon: AppIcons.search,
     ),

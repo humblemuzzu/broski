@@ -1,11 +1,10 @@
 import 'dart:io';
 import 'dart:ui';
 
+import 'package:broski/providers/appearance_provider.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../providers/appearance_provider.dart';
-import '../theme/opencode_theme.dart';
 
 /// Reusable custom background widget that renders the user's chosen
 /// background image or shade with opacity and blur settings.

@@ -1,8 +1,7 @@
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
-import '../theme/app_typography.dart';
-
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
 
 /// Status types for the unified status indicator.
 enum StatusType {

@@ -1,14 +1,13 @@
+import 'package:broski/models/device.dart';
+import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/widgets/adaptive_container.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/device.dart';
-import '../providers/connection_provider.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
-import 'package:broski/theme/app_icons.dart';
-import '../utils/error_utils.dart';
 
 class DeviceManagerScreen extends ConsumerStatefulWidget {
   const DeviceManagerScreen({super.key});
@@ -117,17 +116,17 @@ class _DeviceManagerScreenState extends ConsumerState<DeviceManagerScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(AppIcons.error, size: 48, color: ocTheme.error),
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.lg),
             Text(
               'Failed to load devices',
               style: TextStyle(color: ocTheme.text),
             ),
-            SizedBox(height: Spacing.sm),
+            const SizedBox(height: Spacing.sm),
             Text(
               _error!,
               style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
             ),
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.lg),
             ElevatedButton(onPressed: _loadDevices, child: const Text('Retry')),
           ],
         ),
@@ -139,7 +138,7 @@ class _DeviceManagerScreenState extends ConsumerState<DeviceManagerScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(AppIcons.devices, size: 48, color: ocTheme.textMuted),
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.lg),
             Text(
               'No devices connected',
               style: TextStyle(color: ocTheme.textMuted),
@@ -243,7 +242,7 @@ class _DeviceCard extends StatelessWidget {
                 size: 24,
               ),
             ),
-            SizedBox(width: Spacing.lg),
+            const SizedBox(width: Spacing.lg),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -281,7 +280,7 @@ class _DeviceCard extends StatelessWidget {
                         ),
                     ],
                   ),
-                  SizedBox(height: Spacing.xs),
+                  const SizedBox(height: Spacing.xs),
                   Row(
                     children: [
                       Container(
@@ -301,7 +300,7 @@ class _DeviceCard extends StatelessWidget {
                         ),
                       ),
                       if (device.rttMs > 0) ...[
-                        SizedBox(width: Spacing.sm),
+                        const SizedBox(width: Spacing.sm),
                         Text(
                           '${device.rttMs}ms',
                           style: TextStyle(
@@ -312,13 +311,13 @@ class _DeviceCard extends StatelessWidget {
                       ],
                     ],
                   ),
-                  SizedBox(height: Spacing.xxs),
+                  const SizedBox(height: Spacing.xxs),
                   Text(
                     'Connected ${device.connectedDurationText}',
                     style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
                   ),
                   if (device.currentView != null) ...[
-                    SizedBox(height: Spacing.xs),
+                    const SizedBox(height: Spacing.xs),
                     Text(
                       device.currentView!.sessionId != null
                           ? 'Viewing session'

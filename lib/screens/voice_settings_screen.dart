@@ -1,14 +1,13 @@
+import 'package:broski/models/stt_settings.dart';
+import 'package:broski/providers/stt_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/widgets/adaptive_container.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
-
-import '../models/stt_settings.dart';
-import '../providers/stt_provider.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
-import 'package:broski/theme/app_icons.dart';
 
 class VoiceSettingsScreen extends ConsumerStatefulWidget {
   const VoiceSettingsScreen({super.key});
@@ -113,7 +112,7 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
               child: Row(
                 children: [
                   Icon(AppIcons.mic, color: ocTheme.primary, size: 20),
-                  SizedBox(width: Spacing.md),
+                  const SizedBox(width: Spacing.md),
                   Expanded(
                     child: Text(
                       'Speak to type messages. Your voice is transcribed using your own API keys (BYOK).',
@@ -127,7 +126,7 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
                 ],
               ),
             ),
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.lg),
             // Provider Selection
             _Section(
               title: 'Provider',
@@ -147,7 +146,7 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
                 ),
               ],
             ),
-            SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.md),
             // Model Selection
             _Section(
               title: 'Model',
@@ -161,7 +160,7 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
                 ),
               ],
             ),
-            SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.md),
             // API Key Input
             _Section(
               title: '${settings.provider.displayName} API Key',
@@ -228,7 +227,7 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
                           // Auto-save when typing stops
                         },
                       ),
-                      SizedBox(height: Spacing.md),
+                      const SizedBox(height: Spacing.md),
                       // Action buttons
                       Row(
                         children: [
@@ -246,7 +245,7 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
                                         color: ocTheme.primary,
                                       ),
                                     )
-                                  : Icon(AppIcons.check, size: 18),
+                                  : const Icon(AppIcons.check, size: 18),
                               label: Text(
                                 _testingKey ? 'Testing...' : 'Test Key',
                               ),
@@ -268,7 +267,7 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
                                 notifier.clearApiKey(SttProvider.openai);
                               }
                             },
-                            icon: Icon(AppIcons.delete, size: 18),
+                            icon: const Icon(AppIcons.delete, size: 18),
                             label: const Text('Clear'),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: ocTheme.error,
@@ -283,7 +282,7 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
                       ),
                       // Test result message
                       if (_testResult != null) ...[
-                        SizedBox(height: Spacing.md),
+                        const SizedBox(height: Spacing.md),
                         Container(
                           padding: Insets.cardXs,
                           decoration: BoxDecoration(
@@ -303,7 +302,7 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
                                     : ocTheme.error,
                                 size: 18,
                               ),
-                              SizedBox(width: Spacing.sm),
+                              const SizedBox(width: Spacing.sm),
                               Expanded(
                                 child: Text(
                                   _testResult!,
@@ -319,7 +318,7 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
                           ),
                         ),
                       ],
-                      SizedBox(height: Spacing.md),
+                      const SizedBox(height: Spacing.md),
                       // Get key link
                       InkWell(
                         onTap: () => _openProviderDocs(settings.provider),
@@ -333,7 +332,7 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
                                 color: ocTheme.primary,
                                 size: 16,
                               ),
-                              SizedBox(width: Spacing.sm),
+                              const SizedBox(width: Spacing.sm),
                               Text(
                                 settings.provider == SttProvider.groq
                                     ? 'Get your Groq API key'
@@ -353,7 +352,7 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
                 ),
               ],
             ),
-            SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.md),
             // Configuration status
             _Section(
               title: 'Status',
@@ -380,7 +379,7 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
                 ),
               ],
             ),
-            SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.md),
             // Cost comparison
             _Section(
               title: 'Cost Comparison',
@@ -395,7 +394,7 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
                         speed: '216x realtime',
                         isHighlighted: settings.provider == SttProvider.groq,
                       ),
-                      SizedBox(height: Spacing.sm),
+                      const SizedBox(height: Spacing.sm),
                       _CostRow(
                         provider: 'OpenAI',
                         cost: '\$0.36/hour',
@@ -509,7 +508,7 @@ class _ProviderTile extends StatelessWidget {
                         ),
                       ),
                       if (badge != null) ...[
-                        SizedBox(width: Spacing.sm),
+                        const SizedBox(width: Spacing.sm),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 8,
@@ -531,7 +530,7 @@ class _ProviderTile extends StatelessWidget {
                       ],
                     ],
                   ),
-                  SizedBox(height: Spacing.xxs),
+                  const SizedBox(height: Spacing.xxs),
                   Text(
                     subtitle,
                     style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
@@ -569,7 +568,7 @@ class _ModelTile extends StatelessWidget {
               color: isSelected ? ocTheme.primary : ocTheme.textMuted,
               size: 20,
             ),
-            SizedBox(width: Spacing.md),
+            const SizedBox(width: Spacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -585,7 +584,7 @@ class _ModelTile extends StatelessWidget {
                         ),
                       ),
                       if (model.isDefault) ...[
-                        SizedBox(width: Spacing.sm),
+                        const SizedBox(width: Spacing.sm),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 6,
@@ -608,7 +607,7 @@ class _ModelTile extends StatelessWidget {
                     ],
                   ),
                   if (model.description != null) ...[
-                    SizedBox(height: Spacing.xxs),
+                    const SizedBox(height: Spacing.xxs),
                     Text(
                       model.description!,
                       style: TextStyle(color: ocTheme.textMuted, fontSize: 11),

@@ -199,7 +199,7 @@ export async function handleCodexFeature(
 			});
 			reply({
 				type: "cx_apps",
-				data: result?.data ?? result ?? [],
+				data: result?.data ?? [],
 				nextCursor: result?.nextCursor ?? null,
 			});
 			break;
@@ -239,7 +239,7 @@ export async function handleCodexFeature(
 			});
 			reply({
 				type: "cx_experimental_features_list",
-				data: result?.data ?? result ?? [],
+				data: result?.data ?? [],
 				nextCursor: result?.nextCursor ?? null,
 			});
 			break;
@@ -362,7 +362,7 @@ export async function handleCodexFeature(
 			});
 			reply({
 				type: "cx_collaboration_modes_list",
-				data: result?.data ?? result?.modes ?? result ?? [],
+				data: result?.data ?? result?.modes ?? [],
 			});
 			break;
 		}

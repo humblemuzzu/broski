@@ -1,0 +1,28 @@
+#!/bin/sh
+# Pre-commit hook: format, lint, and typecheck before every commit.
+# Install: git config core.hooksPath .githooks
+
+set -e
+
+echo "🔍 Pre-commit checks..."
+
+# Flutter / Dart checks
+echo "  → dart format"
+dart format --set-exit-if-changed lib/ test/
+
+echo "  → dart analyze"
+dart analyze --fatal-warnings
+
+# Bridge checks (only if bridge files changed)
+BRIDGE_CHANGED=$(git diff --cached --name-only -- packages/bridge/ | head -1)
+if [ -n "$BRIDGE_CHANGED" ]; then
+  echo "  → biome check (bridge)"
+  cd packages/bridge && npx biome check src/ --diagnostic-level=error --exclude="src/__tests__/**"
+
+  echo "  → tsc --noEmit (bridge)"
+  bun run typecheck
+
+  cd ../..
+fi
+
+echo "✅ All checks passed"

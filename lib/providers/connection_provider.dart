@@ -2,21 +2,20 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/models/connection.dart';
+import 'package:broski/models/connection_quality.dart';
+import 'package:broski/models/device.dart';
+import 'package:broski/providers/app_subscription_provider.dart';
+import 'package:broski/providers/connection/connection_endpoint_racer.dart';
+import 'package:broski/providers/connection/connection_error_policy.dart';
+import 'package:broski/providers/onboarding_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/services/network_monitor_service.dart';
+import 'package:broski/services/storage_service.dart';
+import 'package:broski/services/websocket_service.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/agent_type.dart';
-import '../models/connection.dart';
-import '../models/connection_quality.dart';
-import '../models/device.dart';
-import '../services/network_monitor_service.dart';
-import '../services/storage_service.dart';
-import '../services/websocket_service.dart';
-import 'app_subscription_provider.dart';
-import 'connection/connection_endpoint_racer.dart';
-import 'connection/connection_error_policy.dart';
-import 'onboarding_provider.dart';
-import 'service_providers.dart';
 
 /// Event emitted when connection state changes significantly.
 /// Providers can listen to this to invalidate/refresh their data.

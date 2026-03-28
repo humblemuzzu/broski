@@ -1,16 +1,15 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 
+import 'package:broski/models/runtime/runtime.dart';
+import 'package:broski/providers/chat/runtime_backend_extensions.dart';
+import 'package:broski/providers/chat/runtime_event_reducer.dart';
+import 'package:broski/providers/chat/runtime_shadow_state.dart';
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/services/bridge/bridge_runtime.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/runtime/runtime.dart';
-import '../../services/bridge/bridge_runtime.dart';
-import '../chat_provider.dart';
-import '../connection_provider.dart';
-import '../service_providers.dart';
-import 'runtime_backend_extensions.dart';
-import 'runtime_event_reducer.dart';
-import 'runtime_shadow_state.dart';
 
 const _runtimeShadowCompareDelay = Duration(milliseconds: 48);
 const _runtimeShadowMismatchConfirmDelay = Duration(milliseconds: 160);

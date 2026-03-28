@@ -1,23 +1,22 @@
-import 'package:flutter/material.dart';
-import '../theme/app_typography.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/agent_type.dart';
-import '../providers/agent_type_provider.dart';
-import '../providers/connection_provider.dart';
-import '../providers/service_providers.dart';
-import '../providers/selection_provider.dart';
-import '../services/storage_service.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import '../widgets/chat/detail_sheet.dart';
-import '../widgets/connection_indicator.dart';
-import 'terminal_view_screen.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/providers/agent_type_provider.dart';
+import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/terminal_view_screen.dart';
+import 'package:broski/services/storage_service.dart';
 import 'package:broski/theme/app_icons.dart';
-import '../utils/error_utils.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/responsive.dart';
 import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/adaptive_container.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
+import 'package:broski/widgets/connection_indicator.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// PTY Terminal Sessions Screen
 ///
@@ -111,13 +110,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
         projectPath: selection.project?.path,
       );
       if (pty != null && mounted) {
-        final ocTheme = OpenCodeTheme.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Created terminal: ${pty['title'] ?? 'Terminal'}'),
-            backgroundColor: ocTheme.backgroundPanel,
-          ),
-        );
+        showSuccess(context, 'Created terminal: ${pty['title'] ?? 'Terminal'}');
         _loadSessions();
       }
     } catch (e) {
@@ -302,18 +295,18 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(AppIcons.error, size: 48, color: ocTheme.error),
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.lg),
             Text(
               'Failed to load terminals',
               style: TextStyle(color: ocTheme.text, fontSize: 16),
             ),
-            SizedBox(height: Spacing.sm),
+            const SizedBox(height: Spacing.sm),
             Text(
               _error!,
               style: TextStyle(color: ocTheme.textMuted, fontSize: 14),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: Spacing.xl),
+            const SizedBox(height: Spacing.xl),
             ElevatedButton(
               onPressed: _loadSessions,
               style: ElevatedButton.styleFrom(
@@ -332,7 +325,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(AppIcons.terminal, size: 64, color: ocTheme.textMuted),
-            SizedBox(height: Spacing.xl),
+            const SizedBox(height: Spacing.xl),
             Text(
               'No Terminals',
               style: TextStyle(
@@ -341,13 +334,13 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            SizedBox(height: Spacing.sm),
+            const SizedBox(height: Spacing.sm),
             Text(
               'Create a terminal to run commands\non your remote machine',
               style: TextStyle(color: ocTheme.textMuted, fontSize: 14),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: Spacing.xxl),
+            const SizedBox(height: Spacing.xxl),
             ElevatedButton.icon(
               onPressed: _createSession,
               icon: const Icon(AppIcons.add, size: 20),
@@ -396,13 +389,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
     final title = pty['title'] as String? ?? 'Terminal';
     final status = pty['status'] as String? ?? 'unknown';
     if (status != 'running') {
-      final ocTheme = OpenCodeTheme.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Terminal has exited'),
-          backgroundColor: ocTheme.warning,
-        ),
-      );
+      showInfo(context, 'Terminal has exited');
       return;
     }
     Navigator.of(context).push(
@@ -444,7 +431,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
                     size: 24,
                   ),
                 ),
-                SizedBox(width: Spacing.lg),
+                const SizedBox(width: Spacing.lg),
                 Row(
                   children: [
                     Container(
@@ -466,7 +453,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
                 ),
               ],
             ),
-            SizedBox(height: Spacing.xxl),
+            const SizedBox(height: Spacing.xxl),
             _DetailRow(label: 'ID', value: id),
             _DetailRow(
               label: 'Command',
@@ -477,7 +464,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
               value: cwd.isEmpty ? '-' : cwd,
             ),
             _DetailRow(label: 'PID', value: pid > 0 ? pid.toString() : '-'),
-            SizedBox(height: Spacing.xxl),
+            const SizedBox(height: Spacing.xxl),
             if (status == 'running')
               Padding(
                 padding: Insets.bottomMd,
@@ -515,7 +502,7 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
                     ),
                   ),
                 ),
-                SizedBox(width: Spacing.md),
+                const SizedBox(width: Spacing.md),
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () {
@@ -615,7 +602,7 @@ class _PtySessionTile extends StatelessWidget {
                     ],
                   ),
                 ),
-                SizedBox(width: Spacing.lg),
+                const SizedBox(width: Spacing.lg),
                 // Title and info
                 Expanded(
                   child: Column(
@@ -629,7 +616,7 @@ class _PtySessionTile extends StatelessWidget {
                           color: ocTheme.text,
                         ),
                       ),
-                      SizedBox(height: Spacing.xs),
+                      const SizedBox(height: Spacing.xs),
                       Text(
                         command.isNotEmpty
                             ? command
@@ -671,7 +658,7 @@ class _PtySessionTile extends StatelessWidget {
                               size: 20,
                               color: menuTheme.text,
                             ),
-                            SizedBox(width: Spacing.md),
+                            const SizedBox(width: Spacing.md),
                             const Text('Rename'),
                           ],
                         ),
@@ -685,7 +672,7 @@ class _PtySessionTile extends StatelessWidget {
                               size: 20,
                               color: menuTheme.error,
                             ),
-                            SizedBox(width: Spacing.md),
+                            const SizedBox(width: Spacing.md),
                             Text(
                               'Delete',
                               style: TextStyle(color: menuTheme.error),
@@ -774,14 +761,14 @@ class _CreatePtyDialogState extends State<_CreatePtyDialog> {
               hint: 'e.g., Dev Server',
               ocTheme: ocTheme,
             ),
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.lg),
             _buildTextField(
               controller: _commandController,
               label: 'Command (optional)',
               hint: 'e.g., npm run dev',
               ocTheme: ocTheme,
             ),
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.lg),
             _buildTextField(
               controller: _cwdController,
               label: 'Working Directory (optional)',

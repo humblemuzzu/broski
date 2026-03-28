@@ -1,13 +1,12 @@
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/utils/format_utils.dart';
+import 'package:broski/widgets/chat/action_row.dart';
+import 'package:broski/widgets/chat/action_tile.dart';
+import 'package:broski/widgets/chat/agent_status_bar.dart';
+import 'package:broski/widgets/chat/section_header.dart';
 import 'package:flutter/material.dart';
-
-import '../../theme/app_icons.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import 'action_row.dart';
-import 'action_tile.dart';
-import 'agent_status_bar.dart';
-import 'section_header.dart';
 
 /// Codex actions content. Extracted from chat_screen.dart.
 class CodexActionsContent extends StatelessWidget {
@@ -55,10 +54,10 @@ class CodexActionsContent extends StatelessWidget {
                 color: theme.accent,
                 onTap: () => onAction('project_tools'),
               ),
-              SizedBox(height: Spacing.xl),
+              const SizedBox(height: Spacing.xl),
               // Configuration section
               SectionHeader(title: 'CONFIGURATION', theme: theme),
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               Row(
                 children: [
                   ActionTile(
@@ -97,10 +96,10 @@ class CodexActionsContent extends StatelessWidget {
                   ),
                 ],
               ),
-              SizedBox(height: Spacing.xl),
+              const SizedBox(height: Spacing.xl),
               // Project section
               SectionHeader(title: 'PROJECT', theme: theme),
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               ActionRow(
                 icon: AppIcons.description,
                 label: 'AGENTS.md',
@@ -108,7 +107,7 @@ class CodexActionsContent extends StatelessWidget {
                 theme: theme,
                 onTap: () => onAction('cx_agents'),
               ),
-              SizedBox(height: Spacing.sm),
+              const SizedBox(height: Spacing.sm),
               ActionRow(
                 icon: AppIcons.toc,
                 label: 'Config',
@@ -116,10 +115,10 @@ class CodexActionsContent extends StatelessWidget {
                 theme: theme,
                 onTap: () => onAction('cx_config'),
               ),
-              SizedBox(height: Spacing.xl),
+              const SizedBox(height: Spacing.xl),
               // Actions section
               SectionHeader(title: 'ACTIONS', theme: theme),
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               Row(
                 children: [
                   Expanded(
@@ -133,7 +132,7 @@ class CodexActionsContent extends StatelessWidget {
                   ),
                 ],
               ),
-              SizedBox(height: Spacing.sm),
+              const SizedBox(height: Spacing.sm),
               ActionRow(
                 icon: AppIcons.feedback,
                 label: 'Feedback',
@@ -142,13 +141,13 @@ class CodexActionsContent extends StatelessWidget {
                 onTap: () => onAction('cx_feedback'),
               ),
               if (isStreaming) ...[
-                SizedBox(height: Spacing.xl),
+                const SizedBox(height: Spacing.xl),
                 SectionHeader(
                   title: 'DANGER ZONE',
                   theme: theme,
                   color: theme.error.withValues(alpha: 0.7),
                 ),
-                SizedBox(height: Spacing.md),
+                const SizedBox(height: Spacing.md),
                 ActionRow(
                   icon: AppIcons.stop,
                   label: 'Stop Agent',

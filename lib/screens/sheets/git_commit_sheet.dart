@@ -1,10 +1,10 @@
-import 'package:flutter/material.dart';
-import '../../theme/app_typography.dart';
-
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
 import 'package:broski/theme/app_icons.dart';
-import '../../utils/error_utils.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:flutter/material.dart';
 
 class GitCommitSheet extends StatefulWidget {
   const GitCommitSheet({
@@ -70,13 +70,7 @@ class _GitCommitSheetState extends State<GitCommitSheet> {
         errorMsg =
             'No files are staged for commit.\n\nGo back and tap files to stage them first, or use "Stage all".';
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMsg),
-          duration: const Duration(seconds: 5),
-          backgroundColor: OpenCodeTheme.of(context).error,
-        ),
-      );
+      showError(context, errorMsg);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -172,7 +166,7 @@ class _GitCommitSheetState extends State<GitCommitSheet> {
                       contentPadding: Insets.input,
                     ),
                   ),
-                  SizedBox(height: Spacing.md),
+                  const SizedBox(height: Spacing.md),
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton(

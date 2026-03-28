@@ -1,29 +1,29 @@
+import 'package:broski/models/agent.dart';
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/models/claude_code.dart';
+import 'package:broski/models/codex.dart';
+import 'package:broski/models/file_attachment.dart';
+import 'package:broski/models/pi.dart';
+import 'package:broski/models/project.dart';
+import 'package:broski/models/prompt_accent_color.dart';
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/claude_code_provider.dart';
+import 'package:broski/providers/claude_code_variant_provider.dart';
+import 'package:broski/providers/codex_settings_provider.dart';
+import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/glow_style_provider.dart';
+import 'package:broski/providers/input_style_provider.dart';
+import 'package:broski/providers/opencode_variant_provider.dart';
+import 'package:broski/providers/prompt_accent_provider.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/chat/cli_input_bar.dart';
+import 'package:broski/widgets/chat/floating_input_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/agent.dart';
-import '../../models/agent_type.dart';
-import '../../models/claude_code.dart';
-import '../../models/codex.dart';
-import '../../models/file_attachment.dart';
-import '../../models/pi.dart';
-import '../../models/project.dart';
-import '../../models/prompt_accent_color.dart';
-import '../../providers/chat_provider.dart';
-import '../../providers/claude_code_provider.dart';
-import '../../providers/claude_code_variant_provider.dart';
-import '../../providers/codex_settings_provider.dart';
-import '../../providers/glow_style_provider.dart';
-import '../../providers/input_style_provider.dart';
-import '../../providers/opencode_variant_provider.dart';
-import '../../providers/prompt_accent_provider.dart';
-import '../../providers/selection_provider.dart';
-import '../../providers/service_providers.dart';
-import '../../providers/connection_provider.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/opencode_theme.dart';
-import 'cli_input_bar.dart';
-import 'floating_input_bar.dart';
 
 /// Builds the chat input bar (CLI or Floating style) with all provider watches
 /// and agent-specific configuration.
@@ -108,7 +108,6 @@ class ChatInputBarContent extends ConsumerWidget {
     WidgetRef ref,
     ClaudeCodePermissionMode mode,
   ) async {
-    final messenger = ScaffoldMessenger.of(context);
     final notifier = ref.read(ccConfigProvider.notifier);
     final existing = ref.read(ccConfigProvider).valueOrNull;
     await notifier.updateConfig(
@@ -130,16 +129,11 @@ class ChatInputBarContent extends ConsumerWidget {
         .read(bridgeServiceProvider)
         .ccSetPermissionMode(sessionId: sessionId, mode: mode.wireValue);
     if (!context.mounted) return;
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          ok
-              ? 'Permission mode applied to current Claude turn.'
-              : 'Saved as default. Live turn update failed.',
-        ),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    if (ok) {
+      showSuccess(context, 'Permission mode applied to current Claude turn.');
+    } else {
+      showInfo(context, 'Saved as default. Live turn update failed.');
+    }
   }
 
   /// Resolves the current variant/thinking-level string for the active agent.

@@ -1,7 +1,6 @@
+import 'package:broski/models/glow_style.dart';
+import 'package:broski/providers/service_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/glow_style.dart';
-import 'service_providers.dart';
 
 /// Provider for managing the input bar glow style selection.
 class GlowStyleNotifier extends StateNotifier<GlowStyle> {

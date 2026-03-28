@@ -1,10 +1,9 @@
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/markdown_styles.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:url_launcher/url_launcher.dart';
-
-import '../../theme/design_tokens.dart';
-import '../../theme/markdown_styles.dart';
-import '../../theme/opencode_theme.dart';
 
 class MarkdownFileViewer extends StatelessWidget {
   const MarkdownFileViewer({

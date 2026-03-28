@@ -1,5 +1,5 @@
-import '../../models/agent_type.dart';
-import '../../models/message.dart';
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/models/message.dart';
 
 class RuntimeChatTurnState {
   const RuntimeChatTurnState({

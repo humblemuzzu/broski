@@ -2726,6 +2726,8 @@ export type ClaudeCodeAccountInfo = {
 	/** Not in SDK AccountInfo type but present in raw response; used for env var injection */
 	accountUuid?: string;
 	organizationUuid?: string;
+	/** API provider name (e.g. "anthropic", "bedrock", "vertex") from AccountInfo */
+	apiProvider?: string | null;
 };
 
 export type ClaudeCodeMcpToolAnnotations = {

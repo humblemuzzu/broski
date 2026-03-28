@@ -1,4 +1,4 @@
-import '../../models/message.dart';
+import 'package:broski/models/message.dart';
 
 /// Check if a tool is an edit/patch tool (handles all backend naming conventions).
 /// - OpenCode: 'edit', 'patch'

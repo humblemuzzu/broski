@@ -1,20 +1,19 @@
+import 'package:broski/models/agent.dart';
+import 'package:broski/models/session.dart';
+import 'package:broski/models/session_context.dart';
+import 'package:broski/models/vcs.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/chat/cc_actions_content.dart';
+import 'package:broski/widgets/chat/codex_actions_content.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
+import 'package:broski/widgets/chat/glass_pill.dart';
+import 'package:broski/widgets/chat/pi_actions_content.dart';
+import 'package:broski/widgets/chat/session_actions_content.dart';
+import 'package:broski/widgets/chat/status_indicator.dart';
 import 'package:flutter/material.dart';
-
-import '../../models/agent.dart';
-import '../../models/session.dart';
-import '../../models/session_context.dart';
-import '../../models/vcs.dart';
-import '../../providers/selection_provider.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import 'cc_actions_content.dart';
-import 'codex_actions_content.dart';
-import 'detail_sheet.dart';
-import 'glass_pill.dart';
-import 'pi_actions_content.dart';
-import 'session_actions_content.dart';
-import 'status_indicator.dart';
 
 /// Floating header bar for the chat screen. Extracted from chat_screen.dart.
 class FloatingHeader extends StatelessWidget {
@@ -104,7 +103,7 @@ class FloatingHeader extends StatelessWidget {
               onTap: onBack,
               child: Icon(AppIcons.back, color: kOnBackground, size: 22),
             ),
-            SizedBox(width: Spacing.sm),
+            const SizedBox(width: Spacing.sm),
             // Combined: Project + backend badge
             Expanded(
               child: GlassPill(
@@ -116,7 +115,7 @@ class FloatingHeader extends StatelessWidget {
                       isConnected: isConnected,
                       sessionStatus: sessionStatus,
                     ),
-                    SizedBox(width: Spacing.sm),
+                    const SizedBox(width: Spacing.sm),
                     // Project name (compact)
                     Flexible(
                       child: Text(
@@ -221,7 +220,7 @@ class FloatingHeader extends StatelessWidget {
                 ),
               ),
             ),
-            SizedBox(width: Spacing.sm),
+            const SizedBox(width: Spacing.sm),
             // Context usage pill — taps to open sidebar
             if (ctx case final c? when hasContext)
               GlassPill(
@@ -254,7 +253,7 @@ class FloatingHeader extends StatelessWidget {
                   ],
                 ),
               ),
-            SizedBox(width: Spacing.sm),
+            const SizedBox(width: Spacing.sm),
             // Menu button (contains all secondary options)
             // For Claude Code: bottom sheet menu
             if (isClaudeCode && onMenu != null)

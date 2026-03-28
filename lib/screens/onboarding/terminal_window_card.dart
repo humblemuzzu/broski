@@ -1,6 +1,6 @@
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
 import 'package:flutter/material.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/design_tokens.dart';
 
 /// macOS-style terminal window card with colored output lines + blinking cursor.
 /// Used by the Full Terminal onboarding page.
@@ -72,7 +72,7 @@ class _OnboardingTerminalCardState extends State<OnboardingTerminalCard>
                       shape: BoxShape.circle,
                     ),
                   ),
-                  SizedBox(width: Spacing.sm),
+                  const SizedBox(width: Spacing.sm),
                   Container(
                     width: 13,
                     height: 13,
@@ -81,7 +81,7 @@ class _OnboardingTerminalCardState extends State<OnboardingTerminalCard>
                       shape: BoxShape.circle,
                     ),
                   ),
-                  SizedBox(width: Spacing.sm),
+                  const SizedBox(width: Spacing.sm),
                   Container(
                     width: 13,
                     height: 13,

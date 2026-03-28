@@ -1,14 +1,13 @@
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/providers/agent_type_provider.dart';
+import 'package:broski/providers/service_providers.dart';
 import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/widgets/adaptive_container.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/agent_type.dart';
-import '../providers/agent_type_provider.dart';
-import '../providers/service_providers.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
 
 /// Screen for selecting the AI backend (OpenCode, Claude Code, Codex, Pi).
 class AIBackendScreen extends ConsumerWidget {
@@ -59,35 +58,35 @@ class AIBackendScreen extends ConsumerWidget {
                 ),
               ),
             ),
-            SizedBox(height: Spacing.xl),
+            const SizedBox(height: Spacing.xl),
             _BackendOptionCard(
               title: 'OpenCode',
               icon: const _BackendLogo(agentType: AgentType.opencode),
               isSelected: currentAgent == AgentType.opencode,
               onTap: () => _selectAgent(ref, AgentType.opencode),
             ),
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.lg),
             _BackendOptionCard(
               title: 'Claude Code',
               icon: const _BackendLogo(agentType: AgentType.claudeCode),
               isSelected: currentAgent == AgentType.claudeCode,
               onTap: () => _selectAgent(ref, AgentType.claudeCode),
             ),
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.lg),
             _BackendOptionCard(
               title: 'Codex',
               icon: const _BackendLogo(agentType: AgentType.codex),
               isSelected: currentAgent == AgentType.codex,
               onTap: () => _selectAgent(ref, AgentType.codex),
             ),
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.lg),
             _BackendOptionCard(
               title: 'Pi',
               icon: const _BackendLogo(agentType: AgentType.pi),
               isSelected: currentAgent == AgentType.pi,
               onTap: () => _selectAgent(ref, AgentType.pi),
             ),
-            SizedBox(height: Spacing.xl),
+            const SizedBox(height: Spacing.xl),
             Container(
               padding: Insets.card,
               decoration: BoxDecoration(
@@ -104,7 +103,7 @@ class AIBackendScreen extends ConsumerWidget {
                     color: theme.colorScheme.primary,
                     size: 20,
                   ),
-                  SizedBox(width: Spacing.md),
+                  const SizedBox(width: Spacing.md),
                   Text(
                     'Current: ',
                     style: TextStyle(
@@ -184,7 +183,7 @@ class _BackendOptionCard extends StatelessWidget {
         child: Row(
           children: [
             icon,
-            SizedBox(width: Spacing.lg),
+            const SizedBox(width: Spacing.lg),
             Expanded(
               child: Text(
                 title,

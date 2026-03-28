@@ -1,19 +1,18 @@
+import 'package:broski/models/project.dart';
+import 'package:broski/providers/pi_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/chat/section_header.dart';
+import 'package:broski/widgets/sessions/pi_project_tile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/project.dart';
-import '../../providers/pi_provider.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../widgets/chat/section_header.dart';
-import '../../widgets/sessions/pi_project_tile.dart';
 
 /// Project picker for creating a new Pi session.
 /// Shows Pi-only projects: derived from Pi sessions (via bridge pi_list_projects).
 /// Extracted from sessions_screen.dart.
 class PiNewSessionContent extends ConsumerWidget {
-  const PiNewSessionContent({required this.onSelectProject});
+  const PiNewSessionContent({super.key, required this.onSelectProject});
 
   final void Function(String path, String name) onSelectProject;
 
@@ -63,12 +62,12 @@ class PiNewSessionContent extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(AppIcons.folderOff, color: ocTheme.textMuted, size: 48),
-              SizedBox(height: Spacing.lg),
+              const SizedBox(height: Spacing.lg),
               Text(
                 'No projects found',
                 style: TextStyle(color: ocTheme.text, fontSize: 16),
               ),
-              SizedBox(height: Spacing.sm),
+              const SizedBox(height: Spacing.sm),
               Text(
                 'Open a project from the Projects tab first.',
                 style: TextStyle(color: ocTheme.textMuted, fontSize: 14),
@@ -99,7 +98,7 @@ class PiNewSessionContent extends ConsumerWidget {
               hasExistingSessions: true,
               onTap: () => onSelectProject(project.path, project.name),
             ),
-          SizedBox(height: Spacing.xl),
+          const SizedBox(height: Spacing.xl),
         ],
         // Other projects
         if (otherProjects.isNotEmpty) ...[

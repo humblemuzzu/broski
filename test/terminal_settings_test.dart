@@ -1,6 +1,5 @@
-import 'package:flutter_test/flutter_test.dart';
-
 import 'package:broski/models/terminal_settings.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('serializes and deserializes terminal settings', () {

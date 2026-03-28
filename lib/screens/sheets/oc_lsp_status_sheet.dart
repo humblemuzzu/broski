@@ -1,11 +1,10 @@
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../providers/service_providers.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../utils/error_utils.dart';
-import '../../widgets/chat/detail_sheet.dart';
 
 /// Shows the OpenCode LSP status sheet.
 ///
@@ -80,7 +79,7 @@ class _OcLspStatusContentState extends ConsumerState<_OcLspStatusContent> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text('Error: $_error', style: TextStyle(color: oc.error)),
-            SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.md),
             TextButton(onPressed: _load, child: const Text('Retry')),
           ],
         ),
@@ -96,12 +95,12 @@ class _OcLspStatusContentState extends ConsumerState<_OcLspStatusContent> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.dns_outlined, size: 48, color: oc.textMuted),
-            SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.md),
             Text(
               'No language servers active',
               style: TextStyle(color: oc.textMuted, fontSize: 14),
             ),
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.lg),
             _buildRefreshButton(oc),
           ],
         ),
@@ -114,7 +113,7 @@ class _OcLspStatusContentState extends ConsumerState<_OcLspStatusContent> {
         mainAxisSize: MainAxisSize.min,
         children: [
           ...servers.map((s) => _buildServerCard(s, oc)),
-          SizedBox(height: Spacing.lg),
+          const SizedBox(height: Spacing.lg),
           _buildRefreshButton(oc),
         ],
       ),
@@ -131,7 +130,7 @@ class _OcLspStatusContentState extends ConsumerState<_OcLspStatusContent> {
         status.toLowerCase() == 'running';
 
     return Container(
-      margin: EdgeInsets.only(bottom: Spacing.sm),
+      margin: const EdgeInsets.only(bottom: Spacing.sm),
       padding: Insets.cardSm,
       decoration: BoxDecoration(
         color: oc.backgroundElement,
@@ -152,7 +151,7 @@ class _OcLspStatusContentState extends ConsumerState<_OcLspStatusContent> {
               color: isConnected ? oc.success : oc.error,
             ),
           ),
-          SizedBox(width: Spacing.md),
+          const SizedBox(width: Spacing.md),
           // Server info
           Expanded(
             child: Column(
@@ -168,7 +167,7 @@ class _OcLspStatusContentState extends ConsumerState<_OcLspStatusContent> {
                 ),
                 if (rootPath.isNotEmpty)
                   Padding(
-                    padding: EdgeInsets.only(top: Spacing.xxs),
+                    padding: const EdgeInsets.only(top: Spacing.xxs),
                     child: Text(
                       rootPath,
                       style: TextStyle(color: oc.textMuted, fontSize: 12),
@@ -177,7 +176,7 @@ class _OcLspStatusContentState extends ConsumerState<_OcLspStatusContent> {
                     ),
                   ),
                 Padding(
-                  padding: EdgeInsets.only(top: Spacing.xxs),
+                  padding: const EdgeInsets.only(top: Spacing.xxs),
                   child: Text(
                     status,
                     style: TextStyle(

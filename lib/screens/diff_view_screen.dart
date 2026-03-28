@@ -1,14 +1,14 @@
+import 'package:broski/models/message.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/diff_utils.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/adaptive_container.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../theme/app_typography.dart';
-import '../theme/design_tokens.dart';
-
-import '../models/message.dart';
-import '../theme/opencode_theme.dart';
-import '../utils/diff_utils.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
-import 'package:broski/theme/app_icons.dart';
 
 class DiffViewScreen extends StatefulWidget {
   const DiffViewScreen({
@@ -90,7 +90,7 @@ class _DiffViewScreenState extends State<DiffViewScreen> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            SizedBox(width: Spacing.md),
+            const SizedBox(width: Spacing.md),
             // Inline stats
             if (widget.diff.additions > 0)
               Text(
@@ -173,15 +173,7 @@ class _DiffViewScreenState extends State<DiffViewScreen> {
   Future<void> _copy(BuildContext context) async {
     await Clipboard.setData(ClipboardData(text: _diffText));
     if (!context.mounted) return;
-    final ocTheme = OpenCodeTheme.of(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Diff copied'),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: ocTheme.backgroundPanel,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    showSuccess(context, 'Diff copied');
   }
 
   String _fileName(String path) {
@@ -258,7 +250,7 @@ class _DiffRow extends StatelessWidget {
                 ).copyWith(fontSize: fontSize - 2, height: 1.6),
               ),
             ),
-          if (showGutter) SizedBox(width: Spacing.sm),
+          if (showGutter) const SizedBox(width: Spacing.sm),
           // Prefix (+/-/space)
           Text(
             prefix,
@@ -266,7 +258,7 @@ class _DiffRow extends StatelessWidget {
               color: fg.withValues(alpha: 0.7),
             ).copyWith(fontSize: fontSize, height: 1.6),
           ),
-          SizedBox(width: Spacing.xs),
+          const SizedBox(width: Spacing.xs),
           // Content
           Expanded(
             child: Text(

@@ -1,10 +1,9 @@
+import 'package:broski/models/codex/codex_hook.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
-
-import '../../models/codex/codex_hook.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../widgets/chat/detail_sheet.dart';
 
 /// Shows the Codex hooks execution viewer.
 void showCxHooksSheet(BuildContext context, List<CodexHookRun> hooks) {
@@ -55,12 +54,12 @@ class CxHooksSheet extends StatelessWidget {
           if (sessionStartHooks.isNotEmpty) ...[
             _SectionHeader(title: 'SESSION START HOOKS', theme: theme),
             ...sessionStartHooks.map((h) => _HookRow(hook: h)),
-            SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.md),
           ],
           if (stopHooks.isNotEmpty) ...[
             _SectionHeader(title: 'STOP HOOKS', theme: theme),
             ...stopHooks.map((h) => _HookRow(hook: h)),
-            SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.md),
           ],
           if (otherHooks.isNotEmpty) ...[
             _SectionHeader(title: 'OTHER HOOKS', theme: theme),

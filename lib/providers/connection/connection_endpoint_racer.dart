@@ -1,10 +1,9 @@
 import 'dart:async';
 
+import 'package:broski/models/connection.dart';
+import 'package:broski/models/connection_quality.dart';
+import 'package:broski/services/websocket/websocket_connector.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
-
-import '../../models/connection.dart';
-import '../../models/connection_quality.dart';
-import '../../services/websocket/websocket_connector.dart';
 
 class ConnectionEndpoint {
   const ConnectionEndpoint({

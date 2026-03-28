@@ -1,4 +1,4 @@
-import '../session.dart' show SessionSummaryStats;
+import 'package:broski/models/session.dart' show SessionSummaryStats;
 
 class ClaudeCodeSession {
   final String id;

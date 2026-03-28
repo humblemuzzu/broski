@@ -1,8 +1,8 @@
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
-import '../../theme/opencode_theme.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/design_tokens.dart';
-import '../../widgets/chat/detail_sheet.dart';
 
 class GitDiffInline extends StatelessWidget {
   const GitDiffInline({super.key, required this.title, required this.diff});

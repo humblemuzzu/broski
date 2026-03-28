@@ -1,19 +1,18 @@
+import 'package:broski/models/claude_code.dart';
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/claude_code_provider.dart';
+import 'package:broski/screens/claude_code_memory_screen.dart';
+import 'package:broski/screens/custom_tools_screen.dart';
+import 'package:broski/screens/plugins_screen.dart';
+import 'package:broski/screens/subagents_screen.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
+import 'package:broski/widgets/claude_code_help.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/claude_code.dart';
-import '../../providers/chat_provider.dart';
-import '../../providers/claude_code_provider.dart';
-import '../../screens/claude_code_memory_screen.dart';
-import '../../screens/custom_tools_screen.dart';
-import '../../screens/plugins_screen.dart';
-import '../../screens/subagents_screen.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../widgets/chat/detail_sheet.dart';
-import '../../widgets/claude_code_help.dart';
-import 'package:broski/theme/app_icons.dart';
 
 /// Shows the Claude Code tools sheet. Extracted from chat_screen.dart.
 ///
@@ -99,7 +98,7 @@ void showCcToolsSheet(
                       },
                     ),
                   ),
-                  SizedBox(height: Spacing.md),
+                  const SizedBox(height: Spacing.md),
                   _buildSettingsRow(
                     theme,
                     'Sandbox',
@@ -128,7 +127,7 @@ void showCcToolsSheet(
                       activeThumbColor: theme.accent,
                     ),
                   ),
-                  SizedBox(height: Spacing.lg),
+                  const SizedBox(height: Spacing.lg),
                   // System prompt
                   _buildSettingsRow(
                     theme,
@@ -184,12 +183,12 @@ void showCcToolsSheet(
                       },
                     ),
                   ),
-                  SizedBox(height: Spacing.xl),
+                  const SizedBox(height: Spacing.xl),
                   Divider(
                     color: theme.borderSubtle.withValues(alpha: 0.5),
                     height: 1,
                   ),
-                  SizedBox(height: Spacing.xl),
+                  const SizedBox(height: Spacing.xl),
                   // Subagent selector
                   _buildSettingsTile(
                     theme: theme,
@@ -222,7 +221,7 @@ void showCcToolsSheet(
                                 .setActiveSubagent(value);
                           },
                         ),
-                        SizedBox(width: Spacing.xs),
+                        const SizedBox(width: Spacing.xs),
                         _buildSettingsIconButton(
                           theme: theme,
                           icon: AppIcons.chevronRight,
@@ -239,7 +238,7 @@ void showCcToolsSheet(
                       ],
                     ),
                   ),
-                  SizedBox(height: Spacing.md),
+                  const SizedBox(height: Spacing.md),
                   _buildSettingsTile(
                     theme: theme,
                     icon: AppIcons.memory,
@@ -254,7 +253,7 @@ void showCcToolsSheet(
                           icon: AppIcons.rateReview,
                           onTap: onShowMemoryScopePicker,
                         ),
-                        SizedBox(width: Spacing.xs),
+                        const SizedBox(width: Spacing.xs),
                         _buildSettingsIconButton(
                           theme: theme,
                           icon: AppIcons.chevronRight,
@@ -271,7 +270,7 @@ void showCcToolsSheet(
                       ],
                     ),
                   ),
-                  SizedBox(height: Spacing.md),
+                  const SizedBox(height: Spacing.md),
                   // Custom Tools section
                   _buildSettingsTile(
                     theme: theme,
@@ -310,7 +309,7 @@ void showCcToolsSheet(
                             );
                           },
                         ),
-                        SizedBox(width: Spacing.sm),
+                        const SizedBox(width: Spacing.sm),
                         _buildSettingsIconButton(
                           theme: theme,
                           icon: AppIcons.chevronRight,
@@ -327,7 +326,7 @@ void showCcToolsSheet(
                       ],
                     ),
                   ),
-                  SizedBox(height: Spacing.md),
+                  const SizedBox(height: Spacing.md),
                   // Plugins section
                   _buildSettingsTile(
                     theme: theme,
@@ -368,7 +367,7 @@ void showCcToolsSheet(
                             );
                           },
                         ),
-                        SizedBox(width: Spacing.sm),
+                        const SizedBox(width: Spacing.sm),
                         _buildSettingsIconButton(
                           theme: theme,
                           icon: AppIcons.chevronRight,
@@ -385,12 +384,12 @@ void showCcToolsSheet(
                       ],
                     ),
                   ),
-                  SizedBox(height: Spacing.xl),
+                  const SizedBox(height: Spacing.xl),
                   Divider(
                     color: theme.borderSubtle.withValues(alpha: 0.5),
                     height: 1,
                   ),
-                  SizedBox(height: Spacing.lg),
+                  const SizedBox(height: Spacing.lg),
                   // Tools list header
                   Row(
                     children: [
@@ -399,7 +398,7 @@ void showCcToolsSheet(
                         size: 16,
                         color: theme.textMuted,
                       ),
-                      SizedBox(width: Spacing.sm),
+                      const SizedBox(width: Spacing.sm),
                       Text(
                         'Built-in Tools',
                         style: TextStyle(
@@ -415,7 +414,7 @@ void showCcToolsSheet(
                       ),
                     ],
                   ),
-                  SizedBox(height: Spacing.md),
+                  const SizedBox(height: Spacing.md),
                   // Tools list
                   ...toolUniverse.map((tool) {
                     final enabled = !config.disallowedTools.contains(tool);
@@ -502,7 +501,7 @@ Widget _buildSettingsTile({
           ),
           child: Icon(icon, size: 18, color: iconColor),
         ),
-        SizedBox(width: Spacing.md),
+        const SizedBox(width: Spacing.md),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -515,7 +514,7 @@ Widget _buildSettingsTile({
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              SizedBox(height: Spacing.xxs),
+              const SizedBox(height: Spacing.xxs),
               Text(
                 subtitle,
                 style: AppTypography.caption(color: theme.textMuted),

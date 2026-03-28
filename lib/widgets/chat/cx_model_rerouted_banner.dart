@@ -1,7 +1,7 @@
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
 
 /// Inline banner shown when Codex reroutes the model (e.g., capacity fallback).
 class CxModelReroutedBanner extends StatelessWidget {

@@ -1,7 +1,7 @@
+import 'package:broski/screens/onboarding/terminal_window_card.dart';
+import 'package:broski/theme/design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../theme/design_tokens.dart';
-import 'terminal_window_card.dart';
 
 // =============================================================================
 // PAGE 4: FULL TERMINAL
@@ -59,7 +59,7 @@ class _FullTerminalPageState extends State<FullTerminalPage>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(height: Spacing.xxxl),
+              const SizedBox(height: Spacing.xxxl),
               // ── Title
               FadeTransition(
                 opacity: CurvedAnimation(
@@ -111,7 +111,7 @@ class _FullTerminalPageState extends State<FullTerminalPage>
                   ),
                 ),
               ),
-              SizedBox(height: Spacing.xxl),
+              const SizedBox(height: Spacing.xxl),
               // ── Terminal mockup card
               Expanded(
                 child: FadeTransition(
@@ -138,7 +138,7 @@ class _FullTerminalPageState extends State<FullTerminalPage>
                   ),
                 ),
               ),
-              SizedBox(height: Spacing.xl),
+              const SizedBox(height: Spacing.xl),
               // ── Subtitle
               FadeTransition(
                 opacity: CurvedAnimation(
@@ -155,7 +155,7 @@ class _FullTerminalPageState extends State<FullTerminalPage>
                   ),
                 ),
               ),
-              SizedBox(height: Spacing.xl),
+              const SizedBox(height: Spacing.xl),
               // ── "Continue" button
               FadeTransition(
                 opacity: CurvedAnimation(

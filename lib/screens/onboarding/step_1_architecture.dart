@@ -1,8 +1,8 @@
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/design_tokens.dart';
-import 'package:broski/theme/app_icons.dart';
 
 // =============================================================================
 // PAGE 1: ARCHITECTURE DIAGRAM

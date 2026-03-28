@@ -1,4 +1,4 @@
-import '../../models/message.dart';
+import 'package:broski/models/message.dart';
 
 PermissionRequest buildCodexSkillPermissionRequest({
   required String requestId,

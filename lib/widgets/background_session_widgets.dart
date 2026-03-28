@@ -1,11 +1,10 @@
+import 'package:broski/models/session.dart';
+import 'package:broski/providers/sessions_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/session.dart';
-import '../providers/sessions_provider.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import 'package:broski/theme/app_icons.dart';
 
 // ============================================================
 // Active Sessions Section
@@ -52,7 +51,7 @@ class ActiveSessionsSection extends ConsumerWidget {
           Row(
             children: [
               _PulsingIcon(color: ocTheme.info, icon: AppIcons.play),
-              SizedBox(width: Spacing.md),
+              const SizedBox(width: Spacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -74,7 +73,7 @@ class ActiveSessionsSection extends ConsumerWidget {
               ),
             ],
           ),
-          SizedBox(height: Spacing.md),
+          const SizedBox(height: Spacing.md),
           // Active sessions list
           ...activeSessions.map((session) {
             final status = sessionStatuses[session.id];
@@ -140,7 +139,7 @@ class _ActiveSessionCard extends StatelessWidget {
                 ],
               ),
             ),
-            SizedBox(width: Spacing.md),
+            const SizedBox(width: Spacing.md),
             // Session info
             Expanded(
               child: Column(
@@ -156,7 +155,7 @@ class _ActiveSessionCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  SizedBox(height: Spacing.xxs),
+                  const SizedBox(height: Spacing.xxs),
                   Row(
                     children: [
                       Text(
@@ -167,7 +166,7 @@ class _ActiveSessionCard extends StatelessWidget {
                         ),
                       ),
                       if (isRetry) ...[
-                        SizedBox(width: Spacing.sm),
+                        const SizedBox(width: Spacing.sm),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 6,
@@ -254,7 +253,7 @@ class FloatingActiveIndicator extends ConsumerWidget {
             children: [
               // Pulsing indicator
               _PulsingIcon(color: ocTheme.info, icon: AppIcons.play),
-              SizedBox(width: Spacing.md),
+              const SizedBox(width: Spacing.md),
               // Text
               Expanded(
                 child: Column(

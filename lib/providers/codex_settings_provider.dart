@@ -1,8 +1,7 @@
+import 'package:broski/models/codex.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/services/storage_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/codex.dart';
-import '../services/storage_service.dart';
-import 'service_providers.dart';
 
 class CodexSettingsNotifier extends StateNotifier<CodexSettings> {
   CodexSettingsNotifier(this._storage) : super(const CodexSettings()) {
@@ -71,7 +70,7 @@ class CodexSettingsNotifier extends StateNotifier<CodexSettings> {
   }
 
   void cycleCollaborationMode() {
-    final modes = CodexCollaborationMode.values;
+    const modes = CodexCollaborationMode.values;
     final currentIndex = modes.indexOf(state.collaborationMode);
     final nextIndex = (currentIndex + 1) % modes.length;
     setCollaborationMode(modes[nextIndex]);

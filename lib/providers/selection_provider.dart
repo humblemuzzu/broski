@@ -1,7 +1,6 @@
+import 'package:broski/models/project.dart';
+import 'package:broski/models/session.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/project.dart';
-import '../models/session.dart';
 
 /// Represents a selected model with provider and model IDs
 class SelectedModel {

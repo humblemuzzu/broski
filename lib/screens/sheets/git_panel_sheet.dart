@@ -1,18 +1,18 @@
+import 'package:broski/models/git.dart';
+import 'package:broski/providers/git_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/sheets/git_commit_sheet.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/git/git_diff_inline.dart';
+import 'package:broski/widgets/git/git_file_tile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../theme/app_typography.dart';
-
-import '../../models/git.dart';
-import '../../providers/git_provider.dart';
-import '../../providers/service_providers.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../widgets/git/git_diff_inline.dart';
-import '../../widgets/git/git_file_tile.dart';
-import 'git_commit_sheet.dart';
-import 'package:broski/theme/app_icons.dart';
-import '../../utils/error_utils.dart';
 
 class GitPanelSheet extends ConsumerStatefulWidget {
   const GitPanelSheet({
@@ -78,16 +78,12 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
       ref.read(gitStatusProvider(widget.projectPath).notifier);
   void _showError(Object error) {
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(humanizeError(error))));
+    showError(context, humanizeError(error));
   }
 
   void _showInfo(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    showInfo(context, message);
   }
 
   Future<void> _runAction(Future<void> Function() action) async {
@@ -334,13 +330,13 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
           loading: () => const LinearProgressIndicator(minHeight: 2),
           error: (error, _) => _buildErrorCard(theme, error),
         ),
-        SizedBox(height: Spacing.md),
+        const SizedBox(height: Spacing.md),
         // Primary action buttons
         _buildPrimaryActions(theme, statusAsync.hasValue),
-        SizedBox(height: Spacing.xxs),
+        const SizedBox(height: Spacing.xxs),
         // Secondary action buttons
         _buildSecondaryActions(theme, statusAsync.hasValue),
-        SizedBox(height: Spacing.md),
+        const SizedBox(height: Spacing.md),
         // File changes
         if (statusAsync.hasValue)
           _buildChangesSection(theme, statusAsync.value!),
@@ -399,7 +395,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
             ],
           ),
           if (status.upstream != null) ...[
-            SizedBox(height: Spacing.xs),
+            const SizedBox(height: Spacing.xs),
             Text(
               status.upstream!,
               style: AppTypography.label(color: theme.textMuted),
@@ -469,7 +465,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
             ),
           ),
         ),
-        SizedBox(width: Spacing.sm),
+        const SizedBox(width: Spacing.sm),
         Expanded(
           child: OutlinedButton(
             onPressed: _busy || !hasStatus
@@ -481,7 +477,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
             child: const Text('Push ↑'),
           ),
         ),
-        SizedBox(width: Spacing.sm),
+        const SizedBox(width: Spacing.sm),
         Expanded(
           child: OutlinedButton(
             onPressed: _busy || !hasStatus
@@ -750,7 +746,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
               'Filter:',
               style: AppTypography.bodySmall(color: theme.textMuted),
             ),
-            SizedBox(width: Spacing.sm),
+            const SizedBox(width: Spacing.sm),
             Container(
               padding: Insets.chipH,
               decoration: BoxDecoration(
@@ -856,7 +852,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
             fontSize: 14,
           ),
         ),
-        SizedBox(height: Spacing.xs),
+        const SizedBox(height: Spacing.xs),
         asyncData.when(
           data: (items) {
             if (items.isEmpty) {
@@ -957,7 +953,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
             ),
           ),
         ),
-        SizedBox(width: Spacing.sm),
+        const SizedBox(width: Spacing.sm),
         FilledButton(
           onPressed: _creatingBranch
               ? null

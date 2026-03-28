@@ -1,12 +1,11 @@
+import 'package:broski/models/pi.dart';
+import 'package:broski/providers/pi_provider.dart';
+import 'package:broski/providers/sessions_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/pi.dart';
-import '../../providers/pi_provider.dart';
-import '../../providers/sessions_provider.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
 
 /// Active (busy/retrying) Pi sessions section.
 /// Extracted from sessions_screen.dart per FROZEN file rules.
@@ -44,7 +43,7 @@ class PiActiveSessionsSection extends ConsumerWidget {
           Row(
             children: [
               Icon(AppIcons.play, color: ocTheme.info, size: 20),
-              SizedBox(width: Spacing.md),
+              const SizedBox(width: Spacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -66,7 +65,7 @@ class PiActiveSessionsSection extends ConsumerWidget {
               ),
             ],
           ),
-          SizedBox(height: Spacing.md),
+          const SizedBox(height: Spacing.md),
           ...activeSessions.map((session) {
             final status = sessionStatuses[session.id];
             final isRetry = status?.isRetry ?? false;
@@ -114,7 +113,7 @@ class PiActiveSessionsSection extends ConsumerWidget {
                           ],
                         ),
                       ),
-                      SizedBox(width: Spacing.md),
+                      const SizedBox(width: Spacing.md),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -129,7 +128,7 @@ class PiActiveSessionsSection extends ConsumerWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            SizedBox(height: Spacing.xxs),
+                            const SizedBox(height: Spacing.xxs),
                             Row(
                               children: [
                                 if (projectName != null)
@@ -141,7 +140,7 @@ class PiActiveSessionsSection extends ConsumerWidget {
                                     ),
                                   ),
                                 if (isRetry) ...[
-                                  SizedBox(width: Spacing.sm),
+                                  const SizedBox(width: Spacing.sm),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 6,

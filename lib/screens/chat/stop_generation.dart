@@ -1,8 +1,7 @@
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/pi_provider.dart';
+import 'package:broski/providers/service_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../providers/chat_provider.dart';
-import '../../providers/service_providers.dart';
-import '../../providers/pi_provider.dart';
 
 /// Stop AI generation for all backends.
 /// Sends abort to bridge and clears local streaming states.

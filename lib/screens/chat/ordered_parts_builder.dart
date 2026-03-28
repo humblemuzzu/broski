@@ -1,12 +1,11 @@
+import 'package:broski/models/message.dart';
+import 'package:broski/screens/chat/tool_card_builder.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/widgets/chat/compact_agent_card.dart';
+import 'package:broski/widgets/chat/message_group.dart';
+import 'package:broski/widgets/message_bubble.dart';
+import 'package:broski/widgets/retry_indicator.dart';
 import 'package:flutter/material.dart';
-
-import '../../models/message.dart';
-import '../../theme/design_tokens.dart';
-import '../../widgets/chat/compact_agent_card.dart';
-import '../../widgets/chat/message_group.dart';
-import '../../widgets/message_bubble.dart';
-import '../../widgets/retry_indicator.dart';
-import 'tool_card_builder.dart';
 
 /// Build widgets for ordered parts (Claude Code sequential rendering).
 /// Returns widgets in arrival order: text segments and tool calls interleaved.

@@ -1,12 +1,11 @@
+import 'package:broski/models/claude_code/cc_custom_tool.dart';
+import 'package:broski/providers/claude_code_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/claude_code/cc_custom_tool.dart';
-import '../../providers/claude_code_provider.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../utils/error_utils.dart';
 
 /// Custom tool autocomplete popup. Extracted from chat_screen.dart.
 class CustomToolAutocomplete extends ConsumerWidget {
@@ -123,7 +122,7 @@ class CustomToolAutocomplete extends ConsumerWidget {
                             color: theme.warning,
                           ),
                         ),
-                        SizedBox(width: Spacing.md),
+                        const SizedBox(width: Spacing.md),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -136,7 +135,7 @@ class CustomToolAutocomplete extends ConsumerWidget {
                                   color: kText,
                                 ),
                               ),
-                              SizedBox(height: Spacing.xxs),
+                              const SizedBox(height: Spacing.xxs),
                               Text(
                                 tool.mcpToolName,
                                 style: TextStyle(fontSize: 11, color: kMuted),

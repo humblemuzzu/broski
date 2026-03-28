@@ -1,22 +1,23 @@
 import 'dart:async';
 
+import 'package:broski/models/terminal_settings.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/providers/terminal_settings_provider.dart';
+import 'package:broski/screens/terminal_settings_screen.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/input_batcher.dart' show SmartInputBatcher;
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/utils/terminal_output_throttler.dart'
+    show SmartOutputThrottler;
+import 'package:broski/widgets/terminal_quick_toolbar.dart';
+import 'package:broski/widgets/terminal_selection_overlay.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xterm/xterm.dart';
-
-import '../models/terminal_settings.dart';
-import '../providers/selection_provider.dart';
-import '../providers/service_providers.dart';
-import '../providers/terminal_settings_provider.dart';
-import '../screens/terminal_settings_screen.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import '../utils/input_batcher.dart' show SmartInputBatcher;
-import '../utils/terminal_output_throttler.dart' show SmartOutputThrottler;
-import '../widgets/terminal_quick_toolbar.dart';
-import '../widgets/terminal_selection_overlay.dart';
-import 'package:broski/theme/app_icons.dart';
-import '../utils/error_utils.dart';
 
 class TerminalViewScreen extends ConsumerStatefulWidget {
   const TerminalViewScreen({
@@ -95,10 +96,7 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
         } else if (event['type'] == 'pty_error') {
           if (!mounted) return;
           final msg = event['error']?.toString() ?? 'Terminal error';
-          final ocTheme = OpenCodeTheme.of(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(msg), backgroundColor: ocTheme.error),
-          );
+          showError(context, msg);
         } else if (event['type'] == 'pty_health') {
           _lastHealth = event;
           if (mounted) setState(() {});
@@ -215,7 +213,7 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
         title: Row(
           children: [
             Icon(AppIcons.terminal, size: 20, color: ocTheme.primary),
-            SizedBox(width: Spacing.sm),
+            const SizedBox(width: Spacing.sm),
             Expanded(
               child: Text(
                 widget.title,
@@ -303,7 +301,7 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircularProgressIndicator(color: ocTheme.primary),
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.lg),
             Text(
               'Connecting to terminal...',
               style: TextStyle(color: ocTheme.textMuted),
@@ -318,7 +316,7 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(AppIcons.error, size: 48, color: ocTheme.error),
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.lg),
             Text(
               'Connection Failed',
               style: TextStyle(
@@ -327,7 +325,7 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            SizedBox(height: Spacing.sm),
+            const SizedBox(height: Spacing.sm),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
               child: Text(
@@ -336,7 +334,7 @@ class _TerminalViewScreenState extends ConsumerState<TerminalViewScreen> {
                 textAlign: TextAlign.center,
               ),
             ),
-            SizedBox(height: Spacing.xxl),
+            const SizedBox(height: Spacing.xxl),
             ElevatedButton.icon(
               onPressed: _connectToPty,
               icon: const Icon(AppIcons.refresh, size: 18),

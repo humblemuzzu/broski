@@ -1,18 +1,17 @@
+import 'package:broski/models/opencode_plugin_file.dart';
+import 'package:broski/models/skill.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/adaptive_container.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../theme/app_typography.dart';
-import '../theme/design_tokens.dart';
-
-import '../models/opencode_plugin_file.dart';
-import '../models/skill.dart';
-import '../providers/selection_provider.dart';
-import '../providers/service_providers.dart';
-import '../theme/opencode_theme.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
-import 'package:broski/theme/app_icons.dart';
-import '../utils/error_utils.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 class OpenCodePluginsScreen extends ConsumerStatefulWidget {
   const OpenCodePluginsScreen({super.key});
@@ -105,7 +104,7 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text('Filename'),
-              SizedBox(height: Spacing.sm),
+              const SizedBox(height: Spacing.sm),
               TextField(
                 controller: filenameController,
                 decoration: const InputDecoration(
@@ -113,9 +112,9 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
                 ),
                 autofocus: true,
               ),
-              SizedBox(height: Spacing.lg),
+              const SizedBox(height: Spacing.lg),
               const Text('Location'),
-              SizedBox(height: Spacing.sm),
+              const SizedBox(height: Spacing.sm),
               DropdownButton<SkillSource>(
                 value: selectedSource,
                 isExpanded: true,
@@ -150,7 +149,7 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
     if (result != true || !mounted) return;
     final filename = filenameController.text.trim();
     if (filename.isEmpty) return;
-    final template = '''export const MyPlugin = async (_ctx) => {
+    const template = '''export const MyPlugin = async (_ctx) => {
   return {
     // Add hook handlers here (see OpenCode docs: Plugins)
     // "tool.execute.before": async (input, output) => {}
@@ -257,15 +256,15 @@ class _OpenCodePluginsScreenState extends ConsumerState<OpenCodePluginsScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(AppIcons.extension_, color: oc.textMuted, size: 56),
-                      SizedBox(height: Spacing.md),
+                      const SizedBox(height: Spacing.md),
                       Text('No plugin files', style: TextStyle(color: oc.text)),
-                      SizedBox(height: Spacing.sm),
+                      const SizedBox(height: Spacing.sm),
                       Text(
                         'Create a plugin file to add OpenCode hooks.',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: oc.textMuted),
                       ),
-                      SizedBox(height: Spacing.lg),
+                      const SizedBox(height: Spacing.lg),
                       ElevatedButton.icon(
                         onPressed: _create,
                         icon: const Icon(AppIcons.add),

@@ -1,10 +1,9 @@
 import 'dart:async';
 
+import 'package:broski/models/git.dart';
+import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/git.dart';
-import 'connection_provider.dart';
-import 'service_providers.dart';
 
 class GitHubListRequest {
   const GitHubListRequest({required this.projectPath, required this.state});

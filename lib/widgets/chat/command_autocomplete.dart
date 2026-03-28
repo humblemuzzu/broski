@@ -1,10 +1,9 @@
+import 'package:broski/models/command.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/command_source_badge.dart';
 import 'package:flutter/material.dart';
-
-import '../../models/command.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../command_source_badge.dart';
 
 /// Slash command autocomplete popup with grouping. Extracted from chat_screen.dart.
 class CommandAutocomplete extends StatelessWidget {
@@ -72,7 +71,8 @@ class CommandAutocomplete extends StatelessWidget {
             ],
             // Skills section
             if (groups.skillCommands.isNotEmpty) ...[
-              if (groups.commands.isNotEmpty) SizedBox(height: Spacing.sm),
+              if (groups.commands.isNotEmpty)
+                const SizedBox(height: Spacing.sm),
               _buildSectionHeader(
                 'Skills',
                 AppIcons.autoAwesome,
@@ -94,7 +94,7 @@ class CommandAutocomplete extends StatelessWidget {
             // MCP commands section
             if (groups.mcpCommands.isNotEmpty) ...[
               if (groups.commands.isNotEmpty || groups.skillCommands.isNotEmpty)
-                SizedBox(height: Spacing.sm),
+                const SizedBox(height: Spacing.sm),
               _buildSectionHeader(
                 'MCP',
                 AppIcons.extension_,
@@ -141,7 +141,7 @@ class CommandAutocomplete extends StatelessWidget {
               letterSpacing: 0.5,
             ),
           ),
-          SizedBox(width: Spacing.xs),
+          const SizedBox(width: Spacing.xs),
           Text(
             '($count)',
             style: TextStyle(
@@ -186,7 +186,7 @@ class CommandAutocomplete extends StatelessWidget {
                 color: accentColor,
               ),
             ),
-            SizedBox(width: Spacing.md),
+            const SizedBox(width: Spacing.md),
             // Command name and description
             Expanded(
               child: Column(
@@ -226,7 +226,7 @@ class CommandAutocomplete extends StatelessWidget {
                       ],
                       // Model badge
                       if (command.hasModel) ...[
-                        SizedBox(width: Spacing.xs),
+                        const SizedBox(width: Spacing.xs),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 5,
@@ -249,12 +249,12 @@ class CommandAutocomplete extends StatelessWidget {
                       // Source badge (MCP / SKILL)
                       if (command.source != null &&
                           command.source != CommandSource.command) ...[
-                        SizedBox(width: Spacing.xs),
+                        const SizedBox(width: Spacing.xs),
                         CommandSourceBadge(source: command.source),
                       ],
                       // Subtask badge
                       if (command.subtask) ...[
-                        SizedBox(width: Spacing.xs),
+                        const SizedBox(width: Spacing.xs),
                         Icon(
                           AppIcons.subdirectory,
                           size: 12,
@@ -263,7 +263,7 @@ class CommandAutocomplete extends StatelessWidget {
                       ],
                     ],
                   ),
-                  SizedBox(height: Spacing.xxs),
+                  const SizedBox(height: Spacing.xxs),
                   Text(
                     command.shortDescription,
                     style: TextStyle(fontSize: 12, color: mutedColor),

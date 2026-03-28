@@ -1,4 +1,4 @@
-import 'session_project.dart';
+import 'package:broski/models/session_project.dart';
 
 class SessionSummary {
   const SessionSummary({

@@ -1,13 +1,12 @@
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/services/haptics_service.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../providers/chat_provider.dart';
-import '../../providers/selection_provider.dart';
-import '../../providers/service_providers.dart';
-import '../../services/haptics_service.dart';
-import '../../theme/opencode_theme.dart';
-import '../../utils/error_utils.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Initializes a project by creating AGENTS.md.
 /// Extracted from `_ChatScreenState._initializeProject` in `chat_screen.dart`.
@@ -49,15 +48,8 @@ Future<void> initializeProject({
   if (confirm != true) return;
   haptics.mediumImpact();
   if (!context.mounted) return;
-  final messenger = ScaffoldMessenger.of(context);
   // Show a loading message
-  messenger.showSnackBar(
-    SnackBar(
-      content: const Text('Initializing project...'),
-      backgroundColor: theme.backgroundPanel,
-      duration: const Duration(seconds: 2),
-    ),
-  );
+  showInfo(context, 'Initializing project...');
   try {
     final bridge = ref.read(bridgeServiceProvider);
     // Get the latest message ID (used for init)
@@ -74,13 +66,7 @@ Future<void> initializeProject({
     );
     if (!context.mounted) return;
     if (success) {
-      final theme = OpenCodeTheme.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Project initialized! AGENTS.md created.'),
-          backgroundColor: theme.success,
-        ),
-      );
+      showSuccess(context, 'Project initialized! AGENTS.md created.');
     } else {
       showError(context, 'Failed to initialize project');
     }

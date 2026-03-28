@@ -1,6 +1,6 @@
-import '../../models/runtime/runtime.dart';
-import '../../models/session.dart';
-import 'runtime_session_snapshot_handler.dart';
+import 'package:broski/models/runtime/runtime.dart';
+import 'package:broski/models/session.dart';
+import 'package:broski/providers/sessions/runtime_session_snapshot_handler.dart';
 
 String? runtimeSessionIdFromEvent(RuntimeEvent event) {
   final sessionId = (event.sessionId ?? '').trim();

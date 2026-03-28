@@ -1,17 +1,17 @@
+import 'package:broski/models/project.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/project.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../widgets/chat/detail_sheet.dart';
 
 /// Shared helper widgets for sessions screens.
 /// Extracted from sessions_screen.dart to avoid circular imports.
 
 class BackgroundTasksChip extends StatelessWidget {
   const BackgroundTasksChip({
+    super.key,
     required this.count,
     required this.isExpanded,
     required this.onTap,
@@ -54,7 +54,7 @@ class BackgroundTasksChip extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            SizedBox(width: Spacing.xs),
+            const SizedBox(width: Spacing.xs),
             AnimatedRotation(
               turns: isExpanded ? 0.5 : 0,
               duration: const Duration(milliseconds: 200),
@@ -87,7 +87,7 @@ String filterLabel({
 }
 
 class FilterChipButton extends StatelessWidget {
-  const FilterChipButton({required this.label, required this.onTap});
+  const FilterChipButton({super.key, required this.label, required this.onTap});
   final String label;
   final VoidCallback onTap;
   @override
@@ -107,7 +107,7 @@ class FilterChipButton extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(AppIcons.filter, size: 16, color: ocTheme.textMuted),
-            SizedBox(width: Spacing.sm),
+            const SizedBox(width: Spacing.sm),
             Text(
               label,
               style: TextStyle(
@@ -126,7 +126,7 @@ class FilterChipButton extends StatelessWidget {
 }
 
 class TitleFiltersChip extends StatelessWidget {
-  const TitleFiltersChip({required this.count, required this.onTap});
+  const TitleFiltersChip({super.key, required this.count, required this.onTap});
   final int count;
   final VoidCallback onTap;
   @override
@@ -262,6 +262,7 @@ void showProjectFilter({
 
 class FilterProjectTile extends StatelessWidget {
   const FilterProjectTile({
+    super.key,
     required this.name,
     required this.path,
     required this.isSelected,
@@ -300,7 +301,7 @@ class FilterProjectTile extends StatelessWidget {
                     ),
                   ),
                   if (path != null) ...[
-                    SizedBox(height: Spacing.xxs),
+                    const SizedBox(height: Spacing.xxs),
                     Text(
                       _shortenPath(path!),
                       style: TextStyle(color: ocTheme.textMuted, fontSize: 11),
@@ -328,7 +329,11 @@ class FilterProjectTile extends StatelessWidget {
 }
 
 class LoadMoreButton extends StatelessWidget {
-  const LoadMoreButton({required this.remainingCount, required this.onTap});
+  const LoadMoreButton({
+    super.key,
+    required this.remainingCount,
+    required this.onTap,
+  });
   final int remainingCount;
   final VoidCallback onTap;
   @override
@@ -368,6 +373,8 @@ class LoadMoreButton extends StatelessWidget {
 }
 
 class SessionsEmptyState extends StatelessWidget {
+  const SessionsEmptyState({super.key});
+
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -383,7 +390,7 @@ class SessionsEmptyState extends StatelessWidget {
             ),
             child: Icon(AppIcons.history, size: 48, color: ocTheme.primary),
           ),
-          SizedBox(height: Spacing.xxl),
+          const SizedBox(height: Spacing.xxl),
           Text(
             'No sessions yet',
             style: TextStyle(
@@ -392,7 +399,7 @@ class SessionsEmptyState extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          SizedBox(height: Spacing.sm),
+          const SizedBox(height: Spacing.sm),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 40),
             child: Text(
@@ -408,6 +415,8 @@ class SessionsEmptyState extends StatelessWidget {
 }
 
 class SkeletonSessionCard extends StatefulWidget {
+  const SkeletonSessionCard({super.key});
+
   @override
   State<SkeletonSessionCard> createState() => SkeletonSessionCardState();
 }
@@ -457,7 +466,7 @@ class SkeletonSessionCardState extends State<SkeletonSessionCard>
                 borderRadius: 12,
                 shimmerValue: _animation.value,
               ),
-              SizedBox(width: Spacing.md),
+              const SizedBox(width: Spacing.md),
               // Skeleton text lines
               Expanded(
                 child: Column(
@@ -471,7 +480,7 @@ class SkeletonSessionCardState extends State<SkeletonSessionCard>
                       shimmerValue: _animation.value,
                       maxWidthFraction: 0.7,
                     ),
-                    SizedBox(height: Spacing.sm),
+                    const SizedBox(height: Spacing.sm),
                     SkeletonBox(
                       width: double.infinity,
                       height: 12,
@@ -482,7 +491,7 @@ class SkeletonSessionCardState extends State<SkeletonSessionCard>
                   ],
                 ),
               ),
-              SizedBox(width: Spacing.sm),
+              const SizedBox(width: Spacing.sm),
               // Skeleton chevron
               SkeletonBox(
                 width: 20,
@@ -499,6 +508,8 @@ class SkeletonSessionCardState extends State<SkeletonSessionCard>
 }
 
 class DelayedSkeletonList extends StatefulWidget {
+  const DelayedSkeletonList({super.key});
+
   @override
   State<DelayedSkeletonList> createState() => DelayedSkeletonListState();
 }
@@ -525,8 +536,10 @@ class DelayedSkeletonListState extends State<DelayedSkeletonList> {
       child: Column(
         children: List.generate(
           6,
-          (index) =>
-              Padding(padding: Insets.bottomMd, child: SkeletonSessionCard()),
+          (index) => const Padding(
+            padding: Insets.bottomMd,
+            child: SkeletonSessionCard(),
+          ),
         ),
       ),
     );
@@ -535,6 +548,7 @@ class DelayedSkeletonListState extends State<DelayedSkeletonList> {
 
 class SkeletonBox extends StatelessWidget {
   const SkeletonBox({
+    super.key,
     required this.width,
     required this.height,
     required this.borderRadius,

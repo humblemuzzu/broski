@@ -1,25 +1,24 @@
+import 'package:broski/models/agent.dart';
+import 'package:broski/models/claude_code.dart';
+import 'package:broski/models/codex.dart';
+import 'package:broski/models/file_attachment.dart';
+import 'package:broski/models/message.dart';
+import 'package:broski/models/pi.dart';
+import 'package:broski/providers/app_subscription_provider.dart';
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/claude_code_provider.dart';
+import 'package:broski/providers/claude_code_variant_provider.dart';
+import 'package:broski/providers/codex_settings_provider.dart';
+import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/opencode_variant_provider.dart';
+import 'package:broski/providers/pi_provider.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/chat/codex_slash_commands.dart';
+import 'package:broski/utils/opencode_id.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/agent.dart';
-import '../../models/claude_code.dart';
-import '../../models/codex.dart';
-import '../../models/file_attachment.dart';
-import '../../models/message.dart';
-import '../../models/pi.dart';
-import '../../providers/app_subscription_provider.dart';
-import '../../providers/chat_provider.dart';
-import '../../providers/claude_code_provider.dart';
-import '../../providers/claude_code_variant_provider.dart';
-import '../../providers/codex_settings_provider.dart';
-import '../../providers/connection_provider.dart';
-import '../../providers/opencode_variant_provider.dart';
-import '../../providers/pi_provider.dart';
-import '../../providers/selection_provider.dart';
-import '../../providers/service_providers.dart';
-import '../../utils/opencode_id.dart';
-import 'codex_slash_commands.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Builds display text with file attachment labels appended.
 String _buildDisplayText(String text, List<FileAttachment> attachedFiles) {
@@ -135,7 +134,7 @@ void sendMessage({
     final mentionedAgent = agentMatch.group(1)?.toLowerCase();
     final matchedAgent = agents.firstWhere(
       (a) => a.name.toLowerCase() == mentionedAgent,
-      orElse: () => Agent(name: '', mode: AgentMode.primary),
+      orElse: () => const Agent(name: '', mode: AgentMode.primary),
     );
     if (matchedAgent.name.isNotEmpty) {
       messageAgent = matchedAgent.name;

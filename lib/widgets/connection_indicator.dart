@@ -1,8 +1,7 @@
+import 'package:broski/services/websocket_service.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
-
-import '../services/websocket_service.dart';
-import '../theme/app_typography.dart';
-import '../theme/opencode_theme.dart';
 
 class ConnectionIndicator extends StatelessWidget {
   const ConnectionIndicator({

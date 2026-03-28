@@ -1,10 +1,9 @@
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/theme/themes/all_themes.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
-import 'app_typography.dart';
-import 'design_tokens.dart';
-import 'opencode_theme.dart';
-import 'themes/all_themes.dart';
 
 /// Broski app theme configuration.
 ///

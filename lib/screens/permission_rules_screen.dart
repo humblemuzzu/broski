@@ -1,15 +1,14 @@
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/models/permission_rule.dart';
+import 'package:broski/providers/permission_rules_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/widgets/adaptive_container.dart';
+import 'package:broski/widgets/permission_rules_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/agent_type.dart';
-import '../models/permission_rule.dart';
-import '../providers/permission_rules_provider.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import '../widgets/permission_rules_sheet.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
-import 'package:broski/theme/app_icons.dart';
 
 class PermissionRulesScreen extends ConsumerWidget {
   const PermissionRulesScreen({super.key});
@@ -36,7 +35,7 @@ class PermissionRulesScreen extends ConsumerWidget {
                       'Default session permissions for OpenCode.',
                       style: TextStyle(color: oc.textMuted),
                     ),
-                    SizedBox(height: Spacing.lg),
+                    const SizedBox(height: Spacing.lg),
                     Card(
                       color: oc.backgroundPanel,
                       child: Padding(
@@ -51,7 +50,7 @@ class PermissionRulesScreen extends ConsumerWidget {
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-                            SizedBox(height: Spacing.sm),
+                            const SizedBox(height: Spacing.sm),
                             DropdownButtonFormField<PermissionPreset>(
                               // ignore: deprecated_member_use
                               value: state.preset,
@@ -97,7 +96,7 @@ class PermissionRulesScreen extends ConsumerWidget {
                               state.preset.description,
                               style: TextStyle(color: oc.textMuted),
                             ),
-                            SizedBox(height: Spacing.md),
+                            const SizedBox(height: Spacing.md),
                             Row(
                               children: [
                                 FilledButton.icon(

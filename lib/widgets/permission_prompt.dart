@@ -1,11 +1,11 @@
-import 'package:flutter/material.dart';
-import '../models/message.dart';
-import '../screens/diff_view_screen.dart';
-import '../theme/app_typography.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import '../utils/diff_utils.dart';
+import 'package:broski/models/message.dart';
+import 'package:broski/screens/diff_view_screen.dart';
 import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/diff_utils.dart';
+import 'package:flutter/material.dart';
 
 class PermissionPrompt extends StatefulWidget {
   const PermissionPrompt({
@@ -205,7 +205,7 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                               size: 20,
                             ),
                           ),
-                          SizedBox(width: Spacing.md),
+                          const SizedBox(width: Spacing.md),
                           Expanded(
                             child: Text(
                               widget.request.displayTitle,
@@ -218,7 +218,7 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                           ),
                         ],
                       ),
-                      SizedBox(height: Spacing.md),
+                      const SizedBox(height: Spacing.md),
                       // Task 5: Doom loop custom text
                       if (_isDoomLoop) ...[
                         Container(
@@ -241,7 +241,7 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                                     color: theme.warning,
                                     size: 18,
                                   ),
-                                  SizedBox(width: Spacing.sm),
+                                  const SizedBox(width: Spacing.sm),
                                   Text(
                                     'Repeated tool call detected',
                                     style: TextStyle(
@@ -252,7 +252,7 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                                   ),
                                 ],
                               ),
-                              SizedBox(height: Spacing.sm),
+                              const SizedBox(height: Spacing.sm),
                               Text(
                                 'The AI has called the same tool repeatedly with identical inputs. '
                                 'Allow it to continue or reject to break the loop.',
@@ -265,7 +265,7 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                             ],
                           ),
                         ),
-                        SizedBox(height: Spacing.md),
+                        const SizedBox(height: Spacing.md),
                       ],
                       // Show patterns if available (SDK v1.1.1+)
                       if (widget.request.patterns.isNotEmpty) ...[
@@ -276,7 +276,7 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                               ? 'Files affected'
                               : null,
                         ),
-                        SizedBox(height: Spacing.md),
+                        const SizedBox(height: Spacing.md),
                       ] else if (widget.request.title.isNotEmpty &&
                           widget.request.title !=
                               widget.request.displayTitle) ...[
@@ -284,7 +284,7 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                           widget.request.title,
                           style: TextStyle(color: theme.text, fontSize: 14),
                         ),
-                        SizedBox(height: Spacing.sm),
+                        const SizedBox(height: Spacing.sm),
                       ],
                       // Legacy command display
                       if (widget.request.command != null) ...[
@@ -301,7 +301,7 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                             style: AppTypography.codeSmall(color: theme.text),
                           ),
                         ),
-                        SizedBox(height: Spacing.md),
+                        const SizedBox(height: Spacing.md),
                       ],
                       // Show diff preview if available
                       if (diffText != null && diffText.trim().isNotEmpty) ...[
@@ -318,7 +318,7 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                           diffText: diffText,
                           filePath: filePath,
                         ),
-                        SizedBox(height: Spacing.md),
+                        const SizedBox(height: Spacing.md),
                       ],
                       // Show "always allow" preview if available (SDK v1.1.1+)
                       if (widget.request.always.isNotEmpty) ...[
@@ -326,7 +326,7 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                           always: widget.request.always,
                           theme: theme,
                         ),
-                        SizedBox(height: Spacing.md),
+                        const SizedBox(height: Spacing.md),
                       ],
                     ],
                   ),
@@ -502,7 +502,7 @@ class _RejectFeedbackSection extends StatelessWidget {
             fontWeight: FontWeight.w500,
           ),
         ),
-        SizedBox(height: Spacing.sm),
+        const SizedBox(height: Spacing.sm),
         TextField(
           controller: controller,
           focusNode: focusNode,
@@ -531,7 +531,7 @@ class _RejectFeedbackSection extends StatelessWidget {
             ),
           ),
         ),
-        SizedBox(height: Spacing.md),
+        const SizedBox(height: Spacing.md),
         Row(
           children: [
             Expanded(
@@ -544,7 +544,7 @@ class _RejectFeedbackSection extends StatelessWidget {
                 child: const Text('Cancel'),
               ),
             ),
-            SizedBox(width: Spacing.md),
+            const SizedBox(width: Spacing.md),
             Expanded(
               child: ElevatedButton(
                 onPressed: onConfirm,
@@ -557,7 +557,7 @@ class _RejectFeedbackSection extends StatelessWidget {
             ),
           ],
         ),
-        SizedBox(height: Spacing.sm),
+        const SizedBox(height: Spacing.sm),
       ],
     );
   }
@@ -645,7 +645,7 @@ class _AlwaysAllowPreview extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: Spacing.sm),
+          const SizedBox(height: Spacing.sm),
           ...always
               .take(5)
               .map(

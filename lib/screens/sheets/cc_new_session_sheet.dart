@@ -1,15 +1,14 @@
+import 'package:broski/models/project.dart';
+import 'package:broski/providers/claude_code_provider.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/screens/chat_screen.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/project.dart';
-import '../../providers/claude_code_provider.dart';
-import '../../providers/selection_provider.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../utils/error_utils.dart';
-import '../../widgets/chat/detail_sheet.dart';
-import '../chat_screen.dart';
 
 /// Shows a project picker sheet for starting a new Claude Code session.
 /// Extracted from sessions_screen.dart per modular architecture rules.
@@ -47,12 +46,12 @@ void showNewCCSessionSheet(BuildContext context) {
                         color: ocTheme.textMuted,
                         size: 48,
                       ),
-                      SizedBox(height: Spacing.lg),
+                      const SizedBox(height: Spacing.lg),
                       Text(
                         'No projects found',
                         style: TextStyle(color: ocTheme.text, fontSize: 16),
                       ),
-                      SizedBox(height: Spacing.sm),
+                      const SizedBox(height: Spacing.sm),
                       Text(
                         'Claude Code sessions will appear when you use Claude Code in a project.',
                         style: TextStyle(

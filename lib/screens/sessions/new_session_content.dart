@@ -1,17 +1,17 @@
+import 'package:broski/models/project.dart';
+import 'package:broski/models/worktree.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/project.dart';
-import '../../models/worktree.dart';
-import '../../providers/service_providers.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
 
 /// New session content with project & worktree selection.
 /// Extracted from sessions_screen.dart.
 class NewSessionContent extends ConsumerStatefulWidget {
   const NewSessionContent({
+    super.key,
     required this.projects,
     required this.onCreateSession,
   });
@@ -94,7 +94,7 @@ class NewSessionContentState extends ConsumerState<NewSessionContent> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(AppIcons.folderOff, color: ocTheme.textMuted, size: 48),
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.lg),
             Text(
               'No projects found',
               style: TextStyle(color: ocTheme.textMuted, fontSize: 16),
@@ -121,7 +121,7 @@ class NewSessionContentState extends ConsumerState<NewSessionContent> {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              SizedBox(height: Spacing.sm),
+              const SizedBox(height: Spacing.sm),
               ...widget.projects.map((project) {
                 final isSelected = _selectedProject?.id == project.id;
                 return ProjectSelectionTile(
@@ -132,7 +132,7 @@ class NewSessionContentState extends ConsumerState<NewSessionContent> {
               }),
               // Worktrees section (if project selected)
               if (_selectedProject != null) ...[
-                SizedBox(height: Spacing.xl),
+                const SizedBox(height: Spacing.xl),
                 Text(
                   'Select Worktree (Optional)',
                   style: TextStyle(
@@ -141,7 +141,7 @@ class NewSessionContentState extends ConsumerState<NewSessionContent> {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                SizedBox(height: Spacing.sm),
+                const SizedBox(height: Spacing.sm),
                 if (_loadingWorktrees)
                   const Center(
                     child: Padding(
@@ -160,7 +160,7 @@ class NewSessionContentState extends ConsumerState<NewSessionContent> {
                     child: Row(
                       children: [
                         Icon(AppIcons.info, color: ocTheme.textMuted, size: 20),
-                        SizedBox(width: Spacing.md),
+                        const SizedBox(width: Spacing.md),
                         Expanded(
                           child: Text(
                             'No worktrees found. Session will use main project.',
@@ -238,6 +238,7 @@ class NewSessionContentState extends ConsumerState<NewSessionContent> {
 
 class ProjectSelectionTile extends StatelessWidget {
   const ProjectSelectionTile({
+    super.key,
     required this.project,
     required this.isSelected,
     required this.onTap,
@@ -279,7 +280,7 @@ class ProjectSelectionTile extends StatelessWidget {
                 size: 20,
               ),
             ),
-            SizedBox(width: Spacing.md),
+            const SizedBox(width: Spacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -292,7 +293,7 @@ class ProjectSelectionTile extends StatelessWidget {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  SizedBox(height: Spacing.xxs),
+                  const SizedBox(height: Spacing.xxs),
                   Text(
                     project.path,
                     style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
@@ -313,6 +314,7 @@ class ProjectSelectionTile extends StatelessWidget {
 
 class WorktreeSelectionTile extends StatelessWidget {
   const WorktreeSelectionTile({
+    super.key,
     required this.name,
     required this.path,
     required this.isMain,
@@ -349,7 +351,7 @@ class WorktreeSelectionTile extends StatelessWidget {
               color: isSelected ? ocTheme.primary : ocTheme.textMuted,
               size: 20,
             ),
-            SizedBox(width: Spacing.md),
+            const SizedBox(width: Spacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

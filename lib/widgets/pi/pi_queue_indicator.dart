@@ -1,9 +1,8 @@
+import 'package:broski/providers/pi_provider.dart';
+import 'package:broski/services/pi_bridge_service.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../providers/pi_provider.dart';
-import '../../services/pi_bridge_service.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Compact queue indicator shown above chat input when Pi has pending messages.
 /// Shows counts of steering/follow-up messages with a clear button.

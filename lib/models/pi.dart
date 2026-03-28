@@ -1,5 +1,5 @@
+import 'package:broski/models/session.dart' show SessionSummaryStats;
 import 'package:broski/utils/format_utils.dart';
-import 'session.dart' show SessionSummaryStats;
 
 class PiModelCost {
   final double input;

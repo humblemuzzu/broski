@@ -1,12 +1,11 @@
-import 'package:flutter/material.dart';
-import '../../theme/app_typography.dart';
-
-import '../../services/bridge_service.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
+import 'package:broski/services/bridge_service.dart';
 import 'package:broski/theme/app_icons.dart';
-import '../../utils/error_utils.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
 import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:flutter/material.dart';
 
 /// Content widget for the Codex Skills sheet.
 ///
@@ -146,7 +145,7 @@ class _CxSkillsSheetContentState extends State<CxSkillsSheetContent> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                    SizedBox(height: Spacing.sm),
+                    const SizedBox(height: Spacing.sm),
                     for (final s in skills) _buildSkillTile(s, theme),
                     for (final e in errors)
                       Padding(

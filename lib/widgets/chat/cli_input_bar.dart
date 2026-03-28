@@ -1,23 +1,22 @@
 import 'dart:async';
 
+import 'package:broski/models/agent.dart';
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/models/claude_code.dart';
+import 'package:broski/models/codex.dart';
+import 'package:broski/models/file_attachment.dart';
+import 'package:broski/models/glow_style.dart';
+import 'package:broski/models/project.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/chat/glow_border_painter.dart';
+import 'package:broski/widgets/file_tagging.dart';
+import 'package:broski/widgets/power_sheet.dart';
+import 'package:broski/widgets/voice_input_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/agent.dart';
-import '../../models/agent_type.dart';
-import '../../models/claude_code.dart';
-import '../../models/codex.dart';
-import '../../models/file_attachment.dart';
-import '../../models/glow_style.dart';
-import '../../models/project.dart';
-import '../../providers/selection_provider.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../widgets/file_tagging.dart';
-import '../../widgets/power_sheet.dart';
-import '../../widgets/voice_input_button.dart';
-import 'glow_border_painter.dart';
 
 /// CLI-style input bar (OpenCode terminal aesthetic).
 /// Extracted from chat_screen.dart.

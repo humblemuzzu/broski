@@ -1,5 +1,5 @@
-import '../agent_type.dart';
-import 'runtime_state.dart';
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/models/runtime/runtime_state.dart';
 
 sealed class RuntimeEvent {
   final String type;

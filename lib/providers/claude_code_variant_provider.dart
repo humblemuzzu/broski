@@ -1,7 +1,6 @@
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/services/storage_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../services/storage_service.dart';
-import 'service_providers.dart';
 
 /// Available thinking level variants for Claude Code.
 /// These map to maxThinkingTokens values in the bridge.

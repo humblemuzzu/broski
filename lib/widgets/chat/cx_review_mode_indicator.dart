@@ -1,6 +1,6 @@
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/opencode_theme.dart';
 
 /// Banner shown when Codex enters/exits review mode.
 class CxReviewModeIndicator extends StatelessWidget {

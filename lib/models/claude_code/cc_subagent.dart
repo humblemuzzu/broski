@@ -1,4 +1,4 @@
-import 'cc_permission.dart';
+import 'package:broski/models/claude_code/cc_permission.dart';
 
 /// Model for SDK subagent/custom agent definition.
 /// Subagents are separate agent instances that can be spawned to handle focused subtasks.

@@ -1,7 +1,6 @@
+import 'package:broski/providers/chat_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
-import '../../providers/chat_provider.dart';
 
 String? maybeShowMcpOAuthFailureSnackbar({
   required BuildContext context,

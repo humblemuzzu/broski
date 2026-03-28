@@ -1,6 +1,5 @@
-import 'package:flutter_test/flutter_test.dart';
-
 import 'package:broski/utils/terminal_output_throttler.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('writes small output immediately', () {

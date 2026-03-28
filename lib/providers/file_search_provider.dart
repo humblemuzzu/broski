@@ -1,9 +1,8 @@
 import 'dart:async';
 
+import 'package:broski/models/file_attachment.dart';
+import 'package:broski/providers/service_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/file_attachment.dart';
-import 'service_providers.dart';
 
 class FileSearchState {
   const FileSearchState({

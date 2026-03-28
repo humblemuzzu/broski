@@ -1,34 +1,33 @@
 import 'dart:async';
 
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/models/pi.dart';
+import 'package:broski/models/project.dart';
+import 'package:broski/providers/highlights_provider.dart';
+import 'package:broski/providers/pi_provider.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/providers/sessions_provider.dart';
+import 'package:broski/screens/chat_screen.dart';
+import 'package:broski/screens/sessions/pi_active_sessions_section.dart';
+import 'package:broski/screens/sessions/pi_highlighted_sessions_section.dart';
+import 'package:broski/screens/sessions/pi_new_session.dart';
+import 'package:broski/screens/sessions/pi_session_options_sheet.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/project_path_match.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
+import 'package:broski/widgets/sessions/pi_session_card.dart';
+import 'package:broski/widgets/sessions/session_helpers.dart';
+import 'package:broski/widgets/sessions/sessions_search_bar.dart';
+import 'package:broski/widgets/sessions/sort_chip.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../models/agent_type.dart';
-import '../../models/pi.dart';
-import '../../models/project.dart';
-import '../../providers/highlights_provider.dart';
-import '../../providers/pi_provider.dart';
-import '../../providers/selection_provider.dart';
-import '../../providers/sessions_provider.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../utils/project_path_match.dart';
-import '../../widgets/chat/detail_sheet.dart';
-import '../../widgets/sessions/pi_session_card.dart';
-import '../../widgets/sessions/session_helpers.dart';
-import '../../widgets/sessions/sort_chip.dart';
-import '../../widgets/sessions/sessions_search_bar.dart';
-import '../chat_screen.dart';
-import 'pi_new_session.dart';
-import 'pi_session_options_sheet.dart';
-import 'pi_active_sessions_section.dart';
-import 'pi_highlighted_sessions_section.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
-
 /// Pi sessions view. Extracted from sessions_screen.dart.
 class PiSessionsView extends ConsumerStatefulWidget {
-  const PiSessionsView({required this.onRefresh});
+  const PiSessionsView({super.key, required this.onRefresh});
   final Future<void> Function() onRefresh;
   @override
   ConsumerState<PiSessionsView> createState() => PiSessionsViewState();
@@ -106,7 +105,7 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
       builder: (context) => AlertDialog(
         backgroundColor: Theme.of(context).colorScheme.surface,
         title: const Text('Delete Session?'),
-        content: Text(
+        content: const Text(
           'Are you sure you want to delete this Pi session? This action cannot be undone.',
         ),
         actions: [
@@ -182,7 +181,7 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
                   "Hide sessions whose titles match any filter. Use `/regex/` for regex, otherwise it's a case-insensitive substring match.",
                   style: TextStyle(color: ocTheme.textMuted, fontSize: 13),
                 ),
-                SizedBox(height: Spacing.md),
+                const SizedBox(height: Spacing.md),
                 Row(
                   children: [
                     Expanded(
@@ -204,7 +203,7 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
                         ),
                       ),
                     ),
-                    SizedBox(width: Spacing.sm),
+                    const SizedBox(width: Spacing.sm),
                     IconButton(
                       icon: Icon(AppIcons.add, color: ocTheme.primary),
                       onPressed: () {
@@ -217,7 +216,7 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
                     ),
                   ],
                 ),
-                SizedBox(height: Spacing.md),
+                const SizedBox(height: Spacing.md),
                 if (filters.isEmpty)
                   Text(
                     'No filters yet',
@@ -338,7 +337,7 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
                           ),
                         ],
                       ),
-                      SizedBox(height: Spacing.sm),
+                      const SizedBox(height: Spacing.sm),
                       Text(
                         'Pi coding sessions',
                         style: TextStyle(
@@ -368,12 +367,12 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
                               },
                             ),
                           ),
-                          SizedBox(width: Spacing.sm),
+                          const SizedBox(width: Spacing.sm),
                           TitleFiltersChip(
                             count: titleFilterCount,
                             onTap: () => _showTitleFiltersSheet(context),
                           ),
-                          SizedBox(width: Spacing.sm),
+                          const SizedBox(width: Spacing.sm),
                           SortChip(
                             sortBy: _sortBy,
                             onChanged: (value) {
@@ -400,7 +399,7 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
               ),
               ...sessionsAsync.when(
                 loading: () => [
-                  SliverToBoxAdapter(child: DelayedSkeletonList()),
+                  const SliverToBoxAdapter(child: DelayedSkeletonList()),
                 ],
                 error: (error, _) => [
                   SliverFillRemaining(
@@ -409,7 +408,7 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(AppIcons.error, color: ocTheme.error, size: 48),
-                          SizedBox(height: Spacing.lg),
+                          const SizedBox(height: Spacing.lg),
                           Text(
                             'Failed to load Pi sessions',
                             style: TextStyle(
@@ -418,7 +417,7 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          SizedBox(height: Spacing.sm),
+                          const SizedBox(height: Spacing.sm),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 24),
                             child: Text(
@@ -518,7 +517,7 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
                                   color: ocTheme.primary,
                                 ),
                               ),
-                              SizedBox(height: Spacing.xxl),
+                              const SizedBox(height: Spacing.xxl),
                               Text(
                                 'No Pi sessions',
                                 style: TextStyle(
@@ -527,7 +526,7 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              SizedBox(height: Spacing.sm),
+                              const SizedBox(height: Spacing.sm),
                               Padding(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 40,

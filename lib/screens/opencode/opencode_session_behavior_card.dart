@@ -1,8 +1,7 @@
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
-
-import '../../theme/app_typography.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
 
 class OpenCodeSessionBehaviorCard extends StatelessWidget {
   const OpenCodeSessionBehaviorCard({
@@ -53,7 +52,7 @@ class OpenCodeSessionBehaviorCard extends StatelessWidget {
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      SizedBox(height: Spacing.xxs),
+                      const SizedBox(height: Spacing.xxs),
                       Text(
                         'Control context compaction and session sharing defaults.',
                         style: AppTypography.label(color: oc.textMuted),
@@ -72,7 +71,7 @@ class OpenCodeSessionBehaviorCard extends StatelessWidget {
                   ),
               ],
             ),
-            SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.md),
             SwitchListTile(
               value: autoCompaction,
               onChanged: saving ? null : onAutoCompactionChanged,
@@ -111,7 +110,7 @@ class OpenCodeSessionBehaviorCard extends StatelessWidget {
               ),
               activeThumbColor: oc.primary,
             ),
-            SizedBox(height: Spacing.sm),
+            const SizedBox(height: Spacing.sm),
             Text(
               'Share mode',
               style: TextStyle(
@@ -120,7 +119,7 @@ class OpenCodeSessionBehaviorCard extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            SizedBox(height: Spacing.sm),
+            const SizedBox(height: Spacing.sm),
             Wrap(
               spacing: 8,
               runSpacing: 8,

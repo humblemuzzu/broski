@@ -1,16 +1,15 @@
+import 'package:broski/models/agent.dart';
+import 'package:broski/models/permission_rule.dart';
+import 'package:broski/providers/permission_rules_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/chat/agent_card.dart';
+import 'package:broski/widgets/chat/permission_preset_card.dart';
+import 'package:broski/widgets/permission_rules_sheet.dart';
+import 'package:broski/widgets/variant_badge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/agent.dart';
-import '../../models/permission_rule.dart';
-import '../../providers/permission_rules_provider.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../widgets/permission_rules_sheet.dart';
-import '../../widgets/variant_badge.dart';
-import 'agent_card.dart';
-import 'permission_preset_card.dart';
 
 /// Agent and permission content for the chat screen power sheet.
 /// Extracted from chat_screen.dart.
@@ -63,7 +62,7 @@ class _AgentAndPermissionContentState
                       color: widget.theme.textMuted,
                       size: 18,
                     ),
-                    SizedBox(width: Spacing.sm),
+                    const SizedBox(width: Spacing.sm),
                     Text(
                       'Agent',
                       style: TextStyle(
@@ -75,7 +74,7 @@ class _AgentAndPermissionContentState
                     ),
                   ],
                 ),
-                SizedBox(height: Spacing.lg),
+                const SizedBox(height: Spacing.lg),
                 // Primary agents as prominent cards in a row
                 if (primaryAgents.isNotEmpty) ...[
                   Row(
@@ -99,7 +98,7 @@ class _AgentAndPermissionContentState
                       );
                     }).toList(),
                   ),
-                  SizedBox(height: Spacing.md),
+                  const SizedBox(height: Spacing.md),
                 ],
                 // Secondary agents as smaller list
                 if (secondaryAgents.isNotEmpty) ...[
@@ -145,7 +144,7 @@ class _AgentAndPermissionContentState
                                         shape: BoxShape.circle,
                                       ),
                                     ),
-                                    SizedBox(width: Spacing.md),
+                                    const SizedBox(width: Spacing.md),
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment:
@@ -218,7 +217,7 @@ class _AgentAndPermissionContentState
                     ),
                   ),
                 ],
-                SizedBox(height: Spacing.xxl),
+                const SizedBox(height: Spacing.xxl),
               ],
               // Permission preset section
               Row(
@@ -228,7 +227,7 @@ class _AgentAndPermissionContentState
                     color: widget.theme.textMuted,
                     size: 18,
                   ),
-                  SizedBox(width: Spacing.sm),
+                  const SizedBox(width: Spacing.sm),
                   Text(
                     'Permissions',
                     style: TextStyle(
@@ -265,7 +264,7 @@ class _AgentAndPermissionContentState
                           size: 14,
                           color: widget.theme.primary,
                         ),
-                        SizedBox(width: Spacing.xs),
+                        const SizedBox(width: Spacing.xs),
                         Text(
                           'Custom',
                           style: TextStyle(

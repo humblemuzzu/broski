@@ -1,14 +1,14 @@
+import 'package:broski/models/pi.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/sessions/session_stat_badges.dart';
 import 'package:flutter/material.dart';
-
-import '../../models/pi.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import 'session_stat_badges.dart';
 
 /// Pi session card. Extracted from sessions_screen.dart.
 class PiSessionCard extends StatelessWidget {
   const PiSessionCard({
+    super.key,
     required this.title,
     required this.session,
     required this.isHighlighted,
@@ -85,7 +85,7 @@ class PiSessionCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        SizedBox(width: Spacing.md),
+                        const SizedBox(width: Spacing.md),
                         Text(
                           _formatDate(session.modified),
                           style: TextStyle(

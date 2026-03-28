@@ -1,23 +1,22 @@
 import 'dart:async';
 
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/models/skill.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/markdown_styles.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/adaptive_container.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../theme/app_typography.dart';
-import '../theme/design_tokens.dart';
-import '../theme/markdown_styles.dart';
-
-import '../models/agent_type.dart';
-import '../models/skill.dart';
-import '../providers/selection_provider.dart';
-import '../providers/service_providers.dart';
-import '../theme/opencode_theme.dart';
-import '../widgets/chat/detail_sheet.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
-import 'package:broski/theme/app_icons.dart';
-import '../utils/error_utils.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 class SkillsScreen extends ConsumerStatefulWidget {
   const SkillsScreen({required this.backend, super.key});
@@ -120,7 +119,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
                 ),
               if (summary.content != null &&
                   summary.content!.trim().isNotEmpty) ...[
-                SizedBox(height: Spacing.md),
+                const SizedBox(height: Spacing.md),
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(10),
@@ -135,13 +134,13 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
                   ),
                 ),
               ],
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               Text(
                 'Source: $sourceLabel',
                 style: TextStyle(color: oc.textMuted, fontSize: 13),
               ),
               if (summary.path.isNotEmpty) ...[
-                SizedBox(height: Spacing.xs),
+                const SizedBox(height: Spacing.xs),
                 Text(
                   'Path: ${summary.path}',
                   style: TextStyle(color: oc.textMuted, fontSize: 13),
@@ -326,18 +325,18 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(AppIcons.error, color: oc.error, size: 48),
-                      SizedBox(height: Spacing.md),
+                      const SizedBox(height: Spacing.md),
                       Text(
                         'Failed to load skills',
                         style: TextStyle(color: oc.text, fontSize: 16),
                       ),
-                      SizedBox(height: Spacing.sm),
+                      const SizedBox(height: Spacing.sm),
                       Text(
                         _error!,
                         textAlign: TextAlign.center,
                         style: AppTypography.label(color: oc.textMuted),
                       ),
-                      SizedBox(height: Spacing.lg),
+                      const SizedBox(height: Spacing.lg),
                       ElevatedButton.icon(
                         onPressed: _load,
                         icon: const Icon(AppIcons.refresh),
@@ -355,9 +354,9 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(AppIcons.extension_, color: oc.textMuted, size: 56),
-                      SizedBox(height: Spacing.md),
+                      const SizedBox(height: Spacing.md),
                       Text('No skills found', style: TextStyle(color: oc.text)),
-                      SizedBox(height: Spacing.sm),
+                      const SizedBox(height: Spacing.sm),
                       Text(
                         widget.backend == AgentType.pi
                             ? 'Pi commands come from extensions, skills, and prompt templates.'
@@ -366,7 +365,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
                         style: TextStyle(color: oc.textMuted),
                       ),
                       if (widget.backend != AgentType.pi) ...[
-                        SizedBox(height: Spacing.lg),
+                        const SizedBox(height: Spacing.lg),
                         ElevatedButton.icon(
                           onPressed: _createSkill,
                           icon: const Icon(AppIcons.add),
@@ -381,7 +380,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                 children: [
                   _BackendHeader(backend: widget.backend),
-                  SizedBox(height: Spacing.md),
+                  const SizedBox(height: Spacing.md),
                   for (final source in orderedSources) ...[
                     _SectionHeader(title: source.displayName),
                     const SizedBox(height: 6),
@@ -585,7 +584,10 @@ description: $description
         multiLine: false,
       ).firstMatch(raw)?.group(1);
       final fmName = fm != null
-          ? RegExp(r'(?m)^name:\s*(.+?)\s*$').firstMatch(fm)?.group(1)?.trim()
+          ? RegExp(
+              r'^name:\s*(.+?)\s*$',
+              multiLine: true,
+            ).firstMatch(fm)?.group(1)?.trim()
           : null;
       if (fmName != null && fmName != name) {
         final fix = await showDialog<bool>(
@@ -609,7 +611,7 @@ description: $description
         );
         if (fix == true) {
           final updated = raw.replaceFirst(
-            RegExp(r'(?m)^name:\s*.+?\s*$'),
+            RegExp(r'^name:\s*.+?\s*$', multiLine: true),
             'name: $name',
           );
           _content.text = updated;
@@ -734,16 +736,16 @@ description: $description
                 child: Row(
                   children: [
                     _Chip(label: widget.backend.displayName),
-                    SizedBox(width: Spacing.sm),
+                    const SizedBox(width: Spacing.sm),
                     if (source != null) _Chip(label: source.displayName),
                     if (readOnly) ...[
-                      SizedBox(width: Spacing.sm),
-                      _Chip(label: 'Read-only', tone: ChipTone.warn),
+                      const SizedBox(width: Spacing.sm),
+                      const _Chip(label: 'Read-only', tone: ChipTone.warn),
                     ],
                   ],
                 ),
               ),
-            SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.md),
             Expanded(
               child: TabBarView(
                 controller: _tabs,

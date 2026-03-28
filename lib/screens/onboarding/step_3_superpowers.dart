@@ -1,6 +1,6 @@
+import 'package:broski/theme/design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../theme/design_tokens.dart';
 
 // =============================================================================
 // PAGE 3: SUPERPOWERS (Instant Alerts + Voice to Code)
@@ -183,7 +183,7 @@ class _SuperpowersPageState extends State<SuperpowersPage>
                           letterSpacing: -0.3,
                         ),
                       ),
-                      SizedBox(height: Spacing.sm),
+                      const SizedBox(height: Spacing.sm),
                       Text(
                         "Step away. We'll ping you when the\nagent fixes the bug.",
                         style: TextStyle(
@@ -284,7 +284,7 @@ class _VoiceSectionState extends State<_VoiceSection>
               letterSpacing: -0.3,
             ),
           ),
-          SizedBox(height: Spacing.sm),
+          const SizedBox(height: Spacing.sm),
           Text(
             "Skip the keyboard. Just speak and let\nyour agent turn words into code.",
             style: TextStyle(
@@ -294,7 +294,7 @@ class _VoiceSectionState extends State<_VoiceSection>
               height: 1.45,
             ),
           ),
-          SizedBox(height: Spacing.xxl),
+          const SizedBox(height: Spacing.xxl),
           // Next button
           GestureDetector(
             onTap: () {
@@ -322,7 +322,7 @@ class _VoiceSectionState extends State<_VoiceSection>
               ),
             ),
           ),
-          SizedBox(height: Spacing.xxxl),
+          const SizedBox(height: Spacing.xxxl),
         ],
       ),
     );
@@ -345,7 +345,7 @@ class _WaveformPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeWidth = 4.0;
     for (var i = 0; i < _barCount; i++) {
-      final center = (_barCount - 1) / 2.0;
+      const center = (_barCount - 1) / 2.0;
       final distFromEdge =
           (center - (i - center).abs()) / center; // 0 at edge, 1 at center
       final phase = distFromEdge * _pi * 1.2; // inner bars are delayed

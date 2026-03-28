@@ -1,8 +1,7 @@
+import 'package:broski/models/font_preference.dart';
+import 'package:broski/theme/app_typography.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-import '../models/font_preference.dart';
-import '../theme/app_typography.dart';
 
 /// Font state containing the user's selected UI and code fonts.
 class FontState {

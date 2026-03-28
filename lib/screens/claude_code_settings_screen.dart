@@ -1,17 +1,16 @@
-import 'package:flutter/material.dart';
-import '../theme/app_typography.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/claude_code.dart';
-import '../providers/selection_provider.dart';
-import '../providers/service_providers.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import 'claude_code_sandbox_screen.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
+import 'package:broski/models/claude_code.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/claude_code_sandbox_screen.dart';
 import 'package:broski/theme/app_icons.dart';
-import '../utils/error_utils.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/widgets/adaptive_container.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class ClaudeCodeSettingsScreen extends ConsumerStatefulWidget {
   const ClaudeCodeSettingsScreen({super.key});
@@ -199,7 +198,7 @@ class _ClaudeCodeSettingsScreenState
                 ),
                 autofocus: true,
               ),
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               Text('Presets:', style: AppTypography.label(color: oc.textMuted)),
               const SizedBox(height: 6),
               SizedBox(
@@ -311,118 +310,131 @@ class _ClaudeCodeSettingsScreenState
     final adaptiveSupported = selectedModel?.supportsAdaptiveThinking != false;
 
     return [
-      RadioListTile<String>(
-        contentPadding: EdgeInsets.zero,
-        dense: true,
-        title: const Text('Default'),
-        subtitle: Text(
-          'Use SDK default (adaptive on Opus 4.6+)',
-          style: AppTypography.label(color: oc.textMuted),
-        ),
-        value: 'default',
+      RadioGroup<String>(
         groupValue: selected,
-        onChanged: (_) => _update(cfg.copyWith(clearThinking: true)),
-      ),
-      RadioListTile<String>(
-        contentPadding: EdgeInsets.zero,
-        dense: true,
-        title: const Text('Adaptive'),
-        subtitle: Text(
-          adaptiveSupported
-              ? 'Claude decides when and how much to think'
-              : 'Selected model does not report adaptive thinking support',
-          style: AppTypography.label(color: oc.textMuted),
-        ),
-        value: 'adaptive',
-        groupValue: selected,
-        onChanged: adaptiveSupported
-            ? (_) => _update(
+        onChanged: (value) async {
+          switch (value) {
+            case 'default':
+              _update(cfg.copyWith(clearThinking: true));
+            case 'adaptive':
+              _update(
                 cfg.copyWith(thinking: const ClaudeCodeThinkingAdaptive()),
-              )
-            : null,
-      ),
-      RadioListTile<String>(
-        contentPadding: EdgeInsets.zero,
-        dense: true,
-        title: const Text('Enabled (fixed budget)'),
-        subtitle: Text(
-          current is ClaudeCodeThinkingEnabled
-              ? '${current.budgetTokens} tokens'
-              : 'Set a fixed thinking token budget',
-          style: AppTypography.label(color: oc.textMuted),
-        ),
-        value: 'enabled',
-        groupValue: selected,
-        onChanged: (_) async {
-          // Show dialog for budget tokens
-          final currentBudget = current is ClaudeCodeThinkingEnabled
-              ? current.budgetTokens
-              : 16384;
-          final controller = TextEditingController(
-            text: currentBudget.toString(),
-          );
-          final result = await showDialog<int?>(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: const Text('Thinking budget (tokens)'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    controller: controller,
-                    keyboardType: TextInputType.number,
-                    autofocus: true,
-                    decoration: const InputDecoration(
-                      hintText: 'e.g. 16384',
-                      labelText: 'Max thinking tokens',
-                    ),
-                  ),
-                  SizedBox(height: Spacing.sm),
-                  Text(
-                    'Common values: 4096 (quick), 16384 (balanced), 65536 (deep)',
-                    style: AppTypography.label(color: oc.textMuted),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, null),
-                  child: const Text('Cancel'),
-                ),
-                TextButton(
-                  onPressed: () {
-                    final parsed = int.tryParse(controller.text.trim());
-                    Navigator.pop(ctx, parsed ?? 16384);
-                  },
-                  child: const Text('Save'),
-                ),
-              ],
-            ),
-          );
-          controller.dispose();
-          if (result == null) return;
-          await _update(
-            cfg.copyWith(
-              thinking: ClaudeCodeThinkingEnabled(budgetTokens: result),
-            ),
-          );
+              );
+            case 'enabled':
+              await _showThinkingBudgetDialog(cfg, current, oc);
+            case 'disabled':
+              _update(
+                cfg.copyWith(thinking: const ClaudeCodeThinkingDisabled()),
+              );
+          }
         },
-      ),
-      RadioListTile<String>(
-        contentPadding: EdgeInsets.zero,
-        dense: true,
-        title: const Text('Disabled'),
-        subtitle: Text(
-          'No extended thinking',
-          style: AppTypography.label(color: oc.textMuted),
+        child: Column(
+          children: [
+            RadioListTile<String>(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              title: const Text('Default'),
+              subtitle: Text(
+                'Use SDK default (adaptive on Opus 4.6+)',
+                style: AppTypography.label(color: oc.textMuted),
+              ),
+              value: 'default',
+            ),
+            RadioListTile<String>(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              enabled: adaptiveSupported,
+              title: const Text('Adaptive'),
+              subtitle: Text(
+                adaptiveSupported
+                    ? 'Claude decides when and how much to think'
+                    : 'Selected model does not report adaptive thinking support',
+                style: AppTypography.label(color: oc.textMuted),
+              ),
+              value: 'adaptive',
+            ),
+            RadioListTile<String>(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              title: const Text('Enabled (fixed budget)'),
+              subtitle: Text(
+                current is ClaudeCodeThinkingEnabled
+                    ? '${current.budgetTokens} tokens'
+                    : 'Set a fixed thinking token budget',
+                style: AppTypography.label(color: oc.textMuted),
+              ),
+              value: 'enabled',
+            ),
+            RadioListTile<String>(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              title: const Text('Disabled'),
+              subtitle: Text(
+                'No extended thinking',
+                style: AppTypography.label(color: oc.textMuted),
+              ),
+              value: 'disabled',
+            ),
+          ],
         ),
-        value: 'disabled',
-        groupValue: selected,
-        onChanged: (_) =>
-            _update(cfg.copyWith(thinking: const ClaudeCodeThinkingDisabled())),
       ),
     ];
+  }
+
+  /// Shows the thinking budget dialog and updates config if confirmed.
+  Future<void> _showThinkingBudgetDialog(
+    ClaudeCodeConfig cfg,
+    ClaudeCodeThinkingOption? current,
+    OpenCodeTheme oc,
+  ) async {
+    final currentBudget = current is ClaudeCodeThinkingEnabled
+        ? current.budgetTokens
+        : 16384;
+    final controller = TextEditingController(text: currentBudget.toString());
+    final result = await showDialog<int?>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Thinking budget (tokens)'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              autofocus: true,
+              decoration: const InputDecoration(
+                hintText: 'e.g. 16384',
+                labelText: 'Max thinking tokens',
+              ),
+            ),
+            const SizedBox(height: Spacing.sm),
+            Text(
+              'Common values: 4096 (quick), 16384 (balanced), 65536 (deep)',
+              style: AppTypography.label(color: oc.textMuted),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, null),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              final parsed = int.tryParse(controller.text.trim());
+              Navigator.pop(ctx, parsed ?? 16384);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (result == null) return;
+    await _update(
+      cfg.copyWith(thinking: ClaudeCodeThinkingEnabled(budgetTokens: result)),
+    );
   }
 
   String _modelLabel(ClaudeCodeSupportedModel model) {
@@ -547,7 +559,7 @@ class _ClaudeCodeSettingsScreenState
                           style: AppTypography.label(color: oc.text),
                         ),
                       ),
-                      SizedBox(height: Spacing.md),
+                      const SizedBox(height: Spacing.md),
                     ],
                     // SDK v2.1.6: Search functionality in /config
                     TextField(
@@ -575,7 +587,7 @@ class _ClaudeCodeSettingsScreenState
                       ),
                       style: TextStyle(color: oc.text),
                     ),
-                    SizedBox(height: Spacing.md),
+                    const SizedBox(height: Spacing.md),
                     Text(
                       'Broski-managed settings (applied when sessions run through the bridge).',
                       style: AppTypography.label(color: oc.textMuted),
@@ -742,7 +754,7 @@ class _ClaudeCodeSettingsScreenState
                                     },
                             ),
                             if (systemPromptMode == 'preset') ...[
-                              SizedBox(height: Spacing.sm),
+                              const SizedBox(height: Spacing.sm),
                               ListTile(
                                 contentPadding: EdgeInsets.zero,
                                 title: const Text('Additional instructions'),
@@ -782,7 +794,7 @@ class _ClaudeCodeSettingsScreenState
                               ),
                             ],
                             if (systemPromptMode == 'custom') ...[
-                              SizedBox(height: Spacing.sm),
+                              const SizedBox(height: Spacing.sm),
                               Text(
                                 (systemPrompt.text ?? '').trim().isEmpty
                                     ? 'No custom prompt configured.'
@@ -795,7 +807,7 @@ class _ClaudeCodeSettingsScreenState
                                   height: 1.4,
                                 ),
                               ),
-                              SizedBox(height: Spacing.sm),
+                              const SizedBox(height: Spacing.sm),
                               OutlinedButton.icon(
                                 onPressed: cfg == null
                                     ? null
@@ -843,7 +855,7 @@ class _ClaudeCodeSettingsScreenState
                               'Controls Claude\'s reasoning behavior. Adaptive lets Claude decide; Enabled sets a fixed token budget; Disabled turns off extended thinking.',
                               style: AppTypography.label(color: oc.textMuted),
                             ),
-                            SizedBox(height: Spacing.sm),
+                            const SizedBox(height: Spacing.sm),
                             ..._buildThinkingModeRadios(cfg, oc, selectedModel),
                           ],
                         ),
@@ -862,7 +874,7 @@ class _ClaudeCodeSettingsScreenState
                               'Controls how much effort Claude puts into responses. Works with adaptive thinking to guide reasoning depth.',
                               style: AppTypography.label(color: oc.textMuted),
                             ),
-                            SizedBox(height: Spacing.sm),
+                            const SizedBox(height: Spacing.sm),
                             if (!supportsEffort)
                               Text(
                                 'Selected model does not report effort support.',
@@ -1160,7 +1172,7 @@ class _ClaudeCodeSettingsScreenState
                                 fontSize: 13,
                               ),
                             ),
-                            SizedBox(height: Spacing.xs),
+                            const SizedBox(height: Spacing.xs),
                             Text(
                               [
                                 if ((_accountInfo?.organization ?? '')
@@ -1193,7 +1205,7 @@ class _ClaudeCodeSettingsScreenState
                               'Tools Claude is allowed to use. Supports wildcards like Bash(npm *)',
                               style: AppTypography.label(color: oc.textMuted),
                             ),
-                            SizedBox(height: Spacing.sm),
+                            const SizedBox(height: Spacing.sm),
                             if (cfg != null && cfg.allowedTools.isNotEmpty)
                               Wrap(
                                 spacing: 6,
@@ -1220,7 +1232,7 @@ class _ClaudeCodeSettingsScreenState
                                   );
                                 }).toList(),
                               ),
-                            SizedBox(height: Spacing.sm),
+                            const SizedBox(height: Spacing.sm),
                             OutlinedButton.icon(
                               icon: const Icon(AppIcons.add, size: 16),
                               label: const Text('Add Tool'),
@@ -1246,7 +1258,7 @@ class _ClaudeCodeSettingsScreenState
                               'Tools Claude cannot use. Use Task(AgentName) to disable agents.',
                               style: AppTypography.label(color: oc.textMuted),
                             ),
-                            SizedBox(height: Spacing.sm),
+                            const SizedBox(height: Spacing.sm),
                             if (cfg != null && cfg.disallowedTools.isNotEmpty)
                               Wrap(
                                 spacing: 6,
@@ -1275,7 +1287,7 @@ class _ClaudeCodeSettingsScreenState
                                   );
                                 }).toList(),
                               ),
-                            SizedBox(height: Spacing.sm),
+                            const SizedBox(height: Spacing.sm),
                             OutlinedButton.icon(
                               icon: const Icon(AppIcons.add, size: 16),
                               label: const Text('Add Tool'),

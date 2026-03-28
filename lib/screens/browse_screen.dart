@@ -1,28 +1,27 @@
 import 'dart:convert';
 
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/models/file_binary_content.dart';
+import 'package:broski/models/file_content.dart';
+import 'package:broski/models/search_result.dart';
+import 'package:broski/models/vcs.dart';
+import 'package:broski/providers/agent_type_provider.dart';
+import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/adaptive_container.dart';
+import 'package:broski/widgets/connection_indicator.dart';
+import 'package:broski/widgets/file_viewers/file_viewers.dart';
 import 'package:flutter/material.dart';
-import '../theme/app_typography.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/file_binary_content.dart';
-import '../models/file_content.dart';
-import '../models/search_result.dart';
-import '../models/vcs.dart';
-import '../models/agent_type.dart';
-import '../providers/agent_type_provider.dart';
-import '../providers/connection_provider.dart';
-import '../providers/service_providers.dart';
-import '../providers/selection_provider.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import '../widgets/connection_indicator.dart';
-import '../widgets/file_viewers/file_viewers.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
-import 'package:broski/theme/app_icons.dart';
-import '../utils/error_utils.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 class BrowseScreen extends ConsumerStatefulWidget {
   const BrowseScreen({super.key, this.initialPath});
@@ -251,15 +250,9 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     final projectPath = selection.project?.path;
     if (projectPath == null) {
       if (mounted) {
-        final theme = OpenCodeTheme.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text(
-              'Select a project to use OpenCode search. File browsing works without it.',
-            ),
-            backgroundColor: theme.backgroundPanel,
-            behavior: SnackBarBehavior.floating,
-          ),
+        showInfo(
+          context,
+          'Select a project to use OpenCode search. File browsing works without it.',
         );
       }
       return;
@@ -398,7 +391,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(AppIcons.error, size: 64, color: theme.warning),
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.lg),
             Text(
               _fileTooLargeMessage!,
               style: TextStyle(color: theme.textMuted),
@@ -592,7 +585,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
                   color: theme.text,
                 ),
               ),
-              SizedBox(height: Spacing.lg),
+              const SizedBox(height: Spacing.lg),
               Wrap(
                 children: [
                   _PathChip(
@@ -619,7 +612,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
                   ],
                 ],
               ),
-              SizedBox(height: Spacing.xl),
+              const SizedBox(height: Spacing.xl),
             ],
           ),
         );
@@ -687,7 +680,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(_getSearchTypeIcon(), size: 48, color: theme.textMuted),
-          SizedBox(height: Spacing.lg),
+          const SizedBox(height: Spacing.lg),
           Text(
             _getSearchHint(),
             style: TextStyle(color: theme.textMuted, fontSize: 16),
@@ -780,7 +773,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(AppIcons.error, size: 48, color: theme.error),
-                  SizedBox(height: Spacing.lg),
+                  const SizedBox(height: Spacing.lg),
                   Text(
                     'Failed to browse:\n${humanizeError(snapshot.error ?? "Unknown error")}',
                     textAlign: TextAlign.center,
@@ -797,7 +790,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(AppIcons.folderOpen, size: 48, color: theme.textMuted),
-                  SizedBox(height: Spacing.lg),
+                  const SizedBox(height: Spacing.lg),
                   Text(
                     'Empty folder',
                     style: TextStyle(color: theme.textMuted),
@@ -1008,7 +1001,7 @@ class _FileTile extends StatelessWidget {
             ),
             // Feature 18: Show git status badge
             if (fileStatus != null) ...[
-              SizedBox(width: Spacing.sm),
+              const SizedBox(width: Spacing.sm),
               _FileStatusBadge(status: fileStatus!),
             ],
           ],
@@ -1108,7 +1101,7 @@ class _SearchTypeItem extends StatelessWidget {
           color: isSelected ? theme.primary : theme.textMuted,
           size: 20,
         ),
-        SizedBox(width: Spacing.md),
+        const SizedBox(width: Spacing.md),
         Text(
           label,
           style: TextStyle(
@@ -1202,7 +1195,7 @@ class _TextResultTile extends StatelessWidget {
                 fontWeight: FontWeight.w500,
               ),
             ),
-            SizedBox(width: Spacing.sm),
+            const SizedBox(width: Spacing.sm),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(

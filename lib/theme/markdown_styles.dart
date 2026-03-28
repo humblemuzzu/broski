@@ -1,9 +1,8 @@
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-
-import 'app_typography.dart';
-import 'design_tokens.dart';
-import 'opencode_theme.dart';
 
 /// Shared markdown style factories for consistent rendering across the app.
 ///
@@ -54,9 +53,9 @@ abstract final class MarkdownStyles {
         color: theme.markdownHeading,
         height: 1.4,
       ),
-      h1Padding: EdgeInsets.only(top: Spacing.xxl, bottom: Spacing.md),
-      h2Padding: EdgeInsets.only(top: Spacing.xl, bottom: 10),
-      h3Padding: EdgeInsets.only(top: Spacing.lg, bottom: Spacing.sm),
+      h1Padding: const EdgeInsets.only(top: Spacing.xxl, bottom: Spacing.md),
+      h2Padding: const EdgeInsets.only(top: Spacing.xl, bottom: 10),
+      h3Padding: const EdgeInsets.only(top: Spacing.lg, bottom: Spacing.sm),
 
       // -- Inline formatting --
       strong: TextStyle(
@@ -175,9 +174,9 @@ abstract final class MarkdownStyles {
         color: theme.markdownHeading,
         height: 1.4,
       ),
-      h1Padding: EdgeInsets.only(top: Spacing.lg, bottom: Spacing.sm),
-      h2Padding: EdgeInsets.only(top: Spacing.md, bottom: Spacing.xs),
-      h3Padding: EdgeInsets.only(top: Spacing.sm, bottom: Spacing.xs),
+      h1Padding: const EdgeInsets.only(top: Spacing.lg, bottom: Spacing.sm),
+      h2Padding: const EdgeInsets.only(top: Spacing.md, bottom: Spacing.xs),
+      h3Padding: const EdgeInsets.only(top: Spacing.sm, bottom: Spacing.xs),
 
       // -- Inline formatting — rich tokens, not flat white --
       strong: TextStyle(
@@ -314,9 +313,9 @@ abstract final class MarkdownStyles {
         color: theme.textMuted,
         height: 1.4,
       ),
-      h1Padding: EdgeInsets.only(top: Spacing.xxl, bottom: Spacing.lg),
-      h2Padding: EdgeInsets.only(top: Spacing.xl, bottom: Spacing.md),
-      h3Padding: EdgeInsets.only(top: Spacing.lg, bottom: Spacing.sm),
+      h1Padding: const EdgeInsets.only(top: Spacing.xxl, bottom: Spacing.lg),
+      h2Padding: const EdgeInsets.only(top: Spacing.xl, bottom: Spacing.md),
+      h3Padding: const EdgeInsets.only(top: Spacing.lg, bottom: Spacing.sm),
 
       // -- Inline formatting --
       strong: TextStyle(

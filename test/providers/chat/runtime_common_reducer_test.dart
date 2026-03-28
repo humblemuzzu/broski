@@ -1,9 +1,8 @@
-import 'package:flutter_test/flutter_test.dart';
-
 import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/runtime/runtime.dart';
 import 'package:broski/providers/chat/runtime_common_models.dart';
 import 'package:broski/providers/chat/runtime_common_reducer.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('runtime common reducer', () {

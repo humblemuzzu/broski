@@ -1,13 +1,12 @@
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/chat_screen.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../providers/chat_provider.dart';
-import '../../providers/service_providers.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../widgets/chat/detail_sheet.dart';
-import '../chat_screen.dart';
 
 /// Shows the Codex feedback sheet. Extracted from chat_screen.dart.
 void showCodexFeedbackSheet(BuildContext context, WidgetRef ref) {
@@ -29,7 +28,7 @@ void showCodexFeedbackSheet(BuildContext context, WidgetRef ref) {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(height: Spacing.sm),
+              const SizedBox(height: Spacing.sm),
               Padding(
                 padding: Insets.screenH,
                 child: DropdownButtonFormField<String>(
@@ -53,7 +52,7 @@ void showCodexFeedbackSheet(BuildContext context, WidgetRef ref) {
                   ),
                 ),
               ),
-              SizedBox(height: Spacing.sm),
+              const SizedBox(height: Spacing.sm),
               Padding(
                 padding: Insets.screenH,
                 child: TextField(
@@ -64,7 +63,7 @@ void showCodexFeedbackSheet(BuildContext context, WidgetRef ref) {
                   ),
                 ),
               ),
-              SizedBox(height: Spacing.sm),
+              const SizedBox(height: Spacing.sm),
               Padding(
                 padding: Insets.screenH,
                 child: SwitchListTile(
@@ -87,7 +86,7 @@ void showCodexFeedbackSheet(BuildContext context, WidgetRef ref) {
                   activeThumbColor: theme.primary,
                 ),
               ),
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 child: Row(

@@ -1,6 +1,6 @@
+import 'package:broski/theme/design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../theme/design_tokens.dart';
 
 // =============================================================================
 // PAGE 2: UNIFIED INTELLIGENCE
@@ -100,7 +100,7 @@ class _UnifiedIntelligencePageState extends State<UnifiedIntelligencePage>
                               height: 1.1,
                             ),
                           ),
-                          SizedBox(height: Spacing.md),
+                          const SizedBox(height: Spacing.md),
                           Text(
                             'Connect your preferred engines. We\norchestrate the rest.',
                             style: TextStyle(
@@ -301,7 +301,7 @@ class _AgentCard extends StatelessWidget {
               ),
             ),
           ),
-          SizedBox(width: Spacing.lg),
+          const SizedBox(width: Spacing.lg),
           Expanded(
             child: Text(
               name,

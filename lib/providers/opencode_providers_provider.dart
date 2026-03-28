@@ -1,6 +1,6 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:broski/models/provider.dart';
 import 'package:broski/providers/service_providers.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Combined provider + auth data for display in the providers screen.
 class OcProviderDisplay {

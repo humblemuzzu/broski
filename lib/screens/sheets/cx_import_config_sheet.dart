@@ -1,15 +1,14 @@
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../theme/app_icons.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../widgets/chat/detail_sheet.dart';
-import '../../providers/service_providers.dart';
-import '../../providers/chat_provider.dart';
-import '../../utils/error_utils.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Shows the external agent config import sheet.
 void showCxImportConfigSheet(BuildContext context) {
@@ -76,12 +75,12 @@ class _CxImportConfigContentState
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(AppIcons.search, size: 32, color: theme.textMuted),
-                  SizedBox(height: Spacing.sm),
+                  const SizedBox(height: Spacing.sm),
                   Text(
                     'No external agent configs detected.',
                     style: AppTypography.bodySmall(color: theme.textMuted),
                   ),
-                  SizedBox(height: Spacing.xs),
+                  const SizedBox(height: Spacing.xs),
                   Text(
                     'Checks for Claude Code, Cursor, Windsurf, and other agent configs.',
                     style: AppTypography.label(color: theme.textMuted),
@@ -102,7 +101,7 @@ class _CxImportConfigContentState
                 'Detected configurations that can be imported into Codex:',
                 style: AppTypography.bodySmall(color: theme.textMuted),
               ),
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               ...configs.map((cfg) {
                 final source =
                     cfg['source']?.toString() ??
@@ -217,7 +216,7 @@ class _CxImportConfigContentState
                   ),
                 );
               }),
-              SizedBox(height: Spacing.sm),
+              const SizedBox(height: Spacing.sm),
               Text(
                 'Importing merges configs — nothing is deleted.',
                 style: AppTypography.label(color: theme.textMuted),

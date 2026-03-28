@@ -1,15 +1,14 @@
 import 'dart:ui';
 
+import 'package:broski/providers/font_provider.dart';
+import 'package:broski/providers/theme_provider.dart';
+import 'package:broski/screens/root_screen.dart';
+import 'package:broski/services/notification_service.dart';
+import 'package:broski/services/storage_service.dart';
+import 'package:broski/theme/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import 'providers/font_provider.dart';
-import 'providers/theme_provider.dart';
-import 'screens/root_screen.dart';
-import 'services/notification_service.dart';
-import 'services/storage_service.dart';
-import 'theme/theme.dart';
 
 void main() {
   // REQUIRED: must be called before any plugin or platform channel usage

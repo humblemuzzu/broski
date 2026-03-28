@@ -1,7 +1,6 @@
+import 'package:broski/models/card_style.dart';
+import 'package:broski/providers/service_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/card_style.dart';
-import 'service_providers.dart';
 
 /// Provider for managing tool card style settings.
 class CardStyleNotifier extends StateNotifier<CardStyleSettings> {

@@ -1,20 +1,21 @@
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/models/claude_code.dart';
+import 'package:broski/models/codex.dart';
+import 'package:broski/models/permission_rule.dart';
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/claude_code_provider.dart';
+import 'package:broski/providers/codex_settings_provider.dart';
+import 'package:broski/providers/permission_rules_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
+import 'package:broski/widgets/chat/section_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/agent_type.dart';
-import '../models/claude_code.dart';
-import '../models/codex.dart';
-import '../models/permission_rule.dart';
-import '../providers/chat_provider.dart';
-import '../providers/claude_code_provider.dart';
-import '../providers/codex_settings_provider.dart';
-import '../providers/permission_rules_provider.dart';
-import '../providers/service_providers.dart';
-import '../theme/app_typography.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import 'chat/detail_sheet.dart';
-import 'chat/section_header.dart';
-import 'package:broski/theme/app_icons.dart';
 
 // =============================================================================
 // PUBLIC API
@@ -247,7 +248,7 @@ class _ClaudeCodePermissionContentState
         children: [
           // Backend indicator
           _BackendBadge(label: 'Claude Code', theme: theme),
-          SizedBox(height: Spacing.lg),
+          const SizedBox(height: Spacing.lg),
           // ── PERMISSION MODE ──
           SectionHeader(title: 'PERMISSION MODE', theme: theme),
           const SizedBox(height: 10),
@@ -257,7 +258,6 @@ class _ClaudeCodePermissionContentState
               isSelected: permissionMode == mode,
               theme: theme,
               onTap: () async {
-                final messenger = ScaffoldMessenger.of(context);
                 final notifier = ref.read(ccConfigProvider.notifier);
                 await notifier.setPermissionMode(mode);
 
@@ -277,23 +277,24 @@ class _ClaudeCodePermissionContentState
                       mode: mode.wireValue,
                     );
                 if (!mounted) return;
-                messenger.showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      ok
-                          ? 'Permission mode applied to current Claude turn.'
-                          : 'Saved as default. Live turn update failed.',
-                    ),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
+                if (ok) {
+                  showSuccess(
+                    context,
+                    'Permission mode applied to current Claude turn.',
+                  );
+                } else {
+                  showInfo(
+                    context,
+                    'Saved as default. Live turn update failed.',
+                  );
+                }
               },
             ),
           ),
-          SizedBox(height: Spacing.xl),
+          const SizedBox(height: Spacing.xl),
           // ── ALLOWED TOOLS ──
           SectionHeader(title: 'ALLOWED TOOLS', theme: theme),
-          SizedBox(height: Spacing.xs),
+          const SizedBox(height: Spacing.xs),
           Text(
             'Tools the agent can use without asking',
             style: AppTypography.caption(color: theme.textMuted),
@@ -306,16 +307,16 @@ class _ClaudeCodePermissionContentState
             theme: theme,
             onRemove: (tool) => _removeToolFromList(_allowedTools, tool),
           ),
-          SizedBox(height: Spacing.sm),
+          const SizedBox(height: Spacing.sm),
           _AddButton(
             label: 'Add Allowed Tool',
             theme: theme,
             onTap: () => _showAddToolDialog(isAllowed: true),
           ),
-          SizedBox(height: Spacing.xl),
+          const SizedBox(height: Spacing.xl),
           // ── DISALLOWED TOOLS ──
           SectionHeader(title: 'DISALLOWED TOOLS', theme: theme),
-          SizedBox(height: Spacing.xs),
+          const SizedBox(height: Spacing.xs),
           Text(
             'Tools the agent cannot use at all',
             style: AppTypography.caption(color: theme.textMuted),
@@ -328,7 +329,7 @@ class _ClaudeCodePermissionContentState
             theme: theme,
             onRemove: (tool) => _removeToolFromList(_disallowedTools, tool),
           ),
-          SizedBox(height: Spacing.sm),
+          const SizedBox(height: Spacing.sm),
           _AddButton(
             label: 'Add Disallowed Tool',
             theme: theme,
@@ -336,7 +337,7 @@ class _ClaudeCodePermissionContentState
           ),
           // ── SAVE ──
           if (_dirty) ...[
-            SizedBox(height: Spacing.xl),
+            const SizedBox(height: Spacing.xl),
             _ApplyButton(label: 'Save Tool Lists', theme: theme, onTap: _save),
           ],
         ],
@@ -362,10 +363,10 @@ class _CodexPermissionContent extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _BackendBadge(label: 'Codex', theme: theme),
-          SizedBox(height: Spacing.lg),
+          const SizedBox(height: Spacing.lg),
           // ── APPROVAL POLICY ──
           SectionHeader(title: 'APPROVAL POLICY', theme: theme),
-          SizedBox(height: Spacing.xs),
+          const SizedBox(height: Spacing.xs),
           Text(
             'Controls when Codex asks for your approval',
             style: AppTypography.caption(color: theme.textMuted),
@@ -379,10 +380,10 @@ class _CodexPermissionContent extends ConsumerWidget {
               onTap: () => notifier.setApprovalPolicy(policy),
             ),
           ),
-          SizedBox(height: Spacing.xl),
+          const SizedBox(height: Spacing.xl),
           // ── SANDBOX MODE ──
           SectionHeader(title: 'SANDBOX MODE', theme: theme),
-          SizedBox(height: Spacing.xs),
+          const SizedBox(height: Spacing.xs),
           Text(
             'Controls filesystem access for the agent',
             style: AppTypography.caption(color: theme.textMuted),
@@ -396,7 +397,7 @@ class _CodexPermissionContent extends ConsumerWidget {
               onTap: () => notifier.setSandboxMode(mode),
             ),
           ),
-          SizedBox(height: Spacing.xl),
+          const SizedBox(height: Spacing.xl),
           // ── NETWORK ACCESS ──
           SectionHeader(title: 'NETWORK ACCESS', theme: theme),
           const SizedBox(height: 10),
@@ -407,7 +408,7 @@ class _CodexPermissionContent extends ConsumerWidget {
             theme: theme,
             onChanged: (v) => notifier.setNetworkAccessEnabled(v),
           ),
-          SizedBox(height: Spacing.xl),
+          const SizedBox(height: Spacing.xl),
           // ── INFO BOX ──
           Container(
             padding: Insets.cardSm,
@@ -518,7 +519,7 @@ class _OpenCodeRulesContentState extends State<_OpenCodeRulesContent> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _BackendBadge(label: 'OpenCode', theme: theme),
-          SizedBox(height: Spacing.lg),
+          const SizedBox(height: Spacing.lg),
           // Quick presets section
           SectionHeader(title: 'QUICK PRESETS', theme: theme),
           const SizedBox(height: 10),
@@ -540,7 +541,7 @@ class _OpenCodeRulesContentState extends State<_OpenCodeRulesContent> {
                   .toList(),
             ),
           ),
-          SizedBox(height: Spacing.xl),
+          const SizedBox(height: Spacing.xl),
           // Rules section header
           Row(
             children: [
@@ -564,7 +565,7 @@ class _OpenCodeRulesContentState extends State<_OpenCodeRulesContent> {
             child: Row(
               children: [
                 Icon(AppIcons.lightbulb, size: 14, color: theme.info),
-                SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.sm),
                 Expanded(
                   child: Text(
                     'Patterns: *, src/*, *.dart, git *, npm *\n'
@@ -579,7 +580,7 @@ class _OpenCodeRulesContentState extends State<_OpenCodeRulesContent> {
               ],
             ),
           ),
-          SizedBox(height: Spacing.md),
+          const SizedBox(height: Spacing.md),
           // Rules list
           ...List.generate(_rules.length, (index) {
             return _RuleCard(
@@ -595,7 +596,7 @@ class _OpenCodeRulesContentState extends State<_OpenCodeRulesContent> {
             padding: Insets.topSm,
             child: _AddButton(label: 'Add Rule', theme: theme, onTap: _addRule),
           ),
-          SizedBox(height: Spacing.lg),
+          const SizedBox(height: Spacing.lg),
           // Apply button
           _ApplyButton(
             label: 'Apply Rules',
@@ -699,7 +700,7 @@ class _AddButton extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(AppIcons.add, size: 18, color: theme.primary),
-            SizedBox(width: Spacing.sm),
+            const SizedBox(width: Spacing.sm),
             Text(
               label,
               style: TextStyle(
@@ -815,7 +816,7 @@ class _ToggleRow extends StatelessWidget {
                     color: theme.text,
                   ),
                 ),
-                SizedBox(height: Spacing.xxs),
+                const SizedBox(height: Spacing.xxs),
                 Text(
                   description,
                   style: AppTypography.label(color: theme.textMuted),
@@ -921,7 +922,7 @@ class _PermissionModeOption extends StatelessWidget {
                 ),
                 child: Icon(_icon, color: _iconColor, size: 18),
               ),
-              SizedBox(width: Spacing.md),
+              const SizedBox(width: Spacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -934,7 +935,7 @@ class _PermissionModeOption extends StatelessWidget {
                         color: isSelected ? theme.primary : theme.text,
                       ),
                     ),
-                    SizedBox(height: Spacing.xxs),
+                    const SizedBox(height: Spacing.xxs),
                     Text(
                       _description,
                       style: AppTypography.label(color: theme.textMuted),
@@ -999,7 +1000,7 @@ class _ToolPickerSheetState extends State<_ToolPickerSheet> {
               color: widget.theme.text,
             ),
           ),
-          SizedBox(height: Spacing.md),
+          const SizedBox(height: Spacing.md),
           if (widget.availableTools.isNotEmpty) ...[
             Wrap(
               spacing: 8,
@@ -1025,7 +1026,7 @@ class _ToolPickerSheetState extends State<_ToolPickerSheet> {
                 );
               }).toList(),
             ),
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.lg),
             Text(
               'Or enter a custom tool name:',
               style: TextStyle(fontSize: 12, color: widget.theme.textMuted),
@@ -1035,7 +1036,7 @@ class _ToolPickerSheetState extends State<_ToolPickerSheet> {
               'Enter a custom tool name:',
               style: TextStyle(fontSize: 12, color: widget.theme.textMuted),
             ),
-          SizedBox(height: Spacing.sm),
+          const SizedBox(height: Spacing.sm),
           Row(
             children: [
               Expanded(
@@ -1073,7 +1074,7 @@ class _ToolPickerSheetState extends State<_ToolPickerSheet> {
                   },
                 ),
               ),
-              SizedBox(width: Spacing.sm),
+              const SizedBox(width: Spacing.sm),
               IconButton(
                 onPressed: () {
                   final val = _controller.text.trim();
@@ -1183,7 +1184,7 @@ class _CodexPolicyOption extends StatelessWidget {
                 ),
                 child: Icon(_icon, color: _iconColor, size: 18),
               ),
-              SizedBox(width: Spacing.md),
+              const SizedBox(width: Spacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1196,7 +1197,7 @@ class _CodexPolicyOption extends StatelessWidget {
                         color: isSelected ? theme.primary : theme.text,
                       ),
                     ),
-                    SizedBox(height: Spacing.xxs),
+                    const SizedBox(height: Spacing.xxs),
                     Text(
                       _description,
                       style: AppTypography.label(color: theme.textMuted),
@@ -1297,7 +1298,7 @@ class _CodexSandboxOption extends StatelessWidget {
                 ),
                 child: Icon(_icon, color: _iconColor, size: 18),
               ),
-              SizedBox(width: Spacing.md),
+              const SizedBox(width: Spacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1310,7 +1311,7 @@ class _CodexSandboxOption extends StatelessWidget {
                         color: isSelected ? theme.primary : theme.text,
                       ),
                     ),
-                    SizedBox(height: Spacing.xxs),
+                    const SizedBox(height: Spacing.xxs),
                     Text(
                       _description,
                       style: AppTypography.label(color: theme.textMuted),
@@ -1562,7 +1563,7 @@ class _StyledDropdown extends StatelessWidget {
             fontWeight: FontWeight.w500,
           ),
         ),
-        SizedBox(height: Spacing.xs),
+        const SizedBox(height: Spacing.xs),
         Container(
           height: 40,
           padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -1615,7 +1616,7 @@ class _StyledTextField extends StatelessWidget {
             fontWeight: FontWeight.w500,
           ),
         ),
-        SizedBox(height: Spacing.xs),
+        const SizedBox(height: Spacing.xs),
         SizedBox(
           height: 40,
           child: TextField(

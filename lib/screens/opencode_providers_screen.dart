@@ -1,18 +1,17 @@
+import 'package:broski/models/provider.dart';
+import 'package:broski/providers/opencode_providers_provider.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/adaptive_container.dart';
+import 'package:broski/widgets/opencode/provider_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/provider.dart';
-import '../providers/opencode_providers_provider.dart';
-import '../providers/selection_provider.dart';
-import '../providers/service_providers.dart';
-import '../theme/app_icons.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import '../utils/error_utils.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
-import '../widgets/opencode/provider_card.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 class OpenCodeProvidersScreen extends ConsumerStatefulWidget {
   const OpenCodeProvidersScreen({super.key});
@@ -49,7 +48,7 @@ class _OpenCodeProvidersScreenState
               'Enter the API key for ${provider.details.name}.',
               style: TextStyle(color: oc.textMuted, fontSize: 13),
             ),
-            SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.md),
             TextField(
               controller: keyController,
               obscureText: true,
@@ -82,12 +81,11 @@ class _OpenCodeProvidersScreenState
         'token': result,
       }, projectPath: _projectPath);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(ok ? 'API key saved' : 'Failed to save API key'),
-          backgroundColor: ok ? oc.success : oc.error,
-        ),
-      );
+      if (ok) {
+        showSuccess(context, 'API key saved');
+      } else {
+        showError(context, 'Failed to save API key');
+      }
       if (ok) _invalidate();
     } catch (e) {
       if (!mounted) return;
@@ -131,12 +129,11 @@ class _OpenCodeProvidersScreenState
         projectPath: _projectPath,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(ok ? 'Credentials removed' : 'Failed to remove'),
-          backgroundColor: ok ? oc.success : oc.error,
-        ),
-      );
+      if (ok) {
+        showSuccess(context, 'Credentials removed');
+      } else {
+        showError(context, 'Failed to remove');
+      }
       if (ok) _invalidate();
     } catch (e) {
       if (!mounted) return;
@@ -149,7 +146,6 @@ class _OpenCodeProvidersScreenState
   // ── OAuth Flow ───────────────────────────────────────────────────────────
 
   Future<void> _startOAuth(OcProviderDisplay provider, int methodIndex) async {
-    final oc = OpenCodeTheme.of(context);
     setState(() => _actionInProgress = true);
     try {
       final bridge = ref.read(bridgeServiceProvider);
@@ -167,25 +163,18 @@ class _OpenCodeProvidersScreenState
       if (authResult.requiresCode) {
         await _oauthCodeFlow(provider, methodIndex, authResult);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Authenticating on your computer…'),
-            backgroundColor: oc.primary,
-            duration: const Duration(seconds: 2),
-          ),
-        );
+        showInfo(context, 'Authenticating on your computer…');
         final ok = await bridge.providerOauthCallback(
           providerId: provider.details.id,
           method: methodIndex,
           projectPath: _projectPath,
         );
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(ok ? 'Authenticated' : 'Auth failed'),
-            backgroundColor: ok ? oc.success : oc.error,
-          ),
-        );
+        if (ok) {
+          showSuccess(context, 'Authenticated');
+        } else {
+          showError(context, 'Auth failed');
+        }
         if (ok) _invalidate();
       }
     } catch (e) {
@@ -262,12 +251,11 @@ class _OpenCodeProvidersScreenState
       projectPath: _projectPath,
     );
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(ok ? 'Authenticated' : 'Auth failed'),
-        backgroundColor: ok ? oc.success : oc.error,
-      ),
-    );
+    if (ok) {
+      showSuccess(context, 'Authenticated');
+    } else {
+      showError(context, 'Auth failed');
+    }
     if (ok) _invalidate();
   }
 
@@ -317,7 +305,7 @@ class _OpenCodeProvidersScreenState
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(humanizeError(e), style: TextStyle(color: oc.error)),
-                  SizedBox(height: Spacing.md),
+                  const SizedBox(height: Spacing.md),
                   ElevatedButton(
                     onPressed: _invalidate,
                     child: const Text('Retry'),

@@ -1,18 +1,18 @@
+import 'package:broski/models/message.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/markdown_styles.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/widgets/chat/adaptive_markdown_body.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
+import 'package:broski/widgets/chat/lightweight_inline_markdown.dart';
+import 'package:broski/widgets/retry_indicator.dart';
+import 'package:broski/widgets/variant_badge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-import '../models/message.dart';
-import 'chat/adaptive_markdown_body.dart';
-import 'chat/lightweight_inline_markdown.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../theme/markdown_styles.dart';
-import '../theme/app_typography.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import '../utils/error_utils.dart';
-import 'chat/detail_sheet.dart';
-import 'retry_indicator.dart';
-import 'variant_badge.dart';
-import 'package:broski/theme/app_icons.dart';
 
 class MessageBubble extends StatelessWidget {
   const MessageBubble({
@@ -61,8 +61,11 @@ class MessageBubble extends StatelessWidget {
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
-        margin: EdgeInsets.symmetric(vertical: Spacing.sm),
-        padding: EdgeInsets.symmetric(horizontal: 18, vertical: Spacing.lg),
+        margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 18,
+          vertical: Spacing.lg,
+        ),
         constraints: const BoxConstraints(maxWidth: 340),
         decoration: BoxDecoration(
           color: theme.info.withValues(alpha: 0.08),
@@ -76,7 +79,7 @@ class MessageBubble extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(AppIcons.info, color: theme.info, size: 18),
-            SizedBox(width: Spacing.sm),
+            const SizedBox(width: Spacing.sm),
             Flexible(
               child: Text(
                 message.text.isNotEmpty ? message.text : label,
@@ -98,8 +101,11 @@ class MessageBubble extends StatelessWidget {
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
-        margin: EdgeInsets.symmetric(vertical: Spacing.sm),
-        padding: EdgeInsets.symmetric(horizontal: 18, vertical: Spacing.lg),
+        margin: const EdgeInsets.symmetric(vertical: Spacing.sm),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 18,
+          vertical: Spacing.lg,
+        ),
         constraints: const BoxConstraints(maxWidth: 340),
         decoration: BoxDecoration(
           color: theme.error.withValues(alpha: 0.1),
@@ -117,7 +123,7 @@ class MessageBubble extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(AppIcons.error, color: theme.error, size: 18),
-                SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.sm),
                 Flexible(
                   child: Text(
                     label,
@@ -131,7 +137,7 @@ class MessageBubble extends StatelessWidget {
               ],
             ),
             if (message.text.isNotEmpty) ...[
-              SizedBox(height: Spacing.sm),
+              const SizedBox(height: Spacing.sm),
               Text(
                 message.text,
                 style: TextStyle(color: theme.text, fontSize: 15, height: 1.5),
@@ -147,7 +153,7 @@ class MessageBubble extends StatelessWidget {
     return Align(
       alignment: Alignment.centerRight,
       child: Container(
-        margin: EdgeInsets.only(left: 60, right: 0, top: 6, bottom: 6),
+        margin: const EdgeInsets.only(left: 60, right: 0, top: 6, bottom: 6),
         padding: Insets.listItem,
         decoration: BoxDecoration(
           color: theme.primary.withValues(alpha: 0.15),
@@ -196,7 +202,7 @@ class MessageBubble extends StatelessWidget {
             Container(
               width: 2,
               height: 20,
-              margin: EdgeInsets.only(top: Spacing.xs, right: Spacing.md),
+              margin: const EdgeInsets.only(top: Spacing.xs, right: Spacing.md),
               decoration: BoxDecoration(
                 color: theme.borderSubtle,
                 borderRadius: Radii.brXs,
@@ -212,7 +218,7 @@ class MessageBubble extends StatelessWidget {
                     Align(
                       alignment: Alignment.centerRight,
                       child: Padding(
-                        padding: EdgeInsets.only(bottom: Spacing.sm),
+                        padding: const EdgeInsets.only(bottom: Spacing.sm),
                         child: _buildStreamingCursor(theme),
                       ),
                     ),
@@ -222,19 +228,23 @@ class MessageBubble extends StatelessWidget {
                       message.retryInfo != null ||
                       _shouldShowFinishHint)
                     Padding(
-                      padding: EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.only(bottom: 6),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           if (message.variant != null &&
                               message.variant!.isNotEmpty)
                             Padding(
-                              padding: EdgeInsets.only(bottom: Spacing.xs),
+                              padding: const EdgeInsets.only(
+                                bottom: Spacing.xs,
+                              ),
                               child: VariantBadge(variant: message.variant),
                             ),
                           if (message.retryInfo != null)
                             Padding(
-                              padding: EdgeInsets.only(bottom: Spacing.xs),
+                              padding: const EdgeInsets.only(
+                                bottom: Spacing.xs,
+                              ),
                               child: RetryIndicator(
                                 retryInfo: message.retryInfo,
                               ),
@@ -323,7 +333,7 @@ class MessageBubble extends StatelessWidget {
             size: 14,
             color: color,
           ),
-          SizedBox(width: Spacing.xs),
+          const SizedBox(width: Spacing.xs),
           Text(
             label,
             style: TextStyle(

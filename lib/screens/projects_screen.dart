@@ -1,33 +1,32 @@
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/models/highlight_color.dart';
+import 'package:broski/models/permission_rule.dart';
+import 'package:broski/models/project.dart';
+import 'package:broski/models/worktree.dart';
+import 'package:broski/providers/agent_type_provider.dart';
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/highlights_provider.dart';
+import 'package:broski/providers/permission_rules_provider.dart';
+import 'package:broski/providers/pi_provider.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/providers/tool_settings_provider.dart';
+import 'package:broski/screens/chat_screen.dart';
+import 'package:broski/screens/dialogs/project_context_menu.dart';
+import 'package:broski/screens/sheets/add_project_sheet.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/adaptive_container.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
+import 'package:broski/widgets/connection_quality_indicator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/agent_type.dart';
-import '../models/highlight_color.dart';
-import '../models/permission_rule.dart';
-import '../models/project.dart';
-import '../models/worktree.dart';
-import '../providers/agent_type_provider.dart';
-import '../providers/chat_provider.dart';
-import '../providers/connection_provider.dart';
-import '../providers/highlights_provider.dart';
-import '../providers/permission_rules_provider.dart';
-import '../providers/selection_provider.dart';
-import '../providers/pi_provider.dart';
-import '../providers/service_providers.dart';
-import '../providers/tool_settings_provider.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import '../widgets/chat/detail_sheet.dart';
-import '../widgets/connection_quality_indicator.dart';
-import 'chat_screen.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
-import 'package:broski/theme/app_icons.dart';
-import '../utils/error_utils.dart';
-import 'dialogs/project_context_menu.dart';
-import 'sheets/add_project_sheet.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 class ProjectsScreen extends ConsumerStatefulWidget {
   const ProjectsScreen({super.key});
@@ -245,7 +244,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
               'Creates a new sandbox worktree from the current branch.',
               style: TextStyle(color: ocTheme.textMuted, fontSize: 13),
             ),
-            SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.md),
             TextField(
               controller: nameController,
               decoration: InputDecoration(
@@ -259,7 +258,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                 ),
               ),
             ),
-            SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.md),
             TextField(
               controller: cmdController,
               decoration: InputDecoration(
@@ -273,16 +272,16 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                 ),
               ),
             ),
-            SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.md),
             Row(
               children: [
                 Icon(AppIcons.callSplit, size: 18, color: ocTheme.textMuted),
-                SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.sm),
                 Text(
                   'Base branch:',
                   style: TextStyle(color: ocTheme.textMuted, fontSize: 13),
                 ),
-                SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.sm),
                 Text(
                   currentBranch ?? '(unknown)',
                   style: TextStyle(
@@ -293,7 +292,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                 ),
               ],
             ),
-            SizedBox(height: Spacing.xxl),
+            const SizedBox(height: Spacing.xxl),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -393,14 +392,11 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
         projectPath: project.path,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(ok ? 'Worktree reset' : 'Failed to reset worktree'),
-          backgroundColor: ok
-              ? OpenCodeTheme.of(context).backgroundPanel
-              : Theme.of(context).colorScheme.error,
-        ),
-      );
+      if (ok) {
+        showSuccess(context, 'Worktree reset');
+      } else {
+        showError(context, 'Failed to reset worktree');
+      }
     } catch (e) {
       if (!mounted) return;
       showError(context, 'Failed to reset worktree: ${humanizeError(e)}');
@@ -487,7 +483,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(AppIcons.error, color: ocTheme.error, size: 48),
-                      SizedBox(height: Spacing.lg),
+                      const SizedBox(height: Spacing.lg),
                       Text(
                         'Failed to load projects',
                         style: TextStyle(
@@ -496,7 +492,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      SizedBox(height: Spacing.sm),
+                      const SizedBox(height: Spacing.sm),
                       Text(
                         '${snapshot.error}',
                         style: TextStyle(
@@ -672,7 +668,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                                 size: 64,
                                 color: ocTheme.textMuted.withValues(alpha: 0.5),
                               ),
-                              SizedBox(height: Spacing.lg),
+                              const SizedBox(height: Spacing.lg),
                               Text(
                                 'No projects found',
                                 style: TextStyle(
@@ -681,7 +677,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              SizedBox(height: Spacing.sm),
+                              const SizedBox(height: Spacing.sm),
                               Text(
                                 'Open a repository to get started',
                                 style: TextStyle(
@@ -733,13 +729,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
           .toList();
       if (projectSessions.isEmpty) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('No cached sessions for this project'),
-            backgroundColor: Theme.of(context).colorScheme.surface,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        showInfo(context, 'No cached sessions for this project');
         return;
       }
       // Use the most recent session
@@ -825,24 +815,14 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
 
   Future<void> _startOpenCode(BuildContext context) async {
     final bridge = ref.read(bridgeServiceProvider);
-    final messenger = ScaffoldMessenger.of(context);
-    final surfaceColor = Theme.of(context).colorScheme.surface;
-    messenger.showSnackBar(
-      SnackBar(
-        content: const Text('Restarting OpenCode...'),
-        backgroundColor: surfaceColor,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    showInfo(context, 'Restarting OpenCode...');
     final ok = await bridge.restartOpenCode();
     if (!mounted) return;
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(ok ? 'OpenCode restarted' : 'Failed to restart OpenCode'),
-        backgroundColor: surfaceColor,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    if (ok) {
+      showSuccess(context, 'OpenCode restarted');
+    } else {
+      showError(context, 'Failed to restart OpenCode');
+    }
   }
 
   Future<void> _showAddProject() async {
@@ -908,7 +888,7 @@ class _ModernHeader extends StatelessWidget {
                 ),
             ],
           ),
-          SizedBox(height: Spacing.md),
+          const SizedBox(height: Spacing.md),
           Text(
             'Select a repo to start vibe coding',
             style: TextStyle(
@@ -917,7 +897,7 @@ class _ModernHeader extends StatelessWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
-          SizedBox(height: Spacing.xl),
+          const SizedBox(height: Spacing.xl),
           // Connection quality indicator with signal bars
           const ConnectionQualityIndicator(),
         ],
@@ -958,7 +938,7 @@ class _OpenCodeWarning extends StatelessWidget {
                 ),
                 child: Icon(AppIcons.warning, color: ocTheme.error, size: 20),
               ),
-              SizedBox(width: Spacing.md),
+              const SizedBox(width: Spacing.md),
               Expanded(
                 child: Text(
                   'OpenCode Not Running',
@@ -971,12 +951,12 @@ class _OpenCodeWarning extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: Spacing.md),
+          const SizedBox(height: Spacing.md),
           Text(
             'Start OpenCode on your Mac or run `opencode serve` in terminal.',
             style: TextStyle(color: ocTheme.textMuted, fontSize: 14),
           ),
-          SizedBox(height: Spacing.lg),
+          const SizedBox(height: Spacing.lg),
           Row(
             children: [
               Expanded(
@@ -994,7 +974,7 @@ class _OpenCodeWarning extends StatelessWidget {
                   ),
                 ),
               ),
-              SizedBox(width: Spacing.md),
+              const SizedBox(width: Spacing.md),
               OutlinedButton(
                 onPressed: onRefresh,
                 style: OutlinedButton.styleFrom(
@@ -1075,7 +1055,7 @@ class _HighlightedProjectCard extends StatelessWidget {
         child: Row(
           children: [
             Icon(AppIcons.star, color: color, size: 20),
-            SizedBox(width: Spacing.md),
+            const SizedBox(width: Spacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1088,7 +1068,7 @@ class _HighlightedProjectCard extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  SizedBox(height: Spacing.xxs),
+                  const SizedBox(height: Spacing.xxs),
                   Text(
                     '~/${project.path.split('/').last}',
                     style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
@@ -1169,7 +1149,7 @@ class _ExpandableProjectItem extends StatelessWidget {
               child: Row(
                 children: [
                   Icon(AppIcons.gitBranch, color: ocTheme.textMuted, size: 20),
-                  SizedBox(width: Spacing.md),
+                  const SizedBox(width: Spacing.md),
                   Expanded(
                     child: Text(
                       project.name,
@@ -1232,7 +1212,7 @@ class _ExpandableProjectItem extends StatelessWidget {
                               ),
                       ),
                     ),
-                    SizedBox(width: Spacing.xs),
+                    const SizedBox(width: Spacing.xs),
                   ],
                   Text(
                     'Open',
@@ -1344,13 +1324,13 @@ class _WorktreeListItem extends StatelessWidget {
         padding: Insets.section,
         child: Row(
           children: [
-            SizedBox(width: Spacing.sm), // Indent
+            const SizedBox(width: Spacing.sm), // Indent
             Icon(
               AppIcons.altRoute,
               color: ocTheme.primary.withValues(alpha: 0.7),
               size: 16,
             ),
-            SizedBox(width: Spacing.md),
+            const SizedBox(width: Spacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

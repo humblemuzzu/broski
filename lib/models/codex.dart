@@ -1,4 +1,4 @@
-import 'session.dart' show SessionSummaryStats;
+import 'package:broski/models/session.dart' show SessionSummaryStats;
 
 /// A custom prompt from `.codex/prompts/` (project) or `$CODEX_HOME/prompts/` (user).
 ///

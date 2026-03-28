@@ -1,6 +1,6 @@
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../theme/opencode_theme.dart';
 
 /// Compact inline card for Claude Code hook lifecycle events.
 /// Shows hook name, event type, and execution status.

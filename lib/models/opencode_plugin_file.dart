@@ -1,4 +1,4 @@
-import 'skill.dart';
+import 'package:broski/models/skill.dart';
 
 class OpenCodePluginFile {
   final String name;

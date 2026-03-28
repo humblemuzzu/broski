@@ -1,7 +1,6 @@
+import 'package:broski/models/prompt_accent_color.dart';
+import 'package:broski/providers/service_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/prompt_accent_color.dart';
-import 'service_providers.dart';
 
 /// Provider for managing the prompt bar accent color selection.
 class PromptAccentNotifier extends StateNotifier<PromptAccentColor> {

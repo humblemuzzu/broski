@@ -1,11 +1,10 @@
+import 'package:broski/models/message.dart';
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/pi_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/chat_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/message.dart';
-import '../../providers/chat_provider.dart';
-import '../../providers/connection_provider.dart';
-import '../../providers/service_providers.dart';
-import '../../providers/pi_provider.dart';
-import '../chat_screen.dart';
 
 /// Convert ChatMessage to raw format for hydrate.
 Map<String, dynamic> messageToRaw(ChatMessage m) {

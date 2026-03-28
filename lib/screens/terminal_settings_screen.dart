@@ -1,12 +1,11 @@
+import 'package:broski/providers/terminal_settings_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/widgets/adaptive_container.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../providers/terminal_settings_provider.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
-import 'package:broski/theme/app_icons.dart';
 
 class TerminalSettingsScreen extends ConsumerWidget {
   const TerminalSettingsScreen({super.key});
@@ -41,7 +40,7 @@ class TerminalSettingsScreen extends ConsumerWidget {
               child: Row(
                 children: [
                   Icon(AppIcons.bolt, color: ocTheme.success, size: 20),
-                  SizedBox(width: Spacing.md),
+                  const SizedBox(width: Spacing.md),
                   Expanded(
                     child: Text(
                       'Smart mode active - instant response for typing, auto-throttle for high output',
@@ -55,7 +54,7 @@ class TerminalSettingsScreen extends ConsumerWidget {
                 ],
               ),
             ),
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.lg),
             _Section(
               title: 'Appearance',
               children: [
@@ -79,7 +78,7 @@ class TerminalSettingsScreen extends ConsumerWidget {
                 ),
               ],
             ),
-            SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.md),
             _Section(
               title: 'Toolbars',
               children: [
@@ -97,7 +96,7 @@ class TerminalSettingsScreen extends ConsumerWidget {
                 ),
               ],
             ),
-            SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.md),
             _Section(
               title: 'Input',
               children: [
@@ -247,7 +246,7 @@ class _SliderTile extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: Spacing.xs),
+          const SizedBox(height: Spacing.xs),
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
               trackHeight: 4,

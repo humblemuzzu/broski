@@ -1,10 +1,9 @@
+import 'package:broski/models/app_user.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/services/auth_service.dart';
+import 'package:broski/services/convex_service.dart';
+import 'package:broski/utils/error_utils.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/app_user.dart';
-import '../services/auth_service.dart';
-import '../services/convex_service.dart';
-import '../utils/error_utils.dart';
-import 'service_providers.dart';
 
 class AppAuthState {
   const AppAuthState({this.user, this.isLoading = true, this.error});

@@ -1,6 +1,6 @@
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../theme/opencode_theme.dart';
 
 /// Compact inline card for Claude Code agent team task notifications.
 /// Shows task status (running/completed/failed/stopped) with optional stop action.

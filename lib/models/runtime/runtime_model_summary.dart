@@ -1,4 +1,4 @@
-import '../agent_type.dart';
+import 'package:broski/models/agent_type.dart';
 
 class RuntimeModelSummary {
   final String id;

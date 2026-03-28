@@ -1,15 +1,14 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
-import '../theme/app_typography.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/agent.dart';
-import '../models/file_attachment.dart';
-import '../providers/file_search_provider.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
+import 'package:broski/models/agent.dart';
+import 'package:broski/models/file_attachment.dart';
+import 'package:broski/providers/file_search_provider.dart';
 import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 void showImagePreview(BuildContext context, FileAttachment attachment) {
   if (!attachment.isImage || attachment.base64Data == null) return;
@@ -135,7 +134,7 @@ class FileAutocomplete extends ConsumerWidget {
                   color: theme.textMuted,
                 ),
               ),
-              SizedBox(width: Spacing.sm),
+              const SizedBox(width: Spacing.sm),
               Text(
                 'Searching...',
                 style: AppTypography.bodySmall(color: theme.textMuted),
@@ -216,7 +215,7 @@ class _FileAutocompleteItem extends StatelessWidget {
               size: 16,
               color: isDirectory ? theme.warning : theme.info,
             ),
-            SizedBox(width: Spacing.sm),
+            const SizedBox(width: Spacing.sm),
             Expanded(
               child: Row(
                 children: [
@@ -461,7 +460,8 @@ class AgentAutocomplete extends StatelessWidget {
               ],
               // Subagents section
               if (subAgents.isNotEmpty) ...[
-                if (primaryAgents.isNotEmpty) SizedBox(height: Spacing.xs),
+                if (primaryAgents.isNotEmpty)
+                  const SizedBox(height: Spacing.xs),
                 _buildSectionHeader(
                   'Subagents',
                   AppIcons.agent,
@@ -505,7 +505,7 @@ class AgentAutocomplete extends StatelessWidget {
               letterSpacing: 0.3,
             ),
           ),
-          SizedBox(width: Spacing.xs),
+          const SizedBox(width: Spacing.xs),
           Text(
             '($count)',
             style: TextStyle(
@@ -587,7 +587,7 @@ class _AgentAutocompleteItem extends StatelessWidget {
                   ),
                   if (agent.description != null &&
                       agent.description!.isNotEmpty) ...[
-                    SizedBox(height: Spacing.xxs),
+                    const SizedBox(height: Spacing.xxs),
                     Text(
                       agent.shortDescription,
                       style: AppTypography.label(color: theme.textMuted),

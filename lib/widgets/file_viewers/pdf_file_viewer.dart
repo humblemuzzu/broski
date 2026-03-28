@@ -1,12 +1,11 @@
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
-import '../../theme/app_typography.dart';
-import 'package:pdfrx/pdfrx.dart';
-
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
 import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:flutter/material.dart';
+import 'package:pdfrx/pdfrx.dart';
 
 class PdfFileViewer extends StatefulWidget {
   const PdfFileViewer({super.key, required this.data, required this.filename});
@@ -68,12 +67,12 @@ class _PdfFileViewerState extends State<PdfFileViewer> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(AppIcons.error, size: 64, color: theme.error),
-                      SizedBox(height: Spacing.lg),
+                      const SizedBox(height: Spacing.lg),
                       Text(
                         'Failed to load PDF',
                         style: TextStyle(color: theme.textMuted),
                       ),
-                      SizedBox(height: Spacing.sm),
+                      const SizedBox(height: Spacing.sm),
                       Text(
                         error.toString(),
                         style: AppTypography.label(color: theme.textMuted),

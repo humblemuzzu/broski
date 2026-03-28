@@ -1,13 +1,12 @@
 import 'dart:io';
 
+import 'package:broski/models/stt_settings.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/services/storage_service.dart';
+import 'package:broski/services/stt_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
-
-import '../models/stt_settings.dart';
-import '../services/storage_service.dart';
-import '../services/stt_service.dart';
-import 'service_providers.dart';
 
 /// Recording state enum
 enum RecordingState { idle, recording, transcribing, error }

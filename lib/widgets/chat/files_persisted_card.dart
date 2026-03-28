@@ -1,7 +1,6 @@
+import 'package:broski/models/message.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
-
-import '../../models/message.dart';
-import '../../theme/opencode_theme.dart';
 
 /// Compact card for files-persisted events.
 /// Extracted from chat_screen.dart `_buildFilesPersistedCard`.

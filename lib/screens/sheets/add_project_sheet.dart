@@ -1,14 +1,13 @@
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/models/project.dart';
+import 'package:broski/providers/agent_type_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/agent_type.dart';
-import '../../models/project.dart';
-import '../../providers/agent_type_provider.dart';
-import '../../providers/service_providers.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../widgets/chat/detail_sheet.dart';
-import 'package:broski/theme/app_icons.dart';
 
 /// Shows a folder-browser sheet that lets the user navigate their filesystem
 /// on the dev machine (via the bridge `browse` endpoint) and pick a project
@@ -188,7 +187,7 @@ class _AddProjectContentState extends ConsumerState<_AddProjectContent> {
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: _currentPath.length > 1 ? _selectCurrentFolder : null,
-              icon: Icon(AppIcons.folderOpen, size: 18),
+              icon: const Icon(AppIcons.folderOpen, size: 18),
               label: Text('Open in $agentLabel'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: ocTheme.primary,

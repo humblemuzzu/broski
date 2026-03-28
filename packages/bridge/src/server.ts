@@ -13,7 +13,6 @@ import * as codexFs from "./connectors/codex-fs";
 import type { OpenCodeConnector } from "./connectors/opencode";
 import * as pi from "./connectors/pi";
 import {
-	resolveCodexExternalSessionFile as _resolveCodexExternalSessionFile,
 	startCodexExternalTail as _startCodexExternalTail,
 } from "./cx-external-tail";
 import {
@@ -87,6 +86,10 @@ import type {
 
 // Re-export for backward compatibility (external consumers import from './server')
 export { type AuthTokenState, loadOrCreateAuthState, loadOrCreateAuthToken } from "./auth-token";
+
+/** Message types exempt from cloud auth / entitlement checks. Shared constant to keep
+ *  the defense-in-depth check in handleMessage and processSingleMessage in sync. */
+const ENTITLEMENT_EXEMPT_TYPES = new Set(["auth_session", "pong", "client_ping", "batch"]);
 
 // Debug flags are dev-only — disabled in compiled binaries to prevent leaking
 // session IDs, file paths, and internal state in production console output.
@@ -1573,8 +1576,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		});
 	};
 
-	const resolveCodexExternalSessionFile = (threadId: string) => _resolveCodexExternalSessionFile(threadId);
-
 	const startCodexExternalTail = (threadId: string): { stop: () => void } => {
 		return _startCodexExternalTail(threadId, {
 			emitCxStream,
@@ -2501,9 +2502,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		message: ClientMessage & { requestId?: string },
 		reply: (response: ServerMessage) => void,
 	) => {
-		const cloudAuthRequiredMessageTypes = new Set(["auth_session", "pong", "client_ping", "batch"]);
 		const ctx = contexts.get(ws);
-		if (requireEntitlement && !cloudAuthRequiredMessageTypes.has(message.type)) {
+		if (requireEntitlement && !ENTITLEMENT_EXEMPT_TYPES.has(message.type)) {
 			if (!ctx?.cloudAuthed || !ctx.cloudEntitled) {
 				reply({
 					type: "error",
@@ -2867,8 +2867,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		// Defense-in-depth: enforce entitlement before even entering the main
 		// per-message switch (a patched `processSingleMessage` should not be enough).
 		if (requireEntitlement) {
-			const allowed = new Set(["auth_session", "pong", "client_ping", "batch"]);
-			if (!allowed.has(message.type)) {
+			if (!ENTITLEMENT_EXEMPT_TYPES.has(message.type)) {
 				const c = contexts.get(ws);
 				if (!c?.cloudAuthed || !c.cloudEntitled) {
 					log(`[MSG] BLOCKED ${message.type} - cloudAuthed=${c?.cloudAuthed}, cloudEntitled=${c?.cloudEntitled}`);

@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
-import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:flutter/material.dart';
 
 // Glass pill widget for header elements
 // FIX: Removed expensive BackdropFilter - uses simple semi-transparent background instead

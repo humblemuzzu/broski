@@ -1,10 +1,9 @@
 import 'dart:math';
 
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:markdown/markdown.dart' as md;
-
-import '../../theme/app_typography.dart';
-import '../../theme/opencode_theme.dart';
 
 class _ParsedTable {
   const _ParsedTable(this.headers, this.rows, this.alignments);

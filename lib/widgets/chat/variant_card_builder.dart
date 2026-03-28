@@ -1,15 +1,14 @@
+import 'package:broski/models/message.dart';
+import 'package:broski/providers/claude_code_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/chat/cc_system_message_cards.dart';
+import 'package:broski/widgets/chat/compact_hook_card.dart';
+import 'package:broski/widgets/chat/compact_task_notification_card.dart';
+import 'package:broski/widgets/chat/compact_tool_summary_chip.dart';
+import 'package:broski/widgets/chat/files_persisted_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/message.dart';
-import '../../providers/claude_code_provider.dart';
-import '../../providers/service_providers.dart';
-import '../../theme/opencode_theme.dart';
-import 'cc_system_message_cards.dart';
-import 'compact_hook_card.dart';
-import 'compact_task_notification_card.dart';
-import 'compact_tool_summary_chip.dart';
-import 'files_persisted_card.dart';
 
 /// Builds a compact card widget for variant-tagged system messages.
 /// Returns null if the variant is not recognized (falls through to default rendering).

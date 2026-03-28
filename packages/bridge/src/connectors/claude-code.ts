@@ -1963,6 +1963,7 @@ function normalizeAccountInfo(data: unknown): ClaudeCodeAccountInfo {
 		...(typeof raw.apiKeySource === "string" ? { apiKeySource: raw.apiKeySource } : {}),
 		...(typeof raw.accountUuid === "string" ? { accountUuid: raw.accountUuid } : {}),
 		...(typeof raw.organizationUuid === "string" ? { organizationUuid: raw.organizationUuid } : {}),
+		apiProvider: typeof raw.apiProvider === "string" ? raw.apiProvider : null,
 	};
 }
 

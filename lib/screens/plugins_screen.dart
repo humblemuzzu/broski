@@ -1,16 +1,16 @@
+import 'package:broski/models/claude_code.dart';
+import 'package:broski/providers/claude_code_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/adaptive_container.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
+import 'package:broski/widgets/claude_code_help.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../theme/app_typography.dart';
-import '../theme/design_tokens.dart';
-
-import '../models/claude_code.dart';
-import '../providers/claude_code_provider.dart';
-import '../widgets/chat/detail_sheet.dart';
-import '../widgets/claude_code_help.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
-import 'package:broski/theme/app_icons.dart';
 
 class PluginsScreen extends ConsumerStatefulWidget {
   const PluginsScreen({super.key});
@@ -85,12 +85,7 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen> {
         .read(ccPluginsProvider.notifier)
         .togglePlugin(plugin.name, enabled: enabled);
     if (!success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to ${enabled ? 'enable' : 'disable'} plugin'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      showError(context, 'Failed to ${enabled ? 'enable' : 'disable'} plugin');
     }
   }
 
@@ -111,7 +106,7 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen> {
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
               ),
             ),
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.lg),
             TextField(
               controller: controller,
               decoration: const InputDecoration(
@@ -121,7 +116,7 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen> {
               ),
               autofocus: true,
             ),
-            SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.md),
             Text(
               'The plugin must have a .claude-plugin/plugin.json manifest.',
               style: theme.textTheme.bodySmall?.copyWith(
@@ -144,16 +139,14 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen> {
                   .read(ccPluginsProvider.notifier)
                   .addPluginPath(path);
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      success
-                          ? 'Plugin added successfully'
-                          : 'Failed to add plugin. Make sure the path is valid.',
-                    ),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
+                if (success) {
+                  showSuccess(context, 'Plugin added successfully');
+                } else {
+                  showError(
+                    context,
+                    'Failed to add plugin. Make sure the path is valid.',
+                  );
+                }
               }
             },
             child: const Text('Add'),
@@ -178,16 +171,11 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen> {
               .read(ccPluginsProvider.notifier)
               .removePluginPath(plugin.path);
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  success
-                      ? 'Plugin path removed'
-                      : 'Failed to remove plugin path',
-                ),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
+            if (success) {
+              showSuccess(context, 'Plugin path removed');
+            } else {
+              showError(context, 'Failed to remove plugin path');
+            }
           }
         },
       ),
@@ -212,14 +200,14 @@ class _EmptyState extends StatelessWidget {
               size: 64,
               color: theme.colorScheme.primary.withValues(alpha: 0.5),
             ),
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.lg),
             Text(
               'No Plugins Found',
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
             ),
-            SizedBox(height: Spacing.sm),
+            const SizedBox(height: Spacing.sm),
             Text(
               'Claude Code plugins provide slash commands,\nagents, skills, hooks, and MCP servers.',
               textAlign: TextAlign.center,
@@ -227,7 +215,7 @@ class _EmptyState extends StatelessWidget {
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
               ),
             ),
-            SizedBox(height: Spacing.sm),
+            const SizedBox(height: Spacing.sm),
             Text(
               'Place plugins in ~/.claude/plugins/ or add a custom path.',
               textAlign: TextAlign.center,
@@ -235,7 +223,7 @@ class _EmptyState extends StatelessWidget {
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
               ),
             ),
-            SizedBox(height: Spacing.xxl),
+            const SizedBox(height: Spacing.xxl),
             ElevatedButton.icon(
               onPressed: onAddPlugin,
               icon: const Icon(AppIcons.add),
@@ -266,14 +254,14 @@ class _ErrorState extends StatelessWidget {
               size: 64,
               color: theme.colorScheme.error.withValues(alpha: 0.5),
             ),
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.lg),
             Text(
               'Failed to Load Plugins',
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
             ),
-            SizedBox(height: Spacing.sm),
+            const SizedBox(height: Spacing.sm),
             Text(
               error,
               textAlign: TextAlign.center,
@@ -281,7 +269,7 @@ class _ErrorState extends StatelessWidget {
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
               ),
             ),
-            SizedBox(height: Spacing.xxl),
+            const SizedBox(height: Spacing.xxl),
             ElevatedButton.icon(
               onPressed: onRetry,
               icon: const Icon(AppIcons.refresh),
@@ -329,7 +317,7 @@ class _PluginsList extends StatelessWidget {
           child: Row(
             children: [
               Icon(AppIcons.info, color: theme.colorScheme.primary, size: 20),
-              SizedBox(width: Spacing.md),
+              const SizedBox(width: Spacing.md),
               Expanded(
                 child: Text(
                   'Plugins are loaded from ~/.claude/plugins/ and project .claude/plugins/',
@@ -341,7 +329,7 @@ class _PluginsList extends StatelessWidget {
             ],
           ),
         ),
-        SizedBox(height: Spacing.xxl),
+        const SizedBox(height: Spacing.xxl),
         // Enabled plugins section
         if (enabledPlugins.isNotEmpty) ...[
           _SectionHeader(
@@ -349,7 +337,7 @@ class _PluginsList extends StatelessWidget {
             count: enabledPlugins.length,
             color: theme.colorScheme.primary,
           ),
-          SizedBox(height: Spacing.md),
+          const SizedBox(height: Spacing.md),
           ...enabledPlugins.map(
             (plugin) => _PluginCard(
               plugin: plugin,
@@ -357,7 +345,7 @@ class _PluginsList extends StatelessWidget {
               onTap: () => onViewDetails(plugin),
             ),
           ),
-          SizedBox(height: Spacing.xxl),
+          const SizedBox(height: Spacing.xxl),
         ],
         // Disabled plugins section
         if (disabledPlugins.isNotEmpty) ...[
@@ -366,7 +354,7 @@ class _PluginsList extends StatelessWidget {
             count: disabledPlugins.length,
             color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
           ),
-          SizedBox(height: Spacing.md),
+          const SizedBox(height: Spacing.md),
           ...disabledPlugins.map(
             (plugin) => _PluginCard(
               plugin: plugin,
@@ -403,7 +391,7 @@ class _SectionHeader extends StatelessWidget {
             color: color,
           ),
         ),
-        SizedBox(width: Spacing.sm),
+        const SizedBox(width: Spacing.sm),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
@@ -471,7 +459,7 @@ class _PluginCard extends StatelessWidget {
                       size: 24,
                     ),
                   ),
-                  SizedBox(width: Spacing.md),
+                  const SizedBox(width: Spacing.md),
                   // Plugin info
                   Expanded(
                     child: Column(
@@ -484,7 +472,7 @@ class _PluginCard extends StatelessWidget {
                           ),
                         ),
                         if (manifest?.version != null) ...[
-                          SizedBox(height: Spacing.xxs),
+                          const SizedBox(height: Spacing.xxs),
                           Text(
                             'v${manifest!.version}',
                             style: theme.textTheme.bodySmall?.copyWith(
@@ -503,7 +491,7 @@ class _PluginCard extends StatelessWidget {
               ),
               if (manifest?.description != null &&
                   manifest!.description!.isNotEmpty) ...[
-                SizedBox(height: Spacing.md),
+                const SizedBox(height: Spacing.md),
                 Text(
                   manifest.description!,
                   style: theme.textTheme.bodyMedium?.copyWith(
@@ -513,7 +501,7 @@ class _PluginCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               // Component badges
               Wrap(
                 spacing: 8,
@@ -572,7 +560,7 @@ class _ComponentBadge extends StatelessWidget {
             size: 14,
             color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
           ),
-          SizedBox(width: Spacing.xs),
+          const SizedBox(width: Spacing.xs),
           Text(
             label,
             style: theme.textTheme.bodySmall?.copyWith(
@@ -630,7 +618,7 @@ class _PluginDetailsContent extends StatelessWidget {
                 style: theme.textTheme.bodyMedium,
               ),
             ),
-            SizedBox(height: Spacing.xl),
+            const SizedBox(height: Spacing.xl),
           ],
           // Path
           _DetailSection(
@@ -642,13 +630,7 @@ class _PluginDetailsContent extends StatelessWidget {
                   icon: const Icon(AppIcons.copy, size: 18),
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: plugin.path));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Path copied to clipboard'),
-                        behavior: SnackBarBehavior.floating,
-                        duration: Duration(seconds: 1),
-                      ),
-                    );
+                    showSuccess(context, 'Path copied to clipboard');
                   },
                   tooltip: 'Copy path',
                   visualDensity: VisualDensity.compact,
@@ -656,7 +638,7 @@ class _PluginDetailsContent extends StatelessWidget {
               ],
             ),
           ),
-          SizedBox(height: Spacing.xl),
+          const SizedBox(height: Spacing.xl),
           // Author
           if (manifest?.authorName != null) ...[
             _DetailSection(
@@ -666,7 +648,7 @@ class _PluginDetailsContent extends StatelessWidget {
                 style: theme.textTheme.bodyMedium,
               ),
             ),
-            SizedBox(height: Spacing.xl),
+            const SizedBox(height: Spacing.xl),
           ],
           // Commands
           if (plugin.commands != null && plugin.commands!.isNotEmpty) ...[
@@ -685,7 +667,7 @@ class _PluginDetailsContent extends StatelessWidget {
                     .toList(),
               ),
             ),
-            SizedBox(height: Spacing.xl),
+            const SizedBox(height: Spacing.xl),
           ],
           // Agents
           if (plugin.agents != null && plugin.agents!.isNotEmpty) ...[
@@ -704,7 +686,7 @@ class _PluginDetailsContent extends StatelessWidget {
                     .toList(),
               ),
             ),
-            SizedBox(height: Spacing.xl),
+            const SizedBox(height: Spacing.xl),
           ],
           // Skills
           if (plugin.skills != null && plugin.skills!.isNotEmpty) ...[
@@ -723,7 +705,7 @@ class _PluginDetailsContent extends StatelessWidget {
                     .toList(),
               ),
             ),
-            SizedBox(height: Spacing.xl),
+            const SizedBox(height: Spacing.xl),
           ],
           // Other components
           if (plugin.hasHooks == true || plugin.hasMcpServers == true) ...[
@@ -746,7 +728,7 @@ class _PluginDetailsContent extends StatelessWidget {
                 ],
               ),
             ),
-            SizedBox(height: Spacing.xl),
+            const SizedBox(height: Spacing.xl),
           ],
           // Remove button (only for custom paths)
           // Note: We can't easily tell if it's a custom path vs built-in,
@@ -787,7 +769,7 @@ class _DetailSection extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
-        SizedBox(height: Spacing.sm),
+        const SizedBox(height: Spacing.sm),
         child,
       ],
     );

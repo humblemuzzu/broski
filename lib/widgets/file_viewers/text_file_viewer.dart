@@ -1,10 +1,10 @@
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/design_tokens.dart';
-
-import '../../theme/opencode_theme.dart';
-import 'package:broski/theme/app_icons.dart';
 
 class TextFileViewer extends StatelessWidget {
   const TextFileViewer({
@@ -28,7 +28,7 @@ class TextFileViewer extends StatelessWidget {
             child: Row(
               children: [
                 Icon(AppIcons.description, size: 16, color: theme.textMuted),
-                SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.sm),
                 Text(
                   '${lines.length} lines',
                   style: AppTypography.label(color: theme.textMuted),
@@ -38,14 +38,7 @@ class TextFileViewer extends StatelessWidget {
                   icon: Icon(AppIcons.copy, size: 18, color: theme.textMuted),
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: content));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: const Text('Copied to clipboard'),
-                        backgroundColor: theme.backgroundPanel,
-                        behavior: SnackBarBehavior.floating,
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
+                    showSuccess(context, 'Copied to clipboard');
                   },
                   tooltip: 'Copy',
                   constraints: const BoxConstraints(),

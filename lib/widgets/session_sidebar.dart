@@ -1,18 +1,17 @@
-import 'package:flutter/material.dart';
-import '../theme/app_typography.dart';
-
-import '../models/claude_code.dart';
-import '../models/codex.dart';
-import '../models/message.dart';
-import '../models/session_context.dart';
-import '../models/todo.dart';
-import '../models/vcs.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import 'chat/section_header.dart';
-import 'connection_quality_indicator.dart';
-import 'status_indicator.dart';
+import 'package:broski/models/claude_code.dart';
+import 'package:broski/models/codex.dart';
+import 'package:broski/models/message.dart';
+import 'package:broski/models/session_context.dart';
+import 'package:broski/models/todo.dart';
+import 'package:broski/models/vcs.dart';
 import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/chat/section_header.dart';
+import 'package:broski/widgets/connection_quality_indicator.dart';
+import 'package:broski/widgets/status_indicator.dart';
+import 'package:flutter/material.dart';
 
 /// Codex session info passed to the sidebar for display.
 class CodexSessionInfo {
@@ -79,40 +78,40 @@ class SessionSidebar extends StatelessWidget {
               child: ListView(
                 padding: Insets.screenH,
                 children: [
-                  SizedBox(height: Spacing.sm),
+                  const SizedBox(height: Spacing.sm),
                   _buildContextSection(context, theme),
-                  SizedBox(height: Spacing.xl),
+                  const SizedBox(height: Spacing.xl),
                   // Claude Code: Show session info + plan (CC has TodoWrite tool)
                   if (isClaudeCode) ...[
                     _buildClaudeCodeInfoSection(context, theme),
-                    SizedBox(height: Spacing.xl),
+                    const SizedBox(height: Spacing.xl),
                     if ((ccInit?.mcpServers ?? const []).isNotEmpty) ...[
                       _buildClaudeCodeMcpSection(context, theme),
-                      SizedBox(height: Spacing.xl),
+                      const SizedBox(height: Spacing.xl),
                     ],
                     if ((ccInit?.skills ?? const []).isNotEmpty) ...[
                       _buildClaudeCodeSkillsSection(context, theme),
-                      SizedBox(height: Spacing.xl),
+                      const SizedBox(height: Spacing.xl),
                     ],
                     _buildPlanSection(context, theme),
-                    SizedBox(height: Spacing.xl),
+                    const SizedBox(height: Spacing.xl),
                   ] else if (isCodex) ...[
                     // Codex: Session info + Plan + changes, no LSP
                     _buildCodexInfoSection(context, theme),
-                    SizedBox(height: Spacing.xl),
+                    const SizedBox(height: Spacing.xl),
                     _buildPlanSection(context, theme),
-                    SizedBox(height: Spacing.xl),
+                    const SizedBox(height: Spacing.xl),
                   ] else ...[
                     // OpenCode: Plan + LSP
                     _buildPlanSection(context, theme),
-                    SizedBox(height: Spacing.xl),
+                    const SizedBox(height: Spacing.xl),
                     _buildLspSection(context, theme),
-                    SizedBox(height: Spacing.xl),
+                    const SizedBox(height: Spacing.xl),
                   ],
                   _buildChangesSection(context, theme),
-                  SizedBox(height: Spacing.xl),
+                  const SizedBox(height: Spacing.xl),
                   _buildModifiedFilesSection(context, theme),
-                  SizedBox(height: Spacing.xxl),
+                  const SizedBox(height: Spacing.xxl),
                 ],
               ),
             ),
@@ -244,7 +243,7 @@ class SessionSidebar extends StatelessWidget {
             },
           ),
         ),
-        SizedBox(height: Spacing.md),
+        const SizedBox(height: Spacing.md),
         // Stats row - adapt to available data per backend
         Wrap(
           spacing: 10,
@@ -359,7 +358,7 @@ class SessionSidebar extends StatelessWidget {
             child: Row(
               children: [
                 Icon(AppIcons.hourglass, color: theme.textMuted, size: 16),
-                SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.sm),
                 Text(
                   'Waiting for session...',
                   style: AppTypography.bodySmall(color: theme.textMuted),
@@ -466,7 +465,7 @@ class SessionSidebar extends StatelessWidget {
             child: Row(
               children: [
                 Icon(AppIcons.hourglass, color: theme.textMuted, size: 16),
-                SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.sm),
                 Text(
                   'Waiting for thread...',
                   style: AppTypography.bodySmall(color: theme.textMuted),
@@ -632,7 +631,7 @@ class SessionSidebar extends StatelessWidget {
             child: Row(
               children: [
                 Icon(AppIcons.info, color: theme.textMuted, size: 16),
-                SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.sm),
                 Text(
                   'No active plan',
                   style: AppTypography.bodySmall(color: theme.textMuted),
@@ -699,7 +698,7 @@ class SessionSidebar extends StatelessWidget {
             child: Row(
               children: [
                 Icon(AppIcons.info, color: theme.textMuted, size: 16),
-                SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.sm),
                 Text(
                   'No LSP servers active',
                   style: AppTypography.bodySmall(color: theme.textMuted),
@@ -717,7 +716,7 @@ class SessionSidebar extends StatelessWidget {
       children: [
         for (final server in lspServers) ...[
           _LspServerItem(theme: theme, server: server),
-          if (server != lspServers.last) SizedBox(height: Spacing.sm),
+          if (server != lspServers.last) const SizedBox(height: Spacing.sm),
         ],
       ],
     );
@@ -740,7 +739,7 @@ class SessionSidebar extends StatelessWidget {
             child: Row(
               children: [
                 Icon(AppIcons.info, color: theme.textMuted, size: 16),
-                SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.sm),
                 Text(
                   'No diffs yet',
                   style: AppTypography.bodySmall(color: theme.textMuted),
@@ -827,7 +826,7 @@ class SessionSidebar extends StatelessWidget {
             child: Row(
               children: [
                 Icon(AppIcons.checkCircle, color: theme.success, size: 16),
-                SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.sm),
                 Text(
                   'No files modified yet',
                   style: AppTypography.bodySmall(color: theme.textMuted),
@@ -964,7 +963,7 @@ class _StatItem extends StatelessWidget {
             ),
           ),
           if (sublabel != null) ...[
-            SizedBox(width: Spacing.xs),
+            const SizedBox(width: Spacing.xs),
             Text(sublabel!, style: AppTypography.label(color: theme.textMuted)),
           ],
         ],
@@ -1097,7 +1096,7 @@ class _LspServerItem extends StatelessWidget {
                   ),
                 ),
                 if (server.shortRoot != null) ...[
-                  SizedBox(height: Spacing.xxs),
+                  const SizedBox(height: Spacing.xxs),
                   Text(
                     server.shortRoot!,
                     style: AppTypography.caption(color: theme.textMuted),
@@ -1135,7 +1134,7 @@ class _ModifiedFileItem extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          SizedBox(width: Spacing.sm),
+          const SizedBox(width: Spacing.sm),
           Text(
             file.formattedAdditions,
             style: TextStyle(
@@ -1182,7 +1181,7 @@ class _DiffFileItem extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            SizedBox(width: Spacing.sm),
+            const SizedBox(width: Spacing.sm),
             Text(
               '+${diff.additions}',
               style: TextStyle(
@@ -1265,7 +1264,7 @@ class _TodoItem extends StatelessWidget {
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                 ),
-                SizedBox(height: Spacing.xs),
+                const SizedBox(height: Spacing.xs),
                 Row(
                   children: [
                     // Priority indicator
@@ -1348,7 +1347,7 @@ class _TokenRow extends StatelessWidget {
               borderRadius: Radii.brXs,
             ),
           ),
-          SizedBox(width: Spacing.sm),
+          const SizedBox(width: Spacing.sm),
           Expanded(
             child: Text(
               label,

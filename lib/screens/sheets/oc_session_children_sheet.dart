@@ -1,13 +1,12 @@
+import 'package:broski/models/session.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
+import 'package:broski/widgets/chat/section_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/session.dart';
-import '../../providers/service_providers.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../utils/error_utils.dart';
-import '../../widgets/chat/detail_sheet.dart';
-import '../../widgets/chat/section_header.dart';
 
 /// Shows the OpenCode session fork tree sheet.
 ///
@@ -102,7 +101,7 @@ class _OcSessionChildrenContentState
           mainAxisSize: MainAxisSize.min,
           children: [
             Text('Error: $_error', style: TextStyle(color: oc.error)),
-            SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.md),
             TextButton(onPressed: _load, child: const Text('Retry')),
           ],
         ),
@@ -118,7 +117,7 @@ class _OcSessionChildrenContentState
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.account_tree_outlined, size: 48, color: oc.textMuted),
-            SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.md),
             Text(
               'No forks yet',
               style: TextStyle(
@@ -127,7 +126,7 @@ class _OcSessionChildrenContentState
                 fontWeight: FontWeight.w500,
               ),
             ),
-            SizedBox(height: Spacing.xs),
+            const SizedBox(height: Spacing.xs),
             Text(
               'Fork a session to create alternative conversation branches.',
               textAlign: TextAlign.center,
@@ -145,7 +144,7 @@ class _OcSessionChildrenContentState
         children: [
           // Parent session header
           _buildParentHeader(oc),
-          SizedBox(height: Spacing.md),
+          const SizedBox(height: Spacing.md),
           // Child forks
           ...children.map((child) => _buildForkCard(child, oc)),
         ],
@@ -168,13 +167,13 @@ class _OcSessionChildrenContentState
       child: Row(
         children: [
           Icon(Icons.account_tree, size: 18, color: oc.primary),
-          SizedBox(width: Spacing.sm),
+          const SizedBox(width: Spacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SectionHeader(title: 'Parent Session', theme: oc),
-                SizedBox(height: Spacing.xxs),
+                const SizedBox(height: Spacing.xxs),
                 Text(
                   widget.sessionId,
                   style: TextStyle(color: oc.text, fontSize: 13),
@@ -201,7 +200,7 @@ class _OcSessionChildrenContentState
             }
           : null,
       child: Container(
-        margin: EdgeInsets.only(bottom: Spacing.sm),
+        margin: const EdgeInsets.only(bottom: Spacing.sm),
         padding: Insets.cardSm,
         decoration: BoxDecoration(
           color: oc.backgroundElement,
@@ -214,8 +213,8 @@ class _OcSessionChildrenContentState
         child: Row(
           children: [
             // Fork icon
-            Text('🔀', style: TextStyle(fontSize: 20)),
-            SizedBox(width: Spacing.md),
+            const Text('🔀', style: TextStyle(fontSize: 20)),
+            const SizedBox(width: Spacing.md),
             // Fork info
             Expanded(
               child: Column(
@@ -233,7 +232,7 @@ class _OcSessionChildrenContentState
                   ),
                   if (fork.parentID != null && fork.parentID!.isNotEmpty)
                     Padding(
-                      padding: EdgeInsets.only(top: Spacing.xxs),
+                      padding: const EdgeInsets.only(top: Spacing.xxs),
                       child: Text(
                         'Forked from parent',
                         style: TextStyle(color: oc.textMuted, fontSize: 12),
@@ -241,7 +240,7 @@ class _OcSessionChildrenContentState
                     ),
                   if (hasStats)
                     Padding(
-                      padding: EdgeInsets.only(top: Spacing.xs),
+                      padding: const EdgeInsets.only(top: Spacing.xs),
                       child: _buildStatsRow(stats, oc),
                     ),
                 ],

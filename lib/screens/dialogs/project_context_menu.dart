@@ -1,13 +1,12 @@
+import 'package:broski/models/project.dart';
+import 'package:broski/providers/highlights_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/dialogs/edit_project_dialog.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/project.dart';
-import '../../providers/highlights_provider.dart';
-import '../../providers/service_providers.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import 'package:broski/theme/app_icons.dart';
-import 'edit_project_dialog.dart';
 
 /// Shows a context menu for a project with highlight toggle and edit options.
 /// Returns true if the project list should be refreshed.
@@ -54,7 +53,7 @@ Future<bool> showProjectContextMenu({
             ),
             onTap: () => Navigator.pop(ctx, 'edit'),
           ),
-          SizedBox(height: Spacing.sm),
+          const SizedBox(height: Spacing.sm),
         ],
       ),
     ),

@@ -1,5 +1,5 @@
-import 'runtime_event_models.dart';
-import '../../models/agent_type.dart';
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/providers/chat/runtime_event_models.dart';
 
 class RuntimeShadowSessionState {
   const RuntimeShadowSessionState({

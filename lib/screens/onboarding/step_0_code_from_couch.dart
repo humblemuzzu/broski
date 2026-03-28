@@ -1,7 +1,7 @@
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/utils/responsive.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../theme/design_tokens.dart';
-import '../../utils/responsive.dart';
 
 // =============================================================================
 // PAGE 0: CODE FROM THE COUCH
@@ -160,7 +160,7 @@ class _CodeFromCouchPageState extends State<CodeFromCouchPage>
                           ],
                         ),
                       ),
-                      SizedBox(height: Spacing.xl),
+                      const SizedBox(height: Spacing.xl),
                       Text(
                         'The first IDE designed for the\nhorizontal lifestyle.',
                         style: TextStyle(
@@ -175,7 +175,7 @@ class _CodeFromCouchPageState extends State<CodeFromCouchPage>
                 ),
               ),
             ),
-            SizedBox(height: Spacing.xxxl),
+            const SizedBox(height: Spacing.xxxl),
             // Get Started button
             Padding(
               padding: EdgeInsets.fromLTRB(

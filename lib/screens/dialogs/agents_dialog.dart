@@ -1,12 +1,11 @@
-import 'package:flutter/material.dart';
-
-import '../../models/agent.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../widgets/chat/detail_sheet.dart';
+import 'package:broski/models/agent.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
+import 'package:flutter/material.dart';
 
 /// Shows the agents selection sheet. Extracted from chat_screen.dart.
 ///
@@ -28,7 +27,7 @@ void showAgentsDialog(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(height: Spacing.sm),
+        const SizedBox(height: Spacing.sm),
         if (agents.isEmpty)
           Padding(
             padding: Insets.card,
@@ -75,7 +74,7 @@ void showAgentsDialog(
               },
             );
           }),
-        SizedBox(height: Spacing.sm),
+        const SizedBox(height: Spacing.sm),
       ],
     ),
   );

@@ -1,23 +1,22 @@
 import 'dart:io';
 
+import 'package:broski/models/connection.dart';
+import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/onboarding_provider.dart'
+    show onboardingProvider, kDevBypassOnboarding;
+import 'package:broski/services/websocket_service.dart' show ConnectionStatus;
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
+import 'package:broski/widgets/onboarding_widgets.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-
-import '../models/connection.dart';
-
-import '../providers/connection_provider.dart';
-import '../providers/onboarding_provider.dart'
-    show onboardingProvider, kDevBypassOnboarding;
-import '../services/websocket_service.dart' show ConnectionStatus;
-import '../widgets/chat/detail_sheet.dart';
-import '../widgets/onboarding_widgets.dart';
-import '../theme/design_tokens.dart';
-import 'package:broski/theme/app_icons.dart';
-import '../utils/error_utils.dart';
 
 class ScanScreen extends ConsumerStatefulWidget {
   const ScanScreen({super.key});
@@ -64,15 +63,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
         }
 
         if (justFailed && next.error != null && next.error!.isNotEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(next.error!),
-              backgroundColor: Colors.red.withValues(alpha: 0.85),
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 4),
-              shape: RoundedRectangleBorder(borderRadius: Radii.brMd),
-            ),
-          );
+          showError(context, next.error!);
         }
       });
     });
@@ -137,26 +128,12 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
       // No QR code found in image
       if (mounted) {
         setState(() => _processingImage = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('No QR code found in the selected image.'),
-            backgroundColor: Colors.white.withValues(alpha: 0.1),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: Radii.brMd),
-          ),
-        );
+        showInfo(context, 'No QR code found in the selected image.');
       }
     } catch (e) {
       if (mounted) {
         setState(() => _processingImage = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to process image: ${humanizeError(e)}'),
-            backgroundColor: Colors.red.withValues(alpha: 0.8),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: Radii.brMd),
-          ),
-        );
+        showError(context, 'Failed to process image: ${humanizeError(e)}');
       }
     }
   }
@@ -261,7 +238,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                           onTap: _toggleFlash,
                           isActive: _flashOn,
                         ),
-                        SizedBox(width: Spacing.lg),
+                        const SizedBox(width: Spacing.lg),
                         // Camera active indicator
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -282,12 +259,12 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                             ),
                           ),
                         ),
-                        SizedBox(width: Spacing.lg),
+                        const SizedBox(width: Spacing.lg),
                         // Close / back button
                         _ControlButton(icon: AppIcons.close, onTap: _dismiss),
                       ],
                     ),
-                    SizedBox(height: Spacing.xl),
+                    const SizedBox(height: Spacing.xl),
                     // Gallery upload row
                     Row(
                       children: [
@@ -343,7 +320,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                             ),
                           ),
                         ),
-                        SizedBox(width: Spacing.md),
+                        const SizedBox(width: Spacing.md),
                         // Manual entry
                         GestureDetector(
                           onTap: () => _showManualEntry(context),
@@ -458,19 +435,15 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                       color: const Color(0xFF2ECB71).withValues(alpha: 0.3),
                     ),
                   ),
-                  child: Row(
+                  child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        AppIcons.paste,
-                        color: const Color(0xFF2ECB71),
-                        size: 18,
-                      ),
+                      Icon(AppIcons.paste, color: Color(0xFF2ECB71), size: 18),
                       SizedBox(width: Spacing.sm),
                       Text(
                         'Paste QR Code Data from Clipboard',
                         style: TextStyle(
-                          color: const Color(0xFF2ECB71),
+                          color: Color(0xFF2ECB71),
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                         ),
@@ -480,7 +453,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                 ),
               ),
               if (parseError != null) ...[
-                SizedBox(height: Spacing.sm),
+                const SizedBox(height: Spacing.sm),
                 Text(
                   parseError!,
                   style: TextStyle(
@@ -489,7 +462,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                   ),
                 ),
               ],
-              SizedBox(height: Spacing.lg),
+              const SizedBox(height: Spacing.lg),
               // Divider with "or enter manually"
               Row(
                 children: [
@@ -517,28 +490,28 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                   ),
                 ],
               ),
-              SizedBox(height: Spacing.lg),
+              const SizedBox(height: Spacing.lg),
               _buildTextField(
                 controller: hostController,
                 label: 'Host (IP or hostname)',
                 hint: '192.168.1.100 or hostname.ts.net',
                 keyboardType: TextInputType.url,
               ),
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               _buildTextField(
                 controller: portController,
                 label: 'Port',
                 hint: '18274',
                 keyboardType: TextInputType.number,
               ),
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               _buildTextField(
                 controller: tokenController,
                 label: 'Auth Token',
                 hint: 'Required for connection',
                 keyboardType: TextInputType.visiblePassword,
               ),
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               // TLS toggle
               GestureDetector(
                 onTap: () => setSheetState(() => useTls = !useTls),
@@ -563,7 +536,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                             : Colors.white.withValues(alpha: 0.5),
                         size: 20,
                       ),
-                      SizedBox(width: Spacing.md),
+                      const SizedBox(width: Spacing.md),
                       Expanded(
                         child: Text(
                           'Use TLS (wss://)',
@@ -602,7 +575,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                   ),
                 ),
               ),
-              SizedBox(height: Spacing.lg),
+              const SizedBox(height: Spacing.lg),
               OnboardingButton(
                 label: 'Connect',
                 onPressed: () {
@@ -622,7 +595,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                   );
                 },
               ),
-              SizedBox(height: Spacing.sm),
+              const SizedBox(height: Spacing.sm),
               Center(
                 child: Text(
                   'Run "broski show-token" in terminal to get the auth token',
@@ -662,7 +635,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
             fontWeight: FontWeight.w500,
           ),
         ),
-        SizedBox(height: Spacing.sm),
+        const SizedBox(height: Spacing.sm),
         Container(
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.06),

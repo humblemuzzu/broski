@@ -1,9 +1,8 @@
-import 'package:flutter/material.dart';
-
-import '../../services/bridge_service.dart';
-import '../../theme/opencode_theme.dart';
-import '../../utils/error_utils.dart';
+import 'package:broski/services/bridge_service.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
 import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:flutter/material.dart';
 
 /// Handles MCP OAuth authentication flows.
 ///
@@ -69,27 +68,19 @@ Future<bool> _mcpAuthOneShotFlow({
   required String name,
   String? projectPath,
 }) async {
-  final oc = OpenCodeTheme.of(context);
   try {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Opening browser on your computer for "$name"…'),
-        backgroundColor: oc.primary,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    showInfo(context, 'Opening browser on your computer for "$name"…');
     final result = await bridge.mcpAuthAuthenticate(
       name,
       projectPath: projectPath,
     );
     if (!context.mounted) return false;
     final ok = result != null;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(ok ? 'Authenticated "$name"' : 'Auth failed for "$name"'),
-        backgroundColor: ok ? oc.success : oc.error,
-      ),
-    );
+    if (ok) {
+      showSuccess(context, 'Authenticated "$name"');
+    } else {
+      showError(context, 'Auth failed for "$name"');
+    }
     return ok;
   } catch (e) {
     if (!context.mounted) return false;
@@ -165,12 +156,11 @@ Future<bool> _mcpAuthManualFlow({
       projectPath: projectPath,
     );
     if (!context.mounted) return false;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(ok ? 'Authenticated "$name"' : 'Auth failed for "$name"'),
-        backgroundColor: ok ? oc.success : oc.error,
-      ),
-    );
+    if (ok) {
+      showSuccess(context, 'Authenticated "$name"');
+    } else {
+      showError(context, 'Auth failed for "$name"');
+    }
     return ok;
   } catch (e) {
     if (!context.mounted) return false;

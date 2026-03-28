@@ -1,8 +1,8 @@
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/claude_code_provider.dart';
+import 'package:broski/providers/claude_code_variant_provider.dart';
+import 'package:broski/providers/service_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../providers/chat_provider.dart';
-import '../../providers/claude_code_provider.dart';
-import '../../providers/claude_code_variant_provider.dart';
-import '../../providers/service_providers.dart';
 
 /// Auto-send a pending CC message when the turn completes.
 /// Uses the same CC send flow as _sendMessage (config, model, sessionId, etc.)

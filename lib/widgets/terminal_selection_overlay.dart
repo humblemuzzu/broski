@@ -1,9 +1,8 @@
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:xterm/xterm.dart';
-
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
 
 class TerminalSelectionOverlay extends StatelessWidget {
   const TerminalSelectionOverlay({

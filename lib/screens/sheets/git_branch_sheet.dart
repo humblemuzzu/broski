@@ -1,9 +1,8 @@
-import 'package:flutter/material.dart';
-
-import '../../models/git.dart';
-import '../../widgets/chat/detail_sheet.dart';
-import '../../theme/design_tokens.dart';
+import 'package:broski/models/git.dart';
 import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
+import 'package:flutter/material.dart';
 
 class GitBranchSheet extends StatefulWidget {
   const GitBranchSheet({
@@ -77,14 +76,14 @@ class _GitBranchSheetState extends State<GitBranchSheet> {
                   ),
                 ),
               ),
-              SizedBox(width: Spacing.sm),
+              const SizedBox(width: Spacing.sm),
               FilledButton(
                 onPressed: _creating ? null : _create,
                 child: Text(_creating ? 'Creating…' : 'Create'),
               ),
             ],
           ),
-          SizedBox(height: Spacing.md),
+          const SizedBox(height: Spacing.md),
           ...local.map((branch) {
             return ListTile(
               dense: true,

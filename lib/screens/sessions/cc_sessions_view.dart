@@ -1,38 +1,36 @@
 import 'dart:async';
 
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/models/claude_code.dart';
+import 'package:broski/models/highlight_color.dart';
+import 'package:broski/models/project.dart';
+import 'package:broski/providers/claude_code_provider.dart';
+import 'package:broski/providers/highlights_provider.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/providers/sessions_provider.dart';
+import 'package:broski/screens/chat_screen.dart';
+import 'package:broski/screens/sheets/cc_new_session_sheet.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/project_path_match.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/adaptive_container.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
+import 'package:broski/widgets/sessions/cc_highlighted_card.dart';
+import 'package:broski/widgets/sessions/cc_session_card.dart';
+import 'package:broski/widgets/sessions/session_helpers.dart';
+import 'package:broski/widgets/sessions/sessions_search_bar.dart';
+import 'package:broski/widgets/sessions/sort_chip.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../models/agent_type.dart';
-import '../../models/claude_code.dart';
-import '../../models/highlight_color.dart';
-import '../../models/project.dart';
-import '../../providers/claude_code_provider.dart';
-import '../../providers/highlights_provider.dart';
-import '../../providers/selection_provider.dart';
-import '../../providers/sessions_provider.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../utils/project_path_match.dart';
-import '../../widgets/chat/detail_sheet.dart';
-import '../../widgets/sessions/cc_highlighted_card.dart';
-import '../../widgets/sessions/cc_session_card.dart';
-import '../../widgets/sessions/session_helpers.dart';
-import '../../widgets/sessions/sessions_search_bar.dart';
-import '../chat_screen.dart';
-import '../sheets/cc_new_session_sheet.dart';
-
-import '../../providers/service_providers.dart';
-import '../../utils/error_utils.dart';
-import '../../utils/responsive.dart';
-import '../../widgets/adaptive_container.dart';
-import '../../widgets/sessions/sort_chip.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
-
 /// Claude Code sessions view. Extracted from sessions_screen.dart.
 class CCActiveSessionsSection extends ConsumerWidget {
-  const CCActiveSessionsSection({this.onSessionTap});
+  const CCActiveSessionsSection({super.key, this.onSessionTap});
   final void Function(ClaudeCodeSession session)? onSessionTap;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -59,7 +57,7 @@ class CCActiveSessionsSection extends ConsumerWidget {
           Row(
             children: [
               Icon(AppIcons.play, color: ocTheme.info, size: 20),
-              SizedBox(width: Spacing.md),
+              const SizedBox(width: Spacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -81,7 +79,7 @@ class CCActiveSessionsSection extends ConsumerWidget {
               ),
             ],
           ),
-          SizedBox(height: Spacing.md),
+          const SizedBox(height: Spacing.md),
           ...activeSessions.map((session) {
             final status = sessionStatuses[session.id];
             final isRetry = status?.isRetry ?? false;
@@ -123,7 +121,7 @@ class CCActiveSessionsSection extends ConsumerWidget {
                           ],
                         ),
                       ),
-                      SizedBox(width: Spacing.md),
+                      const SizedBox(width: Spacing.md),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -138,7 +136,7 @@ class CCActiveSessionsSection extends ConsumerWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            SizedBox(height: Spacing.xxs),
+                            const SizedBox(height: Spacing.xxs),
                             Row(
                               children: [
                                 if (projectName != null)
@@ -150,7 +148,7 @@ class CCActiveSessionsSection extends ConsumerWidget {
                                     ),
                                   ),
                                 if (isRetry) ...[
-                                  SizedBox(width: Spacing.sm),
+                                  const SizedBox(width: Spacing.sm),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 6,
@@ -195,7 +193,7 @@ class CCActiveSessionsSection extends ConsumerWidget {
 }
 
 class ClaudeCodeSessionsView extends ConsumerStatefulWidget {
-  const ClaudeCodeSessionsView({required this.onRefresh});
+  const ClaudeCodeSessionsView({super.key, required this.onRefresh});
   final Future<void> Function() onRefresh;
   @override
   ConsumerState<ClaudeCodeSessionsView> createState() =>
@@ -264,7 +262,7 @@ class ClaudeCodeSessionsViewState
                   "Hide sessions whose titles match any filter. Use `/regex/` for regex, otherwise it's a case-insensitive substring match.",
                   style: TextStyle(color: ocTheme.textMuted, fontSize: 13),
                 ),
-                SizedBox(height: Spacing.md),
+                const SizedBox(height: Spacing.md),
                 Row(
                   children: [
                     Expanded(
@@ -319,7 +317,7 @@ class ClaudeCodeSessionsViewState
                     ),
                   ],
                 ),
-                SizedBox(height: Spacing.md),
+                const SizedBox(height: Spacing.md),
                 if (filters.isNotEmpty)
                   Align(
                     alignment: Alignment.centerRight,
@@ -699,7 +697,7 @@ class ClaudeCodeSessionsViewState
                             ),
                           ],
                         ),
-                        SizedBox(height: Spacing.sm),
+                        const SizedBox(height: Spacing.sm),
                         Text(
                           'Claude Code sessions from ~/.claude',
                           style: TextStyle(
@@ -730,12 +728,12 @@ class ClaudeCodeSessionsViewState
                                 },
                               ),
                             ),
-                            SizedBox(width: Spacing.sm),
+                            const SizedBox(width: Spacing.sm),
                             TitleFiltersChip(
                               count: titleFilterCount,
                               onTap: () => _showTitleFiltersSheet(context),
                             ),
-                            SizedBox(width: Spacing.sm),
+                            const SizedBox(width: Spacing.sm),
                             SortChip(
                               sortBy: _sortBy,
                               onChanged: (value) {
@@ -744,7 +742,7 @@ class ClaudeCodeSessionsViewState
                             ),
                           ],
                         ),
-                        SizedBox(height: Spacing.md),
+                        const SizedBox(height: Spacing.md),
                         SessionsSearchBar(
                           controller: _searchController,
                           onChanged: _onSearchChanged,
@@ -757,7 +755,7 @@ class ClaudeCodeSessionsViewState
                 // Sessions list
                 ...sessionsAsync.when(
                   loading: () => [
-                    SliverToBoxAdapter(child: DelayedSkeletonList()),
+                    const SliverToBoxAdapter(child: DelayedSkeletonList()),
                   ],
                   error: (error, _) => [
                     SliverFillRemaining(
@@ -770,7 +768,7 @@ class ClaudeCodeSessionsViewState
                               color: ocTheme.error,
                               size: 48,
                             ),
-                            SizedBox(height: Spacing.lg),
+                            const SizedBox(height: Spacing.lg),
                             Text(
                               'Failed to load sessions',
                               style: TextStyle(
@@ -779,7 +777,7 @@ class ClaudeCodeSessionsViewState
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-                            SizedBox(height: Spacing.sm),
+                            const SizedBox(height: Spacing.sm),
                             Padding(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 24,
@@ -800,7 +798,7 @@ class ClaudeCodeSessionsViewState
                   ],
                   data: (sessions) {
                     if (sessions.isEmpty) {
-                      return [SliverFillRemaining(child: CCEmptyState())];
+                      return [const SliverFillRemaining(child: CCEmptyState())];
                     }
                     // Sort by updatedAt descending
                     final titleFilters = ref.watch(
@@ -851,7 +849,7 @@ class ClaudeCodeSessionsViewState
                           ),
                         ];
                       }
-                      return [SliverFillRemaining(child: CCEmptyState())];
+                      return [const SliverFillRemaining(child: CCEmptyState())];
                     }
                     // Separate highlighted and regular sessions
                     final highlightedSessions = sorted
@@ -997,6 +995,7 @@ class ClaudeCodeSessionsViewState
 
 class CCHighlightedSessionsSection extends StatelessWidget {
   const CCHighlightedSessionsSection({
+    super.key,
     required this.sessions,
     required this.highlightColor,
     required this.onTap,
@@ -1059,6 +1058,8 @@ class CCHighlightedSessionsSection extends StatelessWidget {
 }
 
 class CCEmptyState extends StatelessWidget {
+  const CCEmptyState({super.key});
+
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -1074,7 +1075,7 @@ class CCEmptyState extends StatelessWidget {
             ),
             child: Icon(AppIcons.terminal, size: 48, color: ocTheme.accent),
           ),
-          SizedBox(height: Spacing.xxl),
+          const SizedBox(height: Spacing.xxl),
           Text(
             'No Claude Code sessions',
             style: TextStyle(
@@ -1083,7 +1084,7 @@ class CCEmptyState extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          SizedBox(height: Spacing.sm),
+          const SizedBox(height: Spacing.sm),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 40),
             child: Text(

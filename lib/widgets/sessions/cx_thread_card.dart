@@ -1,17 +1,17 @@
+import 'package:broski/models/codex.dart';
+import 'package:broski/models/highlight_color.dart';
+import 'package:broski/providers/sessions_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/sessions/session_stat_badges.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/codex.dart';
-import '../../models/highlight_color.dart';
-import '../../providers/sessions_provider.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import 'session_stat_badges.dart';
 
 /// Codex thread card. Extracted from sessions_screen.dart.
 class CodexThreadCard extends ConsumerWidget {
   const CodexThreadCard({
+    super.key,
     required this.thread,
     required this.isHighlighted,
     required this.highlightColor,
@@ -102,7 +102,7 @@ class CodexThreadCard extends ConsumerWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        SizedBox(width: Spacing.md),
+                        const SizedBox(width: Spacing.md),
                         // Status or time
                         if (isActive)
                           Row(
@@ -165,7 +165,7 @@ class CodexThreadCard extends ConsumerWidget {
                         // Model provider badge
                         if (thread.modelProvider != null &&
                             thread.modelProvider!.isNotEmpty) ...[
-                          SizedBox(width: Spacing.sm),
+                          const SizedBox(width: Spacing.sm),
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 5,
@@ -208,7 +208,7 @@ class CodexThreadCard extends ConsumerWidget {
                         ],
                         // Agent nickname
                         if (thread.agentNickname != null) ...[
-                          SizedBox(width: Spacing.sm),
+                          const SizedBox(width: Spacing.sm),
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 5,

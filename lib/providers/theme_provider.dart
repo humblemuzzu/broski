@@ -1,7 +1,6 @@
+import 'package:broski/theme/themes/all_themes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-import '../theme/themes/all_themes.dart';
 
 /// Theme state containing the selected theme ID
 class ThemeState {

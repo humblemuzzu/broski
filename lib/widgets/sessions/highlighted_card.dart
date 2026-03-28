@@ -1,11 +1,10 @@
+import 'package:broski/models/highlight_color.dart';
+import 'package:broski/models/session.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/sessions/session_stat_badges.dart';
 import 'package:flutter/material.dart';
-
-import '../../models/highlight_color.dart';
-import '../../models/session.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import 'session_stat_badges.dart';
 
 /// Highlighted session card with accent styling (OpenCode).
 /// Extracted from sessions_screen.dart.
@@ -106,7 +105,7 @@ class HighlightedSessionCard extends StatelessWidget {
                       children: [
                         // Star icon inline
                         Icon(AppIcons.star, size: 16, color: color),
-                        SizedBox(width: Spacing.sm),
+                        const SizedBox(width: Spacing.sm),
                         Expanded(
                           child: Text(
                             session.title,
@@ -120,7 +119,7 @@ class HighlightedSessionCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        SizedBox(width: Spacing.md),
+                        const SizedBox(width: Spacing.md),
                         // Status or time
                         if (isActive)
                           Row(

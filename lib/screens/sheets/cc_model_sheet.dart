@@ -1,15 +1,15 @@
+import 'package:broski/models/claude_code.dart';
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/claude_code_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/claude_code.dart';
-import '../../providers/chat_provider.dart';
-import '../../providers/claude_code_provider.dart';
-import '../../providers/service_providers.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../widgets/chat/detail_sheet.dart';
-import 'package:broski/theme/app_icons.dart';
 
 /// Shows the Claude Code model picker sheet. Extracted from chat_screen.dart.
 ///
@@ -52,10 +52,9 @@ void showCcModelSheet(
             ccDraftModel;
         final isDefaultModel = current == null;
         final currentBetas = <String>{...(config.betas ?? const <String>[])};
-        final oneMillionBeta = 'context-1m-2025-08-07';
+        const oneMillionBeta = 'context-1m-2025-08-07';
         final oneMillionEnabled = currentBetas.contains(oneMillionBeta);
         Future<void> setModel(String? model) async {
-          final messenger = ScaffoldMessenger.of(context);
           await ref.read(ccConfigProvider.notifier).setModel(model);
           ref.read(chatSessionProvider.notifier).setCCModel(model ?? '');
 
@@ -70,16 +69,11 @@ void showCcModelSheet(
               .read(bridgeServiceProvider)
               .ccSetModel(sessionId: sessionId, model: model);
           if (!context.mounted) return;
-          messenger.showSnackBar(
-            SnackBar(
-              content: Text(
-                ok
-                    ? 'Model applied to current Claude turn.'
-                    : 'Saved as default. Live turn update failed.',
-              ),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+          if (ok) {
+            showSuccess(context, 'Model applied to current Claude turn.');
+          } else {
+            showInfo(context, 'Saved as default. Live turn update failed.');
+          }
         }
 
         Future<void> setOneMillionContext(bool enabled) async {
@@ -147,7 +141,7 @@ void showCcModelSheet(
 
         return supportedModelsAsync.when(
           data: (models) {
-            final fallback = const <ClaudeCodeSupportedModel>[
+            const fallback = <ClaudeCodeSupportedModel>[
               ClaudeCodeSupportedModel(
                 value: 'sonnet',
                 displayName: 'Claude Sonnet',
@@ -216,7 +210,7 @@ void showCcModelSheet(
                   ),
                   ...list.map(modelTile),
                   if (supportsOneMillion) ...[
-                    SizedBox(height: Spacing.md),
+                    const SizedBox(height: Spacing.md),
                     Divider(color: theme.borderSubtle.withValues(alpha: 0.3)),
                     SwitchListTile(
                       dense: true,

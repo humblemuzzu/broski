@@ -1,9 +1,8 @@
-import 'package:flutter/material.dart';
-
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import '../utils/responsive.dart';
 import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:flutter/material.dart';
 
 /// Glassmorphic floating island navigation bar.
 ///

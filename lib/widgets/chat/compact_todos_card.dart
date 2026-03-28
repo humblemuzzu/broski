@@ -1,14 +1,13 @@
-import 'package:flutter/material.dart';
-import '../../theme/app_typography.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/card_style.dart';
-import '../../models/todo.dart';
-import '../../providers/card_style_provider.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import 'detail_sheet.dart';
+import 'package:broski/models/card_style.dart';
+import 'package:broski/models/todo.dart';
+import 'package:broski/providers/card_style_provider.dart';
 import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// An inline card showing the current todo list.
 /// Displayed in chat flow when todos are updated via TodoWrite.
@@ -78,7 +77,7 @@ class CompactTodosCard extends ConsumerWidget {
                   Row(
                     children: [
                       Icon(AppIcons.checklist, size: 16, color: theme.toolTodo),
-                      SizedBox(width: 6),
+                      const SizedBox(width: 6),
                       Text(
                         'Update Todos',
                         style: TextStyle(
@@ -110,7 +109,7 @@ class CompactTodosCard extends ConsumerWidget {
             ),
             // Progress bar
             Padding(
-              padding: EdgeInsets.fromLTRB(
+              padding: const EdgeInsets.fromLTRB(
                 Spacing.md,
                 Spacing.sm,
                 Spacing.md,
@@ -138,7 +137,7 @@ class CompactTodosCard extends ConsumerWidget {
                   // "And N more" if truncated
                   if (todos.length > 5)
                     Padding(
-                      padding: EdgeInsets.only(top: Spacing.xs),
+                      padding: const EdgeInsets.only(top: Spacing.xs),
                       child: Text(
                         '... and ${todos.length - 5} more',
                         style: TextStyle(
@@ -151,7 +150,7 @@ class CompactTodosCard extends ConsumerWidget {
                 ],
               ),
             ),
-            SizedBox(height: Spacing.sm),
+            const SizedBox(height: Spacing.sm),
           ],
         ),
       ),
@@ -165,7 +164,7 @@ class CompactTodosCard extends ConsumerWidget {
       child: Row(
         children: [
           Icon(icon, size: 16, color: color),
-          SizedBox(width: Spacing.sm),
+          const SizedBox(width: Spacing.sm),
           Expanded(
             child: Text(
               todo.content,
@@ -245,10 +244,10 @@ class _TodoDetailItem extends StatelessWidget {
         children: [
           // Status icon
           Padding(
-            padding: EdgeInsets.only(top: Spacing.xxs),
+            padding: const EdgeInsets.only(top: Spacing.xxs),
             child: Icon(icon, size: 18, color: color),
           ),
-          SizedBox(width: Spacing.md),
+          const SizedBox(width: Spacing.md),
           // Content and priority
           Expanded(
             child: Column(
@@ -270,9 +269,12 @@ class _TodoDetailItem extends StatelessWidget {
                 // Priority badge (if high)
                 if (todo.priority == TodoPriority.high)
                   Padding(
-                    padding: EdgeInsets.only(top: Spacing.xs),
+                    padding: const EdgeInsets.only(top: Spacing.xs),
                     child: Container(
-                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: theme.error.withValues(alpha: 0.15),
                         borderRadius: Radii.brXs,

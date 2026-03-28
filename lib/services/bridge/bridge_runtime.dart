@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import '../../models/runtime/runtime.dart';
-import '../bridge_service.dart';
+import 'package:broski/models/runtime/runtime.dart';
+import 'package:broski/services/bridge_service.dart';
 
 extension BridgeServiceRuntime on BridgeService {
   Stream<RuntimeEvent> get runtimeEvents => messages.expand((message) {

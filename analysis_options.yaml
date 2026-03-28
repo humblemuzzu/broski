@@ -13,6 +13,7 @@ analyzer:
 
 linter:
   rules:
+    # Existing rules
     - avoid_print
     - curly_braces_in_flow_control_structures
     - prefer_is_empty
@@ -23,3 +24,13 @@ linter:
     - unnecessary_new
     - prefer_collection_literals
     - avoid_unnecessary_containers
+    # Import hygiene — already followed, prevents regression
+    - always_use_package_imports
+    - directives_ordering
+    # Clean code
+    - unnecessary_this
+    - annotate_overrides
+    - prefer_const_constructors
+    - prefer_const_declarations
+    - prefer_final_fields
+    - use_key_in_widget_constructors

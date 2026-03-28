@@ -1,17 +1,16 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:broski/providers/onboarding_provider.dart'
+    show onboardingProvider, kDevBypassOnboarding;
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/utils/responsive.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../theme/app_typography.dart';
-import '../theme/design_tokens.dart';
-
-import 'package:broski/theme/app_icons.dart';
-import '../utils/responsive.dart';
-import '../providers/onboarding_provider.dart'
-    show onboardingProvider, kDevBypassOnboarding;
 
 /// "Run the Bridge" screen shown after paywall during onboarding.
 /// Pixel-perfect terminal mockup matching Figma design.
@@ -142,7 +141,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                               ),
                             ),
                           ),
-                          SizedBox(height: Spacing.xl),
+                          const SizedBox(height: Spacing.xl),
                           FadeTransition(
                             opacity: entry,
                             child: _terminalCard(
@@ -152,7 +151,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                               command: _installCmd,
                             ),
                           ),
-                          SizedBox(height: Spacing.xxxl),
+                          const SizedBox(height: Spacing.xxxl),
                           // ── Step 2: Run
                           FadeTransition(
                             opacity: entry,
@@ -170,7 +169,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                               ),
                             ),
                           ),
-                          SizedBox(height: Spacing.xl),
+                          const SizedBox(height: Spacing.xl),
                           // Option A: Wizard
                           FadeTransition(
                             opacity: entry,
@@ -183,7 +182,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                               command: _wizardCmd,
                             ),
                           ),
-                          SizedBox(height: Spacing.md),
+                          const SizedBox(height: Spacing.md),
                           // Option B: Daemon
                           FadeTransition(
                             opacity: entry,
@@ -196,7 +195,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                               command: _daemonCmd,
                             ),
                           ),
-                          SizedBox(height: Spacing.xxl),
+                          const SizedBox(height: Spacing.xxl),
                           // ── Info hint
                           FadeTransition(
                             opacity: entry,
@@ -219,7 +218,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                                     color: Colors.white.withValues(alpha: 0.3),
                                     size: 20,
                                   ),
-                                  SizedBox(width: Spacing.md),
+                                  const SizedBox(width: Spacing.md),
                                   Expanded(
                                     child: Text(
                                       'Ensure your Mac and iPhone are on the same Wi-Fi network for the lowest latency.',
@@ -242,7 +241,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                   ),
                 ),
               ),
-              SizedBox(height: Spacing.xl),
+              const SizedBox(height: Spacing.xl),
               // ── CTA button
               FadeTransition(
                 opacity: entry,
@@ -292,7 +291,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                   ),
                 ),
               ],
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
             ],
           ),
         ),
@@ -366,9 +365,9 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
             child: Row(
               children: [
                 _dot(const Color(0xFFFF5F57)),
-                SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.sm),
                 _dot(const Color(0xFFFFBD2E)),
-                SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.sm),
                 _dot(const Color(0xFF28C840)),
                 const Spacer(),
               ],
@@ -409,7 +408,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                     ),
                   ],
                 ),
-                SizedBox(height: Spacing.md),
+                const SizedBox(height: Spacing.md),
                 // Command
                 Text.rich(
                   TextSpan(
@@ -495,7 +494,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    SizedBox(height: Spacing.xs),
+                    const SizedBox(height: Spacing.xs),
                     Text(
                       description,
                       style: TextStyle(
@@ -522,7 +521,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
               ),
             ],
           ),
-          SizedBox(height: Spacing.md),
+          const SizedBox(height: Spacing.md),
           // Inline command pill
           Container(
             width: double.infinity,

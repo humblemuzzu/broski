@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
-import '../../theme/design_tokens.dart';
 import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:flutter/material.dart';
 
 /// A bar shown above the main input when a Claude Code message is queued
 /// for auto-send. Displays a preview of the pending message with a cancel button.
@@ -56,7 +56,7 @@ class CCQueueBar extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                SizedBox(height: Spacing.xxs),
+                const SizedBox(height: Spacing.xxs),
                 Text(
                   preview,
                   style: TextStyle(color: textColor, fontSize: 12),
@@ -66,7 +66,7 @@ class CCQueueBar extends StatelessWidget {
               ],
             ),
           ),
-          SizedBox(width: Spacing.sm),
+          const SizedBox(width: Spacing.sm),
           SizedBox(
             height: 28,
             width: 28,

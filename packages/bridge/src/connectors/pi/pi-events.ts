@@ -159,6 +159,24 @@ export function translateEvent(event: AgentSessionEvent | PiBridgeSyntheticEvent
 		return (event as PiBridgeSyntheticEvent).streamMessage;
 	}
 
+	// Forward-compat: handle renamed compaction events before the SDK type union is updated.
+	// Once the pi SDK adds "compaction_start"/"compaction_end" to AgentSessionEvent,
+	// move these into the switch as proper case labels and remove this block.
+	const eventType = event.type as string;
+	if (eventType === "compaction_start") {
+		const e = event as unknown as Record<string, unknown>;
+		return { type: "compaction-start", reason: String(e.reason ?? "") };
+	}
+	if (eventType === "compaction_end") {
+		const e = event as unknown as Record<string, unknown>;
+		return {
+			type: "compaction-end",
+			aborted: Boolean(e.aborted),
+			willRetry: Boolean(e.willRetry),
+			...(e.errorMessage ? { errorMessage: String(e.errorMessage) } : {}),
+		};
+	}
+
 	switch (event.type) {
 		case "agent_start":
 			return { type: "agent-start" };

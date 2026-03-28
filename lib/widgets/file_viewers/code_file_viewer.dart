@@ -1,12 +1,12 @@
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_highlight/flutter_highlight.dart';
 import 'package:flutter_highlight/themes/atom-one-dark.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/design_tokens.dart';
-
-import '../../theme/opencode_theme.dart';
-import 'package:broski/theme/app_icons.dart';
 
 class CodeFileViewer extends StatelessWidget {
   const CodeFileViewer({
@@ -32,7 +32,7 @@ class CodeFileViewer extends StatelessWidget {
             child: Row(
               children: [
                 Icon(AppIcons.code, size: 16, color: theme.textMuted),
-                SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.sm),
                 Text(
                   '${lines.length} lines',
                   style: AppTypography.label(color: theme.textMuted),
@@ -56,19 +56,12 @@ class CodeFileViewer extends StatelessWidget {
                     ),
                   ),
                 ),
-                SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.sm),
                 IconButton(
                   icon: Icon(AppIcons.copy, size: 18, color: theme.textMuted),
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: content));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: const Text('Copied to clipboard'),
-                        backgroundColor: theme.backgroundPanel,
-                        behavior: SnackBarBehavior.floating,
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
+                    showSuccess(context, 'Copied to clipboard');
                   },
                   tooltip: 'Copy',
                   constraints: const BoxConstraints(),
@@ -100,7 +93,7 @@ class CodeFileViewer extends StatelessWidget {
                         ),
                       ),
                     ),
-                    SizedBox(width: Spacing.lg),
+                    const SizedBox(width: Spacing.lg),
                     HighlightView(
                       content,
                       language: language,

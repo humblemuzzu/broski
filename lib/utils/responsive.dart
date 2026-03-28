@@ -1,6 +1,5 @@
+import 'package:broski/theme/design_tokens.dart';
 import 'package:flutter/material.dart';
-
-import '../theme/design_tokens.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // RESPONSIVE LAYOUT UTILITIES

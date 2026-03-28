@@ -1,19 +1,18 @@
+import 'package:broski/providers/app_auth_provider.dart';
+import 'package:broski/providers/app_subscription_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/services/convex_service.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/adaptive_container.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
-
-import '../providers/app_auth_provider.dart';
-import '../providers/app_subscription_provider.dart';
-import '../providers/service_providers.dart';
-import '../services/convex_service.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
-import 'package:broski/theme/app_icons.dart';
-import '../utils/error_utils.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Dedicated account / personal-info screen.
 ///
@@ -83,7 +82,7 @@ class AccountScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  SizedBox(width: Spacing.lg),
+                  const SizedBox(width: Spacing.lg),
                   // Name + email + sign-in method
                   Expanded(
                     child: Column(
@@ -100,7 +99,7 @@ class AccountScreen extends ConsumerWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                         if (email != null) ...[
-                          SizedBox(height: Spacing.xs),
+                          const SizedBox(height: Spacing.xs),
                           Text(
                             email,
                             style: TextStyle(
@@ -121,9 +120,9 @@ class AccountScreen extends ConsumerWidget {
                 ],
               ),
             ),
-            SizedBox(height: Spacing.xxl),
+            const SizedBox(height: Spacing.xxl),
             // ── Subscription section ──────────────────────────────────
-            _SectionLabel(title: 'Subscription'),
+            const _SectionLabel(title: 'Subscription'),
             const SizedBox(height: 10),
             Container(
               decoration: BoxDecoration(
@@ -143,7 +142,7 @@ class AccountScreen extends ConsumerWidget {
                         mode: LaunchMode.externalApplication,
                       ),
                     ),
-                    _TileDivider(),
+                    const _TileDivider(),
                   ],
                   _Tile(
                     title: 'Restore Purchases',
@@ -154,29 +153,20 @@ class AccountScreen extends ConsumerWidget {
                       ref
                           .read(appSubscriptionProvider.notifier)
                           .restorePurchases();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Restoring purchases...',
-                            style: TextStyle(color: ocTheme.text),
-                          ),
-                          backgroundColor: ocTheme.backgroundPanel,
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
+                      showInfo(context, 'Restoring purchases...');
                     },
                   ),
                 ],
               ),
             ),
-            SizedBox(height: Spacing.xxl),
+            const SizedBox(height: Spacing.xxl),
             // ── Registered Machines ───────────────────────────────────
-            _SectionLabel(title: 'Registered Devices'),
+            const _SectionLabel(title: 'Registered Devices'),
             const SizedBox(height: 10),
             const _MachinesSection(),
-            SizedBox(height: Spacing.xxl),
+            const SizedBox(height: Spacing.xxl),
             // ── Sign out ──────────────────────────────────────────────
-            _SectionLabel(title: 'Session'),
+            const _SectionLabel(title: 'Session'),
             const SizedBox(height: 10),
             Container(
               decoration: BoxDecoration(
@@ -198,9 +188,9 @@ class AccountScreen extends ConsumerWidget {
                 },
               ),
             ),
-            SizedBox(height: Spacing.xxl),
+            const SizedBox(height: Spacing.xxl),
             // ── Danger zone ───────────────────────────────────────────
-            _SectionLabel(title: 'Danger Zone'),
+            const _SectionLabel(title: 'Danger Zone'),
             const SizedBox(height: 10),
             Container(
               decoration: BoxDecoration(
@@ -299,7 +289,7 @@ class _SignInBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 13, color: theme.colorScheme.primary),
-          SizedBox(width: Spacing.xs),
+          const SizedBox(width: Spacing.xs),
           Text(
             label,
             style: TextStyle(
@@ -358,7 +348,7 @@ class _Tile extends StatelessWidget {
         child: Row(
           children: [
             Icon(icon, color: iconColor ?? theme.colorScheme.primary, size: 22),
-            SizedBox(width: Spacing.md),
+            const SizedBox(width: Spacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -533,7 +523,7 @@ class _MachinesSectionState extends ConsumerState<_MachinesSection> {
               'Unable to load devices',
               style: TextStyle(color: ocTheme.textMuted),
             ),
-            SizedBox(height: Spacing.sm),
+            const SizedBox(height: Spacing.sm),
             TextButton(onPressed: _loadMachines, child: const Text('Retry')),
           ],
         ),
@@ -551,7 +541,7 @@ class _MachinesSectionState extends ConsumerState<_MachinesSection> {
         child: Row(
           children: [
             Icon(AppIcons.devices, color: ocTheme.textMuted),
-            SizedBox(width: Spacing.md),
+            const SizedBox(width: Spacing.md),
             Expanded(
               child: Text(
                 'No devices registered yet',
@@ -577,7 +567,7 @@ class _MachinesSectionState extends ConsumerState<_MachinesSection> {
             child: Row(
               children: [
                 Icon(AppIcons.computer, size: 18, color: ocTheme.text),
-                SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.sm),
                 Text(
                   '${machines.machines.length} of ${machines.maxMachines} devices',
                   style: TextStyle(
@@ -650,7 +640,7 @@ class _MachineRow extends StatelessWidget {
               size: 20,
             ),
           ),
-          SizedBox(width: Spacing.md),
+          const SizedBox(width: Spacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -663,7 +653,7 @@ class _MachineRow extends StatelessWidget {
                     fontSize: 14,
                   ),
                 ),
-                SizedBox(height: Spacing.xxs),
+                const SizedBox(height: Spacing.xxs),
                 Text(
                   'Last seen ${machine.lastSeenAgo}',
                   style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
@@ -754,7 +744,7 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
       title: Row(
         children: [
           Icon(AppIcons.warning, color: theme.colorScheme.error),
-          SizedBox(width: Spacing.sm),
+          const SizedBox(width: Spacing.sm),
           Text(
             'Delete Account',
             style: TextStyle(color: theme.colorScheme.error),
@@ -772,12 +762,12 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
               ),
             ),
-            SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.md),
             _bulletPoint('Your account and profile', theme),
             _bulletPoint('All session tokens', theme),
             _bulletPoint('Subscription records', theme),
             _bulletPoint('RevenueCat event history', theme),
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.lg),
             Text(
               'Your subscription (if active) will NOT be automatically cancelled. '
               'Please cancel it through your App Store settings first.',
@@ -787,7 +777,7 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
                 fontSize: 13,
               ),
             ),
-            SizedBox(height: Spacing.xl),
+            const SizedBox(height: Spacing.xl),
             Text(
               'Why are you leaving? (optional)',
               style: TextStyle(
@@ -796,7 +786,7 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
                 fontSize: 14,
               ),
             ),
-            SizedBox(height: Spacing.sm),
+            const SizedBox(height: Spacing.sm),
             DropdownButtonFormField<String>(
               initialValue: _selectedReason,
               decoration: const InputDecoration(
@@ -812,7 +802,7 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
                   .toList(),
               onChanged: (v) => setState(() => _selectedReason = v),
             ),
-            SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.md),
             TextField(
               controller: _feedbackController,
               maxLines: 2,
@@ -825,7 +815,7 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
                 ),
               ),
             ),
-            SizedBox(height: Spacing.xl),
+            const SizedBox(height: Spacing.xl),
             Text(
               'Type DELETE to confirm:',
               style: TextStyle(
@@ -834,7 +824,7 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
                 fontSize: 14,
               ),
             ),
-            SizedBox(height: Spacing.sm),
+            const SizedBox(height: Spacing.sm),
             TextField(
               controller: _confirmController,
               onChanged: (_) => setState(() {}),
@@ -855,7 +845,7 @@ class _DeleteAccountDialogState extends ConsumerState<_DeleteAccountDialog> {
               ),
             ),
             if (_error != null) ...[
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               Text(
                 _error!,
                 style: TextStyle(color: theme.colorScheme.error, fontSize: 12),

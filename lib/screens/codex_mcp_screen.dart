@@ -1,17 +1,16 @@
 import 'dart:convert';
 
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/adaptive_container.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../theme/app_typography.dart';
-import '../theme/design_tokens.dart';
-
-import '../providers/service_providers.dart';
-import '../theme/opencode_theme.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
-import 'package:broski/theme/app_icons.dart';
-import '../utils/error_utils.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 class CodexMcpScreen extends ConsumerStatefulWidget {
   const CodexMcpScreen({super.key});
@@ -105,7 +104,6 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
 
   /// Hot reload MCP server config (Codex SDK feature)
   Future<void> _hotReload() async {
-    final oc = OpenCodeTheme.of(context);
     try {
       final bridge = ref.read(bridgeServiceProvider);
       await bridge.cxMcpReload();
@@ -117,12 +115,7 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
       } catch (_) {}
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('MCP config reloaded'),
-          backgroundColor: oc.success,
-        ),
-      );
+      showSuccess(context, 'MCP config reloaded');
       await _load(); // Refresh status after reload
     } catch (e) {
       if (!mounted) return;
@@ -247,7 +240,6 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
   }
 
   Future<void> _startOauthForServer(String name) async {
-    final oc = OpenCodeTheme.of(context);
     try {
       final url = await ref
           .read(bridgeServiceProvider)
@@ -256,13 +248,7 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
       final text = url.isEmpty
           ? 'OAuth flow started for "$name".'
           : 'OAuth URL for "$name": $url';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(text),
-          backgroundColor: oc.backgroundPanel,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      showInfo(context, text);
     } catch (e) {
       if (!mounted) return;
       showError(context, 'OAuth login failed: ${humanizeError(e)}');
@@ -341,7 +327,7 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
                           'Edit MCP servers on your Mac. Broski does not modify Codex config from mobile.',
                           style: AppTypography.label(color: oc.textMuted),
                         ),
-                        SizedBox(height: Spacing.md),
+                        const SizedBox(height: Spacing.md),
                         Container(
                           width: double.infinity,
                           padding: Insets.cardSm,
@@ -361,13 +347,13 @@ class _CodexMcpScreenState extends ConsumerState<CodexMcpScreen>
                           ),
                         ),
                         if (names.isEmpty) ...[
-                          SizedBox(height: Spacing.md),
+                          const SizedBox(height: Spacing.md),
                           Text(
                             'No MCP servers configured in `mcp_servers`.',
                             style: TextStyle(color: oc.textMuted),
                           ),
                         ] else ...[
-                          SizedBox(height: Spacing.md),
+                          const SizedBox(height: Spacing.md),
                           ...names.map((name) {
                             final serverCfg =
                                 (servers[name] as Map?)

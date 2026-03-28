@@ -1,15 +1,15 @@
+import 'package:broski/models/claude_code.dart';
+import 'package:broski/models/subscription_usage.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/providers/subscription_usage_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/adaptive_container.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/claude_code.dart';
-import '../models/subscription_usage.dart';
-import '../providers/service_providers.dart';
-import '../providers/subscription_usage_provider.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
-import 'package:broski/theme/app_icons.dart';
 
 /// Screen for displaying AI provider usage limits and credits.
 ///
@@ -139,7 +139,7 @@ class _SubscriptionUsageScreenState
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(AppIcons.error, size: 48, color: ocTheme.error),
-              SizedBox(height: Spacing.lg),
+              const SizedBox(height: Spacing.lg),
               Text(
                 'Failed to load usage',
                 style: TextStyle(
@@ -148,13 +148,13 @@ class _SubscriptionUsageScreenState
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              SizedBox(height: Spacing.sm),
+              const SizedBox(height: Spacing.sm),
               Text(
                 state.error!,
                 style: TextStyle(color: ocTheme.textMuted, fontSize: 14),
                 textAlign: TextAlign.center,
               ),
-              SizedBox(height: Spacing.xxl),
+              const SizedBox(height: Spacing.xxl),
               ElevatedButton.icon(
                 onPressed: _refreshAll,
                 icon: const Icon(AppIcons.refresh),
@@ -178,7 +178,7 @@ class _SubscriptionUsageScreenState
                 size: 64,
                 color: ocTheme.primary.withValues(alpha: 0.5),
               ),
-              SizedBox(height: Spacing.lg),
+              const SizedBox(height: Spacing.lg),
               Text(
                 'No providers configured',
                 style: TextStyle(
@@ -187,7 +187,7 @@ class _SubscriptionUsageScreenState
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              SizedBox(height: Spacing.sm),
+              const SizedBox(height: Spacing.sm),
               Text(
                 'Run `claude login` or `codex` on your Mac to configure providers.',
                 style: TextStyle(color: ocTheme.textMuted, fontSize: 14),
@@ -203,7 +203,7 @@ class _SubscriptionUsageScreenState
       children: [
         if (_claudeAccountInfo != null) ...[
           _ClaudeAccountCard(accountInfo: _claudeAccountInfo!),
-          SizedBox(height: Spacing.md),
+          const SizedBox(height: Spacing.md),
         ],
         // Last updated
         Padding(
@@ -216,7 +216,7 @@ class _SubscriptionUsageScreenState
                 size: 12,
                 color: ocTheme.textMuted.withValues(alpha: 0.6),
               ),
-              SizedBox(width: Spacing.xs),
+              const SizedBox(width: Spacing.xs),
               Text(
                 'Last updated: ${usage.fetchedAgoString}',
                 style: TextStyle(
@@ -230,7 +230,7 @@ class _SubscriptionUsageScreenState
         // Provider cards
         for (final provider in usage.providers) ...[
           _ProviderCard(provider: provider),
-          SizedBox(height: Spacing.lg),
+          const SizedBox(height: Spacing.lg),
         ],
         // Bottom padding
         const SizedBox(height: 40),
@@ -243,7 +243,7 @@ class _SubscriptionUsageScreenState
       padding: Insets.listItemDense,
       children: [
         _SkeletonProviderCard(),
-        SizedBox(height: Spacing.lg),
+        const SizedBox(height: Spacing.lg),
         _SkeletonProviderCard(),
       ],
     );
@@ -296,7 +296,7 @@ class _ClaudeAccountCard extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                SizedBox(height: Spacing.xs),
+                const SizedBox(height: Spacing.xs),
                 Text(
                   (accountInfo.email ?? '').trim().isNotEmpty
                       ? accountInfo.email!
@@ -308,7 +308,7 @@ class _ClaudeAccountCard extends StatelessWidget {
                   ),
                 ),
                 if (details.isNotEmpty) ...[
-                  SizedBox(height: Spacing.xs),
+                  const SizedBox(height: Spacing.xs),
                   Text(
                     details.join(' • '),
                     style: TextStyle(color: ocTheme.textMuted, fontSize: 11),
@@ -365,7 +365,7 @@ class _ProviderCard extends StatelessWidget {
                     size: 22,
                   ),
                 ),
-                SizedBox(width: Spacing.md),
+                const SizedBox(width: Spacing.md),
                 // Provider name and plan
                 Expanded(
                   child: Column(
@@ -380,7 +380,7 @@ class _ProviderCard extends StatelessWidget {
                         ),
                       ),
                       if (provider.plan != null) ...[
-                        SizedBox(height: Spacing.xs),
+                        const SizedBox(height: Spacing.xs),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 8,
@@ -439,7 +439,7 @@ class _ProviderCard extends StatelessWidget {
                 child: Row(
                   children: [
                     Icon(AppIcons.error, size: 18, color: ocTheme.error),
-                    SizedBox(width: Spacing.sm),
+                    const SizedBox(width: Spacing.sm),
                     Expanded(
                       child: Text(
                         provider.error!,
@@ -455,7 +455,7 @@ class _ProviderCard extends StatelessWidget {
           if (provider.hasUsageData) ...[
             // Plan usage limits section
             if (provider.sessionWindow != null) ...[
-              _SectionHeader(title: 'Session Usage'),
+              const _SectionHeader(title: 'Session Usage'),
               _UsageBarVertical(
                 label: 'Current Session',
                 subtitle: provider.sessionWindow!.resetTimeString.isNotEmpty
@@ -469,7 +469,7 @@ class _ProviderCard extends StatelessWidget {
             if (provider.weeklyWindow != null ||
                 provider.weeklyOpusWindow != null ||
                 provider.weeklySonnetWindow != null) ...[
-              _SectionHeader(title: 'Weekly Usage'),
+              const _SectionHeader(title: 'Weekly Usage'),
               if (provider.weeklyWindow != null)
                 _UsageBarVertical(
                   label: 'All Models',
@@ -494,7 +494,7 @@ class _ProviderCard extends StatelessWidget {
             ],
             // Extra usage section (Claude)
             if (provider.extraUsage != null) ...[
-              _SectionHeader(title: 'Extra Usage'),
+              const _SectionHeader(title: 'Extra Usage'),
               // Toggle row
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -509,7 +509,7 @@ class _ProviderCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    SizedBox(width: Spacing.md),
+                    const SizedBox(width: Spacing.md),
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
@@ -582,16 +582,7 @@ class _ProviderCard extends StatelessWidget {
                       ),
                       TextButton(
                         onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Adjust your limit on claude.ai',
-                                style: TextStyle(color: ocTheme.text),
-                              ),
-                              backgroundColor: ocTheme.backgroundPanel,
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
+                          showInfo(context, 'Adjust your limit on claude.ai');
                         },
                         style: TextButton.styleFrom(
                           foregroundColor: ocTheme.primary,
@@ -609,7 +600,7 @@ class _ProviderCard extends StatelessWidget {
             ],
             // Credits section (OpenAI)
             if (provider.credits != null) ...[
-              _SectionHeader(title: 'Credits'),
+              const _SectionHeader(title: 'Credits'),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 child: Container(
@@ -633,7 +624,7 @@ class _ProviderCard extends StatelessWidget {
                           size: 22,
                         ),
                       ),
-                      SizedBox(width: Spacing.md),
+                      const SizedBox(width: Spacing.md),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -694,7 +685,7 @@ class _ProviderCard extends StatelessWidget {
                 child: Row(
                   children: [
                     Icon(AppIcons.info, color: ocTheme.textMuted, size: 20),
-                    SizedBox(width: Spacing.md),
+                    const SizedBox(width: Spacing.md),
                     Expanded(
                       child: Text(
                         provider.providerId == 'claude'
@@ -788,7 +779,7 @@ class _UsageBarVertical extends StatelessWidget {
                       ),
                     ),
                     if (subtitle != null) ...[
-                      SizedBox(height: Spacing.xxs),
+                      const SizedBox(height: Spacing.xxs),
                       Text(
                         subtitle!,
                         style: TextStyle(
@@ -800,7 +791,7 @@ class _UsageBarVertical extends StatelessWidget {
                   ],
                 ),
               ),
-              SizedBox(width: Spacing.sm),
+              const SizedBox(width: Spacing.sm),
               Text(
                 '${clampedPercent.round()}%',
                 style: TextStyle(
@@ -811,7 +802,7 @@ class _UsageBarVertical extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: Spacing.sm),
+          const SizedBox(height: Spacing.sm),
           // Progress bar
           Container(
             height: 6,
@@ -856,7 +847,7 @@ class _SkeletonProviderCard extends StatelessWidget {
         borderRadius: Radii.brLg,
         border: Border.all(color: ocTheme.borderSubtle),
       ),
-      child: Column(
+      child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header skeleton
@@ -869,7 +860,7 @@ class _SkeletonProviderCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _SkeletonBox(width: 100, height: 16, borderRadius: 4),
-                    const SizedBox(height: 6),
+                    SizedBox(height: 6),
                     _SkeletonBox(width: 50, height: 14, borderRadius: 4),
                   ],
                 ),

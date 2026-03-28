@@ -30,7 +30,7 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
-pubspec.lock
+# pubspec.lock — committed for apps (Flutter docs recommend this)
 
 # Symbolication related
 app.*.symbols
@@ -125,7 +125,7 @@ config.json
 # Build artifacts and temp files that shouldn't be tracked
 chart.png
 geist-1.7.0.tgz
-logs.md
+# logs.md
 analysis.log
 
 # Continuous Claude

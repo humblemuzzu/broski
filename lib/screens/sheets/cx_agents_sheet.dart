@@ -1,14 +1,14 @@
 import 'dart:async';
 
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../providers/service_providers.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../widgets/chat/detail_sheet.dart';
 
 /// Shows the Codex AGENTS.md editor sheet. Extracted from chat_screen.dart.
 ///
@@ -76,7 +76,7 @@ Describe project-specific guidance for Codex here.
                   child: Row(
                     children: [
                       Icon(AppIcons.info, size: 16, color: theme.textMuted),
-                      SizedBox(width: Spacing.sm),
+                      const SizedBox(width: Spacing.sm),
                       Expanded(
                         child: Text(
                           'No AGENTS.md found. Create one to guide Codex for this project.',
@@ -117,7 +117,7 @@ Describe project-specific guidance for Codex here.
                   ),
                 ),
               ),
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 child: Row(
@@ -132,17 +132,11 @@ Describe project-specific guidance for Codex here.
                                 content: controller.text,
                               );
                           if (!context.mounted) return;
-                          final messenger = ScaffoldMessenger.of(context);
-                          messenger.showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                ok ? 'Saved AGENTS.md' : 'Save failed',
-                              ),
-                              backgroundColor: ok
-                                  ? theme.backgroundPanel
-                                  : theme.error,
-                            ),
-                          );
+                          if (ok) {
+                            showSuccess(context, 'Saved AGENTS.md');
+                          } else {
+                            showError(context, 'Save failed');
+                          }
                           Navigator.pop(context);
                         },
                         child: const Text('Save'),

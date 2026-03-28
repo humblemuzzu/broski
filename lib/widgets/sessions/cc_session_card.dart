@@ -1,16 +1,16 @@
+import 'package:broski/models/claude_code.dart';
+import 'package:broski/providers/sessions_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/sessions/session_stat_badges.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/claude_code.dart';
-import '../../providers/sessions_provider.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import 'session_stat_badges.dart';
 
 /// Claude Code session card. Extracted from sessions_screen.dart.
 class CCSessionCard extends ConsumerWidget {
   const CCSessionCard({
+    super.key,
     required this.session,
     required this.onTap,
     required this.onDelete,
@@ -99,14 +99,14 @@ class CCSessionCard extends ConsumerWidget {
                           ),
                         ),
                         if (session.isSubagentSession) ...[
-                          SizedBox(width: Spacing.xs),
+                          const SizedBox(width: Spacing.xs),
                           Icon(
                             AppIcons.gitBranch,
                             size: 14,
                             color: ocTheme.info,
                           ),
                         ],
-                        SizedBox(width: Spacing.md),
+                        const SizedBox(width: Spacing.md),
                         // Status or time
                         if (isActive)
                           Row(
@@ -168,7 +168,7 @@ class CCSessionCard extends ConsumerWidget {
                         ),
                         // Model badge if available
                         if (session.model != null) ...[
-                          SizedBox(width: Spacing.sm),
+                          const SizedBox(width: Spacing.sm),
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 5,

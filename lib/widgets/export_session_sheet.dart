@@ -1,13 +1,12 @@
 import 'dart:convert';
 
+import 'package:broski/models/message.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
-
-import '../models/message.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import 'chat/detail_sheet.dart';
-import 'package:broski/theme/app_icons.dart';
 
 enum ExportFormat { markdown, json, text }
 
@@ -73,8 +72,8 @@ class _ExportSessionSheetContentState
     extends State<_ExportSessionSheetContent> {
   final _filenameCtrl = TextEditingController();
   ExportFormat _format = ExportFormat.markdown;
-  bool _includeUsers = true;
-  bool _includeAssistants = true;
+  final bool _includeUsers = true;
+  final bool _includeAssistants = true;
   bool _includeThinking = false;
   bool _includeToolCalls = true;
   bool _includeToolOutputs = false;
@@ -228,7 +227,7 @@ class _ExportSessionSheetContentState
               border: OutlineInputBorder(borderRadius: Radii.brMd),
             ),
           ),
-          SizedBox(height: Spacing.md),
+          const SizedBox(height: Spacing.md),
           Wrap(
             spacing: 10,
             runSpacing: 8,
@@ -250,7 +249,7 @@ class _ExportSessionSheetContentState
               ),
             ],
           ),
-          SizedBox(height: Spacing.md),
+          const SizedBox(height: Spacing.md),
           SwitchListTile(
             value: _includeThinking,
             onChanged: (v) => setState(() => _includeThinking = v),
@@ -290,7 +289,7 @@ class _ExportSessionSheetContentState
                   child: const Text('Cancel'),
                 ),
               ),
-              SizedBox(width: Spacing.md),
+              const SizedBox(width: Spacing.md),
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: () async {

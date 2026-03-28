@@ -1,6 +1,5 @@
-import 'package:flutter_test/flutter_test.dart';
-
 import 'package:broski/models/connection.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('ConnectionInfo parses QR payload', () {

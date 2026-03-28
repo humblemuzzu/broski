@@ -1,10 +1,9 @@
+import 'package:broski/models/pi.dart';
+import 'package:broski/models/project.dart';
+import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/services/pi_bridge_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/pi.dart';
-import '../models/project.dart';
-import '../services/pi_bridge_service.dart';
-import 'connection_provider.dart';
-import 'service_providers.dart';
 
 final piBridgeServiceProvider = Provider<PiBridgeService>((ref) {
   final socket = ref.watch(webSocketServiceProvider);

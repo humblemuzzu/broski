@@ -1,6 +1,6 @@
-import '../agent_type.dart';
-import 'runtime_capabilities.dart';
-import 'runtime_model_summary.dart';
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/models/runtime/runtime_capabilities.dart';
+import 'package:broski/models/runtime/runtime_model_summary.dart';
 
 class RuntimePermissionRequest {
   final String? requestId;

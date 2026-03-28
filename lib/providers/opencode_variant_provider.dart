@@ -1,8 +1,7 @@
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/services/storage_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../services/storage_service.dart';
-import 'selection_provider.dart';
-import 'service_providers.dart';
 
 /// Represents available model variants (thinking levels) for an OpenCode model.
 /// Variants define different thinking effort configurations like "high", "max", etc.

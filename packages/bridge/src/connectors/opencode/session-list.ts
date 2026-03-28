@@ -68,37 +68,30 @@ export async function listOpenCodeSessionsInternal(args: {
 					...(options?.limit !== undefined ? { limit: options.limit } : {}),
 					...(options?.archived !== undefined ? { archived: options.archived } : {}),
 				},
-				{ responseStyle: "data" },
 			);
 			const sessions = result.data ?? [];
 			return sessions.map(mapGlobalSession);
 		}
 
-		const result2 = await client.session.list(
-			{
-				directory,
-				...(options?.roots !== undefined ? { roots: options.roots } : {}),
-				...(options?.start !== undefined ? { start: options.start } : {}),
-				...(options?.search ? { search: options.search } : {}),
-				...(options?.limit !== undefined ? { limit: options.limit } : {}),
-			},
-			{ responseStyle: "data" },
-		);
+		const result2 = await client.session.list({
+			directory,
+			...(options?.roots !== undefined ? { roots: options.roots } : {}),
+			...(options?.start !== undefined ? { start: options.start } : {}),
+			...(options?.search ? { search: options.search } : {}),
+			...(options?.limit !== undefined ? { limit: options.limit } : {}),
+		});
 		const sessions = result2.data ?? [];
 		return sessions.map((session: Session) => mapSession(session));
 	}
 
-	const result3 = await client.experimental.session.list(
-		{
-			...(options?.roots !== undefined ? { roots: options.roots } : {}),
-			...(options?.start !== undefined ? { start: options.start } : {}),
-			...(options?.cursor !== undefined ? { cursor: options.cursor } : {}),
-			...(options?.search ? { search: options.search } : {}),
-			...(options?.limit !== undefined ? { limit: options.limit } : {}),
-			...(options?.archived !== undefined ? { archived: options.archived } : {}),
-		},
-		{ responseStyle: "data" },
-	);
+	const result3 = await client.experimental.session.list({
+		...(options?.roots !== undefined ? { roots: options.roots } : {}),
+		...(options?.start !== undefined ? { start: options.start } : {}),
+		...(options?.cursor !== undefined ? { cursor: options.cursor } : {}),
+		...(options?.search ? { search: options.search } : {}),
+		...(options?.limit !== undefined ? { limit: options.limit } : {}),
+		...(options?.archived !== undefined ? { archived: options.archived } : {}),
+	});
 	const sessions = result3.data ?? [];
 
 	return sessions

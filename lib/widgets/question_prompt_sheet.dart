@@ -1,10 +1,9 @@
-import 'package:flutter/material.dart';
-import '../theme/app_typography.dart';
-
-import '../models/question.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
+import 'package:broski/models/question.dart';
 import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:flutter/material.dart';
 
 class QuestionPromptSheet extends StatefulWidget {
   const QuestionPromptSheet({
@@ -314,7 +313,7 @@ class _QuestionPromptSheetState extends State<QuestionPromptSheet> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(height: Spacing.lg),
+        const SizedBox(height: Spacing.lg),
         // Question text
         Text(
           question.question,
@@ -490,7 +489,7 @@ class _OptionTile extends StatelessWidget {
                         )
                       : null,
                 ),
-                SizedBox(width: Spacing.md),
+                const SizedBox(width: Spacing.md),
                 // Label + description
                 Expanded(
                   child: Column(
@@ -511,7 +510,7 @@ class _OptionTile extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       if (description.isNotEmpty) ...[
-                        SizedBox(height: Spacing.xxs),
+                        const SizedBox(height: Spacing.xxs),
                         Text(
                           description,
                           style: TextStyle(

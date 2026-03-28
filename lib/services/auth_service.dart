@@ -1,12 +1,11 @@
 import 'dart:io';
 
+import 'package:broski/config/app_config.dart';
+import 'package:broski/models/auth_session.dart';
+import 'package:broski/services/convex_service.dart';
+import 'package:broski/services/storage_service.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
-
-import '../config/app_config.dart';
-import '../models/auth_session.dart';
-import 'convex_service.dart';
-import 'storage_service.dart';
 
 class AuthService {
   AuthService({required StorageService storage, required ConvexService convex})

@@ -1,15 +1,14 @@
+import 'package:broski/models/pi.dart';
+import 'package:broski/providers/pi_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/utils/format_utils.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
+import 'package:broski/widgets/chat/section_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/pi.dart';
-import '../../providers/pi_provider.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../widgets/chat/detail_sheet.dart';
-import '../../widgets/chat/section_header.dart';
 
 Future<void> showPiSessionSidebarSheet({
   required BuildContext context,
@@ -139,13 +138,13 @@ class _PiSessionSidebarContentState
           loading: () => _buildStatsCardLoading(theme),
           error: (_, __) => const SizedBox.shrink(),
         ),
-        SizedBox(height: Spacing.lg),
+        const SizedBox(height: Spacing.lg),
 
         // ── Runtime Controls ──────────────────────────────────────
         SectionHeader(title: 'CONTROLS', theme: theme),
-        SizedBox(height: Spacing.sm),
+        const SizedBox(height: Spacing.sm),
         _buildControlsGrid(theme, effectiveState),
-        SizedBox(height: Spacing.lg),
+        const SizedBox(height: Spacing.lg),
 
         // ── Fork Points ───────────────────────────────────────────
         Row(
@@ -158,7 +157,7 @@ class _PiSessionSidebarContentState
             ),
           ],
         ),
-        SizedBox(height: Spacing.sm),
+        const SizedBox(height: Spacing.sm),
         if (_loadingForks)
           Padding(
             padding: Insets.cardV,
@@ -174,11 +173,11 @@ class _PiSessionSidebarContentState
           ...(_forkMessages
               .take(8)
               .map((entry) => _buildForkTile(theme, entry))),
-        SizedBox(height: Spacing.lg),
+        const SizedBox(height: Spacing.lg),
 
         // ── Session History ───────────────────────────────────────
         SectionHeader(title: 'SESSION HISTORY', theme: theme),
-        SizedBox(height: Spacing.sm),
+        const SizedBox(height: Spacing.sm),
         sessionsAsync.when(
           data: (sessions) {
             final sorted = [...sessions]
@@ -244,7 +243,7 @@ class _PiSessionSidebarContentState
           Row(
             children: [
               Icon(AppIcons.memory, size: 14, color: theme.info),
-              SizedBox(width: Spacing.sm),
+              const SizedBox(width: Spacing.sm),
               Text(
                 'Context',
                 style: TextStyle(
@@ -260,7 +259,7 @@ class _PiSessionSidebarContentState
               ),
             ],
           ),
-          SizedBox(height: Spacing.sm),
+          const SizedBox(height: Spacing.sm),
           ClipRRect(
             borderRadius: Radii.brXs,
             child: LinearProgressIndicator(
@@ -274,7 +273,7 @@ class _PiSessionSidebarContentState
               backgroundColor: theme.backgroundElement,
             ),
           ),
-          SizedBox(height: Spacing.md),
+          const SizedBox(height: Spacing.md),
           // Token breakdown + cost row
           Row(
             children: [
@@ -283,14 +282,14 @@ class _PiSessionSidebarContentState
                 value: formatTokens(stats.tokens.input),
                 theme: theme,
               ),
-              SizedBox(width: Spacing.sm),
+              const SizedBox(width: Spacing.sm),
               _StatChip(
                 label: 'Out',
                 value: formatTokens(stats.tokens.output),
                 theme: theme,
               ),
               if (stats.tokens.cacheRead > 0) ...[
-                SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.sm),
                 _StatChip(
                   label: 'Cache',
                   value: formatTokens(stats.tokens.cacheRead),
@@ -315,7 +314,7 @@ class _PiSessionSidebarContentState
               ),
             ],
           ),
-          SizedBox(height: Spacing.sm),
+          const SizedBox(height: Spacing.sm),
           // Message counts
           Row(
             children: [
@@ -407,7 +406,10 @@ class _PiSessionSidebarContentState
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 6),
-        padding: EdgeInsets.symmetric(horizontal: Spacing.md, vertical: 10),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.md,
+          vertical: 10,
+        ),
         decoration: BoxDecoration(
           color: theme.backgroundPanel,
           borderRadius: Radii.brMd,
@@ -416,7 +418,7 @@ class _PiSessionSidebarContentState
         child: Row(
           children: [
             Icon(AppIcons.callSplit, size: 14, color: theme.warning),
-            SizedBox(width: Spacing.sm),
+            const SizedBox(width: Spacing.sm),
             Expanded(
               child: Text(
                 entry.text,
@@ -453,7 +455,10 @@ class _PiSessionSidebarContentState
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 6),
-        padding: EdgeInsets.symmetric(horizontal: Spacing.md, vertical: 10),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.md,
+          vertical: 10,
+        ),
         decoration: BoxDecoration(
           color: isCurrent
               ? theme.primary.withValues(alpha: 0.08)
@@ -472,7 +477,7 @@ class _PiSessionSidebarContentState
               size: 14,
               color: isCurrent ? theme.primary : theme.textMuted,
             ),
-            SizedBox(width: Spacing.sm),
+            const SizedBox(width: Spacing.sm),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -487,7 +492,7 @@ class _PiSessionSidebarContentState
                       color: isCurrent ? theme.primary : theme.text,
                     ),
                   ),
-                  SizedBox(height: 2),
+                  const SizedBox(height: 2),
                   Text(
                     '${session.messageCount} msgs • ${_formatTimeAgo(session.modified)}',
                     style: AppTypography.caption(color: theme.textMuted),
@@ -591,7 +596,7 @@ class _ControlChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 14, color: isOn ? theme.primary : theme.textMuted),
-            SizedBox(width: Spacing.xs),
+            const SizedBox(width: Spacing.xs),
             Text(
               '$label: $value',
               style: TextStyle(

@@ -1,13 +1,12 @@
 import 'dart:async';
 
+import 'package:broski/models/claude_code.dart';
+import 'package:broski/models/project.dart';
+import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/services/storage_service.dart';
+import 'package:broski/utils/error_utils.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/claude_code.dart';
-import '../models/project.dart';
-import '../services/storage_service.dart';
-import '../utils/error_utils.dart';
-import 'connection_provider.dart';
-import 'service_providers.dart';
 
 /// `null` means "all projects" for Claude Code sessions.
 final ccSessionsFilterCwdProvider = StateProvider<String?>((ref) => null);

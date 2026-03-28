@@ -1,18 +1,17 @@
+import 'package:broski/models/codex/codex_plugin.dart';
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/codex_plugins_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
+import 'package:broski/widgets/chat/section_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/codex/codex_plugin.dart';
-import '../../providers/codex_plugins_provider.dart';
-import '../../providers/chat_provider.dart';
-import '../../providers/service_providers.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../utils/error_utils.dart';
-import '../../widgets/chat/detail_sheet.dart';
-import '../../widgets/chat/section_header.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Shows the Codex Plugins marketplace sheet. Extracted as top-level function.
 void showCxPluginsSheet(BuildContext context) {
@@ -96,7 +95,7 @@ class _CxPluginsSheetState extends ConsumerState<CxPluginsSheet> {
               'Error: ${humanizeError(e)}',
               style: TextStyle(color: ocTheme.error),
             ),
-            SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.md),
             TextButton(
               onPressed: () => ref.invalidate(codexPluginsProvider),
               child: const Text('Retry'),
@@ -145,7 +144,7 @@ class _CxPluginsSheetState extends ConsumerState<CxPluginsSheet> {
                   padding: Insets.bottomSm,
                   child: SectionHeader(title: 'INSTALLED', theme: ocTheme),
                 ),
-                SizedBox(height: Spacing.xs),
+                const SizedBox(height: Spacing.xs),
                 ...installed.map(
                   (e) => _PluginTile(
                     entry: e,
@@ -159,14 +158,14 @@ class _CxPluginsSheetState extends ConsumerState<CxPluginsSheet> {
                     isInstalled: true,
                   ),
                 ),
-                SizedBox(height: Spacing.lg),
+                const SizedBox(height: Spacing.lg),
               ],
               if (available.isNotEmpty) ...[
                 Padding(
                   padding: Insets.bottomSm,
                   child: SectionHeader(title: 'AVAILABLE', theme: ocTheme),
                 ),
-                SizedBox(height: Spacing.xs),
+                const SizedBox(height: Spacing.xs),
                 ...available.map(
                   (e) => _PluginTile(
                     entry: e,
@@ -187,7 +186,7 @@ class _CxPluginsSheetState extends ConsumerState<CxPluginsSheet> {
                     style: AppTypography.bodySmall(color: ocTheme.textMuted),
                   ),
                 ),
-              SizedBox(height: Spacing.lg),
+              const SizedBox(height: Spacing.lg),
             ],
           ),
         );

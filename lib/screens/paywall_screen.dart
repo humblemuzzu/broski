@@ -1,19 +1,18 @@
+import 'package:broski/providers/app_auth_provider.dart';
+import 'package:broski/providers/app_subscription_provider.dart';
+import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/onboarding_provider.dart'
+    show onboardingProvider, kDevBypassOnboarding;
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/responsive.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import '../theme/app_typography.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
-
-import '../providers/app_auth_provider.dart';
-import '../providers/app_subscription_provider.dart';
-import '../providers/connection_provider.dart';
-import '../providers/onboarding_provider.dart'
-    show onboardingProvider, kDevBypassOnboarding;
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import '../utils/responsive.dart';
-import 'package:broski/theme/app_icons.dart';
 
 class PaywallScreen extends ConsumerWidget {
   const PaywallScreen({super.key, this.showCloseButton = true});
@@ -143,7 +142,7 @@ class PaywallScreen extends ConsumerWidget {
                                     ),
                                   ),
                                 ),
-                                SizedBox(height: Spacing.md),
+                                const SizedBox(height: Spacing.md),
                                 // Subtitle
                                 Text(
                                   'Ship from anywhere, 24/7.',
@@ -156,37 +155,37 @@ class PaywallScreen extends ConsumerWidget {
                                 ),
                                 const SizedBox(height: 40),
                                 // Feature list
-                                _FeatureItem(
+                                const _FeatureItem(
                                   icon: AppIcons.allInclusive,
                                   label: 'Unlimited Sessions',
                                 ),
-                                SizedBox(height: Spacing.xxl),
-                                _FeatureItem(
+                                const SizedBox(height: Spacing.xxl),
+                                const _FeatureItem(
                                   icon: AppIcons.developer,
                                   label: 'Multi-Provider Support',
                                 ),
-                                SizedBox(height: Spacing.xxl),
-                                _FeatureItem(
+                                const SizedBox(height: Spacing.xxl),
+                                const _FeatureItem(
                                   icon: AppIcons.bolt,
                                   label: 'Real-Time Sync',
                                 ),
-                                SizedBox(height: Spacing.xxl),
-                                _FeatureItem(
+                                const SizedBox(height: Spacing.xxl),
+                                const _FeatureItem(
                                   icon: AppIcons.terminal,
                                   label: 'Full Terminal Access',
                                 ),
-                                SizedBox(height: Spacing.xxl),
-                                _FeatureItem(
+                                const SizedBox(height: Spacing.xxl),
+                                const _FeatureItem(
                                   icon: AppIcons.mic,
                                   label: 'Voice-to-Code Input',
                                 ),
-                                SizedBox(height: Spacing.xxl),
-                                _FeatureItem(
+                                const SizedBox(height: Spacing.xxl),
+                                const _FeatureItem(
                                   icon: AppIcons.notificationActive,
                                   label: 'Push Notifications & Alerts',
                                 ),
-                                SizedBox(height: Spacing.xxl),
-                                _FeatureItem(
+                                const SizedBox(height: Spacing.xxl),
+                                const _FeatureItem(
                                   icon: AppIcons.shieldCheck,
                                   label: 'Advanced Local Security',
                                 ),
@@ -197,7 +196,7 @@ class PaywallScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  SizedBox(height: Spacing.xl),
+                  const SizedBox(height: Spacing.xl),
                   // Bottom pricing section
                   Padding(
                     padding: Insets.cardH,
@@ -220,7 +219,7 @@ class PaywallScreen extends ConsumerWidget {
                                     letterSpacing: 1.5,
                                   ),
                                 ),
-                                SizedBox(height: Spacing.xs),
+                                const SizedBox(height: Spacing.xs),
                                 Row(
                                   crossAxisAlignment:
                                       CrossAxisAlignment.baseline,
@@ -275,7 +274,7 @@ class PaywallScreen extends ConsumerWidget {
                             ),
                           ],
                         ),
-                        SizedBox(height: Spacing.xl),
+                        const SizedBox(height: Spacing.xl),
                         // Error message
                         if (sub.error != null) ...[
                           Text(
@@ -283,7 +282,7 @@ class PaywallScreen extends ConsumerWidget {
                             style: AppTypography.bodySmall(color: theme.error),
                             textAlign: TextAlign.center,
                           ),
-                          SizedBox(height: Spacing.sm),
+                          const SizedBox(height: Spacing.sm),
                         ],
                         // Subscribe button
                         Center(
@@ -336,12 +335,12 @@ class PaywallScreen extends ConsumerWidget {
                                               ),
                                             ],
                                           )
-                                        : Row(
-                                            key: const ValueKey('cta'),
+                                        : const Row(
+                                            key: ValueKey('cta'),
                                             mainAxisAlignment:
                                                 MainAxisAlignment.center,
                                             children: [
-                                              const Text(
+                                              Text(
                                                 "I'm In",
                                                 style: TextStyle(
                                                   color: Color(0xFF111111),
@@ -350,10 +349,10 @@ class PaywallScreen extends ConsumerWidget {
                                                   letterSpacing: 0.3,
                                                 ),
                                               ),
-                                              const SizedBox(width: 10),
+                                              SizedBox(width: 10),
                                               Icon(
                                                 AppIcons.forward,
-                                                color: const Color(0xFF111111),
+                                                color: Color(0xFF111111),
                                                 size: 20,
                                               ),
                                             ],
@@ -453,7 +452,7 @@ class PaywallScreen extends ConsumerWidget {
                           ],
                         ),
                         // Sign out + restore purchases links
-                        SizedBox(height: Spacing.sm),
+                        const SizedBox(height: Spacing.sm),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -502,10 +501,10 @@ class PaywallScreen extends ConsumerWidget {
                             ),
                           ],
                         ),
-                        SizedBox(height: Spacing.sm),
+                        const SizedBox(height: Spacing.sm),
                         // DEV BYPASS: skip paywall button (only in debug builds)
                         if (kDebugMode && kDevBypassOnboarding) ...[
-                          SizedBox(height: Spacing.sm),
+                          const SizedBox(height: Spacing.sm),
                           Center(
                             child: GestureDetector(
                               onTap: () {
@@ -570,7 +569,7 @@ class _FeatureItem extends StatelessWidget {
     return Row(
       children: [
         Icon(icon, color: Colors.white.withValues(alpha: 0.7), size: 24),
-        SizedBox(width: Spacing.lg),
+        const SizedBox(width: Spacing.lg),
         Text(
           label,
           style: TextStyle(

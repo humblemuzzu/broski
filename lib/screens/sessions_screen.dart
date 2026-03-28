@@ -1,48 +1,45 @@
 import 'dart:async';
 
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/models/highlight_color.dart';
+import 'package:broski/models/permission_rule.dart';
+import 'package:broski/models/project.dart';
+import 'package:broski/models/session.dart';
+import 'package:broski/models/worktree.dart';
+import 'package:broski/providers/agent_type_provider.dart';
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/highlights_provider.dart';
+import 'package:broski/providers/permission_rules_provider.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/providers/sessions_provider.dart';
+import 'package:broski/providers/tool_settings_provider.dart';
+import 'package:broski/screens/chat_screen.dart';
+import 'package:broski/screens/sessions/cc_sessions_view.dart';
+import 'package:broski/screens/sessions/cx_threads_view.dart';
+import 'package:broski/screens/sessions/new_session_content.dart';
+import 'package:broski/screens/sessions/pi_sessions_view.dart';
+import 'package:broski/screens/sheets/session_options_sheet.dart';
+import 'package:broski/screens/sheets/sessions_title_filters_sheet.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/adaptive_container.dart';
+import 'package:broski/widgets/background_session_widgets.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
+import 'package:broski/widgets/sessions/archive_filter_chip.dart';
+import 'package:broski/widgets/sessions/child_session_card.dart';
+import 'package:broski/widgets/sessions/highlighted_card.dart';
+import 'package:broski/widgets/sessions/session_card.dart';
+import 'package:broski/widgets/sessions/session_helpers.dart';
+import 'package:broski/widgets/sessions/sessions_search_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../theme/app_typography.dart';
-import '../theme/design_tokens.dart';
-
-import '../models/agent_type.dart';
-
-import '../models/claude_code.dart';
-import '../models/highlight_color.dart';
-import '../models/permission_rule.dart';
-import '../models/project.dart';
-import '../models/session.dart';
-import '../models/worktree.dart';
-import '../providers/agent_type_provider.dart';
-import '../providers/chat_provider.dart';
-import '../providers/claude_code_provider.dart';
-import '../providers/connection_provider.dart';
-import '../providers/highlights_provider.dart';
-import '../providers/permission_rules_provider.dart';
-import '../providers/sessions_provider.dart';
-import '../providers/service_providers.dart';
-import '../providers/selection_provider.dart';
-import '../providers/tool_settings_provider.dart';
-import '../theme/opencode_theme.dart';
-import '../widgets/background_session_widgets.dart';
-import '../widgets/chat/detail_sheet.dart';
-import '../widgets/sessions/sessions_search_bar.dart';
-import '../widgets/sessions/archive_filter_chip.dart';
-import 'chat_screen.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
-import 'package:broski/theme/app_icons.dart';
-import '../utils/error_utils.dart';
-import 'sessions/cc_sessions_view.dart';
-import 'sessions/cx_threads_view.dart';
-import 'sessions/new_session_content.dart';
-import 'sessions/pi_sessions_view.dart';
-import '../widgets/sessions/child_session_card.dart';
-import '../widgets/sessions/highlighted_card.dart';
-import '../widgets/sessions/session_card.dart';
-import '../widgets/sessions/session_helpers.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 class SessionsScreen extends ConsumerStatefulWidget {
   const SessionsScreen({super.key});
@@ -78,139 +75,8 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     await ref.read(sessionsListProvider.future);
   }
 
-  void _showSessionsTitleFiltersSheet(BuildContext context) {
-    final ocTheme = OpenCodeTheme.of(context);
-    final controller = TextEditingController();
-    DetailSheet.show(
-      context: context,
-      title: 'Title Filters',
-      initialSize: 0.6,
-      child: Consumer(
-        builder: (context, ref, _) {
-          final filters = ref.watch(
-            sessionsTitleExcludeFiltersProvider(AgentType.opencode),
-          );
-          final notifier = ref.read(
-            sessionsTitleExcludeFiltersProvider(AgentType.opencode).notifier,
-          );
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Hide sessions whose titles match any filter. Use `/regex/` for regex, otherwise it's a case-insensitive substring match.",
-                  style: TextStyle(color: ocTheme.textMuted, fontSize: 13),
-                ),
-                SizedBox(height: Spacing.md),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: controller,
-                        decoration: InputDecoration(
-                          hintText: 'e.g. test, tmp, /wip.*/',
-                          hintStyle: TextStyle(color: ocTheme.textMuted),
-                          filled: true,
-                          fillColor: ocTheme.backgroundElement,
-                          border: OutlineInputBorder(
-                            borderRadius: Radii.brMd,
-                            borderSide: BorderSide(color: ocTheme.borderSubtle),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: Radii.brMd,
-                            borderSide: BorderSide(color: ocTheme.borderSubtle),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: Radii.brMd,
-                            borderSide: BorderSide(color: ocTheme.primary),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
-                        ),
-                        style: TextStyle(color: ocTheme.text),
-                        textInputAction: TextInputAction.done,
-                        onSubmitted: (value) async {
-                          await notifier.add(value);
-                          controller.clear();
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    ElevatedButton(
-                      onPressed: () async {
-                        await notifier.add(controller.text);
-                        controller.clear();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: ocTheme.primary,
-                        foregroundColor: ocTheme.selectedListItemText,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        shape: RoundedRectangleBorder(borderRadius: Radii.brMd),
-                      ),
-                      child: const Text('Add'),
-                    ),
-                  ],
-                ),
-                SizedBox(height: Spacing.md),
-                if (filters.isNotEmpty)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () => notifier.clear(),
-                      child: Text(
-                        'Clear all',
-                        style: TextStyle(color: ocTheme.error),
-                      ),
-                    ),
-                  ),
-                if (filters.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 24),
-                    child: Center(
-                      child: Text(
-                        'No filters yet',
-                        style: TextStyle(color: ocTheme.textMuted),
-                      ),
-                    ),
-                  )
-                else
-                  ...filters.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final f = entry.value;
-                    return Column(
-                      children: [
-                        if (index > 0) Divider(color: ocTheme.borderSubtle),
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: Icon(
-                            f.startsWith('/') && f.endsWith('/')
-                                ? AppIcons.code
-                                : AppIcons.textFields,
-                            color: ocTheme.textMuted,
-                          ),
-                          title: Text(f, style: TextStyle(color: ocTheme.text)),
-                          trailing: IconButton(
-                            onPressed: () => notifier.removeAt(index),
-                            icon: Icon(AppIcons.delete, color: ocTheme.error),
-                            tooltip: 'Remove',
-                          ),
-                        ),
-                      ],
-                    );
-                  }),
-              ],
-            ),
-          );
-        },
-      ),
-    ).whenComplete(controller.dispose);
-  }
+  void _showSessionsTitleFiltersSheet(BuildContext context) =>
+      showSessionsTitleFiltersSheet(context);
 
   @override
   void initState() {
@@ -319,7 +185,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                 ...sessionsAsync.when(
                   loading: () => [
                     // Smart skeleton: only show after 100ms delay to prevent flash
-                    SliverToBoxAdapter(child: DelayedSkeletonList()),
+                    const SliverToBoxAdapter(child: DelayedSkeletonList()),
                   ],
                   error: (error, _) => [
                     SliverFillRemaining(
@@ -332,7 +198,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                               color: theme.colorScheme.error,
                               size: 48,
                             ),
-                            SizedBox(height: Spacing.lg),
+                            const SizedBox(height: Spacing.lg),
                             Text(
                               'Failed to load sessions',
                               style: TextStyle(
@@ -341,7 +207,7 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-                            SizedBox(height: Spacing.sm),
+                            const SizedBox(height: Spacing.sm),
                             Padding(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 24,
@@ -381,7 +247,9 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                           ),
                         ];
                       }
-                      return [SliverFillRemaining(child: SessionsEmptyState())];
+                      return [
+                        const SliverFillRemaining(child: SessionsEmptyState()),
+                      ];
                     }
                     // Sessions are already filtered server-side (search) and
                     // by project/title in the provider. No client-side search
@@ -628,138 +496,18 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     }
   }
 
-  // Toggle highlight for a session
-  void _toggleHighlight(String sessionId) {
-    ref.read(highlightsProvider.notifier).toggleSession(sessionId);
-  }
-
   // Show options menu (highlight + rename + stop)
-  Future<void> _showSessionOptions(SessionSummary session) async {
-    final highlights = ref.read(highlightsProvider);
-    final isHighlighted = highlights.isSessionHighlighted(session.id);
-    final ocTheme = OpenCodeTheme.of(context);
-    final highlightColor = highlights.color;
-    final sessionStatuses = ref.read(globalSessionStatusProvider);
-    final status = sessionStatuses[session.id];
-    final isRunning = status?.isBusy == true || status?.isRetry == true;
-    await DetailSheet.show(
-      context: context,
-      title: session.title,
-      initialSize: 0.35,
-      minSize: 0.2,
-      maxSize: 0.5,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Stop Session option (shown when running or always for stuck sessions)
-          ListTile(
-            leading: Icon(
-              AppIcons.stop,
-              color: isRunning ? ocTheme.error : ocTheme.textMuted,
-            ),
-            title: Text(
-              'Stop Session',
-              style: TextStyle(color: isRunning ? ocTheme.error : ocTheme.text),
-            ),
-            subtitle: Text(
-              isRunning
-                  ? 'Session is currently running'
-                  : 'Force stop if stuck',
-              style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              _stopSession(session);
-            },
-          ),
-          // Options
-          ListTile(
-            leading: Icon(
-              isHighlighted ? AppIcons.star : AppIcons.starOutline,
-              color: isHighlighted
-                  ? highlightColor.forBrightness(
-                      Theme.of(context).brightness,
-                      themePrimary: ocTheme.primary,
-                    )
-                  : ocTheme.textMuted,
-            ),
-            title: Text(
-              isHighlighted ? 'Remove Highlight' : 'Highlight',
-              style: TextStyle(color: ocTheme.text),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              _toggleHighlight(session.id);
-            },
-          ),
-          ListTile(
-            leading: Icon(AppIcons.edit, color: ocTheme.textMuted),
-            title: Text('Rename', style: TextStyle(color: ocTheme.text)),
-            onTap: () {
-              Navigator.pop(context);
-              _showRenameDialog(session);
-            },
-          ),
-          ListTile(
-            leading: Icon(AppIcons.forkRight, color: ocTheme.textMuted),
-            title: Text('Fork', style: TextStyle(color: ocTheme.text)),
-            subtitle: Text(
-              'Create a copy of this session',
-              style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              _forkSession(session);
-            },
-          ),
-          // Archive / Unarchive
-          ListTile(
-            leading: Icon(
-              session.isArchived ? AppIcons.unarchive : AppIcons.archive,
-              color: session.isArchived ? ocTheme.textMuted : ocTheme.error,
-            ),
-            title: Text(
-              session.isArchived ? 'Unarchive' : 'Archive',
-              style: TextStyle(
-                color: session.isArchived ? ocTheme.text : ocTheme.error,
-              ),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              _archiveSession(session, archive: !session.isArchived);
-            },
-          ),
-          // Share / Unshare
-          ListTile(
-            leading: Icon(
-              session.isShared ? AppIcons.unlink : AppIcons.share,
-              color: ocTheme.textMuted,
-            ),
-            title: Text(
-              session.isShared ? 'Unshare' : 'Share',
-              style: TextStyle(color: ocTheme.text),
-            ),
-            subtitle: session.isShared
-                ? Text(
-                    session.share!.url,
-                    style: TextStyle(color: ocTheme.textMuted, fontSize: 11),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  )
-                : null,
-            onTap: () {
-              Navigator.pop(context);
-              if (session.isShared) {
-                _unshareSession(session);
-              } else {
-                _shareSession(session);
-              }
-            },
-          ),
-        ],
-      ),
-    );
-  }
+  Future<void> _showSessionOptions(SessionSummary session) =>
+      showSessionOptionsSheet(
+        context,
+        session: session,
+        onStop: _stopSession,
+        onRename: _showRenameDialog,
+        onFork: _forkSession,
+        onArchive: _archiveSession,
+        onShare: _shareSession,
+        onUnshare: _unshareSession,
+      );
 
   /// Stop/abort a session
   void _stopSession(SessionSummary session) {
@@ -780,7 +528,6 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     required bool archive,
   }) async {
     final bridge = ref.read(bridgeServiceProvider);
-    final ocTheme = OpenCodeTheme.of(context);
     try {
       await bridge.updateSession(
         session.id,
@@ -790,23 +537,12 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
       if (!mounted) return;
       // Refresh sessions list
       ref.invalidate(sessionsListProvider);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(archive ? 'Session archived' : 'Session unarchived'),
-          backgroundColor: ocTheme.backgroundPanel,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      showSuccess(context, archive ? 'Session archived' : 'Session unarchived');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Failed to ${archive ? 'archive' : 'unarchive'} session',
-          ),
-          backgroundColor: ocTheme.error,
-          behavior: SnackBarBehavior.floating,
-        ),
+      showError(
+        context,
+        'Failed to ${archive ? 'archive' : 'unarchive'} session',
       );
     }
   }
@@ -1197,7 +933,7 @@ class _ModernHeader extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: Spacing.sm),
+          const SizedBox(height: Spacing.sm),
           Text(
             'Continue your AI coding sessions',
             style: TextStyle(
@@ -1219,12 +955,12 @@ class _ModernHeader extends StatelessWidget {
                   onSelected: onFilterChanged,
                 ),
               ),
-              SizedBox(width: Spacing.sm),
+              const SizedBox(width: Spacing.sm),
               TitleFiltersChip(
                 count: titleFilterCount,
                 onTap: onTitleFiltersTap,
               ),
-              SizedBox(width: Spacing.sm),
+              const SizedBox(width: Spacing.sm),
               // Background tasks toggle
               if (backgroundTaskCount > 0)
                 BackgroundTasksChip(
@@ -1232,13 +968,13 @@ class _ModernHeader extends StatelessWidget {
                   isExpanded: showBackgroundTasks,
                   onTap: onToggleBackgroundTasks,
                 ),
-              SizedBox(width: Spacing.sm),
+              const SizedBox(width: Spacing.sm),
               const ArchiveFilterChip(),
             ],
           ),
           // Task 8: Session search bar
           if (searchController != null && onSearchChanged != null) ...[
-            SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.md),
             SessionsSearchBar(
               controller: searchController!,
               onChanged: onSearchChanged!,
@@ -1389,548 +1125,6 @@ class _PulsingDotState extends State<_PulsingDot>
 // ============================================================================
 // Claude Code Sessions View
 // ============================================================================
-
-// ============================================================================
-// Claude Code Chat Screen
-// ============================================================================
-class CCChatScreen extends ConsumerStatefulWidget {
-  const CCChatScreen({super.key, required this.session});
-  final ClaudeCodeSession session;
-  @override
-  ConsumerState<CCChatScreen> createState() => _CCChatScreenState();
-}
-
-class _CCChatScreenState extends ConsumerState<CCChatScreen> {
-  final TextEditingController _controller = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
-  final FocusNode _focusNode = FocusNode();
-  @override
-  void initState() {
-    super.initState();
-    // Initialize chat provider with this session
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(ccChatProvider.notifier).setSession(widget.session.id);
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _scrollController.dispose();
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  void _sendMessage() {
-    final text = _controller.text.trim();
-    if (text.isEmpty) return;
-    ref
-        .read(ccChatProvider.notifier)
-        .sendMessage(
-          sessionId: widget.session.id,
-          prompt: text,
-          cwd: widget.session.cwd,
-        );
-    _controller.clear();
-    _scrollToBottom();
-  }
-
-  void _abort() {
-    ref.read(ccChatProvider.notifier).abort();
-  }
-
-  void _scrollToBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-        );
-      }
-    });
-  }
-
-  String _getProjectName() {
-    final parts = widget.session.cwd
-        .split('/')
-        .where((p) => p.isNotEmpty)
-        .toList();
-    return parts.isEmpty ? 'Unknown' : parts.last;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final ocTheme = OpenCodeTheme.of(context);
-    final chatState = ref.watch(ccChatProvider);
-    // Build display messages from stream messages
-    final displayMessages = _buildDisplayMessages(chatState.messages);
-    return Scaffold(
-      backgroundColor: ocTheme.background,
-      appBar: AppBar(
-        backgroundColor: ocTheme.backgroundPanel,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(AppIcons.back, color: ocTheme.text),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.session.displayTitle,
-              style: TextStyle(
-                color: ocTheme.text,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            Text(
-              _getProjectName(),
-              style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
-            ),
-          ],
-        ),
-        actions: [
-          // Claude Code badge
-          Container(
-            margin: const EdgeInsets.only(right: 12),
-            padding: Insets.chip,
-            decoration: BoxDecoration(
-              color: ocTheme.accent.withValues(alpha: 0.15),
-              borderRadius: Radii.brSm,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(AppIcons.terminal, size: 12, color: ocTheme.accent),
-                SizedBox(width: Spacing.xs),
-                Text(
-                  'CC',
-                  style: TextStyle(
-                    color: ocTheme.accent,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Messages list
-          Expanded(
-            child: displayMessages.isEmpty
-                ? _CCChatEmptyState()
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-                    itemCount: displayMessages.length,
-                    itemBuilder: (context, index) {
-                      final msg = displayMessages[index];
-                      return _CCMessageBubble(
-                        message: msg,
-                        isStreaming:
-                            chatState.isStreaming &&
-                            index == displayMessages.length - 1,
-                      );
-                    },
-                  ),
-          ),
-          // Input bar
-          _CCInputBar(
-            controller: _controller,
-            focusNode: _focusNode,
-            isStreaming: chatState.isStreaming,
-            onSend: _sendMessage,
-            onAbort: _abort,
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Convert stream messages to display messages
-  List<_CCDisplayMessage> _buildDisplayMessages(
-    List<ClaudeCodeStreamMessage> messages,
-  ) {
-    final display = <_CCDisplayMessage>[];
-    String assistantText = '';
-    final toolCalls = <CCToolCall>[];
-    for (final msg in messages) {
-      if (msg is CCSessionCreated) {
-        // Session started - could show a system message if needed
-        continue;
-      }
-      if (msg is CCAssistantMessage) {
-        // Complete assistant message
-        if (assistantText.isNotEmpty || toolCalls.isNotEmpty) {
-          display.add(
-            _CCDisplayMessage(
-              role: 'assistant',
-              text: assistantText,
-              toolCalls: List.from(toolCalls),
-            ),
-          );
-          assistantText = '';
-          toolCalls.clear();
-        }
-        assistantText = msg.content;
-      }
-      if (msg is CCAssistantMessageDelta) {
-        // Streaming delta - accumulate
-        assistantText += msg.content;
-      }
-      if (msg is CCToolCall) {
-        toolCalls.add(msg);
-      }
-      if (msg is CCToolResult) {
-        // Tool completed - could update tool call status
-      }
-      if (msg is CCTokenUsage) {
-        // End of turn - finalize assistant message
-        if (assistantText.isNotEmpty || toolCalls.isNotEmpty) {
-          display.add(
-            _CCDisplayMessage(
-              role: 'assistant',
-              text: assistantText,
-              toolCalls: List.from(toolCalls),
-            ),
-          );
-          assistantText = '';
-          toolCalls.clear();
-        }
-      }
-      if (msg is CCError) {
-        display.add(_CCDisplayMessage(role: 'error', text: msg.message));
-      }
-    }
-    // Add any in-progress content
-    if (assistantText.isNotEmpty || toolCalls.isNotEmpty) {
-      display.add(
-        _CCDisplayMessage(
-          role: 'assistant',
-          text: assistantText,
-          toolCalls: List.from(toolCalls),
-        ),
-      );
-    }
-    return display;
-  }
-}
-
-/// Display message model for CC chat
-class _CCDisplayMessage {
-  final String role; // 'user', 'assistant', 'error'
-  final String text;
-  final List<CCToolCall> toolCalls;
-  const _CCDisplayMessage({
-    required this.role,
-    this.text = '',
-    this.toolCalls = const [],
-  });
-}
-
-/// Message bubble for CC chat
-class _CCMessageBubble extends StatelessWidget {
-  const _CCMessageBubble({required this.message, this.isStreaming = false});
-  final _CCDisplayMessage message;
-  final bool isStreaming;
-  @override
-  Widget build(BuildContext context) {
-    final ocTheme = OpenCodeTheme.of(context);
-    if (message.role == 'error') {
-      return Container(
-        margin: Insets.bottomMd,
-        padding: Insets.cardSm,
-        decoration: BoxDecoration(
-          color: ocTheme.error.withValues(alpha: 0.1),
-          borderRadius: Radii.brMd,
-          border: Border.all(color: ocTheme.error.withValues(alpha: 0.3)),
-        ),
-        child: Row(
-          children: [
-            Icon(AppIcons.error, color: ocTheme.error, size: 20),
-            SizedBox(width: Spacing.sm),
-            Expanded(
-              child: Text(
-                message.text,
-                style: TextStyle(color: ocTheme.error, fontSize: 14),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    final isUser = message.role == 'user';
-    return Container(
-      margin: Insets.bottomMd,
-      child: Column(
-        crossAxisAlignment: isUser
-            ? CrossAxisAlignment.end
-            : CrossAxisAlignment.start,
-        children: [
-          // Text content
-          if (message.text.isNotEmpty)
-            Container(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.85,
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: isUser ? ocTheme.primary : ocTheme.backgroundPanel,
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(16),
-                  topRight: const Radius.circular(16),
-                  bottomLeft: Radius.circular(isUser ? 16 : 4),
-                  bottomRight: Radius.circular(isUser ? 4 : 16),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    message.text,
-                    style: TextStyle(
-                      color: isUser
-                          ? ocTheme.selectedListItemText
-                          : ocTheme.text,
-                      fontSize: 15,
-                      height: 1.4,
-                    ),
-                  ),
-                  if (isStreaming) ...[
-                    SizedBox(height: Spacing.xs),
-                    SizedBox(
-                      width: 12,
-                      height: 12,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: ocTheme.textMuted,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          // Tool calls
-          if (message.toolCalls.isNotEmpty) ...[
-            SizedBox(height: Spacing.sm),
-            ...message.toolCalls.map((tool) => _CCToolCallCard(tool: tool)),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-/// Tool call card for CC chat
-class _CCToolCallCard extends StatelessWidget {
-  const _CCToolCallCard({required this.tool});
-  final CCToolCall tool;
-  @override
-  Widget build(BuildContext context) {
-    final ocTheme = OpenCodeTheme.of(context);
-    final isRunning = tool.status == 'running';
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: Insets.cardXs,
-      decoration: BoxDecoration(
-        color: ocTheme.backgroundElement,
-        borderRadius: Radii.brMd,
-        border: Border.all(color: ocTheme.borderSubtle),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: isRunning
-                  ? ocTheme.info.withValues(alpha: 0.15)
-                  : ocTheme.success.withValues(alpha: 0.15),
-              borderRadius: Radii.brSm,
-            ),
-            child: Center(
-              child: isRunning
-                  ? SizedBox(
-                      width: 12,
-                      height: 12,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: ocTheme.info,
-                      ),
-                    )
-                  : Icon(AppIcons.check, size: 14, color: ocTheme.success),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  tool.tool,
-                  style: TextStyle(
-                    color: ocTheme.text,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (tool.input != null) ...[
-                  SizedBox(height: Spacing.xxs),
-                  Text(
-                    _formatInput(tool.input),
-                    style: AppTypography.codeSmall(color: ocTheme.textMuted),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatInput(dynamic input) {
-    if (input == null) return '';
-    if (input is String) return input;
-    if (input is Map) {
-      // Show first key-value or command
-      if (input.containsKey('command')) return input['command'].toString();
-      if (input.containsKey('path')) return input['path'].toString();
-      if (input.containsKey('file_path')) return input['file_path'].toString();
-      return input.entries.first.value.toString();
-    }
-    return input.toString();
-  }
-}
-
-/// Empty state for CC chat
-class _CCChatEmptyState extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final ocTheme = OpenCodeTheme.of(context);
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            AppIcons.chatBubble,
-            size: 48,
-            color: ocTheme.textMuted.withValues(alpha: 0.5),
-          ),
-          SizedBox(height: Spacing.lg),
-          Text(
-            'Start a conversation',
-            style: TextStyle(
-              color: ocTheme.textMuted,
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          SizedBox(height: Spacing.xs),
-          Text(
-            'Send a message to begin',
-            style: TextStyle(
-              color: ocTheme.textMuted.withValues(alpha: 0.7),
-              fontSize: 14,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Input bar for CC chat
-class _CCInputBar extends StatelessWidget {
-  const _CCInputBar({
-    required this.controller,
-    required this.focusNode,
-    required this.isStreaming,
-    required this.onSend,
-    required this.onAbort,
-  });
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final bool isStreaming;
-  final VoidCallback onSend;
-  final VoidCallback onAbort;
-  @override
-  Widget build(BuildContext context) {
-    final ocTheme = OpenCodeTheme.of(context);
-    final bottomPadding = MediaQuery.of(context).viewInsets.bottom;
-    return Container(
-      padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomPadding),
-      decoration: BoxDecoration(
-        color: ocTheme.backgroundPanel,
-        border: Border(top: BorderSide(color: ocTheme.borderSubtle)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Row(
-          children: [
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: ocTheme.backgroundElement,
-                  borderRadius: Radii.brXxl,
-                  border: Border.all(color: ocTheme.borderSubtle),
-                ),
-                child: TextField(
-                  controller: controller,
-                  focusNode: focusNode,
-                  enabled: !isStreaming,
-                  maxLines: 5,
-                  minLines: 1,
-                  textInputAction: TextInputAction.send,
-                  onSubmitted: (_) => onSend(),
-                  style: TextStyle(color: ocTheme.text, fontSize: 15),
-                  decoration: InputDecoration(
-                    hintText: isStreaming
-                        ? 'Claude is thinking...'
-                        : 'Message Claude Code',
-                    hintStyle: TextStyle(color: ocTheme.textMuted),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    border: InputBorder.none,
-                  ),
-                ),
-              ),
-            ),
-            SizedBox(width: Spacing.sm),
-            // Send or Abort button
-            GestureDetector(
-              onTap: isStreaming ? onAbort : onSend,
-              child: Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: isStreaming ? ocTheme.error : ocTheme.primary,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  isStreaming ? AppIcons.stop : AppIcons.arrowUp,
-                  color: ocTheme.selectedListItemText,
-                  size: 22,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 // ============================================================================
 // PI SESSIONS VIEW

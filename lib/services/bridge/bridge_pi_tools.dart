@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import '../../models/pi.dart';
-import '../pi_bridge_service.dart';
+import 'package:broski/models/pi.dart';
+import 'package:broski/services/pi_bridge_service.dart';
 
 /// Pi tool management, model capabilities, granular abort, and queue
 /// methods. Extension on PiBridgeService — keeps the base service lean.

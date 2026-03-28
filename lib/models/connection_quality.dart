@@ -1,8 +1,8 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/opencode_theme.dart';
+import 'package:flutter/material.dart';
 
 enum ConnectionType { local, hotspot, tailscale, magicDNS, unknown }
 

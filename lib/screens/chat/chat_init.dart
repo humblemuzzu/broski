@@ -1,0 +1,183 @@
+import 'dart:async';
+
+import 'package:broski/models/agent.dart';
+import 'package:broski/models/claude_code.dart';
+import 'package:broski/models/pi.dart';
+import 'package:broski/models/project.dart';
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/claude_code_provider.dart';
+import 'package:broski/providers/pi_provider.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/chat_screen.dart';
+import 'package:broski/screens/pi/pi_extension_ui_request_handler.dart';
+import 'package:broski/services/bridge_service.dart';
+import 'package:broski/widgets/power_sheet.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+/// Sets the active view on the bridge for the current agent backend.
+/// Used both during initial setup and after reconnection.
+///
+/// Extracted from `_ChatScreenState.initState` in `chat_screen.dart`.
+void setViewForAgent({
+  required BridgeService bridge,
+  required ChatScreen widget,
+}) {
+  if (widget.isOpenCode) {
+    bridge.setView(
+      projectPath: widget.project.path,
+      sessionId: widget.session.id,
+      agent: 'opencode',
+    );
+  } else if (widget.isClaudeCode) {
+    final sessionId = widget.ccSession?.id ?? '';
+    if (sessionId.isNotEmpty) {
+      bridge.setView(sessionId: sessionId, agent: 'claude-code');
+    }
+  } else if (widget.isCodex) {
+    final threadId = widget.cxThread?.id ?? '';
+    if (threadId.isNotEmpty) {
+      bridge.setView(sessionId: threadId, agent: 'codex');
+    }
+  } else if (widget.isPi) {
+    final sessionId = widget.piSession?.id ?? '';
+    if (sessionId.isNotEmpty) {
+      bridge.setView(sessionId: sessionId, agent: 'pi');
+    }
+  }
+}
+
+/// Sets up initial project context and view routing in the first post-frame
+/// callback. Also sets [piPowerMenuCallback] for Pi sessions.
+///
+/// Extracted from `_ChatScreenState.initState` in `chat_screen.dart`.
+void setupInitialProjectContext({
+  required WidgetRef ref,
+  required BridgeService bridge,
+  required ChatScreen widget,
+  required void Function(String)? piMenuAction,
+}) {
+  final selection = ref.read(selectionProvider.notifier);
+  final initialProject = widget.isOpenCode
+      ? widget.project
+      : ProjectSummary(
+          id: '',
+          name: widget.projectName,
+          path: widget.effectivePath,
+        );
+  selection.selectProject(initialProject);
+  if (widget.isOpenCode && widget.session.id.isNotEmpty) {
+    selection.selectSession(widget.session);
+  }
+  setViewForAgent(bridge: bridge, widget: widget);
+  if (widget.isPi) {
+    piPowerMenuCallback = piMenuAction;
+  }
+}
+
+/// Result from setting up Claude Code subscriptions.
+class ClaudeCodeSubscriptions {
+  final ProviderSubscription<AsyncValue<ClaudeCodeConfig>>? configSub;
+  final ProviderSubscription<bool>? queueSub;
+  const ClaudeCodeSubscriptions({this.configSub, this.queueSub});
+}
+
+/// Sets up Claude Code-specific subscriptions: config preloading, subagent
+/// sync into the @-mention autocomplete list, and queue auto-send on turn end.
+///
+/// Returns subscriptions that must be closed in `dispose()`.
+///
+/// Extracted from `_ChatScreenState.initState` in `chat_screen.dart`.
+ClaudeCodeSubscriptions setupClaudeCodeSubscriptions({
+  required WidgetRef ref,
+  required ChatScreen widget,
+  required void Function(List<Agent>) onSubagentsChanged,
+  required void Function() onQueueTurnComplete,
+}) {
+  ref.read(ccConfigProvider.notifier).load();
+  ref.read(ccCustomToolsProvider.notifier).load();
+  ref.read(ccPluginsProvider.notifier).load(cwd: widget.effectivePath);
+
+  final configSub = ref.listenManual(ccConfigProvider, (previous, next) {
+    final cfg = next.valueOrNull;
+    if (cfg == null) return;
+    final subagentAgents = cfg.subagents
+        .where((s) => s.name.isNotEmpty)
+        .map(
+          (s) => Agent(
+            name: s.name,
+            description: s.description,
+            mode: AgentMode.subagent,
+          ),
+        )
+        .toList();
+    onSubagentsChanged(subagentAgents);
+  });
+
+  final queueSub = ref.listenManual(
+    chatSessionProvider.select((s) => s.ccIsStreaming),
+    (previous, next) {
+      if (previous == true && next == false) {
+        onQueueTurnComplete();
+      }
+    },
+  );
+
+  return ClaudeCodeSubscriptions(configSub: configSub, queueSub: queueSub);
+}
+
+/// Sets up token usage listeners that refresh the header context pill
+/// when CC or CX turn token counts change.
+///
+/// Extracted from `_ChatScreenState.initState` in `chat_screen.dart`.
+void setupTokenUsageListeners({
+  required WidgetRef ref,
+  required ChatScreen widget,
+  required void Function() onTokenUsageChanged,
+}) {
+  if (widget.isClaudeCode) {
+    ref.listenManual(
+      chatSessionProvider.select((s) => s.ccTokenUsage),
+      (_, __) => onTokenUsageChanged(),
+    );
+  } else if (widget.isCodex) {
+    ref.listenManual(
+      chatSessionProvider.select((s) => s.cxTokenUsage),
+      (_, __) => onTokenUsageChanged(),
+    );
+  }
+}
+
+/// Sets up the Pi extension UI stream listener that relays dialog/confirm/
+/// select prompts from the bridge to the Flutter UI.
+///
+/// Returns the subscription (must be cancelled in `dispose()`), or `null`
+/// if the current session is not a Pi session.
+///
+/// Extracted from `_ChatScreenState.initState` in `chat_screen.dart`.
+StreamSubscription<PiStreamMessage>? setupPiExtensionUiListener({
+  required WidgetRef ref,
+  required BuildContext context,
+  required ChatScreen widget,
+  required TextEditingController composerController,
+  required bool Function() isMounted,
+  required void Function() onAgentEnd,
+}) {
+  if (!widget.isPi) return null;
+  final piBridge = ref.read(piBridgeServiceProvider);
+  return piBridge.streamMessages.listen((message) {
+    if (!isMounted()) return;
+    if (message.type == 'extension-ui-request') {
+      handlePiExtensionUiRequest(
+        context: context,
+        bridge: piBridge,
+        request: message,
+        projectPath: widget.piSession?.cwd ?? widget.piDraftCwd,
+        composerController: composerController,
+      );
+    } else if (message.type == 'agent-end') {
+      onAgentEnd();
+    }
+  });
+}

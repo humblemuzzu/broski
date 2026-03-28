@@ -1,8 +1,7 @@
 import 'dart:io';
 
+import 'package:broski/config/app_config.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
-
-import '../config/app_config.dart';
 
 class PurchaseService {
   bool _configured = false;
@@ -72,7 +71,7 @@ class PurchaseService {
   Future<CustomerInfo> restorePurchases() => Purchases.restorePurchases();
 
   bool isEntitled(CustomerInfo info) {
-    final key = AppConfig.revenueCatEntitlementId;
+    const key = AppConfig.revenueCatEntitlementId;
     return info.entitlements.active.containsKey(key);
   }
 }

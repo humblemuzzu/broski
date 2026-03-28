@@ -1,9 +1,8 @@
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../providers/service_providers.dart';
-import '../../utils/error_utils.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Shows a dialog to run a shell command in the context of the current
 /// OpenCode session. The agent sees the output and can respond to it.

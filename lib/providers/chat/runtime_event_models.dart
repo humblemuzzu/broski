@@ -1,4 +1,4 @@
-import '../../models/agent_type.dart';
+import 'package:broski/models/agent_type.dart';
 
 class RuntimeShadowToolState {
   const RuntimeShadowToolState({

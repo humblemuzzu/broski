@@ -1,10 +1,9 @@
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:csv/csv.dart';
 import 'package:flutter/material.dart';
-import '../../theme/app_typography.dart';
-
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import 'package:broski/theme/app_icons.dart';
 
 class CsvFileViewer extends StatefulWidget {
   const CsvFileViewer({
@@ -41,7 +40,7 @@ class _CsvFileViewerState extends State<CsvFileViewer> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(AppIcons.table, size: 64, color: theme.textMuted),
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.lg),
             Text('Empty CSV file', style: TextStyle(color: theme.textMuted)),
           ],
         ),
@@ -61,7 +60,7 @@ class _CsvFileViewerState extends State<CsvFileViewer> {
             child: Row(
               children: [
                 Icon(AppIcons.table, size: 16, color: theme.textMuted),
-                SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.sm),
                 Text(
                   '${_rows.length} rows × ${_rows.isNotEmpty ? _rows.first.length : 0} columns',
                   style: AppTypography.label(color: theme.textMuted),
@@ -74,7 +73,7 @@ class _CsvFileViewerState extends State<CsvFileViewer> {
                       'Header row',
                       style: AppTypography.label(color: theme.textMuted),
                     ),
-                    SizedBox(width: Spacing.sm),
+                    const SizedBox(width: Spacing.sm),
                     Switch(
                       value: _hasHeader,
                       onChanged: (value) => setState(() => _hasHeader = value),

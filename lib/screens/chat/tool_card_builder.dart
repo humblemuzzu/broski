@@ -1,14 +1,13 @@
+import 'package:broski/models/message.dart';
+import 'package:broski/models/todo.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/chat/compact_agent_card.dart';
+import 'package:broski/widgets/chat/compact_edit_card.dart';
+import 'package:broski/widgets/chat/compact_todos_card.dart';
+import 'package:broski/widgets/chat/compact_tool_card.dart';
+import 'package:broski/widgets/chat/compact_write_card.dart';
+import 'package:broski/widgets/chat/message_helpers.dart';
 import 'package:flutter/material.dart';
-
-import '../../models/message.dart';
-import '../../models/todo.dart';
-import '../../theme/opencode_theme.dart';
-import '../../widgets/chat/compact_agent_card.dart';
-import '../../widgets/chat/compact_edit_card.dart';
-import '../../widgets/chat/compact_tool_card.dart';
-import '../../widgets/chat/compact_todos_card.dart';
-import '../../widgets/chat/compact_write_card.dart';
-import '../../widgets/chat/message_helpers.dart';
 
 /// Builds the appropriate compact card for a tool call.
 /// Extracted from `_ChatScreenState._buildToolCard`.

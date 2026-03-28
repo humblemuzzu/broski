@@ -1,7 +1,6 @@
+import 'package:broski/models/highlight_color.dart';
+import 'package:broski/providers/service_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/highlight_color.dart';
-import 'service_providers.dart';
 
 /// State for highlighted items (projects and sessions)
 class HighlightsState {

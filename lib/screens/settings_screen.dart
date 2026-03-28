@@ -1,56 +1,53 @@
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/models/project.dart';
+import 'package:broski/providers/agent_type_provider.dart';
+import 'package:broski/providers/app_auth_provider.dart';
+import 'package:broski/providers/app_info_provider.dart';
+import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/onboarding_provider.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/providers/theme_provider.dart';
+import 'package:broski/screens/account_screen.dart';
+import 'package:broski/screens/ai_backend_screen.dart';
+import 'package:broski/screens/claude_code_commands_screen.dart';
+import 'package:broski/screens/claude_code_mcp_screen.dart';
+import 'package:broski/screens/claude_code_settings_screen.dart';
+import 'package:broski/screens/codex_agents_screen.dart';
+import 'package:broski/screens/codex_mcp_screen.dart';
+import 'package:broski/screens/custom_tools_screen.dart';
+import 'package:broski/screens/customization_screen.dart';
+import 'package:broski/screens/device_manager_screen.dart';
+import 'package:broski/screens/hooks_screen.dart';
+import 'package:broski/screens/mcp_servers_screen.dart';
+import 'package:broski/screens/opencode_agents_screen.dart';
+import 'package:broski/screens/opencode_commands_screen.dart';
+import 'package:broski/screens/opencode_global_config_screen.dart';
+import 'package:broski/screens/opencode_plugins_screen.dart';
+import 'package:broski/screens/permission_rules_screen.dart';
+import 'package:broski/screens/plugins_screen.dart';
+import 'package:broski/screens/scan_screen.dart';
+import 'package:broski/screens/sheets/cx_apps_sheet.dart';
+import 'package:broski/screens/sheets/git_panel_sheet.dart';
+import 'package:broski/screens/skills_screen.dart';
+import 'package:broski/screens/subagents_screen.dart';
+import 'package:broski/screens/subscription_usage_screen.dart';
+import 'package:broski/screens/terminal_screen.dart';
+import 'package:broski/screens/tools_screen.dart';
+import 'package:broski/screens/voice_settings_screen.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/adaptive_container.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
+import 'package:broski/widgets/connection_quality_indicator.dart';
+import 'package:broski/widgets/upgrade_overlay.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
-
-import '../models/agent_type.dart';
-import '../models/project.dart';
-import '../providers/agent_type_provider.dart';
-import '../providers/app_info_provider.dart';
-import '../providers/app_auth_provider.dart';
-import '../widgets/upgrade_overlay.dart';
-import '../providers/connection_provider.dart';
-import '../providers/onboarding_provider.dart';
-import '../providers/selection_provider.dart';
-import '../providers/service_providers.dart';
-import '../providers/theme_provider.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import '../widgets/chat/detail_sheet.dart';
-import '../widgets/connection_quality_indicator.dart';
-import 'account_screen.dart';
-import 'ai_backend_screen.dart';
-import 'customization_screen.dart';
-import 'device_manager_screen.dart';
-import 'mcp_servers_screen.dart';
-
-import 'sheets/cx_apps_sheet.dart';
-import 'sheets/git_panel_sheet.dart';
-import 'subscription_usage_screen.dart';
-import 'subagents_screen.dart';
-import 'terminal_screen.dart';
-import 'tools_screen.dart';
-import 'custom_tools_screen.dart';
-import 'plugins_screen.dart';
-import 'skills_screen.dart';
-import 'hooks_screen.dart';
-import 'opencode_plugins_screen.dart';
-import 'claude_code_mcp_screen.dart';
-import 'codex_mcp_screen.dart';
-import 'claude_code_commands_screen.dart';
-import 'claude_code_settings_screen.dart';
-import 'opencode_agents_screen.dart';
-import 'opencode_commands_screen.dart';
-import 'opencode_global_config_screen.dart';
-import 'permission_rules_screen.dart';
-import 'codex_agents_screen.dart';
-
-import 'scan_screen.dart';
-import 'voice_settings_screen.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
-import 'package:broski/theme/app_icons.dart';
-import '../utils/error_utils.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -95,7 +92,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               const SliverToBoxAdapter(child: SubscribeBanner()),
               const SliverToBoxAdapter(child: _SectionDivider()),
               const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxl)),
-              SliverToBoxAdapter(child: SectionHeader(title: 'Connection')),
+              const SliverToBoxAdapter(
+                child: _SectionHeader(title: 'Connection'),
+              ),
               const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
               if (connection.connection != null && connection.isConnected) ...[
                 SliverToBoxAdapter(
@@ -126,7 +125,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                 ),
               const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
-              SliverToBoxAdapter(child: SectionHeader(title: 'AI')),
+              const SliverToBoxAdapter(child: _SectionHeader(title: 'AI')),
               const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
               SliverToBoxAdapter(
                 child: Padding(
@@ -166,7 +165,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                   ),
                                 ),
                               ),
-                              SizedBox(width: Spacing.sm),
+                              const SizedBox(width: Spacing.sm),
                               Icon(
                                 AppIcons.chevronRight,
                                 size: 20,
@@ -183,7 +182,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             ),
                           ),
                         ),
-                        _Divider(),
+                        const _Divider(),
                         _PowerFeaturesTile(
                           currentAgent: currentAgent,
                           isExpanded: _powerFeaturesExpanded,
@@ -213,7 +212,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
-              SliverToBoxAdapter(child: SectionHeader(title: 'Project')),
+              const SliverToBoxAdapter(child: _SectionHeader(title: 'Project')),
               const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
               SliverToBoxAdapter(
                 child: Padding(
@@ -267,7 +266,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 .selectProject(picked);
                           },
                         ),
-                        _Divider(),
+                        const _Divider(),
                         _SettingsTile(
                           title: 'Git & GitHub',
                           subtitle: selection.project == null
@@ -293,8 +292,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
-              SliverToBoxAdapter(
-                child: SectionHeader(title: 'Personalization'),
+              const SliverToBoxAdapter(
+                child: _SectionHeader(title: 'Personalization'),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
               SliverToBoxAdapter(
@@ -324,7 +323,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                   ),
                                 ),
                               ),
-                              SizedBox(width: Spacing.sm),
+                              const SizedBox(width: Spacing.sm),
                               Icon(
                                 AppIcons.chevronRight,
                                 size: 20,
@@ -341,7 +340,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             ),
                           ),
                         ),
-                        _Divider(),
+                        const _Divider(),
                         _SettingsTile(
                           title: 'Voice Input',
                           subtitle: 'Speech-to-text settings',
@@ -360,7 +359,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               // ── Account ─────────────────────────────────────────
               const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
-              SliverToBoxAdapter(child: SectionHeader(title: 'Account')),
+              const SliverToBoxAdapter(child: _SectionHeader(title: 'Account')),
               const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
               SliverToBoxAdapter(
                 child: Padding(
@@ -387,7 +386,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 shape: BoxShape.circle,
                               ),
                             ),
-                          SizedBox(width: Spacing.sm),
+                          const SizedBox(width: Spacing.sm),
                           Icon(
                             AppIcons.chevronRight,
                             size: 20,
@@ -409,7 +408,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               // ── App ───────────────────────────────────────────────
               const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
-              SliverToBoxAdapter(child: SectionHeader(title: 'App')),
+              const SliverToBoxAdapter(child: _SectionHeader(title: 'App')),
               const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
               SliverToBoxAdapter(
                 child: Padding(
@@ -423,7 +422,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           icon: AppIcons.delete,
                           onTap: () => _showClearCacheDialog(context, ref),
                         ),
-                        _Divider(),
+                        const _Divider(),
                         _SettingsTile(
                           title: 'Replay Onboarding',
                           subtitle: 'Re-run the first-launch setup',
@@ -437,7 +436,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               // ── Support ──────────────────────────────────────────
               const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
-              SliverToBoxAdapter(child: SectionHeader(title: 'Support')),
+              const SliverToBoxAdapter(child: _SectionHeader(title: 'Support')),
               const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
               SliverToBoxAdapter(
                 child: Padding(
@@ -454,7 +453,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             mode: LaunchMode.externalApplication,
                           ),
                         ),
-                        _Divider(),
+                        const _Divider(),
                         _SettingsTile(
                           title: 'Contact Support',
                           subtitle: 'broskiappp@gmail.com',
@@ -470,7 +469,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               // ── Legal ────────────────────────────────────────────
               const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxl)),
-              SliverToBoxAdapter(child: SectionHeader(title: 'Legal')),
+              const SliverToBoxAdapter(child: _SectionHeader(title: 'Legal')),
               const SliverToBoxAdapter(child: SizedBox(height: 10)),
               SliverToBoxAdapter(
                 child: Padding(
@@ -483,7 +482,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         color: ocTheme.borderSubtle.withValues(alpha: 0.3),
                       ),
                     ),
-                    child: Column(
+                    child: const Column(
                       children: [
                         _LinkTile(
                           title: 'Privacy Policy',
@@ -615,7 +614,7 @@ class _PowerFeaturesTile extends StatelessWidget {
         child: Row(
           children: [
             Icon(AppIcons.bolt, color: theme.colorScheme.primary, size: 22),
-            SizedBox(width: Spacing.md),
+            const SizedBox(width: Spacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -630,7 +629,7 @@ class _PowerFeaturesTile extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      SizedBox(width: Spacing.sm),
+                      const SizedBox(width: Spacing.sm),
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 6,
@@ -711,7 +710,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
               ),
             ),
           ),
-          _Divider(),
+          const _Divider(),
           _SettingsTile(
             title: 'Terminal Sessions',
             subtitle: 'PTY terminal sessions',
@@ -721,7 +720,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const TerminalScreen()),
             ),
           ),
-          _Divider(),
+          const _Divider(),
           _SettingsTile(
             title: 'Skills',
             subtitle: 'SKILL.md management',
@@ -733,7 +732,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
               ),
             ),
           ),
-          _Divider(),
+          const _Divider(),
           _SettingsTile(
             title: 'Commands',
             subtitle: '.opencode/command/*.md',
@@ -743,7 +742,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const OpenCodeCommandsScreen()),
             ),
           ),
-          _Divider(),
+          const _Divider(),
           _SettingsTile(
             title: 'Agents',
             subtitle: '.opencode/agent/*.md',
@@ -753,7 +752,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const OpenCodeAgentsScreen()),
             ),
           ),
-          _Divider(),
+          const _Divider(),
           _SettingsTile(
             title: 'Plugins',
             subtitle: '.opencode/plugin hooks',
@@ -763,7 +762,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const OpenCodePluginsScreen()),
             ),
           ),
-          _Divider(),
+          const _Divider(),
           _SettingsTile(
             title: 'MCP Servers',
             subtitle: 'Model Context Protocol',
@@ -773,7 +772,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const McpServersScreen()),
             ),
           ),
-          _Divider(),
+          const _Divider(),
           _SettingsTile(
             title: 'Tools',
             subtitle: 'AI tools configuration',
@@ -783,7 +782,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const ToolsScreen()),
             ),
           ),
-          _Divider(),
+          const _Divider(),
           _SettingsTile(
             title: 'Permission Rules',
             subtitle: 'Default session permissions',
@@ -793,7 +792,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const PermissionRulesScreen()),
             ),
           ),
-          _Divider(),
+          const _Divider(),
           _SettingsTile(
             title: 'Global Configuration',
             subtitle: 'Settings across all projects',
@@ -819,7 +818,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
               ),
             ),
           ),
-          _Divider(),
+          const _Divider(),
           _SettingsTile(
             title: 'Terminal Sessions',
             subtitle: 'PTY terminal sessions',
@@ -829,7 +828,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const TerminalScreen()),
             ),
           ),
-          _Divider(),
+          const _Divider(),
           _SettingsTile(
             title: 'Settings',
             subtitle: 'Language, gitignore, channel',
@@ -841,7 +840,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
               ),
             ),
           ),
-          _Divider(),
+          const _Divider(),
           _SettingsTile(
             title: 'Skills',
             subtitle: 'SKILL.md management',
@@ -854,7 +853,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
               ),
             ),
           ),
-          _Divider(),
+          const _Divider(),
           _SettingsTile(
             title: 'Commands',
             subtitle: '.claude/commands/*.md',
@@ -866,7 +865,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
               ),
             ),
           ),
-          _Divider(),
+          const _Divider(),
           _SettingsTile(
             title: 'Hooks',
             subtitle: 'hooks.json management',
@@ -876,7 +875,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const HooksScreen()),
             ),
           ),
-          _Divider(),
+          const _Divider(),
           _SettingsTile(
             title: 'MCP',
             subtitle: '.mcp.json configuration',
@@ -886,7 +885,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const ClaudeCodeMcpScreen()),
             ),
           ),
-          _Divider(),
+          const _Divider(),
           _SettingsTile(
             title: 'Subagents',
             subtitle: 'Custom subagent definitions',
@@ -896,7 +895,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const SubagentsScreen()),
             ),
           ),
-          _Divider(),
+          const _Divider(),
           _SettingsTile(
             title: 'Custom Tools',
             subtitle: 'HTTP APIs, scripts, and more',
@@ -906,7 +905,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const CustomToolsScreen()),
             ),
           ),
-          _Divider(),
+          const _Divider(),
           _SettingsTile(
             title: 'Plugins',
             subtitle: 'Commands, skills, hooks, MCP',
@@ -930,7 +929,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
               ),
             ),
           ),
-          _Divider(),
+          const _Divider(),
           _SettingsTile(
             title: 'Terminal Sessions',
             subtitle: 'PTY terminal sessions',
@@ -940,7 +939,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const TerminalScreen()),
             ),
           ),
-          _Divider(),
+          const _Divider(),
           _SettingsTile(
             title: 'Skills',
             subtitle: 'SKILL.md management',
@@ -952,7 +951,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
               ),
             ),
           ),
-          _Divider(),
+          const _Divider(),
           _SettingsTile(
             title: 'Agents',
             subtitle: 'AGENTS.md',
@@ -962,7 +961,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const CodexAgentsScreen()),
             ),
           ),
-          _Divider(),
+          const _Divider(),
           _SettingsTile(
             title: 'MCP',
             subtitle: 'Servers and config',
@@ -972,7 +971,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const CodexMcpScreen()),
             ),
           ),
-          _Divider(),
+          const _Divider(),
           _SettingsTile(
             title: 'Apps',
             subtitle: 'Connectors & integrations',
@@ -993,7 +992,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
               ),
             ),
           ),
-          _Divider(),
+          const _Divider(),
           _SettingsTile(
             title: 'Terminal Sessions',
             subtitle: 'PTY terminal sessions',
@@ -1003,7 +1002,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const TerminalScreen()),
             ),
           ),
-          _Divider(),
+          const _Divider(),
 
           _SettingsTile(
             title: 'Skills',
@@ -1016,7 +1015,7 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
               ),
             ),
           ),
-          _Divider(),
+          const _Divider(),
           _SettingsTile(
             title: 'Agent Backends',
             subtitle: 'Switch default backend',
@@ -1051,8 +1050,8 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
   }
 }
 
-class SectionHeader extends StatelessWidget {
-  const SectionHeader({super.key, required this.title});
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title});
   final String title;
   @override
   Widget build(BuildContext context) {
@@ -1280,7 +1279,7 @@ class _ActiveConnectionCardState extends ConsumerState<_ActiveConnectionCard> {
                     size: 28,
                   ),
                 ),
-                SizedBox(width: Spacing.lg),
+                const SizedBox(width: Spacing.lg),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1293,7 +1292,7 @@ class _ActiveConnectionCardState extends ConsumerState<_ActiveConnectionCard> {
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      SizedBox(height: Spacing.xs),
+                      const SizedBox(height: Spacing.xs),
                       const ConnectionQualityIndicator(),
                     ],
                   ),
@@ -1312,7 +1311,7 @@ class _ActiveConnectionCardState extends ConsumerState<_ActiveConnectionCard> {
             if (_isExpanded &&
                 isConnected &&
                 connection.connection != null) ...[
-              SizedBox(height: Spacing.xl),
+              const SizedBox(height: Spacing.xl),
               // Connection details
               Container(
                 padding: Insets.card,
@@ -1349,14 +1348,14 @@ class _ActiveConnectionCardState extends ConsumerState<_ActiveConnectionCard> {
                     ),
                     if (connection.connection!.tailscaleIP != null ||
                         connection.rttMs != null) ...[
-                      SizedBox(height: Spacing.lg),
+                      const SizedBox(height: Spacing.lg),
                       Divider(
                         height: 1,
                         color: theme.colorScheme.onSurface.withValues(
                           alpha: 0.1,
                         ),
                       ),
-                      SizedBox(height: Spacing.lg),
+                      const SizedBox(height: Spacing.lg),
                       Row(
                         children: [
                           if (connection.connection!.tailscaleIP != null)
@@ -1391,7 +1390,7 @@ class _ActiveConnectionCardState extends ConsumerState<_ActiveConnectionCard> {
                 ),
               ),
               // Connection actions
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               Row(
                 children: [
                   Expanded(
@@ -1457,7 +1456,7 @@ class _ConnectionActionButton extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, size: 16, color: color),
-            SizedBox(width: Spacing.sm),
+            const SizedBox(width: Spacing.sm),
             Text(
               label,
               style: TextStyle(
@@ -1488,7 +1487,7 @@ class _ConnectionStat extends StatelessWidget {
     return Column(
       children: [
         Icon(icon, color: theme.colorScheme.primary, size: 18),
-        SizedBox(height: Spacing.sm),
+        const SizedBox(height: Spacing.sm),
         Text(
           label,
           style: TextStyle(
@@ -1498,7 +1497,7 @@ class _ConnectionStat extends StatelessWidget {
             letterSpacing: 0.5,
           ),
         ),
-        SizedBox(height: Spacing.xs),
+        const SizedBox(height: Spacing.xs),
         Text(
           value,
           style: TextStyle(
@@ -1558,7 +1557,7 @@ class _SettingsTile extends StatelessWidget {
         child: Row(
           children: [
             Icon(icon, color: theme.colorScheme.primary, size: 22),
-            SizedBox(width: Spacing.md),
+            const SizedBox(width: Spacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1616,7 +1615,7 @@ class _LinkTile extends StatelessWidget {
               color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
               size: 22,
             ),
-            SizedBox(width: Spacing.md),
+            const SizedBox(width: Spacing.md),
             Expanded(
               child: Text(
                 title,

@@ -1,14 +1,13 @@
+import 'package:broski/providers/opencode_variant_provider.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/widgets/provider_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../providers/opencode_variant_provider.dart';
-import '../../providers/selection_provider.dart';
-import '../../providers/service_providers.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../utils/error_utils.dart';
-import '../../widgets/provider_icon.dart';
 
 /// Model selector content for the chat screen. Extracted from chat_screen.dart.
 class ModelSelectorContent extends ConsumerStatefulWidget {
@@ -116,7 +115,7 @@ class _ModelSelectorContentState extends ConsumerState<ModelSelectorContent> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(height: Spacing.sm),
+        const SizedBox(height: Spacing.sm),
         if (_currentModel != null)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -139,7 +138,7 @@ class _ModelSelectorContentState extends ConsumerState<ModelSelectorContent> {
               padding: Insets.screenH,
               child: _buildProviderSection(provider as Map<String, dynamic>),
             ),
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.lg),
           ],
       ],
     );
@@ -230,7 +229,7 @@ class _ModelSelectorContentState extends ConsumerState<ModelSelectorContent> {
         Row(
           children: [
             ProviderIcon(providerId: id, size: 22),
-            SizedBox(width: Spacing.sm),
+            const SizedBox(width: Spacing.sm),
             Text(
               name,
               style: TextStyle(
@@ -241,7 +240,7 @@ class _ModelSelectorContentState extends ConsumerState<ModelSelectorContent> {
             ),
           ],
         ),
-        SizedBox(height: Spacing.sm),
+        const SizedBox(height: Spacing.sm),
         for (final entry in models.entries)
           ListTile(
             dense: true,

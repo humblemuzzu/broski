@@ -1,7 +1,6 @@
+import 'package:broski/models/permission_rule.dart';
+import 'package:broski/services/storage_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/permission_rule.dart';
-import '../services/storage_service.dart';
 
 class PermissionRulesState {
   const PermissionRulesState({

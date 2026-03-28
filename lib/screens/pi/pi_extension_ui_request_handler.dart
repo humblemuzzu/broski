@@ -1,11 +1,11 @@
+import 'package:broski/models/pi.dart';
+import 'package:broski/services/pi_bridge_service.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
-
-import '../../models/pi.dart';
-import '../../services/pi_bridge_service.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../widgets/chat/detail_sheet.dart';
 
 Future<void> handlePiExtensionUiRequest({
   required BuildContext context,
@@ -64,13 +64,7 @@ Future<void> handlePiExtensionUiRequest({
   if (method == 'notify') {
     final message = request.raw['message'] as String?;
     if (message != null && context.mounted) {
-      final theme = OpenCodeTheme.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message, style: TextStyle(color: theme.text)),
-          backgroundColor: theme.backgroundPanel,
-        ),
-      );
+      showInfo(context, message);
     }
     return;
   }

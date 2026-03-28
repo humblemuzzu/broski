@@ -1,11 +1,10 @@
+import 'package:broski/models/connection_quality.dart';
+import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/connection_quality.dart';
-import '../providers/connection_provider.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import 'package:broski/theme/app_icons.dart';
 
 class ConnectionQualityIndicator extends ConsumerWidget {
   const ConnectionQualityIndicator({super.key, this.compact = false});
@@ -47,7 +46,7 @@ class ConnectionQualityIndicator extends ConsumerWidget {
           ),
           const SizedBox(width: 6),
           Icon(metrics.typeIcon, size: 14, color: theme.textMuted),
-          SizedBox(width: Spacing.xs),
+          const SizedBox(width: Spacing.xs),
           Text(
             '${metrics.rttMs}ms',
             style: TextStyle(
@@ -73,7 +72,7 @@ class ConnectionQualityIndicator extends ConsumerWidget {
           color: metrics.resolveQualityColor(theme),
           height: 12,
         ),
-        SizedBox(width: Spacing.xs),
+        const SizedBox(width: Spacing.xs),
         Text(
           '${metrics.rttMs}ms',
           style: TextStyle(
@@ -98,7 +97,7 @@ class ConnectionQualityIndicator extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(AppIcons.signalOff, size: 14, color: theme.error),
-          SizedBox(width: Spacing.xs),
+          const SizedBox(width: Spacing.xs),
           Text(
             'Disconnected',
             style: TextStyle(
@@ -187,7 +186,7 @@ class ConnectionTypeBadge extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 12, color: theme.textMuted),
-          SizedBox(width: Spacing.xs),
+          const SizedBox(width: Spacing.xs),
           Text(
             '$label • ${rttMs}ms',
             style: TextStyle(

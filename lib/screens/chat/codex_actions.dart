@@ -1,14 +1,13 @@
+import 'package:broski/models/codex.dart';
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/codex_settings_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/sheets/cx_remote_skills_sheet.dart';
+import 'package:broski/screens/sheets/cx_skills_sheet_content.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/codex.dart';
-import '../../providers/chat_provider.dart';
-import '../../providers/codex_settings_provider.dart';
-import '../../providers/service_providers.dart';
-import '../../theme/opencode_theme.dart';
-import '../../widgets/chat/detail_sheet.dart';
-import '../sheets/cx_remote_skills_sheet.dart';
-import '../sheets/cx_skills_sheet_content.dart';
 
 /// Start a Codex review on uncommitted changes.
 /// Extracted from `_ChatScreenState._startCodexReview`.

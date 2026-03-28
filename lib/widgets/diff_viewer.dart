@@ -1,11 +1,11 @@
-import 'package:flutter/material.dart';
-import '../models/message.dart';
-import '../theme/app_typography.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import '../utils/diff_utils.dart';
-import 'diff_status_badge.dart';
+import 'package:broski/models/message.dart';
 import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/diff_utils.dart';
+import 'package:broski/widgets/diff_status_badge.dart';
+import 'package:flutter/material.dart';
 
 class DiffViewer extends StatefulWidget {
   const DiffViewer({
@@ -77,7 +77,7 @@ class _DiffViewerState extends State<DiffViewer> {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      SizedBox(width: Spacing.sm),
+                      const SizedBox(width: Spacing.sm),
                       if (widget.diff.status != null &&
                           widget.diff.status!.isNotEmpty) ...[
                         DiffStatusBadge(status: widget.diff.status),
@@ -94,7 +94,7 @@ class _DiffViewerState extends State<DiffViewer> {
                           ),
                         ),
                       if (additions > 0 && deletions > 0)
-                        SizedBox(width: Spacing.xs),
+                        const SizedBox(width: Spacing.xs),
                       if (deletions > 0)
                         Text(
                           '-$deletions',
@@ -115,7 +115,7 @@ class _DiffViewerState extends State<DiffViewer> {
               ],
             ),
             // Expanded diff content
-            SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.md),
             _DiffPreview(diff: widget.diff, maxLines: _isExpanded ? 8 : 3),
             // Actions row (only when expanded)
             if (_isExpanded) ...[

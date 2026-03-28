@@ -254,15 +254,15 @@ describe("Source Invariants", () => {
 			// After extraction the pattern is multi-line; check key elements
 			expect(ccChat).toContain("emitCcStream(sid, {");
 			expect(ccChat).toContain("message: error.message");
-			expect(ccChat).toContain("code: 'cc_error'");
+			expect(ccChat).toContain('code: "cc_error"');
 		});
 
 		test("permission request routes through emitCcStream", () => {
 			// The canUseTool callback builds a permission-request and sends it via emitCcStream.
 			// This is deep in the cc_chat handler (~12K chars in), so search the full source.
-			const permSection = sliceAround(src, "type: 'permission-request'", 1400, 200);
+			const permSection = sliceAround(src, 'type: "permission-request"', 1400, 200);
 			expect(permSection).toContain("emitCcStream(sid");
-			expect(permSection).toContain("type: 'permission-request'");
+			expect(permSection).toContain('type: "permission-request"');
 		});
 	});
 

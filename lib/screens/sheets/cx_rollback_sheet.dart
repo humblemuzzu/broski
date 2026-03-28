@@ -1,18 +1,15 @@
+import 'package:broski/models/message.dart';
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/rollback_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/message.dart';
-import '../../providers/chat_provider.dart';
-import '../../providers/service_providers.dart';
-import '../../theme/opencode_theme.dart';
-import '../../widgets/rollback_sheet.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Shows the Codex rollback sheet. Extracted from chat_screen.dart.
 ///
 /// Returns early with a snackbar if there is no active Codex thread.
 void showCodexRollbackSheet(BuildContext context, WidgetRef ref) {
-  final theme = OpenCodeTheme.of(context);
   final chatState = ref.read(chatSessionProvider);
   final threadId = chatState.cxThreadId;
   if (threadId == null || threadId.isEmpty) {
@@ -36,13 +33,9 @@ void showCodexRollbackSheet(BuildContext context, WidgetRef ref) {
           final items = await bridge.cxGetThreadMessages(threadId);
           ref.read(chatSessionProvider.notifier).hydrateCodexTranscript(items);
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Rolled back $numTurns turn${numTurns == 1 ? '' : 's'}',
-                ),
-                backgroundColor: theme.backgroundPanel,
-              ),
+            showSuccess(
+              context,
+              'Rolled back $numTurns turn${numTurns == 1 ? '' : 's'}',
             );
             Navigator.pop(context);
           }

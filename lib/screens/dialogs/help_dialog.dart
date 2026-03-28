@@ -1,10 +1,9 @@
+import 'package:broski/models/command.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
-
-import '../../models/command.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../widgets/chat/detail_sheet.dart';
 
 /// Shows the help dialog with all available commands. Extracted from chat_screen.dart.
 void showHelpDialog(
@@ -57,7 +56,7 @@ void showHelpDialog(
                   .toList(),
               theme,
             ),
-          SizedBox(height: Spacing.xl),
+          const SizedBox(height: Spacing.xl),
         ],
       ),
     ),
@@ -99,7 +98,7 @@ Widget _buildCommandSection(
                   style: AppTypography.code(color: theme.accent),
                 ),
               ),
-              SizedBox(width: Spacing.md),
+              const SizedBox(width: Spacing.md),
               Expanded(
                 child: Text(
                   cmd.$2,
@@ -110,7 +109,7 @@ Widget _buildCommandSection(
           ),
         ),
       ),
-      SizedBox(height: Spacing.sm),
+      const SizedBox(height: Spacing.sm),
     ],
   );
 }

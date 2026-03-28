@@ -1,12 +1,11 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
-
-import '../../models/message.dart';
-import '../../theme/opencode_theme.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/app_typography.dart';
+import 'package:broski/models/message.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:flutter/material.dart';
 
 Future<Map<String, dynamic>?> showCcElicitationFormInputDialog(
   BuildContext context,

@@ -1,17 +1,16 @@
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
-import '../../theme/design_tokens.dart';
-
-import '../../models/file_content.dart';
-import '../../theme/opencode_theme.dart';
-import 'code_file_viewer.dart';
-import 'csv_file_viewer.dart';
-import 'image_file_viewer.dart';
-import 'markdown_file_viewer.dart';
-import 'pdf_file_viewer.dart';
-import 'text_file_viewer.dart';
+import 'package:broski/models/file_content.dart';
 import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/file_viewers/code_file_viewer.dart';
+import 'package:broski/widgets/file_viewers/csv_file_viewer.dart';
+import 'package:broski/widgets/file_viewers/image_file_viewer.dart';
+import 'package:broski/widgets/file_viewers/markdown_file_viewer.dart';
+import 'package:broski/widgets/file_viewers/pdf_file_viewer.dart';
+import 'package:broski/widgets/file_viewers/text_file_viewer.dart';
+import 'package:flutter/material.dart';
 
 enum FileViewerType { image, pdf, markdown, code, csv, text }
 
@@ -84,7 +83,7 @@ class UnifiedFileViewer extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(AppIcons.error, size: 64, color: theme.textMuted),
-          SizedBox(height: Spacing.lg),
+          const SizedBox(height: Spacing.lg),
           Text(message, style: TextStyle(color: theme.textMuted)),
         ],
       ),

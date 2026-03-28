@@ -216,5 +216,33 @@ export function emitClaudeCodeSupplementalStreamEvents(
 		return "handled";
 	}
 
+
+	// SDKSessionStateChangedMessage: { type: 'system', subtype: 'session_state_changed', state: 'idle'|'running'|'requires_action' }
+	if (type === "system" && subtype === "session_state_changed") {
+		emit({
+			type: "session-state-changed",
+			sessionState: String(payload.state ?? "unknown"),
+		});
+		return "handled";
+	}
+
+	// SDKAPIRetryMessage: { type: 'system', subtype: 'api_retry', attempt, max_retries, retry_delay_ms, error_status, error }
+	if (type === "system" && subtype === "api_retry") {
+		const errorObj = payload.error;
+		emit({
+			type: "api-retry",
+			attempt: typeof payload.attempt === "number" ? payload.attempt : 0,
+			maxRetries: typeof payload.max_retries === "number" ? payload.max_retries : 0,
+			retryDelayMs: typeof payload.retry_delay_ms === "number" ? payload.retry_delay_ms : 0,
+			...(typeof payload.error_status === "number" ? { errorStatus: payload.error_status } : {}),
+			...(errorObj && typeof errorObj === "object" && "message" in errorObj
+				? { error: String(errorObj.message) }
+				: typeof errorObj === "string"
+					? { error: errorObj }
+					: {}),
+		});
+		return "handled";
+	}
+
 	return "unhandled";
 }

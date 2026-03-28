@@ -1,22 +1,21 @@
 import 'dart:convert';
 
+import 'package:broski/models/mcp.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/opencode/opencode_mcp_auth_card.dart';
+import 'package:broski/screens/opencode/opencode_mcp_server_card.dart';
+import 'package:broski/screens/opencode/opencode_session_behavior_card.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/adaptive_container.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../theme/app_typography.dart';
-import '../theme/design_tokens.dart';
-
-import '../models/mcp.dart';
-import '../providers/selection_provider.dart';
-import '../providers/service_providers.dart';
-import '../theme/opencode_theme.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
-import 'package:broski/theme/app_icons.dart';
-import '../utils/error_utils.dart';
-import 'opencode/opencode_session_behavior_card.dart';
-import 'opencode/opencode_mcp_server_card.dart';
-import 'opencode/opencode_mcp_auth_card.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 class OpenCodeMcpConfigScreen extends ConsumerStatefulWidget {
   const OpenCodeMcpConfigScreen({super.key});
@@ -130,17 +129,15 @@ class _OpenCodeMcpConfigScreenState
   }
 
   Future<void> _restart() async {
-    final oc = OpenCodeTheme.of(context);
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final ok = await bridge.restartOpenCode();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(ok ? 'OpenCode restarted' : 'Restart failed'),
-          backgroundColor: ok ? oc.backgroundPanel : oc.error,
-        ),
-      );
+      if (ok) {
+        showSuccess(context, 'OpenCode restarted');
+      } else {
+        showError(context, 'Restart failed');
+      }
     } catch (e) {
       if (!mounted) return;
       showError(context, 'Restart failed: ${humanizeError(e)}');
@@ -175,7 +172,6 @@ class _OpenCodeMcpConfigScreenState
   }
 
   Future<void> _toggleConnection(String name, bool connect) async {
-    final oc = OpenCodeTheme.of(context);
     try {
       final bridge = ref.read(bridgeServiceProvider);
       final ok = connect
@@ -183,29 +179,21 @@ class _OpenCodeMcpConfigScreenState
           : await bridge.disconnectMcp(name, projectPath: _projectPath);
       if (!mounted) return;
       if (!ok) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              connect
-                  ? 'Failed to connect "$name"'
-                  : 'Failed to disconnect "$name"',
-            ),
-            backgroundColor: oc.error,
-          ),
+        showError(
+          context,
+          connect
+              ? 'Failed to connect "$name"'
+              : 'Failed to disconnect "$name"',
         );
       }
       await _refreshStatus();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            connect
-                ? 'Connect failed: ${humanizeError(e)}'
-                : 'Disconnect failed: ${humanizeError(e)}',
-          ),
-          backgroundColor: oc.error,
-        ),
+      showError(
+        context,
+        connect
+            ? 'Connect failed: ${humanizeError(e)}'
+            : 'Disconnect failed: ${humanizeError(e)}',
       );
     }
   }

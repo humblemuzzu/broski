@@ -1,15 +1,14 @@
+import 'package:broski/models/skill.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/adaptive_container.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../theme/app_typography.dart';
-import '../theme/design_tokens.dart';
-
-import '../models/skill.dart';
-import '../theme/opencode_theme.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
-import 'package:broski/theme/app_icons.dart';
-import '../utils/error_utils.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 class MarkdownFileEditorScreen extends StatefulWidget {
   const MarkdownFileEditorScreen({
@@ -72,9 +71,7 @@ class _MarkdownFileEditorScreenState extends State<MarkdownFileEditorScreen> {
       return;
     }
     if (pattern != null && !pattern.hasMatch(name)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(widget.nameHint ?? 'Invalid name')),
-      );
+      showInfo(context, widget.nameHint ?? 'Invalid name');
       return;
     }
     setState(() => _saving = true);

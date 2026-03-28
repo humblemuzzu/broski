@@ -1,11 +1,10 @@
 import 'dart:math';
 
-import 'package:flutter_test/flutter_test.dart';
-
 import 'package:broski/models/connection.dart';
 import 'package:broski/models/connection_quality.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/services/websocket_service.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 /// Tests for the 7 onboarding scan fixes.
 ///
@@ -26,29 +25,26 @@ void main() {
       expect(state.connection, isNull);
     });
 
-    test(
-      'BridgeConnectionState can represent "failed during onboarding" — '
-      'no reconnecting flag',
-      () {
-        // After fix 2, when onboarding fails the state should have:
-        // - isReconnecting: false (guard prevented it)
-        // - error: set
-        // - status: disconnected
-        const initial = BridgeConnectionState();
-        final failed = initial.copyWith(
-          status: ConnectionStatus.disconnected,
-          error: 'Connection timeout',
-          lastEvent: ConnectionEvent.failed,
-          isReconnecting: false, // Fix 2 ensures this stays false
-        );
+    test('BridgeConnectionState can represent "failed during onboarding" — '
+        'no reconnecting flag', () {
+      // After fix 2, when onboarding fails the state should have:
+      // - isReconnecting: false (guard prevented it)
+      // - error: set
+      // - status: disconnected
+      const initial = BridgeConnectionState();
+      final failed = initial.copyWith(
+        status: ConnectionStatus.disconnected,
+        error: 'Connection timeout',
+        lastEvent: ConnectionEvent.failed,
+        isReconnecting: false, // Fix 2 ensures this stays false
+      );
 
-        expect(failed.isReconnecting, false);
-        expect(failed.error, 'Connection timeout');
-        expect(failed.status, ConnectionStatus.disconnected);
-        expect(failed.isConnected, false);
-        expect(failed.isConnecting, false);
-      },
-    );
+      expect(failed.isReconnecting, false);
+      expect(failed.error, 'Connection timeout');
+      expect(failed.status, ConnectionStatus.disconnected);
+      expect(failed.isConnected, false);
+      expect(failed.isConnecting, false);
+    });
   });
 
   group('Fix 3: _OnboardingScanWrapper Stack overlay logic', () {
@@ -57,17 +53,13 @@ void main() {
     // We verify the state predicates that drive this.
 
     test('isConnected true only when status is connected', () {
-      const state = BridgeConnectionState(
-        status: ConnectionStatus.connected,
-      );
+      const state = BridgeConnectionState(status: ConnectionStatus.connected);
       expect(state.isConnected, true);
       expect(state.isConnecting, false);
     });
 
     test('isConnecting true only when status is connecting', () {
-      const state = BridgeConnectionState(
-        status: ConnectionStatus.connecting,
-      );
+      const state = BridgeConnectionState(status: ConnectionStatus.connecting);
       expect(state.isConnecting, true);
       expect(state.isConnected, false);
     });
@@ -192,10 +184,7 @@ void main() {
       const errString = '401 Unauthorized';
       final lower = errString.toLowerCase();
       expect(lower.contains('timeout'), false);
-      expect(
-        lower.contains('401') || lower.contains('unauthorized'),
-        true,
-      );
+      expect(lower.contains('401') || lower.contains('unauthorized'), true);
     });
 
     test('retry flag prevents infinite retries', () {
@@ -207,7 +196,8 @@ void main() {
 
       // First timeout: should retry
       failureStreak = 1;
-      final shouldRetry1 = isTimeout &&
+      final shouldRetry1 =
+          isTimeout &&
           !onboardingComplete &&
           failureStreak == 1 &&
           !onboardingRetryAttempted;
@@ -218,7 +208,8 @@ void main() {
 
       // Second timeout: should NOT retry (flag is set)
       failureStreak = 2;
-      final shouldRetry2 = isTimeout &&
+      final shouldRetry2 =
+          isTimeout &&
           !onboardingComplete &&
           failureStreak == 1 &&
           !onboardingRetryAttempted;
@@ -230,19 +221,10 @@ void main() {
       const failureStreak = 1;
       const isTimeout = true;
 
-      // During onboarding: should retry
-      const onboardingNotComplete = false;
-      final shouldRetryOnboarding = isTimeout &&
-          !onboardingNotComplete &&  // hasCompletedOnboarding == false → !false == true
-          failureStreak == 1 &&
-          !onboardingRetryAttempted;
-      // Wait, the actual code checks !onboarding.hasCompletedOnboarding
-      // So if hasCompletedOnboarding = false (during onboarding), !false = true → proceeds
-      // If hasCompletedOnboarding = true (after onboarding), !true = false → skips
-
       // Let's match the actual code logic exactly:
       bool hasCompletedOnboarding = false; // during onboarding
-      final shouldRetryDuringOnboarding = isTimeout &&
+      final shouldRetryDuringOnboarding =
+          isTimeout &&
           !hasCompletedOnboarding &&
           failureStreak == 1 &&
           !onboardingRetryAttempted;
@@ -250,9 +232,11 @@ void main() {
 
       // After onboarding complete: should NOT retry via this path
       hasCompletedOnboarding = true;
-      final shouldRetryAfterOnboarding = isTimeout &&
-          !hasCompletedOnboarding &&
-          failureStreak == 1 &&
+      // ignore: dead_code
+      final shouldRetryAfterOnboarding =
+          isTimeout &&
+          !hasCompletedOnboarding && // ignore: dead_code
+          failureStreak == 1 && // ignore: dead_code
           !onboardingRetryAttempted;
       expect(shouldRetryAfterOnboarding, false);
     });
@@ -311,11 +295,7 @@ void main() {
   group('Backoff computation (existing logic, sanity check)', () {
     test('first attempt uses initial delay', () {
       final random = Random(42); // Seeded for determinism
-      final delay = computeBackoff(
-        ReconnectPolicy.defaultPolicy,
-        1,
-        random,
-      );
+      final delay = computeBackoff(ReconnectPolicy.defaultPolicy, 1, random);
       // initialMs=2000, factor^0=1, so base=2000, jitter adds up to 25%
       expect(delay, greaterThanOrEqualTo(2000));
       expect(delay, lessThanOrEqualTo(2500)); // 2000 + 25% jitter max
@@ -330,11 +310,7 @@ void main() {
 
     test('delay is capped at maxMs', () {
       final random = Random(42);
-      final delay = computeBackoff(
-        ReconnectPolicy.defaultPolicy,
-        100,
-        random,
-      );
+      final delay = computeBackoff(ReconnectPolicy.defaultPolicy, 100, random);
       expect(delay, lessThanOrEqualTo(ReconnectPolicy.defaultPolicy.maxMs));
     });
   });

@@ -1,14 +1,13 @@
-import 'package:flutter/material.dart';
-import '../../theme/app_typography.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../providers/chat_provider.dart';
-import '../../providers/codex_provider.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../widgets/chat/detail_sheet.dart';
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/codex_provider.dart';
 import 'package:broski/theme/app_icons.dart';
-import '../../utils/error_utils.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Bottom sheet that shows available Codex models via a cache-first provider.
 ///
@@ -225,18 +224,18 @@ class CxModelSheet extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(AppIcons.error, color: theme.error, size: 32),
-            SizedBox(height: Spacing.sm),
+            const SizedBox(height: Spacing.sm),
             Text(
               'Failed to load models',
               style: AppTypography.labelLarge(color: theme.text),
             ),
-            SizedBox(height: Spacing.xs),
+            const SizedBox(height: Spacing.xs),
             Text(
               humanizeError(e),
               style: AppTypography.label(color: theme.textMuted),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.md),
             TextButton(
               onPressed: () => ref.read(codexModelsProvider.notifier).refresh(),
               child: const Text('Retry'),

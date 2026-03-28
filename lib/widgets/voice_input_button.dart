@@ -1,12 +1,11 @@
+import 'package:broski/providers/stt_provider.dart';
+import 'package:broski/screens/voice_settings_screen.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/voice_recording_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../providers/stt_provider.dart';
-import '../screens/voice_settings_screen.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import 'voice_recording_sheet.dart';
-import 'package:broski/theme/app_icons.dart';
 
 /// A mic button that triggers voice input recording.
 ///

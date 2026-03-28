@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart';
-import 'package:broski/theme/opencode_theme.dart';
-import 'package:broski/theme/design_tokens.dart';
-import 'package:broski/theme/app_typography.dart';
 import 'package:broski/models/message.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:flutter/material.dart';
 
 /// Compact indicator shown below the floating header when Claude Code
 /// subagents (Task tool calls) are actively running.

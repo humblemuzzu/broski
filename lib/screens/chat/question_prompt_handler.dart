@@ -1,12 +1,11 @@
+import 'package:broski/models/message.dart';
+import 'package:broski/models/question.dart';
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/services/haptics_service.dart';
+import 'package:broski/widgets/permission_prompt.dart';
+import 'package:broski/widgets/question_prompt_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/message.dart';
-import '../../models/question.dart';
-import '../../providers/chat_provider.dart';
-import '../../services/haptics_service.dart';
-import '../../widgets/permission_prompt.dart';
-import '../../widgets/question_prompt_sheet.dart';
 
 /// Shows a permission prompt from the permission request list.
 /// Returns the new active permission ID.

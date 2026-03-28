@@ -1,19 +1,18 @@
+import 'package:broski/models/message.dart';
+import 'package:broski/models/project.dart';
+import 'package:broski/models/session.dart';
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/chat_screen.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/message.dart';
-import '../../models/project.dart';
-import '../../models/session.dart';
-import '../../providers/chat_provider.dart';
-import '../../providers/service_providers.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../utils/error_utils.dart';
-import '../../widgets/chat/detail_sheet.dart';
-import '../chat_screen.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Shows the fork dialog to create a branch from a specific message.
 /// Extracted from chat_screen.dart.
@@ -111,26 +110,22 @@ void showForkDialog(
                         }
                         initialPrompt ??= msg.text.trim();
                       }
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Forked to "${forkedSession.title}"'),
-                          action: SnackBarAction(
-                            label: 'Open',
-                            onPressed: () {
-                              // Navigate to the forked session
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => ChatScreen(
-                                    project: project,
-                                    session: forkedSession,
-                                    initialPrompt: initialPrompt,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
+                      showActionSnackBar(
+                        context,
+                        'Forked to "${forkedSession.title}"',
+                        actionLabel: 'Open',
+                        onAction: () {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ChatScreen(
+                                project: project,
+                                session: forkedSession,
+                                initialPrompt: initialPrompt,
+                              ),
+                            ),
+                          );
+                        },
                       );
                     } catch (e) {
                       if (!context.mounted) return;

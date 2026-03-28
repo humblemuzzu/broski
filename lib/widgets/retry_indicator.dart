@@ -1,9 +1,8 @@
+import 'package:broski/models/message.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
-import '../theme/app_typography.dart';
-
-import '../models/message.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
 
 /// An inline widget shown when the AI SDK is retrying an API call.
 ///
@@ -50,7 +49,7 @@ class RetryIndicator extends StatelessWidget {
               color: theme.warning,
             ),
           ),
-          SizedBox(width: Spacing.sm),
+          const SizedBox(width: Spacing.sm),
           Flexible(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

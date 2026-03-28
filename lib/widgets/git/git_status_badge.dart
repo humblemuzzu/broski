@@ -1,8 +1,7 @@
+import 'package:broski/models/git.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
-
-import '../../models/git.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
 
 class GitStatusBadge extends StatelessWidget {
   const GitStatusBadge({super.key, required this.status});

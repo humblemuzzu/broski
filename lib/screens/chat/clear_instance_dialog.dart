@@ -1,8 +1,8 @@
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../providers/service_providers.dart';
-import '../../theme/opencode_theme.dart';
 
 /// Shows a confirmation dialog to clear the OpenCode instance.
 /// Extracted from `_ChatScreenState._clearInstance`.
@@ -39,10 +39,9 @@ Future<void> showClearInstanceDialog({
   final bridge = ref.read(bridgeServiceProvider);
   final success = await bridge.disposeInstance(projectPath: projectPath);
   if (!context.mounted) return;
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(success ? 'Instance cleared' : 'Failed to clear instance'),
-      backgroundColor: theme.backgroundPanel,
-    ),
-  );
+  if (success) {
+    showSuccess(context, 'Instance cleared');
+  } else {
+    showError(context, 'Failed to clear instance');
+  }
 }

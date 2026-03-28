@@ -1,8 +1,7 @@
+import 'package:broski/models/terminal_settings.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/services/storage_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/terminal_settings.dart';
-import '../services/storage_service.dart';
-import 'service_providers.dart';
 
 class TerminalSettingsNotifier extends StateNotifier<TerminalSettings> {
   TerminalSettingsNotifier(this._storage) : super(const TerminalSettings()) {

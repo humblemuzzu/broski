@@ -1,23 +1,22 @@
-import 'package:flutter/material.dart';
-import '../theme/app_typography.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/agent.dart';
-import '../models/agent_type.dart';
-import '../models/claude_code.dart';
-import '../models/codex.dart';
-import '../models/permission_rule.dart';
-import '../models/project.dart';
-import '../providers/claude_code_provider.dart';
-import '../providers/codex_settings_provider.dart';
-import '../providers/permission_rules_provider.dart';
-import '../providers/pi_provider.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import 'chat/detail_sheet.dart';
-import 'permission_rules_sheet.dart';
-import 'project_tools_sheet.dart';
+import 'package:broski/models/agent.dart';
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/models/claude_code.dart';
+import 'package:broski/models/codex.dart';
+import 'package:broski/models/permission_rule.dart';
+import 'package:broski/models/project.dart';
+import 'package:broski/providers/claude_code_provider.dart';
+import 'package:broski/providers/codex_settings_provider.dart';
+import 'package:broski/providers/permission_rules_provider.dart';
+import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
+import 'package:broski/widgets/permission_rules_sheet.dart';
+import 'package:broski/widgets/project_tools_sheet.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Unified Power Sheet for all AI backends (OpenCode, Claude Code, Codex).
 /// Opens from the left menu button in ChatGPT style or agent selector in CLI style.
@@ -108,7 +107,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
           children: [
             // ===== ATTACH SECTION =====
             _SectionHeader(title: 'Attach', theme: theme),
-            SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.md),
             IntrinsicHeight(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -143,7 +142,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
             // ===== MODEL SECTION =====
             if (widget.onModelTap != null) ...[
               _SectionHeader(title: 'Model', theme: theme),
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               _ModelCard(
                 model: widget.currentModel,
                 theme: theme,
@@ -157,7 +156,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
             // ===== THINKING LEVEL SECTION =====
             if (widget.availableVariants.isNotEmpty) ...[
               _SectionHeader(title: _getThinkingLevelTitle(), theme: theme),
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -191,21 +190,21 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
             if (widget.backend == AgentType.opencode &&
                 nativeAgents.isNotEmpty) ...[
               _SectionHeader(title: 'Agent', theme: theme),
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               _buildOpenCodeAgents(theme, nativeAgents),
               const SizedBox(height: 28),
             ],
             // ===== CLAUDE CODE: PERMISSION MODE SECTION =====
             if (widget.backend == AgentType.claudeCode) ...[
               _SectionHeader(title: 'Permission Mode', theme: theme),
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               _buildClaudeCodePermissionModes(theme),
               const SizedBox(height: 28),
             ],
             // ===== CODEX: COLLABORATION MODE SECTION =====
             if (widget.backend == AgentType.codex) ...[
               _SectionHeader(title: 'Collaboration Mode', theme: theme),
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               _buildCodexCollabModes(theme),
               const SizedBox(height: 28),
             ],
@@ -245,7 +244,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
                 ),
               ),
             ),
-            SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.md),
             if (widget.backend == AgentType.opencode) ...[
               _buildOpenCodePermissionPresets(theme, rulesState),
               const SizedBox(height: 28),
@@ -254,7 +253,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
               const SizedBox(height: 28),
               // ===== PI: QUICK ACTIONS =====
               _SectionHeader(title: 'Quick Actions', theme: theme),
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               _PiQuickActionsGrid(theme: theme),
               const SizedBox(height: 28),
             ] else ...[
@@ -267,7 +266,7 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
               backend: widget.backend,
               onTap: _openProjectTools,
             ),
-            SizedBox(height: Spacing.sm),
+            const SizedBox(height: Spacing.sm),
           ],
         ),
       ),
@@ -390,13 +389,13 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
   }
 
   Widget _buildCodexCollabModes(OpenCodeTheme theme) {
-    final modes = CodexCollaborationMode.values;
+    const modes = CodexCollaborationMode.values;
     return SizedBox(
       height: 56,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: modes.length,
-        separatorBuilder: (_, __) => SizedBox(width: Spacing.sm),
+        separatorBuilder: (_, __) => const SizedBox(width: Spacing.sm),
         itemBuilder: (context, index) {
           final mode = modes[index];
           final isSelected = widget.codexCollabMode == mode;
@@ -659,7 +658,7 @@ class _AgentCard extends StatelessWidget {
                 color: isSelected ? theme.primary : theme.text,
               ),
             ),
-            SizedBox(height: Spacing.xs),
+            const SizedBox(height: Spacing.xs),
             Text(
               description,
               style: AppTypography.caption(color: theme.textMuted),
@@ -717,7 +716,7 @@ class _PermissionModeCard extends StatelessWidget {
                         color: isSelected ? theme.primary : theme.text,
                       ),
                     ),
-                    SizedBox(height: Spacing.xxs),
+                    const SizedBox(height: Spacing.xxs),
                     Text(
                       description,
                       style: AppTypography.label(color: theme.textMuted),
@@ -859,7 +858,7 @@ class _ProjectToolsButton extends StatelessWidget {
                       color: theme.text,
                     ),
                   ),
-                  SizedBox(height: Spacing.xxs),
+                  const SizedBox(height: Spacing.xxs),
                   Text(
                     _getToolsDescription(),
                     style: AppTypography.label(color: theme.textMuted),

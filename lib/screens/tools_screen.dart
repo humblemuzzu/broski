@@ -1,20 +1,19 @@
-import 'package:flutter/material.dart';
-import '../theme/app_typography.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/tool.dart';
-import '../models/vcs.dart';
-import '../providers/connection_provider.dart';
-import '../providers/service_providers.dart';
-import '../providers/selection_provider.dart';
-import '../providers/tool_settings_provider.dart';
-import '../services/storage_service.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
+import 'package:broski/models/tool.dart';
+import 'package:broski/models/vcs.dart';
+import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/providers/tool_settings_provider.dart';
+import 'package:broski/services/storage_service.dart';
 import 'package:broski/theme/app_icons.dart';
-import '../utils/error_utils.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/widgets/adaptive_container.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Feature 17: Tool List Screen
 /// Shows available AI tools (bash, read, write, edit, glob, grep, etc.)
@@ -214,18 +213,18 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(AppIcons.error, size: 48, color: theme.textMuted),
-          SizedBox(height: Spacing.lg),
+          const SizedBox(height: Spacing.lg),
           Text(
             'Failed to load tools',
             style: TextStyle(color: theme.text, fontSize: 16),
           ),
-          SizedBox(height: Spacing.sm),
+          const SizedBox(height: Spacing.sm),
           Text(
             _error!,
             style: AppTypography.labelLarge(color: theme.textMuted),
             textAlign: TextAlign.center,
           ),
-          SizedBox(height: Spacing.xxl),
+          const SizedBox(height: Spacing.xxl),
           ElevatedButton(
             onPressed: _loadData,
             style: ElevatedButton.styleFrom(
@@ -246,7 +245,7 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(AppIcons.build, size: 48, color: theme.textMuted),
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.lg),
             Text(
               'No tools available',
               style: TextStyle(color: theme.textMuted, fontSize: 16),
@@ -296,7 +295,7 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
           }),
           // Feature 19: Formatters section as collapsible
           if (_formatters != null && _formatters!.isNotEmpty) ...[
-            SizedBox(height: Spacing.sm),
+            const SizedBox(height: Spacing.sm),
             _CollapsibleSection(
               title: 'Formatters',
               itemCount: _formatters!.length,
@@ -352,7 +351,7 @@ class _ToolsSummary extends ConsumerWidget {
             ),
             child: Icon(AppIcons.build, color: theme.primary, size: 24),
           ),
-          SizedBox(width: Spacing.lg),
+          const SizedBox(width: Spacing.lg),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -365,7 +364,7 @@ class _ToolsSummary extends ConsumerWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                SizedBox(height: Spacing.xs),
+                const SizedBox(height: Spacing.xs),
                 Row(
                   children: [
                     Container(
@@ -383,7 +382,7 @@ class _ToolsSummary extends ConsumerWidget {
                       ),
                     ),
                     if (disabledCount > 0) ...[
-                      SizedBox(width: Spacing.sm),
+                      const SizedBox(width: Spacing.sm),
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
@@ -470,7 +469,7 @@ class _CollapsibleSection extends StatelessWidget {
                             letterSpacing: 0.5,
                           ),
                         ),
-                        SizedBox(width: Spacing.sm),
+                        const SizedBox(width: Spacing.sm),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 6,
@@ -626,7 +625,7 @@ class _FormatterChip extends StatelessWidget {
       child: Row(
         children: [
           Icon(AppIcons.code, color: statusColor, size: 16),
-          SizedBox(width: Spacing.sm),
+          const SizedBox(width: Spacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

@@ -1,43 +1,41 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/models/claude_code.dart';
+import 'package:broski/models/codex.dart';
+import 'package:broski/models/file_attachment.dart';
+import 'package:broski/models/message.dart';
+import 'package:broski/models/pi.dart';
+import 'package:broski/models/question.dart';
+import 'package:broski/models/runtime/runtime.dart';
+import 'package:broski/models/session.dart';
+import 'package:broski/models/todo.dart';
+import 'package:broski/models/vcs.dart';
+import 'package:broski/providers/chat/codex_permission_helpers.dart';
+import 'package:broski/providers/chat/runtime_common_models.dart';
+import 'package:broski/providers/chat/runtime_common_reducer.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/services/bridge/bridge_runtime.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../models/claude_code.dart';
-import '../models/codex.dart';
-import '../models/file_attachment.dart';
-import '../models/agent_type.dart';
-import '../models/message.dart';
-import '../models/pi.dart';
-import '../models/question.dart';
-import '../models/runtime/runtime.dart';
-import '../models/session.dart';
-import '../models/todo.dart';
-import '../models/vcs.dart';
-import '../services/bridge/bridge_runtime.dart';
-import 'chat/runtime_common_models.dart';
-import 'chat/codex_permission_helpers.dart';
-import 'chat/runtime_common_reducer.dart';
-import 'service_providers.dart';
-
-// Existing part files
-part 'chat/runtime_chat_ingest.dart';
-part 'chat/runtime_system_messages.dart';
-part 'chat/runtime_cc_system_messages.dart';
-part 'chat/runtime_cc_metadata_handler.dart';
-part 'chat/runtime_oc_message_handler.dart';
-part 'chat/runtime_oc_part_handler.dart';
-part 'chat/runtime_cx_handlers.dart';
-part 'chat/runtime_permission_handler.dart';
-
+part 'chat/cc_stream_handler.dart';
 // Split by concern — extracted from this file
 part 'chat/chat_session_state.dart';
-part 'chat/cc_stream_handler.dart';
 part 'chat/cx_stream_handler.dart';
+part 'chat/message_builder.dart';
 part 'chat/oc_stream_handler.dart';
 part 'chat/pi_stream_handler.dart';
-part 'chat/message_builder.dart';
+part 'chat/runtime_cc_metadata_handler.dart';
+part 'chat/runtime_cc_system_messages.dart';
+// Existing part files
+part 'chat/runtime_chat_ingest.dart';
+part 'chat/runtime_cx_handlers.dart';
+part 'chat/runtime_oc_message_handler.dart';
+part 'chat/runtime_oc_part_handler.dart';
+part 'chat/runtime_permission_handler.dart';
+part 'chat/runtime_system_messages.dart';
 
 class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   ChatSessionNotifier(this._bridge) : super(const ChatSessionState()) {

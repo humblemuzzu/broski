@@ -1,12 +1,11 @@
 import 'dart:async';
 
+import 'package:broski/models/codex.dart';
+import 'package:broski/models/project.dart';
+import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/services/storage_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/codex.dart';
-import '../models/project.dart';
-import '../services/storage_service.dart';
-import 'connection_provider.dart';
-import 'service_providers.dart';
 
 /// `null` means "all projects" for Codex threads.
 final codexThreadsFilterCwdProvider = StateProvider<String?>((ref) => null);

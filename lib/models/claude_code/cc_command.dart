@@ -1,4 +1,4 @@
-import '../command.dart';
+import 'package:broski/models/command.dart';
 
 class ClaudeCodeCommand {
   final String name;

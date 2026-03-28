@@ -1,10 +1,9 @@
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/chat/mcp_oauth_snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../providers/chat_provider.dart';
-import '../../providers/service_providers.dart';
-import '../../providers/connection_provider.dart';
-import 'mcp_oauth_snackbar.dart';
 
 /// Handle auto-scroll when new content arrives.
 /// Only scrolls if user hasn't intentionally scrolled up.

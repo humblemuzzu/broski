@@ -1,13 +1,12 @@
+import 'package:broski/models/pi.dart';
+import 'package:broski/providers/highlights_provider.dart';
+import 'package:broski/providers/pi_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/pi.dart';
-import '../../providers/highlights_provider.dart';
-import '../../providers/pi_provider.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/opencode_theme.dart';
-import '../../widgets/chat/detail_sheet.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Shows the Pi session options sheet (stop, rename, highlight, fork, delete).
 /// Extracted from sessions_screen.dart to match CC/CX patterns.

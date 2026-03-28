@@ -1,11 +1,10 @@
+import 'package:broski/models/message.dart';
+import 'package:broski/providers/app_subscription_provider.dart';
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/message.dart';
-import '../../providers/app_subscription_provider.dart';
-import '../../providers/chat_provider.dart';
-import '../../providers/service_providers.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Responds to a permission request (approve/deny/always).
 /// Extracted from `_ChatScreenState._respondToPermission` in `chat_screen.dart`.

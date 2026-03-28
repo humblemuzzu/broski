@@ -22,6 +22,8 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
+      - name: Format
+        run: dart format --set-exit-if-changed lib/ test/
       - name: Analyze
         run: dart analyze --fatal-warnings
       - name: Test
@@ -41,6 +43,9 @@ jobs:
       - name: Lint
         working-directory: packages/bridge
         run: npx biome check src/
+      - name: Typecheck
+        working-directory: packages/bridge
+        run: bun run typecheck
       - name: Test
         working-directory: packages/bridge
-        run: bun test || true
+        run: bun test

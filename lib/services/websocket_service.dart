@@ -1,10 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:broski/services/websocket/websocket_connector.dart';
 import 'package:flutter/foundation.dart' show compute, debugPrint;
 import 'package:web_socket_channel/web_socket_channel.dart';
-
-import 'websocket/websocket_connector.dart';
 
 enum ConnectionStatus { disconnected, connecting, connected }
 

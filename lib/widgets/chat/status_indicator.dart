@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
-import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/models/session.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:flutter/material.dart';
 
 // Feature 13: Animated status indicator for session state
 class StatusIndicator extends StatefulWidget {

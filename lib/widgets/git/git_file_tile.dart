@@ -1,9 +1,8 @@
-import 'package:flutter/material.dart';
-import 'package:broski/theme/opencode_theme.dart';
-
-import '../../models/git.dart';
-import 'git_status_badge.dart';
+import 'package:broski/models/git.dart';
 import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/git/git_status_badge.dart';
+import 'package:flutter/material.dart';
 
 class GitFileTile extends StatelessWidget {
   const GitFileTile({

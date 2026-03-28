@@ -1,26 +1,25 @@
+import 'package:broski/providers/app_auth_provider.dart';
+import 'package:broski/providers/app_subscription_provider.dart';
+import 'package:broski/providers/chat/runtime_shadow_provider.dart';
+import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/onboarding_provider.dart';
+import 'package:broski/screens/bridge_setup_screen.dart';
+import 'package:broski/screens/connection_lost_screen.dart';
+import 'package:broski/screens/main_shell.dart';
+import 'package:broski/screens/onboarding_auth_screen.dart';
+import 'package:broski/screens/onboarding_screen.dart';
+import 'package:broski/screens/paywall_screen.dart';
+import 'package:broski/screens/scan_screen.dart';
+import 'package:broski/screens/system_linked_screen.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/responsive.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../theme/app_typography.dart';
-import '../theme/design_tokens.dart';
-
-import '../providers/app_auth_provider.dart';
-import '../providers/app_subscription_provider.dart';
-import '../providers/connection_provider.dart';
-import '../providers/onboarding_provider.dart';
-import '../providers/chat/runtime_shadow_provider.dart';
-import '../theme/opencode_theme.dart';
-import '../utils/responsive.dart';
-import 'bridge_setup_screen.dart';
-import 'connection_lost_screen.dart';
-import 'main_shell.dart';
-import 'onboarding_auth_screen.dart';
-import 'onboarding_screen.dart';
-import 'paywall_screen.dart';
-import 'scan_screen.dart';
-import 'system_linked_screen.dart';
-import 'package:broski/theme/app_icons.dart';
 
 class RootScreen extends ConsumerWidget {
   const RootScreen({super.key});
@@ -149,7 +148,7 @@ class _LoadingScreen extends StatelessWidget {
                 color: theme.primary,
               ),
             ),
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.lg),
             Text(
               'Loading...',
               style: AppTypography.labelLarge(color: theme.textMuted),
@@ -190,7 +189,7 @@ class _SubscriptionErrorScreen extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                SizedBox(height: Spacing.sm),
+                const SizedBox(height: Spacing.sm),
                 Text(
                   message,
                   textAlign: TextAlign.center,
@@ -247,7 +246,7 @@ class _ConnectingScreen extends ConsumerWidget {
                     color: ocTheme.primary,
                   ),
                 ),
-                SizedBox(height: Spacing.xxl),
+                const SizedBox(height: Spacing.xxl),
                 Text(
                   'Connecting...',
                   style: TextStyle(
@@ -257,14 +256,14 @@ class _ConnectingScreen extends ConsumerWidget {
                   ),
                 ),
                 if (state.connection != null) ...[
-                  SizedBox(height: Spacing.sm),
+                  const SizedBox(height: Spacing.sm),
                   Text(
                     '${state.connection!.localIP ?? ''}:${state.connection!.port}',
                     style: AppTypography.codeLarge(color: ocTheme.textMuted),
                   ),
                 ],
                 if (state.error != null) ...[
-                  SizedBox(height: Spacing.xl),
+                  const SizedBox(height: Spacing.xl),
                   Container(
                     padding: Insets.card,
                     decoration: BoxDecoration(
@@ -281,7 +280,7 @@ class _ConnectingScreen extends ConsumerWidget {
                     ),
                   ),
                 ],
-                SizedBox(height: Spacing.xxxl),
+                const SizedBox(height: Spacing.xxxl),
                 GestureDetector(
                   onTap: () =>
                       ref.read(connectionProvider.notifier).clearConnection(),
@@ -453,7 +452,7 @@ class _DevSwipeWrapperState extends ConsumerState<_DevSwipeWrapper> {
                             letterSpacing: 0.5,
                           ),
                         ),
-                        SizedBox(width: Spacing.xs),
+                        const SizedBox(width: Spacing.xs),
                         Icon(AppIcons.skip, color: ocTheme.error, size: 16),
                       ],
                     ),

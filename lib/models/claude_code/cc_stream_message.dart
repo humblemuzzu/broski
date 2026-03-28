@@ -1,6 +1,6 @@
+import 'package:broski/models/claude_code/cc_model.dart';
+import 'package:broski/models/claude_code/cc_permission.dart';
 import 'package:broski/utils/format_utils.dart';
-import 'cc_model.dart';
-import 'cc_permission.dart';
 
 sealed class ClaudeCodeStreamMessage {
   /// When non-null, this message originated from inside a subagent's execution.

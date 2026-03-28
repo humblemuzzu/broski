@@ -1,12 +1,11 @@
+import 'package:broski/models/codex.dart';
+import 'package:broski/providers/codex_provider.dart';
+import 'package:broski/providers/sessions_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/codex.dart';
-import '../../providers/codex_provider.dart';
-import '../../providers/sessions_provider.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import 'package:broski/theme/app_icons.dart';
 
 class CodexActiveThreadsSection extends ConsumerWidget {
   const CodexActiveThreadsSection({super.key, this.onThreadTap});
@@ -40,7 +39,7 @@ class CodexActiveThreadsSection extends ConsumerWidget {
           Row(
             children: [
               Icon(AppIcons.play, color: ocTheme.info, size: 20),
-              SizedBox(width: Spacing.md),
+              const SizedBox(width: Spacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -62,7 +61,7 @@ class CodexActiveThreadsSection extends ConsumerWidget {
               ),
             ],
           ),
-          SizedBox(height: Spacing.md),
+          const SizedBox(height: Spacing.md),
           ...activeThreads.map((thread) {
             final status = sessionStatuses[thread.id];
             final isRetry = status?.isRetry ?? false;
@@ -102,7 +101,7 @@ class CodexActiveThreadsSection extends ConsumerWidget {
                           ],
                         ),
                       ),
-                      SizedBox(width: Spacing.md),
+                      const SizedBox(width: Spacing.md),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -117,7 +116,7 @@ class CodexActiveThreadsSection extends ConsumerWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            SizedBox(height: Spacing.xxs),
+                            const SizedBox(height: Spacing.xxs),
                             Row(
                               children: [
                                 if (projectName != null)
@@ -129,7 +128,7 @@ class CodexActiveThreadsSection extends ConsumerWidget {
                                     ),
                                   ),
                                 if (isRetry) ...[
-                                  SizedBox(width: Spacing.sm),
+                                  const SizedBox(width: Spacing.sm),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 6,

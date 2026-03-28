@@ -1,11 +1,10 @@
+import 'package:broski/models/agent.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/variant_badge.dart';
 import 'package:flutter/material.dart';
-
-import '../../models/agent.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../variant_badge.dart';
-import '../../theme/app_icons.dart';
 
 /// Card for primary agents (Build/Plan). Extracted from chat_screen.dart.
 class AgentCard extends StatelessWidget {

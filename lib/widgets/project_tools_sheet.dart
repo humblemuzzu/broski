@@ -1,33 +1,32 @@
-import 'package:flutter/material.dart';
-import '../theme/app_typography.dart';
-
-import '../models/agent_type.dart';
-import '../models/project.dart';
-import '../screens/claude_code_commands_screen.dart';
-import '../screens/claude_code_memory_screen.dart';
-import '../screens/claude_code_mcp_screen.dart';
-import '../screens/claude_code_settings_screen.dart';
-import '../screens/codex_agents_screen.dart';
-import '../screens/codex_mcp_screen.dart';
-import '../screens/sheets/cx_apps_sheet.dart';
-import '../screens/hooks_screen.dart';
-import '../screens/mcp_servers_screen.dart';
-import '../screens/opencode_agents_screen.dart';
-import '../screens/opencode_commands_screen.dart';
-import '../screens/opencode_plugins_screen.dart';
-import '../screens/opencode_worktrees_screen.dart';
-import '../screens/opencode_workspaces_screen.dart';
-import '../screens/projects_screen.dart';
-import '../screens/skills_screen.dart';
-import '../screens/subagents_screen.dart';
-import '../screens/custom_tools_screen.dart';
-import '../screens/plugins_screen.dart';
-import '../screens/tools_screen.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import 'chat/section_header.dart';
-import 'chat/detail_sheet.dart';
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/models/project.dart';
+import 'package:broski/screens/claude_code_commands_screen.dart';
+import 'package:broski/screens/claude_code_mcp_screen.dart';
+import 'package:broski/screens/claude_code_memory_screen.dart';
+import 'package:broski/screens/claude_code_settings_screen.dart';
+import 'package:broski/screens/codex_agents_screen.dart';
+import 'package:broski/screens/codex_mcp_screen.dart';
+import 'package:broski/screens/custom_tools_screen.dart';
+import 'package:broski/screens/hooks_screen.dart';
+import 'package:broski/screens/mcp_servers_screen.dart';
+import 'package:broski/screens/opencode_agents_screen.dart';
+import 'package:broski/screens/opencode_commands_screen.dart';
+import 'package:broski/screens/opencode_plugins_screen.dart';
+import 'package:broski/screens/opencode_workspaces_screen.dart';
+import 'package:broski/screens/opencode_worktrees_screen.dart';
+import 'package:broski/screens/plugins_screen.dart';
+import 'package:broski/screens/projects_screen.dart';
+import 'package:broski/screens/sheets/cx_apps_sheet.dart';
+import 'package:broski/screens/skills_screen.dart';
+import 'package:broski/screens/subagents_screen.dart';
+import 'package:broski/screens/tools_screen.dart';
 import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
+import 'package:broski/widgets/chat/section_header.dart';
+import 'package:flutter/material.dart';
 
 /// Shows a project tools sheet using DetailSheet.
 Future<void> showProjectToolsSheet({
@@ -135,7 +134,7 @@ class _ProjectToolsContent extends StatelessWidget {
                         color: theme.text,
                       ),
                     ),
-                    SizedBox(height: Spacing.xxs),
+                    const SizedBox(height: Spacing.xxs),
                     Text(
                       subtitle,
                       style: AppTypography.label(color: theme.textMuted),

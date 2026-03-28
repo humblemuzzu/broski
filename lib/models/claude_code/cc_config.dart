@@ -1,8 +1,8 @@
-import 'cc_command.dart';
-import 'cc_permission.dart';
-import 'cc_sandbox.dart';
-import 'cc_subagent.dart';
-import 'cc_thinking.dart';
+import 'package:broski/models/claude_code/cc_command.dart';
+import 'package:broski/models/claude_code/cc_permission.dart';
+import 'package:broski/models/claude_code/cc_sandbox.dart';
+import 'package:broski/models/claude_code/cc_subagent.dart';
+import 'package:broski/models/claude_code/cc_thinking.dart';
 
 class ClaudeCodeConfig {
   final ClaudeCodePermissionMode permissionMode;

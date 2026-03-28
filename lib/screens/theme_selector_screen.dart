@@ -1,14 +1,13 @@
+import 'package:broski/providers/theme_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/theme/themes/all_themes.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/widgets/adaptive_container.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../theme/app_typography.dart';
-import '../theme/design_tokens.dart';
-
-import '../providers/theme_provider.dart';
-import '../theme/opencode_theme.dart';
-import '../theme/themes/all_themes.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
-import 'package:broski/theme/app_icons.dart';
 
 /// Theme selector screen with live preview
 /// Layout: Top half shows component preview, bottom half shows theme list
@@ -212,7 +211,7 @@ class _ThemePreview extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
               ),
-              SizedBox(width: Spacing.sm),
+              const SizedBox(width: Spacing.sm),
               Text(
                 themeName,
                 style: TextStyle(
@@ -222,7 +221,7 @@ class _ThemePreview extends StatelessWidget {
                 ),
               ),
               if (themeDescription != null) ...[
-                SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.sm),
                 Text(
                   '- $themeDescription',
                   style: AppTypography.labelLarge(color: theme.textMuted),
@@ -230,7 +229,7 @@ class _ThemePreview extends StatelessWidget {
               ],
             ],
           ),
-          SizedBox(height: Spacing.lg),
+          const SizedBox(height: Spacing.lg),
           // Sample components
           Expanded(
             child: SingleChildScrollView(
@@ -286,7 +285,7 @@ class _ThemePreview extends StatelessWidget {
                                   fontSize: 14,
                                 ),
                               ),
-                              SizedBox(height: Spacing.sm),
+                              const SizedBox(height: Spacing.sm),
                               Container(
                                 padding: Insets.cardXs,
                                 decoration: BoxDecoration(
@@ -306,7 +305,7 @@ class _ThemePreview extends StatelessWidget {
                       ],
                     ),
                   ),
-                  SizedBox(height: Spacing.md),
+                  const SizedBox(height: Spacing.md),
                   // Status indicators
                   _PreviewCard(
                     theme: theme,
@@ -336,7 +335,7 @@ class _ThemePreview extends StatelessWidget {
                       ],
                     ),
                   ),
-                  SizedBox(height: Spacing.md),
+                  const SizedBox(height: Spacing.md),
                   // Diff preview
                   _PreviewCard(
                     theme: theme,
@@ -350,7 +349,7 @@ class _ThemePreview extends StatelessWidget {
                             fontSize: 12,
                           ),
                         ),
-                        SizedBox(height: Spacing.sm),
+                        const SizedBox(height: Spacing.sm),
                         Container(
                           padding: Insets.cardXs,
                           decoration: BoxDecoration(
@@ -367,7 +366,7 @@ class _ThemePreview extends StatelessWidget {
                                   color: theme.diffAdded,
                                 ).copyWith(fontWeight: FontWeight.bold),
                               ),
-                              SizedBox(width: Spacing.sm),
+                              const SizedBox(width: Spacing.sm),
                               Text(
                                 'Added line',
                                 style: AppTypography.codeSmall(
@@ -395,7 +394,7 @@ class _ThemePreview extends StatelessWidget {
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              SizedBox(width: Spacing.sm),
+                              const SizedBox(width: Spacing.sm),
                               Text(
                                 'Removed line',
                                 style: AppTypography.codeSmall(
@@ -561,7 +560,7 @@ class _ThemeListItem extends StatelessWidget {
                             ),
                           ),
                           if (isDefault) ...[
-                            SizedBox(width: Spacing.sm),
+                            const SizedBox(width: Spacing.sm),
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 6,
@@ -618,7 +617,7 @@ class _ThemeListItem extends StatelessWidget {
                   ),
                 // Selected checkmark
                 if (isSelected) ...[
-                  SizedBox(width: Spacing.sm),
+                  const SizedBox(width: Spacing.sm),
                   Icon(
                     AppIcons.checkCircle,
                     color: previewTheme.primary,

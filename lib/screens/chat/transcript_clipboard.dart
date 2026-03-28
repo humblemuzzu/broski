@@ -1,11 +1,10 @@
+import 'package:broski/models/message.dart';
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
-
-import '../../models/message.dart';
-import '../../providers/chat_provider.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Copy transcript to clipboard as markdown.
 /// Extracted from `_ChatScreenState._copyTranscriptToClipboard`.

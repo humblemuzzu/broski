@@ -1,15 +1,14 @@
+import 'package:broski/models/claude_code.dart';
+import 'package:broski/providers/claude_code_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/adaptive_container.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../theme/app_typography.dart';
-import '../theme/design_tokens.dart';
-
-import '../models/claude_code.dart';
-import '../providers/claude_code_provider.dart';
-import '../theme/opencode_theme.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
-import 'package:broski/theme/app_icons.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 class CustomToolEditorScreen extends ConsumerStatefulWidget {
   final ClaudeCodeCustomTool? tool;
@@ -134,8 +133,8 @@ class _CustomToolEditorScreenState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Basic Info Section
-              _SectionHeader(title: 'Basic Info'),
-              SizedBox(height: Spacing.md),
+              const _SectionHeader(title: 'Basic Info'),
+              const SizedBox(height: Spacing.md),
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(
@@ -145,7 +144,7 @@ class _CustomToolEditorScreenState
                       'Alphanumeric and underscores only. Will appear as mcp__broski-custom-tools__<name>',
                 ),
               ),
-              SizedBox(height: Spacing.lg),
+              const SizedBox(height: Spacing.lg),
               TextFormField(
                 controller: _descriptionController,
                 decoration: const InputDecoration(
@@ -154,7 +153,7 @@ class _CustomToolEditorScreenState
                 ),
                 maxLines: 2,
               ),
-              SizedBox(height: Spacing.lg),
+              const SizedBox(height: Spacing.lg),
               SwitchListTile(
                 title: const Text('Enabled'),
                 subtitle: const Text('Tool is available for Claude to use'),
@@ -162,10 +161,10 @@ class _CustomToolEditorScreenState
                 onChanged: (value) => setState(() => _enabled = value),
                 contentPadding: EdgeInsets.zero,
               ),
-              SizedBox(height: Spacing.xxl),
+              const SizedBox(height: Spacing.xxl),
               // Handler Type Section
-              _SectionHeader(title: 'Handler Type'),
-              SizedBox(height: Spacing.md),
+              const _SectionHeader(title: 'Handler Type'),
+              const SizedBox(height: Spacing.md),
               SegmentedButton<CustomToolHandlerType>(
                 segments:
                     const [
@@ -187,14 +186,14 @@ class _CustomToolEditorScreenState
                   setState(() => _handlerType = selected.first);
                 },
               ),
-              SizedBox(height: Spacing.sm),
+              const SizedBox(height: Spacing.sm),
               Text(
                 _handlerType.description,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
               ),
-              SizedBox(height: Spacing.xxl),
+              const SizedBox(height: Spacing.xxl),
               // Handler Config Section
               if (_handlerType == CustomToolHandlerType.http)
                 _HttpConfigSection(
@@ -214,7 +213,7 @@ class _CustomToolEditorScreenState
                 )
               else
                 const SizedBox.shrink(),
-              SizedBox(height: Spacing.xxl),
+              const SizedBox(height: Spacing.xxl),
               // Parameters Section
               _SectionHeader(
                 title: 'Parameters',
@@ -224,7 +223,7 @@ class _CustomToolEditorScreenState
                   tooltip: 'Add Parameter',
                 ),
               ),
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               if (_parameters.isEmpty)
                 Container(
                   padding: Insets.card,
@@ -261,9 +260,9 @@ class _CustomToolEditorScreenState
                 ),
               // Test Result
               if (_testResult != null) ...[
-                SizedBox(height: Spacing.xxl),
-                _SectionHeader(title: 'Test Result'),
-                SizedBox(height: Spacing.md),
+                const SizedBox(height: Spacing.xxl),
+                const _SectionHeader(title: 'Test Result'),
+                const SizedBox(height: Spacing.md),
                 Builder(
                   builder: (context) {
                     final ocTheme = OpenCodeTheme.of(context);
@@ -291,7 +290,7 @@ class _CustomToolEditorScreenState
                                 color: statusColor,
                                 size: 20,
                               ),
-                              SizedBox(width: Spacing.sm),
+                              const SizedBox(width: Spacing.sm),
                               Text(
                                 _testSuccess ? 'Success' : 'Failed',
                                 style: theme.textTheme.titleSmall?.copyWith(
@@ -301,7 +300,7 @@ class _CustomToolEditorScreenState
                               ),
                             ],
                           ),
-                          SizedBox(height: Spacing.sm),
+                          const SizedBox(height: Spacing.sm),
                           Text(_testResult!, style: AppTypography.codeSmall()),
                         ],
                       ),
@@ -373,13 +372,7 @@ class _CustomToolEditorScreenState
     final tool = _buildTool();
     final errors = tool.validate();
     if (errors.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errors.join('\n')),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
-      );
+      showError(context, errors.join('\n'));
       return;
     }
     setState(() => _isSaving = true);
@@ -389,15 +382,11 @@ class _CustomToolEditorScreenState
           .saveTool(tool);
       if (saved != null && mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              _isEditing
-                  ? 'Tool updated successfully'
-                  : 'Tool created successfully',
-            ),
-            behavior: SnackBarBehavior.floating,
-          ),
+        showSuccess(
+          context,
+          _isEditing
+              ? 'Tool updated successfully'
+              : 'Tool created successfully',
         );
       } else if (mounted) {
         showInfo(context, 'Failed to save tool');
@@ -413,13 +402,7 @@ class _CustomToolEditorScreenState
     final tool = _buildTool();
     final errors = tool.validate();
     if (errors.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errors.join('\n')),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
-      );
+      showError(context, errors.join('\n'));
       return;
     }
     setState(() {
@@ -507,7 +490,7 @@ class _CustomToolEditorScreenState
                     hintText: 'e.g., location',
                   ),
                 ),
-                SizedBox(height: Spacing.lg),
+                const SizedBox(height: Spacing.lg),
                 TextField(
                   controller: descController,
                   decoration: const InputDecoration(
@@ -515,7 +498,7 @@ class _CustomToolEditorScreenState
                     hintText: 'What this parameter is for',
                   ),
                 ),
-                SizedBox(height: Spacing.lg),
+                const SizedBox(height: Spacing.lg),
                 DropdownButtonFormField<CustomToolParameterType>(
                   initialValue: type,
                   decoration: const InputDecoration(labelText: 'Type'),
@@ -531,7 +514,7 @@ class _CustomToolEditorScreenState
                     }
                   },
                 ),
-                SizedBox(height: Spacing.lg),
+                const SizedBox(height: Spacing.lg),
                 SwitchListTile(
                   title: const Text('Required'),
                   value: required,
@@ -620,8 +603,8 @@ class _HttpConfigSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionHeader(title: 'HTTP Configuration'),
-        SizedBox(height: Spacing.md),
+        const _SectionHeader(title: 'HTTP Configuration'),
+        const SizedBox(height: Spacing.md),
         Row(
           children: [
             SizedBox(
@@ -639,7 +622,7 @@ class _HttpConfigSection extends StatelessWidget {
                 },
               ),
             ),
-            SizedBox(width: Spacing.md),
+            const SizedBox(width: Spacing.md),
             Expanded(
               child: TextFormField(
                 controller: urlController,
@@ -651,7 +634,7 @@ class _HttpConfigSection extends StatelessWidget {
             ),
           ],
         ),
-        SizedBox(height: Spacing.lg),
+        const SizedBox(height: Spacing.lg),
         TextFormField(
           controller: headersController,
           decoration: const InputDecoration(
@@ -661,7 +644,7 @@ class _HttpConfigSection extends StatelessWidget {
           ),
           maxLines: 3,
         ),
-        SizedBox(height: Spacing.lg),
+        const SizedBox(height: Spacing.lg),
         TextFormField(
           controller: bodyTemplateController,
           decoration: const InputDecoration(
@@ -692,8 +675,8 @@ class _ScriptConfigSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionHeader(title: 'Script Configuration'),
-        SizedBox(height: Spacing.md),
+        const _SectionHeader(title: 'Script Configuration'),
+        const SizedBox(height: Spacing.md),
         TextFormField(
           controller: commandController,
           decoration: const InputDecoration(
@@ -702,7 +685,7 @@ class _ScriptConfigSection extends StatelessWidget {
             helperText: 'Use {{paramName}} for parameter placeholders',
           ),
         ),
-        SizedBox(height: Spacing.lg),
+        const SizedBox(height: Spacing.lg),
         TextFormField(
           controller: argsController,
           decoration: const InputDecoration(
@@ -710,7 +693,7 @@ class _ScriptConfigSection extends StatelessWidget {
             hintText: '--flag {{value}}',
           ),
         ),
-        SizedBox(height: Spacing.lg),
+        const SizedBox(height: Spacing.lg),
         TextFormField(
           controller: cwdController,
           decoration: const InputDecoration(
@@ -718,7 +701,7 @@ class _ScriptConfigSection extends StatelessWidget {
             hintText: '/path/to/dir',
           ),
         ),
-        SizedBox(height: Spacing.lg),
+        const SizedBox(height: Spacing.lg),
         TextFormField(
           controller: timeoutController,
           decoration: const InputDecoration(
@@ -771,7 +754,7 @@ class _ParameterCard extends StatelessWidget {
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             if (parameter.required) ...[
-              SizedBox(width: Spacing.xs),
+              const SizedBox(width: Spacing.xs),
               Text(
                 '*',
                 style: TextStyle(

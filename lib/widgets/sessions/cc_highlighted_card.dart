@@ -1,18 +1,18 @@
+import 'package:broski/models/claude_code.dart';
+import 'package:broski/models/highlight_color.dart';
+import 'package:broski/providers/sessions_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/sessions/session_stat_badges.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/claude_code.dart';
-import '../../models/highlight_color.dart';
-import '../../providers/sessions_provider.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import 'session_stat_badges.dart';
 
 /// Highlighted Claude Code session card with accent styling.
 /// Extracted from sessions_screen.dart.
 class CCHighlightedSessionCard extends ConsumerWidget {
   const CCHighlightedSessionCard({
+    super.key,
     required this.session,
     required this.highlightColor,
     required this.onTap,
@@ -92,7 +92,7 @@ class CCHighlightedSessionCard extends ConsumerWidget {
                       children: [
                         // Star icon inline
                         Icon(AppIcons.star, size: 16, color: color),
-                        SizedBox(width: Spacing.sm),
+                        const SizedBox(width: Spacing.sm),
                         Expanded(
                           child: Text(
                             session.displayTitle,
@@ -107,14 +107,14 @@ class CCHighlightedSessionCard extends ConsumerWidget {
                           ),
                         ),
                         if (session.isSubagentSession) ...[
-                          SizedBox(width: Spacing.xs),
+                          const SizedBox(width: Spacing.xs),
                           Icon(
                             AppIcons.gitBranch,
                             size: 14,
                             color: ocTheme.info,
                           ),
                         ],
-                        SizedBox(width: Spacing.md),
+                        const SizedBox(width: Spacing.md),
                         // Status or time
                         if (isActive)
                           Row(
@@ -176,7 +176,7 @@ class CCHighlightedSessionCard extends ConsumerWidget {
                         ),
                         // Model badge if available
                         if (session.model != null) ...[
-                          SizedBox(width: Spacing.sm),
+                          const SizedBox(width: Spacing.sm),
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 5,

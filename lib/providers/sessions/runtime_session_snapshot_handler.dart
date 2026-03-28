@@ -1,5 +1,5 @@
-import '../../models/runtime/runtime.dart';
-import '../../models/session.dart';
+import 'package:broski/models/runtime/runtime.dart';
+import 'package:broski/models/session.dart';
 
 SessionStatus runtimeSessionStatusFromState(RuntimeState runtimeState) {
   final backendData = runtimeState.backendData;

@@ -1,10 +1,9 @@
 import 'dart:convert';
 
+import 'package:broski/config/app_config.dart';
+import 'package:broski/models/app_user.dart';
+import 'package:broski/models/auth_session.dart';
 import 'package:http/http.dart' as http;
-
-import '../config/app_config.dart';
-import '../models/app_user.dart';
-import '../models/auth_session.dart';
 
 class ConvexService {
   ConvexService({http.Client? client}) : _client = client ?? http.Client();

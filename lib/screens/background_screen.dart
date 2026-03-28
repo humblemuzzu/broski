@@ -1,17 +1,16 @@
 import 'dart:io';
 
+import 'package:broski/providers/appearance_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/adaptive_container.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../theme/app_typography.dart';
-import '../theme/design_tokens.dart';
-
-import '../providers/appearance_provider.dart';
-import '../theme/opencode_theme.dart';
-import '../widgets/chat/detail_sheet.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
-import 'package:broski/theme/app_icons.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Screen for configuring custom background wallpaper, shade, and per-screen toggles.
 ///
@@ -64,18 +63,18 @@ class BackgroundScreen extends ConsumerWidget {
           padding: Insets.screenAll,
           children: [
             // Custom Background Image Section
-            _SectionHeader(title: 'Wallpaper'),
-            SizedBox(height: Spacing.md),
+            const _SectionHeader(title: 'Wallpaper'),
+            const SizedBox(height: Spacing.md),
             _BackgroundSection(settings: settings),
-            SizedBox(height: Spacing.xxxl),
+            const SizedBox(height: Spacing.xxxl),
             // Background Shade Picker
-            _SectionHeader(title: 'Background Shade'),
-            SizedBox(height: Spacing.md),
+            const _SectionHeader(title: 'Background Shade'),
+            const SizedBox(height: Spacing.md),
             const _BackgroundShadePreview(),
-            SizedBox(height: Spacing.xxxl),
+            const SizedBox(height: Spacing.xxxl),
             // Per-screen background toggles
-            _SectionHeader(title: 'Screen Selection'),
-            SizedBox(height: Spacing.md),
+            const _SectionHeader(title: 'Screen Selection'),
+            const SizedBox(height: Spacing.md),
             const _ScreenBackgroundToggles(),
             const SizedBox(height: 100),
           ],
@@ -181,7 +180,7 @@ class _BackgroundSection extends ConsumerWidget {
                             size: 24,
                           ),
                   ),
-                  SizedBox(width: Spacing.lg),
+                  const SizedBox(width: Spacing.lg),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -194,7 +193,7 @@ class _BackgroundSection extends ConsumerWidget {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        SizedBox(height: Spacing.xs),
+                        const SizedBox(height: Spacing.xs),
                         Text(
                           settings.hasCustomBackground
                               ? 'Tap to change or remove'
@@ -284,7 +283,7 @@ class _BackgroundSection extends ConsumerWidget {
           ),
           // Remove background (only if one is set)
           if (settings.hasCustomBackground) ...[
-            SizedBox(height: Spacing.sm),
+            const SizedBox(height: Spacing.sm),
             ListTile(
               leading: Container(
                 padding: Insets.cardXs,
@@ -302,7 +301,7 @@ class _BackgroundSection extends ConsumerWidget {
               },
             ),
           ],
-          SizedBox(height: Spacing.lg),
+          const SizedBox(height: Spacing.lg),
         ],
       ),
     );
@@ -366,7 +365,7 @@ class _SliderTileWithLabel extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: Spacing.sm),
+          const SizedBox(height: Spacing.sm),
           Slider(
             value: value,
             min: min,
@@ -434,7 +433,7 @@ class _BackgroundShadePreview extends ConsumerWidget {
               ),
             ],
           ),
-          SizedBox(height: Spacing.lg),
+          const SizedBox(height: Spacing.lg),
           // Shade swatches (selectable)
           ...shades.map((shade) {
             final isSelected = settings.selectedShade == shade.$1;
@@ -481,7 +480,7 @@ class _BackgroundShadePreview extends ConsumerWidget {
                               )
                             : null,
                       ),
-                      SizedBox(width: Spacing.md),
+                      const SizedBox(width: Spacing.md),
                       // Label and description
                       Expanded(
                         child: Column(
@@ -576,7 +575,7 @@ class _ScreenBackgroundToggles extends ConsumerWidget {
               size: 18,
               color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
             ),
-            SizedBox(width: Spacing.md),
+            const SizedBox(width: Spacing.md),
             Expanded(
               child: Text(
                 'Select a background image or shade above to enable',
@@ -617,7 +616,7 @@ class _ScreenBackgroundToggles extends ConsumerWidget {
                 size: 18,
                 color: theme.colorScheme.primary,
               ),
-              SizedBox(width: Spacing.md),
+              const SizedBox(width: Spacing.md),
               Expanded(
                 child: Text(
                   'Select screens to apply background',
@@ -666,7 +665,7 @@ class _ScreenBackgroundToggles extends ConsumerWidget {
               ),
             ],
           ),
-          SizedBox(height: Spacing.lg),
+          const SizedBox(height: Spacing.lg),
           // Screen toggles
           Wrap(
             spacing: 8,
@@ -736,7 +735,7 @@ class _ScreenToggleChip extends StatelessWidget {
                   ? theme.colorScheme.primary
                   : theme.colorScheme.onSurface.withValues(alpha: 0.5),
             ),
-            SizedBox(width: Spacing.sm),
+            const SizedBox(width: Spacing.sm),
             Text(
               label,
               style: TextStyle(

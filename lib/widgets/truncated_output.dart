@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart';
-import '../theme/app_typography.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
 import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:flutter/material.dart';
 
 /// Widget for displaying truncated tool output with head-tail preservation.
 ///
@@ -50,7 +50,7 @@ class TruncatedOutput extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (head.isNotEmpty) _CodeBox(text: head),
-        if (head.isNotEmpty) SizedBox(height: Spacing.sm),
+        if (head.isNotEmpty) const SizedBox(height: Spacing.sm),
         _TruncationCard(
           theme: theme,
           icon: AppIcons.unfoldMore,
@@ -73,7 +73,7 @@ class TruncatedOutput extends StatelessWidget {
       children: [
         // Head section
         if (headPart.isNotEmpty) _CodeBox(text: headPart),
-        if (headPart.isNotEmpty) SizedBox(height: Spacing.sm),
+        if (headPart.isNotEmpty) const SizedBox(height: Spacing.sm),
         // Omitted indicator
         Container(
           width: double.infinity,
@@ -87,7 +87,7 @@ class TruncatedOutput extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(AppIcons.moreHorizontal, color: theme.warning, size: 16),
-              SizedBox(width: Spacing.sm),
+              const SizedBox(width: Spacing.sm),
               Text(
                 '$omittedLines lines ($omittedSize) omitted',
                 style: TextStyle(
@@ -96,13 +96,13 @@ class TruncatedOutput extends StatelessWidget {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              SizedBox(width: Spacing.sm),
+              const SizedBox(width: Spacing.sm),
               Icon(AppIcons.moreHorizontal, color: theme.warning, size: 16),
             ],
           ),
         ),
         // Tail section
-        if (tailPart.isNotEmpty) SizedBox(height: Spacing.sm),
+        if (tailPart.isNotEmpty) const SizedBox(height: Spacing.sm),
         if (tailPart.isNotEmpty) _CodeBox(text: tailPart),
       ],
     );

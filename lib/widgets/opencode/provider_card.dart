@@ -1,10 +1,9 @@
+import 'package:broski/models/provider.dart';
+import 'package:broski/providers/opencode_providers_provider.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
-
-import '../../models/provider.dart';
-import '../../providers/opencode_providers_provider.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
 
 /// A card displaying a single provider with expandable model list.
 class ProviderCard extends StatelessWidget {

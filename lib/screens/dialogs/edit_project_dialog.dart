@@ -1,7 +1,6 @@
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
-
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
 
 /// Common project emoji icons for the picker grid.
 const _projectEmojis = [

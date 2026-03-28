@@ -1,15 +1,14 @@
+import 'package:broski/models/font_preference.dart';
+import 'package:broski/providers/font_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/widgets/adaptive_container.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-
-import '../models/font_preference.dart';
-import '../providers/font_provider.dart';
-import '../theme/app_icons.dart';
-import '../theme/app_typography.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import '../widgets/adaptive_container.dart';
-import '../utils/responsive.dart';
 
 /// Full-screen font picker with live preview.
 ///
@@ -51,9 +50,9 @@ class FontSelectorScreen extends ConsumerWidget {
             ],
           ),
         ),
-        body: AdaptiveContainer(
+        body: const AdaptiveContainer(
           width: ContentWidth.standard,
-          child: const TabBarView(children: [_UIFontTab(), _CodeFontTab()]),
+          child: TabBarView(children: [_UIFontTab(), _CodeFontTab()]),
         ),
       ),
     );

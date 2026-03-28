@@ -1,19 +1,18 @@
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:broski/providers/app_auth_provider.dart';
+import 'package:broski/providers/onboarding_provider.dart'
+    show onboardingProvider, kDevBypassOnboarding;
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/utils/responsive.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../theme/app_typography.dart';
-import '../theme/design_tokens.dart';
 import 'package:url_launcher/url_launcher.dart';
-
-import '../providers/app_auth_provider.dart';
-import '../utils/responsive.dart';
-import 'package:broski/theme/app_icons.dart';
-import '../providers/onboarding_provider.dart'
-    show onboardingProvider, kDevBypassOnboarding;
 
 /// Standalone "Identify Yourself" auth screen used during onboarding.
 /// Auto-advances to the paywall step once the user signs in.
@@ -97,9 +96,9 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                   ),
                 ],
               ),
-              SizedBox(height: Spacing.lg),
+              const SizedBox(height: Spacing.lg),
               // -- "Identify\nYourself." heading --
-              Text.rich(
+              const Text.rich(
                 TextSpan(
                   children: [
                     TextSpan(
@@ -119,7 +118,7 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                         fontFamily: AppTypography.pixelFontFamily,
                         fontSize: 44,
                         fontWeight: FontWeight.w800,
-                        color: const Color(0xFF555555),
+                        color: Color(0xFF555555),
                         height: 1.1,
                         letterSpacing: -1.0,
                       ),
@@ -160,7 +159,7 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                     ),
                   ),
                 ),
-                SizedBox(height: Spacing.lg),
+                const SizedBox(height: Spacing.lg),
               ],
               // -- Auth buttons (constrained width on iPad) --
               Center(
@@ -200,7 +199,7 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                   ),
                 ),
               ),
-              SizedBox(height: Spacing.xl),
+              const SizedBox(height: Spacing.xl),
               // -- Terms and Privacy Policy --
               Center(
                 child: Text.rich(
@@ -255,7 +254,7 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
               ),
               // DEV BYPASS: skip auth button (only in debug builds)
               if (kDebugMode && kDevBypassOnboarding) ...[
-                SizedBox(height: Spacing.lg),
+                const SizedBox(height: Spacing.lg),
                 GestureDetector(
                   onTap: () {
                     HapticFeedback.lightImpact();
@@ -272,7 +271,7 @@ class _OnboardingAuthScreenState extends ConsumerState<OnboardingAuthScreen>
                   ),
                 ),
               ],
-              SizedBox(height: Spacing.xxxl),
+              const SizedBox(height: Spacing.xxxl),
             ],
           ),
         ),
@@ -314,7 +313,7 @@ class _ScanBox extends StatelessWidget {
                   children: [
                     // Dull profile image
                     ColorFiltered(
-                      colorFilter: ColorFilter.matrix(<double>[
+                      colorFilter: const ColorFilter.matrix(<double>[
                         0.3,
                         0.3,
                         0.3,
@@ -422,7 +421,7 @@ class _ScanBox extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.40),
                   ).copyWith(fontWeight: FontWeight.w500, letterSpacing: 1.2),
                 ),
-                SizedBox(height: Spacing.xs),
+                const SizedBox(height: Spacing.xs),
                 Text(
                   'ACCESS: PENDING',
                   style: AppTypography.codeSmall(
@@ -570,7 +569,7 @@ class _AuthButton extends StatelessWidget {
                         color: Colors.white.withValues(alpha: 0.8),
                         size: 22,
                       ),
-                    SizedBox(width: Spacing.md),
+                    const SizedBox(width: Spacing.md),
                     Text(
                       label,
                       style: TextStyle(

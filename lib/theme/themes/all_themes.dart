@@ -1,5 +1,5 @@
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
-import '../opencode_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // OpenCode Theme Definitions
@@ -2733,201 +2733,201 @@ const broskiThemeCount = 3;
 
 final allThemes = <ThemeInfo>[
   // ── Broski Themes ──────────────────────────────────────────────────────────
-  ThemeInfo(
+  const ThemeInfo(
     id: 'opencode',
     name: 'OpenCode Dark',
     theme: opencodeDarkTheme,
     description: 'Warm peach, professional',
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'opencode-light',
     name: 'OpenCode Light',
     theme: opencodeLightTheme,
     description: 'Clean, eye-friendly light',
     isLight: true,
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'broski',
     name: 'Broski',
     theme: broskiDarkTheme,
     description: 'Premium navy/silver',
   ),
   // ── Community Themes ───────────────────────────────────────────────────────
-  ThemeInfo(
+  const ThemeInfo(
     id: 'tokyonight',
     name: 'Tokyo Night',
     theme: tokyonightDarkTheme,
     description: 'Cool blue, modern',
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'dracula',
     name: 'Dracula',
     theme: draculaDarkTheme,
     description: 'Classic purple',
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'catppuccin',
     name: 'Catppuccin',
     theme: catppuccinDarkTheme,
     description: 'Soft pastel',
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'nord',
     name: 'Nord',
     theme: nordDarkTheme,
     description: 'Arctic frost',
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'gruvbox',
     name: 'Gruvbox',
     theme: gruvboxDarkTheme,
     description: 'Retro warm',
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'aura',
     name: 'Aura',
     theme: auraDarkTheme,
     description: 'Vibrant purple',
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'monokai',
     name: 'Monokai',
     theme: monokaiDarkTheme,
     description: 'Classic code',
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'flexoki',
     name: 'Flexoki',
     theme: flexokiDarkTheme,
     description: 'Warm orange',
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'one-dark',
     name: 'One Dark',
     theme: oneDarkTheme,
     description: 'Atom inspired',
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'solarized',
     name: 'Solarized',
     theme: solarizedDarkTheme,
     description: 'Classic scheme',
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'github',
     name: 'GitHub',
     theme: githubDarkTheme,
     description: 'GitHub style',
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'matrix',
     name: 'Matrix',
     theme: matrixDarkTheme,
     description: 'Hacker green',
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'synthwave84',
     name: 'Synthwave 84',
     theme: synthwave84DarkTheme,
     description: 'Retro neon',
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'vesper',
     name: 'Vesper',
     theme: vesperDarkTheme,
     description: 'Minimal warm',
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'rosepine',
     name: 'Rosé Pine',
     theme: rosepineDarkTheme,
     description: 'Elegant soft',
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'vercel',
     name: 'Vercel',
     theme: vercelDarkTheme,
     description: 'Clean modern',
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'cobalt2',
     name: 'Cobalt2',
     theme: cobalt2DarkTheme,
     description: 'High contrast',
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'nightowl',
     name: 'Night Owl',
     theme: nightowlDarkTheme,
     description: 'Night coding',
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'palenight',
     name: 'Palenight',
     theme: palenightDarkTheme,
     description: 'Soft purple',
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'catppuccin-frappe',
     name: 'Catppuccin Frappé',
     theme: catppuccinFrappeDarkTheme,
     description: 'Muted pastel',
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'catppuccin-macchiato',
     name: 'Catppuccin Macchiato',
     theme: catppuccinMacchiatoDarkTheme,
     description: 'Medium pastel',
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'material',
     name: 'Material',
     theme: materialDarkTheme,
     description: 'Material design',
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'everforest',
     name: 'Everforest',
     theme: everforestDarkTheme,
     description: 'Nature calm',
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'kanagawa',
     name: 'Kanagawa',
     theme: kanagawaDarkTheme,
     description: 'Japanese aesthetic',
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'zenburn',
     name: 'Zenburn',
     theme: zenburnDarkTheme,
     description: 'Low contrast',
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'mercury',
     name: 'Mercury',
     theme: mercuryDarkTheme,
     description: 'Clean purple',
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'cursor',
     name: 'Cursor',
     theme: cursorDarkTheme,
     description: 'Cursor inspired',
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'ayu',
     name: 'Ayu',
     theme: ayuDarkTheme,
     description: 'Warm minimal',
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'orng',
     name: 'Orng',
     theme: orngDarkTheme,
     description: 'Bold orange',
   ),
-  ThemeInfo(
+  const ThemeInfo(
     id: 'lucent-orng',
     name: 'Lucent Orng',
     theme: lucentOrngDarkTheme,

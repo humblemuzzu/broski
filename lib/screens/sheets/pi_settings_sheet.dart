@@ -1,9 +1,8 @@
+import 'package:broski/providers/pi_provider.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../providers/pi_provider.dart';
-import '../../widgets/chat/detail_sheet.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Shows the Pi settings sheet with typed controls.
 /// Extracted per AGENTS.md — chat_screen only calls this function.

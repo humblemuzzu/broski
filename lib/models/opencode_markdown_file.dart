@@ -1,4 +1,4 @@
-import 'skill.dart';
+import 'package:broski/models/skill.dart';
 
 class OpenCodeMarkdownFile {
   final String name;

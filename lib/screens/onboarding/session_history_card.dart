@@ -1,7 +1,7 @@
-import 'package:flutter/material.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/design_tokens.dart';
 import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:flutter/material.dart';
 
 /// Floating session history card with red/green glow and rollback entries.
 /// Used by the Safety Net onboarding page.
@@ -133,7 +133,7 @@ class OnboardingSessionHistoryCard extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 14,
                             fontFamily: AppTypography.codeFontFamily,
-                            color: Color(0xFFFF6B6B),
+                            color: const Color(0xFFFF6B6B),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -173,7 +173,7 @@ class OnboardingSessionHistoryCard extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 14,
                             fontFamily: AppTypography.codeFontFamily,
-                            color: Color(0xFF50FA7B),
+                            color: const Color(0xFF50FA7B),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -190,7 +190,7 @@ class OnboardingSessionHistoryCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                SizedBox(height: Spacing.xxl),
+                const SizedBox(height: Spacing.xxl),
                 // ── "Undo Last Action" button
                 Container(
                   width: double.infinity,

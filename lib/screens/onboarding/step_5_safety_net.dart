@@ -1,7 +1,7 @@
+import 'package:broski/screens/onboarding/session_history_card.dart';
+import 'package:broski/theme/design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../theme/design_tokens.dart';
-import 'session_history_card.dart';
 
 // =============================================================================
 // PAGE 5: SAFETY NET (ROLLBACK / UNDO)
@@ -59,7 +59,7 @@ class _SafetyNetPageState extends State<SafetyNetPage>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(height: Spacing.xxxl),
+              const SizedBox(height: Spacing.xxxl),
               // ── Title
               FadeTransition(
                 opacity: CurvedAnimation(
@@ -111,7 +111,7 @@ class _SafetyNetPageState extends State<SafetyNetPage>
                   ),
                 ),
               ),
-              SizedBox(height: Spacing.xl),
+              const SizedBox(height: Spacing.xl),
               // ── Session History mockup card
               Expanded(
                 child: FadeTransition(
@@ -138,7 +138,7 @@ class _SafetyNetPageState extends State<SafetyNetPage>
                   ),
                 ),
               ),
-              SizedBox(height: Spacing.xl),
+              const SizedBox(height: Spacing.xl),
               // ── Subtitle
               FadeTransition(
                 opacity: CurvedAnimation(
@@ -155,7 +155,7 @@ class _SafetyNetPageState extends State<SafetyNetPage>
                   ),
                 ),
               ),
-              SizedBox(height: Spacing.xl),
+              const SizedBox(height: Spacing.xl),
               // ── "Continue" button
               FadeTransition(
                 opacity: CurvedAnimation(

@@ -1,14 +1,13 @@
+import 'package:broski/models/pi.dart';
+import 'package:broski/providers/pi_provider.dart';
+import 'package:broski/services/pi_bridge_service.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/pi.dart';
-import '../../providers/pi_provider.dart';
-import '../../services/pi_bridge_service.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../utils/error_utils.dart';
-import '../../widgets/chat/detail_sheet.dart';
 
 /// Shows the Pi tools sheet with active/inactive toggles.
 /// Extracted per AGENTS.md — chat_screen only calls this function.
@@ -64,13 +63,13 @@ class _PiToolsSheetContentState extends ConsumerState<_PiToolsSheetContent> {
               'Failed to load tools',
               style: AppTypography.labelLarge(color: theme.text),
             ),
-            SizedBox(height: Spacing.xs),
+            const SizedBox(height: Spacing.xs),
             Text(
               humanizeError(error),
               style: AppTypography.label(color: theme.textMuted),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: Spacing.md),
+            const SizedBox(height: Spacing.md),
             TextButton(
               onPressed: () => ref.invalidate(piToolsProvider),
               child: const Text('Retry'),

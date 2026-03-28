@@ -1,10 +1,9 @@
+import 'package:broski/models/git.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
+import 'package:broski/widgets/git/git_diff_inline.dart';
 import 'package:flutter/material.dart';
-import '../../theme/app_typography.dart';
-
-import '../../models/git.dart';
-import '../../widgets/chat/detail_sheet.dart';
-import '../../widgets/git/git_diff_inline.dart';
-import '../../theme/design_tokens.dart';
 
 class GitLogSheet extends StatelessWidget {
   const GitLogSheet({
@@ -41,7 +40,10 @@ class GitLogSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (entries.isEmpty) {
-      return Padding(padding: Insets.card, child: Text('No commits yet.'));
+      return const Padding(
+        padding: Insets.card,
+        child: Text('No commits yet.'),
+      );
     }
 
     return Padding(

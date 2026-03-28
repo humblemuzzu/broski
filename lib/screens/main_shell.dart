@@ -1,29 +1,28 @@
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/models/nav_bar_style.dart';
+import 'package:broski/providers/agent_type_provider.dart';
+import 'package:broski/providers/app_subscription_provider.dart';
+import 'package:broski/providers/appearance_provider.dart';
+import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/nav_bar_style_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/providers/sessions_provider.dart';
+import 'package:broski/screens/browse_screen.dart';
+import 'package:broski/screens/paywall_screen.dart';
+import 'package:broski/screens/projects_screen.dart';
+import 'package:broski/screens/sessions_screen.dart';
+import 'package:broski/screens/settings_screen.dart';
+import 'package:broski/services/websocket_service.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/widgets/adaptive_container.dart';
+import 'package:broski/widgets/app_background.dart';
+import 'package:broski/widgets/glassmorphic_nav_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import 'browse_screen.dart';
-import 'paywall_screen.dart';
-import 'projects_screen.dart';
-import 'sessions_screen.dart';
-import 'settings_screen.dart';
-import '../models/agent_type.dart';
-import '../models/nav_bar_style.dart';
-import '../providers/agent_type_provider.dart';
-import '../providers/appearance_provider.dart';
-import '../providers/app_subscription_provider.dart';
-import '../providers/connection_provider.dart';
-import '../providers/nav_bar_style_provider.dart';
-import '../providers/sessions_provider.dart';
-import '../providers/service_providers.dart';
-import '../services/websocket_service.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import '../widgets/app_background.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
-import '../widgets/glassmorphic_nav_bar.dart';
-import 'package:broski/theme/app_icons.dart';
 
 class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key});
@@ -117,11 +116,11 @@ class _MainShellState extends ConsumerState<MainShell> {
           // - Tabs 0-2: center CTA (competitor-style empty state)
           // - Settings tab: subtle top banner
           if (!sub.entitled && _index != 3)
-            Positioned.fill(
+            const Positioned.fill(
               child: SafeArea(
                 child: AdaptiveContainer(
                   width: ContentWidth.narrow,
-                  child: const Align(
+                  child: Align(
                     alignment: Alignment.center,
                     child: _UnpaidCenterCta(),
                   ),
@@ -243,7 +242,7 @@ class _UpgradeBanner extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(AppIcons.subscription, color: ocTheme.warning, size: 16),
-                  SizedBox(width: Spacing.sm),
+                  const SizedBox(width: Spacing.sm),
                   Text(
                     'Upgrade',
                     style: TextStyle(
@@ -252,7 +251,7 @@ class _UpgradeBanner extends ConsumerWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  SizedBox(width: Spacing.xs),
+                  const SizedBox(width: Spacing.xs),
                   Icon(
                     AppIcons.chevronRight,
                     color: ocTheme.textMuted,
@@ -278,7 +277,7 @@ class _UnpaidCenterCta extends ConsumerWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(height: Spacing.lg),
+          const SizedBox(height: Spacing.lg),
           Container(
             width: 64,
             height: 64,
@@ -373,7 +372,7 @@ class _OfflineBanner extends StatelessWidget {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              SizedBox(width: Spacing.sm),
+              const SizedBox(width: Spacing.sm),
               Icon(AppIcons.refresh, color: ocTheme.textMuted, size: 14),
             ],
           ),
@@ -408,7 +407,7 @@ class _ProtocolBanner extends StatelessWidget {
         child: Row(
           children: [
             Icon(AppIcons.warning, color: ocTheme.warning, size: 16),
-            SizedBox(width: Spacing.sm),
+            const SizedBox(width: Spacing.sm),
             Expanded(
               child: Text(
                 'Bridge protocol $bridgeVersion (app $appVersion). Some features may be unavailable until you update.',

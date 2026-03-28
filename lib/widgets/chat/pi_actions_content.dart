@@ -1,18 +1,17 @@
+import 'package:broski/models/pi.dart';
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/pi_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/utils/format_utils.dart';
+import 'package:broski/widgets/chat/action_row.dart';
+import 'package:broski/widgets/chat/action_tile.dart';
+import 'package:broski/widgets/chat/agent_status_bar.dart';
+import 'package:broski/widgets/chat/section_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/pi.dart';
-import '../../providers/chat_provider.dart';
-import '../../providers/pi_provider.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import 'action_row.dart';
-import 'action_tile.dart';
-import 'agent_status_bar.dart';
-import 'section_header.dart';
 
 /// Pi actions content. Extracted from chat_screen.dart.
 class PiActionsContent extends ConsumerWidget {
@@ -214,7 +213,7 @@ class PiActionsContent extends ConsumerWidget {
             children: [
               // Thinking Level
               SectionHeader(title: 'THINKING LEVEL', theme: theme),
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
@@ -268,10 +267,10 @@ class PiActionsContent extends ConsumerWidget {
                   }).toList(),
                 ),
               ),
-              SizedBox(height: Spacing.xl),
+              const SizedBox(height: Spacing.xl),
               // Quick Actions
               SectionHeader(title: 'ACTIONS', theme: theme),
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               Row(
                 children: [
                   ActionTile(
@@ -296,7 +295,7 @@ class PiActionsContent extends ConsumerWidget {
                   ),
                 ],
               ),
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               Row(
                 children: [
                   ActionTile(
@@ -318,13 +317,13 @@ class PiActionsContent extends ConsumerWidget {
                 ],
               ),
               if (isStreaming) ...[
-                SizedBox(height: Spacing.xl),
+                const SizedBox(height: Spacing.xl),
                 SectionHeader(
                   title: 'DANGER ZONE',
                   theme: theme,
                   color: theme.error.withValues(alpha: 0.7),
                 ),
-                SizedBox(height: Spacing.md),
+                const SizedBox(height: Spacing.md),
                 ActionRow(
                   icon: AppIcons.stop,
                   label: 'Stop Agent',

@@ -1,17 +1,16 @@
-import 'package:flutter/material.dart';
-import '../theme/app_typography.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/claude_code.dart';
-import '../providers/selection_provider.dart';
-import '../providers/service_providers.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
+import 'package:broski/models/claude_code.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
 import 'package:broski/theme/app_icons.dart';
-import '../utils/error_utils.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/responsive.dart';
 import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/adaptive_container.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Memory viewer for Claude Code.
 /// Shows actual memory entries from ~/.claude/memory/ (user),
@@ -197,7 +196,7 @@ class _ClaudeCodeMemoryScreenState
                             color: theme.textMuted,
                             size: 48,
                           ),
-                          SizedBox(height: Spacing.md),
+                          const SizedBox(height: Spacing.md),
                           Text(
                             _memories.isEmpty
                                 ? 'No memories yet.\nClaude will create memories as you work together.'
@@ -376,7 +375,7 @@ class _MemoryCardState extends State<_MemoryCard> {
                     ),
                   ),
                   if (sourceLabel != null) ...[
-                    SizedBox(width: Spacing.xs),
+                    const SizedBox(width: Spacing.xs),
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
@@ -396,7 +395,7 @@ class _MemoryCardState extends State<_MemoryCard> {
                       ),
                     ),
                   ],
-                  SizedBox(width: Spacing.sm),
+                  const SizedBox(width: Spacing.sm),
                   if (entry.createdAt != null)
                     Text(
                       entry.createdAt!,
@@ -408,7 +407,7 @@ class _MemoryCardState extends State<_MemoryCard> {
                     color: theme.textMuted,
                     size: 20,
                   ),
-                  SizedBox(width: Spacing.xs),
+                  const SizedBox(width: Spacing.xs),
                   GestureDetector(
                     onTap: widget.onDelete,
                     child: Icon(
@@ -419,7 +418,7 @@ class _MemoryCardState extends State<_MemoryCard> {
                   ),
                 ],
               ),
-              SizedBox(height: Spacing.sm),
+              const SizedBox(height: Spacing.sm),
               // Content preview or full
               Text(
                 _expanded ? entry.content : preview,

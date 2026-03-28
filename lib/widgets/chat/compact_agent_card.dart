@@ -1,19 +1,19 @@
+import 'package:broski/models/card_style.dart';
+import 'package:broski/models/message.dart';
+import 'package:broski/models/session_context.dart';
+import 'package:broski/providers/card_style_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/markdown_styles.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/theme/tool_style.dart';
+import 'package:broski/widgets/chat/adaptive_markdown_body.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'adaptive_markdown_body.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../theme/markdown_styles.dart';
-import '../../models/card_style.dart';
-import '../../models/message.dart';
-import '../../models/session_context.dart';
-import '../../providers/card_style_provider.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../theme/tool_style.dart';
-import 'detail_sheet.dart';
-import 'package:broski/theme/app_icons.dart';
 
 /// A compact card for Task/subagent tool calls and subtask notifications.
 /// Shows agent name and brief description.
@@ -171,7 +171,7 @@ class CompactAgentCard extends ConsumerWidget {
     return GestureDetector(
       onTap: () => _showDetailSheet(context),
       child: Container(
-        margin: EdgeInsets.symmetric(vertical: Spacing.xxs),
+        margin: const EdgeInsets.symmetric(vertical: Spacing.xxs),
         decoration: BoxDecoration(
           color: theme.bgRaised,
           borderRadius: Radii.brMd,
@@ -182,7 +182,10 @@ class CompactAgentCard extends ConsumerWidget {
         ),
         clipBehavior: Clip.antiAlias,
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: Spacing.md, vertical: 10),
+          padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.md,
+            vertical: 10,
+          ),
           decoration: BoxDecoration(color: headerBg, borderRadius: Radii.brMd),
           child: Row(
             children: [
@@ -192,7 +195,7 @@ class CompactAgentCard extends ConsumerWidget {
                 size: 16,
                 color: isError ? theme.error : agentColor,
               ),
-              SizedBox(width: 6),
+              const SizedBox(width: 6),
               // Agent type name (bold)
               Text(
                 _capitalize(_agentType),
@@ -202,7 +205,7 @@ class CompactAgentCard extends ConsumerWidget {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              SizedBox(width: Spacing.sm),
+              const SizedBox(width: Spacing.sm),
               // Description as preview (muted, truncated)
               Expanded(
                 child: Text(
@@ -236,7 +239,7 @@ class CompactAgentCard extends ConsumerWidget {
                     ),
                   ),
                 ),
-              SizedBox(width: Spacing.xxs),
+              const SizedBox(width: Spacing.xxs),
               // Running spinner or chevron
               if (isRunning)
                 SizedBox(
@@ -300,7 +303,7 @@ class CompactAgentCard extends ConsumerWidget {
             ),
           if (nestedTools.isNotEmpty)
             Padding(
-              padding: EdgeInsets.only(bottom: Spacing.sm),
+              padding: const EdgeInsets.only(bottom: Spacing.sm),
               child: Align(
                 alignment: Alignment.centerRight,
                 child: TextButton.icon(
@@ -339,7 +342,7 @@ class CompactAgentCard extends ConsumerWidget {
                           color: theme.info,
                         ),
                       ),
-                      SizedBox(width: Spacing.sm),
+                      const SizedBox(width: Spacing.sm),
                       Text(
                         'Running...',
                         style: TextStyle(color: theme.textMuted),
@@ -380,7 +383,7 @@ class CompactAgentCard extends ConsumerWidget {
           for (int i = 0; i < nestedTools.length; i++) ...[
             if (i > 0)
               Divider(color: theme.borderSubtle.withValues(alpha: 0.35)),
-            SizedBox(height: Spacing.sm),
+            const SizedBox(height: Spacing.sm),
             Row(
               children: [
                 Icon(
@@ -391,7 +394,7 @@ class CompactAgentCard extends ConsumerWidget {
                   ),
                   size: 14,
                 ),
-                SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.sm),
                 Expanded(
                   child: Text(
                     _capitalize(nestedTools[i]['name'] ?? 'tool'),
@@ -412,7 +415,7 @@ class CompactAgentCard extends ConsumerWidget {
                 ),
               ],
             ),
-            SizedBox(height: 6),
+            const SizedBox(height: 6),
             Container(
               width: double.infinity,
               padding: Insets.cardXs,
@@ -428,7 +431,7 @@ class CompactAgentCard extends ConsumerWidget {
                 style: TextStyle(color: theme.text, fontSize: 12, height: 1.4),
               ),
             ),
-            SizedBox(height: 6),
+            const SizedBox(height: 6),
           ],
         ],
       ),
@@ -487,7 +490,7 @@ class _NestedToolRow extends StatelessWidget {
             size: 14,
             color: ToolStyle.getColor(context, toolName),
           ),
-          SizedBox(width: Spacing.sm),
+          const SizedBox(width: Spacing.sm),
           Text(
             _capitalize(toolName),
             style: TextStyle(
@@ -496,7 +499,7 @@ class _NestedToolRow extends StatelessWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
-          SizedBox(width: Spacing.sm),
+          const SizedBox(width: Spacing.sm),
           Expanded(
             child: Text(
               preview,
@@ -536,7 +539,7 @@ class _TokenUsageSection extends StatelessWidget {
     final cacheWrite = tokens?['cacheWrite'] as int? ?? 0;
 
     return Padding(
-      padding: EdgeInsets.only(bottom: Spacing.md),
+      padding: const EdgeInsets.only(bottom: Spacing.md),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(

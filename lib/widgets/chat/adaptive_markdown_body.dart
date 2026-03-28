@@ -1,8 +1,7 @@
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/chat/adaptive_table.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-
-import '../../theme/opencode_theme.dart';
-import 'adaptive_table.dart';
 
 /// A segment of markdown content — either regular text or a table block.
 class _Segment {

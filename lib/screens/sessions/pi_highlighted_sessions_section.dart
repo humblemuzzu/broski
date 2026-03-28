@@ -1,12 +1,12 @@
+import 'package:broski/models/highlight_color.dart';
+import 'package:broski/models/pi.dart';
+import 'package:broski/models/session.dart';
+import 'package:broski/providers/sessions_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../models/highlight_color.dart';
-import '../../models/pi.dart';
-import '../../models/session.dart';
-import '../../providers/sessions_provider.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
 
 /// Highlighted/starred Pi sessions section. Extracted from sessions_screen.dart.
 /// Matches _CCHighlightedSessionsSection pattern exactly.
@@ -140,7 +140,7 @@ class _PiHighlightedSessionCard extends ConsumerWidget {
                       children: [
                         // Star icon inline
                         Icon(AppIcons.star, size: 16, color: color),
-                        SizedBox(width: Spacing.sm),
+                        const SizedBox(width: Spacing.sm),
                         Expanded(
                           child: Text(
                             session.name ?? session.firstMessage,
@@ -155,14 +155,14 @@ class _PiHighlightedSessionCard extends ConsumerWidget {
                           ),
                         ),
                         if (session.parentSessionPath != null) ...[
-                          SizedBox(width: Spacing.xs),
+                          const SizedBox(width: Spacing.xs),
                           Icon(
                             AppIcons.forkRight,
                             size: 14,
                             color: ocTheme.info,
                           ),
                         ],
-                        SizedBox(width: Spacing.md),
+                        const SizedBox(width: Spacing.md),
                         // Status or time
                         if (isActive)
                           Row(

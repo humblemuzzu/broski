@@ -1,12 +1,11 @@
+import 'package:broski/models/codex.dart';
+import 'package:broski/providers/codex_settings_provider.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/codex.dart';
-import '../../providers/codex_settings_provider.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../widgets/chat/detail_sheet.dart';
 
 /// Shows the Codex settings sheet. Extracted from chat_screen.dart.
 void showCodexSettingsSheet(BuildContext context) {
@@ -37,7 +36,7 @@ void showCodexSettingsSheet(BuildContext context) {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              SizedBox(height: Spacing.sm),
+              const SizedBox(height: Spacing.sm),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -80,7 +79,7 @@ void showCodexSettingsSheet(BuildContext context) {
                 display: (v) => v.wireValue,
                 onSelected: notifier.setApprovalPolicy,
               ),
-              SizedBox(height: Spacing.lg),
+              const SizedBox(height: Spacing.lg),
               chipGroup<CodexSandboxMode>(
                 label: 'Sandbox',
                 values: CodexSandboxMode.values,
@@ -88,7 +87,7 @@ void showCodexSettingsSheet(BuildContext context) {
                 display: (v) => v.threadWireValue,
                 onSelected: notifier.setSandboxMode,
               ),
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               if (settings.sandboxMode == CodexSandboxMode.workspaceWrite)
                 SwitchListTile(
                   value: settings.networkAccessEnabled,
@@ -109,7 +108,7 @@ void showCodexSettingsSheet(BuildContext context) {
                   ),
                   activeThumbColor: theme.primary,
                 ),
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               chipGroup<CodexReasoningEffort>(
                 label: 'Reasoning effort',
                 values: CodexReasoningEffort.values,
@@ -117,7 +116,7 @@ void showCodexSettingsSheet(BuildContext context) {
                 display: (v) => v.wireValue,
                 onSelected: notifier.setReasoningEffort,
               ),
-              SizedBox(height: Spacing.lg),
+              const SizedBox(height: Spacing.lg),
               chipGroup<CodexReasoningSummary>(
                 label: 'Reasoning summary',
                 values: CodexReasoningSummary.values,
@@ -125,7 +124,7 @@ void showCodexSettingsSheet(BuildContext context) {
                 display: (v) => v.wireValue,
                 onSelected: notifier.setReasoningSummary,
               ),
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               chipGroup<CodexWebSearchMode>(
                 label: 'Web search',
                 values: CodexWebSearchMode.values,
@@ -152,7 +151,7 @@ void showCodexSettingsSheet(BuildContext context) {
                 ),
                 activeThumbColor: theme.primary,
               ),
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               chipGroup<CodexPersonality>(
                 label: 'Personality',
                 values: CodexPersonality.values,
@@ -160,7 +159,7 @@ void showCodexSettingsSheet(BuildContext context) {
                 display: (v) => v.displayName,
                 onSelected: notifier.setPersonality,
               ),
-              SizedBox(height: Spacing.lg),
+              const SizedBox(height: Spacing.lg),
               // Collaboration mode: plan vs default (ModeKind from SDK)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -173,7 +172,7 @@ void showCodexSettingsSheet(BuildContext context) {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  SizedBox(height: Spacing.sm),
+                  const SizedBox(height: Spacing.sm),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,

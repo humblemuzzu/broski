@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
-import 'package:broski/theme/opencode_theme.dart';
-import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/widgets/chat/detail_sheet.dart';
+import 'package:flutter/material.dart';
 
 /// Claude Code: Turn-level undo bar shown after assistant messages that
 /// modified files. The SDK only supports `rewindFiles(userMessageId)` which
@@ -54,7 +54,7 @@ class CCUndoTurnBar extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            SizedBox(width: Spacing.sm),
+            const SizedBox(width: Spacing.sm),
             Expanded(
               child: Text(
                 changedFiles.map((p) => p.split('/').last).join(', '),
@@ -63,7 +63,7 @@ class CCUndoTurnBar extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            SizedBox(width: Spacing.sm),
+            const SizedBox(width: Spacing.sm),
             SizedBox(
               height: 28,
               child: OutlinedButton.icon(
@@ -119,7 +119,7 @@ class CCUndoTurnBar extends StatelessWidget {
                           color: theme.textMuted,
                           size: 15,
                         ),
-                        SizedBox(width: Spacing.sm),
+                        const SizedBox(width: Spacing.sm),
                         Expanded(
                           child: Text(
                             path,

@@ -1,13 +1,13 @@
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
-
-import '../../theme/app_icons.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../widgets/chat/detail_sheet.dart';
 
 /// Shows the session share dialog. Extracted from chat_screen.dart.
 void showShareDialog(BuildContext context, String url) {
@@ -26,7 +26,7 @@ void showShareDialog(BuildContext context, String url) {
             'Anyone with this link can view your session:',
             style: AppTypography.labelLarge(color: theme.textMuted),
           ),
-          SizedBox(height: Spacing.lg),
+          const SizedBox(height: Spacing.lg),
           Container(
             padding: Insets.chip,
             decoration: BoxDecoration(
@@ -45,20 +45,14 @@ void showShareDialog(BuildContext context, String url) {
                 IconButton(
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: url));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: const Text('Link copied'),
-                        backgroundColor: theme.backgroundPanel,
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
+                    showSuccess(context, 'Link copied');
                   },
                   icon: Icon(AppIcons.copy, color: theme.textMuted, size: 20),
                 ),
               ],
             ),
           ),
-          SizedBox(height: Spacing.xl),
+          const SizedBox(height: Spacing.xl),
           Row(
             children: [
               Expanded(
@@ -81,7 +75,7 @@ void showShareDialog(BuildContext context, String url) {
                   ),
                 ),
               ),
-              SizedBox(width: Spacing.md),
+              const SizedBox(width: Spacing.md),
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: () {
@@ -99,7 +93,7 @@ void showShareDialog(BuildContext context, String url) {
               ),
             ],
           ),
-          SizedBox(height: Spacing.md),
+          const SizedBox(height: Spacing.md),
         ],
       ),
     ),

@@ -1,13 +1,12 @@
+import 'package:broski/models/vcs.dart';
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/opencode_variant_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/services/haptics_service.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/vcs.dart';
-import '../../providers/chat_provider.dart';
-import '../../providers/connection_provider.dart';
-import '../../providers/opencode_variant_provider.dart';
-import '../../providers/service_providers.dart';
-import '../../services/haptics_service.dart';
-import '../../theme/opencode_theme.dart';
 
 /// Sends the initial prompt if present and conditions are met.
 /// Extracted from `_ChatScreenState._maybeSendInitialPrompt` in `chat_screen.dart`.
@@ -79,15 +78,7 @@ void setClaudeResumeFromHere({
   if (messageId.isEmpty) return;
   haptics.lightImpact();
   onResumeIdChanged(messageId);
-  final theme = OpenCodeTheme.of(context);
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: const Text(
-        'Claude will resume from this message on your next send.',
-      ),
-      backgroundColor: theme.backgroundPanel,
-    ),
-  );
+  showInfo(context, 'Claude will resume from this message on your next send.');
 }
 
 /// Loads available variants (thinking levels) for OpenCode models.

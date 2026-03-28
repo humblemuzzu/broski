@@ -1,15 +1,14 @@
+import 'package:broski/models/connection_quality.dart';
+import 'package:broski/models/project.dart';
+import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/onboarding_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/utils/responsive.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/connection_quality.dart';
-import '../models/project.dart';
-import '../providers/connection_provider.dart';
-import '../providers/onboarding_provider.dart';
-import '../providers/service_providers.dart';
-import '../theme/design_tokens.dart';
-import '../utils/responsive.dart';
-import 'package:broski/theme/app_icons.dart';
 
 /// "System Linked" screen shown after successful QR scan connection.
 /// Displays connection stats and detected projects/sessions/agents.
@@ -197,7 +196,7 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
                   ),
                 ),
               ),
-              SizedBox(height: Spacing.xxxl),
+              const SizedBox(height: Spacing.xxxl),
               // Title
               FadeTransition(
                 opacity: entryAnim,
@@ -257,10 +256,10 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
                   ),
                   child: Column(
                     children: [
-                      _StatRow(
+                      const _StatRow(
                         label: 'STATUS',
                         value: 'CONNECTED',
-                        valueColor: const Color(0xFF2ECB71),
+                        valueColor: Color(0xFF2ECB71),
                       ),
                       _divider(),
                       _StatRow(
@@ -321,7 +320,7 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
                   ),
                 ),
               ),
-              SizedBox(height: Spacing.xxxl),
+              const SizedBox(height: Spacing.xxxl),
             ],
           ),
         ),

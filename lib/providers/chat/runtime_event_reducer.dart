@@ -1,7 +1,7 @@
-import '../../models/runtime/runtime.dart';
-import '../../models/agent_type.dart';
-import 'runtime_event_models.dart';
-import 'runtime_shadow_state.dart';
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/models/runtime/runtime.dart';
+import 'package:broski/providers/chat/runtime_event_models.dart';
+import 'package:broski/providers/chat/runtime_shadow_state.dart';
 
 const _maxRecentEventFingerprints = 200;
 const _maxSeenPermissionRequestIds = 50;

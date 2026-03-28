@@ -1,13 +1,12 @@
+import 'package:broski/models/project.dart';
+import 'package:broski/models/session.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/project.dart';
-import '../../models/session.dart';
-import '../../providers/service_providers.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import '../../utils/error_utils.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Shows the rename session dialog. Extracted from chat_screen.dart.
 void showRenameSessionDialog(

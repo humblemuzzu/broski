@@ -1,16 +1,15 @@
+import 'package:broski/models/card_style.dart';
+import 'package:broski/providers/appearance_provider.dart';
+import 'package:broski/providers/card_style_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/theme/tool_style.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/widgets/adaptive_container.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../theme/app_typography.dart';
-import '../theme/design_tokens.dart';
-
-import '../models/card_style.dart';
-import '../providers/appearance_provider.dart';
-import '../providers/card_style_provider.dart';
-import '../theme/opencode_theme.dart';
-import '../theme/tool_style.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
-import 'package:broski/theme/app_icons.dart';
 
 class AppearanceScreen extends ConsumerWidget {
   const AppearanceScreen({super.key});
@@ -55,18 +54,18 @@ class AppearanceScreen extends ConsumerWidget {
           padding: Insets.screenAll,
           children: [
             // Live Preview Section
-            _SectionHeader(title: 'Preview'),
-            SizedBox(height: Spacing.md),
+            const _SectionHeader(title: 'Preview'),
+            const SizedBox(height: Spacing.md),
             _ToolPreviewCard(settings: settings),
-            SizedBox(height: Spacing.xxxl),
+            const SizedBox(height: Spacing.xxxl),
             // Icon Pack Section
-            _SectionHeader(title: 'Icon Style'),
-            SizedBox(height: Spacing.md),
+            const _SectionHeader(title: 'Icon Style'),
+            const SizedBox(height: Spacing.md),
             _IconPackSelector(settings: settings),
-            SizedBox(height: Spacing.xxxl),
+            const SizedBox(height: Spacing.xxxl),
             // Tool Colors Toggle
-            _SectionHeader(title: 'Colors'),
-            SizedBox(height: Spacing.md),
+            const _SectionHeader(title: 'Colors'),
+            const SizedBox(height: Spacing.md),
             _SettingsCard(
               child: Column(
                 children: [
@@ -90,10 +89,10 @@ class AppearanceScreen extends ConsumerWidget {
                 ],
               ),
             ),
-            SizedBox(height: Spacing.xxxl),
+            const SizedBox(height: Spacing.xxxl),
             // Card Style Section
-            _SectionHeader(title: 'Card Style'),
-            SizedBox(height: Spacing.md),
+            const _SectionHeader(title: 'Card Style'),
+            const SizedBox(height: Spacing.md),
             _SettingsCard(
               child: Column(
                 children: [
@@ -118,15 +117,15 @@ class AppearanceScreen extends ConsumerWidget {
                 ],
               ),
             ),
-            SizedBox(height: Spacing.xxxl),
+            const SizedBox(height: Spacing.xxxl),
             // Card Header Section
-            _SectionHeader(title: 'Card Headers'),
-            SizedBox(height: Spacing.md),
+            const _SectionHeader(title: 'Card Headers'),
+            const SizedBox(height: Spacing.md),
             const _CardHeaderStyleSelector(),
-            SizedBox(height: Spacing.xxxl),
+            const SizedBox(height: Spacing.xxxl),
             // Tool Color Reference
-            _SectionHeader(title: 'Tool Color Reference'),
-            SizedBox(height: Spacing.md),
+            const _SectionHeader(title: 'Tool Color Reference'),
+            const SizedBox(height: Spacing.md),
             _ToolColorGrid(),
             const SizedBox(height: 100),
           ],
@@ -216,7 +215,7 @@ class _ToolPreviewCard extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: Spacing.md),
+          const SizedBox(height: Spacing.md),
           // Preview cards
           ...previewTools.map(
             (tool) => Padding(
@@ -386,7 +385,7 @@ class _IconPackTile extends ConsumerWidget {
                 }
               },
             ),
-            SizedBox(width: Spacing.sm),
+            const SizedBox(width: Spacing.sm),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -399,7 +398,7 @@ class _IconPackTile extends ConsumerWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  SizedBox(height: Spacing.xxs),
+                  const SizedBox(height: Spacing.xxs),
                   Text(
                     pack.description,
                     style: TextStyle(
@@ -466,7 +465,7 @@ class _ToggleTile extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  SizedBox(height: Spacing.xs),
+                  const SizedBox(height: Spacing.xs),
                   Text(
                     subtitle,
                     style: TextStyle(
@@ -540,7 +539,7 @@ class _SliderTile extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: Spacing.sm),
+          const SizedBox(height: Spacing.sm),
           Slider(
             value: value,
             min: min,
@@ -673,7 +672,7 @@ class _CardHeaderStyleSelector extends ConsumerWidget {
                       size: 16,
                       color: theme.colorScheme.primary,
                     ),
-                    SizedBox(width: Spacing.sm),
+                    const SizedBox(width: Spacing.sm),
                     Text(
                       'Header Style',
                       style: TextStyle(
@@ -684,7 +683,7 @@ class _CardHeaderStyleSelector extends ConsumerWidget {
                     ),
                   ],
                 ),
-                SizedBox(height: Spacing.md),
+                const SizedBox(height: Spacing.md),
                 // Header style options
                 Wrap(
                   spacing: 8,
@@ -718,7 +717,7 @@ class _CardHeaderStyleSelector extends ConsumerWidget {
                       size: 16,
                       color: theme.colorScheme.primary,
                     ),
-                    SizedBox(width: Spacing.sm),
+                    const SizedBox(width: Spacing.sm),
                     Text(
                       'Border Style',
                       style: TextStyle(
@@ -729,7 +728,7 @@ class _CardHeaderStyleSelector extends ConsumerWidget {
                     ),
                   ],
                 ),
-                SizedBox(height: Spacing.md),
+                const SizedBox(height: Spacing.md),
                 // Border visibility options
                 Wrap(
                   spacing: 8,
@@ -776,7 +775,7 @@ class _CardHeaderStyleSelector extends ConsumerWidget {
                     ),
                   ],
                 ),
-                SizedBox(height: Spacing.md),
+                const SizedBox(height: Spacing.md),
                 _CardStylePreview(cardStyle: cardStyle),
               ],
             ),
@@ -847,7 +846,7 @@ class _StyleOptionChip extends StatelessWidget {
                 ],
               ],
             ),
-            SizedBox(height: Spacing.xxs),
+            const SizedBox(height: Spacing.xxs),
             Text(
               description,
               style: TextStyle(
@@ -912,7 +911,7 @@ class _CardStylePreview extends StatelessWidget {
             child: Row(
               children: [
                 Icon(AppIcons.edit, size: 14, color: toolColor),
-                SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.sm),
                 Text(
                   'Edit',
                   style: TextStyle(
@@ -940,7 +939,7 @@ class _CardStylePreview extends StatelessWidget {
                     ),
                   ),
                 ),
-                SizedBox(width: Spacing.xs),
+                const SizedBox(width: Spacing.xs),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 6,
@@ -974,7 +973,7 @@ class _CardStylePreview extends StatelessWidget {
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
                 ),
-                SizedBox(height: Spacing.sm),
+                const SizedBox(height: Spacing.sm),
                 // Diff preview lines
                 _DiffPreviewLine(
                   text: '- final old = "value";',

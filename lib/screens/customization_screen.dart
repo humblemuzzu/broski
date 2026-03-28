@@ -1,27 +1,26 @@
+import 'package:broski/models/glow_style.dart';
+import 'package:broski/models/highlight_color.dart';
+import 'package:broski/models/nav_bar_style.dart';
+import 'package:broski/models/prompt_accent_color.dart';
+import 'package:broski/providers/font_provider.dart';
+import 'package:broski/providers/glow_style_provider.dart';
+import 'package:broski/providers/highlights_provider.dart';
+import 'package:broski/providers/input_style_provider.dart';
+import 'package:broski/providers/nav_bar_style_provider.dart';
+import 'package:broski/providers/prompt_accent_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/providers/theme_provider.dart';
+import 'package:broski/screens/appearance_screen.dart';
+import 'package:broski/screens/background_screen.dart';
+import 'package:broski/screens/font_selector_screen.dart';
+import 'package:broski/screens/theme_selector_screen.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/widgets/adaptive_container.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/glow_style.dart';
-import '../models/highlight_color.dart';
-import '../models/nav_bar_style.dart';
-import '../models/prompt_accent_color.dart';
-import '../providers/font_provider.dart';
-import '../providers/glow_style_provider.dart';
-import '../providers/highlights_provider.dart';
-import '../providers/input_style_provider.dart';
-import '../providers/nav_bar_style_provider.dart';
-import '../providers/prompt_accent_provider.dart';
-import '../providers/service_providers.dart';
-import '../providers/theme_provider.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import 'appearance_screen.dart';
-import 'background_screen.dart';
-import 'font_selector_screen.dart';
-import 'theme_selector_screen.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
-import 'package:broski/theme/app_icons.dart';
 
 /// Helper to get contrasting text color for a background
 Color _contrastColor(Color background) {
@@ -71,8 +70,8 @@ class CustomizationScreen extends ConsumerWidget {
           padding: Insets.screenAll,
           children: [
             // Appearance Section
-            _SectionHeader(title: 'Appearance'),
-            SizedBox(height: Spacing.md),
+            const _SectionHeader(title: 'Appearance'),
+            const SizedBox(height: Spacing.md),
             _SettingsCard(
               child: Column(
                 children: [
@@ -98,7 +97,7 @@ class CustomizationScreen extends ConsumerWidget {
                             ),
                           ),
                         ),
-                        SizedBox(width: Spacing.sm),
+                        const SizedBox(width: Spacing.sm),
                         Icon(
                           AppIcons.chevronRight,
                           size: 20,
@@ -157,8 +156,8 @@ class CustomizationScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 28),
             // Input Bar Section
-            _SectionHeader(title: 'Input Bar'),
-            SizedBox(height: Spacing.md),
+            const _SectionHeader(title: 'Input Bar'),
+            const SizedBox(height: Spacing.md),
             _SettingsCard(
               child: Column(
                 children: [
@@ -186,8 +185,8 @@ class CustomizationScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 28),
             // Prompt Glow Section — applies to both input bar styles
-            _SectionHeader(title: 'Prompt Glow'),
-            SizedBox(height: Spacing.md),
+            const _SectionHeader(title: 'Prompt Glow'),
+            const SizedBox(height: Spacing.md),
             // Glow Style picker
             _SettingsCard(
               child: Column(
@@ -226,7 +225,7 @@ class CustomizationScreen extends ConsumerWidget {
             ),
             // Accent color picker (shown when glow is enabled)
             if (glowStyle != GlowStyle.none) ...[
-              SizedBox(height: Spacing.lg),
+              const SizedBox(height: Spacing.lg),
               _SettingsCard(
                 child: Padding(
                   padding: Insets.card,
@@ -240,7 +239,7 @@ class CustomizationScreen extends ConsumerWidget {
                             color: theme.colorScheme.primary,
                             size: 22,
                           ),
-                          SizedBox(width: Spacing.md),
+                          const SizedBox(width: Spacing.md),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -253,7 +252,7 @@ class CustomizationScreen extends ConsumerWidget {
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                                SizedBox(height: Spacing.xs),
+                                const SizedBox(height: Spacing.xs),
                                 Text(
                                   'Color of the glow border',
                                   style: TextStyle(
@@ -267,7 +266,7 @@ class CustomizationScreen extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      SizedBox(height: Spacing.lg),
+                      const SizedBox(height: Spacing.lg),
                       // Color swatches
                       Wrap(
                         spacing: 10,
@@ -315,7 +314,7 @@ class CustomizationScreen extends ConsumerWidget {
                           );
                         }).toList(),
                       ),
-                      SizedBox(height: Spacing.md),
+                      const SizedBox(height: Spacing.md),
                       // Selected color name
                       Text(
                         promptAccent.displayName,
@@ -334,8 +333,8 @@ class CustomizationScreen extends ConsumerWidget {
             ],
             const SizedBox(height: 28),
             // Navigation Section
-            _SectionHeader(title: 'Navigation Bar'),
-            SizedBox(height: Spacing.md),
+            const _SectionHeader(title: 'Navigation Bar'),
+            const SizedBox(height: Spacing.md),
             _SettingsCard(
               child: Column(
                 children: [
@@ -363,8 +362,8 @@ class CustomizationScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 28),
             // Highlights Section
-            _SectionHeader(title: 'Highlights'),
-            SizedBox(height: Spacing.md),
+            const _SectionHeader(title: 'Highlights'),
+            const SizedBox(height: Spacing.md),
             _SettingsCard(
               child: Padding(
                 padding: Insets.card,
@@ -378,7 +377,7 @@ class CustomizationScreen extends ConsumerWidget {
                           color: theme.colorScheme.primary,
                           size: 22,
                         ),
-                        SizedBox(width: Spacing.md),
+                        const SizedBox(width: Spacing.md),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -391,7 +390,7 @@ class CustomizationScreen extends ConsumerWidget {
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              SizedBox(height: Spacing.xs),
+                              const SizedBox(height: Spacing.xs),
                               Text(
                                 'Color for pinned sessions and projects',
                                 style: TextStyle(
@@ -406,7 +405,7 @@ class CustomizationScreen extends ConsumerWidget {
                         ),
                       ],
                     ),
-                    SizedBox(height: Spacing.lg),
+                    const SizedBox(height: Spacing.lg),
                     // Color swatches
                     Wrap(
                       spacing: 10,
@@ -457,7 +456,7 @@ class CustomizationScreen extends ConsumerWidget {
                         );
                       }).toList(),
                     ),
-                    SizedBox(height: Spacing.md),
+                    const SizedBox(height: Spacing.md),
                     // Selected color name
                     Text(
                       selectedHighlightColor.displayName,
@@ -475,8 +474,8 @@ class CustomizationScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 28),
             // Notifications Section
-            _SectionHeader(title: 'Notifications'),
-            SizedBox(height: Spacing.md),
+            const _SectionHeader(title: 'Notifications'),
+            const SizedBox(height: Spacing.md),
             _SettingsCard(
               child: _ToggleTile(
                 title: 'Push Notifications',
@@ -557,7 +556,7 @@ class _NavigationTile extends StatelessWidget {
         child: Row(
           children: [
             Icon(icon, color: theme.colorScheme.primary, size: 22),
-            SizedBox(width: Spacing.md),
+            const SizedBox(width: Spacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -570,7 +569,7 @@ class _NavigationTile extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  SizedBox(height: Spacing.xs),
+                  const SizedBox(height: Spacing.xs),
                   Text(
                     subtitle,
                     style: TextStyle(
@@ -619,7 +618,7 @@ class _RadioTile extends StatelessWidget {
         child: Row(
           children: [
             Icon(icon, color: theme.colorScheme.primary, size: 22),
-            SizedBox(width: Spacing.md),
+            const SizedBox(width: Spacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -632,7 +631,7 @@ class _RadioTile extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  SizedBox(height: Spacing.xs),
+                  const SizedBox(height: Spacing.xs),
                   Text(
                     subtitle,
                     style: TextStyle(
@@ -643,7 +642,7 @@ class _RadioTile extends StatelessWidget {
                 ],
               ),
             ),
-            SizedBox(width: Spacing.sm),
+            const SizedBox(width: Spacing.sm),
             Container(
               width: 22,
               height: 22,
@@ -699,7 +698,7 @@ class _ToggleTile extends StatelessWidget {
         child: Row(
           children: [
             Icon(icon, color: theme.colorScheme.primary, size: 22),
-            SizedBox(width: Spacing.md),
+            const SizedBox(width: Spacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -712,7 +711,7 @@ class _ToggleTile extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  SizedBox(height: Spacing.xs),
+                  const SizedBox(height: Spacing.xs),
                   Text(
                     subtitle,
                     style: TextStyle(
@@ -723,7 +722,7 @@ class _ToggleTile extends StatelessWidget {
                 ],
               ),
             ),
-            SizedBox(width: Spacing.sm),
+            const SizedBox(width: Spacing.sm),
             Switch.adaptive(value: value, onChanged: onChanged),
           ],
         ),

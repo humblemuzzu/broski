@@ -1,10 +1,9 @@
-import 'package:flutter/material.dart';
-import '../theme/app_typography.dart';
-
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import 'chat/detail_sheet.dart';
 import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
+import 'package:flutter/material.dart';
 
 /// Shows a rollback sheet using DetailSheet.
 /// Returns Future that completes when the sheet is dismissed.
@@ -89,7 +88,7 @@ class _RollbackSheetContentState extends State<_RollbackSheetContent> {
             'Drop the last $turns turn${turns == 1 ? '' : 's'} from this thread.',
             style: AppTypography.bodySmall(color: theme.textMuted),
           ),
-          SizedBox(height: Spacing.lg),
+          const SizedBox(height: Spacing.lg),
           Row(
             children: [
               IconButton(
@@ -127,7 +126,7 @@ class _RollbackSheetContentState extends State<_RollbackSheetContent> {
             style: AppTypography.label(color: theme.textMuted),
             textAlign: TextAlign.right,
           ),
-          SizedBox(height: Spacing.lg),
+          const SizedBox(height: Spacing.lg),
           Row(
             children: [
               Expanded(
@@ -140,7 +139,7 @@ class _RollbackSheetContentState extends State<_RollbackSheetContent> {
                   child: const Text('Cancel'),
                 ),
               ),
-              SizedBox(width: Spacing.md),
+              const SizedBox(width: Spacing.md),
               Expanded(
                 child: ElevatedButton(
                   onPressed: _working

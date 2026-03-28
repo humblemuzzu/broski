@@ -1,6 +1,5 @@
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
-
-import '../../theme/opencode_theme.dart';
 
 /// Shared section header for action sheets.
 ///

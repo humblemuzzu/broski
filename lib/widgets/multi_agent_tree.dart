@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart';
-import '../models/codex.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
+import 'package:broski/models/codex.dart';
 import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:flutter/material.dart';
 
 /// Displays a tree visualization of multi-agent collaboration in Codex.
 /// Shows: main thread -> spawned agents with status indicators.
@@ -261,7 +261,7 @@ class MultiAgentIndicator extends StatelessWidget {
               size: 12,
               color: theme.colorScheme.primary,
             ),
-            SizedBox(width: Spacing.xs),
+            const SizedBox(width: Spacing.xs),
             if (running > 0)
               SizedBox(
                 width: 10,
@@ -277,7 +277,7 @@ class MultiAgentIndicator extends StatelessWidget {
                 size: 12,
                 color: OpenCodeTheme.of(context).success,
               ),
-            SizedBox(width: Spacing.xs),
+            const SizedBox(width: Spacing.xs),
             Text(
               '$completed/$total',
               style: TextStyle(

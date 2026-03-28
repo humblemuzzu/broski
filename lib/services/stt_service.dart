@@ -1,11 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:broski/models/stt_settings.dart';
+import 'package:broski/utils/error_utils.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
-
-import '../models/stt_settings.dart';
-import '../utils/error_utils.dart';
 
 /// Service for Speech-to-Text transcription using Groq or OpenAI APIs.
 class SttService {
@@ -128,8 +127,9 @@ class SttService {
   /// Parse error from response
   String _parseError(http.Response response) {
     if (response.statusCode == 401) return 'Invalid API key';
-    if (response.statusCode == 429)
+    if (response.statusCode == 429) {
       return 'Rate limit exceeded. Wait and retry.';
+    }
     if (response.statusCode == 413) return 'Recording too large';
 
     try {

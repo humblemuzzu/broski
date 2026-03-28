@@ -1,8 +1,7 @@
+import 'package:broski/models/session.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
-
-import '../../models/session.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
 
 /// Card for child (background task) sessions - clean compact design.
 /// Extracted from sessions_screen.dart.
@@ -118,7 +117,7 @@ class ChildSessionCard extends StatelessWidget {
                               ),
                             ],
                           ),
-                          SizedBox(height: Spacing.xs),
+                          const SizedBox(height: Spacing.xs),
                           // Stats + time row
                           Row(
                             children: [

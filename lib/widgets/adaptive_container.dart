@@ -1,6 +1,5 @@
+import 'package:broski/utils/responsive.dart';
 import 'package:flutter/material.dart';
-
-import '../utils/responsive.dart';
 
 /// Centers and constrains content to a max width on iPad.
 ///

@@ -1,24 +1,23 @@
-import 'package:flutter/material.dart';
-import '../theme/app_typography.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/agent_type.dart';
-import '../models/mcp.dart';
-import '../providers/agent_type_provider.dart';
-import '../providers/connection_provider.dart';
-import '../providers/service_providers.dart';
-import '../providers/selection_provider.dart';
-import '../services/storage_service.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import '../widgets/chat/detail_sheet.dart';
-import '../widgets/connection_indicator.dart';
-import 'opencode_mcp_config_screen.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
+import 'package:broski/models/agent_type.dart';
+import 'package:broski/models/mcp.dart';
+import 'package:broski/providers/agent_type_provider.dart';
+import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/opencode_mcp_config_screen.dart';
+import 'package:broski/services/storage_service.dart';
 import 'package:broski/theme/app_icons.dart';
-import '../utils/error_utils.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/responsive.dart';
 import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/adaptive_container.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
+import 'package:broski/widgets/connection_indicator.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// MCP (Model Context Protocol) Servers Management Screen
 ///
@@ -173,13 +172,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
       }
     } catch (e) {
       if (mounted) {
-        final theme = OpenCodeTheme.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(humanizeError(e)),
-            backgroundColor: theme.error,
-          ),
-        );
+        showError(context, humanizeError(e));
       }
     }
   }
@@ -200,13 +193,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
       }
     } catch (e) {
       if (mounted) {
-        final theme = OpenCodeTheme.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(humanizeError(e)),
-            backgroundColor: theme.error,
-          ),
-        );
+        showError(context, humanizeError(e));
       }
     }
   }
@@ -295,18 +282,18 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(AppIcons.error, size: 48, color: theme.error),
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.lg),
             Text(
               'Failed to load MCP servers',
               style: TextStyle(color: theme.text, fontSize: 16),
             ),
-            SizedBox(height: Spacing.sm),
+            const SizedBox(height: Spacing.sm),
             Text(
               _error!,
               style: AppTypography.labelLarge(color: theme.textMuted),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: Spacing.xl),
+            const SizedBox(height: Spacing.xl),
             ElevatedButton(
               onPressed: _loadServers,
               style: ElevatedButton.styleFrom(
@@ -325,7 +312,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(AppIcons.extensionOff, size: 64, color: theme.textMuted),
-            SizedBox(height: Spacing.xl),
+            const SizedBox(height: Spacing.xl),
             Text(
               'No MCP Servers',
               style: TextStyle(
@@ -334,13 +321,13 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                 fontWeight: FontWeight.w600,
               ),
             ),
-            SizedBox(height: Spacing.sm),
+            const SizedBox(height: Spacing.sm),
             Text(
               'Configure MCP servers in your\nOpenCode configuration file',
               style: AppTypography.labelLarge(color: theme.textMuted),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: Spacing.xxl),
+            const SizedBox(height: Spacing.xxl),
             OutlinedButton.icon(
               onPressed: _loadServers,
               icon: const Icon(AppIcons.refresh, size: 20),
@@ -396,18 +383,18 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(AppIcons.error, size: 48, color: theme.error),
-            SizedBox(height: Spacing.lg),
+            const SizedBox(height: Spacing.lg),
             Text(
               'Failed to load MCP resources',
               style: TextStyle(color: theme.text, fontSize: 16),
             ),
-            SizedBox(height: Spacing.sm),
+            const SizedBox(height: Spacing.sm),
             Text(
               _resourcesError!,
               style: AppTypography.labelLarge(color: theme.textMuted),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: Spacing.xl),
+            const SizedBox(height: Spacing.xl),
             ElevatedButton(
               onPressed: _loadResources,
               style: ElevatedButton.styleFrom(
@@ -426,7 +413,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(AppIcons.folderOff, size: 64, color: theme.textMuted),
-            SizedBox(height: Spacing.xl),
+            const SizedBox(height: Spacing.xl),
             Text(
               'No MCP Resources',
               style: TextStyle(
@@ -435,13 +422,13 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                 fontWeight: FontWeight.w600,
               ),
             ),
-            SizedBox(height: Spacing.sm),
+            const SizedBox(height: Spacing.sm),
             Text(
               'Resources will appear here when\nMCP servers provide them',
               style: AppTypography.labelLarge(color: theme.textMuted),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: Spacing.xxl),
+            const SizedBox(height: Spacing.xxl),
             OutlinedButton.icon(
               onPressed: _loadResources,
               icon: const Icon(AppIcons.refresh, size: 20),
@@ -509,7 +496,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                     size: 24,
                   ),
                 ),
-                SizedBox(width: Spacing.lg),
+                const SizedBox(width: Spacing.lg),
                 Expanded(
                   child: Text(
                     'from ${resource.client}',
@@ -518,7 +505,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                 ),
               ],
             ),
-            SizedBox(height: Spacing.xl),
+            const SizedBox(height: Spacing.xl),
             // URI
             _DetailRow(label: 'URI', value: resource.uri),
             // MIME Type
@@ -527,7 +514,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
             // Description
             if (resource.description != null &&
                 resource.description!.isNotEmpty) ...[
-              SizedBox(height: Spacing.md),
+              const SizedBox(height: Spacing.md),
               Text(
                 'Description',
                 style: TextStyle(
@@ -536,7 +523,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                   color: sheetTheme.textMuted,
                 ),
               ),
-              SizedBox(height: Spacing.sm),
+              const SizedBox(height: Spacing.sm),
               Text(
                 resource.description!,
                 style: TextStyle(color: sheetTheme.text, fontSize: 14),
@@ -586,7 +573,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                     size: 24,
                   ),
                 ),
-                SizedBox(width: Spacing.lg),
+                const SizedBox(width: Spacing.lg),
                 Expanded(
                   child: Row(
                     children: [
@@ -611,7 +598,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                 ),
               ],
             ),
-            SizedBox(height: Spacing.xxl),
+            const SizedBox(height: Spacing.xxl),
             // Tools
             if (status.tools.isNotEmpty) ...[
               Text(
@@ -622,7 +609,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                   color: sheetTheme.textMuted,
                 ),
               ),
-              SizedBox(height: Spacing.sm),
+              const SizedBox(height: Spacing.sm),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -633,7 +620,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                     )
                     .toList(),
               ),
-              SizedBox(height: Spacing.lg),
+              const SizedBox(height: Spacing.lg),
             ],
             // Resources
             if (status.resources.isNotEmpty) ...[
@@ -645,7 +632,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                   color: sheetTheme.textMuted,
                 ),
               ),
-              SizedBox(height: Spacing.sm),
+              const SizedBox(height: Spacing.sm),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -658,7 +645,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                     )
                     .toList(),
               ),
-              SizedBox(height: Spacing.lg),
+              const SizedBox(height: Spacing.lg),
             ],
             // Error message
             if (status.error != null && status.error!.isNotEmpty) ...[
@@ -674,7 +661,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                 child: Row(
                   children: [
                     Icon(AppIcons.error, color: sheetTheme.error, size: 20),
-                    SizedBox(width: Spacing.md),
+                    const SizedBox(width: Spacing.md),
                     Expanded(
                       child: Text(
                         status.error!,
@@ -684,9 +671,9 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
                   ],
                 ),
               ),
-              SizedBox(height: Spacing.lg),
+              const SizedBox(height: Spacing.lg),
             ],
-            SizedBox(height: Spacing.sm),
+            const SizedBox(height: Spacing.sm),
             // Action button
             SizedBox(
               width: double.infinity,
@@ -813,7 +800,7 @@ class _McpServerTile extends StatelessWidget {
                     ],
                   ),
                 ),
-                SizedBox(width: Spacing.lg),
+                const SizedBox(width: Spacing.lg),
                 // Name and info
                 Expanded(
                   child: Column(
@@ -827,7 +814,7 @@ class _McpServerTile extends StatelessWidget {
                           color: theme.text,
                         ),
                       ),
-                      SizedBox(height: Spacing.xs),
+                      const SizedBox(height: Spacing.xs),
                       Row(
                         children: [
                           Text(
@@ -965,7 +952,7 @@ class _McpResourceGroup extends StatelessWidget {
             child: Row(
               children: [
                 Icon(AppIcons.extension_, color: theme.primary, size: 20),
-                SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.sm),
                 Text(
                   clientName,
                   style: TextStyle(
@@ -974,7 +961,7 @@ class _McpResourceGroup extends StatelessWidget {
                     color: theme.text,
                   ),
                 ),
-                SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.sm),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -1037,7 +1024,7 @@ class _McpResourceTile extends StatelessWidget {
           child: Row(
             children: [
               Icon(_getIcon(), color: theme.textMuted, size: 20),
-              SizedBox(width: Spacing.md),
+              const SizedBox(width: Spacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

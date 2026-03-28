@@ -1,15 +1,14 @@
+import 'package:broski/models/command.dart';
+import 'package:broski/models/project.dart';
+import 'package:broski/models/session.dart';
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/sessions_screen.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/command.dart';
-import '../../models/project.dart';
-import '../../models/session.dart';
-import '../../providers/chat_provider.dart';
-import '../../providers/selection_provider.dart';
-import '../../providers/service_providers.dart';
-import '../../utils/error_utils.dart';
-import '../sessions_screen.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 /// Callbacks from [_ChatScreenState] that slash commands delegate to.
 class CommandCallbacks {
@@ -108,13 +107,11 @@ Future<void> handleSlashCommand({
               projectPath: project.path,
             );
             if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                success
-                    ? const SnackBar(content: Text('Session compacted'))
-                    : const SnackBar(
-                        content: Text('Failed to compact session'),
-                      ),
-              );
+              if (success) {
+                showSuccess(context, 'Session compacted');
+              } else {
+                showError(context, 'Failed to compact session');
+              }
             }
           } catch (e) {
             if (context.mounted) {

@@ -1,13 +1,13 @@
+import 'package:broski/models/card_style.dart';
+import 'package:broski/models/message.dart';
+import 'package:broski/providers/card_style_provider.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../models/card_style.dart';
-import '../../models/message.dart';
-import '../../providers/card_style_provider.dart';
-import '../../theme/app_typography.dart';
-import '../../theme/design_tokens.dart';
-import '../../theme/opencode_theme.dart';
-import 'detail_sheet.dart';
-import 'package:broski/theme/app_icons.dart';
 
 /// A compact single-line card for thinking/reasoning display.
 /// Tapping opens DetailSheet with full thinking content.
@@ -41,14 +41,14 @@ class CompactThinkingCard extends ConsumerWidget {
               Row(
                 children: [
                   Icon(AppIcons.timer, size: 14, color: theme.textMuted),
-                  SizedBox(width: 6),
+                  const SizedBox(width: 6),
                   Text(
                     'Completed in ${_formatDuration(message.reasoningDurationMs!)}',
                     style: AppTypography.label(color: theme.textMuted),
                   ),
                 ],
               ),
-              SizedBox(height: Spacing.lg),
+              const SizedBox(height: Spacing.lg),
             ],
             // Thinking content box
             Container(
@@ -116,7 +116,7 @@ class CompactThinkingCard extends ConsumerWidget {
     return GestureDetector(
       onTap: reasoningText.isNotEmpty ? () => _showDetailSheet(context) : null,
       child: Container(
-        margin: EdgeInsets.symmetric(vertical: Spacing.xxs),
+        margin: const EdgeInsets.symmetric(vertical: Spacing.xxs),
         decoration: BoxDecoration(
           color: theme.bgRaised,
           borderRadius: Radii.brMd,
@@ -129,7 +129,10 @@ class CompactThinkingCard extends ConsumerWidget {
         ),
         clipBehavior: Clip.antiAlias,
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: Spacing.md, vertical: 10),
+          padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.md,
+            vertical: 10,
+          ),
           decoration: BoxDecoration(color: headerBg, borderRadius: Radii.brMd),
           child: Row(
             children: [
@@ -145,7 +148,7 @@ class CompactThinkingCard extends ConsumerWidget {
                 )
               else
                 Icon(AppIcons.psychology, size: 16, color: thinkingColor),
-              SizedBox(width: 6),
+              const SizedBox(width: 6),
               // "Thinking" label
               Text(
                 isStreaming ? 'Thinking...' : 'Thinking',
@@ -157,7 +160,7 @@ class CompactThinkingCard extends ConsumerWidget {
               ),
               // Duration badge (when complete)
               if (durationMs != null && !isStreaming) ...[
-                SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.sm),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 6,
@@ -177,7 +180,7 @@ class CompactThinkingCard extends ConsumerWidget {
                   ),
                 ),
               ],
-              SizedBox(width: Spacing.sm),
+              const SizedBox(width: Spacing.sm),
               // Preview text (muted, truncated)
               Expanded(
                 child: Text(
@@ -189,7 +192,7 @@ class CompactThinkingCard extends ConsumerWidget {
               ),
               // Chevron (only if we have content to show)
               if (reasoningText.isNotEmpty && !isStreaming) ...[
-                SizedBox(width: Spacing.sm),
+                const SizedBox(width: Spacing.sm),
                 Icon(
                   AppIcons.chevronRight,
                   size: 18,

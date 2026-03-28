@@ -1,10 +1,9 @@
+import 'package:broski/models/file_attachment.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/services/image_picker_service.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/file_attachment.dart';
-import '../../providers/selection_provider.dart';
-import '../../services/image_picker_service.dart';
-import '../../theme/opencode_theme.dart';
 
 /// Check if a model supports image inputs.
 bool modelSupportsImages(SelectedModel? model) {
@@ -35,20 +34,9 @@ bool modelSupportsImages(SelectedModel? model) {
 void showImageNotSupportedWarning(BuildContext context, WidgetRef ref) {
   final model = ref.read(selectionProvider).model;
   if (!context.mounted) return;
-  final theme = OpenCodeTheme.of(context);
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(
-        'Warning: ${model?.modelID ?? 'This model'} may not support images',
-      ),
-      backgroundColor: theme.warning,
-      behavior: SnackBarBehavior.floating,
-      action: SnackBarAction(
-        label: 'OK',
-        textColor: theme.selectedListItemText,
-        onPressed: () {},
-      ),
-    ),
+  showInfo(
+    context,
+    'Warning: ${model?.modelID ?? 'This model'} may not support images',
   );
 }
 

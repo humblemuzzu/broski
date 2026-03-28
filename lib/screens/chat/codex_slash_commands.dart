@@ -1,14 +1,13 @@
 import 'dart:async';
 
+import 'package:broski/models/codex.dart';
+import 'package:broski/models/message.dart';
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/codex_settings_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/utils/error_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/codex.dart';
-import '../../models/message.dart';
-import '../../providers/chat_provider.dart';
-import '../../providers/codex_settings_provider.dart';
-import '../../providers/service_providers.dart';
-import '../../utils/error_utils.dart';
 
 /// Handles Codex client-side slash commands.
 /// Returns true if the text was a recognized slash command (caller should return).

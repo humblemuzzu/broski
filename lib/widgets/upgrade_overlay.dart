@@ -1,12 +1,11 @@
+import 'package:broski/providers/app_subscription_provider.dart';
+import 'package:broski/screens/paywall_screen.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../providers/app_subscription_provider.dart';
-import '../screens/paywall_screen.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
-import 'package:broski/theme/app_icons.dart';
 
 /// Overlay widget that shows "Upgrade to Pro" for unpaid users.
 /// Wraps content and shows a lock overlay when user is not entitled.
@@ -104,7 +103,7 @@ class _LockOverlay extends StatelessWidget {
                     letterSpacing: -0.5,
                   ),
                 ),
-                SizedBox(height: Spacing.md),
+                const SizedBox(height: Spacing.md),
                 // Message
                 Text(
                   message,
@@ -115,10 +114,10 @@ class _LockOverlay extends StatelessWidget {
                     height: 1.4,
                   ),
                 ),
-                SizedBox(height: Spacing.xxxl),
+                const SizedBox(height: Spacing.xxxl),
                 // Subscribe button
                 _SubscribeButton(priceText: priceText, isLoading: isLoading),
-                SizedBox(height: Spacing.lg),
+                const SizedBox(height: Spacing.lg),
                 // Restore purchases link
                 const _RestorePurchasesLink(),
               ],
@@ -186,7 +185,7 @@ class _SubscribeButton extends ConsumerWidget {
                         letterSpacing: 0.2,
                       ),
                     ),
-                    SizedBox(width: Spacing.sm),
+                    const SizedBox(width: Spacing.sm),
                     Icon(
                       AppIcons.forward,
                       color: ocTheme.selectedListItemText,
@@ -285,7 +284,7 @@ class SubscribeBanner extends ConsumerWidget {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      SizedBox(height: Spacing.xxs),
+                      const SizedBox(height: Spacing.xxs),
                       Text(
                         'Unlock all features • ${sub.monthlyPriceText ?? '\$9.99'}/mo',
                         style: TextStyle(

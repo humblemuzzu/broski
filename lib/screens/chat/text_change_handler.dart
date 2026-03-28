@@ -1,8 +1,7 @@
+import 'package:broski/models/agent.dart';
+import 'package:broski/models/file_attachment.dart';
+import 'package:broski/providers/file_search_provider.dart';
 import 'package:flutter/material.dart';
-
-import '../../models/agent.dart';
-import '../../models/file_attachment.dart';
-import '../../providers/file_search_provider.dart';
 
 /// Result of computing autocomplete state from text input.
 class AutocompleteResult {

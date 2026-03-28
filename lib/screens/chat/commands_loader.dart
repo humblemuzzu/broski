@@ -1,11 +1,10 @@
+import 'package:broski/models/agent.dart';
+import 'package:broski/models/command.dart';
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/pi_provider.dart';
+import 'package:broski/providers/service_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../models/agent.dart';
-import '../../models/command.dart';
-import '../../providers/chat_provider.dart';
-import '../../providers/connection_provider.dart';
-import '../../providers/service_providers.dart';
-import '../../providers/pi_provider.dart';
 
 /// Result from loading commands and agents.
 class CommandsAndAgents {
@@ -266,6 +265,6 @@ Future<CommandsAndAgents> loadOpenCodeCommandsAndAgents({
       agents: agents.isNotEmpty ? agents : kDefaultAgents,
     );
   } catch (_) {
-    return CommandsAndAgents(commands: const [], agents: kDefaultAgents);
+    return const CommandsAndAgents(commands: [], agents: kDefaultAgents);
   }
 }

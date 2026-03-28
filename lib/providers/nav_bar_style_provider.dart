@@ -1,8 +1,7 @@
+import 'package:broski/models/nav_bar_style.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/services/storage_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/nav_bar_style.dart';
-import '../services/storage_service.dart';
-import 'service_providers.dart';
 
 /// Provider for navigation bar style preference
 final navBarStyleProvider =

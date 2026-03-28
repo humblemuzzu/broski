@@ -1,104 +1,99 @@
 import 'dart:async';
 
+import 'package:broski/models/agent.dart';
+import 'package:broski/models/claude_code.dart';
+import 'package:broski/models/codex.dart';
+import 'package:broski/models/command.dart';
+import 'package:broski/models/file_attachment.dart';
+import 'package:broski/models/message.dart';
+import 'package:broski/models/pi.dart';
+import 'package:broski/models/project.dart';
+import 'package:broski/models/question.dart';
+import 'package:broski/models/session.dart';
+import 'package:broski/models/session_context.dart';
+import 'package:broski/models/vcs.dart';
+import 'package:broski/providers/appearance_provider.dart';
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/claude_code_provider.dart';
+import 'package:broski/providers/codex_settings_provider.dart';
+import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/file_search_provider.dart';
+import 'package:broski/providers/selection_provider.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/chat/auto_send_cc.dart' as ascc;
+import 'package:broski/screens/chat/cc_elicitation_form_dialog.dart';
+import 'package:broski/screens/chat/chat_init.dart' as ci;
+import 'package:broski/screens/chat/clear_instance_dialog.dart' as cid;
+import 'package:broski/screens/chat/codex_actions.dart' as ca;
+import 'package:broski/screens/chat/command_handler.dart';
+import 'package:broski/screens/chat/commands_loader.dart';
+import 'package:broski/screens/chat/context_loader.dart';
+import 'package:broski/screens/chat/image_picker_handler.dart' as iph;
+import 'package:broski/screens/chat/menu_handlers.dart';
+import 'package:broski/screens/chat/oc_menu_handler.dart' as omh;
+import 'package:broski/screens/chat/oc_message_delete_action.dart';
+import 'package:broski/screens/chat/ordered_parts_builder.dart' as opb;
+import 'package:broski/screens/chat/permission_responder.dart';
+import 'package:broski/screens/chat/pi_session_actions.dart' as psa;
+import 'package:broski/screens/chat/project_initializer.dart';
+import 'package:broski/screens/chat/project_tools_handler.dart' as pth;
+import 'package:broski/screens/chat/question_prompt_handler.dart' as qph;
+import 'package:broski/screens/chat/scroll_handler.dart' as sh;
+import 'package:broski/screens/chat/send_message.dart';
+import 'package:broski/screens/chat/session_actions.dart';
+import 'package:broski/screens/chat/session_compactor.dart';
+import 'package:broski/screens/chat/session_forker.dart';
+import 'package:broski/screens/chat/session_hydrator.dart';
+import 'package:broski/screens/chat/session_setup.dart';
+import 'package:broski/screens/chat/stop_generation.dart' as sg;
+import 'package:broski/screens/chat/text_change_handler.dart' as tch;
+import 'package:broski/screens/chat/tool_card_builder.dart' as tcb;
+import 'package:broski/screens/chat/transcript_clipboard.dart' as tc;
+import 'package:broski/screens/chat/transcript_exporter.dart';
+import 'package:broski/screens/dialogs/agents_dialog.dart';
+import 'package:broski/screens/dialogs/fork_dialog.dart';
+import 'package:broski/screens/dialogs/help_dialog.dart';
+import 'package:broski/screens/dialogs/models_dialog.dart';
+import 'package:broski/screens/dialogs/rename_dialog.dart';
+import 'package:broski/screens/dialogs/timeline_dialog.dart';
+import 'package:broski/screens/sheets/attachment_options_sheet.dart';
+import 'package:broski/screens/sheets/cc_commands_sheet.dart';
+import 'package:broski/screens/sheets/cc_mcp_sheet.dart';
+import 'package:broski/screens/sheets/cc_memory_scope_picker.dart';
+import 'package:broski/screens/sheets/cc_model_sheet.dart';
+import 'package:broski/screens/sheets/cc_tools_sheet.dart';
+import 'package:broski/screens/sheets/cx_agents_sheet.dart';
+import 'package:broski/screens/sheets/cx_apps_sheet.dart';
+import 'package:broski/screens/sheets/cx_model_sheet.dart';
+import 'package:broski/screens/sheets/cx_remote_skills_sheet.dart';
+import 'package:broski/screens/sheets/cx_rollback_sheet.dart';
+import 'package:broski/screens/sheets/pi_model_sheet.dart';
+import 'package:broski/services/haptics_service.dart';
+import 'package:broski/services/image_picker_service.dart';
+import 'package:broski/services/websocket_service.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/responsive.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
+import 'package:broski/widgets/adaptive_container.dart';
+import 'package:broski/widgets/app_background.dart';
+import 'package:broski/widgets/chat/cc_queue_bar.dart';
+import 'package:broski/widgets/chat/command_autocomplete.dart';
+import 'package:broski/widgets/chat/custom_tool_autocomplete.dart';
+import 'package:broski/widgets/chat/floating_header.dart';
+import 'package:broski/widgets/chat/input_bar_content.dart';
+import 'package:broski/widgets/chat/message_group.dart';
+import 'package:broski/widgets/chat/retry_status_banner.dart';
+import 'package:broski/widgets/chat/revert_state_banner.dart';
+import 'package:broski/widgets/chat/subagent_activity.dart';
+import 'package:broski/widgets/chat/variant_card_builder.dart';
+import 'package:broski/widgets/file_tagging.dart';
+import 'package:broski/widgets/multi_agent_tree.dart';
+import 'package:broski/widgets/opencode_branding.dart';
+import 'package:broski/widgets/power_sheet.dart';
+import 'package:broski/widgets/session_sidebar.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/agent.dart';
-import '../models/claude_code.dart';
-import '../models/codex.dart';
-import '../models/pi.dart';
-import 'sheets/cx_apps_sheet.dart';
-import 'sheets/cx_agents_sheet.dart';
-import 'sheets/cx_rollback_sheet.dart';
-import 'sheets/cx_model_sheet.dart';
-import 'sheets/cx_remote_skills_sheet.dart';
-import 'sheets/cc_mcp_sheet.dart';
-import 'sheets/cc_tools_sheet.dart';
-import 'sheets/cc_commands_sheet.dart';
-import 'sheets/cc_model_sheet.dart';
-import 'sheets/pi_model_sheet.dart';
-import 'sheets/cc_memory_scope_picker.dart';
-import 'sheets/attachment_options_sheet.dart';
-import 'dialogs/help_dialog.dart';
-import 'dialogs/timeline_dialog.dart';
-import 'dialogs/fork_dialog.dart';
-import 'dialogs/rename_dialog.dart';
-import 'dialogs/models_dialog.dart';
-import 'dialogs/agents_dialog.dart';
-import '../widgets/chat/floating_header.dart';
-import '../widgets/chat/input_bar_content.dart';
-import '../widgets/chat/command_autocomplete.dart';
-import '../widgets/chat/custom_tool_autocomplete.dart';
-import '../widgets/chat/cc_queue_bar.dart';
-
-import '../models/command.dart';
-import '../models/file_attachment.dart';
-import '../models/message.dart';
-import '../models/question.dart';
-import '../models/project.dart';
-import '../models/session.dart';
-import '../models/session_context.dart';
-import '../models/vcs.dart';
-import '../providers/chat_provider.dart';
-import 'chat/oc_message_delete_action.dart';
-import 'chat/cc_elicitation_form_dialog.dart';
-import 'chat/command_handler.dart';
-import 'chat/menu_handlers.dart';
-import 'chat/send_message.dart';
-import 'chat/session_hydrator.dart';
-import 'chat/commands_loader.dart';
-import 'chat/context_loader.dart';
-import 'chat/session_forker.dart';
-import 'chat/session_compactor.dart';
-import 'chat/session_actions.dart';
-import 'chat/session_setup.dart';
-import 'chat/project_initializer.dart';
-import 'chat/permission_responder.dart';
-import 'chat/transcript_exporter.dart';
-import 'chat/tool_card_builder.dart' as tcb;
-import 'chat/ordered_parts_builder.dart' as opb;
-import 'chat/question_prompt_handler.dart' as qph;
-import 'chat/auto_send_cc.dart' as ascc;
-import 'chat/oc_menu_handler.dart' as omh;
-import 'chat/stop_generation.dart' as sg;
-import 'chat/clear_instance_dialog.dart' as cid;
-import 'chat/pi_session_actions.dart' as psa;
-import 'chat/codex_actions.dart' as ca;
-import 'chat/project_tools_handler.dart' as pth;
-import 'chat/transcript_clipboard.dart' as tc;
-import 'chat/image_picker_handler.dart' as iph;
-import 'chat/text_change_handler.dart' as tch;
-import 'chat/scroll_handler.dart' as sh;
-import '../widgets/chat/variant_card_builder.dart';
-import '../providers/claude_code_provider.dart';
-import '../providers/connection_provider.dart';
-
-import '../providers/codex_settings_provider.dart';
-import '../providers/pi_provider.dart';
-import 'pi/pi_extension_ui_request_handler.dart';
-import '../providers/file_search_provider.dart';
-import '../providers/selection_provider.dart';
-import '../providers/service_providers.dart';
-import '../services/haptics_service.dart';
-import '../services/image_picker_service.dart';
-import '../services/websocket_service.dart';
-import '../theme/opencode_theme.dart';
-import '../widgets/file_tagging.dart';
-import '../widgets/session_sidebar.dart';
-
-import '../widgets/multi_agent_tree.dart';
-import '../widgets/power_sheet.dart';
-import '../widgets/app_background.dart';
-import '../widgets/opencode_branding.dart';
-import '../providers/appearance_provider.dart';
-import '../utils/responsive.dart';
-import '../widgets/adaptive_container.dart';
-import '../widgets/chat/retry_status_banner.dart';
-import '../widgets/chat/revert_state_banner.dart';
-import '../widgets/chat/subagent_activity.dart';
-import '../widgets/chat/message_group.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 
 // Utility function for color opacity (from expense_tracker)
 Color fade(Color color, double opacity) {
@@ -415,48 +410,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // "Tried to modify a provider while the widget tree was building" error
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final selection = ref.read(selectionProvider.notifier);
-      // Keep power-feature screens consistent: always set a project context when
-      // a chat opens (even for Claude/Codex draft/session routes).
-      final initialProject = widget.isOpenCode
-          ? widget.project
-          : ProjectSummary(
-              id: '',
-              name: widget.projectName,
-              path: widget.effectivePath,
-            );
-      selection.selectProject(initialProject);
-      if (widget.isOpenCode && widget.session.id.isNotEmpty) {
-        selection.selectSession(widget.session);
-      }
-      // Set up view routing for all backends
-      // This enables real-time cross-device session sync (external session watching)
-      if (widget.isOpenCode) {
-        bridge.setView(
-          projectPath: widget.project.path,
-          sessionId: widget.session.id,
-          agent: 'opencode',
-        );
-      } else if (widget.isClaudeCode) {
-        final sessionId = widget.ccSession?.id ?? '';
-        if (sessionId.isNotEmpty) {
-          bridge.setView(sessionId: sessionId, agent: 'claude-code');
-        }
-      } else if (widget.isCodex) {
-        final threadId = widget.cxThread?.id ?? '';
-        if (threadId.isNotEmpty) {
-          bridge.setView(sessionId: threadId, agent: 'codex');
-        }
-      } else if (widget.isPi) {
-        final sessionId = widget.piSession?.id ?? '';
-        if (sessionId.isNotEmpty) {
-          bridge.setView(sessionId: sessionId, agent: 'pi');
-        }
-      }
-      // Set up Pi power menu callback so PowerSheet can trigger Pi actions
-      if (widget.isPi) {
-        piPowerMenuCallback = _handlePiMenuAction;
-      }
+      ci.setupInitialProjectContext(
+        ref: ref,
+        bridge: bridge,
+        widget: widget,
+        piMenuAction: widget.isPi ? _handlePiMenuAction : null,
+      );
     });
     // FIX: Use listenManual for proper subscription lifecycle management
     _connectionSubscription = ref.listenManual(connectionProvider, (
@@ -470,28 +429,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         if (_resyncingAfterReconnect) return;
         _resyncingAfterReconnect = true;
         // Re-establish view routing for all backends (enables real-time sync)
-        if (widget.isOpenCode) {
-          bridge.setView(
-            projectPath: widget.project.path,
-            sessionId: widget.session.id,
-            agent: 'opencode',
-          );
-        } else if (widget.isClaudeCode) {
-          final sessionId = widget.ccSession?.id ?? '';
-          if (sessionId.isNotEmpty) {
-            bridge.setView(sessionId: sessionId, agent: 'claude-code');
-          }
-        } else if (widget.isCodex) {
-          final threadId = widget.cxThread?.id ?? '';
-          if (threadId.isNotEmpty) {
-            bridge.setView(sessionId: threadId, agent: 'codex');
-          }
-        } else if (widget.isPi) {
-          final sessionId = widget.piSession?.id ?? '';
-          if (sessionId.isNotEmpty) {
-            bridge.setView(sessionId: sessionId, agent: 'pi');
-          }
-        }
+        ci.setViewForAgent(bridge: bridge, widget: widget);
         _hydrateSession().whenComplete(() {
           _resyncingAfterReconnect = false;
           if (widget.isOpenCode &&
@@ -504,7 +442,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         });
       }
     });
-    // FIX: Use listenManual for proper subscription lifecycle management
     // Auto-scroll: Listen to chat state changes to trigger auto-scroll
     // when new content arrives (streaming text, tool calls, diffs, etc.)
     _chatSubscription = ref.listenManual(
@@ -530,77 +467,33 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     if (widget.isOpenCode) {
       _loadVcsInfo();
     } else if (widget.isClaudeCode) {
-      // Preload Claude Code config so the tools sheet is instant.
-      ref.read(ccConfigProvider.notifier).load();
-      // Preload power feature data for @/menu UX.
-      ref.read(ccCustomToolsProvider.notifier).load();
-      ref.read(ccPluginsProvider.notifier).load(cwd: widget.effectivePath);
-      // Keep subagents synced into the @agent autocomplete list.
-      _ccConfigSubscription = ref.listenManual(ccConfigProvider, (
-        previous,
-        next,
-      ) {
-        final cfg = next.valueOrNull;
-        if (cfg == null || !mounted) return;
-        final subagentAgents = cfg.subagents
-            .where((s) => s.name.isNotEmpty)
-            .map(
-              (s) => Agent(
-                name: s.name,
-                description: s.description,
-                mode: AgentMode.subagent,
-              ),
-            )
-            .toList();
-        setState(() {
-          _agents = subagentAgents;
-        });
-      });
-      // CC queue: auto-send pending message when turn completes
-      _ccQueueSubscription = ref.listenManual(
-        chatSessionProvider.select((s) => s.ccIsStreaming),
-        (previous, next) {
-          // Detect transition from streaming → idle
-          if (previous == true && next == false) {
-            _autoSendPendingCCMessage();
-          }
+      final ccSubs = ci.setupClaudeCodeSubscriptions(
+        ref: ref,
+        widget: widget,
+        onSubagentsChanged: (agents) {
+          if (!mounted) return;
+          setState(() => _agents = agents);
         },
+        onQueueTurnComplete: _autoSendPendingCCMessage,
       );
+      _ccConfigSubscription = ccSubs.configSub;
+      _ccQueueSubscription = ccSubs.queueSub;
     }
     // Refresh header context pill when token usage changes (CC/CX turn ends)
-    if (widget.isClaudeCode) {
-      ref.listenManual(
-        chatSessionProvider.select((s) => s.ccTokenUsage),
-        (_, __) => _loadSessionContext(),
-      );
-    } else if (widget.isCodex) {
-      ref.listenManual(
-        chatSessionProvider.select((s) => s.cxTokenUsage),
-        (_, __) => _loadSessionContext(),
-      );
-    }
+    ci.setupTokenUsageListeners(
+      ref: ref,
+      widget: widget,
+      onTokenUsageChanged: _loadSessionContext,
+    );
     // Pi: listen for extension UI requests from pi_stream
-    if (widget.isPi) {
-      final piBridge = ref.read(piBridgeServiceProvider);
-      _piExtensionUiSub = piBridge.streamMessages.listen((message) {
-        if (!mounted) return;
-        if (message.type == 'extension-ui-request') {
-          handlePiExtensionUiRequest(
-            context: context,
-            bridge: piBridge,
-            request: message,
-            projectPath: widget.piSession?.cwd ?? widget.piDraftCwd,
-            composerController: _controller,
-          );
-        } else if (message.type == 'agent-end') {
-          // Refresh context/usage after agent completes a turn.
-          // Session list + state updates are handled by the bridge broadcast
-          // path (runtime_sessions / runtime_state) which flows through
-          // GlobalSessionStatusNotifier → piSessionsProvider invalidation.
-          _loadSessionContext();
-        }
-      });
-    }
+    _piExtensionUiSub = ci.setupPiExtensionUiListener(
+      ref: ref,
+      context: context,
+      widget: widget,
+      composerController: _controller,
+      isMounted: () => mounted,
+      onAgentEnd: _loadSessionContext,
+    );
   }
 
   void _maybeSendInitialPrompt() {
@@ -660,11 +553,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         ref: ref,
         cwd: widget.piSession?.cwd ?? widget.piDraftCwd,
       );
-      if (mounted)
+      if (mounted) {
         setState(() {
           _agents = const [];
           _commands = commands;
         });
+      }
       return;
     }
     // OpenCode mode
@@ -1149,11 +1043,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     projectPath: widget.project.path,
     scrollController: _scrollController,
     setPaginationState: ({required bool loadingMore, required bool loadedAll}) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _loadingMoreMessages = loadingMore;
           _hasLoadedAllMessages = loadedAll;
         });
+      }
     },
     isMounted: () => mounted,
   );
@@ -1255,12 +1150,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   void _toggleThinkingVisibility() {
     // Toggle the state - for now we'll use a simple snackbar notification
     // In a full implementation, this would toggle a provider state
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Thinking visibility toggled'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+    showInfo(context, 'Thinking visibility toggled');
   }
 
   /// Show models selection dialog

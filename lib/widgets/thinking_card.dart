@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
-import '../models/message.dart';
-import '../theme/app_typography.dart';
-import '../theme/design_tokens.dart';
-import '../theme/opencode_theme.dart';
+import 'package:broski/models/message.dart';
 import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/app_typography.dart';
+import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
+import 'package:flutter/material.dart';
 
 /// A collapsible card that displays model reasoning/thinking content.
 /// Collapsed by default, tap to expand and see the full thinking process.
@@ -100,7 +100,7 @@ class _ThinkingCardState extends State<ThinkingCard>
                           ),
                         ),
                         if (durationMs != null && !isStreaming) ...[
-                          SizedBox(width: Spacing.sm),
+                          const SizedBox(width: Spacing.sm),
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 6,
