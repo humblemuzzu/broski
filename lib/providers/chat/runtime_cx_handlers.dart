@@ -43,16 +43,11 @@ extension _RuntimeCxHandlers on ChatSessionNotifier {
         final explanation = payloadMap['explanation']?.toString();
         if (plan is List) {
           final todos = <Todo>[];
-          if (explanation != null && explanation.trim().isNotEmpty) {
-            todos.add(
-              Todo(
-                id: 'cx-plan-explanation',
-                content: '📋 ${explanation.trim()}',
-                status: TodoStatus.completed,
-                priority: TodoPriority.high,
-              ),
-            );
-          }
+          // Filter out the explanation "todo" — store it as metadata only
+          final cleanExplanation =
+              (explanation != null && explanation.trim().isNotEmpty)
+              ? explanation.trim()
+              : null;
           for (var i = 0; i < plan.length; i++) {
             final entry = plan[i];
             if (entry is! Map<String, dynamic>) continue;
@@ -73,6 +68,32 @@ extension _RuntimeCxHandlers on ChatSessionNotifier {
             );
           }
           state = state.copyWith(todos: todos);
+
+          // Add/update inline plan card in chat stream.
+          // Use a stable ID so repeated updates replace the same message.
+          const planMsgId = 'cx-plan-card';
+          final existingIdx = state.messages.indexWhere(
+            (m) => m.id == planMsgId,
+          );
+          final planMsg = ChatMessage(
+            id: planMsgId,
+            sessionId: state.cxThreadId ?? '',
+            role: MessageRole.system,
+            createdAt: DateTime.now(),
+            text: '', // rendered by variant card
+            variant: 'cx-plan-update',
+            metadata: {
+              if (cleanExplanation != null) 'explanation': cleanExplanation,
+            },
+          );
+          if (existingIdx >= 0) {
+            // Replace existing plan card in-place
+            final updated = [...state.messages];
+            updated[existingIdx] = planMsg;
+            state = state.copyWith(messages: updated);
+          } else {
+            _addMessage(planMsg);
+          }
         }
 
       case 'turn/diff/updated':
@@ -132,6 +153,7 @@ extension _RuntimeCxHandlers on ChatSessionNotifier {
               text:
                   '⚠️ Model rerouted${from.isNotEmpty ? ' from $from' : ''} to $to ($reason)',
               variant: 'cx-model-rerouted',
+              metadata: {'from': from, 'to': to, 'reason': reason},
             ),
           );
         }
@@ -163,6 +185,11 @@ extension _RuntimeCxHandlers on ChatSessionNotifier {
               text:
                   '🪝 Hook started: $eventName ${handlerType.isNotEmpty ? '($handlerType)' : ''}',
               variant: 'cx-hook-started',
+              metadata: {
+                'id': hookId,
+                'eventName': eventName,
+                'handlerType': handlerType,
+              },
             ),
           );
         }
@@ -190,6 +217,12 @@ extension _RuntimeCxHandlers on ChatSessionNotifier {
               text:
                   '🪝 Hook $icon $hookStatus$durationStr${statusMessage != null ? ': $statusMessage' : ''}',
               variant: 'cx-hook-completed',
+              metadata: {
+                'id': hookId,
+                'status': hookStatus,
+                'statusMessage': statusMessage,
+                'durationMs': durationMs,
+              },
             ),
           );
         }
@@ -199,20 +232,64 @@ extension _RuntimeCxHandlers on ChatSessionNotifier {
         // Plan deltas arrive via collab tree backend_event (turn/plan/updated).
         break;
 
+      // Image generation lifecycle
+      case 'item/imageGeneration/started':
+      case 'item/imageGeneration/completed':
+        final isCompleted = event.kind == 'item/imageGeneration/completed';
+        final prompt = payloadMap['prompt']?.toString();
+        final imageUrl =
+            payloadMap['url']?.toString() ?? payloadMap['imageUrl']?.toString();
+        final itemId =
+            payloadMap['itemId']?.toString() ??
+            payloadMap['id']?.toString() ??
+            'unknown';
+        final msgId = 'cx-image-gen-$itemId';
+        final existingIdx = state.messages.indexWhere((m) => m.id == msgId);
+        final msg = ChatMessage(
+          id: msgId,
+          sessionId: state.cxThreadId ?? '',
+          role: MessageRole.system,
+          createdAt: DateTime.now(),
+          text: '',
+          variant: 'cx-image-gen',
+          metadata: {
+            'completed': isCompleted,
+            if (prompt != null) 'prompt': prompt,
+            if (imageUrl != null) 'imageUrl': imageUrl,
+          },
+        );
+        if (existingIdx >= 0) {
+          final updated = [...state.messages];
+          updated[existingIdx] = msg;
+          state = state.copyWith(messages: updated);
+        } else {
+          _addMessage(msg);
+        }
+
       // Terminal interaction — agent needs stdin during command
       case 'terminal_interaction':
         final itemId = payloadMap['itemId']?.toString() ?? '';
-        _addMessage(
-          ChatMessage(
-            id: 'cx-terminal-interaction-${DateTime.now().millisecondsSinceEpoch}',
-            sessionId: state.cxThreadId ?? '',
-            role: MessageRole.system,
-            createdAt: DateTime.now(),
-            text:
-                '⌨️ Agent is waiting for terminal input${itemId.isNotEmpty ? ' (item: $itemId)' : ''}',
-            variant: 'cx-terminal-interaction',
-          ),
+        final stableId = itemId.isNotEmpty
+            ? 'cx-terminal-interaction-$itemId'
+            : 'cx-terminal-interaction';
+        final existingIdx = state.messages.indexWhere((m) => m.id == stableId);
+        final termMsg = ChatMessage(
+          id: stableId,
+          sessionId: state.cxThreadId ?? '',
+          role: MessageRole.system,
+          createdAt: DateTime.now(),
+          text:
+              '⌨️ Agent is waiting for terminal input${itemId.isNotEmpty ? ' (item: $itemId)' : ''}',
+          variant: 'cx-terminal-interaction',
+          metadata: {'itemId': itemId},
         );
+        if (existingIdx >= 0) {
+          final updated = [...state.messages];
+          updated[existingIdx] = termMsg;
+          state = state.copyWith(messages: updated);
+        } else {
+          _addMessage(termMsg);
+        }
 
       // Review mode dividers
       case 'enteredReviewMode':
@@ -229,6 +306,7 @@ extension _RuntimeCxHandlers on ChatSessionNotifier {
             text:
                 '🔍 Entered review mode${reviewType.isNotEmpty ? ' ($reviewType)' : ''}',
             variant: 'cx-review-mode',
+            metadata: {'entered': true, 'reviewType': reviewType},
           ),
         );
 
@@ -399,6 +477,7 @@ extension _RuntimeCxHandlers on ChatSessionNotifier {
             ),
           );
           state = state.copyWith(cxCollabTree: tree);
+          _upsertCollabCard();
         }
 
       case 'collab_interaction_begin':
@@ -410,6 +489,7 @@ extension _RuntimeCxHandlers on ChatSessionNotifier {
           if (tree != null) {
             tree.updateStatus(receiverThreadId, status);
             state = state.copyWith(cxCollabTree: tree);
+            _upsertCollabCard();
           }
         }
 
@@ -456,6 +536,7 @@ extension _RuntimeCxHandlers on ChatSessionNotifier {
               status ?? CodexCollabAgentStatus.shutdown,
             );
             state = state.copyWith(cxCollabTree: tree);
+            _upsertCollabCard();
           }
         }
 
@@ -471,8 +552,33 @@ extension _RuntimeCxHandlers on ChatSessionNotifier {
               status ?? CodexCollabAgentStatus.running,
             );
             state = state.copyWith(cxCollabTree: tree);
+            _upsertCollabCard();
           }
         }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Collab card — upsert inline chat message with stable ID
+  // ---------------------------------------------------------------------------
+
+  void _upsertCollabCard() {
+    const collabMsgId = 'cx-collab-card';
+    final existingIdx = state.messages.indexWhere((m) => m.id == collabMsgId);
+    final collabMsg = ChatMessage(
+      id: collabMsgId,
+      sessionId: state.cxThreadId ?? '',
+      role: MessageRole.system,
+      createdAt: DateTime.now(),
+      text: '', // rendered by variant card
+      variant: 'cx-collab-update',
+    );
+    if (existingIdx >= 0) {
+      final updated = [...state.messages];
+      updated[existingIdx] = collabMsg;
+      state = state.copyWith(messages: updated);
+    } else {
+      _addMessage(collabMsg);
     }
   }
 }

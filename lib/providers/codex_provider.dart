@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:broski/models/codex.dart';
 import 'package:broski/models/project.dart';
+import 'package:broski/providers/codex/cx_rate_limits_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/services/storage_service.dart';
@@ -163,6 +164,12 @@ class CodexThreadsNotifier
       if (warning.isNotEmpty) {
         _ref.read(cxConfigWarningProvider.notifier).state = warning;
       }
+    }
+    if (method == 'account/rateLimits/updated') {
+      final params = data['params'] as Map<String, dynamic>? ?? const {};
+      _ref.read(cxLiveRateLimitsProvider.notifier).state = params.isEmpty
+          ? null
+          : params;
     }
   }
 

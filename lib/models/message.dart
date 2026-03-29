@@ -153,6 +153,7 @@ class ChatMessage {
     this.parts = const [],
     this.isStreaming = false,
     this.error,
+    this.metadata = const {},
   });
 
   final String id;
@@ -185,6 +186,9 @@ class ChatMessage {
 
   final bool isStreaming;
   final String? error;
+
+  /// Metadata for variant cards (structured data the card builder needs).
+  final Map<String, dynamic> metadata;
 
   /// Whether this message has any subtask notifications
   bool get hasSubtaskNotifications => subtaskNotifications.isNotEmpty;
@@ -221,6 +225,7 @@ class ChatMessage {
     List<MessagePart>? parts,
     bool? isStreaming,
     String? error,
+    Map<String, dynamic>? metadata,
   }) {
     return ChatMessage(
       id: id,
@@ -238,6 +243,7 @@ class ChatMessage {
       parts: parts ?? this.parts,
       isStreaming: isStreaming ?? this.isStreaming,
       error: error ?? this.error,
+      metadata: metadata ?? this.metadata,
     );
   }
 }

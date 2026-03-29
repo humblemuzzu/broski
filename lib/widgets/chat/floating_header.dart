@@ -8,6 +8,7 @@ import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/widgets/chat/cc_actions_content.dart';
 import 'package:broski/widgets/chat/codex_actions_content.dart';
+import 'package:broski/widgets/chat/cx_rate_limit_badge.dart';
 import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:broski/widgets/chat/glass_pill.dart';
 import 'package:broski/widgets/chat/pi_actions_content.dart';
@@ -39,6 +40,7 @@ class FloatingHeader extends StatelessWidget {
     this.ccModel,
     this.isCodex = false,
     this.codexModel,
+    this.cxRateLimitData,
     this.sessionContext,
     this.isPi = false,
     this.piModel,
@@ -65,6 +67,7 @@ class FloatingHeader extends StatelessWidget {
   // Codex support
   final bool isCodex;
   final String? codexModel;
+  final Map<String, dynamic>? cxRateLimitData;
   // Context usage for inline indicator
   final SessionContext? sessionContext;
   // Pi support
@@ -254,6 +257,11 @@ class FloatingHeader extends StatelessWidget {
                 ),
               ),
             const SizedBox(width: Spacing.sm),
+            // Codex rate limit badge (only when near limits)
+            if (isCodex && cxRateLimitData != null) ...[
+              CxRateLimitBadge(data: cxRateLimitData!),
+              const SizedBox(width: Spacing.sm),
+            ],
             // Menu button (contains all secondary options)
             // For Claude Code: bottom sheet menu
             if (isClaudeCode && onMenu != null)

@@ -17,6 +17,7 @@ import 'package:broski/providers/appearance_provider.dart';
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/claude_code_provider.dart';
 import 'package:broski/providers/codex_settings_provider.dart';
+import 'package:broski/providers/codex/cx_rate_limits_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/file_search_provider.dart';
 import 'package:broski/providers/selection_provider.dart';
@@ -1591,6 +1592,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                   : null,
               codexModel: widget.isCodex
                   ? ref.watch(chatSessionProvider.select((s) => s.cxModel))
+                  : null,
+              cxRateLimitData: widget.isCodex
+                  ? ref.watch(cxLiveRateLimitsProvider)
                   : null,
               sessionContext: _sessionContext,
               piModel: widget.isPi
