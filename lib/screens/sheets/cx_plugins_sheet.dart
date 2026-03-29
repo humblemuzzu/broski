@@ -2,6 +2,7 @@ import 'package:broski/models/codex/codex_plugin.dart';
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/codex_plugins_provider.dart';
 import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/sheets/cx_plugin_detail_sheet.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/app_typography.dart';
 import 'package:broski/theme/design_tokens.dart';
@@ -155,6 +156,11 @@ class _CxPluginsSheetState extends ConsumerState<CxPluginsSheet> {
                           '${e.marketplacePath}:${e.plugin.name}',
                         ),
                     onAction: () => _uninstallPlugin(e.plugin),
+                    onTap: () => showCxPluginDetailSheet(
+                      context: context,
+                      marketplacePath: e.marketplacePath,
+                      pluginName: e.plugin.name,
+                    ),
                     isInstalled: true,
                   ),
                 ),
@@ -174,6 +180,11 @@ class _CxPluginsSheetState extends ConsumerState<CxPluginsSheet> {
                       '${e.marketplacePath}:${e.plugin.name}',
                     ),
                     onAction: () => _installPlugin(e.plugin, e.marketplacePath),
+                    onTap: () => showCxPluginDetailSheet(
+                      context: context,
+                      marketplacePath: e.marketplacePath,
+                      pluginName: e.plugin.name,
+                    ),
                     isInstalled: false,
                   ),
                 ),
@@ -216,6 +227,7 @@ class _PluginTile extends StatelessWidget {
   final OpenCodeTheme theme;
   final bool isLoading;
   final VoidCallback onAction;
+  final VoidCallback? onTap;
   final bool isInstalled;
 
   const _PluginTile({
@@ -223,6 +235,7 @@ class _PluginTile extends StatelessWidget {
     required this.theme,
     required this.isLoading,
     required this.onAction,
+    this.onTap,
     required this.isInstalled,
   });
 
@@ -232,6 +245,7 @@ class _PluginTile extends StatelessWidget {
     return ListTile(
       dense: true,
       contentPadding: EdgeInsets.zero,
+      onTap: onTap,
       leading: Icon(
         AppIcons.plugin,
         size: 20,

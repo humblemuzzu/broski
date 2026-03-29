@@ -1,6 +1,9 @@
 import 'dart:async';
 
+import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/git.dart';
+import 'package:broski/providers/agent_type_provider.dart';
+import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -161,6 +164,23 @@ class GitStatusNotifier extends StateNotifier<AsyncValue<GitStatusResult>> {
     final bridge = _ref.read(bridgeServiceProvider);
     await bridge.gitCheckout(projectPath: projectPath, branch: branch);
     await refresh();
+
+    // Update Codex thread metadata with new git info
+    try {
+      final agentType = _ref.read(agentTypeProvider);
+      if (agentType == AgentType.codex) {
+        final chatState = _ref.read(chatSessionProvider);
+        final threadId = chatState.cxThreadId ?? '';
+        if (threadId.isNotEmpty) {
+          await bridge.cxUpdateThreadMetadata(
+            threadId: threadId,
+            gitInfo: {'branch': branch},
+          );
+        }
+      }
+    } catch (_) {
+      // Best-effort metadata update
+    }
   }
 
   Future<void> createBranch(String name, {String? startPoint}) async {

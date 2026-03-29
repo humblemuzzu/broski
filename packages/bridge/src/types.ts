@@ -953,6 +953,9 @@ export type ClientMessage =
 	  }
 	| { type: "cx_fuzzy_search_update"; sessionId: string; query: string; requestId?: string }
 	| { type: "cx_fuzzy_search_end"; sessionId: string; requestId?: string }
+	// Codex filesystem watch
+	| { type: "cx_fs_watch"; paths: string[]; threadId?: string; requestId?: string }
+	| { type: "cx_fs_unwatch"; subscriptionId: string; requestId?: string }
 	// Codex command PTY
 	| { type: "cx_command_write"; processId: string; deltaBase64?: string; closeStdin?: boolean }
 	| { type: "cx_command_resize"; processId: string; rows?: number; cols?: number }
@@ -2039,6 +2042,9 @@ export type ServerMessage =
 			requestId?: string;
 	  }
 	| { type: "cx_fuzzy_search_ended"; data: { ok: boolean }; requestId?: string }
+	// Codex filesystem watch responses
+	| { type: "cx_fs_watched"; data: { subscriptionId: string; ok: boolean; error?: string }; requestId?: string }
+	| { type: "cx_fs_unwatched"; data: { ok: boolean; error?: string }; requestId?: string }
 	// Message replay on reconnect
 	| { type: "cx_replay"; data: any[]; currentSeq: number; requestId?: string }
 	// Claude Code Custom Tools
@@ -2476,9 +2482,7 @@ export type AgentStatusInfo = {
 	version?: string;
 };
 
-// ============================================================================
 // CLAUDE CODE-SPECIFIC TYPES
-// ============================================================================
 
 // Claude Code Skill (auto-invoked capability)
 export type ClaudeCodeSkill = {
@@ -2679,9 +2683,7 @@ export type ClaudeCodeCustomTool = {
 	updatedAt: number;
 };
 
-// ============================================================================
 // CLAUDE CODE PLUGIN TYPES
-// ============================================================================
 
 // Plugin manifest from plugin.json
 export type ClaudeCodePluginManifest = {
@@ -3144,9 +3146,7 @@ export type ClaudeCodeTranscriptMessage = {
 	diffs?: ClaudeCodeTranscriptDiff[];
 };
 
-// ============================================================================
 // CODEX types are extracted to ./types/codex.ts (re-exported below)
-// ============================================================================
 
 // Feature 21: File Attachment (for @ tagging in prompt and image attachments)
 export type FileAttachment = {
@@ -3157,9 +3157,7 @@ export type FileAttachment = {
 	base64Data?: string; // Base64 encoded image data from mobile
 };
 
-// ============================================================================
 // SUBSCRIPTION USAGE TYPES
-// ============================================================================
 
 export type UsageWindow = {
 	usedPercent: number; // 0-100

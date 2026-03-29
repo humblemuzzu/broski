@@ -17,6 +17,7 @@ import { handleCxCommandPty } from "./codex/cx_command_pty";
 import { handleCxConfig } from "./codex/cx_config";
 import { handleCxExternalConfig } from "./codex/cx_external_config";
 import { handleCxFiles } from "./codex/cx_files";
+import * as cxFsWatch from "./codex/cx_fs_watch";
 import * as cxFuzzySearch from "./codex/cx_fuzzy_search";
 import { handleCxMcp } from "./codex/cx_mcp";
 import { handleCxPlugins } from "./codex/cx_plugins";
@@ -130,6 +131,7 @@ const WORKSPACE_OPS = new Set(["cx_revert_changes", "cx_get_turn_diff"]);
 
 const FUZZY_SEARCH_OPS = new Set(["cx_fuzzy_search_start", "cx_fuzzy_search_update", "cx_fuzzy_search_end"]);
 
+const FS_WATCH_OPS = new Set(["cx_fs_watch", "cx_fs_unwatch"]);
 const FEATURE_OPS = new Set([
 	"cx_steer",
 	"cx_thread_rename",
@@ -342,6 +344,15 @@ export async function handle(
 			cxSearchSessions: ctx.cxSearchSessions,
 		});
 		if (!handled) reply({ type: "error", message: `Unhandled fuzzy search: ${type}` });
+		return true;
+	}
+
+	if (FS_WATCH_OPS.has(type)) {
+		const handled = await cxFsWatch.handle(message, reply, {
+			ensureCodexClient: ctx.ensureCodexClient,
+			safeString: ctx.safeString,
+		});
+		if (!handled) reply({ type: "error", message: `Unhandled fs watch: ${type}` });
 		return true;
 	}
 	return false;

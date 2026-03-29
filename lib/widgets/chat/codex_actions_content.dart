@@ -159,6 +159,14 @@ class CodexActionsContent extends StatelessWidget {
               ),
               const SizedBox(height: Spacing.sm),
               ActionRow(
+                icon: AppIcons.terminal,
+                label: 'Clean Terminals',
+                subtitle: 'Remove stale background processes',
+                theme: theme,
+                onTap: () => onAction('cx_clean_terminals'),
+              ),
+              const SizedBox(height: Spacing.sm),
+              ActionRow(
                 icon: AppIcons.openExternal,
                 label: 'Open in Desktop',
                 subtitle: 'Continue this thread in Codex desktop app',

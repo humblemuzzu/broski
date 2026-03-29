@@ -102,6 +102,8 @@ void handleCodexMenuAction(
       _compactCodexThread(context, ref);
     case 'cx_rate_limits':
       showCxRateLimitsSheet(context);
+    case 'cx_clean_terminals':
+      _cleanCodexTerminals(context, ref);
     case 'cx_changeset':
       final threadId = ref.read(chatSessionProvider).cxThreadId ?? '';
       final cwd = ref.read(chatSessionProvider).cxCwd;
@@ -126,6 +128,25 @@ void _compactCodexThread(BuildContext context, WidgetRef ref) {
       .catchError((e) {
         if (context.mounted) {
           showInfo(context, 'Compact failed: ${humanizeError(e)}');
+        }
+      });
+}
+
+void _cleanCodexTerminals(BuildContext context, WidgetRef ref) {
+  final chatState = ref.read(chatSessionProvider);
+  final threadId = chatState.cxThreadId;
+  if (threadId == null || threadId.isEmpty) return;
+  final bridge = ref.read(bridgeServiceProvider);
+  bridge
+      .cxCleanBackgroundTerminals(threadId: threadId)
+      .then((_) {
+        if (context.mounted) {
+          showSuccess(context, 'Background terminals cleaned');
+        }
+      })
+      .catchError((e) {
+        if (context.mounted) {
+          showInfo(context, 'Clean failed: ${humanizeError(e)}');
         }
       });
 }

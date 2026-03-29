@@ -1,4 +1,5 @@
 import 'package:broski/models/codex.dart';
+import 'package:broski/providers/codex/cx_output_schema_provider.dart';
 import 'package:broski/providers/codex_settings_provider.dart';
 import 'package:broski/theme/app_typography.dart';
 import 'package:broski/theme/design_tokens.dart';
@@ -209,6 +210,45 @@ void showCodexSettingsSheet(BuildContext context) {
                 selected: settings.serviceTier,
                 display: (v) => v.displayName,
                 onSelected: notifier.setServiceTier,
+              ),
+              const SizedBox(height: Spacing.lg),
+              // Output Schema (optional JSON)
+              Builder(
+                builder: (context) {
+                  final schemaText = ref.watch(cxOutputSchemaProvider) ?? '';
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Output Schema (optional)',
+                        style: AppTypography.labelSmall(color: theme.textMuted),
+                      ),
+                      const SizedBox(height: Spacing.xs),
+                      TextField(
+                        controller: TextEditingController(text: schemaText),
+                        maxLines: 3,
+                        style: AppTypography.codeSmall(color: theme.text),
+                        onChanged: (value) {
+                          ref.read(cxOutputSchemaProvider.notifier).state =
+                              value.trim().isEmpty ? null : value.trim();
+                        },
+                        decoration: InputDecoration(
+                          hintText: '{"type": "object", "properties": {...}}',
+                          hintStyle: AppTypography.codeSmall(
+                            color: theme.textMuted.withValues(alpha: 0.5),
+                          ),
+                          filled: true,
+                          fillColor: theme.bgRaised,
+                          border: OutlineInputBorder(
+                            borderRadius: Radii.brSm,
+                            borderSide: BorderSide(color: theme.border),
+                          ),
+                          contentPadding: const EdgeInsets.all(10),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ],
           ),

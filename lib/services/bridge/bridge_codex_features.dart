@@ -2,7 +2,6 @@ part of '../bridge_service.dart';
 
 extension BridgeServiceCodexFeatures on BridgeService {
   // Codex — New SDK Features (mid-2026)
-  // ============================================================
 
   /// Steer/nudge the agent while a turn is active (turn/steer).
   void cxSteer({
@@ -185,9 +184,7 @@ extension BridgeServiceCodexFeatures on BridgeService {
     return data.whereType<Map<String, dynamic>>().toList();
   }
 
-  // ============================================================
   // Codex — SDK Update: New Methods (#21-#25)
-  // ============================================================
 
   /// #21: Write multiple config values atomically (config/batchWrite).
   Future<Map<String, dynamic>> cxConfigBatchWrite({
@@ -287,9 +284,7 @@ extension BridgeServiceCodexFeatures on BridgeService {
     return data['authorizationUrl'] as String? ?? '';
   }
 
-  // ============================================================
   // Plugin Marketplace
-  // ============================================================
 
   /// List plugins from marketplace (plugin/list).
   Future<List<CodexPluginMarketplace>> cxListPlugins({String? cwd}) async {
@@ -347,9 +342,27 @@ extension BridgeServiceCodexFeatures on BridgeService {
     return true;
   }
 
-  // ============================================================
+  /// Read detailed info about a specific plugin (plugin/read).
+  Future<Map<String, dynamic>> cxPluginRead({
+    required String marketplacePath,
+    required String pluginName,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_plugin_read',
+      'requestId': requestId,
+      'marketplacePath': marketplacePath,
+      'pluginName': pluginName,
+    });
+    final response = await _waitFor(
+      'cx_plugin_detail',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    return response['data'] as Map<String, dynamic>? ?? {};
+  }
+
   // PTY Command Methods + Thread Metadata
-  // ============================================================
 
   /// Write to stdin of a running PTY command (command/exec/write).
   void cxCommandExecWrite({
@@ -415,9 +428,7 @@ extension BridgeServiceCodexFeatures on BridgeService {
     return true;
   }
 
-  // ============================================================
   // Thread Unsubscribe + Collaboration Modes + Background Terminals
-  // ============================================================
 
   /// Unsubscribe from a thread to free server memory (thread/unsubscribe).
   Future<String> cxThreadUnsubscribe({required String threadId}) async {
@@ -471,9 +482,7 @@ extension BridgeServiceCodexFeatures on BridgeService {
     return true;
   }
 
-  // ============================================================
   // External Agent Config Import
-  // ============================================================
 
   /// Detect external agent configs (Claude Code, Cursor, Windsurf, etc.)
   Future<List<Map<String, dynamic>>> cxDetectExternalConfigs({
@@ -531,9 +540,7 @@ extension BridgeServiceCodexFeatures on BridgeService {
     return response['data'] as Map<String, dynamic>? ?? {};
   }
 
-  // ============================================================
   // Codex — Workspace Change Set (Revert)
-  // ============================================================
 
   /// Revert file changes using git apply --reverse.
   Future<Map<String, dynamic>> cxRevertChanges({
@@ -579,9 +586,7 @@ extension BridgeServiceCodexFeatures on BridgeService {
     return response['data'] as Map<String, dynamic>? ?? {};
   }
 
-  // ============================================================
   // Codex — Fuzzy File Search (@mentions)
-  // ============================================================
 
   /// Start a fuzzy file search session.
   Future<Map<String, dynamic>> cxFuzzySearchStart({
@@ -639,6 +644,44 @@ extension BridgeServiceCodexFeatures on BridgeService {
       'cx_fuzzy_search_ended',
       requestId: requestId,
       timeoutSeconds: 5,
+    );
+  }
+
+  // Codex — Filesystem Watch
+
+  /// Watch file paths for changes via Codex sandbox (fs/watch).
+  Future<String> cxFsWatch({
+    required List<String> paths,
+    String? threadId,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_fs_watch',
+      'requestId': requestId,
+      'paths': paths,
+      if (threadId != null) 'threadId': threadId,
+    });
+    final response = await _waitFor(
+      'cx_fs_watched',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'] as Map<String, dynamic>? ?? {};
+    return data['subscriptionId'] as String? ?? '';
+  }
+
+  /// Unwatch a file subscription (fs/unwatch).
+  Future<void> cxFsUnwatch({required String subscriptionId}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_fs_unwatch',
+      'requestId': requestId,
+      'subscriptionId': subscriptionId,
+    });
+    await _waitFor(
+      'cx_fs_unwatched',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
     );
   }
 }
