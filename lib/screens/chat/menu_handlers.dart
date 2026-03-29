@@ -10,6 +10,7 @@ import 'package:broski/screens/sheets/cx_mcp_sheet.dart';
 import 'package:broski/screens/sheets/cx_model_sheet.dart';
 import 'package:broski/screens/sheets/cx_rate_limits_sheet.dart';
 import 'package:broski/screens/sheets/cx_remote_skills_sheet.dart';
+import 'package:broski/screens/sheets/cx_review_sheet.dart';
 import 'package:broski/screens/sheets/cx_settings_sheet.dart';
 import 'package:broski/screens/sheets/pi_model_sheet.dart';
 import 'package:broski/screens/sheets/pi_skills_sheet.dart';
@@ -63,7 +64,6 @@ void handleCodexMenuAction(
   required VoidCallback onShowProjectTools,
   required VoidCallback onShowSkills,
   required VoidCallback onShowAgents,
-  required VoidCallback onStartReview,
 }) {
   switch (value) {
     case 'stop':
@@ -85,7 +85,8 @@ void handleCodexMenuAction(
     case 'cx_config':
       showCodexConfigSheet(context, ref);
     case 'cx_review':
-      onStartReview();
+      final cwd = ref.read(chatSessionProvider).cxCwd;
+      showCxReviewSheet(context, ref, cwd: cwd);
     case 'cx_feedback':
       showCodexFeedbackSheet(context, ref);
     case 'cx_apps':

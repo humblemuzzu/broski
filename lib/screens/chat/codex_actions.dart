@@ -9,11 +9,15 @@ import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Start a Codex review on uncommitted changes.
+/// Start a Codex review with the given [target].
 /// Extracted from `_ChatScreenState._startCodexReview`.
+///
+/// [target] defaults to `{ type: 'uncommittedChanges' }` when omitted,
+/// preserving the original behavior.
 Future<void> startCodexReview({
   required WidgetRef ref,
   required String? cwd,
+  Map<String, dynamic>? target,
 }) async {
   if (cwd == null || cwd.isEmpty) return;
   final settings = ref.read(codexSettingsProvider);
@@ -45,7 +49,7 @@ Future<void> startCodexReview({
         threadId: chatState.cxThreadId,
         cwd: cwd,
         delivery: 'inline',
-        target: const {'type': 'uncommittedChanges'},
+        target: target ?? const {'type': 'uncommittedChanges'},
         model: chatState.cxModel,
         approvalPolicy: settings.approvalPolicy.wireValue,
         sandbox: settings.sandboxMode.threadWireValue,

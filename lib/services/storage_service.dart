@@ -23,6 +23,8 @@ import 'package:broski/models/vcs.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:uuid/uuid.dart';
 
+part 'storage/storage_codex.dart';
+
 class StorageService {
   static const _connectionKey = 'broski_connection';
   static const _connectionAuthTokenKey = 'broski_connection_auth_token';
@@ -141,6 +143,8 @@ class StorageService {
       _cachedPiSessionsKey,
       _cachedPiProjectsKey,
       _cachedCCProjectsKey,
+      StorageCodex._cachedCodexConfigKey,
+      StorageCodex._cachedCodexExperimentalFeaturesKey,
     ];
 
     for (final key in keysToDelete) {

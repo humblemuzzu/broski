@@ -116,7 +116,14 @@ class CodexThreadsNotifier
   static bool _codexWarmupStarted = false;
 
   Future<void> _bootstrap() async {
-    if (_connection.isOfflineMode) return;
+    if (_connection.isOfflineMode) {
+      // Serve cached experimental features when offline.
+      final cached = await _storage.getCachedCodexExperimentalFeatures();
+      if (cached.isNotEmpty) {
+        _ref.read(cxExperimentalFeaturesProvider.notifier).state = cached;
+      }
+      return;
+    }
 
     // Warm bridge-side Codex caches once per app lifecycle.
     if (!_codexWarmupStarted) {
@@ -132,8 +139,15 @@ class CodexThreadsNotifier
     try {
       final features = await _bridge.cxListExperimentalFeatures();
       _ref.read(cxExperimentalFeaturesProvider.notifier).state = features;
+      if (features.isNotEmpty) {
+        await _storage.cacheCodexExperimentalFeatures(features);
+      }
     } catch (_) {
-      // Optional capability probe.
+      // Fall back to cached features on error.
+      final cached = await _storage.getCachedCodexExperimentalFeatures();
+      if (cached.isNotEmpty) {
+        _ref.read(cxExperimentalFeaturesProvider.notifier).state = cached;
+      }
     }
   }
 

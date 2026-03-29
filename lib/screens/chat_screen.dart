@@ -873,7 +873,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     onShowProjectTools: _showProjectToolsSheet,
     onShowSkills: _showCodexSkillsSheet,
     onShowAgents: _showCodexAgentsSheet,
-    onStartReview: _startCodexReview,
   );
 
   void _handlePiMenuAction(String value) => handlePiMenuAction(
