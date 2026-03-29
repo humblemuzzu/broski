@@ -495,6 +495,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         widget: widget,
         onQueueTurnComplete: _autoSendQueuedCxMessage,
       );
+      ci.setupCxErrorListenerIfCodex(
+        ref: ref,
+        context: context,
+        widget: widget,
+      );
     }
     // Refresh header context pill when token usage changes (CC/CX turn ends)
     ci.setupTokenUsageListeners(

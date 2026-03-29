@@ -16,6 +16,7 @@ import 'package:broski/screens/chat_screen.dart';
 import 'package:broski/screens/pi/pi_extension_ui_request_handler.dart';
 import 'package:broski/services/bridge_service.dart';
 import 'package:broski/widgets/power_sheet.dart';
+import 'package:broski/providers/codex/cx_error_listener.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -150,6 +151,19 @@ ProviderSubscription<bool>? setupCodexQueueSubscription({
       onQueueTurnComplete();
     }
   });
+}
+
+/// Sets up the Codex error listener: shows a snackbar when the bridge
+/// reports a Codex error (e.g. handler failure, SDK error).
+///
+/// Extracted from cx_error_listener.dart — wired into chat lifecycle.
+void setupCxErrorListenerIfCodex({
+  required WidgetRef ref,
+  required BuildContext context,
+  required ChatScreen widget,
+}) {
+  if (!widget.isCodex) return;
+  setupCxErrorListener(ref, context);
 }
 
 /// Sets up token usage listeners that refresh the header context pill

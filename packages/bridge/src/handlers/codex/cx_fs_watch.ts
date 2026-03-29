@@ -50,7 +50,6 @@ export async function handle(message: any, reply: (msg: any) => void, ctx: CxFsW
 		}
 
 		case "cx_fs_unwatch": {
-			const client = await ensureCodexClient();
 			const subscriptionId = safeString(message.subscriptionId).trim();
 
 			if (!subscriptionId) {
@@ -61,6 +60,8 @@ export async function handle(message: any, reply: (msg: any) => void, ctx: CxFsW
 				});
 				break;
 			}
+
+			const client = await ensureCodexClient();
 
 			try {
 				await client.request("fs/unwatch", { subscriptionId });

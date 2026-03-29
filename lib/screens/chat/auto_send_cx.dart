@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:broski/models/codex.dart';
 import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/codex/cx_output_schema_provider.dart';
 import 'package:broski/providers/codex_settings_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -65,6 +68,16 @@ void autoSendQueuedCxMessage({
           codexSettings.networkAccessEnabled,
   };
 
+  // Parse output schema if set
+  final schemaStr = ref.read(cxOutputSchemaProvider);
+  Map<String, dynamic>? outputSchema;
+  if (schemaStr != null && schemaStr.isNotEmpty) {
+    try {
+      outputSchema = jsonDecode(schemaStr) as Map<String, dynamic>?;
+    } catch (_) {
+      // Invalid JSON — ignore
+    }
+  }
   bridge.cxChat(
     threadId: chatState.cxThreadId,
     cwd: cwd,
@@ -79,6 +92,7 @@ void autoSendQueuedCxMessage({
     collaborationMode: codexSettings.collaborationMode.wireValue,
     personality: codexSettings.personality.wireValue,
     serviceTier: codexSettings.serviceTier.wireValue,
+    outputSchema: outputSchema,
   );
 
   resetScrollAndScrollToBottom();

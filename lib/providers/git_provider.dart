@@ -165,16 +165,21 @@ class GitStatusNotifier extends StateNotifier<AsyncValue<GitStatusResult>> {
     await bridge.gitCheckout(projectPath: projectPath, branch: branch);
     await refresh();
 
-    // Update Codex thread metadata with new git info
+    // Update Codex thread metadata with new git info (fire-and-forget)
     try {
       final agentType = _ref.read(agentTypeProvider);
       if (agentType == AgentType.codex) {
         final chatState = _ref.read(chatSessionProvider);
         final threadId = chatState.cxThreadId ?? '';
         if (threadId.isNotEmpty) {
-          await bridge.cxUpdateThreadMetadata(
-            threadId: threadId,
-            gitInfo: {'branch': branch},
+          unawaited(
+            bridge
+                .cxUpdateThreadMetadata(
+                  threadId: threadId,
+                  gitInfo: {'branch': branch},
+                )
+                .timeout(const Duration(seconds: 5))
+                .catchError((_) => false),
           );
         }
       }

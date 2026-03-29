@@ -54,15 +54,6 @@ export async function handle(
 			const turnId = message.turnId ? safeString(message.turnId).trim() : undefined;
 			const cwd = (message.cwd as string) || cxThreadCwds.get(threadId) || process.cwd();
 
-			if (!cwd) {
-				reply({
-					type: "cx_turn_diff",
-					requestId: message.requestId,
-					data: { diff: "", files: [] },
-				});
-				break;
-			}
-
 			try {
 				const result = await runGitCommand(["diff", "HEAD"], cwd);
 				const files = parseDiffFiles(result.stdout);

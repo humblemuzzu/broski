@@ -1,23 +1,28 @@
 import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/widgets/chat/adaptive_table.dart';
+import 'package:broski/widgets/chat/mermaid_block.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 
-/// A segment of markdown content — either regular text or a table block.
+/// The type of a parsed markdown segment.
+enum _SegmentType { text, table, mermaid }
+
+/// A segment of markdown content — regular text, a table, or a mermaid block.
 class _Segment {
-  const _Segment(this.content, {required this.isTable});
+  const _Segment(this.content, {required this.type});
   final String content;
-  final bool isTable;
+  final _SegmentType type;
 }
 
 /// Drop-in replacement for [MarkdownBody] that renders GFM tables with
-/// content-aware adaptive column widths.
+/// content-aware adaptive column widths and mermaid code blocks with
+/// [MermaidBlock].
 ///
-/// Non-table content is passed through to the standard [MarkdownBody].
-/// Table blocks are extracted and rendered with [AdaptiveTable], which
-/// sizes columns proportionally based on content (Pi-style algorithm)
-/// so icon/symbol columns stay narrow and text columns get the space
-/// they need — critical for mobile screens.
+/// Non-table/non-mermaid content is passed through to the standard
+/// [MarkdownBody]. Table blocks are extracted and rendered with
+/// [AdaptiveTable], which sizes columns proportionally based on content
+/// (Pi-style algorithm) so icon/symbol columns stay narrow and text
+/// columns get the space they need — critical for mobile screens.
 class AdaptiveMarkdownBody extends StatelessWidget {
   const AdaptiveMarkdownBody({
     super.key,
@@ -37,10 +42,10 @@ class AdaptiveMarkdownBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-    final segments = _splitAtTables(data);
+    final segments = _splitSegments(data);
 
-    // Fast path: no tables found — use standard MarkdownBody as-is.
-    if (segments.length == 1 && !segments.first.isTable) {
+    // Fast path: single text segment — use standard MarkdownBody as-is.
+    if (segments.length == 1 && segments.first.type == _SegmentType.text) {
       return MarkdownBody(
         data: data,
         selectable: selectable,
@@ -72,45 +77,68 @@ class AdaptiveMarkdownBody extends StatelessWidget {
         widgets.add(SizedBox(height: spacing));
       }
       final seg = segments[i];
-      if (seg.isTable) {
-        widgets.add(AdaptiveTable(markdown: seg.content, theme: theme));
-      } else {
-        widgets.add(
-          MarkdownBody(
-            data: seg.content,
-            selectable: selectable,
-            styleSheet: styleSheet,
-            onTapLink: onTapLink,
-            fitContent: fitContent,
-          ),
-        );
+      switch (seg.type) {
+        case _SegmentType.table:
+          widgets.add(AdaptiveTable(markdown: seg.content, theme: theme));
+        case _SegmentType.mermaid:
+          widgets.add(MermaidBlock(code: seg.content));
+        case _SegmentType.text:
+          widgets.add(
+            MarkdownBody(
+              data: seg.content,
+              selectable: selectable,
+              styleSheet: styleSheet,
+              onTapLink: onTapLink,
+              fitContent: fitContent,
+            ),
+          );
       }
     }
     return widgets;
   }
 
   // ---------------------------------------------------------------------------
-  // Markdown table splitter
+  // Markdown segment splitter (tables + mermaid)
   // ---------------------------------------------------------------------------
 
-  /// Splits markdown text at GFM table boundaries.
+  /// Splits markdown text at GFM table and mermaid code block boundaries.
   ///
-  /// Returns a list of segments where each is either regular markdown text
-  /// or a complete GFM table block (header + separator + data rows).
-  /// Code-fenced blocks are skipped to avoid false positives.
-  static List<_Segment> _splitAtTables(String markdown) {
+  /// Returns a list of segments where each is regular markdown text,
+  /// a complete GFM table block, or the body of a mermaid code fence.
+  /// Non-mermaid code-fenced blocks are left intact for [MarkdownBody].
+  static List<_Segment> _splitSegments(String markdown) {
     final lines = markdown.split('\n');
     final segments = <_Segment>[];
     final buffer = StringBuffer();
-    String? fenceMarker; // non-null = inside a code fence
+    String? fenceMarker; // non-null = inside a non-mermaid code fence
     int i = 0;
 
     while (i < lines.length) {
       final line = lines[i];
       final trimmed = line.trim();
 
-      // Track fenced code blocks — never parse tables inside them.
-      // A fence opened with ``` can only be closed by ```, same for ~~~.
+      // --- Mermaid fence detection (must come before generic fence tracking) ---
+      if (fenceMarker == null && _isMermaidFenceOpen(trimmed)) {
+        _flushText(buffer, segments);
+        final mermaidBuf = StringBuffer();
+        i++; // skip the opening ```mermaid line
+        while (i < lines.length) {
+          final mLine = lines[i].trim();
+          if (mLine.startsWith('```')) {
+            i++; // skip closing ```
+            break;
+          }
+          mermaidBuf.writeln(lines[i]);
+          i++;
+        }
+        final code = mermaidBuf.toString().trimRight();
+        if (code.isNotEmpty) {
+          segments.add(_Segment(code, type: _SegmentType.mermaid));
+        }
+        continue;
+      }
+
+      // --- Generic code fence tracking (skip non-mermaid fenced blocks) ---
       if (trimmed.startsWith('```') || trimmed.startsWith('~~~')) {
         final marker = trimmed.startsWith('```') ? '```' : '~~~';
         if (fenceMarker == null) {
@@ -118,7 +146,6 @@ class AdaptiveMarkdownBody extends StatelessWidget {
         } else if (trimmed.startsWith(fenceMarker)) {
           fenceMarker = null; // matching close
         }
-        // else: different marker inside fence — treat as code content
         buffer.writeln(line);
         i++;
         continue;
@@ -130,16 +157,12 @@ class AdaptiveMarkdownBody extends StatelessWidget {
         continue;
       }
 
-      // Detect table: current line looks like a table row AND the next line
-      // is a valid GFM separator row (e.g. "| --- | :---: | ---: |").
+      // --- Table detection ---
       if (_looksLikeTableRow(trimmed) &&
           i + 1 < lines.length &&
           _isSeparatorRow(lines[i + 1].trim())) {
-        // Flush accumulated text.
         _flushText(buffer, segments);
 
-        // Collect the entire table block. A blank line or non-table line
-        // terminates the table (matching GFM semantics).
         final tableBuf = StringBuffer();
         tableBuf.writeln(line); // header
         i++;
@@ -152,7 +175,9 @@ class AdaptiveMarkdownBody extends StatelessWidget {
           i++;
         }
 
-        segments.add(_Segment(tableBuf.toString().trimRight(), isTable: true));
+        segments.add(
+          _Segment(tableBuf.toString().trimRight(), type: _SegmentType.table),
+        );
         continue;
       }
 
@@ -161,13 +186,22 @@ class AdaptiveMarkdownBody extends StatelessWidget {
     }
 
     _flushText(buffer, segments);
-    return segments.isEmpty ? [_Segment(markdown, isTable: false)] : segments;
+    return segments.isEmpty
+        ? [_Segment(markdown, type: _SegmentType.text)]
+        : segments;
+  }
+
+  /// Returns true if [trimmed] is a mermaid fence opener like ```mermaid.
+  static bool _isMermaidFenceOpen(String trimmed) {
+    if (!trimmed.startsWith('```')) return false;
+    final lang = trimmed.substring(3).trim().toLowerCase();
+    return lang == 'mermaid';
   }
 
   static void _flushText(StringBuffer buffer, List<_Segment> segments) {
     final text = buffer.toString().trimRight();
     if (text.isNotEmpty) {
-      segments.add(_Segment(text, isTable: false));
+      segments.add(_Segment(text, type: _SegmentType.text));
     }
     buffer.clear();
   }

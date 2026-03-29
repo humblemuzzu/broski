@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:broski/models/agent.dart';
 import 'package:broski/models/claude_code.dart';
 import 'package:broski/models/codex.dart';
@@ -8,6 +10,7 @@ import 'package:broski/providers/app_subscription_provider.dart';
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/claude_code_provider.dart';
 import 'package:broski/providers/claude_code_variant_provider.dart';
+import 'package:broski/providers/codex/cx_output_schema_provider.dart';
 import 'package:broski/providers/codex_settings_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/opencode_variant_provider.dart';
@@ -241,6 +244,16 @@ void sendMessage({
         'sandbox_workspace_write.network_access':
             codexSettings.networkAccessEnabled,
     };
+    // Parse output schema if set
+    final schemaStr = ref.read(cxOutputSchemaProvider);
+    Map<String, dynamic>? outputSchema;
+    if (schemaStr != null && schemaStr.isNotEmpty) {
+      try {
+        outputSchema = jsonDecode(schemaStr) as Map<String, dynamic>?;
+      } catch (_) {
+        // Invalid JSON — ignore
+      }
+    }
     bridge.cxChat(
       threadId: chatState.cxThreadId,
       cwd: cwd,
@@ -256,6 +269,7 @@ void sendMessage({
       collaborationMode: codexSettings.collaborationMode.wireValue,
       personality: codexSettings.personality.wireValue,
       serviceTier: codexSettings.serviceTier.wireValue,
+      outputSchema: outputSchema,
     );
     controller.clear();
     clearAttachments();

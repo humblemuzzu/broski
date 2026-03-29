@@ -213,47 +213,72 @@ void showCodexSettingsSheet(BuildContext context) {
               ),
               const SizedBox(height: Spacing.lg),
               // Output Schema (optional JSON)
-              Builder(
-                builder: (context) {
-                  final schemaText = ref.watch(cxOutputSchemaProvider) ?? '';
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Output Schema (optional)',
-                        style: AppTypography.labelSmall(color: theme.textMuted),
-                      ),
-                      const SizedBox(height: Spacing.xs),
-                      TextField(
-                        controller: TextEditingController(text: schemaText),
-                        maxLines: 3,
-                        style: AppTypography.codeSmall(color: theme.text),
-                        onChanged: (value) {
-                          ref.read(cxOutputSchemaProvider.notifier).state =
-                              value.trim().isEmpty ? null : value.trim();
-                        },
-                        decoration: InputDecoration(
-                          hintText: '{"type": "object", "properties": {...}}',
-                          hintStyle: AppTypography.codeSmall(
-                            color: theme.textMuted.withValues(alpha: 0.5),
-                          ),
-                          filled: true,
-                          fillColor: theme.bgRaised,
-                          border: OutlineInputBorder(
-                            borderRadius: Radii.brSm,
-                            borderSide: BorderSide(color: theme.border),
-                          ),
-                          contentPadding: const EdgeInsets.all(10),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
+              const _OutputSchemaField(),
             ],
           ),
         );
       },
     ),
   );
+}
+
+class _OutputSchemaField extends ConsumerStatefulWidget {
+  const _OutputSchemaField();
+
+  @override
+  ConsumerState<_OutputSchemaField> createState() => _OutputSchemaFieldState();
+}
+
+class _OutputSchemaFieldState extends ConsumerState<_OutputSchemaField> {
+  late final TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: ref.read(cxOutputSchemaProvider) ?? '');
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Output Schema (optional)',
+          style: AppTypography.labelSmall(color: theme.textMuted),
+        ),
+        const SizedBox(height: 4),
+        TextField(
+          controller: _ctrl,
+          maxLines: 3,
+          onChanged: (v) {
+            ref.read(cxOutputSchemaProvider.notifier).state = v.trim().isEmpty
+                ? null
+                : v.trim();
+          },
+          style: AppTypography.codeSmall(color: theme.text),
+          decoration: InputDecoration(
+            hintText: '{"type": "object", "properties": {...}}',
+            hintStyle: AppTypography.codeSmall(
+              color: theme.textMuted.withValues(alpha: 0.5),
+            ),
+            filled: true,
+            fillColor: theme.bgRaised,
+            border: OutlineInputBorder(
+              borderRadius: Radii.brSm,
+              borderSide: BorderSide(color: theme.border),
+            ),
+            contentPadding: const EdgeInsets.all(10),
+          ),
+        ),
+      ],
+    );
+  }
 }

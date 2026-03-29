@@ -44,6 +44,10 @@ part 'bridge/bridge_claude_code_updates.dart';
 // ============================================================
 part 'bridge/bridge_codex_core.dart';
 part 'bridge/bridge_codex_features.dart';
+part 'bridge/bridge_codex_fs.dart';
+part 'bridge/bridge_codex_search.dart';
+part 'bridge/bridge_codex_workspace.dart';
+part 'bridge/bridge_codex_plugins.dart';
 part 'bridge/bridge_codex_runtime.dart';
 part 'bridge/bridge_codex_threads.dart';
 part 'bridge/bridge_config.dart';

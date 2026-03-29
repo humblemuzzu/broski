@@ -935,6 +935,7 @@ export type ClientMessage =
 	| { type: "cx_plugin_list"; cwd?: string }
 	| { type: "cx_plugin_install"; marketplacePath: string; pluginName: string }
 	| { type: "cx_plugin_uninstall"; pluginId: string }
+	| { type: "cx_plugin_read"; marketplacePath: string; pluginName: string; requestId?: string }
 	// Codex thread lifecycle
 	| { type: "cx_thread_unsubscribe"; threadId: string }
 	| { type: "cx_collaboration_modes" }
@@ -2027,6 +2028,11 @@ export type ServerMessage =
 			requestId?: string;
 	  }
 	| { type: "cx_apps_updated"; data: any[]; requestId?: string }
+	// Codex plugin marketplace responses
+	| { type: "cx_plugins"; data: any[]; requestId?: string }
+	| { type: "cx_plugin_detail"; data: any; requestId?: string }
+	| { type: "cx_plugin_installed"; data: { ok: boolean }; requestId?: string }
+	| { type: "cx_plugin_uninstalled"; data: { ok: boolean }; requestId?: string }
 	| { type: "cx_stream"; data: CodexStreamMessage; threadId: string }
 	// Codex workspace / changeset revert
 	| { type: "cx_changes_reverted"; data: { ok: boolean; error?: string; filesReverted?: string[] }; requestId?: string }
