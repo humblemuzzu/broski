@@ -29,6 +29,7 @@ extension _RuntimeCxHandlers on ChatSessionNotifier {
             _bridge.setView(sessionId: id, agent: 'codex');
           }
         }
+        _confirmPendingMessages();
 
       case 'thread/tokenUsage/updated':
         final tokenUsage = payloadMap['tokenUsage'];

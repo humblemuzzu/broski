@@ -72,6 +72,11 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
       _handleRuntimeUserInputRequested(event);
     }
 
+    // Confirm delivery of pending user messages when any agent starts
+    if (event case RuntimeAgentStartedEvent()) {
+      _confirmPendingMessages();
+    }
+
     // CC system notification messages (runtime_cc_system_messages.dart)
     if (event case RuntimeBackendEvent()
         when event.backend == AgentType.claudeCode) {
@@ -415,5 +420,29 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
     final next = turn.copyWith(tools: {...turn.tools, callId: updated});
     _runtimeChatTurns[turn.sessionKey] = next;
     _projectRuntimeTurn(next);
+  }
+
+  /// Confirm all pending user messages (delivery state: pending → confirmed).
+  /// Called when any agent starts processing, indicating the message was received.
+  void _confirmPendingMessages() {
+    bool changed = false;
+    for (final id in _order) {
+      final msg = _messages[id];
+      if (msg == null) continue;
+      if (msg.role == MessageRole.user &&
+          msg.metadata['deliveryState'] == 'pending') {
+        _messages[id] = msg.copyWith(
+          metadata: {...msg.metadata, 'deliveryState': 'confirmed'},
+        );
+        changed = true;
+      }
+    }
+    if (changed) {
+      if (_suppressEmit) {
+        _pendingEmitMessages = true;
+      } else {
+        _emitMessages();
+      }
+    }
   }
 }

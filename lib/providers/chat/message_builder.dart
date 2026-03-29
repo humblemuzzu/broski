@@ -117,6 +117,7 @@ extension MessageBuilder on ChatSessionNotifier {
         role: MessageRole.user,
         createdAt: DateTime.now(),
         text: content,
+        metadata: const {'deliveryState': 'pending'},
       );
       _addMessage(message);
       return id;
@@ -132,6 +133,7 @@ extension MessageBuilder on ChatSessionNotifier {
         role: MessageRole.user,
         createdAt: DateTime.now(),
         text: content,
+        metadata: const {'deliveryState': 'pending'},
       );
       _addMessage(message);
       return id;
@@ -147,6 +149,7 @@ extension MessageBuilder on ChatSessionNotifier {
         role: MessageRole.user,
         createdAt: DateTime.now(),
         text: content,
+        metadata: const {'deliveryState': 'pending'},
       );
       _addMessage(message);
       return id;
@@ -163,6 +166,7 @@ extension MessageBuilder on ChatSessionNotifier {
       role: MessageRole.user,
       createdAt: DateTime.now(),
       text: content,
+      metadata: const {'deliveryState': 'pending'},
     );
     _addMessage(message);
     if (messageId != null && messageId.isNotEmpty) {
