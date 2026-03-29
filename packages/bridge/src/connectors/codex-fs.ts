@@ -583,27 +583,46 @@ export async function getThreadMessagesFromFs(threadId: string): Promise<Transcr
 
 /**
  * Enrich a list of Codex threads with diff stats from the filesystem.
- * Builds a threadId→filePath index first, then computes stats in parallel.
- * Safe to call on threads from RPC or filesystem — skips threads that already have summary.
+ * Uses SQLite rollout_path index for O(1) per-thread lookup (fast path).
+ * Falls back to a full filesystem scan only for threads SQLite doesn't know about.
+ * Skips threads that already have a summary.
  */
 export async function enrichThreadsWithStats(threads: CodexThread[]): Promise<void> {
 	const needStats = threads.filter((t) => !t.summary);
 	if (needStats.length === 0) return;
 
-	// Build threadId→filePath index (scan both active and archived directories)
-	const files = await collectAllSessionFiles();
-	const idToFile = new Map<string, string>();
-	await Promise.all(
-		files.map(async (filePath) => {
-			const meta = await readSessionMeta(filePath);
-			if (meta?.id) idToFile.set(meta.id, filePath);
-		}),
-	);
+	// Fast path: resolve file paths via SQLite O(1) lookups first
+	const resolved = new Map<string, string>();
+	const unresolved: CodexThread[] = [];
+	for (const thread of needStats) {
+		const sqlitePath = findRolloutPathById(thread.id);
+		if (sqlitePath) {
+			resolved.set(thread.id, sqlitePath);
+		} else {
+			unresolved.push(thread);
+		}
+	}
+
+	// Slow path: only scan FS for threads SQLite doesn't know about
+	if (unresolved.length > 0) {
+		const files = await collectAllSessionFiles();
+		const unresolvedIds = new Set(unresolved.map((t) => t.id));
+		await Promise.all(
+			files.map(async (filePath) => {
+				if (unresolvedIds.size === 0) return;
+				const meta = await readSessionMeta(filePath);
+				if (meta?.id && unresolvedIds.has(meta.id)) {
+					resolved.set(meta.id, filePath);
+					unresolvedIds.delete(meta.id);
+				}
+			}),
+		);
+	}
 
 	// Compute stats in parallel
 	await Promise.all(
 		needStats.map(async (thread) => {
-			const fp = idToFile.get(thread.id);
+			const fp = resolved.get(thread.id);
 			if (!fp) return;
 			const summary = await computeCxThreadStats(fp, thread.id);
 			if (summary && (summary.additions > 0 || summary.deletions > 0 || summary.files > 0)) {

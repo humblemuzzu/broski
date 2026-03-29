@@ -401,6 +401,72 @@ export function mapCodexStreamToRuntimeEvent(
 					};
 				}
 
+				// Assistant text streaming — the main agent reply
+				// Protocol: AgentMessageDeltaNotification { delta, itemId, threadId, turnId }
+				case "item/agentMessage/delta": {
+					const delta = typeof params.delta === "string" ? params.delta : "";
+					if (!delta) return null;
+					return {
+						...baseEvent("assistant_text_delta", ctx, {
+							sourceType: streamMessage.type,
+							method: streamMessage.method,
+							itemId: params.itemId,
+							turnId: params.turnId,
+						}),
+						delta,
+					};
+				}
+
+				// Reasoning summary text — readable thinking/reasoning summaries
+				// Protocol: ReasoningSummaryTextDeltaNotification { delta, itemId, summaryIndex, threadId, turnId }
+				case "item/reasoning/summaryTextDelta": {
+					const delta = typeof params.delta === "string" ? params.delta : "";
+					if (!delta) return null;
+					return {
+						...baseEvent("assistant_thinking_delta", ctx, {
+							sourceType: streamMessage.type,
+							method: streamMessage.method,
+							itemId: params.itemId,
+							summaryIndex: params.summaryIndex,
+							turnId: params.turnId,
+						}),
+						delta,
+					};
+				}
+
+				// Raw reasoning text — only for models that expose raw thinking (e.g. open-source)
+				// Protocol: ReasoningTextDeltaNotification { delta, contentIndex, itemId, threadId, turnId }
+				case "item/reasoning/textDelta": {
+					const delta = typeof params.delta === "string" ? params.delta : "";
+					if (!delta) return null;
+					return {
+						...baseEvent("assistant_thinking_delta", ctx, {
+							sourceType: streamMessage.type,
+							method: streamMessage.method,
+							itemId: params.itemId,
+							contentIndex: params.contentIndex,
+							turnId: params.turnId,
+						}),
+						delta,
+					};
+				}
+
+				// Reasoning summary part boundary — marks new section, no delta content
+				// Protocol: ReasoningSummaryPartAddedNotification { itemId, summaryIndex, threadId, turnId }
+				case "item/reasoning/summaryPartAdded": {
+					return {
+						...baseEvent("backend_event", ctx, {
+							sourceType: streamMessage.type,
+							method: streamMessage.method,
+							itemId: params.itemId,
+							summaryIndex: params.summaryIndex,
+							turnId: params.turnId,
+						}),
+						kind: "reasoning/summaryPartAdded",
+						payload: params,
+					};
+				}
+
 				// Streaming plan text (incremental delta as plan text is written)
 				case "item/plan/delta": {
 					return {
@@ -467,6 +533,7 @@ export function mapCodexStreamToRuntimeEvent(
 				}
 
 				default:
+					console.log(`[Codex runtime mapper] Unmapped notification: ${streamMessage.method}`);
 					return null;
 			}
 		}

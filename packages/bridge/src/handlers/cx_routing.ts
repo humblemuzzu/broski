@@ -179,7 +179,9 @@ export async function handle(
 		const handled = await handleCxFiles(message, reply, {
 			safeString: ctx.safeString,
 			logInfo: ctx.logInfo,
+			logError: ctx.logError,
 			codexFs: ctx.codexFs,
+			codexClient: ctx.codexClient,
 			ensureUndoStack: ctx.ensureUndoStack,
 			applyCodexUndo: ctx.applyCodexUndo,
 		});

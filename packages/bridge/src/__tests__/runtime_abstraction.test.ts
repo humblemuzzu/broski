@@ -424,6 +424,137 @@ describe("Runtime Abstraction", () => {
 		expect(rawFinished).toMatchObject({ toolCallId: "tool-2", output: "done" });
 	});
 
+	test("Codex mapper emits assistant_text_delta for item/agentMessage/delta", () => {
+		const ctx = { backend: "codex" as const, threadId: "cx-1", cwd: "/tmp/repo" };
+
+		// Normal delta with text
+		const textDelta = mapCodexStreamToRuntimeEvent(
+			{
+				type: "notification",
+				method: "item/agentMessage/delta",
+				params: {
+					delta: "Hello, I analyzed the code",
+					itemId: "msg-1",
+					threadId: "cx-1",
+					turnId: "turn-1",
+				},
+			},
+			ctx,
+		);
+		expect(textDelta?.type).toBe("assistant_text_delta");
+		expect((textDelta as any).delta).toBe("Hello, I analyzed the code");
+		expect(textDelta?.backend).toBe("codex");
+		expect(textDelta?.sessionId).toBe("cx-1");
+		expect(textDelta?.backendData).toMatchObject({
+			sourceType: "notification",
+			method: "item/agentMessage/delta",
+			itemId: "msg-1",
+			turnId: "turn-1",
+		});
+
+		// Empty delta should return null (no content to emit)
+		const emptyDelta = mapCodexStreamToRuntimeEvent(
+			{
+				type: "notification",
+				method: "item/agentMessage/delta",
+				params: { delta: "", itemId: "msg-1", threadId: "cx-1", turnId: "turn-1" },
+			},
+			ctx,
+		);
+		expect(emptyDelta).toBeNull();
+	});
+
+	test("Codex mapper emits assistant_thinking_delta for reasoning notifications", () => {
+		const ctx = { backend: "codex" as const, threadId: "cx-1", cwd: "/tmp/repo" };
+
+		// item/reasoning/summaryTextDelta — readable reasoning summaries
+		const summaryDelta = mapCodexStreamToRuntimeEvent(
+			{
+				type: "notification",
+				method: "item/reasoning/summaryTextDelta",
+				params: {
+					delta: "Let me think about this...",
+					itemId: "reason-1",
+					summaryIndex: 0,
+					threadId: "cx-1",
+					turnId: "turn-1",
+				},
+			},
+			ctx,
+		);
+		expect(summaryDelta?.type).toBe("assistant_thinking_delta");
+		expect((summaryDelta as any).delta).toBe("Let me think about this...");
+		expect(summaryDelta?.backendData).toMatchObject({
+			method: "item/reasoning/summaryTextDelta",
+			summaryIndex: 0,
+		});
+
+		// item/reasoning/textDelta — raw reasoning text (open-source models)
+		const rawReasoning = mapCodexStreamToRuntimeEvent(
+			{
+				type: "notification",
+				method: "item/reasoning/textDelta",
+				params: {
+					delta: "step 1: read the file",
+					contentIndex: 0,
+					itemId: "reason-2",
+					threadId: "cx-1",
+					turnId: "turn-1",
+				},
+			},
+			ctx,
+		);
+		expect(rawReasoning?.type).toBe("assistant_thinking_delta");
+		expect((rawReasoning as any).delta).toBe("step 1: read the file");
+		expect(rawReasoning?.backendData).toMatchObject({
+			method: "item/reasoning/textDelta",
+			contentIndex: 0,
+		});
+
+		// item/reasoning/summaryPartAdded — boundary marker (no delta, backend_event)
+		const partBoundary = mapCodexStreamToRuntimeEvent(
+			{
+				type: "notification",
+				method: "item/reasoning/summaryPartAdded",
+				params: {
+					itemId: "reason-1",
+					summaryIndex: 1,
+					threadId: "cx-1",
+					turnId: "turn-1",
+				},
+			},
+			ctx,
+		);
+		expect(partBoundary?.type).toBe("backend_event");
+		expect((partBoundary as any).kind).toBe("reasoning/summaryPartAdded");
+
+		// Empty reasoning delta should return null
+		const emptyReasoning = mapCodexStreamToRuntimeEvent(
+			{
+				type: "notification",
+				method: "item/reasoning/summaryTextDelta",
+				params: { delta: "", itemId: "reason-1", summaryIndex: 0, threadId: "cx-1", turnId: "turn-1" },
+			},
+			ctx,
+		);
+		expect(emptyReasoning).toBeNull();
+	});
+
+	test("Codex mapper logs unmapped notifications instead of silently dropping", () => {
+		const ctx = { backend: "codex" as const, threadId: "cx-1", cwd: "/tmp/repo" };
+
+		// Unknown notification should return null (but log a warning)
+		const unknown = mapCodexStreamToRuntimeEvent(
+			{
+				type: "notification",
+				method: "some/future/notification",
+				params: {},
+			},
+			ctx,
+		);
+		expect(unknown).toBeNull();
+	});
+
 	test("runtime state builders mark Claude and Codex streaming state honestly", () => {
 		const ccState = buildClaudeCodeRuntimeState({
 			sessionId: "cc-1",
