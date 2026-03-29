@@ -662,4 +662,100 @@ describe("Runtime Abstraction", () => {
 		expect(src).toContain("findPiActiveRuntimeStateMessage(nextSessionId)");
 		expect(has("type: 'runtime_state'")).toBe(true);
 	});
+	test("Codex mapper maps mcpServer/elicitation/request to user_input_requested", () => {
+		const ctx = { backend: "codex" as const, threadId: "cx-1", cwd: "/tmp/repo" };
+
+		const event = mapCodexStreamToRuntimeEvent(
+			{
+				type: "request",
+				requestId: "req-elicit-1",
+				method: "mcpServer/elicitation/request",
+				params: {
+					serverName: "my-mcp-server",
+					message: "Please provide your API key",
+					requestedSchema: { type: "object" },
+				},
+			},
+			ctx,
+		);
+		expect(event?.type).toBe("user_input_requested");
+		expect((event as any).request.kind).toBe("mcp_elicitation");
+		expect((event as any).request.requestId).toBe("req-elicit-1");
+		expect((event as any).request.title).toBe("my-mcp-server");
+		expect((event as any).request.prompt).toBe("Please provide your API key");
+		expect((event as any).request.options).toBeUndefined();
+		expect((event as any).request.metadata).toMatchObject({ serverName: "my-mcp-server" });
+	});
+
+	test("Codex mapper maps item/autoApprovalReview/* to backend_event", () => {
+		const ctx = { backend: "codex" as const, threadId: "cx-1", cwd: "/tmp/repo" };
+
+		const started = mapCodexStreamToRuntimeEvent(
+			{
+				type: "notification",
+				method: "item/autoApprovalReview/started",
+				params: { itemId: "item-1", threadId: "cx-1" },
+			},
+			ctx,
+		);
+		expect(started?.type).toBe("backend_event");
+		expect((started as any).kind).toBe("item/autoApprovalReview/started");
+		expect((started as any).payload).toMatchObject({ itemId: "item-1" });
+
+		const completed = mapCodexStreamToRuntimeEvent(
+			{
+				type: "notification",
+				method: "item/autoApprovalReview/completed",
+				params: { itemId: "item-1", threadId: "cx-1", approved: true },
+			},
+			ctx,
+		);
+		expect(completed?.type).toBe("backend_event");
+		expect((completed as any).kind).toBe("item/autoApprovalReview/completed");
+	});
+
+	test("Codex mapper maps thread/realtime/* to backend_event", () => {
+		const ctx = { backend: "codex" as const, threadId: "cx-1", cwd: "/tmp/repo" };
+
+		const realtimeMethods = [
+			"thread/realtime/started",
+			"thread/realtime/itemAdded",
+			"thread/realtime/transcriptUpdated",
+			"thread/realtime/outputAudio/delta",
+			"thread/realtime/error",
+			"thread/realtime/closed",
+		];
+
+		for (const method of realtimeMethods) {
+			const event = mapCodexStreamToRuntimeEvent(
+				{
+					type: "notification",
+					method,
+					params: { threadId: "cx-1" },
+				},
+				ctx,
+			);
+			expect(event?.type).toBe("backend_event");
+			expect((event as any).kind).toBe(method);
+		}
+	});
+
+	test("Codex mapper does not drop mcpServer/elicitation/request as unhandled", () => {
+		const ctx = { backend: "codex" as const, threadId: "cx-1", cwd: "/tmp/repo" };
+
+		// Verify it doesn't fall through to the requestApproval branch or return null
+		const event = mapCodexStreamToRuntimeEvent(
+			{
+				type: "request",
+				requestId: "req-2",
+				method: "mcpServer/elicitation/request",
+				params: {},
+			},
+			ctx,
+		);
+		expect(event).not.toBeNull();
+		expect(event?.type).toBe("user_input_requested");
+		// Default title when serverName is missing
+		expect((event as any).request.title).toBe("MCP Server");
+	});
 });

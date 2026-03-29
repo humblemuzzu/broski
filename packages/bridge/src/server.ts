@@ -1026,6 +1026,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 						safeString,
 						cxThreadOwners,
 						cxThreadCwds,
+						cxThreadNames,
 					});
 
 					if (!threadId && params.turn?.threadId) {

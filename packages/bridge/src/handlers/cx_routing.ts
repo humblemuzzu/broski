@@ -111,7 +111,7 @@ const AGENT_OPS = new Set(["cx_agents_read", "cx_agents_write"]);
 
 const CHAT_OPS = new Set(["cx_chat", "cx_abort", "cx_permission_response", "cx_user_input_response"]);
 
-const PLUGIN_OPS = new Set(["cx_plugin_list", "cx_plugin_install", "cx_plugin_uninstall"]);
+const PLUGIN_OPS = new Set(["cx_plugin_list", "cx_plugin_install", "cx_plugin_uninstall", "cx_plugin_read"]);
 
 const CMD_PTY_OPS = new Set([
 	"cx_command_write",
@@ -139,6 +139,7 @@ const FEATURE_OPS = new Set([
 	"cx_thread_unsubscribe",
 	"cx_collaboration_modes",
 	"cx_background_terminals_clean",
+	"cx_shell_command",
 ]);
 
 export async function handle(

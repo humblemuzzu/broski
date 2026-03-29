@@ -33,9 +33,7 @@ function turnsToTranscript(turns: any[]): any[] {
 			switch (itemType) {
 				case "userMessage": {
 					const content: any[] = item?.content ?? [];
-					const textParts = content
-						.filter((c: any) => c?.type === "text")
-						.map((c: any) => c.text ?? "");
+					const textParts = content.filter((c: any) => c?.type === "text").map((c: any) => c.text ?? "");
 					const text = textParts.join("\n").trim();
 					if (text) {
 						out.push({

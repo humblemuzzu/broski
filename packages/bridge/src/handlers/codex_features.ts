@@ -388,6 +388,20 @@ export async function handleCodexFeature(
 			break;
 		}
 
+		// ── thread/shellCommand ──────────────────────────────────────────
+		case "cx_shell_command": {
+			const client = await ensureCodexClient();
+			const threadId = safeString(message.threadId).trim();
+			const command = safeString(message.command).trim();
+			if (!threadId || !command) {
+				reply({ type: "error", message: "cx_shell_command requires threadId and command" });
+				break;
+			}
+			const result = await client.request("thread/shellCommand", { threadId, command });
+			reply({ type: "cx_shell_command_started", data: result ?? { ok: true } });
+			break;
+		}
+
 		default:
 			return false; // Not handled by this module
 	}

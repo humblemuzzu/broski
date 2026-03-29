@@ -29,7 +29,14 @@ export async function handleCxAccount(
 		case "cx_login_start": {
 			const client = await ensureCodexClient();
 			const loginType = message.loginType;
-			const params = loginType === "apiKey" ? { type: "apiKey", apiKey: message.apiKey ?? "" } : { type: "chatgpt" };
+			let params: any;
+			if (loginType === "apiKey") {
+				params = { type: "apiKey", apiKey: message.apiKey ?? "" };
+			} else if (loginType === "chatgptDeviceCode") {
+				params = { type: "chatgptDeviceCode" };
+			} else {
+				params = { type: "chatgpt" };
+			}
 			const result: any = await client.request("account/login/start", params);
 			reply({ type: "cx_login_started", data: result ?? {} });
 			return true;

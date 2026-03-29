@@ -6,6 +6,7 @@ type RuntimeNotificationParams = {
 	safeString: (value: unknown) => string;
 	cxThreadOwners?: Map<string, any>;
 	cxThreadCwds?: Map<string, any>;
+	cxThreadNames?: Map<string, string>;
 };
 
 /**
@@ -20,6 +21,7 @@ export function handleCodexRuntimeNotification({
 	safeString,
 	cxThreadOwners,
 	cxThreadCwds,
+	cxThreadNames,
 }: RuntimeNotificationParams): boolean {
 	if (method === "thread/status/changed") {
 		// Legacy sdk_event sends removed in Phase 4 — runtime_state drives UI state.
@@ -71,6 +73,43 @@ export function handleCodexRuntimeNotification({
 	}
 
 	if (method === "configWarning" || method === "deprecationNotice") {
+		for (const socket of sockets) {
+			send(socket, { type: "cx_global", data: { method, params } });
+		}
+		return true;
+	}
+
+	if (method === "thread/name/updated") {
+		const nameThreadId = safeString(params.threadId);
+		const threadName = safeString(params.threadName ?? params.name).trim();
+		if (nameThreadId && cxThreadNames) {
+			if (threadName) {
+				cxThreadNames.set(nameThreadId, threadName);
+			} else {
+				cxThreadNames.delete(nameThreadId);
+			}
+		}
+		for (const socket of sockets) {
+			send(socket, { type: "cx_global", data: { method, params } });
+		}
+		return true;
+	}
+
+	if (method === "app/list/updated") {
+		for (const socket of sockets) {
+			send(socket, { type: "cx_global", data: { method, params } });
+		}
+		return true;
+	}
+
+	if (method === "mcpServer/startupStatus/updated") {
+		for (const socket of sockets) {
+			send(socket, { type: "cx_global", data: { method, params } });
+		}
+		return true;
+	}
+
+	if (method === "mcpServer/oauthLogin/completed") {
 		for (const socket of sockets) {
 			send(socket, { type: "cx_global", data: { method, params } });
 		}

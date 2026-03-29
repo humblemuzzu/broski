@@ -116,6 +116,24 @@ export function mapCodexStreamToRuntimeEvent(
 				};
 			}
 
+			if (streamMessage.method === "mcpServer/elicitation/request") {
+				const params = streamMessage.params ?? {};
+				return {
+					...baseEvent("user_input_requested", ctx, {
+						sourceType: streamMessage.type,
+						method: streamMessage.method,
+					}),
+					request: {
+						requestId: streamMessage.requestId,
+						kind: "mcp_elicitation",
+						title: typeof params.serverName === "string" ? params.serverName : "MCP Server",
+						prompt: typeof params.message === "string" ? params.message : undefined,
+						options: undefined,
+						metadata: params,
+					},
+				};
+			}
+
 			if (streamMessage.method.includes("requestApproval")) {
 				const params = streamMessage.params ?? {};
 				return {
@@ -522,6 +540,34 @@ export function mapCodexStreamToRuntimeEvent(
 				// Image generation items
 				case "item/imageGeneration/started":
 				case "item/imageGeneration/completed": {
+					return {
+						...baseEvent("backend_event", ctx, {
+							sourceType: streamMessage.type,
+							method: streamMessage.method,
+						}),
+						kind: streamMessage.method,
+						payload: params,
+					};
+				}
+
+				case "item/autoApprovalReview/started":
+				case "item/autoApprovalReview/completed": {
+					return {
+						...baseEvent("backend_event", ctx, {
+							sourceType: streamMessage.type,
+							method: streamMessage.method,
+						}),
+						kind: streamMessage.method,
+						payload: params,
+					};
+				}
+
+				case "thread/realtime/started":
+				case "thread/realtime/itemAdded":
+				case "thread/realtime/transcriptUpdated":
+				case "thread/realtime/outputAudio/delta":
+				case "thread/realtime/error":
+				case "thread/realtime/closed": {
 					return {
 						...baseEvent("backend_event", ctx, {
 							sourceType: streamMessage.type,

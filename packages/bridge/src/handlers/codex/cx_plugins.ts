@@ -69,6 +69,26 @@ export async function handleCxPlugins(
 			return true;
 		}
 
+		case "cx_plugin_read": {
+			const client = await ensureCodexClient();
+			const marketplacePath = safeString(message.marketplacePath).trim();
+			const pluginName = safeString(message.pluginName).trim();
+			if (!marketplacePath || !pluginName) {
+				reply({
+					type: "error",
+					message: "cx_plugin_read requires marketplacePath and pluginName",
+				});
+				return true;
+			}
+			const result: any = await client.request("plugin/read", { marketplacePath, pluginName });
+			reply({
+				type: "cx_plugin_detail",
+				data: result ?? {},
+				requestId: message.requestId,
+			});
+			return true;
+		}
+
 		default:
 			return false;
 	}
