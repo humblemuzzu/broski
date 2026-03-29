@@ -36,7 +36,7 @@ export async function handleCxExternalConfig(
 			const client = await ctx.ensureCodexClient();
 			const source = ctx.safeString(message.source).trim();
 			if (!source) {
-				reply({ type: "error", message: "cx_external_config_import requires source" });
+				reply({ type: "error", message: "cx_external_config_import requires source", requestId: message.requestId });
 				return true;
 			}
 			const result = await client.request("externalAgentConfig/import", {

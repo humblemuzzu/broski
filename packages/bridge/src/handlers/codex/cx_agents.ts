@@ -23,7 +23,7 @@ export async function handleCxAgents(
 			const requestedCwd = safeString(message.cwd).trim();
 			const secureCwd = requestedCwd ? await getSecurePath(requestedCwd) : null;
 			if (!secureCwd) {
-				reply({ type: "error", message: "Access denied" });
+				reply({ type: "error", message: "Access denied", requestId: message.requestId });
 				return true;
 			}
 			const agentsPath = resolve(secureCwd, "AGENTS.md");
@@ -32,11 +32,13 @@ export async function handleCxAgents(
 				reply({
 					type: "cx_agents",
 					data: { exists: true, path: agentsPath, content },
+					requestId: message.requestId,
 				});
 			} catch {
 				reply({
 					type: "cx_agents",
 					data: { exists: false, path: agentsPath, content: "" },
+					requestId: message.requestId,
 				});
 			}
 			return true;
@@ -45,7 +47,7 @@ export async function handleCxAgents(
 			const requestedCwd = safeString(message.cwd).trim();
 			const secureCwd = requestedCwd ? await getSecurePath(requestedCwd) : null;
 			if (!secureCwd) {
-				reply({ type: "error", message: "Access denied" });
+				reply({ type: "error", message: "Access denied", requestId: message.requestId });
 				return true;
 			}
 			const agentsPath = resolve(secureCwd, "AGENTS.md");
@@ -54,11 +56,13 @@ export async function handleCxAgents(
 				reply({
 					type: "cx_agents_written",
 					data: { ok: true, path: agentsPath },
+					requestId: message.requestId,
 				});
 			} catch {
 				reply({
 					type: "cx_agents_written",
 					data: { ok: false, path: agentsPath },
+					requestId: message.requestId,
 				});
 			}
 			return true;

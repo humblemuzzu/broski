@@ -30,6 +30,7 @@ export async function handleCxMcp(message: any, reply: (msg: any) => void, ctx: 
 				type: "cx_mcp_status",
 				data: result?.data ?? [],
 				nextCursor: result?.nextCursor ?? null,
+				requestId: message.requestId,
 			});
 			return true;
 		}
@@ -38,7 +39,7 @@ export async function handleCxMcp(message: any, reply: (msg: any) => void, ctx: 
 			const client = await ensureCodexClient();
 			// Protocol expects params to be omitted (Option<()>).
 			const result: any = await client.request("config/mcpServer/reload");
-			reply({ type: "cx_mcp_reloaded", data: result ?? {} });
+			reply({ type: "cx_mcp_reloaded", data: result ?? {}, requestId: message.requestId });
 			return true;
 		}
 		case "cx_review_start": {
@@ -48,12 +49,12 @@ export async function handleCxMcp(message: any, reply: (msg: any) => void, ctx: 
 			let threadId = message.threadId;
 			const storedCwd = threadId ? cxThreadCwds.get(threadId) : null;
 			if (storedCwd && explicitCwd && storedCwd !== explicitCwd) {
-				reply({ type: "error", message: "Access denied" });
+				reply({ type: "error", message: "Access denied", requestId: message.requestId });
 				return true;
 			}
 			const cwd = explicitCwd || storedCwd || "";
 			if (!cwd) {
-				reply({ type: "error", message: "Missing cwd" });
+				reply({ type: "error", message: "Missing cwd", requestId: message.requestId });
 				return true;
 			}
 			if (!threadId) {
@@ -69,6 +70,7 @@ export async function handleCxMcp(message: any, reply: (msg: any) => void, ctx: 
 					reply({
 						type: "cx_thread_created",
 						data: mapCodexThread(startRes.thread),
+						requestId: message.requestId,
 					});
 					cxThreadCwds.set(threadId, cwd);
 				}
@@ -93,6 +95,7 @@ export async function handleCxMcp(message: any, reply: (msg: any) => void, ctx: 
 				reply({
 					type: "error",
 					message: "Failed to create/resume Codex thread for review",
+					requestId: message.requestId,
 				});
 				return true;
 			}
@@ -115,6 +118,7 @@ export async function handleCxMcp(message: any, reply: (msg: any) => void, ctx: 
 			reply({
 				type: "cx_review_started",
 				data: { threadId, reviewThreadId, turnId },
+				requestId: message.requestId,
 			});
 			return true;
 		}

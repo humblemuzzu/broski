@@ -50,12 +50,12 @@ export async function handleCxChat(
 			const existingThreadId = ctx.safeString(message.threadId).trim();
 			const storedCwd = existingThreadId ? ctx.cxThreadCwds.get(existingThreadId) : null;
 			if (storedCwd && explicitCwd && storedCwd !== explicitCwd) {
-				reply({ type: "error", message: "Access denied" });
+				reply({ type: "error", message: "Access denied", requestId: message.requestId });
 				break;
 			}
 			const cwd = storedCwd || explicitCwd;
 			if (!cwd) {
-				reply({ type: "error", message: "Missing cwd" });
+				reply({ type: "error", message: "Missing cwd", requestId: message.requestId });
 				break;
 			}
 			if (ctx.DEBUG_CX_GLOBAL) {
@@ -95,6 +95,7 @@ export async function handleCxChat(
 					reply({
 						type: "cx_thread_created",
 						data: ctx.mapCodexThread(startRes.thread),
+						requestId: message.requestId,
 					});
 				} else {
 					ctx.logError(`[Codex cx_chat] thread/start failed - no threadId returned`);

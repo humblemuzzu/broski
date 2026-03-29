@@ -26,13 +26,13 @@ export async function handleCxSkills(
 				cwds,
 				forceReload: message.forceReload === true,
 			});
-			reply({ type: "cx_skills", data: result?.data ?? [] });
+			reply({ type: "cx_skills", data: result?.data ?? [], requestId: message.requestId });
 			return true;
 		}
 		case "cx_get_skill": {
 			const skillFiles = await import("../../skills");
 			if (!skillFiles.validateSkillName(message.name)) {
-				reply({ type: "error", message: "Invalid skill name" });
+				reply({ type: "error", message: "Invalid skill name", requestId: message.requestId });
 				return true;
 			}
 			const path = skillFiles.getCodexSkillFilePath({
@@ -45,16 +45,17 @@ export async function handleCxSkills(
 				reply({
 					type: "cx_skill",
 					data: { name: message.name, path, scope: message.scope, content },
+					requestId: message.requestId,
 				});
 			} catch {
-				reply({ type: "error", message: "Skill not found" });
+				reply({ type: "error", message: "Skill not found", requestId: message.requestId });
 			}
 			return true;
 		}
 		case "cx_save_skill": {
 			const skillFiles = await import("../../skills");
 			if (!skillFiles.validateSkillName(message.name)) {
-				reply({ type: "cx_skill_saved", data: { ok: false } });
+				reply({ type: "cx_skill_saved", data: { ok: false }, requestId: message.requestId });
 				return true;
 			}
 			const path = skillFiles.getCodexSkillFilePath({
@@ -64,16 +65,16 @@ export async function handleCxSkills(
 			});
 			try {
 				await skillFiles.writeSkillFile(path, message.content);
-				reply({ type: "cx_skill_saved", data: { ok: true, path } });
+				reply({ type: "cx_skill_saved", data: { ok: true, path }, requestId: message.requestId });
 			} catch {
-				reply({ type: "cx_skill_saved", data: { ok: false } });
+				reply({ type: "cx_skill_saved", data: { ok: false }, requestId: message.requestId });
 			}
 			return true;
 		}
 		case "cx_delete_skill": {
 			const skillFiles = await import("../../skills");
 			if (!skillFiles.validateSkillName(message.name)) {
-				reply({ type: "cx_skill_deleted", data: { ok: false } });
+				reply({ type: "cx_skill_deleted", data: { ok: false }, requestId: message.requestId });
 				return true;
 			}
 			const path = skillFiles.getCodexSkillFilePath({
@@ -83,9 +84,9 @@ export async function handleCxSkills(
 			});
 			try {
 				await skillFiles.deleteSkillByPath(path);
-				reply({ type: "cx_skill_deleted", data: { ok: true } });
+				reply({ type: "cx_skill_deleted", data: { ok: true }, requestId: message.requestId });
 			} catch {
-				reply({ type: "cx_skill_deleted", data: { ok: false } });
+				reply({ type: "cx_skill_deleted", data: { ok: false }, requestId: message.requestId });
 			}
 			return true;
 		}
@@ -93,7 +94,7 @@ export async function handleCxSkills(
 			const skillFiles = await import("../../skills");
 			const cwd = safeString(message.cwd).trim() || undefined;
 			const prompts = await skillFiles.listCodexPrompts(cwd);
-			reply({ type: "cx_prompts", data: prompts });
+			reply({ type: "cx_prompts", data: prompts, requestId: message.requestId });
 			return true;
 		}
 		default:

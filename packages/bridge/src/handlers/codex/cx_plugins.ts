@@ -38,6 +38,7 @@ export async function handleCxPlugins(
 				reply({
 					type: "error",
 					message: "cx_plugin_install requires marketplacePath and pluginName",
+					requestId: message.requestId,
 				});
 				return true;
 			}
@@ -57,6 +58,7 @@ export async function handleCxPlugins(
 				reply({
 					type: "error",
 					message: "cx_plugin_uninstall requires pluginId",
+					requestId: message.requestId,
 				});
 				return true;
 			}
@@ -77,6 +79,7 @@ export async function handleCxPlugins(
 				reply({
 					type: "error",
 					message: "cx_plugin_read requires marketplacePath and pluginName",
+					requestId: message.requestId,
 				});
 				return true;
 			}

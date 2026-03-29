@@ -24,7 +24,7 @@ export async function handleCxConfig(
 			const result: any = await client.request("config/read", {
 				includeLayers: false,
 			});
-			reply({ type: "cx_config", data: result ?? {} });
+			reply({ type: "cx_config", data: result ?? {}, requestId: message.requestId });
 			return true;
 		}
 		case "cx_config_value_write": {
@@ -40,7 +40,7 @@ export async function handleCxConfig(
 				filePath: null,
 				expectedVersion: null,
 			});
-			reply({ type: "cx_config_written", data: result ?? {} });
+			reply({ type: "cx_config_written", data: result ?? {}, requestId: message.requestId });
 			return true;
 		}
 		case "cx_model_list": {
@@ -54,6 +54,7 @@ export async function handleCxConfig(
 				type: "cx_models",
 				data: result?.data ?? [],
 				nextCursor: result?.nextCursor ?? null,
+				requestId: message.requestId,
 			});
 			reply({
 				type: "runtime_models",
@@ -61,6 +62,7 @@ export async function handleCxConfig(
 				data: (Array.isArray(result?.data) ? result.data : []).map((model: Record<string, unknown>) =>
 					mapCodexModelToSummary(model),
 				),
+				// No requestId — push notification, not a response to a specific request
 			});
 			return true;
 		}

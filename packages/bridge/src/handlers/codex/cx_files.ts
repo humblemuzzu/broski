@@ -120,52 +120,68 @@ export async function handleCxFiles(
 
 	switch (message.type) {
 		case "cx_get_thread_messages": {
-			// FAST PATH: Read messages directly from filesystem (no app-server needed!)
-			logInfo(`[cx_get_thread_messages] Reading messages for thread ${message.threadId} from filesystem...`);
-			const transcript = await codexFs.getThreadMessagesFromFs(message.threadId);
+			// Priority order:
+			// 1. RPC (when app-server is running — authoritative, instant, avoids SQLite lock contention)
+			// 2. Filesystem (when app-server is NOT running — reads JSONL rollout files)
+			//
+			// Previous approach tried filesystem first, but when the app-server is running
+			// it often holds an exclusive lock on state_5.sqlite. The SQLite rollout_path
+			// lookup fails, triggering a slow scan of ALL ~1000+ session files. With
+			// concurrent prefetch requests this caused multi-minute hangs.
 
-			// If filesystem returned messages, use them
-			if (transcript.length > 0) {
-				logInfo(`[cx_get_thread_messages] Found ${transcript.length} messages from filesystem`);
-				reply({
-					type: "cx_thread_messages",
-					data: transcript,
-					threadId: message.threadId,
-				});
-				return true;
-			}
+			const threadId = message.threadId as string;
 
-			// RPC FALLBACK: For fresh/active threads, the JSONL file may not exist yet.
-			// Use thread/read with includeTurns to get messages from Codex's in-memory state.
+			// ── Tier 1: RPC (preferred when app-server is live) ──
 			if (ctx.codexClient?.isRunning) {
 				try {
-					logInfo(`[cx_get_thread_messages] Filesystem empty, trying thread/read RPC for ${message.threadId}...`);
+					logInfo(`[cx_get_thread_messages] Fetching thread ${threadId} via thread/read RPC...`);
 					const result: any = await ctx.codexClient.request("thread/read", {
-						threadId: message.threadId,
+						threadId,
 						includeTurns: true,
 					});
 					const turns: any[] = result?.thread?.turns ?? [];
 					if (turns.length > 0) {
 						const rpcTranscript = turnsToTranscript(turns);
-						logInfo(`[cx_get_thread_messages] Got ${rpcTranscript.length} messages via thread/read RPC`);
+						logInfo(`[cx_get_thread_messages] Got ${rpcTranscript.length} messages via RPC`);
 						reply({
 							type: "cx_thread_messages",
 							data: rpcTranscript,
-							threadId: message.threadId,
+							threadId,
+							requestId: message.requestId,
 						});
 						return true;
 					}
+					logInfo(`[cx_get_thread_messages] RPC returned 0 turns, trying filesystem...`);
 				} catch (rpcErr: any) {
-					logError(`[cx_get_thread_messages] thread/read RPC failed:`, rpcErr?.message ?? rpcErr);
+					logError(`[cx_get_thread_messages] RPC failed, falling back to filesystem:`, rpcErr?.message ?? rpcErr);
 				}
 			}
 
+			// ── Tier 2: Filesystem (offline or RPC returned nothing) ──
+			try {
+				logInfo(`[cx_get_thread_messages] Reading thread ${threadId} from filesystem...`);
+				const transcript = await codexFs.getThreadMessagesFromFs(threadId);
+				if (transcript.length > 0) {
+					logInfo(`[cx_get_thread_messages] Found ${transcript.length} messages from filesystem`);
+					reply({
+						type: "cx_thread_messages",
+						data: transcript,
+						threadId,
+						requestId: message.requestId,
+					});
+					return true;
+				}
+			} catch (fsErr: any) {
+				logError(`[cx_get_thread_messages] Filesystem read failed:`, fsErr?.message ?? fsErr);
+			}
+
 			// No messages from either source
-			logInfo(`[cx_get_thread_messages] No messages found for thread ${message.threadId}`);
+			logInfo(`[cx_get_thread_messages] No messages found for thread ${threadId}`);
 			reply({
 				type: "cx_thread_messages",
 				data: [],
-				threadId: message.threadId,
+				threadId,
+				requestId: message.requestId,
 			});
 			return true;
 		}
@@ -175,6 +191,7 @@ export async function handleCxFiles(
 				reply({
 					type: "cx_undo_result",
 					data: { ok: false, revertedPaths: [], error: "Missing threadId" },
+					requestId: message.requestId,
 				});
 				return true;
 			}
@@ -184,6 +201,7 @@ export async function handleCxFiles(
 				reply({
 					type: "cx_undo_result",
 					data: { ok: true, revertedPaths: [] },
+					requestId: message.requestId,
 				});
 				return true;
 			}
@@ -197,6 +215,7 @@ export async function handleCxFiles(
 				reply({
 					type: "cx_undo_result",
 					data: { ok: true, revertedPaths: revertedAll },
+					requestId: message.requestId,
 				});
 			} catch (err: any) {
 				reply({
@@ -206,6 +225,7 @@ export async function handleCxFiles(
 						revertedPaths: revertedAll,
 						error: err?.message ?? String(err),
 					},
+					requestId: message.requestId,
 				});
 			}
 			return true;

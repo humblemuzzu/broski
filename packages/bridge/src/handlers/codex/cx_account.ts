@@ -23,7 +23,7 @@ export async function handleCxAccount(
 			const result: any = await client.request("account/read", {
 				refreshToken: message.refreshToken === true,
 			});
-			reply({ type: "cx_account", data: result ?? {} });
+			reply({ type: "cx_account", data: result ?? {}, requestId: message.requestId });
 			return true;
 		}
 		case "cx_login_start": {
@@ -38,7 +38,7 @@ export async function handleCxAccount(
 				params = { type: "chatgpt" };
 			}
 			const result: any = await client.request("account/login/start", params);
-			reply({ type: "cx_login_started", data: result ?? {} });
+			reply({ type: "cx_login_started", data: result ?? {}, requestId: message.requestId });
 			return true;
 		}
 		case "cx_login_cancel": {
@@ -46,19 +46,19 @@ export async function handleCxAccount(
 			const result: any = await client.request("account/login/cancel", {
 				loginId: message.loginId,
 			});
-			reply({ type: "cx_login_canceled", data: result ?? {} });
+			reply({ type: "cx_login_canceled", data: result ?? {}, requestId: message.requestId });
 			return true;
 		}
 		case "cx_logout": {
 			const client = await ensureCodexClient();
 			const result: any = await client.request("account/logout");
-			reply({ type: "cx_logged_out", data: result ?? {} });
+			reply({ type: "cx_logged_out", data: result ?? {}, requestId: message.requestId });
 			return true;
 		}
 		case "cx_rate_limits_read": {
 			const client = await ensureCodexClient();
 			const result: any = await client.request("account/rateLimits/read");
-			reply({ type: "cx_rate_limits", data: result ?? {} });
+			reply({ type: "cx_rate_limits", data: result ?? {}, requestId: message.requestId });
 			return true;
 		}
 		case "cx_feedback_upload": {
@@ -70,7 +70,7 @@ export async function handleCxAccount(
 				includeLogs: message.includeLogs === true,
 				extraLogFiles: Array.isArray(message.extraLogFiles) ? message.extraLogFiles : undefined,
 			});
-			reply({ type: "cx_feedback_uploaded", data: result ?? {} });
+			reply({ type: "cx_feedback_uploaded", data: result ?? {}, requestId: message.requestId });
 			return true;
 		}
 		default:

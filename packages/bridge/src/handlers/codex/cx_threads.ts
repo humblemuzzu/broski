@@ -67,7 +67,7 @@ export async function handleCxThreads(
 			// Check cache first (unless explicit refresh requested)
 			if (!forceRefresh && ctx.cxProjectCache && now - ctx.cxProjectCache.fetchedAt < ctx.CODEX_PROJECT_CACHE_TTL_MS) {
 				ctx.logInfo("[cx_list_projects] Cache hit, returning cached data");
-				reply({ type: "cx_projects", data: ctx.cxProjectCache.data });
+				reply({ type: "cx_projects", data: ctx.cxProjectCache.data, requestId: message.requestId });
 				return true;
 			}
 
@@ -112,7 +112,7 @@ export async function handleCxThreads(
 			// Update cache
 			ctx.setProjectCache({ data: projects, fetchedAt: Date.now() });
 			ctx.logInfo(`[cx_list_projects] Done, cached ${projects.length} projects`);
-			reply({ type: "cx_projects", data: projects });
+			reply({ type: "cx_projects", data: projects, requestId: message.requestId });
 			return true;
 		}
 
@@ -141,6 +141,7 @@ export async function handleCxThreads(
 					type: "cx_threads",
 					data: cachedData,
 					nextCursor: cached.nextCursor,
+					requestId: message.requestId,
 				});
 				return true;
 			}
@@ -230,8 +231,12 @@ export async function handleCxThreads(
 						})
 					: threadData;
 
-			// Enrich threads with diff stats from filesystem (cached by mtime)
-			await ctx.codexFs.enrichThreadsWithStats(threadsWithNames);
+			// Enrich threads with diff stats from filesystem (cached by mtime).
+			// Fire-and-forget: don't block the thread list response — stats enrichment
+			// can trigger slow filesystem scans when SQLite is locked by the app-server.
+			ctx.codexFs.enrichThreadsWithStats(threadsWithNames).catch((e: any) => {
+				ctx.logError("[cx_list_threads] Stats enrichment failed (non-fatal):", e?.message ?? e);
+			});
 
 			// Update cache
 			ctx.cxThreadCache.set(cacheKey, {
@@ -240,7 +245,7 @@ export async function handleCxThreads(
 				nextCursor,
 			});
 			ctx.logInfo(`[cx_list_threads] Done, cached ${threadsWithNames.length} threads`);
-			reply({ type: "cx_threads", data: threadsWithNames, nextCursor });
+			reply({ type: "cx_threads", data: threadsWithNames, nextCursor, requestId: message.requestId });
 			reply({
 				type: "runtime_sessions",
 				backend: "codex",
@@ -256,7 +261,7 @@ export async function handleCxThreads(
 			// Pre-populate caches from filesystem for instant loading
 			// No app-server spawn needed for listing - just file I/O
 			ctx.logInfo("[cx_warmup] Starting Codex warmup (filesystem)...");
-			reply({ type: "cx_warmup_started" });
+			reply({ type: "cx_warmup_started", requestId: message.requestId });
 
 			// Fire-and-forget: pre-warm caches from filesystem
 			(async () => {
@@ -286,7 +291,7 @@ export async function handleCxThreads(
 			const client = await ctx.ensureCodexClient();
 			const cwd = ctx.safeString(message.cwd).trim();
 			if (!cwd) {
-				reply({ type: "error", message: "Missing cwd" });
+				reply({ type: "error", message: "Missing cwd", requestId: message.requestId });
 				return true;
 			}
 			const personalityVal = ctx.safeString(message.personality).trim().toLowerCase();
@@ -310,7 +315,7 @@ export async function handleCxThreads(
 			}
 			// Invalidate caches since a new thread was created
 			ctx.invalidateCodexCaches(thread.cwd);
-			reply({ type: "cx_thread_created", data: thread });
+			reply({ type: "cx_thread_created", data: thread, requestId: message.requestId });
 			return true;
 		}
 
@@ -331,7 +336,7 @@ export async function handleCxThreads(
 				const secureThreadCwd = await ctx.getSecurePath(thread.cwd);
 				if (secureThreadCwd) ctx.cxThreadCwds.set(thread.id, secureThreadCwd);
 			}
-			reply({ type: "cx_thread", data: thread });
+			reply({ type: "cx_thread", data: thread, requestId: message.requestId });
 			return true;
 		}
 
@@ -347,6 +352,7 @@ export async function handleCxThreads(
 				type: "cx_thread_archived",
 				data: true,
 				threadId: message.threadId,
+				requestId: message.requestId,
 			});
 			return true;
 		}
@@ -372,9 +378,10 @@ export async function handleCxThreads(
 				reply({
 					type: "cx_thread_forked",
 					data: ctx.mapCodexThread(thread, ctx.cxThreadNames.get(forkedId)),
+					requestId: message.requestId,
 				});
 			} else {
-				reply({ type: "error", message: "Fork failed" });
+				reply({ type: "error", message: "Fork failed", requestId: message.requestId });
 			}
 			return true;
 		}
@@ -391,9 +398,10 @@ export async function handleCxThreads(
 				reply({
 					type: "cx_thread_rolled_back",
 					data: ctx.mapCodexThread(thread, ctx.cxThreadNames.get(message.threadId)),
+					requestId: message.requestId,
 				});
 			} else {
-				reply({ type: "error", message: "Rollback failed" });
+				reply({ type: "error", message: "Rollback failed", requestId: message.requestId });
 			}
 			return true;
 		}
@@ -402,7 +410,7 @@ export async function handleCxThreads(
 		case "cx_thread_unsubscribe": {
 			const threadId = ctx.safeString(message.threadId).trim();
 			if (!threadId) {
-				reply({ type: "cx_error", error: "Missing threadId" });
+				reply({ type: "cx_error", error: "Missing threadId", requestId: message.requestId });
 				return true;
 			}
 			try {

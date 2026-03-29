@@ -22,7 +22,7 @@ export async function handleCxCommandPty(
 			const client = await ensureCodexClient();
 			const processId = safeString(message.processId).trim();
 			if (!processId) {
-				reply({ type: "error", message: "cx_command_write requires processId" });
+				reply({ type: "error", message: "cx_command_write requires processId", requestId: message.requestId });
 				return true;
 			}
 			await client.request("command/exec/write", {
@@ -38,7 +38,7 @@ export async function handleCxCommandPty(
 			const client = await ensureCodexClient();
 			const processId = safeString(message.processId).trim();
 			if (!processId) {
-				reply({ type: "error", message: "cx_command_resize requires processId" });
+				reply({ type: "error", message: "cx_command_resize requires processId", requestId: message.requestId });
 				return true;
 			}
 			await client.request("command/exec/resize", {
@@ -56,7 +56,7 @@ export async function handleCxCommandPty(
 			const client = await ensureCodexClient();
 			const processId = safeString(message.processId).trim();
 			if (!processId) {
-				reply({ type: "error", message: "cx_command_terminate requires processId" });
+				reply({ type: "error", message: "cx_command_terminate requires processId", requestId: message.requestId });
 				return true;
 			}
 			await client.request("command/exec/terminate", { processId });
@@ -72,7 +72,7 @@ export async function handleCxCommandPty(
 			const client = await ensureCodexClient();
 			const threadId = safeString(message.threadId).trim();
 			if (!threadId) {
-				reply({ type: "error", message: "cx_thread_metadata_update requires threadId" });
+				reply({ type: "error", message: "cx_thread_metadata_update requires threadId", requestId: message.requestId });
 				return true;
 			}
 			const gitInfo = message.gitInfo ?? undefined;

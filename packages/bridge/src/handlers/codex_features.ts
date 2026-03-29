@@ -42,6 +42,7 @@ export async function handleCodexFeature(
 			const prompt = safeString(message.prompt).trim();
 			if (!threadId || !prompt) {
 				reply({
+					requestId: message.requestId,
 					type: "error",
 					message: "cx_steer requires threadId and prompt",
 				});
@@ -51,6 +52,7 @@ export async function handleCodexFeature(
 			const expectedTurnId = safeString(message.turnId).trim() || cxActiveTurns.get(threadId) || "";
 			if (!expectedTurnId) {
 				reply({
+					requestId: message.requestId,
 					type: "error",
 					message: "cx_steer requires an active turn (no turnId found)",
 				});
@@ -62,7 +64,7 @@ export async function handleCodexFeature(
 				input: [{ type: "text", text: prompt, text_elements: [] }],
 				expectedTurnId,
 			});
-			reply({ type: "cx_steered", data: result ?? { ok: true } });
+			reply({ requestId: message.requestId, type: "cx_steered", data: result ?? { ok: true } });
 			break;
 		}
 
@@ -73,6 +75,7 @@ export async function handleCodexFeature(
 			const name = safeString(message.name).trim();
 			if (!threadId || !name) {
 				reply({
+					requestId: message.requestId,
 					type: "error",
 					message: "cx_thread_rename requires threadId and name",
 				});
@@ -84,7 +87,7 @@ export async function handleCodexFeature(
 			});
 			// Eagerly update the local name cache (thread/name/updated notification will also fire)
 			cxThreadNames.set(threadId, name);
-			reply({ type: "cx_thread_renamed", data: result ?? { ok: true } });
+			reply({ requestId: message.requestId, type: "cx_thread_renamed", data: result ?? { ok: true } });
 			break;
 		}
 
@@ -95,6 +98,7 @@ export async function handleCodexFeature(
 			const threadId = safeString(message.threadId).trim();
 			if (!threadId) {
 				reply({
+					requestId: message.requestId,
 					type: "error",
 					message: "cx_thread_unarchive requires threadId",
 				});
@@ -105,6 +109,7 @@ export async function handleCodexFeature(
 			});
 			// Unwrap: protocol returns { thread: Thread }, normalize to just the Thread object
 			reply({
+				requestId: message.requestId,
 				type: "cx_thread_unarchived",
 				data: result?.thread ?? result ?? {},
 			});
@@ -117,13 +122,14 @@ export async function handleCodexFeature(
 			const threadId = safeString(message.threadId).trim();
 			if (!threadId) {
 				reply({
+					requestId: message.requestId,
 					type: "error",
 					message: "cx_thread_compact requires threadId",
 				});
 				break;
 			}
 			const result = await client.request("thread/compact/start", { threadId });
-			reply({ type: "cx_thread_compacted", data: result ?? { ok: true } });
+			reply({ requestId: message.requestId, type: "cx_thread_compacted", data: result ?? { ok: true } });
 			break;
 		}
 
@@ -138,7 +144,7 @@ export async function handleCodexFeature(
 				productSurface,
 				enabled,
 			});
-			reply({ type: "cx_remote_skills", data: result?.data ?? [] });
+			reply({ requestId: message.requestId, type: "cx_remote_skills", data: result?.data ?? [] });
 			break;
 		}
 
@@ -148,6 +154,7 @@ export async function handleCodexFeature(
 			const hazelnutId = safeString(message.hazelnutId).trim();
 			if (!hazelnutId) {
 				reply({
+					requestId: message.requestId,
 					type: "error",
 					message: "cx_remote_skill_install requires hazelnutId",
 				});
@@ -157,6 +164,7 @@ export async function handleCodexFeature(
 				hazelnutId,
 			});
 			reply({
+				requestId: message.requestId,
 				type: "cx_remote_skill_installed",
 				data: result ?? { ok: true },
 			});
@@ -170,6 +178,7 @@ export async function handleCodexFeature(
 			const enabled = message.enabled === true;
 			if (!path) {
 				reply({
+					requestId: message.requestId,
 					type: "error",
 					message: "cx_skill_config_write requires path",
 				});
@@ -179,7 +188,7 @@ export async function handleCodexFeature(
 				path,
 				enabled,
 			});
-			reply({ type: "cx_skill_config_written", data: result ?? { ok: true } });
+			reply({ requestId: message.requestId, type: "cx_skill_config_written", data: result ?? { ok: true } });
 			break;
 		}
 
@@ -198,6 +207,7 @@ export async function handleCodexFeature(
 				...(forceRefetch ? { forceRefetch } : {}),
 			});
 			reply({
+				requestId: message.requestId,
 				type: "cx_apps",
 				data: result?.data ?? [],
 				nextCursor: result?.nextCursor ?? null,
@@ -213,6 +223,7 @@ export async function handleCodexFeature(
 			const command = message.command as string[] | undefined;
 			if (!command || !Array.isArray(command) || command.length === 0) {
 				reply({
+					requestId: message.requestId,
 					type: "error",
 					message: "cx_command_exec requires command array",
 				});
@@ -224,7 +235,7 @@ export async function handleCodexFeature(
 				...(message.cwd ? { cwd: message.cwd } : {}),
 				...(message.sandboxPolicy ? { sandboxPolicy: message.sandboxPolicy } : {}),
 			});
-			reply({ type: "cx_command_result", data: result ?? {} });
+			reply({ requestId: message.requestId, type: "cx_command_result", data: result ?? {} });
 			break;
 		}
 
@@ -238,6 +249,7 @@ export async function handleCodexFeature(
 				...(limit ? { limit } : {}),
 			});
 			reply({
+				requestId: message.requestId,
 				type: "cx_experimental_features_list",
 				data: result?.data ?? [],
 				nextCursor: result?.nextCursor ?? null,
@@ -251,6 +263,7 @@ export async function handleCodexFeature(
 			const edits = message.edits as Array<{ keyPath: string; value: any; mergeStrategy?: string }> | undefined;
 			if (!edits || !Array.isArray(edits) || edits.length === 0) {
 				reply({
+					requestId: message.requestId,
 					type: "error",
 					message: "cx_config_batch_write requires edits array",
 				});
@@ -265,7 +278,7 @@ export async function handleCodexFeature(
 				...(message.filePath ? { filePath: message.filePath } : {}),
 				...(message.expectedVersion ? { expectedVersion: message.expectedVersion } : {}),
 			});
-			reply({ type: "cx_config_batch_written", data: result ?? { ok: true } });
+			reply({ requestId: message.requestId, type: "cx_config_batch_written", data: result ?? { ok: true } });
 			break;
 		}
 
@@ -273,7 +286,7 @@ export async function handleCodexFeature(
 		case "cx_config_requirements_read": {
 			const client = await ensureCodexClient();
 			const result = await client.request("configRequirements/read");
-			reply({ type: "cx_config_requirements", data: result ?? {} });
+			reply({ requestId: message.requestId, type: "cx_config_requirements", data: result ?? {} });
 			break;
 		}
 
@@ -287,6 +300,7 @@ export async function handleCodexFeature(
 				...(limit ? { limit } : {}),
 			});
 			reply({
+				requestId: message.requestId,
 				type: "cx_thread_loaded_list",
 				data: result?.data ?? [],
 				nextCursor: result?.nextCursor ?? null,
@@ -300,7 +314,7 @@ export async function handleCodexFeature(
 			const client = await ensureCodexClient();
 			const threadId = safeString(message.threadId).trim();
 			if (!threadId) {
-				reply({ type: "error", message: "cx_thread_read requires threadId" });
+				reply({ requestId: message.requestId, type: "error", message: "cx_thread_read requires threadId" });
 				break;
 			}
 			const result: any = await client.request("thread/read", {
@@ -308,7 +322,7 @@ export async function handleCodexFeature(
 				includeTurns: message.includeTurns === true,
 			});
 			// Unwrap: protocol returns { thread: Thread }, normalize to just the Thread object
-			reply({ type: "cx_thread_detail", data: result?.thread ?? result ?? {} });
+			reply({ requestId: message.requestId, type: "cx_thread_detail", data: result?.thread ?? result ?? {} });
 			break;
 		}
 
@@ -317,7 +331,7 @@ export async function handleCodexFeature(
 			const client = await ensureCodexClient();
 			const name = safeString(message.name).trim();
 			if (!name) {
-				reply({ type: "error", message: "cx_mcp_oauth_login requires name" });
+				reply({ requestId: message.requestId, type: "error", message: "cx_mcp_oauth_login requires name" });
 				break;
 			}
 			const result: any = await client.request("mcpServer/oauth/login", {
@@ -326,6 +340,7 @@ export async function handleCodexFeature(
 				...(message.timeoutSecs ? { timeoutSecs: message.timeoutSecs } : {}),
 			});
 			reply({
+				requestId: message.requestId,
 				type: "cx_mcp_oauth_login_started",
 				data: { authorizationUrl: result?.authorizationUrl ?? "" },
 				name,
@@ -339,6 +354,7 @@ export async function handleCodexFeature(
 				...(message.threadId ? { threadId: message.threadId } : {}),
 			});
 			reply({
+				requestId: message.requestId,
 				type: "cx_collaboration_modes_list",
 				data: result?.data ?? result?.modes ?? [],
 			});
@@ -351,6 +367,7 @@ export async function handleCodexFeature(
 			const threadId = safeString(message.threadId).trim();
 			if (!threadId) {
 				reply({
+					requestId: message.requestId,
 					type: "error",
 					message: "cx_background_terminals_clean requires threadId",
 				});
@@ -360,6 +377,7 @@ export async function handleCodexFeature(
 				threadId,
 			});
 			reply({
+				requestId: message.requestId,
 				type: "cx_background_terminals_cleaned",
 				data: result ?? { ok: true },
 			});
@@ -372,11 +390,11 @@ export async function handleCodexFeature(
 			const threadId = safeString(message.threadId).trim();
 			const command = safeString(message.command).trim();
 			if (!threadId || !command) {
-				reply({ type: "error", message: "cx_shell_command requires threadId and command" });
+				reply({ requestId: message.requestId, type: "error", message: "cx_shell_command requires threadId and command" });
 				break;
 			}
 			const result = await client.request("thread/shellCommand", { threadId, command });
-			reply({ type: "cx_shell_command_started", data: result ?? { ok: true } });
+			reply({ requestId: message.requestId, type: "cx_shell_command_started", data: result ?? { ok: true } });
 			break;
 		}
 
