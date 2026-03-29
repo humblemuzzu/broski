@@ -9,6 +9,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { CodexAppServerClient } from "../../connectors/codex";
 import type { AgentType, CodexStreamMessage, CodexThread, ServerMessage } from "../../types";
+import { codexInterruptWithRetry, codexRequestWithRetry } from "../../utils/codex-compat-retry";
 
 /** Pending approval / user-input waiter */
 type ApprovalWaiter = {
@@ -213,7 +214,7 @@ export async function handleCxChat(
 			}
 
 			try {
-				const turnRes: any = await client.request("turn/start", {
+				const turnRes: any = await codexRequestWithRetry(client, "turn/start", {
 					threadId,
 					input,
 					cwd,
@@ -341,10 +342,7 @@ export async function handleCxChat(
 			const client = await ctx.ensureCodexClient();
 			const turnId = message.turnId ?? ctx.cxActiveTurns.get(message.threadId);
 			if (turnId) {
-				await client.request("turn/interrupt", {
-					threadId: message.threadId,
-					turnId,
-				});
+				await codexInterruptWithRetry(client, message.threadId, turnId);
 			}
 			break;
 		}

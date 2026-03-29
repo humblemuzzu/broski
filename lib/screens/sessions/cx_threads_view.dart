@@ -43,18 +43,22 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
   Timer? _searchDebounce;
+  final _scrollController = ScrollController();
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(codexThreadsProvider.notifier).load();
     });
+    _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
     _searchDebounce?.cancel();
     _searchController.dispose();
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -64,6 +68,17 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
       if (!mounted) return;
       setState(() => _searchQuery = value.trim().toLowerCase());
     });
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    if (pos.pixels >= pos.maxScrollExtent - 200) {
+      final notifier = ref.read(codexThreadsProvider.notifier);
+      if (notifier.hasMore) {
+        notifier.loadMore();
+      }
+    }
   }
 
   Future<void> _refresh() async {
@@ -463,6 +478,7 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
             color: theme.colorScheme.primary,
             backgroundColor: theme.colorScheme.surface,
             child: CustomScrollView(
+              controller: _scrollController,
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
                 SliverToBoxAdapter(
@@ -788,6 +804,21 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
                           ),
                         ),
                       ),
+                      if (ref.watch(codexThreadsProvider.notifier).hasMore)
+                        const SliverToBoxAdapter(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24),
+                            child: Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                     ];
                   },
                 ),

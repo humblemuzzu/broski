@@ -23,8 +23,17 @@ extension _RuntimeCxHandlers on ChatSessionNotifier {
         if (thread is Map<String, dynamic>) {
           final id = thread['id']?.toString() ?? '';
           final cwd = thread['cwd']?.toString() ?? state.cxCwd;
-          if (id.isNotEmpty &&
-              (state.cxThreadId == null || state.cxThreadId!.isEmpty)) {
+          final oldThreadId = state.cxThreadId;
+          // Unsubscribe from old thread if switching to a new one
+          if (oldThreadId != null &&
+              oldThreadId.isNotEmpty &&
+              oldThreadId != id &&
+              id.isNotEmpty) {
+            _bridge
+                .cxThreadUnsubscribe(threadId: oldThreadId)
+                .catchError((_) => '');
+          }
+          if (id.isNotEmpty && (oldThreadId == null || oldThreadId.isEmpty)) {
             state = state.copyWith(cxThreadId: id, cxCwd: cwd);
             _bridge.setView(sessionId: id, agent: 'codex');
           }

@@ -22,6 +22,7 @@ class MessageBubble extends StatelessWidget {
     this.onResumeFromHere,
     this.onDeleteMessage,
     this.onRollback,
+    this.onEditMessage,
   });
   final ChatMessage message;
 
@@ -30,6 +31,9 @@ class MessageBubble extends StatelessWidget {
   final void Function(String messageId)? onResumeFromHere;
   final void Function(String messageId)? onDeleteMessage;
   final VoidCallback? onRollback;
+
+  /// Callback for editing a user message (Codex: rollback + prefill).
+  final void Function(String messageId, String text)? onEditMessage;
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -154,67 +158,106 @@ class MessageBubble extends StatelessWidget {
     final isPending = deliveryState == 'pending';
     final isFailed = deliveryState == 'failed';
 
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Opacity(
-        opacity: isPending ? 0.7 : 1.0,
-        child: Container(
-          margin: const EdgeInsets.only(left: 60, right: 0, top: 6, bottom: 6),
-          padding: Insets.listItem,
-          decoration: BoxDecoration(
-            color: isFailed
-                ? theme.error.withValues(alpha: 0.1)
-                : theme.primary.withValues(alpha: 0.15),
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(18),
-              topRight: Radius.circular(18),
-              bottomLeft: Radius.circular(18),
-              bottomRight: Radius.circular(4),
+    return GestureDetector(
+      onLongPress: onEditMessage != null && message.id.isNotEmpty
+          ? () => _showEditMenu(context, theme)
+          : null,
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: Opacity(
+          opacity: isPending ? 0.7 : 1.0,
+          child: Container(
+            margin: const EdgeInsets.only(
+              left: 60,
+              right: 0,
+              top: 6,
+              bottom: 6,
             ),
-            border: Border.all(
+            padding: Insets.listItem,
+            decoration: BoxDecoration(
               color: isFailed
-                  ? theme.error.withValues(alpha: 0.5)
-                  : theme.primary.withValues(alpha: 0.3),
-              width: 1,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                message.text,
-                style: TextStyle(
-                  fontFamily: AppTypography.uiFontFamily,
-                  color: theme.text,
-                  fontSize: 15,
-                  height: 1.5,
-                  fontWeight: FontWeight.w400,
-                ),
+                  ? theme.error.withValues(alpha: 0.1)
+                  : theme.primary.withValues(alpha: 0.15),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(18),
+                topRight: Radius.circular(18),
+                bottomLeft: Radius.circular(18),
+                bottomRight: Radius.circular(4),
               ),
-              if (isPending)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: SizedBox(
-                    width: 10,
-                    height: 10,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 1.5,
-                      color: theme.textMuted,
+              border: Border.all(
+                color: isFailed
+                    ? theme.error.withValues(alpha: 0.5)
+                    : theme.primary.withValues(alpha: 0.3),
+                width: 1,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  message.text,
+                  style: TextStyle(
+                    fontFamily: AppTypography.uiFontFamily,
+                    color: theme.text,
+                    fontSize: 15,
+                    height: 1.5,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                if (isPending)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: SizedBox(
+                      width: 10,
+                      height: 10,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.5,
+                        color: theme.textMuted,
+                      ),
                     ),
                   ),
-                ),
-              if (isFailed)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    'Failed to send \u00b7 Tap to retry',
-                    style: TextStyle(color: theme.error, fontSize: 11),
+                if (isFailed)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      'Failed to send \u00b7 Tap to retry',
+                      style: TextStyle(color: theme.error, fontSize: 11),
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  /// Shows the edit menu when a user message is long-pressed (Codex).
+  void _showEditMenu(BuildContext context, OpenCodeTheme theme) {
+    DetailSheet.show(
+      context: context,
+      title: 'Message Actions',
+      initialSize: 0.25,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: Icon(AppIcons.edit, color: theme.primary),
+            title: Text(
+              'Edit message',
+              style: TextStyle(color: theme.text, fontWeight: FontWeight.w500),
+            ),
+            subtitle: Text(
+              'Roll back to this turn and edit your message',
+              style: TextStyle(color: theme.textMuted, fontSize: 12),
+            ),
+            onTap: () {
+              Navigator.pop(context);
+              onEditMessage?.call(message.id, message.text);
+            },
+          ),
+        ],
       ),
     );
   }

@@ -113,6 +113,8 @@ class CodexThreadsNotifier
 
   StreamSubscription<Map<String, dynamic>>? _bridgeMessagesSub;
   String? _lastCwd;
+  String? _nextCursor;
+  bool _loadingMore = false;
   static bool _codexWarmupStarted = false;
 
   Future<void> _bootstrap() async {
@@ -158,6 +160,10 @@ class CodexThreadsNotifier
     final data = message['data'] as Map<String, dynamic>? ?? const {};
     final method = data['method'] as String? ?? '';
     if (method == 'thread/archived' || method == 'thread/unarchived') {
+      unawaited(refresh(cwd: _lastCwd));
+    }
+    if (method == 'thread/name/updated') {
+      // Refresh the thread list so renamed threads show updated names
       unawaited(refresh(cwd: _lastCwd));
     }
     // Push deprecation notices and config warnings into reactive providers
@@ -234,7 +240,9 @@ class CodexThreadsNotifier
 
     state = const AsyncValue.loading();
     try {
-      final threads = await _bridge.cxListThreads(cwd: cwd);
+      final page = await _bridge.cxListThreadsPage(cwd: cwd, limit: 50);
+      _nextCursor = page.nextCursor;
+      final threads = page.threads;
       if (threads.isNotEmpty) {
         await _storage.cacheCodexThreads(threads);
         await _cacheProjectsFromThreads(threads);
@@ -260,7 +268,9 @@ class CodexThreadsNotifier
     }
 
     try {
-      final threads = await _bridge.cxListThreads(cwd: _lastCwd);
+      final page = await _bridge.cxListThreadsPage(cwd: _lastCwd, limit: 50);
+      _nextCursor = page.nextCursor;
+      final threads = page.threads;
       if (threads.isNotEmpty) {
         await _storage.cacheCodexThreads(threads);
         await _cacheProjectsFromThreads(threads);
@@ -274,6 +284,39 @@ class CodexThreadsNotifier
       } else if (!state.hasValue) {
         state = AsyncValue.error(e, st);
       }
+    }
+  }
+
+  /// Whether there are more pages of threads available.
+  bool get hasMore => _nextCursor != null;
+
+  /// Loads the next page of threads and appends them to the current list.
+  Future<void> loadMore() async {
+    if (_loadingMore || _nextCursor == null || _connection.isOfflineMode) {
+      return;
+    }
+    _loadingMore = true;
+    try {
+      final page = await _bridge.cxListThreadsPage(
+        cwd: _lastCwd,
+        cursor: _nextCursor,
+        limit: 50,
+      );
+      _nextCursor = page.nextCursor;
+      final existing = state.valueOrNull ?? [];
+      final existingIds = existing.map((t) => t.id).toSet();
+      final newThreads = page.threads
+          .where((t) => !existingIds.contains(t.id))
+          .toList();
+      if (newThreads.isNotEmpty) {
+        final merged = [...existing, ...newThreads];
+        await _storage.cacheCodexThreads(merged);
+        state = AsyncValue.data(merged);
+      }
+    } catch (_) {
+      // Pagination failure is non-fatal — keep showing existing data.
+    } finally {
+      _loadingMore = false;
     }
   }
 

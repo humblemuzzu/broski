@@ -30,6 +30,8 @@ import 'package:broski/screens/chat/codex_actions.dart' as ca;
 import 'package:broski/screens/chat/command_handler.dart';
 import 'package:broski/screens/chat/commands_loader.dart';
 import 'package:broski/screens/chat/context_loader.dart';
+import 'package:broski/screens/chat/cx_background_sync.dart' as cxbg;
+import 'package:broski/screens/chat/cx_edit_message.dart' as cxedit;
 import 'package:broski/screens/chat/image_picker_handler.dart' as iph;
 import 'package:broski/screens/chat/menu_handlers.dart';
 import 'package:broski/screens/chat/oc_menu_handler.dart' as omh;
@@ -409,6 +411,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   ProviderSubscription<bool>? _cxQueueSubscription;
   // Pi extension UI stream subscription (via unified runtime events)
   StreamSubscription<RuntimeEvent>? _piExtensionUiSub;
+  // Codex background sync timer (rate limits + context refresh)
+  Timer? _bgSyncTimer;
   @override
   void initState() {
     super.initState();
@@ -506,6 +510,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       composerController: _controller,
       isMounted: () => mounted,
       onAgentEnd: _loadSessionContext,
+    );
+    // Codex: periodic background sync (rate limits + context)
+    _bgSyncTimer = cxbg.setupCxBackgroundSyncTimer(
+      ref: ref,
+      isCodex: widget.isCodex,
+      onRefreshContext: _loadSessionContext,
     );
   }
 
@@ -938,6 +948,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   void _showCodexRollbackSheet() => showCodexRollbackSheet(context, ref);
 
+  void _editCodexMessage(String messageId, String text) =>
+      cxedit.editCodexMessage(
+        context: context,
+        ref: ref,
+        messageId: messageId,
+        text: text,
+        controller: _controller,
+        focusNode: _inputFocusNode,
+      );
+
   Future<void> _startCodexReview() async {
     final chatState = ref.read(chatSessionProvider);
     final cwd = chatState.cxCwd ?? widget.cxThread?.cwd ?? widget.cxDraftCwd;
@@ -1185,6 +1205,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     _ccQueueSubscription?.close();
     _cxQueueSubscription?.close();
     _piExtensionUiSub?.cancel();
+    _bgSyncTimer?.cancel();
     // Clear Pi power menu callback
     if (widget.isPi && piPowerMenuCallback == _handlePiMenuAction) {
       piPowerMenuCallback = null;
@@ -1730,6 +1751,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           _openDiffView(diff, messageId: messageId),
       onCcRewind: _ccRewindToCheckpoint,
       onCodexRollback: _showCodexRollbackSheet,
+      onCodexEditMessage: widget.isCodex ? _editCodexMessage : null,
       buildVariantCard: _buildVariantCard,
       buildOrderedParts: _buildOrderedParts,
       buildToolCard: _buildToolCard,
@@ -1763,6 +1785,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           )
         : null,
     onRollback: widget.isCodex ? _showCodexRollbackSheet : null,
+    onEditMessage: widget.isCodex ? _editCodexMessage : null,
   );
 
   // PERF: Menu action handler that takes messages list directly (used with select())

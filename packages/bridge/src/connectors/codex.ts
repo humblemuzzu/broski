@@ -44,6 +44,14 @@ export type CodexAppServerOptions = {
 	onServerRequest?: (r: CodexServerRequest) => Promise<unknown>;
 	onExit?: (code: number | null, signal: string | null) => void;
 	onError?: (error: Error) => void;
+	onStatusChange?: (status: CodexProcessStatus) => void;
+};
+
+export type CodexProcessStatus = {
+	alive: boolean;
+	restarting: boolean;
+	exitCode: number | null;
+	restartAttempt: number;
 };
 
 export class CodexAppServerClient {
@@ -58,6 +66,11 @@ export class CodexAppServerClient {
 	private onExit?: (code: number | null, signal: string | null) => void;
 	private onError?: (error: Error) => void;
 	private started = false;
+	private restartCount = 0;
+	private readonly maxRestarts = 3;
+	private readonly restartDelayMs = 2000;
+	private _stopping = false;
+	private onStatusChange?: (status: CodexProcessStatus) => void;
 
 	constructor(options: CodexAppServerOptions = {}) {
 		this.codexPath = options.codexPath ?? "codex";
@@ -70,13 +83,20 @@ export class CodexAppServerClient {
 		this.onServerRequest = options.onServerRequest;
 		this.onExit = options.onExit;
 		this.onError = options.onError;
+		this.onStatusChange = options.onStatusChange;
 	}
 
-	setHandlers(options: Pick<CodexAppServerOptions, "onNotification" | "onServerRequest" | "onExit" | "onError">) {
+	setHandlers(
+		options: Pick<
+			CodexAppServerOptions,
+			"onNotification" | "onServerRequest" | "onExit" | "onError" | "onStatusChange"
+		>,
+	) {
 		this.onNotification = options.onNotification;
 		this.onServerRequest = options.onServerRequest;
 		if (options.onExit) this.onExit = options.onExit;
 		if (options.onError) this.onError = options.onError;
+		if (options.onStatusChange) this.onStatusChange = options.onStatusChange;
 	}
 
 	get isRunning(): boolean {
@@ -90,6 +110,7 @@ export class CodexAppServerClient {
 		}
 		console.log("[Codex] Starting app-server...");
 		await this.stop();
+		this._stopping = false;
 
 		this.child = spawn(this.codexPath, ["app-server"], {
 			stdio: ["pipe", "pipe", "pipe"],
@@ -102,6 +123,30 @@ export class CodexAppServerClient {
 			this._rejectAllPending(new Error(`Codex app-server exited (code: ${code}, signal: ${signal})`));
 			// Notify server of crash so it can inform all connected clients
 			this.onExit?.(code, signal);
+
+			// Auto-restart on unexpected exit (non-zero, non-null code)
+			if (!this._stopping && code !== 0 && code !== null && this.restartCount < this.maxRestarts) {
+				this.restartCount++;
+				const attempt = this.restartCount;
+				const delay = this.restartDelayMs * attempt;
+				console.log(`[Codex] Attempting auto-restart ${attempt}/${this.maxRestarts} in ${delay}ms...`);
+				this.onStatusChange?.({ alive: false, restarting: true, exitCode: code, restartAttempt: attempt });
+
+				setTimeout(async () => {
+					try {
+						await this.start();
+						this.restartCount = 0;
+						console.log(`[Codex] Auto-restart succeeded on attempt ${attempt}`);
+						this.onStatusChange?.({ alive: true, restarting: false, exitCode: null, restartAttempt: 0 });
+					} catch (restartErr: any) {
+						console.error(`[Codex] Auto-restart attempt ${attempt} failed:`, restartErr?.message ?? restartErr);
+						this.onStatusChange?.({ alive: false, restarting: false, exitCode: code, restartAttempt: attempt });
+					}
+				}, delay);
+			} else if (!this._stopping && code !== 0 && code !== null) {
+				console.error(`[Codex] Max restart attempts (${this.maxRestarts}) exhausted`);
+				this.onStatusChange?.({ alive: false, restarting: false, exitCode: code, restartAttempt: this.restartCount });
+			}
 		});
 
 		this.child.on("error", (err) => {
@@ -143,6 +188,7 @@ export class CodexAppServerClient {
 	}
 
 	async stop(): Promise<void> {
+		this._stopping = true;
 		this.started = false;
 		if (this.rl) {
 			try {

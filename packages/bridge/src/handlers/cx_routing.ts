@@ -86,6 +86,7 @@ const THREAD_OPS = new Set([
 	"cx_archive_thread",
 	"cx_thread_fork",
 	"cx_thread_rollback",
+	"cx_thread_unsubscribe",
 ]);
 
 const FILE_OPS = new Set(["cx_get_thread_messages", "cx_undo_files"]);
@@ -136,7 +137,6 @@ const FEATURE_OPS = new Set([
 	"cx_thread_loaded_list",
 	"cx_thread_read",
 	"cx_mcp_oauth_login",
-	"cx_thread_unsubscribe",
 	"cx_collaboration_modes",
 	"cx_background_terminals_clean",
 	"cx_shell_command",

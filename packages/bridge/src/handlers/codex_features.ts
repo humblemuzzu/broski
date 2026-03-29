@@ -332,28 +332,6 @@ export async function handleCodexFeature(
 			});
 			break;
 		}
-
-		// ── thread/unsubscribe ───────────────────────────────────────────
-		case "cx_thread_unsubscribe": {
-			const client = await ensureCodexClient();
-			const threadId = safeString(message.threadId).trim();
-			if (!threadId) {
-				reply({
-					type: "error",
-					message: "cx_thread_unsubscribe requires threadId",
-				});
-				break;
-			}
-			const result: any = await client.request("thread/unsubscribe", {
-				threadId,
-			});
-			reply({
-				type: "cx_thread_unsubscribed",
-				data: result ?? { status: "unsubscribed" },
-			});
-			break;
-		}
-
 		// ── collaborationMode/list ───────────────────────────────────────
 		case "cx_collaboration_modes": {
 			const client = await ensureCodexClient();

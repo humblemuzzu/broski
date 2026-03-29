@@ -82,6 +82,7 @@ import type {
 	PermissionResponse,
 	ServerMessage,
 } from "./types";
+import { resetUnsupportedParams } from "./utils/codex-compat-retry";
 
 // Re-export for backward compatibility (external consumers import from './server')
 export { type AuthTokenState, loadOrCreateAuthState, loadOrCreateAuthToken } from "./auth-token";
@@ -1439,8 +1440,11 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 					});
 					cxApprovalWaiters.clear();
 
-					// Reset client so it can be re-created on next request
-					codexClient = null;
+					// Reset client reference only if not auto-restarting
+					// (connector handles restart internally when code !== 0)
+					if (code === 0 || code === null) {
+						codexClient = null;
+					}
 				},
 				onError: (error) => {
 					logError(`[Codex] App-server error:`, error.message);
@@ -1451,6 +1455,17 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 							type: "cx_global",
 							data: { method: "error", params: { message: error.message } },
 						});
+					}
+				},
+				onStatusChange: (status) => {
+					// Reset compat-retry cache on successful restart
+					if (status.alive) resetUnsupportedParams();
+					// Broadcast Codex process status to all connected clients
+					for (const ws of sockets) {
+						send(ws, {
+							type: "codex_process_status",
+							data: status,
+						} as any);
 					}
 				},
 			});

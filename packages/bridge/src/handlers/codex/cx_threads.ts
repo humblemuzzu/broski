@@ -398,6 +398,36 @@ export async function handleCxThreads(
 			return true;
 		}
 
+		// ── cx_thread_unsubscribe ────────────────────────────────────────
+		case "cx_thread_unsubscribe": {
+			const threadId = ctx.safeString(message.threadId).trim();
+			if (!threadId) {
+				reply({ type: "cx_error", error: "Missing threadId" });
+				return true;
+			}
+			try {
+				const client = await ctx.ensureCodexClient();
+				await client.request("thread/unsubscribe", { threadId });
+				// Clean up tracking maps
+				ctx.cxThreadOwners.delete(threadId);
+				ctx.cxThreadCwds.delete(threadId);
+				reply({
+					type: "cx_thread_unsubscribed",
+					data: { threadId },
+					requestId: message.requestId,
+				});
+			} catch (e: any) {
+				ctx.logError("thread/unsubscribe failed", e);
+				// Reply success anyway — the thread is gone from our perspective
+				reply({
+					type: "cx_thread_unsubscribed",
+					data: { threadId },
+					requestId: message.requestId,
+				});
+			}
+			return true;
+		}
+
 		default:
 			return false;
 	}

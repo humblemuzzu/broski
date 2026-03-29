@@ -34,6 +34,47 @@ extension BridgeServiceCodexThreads on BridgeService {
         .toList();
   }
 
+  /// Paginated thread listing — returns threads plus the cursor for the
+  /// next page. Used by infinite scroll in the threads list.
+  Future<({List<CodexThread> threads, String? nextCursor})> cxListThreadsPage({
+    String? cwd,
+    String? cursor,
+    int limit = 50,
+    List<String>? sourceKinds,
+    String? sortKey,
+    List<String>? modelProviders,
+    bool? archived,
+    String? searchTerm,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_list_threads',
+      'requestId': requestId,
+      if (cwd != null) 'cwd': cwd,
+      if (cursor != null) 'cursor': cursor,
+      'limit': limit,
+      if (sourceKinds != null) 'sourceKinds': sourceKinds,
+      if (sortKey != null) 'sortKey': sortKey,
+      if (modelProviders != null) 'modelProviders': modelProviders,
+      if (archived != null) 'archived': archived,
+      if (searchTerm != null) 'searchTerm': searchTerm,
+    });
+    final response = await _waitFor(
+      'cx_threads',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'] as List<dynamic>? ?? [];
+    final nc = response['nextCursor']?.toString();
+    return (
+      threads: data
+          .whereType<Map<String, dynamic>>()
+          .map(CodexThread.fromJson)
+          .toList(),
+      nextCursor: (nc != null && nc.isNotEmpty && nc != 'null') ? nc : null,
+    );
+  }
+
   Future<CodexThread> cxStartThread({
     required String cwd,
     String? model,

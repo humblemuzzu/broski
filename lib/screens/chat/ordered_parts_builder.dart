@@ -21,6 +21,7 @@ List<Widget> buildOrderedParts({
   void Function(String messageId)? onResumeFromHere,
   void Function(String messageId)? onDeleteMessage,
   VoidCallback? onRollback,
+  void Function(String messageId, String text)? onEditMessage,
 }) {
   final widgets = <Widget>[];
   final toolsById = {for (final t in message.toolCalls) t.callId: t};
@@ -53,6 +54,9 @@ List<Widget> buildOrderedParts({
                     ? (_) => onDeleteMessage?.call(message.id)
                     : null,
                 onRollback: isCodex ? onRollback : null,
+                onEditMessage: isCodex && message.role == MessageRole.user
+                    ? onEditMessage
+                    : null,
               ),
             ),
           );
