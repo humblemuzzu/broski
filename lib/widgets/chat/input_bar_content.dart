@@ -51,6 +51,7 @@ class ChatInputBarContent extends ConsumerWidget {
     this.ccSessionModel,
     this.ccDraftModel,
     required this.onSend,
+    this.onLongPressSend,
     required this.onRemoveAttachment,
     required this.onFileSelect,
     required this.onAttachTap,
@@ -92,6 +93,7 @@ class ChatInputBarContent extends ConsumerWidget {
 
   // --- Callbacks ---
   final VoidCallback onSend;
+  final VoidCallback? onLongPressSend;
   final void Function(FileAttachment) onRemoveAttachment;
   final void Function(FileAttachment) onFileSelect;
   final VoidCallback onAttachTap;
@@ -253,6 +255,7 @@ class ChatInputBarContent extends ConsumerWidget {
         controller: controller,
         focusNode: focusNode,
         onSend: onSend,
+        onLongPressSend: onLongPressSend,
         isBusy: isBusy,
         canSend: canSend,
         backend: backend,
@@ -311,6 +314,7 @@ class ChatInputBarContent extends ConsumerWidget {
       controller: controller,
       focusNode: focusNode,
       onSend: onSend,
+      onLongPressSend: onLongPressSend,
       isBusy: isBusy,
       canSend: canSend,
       backend: backend,

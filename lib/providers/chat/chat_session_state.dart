@@ -146,6 +146,10 @@ sealed class ChatSessionState {
       ? (this as CodexChatState).cxPendingUserInput
       : null;
 
+  List<String> get cxQueuedMessages => this is CodexChatState
+      ? (this as CodexChatState).cxQueuedMessages
+      : const [];
+
   String get ocAgentMode => this is OpenCodeChatState
       ? (this as OpenCodeChatState).ocAgentMode
       : 'build';
@@ -197,6 +201,7 @@ sealed class ChatSessionState {
     bool? cxIsStreaming,
     Object? cxCollabTree = _absent,
     Object? cxPendingUserInput = _absent,
+    List<String>? cxQueuedMessages,
     String? ocAgentMode,
     bool? isPi,
     Object? piSessionId = _absent,
@@ -276,6 +281,7 @@ final class OpenCodeChatState extends ChatSessionState {
     bool? cxIsStreaming,
     Object? cxCollabTree = _absent,
     Object? cxPendingUserInput = _absent,
+    List<String>? cxQueuedMessages,
     bool? isPi,
     Object? piSessionId = _absent,
     String? piCwd,
@@ -395,6 +401,7 @@ final class ClaudeCodeChatState extends ChatSessionState {
     bool? cxIsStreaming,
     Object? cxCollabTree = _absent,
     Object? cxPendingUserInput = _absent,
+    List<String>? cxQueuedMessages,
     String? ocAgentMode,
     bool? isPi,
     Object? piSessionId = _absent,
@@ -467,6 +474,7 @@ final class CodexChatState extends ChatSessionState {
     this.cxIsStreaming = false,
     this.cxCollabTree,
     this.cxPendingUserInput,
+    this.cxQueuedMessages = const [],
   });
 
   @override
@@ -483,6 +491,8 @@ final class CodexChatState extends ChatSessionState {
   final CodexCollabAgentTree? cxCollabTree;
   @override
   final CodexUserInputRequest? cxPendingUserInput;
+  @override
+  final List<String> cxQueuedMessages;
 
   @override
   AgentType get agentType => AgentType.codex;
@@ -514,6 +524,7 @@ final class CodexChatState extends ChatSessionState {
     bool? cxIsStreaming,
     Object? cxCollabTree = _absent,
     Object? cxPendingUserInput = _absent,
+    List<String>? cxQueuedMessages,
     // Ignored (wrong subclass)
     bool? isClaudeCode,
     Object? ccSessionId = _absent,
@@ -569,6 +580,7 @@ final class CodexChatState extends ChatSessionState {
         cxPendingUserInput,
         this.cxPendingUserInput,
       ),
+      cxQueuedMessages: cxQueuedMessages ?? this.cxQueuedMessages,
     );
   }
 }
@@ -658,6 +670,7 @@ final class PiChatState extends ChatSessionState {
     bool? cxIsStreaming,
     Object? cxCollabTree = _absent,
     Object? cxPendingUserInput = _absent,
+    List<String>? cxQueuedMessages,
     String? ocAgentMode,
   }) {
     return PiChatState(

@@ -180,6 +180,33 @@ extension CxStreamHandler on ChatSessionNotifier {
   }
 
   // ============================================================
+  // Codex Message Queue (queue for next turn)
+  // ============================================================
+
+  /// Queue a follow-up message for auto-send when the Codex turn completes.
+  /// Unlike steer (mid-turn nudge), queued messages wait and send as a full
+  /// new turn after the current one finishes.
+  void queueCodexMessage(String message) {
+    final current = state.cxQueuedMessages;
+    state = state.copyWith(cxQueuedMessages: [...current, message]);
+  }
+
+  /// Cancel a specific queued message by index.
+  void cancelQueuedCodexMessage(int index) {
+    final current = [...state.cxQueuedMessages];
+    if (index >= 0 && index < current.length) {
+      current.removeAt(index);
+      state = state.copyWith(cxQueuedMessages: current);
+    }
+  }
+
+  /// Clear all queued Codex messages.
+  void clearCodexQueue() {
+    if (state.cxQueuedMessages.isEmpty) return;
+    state = state.copyWith(cxQueuedMessages: const []);
+  }
+
+  // ============================================================
   // Shared Helpers (used by runtime_cx_handlers.dart)
   // ============================================================
 

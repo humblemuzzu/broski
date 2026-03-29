@@ -81,7 +81,9 @@ import 'package:broski/widgets/app_background.dart';
 import 'package:broski/widgets/chat/cc_queue_bar.dart';
 import 'package:broski/widgets/chat/command_autocomplete.dart';
 import 'package:broski/widgets/chat/custom_tool_autocomplete.dart';
+import 'package:broski/widgets/chat/cx_queue_bar.dart';
 import 'package:broski/widgets/chat/cx_steer_bar.dart';
+import 'package:broski/screens/chat/auto_send_cx.dart' as ascx;
 import 'package:broski/widgets/chat/floating_header.dart';
 import 'package:broski/widgets/chat/input_bar_content.dart';
 import 'package:broski/widgets/chat/message_group.dart';
@@ -403,6 +405,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   ProviderSubscription<AsyncValue<ClaudeCodeConfig>>? _ccConfigSubscription;
   // CC queue: listen for ccIsStreaming true→false to auto-send pending message
   ProviderSubscription<bool>? _ccQueueSubscription;
+  // CX queue: listen for cxIsStreaming true→false to auto-send queued messages
+  ProviderSubscription<bool>? _cxQueueSubscription;
   // Pi extension UI stream subscription (via unified runtime events)
   StreamSubscription<RuntimeEvent>? _piExtensionUiSub;
   @override
@@ -481,6 +485,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
       _ccConfigSubscription = ccSubs.configSub;
       _ccQueueSubscription = ccSubs.queueSub;
+    } else if (widget.isCodex) {
+      _cxQueueSubscription = ci.setupCodexQueueSubscription(
+        ref: ref,
+        widget: widget,
+        onQueueTurnComplete: _autoSendQueuedCxMessage,
+      );
     }
     // Refresh header context pill when token usage changes (CC/CX turn ends)
     ci.setupTokenUsageListeners(
@@ -1173,6 +1183,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     _chatSubscription?.close();
     _ccConfigSubscription?.close();
     _ccQueueSubscription?.close();
+    _cxQueueSubscription?.close();
     _piExtensionUiSub?.cancel();
     // Clear Pi power menu callback
     if (widget.isPi && piPowerMenuCallback == _handlePiMenuAction) {
@@ -1509,6 +1520,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                   ),
                 // Codex: show steer bar when streaming
                 if (widget.isCodex && cxIsStreaming) const CxSteerBar(),
+                // Codex: show queued message bar when messages are queued
+                if (widget.isCodex && cxIsStreaming)
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final queue = ref.watch(
+                        chatSessionProvider.select((s) => s.cxQueuedMessages),
+                      );
+                      if (queue.isEmpty) return const SizedBox.shrink();
+                      return CxQueueBar(
+                        queuedMessages: queue,
+                        onCancel: (index) {
+                          ref
+                              .read(chatSessionProvider.notifier)
+                              .cancelQueuedCodexMessage(index);
+                        },
+                        onClearAll: () {
+                          ref
+                              .read(chatSessionProvider.notifier)
+                              .clearCodexQueue();
+                        },
+                      );
+                    },
+                  ),
                 _buildInputBarWithParams(
                   connection: connection,
                   messages: messages,
@@ -1653,6 +1687,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ccSessionModel: widget.ccSession?.model,
       ccDraftModel: widget.ccDraftModel,
       onSend: () => _sendMessageWithParams(connection, messages, ccIsStreaming),
+      onLongPressSend: widget.isCodex ? _queueCodexMessage : null,
       onRemoveAttachment: _removeAttachedFile,
       onFileSelect: _handleFileSelection,
       onAttachTap: () => _showAttachmentOptions(context),
@@ -1782,6 +1817,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   void _showModelSelector(BuildContext context) =>
       showModelsDialog(context, ref);
+
+  /// Queue the current input text for the next Codex turn (long-press send).
+  void _queueCodexMessage() {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+    final chatState = ref.read(chatSessionProvider);
+    if (!chatState.cxIsStreaming) return;
+    ref.read(chatSessionProvider.notifier).queueCodexMessage(text);
+    _controller.clear();
+  }
+
+  /// Auto-send queued Codex messages when the turn completes.
+  void _autoSendQueuedCxMessage() {
+    ascx.autoSendQueuedCxMessage(
+      ref: ref,
+      isCodex: widget.isCodex,
+      isMounted: () => mounted,
+      cxThreadCwd: widget.cxThread?.cwd,
+      cxDraftCwd: widget.cxDraftCwd,
+      resetScrollAndScrollToBottom: () {
+        _userHasScrolledUp = false;
+        _scrollToBottom();
+      },
+    );
+  }
 
   /// Auto-send a pending CC message when the turn completes.
   /// Uses the same CC send flow as _sendMessage (config, model, sessionId, etc.)

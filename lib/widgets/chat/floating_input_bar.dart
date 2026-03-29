@@ -22,6 +22,7 @@ class FloatingInputBar extends ConsumerWidget {
     required this.controller,
     required this.focusNode,
     required this.onSend,
+    this.onLongPressSend,
     required this.isBusy,
     required this.canSend,
     required this.backend,
@@ -58,6 +59,7 @@ class FloatingInputBar extends ConsumerWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final VoidCallback onSend;
+  final VoidCallback? onLongPressSend;
   final bool isBusy;
   final bool canSend;
   final AgentType backend;
@@ -316,6 +318,7 @@ class FloatingInputBar extends ConsumerWidget {
                               // Send button
                               GestureDetector(
                                 onTap: canSend ? onSend : null,
+                                onLongPress: canSend ? onLongPressSend : null,
                                 child: Container(
                                   width: 32,
                                   height: 32,

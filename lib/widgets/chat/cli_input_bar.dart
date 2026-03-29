@@ -26,6 +26,7 @@ class CliStyleInputBar extends StatefulWidget {
     required this.controller,
     required this.focusNode,
     required this.onSend,
+    this.onLongPressSend,
     required this.isBusy,
     required this.canSend,
     required this.backend,
@@ -66,6 +67,7 @@ class CliStyleInputBar extends StatefulWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final VoidCallback onSend;
+  final VoidCallback? onLongPressSend;
   final bool isBusy;
   final bool canSend;
   final AgentType backend;
@@ -539,6 +541,9 @@ class _CliStyleInputBarState extends State<CliStyleInputBar> {
                                 // Send button (minimal)
                                 GestureDetector(
                                   onTap: widget.canSend ? widget.onSend : null,
+                                  onLongPress: widget.canSend
+                                      ? widget.onLongPressSend
+                                      : null,
                                   child: Container(
                                     width: 28,
                                     height: 28,

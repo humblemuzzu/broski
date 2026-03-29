@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 
 /// Shown above the input bar when Codex is streaming, indicating that
 /// any new messages will steer/redirect the agent rather than queue.
+///
+/// Also hints that long-pressing the send button will queue for next turn.
 class CxSteerBar extends StatelessWidget {
   const CxSteerBar({super.key});
 
@@ -26,7 +28,7 @@ class CxSteerBar extends StatelessWidget {
           const SizedBox(width: 6),
           Expanded(
             child: Text(
-              'Agent is working · Messages will steer the agent',
+              'Agent is working · Tap to steer · Hold to queue',
               style: AppTypography.label(color: theme.primary),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

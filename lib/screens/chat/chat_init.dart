@@ -130,6 +130,28 @@ ClaudeCodeSubscriptions setupClaudeCodeSubscriptions({
   return ClaudeCodeSubscriptions(configSub: configSub, queueSub: queueSub);
 }
 
+/// Sets up the Codex queue listener: when cxIsStreaming transitions
+/// true → false, fire [onQueueTurnComplete] to auto-send queued messages.
+///
+/// Returns the subscription (must be closed in dispose()).
+///
+/// Extracted from `_ChatScreenState.initState` in `chat_screen.dart`.
+ProviderSubscription<bool>? setupCodexQueueSubscription({
+  required WidgetRef ref,
+  required ChatScreen widget,
+  required void Function() onQueueTurnComplete,
+}) {
+  if (!widget.isCodex) return null;
+  return ref.listenManual(chatSessionProvider.select((s) => s.cxIsStreaming), (
+    previous,
+    next,
+  ) {
+    if (previous == true && next == false) {
+      onQueueTurnComplete();
+    }
+  });
+}
+
 /// Sets up token usage listeners that refresh the header context pill
 /// when CC or CX turn token counts change.
 ///
