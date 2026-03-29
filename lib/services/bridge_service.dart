@@ -64,6 +64,7 @@ part 'bridge/bridge_sessions_lifecycle.dart';
 part 'bridge/bridge_skills_universal.dart';
 part 'bridge/bridge_worktrees.dart';
 part 'bridge/bridge_unified.dart';
+part 'bridge/bridge_message_replay.dart';
 
 class BridgeService {
   static const protocolVersion = '1.0.0';

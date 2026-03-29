@@ -580,6 +580,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	const cxThreadNames = new Map<string, string>(); // threadId -> custom name (from thread/name/updated)
 	const cxFileChangeSnapshots = new Map<string, string>(); // `${threadId}:${turnId}:${itemId}` -> manifestPath
 	const cxUndoStackByThread = new Map<string, string[]>(); // threadId -> snapshot keys (LIFO)
+	const cxSearchSessions = new Map<string, string>(); // sessionId -> threadId for fuzzy search cleanup
 
 	// Codex caching for fast session/project loading (mirrors OpenCode's 5s TTL pattern)
 	// Project cache has longer TTL since projects rarely change
@@ -2720,6 +2721,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 				emitCxStream,
 				ensureUndoStack,
 				applyCodexUndo,
+				cxSearchSessions,
 			})
 		)
 			return;

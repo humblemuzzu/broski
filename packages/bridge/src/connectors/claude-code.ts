@@ -2537,11 +2537,11 @@ export async function queryClaudeCode(
 
 			const content =
 				response.content && typeof response.content === "object" && !Array.isArray(response.content)
-					? response.content
+					? (response.content as Record<string, string | number | boolean | string[]>)
 					: undefined;
 
 			return {
-				action: "accept",
+				action: "accept" as const,
 				...(content ? { content } : {}),
 			};
 		};

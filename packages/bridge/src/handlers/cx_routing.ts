@@ -9,6 +9,7 @@ import type { ServerWebSocket } from "bun";
 import type { CodexAppServerClient } from "../connectors/codex";
 import type { AgentType, CodexStreamMessage, CodexThread, PermissionResponse, ServerMessage } from "../types";
 import type { BroskiSessionSummary } from "../types/runtime";
+import { getCurrentSeq, getMessagesSince } from "../utils/message-buffer";
 import { handleCxAccount } from "./codex/cx_account";
 import { handleCxAgents } from "./codex/cx_agents";
 import { handleCxChat } from "./codex/cx_chat";
@@ -16,10 +17,12 @@ import { handleCxCommandPty } from "./codex/cx_command_pty";
 import { handleCxConfig } from "./codex/cx_config";
 import { handleCxExternalConfig } from "./codex/cx_external_config";
 import { handleCxFiles } from "./codex/cx_files";
+import * as cxFuzzySearch from "./codex/cx_fuzzy_search";
 import { handleCxMcp } from "./codex/cx_mcp";
 import { handleCxPlugins } from "./codex/cx_plugins";
 import { handleCxSkills } from "./codex/cx_skills";
 import { handleCxThreads } from "./codex/cx_threads";
+import * as cxWorkspace from "./codex/cx_workspace";
 import { handleCodexFeature } from "./codex_features";
 
 type ReplyFn = (msg: ServerMessage) => void;
@@ -75,6 +78,8 @@ export type CxRoutingContext = {
 	// File undo
 	ensureUndoStack: (threadId: string) => string[];
 	applyCodexUndo: (threadId: string, key: string) => Promise<string[]>;
+	// Fuzzy file search
+	cxSearchSessions: Map<string, string>;
 };
 
 const THREAD_OPS = new Set([
@@ -121,6 +126,10 @@ const CMD_PTY_OPS = new Set([
 	"cx_thread_metadata_update",
 ]);
 
+const WORKSPACE_OPS = new Set(["cx_revert_changes", "cx_get_turn_diff"]);
+
+const FUZZY_SEARCH_OPS = new Set(["cx_fuzzy_search_start", "cx_fuzzy_search_update", "cx_fuzzy_search_end"]);
+
 const FEATURE_OPS = new Set([
 	"cx_steer",
 	"cx_thread_rename",
@@ -149,6 +158,22 @@ export async function handle(
 ): Promise<boolean> {
 	const type = message.type as string;
 	if (!type.startsWith("cx_")) return false;
+
+	// Message replay on reconnect — lightweight, no Codex client needed.
+	// TODO: Use per-client buffers keyed by a stable client ID (e.g. auth token)
+	// instead of "global" once recordMessage() is wired into send().
+	if (type === "cx_replay_request") {
+		const lastSeq = typeof message.lastSeq === "number" ? message.lastSeq : 0;
+		const clientId = ctx.safeString(message.clientId).trim() || "global";
+		const missed = getMessagesSince(clientId, lastSeq);
+		reply({
+			type: "cx_replay",
+			data: missed,
+			currentSeq: getCurrentSeq(clientId),
+			requestId: message.requestId as string | undefined,
+		});
+		return true;
+	}
 
 	if (THREAD_OPS.has(type)) {
 		const handled = await handleCxThreads(message, reply, {
@@ -291,6 +316,15 @@ export async function handle(
 		return true;
 	}
 
+	if (WORKSPACE_OPS.has(type)) {
+		const handled = await cxWorkspace.handle(message, reply, {
+			safeString: ctx.safeString,
+			cxThreadCwds: ctx.cxThreadCwds,
+		});
+		if (!handled) reply({ type: "error", message: `Unhandled workspace feature: ${type}` });
+		return true;
+	}
+
 	if (CMD_PTY_OPS.has(type)) {
 		const handled = await handleCxCommandPty(message, reply, {
 			ensureCodexClient: ctx.ensureCodexClient,
@@ -300,5 +334,15 @@ export async function handle(
 		return true;
 	}
 
+	if (FUZZY_SEARCH_OPS.has(type)) {
+		const handled = await cxFuzzySearch.handle(message, reply, {
+			ensureCodexClient: ctx.ensureCodexClient,
+			safeString: ctx.safeString,
+			cxThreadCwds: ctx.cxThreadCwds,
+			cxSearchSessions: ctx.cxSearchSessions,
+		});
+		if (!handled) reply({ type: "error", message: `Unhandled fuzzy search: ${type}` });
+		return true;
+	}
 	return false;
 }

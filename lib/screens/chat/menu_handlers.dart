@@ -1,9 +1,11 @@
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/chat/cx_desktop_handoff.dart';
 import 'package:broski/screens/sheets/cc_hooks_sheet.dart';
 import 'package:broski/screens/sheets/cc_skills_sheet.dart';
 import 'package:broski/screens/sheets/cx_apps_sheet.dart';
 import 'package:broski/screens/sheets/cx_auth_sheet.dart';
+import 'package:broski/screens/sheets/cx_changeset_sheet.dart';
 import 'package:broski/screens/sheets/cx_config_sheet.dart';
 import 'package:broski/screens/sheets/cx_feedback_sheet.dart';
 import 'package:broski/screens/sheets/cx_mcp_sheet.dart';
@@ -93,10 +95,19 @@ void handleCodexMenuAction(
       CxAppsSheet.show(context);
     case 'cx_remote_skills':
       CxRemoteSkillsSheet.show(context);
+    case 'cx_desktop_handoff':
+      final threadId = ref.read(chatSessionProvider).cxThreadId ?? '';
+      openCxThreadInDesktop(context: context, threadId: threadId);
     case 'cx_compact':
       _compactCodexThread(context, ref);
     case 'cx_rate_limits':
       showCxRateLimitsSheet(context);
+    case 'cx_changeset':
+      final threadId = ref.read(chatSessionProvider).cxThreadId ?? '';
+      final cwd = ref.read(chatSessionProvider).cxCwd;
+      if (threadId.isNotEmpty) {
+        showCxChangesetSheet(context: context, threadId: threadId, cwd: cwd);
+      }
   }
 }
 

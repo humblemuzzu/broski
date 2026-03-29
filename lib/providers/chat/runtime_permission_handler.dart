@@ -46,6 +46,9 @@ extension _RuntimePermissionHandler on ChatSessionNotifier {
           reason: metadata['reason'],
           grantRoot: metadata['grantRoot'],
           networkApprovalContext: metadata['networkApprovalContext'],
+          writableRoots: metadata['writableRoots'],
+          scope: metadata['scope'],
+          networkAccess: metadata['networkAccess'],
         );
       }
     }

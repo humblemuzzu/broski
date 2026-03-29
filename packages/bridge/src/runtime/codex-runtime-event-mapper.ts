@@ -184,6 +184,17 @@ export function mapCodexStreamToRuntimeEvent(
 						...(typeof params.turn?.status === "string" ? { stopReason: params.turn.status } : {}),
 					};
 
+				case "turn/failed":
+					return {
+						...baseEvent("agent_finished", ctx, {
+							sourceType: streamMessage.type,
+							method: streamMessage.method,
+							turnId: params.turnId ?? params.turn?.id,
+							status: "failed",
+						}),
+						stopReason: "failed",
+					};
+
 				case "thread/compacted":
 					return {
 						...baseEvent("compaction_finished", ctx, {

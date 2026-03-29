@@ -134,6 +134,15 @@ class CodexActionsContent extends StatelessWidget {
               ),
               const SizedBox(height: Spacing.sm),
               ActionRow(
+                icon: AppIcons.diff,
+                label: 'View Changes',
+                subtitle: 'See files changed by AI and revert',
+                theme: theme,
+                color: theme.warning,
+                onTap: () => onAction('cx_changeset'),
+              ),
+              const SizedBox(height: Spacing.sm),
+              ActionRow(
                 icon: AppIcons.compress,
                 label: 'Compact',
                 subtitle: 'Summarize old messages to free context',
@@ -147,6 +156,14 @@ class CodexActionsContent extends StatelessWidget {
                 subtitle: 'View usage limits and resets',
                 theme: theme,
                 onTap: () => onAction('cx_rate_limits'),
+              ),
+              const SizedBox(height: Spacing.sm),
+              ActionRow(
+                icon: AppIcons.openExternal,
+                label: 'Open in Desktop',
+                subtitle: 'Continue this thread in Codex desktop app',
+                theme: theme,
+                onTap: () => onAction('cx_desktop_handoff'),
               ),
               const SizedBox(height: Spacing.sm),
               ActionRow(

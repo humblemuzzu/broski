@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:broski/models/codex.dart';
 import 'package:broski/models/project.dart';
+import 'package:broski/providers/codex/cx_error_listener.dart';
 import 'package:broski/providers/codex/cx_rate_limits_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
@@ -156,6 +157,17 @@ class CodexThreadsNotifier
   void _handleBridgeMessage(Map<String, dynamic> message) {
     if (_connection.isOfflineMode) return;
     final type = message['type'] as String? ?? '';
+    if (type == 'cx_error') {
+      final error = message['error'] as String? ?? 'Unknown error';
+      final code = message['code'] as String?;
+      final handler = message['handler'] as String?;
+      _ref.read(cxLatestErrorProvider.notifier).state = CxError(
+        message: error,
+        code: code,
+        handler: handler,
+      );
+      return;
+    }
     if (type != 'cx_global') return;
     final data = message['data'] as Map<String, dynamic>? ?? const {};
     final method = data['method'] as String? ?? '';
@@ -191,6 +203,28 @@ class CodexThreadsNotifier
           ? null
           : params;
     }
+    // Thread closed — remove from in-memory list without full refresh.
+    if (method == 'thread/closed') {
+      final closedId =
+          (data['params'] as Map<String, dynamic>?)?['threadId']?.toString() ??
+          '';
+      if (closedId.isNotEmpty) {
+        state = state.whenData(
+          (threads) => threads.where((t) => t.id != closedId).toList(),
+        );
+      }
+    }
+    // Account login completed — refresh threads.
+    if (method == 'account/login/completed') {
+      unawaited(refresh(cwd: _lastCwd));
+    }
+    // Account updated — refresh threads on account change.
+    if (method == 'account/updated') {
+      unawaited(refresh(cwd: _lastCwd));
+    }
+    // skills/changed, app/list/updated, mcpServer/startupStatus/updated,
+    // mcpServer/oauthLogin/completed — no notifier action needed here.
+    // Skills/apps/MCP sheets re-fetch on open.
   }
 
   @override

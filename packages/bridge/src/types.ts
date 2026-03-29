@@ -939,12 +939,28 @@ export type ClientMessage =
 	| { type: "cx_thread_unsubscribe"; threadId: string }
 	| { type: "cx_collaboration_modes" }
 	| { type: "cx_background_terminals_clean" }
+	// Codex workspace / changeset revert
+	| { type: "cx_revert_changes"; threadId: string; diff: string; cwd?: string; requestId?: string }
+	| { type: "cx_get_turn_diff"; threadId: string; turnId?: string; cwd?: string; requestId?: string }
+	// Codex fuzzy file search
+	| {
+			type: "cx_fuzzy_search_start";
+			threadId?: string;
+			query: string;
+			cwd?: string;
+			maxResults?: number;
+			requestId?: string;
+	  }
+	| { type: "cx_fuzzy_search_update"; sessionId: string; query: string; requestId?: string }
+	| { type: "cx_fuzzy_search_end"; sessionId: string; requestId?: string }
 	// Codex command PTY
 	| { type: "cx_command_write"; processId: string; deltaBase64?: string; closeStdin?: boolean }
 	| { type: "cx_command_resize"; processId: string; rows?: number; cols?: number }
 	| { type: "cx_command_terminate"; processId: string }
 	// Codex thread metadata update
 	| { type: "cx_thread_metadata_update"; threadId: string; gitInfo?: Record<string, unknown> }
+	// Message replay on reconnect
+	| { type: "cx_replay_request"; lastSeq?: number; requestId?: string }
 	// Claude Code File Checkpointing (Undo/Revert)
 	| {
 			type: "cc_rewind_checkpoint";
@@ -1887,6 +1903,7 @@ export type ServerMessage =
 			data: { method: string; params?: any };
 			requestId?: string;
 	  }
+	| { type: "cx_error"; error: string; code?: string; handler?: string; requestId?: string }
 	| { type: "cx_projects"; data: ProjectSummary[]; requestId?: string }
 	| { type: "cx_warmup_started"; requestId?: string }
 	| {
@@ -2008,6 +2025,22 @@ export type ServerMessage =
 	  }
 	| { type: "cx_apps_updated"; data: any[]; requestId?: string }
 	| { type: "cx_stream"; data: CodexStreamMessage; threadId: string }
+	// Codex workspace / changeset revert
+	| { type: "cx_changes_reverted"; data: { ok: boolean; error?: string; filesReverted?: string[] }; requestId?: string }
+	| {
+			type: "cx_turn_diff";
+			data: { diff: string; files: string[]; turnId?: string; error?: string };
+			requestId?: string;
+	  }
+	// Codex fuzzy file search
+	| {
+			type: "cx_fuzzy_search_results";
+			data: { sessionId: string; results: Array<{ path: string; name: string; score: number }>; completed?: boolean };
+			requestId?: string;
+	  }
+	| { type: "cx_fuzzy_search_ended"; data: { ok: boolean }; requestId?: string }
+	// Message replay on reconnect
+	| { type: "cx_replay"; data: any[]; currentSeq: number; requestId?: string }
 	// Claude Code Custom Tools
 	| {
 			type: "cc_custom_tools";

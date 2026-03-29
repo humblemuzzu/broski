@@ -530,4 +530,115 @@ extension BridgeServiceCodexFeatures on BridgeService {
     );
     return response['data'] as Map<String, dynamic>? ?? {};
   }
+
+  // ============================================================
+  // Codex — Workspace Change Set (Revert)
+  // ============================================================
+
+  /// Revert file changes using git apply --reverse.
+  Future<Map<String, dynamic>> cxRevertChanges({
+    required String threadId,
+    required String diff,
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_revert_changes',
+      'requestId': requestId,
+      'threadId': threadId,
+      'diff': diff,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor(
+      'cx_changes_reverted',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    return response['data'] as Map<String, dynamic>? ?? {};
+  }
+
+  /// Get the git diff for the current turn's changes.
+  Future<Map<String, dynamic>> cxGetTurnDiff({
+    required String threadId,
+    String? turnId,
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_get_turn_diff',
+      'requestId': requestId,
+      'threadId': threadId,
+      if (turnId != null) 'turnId': turnId,
+      if (cwd != null) 'cwd': cwd,
+    });
+    final response = await _waitFor(
+      'cx_turn_diff',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    return response['data'] as Map<String, dynamic>? ?? {};
+  }
+
+  // ============================================================
+  // Codex — Fuzzy File Search (@mentions)
+  // ============================================================
+
+  /// Start a fuzzy file search session.
+  Future<Map<String, dynamic>> cxFuzzySearchStart({
+    String? threadId,
+    required String query,
+    String? cwd,
+    int maxResults = 20,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_fuzzy_search_start',
+      'requestId': requestId,
+      if (threadId != null) 'threadId': threadId,
+      'query': query,
+      if (cwd != null) 'cwd': cwd,
+      'maxResults': maxResults,
+    });
+    final response = await _waitFor(
+      'cx_fuzzy_search_results',
+      requestId: requestId,
+      timeoutSeconds: 10,
+    );
+    return response['data'] as Map<String, dynamic>? ?? {};
+  }
+
+  /// Update an active fuzzy search session with a new query.
+  Future<Map<String, dynamic>> cxFuzzySearchUpdate({
+    required String sessionId,
+    required String query,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_fuzzy_search_update',
+      'requestId': requestId,
+      'sessionId': sessionId,
+      'query': query,
+    });
+    final response = await _waitFor(
+      'cx_fuzzy_search_results',
+      requestId: requestId,
+      timeoutSeconds: 10,
+    );
+    return response['data'] as Map<String, dynamic>? ?? {};
+  }
+
+  /// End a fuzzy search session.
+  Future<void> cxFuzzySearchEnd({required String sessionId}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_fuzzy_search_end',
+      'requestId': requestId,
+      'sessionId': sessionId,
+    });
+    await _waitFor(
+      'cx_fuzzy_search_ended',
+      requestId: requestId,
+      timeoutSeconds: 5,
+    );
+  }
 }
