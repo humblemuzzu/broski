@@ -134,6 +134,22 @@ class CodexActionsContent extends StatelessWidget {
               ),
               const SizedBox(height: Spacing.sm),
               ActionRow(
+                icon: AppIcons.compress,
+                label: 'Compact',
+                subtitle: 'Summarize old messages to free context',
+                theme: theme,
+                onTap: () => onAction('cx_compact'),
+              ),
+              const SizedBox(height: Spacing.sm),
+              ActionRow(
+                icon: AppIcons.speed,
+                label: 'Rate Limits',
+                subtitle: 'View usage limits and resets',
+                theme: theme,
+                onTap: () => onAction('cx_rate_limits'),
+              ),
+              const SizedBox(height: Spacing.sm),
+              ActionRow(
                 icon: AppIcons.feedback,
                 label: 'Feedback',
                 subtitle: 'Send feedback to Codex team',

@@ -202,6 +202,14 @@ void showCodexSettingsSheet(BuildContext context) {
                   ),
                 ],
               ),
+              const SizedBox(height: Spacing.lg),
+              chipGroup<CodexServiceTier>(
+                label: 'Speed',
+                values: CodexServiceTier.values,
+                selected: settings.serviceTier,
+                display: (v) => v.displayName,
+                onSelected: notifier.setServiceTier,
+              ),
             ],
           ),
         );

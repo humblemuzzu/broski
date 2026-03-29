@@ -1,3 +1,5 @@
+import 'package:broski/providers/chat_provider.dart';
+import 'package:broski/providers/service_providers.dart';
 import 'package:broski/screens/sheets/cc_hooks_sheet.dart';
 import 'package:broski/screens/sheets/cc_skills_sheet.dart';
 import 'package:broski/screens/sheets/cx_apps_sheet.dart';
@@ -6,10 +8,13 @@ import 'package:broski/screens/sheets/cx_config_sheet.dart';
 import 'package:broski/screens/sheets/cx_feedback_sheet.dart';
 import 'package:broski/screens/sheets/cx_mcp_sheet.dart';
 import 'package:broski/screens/sheets/cx_model_sheet.dart';
+import 'package:broski/screens/sheets/cx_rate_limits_sheet.dart';
 import 'package:broski/screens/sheets/cx_remote_skills_sheet.dart';
 import 'package:broski/screens/sheets/cx_settings_sheet.dart';
 import 'package:broski/screens/sheets/pi_model_sheet.dart';
 import 'package:broski/screens/sheets/pi_skills_sheet.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -87,7 +92,30 @@ void handleCodexMenuAction(
       CxAppsSheet.show(context);
     case 'cx_remote_skills':
       CxRemoteSkillsSheet.show(context);
+    case 'cx_compact':
+      _compactCodexThread(context, ref);
+    case 'cx_rate_limits':
+      showCxRateLimitsSheet(context);
   }
+}
+
+void _compactCodexThread(BuildContext context, WidgetRef ref) {
+  final chatState = ref.read(chatSessionProvider);
+  final threadId = chatState.cxThreadId;
+  if (threadId == null || threadId.isEmpty) return;
+  final bridge = ref.read(bridgeServiceProvider);
+  bridge
+      .cxCompactThread(threadId: threadId)
+      .then((_) {
+        if (context.mounted) {
+          showSuccess(context, 'Thread compacted');
+        }
+      })
+      .catchError((e) {
+        if (context.mounted) {
+          showInfo(context, 'Compact failed: ${humanizeError(e)}');
+        }
+      });
 }
 
 /// Handles Pi overflow menu actions.

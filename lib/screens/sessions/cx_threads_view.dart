@@ -255,6 +255,18 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
             },
           ),
           ListTile(
+            leading: Icon(AppIcons.compress, color: ocTheme.text),
+            title: Text('Compact', style: TextStyle(color: ocTheme.text)),
+            subtitle: Text(
+              'Free up context by summarizing older messages',
+              style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
+            ),
+            onTap: () {
+              Navigator.pop(context);
+              _compactThread(thread);
+            },
+          ),
+          ListTile(
             leading: Icon(
               isHighlighted ? AppIcons.star : AppIcons.starOutline,
               color: ocTheme.text,
@@ -407,6 +419,21 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
       );
     } else {
       showError(context, 'Failed to archive thread');
+    }
+  }
+
+  void _compactThread(CodexThread thread) async {
+    try {
+      await ref
+          .read(bridgeServiceProvider)
+          .cxCompactThread(threadId: thread.id);
+      if (mounted) {
+        showSuccess(context, 'Thread compacted');
+      }
+    } catch (e) {
+      if (mounted) {
+        showInfo(context, 'Compact failed: ${humanizeError(e)}');
+      }
     }
   }
 

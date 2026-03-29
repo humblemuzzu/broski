@@ -81,6 +81,7 @@ import 'package:broski/widgets/app_background.dart';
 import 'package:broski/widgets/chat/cc_queue_bar.dart';
 import 'package:broski/widgets/chat/command_autocomplete.dart';
 import 'package:broski/widgets/chat/custom_tool_autocomplete.dart';
+import 'package:broski/widgets/chat/cx_steer_bar.dart';
 import 'package:broski/widgets/chat/floating_header.dart';
 import 'package:broski/widgets/chat/input_bar_content.dart';
 import 'package:broski/widgets/chat/message_group.dart';
@@ -1213,6 +1214,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final ccIsStreaming = ref.watch(
       chatSessionProvider.select((s) => s.ccIsStreaming),
     );
+    final cxIsStreaming = widget.isCodex
+        ? ref.watch(chatSessionProvider.select((s) => s.cxIsStreaming))
+        : false;
     final ccInit = ref.watch(chatSessionProvider.select((s) => s.ccInit));
     final ccModel = ref.watch(chatSessionProvider.select((s) => s.ccModel));
     // Watch these for rebuild triggers (values accessed via ref.read in callbacks)
@@ -1504,6 +1508,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       );
                     },
                   ),
+                // Codex: show steer bar when streaming
+                if (widget.isCodex && cxIsStreaming) const CxSteerBar(),
                 _buildInputBarWithParams(
                   connection: connection,
                   messages: messages,
