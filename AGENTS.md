@@ -600,10 +600,10 @@ To add `xx_list_widgets` for agent XX:
 
 | SDK | Source code | API docs | What syncs automatically |
 |-----|-----------|----------|--------------------------|
-| **Codex** | `reference/codex/sdk/typescript/src/` | In the source itself | `sync-refs.sh` pulls from GitHub |
-| **OpenCode** | `reference/opencode/packages/sdk/js/src/` | In the source itself | `sync-refs.sh` pulls from GitHub |
-| **Claude Code** | `node_modules/@anthropic-ai/claude-agent-sdk/` (closed source, npm) | `reference/cc-docs/` (manually maintained) | `sync-refs.sh` pulls CHANGELOG + plugins from GitHub. **SDK docs must be manually updated** from https://platform.claude.com/docs/en/agent-sdk/ into `reference/cc-docs/` |
-| **Pi** | `reference/pi-mono/packages/coding-agent/src/` (main), also `packages/ai/src/` and `packages/agent/src/` | In the source + `packages/coding-agent/docs/` | npm: `@mariozechner/pi-coding-agent`. Source ref for types/events/tools |
+| **Codex** | `reference/codex/sdk/typescript/src/` | In the source itself | `sync-sdks.sh` pulls from GitHub |
+| **OpenCode** | `reference/opencode/packages/sdk/js/src/` | In the source itself | `sync-sdks.sh` pulls from GitHub |
+| **Claude Code** | `node_modules/@anthropic-ai/claude-agent-sdk/` (closed source, npm) | `reference/cc-docs/` (manually maintained) | `sync-sdks.sh` updates npm + snapshots `sdk.d.ts` for diffing. **SDK docs must be manually updated** from https://platform.claude.com/docs/en/agent-sdk/ into `reference/cc-docs/` |
+| **Pi** | `reference/pi-mono/packages/coding-agent/src/` (main) | In the source + `packages/coding-agent/docs/` | npm: `@mariozechner/pi-coding-agent`. Source ref for types/events/tools |
 
 **Claude Code SDK docs** (`reference/cc-docs/`): These are manually copied from the Claude platform docs website. Key files:
 - `01-overview.md` through `06-migration-guide.md` — core SDK reference
@@ -612,20 +612,31 @@ To add `xx_list_widgets` for agent XX:
 
 > **⚠️ TRUST ORDER FOR CLAUDE CODE SDK (read this before any SDK work):**
 >
-> **First: make sure the SDK is up to date!** Run `cd packages/bridge && npm update @anthropic-ai/claude-agent-sdk` before comparing types. We got burned comparing against stale `0.1.76` when latest was `0.2.34` — the docs were right, our package was old.
+> **First: make sure the SDK is up to date!** Run `cd packages/bridge && bun update @anthropic-ai/claude-agent-sdk` before comparing types.
 >
 > Once the SDK package is current, these three sources should agree. If they don't:
 >
-> 1. 🥇 **`reference/cc-docs/`** — official API docs manually copied from https://platform.claude.com/docs/en/agent-sdk/. Best for types, patterns, and how-to guides. This is the **primary reference** for SDK work.
-> 2. 🥈 **Installed SDK `.d.ts` files** (`packages/bridge/node_modules/@anthropic-ai/claude-agent-sdk/sdk.d.ts`) — the actual compiled types. Use to **verify** when docs seem wrong or incomplete. If docs and `.d.ts` disagree and the package is current, trust `.d.ts` (docs may not have been updated yet for a recent release).
-> 3. 🥉 **`reference/claude-code/` CHANGELOG** — tells you what's new in the **Claude Code CLI app**, NOT necessarily the Agent SDK npm package. Features sometimes land in the CLI first. Relevant for filesystem features (hooks files, agent `.md` files, memory dirs, `.claude/` structure) since we read/write those directly.
->
-> **Rule of thumb:** cc-docs for learning, `.d.ts` for verifying, CHANGELOG for CLI-only features.
+> 1. 🥇 **`reference/cc-docs/`** — official API docs. Primary reference for SDK work.
+> 2. 🥈 **Installed SDK `.d.ts` files** (`packages/bridge/node_modules/@anthropic-ai/claude-agent-sdk/sdk.d.ts`) — actual compiled types. If docs and `.d.ts` disagree and the package is current, trust `.d.ts`.
+> 3. 🥉 **`reference/claude-code/` CHANGELOG** — tells you what's new in the **CLI app**, NOT the SDK npm package. Relevant for filesystem features (hooks, `.claude/` structure) since we read/write those directly.
 
 ### SDK Sync Workflow
 
-1. Run `./reference/sync-refs.sh --all` — pulls all SDK repos + auto-generates diff report
-2. Report saved to `reference/YYYY-MM-DD_HHMM_sdk-diff.md`
-3. Report has 4 parts: SDK changes (categorized), your code inventory (dynamic), conventions, AI instructions
-4. State tracked in `reference/.sdk-state` (last-synced commit per SDK)
-5. Hand report to AI agent or just say "I synced the SDKs, update bridge + flutter"
+Two scripts, two outputs:
+
+1. **`./reference/sync-sdks.sh --all`** — pulls 4 SDK repos, updates CC npm, generates `sdk-changes.md`
+   - Report: `reference/DD-Mon-YYYY_sdk-changes.md` (< 300 lines, actionable)
+   - Shows only API surface changes (exports added/removed), not raw diffs
+   - Cross-references each change against your code (MUST FIX / SHOULD ADD / NO IMPACT)
+   - Filters commits to SDK-relevant paths only (not CLI/TUI/CI noise)
+   - For CC: diffs `sdk.d.ts` before/after (captures actual type changes, not CLI changelog)
+
+2. **`./reference/generate-codebase-map.sh`** — generates `reference/codebase-map.md` (< 400 lines)
+   - Static architecture reference: where every file lives, with line counts
+   - SDK API surface snapshots (Query methods, JSON-RPC methods, client methods)
+   - Runtime contract types (BroskiRuntimeEvent, BroskiRuntimeState, capabilities)
+   - Run after big refactors, not every sync
+
+3. **`./reference/sync-refs.sh --all`** — pulls competitor/reference repos, Cursor docs, OneContext (separate from SDK updates)
+
+State tracked in `reference/.sdk-state` (commit SHAs per SDK + last-sync timestamp).
