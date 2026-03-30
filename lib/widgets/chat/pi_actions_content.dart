@@ -386,8 +386,7 @@ class PiActionsContent extends ConsumerWidget {
                     child: ActionRow(
                       icon: AppIcons.refresh,
                       label: 'Cancel Retry',
-                      subtitle:
-                          'Stop waiting for retry attempt',
+                      subtitle: 'Stop waiting for retry attempt',
                       theme: theme,
                       color: theme.warning,
                       onTap: () => onAction('pi_abort_retry'),

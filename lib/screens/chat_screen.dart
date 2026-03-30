@@ -912,8 +912,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     onNewSession: _piNewSession,
     onExport: () => psa.piExportSession(context: context, ref: ref),
     onCopyLast: () => psa.piCopyLastResponse(context: context, ref: ref),
-    onAbortCompaction: () =>
-        psa.piAbortCompaction(context: context, ref: ref),
+    onAbortCompaction: () => psa.piAbortCompaction(context: context, ref: ref),
     onAbortRetry: () => psa.piAbortRetry(context: context, ref: ref),
   );
 

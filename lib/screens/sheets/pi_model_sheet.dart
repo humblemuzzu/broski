@@ -26,16 +26,19 @@ void showPiModelSheet(BuildContext context) {
           tooltip: 'Refresh models',
           onPressed: () {
             final bridge = ref.read(piBridgeServiceProvider);
-            bridge.refreshModels().then((_) {
-              ref.invalidate(piModelsProvider);
-              if (context.mounted) {
-                showInfo(context, 'Models refreshed');
-              }
-            }).catchError((e) {
-              if (context.mounted) {
-                showError(context, 'Refresh failed: $e');
-              }
-            });
+            bridge
+                .refreshModels()
+                .then((_) {
+                  ref.invalidate(piModelsProvider);
+                  if (context.mounted) {
+                    showInfo(context, 'Models refreshed');
+                  }
+                })
+                .catchError((e) {
+                  if (context.mounted) {
+                    showError(context, 'Refresh failed: $e');
+                  }
+                });
           },
         );
       },

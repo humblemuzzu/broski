@@ -634,10 +634,7 @@ class PiBridgeService {
       if (projectPath != null) 'projectPath': projectPath,
     });
 
-    final response = await _waitFor(
-      'pi_system_prompt',
-      requestId: requestId,
-    );
+    final response = await _waitFor('pi_system_prompt', requestId: requestId);
     final data = response['data'] as Map<String, dynamic>? ?? const {};
     return data['systemPrompt'] as String? ?? '';
   }
