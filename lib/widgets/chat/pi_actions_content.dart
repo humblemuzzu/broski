@@ -312,26 +312,96 @@ class PiActionsContent extends ConsumerWidget {
                     onTap: () => onAction('pi_new_session'),
                   ),
                   const SizedBox(width: 10),
-                  // Spacer tile
+                  ActionTile(
+                    icon: AppIcons.tools,
+                    label: 'Tools',
+                    theme: theme,
+                    onTap: () => onAction('pi_tools'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: Spacing.md),
+              Row(
+                children: [
+                  ActionTile(
+                    icon: AppIcons.settings,
+                    label: 'Settings',
+                    theme: theme,
+                    onTap: () => onAction('pi_settings'),
+                  ),
+                  const SizedBox(width: 10),
+                  ActionTile(
+                    icon: AppIcons.share,
+                    label: 'Export',
+                    theme: theme,
+                    onTap: () => onAction('pi_export'),
+                  ),
+                  const SizedBox(width: 10),
+                  ActionTile(
+                    icon: AppIcons.copy,
+                    label: 'Copy Last',
+                    theme: theme,
+                    onTap: () => onAction('pi_copy_last'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: Spacing.md),
+              Row(
+                children: [
+                  ActionTile(
+                    icon: AppIcons.gitBranch,
+                    label: 'Tree',
+                    theme: theme,
+                    onTap: () => onAction('pi_tree'),
+                  ),
+                  const SizedBox(width: 10),
                   const Expanded(child: SizedBox()),
                 ],
               ),
-              if (isStreaming) ...[
+              if (isStreaming ||
+                  chatState.isCompacting ||
+                  chatState.sessionStatus.isRetry) ...[
                 const SizedBox(height: Spacing.xl),
                 SectionHeader(
-                  title: 'DANGER ZONE',
+                  title: 'ACTIVE OPERATIONS',
                   theme: theme,
-                  color: theme.error.withValues(alpha: 0.7),
+                  color: theme.warning.withValues(alpha: 0.7),
                 ),
                 const SizedBox(height: Spacing.md),
-                ActionRow(
-                  icon: AppIcons.stop,
-                  label: 'Stop Agent',
-                  subtitle: 'Abort the current AI response',
-                  theme: theme,
-                  color: theme.error,
-                  onTap: () => onAction('stop'),
-                ),
+                if (chatState.isCompacting)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: ActionRow(
+                      icon: AppIcons.compress,
+                      label: 'Cancel Compaction',
+                      subtitle: 'Stop context summarization',
+                      theme: theme,
+                      color: theme.warning,
+                      onTap: () => onAction('pi_abort_compaction'),
+                    ),
+                  ),
+                if (chatState.sessionStatus.isRetry)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: ActionRow(
+                      icon: AppIcons.refresh,
+                      label: 'Cancel Retry',
+                      subtitle:
+                          'Stop waiting for retry attempt',
+                      theme: theme,
+                      color: theme.warning,
+                      onTap: () => onAction('pi_abort_retry'),
+                    ),
+                  ),
+                if (isStreaming)
+                  ActionRow(
+                    icon: AppIcons.stop,
+                    label: 'Stop Agent',
+                    subtitle: 'Abort the current AI response',
+                    theme: theme,
+                    color: theme.error,
+                    onTap: () => onAction('stop'),
+                  ),
               ],
             ],
           ),

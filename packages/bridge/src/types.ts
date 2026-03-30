@@ -1061,6 +1061,9 @@ export type ClientMessage =
 	| { type: "pi_compact"; customInstructions?: string; projectPath?: string }
 	| { type: "pi_set_auto_compaction"; enabled: boolean; projectPath?: string }
 	| { type: "pi_export_html"; outputPath?: string; projectPath?: string }
+	| { type: "pi_export_jsonl"; outputPath?: string; projectPath?: string }
+	| { type: "pi_import_jsonl"; inputPath: string; projectPath?: string }
+	| { type: "pi_get_system_prompt"; projectPath?: string }
 	| { type: "pi_get_settings"; projectPath?: string }
 	| {
 			type: "pi_set_settings";
@@ -2202,7 +2205,9 @@ export type ServerMessage =
 	| { type: "pi_commands"; data: PiCommandPayload[]; requestId?: string }
 	| { type: "pi_compacted"; data: any; requestId?: string }
 	| { type: "pi_auto_compaction_set"; data: boolean; requestId?: string }
-	| { type: "pi_export_result"; data: { path: string }; requestId?: string }
+	| { type: "pi_export_result"; data: { path: string; format?: string }; requestId?: string }
+	| { type: "pi_jsonl_imported"; data: { success: boolean }; requestId?: string }
+	| { type: "pi_system_prompt"; data: { systemPrompt: string }; requestId?: string }
 	| { type: "pi_settings"; data: Record<string, any>; requestId?: string }
 	| { type: "pi_settings_updated"; data: boolean; requestId?: string }
 	| { type: "pi_instance_disposed"; data: boolean; requestId?: string }

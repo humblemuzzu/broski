@@ -84,9 +84,9 @@ export function getAuthStorage(): AuthStorage {
 
 export function getModelRegistry(): ModelRegistry {
 	if (!modelRegistry) {
-		modelRegistry = new ModelRegistry(getAuthStorage());
+		modelRegistry = ModelRegistry.create(getAuthStorage());
 	}
-	return modelRegistry;
+	return modelRegistry!;
 }
 
 const drainAuthStorageErrors = (): void => {
@@ -405,12 +405,12 @@ export function listCommands(instance: PiInstance): PiCommandPayload[] {
 	}));
 
 	const extensionCommands =
-		instance.session.extensionRunner?.getRegisteredCommandsWithPaths().map(({ command, extensionPath }) => ({
+		instance.session.extensionRunner?.getRegisteredCommands().map((command) => ({
 			name: command.name,
 			description: command.description,
 			source: "extension" as const,
-			location: inferLocation(extensionPath, instance.cwd),
-			path: extensionPath,
+			location: inferLocation(command.sourceInfo.path, instance.cwd),
+			path: command.sourceInfo.path,
 		})) ?? [];
 
 	return [...skills, ...prompts, ...extensionCommands];

@@ -132,6 +132,7 @@ extension BridgeServiceConfig on BridgeService {
     required String providerId,
     required int method,
     String? projectPath,
+    Map<String, String>? inputs,
   }) async {
     final requestId = _generateRequestId();
     _socket.send({
@@ -140,6 +141,7 @@ extension BridgeServiceConfig on BridgeService {
       'method': method,
       'requestId': requestId,
       if (projectPath != null) 'projectPath': projectPath,
+      if (inputs != null && inputs.isNotEmpty) 'inputs': inputs,
     });
     final response = await _waitFor(
       'provider_oauth_authorized',
@@ -206,5 +208,17 @@ extension BridgeServiceConfig on BridgeService {
       requestId: requestId,
     );
     return response['data'] as bool? ?? false;
+  }
+
+  // ============================================================
+  // OpenCode Health Check
+  // ============================================================
+
+  /// Get OpenCode health status including version.
+  Future<Map<String, dynamic>?> getOpenCodeHealth() async {
+    final requestId = _generateRequestId();
+    _socket.send({'type': 'oc_health', 'requestId': requestId});
+    final response = await _waitFor('oc_health_result', requestId: requestId);
+    return response['data'] as Map<String, dynamic>?;
   }
 }

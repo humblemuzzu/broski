@@ -141,9 +141,10 @@ extension BridgeServiceSessionsCore on BridgeService {
     String sessionId, {
     String? projectPath,
     int? limit,
+    String? before,
   }) async {
     final dedupeKey =
-        'get_session_messages:$sessionId:${projectPath ?? 'null'}:${limit ?? 'all'}';
+        'get_session_messages:$sessionId:${projectPath ?? 'null'}:${limit ?? 'all'}:${before ?? 'none'}';
 
     if (_inFlightRequests.containsKey(dedupeKey)) {
       return await _inFlightRequests[dedupeKey] as List<dynamic>;
@@ -153,6 +154,7 @@ extension BridgeServiceSessionsCore on BridgeService {
       sessionId,
       projectPath: projectPath,
       limit: limit,
+      before: before,
     );
     _inFlightRequests[dedupeKey] = future;
 
@@ -167,6 +169,7 @@ extension BridgeServiceSessionsCore on BridgeService {
     String sessionId, {
     String? projectPath,
     int? limit,
+    String? before,
   }) async {
     return _timedRequest('get_session_messages', () async {
       final requestId = _generateRequestId();
@@ -176,6 +179,7 @@ extension BridgeServiceSessionsCore on BridgeService {
         'requestId': requestId,
         if (projectPath != null) 'projectPath': projectPath,
         if (limit != null) 'limit': limit,
+        if (before != null) 'before': before,
       });
       final response = await _waitFor('session_messages', requestId: requestId);
       return response['data'] as List<dynamic>? ?? [];

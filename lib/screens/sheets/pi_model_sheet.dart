@@ -1,6 +1,7 @@
 import 'package:broski/models/pi.dart';
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/pi_provider.dart';
+import 'package:broski/services/pi_bridge_service.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/app_typography.dart';
 import 'package:broski/theme/design_tokens.dart';
@@ -18,6 +19,27 @@ void showPiModelSheet(BuildContext context) {
     context: context,
     title: 'Pi Model',
     initialSize: 0.6,
+    trailing: Consumer(
+      builder: (context, ref, _) {
+        return IconButton(
+          icon: Icon(AppIcons.refresh, size: 18, color: theme.textMuted),
+          tooltip: 'Refresh models',
+          onPressed: () {
+            final bridge = ref.read(piBridgeServiceProvider);
+            bridge.refreshModels().then((_) {
+              ref.invalidate(piModelsProvider);
+              if (context.mounted) {
+                showInfo(context, 'Models refreshed');
+              }
+            }).catchError((e) {
+              if (context.mounted) {
+                showError(context, 'Refresh failed: $e');
+              }
+            });
+          },
+        );
+      },
+    ),
     child: Consumer(
       builder: (context, ref, _) {
         final chatState = ref.watch(chatSessionProvider);

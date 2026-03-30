@@ -558,7 +558,37 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
 			const outputPath = await instance.session.exportToHtml(
 				typeof message.outputPath === "string" ? message.outputPath : undefined,
 			);
-			reply({ type: "pi_export_result", data: { path: outputPath }, requestId: message.requestId });
+			reply({ type: "pi_export_result", data: { path: outputPath, format: "html" }, requestId: message.requestId });
+			return true;
+		}
+
+		case "pi_export_jsonl": {
+			const instance = await pi.getOrCreateInstance(cwd);
+			const outputPath = instance.session.exportToJsonl(
+				typeof message.outputPath === "string" ? message.outputPath : undefined,
+			);
+			reply({ type: "pi_export_result", data: { path: outputPath, format: "jsonl" }, requestId: message.requestId });
+			return true;
+		}
+
+		case "pi_import_jsonl": {
+			const instance = await pi.getOrCreateInstance(cwd);
+			const inputPath = String(message.inputPath ?? "");
+			if (!inputPath) {
+				throw new Error("No inputPath provided for JSONL import");
+			}
+			const success = await instance.session.importFromJsonl(inputPath);
+			reply({ type: "pi_jsonl_imported", data: { success }, requestId: message.requestId });
+			return true;
+		}
+
+		case "pi_get_system_prompt": {
+			const instance = await pi.getOrCreateInstance(cwd);
+			reply({
+				type: "pi_system_prompt",
+				data: { systemPrompt: instance.session.systemPrompt },
+				requestId: message.requestId,
+			});
 			return true;
 		}
 

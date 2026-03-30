@@ -61,6 +61,19 @@ class _State extends ConsumerState<OpenCodeGlobalConfigScreen> {
   bool get _prune => _compaction()['prune'] as bool? ?? true;
   String get _model => _config['model'] as String? ?? '';
   String get _provider => _config['provider'] as String? ?? '';
+  String get _smallModel => _config['small_model'] as String? ?? '';
+  String get _defaultAgent => _config['default_agent'] as String? ?? '';
+  bool get _snapshot => _config['snapshot'] as bool? ?? true;
+  List<String> get _disabledProviders {
+    final v = _config['disabled_providers'];
+    return v is List ? v.whereType<String>().toList() : [];
+  }
+
+  List<String> get _instructions {
+    final v = _config['instructions'];
+    return v is List ? v.whereType<String>().toList() : [];
+  }
+
   String get _shareMode {
     final s = _config['share'];
     return s is String && const {'manual', 'auto', 'disabled'}.contains(s)
@@ -92,6 +105,12 @@ class _State extends ConsumerState<OpenCodeGlobalConfigScreen> {
       section: {...cur, key: v},
     });
   }
+
+  void _setTopLevelBool(String key, bool v) => _save({key: v});
+
+  // OpenCode's config.update treats null values as "remove this key".
+  void _setTopLevelString(String key, String v) =>
+      _save({key: v.isEmpty ? null : v});
 
   void _showRawJson() {
     final oc = OpenCodeTheme.of(context);
@@ -183,6 +202,22 @@ class _State extends ConsumerState<OpenCodeGlobalConfigScreen> {
             _row(oc, 'Model', _model.isEmpty ? '—' : _model),
             Divider(height: 1, color: oc.borderSubtle),
             _row(oc, 'Provider', _provider.isEmpty ? '—' : _provider),
+            Divider(height: 1, color: oc.borderSubtle),
+            _editableRow(
+              oc,
+              'Title Model',
+              _smallModel,
+              'e.g. openai/gpt-4o-mini',
+              (v) => _setTopLevelString('small_model', v),
+            ),
+            Divider(height: 1, color: oc.borderSubtle),
+            _editableRow(
+              oc,
+              'Default Agent',
+              _defaultAgent,
+              'e.g. build',
+              (v) => _setTopLevelString('default_agent', v),
+            ),
           ]),
           const SizedBox(height: Spacing.lg),
           _card(oc, 'Session Behavior', 'Context compaction and pruning.', [
@@ -199,6 +234,16 @@ class _State extends ConsumerState<OpenCodeGlobalConfigScreen> {
               'Drop stale tool output.',
               _prune,
               (v) => _setBool('compaction', 'prune', v),
+            ),
+          ]),
+          const SizedBox(height: Spacing.lg),
+          _card(oc, 'Features', 'Enable or disable OpenCode features.', [
+            _sw(
+              oc,
+              'Snapshots',
+              'Track filesystem state for undo/revert.',
+              _snapshot,
+              (v) => _setTopLevelBool('snapshot', v),
             ),
           ]),
           const SizedBox(height: Spacing.lg),
@@ -231,6 +276,79 @@ class _State extends ConsumerState<OpenCodeGlobalConfigScreen> {
             ),
           ]),
           const SizedBox(height: Spacing.lg),
+          if (_disabledProviders.isNotEmpty)
+            _card(
+              oc,
+              'Disabled Providers',
+              'Providers excluded from auto-loading.',
+              [
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: _disabledProviders
+                      .map(
+                        (p) => Chip(
+                          label: Text(
+                            p,
+                            style: TextStyle(color: oc.text, fontSize: 12),
+                          ),
+                          deleteIcon: Icon(
+                            AppIcons.close,
+                            size: 14,
+                            color: oc.textMuted,
+                          ),
+                          onDeleted: _saving
+                              ? null
+                              : () {
+                                  final updated = List<String>.from(
+                                    _disabledProviders,
+                                  )..remove(p);
+                                  _save({'disabled_providers': updated});
+                                },
+                          backgroundColor: oc.backgroundElement,
+                          side: BorderSide(color: oc.borderSubtle),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ],
+            ),
+          if (_disabledProviders.isNotEmpty) const SizedBox(height: Spacing.lg),
+          if (_instructions.isNotEmpty)
+            _card(
+              oc,
+              'Instructions',
+              'Additional instruction files loaded by the agent.',
+              [
+                ...(_instructions).map(
+                  (i) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        Icon(
+                          AppIcons.description,
+                          size: 14,
+                          color: oc.textMuted,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            i,
+                            style: TextStyle(
+                              color: oc.text,
+                              fontSize: 12,
+                              fontFamily: 'monospace',
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          if (_instructions.isNotEmpty) const SizedBox(height: Spacing.lg),
           _card(oc, 'Advanced', 'View full raw configuration.', [
             ListTile(
               dense: true,
@@ -312,6 +430,83 @@ class _State extends ConsumerState<OpenCodeGlobalConfigScreen> {
     subtitle: Text(s, style: AppTypography.label(color: oc.textMuted)),
     activeThumbColor: oc.primary,
   );
+
+  Widget _editableRow(
+    OpenCodeTheme oc,
+    String label,
+    String currentValue,
+    String hint,
+    ValueChanged<String> onSave,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: oc.textMuted,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const Spacer(),
+          GestureDetector(
+            onTap: _saving
+                ? null
+                : () async {
+                    final controller = TextEditingController(
+                      text: currentValue,
+                    );
+                    final result = await showDialog<String>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        backgroundColor: oc.backgroundPanel,
+                        title: Text(label, style: TextStyle(color: oc.text)),
+                        content: TextField(
+                          controller: controller,
+                          style: TextStyle(color: oc.text, fontSize: 13),
+                          decoration: InputDecoration(
+                            hintText: hint,
+                            hintStyle: TextStyle(color: oc.textMuted),
+                          ),
+                          autofocus: true,
+                          onSubmitted: (v) => Navigator.pop(ctx, v),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () =>
+                                Navigator.pop(ctx, controller.text),
+                            child: const Text('Save'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (result != null) onSave(result);
+                  },
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  currentValue.isEmpty ? hint : currentValue,
+                  style: TextStyle(
+                    color: currentValue.isEmpty ? oc.textMuted : oc.text,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(AppIcons.edit, size: 12, color: oc.textMuted),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _row(OpenCodeTheme oc, String label, String value) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 10),

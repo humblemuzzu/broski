@@ -596,6 +596,52 @@ class PiBridgeService {
     return data['path'] as String? ?? '';
   }
 
+  Future<String> exportJsonl({String? outputPath, String? projectPath}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'pi_export_jsonl',
+      'requestId': requestId,
+      if (outputPath != null) 'outputPath': outputPath,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+
+    final response = await _waitFor('pi_export_result', requestId: requestId);
+    final data = response['data'] as Map<String, dynamic>? ?? const {};
+    return data['path'] as String? ?? '';
+  }
+
+  Future<String?> getLastAssistantText({String? projectPath}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'pi_get_last_assistant_text',
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+
+    final response = await _waitFor(
+      'pi_last_assistant_text',
+      requestId: requestId,
+    );
+    final data = response['data'] as Map<String, dynamic>? ?? const {};
+    return data['text'] as String?;
+  }
+
+  Future<String> getSystemPrompt({String? projectPath}) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'pi_get_system_prompt',
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+
+    final response = await _waitFor(
+      'pi_system_prompt',
+      requestId: requestId,
+    );
+    final data = response['data'] as Map<String, dynamic>? ?? const {};
+    return data['systemPrompt'] as String? ?? '';
+  }
+
   Future<Map<String, dynamic>> getSettings({String? projectPath}) async {
     final requestId = _generateRequestId();
     _socket.send({

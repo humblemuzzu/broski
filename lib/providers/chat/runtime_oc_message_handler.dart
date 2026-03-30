@@ -64,11 +64,29 @@ extension _RuntimeOcMessageHandler on ChatSessionNotifier {
       case 'pty.deleted':
         developer.log('OC PTY event: ${event.kind}', name: 'ChatProvider');
 
+      case 'command.executed':
+        developer.log(
+          'OC command executed: ${payloadMap['name'] ?? 'unknown'}',
+          name: 'ChatProvider',
+        );
+
       case 'worktree.ready':
         developer.log('OC worktree ready', name: 'ChatProvider');
 
       case 'worktree.failed':
         developer.log('OC worktree creation failed', name: 'ChatProvider');
+
+      case 'installation.update-available':
+        developer.log(
+          'OC update available: ${payloadMap['version'] ?? 'unknown'}',
+          name: 'ChatProvider',
+        );
+
+      case 'installation.updated':
+        developer.log(
+          'OC updated to ${payloadMap['version'] ?? 'unknown'}',
+          name: 'ChatProvider',
+        );
 
       case 'lsp.updated':
         developer.log('OC LSP status updated', name: 'ChatProvider');

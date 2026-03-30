@@ -183,15 +183,18 @@ class ProviderAuthMethod {
   final String label;
   final String? description;
   final String? url;
+  final List<AuthPrompt> prompts;
 
   const ProviderAuthMethod({
     required this.type,
     required this.label,
     this.description,
     this.url,
+    this.prompts = const [],
   });
 
   factory ProviderAuthMethod.fromJson(Map<String, dynamic> json) {
+    final rawPrompts = json['prompts'] as List<dynamic>?;
     return ProviderAuthMethod(
       type: json['type'] == 'oauth'
           ? ProviderAuthType.oauth
@@ -200,6 +203,11 @@ class ProviderAuthMethod {
           (json['label'] as String?) ?? (json['name'] as String?) ?? 'Unknown',
       description: json['description'] as String?,
       url: json['url'] as String?,
+      prompts:
+          rawPrompts
+              ?.map((p) => AuthPrompt.fromJson(p as Map<String, dynamic>))
+              .toList() ??
+          const [],
     );
   }
 
@@ -208,6 +216,90 @@ class ProviderAuthMethod {
 
   bool get isApiKey => type == ProviderAuthType.api;
   bool get isOAuth => type == ProviderAuthType.oauth;
+  bool get hasPrompts => prompts.isNotEmpty;
+}
+
+/// A dynamic form prompt for provider authentication.
+/// Can be a text input or a select dropdown with options.
+class AuthPrompt {
+  final String type; // "text" or "select"
+  final String key;
+  final String message;
+  final String? placeholder;
+  final List<AuthPromptOption> options; // only for "select"
+  final AuthPromptWhen? when;
+
+  const AuthPrompt({
+    required this.type,
+    required this.key,
+    required this.message,
+    this.placeholder,
+    this.options = const [],
+    this.when,
+  });
+
+  factory AuthPrompt.fromJson(Map<String, dynamic> json) {
+    final rawOptions = json['options'] as List<dynamic>?;
+    final rawWhen = json['when'] as Map<String, dynamic>?;
+    return AuthPrompt(
+      type: json['type'] as String? ?? 'text',
+      key: json['key'] as String? ?? '',
+      message: json['message'] as String? ?? '',
+      placeholder: json['placeholder'] as String?,
+      options:
+          rawOptions
+              ?.map((o) => AuthPromptOption.fromJson(o as Map<String, dynamic>))
+              .toList() ??
+          const [],
+      when: rawWhen != null ? AuthPromptWhen.fromJson(rawWhen) : null,
+    );
+  }
+
+  bool get isText => type == 'text';
+  bool get isSelect => type == 'select';
+}
+
+class AuthPromptOption {
+  final String label;
+  final String value;
+  final String? hint;
+
+  const AuthPromptOption({required this.label, required this.value, this.hint});
+
+  factory AuthPromptOption.fromJson(Map<String, dynamic> json) {
+    return AuthPromptOption(
+      label: json['label'] as String? ?? '',
+      value: json['value'] as String? ?? '',
+      hint: json['hint'] as String?,
+    );
+  }
+}
+
+/// Conditional visibility: show this prompt only when another prompt's
+/// value matches (eq) or doesn't match (neq) a given value.
+class AuthPromptWhen {
+  final String key;
+  final String op; // "eq" or "neq"
+  final String value;
+
+  const AuthPromptWhen({
+    required this.key,
+    required this.op,
+    required this.value,
+  });
+
+  factory AuthPromptWhen.fromJson(Map<String, dynamic> json) {
+    return AuthPromptWhen(
+      key: json['key'] as String? ?? '',
+      op: json['op'] as String? ?? 'eq',
+      value: json['value'] as String? ?? '',
+    );
+  }
+
+  bool evaluate(Map<String, String> currentValues) {
+    final current = currentValues[key] ?? '';
+    return op == 'neq' ? current != value : current == value;
+  }
 }
 
 class ProviderAuthAuthorization {

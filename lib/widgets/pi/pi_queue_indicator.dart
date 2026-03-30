@@ -1,4 +1,5 @@
-import 'package:broski/providers/pi_provider.dart';
+import 'package:broski/providers/pi_provider.dart'
+    show piBridgeServiceProvider, piStateProvider;
 import 'package:broski/services/pi_bridge_service.dart';
 import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:flutter/material.dart';
@@ -75,6 +76,7 @@ class PiQueueIndicator extends ConsumerWidget {
     try {
       final bridge = ref.read(piBridgeServiceProvider);
       await bridge.clearQueue(projectPath: projectPath);
+      ref.invalidate(piStateProvider(projectPath));
     } catch (e) {
       if (context.mounted) {
         showInfo(context, 'Failed to clear queue: $e');

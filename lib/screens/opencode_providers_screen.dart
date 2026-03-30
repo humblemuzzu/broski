@@ -2,6 +2,7 @@ import 'package:broski/models/provider.dart';
 import 'package:broski/providers/opencode_providers_provider.dart';
 import 'package:broski/providers/selection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/sheets/oc_auth_prompts_sheet.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
@@ -146,6 +147,18 @@ class _OpenCodeProvidersScreenState
   // ── OAuth Flow ───────────────────────────────────────────────────────────
 
   Future<void> _startOAuth(OcProviderDisplay provider, int methodIndex) async {
+    // If this auth method has prompts, collect inputs first
+    final authMethod = provider.authMethods[methodIndex];
+    Map<String, String>? inputs;
+    if (authMethod.hasPrompts) {
+      inputs = await showAuthPromptsDialog(
+        context: context,
+        providerName: provider.details.name,
+        prompts: authMethod.prompts,
+      );
+      if (inputs == null || !mounted) return; // user cancelled
+    }
+
     setState(() => _actionInProgress = true);
     try {
       final bridge = ref.read(bridgeServiceProvider);
@@ -153,6 +166,7 @@ class _OpenCodeProvidersScreenState
         providerId: provider.details.id,
         method: methodIndex,
         projectPath: _projectPath,
+        inputs: inputs,
       );
       if (!mounted) return;
       if (authResult == null) {

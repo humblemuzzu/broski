@@ -71,7 +71,9 @@ import 'package:broski/screens/sheets/cx_apps_sheet.dart';
 import 'package:broski/screens/sheets/cx_model_sheet.dart';
 import 'package:broski/screens/sheets/cx_remote_skills_sheet.dart';
 import 'package:broski/screens/sheets/cx_rollback_sheet.dart';
+import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/screens/sheets/pi_model_sheet.dart';
+import 'package:broski/widgets/pi/pi_queue_indicator.dart';
 import 'package:broski/services/haptics_service.dart';
 import 'package:broski/services/image_picker_service.dart';
 import 'package:broski/services/websocket_service.dart';
@@ -908,6 +910,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     onShowSidebar: _showPiSidebarSheet,
     onCompact: _piCompact,
     onNewSession: _piNewSession,
+    onExport: () => psa.piExportSession(context: context, ref: ref),
+    onCopyLast: () => psa.piCopyLastResponse(context: context, ref: ref),
+    onAbortCompaction: () =>
+        psa.piAbortCompaction(context: context, ref: ref),
+    onAbortRetry: () => psa.piAbortRetry(context: context, ref: ref),
   );
 
   Future<void> _piCompact() => psa.piCompact(context: context, ref: ref);
@@ -1541,6 +1548,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                         textColor: theme.text,
                         mutedColor: theme.textMuted,
                         surfaceColor: theme.backgroundPanel,
+                      );
+                    },
+                  ),
+                // Pi: show queue indicator when messages are pending
+                if (widget.isPi)
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final cwd = ref.watch(
+                        chatSessionProvider.select((s) => s.piCwd),
+                      );
+                      final stateAsync = ref.watch(piStateProvider(cwd));
+                      final pending =
+                          stateAsync.valueOrNull?.pendingMessageCount ?? 0;
+                      if (pending <= 0) return const SizedBox.shrink();
+                      return PiQueueIndicator(
+                        projectPath: cwd,
+                        pendingCount: pending,
                       );
                     },
                   ),
