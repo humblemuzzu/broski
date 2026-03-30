@@ -61,6 +61,7 @@ class ClaudeCodeSubagent {
   final List<dynamic>? mcpServers;
   final bool background;
   final String? isolation;
+  final String? initialPrompt;
 
   const ClaudeCodeSubagent({
     required this.name,
@@ -75,6 +76,7 @@ class ClaudeCodeSubagent {
     this.mcpServers,
     this.background = false,
     this.isolation,
+    this.initialPrompt,
   });
 
   factory ClaudeCodeSubagent.fromJson(Map<String, dynamic> json) {
@@ -96,6 +98,7 @@ class ClaudeCodeSubagent {
       mcpServers: json['mcpServers'] as List<dynamic>?,
       background: json['background'] as bool? ?? false,
       isolation: json['isolation'] as String?,
+      initialPrompt: json['initialPrompt'] as String?,
     );
   }
 
@@ -115,6 +118,8 @@ class ClaudeCodeSubagent {
         'mcpServers': mcpServers,
       if (background) 'background': true,
       if (isolation != null && isolation!.isNotEmpty) 'isolation': isolation,
+      if (initialPrompt != null && initialPrompt!.isNotEmpty)
+        'initialPrompt': initialPrompt,
     };
   }
 
@@ -131,6 +136,7 @@ class ClaudeCodeSubagent {
     List<dynamic>? mcpServers,
     bool? background,
     String? isolation,
+    String? initialPrompt,
   }) {
     return ClaudeCodeSubagent(
       name: name ?? this.name,
@@ -145,6 +151,7 @@ class ClaudeCodeSubagent {
       mcpServers: mcpServers ?? this.mcpServers,
       background: background ?? this.background,
       isolation: isolation ?? this.isolation,
+      initialPrompt: initialPrompt ?? this.initialPrompt,
     );
   }
 }

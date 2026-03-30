@@ -6,6 +6,7 @@ class ClaudeCodeSupportedModel {
   final List<String>? supportedEffortLevels;
   final bool? supportsAdaptiveThinking;
   final bool? supportsFastMode;
+  final bool? supportsAutoMode;
 
   const ClaudeCodeSupportedModel({
     required this.value,
@@ -15,6 +16,7 @@ class ClaudeCodeSupportedModel {
     this.supportedEffortLevels,
     this.supportsAdaptiveThinking,
     this.supportsFastMode,
+    this.supportsAutoMode,
   });
 
   factory ClaudeCodeSupportedModel.fromJson(Map<String, dynamic> json) {
@@ -29,6 +31,7 @@ class ClaudeCodeSupportedModel {
           .toList(),
       supportsAdaptiveThinking: json['supportsAdaptiveThinking'] as bool?,
       supportsFastMode: json['supportsFastMode'] as bool?,
+      supportsAutoMode: json['supportsAutoMode'] as bool?,
     );
   }
 
@@ -43,6 +46,7 @@ class ClaudeCodeSupportedModel {
       if (supportsAdaptiveThinking != null)
         'supportsAdaptiveThinking': supportsAdaptiveThinking,
       if (supportsFastMode != null) 'supportsFastMode': supportsFastMode,
+      if (supportsAutoMode != null) 'supportsAutoMode': supportsAutoMode,
     };
   }
 

@@ -33,6 +33,9 @@ extension BridgeServiceCcChat on BridgeService {
     String? fallbackModel,
     List<String>? additionalDirectories,
     List<FileAttachment>? fileAttachments,
+    // SDK 0.2.87
+    bool? continueSession,
+    bool? forkOnResume,
   }) {
     final guardKey = 'cc_chat:${sessionId ?? 'new'}:${prompt.hashCode}';
     if (!_guardFireAndForget(guardKey, cooldown: const Duration(seconds: 2))) {
@@ -70,6 +73,9 @@ extension BridgeServiceCcChat on BridgeService {
         'additionalDirectories': additionalDirectories,
       if (fileAttachments != null)
         'fileAttachments': fileAttachments.map((a) => a.toJson()).toList(),
+      // SDK 0.2.87
+      if (continueSession == true) 'continueSession': true,
+      if (forkOnResume == true) 'forkOnResume': true,
     });
   }
 
@@ -91,6 +97,8 @@ extension BridgeServiceCcChat on BridgeService {
     required String toolUseId,
     required String response,
     Map<String, dynamic>? updatedInput,
+    // SDK 0.2.87: Forward permission suggestions for "Always Allow" rule persistence
+    List<dynamic>? updatedPermissions,
   }) {
     _socket.send({
       'type': 'cc_permission_response',
@@ -98,6 +106,13 @@ extension BridgeServiceCcChat on BridgeService {
       'toolUseId': toolUseId,
       'response': response,
       if (updatedInput != null) 'updatedInput': updatedInput,
+      if (updatedPermissions != null) 'updatedPermissions': updatedPermissions,
+      // SDK 0.2.87: Classification for telemetry
+      'decisionClassification': switch (response) {
+        'always' => 'user_permanent',
+        'reject' => 'user_reject',
+        _ => 'user_temporary',
+      },
     });
   }
 
@@ -206,5 +221,112 @@ extension BridgeServiceCcChat on BridgeService {
       'serverName': serverName,
       'enabled': enabled,
     });
+  }
+
+  // ============================================================
+  // Claude Code - SDK 0.2.87 additions
+  // ============================================================
+
+  /// SDK 0.2.87: Get context window usage breakdown.
+  Future<Map<String, dynamic>?> ccGetContextUsage({
+    required String sessionId,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_get_context_usage',
+      'sessionId': sessionId,
+      'requestId': requestId,
+    });
+
+    try {
+      final response = await _waitFor('cc_context_usage', requestId: requestId);
+      if (response['error'] != null) return null;
+      return response['data'] as Map<String, dynamic>?;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// SDK 0.2.87: Apply settings mid-session.
+  Future<bool> ccApplySettings({
+    required String sessionId,
+    required Map<String, dynamic> settings,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_apply_settings',
+      'sessionId': sessionId,
+      'settings': settings,
+      'requestId': requestId,
+    });
+
+    try {
+      final response = await _waitFor(
+        'cc_settings_applied',
+        requestId: requestId,
+      );
+      final data = response['data'];
+      if (data is Map<String, dynamic>) {
+        return data['ok'] as bool? ?? false;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// SDK 0.2.87: Tag a session.
+  Future<bool> ccTagSession({
+    required String sessionId,
+    String? tag,
+    String? cwd,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_tag_session',
+      'sessionId': sessionId,
+      if (tag != null) 'tag': tag,
+      if (cwd != null) 'cwd': cwd,
+      'requestId': requestId,
+    });
+
+    try {
+      final response = await _waitFor(
+        'cc_session_tagged',
+        requestId: requestId,
+      );
+      final data = response['data'];
+      if (data is Map<String, dynamic>) {
+        return data['ok'] as bool? ?? false;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// SDK 0.2.87: Reload plugins on a live session (Query method).
+  /// Unlike filesystem-level reload, this tells the running SDK process to pick
+  /// up new/changed plugins and returns refreshed commands, agents, MCP status.
+  Future<Map<String, dynamic>?> ccReloadPluginsLive({
+    required String sessionId,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_reload_plugins_live',
+      'sessionId': sessionId,
+      'requestId': requestId,
+    });
+
+    try {
+      final response = await _waitFor(
+        'cc_plugins_reloaded_live',
+        requestId: requestId,
+      );
+      if (response['error'] != null) return null;
+      return response['data'] as Map<String, dynamic>?;
+    } catch (_) {
+      return null;
+    }
   }
 }

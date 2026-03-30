@@ -22,6 +22,7 @@ import * as ocQuestions from "./oc_questions";
 import * as ocSessionOps from "./oc_session_ops";
 import * as ocSessions from "./oc_sessions";
 import * as ocShell from "./oc_shell";
+import * as ocUpgrade from "./oc_upgrade";
 import * as ocWorkspaces from "./oc_workspaces";
 import * as ocWorktrees from "./oc_worktrees";
 
@@ -97,6 +98,7 @@ export async function handle(
 	if (await ocShell.handle(message, reply, requireOpenCode)) return true;
 	if (await ocCustomization.handle(message, reply, { requireOpenCode, safeString, getSecurePath })) return true;
 	if (await ocProject.handle(message, reply, requireOpenCode)) return true;
+	if (await ocUpgrade.handle(message, reply, requireOpenCode)) return true;
 
 	return false;
 }

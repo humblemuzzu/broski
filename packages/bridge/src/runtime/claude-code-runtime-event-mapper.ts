@@ -115,13 +115,20 @@ export function mapClaudeCodeStreamToRuntimeEvent(
 				request: {
 					requestId: streamMessage.toolUseId,
 					kind: streamMessage.tool,
-					title: streamMessage.description || `Allow ${streamMessage.tool}?`,
+					// SDK 0.2.87: Prefer SDK-provided title, fall back to description, then generic
+					title: streamMessage.title || streamMessage.description || `Allow ${streamMessage.tool}?`,
 					message: streamMessage.decisionReason,
 					metadata: {
 						tool: streamMessage.tool,
 						input: streamMessage.input,
 						...(streamMessage.blockedPath ? { blockedPath: streamMessage.blockedPath } : {}),
 						...(streamMessage.hasSuggestions !== undefined ? { hasSuggestions: streamMessage.hasSuggestions } : {}),
+						// SDK 0.2.87: Forward suggestions for "Always Allow" rule persistence
+						...(Array.isArray(streamMessage.suggestions) ? { ccSuggestions: streamMessage.suggestions } : {}),
+						// SDK 0.2.87: Human-readable fields
+						...(streamMessage.displayName ? { ccDisplayName: streamMessage.displayName } : {}),
+						...(streamMessage.title ? { ccTitle: streamMessage.title } : {}),
+						...(streamMessage.description ? { ccDescription: streamMessage.description } : {}),
 					},
 				},
 			};
@@ -234,6 +241,8 @@ export function mapClaudeCodeStreamToRuntimeEvent(
 		case "rate-limit-info":
 		case "prompt-suggestion":
 		case "auth-status":
+		case "session-state-changed":
+		case "api-retry":
 			return {
 				...baseEvent("backend_event", eventContext),
 				kind: streamMessage.type,

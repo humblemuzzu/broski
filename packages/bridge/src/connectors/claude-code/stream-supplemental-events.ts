@@ -40,6 +40,8 @@ export function emitClaudeCodeSupplementalStreamEvents(
 			...(typeof payload.tool_use_id === "string" ? { toolUseId: payload.tool_use_id } : {}),
 			description: String(payload.description ?? ""),
 			...(typeof payload.task_type === "string" ? { taskType: payload.task_type } : {}),
+			...(typeof payload.workflow_name === "string" ? { workflowName: payload.workflow_name } : {}),
+			...(typeof payload.prompt === "string" ? { prompt: payload.prompt } : {}),
 		});
 		return "handled";
 	}

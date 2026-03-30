@@ -58,6 +58,14 @@ class ClaudeCodeActionsContent extends StatelessWidget {
                 onTap: () => onAction('project_tools'),
               ),
               const SizedBox(height: Spacing.md),
+              ActionRow(
+                icon: AppIcons.tune,
+                label: 'Quick Settings',
+                subtitle: 'Fast mode, effort, memory, thinking',
+                theme: theme,
+                onTap: () => onAction('cc_quick_settings'),
+              ),
+              const SizedBox(height: Spacing.md),
               Row(
                 children: [
                   ActionTile(

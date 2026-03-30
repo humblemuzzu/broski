@@ -147,6 +147,55 @@ class CCSessionCard extends ConsumerWidget {
                           ),
                       ],
                     ),
+                    // Tag chip (if session has a tag)
+                    if (session.tag != null && session.tag!.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: ocTheme.accent.withValues(alpha: 0.12),
+                          borderRadius: Radii.brXs,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              AppIcons.star,
+                              size: 10,
+                              color: ocTheme.accent,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              session.tag!,
+                              style: TextStyle(
+                                color: ocTheme.accent,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    // First prompt preview (if available and different from title)
+                    if (session.firstPrompt != null &&
+                        session.firstPrompt!.isNotEmpty &&
+                        session.firstPrompt != session.displayTitle) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        session.firstPrompt!,
+                        style: TextStyle(
+                          color: ocTheme.textMuted,
+                          fontSize: 12.5,
+                          height: 1.3,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                     const SizedBox(height: 10),
                     // Meta row: agent icon + project + model badge
                     Row(

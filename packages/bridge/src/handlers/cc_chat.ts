@@ -201,6 +201,9 @@ export async function handleCcChat(
 			fallbackModel: message.fallbackModel ?? cfg.fallbackModel,
 			additionalDirectories: message.additionalDirectories,
 			agentProgressSummaries: message.agentProgressSummaries ?? cfg.agentProgressSummaries,
+			// SDK 0.2.87: Continue most recent session or fork on resume
+			...(message.continueSession ? { continueSession: true } : {}),
+			...(message.forkOnResume ? { forkOnResume: true } : {}),
 		},
 		(streamMsg: ClaudeCodeStreamMessage) => {
 			const streamMsgWithId = (() => {
@@ -289,6 +292,11 @@ export async function handleCcChat(
 				decisionReason: req.decisionReason,
 				blockedPath: req.blockedPath,
 				hasSuggestions: req.hasSuggestions,
+				// SDK 0.2.87: Forward full suggestions for "Always Allow" rule persistence
+				...(Array.isArray(req.suggestions) && req.suggestions.length > 0 ? { suggestions: req.suggestions } : {}),
+				// SDK 0.2.87: Human-readable fields from SDK
+				...(req.title ? { title: req.title } : {}),
+				...(req.displayName ? { displayName: req.displayName } : {}),
 				description: req.description,
 				agentId: req.agentId,
 			} as ClaudeCodeStreamMessage);

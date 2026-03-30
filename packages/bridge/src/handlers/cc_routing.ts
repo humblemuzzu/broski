@@ -31,7 +31,12 @@ export type CcRoutingContext = {
 	ccPermissionWaiters: Map<
 		string,
 		{
-			resolve: (response: { response: "once" | "always" | "reject"; updatedInput?: Record<string, unknown> }) => void;
+			resolve: (response: {
+				response: "once" | "always" | "reject";
+				updatedInput?: Record<string, unknown>;
+				updatedPermissions?: unknown[];
+				decisionClassification?: string;
+			}) => void;
 			timer: Timer;
 		}
 	>;
@@ -80,6 +85,11 @@ const LIVE_SESSION_OPS = new Set([
 	"cc_set_model",
 	"cc_initialization_result",
 	"cc_set_mcp_servers",
+	// SDK 0.2.87
+	"cc_get_context_usage",
+	"cc_apply_settings",
+	"cc_tag_session",
+	"cc_reload_plugins_live",
 ]);
 
 const CUSTOM_TOOL_OPS = new Set([
@@ -198,9 +208,16 @@ export async function handle(
 				message.updatedInput && typeof message.updatedInput === "object" && !Array.isArray(message.updatedInput)
 					? (message.updatedInput as Record<string, unknown>)
 					: undefined;
+			// SDK 0.2.87: Forward updatedPermissions for "Always Allow" rule persistence
+			const updatedPermissions = Array.isArray(message.updatedPermissions) ? message.updatedPermissions : undefined;
+			// SDK 0.2.87: Forward decision classification for telemetry
+			const decisionClassification =
+				typeof message.decisionClassification === "string" ? message.decisionClassification : undefined;
 			waiter.resolve({
 				response: normalized,
 				...(updatedInput ? { updatedInput } : {}),
+				...(updatedPermissions ? { updatedPermissions } : {}),
+				...(decisionClassification ? { decisionClassification } : {}),
 			});
 		}
 		return true;

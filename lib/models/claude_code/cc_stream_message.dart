@@ -74,6 +74,10 @@ sealed class ClaudeCodeStreamMessage {
         return CCElicitationRequest.fromJson(json);
       case 'elicitation-complete':
         return CCElicitationComplete.fromJson(json);
+      case 'session-state-changed':
+        return CCSessionStateChanged.fromJson(json);
+      case 'api-retry':
+        return CCApiRetry.fromJson(json);
       default:
         return CCUnknown(type ?? 'unknown', json);
     }
@@ -228,6 +232,9 @@ class CCPermissionRequest extends ClaudeCodeStreamMessage {
   final bool hasSuggestions;
   final String? description;
   final String? agentId;
+  final String? title;
+  final String? displayName;
+  final List<Map<String, dynamic>>? suggestions;
 
   const CCPermissionRequest({
     required this.sessionId,
@@ -239,6 +246,9 @@ class CCPermissionRequest extends ClaudeCodeStreamMessage {
     required this.hasSuggestions,
     this.description,
     this.agentId,
+    this.title,
+    this.displayName,
+    this.suggestions,
     super.parentToolUseId,
   });
 
@@ -255,6 +265,11 @@ class CCPermissionRequest extends ClaudeCodeStreamMessage {
       hasSuggestions: json['hasSuggestions'] as bool? ?? false,
       description: json['description'] as String?,
       agentId: json['agentId'] as String?,
+      title: json['title'] as String?,
+      displayName: json['displayName'] as String?,
+      suggestions: (json['suggestions'] as List<dynamic>?)
+          ?.whereType<Map<String, dynamic>>()
+          .toList(),
       parentToolUseId: json['parentToolUseId'] as String?,
     );
   }
@@ -606,12 +621,16 @@ class CCTaskStarted extends ClaudeCodeStreamMessage {
   final String? toolUseId;
   final String description;
   final String? taskType;
+  final String? workflowName;
+  final String? prompt;
 
   const CCTaskStarted({
     required this.taskId,
     this.toolUseId,
     required this.description,
     this.taskType,
+    this.workflowName,
+    this.prompt,
     super.parentToolUseId,
   });
 
@@ -621,6 +640,8 @@ class CCTaskStarted extends ClaudeCodeStreamMessage {
       toolUseId: json['toolUseId'] as String?,
       description: json['description'] as String? ?? '',
       taskType: json['taskType'] as String?,
+      workflowName: json['workflowName'] as String?,
+      prompt: json['prompt'] as String?,
       parentToolUseId: json['parentToolUseId'] as String?,
     );
   }
@@ -1161,6 +1182,52 @@ class CCElicitationComplete extends ClaudeCodeStreamMessage {
     return CCElicitationComplete(
       mcpServerName: json['mcpServerName'] as String? ?? '',
       elicitationId: json['elicitationId'] as String? ?? '',
+      parentToolUseId: json['parentToolUseId'] as String?,
+    );
+  }
+}
+
+// ── SDK 0.2.87: Session state changed ───────────────────────────────────
+class CCSessionStateChanged extends ClaudeCodeStreamMessage {
+  final String sessionState; // "idle", "running", "requires_action"
+
+  const CCSessionStateChanged({
+    required this.sessionState,
+    super.parentToolUseId,
+  });
+
+  factory CCSessionStateChanged.fromJson(Map<String, dynamic> json) {
+    return CCSessionStateChanged(
+      sessionState: json['sessionState'] as String? ?? 'unknown',
+      parentToolUseId: json['parentToolUseId'] as String?,
+    );
+  }
+}
+
+// ── SDK 0.2.87: API retry notification ──────────────────────────────────
+class CCApiRetry extends ClaudeCodeStreamMessage {
+  final int attempt;
+  final int maxRetries;
+  final int retryDelayMs;
+  final int? errorStatus;
+  final String? error;
+
+  const CCApiRetry({
+    required this.attempt,
+    required this.maxRetries,
+    required this.retryDelayMs,
+    this.errorStatus,
+    this.error,
+    super.parentToolUseId,
+  });
+
+  factory CCApiRetry.fromJson(Map<String, dynamic> json) {
+    return CCApiRetry(
+      attempt: (json['attempt'] as num?)?.toInt() ?? 0,
+      maxRetries: (json['maxRetries'] as num?)?.toInt() ?? 0,
+      retryDelayMs: (json['retryDelayMs'] as num?)?.toInt() ?? 0,
+      errorStatus: (json['errorStatus'] as num?)?.toInt(),
+      error: json['error'] as String?,
       parentToolUseId: json['parentToolUseId'] as String?,
     );
   }

@@ -252,6 +252,7 @@ export function mapOpenCodeSdkEventToRuntimeEvent(
 		case "vcs.branch.updated":
 		case "mcp.tools.changed":
 		case "mcp.browser.open.failed":
+		case "command.executed":
 		case "workspace.ready":
 		case "workspace.failed":
 			return {
@@ -361,6 +362,14 @@ export function mapOpenCodeSdkEventToRuntimeEvent(
 			};
 
 		case "file.edited":
+			return {
+				...baseEvent("backend_event", { sourceType: payloadType }, sessionId, cwd),
+				kind: payloadType,
+				payload: properties,
+			};
+
+		case "installation.update-available":
+		case "installation.updated":
 			return {
 				...baseEvent("backend_event", { sourceType: payloadType }, sessionId, cwd),
 				kind: payloadType,

@@ -220,10 +220,15 @@ export class OpenCodeConnector {
 		return this.mapSession(session!);
 	}
 
-	async getSessionMessages(sessionId: string, directory?: string, limit?: number) {
+	async getSessionMessages(sessionId: string, directory?: string, limit?: number, before?: string) {
 		// v2 SDK: first arg is parameters, second arg is options
 		// Note: v2 SDK uses sessionID (capital ID), not id
-		const { data } = await this.client.session.messages({ sessionID: sessionId, directory, limit });
+		const { data } = await this.client.session.messages({
+			sessionID: sessionId,
+			directory,
+			limit,
+			...(before ? { before } : {}),
+		});
 		return data;
 	}
 
@@ -1422,21 +1427,14 @@ export class OpenCodeConnector {
 			const { data: result } = await this.client.provider.auth({ directory });
 			const mapped: Record<string, ProviderAuthMethod[]> = {};
 			for (const [providerId, methods] of Object.entries(result ?? {})) {
-				const methodList = Array.isArray(methods)
-					? (methods as Array<{
-							type?: string;
-							label?: string;
-							name?: string;
-							description?: string;
-							url?: string;
-						}>)
-					: [];
+				const methodList = Array.isArray(methods) ? (methods as any[]) : [];
 				mapped[providerId] = methodList.map((m) => ({
-					type: m.type === "oauth" ? "oauth" : "api",
+					type: m.type === "oauth" ? ("oauth" as const) : ("api" as const),
 					label: m.label,
 					name: m.name,
 					description: m.description,
 					url: m.url,
+					prompts: Array.isArray(m.prompts) ? m.prompts : undefined,
 				}));
 			}
 			return mapped;
@@ -1449,12 +1447,14 @@ export class OpenCodeConnector {
 		providerId: string,
 		method: number,
 		directory?: string,
+		inputs?: Record<string, string>,
 	): Promise<ProviderAuthAuthorization | null> {
 		try {
 			const { data: result } = await this.client.provider.oauth.authorize({
 				providerID: providerId,
 				directory,
 				method,
+				...(inputs ? { inputs } : {}),
 			});
 			if (!result) return null;
 			return {
@@ -1747,6 +1747,16 @@ export class OpenCodeConnector {
 			}));
 		} catch {
 			return [];
+		}
+	}
+
+	// Feature: OpenCode Health Check
+	async getHealth(): Promise<{ healthy: boolean; version: string } | null> {
+		try {
+			const { data } = await this.client.global.health();
+			return data ?? null;
+		} catch {
+			return null;
 		}
 	}
 

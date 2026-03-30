@@ -55,10 +55,15 @@ Future<void> respondToPermission({
         content: content,
       );
     } else {
+      // SDK 0.2.87: Forward suggestions for "Always Allow" rule persistence
+      final suggestions = response == 'always'
+          ? request.metadata['ccSuggestions'] as List<dynamic>?
+          : null;
       bridge.ccRespondToPermission(
         sessionId: request.sessionId,
         toolUseId: request.id,
         response: response,
+        updatedPermissions: suggestions,
       );
     }
   } else if (isCodex) {

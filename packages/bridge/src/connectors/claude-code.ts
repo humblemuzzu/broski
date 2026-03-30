@@ -309,6 +309,8 @@ export type ClaudeCodeQueryOptions = {
 	fallbackModel?: string; // B5: fallback model on primary failure
 	additionalDirectories?: string[]; // B6: extra directories agent can access
 	agentProgressSummaries?: boolean; // SDK 0.2.74: AI-generated progress summaries for subagents
+	continueSession?: boolean; // SDK 0.2.87: Continue most recent conversation in cwd
+	forkOnResume?: boolean; // SDK 0.2.87: Fork to new session ID when resuming
 };
 
 /**
@@ -1203,64 +1205,30 @@ export async function forkSession(
 	messageId?: string,
 	cwd?: string,
 ): Promise<ClaudeCodeSession | null> {
-	const { copyFile, writeFile } = await import("node:fs/promises");
-	const { randomUUID } = await import("node:crypto");
-
-	const sourceFile = await findSessionFile(sessionId, cwd);
-	if (!sourceFile) return null;
-
 	try {
-		const projectDir = await getProjectSessionsDir(cwd || process.cwd());
-		const newSessionId = randomUUID();
-		const destFile = join(projectDir, `${newSessionId}.jsonl`);
-
-		if (messageId) {
-			const text = await Bun.file(sourceFile).text();
-			const lines = text.split("\n").filter(Boolean);
-			const forkedLines: string[] = [];
-
-			for (const line of lines) {
-				const parsed = safeParseJsonLine(line);
-				forkedLines.push(line);
-				if (parsed?.uuid === messageId) break;
-			}
-
-			await writeFile(destFile, `${forkedLines.join("\n")}\n`, "utf-8");
-		} else {
-			await copyFile(sourceFile, destFile);
-		}
-
-		return await getSession(newSessionId, cwd);
+		// Use SDK forkSession() — properly remaps all message UUIDs and preserves parentUuid chain.
+		// Our old implementation used copyFile which left identical UUIDs in both sessions,
+		// causing UUID collisions in checkpointing/rewind when both sessions run concurrently.
+		const { forkSession: sdkForkSession } = await import("@anthropic-ai/claude-agent-sdk");
+		const result = await sdkForkSession(sessionId, {
+			...(cwd ? { dir: cwd } : {}),
+			...(messageId ? { upToMessageId: messageId } : {}),
+		});
+		return await getSession(result.sessionId, cwd);
 	} catch {
 		return null;
 	}
 }
 
 /**
- * Rename a Claude Code session by updating its title in the JSONL metadata.
+ * Rename a Claude Code session using SDK's renameSession().
+ * SDK appends a custom-title entry to the JSONL file (safe, never mutates existing data).
+ * Our old implementation mutated line 0 which could corrupt sessions if the format shifted.
  */
 export async function renameSession(sessionId: string, name: string, cwd?: string): Promise<ClaudeCodeSession | null> {
-	const projectPath = cwd || process.cwd();
-	const claudeDir = await getProjectSessionsDir(projectPath);
-	const sessionFile = join(claudeDir, `${sessionId}.jsonl`);
-
 	try {
-		const content = await Bun.file(sessionFile).text();
-		const lines = content.split("\n");
-
-		// The first line contains session metadata - update the title
-		if (lines.length > 0) {
-			try {
-				const firstLine = JSON.parse(lines[0] ?? "");
-				firstLine.title = name;
-				lines[0] = JSON.stringify(firstLine);
-				await Bun.write(sessionFile, lines.join("\n"));
-			} catch {
-				// If first line isn't valid JSON, we can't rename
-				return null;
-			}
-		}
-
+		const { renameSession: sdkRenameSession } = await import("@anthropic-ai/claude-agent-sdk");
+		await sdkRenameSession(sessionId, name, cwd ? { dir: cwd } : undefined);
 		return getSession(sessionId, cwd);
 	} catch {
 		return null;
@@ -2262,9 +2230,20 @@ export async function queryClaudeCode(
 		decisionReason?: string;
 		blockedPath?: string;
 		hasSuggestions?: boolean;
+		suggestions?: unknown[]; // SDK 0.2.87: PermissionUpdate[] for "Always Allow" persistence
+		title?: string; // SDK 0.2.87: Full permission prompt sentence
+		displayName?: string; // SDK 0.2.87: Short noun phrase (e.g. "Read file")
 		description?: string;
 		agentId?: string;
-	}) => Promise<PermissionResponse | { response: PermissionResponse; updatedInput?: Record<string, unknown> }>,
+	}) => Promise<
+		| PermissionResponse
+		| {
+				response: PermissionResponse;
+				updatedInput?: Record<string, unknown>;
+				updatedPermissions?: unknown[]; // SDK 0.2.87: PermissionUpdate[] from Flutter
+				decisionClassification?: string; // SDK 0.2.87
+		  }
+	>,
 	onElicitationRequest?: (request: {
 		sessionId: string;
 		requestId: string;
@@ -2445,6 +2424,13 @@ export async function queryClaudeCode(
 			if (options.resumeSessionAt) {
 				sdkOptions.resumeSessionAt = options.resumeSessionAt;
 			}
+			// SDK 0.2.87: Fork on resume — create a branch instead of modifying original
+			if (options.forkOnResume) {
+				sdkOptions.forkSession = true;
+			}
+		} else if (options.continueSession) {
+			// SDK 0.2.87: Continue most recent conversation in cwd (mutually exclusive with resume)
+			sdkOptions.continue = true;
 		}
 
 		if (onPermissionRequest) {
@@ -2455,6 +2441,7 @@ export async function queryClaudeCode(
 					return { behavior: "deny", message: "Session aborted", toolUseID: ctx.toolUseID };
 				}
 				const sid = sessionId ?? options.sessionId ?? "";
+				const hasSuggestions = Array.isArray(ctx.suggestions) && ctx.suggestions.length > 0;
 				const decision = await onPermissionRequest({
 					sessionId: sid,
 					toolUseId: ctx.toolUseID,
@@ -2462,10 +2449,19 @@ export async function queryClaudeCode(
 					input,
 					decisionReason: ctx.decisionReason,
 					blockedPath: ctx.blockedPath,
-					hasSuggestions: Array.isArray(ctx.suggestions) && ctx.suggestions.length > 0,
-					// SDK CanUseTool options doesn't have `description` — read from tool input instead.
-					// Bash tool puts a human-readable description in input.description.
-					description: typeof input?.description === "string" ? input.description : undefined,
+					hasSuggestions,
+					// SDK 0.2.87: Forward full suggestions array for "Always Allow" rule persistence
+					...(hasSuggestions ? { suggestions: ctx.suggestions } : {}),
+					// SDK 0.2.87: Human-readable fields from the bridge
+					...(typeof ctx.title === "string" ? { title: ctx.title } : {}),
+					...(typeof ctx.displayName === "string" ? { displayName: ctx.displayName } : {}),
+					// Description: prefer SDK-provided, fall back to tool input
+					description:
+						typeof ctx.description === "string"
+							? ctx.description
+							: typeof input?.description === "string"
+								? input.description
+								: undefined,
 					agentId: ctx.agentID,
 				});
 
@@ -2486,16 +2482,26 @@ export async function queryClaudeCode(
 						message: "User denied permission",
 						interrupt: true,
 						toolUseID: ctx.toolUseID,
+						decisionClassification: "user_reject" as const,
 					};
 				}
 
+				// SDK 0.2.87: Use updatedPermissions from Flutter response if provided,
+				// otherwise fall back to SDK suggestions (backward compat)
+				const suggestionsFromSdk =
+					Array.isArray(ctx.suggestions) && ctx.suggestions.length > 0 ? ctx.suggestions : undefined;
+				const permissionsFromDecision =
+					typeof decision === "object" && Array.isArray(decision?.updatedPermissions)
+						? (decision.updatedPermissions as typeof ctx.suggestions)
+						: undefined;
+				const updatedPermissions = response === "always" ? (permissionsFromDecision ?? suggestionsFromSdk) : undefined;
+
 				return {
-					behavior: "allow",
+					behavior: "allow" as const,
 					updatedInput,
-					...(response === "always" && Array.isArray(ctx.suggestions) && ctx.suggestions.length > 0
-						? { updatedPermissions: ctx.suggestions }
-						: {}),
+					...(updatedPermissions ? { updatedPermissions } : {}),
 					toolUseID: ctx.toolUseID,
+					decisionClassification: response === "always" ? ("user_permanent" as const) : ("user_temporary" as const),
 				};
 			};
 		}
@@ -2780,7 +2786,11 @@ export async function queryClaudeCode(
 				emit({
 					type: "tool-call",
 					tool: message.tool_name,
-					input: { elapsedSeconds: message.elapsed_time_seconds },
+					input: {
+						elapsedSeconds: message.elapsed_time_seconds,
+						// SDK 0.2.87: task_id for correlating progress to background agents
+						...(message.task_id ? { taskId: message.task_id } : {}),
+					},
 					toolUseId: message.tool_use_id,
 					status: "running",
 				});
@@ -3181,6 +3191,77 @@ export async function setMcpServers(
 		};
 	} catch {
 		return null;
+	}
+}
+
+/**
+ * SDK 0.2.87: Reload plugins on a live session via Query.reloadPlugins().
+ * Unlike the filesystem-level cc_reload_plugins, this tells the running SDK process
+ * to pick up new/changed plugins and returns refreshed commands, agents, MCP status.
+ */
+export async function reloadPluginsLive(sessionId: string): Promise<{
+	commands: unknown[];
+	agents: unknown[];
+	plugins: unknown[];
+	mcpServers: unknown[];
+	errorCount: number;
+} | null> {
+	const session = activeSessions.get(sessionId);
+	if (!session?.query) return null;
+	try {
+		const result = await session.query.reloadPlugins();
+		return {
+			commands: result.commands,
+			agents: result.agents,
+			plugins: result.plugins,
+			mcpServers: result.mcpServers,
+			errorCount: result.error_count,
+		};
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * SDK 0.2.87: Get detailed context window usage breakdown.
+ * Returns categories, memory files, MCP tools, agents, skills, message breakdown, etc.
+ */
+export async function getContextUsage(sessionId: string): Promise<Record<string, unknown> | null> {
+	const session = activeSessions.get(sessionId);
+	if (!session?.query) return null;
+	try {
+		const result = await session.query.getContextUsage();
+		return result as unknown as Record<string, unknown>;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * SDK 0.2.87: Apply settings mid-session (flag settings layer).
+ * Merges provided settings into the active configuration.
+ */
+export async function applySettings(sessionId: string, settings: Record<string, unknown>): Promise<boolean> {
+	const session = activeSessions.get(sessionId);
+	if (!session?.query) return false;
+	try {
+		await session.query.applyFlagSettings(settings as import("@anthropic-ai/claude-agent-sdk").Settings);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * SDK 0.2.87: Tag a session. Pass null tag to clear.
+ */
+export async function tagSession(sessionId: string, tag: string | null, cwd?: string): Promise<boolean> {
+	try {
+		const { tagSession: sdkTagSession } = await import("@anthropic-ai/claude-agent-sdk");
+		await sdkTagSession(sessionId, tag, cwd ? { dir: cwd } : undefined);
+		return true;
+	} catch {
+		return false;
 	}
 }
 

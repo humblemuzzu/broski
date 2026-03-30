@@ -14,6 +14,17 @@ type HandlerContext = {
 			sessionId: string,
 			servers: Record<string, unknown>,
 		) => Promise<{ added: string[]; removed: string[]; errors: Record<string, string> } | null>;
+		// SDK 0.2.87
+		getContextUsage: (sessionId: string) => Promise<Record<string, unknown> | null>;
+		applySettings: (sessionId: string, settings: Record<string, unknown>) => Promise<boolean>;
+		tagSession: (sessionId: string, tag: string | null, cwd?: string) => Promise<boolean>;
+		reloadPluginsLive: (sessionId: string) => Promise<{
+			commands: unknown[];
+			agents: unknown[];
+			plugins: unknown[];
+			mcpServers: unknown[];
+			errorCount: number;
+		} | null>;
 	};
 };
 
@@ -78,6 +89,93 @@ export async function handle(message: Record<string, unknown>, reply: ReplyFn, c
 				message.servers as Record<string, unknown>,
 			);
 			reply({ type: "cc_mcp_servers_set", data: result });
+			return true;
+		}
+		// SDK 0.2.87: Context usage breakdown
+		case "cc_get_context_usage": {
+			const reqId = typeof message.requestId === "string" ? message.requestId : undefined;
+			try {
+				const data = await ctx.claudeCode.getContextUsage(message.sessionId as string);
+				reply({
+					type: "cc_context_usage",
+					data,
+					requestId: reqId,
+				});
+			} catch (err: unknown) {
+				reply({
+					type: "cc_context_usage",
+					data: null,
+					error: err instanceof Error ? err.message : "Unknown error",
+					requestId: reqId,
+				});
+			}
+			return true;
+		}
+		// SDK 0.2.87: Apply settings mid-session
+		case "cc_apply_settings": {
+			const reqId = typeof message.requestId === "string" ? message.requestId : undefined;
+			try {
+				const ok = await ctx.claudeCode.applySettings(
+					message.sessionId as string,
+					message.settings as Record<string, unknown>,
+				);
+				reply({
+					type: "cc_settings_applied",
+					data: { ok },
+					requestId: reqId,
+				});
+			} catch (err: unknown) {
+				reply({
+					type: "cc_settings_applied",
+					data: { ok: false },
+					error: err instanceof Error ? err.message : "Unknown error",
+					requestId: reqId,
+				});
+			}
+			return true;
+		}
+		// SDK 0.2.87: Reload plugins on live session (Query method, not filesystem scan)
+		case "cc_reload_plugins_live": {
+			const reqId = typeof message.requestId === "string" ? message.requestId : undefined;
+			try {
+				const result = await ctx.claudeCode.reloadPluginsLive(message.sessionId as string);
+				reply({
+					type: "cc_plugins_reloaded_live",
+					data: result,
+					requestId: reqId,
+				});
+			} catch (err: unknown) {
+				reply({
+					type: "cc_plugins_reloaded_live",
+					data: null,
+					error: err instanceof Error ? err.message : "Unknown error",
+					requestId: reqId,
+				});
+			}
+			return true;
+		}
+		// SDK 0.2.87: Tag a session
+		case "cc_tag_session": {
+			const reqId = typeof message.requestId === "string" ? message.requestId : undefined;
+			try {
+				const ok = await ctx.claudeCode.tagSession(
+					message.sessionId as string,
+					(message.tag as string | null) ?? null,
+					message.cwd as string | undefined,
+				);
+				reply({
+					type: "cc_session_tagged",
+					data: { ok },
+					requestId: reqId,
+				});
+			} catch (err: unknown) {
+				reply({
+					type: "cc_session_tagged",
+					data: { ok: false },
+					error: err instanceof Error ? err.message : "Unknown error",
+					requestId: reqId,
+				});
+			}
 			return true;
 		}
 		default:

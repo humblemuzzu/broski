@@ -31,6 +31,7 @@ export function normalizeSupportedModels(models: unknown): ClaudeCodeSupportedMo
 				supportsAdaptiveThinking:
 					typeof typed.supportsAdaptiveThinking === "boolean" ? typed.supportsAdaptiveThinking : undefined,
 				supportsFastMode: typeof typed.supportsFastMode === "boolean" ? typed.supportsFastMode : undefined,
+				supportsAutoMode: typeof typed.supportsAutoMode === "boolean" ? typed.supportsAutoMode : undefined,
 			} as ClaudeCodeSupportedModel;
 		})
 		.filter((item): item is ClaudeCodeSupportedModel => item != null);

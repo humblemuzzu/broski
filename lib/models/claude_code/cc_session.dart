@@ -13,6 +13,10 @@ class ClaudeCodeSession {
   final String? subagentName;
   final SessionSummaryStats? summary;
   final String? gitBranch;
+  final String? customTitle;
+  final String? firstPrompt;
+  final String? tag;
+  final int? fileSize;
 
   const ClaudeCodeSession({
     required this.id,
@@ -27,6 +31,10 @@ class ClaudeCodeSession {
     this.subagentName,
     this.summary,
     this.gitBranch,
+    this.customTitle,
+    this.firstPrompt,
+    this.tag,
+    this.fileSize,
   });
 
   factory ClaudeCodeSession.fromJson(Map<String, dynamic> json) {
@@ -47,6 +55,10 @@ class ClaudeCodeSession {
               json['summary'] as Map<String, dynamic>,
             ),
       gitBranch: json['gitBranch'] as String?,
+      customTitle: json['customTitle'] as String?,
+      firstPrompt: json['firstPrompt'] as String?,
+      tag: json['tag'] as String?,
+      fileSize: (json['fileSize'] as num?)?.toInt(),
     );
   }
 
@@ -63,10 +75,16 @@ class ClaudeCodeSession {
       if (hasSubagentActivity) 'hasSubagentActivity': hasSubagentActivity,
       if (subagentName != null) 'subagentName': subagentName,
       if (gitBranch != null) 'gitBranch': gitBranch,
+      if (customTitle != null) 'customTitle': customTitle,
+      if (firstPrompt != null) 'firstPrompt': firstPrompt,
+      if (tag != null) 'tag': tag,
+      if (fileSize != null) 'fileSize': fileSize,
     };
   }
 
-  String get displayTitle => title ?? 'Session ${id.substring(0, 8)}';
+  /// Display title: prefer user-set customTitle, then auto-generated title, then fallback.
+  String get displayTitle =>
+      customTitle ?? title ?? 'Session ${id.substring(0, 8)}';
 
   bool get isSubagentSession => isBackground || hasSubagentActivity;
 

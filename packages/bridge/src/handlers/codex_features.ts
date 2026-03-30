@@ -390,7 +390,11 @@ export async function handleCodexFeature(
 			const threadId = safeString(message.threadId).trim();
 			const command = safeString(message.command).trim();
 			if (!threadId || !command) {
-				reply({ requestId: message.requestId, type: "error", message: "cx_shell_command requires threadId and command" });
+				reply({
+					requestId: message.requestId,
+					type: "error",
+					message: "cx_shell_command requires threadId and command",
+				});
 				break;
 			}
 			const result = await client.request("thread/shellCommand", { threadId, command });

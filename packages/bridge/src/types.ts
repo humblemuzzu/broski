@@ -157,6 +157,7 @@ export type ClientMessage =
 			sessionId: string;
 			projectPath?: string;
 			limit?: number;
+			before?: string;
 	  }
 	| {
 			type: "chat";
@@ -387,6 +388,8 @@ export type ClientMessage =
 	| { type: "oc_remove_workspace"; id: string; projectPath?: string }
 	// SDK skills endpoint
 	| { type: "oc_list_sdk_skills"; projectPath?: string }
+	// OpenCode health check
+	| { type: "oc_health"; requestId?: string }
 	// Feature 23: Git Worktrees (SDK v1.1.1+ experimental)
 	| { type: "list_worktrees"; projectPath?: string }
 	| {
@@ -405,6 +408,7 @@ export type ClientMessage =
 			providerId: string;
 			method: number;
 			projectPath?: string;
+			inputs?: Record<string, string>;
 	  }
 	| {
 			type: "provider_oauth_callback";
@@ -739,6 +743,9 @@ export type ClientMessage =
 	| { type: "cc_get_active_sessions" }
 	| { type: "cc_rename_session"; sessionId: string; name: string; cwd?: string }
 	| { type: "cc_background_session"; sessionId: string; cwd?: string }
+	| { type: "cc_get_context_usage"; sessionId: string; requestId?: string }
+	| { type: "cc_apply_settings"; sessionId: string; settings: Record<string, unknown>; requestId?: string }
+	| { type: "cc_tag_session"; sessionId: string; tag?: string | null; cwd?: string; requestId?: string }
 	// Codex (OpenAI Codex app-server) messages
 	| { type: "cx_list_projects"; refresh?: boolean }
 	| {
@@ -1620,6 +1627,8 @@ export type ServerMessage =
 			}>;
 			requestId?: string;
 	  }
+	// OpenCode health check
+	| { type: "oc_health_result"; data: { healthy: boolean; version: string } | null; requestId?: string }
 	// Feature 23: Git Worktrees
 	| { type: "worktrees"; data: Worktree[]; requestId?: string }
 	| { type: "worktree_created"; data: Worktree; requestId?: string }
@@ -1898,6 +1907,40 @@ export type ServerMessage =
 				cwd?: string;
 				file?: string;
 			};
+			requestId?: string;
+	  }
+	// SDK 0.2.87: Context usage breakdown
+	| {
+			type: "cc_context_usage";
+			data: Record<string, unknown> | null;
+			error?: string;
+			requestId?: string;
+	  }
+	// SDK 0.2.87: Apply settings response
+	| {
+			type: "cc_settings_applied";
+			data: { ok: boolean };
+			error?: string;
+			requestId?: string;
+	  }
+	// SDK 0.2.87: Tag session response
+	| {
+			type: "cc_session_tagged";
+			data: { ok: boolean };
+			error?: string;
+			requestId?: string;
+	  }
+	// SDK 0.2.87: Live plugin reload response (Query method)
+	| {
+			type: "cc_plugins_reloaded_live";
+			data: {
+				commands: unknown[];
+				agents: unknown[];
+				plugins: unknown[];
+				mcpServers: unknown[];
+				errorCount: number;
+			} | null;
+			error?: string;
 			requestId?: string;
 	  }
 	| { type: "cc_stream"; data: ClaudeCodeStreamMessage; sessionId: string }
@@ -2372,12 +2415,29 @@ export type ModelInfo = {
 	variants?: Record<string, Record<string, unknown>>;
 };
 
+export type ProviderAuthPrompt =
+	| {
+			type: "text";
+			key: string;
+			message: string;
+			placeholder?: string;
+			when?: { key: string; op: "eq" | "neq"; value: string };
+	  }
+	| {
+			type: "select";
+			key: string;
+			message: string;
+			options: Array<{ label: string; value: string; hint?: string }>;
+			when?: { key: string; op: "eq" | "neq"; value: string };
+	  };
+
 export type ProviderAuthMethod = {
 	type: "api" | "oauth";
 	label?: string;
 	name?: string;
 	description?: string;
 	url?: string;
+	prompts?: ProviderAuthPrompt[];
 };
 
 export type ProviderAuthAuthorization = {
@@ -2503,7 +2563,7 @@ export type ClaudeCodeSkill = {
 	context?: "fork";
 };
 
-// Claude Code Hook Event Types
+// Claude Code Hook Event Types (SDK 0.2.87: 26 events)
 export type ClaudeCodeHookEvent =
 	| "PreToolUse"
 	| "PostToolUse"
@@ -2512,19 +2572,25 @@ export type ClaudeCodeHookEvent =
 	| "SessionStart"
 	| "SessionEnd"
 	| "Stop"
+	| "StopFailure"
 	| "PermissionRequest"
 	| "UserPromptSubmit"
 	| "SubagentStart"
 	| "SubagentStop"
 	| "TeammateIdle"
+	| "TaskCreated"
 	| "TaskCompleted"
 	| "PreCompact"
+	| "PostCompact"
 	| "Setup"
 	| "Elicitation"
 	| "ElicitationResult"
 	| "ConfigChange"
 	| "WorktreeCreate"
-	| "WorktreeRemove";
+	| "WorktreeRemove"
+	| "InstructionsLoaded"
+	| "CwdChanged"
+	| "FileChanged";
 
 // Claude Code Hook Configuration
 export type ClaudeCodeHook = {
@@ -2552,6 +2618,11 @@ export type ClaudeCodeSession = {
 	subagentName?: string;
 	gitBranch?: string;
 	summary?: { additions: number; deletions: number; files: number };
+	// SDK 0.2.87: SDKSessionInfo fields
+	customTitle?: string; // User-set title via /rename
+	firstPrompt?: string; // First meaningful user prompt
+	tag?: string; // User-set session tag
+	fileSize?: number; // JSONL file size in bytes
 };
 
 // Claude Code Command (slash command)
@@ -2641,6 +2712,7 @@ export type ClaudeCodeSubagent = {
 	mcpServers?: Array<string | Record<string, unknown>>; // Per-subagent MCP servers (B14)
 	background?: boolean; // Run this subagent as background task by default
 	isolation?: "worktree"; // Run this subagent in isolated git worktree
+	initialPrompt?: string; // SDK 0.2.87: Auto-submitted as first user turn
 };
 
 // Claude Code Custom Tool Parameter
@@ -2779,6 +2851,7 @@ export type ClaudeCodeSupportedModel = {
 	supportedEffortLevels?: ("low" | "medium" | "high" | "max")[];
 	supportsAdaptiveThinking?: boolean;
 	supportsFastMode?: boolean;
+	supportsAutoMode?: boolean; // SDK 0.2.87
 };
 
 export type ClaudeCodeAccountInfo = {
@@ -2893,6 +2966,19 @@ export type ClaudeCodeStreamMessage =
 			decisionReason?: string;
 			blockedPath?: string;
 			hasSuggestions?: boolean;
+			/** SDK 0.2.87: Permission suggestions for "Always Allow" rule persistence */
+			suggestions?: Array<{
+				type: "addRules" | "replaceRules" | "removeRules" | "setMode" | "addDirectories" | "removeDirectories";
+				rules?: Array<{ toolName: string; ruleContent?: string }>;
+				behavior?: "allow" | "deny" | "ask";
+				destination?: "userSettings" | "projectSettings" | "localSettings" | "session" | "cliArg";
+				mode?: string;
+				directories?: string[];
+			}>;
+			/** SDK 0.2.87: Full permission prompt sentence from the bridge */
+			title?: string;
+			/** SDK 0.2.87: Short noun phrase for the tool action (e.g. "Read file") */
+			displayName?: string;
 			description?: string;
 			agentId?: string;
 			parentToolUseId?: string;
@@ -3032,6 +3118,10 @@ export type ClaudeCodeStreamMessage =
 			toolUseId?: string;
 			description: string;
 			taskType?: string;
+			/** SDK 0.2.87: meta.name from workflow script (e.g. 'spec') */
+			workflowName?: string;
+			/** SDK 0.2.87: task prompt text */
+			prompt?: string;
 			parentToolUseId?: string;
 	  }
 	| {
@@ -3119,6 +3209,22 @@ export type ClaudeCodeStreamMessage =
 			type: "auth-status";
 			isAuthenticating: boolean;
 			output: string[];
+			error?: string;
+			parentToolUseId?: string;
+	  }
+	// SDK 0.2.87: Authoritative session state signal (idle after bg-agent completes)
+	| {
+			type: "session-state-changed";
+			sessionState: "idle" | "running" | "requires_action" | string;
+			parentToolUseId?: string;
+	  }
+	// SDK 0.2.87: API retry info when request fails with retryable error
+	| {
+			type: "api-retry";
+			attempt: number;
+			maxRetries: number;
+			retryDelayMs: number;
+			errorStatus?: number | null;
 			error?: string;
 			parentToolUseId?: string;
 	  };

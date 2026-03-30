@@ -5,7 +5,7 @@ type Reply = (message: ServerMessage) => void;
 type OpenCodeSessionOpsLike = {
 	createSession: (dir?: string, title?: string, permission?: any, workspaceID?: string) => Promise<any>;
 	getSession: (id: string, dir?: string) => Promise<any>;
-	getSessionMessages: (id: string, dir?: string, limit?: number) => Promise<any>;
+	getSessionMessages: (id: string, dir?: string, limit?: number, before?: string) => Promise<any>;
 	deleteSession: (id: string, dir?: string) => Promise<boolean>;
 	updateSession: (id: string, title?: string, archived?: any, dir?: string) => Promise<any>;
 	forkSession: (id: string, msgId?: string, dir?: string) => Promise<any>;
@@ -45,7 +45,12 @@ export async function handle(
 		}
 		case "get_session_messages": {
 			const oc = requireOpenCode();
-			const messages = await oc.getSessionMessages(message.sessionId, message.projectPath, message.limit);
+			const messages = await oc.getSessionMessages(
+				message.sessionId,
+				message.projectPath,
+				message.limit,
+				message.before,
+			);
 			reply({ type: "session_messages", data: messages, sessionId: message.sessionId });
 			return true;
 		}

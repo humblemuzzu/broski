@@ -8,7 +8,7 @@ type OpenCodeProviderLike = {
 	listProviders: () => Promise<any>;
 	listAllProviders: (dir?: string) => Promise<any>;
 	getProviderAuth: (dir?: string) => Promise<any>;
-	providerOauthAuthorize: (id: string, method: number, dir?: string) => Promise<any>;
+	providerOauthAuthorize: (id: string, method: number, dir?: string, inputs?: Record<string, string>) => Promise<any>;
 	providerOauthCallback: (id: string, method: number, code?: string, dir?: string) => Promise<boolean>;
 	authSet: (providerId: string, auth: Auth) => Promise<boolean>;
 	authRemove: (providerId: string) => Promise<boolean>;
@@ -45,7 +45,12 @@ export async function handle(
 		}
 		case "provider_oauth_authorize": {
 			const oc = requireOpenCode();
-			const data = await oc.providerOauthAuthorize(message.providerId, message.method, message.projectPath);
+			const data = await oc.providerOauthAuthorize(
+				message.providerId,
+				message.method,
+				message.projectPath,
+				message.inputs,
+			);
 			reply({
 				type: "provider_oauth_authorized",
 				data,

@@ -207,17 +207,47 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                           ),
                           const SizedBox(width: Spacing.md),
                           Expanded(
-                            child: Text(
-                              widget.request.displayTitle,
-                              style: TextStyle(
-                                color: theme.text,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // SDK 0.2.87: Use displayName if available (e.g. "Run shell command")
+                                if (widget.request.metadata['ccDisplayName']
+                                    case final String displayName
+                                    when displayName.isNotEmpty)
+                                  Text(
+                                    displayName,
+                                    style: TextStyle(
+                                      color: theme.textMuted,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                Text(
+                                  widget.request.displayTitle,
+                                  style: TextStyle(
+                                    color: theme.text,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
+                      // SDK 0.2.87: Show description subtitle if provided
+                      if (widget.request.metadata['ccDescription']
+                          case final String desc when desc.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          desc,
+                          style: TextStyle(
+                            color: theme.textMuted,
+                            fontSize: 13,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: Spacing.md),
                       // Task 5: Doom loop custom text
                       if (_isDoomLoop) ...[

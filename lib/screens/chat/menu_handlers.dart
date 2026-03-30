@@ -2,6 +2,7 @@ import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/screens/chat/cx_desktop_handoff.dart';
 import 'package:broski/screens/sheets/cc_hooks_sheet.dart';
+import 'package:broski/screens/sheets/cc_quick_settings_sheet.dart';
 import 'package:broski/screens/sheets/cc_skills_sheet.dart';
 import 'package:broski/screens/sheets/cx_apps_sheet.dart';
 import 'package:broski/screens/sheets/cx_auth_sheet.dart';
@@ -53,6 +54,8 @@ void handleClaudeCodeMenuAction(
       onShowMcp();
     case 'cc_fork':
       onFork();
+    case 'cc_quick_settings':
+      showCCQuickSettingsSheet(context);
   }
 }
 

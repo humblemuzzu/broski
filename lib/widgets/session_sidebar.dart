@@ -10,6 +10,7 @@ import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/widgets/chat/section_header.dart';
 import 'package:broski/widgets/connection_quality_indicator.dart';
+import 'package:broski/widgets/sidebar/cc_context_details.dart';
 import 'package:broski/widgets/status_indicator.dart';
 import 'package:flutter/material.dart';
 
@@ -80,6 +81,8 @@ class SessionSidebar extends StatelessWidget {
                 children: [
                   const SizedBox(height: Spacing.sm),
                   _buildContextSection(context, theme),
+                  if (isClaudeCode)
+                    CCContextDetails(sessionId: ccInit?.sessionId),
                   const SizedBox(height: Spacing.xl),
                   // Claude Code: Show session info + plan (CC has TodoWrite tool)
                   if (isClaudeCode) ...[
