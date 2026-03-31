@@ -8,6 +8,7 @@ import 'package:broski/utils/responsive.dart';
 import 'package:broski/widgets/adaptive_container.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 /// Screen for selecting the AI backend (OpenCode, Claude Code, Codex, Pi).
 class AIBackendScreen extends ConsumerWidget {
@@ -268,20 +269,13 @@ class _BackendLogo extends StatelessWidget {
           width: 50,
           height: 50,
           decoration: BoxDecoration(
-            color: const Color(0xFF7C3AED).withValues(alpha: 0.16),
+            color: const Color(0xFF1a1a2e),
             borderRadius: Radii.brMd,
-            border: Border.all(
-              color: const Color(0xFF7C3AED).withValues(alpha: 0.35),
-            ),
           ),
-          alignment: Alignment.center,
-          child: const Text(
-            'π',
-            style: TextStyle(
-              fontSize: 30,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF7C3AED),
-            ),
+          padding: Insets.cardXs,
+          child: SvgPicture.asset(
+            'docs/assets/pi/pi-logo-dark.svg',
+            fit: BoxFit.contain,
           ),
         );
     }

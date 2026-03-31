@@ -213,7 +213,16 @@ export function startCodexExternalTail(threadId: string, ctx: CxExternalTailCont
 				emittedItems.clear();
 			}
 
-			if (size === offset) return;
+			if (size === offset) {
+				// Baseline is fully read — mark sync done so new content gets emitted.
+				if (!initialSyncDone) {
+					initialSyncDone = true;
+					if (ctx.DEBUG_RTS) {
+						ctx.logDebug(`[RTS] CX External: Initial sync done for thread ${threadId} (caught up at offset=${offset})`);
+					}
+				}
+				return;
+			}
 
 			if (!fileHandle) {
 				fileHandle = await open(filePath, "r");
@@ -257,7 +266,8 @@ export function startCodexExternalTail(threadId: string, ctx: CxExternalTailCont
 						}
 						// Emit user text so the phone shows the prompt typed on Mac
 						if (initialSyncDone && ctx.broadcastRaw) {
-							const userText = typeof payload?.text === "string" ? payload.text : "";
+							const userText = typeof payload?.message === "string" ? payload.message
+								: typeof payload?.text === "string" ? payload.text : "";
 							if (userText) {
 								ctx.broadcastRaw({
 									type: "runtime_event",
@@ -322,14 +332,35 @@ export function startCodexExternalTail(threadId: string, ctx: CxExternalTailCont
 					}
 				}
 
-				// Handle response_item records (tool calls)
+				// Handle response_item records (tool calls + assistant text)
 				if (outerType === "response_item") {
 					const item = payload?.item ?? payload;
 					const itemType = ctx.safeString(item?.type);
+					const role = ctx.safeString(item?.role);
 					const itemId = ctx.safeString(item?.id) || `cx-ext-item-${Date.now()}`;
 
 					// Avoid duplicate emissions
 					if (emittedItems.has(itemId)) continue;
+
+					// Handle assistant text output
+					if ((itemType === "message" && role === "assistant") || role === "assistant") {
+						emittedItems.add(itemId);
+						const content = Array.isArray(item?.content) ? item.content : [];
+						for (const block of content) {
+							if (!block || typeof block !== "object") continue;
+							const blockType = ctx.safeString(block.type);
+							if ((blockType === "output_text" || blockType === "text") && typeof block.text === "string" && block.text) {
+								emit("item/agentMessage/delta", {
+									itemId: itemId || `cx-ext-text-${Date.now()}`,
+									delta: block.text,
+								});
+							}
+						}
+						if (ctx.DEBUG_RTS) {
+							ctx.logDebug(`[RTS] CX External: assistant text from response_item for thread ${threadId}`);
+						}
+						continue;
+					}
 
 					if (itemType === "function_call") {
 						emittedItems.add(itemId);

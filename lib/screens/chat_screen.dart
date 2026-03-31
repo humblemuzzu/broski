@@ -98,6 +98,7 @@ import 'package:broski/widgets/chat/variant_card_builder.dart';
 import 'package:broski/widgets/file_tagging.dart';
 import 'package:broski/widgets/multi_agent_tree.dart';
 import 'package:broski/widgets/opencode_branding.dart';
+import 'package:broski/widgets/pi_branding.dart';
 import 'package:broski/widgets/power_sheet.dart';
 import 'package:broski/widgets/session_sidebar.dart';
 import 'package:flutter/foundation.dart';
@@ -1333,10 +1334,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       onPanDown: (_) => _dismissKeyboardIfFocused(),
                       child: Stack(
                         children: [
-                          // OpenCode branding - shown centered when empty
+                          // Agent branding - shown centered when empty
                           if (widget.isOpenCode && messages.isEmpty)
                             const Center(
                               child: OpenCodeBranding(width: 280, opacity: 1.0),
+                            ),
+                          if (widget.isPi && messages.isEmpty)
+                            const Center(
+                              child: PiBranding(width: 120, opacity: 0.3),
                             ),
                           // Codex Multi-Agent Collaboration Tree (SDK v0.87.0+)
                           if (widget.isCodex)

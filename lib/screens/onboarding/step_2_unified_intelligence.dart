@@ -1,6 +1,7 @@
 import 'package:broski/theme/design_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 // =============================================================================
 // PAGE 2: UNIFIED INTELLIGENCE
@@ -197,19 +198,13 @@ class _UnifiedIntelligencePageState extends State<UnifiedIntelligencePage>
                                   width: 44,
                                   height: 44,
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF7C3AED),
+                                    color: const Color(0xFF1a1a2e),
                                     borderRadius: Radii.brMd,
                                   ),
-                                  child: const Center(
-                                    child: Text(
-                                      'π',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold,
-                                        fontFamily: 'GeistSans',
-                                      ),
-                                    ),
+                                  padding: Insets.cardXs,
+                                  child: SvgPicture.asset(
+                                    'docs/assets/pi/pi-logo-dark.svg',
+                                    fit: BoxFit.contain,
                                   ),
                                 ),
                                 name: 'Pi',

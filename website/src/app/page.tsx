@@ -507,7 +507,7 @@ function AgentsSection() {
     { name: "OpenCode", desc: "Open source AI coding agent", logo: "/logos/opencode.svg" },
     { name: "Claude Code", desc: "Anthropic's coding CLI", logo: "/logos/cc-real.png" },
     { name: "Codex", desc: "OpenAI's coding agent", logo: "/logos/codex-icon.png" },
-    { name: "Pi", desc: "Terminal AI assistant", logo: null },
+    { name: "Pi", desc: "Extensible coding agent harness", logo: "/logos/pi.svg" },
   ];
   return (
     <section className="py-24 md:py-32 lg:py-40 px-6">
