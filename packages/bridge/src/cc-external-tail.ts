@@ -515,6 +515,13 @@ export function startClaudeCodeExternalTail(sessionId: string, ctx: CcExternalTa
 			}
 
 			if (size === offset) {
+				// Baseline is fully read — any NEW content from now on is live.
+				if (!initialSyncDone) {
+					initialSyncDone = true;
+					if (ctx.DEBUG_RTS) {
+						ctx.logDebug(`[RTS] CC External: Initial sync done for session ${sessionId} (caught up at offset=${offset})`);
+					}
+				}
 				// Some Claude Code versions update transcripts in-place without appending bytes.
 				// If mtime changed, re-read tail and diff the latest assistant message.
 				if (mtimeMs > lastMtimeMs && filePath) {
@@ -586,7 +593,8 @@ export function startClaudeCodeExternalTail(sessionId: string, ctx: CcExternalTa
 
 				// Process user messages (for tool_result AND user text)
 				if (recordType === "user") {
-					const content = parsed?.message?.content;
+					// CC user records have content at top level OR under message.content
+					const content = parsed?.message?.content ?? parsed?.content;
 
 					// Extract and emit tool results (processToolResults already has initialSyncDone check)
 					const toolResults = extractToolResults(content);
@@ -596,7 +604,10 @@ export function startClaudeCodeExternalTail(sessionId: string, ctx: CcExternalTa
 
 					// Emit user text so the phone shows the prompt typed on Mac
 					if (initialSyncDone && ctx.broadcastRaw) {
-						const userText = extractText(content);
+						// CC user text can be a plain string at top level or in content blocks
+						const userText = typeof parsed?.content === "string"
+							? parsed.content
+							: extractText(content);
 						if (userText) {
 							ctx.broadcastRaw({
 								type: "runtime_event",

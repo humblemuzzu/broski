@@ -205,7 +205,15 @@ export function mapClaudeCodeStreamToRuntimeEvent(
 			};
 
 		case "assistant-message":
-			return null; // no-op — both old path and new path ignore this
+			// Full text replacement (from external tail when text doesn't start with prev).
+			// Treat as a text delta with the full content so the phone shows it.
+			return {
+				...baseEvent("assistant_text_delta", eventContext, {
+					sourceType: streamMessage.type,
+				}),
+				...(streamMessage.messageId ? { messageId: streamMessage.messageId } : {}),
+				delta: streamMessage.content,
+			};
 
 		case "subagent-invocation":
 			return {
