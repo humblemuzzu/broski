@@ -29,6 +29,8 @@ export function startOpenCodeExternalTail(
 	const lastToolStateByPartId = new Map<string, string>();
 	const seenMessageIds = new Set<string>();
 	const seenPartIds = new Set<string>();
+	const seenPermissionIds = new Set<string>();
+	const seenQuestionIds = new Set<string>();
 	let lastSessionStatus: "idle" | "busy" | "retry" = "idle";
 	let lastEmittedStatus: "idle" | "busy" = "idle"; // What we last told the app (based on content changes, not API)
 	let idleCount = 0; // Track consecutive idle polls for adaptive polling
@@ -256,12 +258,72 @@ export function startOpenCodeExternalTail(
 				}
 			}
 
+			// Poll for pending permissions
+			try {
+				const pendingPerms = await ctx.oc.listPendingPermissions(projectPath);
+				for (const perm of pendingPerms) {
+					const permId =
+						typeof perm.id === "string"
+							? perm.id
+							: typeof (perm as any).requestID === "string"
+								? (perm as any).requestID
+								: "";
+					if (!permId || seenPermissionIds.has(permId)) continue;
+					seenPermissionIds.add(permId);
+					if (!initialSyncDone) continue;
+					hadChanges = true;
+					if (ctx.DEBUG_RTS) {
+						ctx.logDebug(`[RTS] OC External: New permission request ${permId} in session ${sessionId}`);
+					}
+					ctx.enqueueSdkEvent({
+						directory: projectPath,
+						payload: {
+							type: "permission.asked",
+							properties: {
+								...perm,
+								sessionID: sessionId,
+							},
+						},
+					});
+				}
+			} catch {
+				// ignore permission poll errors
+			}
+
+			// Poll for pending questions
+			try {
+				const pendingQuestions = await ctx.oc.listPendingQuestions(projectPath);
+				for (const q of pendingQuestions) {
+					const qId =
+						typeof q.id === "string" ? q.id : typeof (q as any).requestID === "string" ? (q as any).requestID : "";
+					if (!qId || seenQuestionIds.has(qId)) continue;
+					seenQuestionIds.add(qId);
+					if (!initialSyncDone) continue;
+					hadChanges = true;
+					if (ctx.DEBUG_RTS) {
+						ctx.logDebug(`[RTS] OC External: New question request ${qId} in session ${sessionId}`);
+					}
+					ctx.enqueueSdkEvent({
+						directory: projectPath,
+						payload: {
+							type: "question.asked",
+							properties: {
+								...q,
+								sessionID: sessionId,
+							},
+						},
+					});
+				}
+			} catch {
+				// ignore question poll errors
+			}
+
 			// Mark initial sync as done after first poll
 			if (!initialSyncDone) {
 				initialSyncDone = true;
 				if (ctx.DEBUG_RTS) {
 					ctx.logDebug(
-						`[RTS] OC External: Initial sync complete for session ${sessionId}, ${seenMessageIds.size} messages, ${seenPartIds.size} parts`,
+						`[RTS] OC External: Initial sync complete for session ${sessionId}, ${seenMessageIds.size} messages, ${seenPartIds.size} parts, ${seenPermissionIds.size} perms, ${seenQuestionIds.size} questions`,
 					);
 				}
 			}

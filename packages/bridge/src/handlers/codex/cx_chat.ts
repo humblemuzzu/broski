@@ -10,6 +10,7 @@ import { resolve } from "node:path";
 import type { CodexAppServerClient } from "../../connectors/codex";
 import type { AgentType, CodexStreamMessage, CodexThread, ServerMessage } from "../../types";
 import { codexInterruptWithRetry, codexRequestWithRetry } from "../../utils/codex-compat-retry";
+import { resolveCxHookPermissionByToolUse } from "../cx_permission_hook";
 
 /** Pending approval / user-input waiter */
 type ApprovalWaiter = {
@@ -358,6 +359,15 @@ export async function handleCxChat(
 					execpolicyAmendment: message.execpolicyAmendment,
 					networkPolicyAmendment: message.networkPolicyAmendment,
 				});
+			} else {
+				// Fallback: try hook-initiated permission (from PreToolUse shell hook)
+				const hookResponse = message.response === "reject" ? "deny" : "allow";
+				resolveCxHookPermissionByToolUse(
+					message.threadId ?? message.requestId ?? "",
+					message.requestId ?? "",
+					hookResponse,
+				);
+
 			}
 			break;
 		}

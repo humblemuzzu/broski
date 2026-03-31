@@ -17,6 +17,7 @@ import * as ccMemory from "./cc_memory";
 import * as ccPlugins from "./cc_plugins";
 import * as ccSessions from "./cc_sessions";
 import * as ccSkills from "./cc_skills";
+import { resolveHookPermissionByToolUse } from "./cc_permission_hook";
 
 type ReplyFn = (msg: ServerMessage) => void;
 
@@ -219,6 +220,21 @@ export async function handle(
 				...(updatedPermissions ? { updatedPermissions } : {}),
 				...(decisionClassification ? { decisionClassification } : {}),
 			});
+		} else {
+			// Fallback: try to resolve a hook-initiated permission request
+			// (from external CC sessions using the PreToolUse hook)
+			const hookResponse = message.response === "reject" ? "deny" : "allow";
+			const hookUpdatedInput =
+				message.updatedInput && typeof message.updatedInput === "object" && !Array.isArray(message.updatedInput)
+					? (message.updatedInput as Record<string, unknown>)
+					: undefined;
+			resolveHookPermissionByToolUse(
+				message.sessionId as string,
+				message.toolUseId as string,
+				hookResponse,
+				typeof message.reason === "string" ? message.reason : undefined,
+				hookUpdatedInput,
+			);
 		}
 		return true;
 	}

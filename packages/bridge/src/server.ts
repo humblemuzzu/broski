@@ -24,6 +24,10 @@ import { handleCcChat } from "./handlers/cc_chat";
 import type { ClaudeElicitationReply } from "./handlers/cc_elicitation";
 import * as ccElicitation from "./handlers/cc_elicitation";
 import * as ccRouting from "./handlers/cc_routing";
+import { handleCcPermissionHook, type CcPermissionHookContext } from "./handlers/cc_permission_hook";
+import { installCcHook, uninstallCcHook } from "./handlers/cc_hook_installer";
+import { handleCxPermissionHook, type CxPermissionHookContext } from "./handlers/cx_permission_hook";
+import { installCxHook, uninstallCxHook } from "./handlers/cx_hook_installer";
 import { buildCodexApprovalDecision } from "./handlers/codex/approval-decision";
 import { extractCodexErrorDetails } from "./handlers/codex/cx_error_extract";
 import { mapCodexThreadFromSdk } from "./handlers/codex/map-thread";
@@ -2177,6 +2181,14 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		opencode,
 		listFilesDirectly,
 		logUser,
+		handleCcPermissionHook: (request: Request) => {
+			const hookCtx: CcPermissionHookContext = { emitCcStream, logInfo, logDebug, DEBUG_RTS };
+			return handleCcPermissionHook(request, hookCtx);
+		},
+		handleCxPermissionHook: (request: Request) => {
+			const hookCtx: CxPermissionHookContext = { broadcast, logInfo, logDebug, DEBUG_RTS };
+			return handleCxPermissionHook(request, hookCtx);
+		},
 		entitlementDeps: {
 			requireEntitlement,
 			safeString,
@@ -2470,6 +2482,16 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		websocket: websocketConfig,
 	});
 	const securePort = secureServer.port ?? options.port;
+
+	// Install CC permission hook in ~/.claude/settings.json (non-blocking)
+	void installCcHook(securePort, authToken, logInfo).catch((err) => {
+		logInfo(`[CC Hook] Install failed (non-fatal): ${toErrorMessage(err)}`);
+	});
+
+	// Install CX permission hook in ~/.codex/hooks.json (non-blocking)
+	void installCxHook(securePort, authToken, logInfo).catch((err) => {
+		logInfo(`[CX Hook] Install failed (non-fatal): ${toErrorMessage(err)}`);
+	});
 
 	let loopbackServer: ReturnType<typeof Bun.serve> | null = null;
 	let loopbackPort: number | null = null;
@@ -3022,6 +3044,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			void ptyRuntime.stop().catch((error) => {
 				logError(`[PTY] stop cleanup failed: ${toErrorMessage(error)}`);
 			});
+			void uninstallCcHook(logInfo).catch(() => {});
+			void uninstallCxHook(logInfo).catch(() => {});
 			pi.disposeAll();
 			try {
 				secureServer.stop(force);
