@@ -113,6 +113,7 @@ export type ClientMessage =
 			projectPath?: string;
 			sessionId?: string;
 			agent?: AgentType;
+			lastRuntimeSeq?: number;
 	  }
 	| { type: "set_agent"; agent: AgentType }
 	| { type: "restart_opencode" }
@@ -1258,6 +1259,7 @@ export type ServerMessage =
 	  }
 	| { type: "sdk_event"; data: unknown }
 	| { type: "sdk_event_batch"; data: unknown[] }
+	| { type: "batch"; messages: unknown[]; count: number; timestamp: number }
 	| { type: "ping"; data: { id: string; sentAt: number } }
 	| { type: "client_pong"; id: string; sentAt: number; receivedAt: number }
 	| {

@@ -14,6 +14,8 @@ import type { CodexStreamMessage } from "./types";
 
 export type CxExternalTailContext = {
 	emitCxStream: (threadId: string, streamMsg: CodexStreamMessage) => void;
+	/** Broadcast a raw message to all sockets (used for external-user-message). */
+	broadcastRaw?: (message: Record<string, unknown>) => void;
 	safeString: (value: unknown) => string;
 	logDebug: (msg: string) => void;
 	DEBUG_RTS: boolean;
@@ -251,6 +253,24 @@ export function startCodexExternalTail(threadId: string, ctx: CxExternalTailCont
 							emit("turn/started", {});
 							if (ctx.DEBUG_RTS) {
 								ctx.logDebug(`[RTS] CX External: turn/started for thread ${threadId}`);
+							}
+						}
+						// Emit user text so the phone shows the prompt typed on Mac
+						if (initialSyncDone && ctx.broadcastRaw) {
+							const userText = typeof payload?.text === "string" ? payload.text : "";
+							if (userText) {
+								ctx.broadcastRaw({
+									type: "runtime_event",
+									backend: "codex",
+									data: {
+										type: "backend_event",
+										backend: "codex",
+										kind: "external-user-message",
+										timestampMs: Date.now(),
+										sessionId: threadId,
+										payload: { content: userText, timestamp: Date.now() },
+									},
+								});
 							}
 						}
 						continue;

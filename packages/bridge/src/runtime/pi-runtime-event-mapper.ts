@@ -1,5 +1,6 @@
 import type { PiStreamMessage } from "../types/pi";
 import type { BroskiBackendData, BroskiRuntimeEvent } from "../types/runtime";
+import { enrichRuntimeEvent } from "./stream-contract";
 
 type PiRuntimeEventContext = {
 	backend: "pi";
@@ -11,14 +12,15 @@ const baseEvent = <TType extends BroskiRuntimeEvent["type"]>(
 	type: TType,
 	ctx: PiRuntimeEventContext,
 	backendData?: BroskiBackendData,
-) => ({
-	type,
-	backend: ctx.backend,
-	timestampMs: Date.now(),
-	...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}),
-	...(ctx.cwd ? { cwd: ctx.cwd } : {}),
-	...(backendData ? { backendData } : {}),
-});
+) =>
+	enrichRuntimeEvent({
+		type,
+		backend: ctx.backend,
+		timestampMs: Date.now(),
+		...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}),
+		...(ctx.cwd ? { cwd: ctx.cwd } : {}),
+		...(backendData ? { backendData } : {}),
+	} as Extract<BroskiRuntimeEvent, { type: TType }>);
 
 export function mapPiStreamToRuntimeEvent(
 	piEvent: PiStreamMessage,
@@ -122,13 +124,33 @@ export function mapPiStreamToRuntimeEvent(
 				payload: piEvent,
 			};
 
+		case "turn-start":
+			return baseEvent("agent_started", ctx, { sourceType: piEvent.type });
+
+		case "turn-end":
+			return {
+				...baseEvent("agent_finished", ctx, {
+					sourceType: piEvent.type,
+					message: piEvent.message,
+					toolResults: piEvent.toolResults,
+				}),
+			};
+
+		case "external-user-message":
+			return {
+				...baseEvent("backend_event", ctx),
+				kind: "external-user-message",
+				payload: {
+					content: piEvent.content,
+					timestamp: piEvent.timestamp,
+				},
+			};
+
 		case "tool-call-start":
 		case "tool-call-args-done":
 		case "message-start":
 		case "message-end":
 		case "message-done":
-		case "turn-start":
-		case "turn-end":
 			return null;
 	}
 	return null;

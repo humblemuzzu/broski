@@ -493,4 +493,41 @@ export function mapModel(model: Model<any>): PiModelPayload {
 	};
 }
 
+/**
+ * Resolve a Pi session ID to the JSONL file path on disk.
+ * Returns null if the session file cannot be found.
+ */
+export async function resolveSessionFilePath(sessionId: string): Promise<string | null> {
+	// First check bridge-owned instances
+	for (const instance of instances.values()) {
+		if (instance.session.sessionId === sessionId && instance.session.sessionFile) {
+			return resolve(instance.session.sessionFile);
+		}
+	}
+
+	// Search the sessions directory
+	try {
+		const sessions = await SessionManager.listAll();
+		for (const session of sessions) {
+			if (session.id === sessionId && session.path) {
+				return resolve(session.path);
+			}
+		}
+	} catch {
+		// ignore
+	}
+
+	return null;
+}
+
+/** Check if a Pi session is owned by the bridge (has an active instance). */
+export function isSessionOwnedByBridge(sessionId: string): boolean {
+	for (const instance of instances.values()) {
+		if (instance.session.sessionId === sessionId) {
+			return true;
+		}
+	}
+	return false;
+}
+
 export { mapAgentMessage, mapToolResult, translateEvent } from "./pi/pi-events";

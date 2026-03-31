@@ -16,6 +16,8 @@ class RuntimeChatTurnState {
     this.parts = const [],
     this.nextPartSequence = 0,
     this.recentEventFingerprints = const [],
+    this.lastEventSeq,
+    this.lastGapAtMs,
   });
 
   final AgentType backend;
@@ -31,6 +33,8 @@ class RuntimeChatTurnState {
   final List<MessagePart> parts;
   final int nextPartSequence;
   final List<String> recentEventFingerprints;
+  final int? lastEventSeq;
+  final int? lastGapAtMs;
 
   bool get hasVisibleContent =>
       assistantText.isNotEmpty || thinkingText.isNotEmpty || tools.isNotEmpty;
@@ -47,6 +51,8 @@ class RuntimeChatTurnState {
     List<MessagePart>? parts,
     int? nextPartSequence,
     List<String>? recentEventFingerprints,
+    int? lastEventSeq,
+    int? lastGapAtMs,
   }) {
     return RuntimeChatTurnState(
       backend: backend,
@@ -63,6 +69,8 @@ class RuntimeChatTurnState {
       nextPartSequence: nextPartSequence ?? this.nextPartSequence,
       recentEventFingerprints:
           recentEventFingerprints ?? this.recentEventFingerprints,
+      lastEventSeq: lastEventSeq ?? this.lastEventSeq,
+      lastGapAtMs: lastGapAtMs ?? this.lastGapAtMs,
     );
   }
 }

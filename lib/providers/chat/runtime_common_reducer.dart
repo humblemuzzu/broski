@@ -134,7 +134,9 @@ String runtimeChatEventFingerprint(RuntimeEvent event) {
     event.cwd ?? '',
     event.messageId ?? '',
     event.toolCallId ?? '',
-    event.timestampMs.toString(),
+    event.streamId ?? '',
+    event.turnId ?? '',
+    event.seq?.toString() ?? event.timestampMs.toString(),
   ];
 
   switch (event) {

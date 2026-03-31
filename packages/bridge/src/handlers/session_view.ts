@@ -1,6 +1,8 @@
 import { join } from "node:path";
 import type { ServerWebSocket } from "bun";
 import type { AgentType, ServerMessage } from "../types";
+import { registerPiWatcher, replayPiRuntimeEvents, unregisterPiWatcher } from "./pi_stream_delivery";
+import { syncPiExternalTail, stopPiExternalTail } from "./pi_features";
 
 type ReplyFn = (msg: ServerMessage) => void;
 
@@ -55,7 +57,15 @@ export type SessionViewHandlerContext = {
 	ocSessionOwners: Map<string, ServerWebSocket<unknown>>;
 	ocSessionProjectPaths: Map<string, string>;
 	// Pi
+	broadcast: (msg: ServerMessage) => void;
 	findPiActiveRuntimeStateMessage: (sessionId: string) => ServerMessage | null;
+	replayRuntimeEventsSince: (params: {
+		ws: ServerWebSocket<unknown>;
+		backend: AgentType;
+		sessionId?: string;
+		cwd?: string;
+		lastSeq?: number;
+	}) => number;
 };
 
 export async function handle(
@@ -78,6 +88,7 @@ export async function handle(
 		existing.viewAgent ??
 		(message.projectPath || message.sessionId ? ctx.currentAgent : undefined);
 	const nextSessionId = (message.sessionId as string) || undefined;
+	const lastRuntimeSeq = typeof message.lastRuntimeSeq === "number" ? message.lastRuntimeSeq : undefined;
 
 	if (ctx.DEBUG_RTS) {
 		ctx.logDebug(
@@ -102,6 +113,14 @@ export async function handle(
 		sessionId: nextSessionId,
 		viewAgent: nextAgent,
 	});
+
+	unregisterPiWatcher(ws);
+	if (nextAgent === "pi" && nextSessionId) {
+		registerPiWatcher(ws, nextSessionId);
+		// Start external tail for Pi sessions running in terminal (not bridge-owned).
+		// If the session IS bridge-owned, syncPiExternalTail is a no-op.
+		void syncPiExternalTail(nextSessionId, ctx.broadcast, ctx.DEBUG_RTS, ctx.logDebug);
+	}
 
 	// Track project path for OpenCode external tails
 	if (nextAgent === "opencode" && nextSessionId && message.projectPath) {
@@ -167,10 +186,35 @@ export async function handle(
 			}
 		}
 	}
+	let replayedPiBufferedEvents = 0;
 	if (nextAgent === "pi" && nextSessionId) {
 		const runtimeStateMessage = ctx.findPiActiveRuntimeStateMessage(nextSessionId);
 		if (runtimeStateMessage) {
 			ctx.send(ws, runtimeStateMessage);
+		}
+		replayedPiBufferedEvents = replayPiRuntimeEvents(ws, nextSessionId);
+		if (replayedPiBufferedEvents > 0) {
+			ctx.logInfo(`[RTS] Replayed ${replayedPiBufferedEvents} buffered Pi events for ${nextSessionId}`);
+		}
+	}
+
+	if (
+		nextAgent &&
+		(nextSessionId || message.projectPath) &&
+		lastRuntimeSeq != null &&
+		!(nextAgent === "pi" && replayedPiBufferedEvents > 0)
+	) {
+		const replayed = ctx.replayRuntimeEventsSince({
+			ws,
+			backend: nextAgent,
+			sessionId: nextSessionId,
+			cwd: (message.projectPath as string | undefined) ?? existing.projectPath,
+			lastSeq: lastRuntimeSeq,
+		});
+		if (replayed > 0) {
+			ctx.logInfo(
+				`[RTS] Replayed ${replayed} runtime events since seq=${lastRuntimeSeq} for ${nextAgent}:${nextSessionId ?? message.projectPath}`,
+			);
 		}
 	}
 

@@ -1,4 +1,5 @@
 import type { BroskiRuntimeEvent } from "../types/runtime";
+import { enrichRuntimeEvent } from "./stream-contract";
 import { mapOpenCodeStatusToRuntimeState } from "./opencode-runtime-read-models";
 
 function extractSessionId(source: any): string | undefined {
@@ -27,16 +28,22 @@ function extractToolCallId(source: any): string | undefined {
  * re-uses it for the lifetime of the OC connection.
  */
 export interface OpenCodeMapperContext {
+	/** Part IDs that have been announced via message.part.updated. */
+	knownPartIds: Set<string>;
 	/** Part IDs that belong to reasoning parts (not regular text). */
 	reasoningPartIds: Set<string>;
 	/** Last-emitted reasoning text per partID — used to compute real deltas. */
 	lastReasoningTextByPartId: Map<string, string>;
+	/** Deltas that arrived before the SDK announced the part type. */
+	pendingTextDeltasByPartId: Map<string, string[]>;
 }
 
 export function createOpenCodeMapperContext(): OpenCodeMapperContext {
 	return {
+		knownPartIds: new Set(),
 		reasoningPartIds: new Set(),
 		lastReasoningTextByPartId: new Map(),
+		pendingTextDeltasByPartId: new Map(),
 	};
 }
 
@@ -46,14 +53,27 @@ function baseEvent<TType extends BroskiRuntimeEvent["type"]>(
 	sessionId?: string,
 	cwd?: string,
 ) {
-	return {
+	return enrichRuntimeEvent({
 		type,
 		backend: "opencode" as const,
 		timestampMs: Date.now(),
 		...(sessionId ? { sessionId } : {}),
 		...(cwd ? { cwd } : {}),
 		...(backendData ? { backendData } : {}),
-	};
+	} as Extract<BroskiRuntimeEvent, { type: TType }>);
+}
+
+function appendPendingDelta(ctx: OpenCodeMapperContext, partId: string, delta: string): void {
+	const existing = ctx.pendingTextDeltasByPartId.get(partId) ?? [];
+	existing.push(delta);
+	ctx.pendingTextDeltasByPartId.set(partId, existing);
+}
+
+function consumePendingDelta(ctx: OpenCodeMapperContext, partId?: string): string {
+	if (!partId) return "";
+	const pending = ctx.pendingTextDeltasByPartId.get(partId) ?? [];
+	ctx.pendingTextDeltasByPartId.delete(partId);
+	return pending.join("");
 }
 
 export function mapOpenCodeSdkEventToRuntimeEvent(
@@ -107,19 +127,8 @@ export function mapOpenCodeSdkEventToRuntimeEvent(
 			if (properties.field !== "text" || typeof properties.delta !== "string") {
 				return null;
 			}
-			// Check if this delta belongs to a reasoning part — if so, route it as
-			// a thinking delta instead of a text delta.  Without this guard the
-			// reasoning content leaks into the visible response text while ALSO
-			// appearing in the dedicated Thinking card (duplication bug).
-			//
-			// NOTE: OC SDK guarantees message.part.updated arrives before any
-			// message.part.delta for the same partID (sequential awaits on one event
-			// loop).  If that ordering ever changes, deltas arriving before the part
-			// is registered will leak as assistant_text_delta.
 			const deltaPartId = extractPartId(properties);
 			if (deltaPartId && ctx?.reasoningPartIds.has(deltaPartId)) {
-				// Track accumulated reasoning text so the final message.part.updated
-				// can diff correctly and avoid re-emitting the entire thinking content.
 				if (ctx) {
 					const prev = ctx.lastReasoningTextByPartId.get(deltaPartId) ?? "";
 					ctx.lastReasoningTextByPartId.set(deltaPartId, prev + properties.delta);
@@ -142,37 +151,54 @@ export function mapOpenCodeSdkEventToRuntimeEvent(
 			if (!part || typeof part !== "object") return null;
 			const partSessionId = extractSessionId(part) ?? sessionId;
 			const partMessageId = extractMessageId(part);
+			const partId = extractPartId(part);
+			const pendingDelta = partId && ctx ? consumePendingDelta(ctx, partId) : "";
+			if (partId && ctx) {
+				ctx.knownPartIds.add(partId);
+			}
 
 			if (part.type === "reasoning") {
-				// Register this part as reasoning so future message.part.delta events
-				// for it are routed as thinking deltas, not text deltas.
-				const reasoningPartId = extractPartId(part);
+				const reasoningPartId = partId;
 				if (reasoningPartId && ctx) {
 					ctx.reasoningPartIds.add(reasoningPartId);
 				}
 
-				// Compute the real delta.  properties.delta is the true incremental
-				// delta when present.  Otherwise part.text is the FULL accumulated
-				// reasoning text — we must diff against what we already emitted to
-				// avoid duplicating content in the Thinking card.
 				let delta: string;
 				if (typeof properties.delta === "string") {
-					delta = properties.delta;
+					delta = pendingDelta + properties.delta;
 				} else if (typeof part.text === "string") {
 					const prev = reasoningPartId && ctx ? (ctx.lastReasoningTextByPartId.get(reasoningPartId) ?? "") : "";
-					delta = part.text.startsWith(prev) ? part.text.slice(prev.length) : part.text; // text was replaced, not appended — emit in full
+					const effectivePrev = `${prev}${pendingDelta}`;
+					if (part.text.startsWith(effectivePrev)) {
+						delta = part.text.slice(effectivePrev.length);
+					} else if (part.text.startsWith(prev)) {
+						delta = `${pendingDelta}${part.text.slice(prev.length)}`;
+					} else {
+						delta = `${pendingDelta}${part.text}`;
+					}
 				} else {
-					delta = "";
+					delta = pendingDelta;
 				}
-				// Track the full text so the next update can diff correctly.
-				if (reasoningPartId && ctx && typeof part.text === "string") {
-					ctx.lastReasoningTextByPartId.set(reasoningPartId, part.text);
+				if (reasoningPartId && ctx) {
+					const nextReasoningText =
+						typeof part.text === "string"
+							? part.text
+							: `${ctx.lastReasoningTextByPartId.get(reasoningPartId) ?? ""}${delta}`;
+					ctx.lastReasoningTextByPartId.set(reasoningPartId, nextReasoningText);
 				}
 				if (!delta) return null;
 				return {
 					...baseEvent("assistant_thinking_delta", { sourceType: payloadType }, partSessionId, cwd),
 					...(partMessageId ? { messageId: partMessageId } : {}),
 					delta,
+				};
+			}
+
+			if (pendingDelta && part.type !== "tool") {
+				return {
+					...baseEvent("assistant_text_delta", { sourceType: payloadType }, partSessionId, cwd),
+					...(partMessageId ? { messageId: partMessageId } : {}),
+					delta: pendingDelta,
 				};
 			}
 

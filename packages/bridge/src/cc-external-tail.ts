@@ -16,6 +16,8 @@ export type CcExternalTailContext = {
 		resolveSessionFilePath: (sessionId: string) => Promise<string | null>;
 	};
 	emitCcStream: (sessionId: string, streamMsg: ClaudeCodeStreamMessage) => void;
+	/** Broadcast a raw message to all sockets (used for external-user-message). */
+	broadcastRaw?: (message: Record<string, unknown>) => void;
 	safeString: (value: unknown) => string;
 	logDebug: (msg: string) => void;
 	DEBUG_RTS: boolean;
@@ -590,6 +592,25 @@ export function startClaudeCodeExternalTail(sessionId: string, ctx: CcExternalTa
 					const toolResults = extractToolResults(content);
 					if (toolResults.length > 0) {
 						processToolResults(toolResults);
+					}
+
+					// Emit user text so the phone shows the prompt typed on Mac
+					if (initialSyncDone && ctx.broadcastRaw) {
+						const userText = extractText(content);
+						if (userText) {
+							ctx.broadcastRaw({
+								type: "runtime_event",
+								backend: "claude-code",
+								data: {
+									type: "backend_event",
+									backend: "claude-code",
+									kind: "external-user-message",
+									timestampMs: Date.now(),
+									sessionId,
+									payload: { content: userText, timestamp: Date.now() },
+								},
+							});
+						}
 					}
 				}
 			}

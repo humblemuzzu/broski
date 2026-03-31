@@ -9,6 +9,8 @@
 
 export type OcExternalTailContext = {
 	enqueueSdkEvent: (event: unknown) => void;
+	/** Broadcast a raw message to all sockets (used for external-user-message). */
+	broadcastRaw?: (message: Record<string, unknown>) => void;
 	oc: any;
 	logDebug: (msg: string) => void;
 	DEBUG_RTS: boolean;
@@ -113,6 +115,25 @@ export function startOpenCodeExternalTail(
 								},
 							},
 						});
+
+						// Emit user text so the phone shows the prompt typed on Mac
+						if (ctx.broadcastRaw && msg.info.role === "user") {
+							const userText = typeof msg.text === "string" ? msg.text : "";
+							if (userText) {
+								ctx.broadcastRaw({
+									type: "runtime_event",
+									backend: "opencode",
+									data: {
+										type: "backend_event",
+										backend: "opencode",
+										kind: "external-user-message",
+										timestampMs: Date.now(),
+										sessionId,
+										payload: { content: userText, timestamp: Date.now() },
+									},
+								});
+							}
+						}
 					}
 				}
 

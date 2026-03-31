@@ -35,10 +35,20 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
       return;
     }
 
-    final next = reduceRuntimeChatEvent(
+    final detectedGap = _runtimeEventHasGap(current, event);
+    if (detectedGap) {
+      _requestRuntimeGapRecovery(sessionKey, current, event);
+    }
+
+    final reduced = reduceRuntimeChatEvent(
       current,
       event,
       metadataForEvent: _runtimeToolMetadataForEvent,
+    );
+    final next = _rememberRuntimeEventProgress(
+      reduced,
+      event,
+      detectedGap: detectedGap,
     );
     _runtimeChatTurns[sessionKey] = next;
 
@@ -110,6 +120,12 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
         when event.backend == AgentType.codex) {
       _handleRuntimeCxBackendEvent(event);
     }
+
+    // External user message — prompt typed on Mac terminal, show it on phone
+    if (event case RuntimeBackendEvent()
+        when event.kind == 'external-user-message') {
+      _handleExternalUserMessage(event);
+    }
   }
 
   void _handleRuntimeChatState(RuntimeState runtimeState) {
@@ -178,19 +194,65 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
         : AgentType.opencode;
     if (backend != activeBackend) return false;
 
-    final activeSessionId = (state.effectiveSessionId ?? '').trim();
-    final eventSessionId = (sessionId ?? '').trim();
-    if (activeSessionId.isNotEmpty && eventSessionId.isNotEmpty) {
-      return activeSessionId == eventSessionId;
-    }
+    // Backend matches — accept. Session/cwd filtering caused silent event
+    // drops for CC/CX/Pi where session ID formats differ between the bridge
+    // connector and the Flutter state (e.g. Pi connector sessionId vs the
+    // session list id). On single-device, if you're viewing a backend,
+    // events from that backend are for you.
+    return true;
+  }
 
-    final activeCwd = (state.effectivePath ?? '').trim();
-    final eventCwd = (cwd ?? '').trim();
-    if (activeCwd.isNotEmpty && eventCwd.isNotEmpty) {
-      return activeCwd == eventCwd;
+  bool _runtimeEventHasGap(RuntimeChatTurnState? current, RuntimeEvent event) {
+    if (event.replayed) return false;
+    final seq = event.seq;
+    final previous = current?.lastEventSeq;
+    if (seq == null || seq <= 0 || previous == null || previous <= 0) {
+      return false;
     }
+    return seq > previous + 1;
+  }
 
-    return activeSessionId.isEmpty && activeCwd.isEmpty;
+  RuntimeChatTurnState _rememberRuntimeEventProgress(
+    RuntimeChatTurnState turn,
+    RuntimeEvent event, {
+    required bool detectedGap,
+  }) {
+    final seq = event.seq;
+    final nextSeq = switch (seq) {
+      int value when value > 0 =>
+        turn.lastEventSeq == null || value > turn.lastEventSeq!
+            ? value
+            : turn.lastEventSeq,
+      _ => turn.lastEventSeq,
+    };
+    return turn.copyWith(
+      lastEventSeq: nextSeq,
+      lastGapAtMs: detectedGap
+          ? DateTime.now().millisecondsSinceEpoch
+          : turn.lastGapAtMs,
+    );
+  }
+
+  void _requestRuntimeGapRecovery(
+    String sessionKey,
+    RuntimeChatTurnState? current,
+    RuntimeEvent event,
+  ) {
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final lastGapAtMs = current?.lastGapAtMs;
+    if (lastGapAtMs != null && nowMs - lastGapAtMs < 1500) {
+      return;
+    }
+    developer.log(
+      'Runtime event gap detected for $sessionKey: last=${current?.lastEventSeq}, next=${event.seq}',
+      name: 'ChatProvider',
+    );
+    _bridge.setView(
+      sessionId: event.sessionId,
+      projectPath: event.cwd,
+      agent: event.backend.wireValue,
+      lastRuntimeSeq: current?.lastEventSeq,
+    );
   }
 
   void _applyRuntimeStateToChat(
@@ -381,6 +443,34 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
     }
 
     return event.message;
+  }
+
+  /// Handle a user message that was typed on the Mac terminal (not the app).
+  /// Adds it to the chat so the phone shows the prompt in real-time.
+  void _handleExternalUserMessage(RuntimeBackendEvent event) {
+    final payload = _runtimeMap(event.payload);
+    if (payload == null) return;
+    final content = payload['content'] as String?;
+    if (content == null || content.isEmpty) return;
+    final timestamp = payload['timestamp'] as num?;
+    final sessionId = event.sessionId ?? state.effectiveSessionId ?? '';
+    if (sessionId.isEmpty) return;
+
+    final msgId =
+        'ext-user-${event.backend.wireValue}-${timestamp?.toInt() ?? DateTime.now().millisecondsSinceEpoch}';
+    if (_messages.containsKey(msgId)) return;
+
+    final message = ChatMessage(
+      id: msgId,
+      sessionId: sessionId,
+      role: MessageRole.user,
+      createdAt: timestamp != null
+          ? DateTime.fromMillisecondsSinceEpoch(timestamp.toInt())
+          : DateTime.now(),
+      text: content,
+      metadata: const {'deliveryState': 'confirmed', 'source': 'external'},
+    );
+    _addMessage(message);
   }
 
   void _handleRuntimeChatStreamError(Object error, StackTrace stackTrace) {

@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:broski/services/websocket/json_message_decoder.dart';
 import 'package:broski/services/websocket/websocket_connector.dart';
-import 'package:flutter/foundation.dart' show compute, debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 enum ConnectionStatus { disconnected, connecting, connected }
@@ -66,9 +67,11 @@ class WebSocketService {
   static const _expectedTickInterval = Duration(seconds: 30);
   static const _tickTimeoutMultiplier = 2.5; // 75 seconds without tick = dead
 
-  // Incoming message decode queue (keeps ordering while allowing background
-  // JSON parsing for large payloads).
+  // Incoming message decode queue. JSON parsing runs through a persistent
+  // background isolate so high-frequency token streams do not compete with UI.
   final List<String> _rawQueue = [];
+  final WebSocketJsonMessageDecoder _jsonDecoder =
+      WebSocketJsonMessageDecoder();
   bool _isDecoding = false;
   // Safety valve: allow large dev payloads, but prevent OOM on malicious peers.
   // This is intentionally generous for "vibe coding" flows.
@@ -441,6 +444,7 @@ class WebSocketService {
     _channelSubscription = null;
     _channel?.sink.close(); // FIX: Close the channel on dispose
     _channel = null;
+    _jsonDecoder.dispose();
     _messageController.close();
     _statusController.close();
   }
@@ -541,11 +545,6 @@ class WebSocketService {
     _lastTickReceived = DateTime.now();
   }
 
-  static Map<String, dynamic> _decodeJsonMap(String raw) {
-    final decoded = jsonDecode(raw);
-    return decoded is Map<String, dynamic> ? decoded : <String, dynamic>{};
-  }
-
   void _handleMessage(String raw) {
     // Approximate bytes (UTF-16 code units). We keep this cheap; exact byte
     // counting would allocate (utf8.encode).
@@ -564,15 +563,21 @@ class WebSocketService {
       while (_rawQueue.isNotEmpty) {
         final raw = _rawQueue.removeAt(0);
 
-        final Map<String, dynamic> data;
-        if (raw.length > 4096) {
-          // Offload large payload parsing to a background isolate.
-          data = await compute(_decodeJsonMap, raw);
-        } else {
-          data = _decodeJsonMap(raw);
-        }
+        final data = await _jsonDecoder.decode(raw);
 
         if (data.isEmpty) continue;
+
+        if (data['type'] == 'batch') {
+          final messages = data['messages'];
+          if (messages is List) {
+            for (final entry in messages.whereType<Map>()) {
+              _messageController.add(
+                entry.map((key, value) => MapEntry(key.toString(), value)),
+              );
+            }
+          }
+          continue;
+        }
 
         // Handle bridge heartbeat without bubbling it up to the UI.
         if (data['type'] == 'ping') {

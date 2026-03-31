@@ -1,5 +1,6 @@
 import type { ClaudeCodeStreamMessage } from "../types";
 import type { BroskiBackendData, BroskiRuntimeEvent } from "../types/runtime";
+import { enrichRuntimeEvent } from "./stream-contract";
 
 type ClaudeCodeRuntimeEventContext = {
 	backend: "claude-code";
@@ -11,14 +12,15 @@ const baseEvent = <TType extends BroskiRuntimeEvent["type"]>(
 	type: TType,
 	ctx: ClaudeCodeRuntimeEventContext,
 	backendData?: BroskiBackendData,
-) => ({
-	type,
-	backend: ctx.backend,
-	timestampMs: Date.now(),
-	...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}),
-	...(ctx.cwd ? { cwd: ctx.cwd } : {}),
-	...(backendData ? { backendData } : {}),
-});
+) =>
+	enrichRuntimeEvent({
+		type,
+		backend: ctx.backend,
+		timestampMs: Date.now(),
+		...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}),
+		...(ctx.cwd ? { cwd: ctx.cwd } : {}),
+		...(backendData ? { backendData } : {}),
+	} as Extract<BroskiRuntimeEvent, { type: TType }>);
 
 export function mapClaudeCodeStreamToRuntimeEvent(
 	streamMessage: ClaudeCodeStreamMessage,

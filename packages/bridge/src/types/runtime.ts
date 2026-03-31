@@ -94,6 +94,10 @@ type BroskiRuntimeEventEnvelope<TType extends string> = {
 	cwd?: string;
 	messageId?: string;
 	toolCallId?: string;
+	streamId?: string;
+	turnId?: string;
+	seq?: number;
+	replayed?: boolean;
 	backendData?: BroskiBackendData;
 };
 

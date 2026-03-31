@@ -16,12 +16,16 @@ import * as piCustomMessage from "./pi_custom_message";
 import * as piLabels from "./pi_labels";
 import * as piTools from "./pi_tools";
 import * as piTree from "./pi_tree";
+import { sendPiRuntimeEvent } from "./pi_stream_delivery";
+import { recordRuntimeEvent } from "../utils/runtime-replay-buffer";
+import { startPiExternalTail, type PiExternalTailContext } from "../connectors/pi/pi-external-tail";
 
 type Reply = (message: ServerMessage) => void;
 
 type Broadcast = (message: ServerMessage) => void;
 
 const streamUnsubscribers = new Map<string, () => void>();
+const externalTails = new Map<string, { stop: () => void }>();
 
 const normalizeCwd = (cwd?: string): string => resolve((cwd || "").trim() || process.cwd());
 
@@ -101,7 +105,6 @@ function broadcastPiStreamMessage(
 	sessionId: string,
 	streamMessage: PiStreamMessage,
 ): void {
-	// Phase 4: Only send runtime_event. Legacy pi_stream removed.
 	const runtimeEvent = mapPiStreamToRuntimeEvent(streamMessage, {
 		backend: "pi",
 		sessionId,
@@ -109,11 +112,13 @@ function broadcastPiStreamMessage(
 	});
 	if (!runtimeEvent) return;
 
-	broadcast({
+	const payload: ServerMessage = {
 		type: "runtime_event",
 		backend: "pi",
 		data: runtimeEvent,
-	});
+	};
+	recordRuntimeEvent(payload);
+	broadcast(payload);
 }
 
 function emitPiRuntimeState(reply: Reply, cwd: string, state: PiStatePayload): void {
@@ -172,9 +177,9 @@ async function ensureStreamBridge(cwd: string, broadcast: Broadcast, force = fal
 
 		broadcastPiStreamMessage(broadcast, cwd, liveInstance.session.sessionId, streamMessage);
 
-		// After agent ends a turn, broadcast updated session list + state so all
-		// connected clients (including the phone app) see real-time updates.
-		if (streamMessage.type === "agent-end" || streamMessage.type === "agent-start") {
+		// Keep runtime_state authoritative. On start/end/error we publish a fresh
+		// snapshot so the client never gets stuck in streaming state.
+		if (streamMessage.type === "agent-end" || streamMessage.type === "agent-start" || streamMessage.type === "error") {
 			const state = pi.mapStatePayload(liveInstance);
 			broadcast({
 				type: "runtime_state",
@@ -198,6 +203,65 @@ function removeStreamBridge(cwd: string): void {
 
 	streamUnsubscribers.delete(key);
 	unsubscribe();
+}
+
+/**
+ * Start an external tail for a Pi session running in the terminal.
+ * The tail watches the JSONL file and emits runtime events as new
+ * messages appear, so the phone sees conversation updates live.
+ *
+ * Only starts if the session is NOT owned by the bridge (i.e. running
+ * externally in pi CLI/TUI). If the bridge owns it, we already get
+ * events via session.subscribe().
+ */
+export async function syncPiExternalTail(
+	sessionId: string,
+	broadcast: Broadcast,
+	debugRts: boolean,
+	logDebug: (msg: string) => void,
+): Promise<void> {
+	// Already tailing this session
+	if (externalTails.has(sessionId)) return;
+
+	// If bridge owns this session, skip — events come via subscribe()
+	if (pi.isSessionOwnedByBridge(sessionId)) {
+		if (debugRts) logDebug(`[Pi tail] Session ${sessionId} is bridge-owned, skipping external tail`);
+		return;
+	}
+
+	const filePath = await pi.resolveSessionFilePath(sessionId);
+	if (!filePath) {
+		if (debugRts) logDebug(`[Pi tail] Cannot resolve file for session ${sessionId}`);
+		return;
+	}
+
+	if (debugRts) logDebug(`[Pi tail] Starting external tail for ${sessionId} → ${filePath}`);
+
+	const tail = startPiExternalTail(filePath, {
+		emitPiStream: (streamMsg) => {
+			broadcastPiStreamMessage(broadcast, "", sessionId, streamMsg);
+		},
+		logDebug,
+		DEBUG_RTS: debugRts,
+	});
+
+	externalTails.set(sessionId, tail);
+}
+
+/** Stop an external tail for a Pi session. */
+export function stopPiExternalTail(sessionId: string): void {
+	const tail = externalTails.get(sessionId);
+	if (!tail) return;
+	tail.stop();
+	externalTails.delete(sessionId);
+}
+
+/** Stop all active external tails. */
+export function stopAllPiExternalTails(): void {
+	for (const [id, tail] of externalTails) {
+		tail.stop();
+	}
+	externalTails.clear();
 }
 
 export async function handle(message: any, reply: Reply, broadcast: Broadcast): Promise<boolean> {
@@ -244,6 +308,15 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
 					broadcastPiStreamMessage(broadcast, cwd, instance.session.sessionId, {
 						type: "error",
 						message: error instanceof Error ? error.message : String(error),
+					});
+					const state = pi.mapStatePayload(instance);
+					broadcast({
+						type: "runtime_state",
+						backend: "pi",
+						data: {
+							...mapPiStateToRuntimeState(state),
+							cwd,
+						},
 					});
 				});
 

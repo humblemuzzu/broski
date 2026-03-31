@@ -9,6 +9,10 @@ sealed class RuntimeEvent {
   final String? cwd;
   final String? messageId;
   final String? toolCallId;
+  final String? streamId;
+  final String? turnId;
+  final int? seq;
+  final bool replayed;
   final Map<String, dynamic>? backendData;
 
   const RuntimeEvent({
@@ -19,6 +23,10 @@ sealed class RuntimeEvent {
     this.cwd,
     this.messageId,
     this.toolCallId,
+    this.streamId,
+    this.turnId,
+    this.seq,
+    this.replayed = false,
     this.backendData,
   });
 
@@ -75,6 +83,10 @@ sealed class RuntimeEvent {
     if (cwd != null) 'cwd': cwd,
     if (messageId != null) 'messageId': messageId,
     if (toolCallId != null) 'toolCallId': toolCallId,
+    if (streamId != null) 'streamId': streamId,
+    if (turnId != null) 'turnId': turnId,
+    if (seq != null) 'seq': seq,
+    if (replayed) 'replayed': replayed,
     if (backendData != null) 'backendData': backendData,
   };
 }
@@ -89,6 +101,10 @@ class RuntimeAgentStartedEvent extends RuntimeEvent {
         cwd: _stringField(json, 'cwd'),
         messageId: _stringField(json, 'messageId'),
         toolCallId: _stringField(json, 'toolCallId'),
+        streamId: _stringField(json, 'streamId'),
+        turnId: _stringField(json, 'turnId'),
+        seq: (json['seq'] as num?)?.toInt(),
+        replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
 
@@ -109,6 +125,10 @@ class RuntimeAgentFinishedEvent extends RuntimeEvent {
         cwd: _stringField(json, 'cwd'),
         messageId: _stringField(json, 'messageId'),
         toolCallId: _stringField(json, 'toolCallId'),
+        streamId: _stringField(json, 'streamId'),
+        turnId: _stringField(json, 'turnId'),
+        seq: (json['seq'] as num?)?.toInt(),
+        replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
 
@@ -132,6 +152,10 @@ class RuntimeAssistantTextDeltaEvent extends RuntimeEvent {
         cwd: _stringField(json, 'cwd'),
         messageId: _stringField(json, 'messageId'),
         toolCallId: _stringField(json, 'toolCallId'),
+        streamId: _stringField(json, 'streamId'),
+        turnId: _stringField(json, 'turnId'),
+        seq: (json['seq'] as num?)?.toInt(),
+        replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
 
@@ -152,6 +176,10 @@ class RuntimeAssistantThinkingDeltaEvent extends RuntimeEvent {
         cwd: _stringField(json, 'cwd'),
         messageId: _stringField(json, 'messageId'),
         toolCallId: _stringField(json, 'toolCallId'),
+        streamId: _stringField(json, 'streamId'),
+        turnId: _stringField(json, 'turnId'),
+        seq: (json['seq'] as num?)?.toInt(),
+        replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
 
@@ -174,6 +202,10 @@ class RuntimeToolStartedEvent extends RuntimeEvent {
         cwd: _stringField(json, 'cwd'),
         messageId: _stringField(json, 'messageId'),
         toolCallId: _stringField(json, 'toolCallId'),
+        streamId: _stringField(json, 'streamId'),
+        turnId: _stringField(json, 'turnId'),
+        seq: (json['seq'] as num?)?.toInt(),
+        replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
 
@@ -202,6 +234,10 @@ class RuntimeToolUpdatedEvent extends RuntimeEvent {
         cwd: _stringField(json, 'cwd'),
         messageId: _stringField(json, 'messageId'),
         toolCallId: _stringField(json, 'toolCallId'),
+        streamId: _stringField(json, 'streamId'),
+        turnId: _stringField(json, 'turnId'),
+        seq: (json['seq'] as num?)?.toInt(),
+        replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
 
@@ -233,6 +269,10 @@ class RuntimeToolFinishedEvent extends RuntimeEvent {
         cwd: _stringField(json, 'cwd'),
         messageId: _stringField(json, 'messageId'),
         toolCallId: _stringField(json, 'toolCallId'),
+        streamId: _stringField(json, 'streamId'),
+        turnId: _stringField(json, 'turnId'),
+        seq: (json['seq'] as num?)?.toInt(),
+        replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
 
@@ -261,6 +301,10 @@ class RuntimePermissionRequestedEvent extends RuntimeEvent {
         cwd: _stringField(json, 'cwd'),
         messageId: _stringField(json, 'messageId'),
         toolCallId: _stringField(json, 'toolCallId'),
+        streamId: _stringField(json, 'streamId'),
+        turnId: _stringField(json, 'turnId'),
+        seq: (json['seq'] as num?)?.toInt(),
+        replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
 
@@ -286,6 +330,10 @@ class RuntimeUserInputRequestedEvent extends RuntimeEvent {
         cwd: _stringField(json, 'cwd'),
         messageId: _stringField(json, 'messageId'),
         toolCallId: _stringField(json, 'toolCallId'),
+        streamId: _stringField(json, 'streamId'),
+        turnId: _stringField(json, 'turnId'),
+        seq: (json['seq'] as num?)?.toInt(),
+        replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
 
@@ -311,6 +359,10 @@ class RuntimeSessionStateChangedEvent extends RuntimeEvent {
         cwd: _stringField(json, 'cwd'),
         messageId: _stringField(json, 'messageId'),
         toolCallId: _stringField(json, 'toolCallId'),
+        streamId: _stringField(json, 'streamId'),
+        turnId: _stringField(json, 'turnId'),
+        seq: (json['seq'] as num?)?.toInt(),
+        replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
 
@@ -334,6 +386,10 @@ class RuntimeCompactionStartedEvent extends RuntimeEvent {
         cwd: _stringField(json, 'cwd'),
         messageId: _stringField(json, 'messageId'),
         toolCallId: _stringField(json, 'toolCallId'),
+        streamId: _stringField(json, 'streamId'),
+        turnId: _stringField(json, 'turnId'),
+        seq: (json['seq'] as num?)?.toInt(),
+        replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
 
@@ -361,6 +417,10 @@ class RuntimeCompactionFinishedEvent extends RuntimeEvent {
         cwd: _stringField(json, 'cwd'),
         messageId: _stringField(json, 'messageId'),
         toolCallId: _stringField(json, 'toolCallId'),
+        streamId: _stringField(json, 'streamId'),
+        turnId: _stringField(json, 'turnId'),
+        seq: (json['seq'] as num?)?.toInt(),
+        replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
 
@@ -392,6 +452,10 @@ class RuntimeRetryStartedEvent extends RuntimeEvent {
         cwd: _stringField(json, 'cwd'),
         messageId: _stringField(json, 'messageId'),
         toolCallId: _stringField(json, 'toolCallId'),
+        streamId: _stringField(json, 'streamId'),
+        turnId: _stringField(json, 'turnId'),
+        seq: (json['seq'] as num?)?.toInt(),
+        replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
 
@@ -422,6 +486,10 @@ class RuntimeRetryFinishedEvent extends RuntimeEvent {
         cwd: _stringField(json, 'cwd'),
         messageId: _stringField(json, 'messageId'),
         toolCallId: _stringField(json, 'toolCallId'),
+        streamId: _stringField(json, 'streamId'),
+        turnId: _stringField(json, 'turnId'),
+        seq: (json['seq'] as num?)?.toInt(),
+        replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
 
@@ -451,6 +519,10 @@ class RuntimeErrorEvent extends RuntimeEvent {
         cwd: _stringField(json, 'cwd'),
         messageId: _stringField(json, 'messageId'),
         toolCallId: _stringField(json, 'toolCallId'),
+        streamId: _stringField(json, 'streamId'),
+        turnId: _stringField(json, 'turnId'),
+        seq: (json['seq'] as num?)?.toInt(),
+        replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
 
@@ -478,6 +550,10 @@ class RuntimeBackendEvent extends RuntimeEvent {
         cwd: _stringField(json, 'cwd'),
         messageId: _stringField(json, 'messageId'),
         toolCallId: _stringField(json, 'toolCallId'),
+        streamId: _stringField(json, 'streamId'),
+        turnId: _stringField(json, 'turnId'),
+        seq: (json['seq'] as num?)?.toInt(),
+        replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
 

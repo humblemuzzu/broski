@@ -1,5 +1,6 @@
 import type { CodexStreamMessage } from "../types";
 import type { BroskiBackendData, BroskiRuntimeEvent } from "../types/runtime";
+import { enrichRuntimeEvent } from "./stream-contract";
 
 type CodexRuntimeEventContext = {
 	backend: "codex";
@@ -11,14 +12,15 @@ const baseEvent = <TType extends BroskiRuntimeEvent["type"]>(
 	type: TType,
 	ctx: CodexRuntimeEventContext,
 	backendData?: BroskiBackendData,
-) => ({
-	type,
-	backend: ctx.backend,
-	timestampMs: Date.now(),
-	...(ctx.threadId ? { sessionId: ctx.threadId } : {}),
-	...(ctx.cwd ? { cwd: ctx.cwd } : {}),
-	...(backendData ? { backendData } : {}),
-});
+) =>
+	enrichRuntimeEvent({
+		type,
+		backend: ctx.backend,
+		timestampMs: Date.now(),
+		...(ctx.threadId ? { sessionId: ctx.threadId } : {}),
+		...(ctx.cwd ? { cwd: ctx.cwd } : {}),
+		...(backendData ? { backendData } : {}),
+	} as Extract<BroskiRuntimeEvent, { type: TType }>);
 
 function pickToolCallId(item: any): string | undefined {
 	const value = item?.callId ?? item?.callID ?? item?.call_id ?? item?.id;
@@ -224,13 +226,7 @@ export function mapCodexStreamToRuntimeEvent(
 
 					if (!isCodexToolItem(item)) return null;
 
-					const eventType = streamMessage.method === "item/started" ? "tool_started" : "tool_finished";
-					const base = baseEvent(eventType, ctx, {
-						sourceType: streamMessage.type,
-						method: streamMessage.method,
-						itemType: item.type,
-						status: item.status,
-					});
+					const isToolStart = streamMessage.method === "item/started";
 					const toolCallId = pickToolCallId(item);
 					const toolName = pickToolName(item);
 					const input = item?.input ??
@@ -241,9 +237,14 @@ export function mapCodexStreamToRuntimeEvent(
 							...(item?.query ? { query: item.query } : {}),
 						};
 
-					if (eventType === "tool_started") {
+					if (isToolStart) {
 						return {
-							...base,
+							...baseEvent("tool_started", ctx, {
+								sourceType: streamMessage.type,
+								method: streamMessage.method,
+								itemType: item.type,
+								status: item.status,
+							}),
 							...(toolCallId ? { toolCallId } : {}),
 							...(toolName ? { toolName } : {}),
 							input,
@@ -252,7 +253,12 @@ export function mapCodexStreamToRuntimeEvent(
 
 					const output = item?.result ?? item?.output ?? item?.aggregatedOutput ?? item?.error;
 					return {
-						...base,
+						...baseEvent("tool_finished", ctx, {
+							sourceType: streamMessage.type,
+							method: streamMessage.method,
+							itemType: item.type,
+							status: item.status,
+						}),
 						...(toolCallId ? { toolCallId } : {}),
 						...(toolName ? { toolName } : {}),
 						input,

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:broski/models/runtime/runtime.dart';
+import 'package:broski/services/bridge/runtime_replay_tracker.dart';
 import 'package:broski/services/bridge_service.dart';
 
 extension BridgeServiceRuntime on BridgeService {
@@ -14,7 +15,9 @@ extension BridgeServiceRuntime on BridgeService {
       return const Iterable<RuntimeEvent>.empty();
     }
 
-    return [RuntimeEvent.fromJson(payload)];
+    final event = RuntimeEvent.fromJson(payload);
+    RuntimeReplayTracker.instance.remember(event);
+    return [event];
   });
 
   Stream<RuntimeState> get runtimeStates => messages.expand((message) {

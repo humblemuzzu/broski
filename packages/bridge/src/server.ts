@@ -83,6 +83,8 @@ import type {
 	ServerMessage,
 } from "./types";
 import { resetUnsupportedParams } from "./utils/codex-compat-retry";
+import { RuntimeSendQueue } from "./utils/runtime-send-queue";
+import { recordRuntimeEvent, replayRuntimeEventsSince } from "./utils/runtime-replay-buffer";
 
 // Re-export for backward compatibility (external consumers import from './server')
 export { type AuthTokenState, loadOrCreateAuthState, loadOrCreateAuthToken } from "./auth-token";
@@ -800,8 +802,17 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			// Ignore watch failures (dir missing or unsupported)
 		}
 	};
+	const runtimeSendQueue = new RuntimeSendQueue((ws) => {
+		const ctx = contexts.get(ws);
+		if (!ctx) return undefined;
+		return {
+			lastRttMs: ctx.lastRttMs,
+			connectionType: ctx.connectionType,
+		};
+	});
+
 	const send = (ws: ServerWebSocket<unknown>, message: ServerMessage) => {
-		ws.send(JSON.stringify(message));
+		runtimeSendQueue.send(ws, message);
 	};
 
 	const broadcast = (message: ServerMessage) => {
@@ -817,6 +828,25 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		log,
 		resolveSecurePath: getSecurePath,
 	});
+
+	const replayRuntimeEventsForSocket = (params: {
+		ws: ServerWebSocket<unknown>;
+		backend: AgentType;
+		sessionId?: string;
+		cwd?: string;
+		lastSeq?: number;
+	}): number => {
+		const replayed = replayRuntimeEventsSince({
+			backend: params.backend,
+			sessionId: params.sessionId,
+			cwd: params.cwd,
+			lastSeq: params.lastSeq,
+		});
+		for (const message of replayed) {
+			send(params.ws, message);
+		}
+		return replayed.length;
+	};
 
 	// Watch user-scope Claude Code skills (best-effort).
 	ensureClaudeWatchDir(join(homedir(), ".claude", "skills"), "skills");
@@ -1544,6 +1574,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		return _startOpenCodeExternalTail(sessionId, projectPath, {
 			oc: requireOpenCode(),
 			enqueueSdkEvent,
+			broadcastRaw: broadcast as (message: Record<string, unknown>) => void,
 			logDebug,
 			DEBUG_RTS,
 		});
@@ -1553,6 +1584,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		return _startClaudeCodeExternalTail(sessionId, {
 			claudeCode,
 			emitCcStream,
+			broadcastRaw: broadcast as (message: Record<string, unknown>) => void,
 			safeString,
 			logDebug,
 			DEBUG_RTS,
@@ -1562,6 +1594,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	const startCodexExternalTail = (threadId: string): { stop: () => void } => {
 		return _startCodexExternalTail(threadId, {
 			emitCxStream,
+			broadcastRaw: broadcast as (message: Record<string, unknown>) => void,
 			safeString,
 			logDebug,
 			DEBUG_RTS,
@@ -1709,14 +1742,19 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			backend: "claude-code",
 			data: runtimeEvent,
 		};
+		recordRuntimeEvent(runtimePayload);
 		if (resolvedOwner) {
 			send(resolvedOwner, runtimePayload);
 		} else {
-			// No owner connected — buffer the raw stream message for reconnect replay.
-			// On replay, emitCcStream is re-called which re-maps to runtime_event.
 			bufferCcEvent(sessionId, streamMsg);
 		}
-		broadcastToSessionWatchers("claude-code", sessionId, runtimePayload, resolvedOwner);
+		// Broadcast to ALL connected sockets so events aren't lost when
+		// ownership is stale after reconnect.  Flutter deduplicates via
+		// fingerprinting so double-delivery to the owner is harmless.
+		for (const ws of sockets) {
+			if (ws === resolvedOwner) continue; // already sent above
+			send(ws, runtimePayload);
+		}
 	};
 
 	const emitCxStream = (threadId: string, streamMsg: CodexStreamMessage, owner?: ServerWebSocket<unknown> | null) => {
@@ -1741,13 +1779,16 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			backend: "codex",
 			data: runtimeEvent,
 		};
+		recordRuntimeEvent(runtimePayload);
 		if (resolvedOwner) {
 			send(resolvedOwner, runtimePayload);
 		} else {
-			// No owner connected — buffer for reconnect replay
 			bufferCxEvent(threadId, streamMsg);
 		}
-		broadcastToSessionWatchers("codex", threadId, runtimePayload, resolvedOwner);
+		for (const ws of sockets) {
+			if (ws === resolvedOwner) continue;
+			send(ws, runtimePayload);
+		}
 	};
 
 	// ── Event buffer for reconnect replay ──────────────────────────────
@@ -1989,6 +2030,17 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			);
 		}
 
+		const runtimePayload = runtimeEvent
+			? ({
+					type: "runtime_event",
+					backend: "opencode",
+					data: runtimeEvent,
+				} as ServerMessage)
+			: null;
+		if (runtimePayload) {
+			recordRuntimeEvent(runtimePayload);
+		}
+
 		let deliveredCount = 0;
 		for (const ws of sockets) {
 			if (!filterEventForSocket(ws, event)) continue;
@@ -1996,12 +2048,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
 			// Phase 4: Only send runtime_event. Legacy sdk_event/sdk_event_batch removed.
 			// Flutter only reads runtime_event for OpenCode events.
-			if (runtimeEvent) {
-				send(ws, {
-					type: "runtime_event",
-					backend: "opencode",
-					data: runtimeEvent,
-				});
+			if (runtimePayload) {
+				send(ws, runtimePayload);
 			}
 		}
 
@@ -2335,6 +2383,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 				clearTimeout(clientQ.timer);
 			}
 			clientQueues.delete(ws);
+			runtimeSendQueue.disposeSocket(ws);
 
 			// Remove client from active PTY subscriptions.
 			ptyRuntime.onClientDisconnected(ws);
@@ -2682,7 +2731,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 				buildCodexRuntimeState,
 				ocSessionOwners,
 				ocSessionProjectPaths,
+				broadcast,
 				findPiActiveRuntimeStateMessage,
+				replayRuntimeEventsSince: replayRuntimeEventsForSocket,
 			})
 		)
 			return;
