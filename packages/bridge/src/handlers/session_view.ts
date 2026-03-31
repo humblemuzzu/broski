@@ -130,17 +130,24 @@ export async function handle(
 		}
 	}
 
-	// Re-bind ownership for active sessions on reconnect
+	// Re-bind ownership for active BRIDGE-OWNED sessions on reconnect.
+	// IMPORTANT: Only re-bind if there was a previous owner (meaning the bridge
+	// started this session via cc_chat/oc_chat/cx_chat). If there's no previous
+	// owner, the session is running externally in the terminal, and the external
+	// tail should handle streaming — setting ownership here would prevent it.
 	if (nextAgent === "claude-code" && nextSessionId) {
 		const ccActiveList = ctx.claudeCode.listActiveSessions();
 		const activeSession = ccActiveList.find((s) => s.sessionId === nextSessionId);
 		const isActive = activeSession != null;
-		if (isActive) {
-			const prevOwner = ctx.ccSessionOwners.get(nextSessionId);
-			if (!prevOwner || !ctx.sockets.has(prevOwner)) {
+		const prevOwner = ctx.ccSessionOwners.get(nextSessionId);
+		const hadBridgeOwner = prevOwner != null;
+
+		if (isActive && hadBridgeOwner) {
+			// Bridge started this session — re-bind ownership on reconnect
+			if (!ctx.sockets.has(prevOwner)) {
 				ctx.ccSessionOwners.set(nextSessionId, ws);
 				ctx.logInfo(
-					`[RTS] set_view: Re-bound CC session ${nextSessionId} owner (was ${prevOwner ? "stale" : "absent"})`,
+					`[RTS] set_view: Re-bound CC session ${nextSessionId} owner (stale socket)`,
 				);
 			}
 			ctx.send(ws, {
@@ -153,16 +160,25 @@ export async function handle(
 				}),
 			} as ServerMessage);
 			ctx.replayBufferedEvents(ws, "claude-code", nextSessionId);
+		} else if (isActive && !hadBridgeOwner) {
+			// Session is active but NOT bridge-owned — running in Mac terminal.
+			// Don't claim ownership; let external tail handle streaming.
+			if (ctx.DEBUG_RTS) {
+				ctx.logDebug(`[RTS] set_view: CC session ${nextSessionId} active but not bridge-owned, external tail will stream`);
+			}
 		}
 	}
 	if (nextAgent === "codex" && nextSessionId) {
 		const isActive = ctx.cxActiveTurns.has(nextSessionId);
-		if (isActive) {
-			const prevOwner = ctx.cxThreadOwners.get(nextSessionId);
-			if (!prevOwner || !ctx.sockets.has(prevOwner)) {
+		const prevOwner = ctx.cxThreadOwners.get(nextSessionId);
+		const hadBridgeOwner = prevOwner != null;
+
+		if (isActive && hadBridgeOwner) {
+			// Bridge started this session — re-bind on reconnect
+			if (!ctx.sockets.has(prevOwner)) {
 				ctx.cxThreadOwners.set(nextSessionId, ws);
 				ctx.logInfo(
-					`[RTS] set_view: Re-bound CX thread ${nextSessionId} owner (was ${prevOwner ? "stale" : "absent"})`,
+					`[RTS] set_view: Re-bound CX thread ${nextSessionId} owner (stale socket)`,
 				);
 			}
 			ctx.send(ws, {
@@ -175,15 +191,19 @@ export async function handle(
 				}),
 			} as ServerMessage);
 			ctx.replayBufferedEvents(ws, "codex", nextSessionId);
+		} else if (isActive && !hadBridgeOwner) {
+			if (ctx.DEBUG_RTS) {
+				ctx.logDebug(`[RTS] set_view: CX thread ${nextSessionId} active but not bridge-owned, external tail will stream`);
+			}
 		}
 	}
 	if (nextAgent === "opencode" && nextSessionId) {
-		const prevOwner = ctx.ocSessionOwners.get(nextSessionId);
-		if (!prevOwner || !ctx.sockets.has(prevOwner)) {
-			ctx.ocSessionOwners.set(nextSessionId, ws);
-			if (ctx.DEBUG_RTS) {
-				ctx.logDebug(`[RTS] set_view: Re-bound OC session ${nextSessionId} owner`);
-			}
+		// NEVER set ownership on view. Ownership is set ONLY when the bridge
+		// actively sends a prompt via oc_chat. Setting ownership here blocks
+		// the external tail from starting (syncExternalTailForKey checks !owner).
+		if (ctx.DEBUG_RTS) {
+			const prevOwner = ctx.ocSessionOwners.get(nextSessionId);
+			ctx.logDebug(`[RTS] set_view: OC session ${nextSessionId}, owner=${prevOwner ? "bridge" : "none (external tail)"}` );
 		}
 	}
 	let replayedPiBufferedEvents = 0;
