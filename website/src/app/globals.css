@@ -454,6 +454,12 @@ html {
   opacity: 0;
 }
 
+/* Buddy pet breathing animation */
+@keyframes buddy-breathe {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
 /* Mobile-first responsive adjustments */
 @media (max-width: 640px) {
   .mobile-full-width {

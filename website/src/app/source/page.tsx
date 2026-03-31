@@ -516,6 +516,101 @@ const BUDDY_HATS = [
   "tinyduck",
 ];
 
+// ── CC-authentic sprite data (from Claude Code src/buddy/) ───────────
+// Each species: 3 frames, 5 lines, 12 chars wide. {E} = eye placeholder.
+const CC_BODIES: Record<string, string[][]> = {
+  duck:     [['            ','    __      ','  <({E} )___  ','   (  ._>   ','    `--´    '],['            ','    __      ','  <({E} )___  ','   (  ._>   ','    `--´~   '],['            ','    __      ','  <({E} )___  ','   (  .__>  ','    `--´    ']],
+  goose:    [['            ','     ({E}>    ','     ||     ','   _(__)_   ','    ^^^^    '],['            ','    ({E}>     ','     ||     ','   _(__)_   ','    ^^^^    '],['            ','     ({E}>>   ','     ||     ','   _(__)_   ','    ^^^^    ']],
+  blob:     [['            ','   .----.   ','  ( {E}  {E} )  ','  (      )  ','   `----´   '],['            ','  .------.  ',' (  {E}  {E}  ) ',' (        ) ','  `------´  '],['            ','    .--.    ','   ({E}  {E})   ','   (    )   ','    `--´    ']],
+  cat:      [['            ','   /\\_/\\    ','  ( {E}   {E})  ','  (  ω  )   ','  (")_(")   '],['            ','   /\\_/\\    ','  ( {E}   {E})  ','  (  ω  )   ','  (")_(")~  '],['            ','   /\\-/\\    ','  ( {E}   {E})  ','  (  ω  )   ','  (")_(")   ']],
+  dragon:   [['            ','  /^\\  /^\\  ',' <  {E}  {E}  > ',' (   ~~   ) ','  `-vvvv-´  '],['            ','  /^\\  /^\\  ',' <  {E}  {E}  > ',' (        ) ','  `-vvvv-´  '],['   ~    ~   ','  /^\\  /^\\  ',' <  {E}  {E}  > ',' (   ~~   ) ','  `-vvvv-´  ']],
+  octopus:  [['            ','   .----.   ','  ( {E}  {E} )  ','  (______)  ','  /\\/\\/\\/\\  '],['            ','   .----.   ','  ( {E}  {E} )  ','  (______)  ','  \\/\\/\\/\\/  '],['     o      ','   .----.   ','  ( {E}  {E} )  ','  (______)  ','  /\\/\\/\\/\\  ']],
+  owl:      [['            ','   /\\  /\\   ','  (({E})({E}))  ','  (  ><  )  ','   `----´   '],['            ','   /\\  /\\   ','  (({E})({E}))  ','  (  ><  )  ','   .----.   '],['            ','   /\\  /\\   ','  (({E})(-))  ','  (  ><  )  ','   `----´   ']],
+  penguin:  [['            ','  .---.     ','  ({E}>{E})     ',' /(   )\\    ','  `---´     '],['            ','  .---.     ','  ({E}>{E})     ',' |(   )|    ','  `---´     '],['  .---.     ','  ({E}>{E})     ',' /(   )\\    ','  `---´     ','   ~ ~      ']],
+  turtle:   [['            ','   _,--._   ','  ( {E}  {E} )  ',' /[______]\\ ','  ``    ``  '],['            ','   _,--._   ','  ( {E}  {E} )  ',' /[______]\\ ','   ``  ``   '],['            ','   _,--._   ','  ( {E}  {E} )  ',' /[======]\\ ','  ``    ``  ']],
+  snail:    [['            ',' {E}    .--.  ','  \\  ( @ )  ','   \\_`--´   ','  ~~~~~~~   '],['            ','  {E}   .--.  ','  |  ( @ )  ','   \\_`--´   ','  ~~~~~~~   '],['            ',' {E}    .--.  ','  \\  ( @  ) ','   \\_`--´   ','   ~~~~~~   ']],
+  ghost:    [['            ','   .----.   ','  / {E}  {E} \\  ','  |      |  ','  ~`~``~`~  '],['            ','   .----.   ','  / {E}  {E} \\  ','  |      |  ','  `~`~~`~`  '],['    ~  ~    ','   .----.   ','  / {E}  {E} \\  ','  |      |  ','  ~~`~~`~~  ']],
+  axolotl:  [['            ','}~(______)~{','}~({E} .. {E})~{','  ( .--. )  ','  (_/  \\_)  '],['            ','~}(______){~','~}({E} .. {E}){~','  ( .--. )  ','  (_/  \\_)  '],['            ','}~(______)~{','}~({E} .. {E})~{','  (  --  )  ','  ~_/  \\_~  ']],
+  capybara: [['            ','  n______n  ',' ( {E}    {E} ) ',' (   oo   ) ','  `------´  '],['            ','  n______n  ',' ( {E}    {E} ) ',' (   Oo   ) ','  `------´  '],['    ~  ~    ','  u______n  ',' ( {E}    {E} ) ',' (   oo   ) ','  `------´  ']],
+  cactus:   [['            ',' n  ____  n ',' | |{E}  {E}| | ',' |_|    |_| ','   |    |   '],['            ','    ____    ',' n |{E}  {E}| n ',' |_|    |_| ','   |    |   '],['            ',' n  ____  n ',' | |{E}  {E}| | ',' |_|    |_| ','   |    |   ']],
+  robot:    [['            ','   .[||].   ','  [ {E}  {E} ]  ','  [ ==== ]  ','  `------´  '],['            ','   .[||].   ','  [ {E}  {E} ]  ','  [ -==- ]  ','  `------´  '],['     *      ','   .[||].   ','  [ {E}  {E} ]  ','  [ ==== ]  ','  `------´  ']],
+  rabbit:   [['            ','   (\\__/)   ','  ( {E}  {E} )  ',' =(  ..  )= ','  (")__(")  '],['            ','   (|__/)   ','  ( {E}  {E} )  ',' =(  ..  )= ','  (")__(")  '],['            ','   (\\__/)   ','  ( {E}  {E} )  ',' =( .  . )= ','  (")__(")  ']],
+  mushroom: [['            ',' .-o-OO-o-. ','(__________)','   |{E}  {E}|   ','   |____|   '],['            ',' .-O-oo-O-. ','(__________)','   |{E}  {E}|   ','   |____|   '],['   . o  .   ',' .-o-OO-o-. ','(__________)','   |{E}  {E}|   ','   |____|   ']],
+  chonk:    [['            ','  /\\    /\\  ',' ( {E}    {E} ) ',' (   ..   ) ','  `------´  '],['            ','  /\\    /|  ',' ( {E}    {E} ) ',' (   ..   ) ','  `------´  '],['            ','  /\\    /\\  ',' ( {E}    {E} ) ',' (   ..   ) ','  `------´~ ']],
+};
+const CC_HAT_LINES: Record<string, string> = {
+  none: '',       crown: '   \\^^^/    ', tophat: '   [___]    ',
+  propeller: '    -+-     ', halo: '   (   )    ', wizard: '    /^\\     ',
+  beanie: '   (___)    ', tinyduck: '    ,>      ',
+};
+// CC's idle animation: mostly frame 0, occasional fidget, -1 = blink
+const IDLE_SEQ = [0,0,0,0,1,0,0,0,-1,0,0,2,0,0,0];
+// CC's exact mulberry32 PRNG
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+function ccHash(s: string): number {
+  let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0;
+}
+const CC_SALT = 'friend-2026-401';
+const CC_RARITY_WEIGHTS = { common: 60, uncommon: 25, rare: 10, epic: 4, legendary: 1 };
+const CC_RARITY_FLOOR: Record<string, number> = { common: 5, uncommon: 15, rare: 25, epic: 35, legendary: 50 };
+function ccRoll(userId: string) {
+  const rng = mulberry32(ccHash(userId + CC_SALT));
+  const pick = <T,>(arr: readonly T[]): T => arr[Math.floor(rng() * arr.length)]!;
+  // rarity
+  const total = Object.values(CC_RARITY_WEIGHTS).reduce((a, b) => a + b, 0);
+  let roll = rng() * total; let rarity = 'common';
+  for (const r of RARITIES) { roll -= CC_RARITY_WEIGHTS[r as keyof typeof CC_RARITY_WEIGHTS]; if (roll < 0) { rarity = r; break; } }
+  const species = pick(BUDDY_SPECIES);
+  const eye = pick(BUDDY_EYES);
+  const hat = rarity === 'common' ? 'none' : pick(BUDDY_HATS);
+  const shiny = rng() < 0.01;
+  // stats (1-100, peak/dump)
+  const floor = CC_RARITY_FLOOR[rarity] ?? 5;
+  const STATS = ['DEBUGGING','PATIENCE','CHAOS','WISDOM','SNARK'] as const;
+  const peak = pick(STATS); let dump = pick(STATS); while (dump === peak) dump = pick(STATS);
+  const stats: Record<string, number> = {};
+  for (const name of STATS) {
+    if (name === peak) stats[name] = Math.min(100, floor + 50 + Math.floor(rng() * 30));
+    else if (name === dump) stats[name] = Math.max(1, floor - 10 + Math.floor(rng() * 15));
+    else stats[name] = floor + Math.floor(rng() * 40);
+  }
+  return { species, eye, hat, rarity, shiny, stats };
+}
+const RARITIES = ['common','uncommon','rare','epic','legendary'] as const;
+const RARITY_CSS: Record<string, { color: string; glow: string; border: string }> = {
+  common:    { color: 'text-stone-400',   glow: '', border: 'border-stone-700' },
+  uncommon:  { color: 'text-emerald-400', glow: '', border: 'border-emerald-800' },
+  rare:      { color: 'text-blue-400',    glow: 'shadow-[0_0_20px_rgba(96,165,250,0.2)]', border: 'border-blue-700' },
+  epic:      { color: 'text-purple-400',  glow: 'shadow-[0_0_25px_rgba(168,85,247,0.25)]', border: 'border-purple-700' },
+  legendary: { color: 'text-amber-400',   glow: 'shadow-[0_0_35px_rgba(251,191,36,0.3)]', border: 'border-amber-600' },
+};
+const RARITY_STARS: Record<string, string> = { common: '★', uncommon: '★★', rare: '★★★', epic: '★★★★', legendary: '★★★★★' };
+
+// Species body colors for color mode
+const SPECIES_COLORS: Record<string, string> = {
+  duck: '#F5D63D', goose: '#E8E4DA', blob: '#A8E6CF', cat: '#F5A623',
+  dragon: '#6BCB77', octopus: '#C084FC', owl: '#C4944C', penguin: '#778899',
+  turtle: '#5B9A5B', snail: '#FFB6C1', ghost: '#D4D0E0', axolotl: '#FF8FAB',
+  capybara: '#B8860B', cactus: '#6BCB77', robot: '#8BA8BD', rabbit: '#E8E0D8',
+  mushroom: '#E05555', chonk: '#F5A623',
+};
+const HAT_COLORS: Record<string, string> = {
+  crown: '#FFD93D', tophat: '#555', propeller: '#60A5FA',
+  halo: '#FFD93D', wizard: '#7C3AED', beanie: '#FF6B6B', tinyduck: '#F5D63D',
+};
+const EYE_COLOR = '#fff';
+
+function renderCCSprite(species: string, eye: string, hat: string, frame: number, blink: boolean): string[] {
+  const frames = CC_BODIES[species] ?? CC_BODIES.blob!;
+  const body = frames[frame % frames.length]!.map(l => l.replaceAll('{E}', blink ? '-' : eye));
+  if (hat !== 'none' && !body[0]!.trim()) body[0] = CC_HAT_LINES[hat] ?? body[0]!;
+  if (!body[0]!.trim() && frames.every(f => !f[0]!.trim())) body.shift();
+  return body;
+}
+
 const RARITY_TIERS = [
   { name: "Common", chance: "60%", color: "text-stone-500", bg: "bg-stone-400/10", border: "border-stone-400/20" },
   { name: "Uncommon", chance: "25%", color: "text-emerald-400", bg: "bg-emerald-400/10", border: "border-emerald-400/20" },
@@ -542,51 +637,41 @@ function BuddyGenerator() {
     species: string;
     eyes: string;
     hat: string;
-    rarity: (typeof RARITY_TIERS)[number];
+    rarity: string;
     shiny: boolean;
     stats: Record<string, number>;
   } | null>(null);
+  const [tick, setTick] = useState(0);
+  const [petCount, setPetCount] = useState(0);
   const [showHeart, setShowHeart] = useState(false);
+  const [petting, setPetting] = useState(false);
+  const [colorMode, setColorMode] = useState(false);
 
   const generate = useCallback(() => {
     if (!input.trim()) return;
-    const h = simpleHash(input.trim().toLowerCase());
-    const species = BUDDY_SPECIES[h % BUDDY_SPECIES.length];
-    const eyes = BUDDY_EYES[(h >> 4) % BUDDY_EYES.length];
-
-    // Rarity from deterministic roll
-    const rarityRoll = ((h >> 8) % 100) + 1;
-    let rarity: (typeof RARITY_TIERS)[number];
-    if (rarityRoll <= 1) rarity = RARITY_TIERS[4]; // Legendary
-    else if (rarityRoll <= 5) rarity = RARITY_TIERS[3]; // Epic
-    else if (rarityRoll <= 15) rarity = RARITY_TIERS[2]; // Rare
-    else if (rarityRoll <= 40) rarity = RARITY_TIERS[1]; // Uncommon
-    else rarity = RARITY_TIERS[0]; // Common
-
-    const hat =
-      rarity === RARITY_TIERS[0]
-        ? "none"
-        : BUDDY_HATS[(h >> 12) % BUDDY_HATS.length];
-    const shiny = (h >> 16) % 100 === 0;
-
-    const stats = {
-      DEBUGGING: ((h >> 3) % 20) + 1,
-      PATIENCE: ((h >> 7) % 20) + 1,
-      CHAOS: ((h >> 11) % 20) + 1,
-      WISDOM: ((h >> 15) % 20) + 1,
-      SNARK: ((h >> 19) % 20) + 1,
-    };
-
-    setBuddy({ species, eyes, hat, rarity, shiny, stats });
+    const rolled = ccRoll(input.trim());
+    setBuddy({ ...rolled, eyes: rolled.eye });
+    setPetCount(0);
   }, [input]);
 
-  const pet = () => {
+  const doPet = () => {
     setShowHeart(true);
-    setTimeout(() => setShowHeart(false), 1000);
+    setPetting(true);
+    setPetCount((c) => c + 1);
+    setTimeout(() => setShowHeart(false), 800);
+    setTimeout(() => setPetting(false), 2500);
   };
+
+  // 500ms tick — exactly like CC
+  useEffect(() => {
+    if (!buddy) return;
+    const timer = setInterval(() => setTick((t) => t + 1), 500);
+    return () => clearInterval(timer);
+  }, [buddy]);
 
   return (
     <div className="rounded-2xl border border-surface-2 bg-surface-glass backdrop-blur-md p-6">
+      {/* Input */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <input
           type="text"
@@ -604,73 +689,130 @@ function BuddyGenerator() {
         </button>
       </div>
 
-      {buddy && (
-        <div className="flex flex-col md:flex-row gap-6 animate-in fade-in duration-500">
-          {/* Buddy display */}
-          <div className="flex-1 flex flex-col items-center justify-center p-6 rounded-xl bg-background/50 border border-surface-2 relative">
-            {showHeart && (
-              <div className="absolute top-2 right-4 text-2xl animate-bounce">
-                ❤️
-              </div>
-            )}
-            {buddy.shiny && (
-              <div className="absolute top-2 left-4 text-xs text-amber-400 font-mono animate-pulse">
-                ✨ SHINY ✨
-              </div>
-            )}
-            <div className="text-6xl mb-3 select-none cursor-pointer" onClick={pet}>
-              {buddy.hat !== "none" && (
-                <div className="text-2xl text-center -mb-2">
-                  {buddy.hat === "crown" && "👑"}
-                  {buddy.hat === "tophat" && "🎩"}
-                  {buddy.hat === "propeller" && "🧢"}
-                  {buddy.hat === "halo" && "😇"}
-                  {buddy.hat === "wizard" && "🧙"}
-                  {buddy.hat === "beanie" && "🪖"}
-                  {buddy.hat === "tinyduck" && "🐤"}
-                </div>
-              )}
-              <div className="text-center">
-                ({buddy.eyes} {buddy.eyes})
-              </div>
-            </div>
-            <div className={`text-lg font-bold ${buddy.rarity.color}`}>
-              {buddy.species.charAt(0).toUpperCase() + buddy.species.slice(1)}
-            </div>
-            <div
-              className={`text-xs px-2 py-0.5 rounded-full mt-1 ${buddy.rarity.bg} ${buddy.rarity.border} border ${buddy.rarity.color}`}
-            >
-              {buddy.rarity.name}
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-3">
-              Click to pet • /buddy pet
-            </p>
-          </div>
+      {buddy && (() => {
+        const rc = RARITY_CSS[buddy.rarity] ?? RARITY_CSS.common!;
+        // CC idle sequence: frame 0 mostly, fidget 1/2, -1 = blink
+        const step = petting ? (tick % 3) : IDLE_SEQ[tick % IDLE_SEQ.length]!;
+        const blink = step === -1;
+        const frame = blink ? 0 : step;
+        const spriteLines = renderCCSprite(buddy.species, buddy.eyes, buddy.hat, frame, blink);
+        // Heart burst (CC style)
+        const H = '♥';
+        const heartFrames = [`   ${H}    ${H}   `, `  ${H}  ${H}   ${H}  `, ` ${H}   ${H}  ${H}   `];
+        const heartLine = petting ? heartFrames[tick % heartFrames.length] : null;
 
-          {/* Stats */}
-          <div className="flex-1 space-y-3">
-            <h4 className="text-sm font-semibold text-muted-foreground mb-3">
-              Stats
-            </h4>
-            {Object.entries(buddy.stats).map(([stat, val]) => (
-              <div key={stat}>
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="font-mono text-muted-foreground">
-                    {stat}
-                  </span>
-                  <span className="text-foreground">{val}/20</span>
+        return (
+          <div className={`rounded-xl overflow-hidden border ${rc.border} ${rc.glow} transition-all duration-700 animate-in fade-in duration-500`}>
+            {/* Terminal chrome */}
+            <div className="flex items-center gap-1.5 px-4 py-2.5 bg-[#161b22] border-b border-white/5">
+              <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
+              <div className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
+              <div className="w-2.5 h-2.5 rounded-full bg-[#28c840]" />
+              <span className="ml-3 text-[11px] text-stone-500 font-mono">/buddy generate {input}</span>
+            </div>
+
+            <div className="flex flex-col md:flex-row bg-[#0d1117]">
+              {/* Creature panel */}
+              <div className="flex-1 flex flex-col items-center justify-center py-8 px-6 relative">
+                {buddy.shiny && (
+                  <div className="absolute top-3 left-4 text-[10px] text-amber-400 font-mono animate-pulse tracking-[0.2em]">
+                    ✨ SHINY ✨
+                  </div>
+                )}
+                {petCount > 0 && (
+                  <div className="absolute top-3 right-4 text-[10px] text-pink-400/60 font-mono">
+                    ♡ ×{petCount}
+                  </div>
+                )}
+                {showHeart && (
+                  <div className="absolute top-8 right-6 animate-bounce text-xl select-none">❤️</div>
+                )}
+
+                {/* CC-authentic ASCII sprite */}
+                <div className="select-none cursor-pointer" onClick={doPet}>
+                  <pre className="text-center text-lg sm:text-xl leading-tight font-mono whitespace-pre" style={{ letterSpacing: '0.05em' }}>
+                    {heartLine && <span className="text-red-400">{heartLine}{'\n'}</span>}
+                    {colorMode ? spriteLines.map((line, i) => {
+                      const isHatLine = buddy.hat !== 'none' && i === 0 && CC_HAT_LINES[buddy.hat];
+                      const bodyColor = SPECIES_COLORS[buddy.species] ?? '#ccc';
+                      const hatColor = HAT_COLORS[buddy.hat] ?? bodyColor;
+                      // Colorize: eyes get white, hat line gets hat color, body gets species color
+                      const colored = isHatLine
+                        ? <span key={i} style={{ color: hatColor }}>{line}</span>
+                        : <span key={i}>{line.split('').map((ch, j) => {
+                            if (ch === buddy.eyes || ch === '-') return <span key={j} style={{ color: EYE_COLOR }}>{ch}</span>;
+                            if (ch === ' ') return ch;
+                            return <span key={j} style={{ color: bodyColor }}>{ch}</span>;
+                          })}</span>;
+                      return <span key={i}>{colored}{i < spriteLines.length - 1 ? '\n' : ''}</span>;
+                    }) : <span className={rc.color}>{spriteLines.join('\n')}</span>}
+                  </pre>
                 </div>
-                <div className="h-1.5 rounded-full bg-surface-2 overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-primary/60 transition-all duration-700"
-                    style={{ width: `${(val / 20) * 100}%` }}
-                  />
+
+                {/* Name + rarity stars */}
+                <div className="flex items-center gap-2 mt-3">
+                  <span className="text-sm font-bold font-mono" style={colorMode ? { color: SPECIES_COLORS[buddy.species] } : undefined}>
+                    <span className={colorMode ? undefined : rc.color}>
+                      {buddy.species.charAt(0).toUpperCase() + buddy.species.slice(1)}
+                    </span>
+                  </span>
+                  <span className={`text-xs font-mono ${rc.color} opacity-70`}>
+                    {RARITY_STARS[buddy.rarity]}
+                  </span>
+                </div>
+                <span className={`text-[10px] font-mono ${rc.color} opacity-50 mt-0.5`}>
+                  {buddy.rarity}
+                </span>
+
+                <p className="text-[10px] text-stone-600 font-mono mt-3 flex items-center gap-2">
+                  <span><span className="text-green-500/70">$</span> click to pet</span>
+                  <span className="text-stone-700">·</span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setColorMode(!colorMode); }}
+                    className={`px-1.5 py-0.5 rounded text-[10px] transition-all ${colorMode ? 'text-stone-300 bg-white/10' : 'text-stone-600 hover:text-stone-400'}`}
+                  >
+                    {colorMode ? '◉ color' : '◯ color'}
+                  </button>
+                </p>
+              </div>
+
+              {/* Stats panel */}
+              <div className="flex-1 py-6 px-5 border-t md:border-t-0 md:border-l border-white/5 space-y-2.5">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                  <span className="text-[10px] font-mono text-stone-500 uppercase tracking-[0.15em]">
+                    Stat Block
+                  </span>
+                </div>
+                {Object.entries(buddy.stats).map(([stat, val]) => {
+                  const filled = Math.round((val / 100) * 20);
+                  const bar = "█".repeat(filled) + "░".repeat(20 - filled);
+                  const statColor = val >= 70 ? "text-emerald-400" : val >= 40 ? "text-blue-400" : val >= 20 ? "text-amber-400" : "text-red-400";
+                  return (
+                    <div key={stat} className="font-mono text-xs">
+                      <div className="flex justify-between mb-0.5">
+                        <span className="text-stone-500">{stat}</span>
+                        <span className={statColor}>{val}</span>
+                      </div>
+                      <div className={`${statColor} opacity-50 text-[11px] leading-none tracking-tighter`}>
+                        {bar}
+                      </div>
+                    </div>
+                  );
+                })}
+                <div className="border-t border-white/5 pt-3 mt-4 space-y-1">
+                  <div className="text-[10px] font-mono text-stone-600">
+                    seed: <span className="text-stone-500">{ccHash(input.trim() + CC_SALT).toString(16).padStart(8, "0")}</span>
+                  </div>
+                  <div className="text-[10px] font-mono text-stone-600">
+                    eyes: <span className="text-stone-500">{buddy.eyes}</span> · hat: <span className="text-stone-500">{buddy.hat}</span> · pets: <span className="text-pink-400/60">{petCount}</span>
+                  </div>
                 </div>
               </div>
-            ))}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
