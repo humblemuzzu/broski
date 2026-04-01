@@ -129,7 +129,10 @@ extension _RuntimeOcMessageHandler on ChatSessionNotifier {
     final created =
         info['time']?['created'] as int? ??
         DateTime.now().millisecondsSinceEpoch;
-    final variant = info['variant'] as String?;
+    // Don't show variant badge on assistant messages (effort level removed).
+    // Keep it for system messages where it drives variant card rendering.
+    final rawVariant = info['variant'] as String?;
+    final variant = role == MessageRole.assistant ? null : rawVariant;
     final finish = info['finish'] as String?;
     final msgError = info['error'] as Map<String, dynamic>?;
     final msgErrorName = msgError?['name'] as String?;

@@ -146,8 +146,8 @@ export function startOpenCodeExternalTail(
 					const partId = part.id;
 					const isNewPart = !seenPartIds.has(partId);
 
-					// For text parts, check for content changes
-					if (part.type === "text" && typeof part.text === "string") {
+					// For text and reasoning parts, check for content changes
+					if ((part.type === "text" || part.type === "reasoning") && typeof part.text === "string") {
 						const prevText = lastTextByPartId.get(partId) ?? "";
 						const textChanged = part.text !== prevText;
 
@@ -237,8 +237,8 @@ export function startOpenCodeExternalTail(
 					if (isNewPart) {
 						seenPartIds.add(partId);
 
-						// Only emit events AFTER initial sync, and for non-text parts (text handled above)
-						if (initialSyncDone && part.type !== "text") {
+						// Only emit events AFTER initial sync, and for non-text/reasoning parts (both handled above)
+						if (initialSyncDone && part.type !== "text" && part.type !== "reasoning") {
 							hadChanges = true;
 							ctx.enqueueSdkEvent({
 								directory: projectPath,
