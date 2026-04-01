@@ -176,7 +176,7 @@ export function startPiExternalTail(
 						ctx.emitPiStream({ type: "thinking-delta", content: block.thinking });
 					} else if (block.type === "toolCall" && block.id) {
 						ctx.emitPiStream({
-							type: "tool-call-start",
+							type: "tool-exec-start",
 							toolCallId: String(block.id),
 							toolName: String(block.name ?? "unknown"),
 							args: block.arguments ?? {},
