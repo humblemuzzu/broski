@@ -36,6 +36,7 @@ export function startClaudeCodeExternalTail(sessionId: string, ctx: CcExternalTa
 	let lastMtimeMs = 0;
 	let lastIno = 0;
 	let initialSyncDone = false; // Skip emitting events until first pump completes (builds baseline)
+	let lastEmittedAssistantMsgId: string | null = null; // Track current assistant turn for turn boundaries
 	const lastTextByMessageId = new Map<string, string>();
 	const lastThinkingByMessageId = new Map<string, string>();
 	const emittedToolCalls = new Set<string>(); // Track emitted tool calls to avoid duplicates
@@ -265,6 +266,16 @@ export function startClaudeCodeExternalTail(sessionId: string, ctx: CcExternalTa
 
 		// Only emit events AFTER initial sync is done
 		if (!initialSyncDone) return;
+
+		// Emit turn boundary when the assistant message ID changes.
+		// Without this, the Flutter runtime reducer merges all assistant content
+		// from different turns into a single message because it never sees
+		// agent_started to reset the turn.
+		if (lastEmittedAssistantMsgId !== null && lastEmittedAssistantMsgId !== msgId) {
+			ctx.emitCcStream(sessionId, { type: "result-complete", subtype: "success" });
+			ctx.emitCcStream(sessionId, { type: "session-created", sessionId, agent: "claude-code" });
+		}
+		lastEmittedAssistantMsgId = msgId;
 
 		if (!text || text === prev) {
 			// Still send completion if we learned this record is complete (e.g., usage filled later).
