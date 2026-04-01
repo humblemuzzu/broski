@@ -1,8 +1,8 @@
 import { join } from "node:path";
 import type { ServerWebSocket } from "bun";
 import type { AgentType, ServerMessage } from "../types";
-import { registerPiWatcher, replayPiRuntimeEvents, unregisterPiWatcher } from "./pi_stream_delivery";
-import { syncPiExternalTail, stopPiExternalTail } from "./pi_features";
+import { registerPiWatcher, replayPiRuntimeEvents, replayPendingExtensionUiRequests, unregisterPiWatcher } from "./pi_stream_delivery";
+import { syncPiExternalTail, stopPiExternalTail, getPendingExtensionUiRequests } from "./pi_features";
 
 type ReplyFn = (msg: ServerMessage) => void;
 
@@ -215,6 +215,15 @@ export async function handle(
 		replayedPiBufferedEvents = replayPiRuntimeEvents(ws, nextSessionId);
 		if (replayedPiBufferedEvents > 0) {
 			ctx.logInfo(`[RTS] Replayed ${replayedPiBufferedEvents} buffered Pi events for ${nextSessionId}`);
+		}
+		// Replay pending extension UI requests (select/confirm/input dialogs)
+		const projectPath = (message.projectPath as string) || undefined;
+		if (projectPath) {
+			const pendingUi = getPendingExtensionUiRequests(projectPath);
+			const replayedUi = replayPendingExtensionUiRequests(ws, nextSessionId, pendingUi, projectPath);
+			if (replayedUi > 0) {
+				ctx.logInfo(`[RTS] Replayed ${replayedUi} pending Pi extension UI requests for ${nextSessionId}`);
+			}
 		}
 	}
 

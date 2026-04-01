@@ -16,7 +16,7 @@ import { randomUUID } from "node:crypto";
 import type { ClaudeCodeStreamMessage } from "../types";
 import { jsonResponse } from "../http-utils";
 
-const HOOK_PERMISSION_TIMEOUT_MS = 300_000; // 5 minutes
+const HOOK_PERMISSION_TIMEOUT_MS = 40_000; // 40 seconds (curl times out at 45s)
 
 export type CcPermissionHookContext = {
 	emitCcStream: (sessionId: string, streamMsg: ClaudeCodeStreamMessage) => void;
@@ -64,9 +64,8 @@ export async function handleCcPermissionHook(request: Request, ctx: CcPermission
 	const toolUseId = typeof body.tool_use_id === "string" ? body.tool_use_id : randomUUID();
 	const cwd = typeof body.cwd === "string" ? body.cwd : "";
 
-	if (ctx.DEBUG_RTS) {
-		ctx.logDebug(`[CC Hook] Permission request: tool=${toolName}, session=${sessionId}, toolUseId=${toolUseId}`);
-	}
+	// ALWAYS log hook requests (not just DEBUG_RTS) to trace the flow
+	ctx.logInfo(`[CC Hook] ▶ RECEIVED: tool=${toolName}, session=${sessionId}, toolUseId=${toolUseId}, hookEvent=${hookEventName}`);
 
 	// Generate a unique hook request ID for this specific hook invocation
 	const hookRequestId = `hook:${sessionId}:${toolUseId}:${Date.now()}`;
@@ -84,7 +83,7 @@ export async function handleCcPermissionHook(request: Request, ctx: CcPermission
 		description: formatToolDescription(toolName, toolInput),
 	} as ClaudeCodeStreamMessage);
 
-	ctx.logInfo(`[CC Hook] Waiting for permission response: ${toolName} (${hookRequestId})`);
+	ctx.logInfo(`[CC Hook] ⏳ WAITING: ${toolName} (${hookRequestId}), waiter count=${hookPermissionWaiters.size + 1}`);
 
 	// Wait for the phone's response (or timeout)
 	const decision = await new Promise<HookDecision>((resolve) => {
@@ -100,9 +99,7 @@ export async function handleCcPermissionHook(request: Request, ctx: CcPermission
 		hookPermissionWaiters.set(hookRequestId, { resolve, timer });
 	});
 
-	if (ctx.DEBUG_RTS) {
-		ctx.logDebug(`[CC Hook] Permission response: ${decision.permissionDecision} for ${toolName}`);
-	}
+	ctx.logInfo(`[CC Hook] ✅ RESOLVED: ${decision.permissionDecision} for ${toolName}, hasUpdatedInput=${decision.updatedInput !== undefined}`);
 
 	// Return the hook JSON output to CC.
 	// CC expects { hookSpecificOutput: { ... } } as the hook's stdout JSON.
@@ -150,8 +147,11 @@ export function resolveHookPermissionByToolUse(
 	reason?: string,
 	updatedInput?: unknown,
 ): boolean {
-	// Find a matching waiter by prefix
+	// Find ALL matching waiters by prefix and resolve them.
+	// Multiple hooks (PreToolUse + PermissionRequest) can create separate
+	// waiters for the same tool use. Resolve all of them so none time out.
 	const prefix = `hook:${sessionId}:${toolUseId}:`;
+	let resolved = false;
 	for (const [key, waiter] of hookPermissionWaiters) {
 		if (key.startsWith(prefix)) {
 			clearTimeout(waiter.timer);
@@ -161,15 +161,20 @@ export function resolveHookPermissionByToolUse(
 				permissionDecisionReason: reason,
 				...(updatedInput !== undefined ? { updatedInput } : {}),
 			});
-			return true;
+			resolved = true;
 		}
 	}
-	return false;
+	return resolved;
 }
 
 /** Check if there are any pending hook permissions. */
 export function hasPendingHookPermissions(): boolean {
 	return hookPermissionWaiters.size > 0;
+}
+
+/** Get all hook waiter keys (for debug logging). */
+export function getHookWaiterKeys(): string[] {
+	return [...hookPermissionWaiters.keys()];
 }
 
 /**

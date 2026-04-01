@@ -53,7 +53,7 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
     _runtimeChatTurns[sessionKey] = next;
 
     _applyRuntimeStateToChat(event.backend, runtimeState: null, turn: next);
-    _projectRuntimeTurn(next);
+    _scheduleRuntimeTurnProjection(next);
 
     if (event case RuntimeErrorEvent()) {
       _addRuntimeErrorMessage(event);
@@ -124,6 +124,18 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
     // External user message — prompt typed on Mac terminal, show it on phone
     if (event case RuntimeBackendEvent()
         when event.kind == 'external-user-message') {
+      // Dedup by content hash + timestamp bucket (16-second window)
+      final payload = event.payload;
+      final extContent =
+          payload is Map ? (payload['content'] ?? '').toString() : '';
+      final bucket = event.timestampMs ~/ 16000;
+      final dedupKey = '${extContent.hashCode}:$bucket';
+      if (_seenExternalUserMessages.contains(dedupKey)) return;
+      _seenExternalUserMessages.add(dedupKey);
+      // Prevent unbounded growth
+      if (_seenExternalUserMessages.length > 200) {
+        _seenExternalUserMessages.clear();
+      }
       _handleExternalUserMessage(event);
     }
   }
@@ -153,7 +165,19 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
       runtimeState: runtimeState,
       turn: next,
     );
-    _projectRuntimeTurn(next);
+    _scheduleRuntimeTurnProjection(next);
+  }
+
+  void _scheduleRuntimeTurnProjection(RuntimeChatTurnState turn) {
+    _pendingProjectionTurn = turn;
+    _runtimeProjectionTimer ??= Timer(const Duration(milliseconds: 16), () {
+      _runtimeProjectionTimer = null;
+      final pending = _pendingProjectionTurn;
+      if (pending != null) {
+        _pendingProjectionTurn = null;
+        _projectRuntimeTurn(pending);
+      }
+    });
   }
 
   void _projectRuntimeTurn(RuntimeChatTurnState turn) {

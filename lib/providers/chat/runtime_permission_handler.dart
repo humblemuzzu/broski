@@ -17,6 +17,9 @@ extension _RuntimePermissionHandler on ChatSessionNotifier {
     final requestId = request.requestId ?? '';
     if (requestId.isEmpty) return;
 
+    // Dedup: skip if we already have a pending permission with this requestId
+    if (state.permissions.any((p) => p.id == requestId)) return;
+
     // Determine session ID
     final sessionId = event.sessionId ?? state.effectiveSessionId ?? '';
 
@@ -170,6 +173,9 @@ extension _RuntimePermissionHandler on ChatSessionNotifier {
       }
     }
 
+    // Dedup: skip if we already have a pending question with this requestId
+    if (state.pendingQuestion?.id == (request.requestId ?? '')) return;
+
     if (parsedQuestions.isNotEmpty) {
       state = state.copyWith(
         pendingQuestion: QuestionRequest(
@@ -193,6 +199,8 @@ extension _RuntimePermissionHandler on ChatSessionNotifier {
       // CX user input → set cxPendingUserInput
       final requestId = request.requestId ?? '';
       if (requestId.isEmpty) return;
+      // Dedup: skip if we already have pending CX input with this requestId
+      if (state.cxPendingUserInput?.requestId == requestId) return;
       final metadata = request.metadata ?? <String, dynamic>{};
       final cxRequest = CodexUserInputRequest.fromJson(
         requestId,

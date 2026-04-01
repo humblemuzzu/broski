@@ -17,7 +17,7 @@ import * as ccMemory from "./cc_memory";
 import * as ccPlugins from "./cc_plugins";
 import * as ccSessions from "./cc_sessions";
 import * as ccSkills from "./cc_skills";
-import { resolveHookPermissionByToolUse } from "./cc_permission_hook";
+import { resolveHookPermissionByToolUse, getHookWaiterKeys } from "./cc_permission_hook";
 
 type ReplyFn = (msg: ServerMessage) => void;
 
@@ -198,6 +198,9 @@ export async function handle(
 	// cc_permission_response — resolves permission prompts
 	if (type === "cc_permission_response") {
 		const key = `${message.sessionId}:${message.toolUseId}`;
+		console.log(`[CC Routing] ◀ cc_permission_response: sessionId=${message.sessionId}, toolUseId=${message.toolUseId}, response=${message.response}, hasUpdatedInput=${!!message.updatedInput}`);
+		console.log(`[CC Routing]   SDK waiters: [${[...ctx.ccPermissionWaiters.keys()].join(", ")}]`);
+		console.log(`[CC Routing]   Hook waiters: [${getHookWaiterKeys().join(", ")}]`);
 		const waiter = ctx.ccPermissionWaiters.get(key);
 		if (waiter) {
 			clearTimeout(waiter.timer);
@@ -223,18 +226,20 @@ export async function handle(
 		} else {
 			// Fallback: try to resolve a hook-initiated permission request
 			// (from external CC sessions using the PreToolUse hook)
+			console.log(`[CC Routing]   No SDK waiter found, trying hook fallback...`);
 			const hookResponse = message.response === "reject" ? "deny" : "allow";
 			const hookUpdatedInput =
 				message.updatedInput && typeof message.updatedInput === "object" && !Array.isArray(message.updatedInput)
 					? (message.updatedInput as Record<string, unknown>)
 					: undefined;
-			resolveHookPermissionByToolUse(
+			const hookResolved = resolveHookPermissionByToolUse(
 				message.sessionId as string,
 				message.toolUseId as string,
 				hookResponse,
 				typeof message.reason === "string" ? message.reason : undefined,
 				hookUpdatedInput,
 			);
+			console.log(`[CC Routing]   Hook fallback result: ${hookResolved ? "✅ RESOLVED" : "❌ NO MATCHING WAITER"}`);
 		}
 		return true;
 	}

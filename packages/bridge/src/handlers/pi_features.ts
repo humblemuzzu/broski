@@ -264,6 +264,16 @@ export function stopAllPiExternalTails(): void {
 	externalTails.clear();
 }
 
+/**
+ * Get pending extension UI requests for a Pi instance at the given cwd.
+ * Used by session_view to replay pending dialogs on reconnect.
+ */
+export function getPendingExtensionUiRequests(cwd: string): import("../types/pi").PiStreamMessage[] {
+	const instance = pi.getInstance(cwd);
+	if (!instance) return [];
+	return instance.extensionUiBridge.getPendingRequests();
+}
+
 export async function handle(message: any, reply: Reply, broadcast: Broadcast): Promise<boolean> {
 	if (typeof message?.type !== "string" || !message.type.startsWith("pi_")) {
 		return false;

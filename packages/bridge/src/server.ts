@@ -26,6 +26,7 @@ import * as ccElicitation from "./handlers/cc_elicitation";
 import * as ccRouting from "./handlers/cc_routing";
 import { handleCcPermissionHook, type CcPermissionHookContext } from "./handlers/cc_permission_hook";
 import { installCcHook, uninstallCcHook } from "./handlers/cc_hook_installer";
+import { maybeSynthesizeAskUserQuestion } from "./handlers/cc_ask_user_question";
 import { handleCxPermissionHook, type CxPermissionHookContext } from "./handlers/cx_permission_hook";
 import { installCxHook, uninstallCxHook } from "./handlers/cx_hook_installer";
 import { buildCodexApprovalDecision } from "./handlers/codex/approval-decision";
@@ -1730,6 +1731,15 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		if (DEBUG_RTS) {
 			const msgType = "type" in streamMsg ? String((streamMsg as Record<string, unknown>).type) : "unknown";
 			logDebug(`[RTS] emitCcStream: session=${sessionId}, msgType=${msgType}, owner=${!!resolvedOwner}`);
+		}
+
+		// AskUserQuestion is YOLO-allowlisted in CC — canUseTool never fires.
+		// The PreToolUse hook handles the answer path. This synthetic event is
+		// a fallback to guarantee the questionnaire sheet shows on the phone.
+		// Flutter dedup (pendingQuestion.id check) prevents double-showing.
+		const syntheticPermReq = maybeSynthesizeAskUserQuestion(sessionId, streamMsg);
+		if (syntheticPermReq) {
+			emitCcStream(sessionId, syntheticPermReq, owner);
 		}
 
 		// Map to unified runtime_event — this is now the ONLY emission path.

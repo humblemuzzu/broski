@@ -21,11 +21,15 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 export type PiExtensionUiBridge = {
 	uiContext: any;
 	resolveResponse: (response: PiExtensionUiResponseInput) => boolean;
+	getPendingRequests: () => PiStreamMessage[];
 	dispose: () => void;
 };
 
 export function createPiExtensionUiBridge(emitStreamMessage: (message: PiStreamMessage) => void): PiExtensionUiBridge {
 	const pending = new Map<string, PendingRequest>();
+
+	// Track the original stream messages for replay on reconnect
+	const pendingMessages = new Map<string, PiStreamMessage>();
 
 	const createDialogPromise = <T>(
 		method: DialogMethod,
@@ -44,6 +48,7 @@ export function createPiExtensionUiBridge(emitStreamMessage: (message: PiStreamM
 
 				if (request.timeoutId) clearTimeout(request.timeoutId);
 				pending.delete(id);
+				pendingMessages.delete(id);
 			};
 
 			const onAbort = () => {
@@ -80,12 +85,16 @@ export function createPiExtensionUiBridge(emitStreamMessage: (message: PiStreamM
 
 			pending.set(id, request);
 
-			emitStreamMessage({
+			// Store the stream message for replay on reconnect
+			const streamMsg: PiStreamMessage = {
 				type: "extension-ui-request",
 				id,
 				method,
 				...payload,
-			});
+			} as PiStreamMessage;
+			pendingMessages.set(id, streamMsg);
+
+			emitStreamMessage(streamMsg);
 		});
 	};
 
@@ -274,6 +283,15 @@ export function createPiExtensionUiBridge(emitStreamMessage: (message: PiStreamM
 		return true;
 	};
 
+	const getPendingRequests = (): PiStreamMessage[] => {
+		const result: PiStreamMessage[] = [];
+		for (const [id] of pending) {
+			const msg = pendingMessages.get(id);
+			if (msg) result.push(msg);
+		}
+		return result;
+	};
+
 	const dispose = () => {
 		for (const [id, request] of pending) {
 			if (request.timeoutId) {
@@ -282,11 +300,13 @@ export function createPiExtensionUiBridge(emitStreamMessage: (message: PiStreamM
 			request.reject(new Error(`Pi extension UI request cancelled during dispose: ${id}`));
 		}
 		pending.clear();
+		pendingMessages.clear();
 	};
 
 	return {
 		uiContext,
 		resolveResponse,
+		getPendingRequests,
 		dispose,
 	};
 }

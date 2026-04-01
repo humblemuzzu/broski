@@ -1,5 +1,8 @@
 import type { ServerWebSocket } from "bun";
 import type { ServerMessage } from "../types";
+import type { PiStreamMessage } from "../types/pi";
+import { mapPiStreamToRuntimeEvent } from "../runtime/pi-runtime-event-mapper";
+import { recordRuntimeEvent } from "../utils/runtime-replay-buffer";
 
 const SESSION_EVENT_BUFFER_SIZE = 100;
 const EVENT_TTL_MS = 60_000;
@@ -160,4 +163,38 @@ export function replayPiRuntimeEvents(ws: ServerWebSocket<unknown>, sessionId: s
 	}
 	piEventBuffers.delete(sessionId);
 	return buffered.length;
+}
+
+/**
+ * Replay pending Pi extension UI requests for a reconnecting watcher.
+ * Called from session_view when a Pi watcher is registered (set_view).
+ */
+export function replayPendingExtensionUiRequests(
+	ws: ServerWebSocket<unknown>,
+	sessionId: string,
+	pendingRequests: PiStreamMessage[],
+	cwd: string,
+): number {
+	if (pendingRequests.length === 0) return 0;
+
+	for (const streamMsg of pendingRequests) {
+		const runtimeEvent = mapPiStreamToRuntimeEvent(streamMsg, {
+			backend: "pi",
+			sessionId,
+			cwd,
+		});
+		if (!runtimeEvent) continue;
+
+		const payload: ServerMessage = {
+			type: "runtime_event",
+			backend: "pi",
+			data: {
+				...runtimeEvent,
+				replayed: true,
+			},
+		};
+		recordRuntimeEvent(payload);
+		send(ws, payload);
+	}
+	return pendingRequests.length;
 }

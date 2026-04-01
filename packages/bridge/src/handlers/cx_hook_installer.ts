@@ -168,7 +168,7 @@ function buildHookCommand(port: number, token: string): string {
 		`bash -c '`,
 		`# ${HOOK_MARKER}`,
 		`INPUT=$(cat)`,
-		`RESP=$(curl -s --max-time 310 -X POST "http://127.0.0.1:${port}/cx-hook"`,
+		`RESP=$(curl -sk --max-time 45 -X POST "https://127.0.0.1:${port}/cx-hook"`,
 		` -H "Content-Type: application/json"`,
 		` -H "Authorization: Bearer ${token}"`,
 		` -d "$INPUT" 2>/dev/null) || true`,

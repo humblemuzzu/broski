@@ -47,17 +47,21 @@ export async function installCcHook(bridgePort: number, authToken: string, log?:
 				command: hookCommand,
 			},
 		],
-		timeout: 310, // 5 min + 10s buffer (must exceed HOOK_PERMISSION_TIMEOUT_MS)
+		timeout: 50, // 45s hook timeout + 5s buffer
 	};
 
-	// Install for PreToolUse (tool execution approval — Bash, Write, Edit, etc.)
+	// Install ONLY for PreToolUse — it fires for every tool and supports both
+	// permissionDecision (allow/deny/ask) and updatedInput (for AskUserQuestion
+	// answers). Installing PermissionRequest too causes duplicate waiters —
+	// when the user answers on the phone, only one waiter resolves, the other
+	// times out and CC falls back to the terminal dialog.
 	installHookForEvent(hooks, "PreToolUse", hookEntry);
 
-	// Install for PermissionRequest (permission dialogs incl. AskUserQuestion, user questions)
-	installHookForEvent(hooks, "PermissionRequest", hookEntry);
+	// Clean up any leftover PermissionRequest hook from previous versions
+	removeHookFromEvent(hooks, "PermissionRequest");
 
 	await writeFile(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
-	(log ?? console.log)(`[CC Hook] Installed PreToolUse + PermissionRequest hooks in ${settingsPath}`);
+	(log ?? console.log)(`[CC Hook] Installed PreToolUse hook in ${settingsPath}`);
 }
 
 /**
@@ -143,7 +147,7 @@ function buildHookCommand(port: number, token: string): string {
 		`bash -c '`,
 		`# ${HOOK_MARKER}`,
 		`INPUT=$(cat)`,
-		`RESP=$(curl -s --max-time 310 -X POST "http://127.0.0.1:${port}/cc-hook"`,
+		`RESP=$(curl -sk --max-time 45 -X POST "https://127.0.0.1:${port}/cc-hook"`,
 		` -H "Content-Type: application/json"`,
 		` -H "Authorization: Bearer ${token}"`,
 		` -d "$INPUT" 2>/dev/null) || true`,

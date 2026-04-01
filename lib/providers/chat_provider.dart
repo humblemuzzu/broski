@@ -65,6 +65,13 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   final Map<String, StringBuffer> _pendingTextBuffers = {};
   int _lastRttMs = 0;
 
+  // Dedup set for external user messages (runtime_chat_ingest.dart)
+  final Set<String> _seenExternalUserMessages = {};
+
+  // Debounce for _projectRuntimeTurn (runtime_chat_ingest.dart)
+  Timer? _runtimeProjectionTimer;
+  RuntimeChatTurnState? _pendingProjectionTurn;
+
   // Claude Code subagent tracking
   // Maps Task tool_use_id -> subagent name for running subagents
   final Map<String, String> _ccActiveSubagentNames = {};
