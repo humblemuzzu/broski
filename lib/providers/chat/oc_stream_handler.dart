@@ -15,6 +15,9 @@ extension OcStreamHandler on ChatSessionNotifier {
     _runtimeChatTurns.clear();
     _textDebounceTimer?.cancel();
     _textDebounceTimer = null;
+    _runtimeProjectionTimer?.cancel();
+    _runtimeProjectionTimer = null;
+    _pendingProjectionTurn = null;
     _resetCCState();
     state = OpenCodeChatState(session: session, projectPath: projectPath);
   }

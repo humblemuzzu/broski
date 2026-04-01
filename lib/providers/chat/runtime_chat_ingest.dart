@@ -169,13 +169,25 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
   }
 
   void _scheduleRuntimeTurnProjection(RuntimeChatTurnState turn) {
+    // If we have a pending turn with a DIFFERENT messageId, flush it NOW
+    // before it gets overwritten. At turn boundaries _beginRuntimeTurn resets
+    // the state (new messageId, empty text/tools), so if we don't flush the
+    // old turn immediately its accumulated content is lost forever.
+    final pending = _pendingProjectionTurn;
+    if (pending != null &&
+        pending.messageId != null &&
+        pending.messageId != turn.messageId &&
+        pending.hasVisibleContent) {
+      _projectRuntimeTurn(pending);
+    }
+
     _pendingProjectionTurn = turn;
     _runtimeProjectionTimer ??= Timer(const Duration(milliseconds: 16), () {
       _runtimeProjectionTimer = null;
-      final pending = _pendingProjectionTurn;
-      if (pending != null) {
+      final p = _pendingProjectionTurn;
+      if (p != null) {
         _pendingProjectionTurn = null;
-        _projectRuntimeTurn(pending);
+        _projectRuntimeTurn(p);
       }
     });
   }

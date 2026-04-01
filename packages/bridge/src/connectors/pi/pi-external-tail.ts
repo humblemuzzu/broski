@@ -106,9 +106,9 @@ export function startPiExternalTail(
 
 				if (!initialSyncDone) {
 					initialSyncDone = true;
-					if (ctx.DEBUG_RTS) {
-						ctx.logDebug(`[Pi tail] Initial sync done, ${seenMessageIds.size} baseline messages`);
-					}
+					console.log(`[Pi tail] Initial sync done, ${seenMessageIds.size} baseline messages`);
+
+
 				}
 			} finally {
 				await fh.close().catch(() => {});
@@ -135,6 +135,7 @@ export function startPiExternalTail(
 		if (!msg || typeof msg !== "object") return;
 		const role = msg.role as string;
 		if (!role) return;
+		console.log(`[Pi tail] Processing new entry: role=${role}, msgId=${msgId}`);
 
 		if (role === "user") {
 			// User typed a prompt in the terminal — emit it so the phone shows it

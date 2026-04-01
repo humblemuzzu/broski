@@ -530,4 +530,20 @@ export function isSessionOwnedByBridge(sessionId: string): boolean {
 	return false;
 }
 
+/**
+ * Check if a Pi session is actively streaming through a bridge-owned instance.
+ * This is stricter than isSessionOwnedByBridge — returns true ONLY if the
+ * bridge instance is currently processing a prompt (isStreaming). An idle
+ * instance (e.g. created by pi_get_state after a bridge restart) returns false,
+ * allowing the external tail to run instead.
+ */
+export function isSessionActivelyStreaming(sessionId: string): boolean {
+	for (const instance of instances.values()) {
+		if (instance.session.sessionId === sessionId && instance.session.isStreaming) {
+			return true;
+		}
+	}
+	return false;
+}
+
 export { mapAgentMessage, mapToolResult, translateEvent } from "./pi/pi-events";

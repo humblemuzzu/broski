@@ -118,6 +118,7 @@ function broadcastPiStreamMessage(
 		data: runtimeEvent,
 	};
 	recordRuntimeEvent(payload);
+	console.log(`[Pi RTS DEBUG] Broadcasting pi runtime_event: type=${runtimeEvent.type}, sessionId=${sessionId}, seq=${(runtimeEvent as any).seq}`);
 	broadcast(payload);
 }
 
@@ -166,6 +167,7 @@ async function ensureStreamBridge(cwd: string, broadcast: Broadcast, force = fal
 	// Create/get the instance to register with, but use dynamic lookup in the
 	// event callback so session switches are reflected immediately.
 	await pi.getOrCreateInstance(cwd);
+	console.log(`[Pi RTS DEBUG] ensureStreamBridge: setting up event listener for cwd=${cwd}`);
 	const unsubscribe = await pi.addEventListener(cwd, (event) => {
 		const streamMessage = pi.translateEvent(event);
 		if (!streamMessage) return;
@@ -221,21 +223,29 @@ export async function syncPiExternalTail(
 	logDebug: (msg: string) => void,
 ): Promise<void> {
 	// Already tailing this session
-	if (externalTails.has(sessionId)) return;
+	if (externalTails.has(sessionId)) {
+		console.log(`[Pi tail] Already tailing session ${sessionId}`);
+		return;
+	}
 
-	// If bridge owns this session, skip — events come via subscribe()
-	if (pi.isSessionOwnedByBridge(sessionId)) {
-		if (debugRts) logDebug(`[Pi tail] Session ${sessionId} is bridge-owned, skipping external tail`);
+	// Only skip the external tail if the bridge is ACTIVELY streaming for
+	// this session. Having a bridge instance alone isn't enough — after a
+	// bridge restart pi_get_state creates an idle instance that never
+	// generates events, but isSessionOwnedByBridge would still return true,
+	// causing the external tail to be skipped and leaving the app with zero
+	// event delivery.
+	if (pi.isSessionActivelyStreaming(sessionId)) {
+		console.log(`[Pi tail] Session ${sessionId} is actively streaming via bridge, skipping external tail`);
 		return;
 	}
 
 	const filePath = await pi.resolveSessionFilePath(sessionId);
 	if (!filePath) {
-		if (debugRts) logDebug(`[Pi tail] Cannot resolve file for session ${sessionId}`);
+		console.log(`[Pi tail] Cannot resolve file for session ${sessionId}`);
 		return;
 	}
 
-	if (debugRts) logDebug(`[Pi tail] Starting external tail for ${sessionId} → ${filePath}`);
+	console.log(`[Pi tail] Starting external tail for ${sessionId} → ${filePath}`);
 
 	const tail = startPiExternalTail(filePath, {
 		emitPiStream: (streamMsg) => {

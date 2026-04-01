@@ -252,6 +252,7 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
     _runtimeEventSubscription?.cancel();
     _runtimeStateSubscription?.cancel();
     _textDebounceTimer?.cancel();
+    _runtimeProjectionTimer?.cancel();
     super.dispose();
   }
 }
