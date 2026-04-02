@@ -66,15 +66,6 @@ export function getCurrentSeq(clientId: string): number {
 }
 
 /**
- * Clean up buffer for a disconnected client.
- * Called when a client disconnects — keep the buffer briefly for reconnect.
- */
-export function markClientDisconnected(_clientId: string): void {
-	// Don't delete immediately — keep for reconnect window.
-	// The age-based expiry in cleanupExpiredBuffers() handles eventual removal.
-}
-
-/**
  * Completely remove a client's buffer (e.g., on explicit logout).
  */
 export function removeClientBuffer(clientId: string): void {

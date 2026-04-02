@@ -1,4 +1,5 @@
-import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { fileExists } from "./utils/fs-helpers";
 import { homedir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 
@@ -37,14 +38,6 @@ function parseDescriptionFromFrontmatter(content: string): string | undefined {
 	return descMatch?.[1]?.trim() || undefined;
 }
 
-async function fileExists(path: string): Promise<boolean> {
-	try {
-		await stat(path);
-		return true;
-	} catch {
-		return false;
-	}
-}
 
 async function listSkillsInRoot(rootDir: string, source: SkillSource): Promise<SkillListEntry[]> {
 	const out: SkillListEntry[] = [];

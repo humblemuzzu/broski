@@ -10,7 +10,8 @@
  * - Custom: User-added paths via cc_add_plugin_path
  */
 
-import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { dirExists, fileExists } from "./utils/fs-helpers";
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import type {
@@ -68,29 +69,6 @@ async function savePluginConfig(): Promise<void> {
 	}
 }
 
-/**
- * Check if a path exists and is a directory
- */
-async function isDirectory(path: string): Promise<boolean> {
-	try {
-		const st = await stat(path);
-		return st.isDirectory();
-	} catch {
-		return false;
-	}
-}
-
-/**
- * Check if a file exists
- */
-async function fileExists(path: string): Promise<boolean> {
-	try {
-		await stat(path);
-		return true;
-	} catch {
-		return false;
-	}
-}
 
 /**
  * Parse a plugin manifest from plugin.json
@@ -124,7 +102,7 @@ async function discoverPluginComponents(pluginDir: string): Promise<{
 
 	// Check for commands directory
 	const commandsDir = join(pluginDir, "commands");
-	if (await isDirectory(commandsDir)) {
+	if (await dirExists(commandsDir)) {
 		try {
 			const entries = await readdir(commandsDir);
 			for (const entry of entries) {
@@ -139,7 +117,7 @@ async function discoverPluginComponents(pluginDir: string): Promise<{
 
 	// Check for agents directory
 	const agentsDir = join(pluginDir, "agents");
-	if (await isDirectory(agentsDir)) {
+	if (await dirExists(agentsDir)) {
 		try {
 			const entries = await readdir(agentsDir);
 			for (const entry of entries) {
@@ -154,7 +132,7 @@ async function discoverPluginComponents(pluginDir: string): Promise<{
 
 	// Check for skills directory
 	const skillsDir = join(pluginDir, "skills");
-	if (await isDirectory(skillsDir)) {
+	if (await dirExists(skillsDir)) {
 		try {
 			const entries = await readdir(skillsDir, { withFileTypes: true });
 			for (const entry of entries) {
@@ -191,7 +169,7 @@ async function discoverPluginComponents(pluginDir: string): Promise<{
 async function discoverPlugin(pluginDir: string): Promise<ClaudeCodePlugin | null> {
 	// Check if it has a manifest
 	const manifestDir = join(pluginDir, ".claude-plugin");
-	if (!(await isDirectory(manifestDir))) {
+	if (!(await dirExists(manifestDir))) {
 		return null;
 	}
 
@@ -228,7 +206,7 @@ async function discoverPlugin(pluginDir: string): Promise<ClaudeCodePlugin | nul
 async function scanPluginDirectory(dir: string): Promise<ClaudeCodePlugin[]> {
 	const plugins: ClaudeCodePlugin[] = [];
 
-	if (!(await isDirectory(dir))) {
+	if (!(await dirExists(dir))) {
 		return plugins;
 	}
 

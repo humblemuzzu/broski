@@ -12,6 +12,20 @@ import { execSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, resolve } from "node:path";
+import { isCompiledBinary } from "./platform";
+import { redactSensitiveText } from "./logging/redact";
+
+/** Module-level log that applies redaction in production binaries. */
+function subLog(message: string, ...args: unknown[]): void {
+	if (!isCompiledBinary()) {
+		console.log(message, ...args);
+		return;
+	}
+	const text = args.length > 0
+		? `${message} ${args.map((a) => (a instanceof Error ? a.message : String(a))).join(" ")}`
+		: message;
+	console.log(redactSensitiveText(text));
+}
 
 // ============================================================================
 // TYPES
@@ -94,7 +108,7 @@ function loadClaudeCredentialsFromKeychain(): ClaudeOAuthCredentials | null {
 		).trim();
 
 		if (!result) {
-			console.log("[Subscription] Claude Keychain entry is empty");
+			subLog("[Subscription] Claude Keychain entry is empty");
 			return null;
 		}
 
@@ -102,19 +116,19 @@ function loadClaudeCredentialsFromKeychain(): ClaudeOAuthCredentials | null {
 		const oauth = json.claudeAiOauth;
 
 		if (!oauth) {
-			console.log("[Subscription] Claude Keychain missing claudeAiOauth");
+			subLog("[Subscription] Claude Keychain missing claudeAiOauth");
 			return null;
 		}
 
 		const accessToken = oauth.accessToken?.trim();
 		if (!accessToken) {
-			console.log("[Subscription] Claude Keychain missing access token");
+			subLog("[Subscription] Claude Keychain missing access token");
 			return null;
 		}
 
 		const expiresAt = oauth.expiresAt ? new Date(oauth.expiresAt) : null;
 
-		console.log("[Subscription] Claude credentials loaded from macOS Keychain");
+		subLog("[Subscription] Claude credentials loaded from macOS Keychain");
 
 		return {
 			accessToken,
@@ -125,7 +139,7 @@ function loadClaudeCredentialsFromKeychain(): ClaudeOAuthCredentials | null {
 		};
 	} catch (error) {
 		// Keychain access failed - this is normal if not on macOS or not logged in
-		console.log("[Subscription] Claude Keychain access failed:", (error as Error).message);
+		subLog("[Subscription] Claude Keychain access failed:", (error as Error).message);
 		return null;
 	}
 }
@@ -142,19 +156,19 @@ async function loadClaudeCredentialsFromFile(): Promise<ClaudeOAuthCredentials |
 
 		const oauth = json.claudeAiOauth;
 		if (!oauth) {
-			console.log("[Subscription] Claude credentials file missing claudeAiOauth");
+			subLog("[Subscription] Claude credentials file missing claudeAiOauth");
 			return null;
 		}
 
 		const accessToken = oauth.accessToken?.trim();
 		if (!accessToken) {
-			console.log("[Subscription] Claude credentials file missing access token");
+			subLog("[Subscription] Claude credentials file missing access token");
 			return null;
 		}
 
 		const expiresAt = oauth.expiresAt ? new Date(oauth.expiresAt) : null;
 
-		console.log("[Subscription] Claude credentials loaded from file");
+		subLog("[Subscription] Claude credentials loaded from file");
 
 		return {
 			accessToken,
@@ -182,7 +196,7 @@ async function loadClaudeCredentials(): Promise<ClaudeOAuthCredentials | null> {
 		return fileCreds;
 	}
 
-	console.log("[Subscription] Claude credentials not found in Keychain or file");
+	subLog("[Subscription] Claude credentials not found in Keychain or file");
 	return null;
 }
 
@@ -407,7 +421,7 @@ async function loadCodexCredentials(): Promise<CodexOAuthCredentials | null> {
 		// OAuth tokens
 		const tokens = json.tokens;
 		if (!tokens) {
-			console.log("[Subscription] Codex auth.json missing tokens");
+			subLog("[Subscription] Codex auth.json missing tokens");
 			return null;
 		}
 
@@ -415,7 +429,7 @@ async function loadCodexCredentials(): Promise<CodexOAuthCredentials | null> {
 		const refreshToken = tokens.refresh_token?.trim();
 
 		if (!accessToken) {
-			console.log("[Subscription] Codex tokens missing access_token");
+			subLog("[Subscription] Codex tokens missing access_token");
 			return null;
 		}
 
@@ -433,7 +447,7 @@ async function loadCodexCredentials(): Promise<CodexOAuthCredentials | null> {
 			isApiKey: false,
 		};
 	} catch (error) {
-		console.log("[Subscription] Codex credentials not found:", (error as Error).message);
+		subLog("[Subscription] Codex credentials not found:", (error as Error).message);
 		return null;
 	}
 }
@@ -577,7 +591,7 @@ async function getCodexUsage(): Promise<ProviderUsage> {
 		if (creds.lastRefresh && !creds.isApiKey) {
 			const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
 			if (creds.lastRefresh < eightDaysAgo) {
-				console.log("[Subscription] Codex token may need refresh (>8 days old)");
+				subLog("[Subscription] Codex token may need refresh (>8 days old)");
 				// Note: We don't automatically refresh - let the CLI handle that
 			}
 		}
@@ -629,14 +643,14 @@ async function getCodexUsage(): Promise<ProviderUsage> {
  * This is designed to be called on-demand (not polled).
  */
 export async function getSubscriptionUsage(): Promise<SubscriptionUsage> {
-	console.log("[Subscription] Fetching usage for all providers...");
+	subLog("[Subscription] Fetching usage for all providers...");
 
 	// Fetch all providers in parallel
 	const [claudeUsage, codexUsage] = await Promise.all([getClaudeUsage(), getCodexUsage()]);
 
 	const providers = [claudeUsage, codexUsage];
 
-	console.log(`[Subscription] Fetched ${providers.length} providers`);
+	subLog(`[Subscription] Fetched ${providers.length} providers`);
 
 	return {
 		providers,

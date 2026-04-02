@@ -1,4 +1,5 @@
 import type { BroskiBackend, BroskiRuntimeEvent } from "../types/runtime";
+import { normalizeString } from "./shared";
 
 type RuntimeStreamHints = {
 	backend?: BroskiBackend;
@@ -18,12 +19,6 @@ type RuntimeStreamState = {
 };
 
 const streamStates = new Map<string, RuntimeStreamState>();
-
-function normalizeString(value: unknown): string | undefined {
-	if (typeof value !== "string") return undefined;
-	const trimmed = value.trim();
-	return trimmed.length > 0 ? trimmed : undefined;
-}
 
 function keyFor(backend: BroskiBackend, sessionId?: string, cwd?: string): string {
 	return `${backend}::${normalizeString(sessionId) ?? `cwd:${normalizeString(cwd) ?? "unknown"}`}`;

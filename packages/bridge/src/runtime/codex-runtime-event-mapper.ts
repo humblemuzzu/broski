@@ -1,5 +1,6 @@
 import type { CodexStreamMessage } from "../types";
 import type { BroskiBackendData, BroskiRuntimeEvent } from "../types/runtime";
+import { extractToolCallId } from "./shared";
 import { enrichRuntimeEvent } from "./stream-contract";
 
 type CodexRuntimeEventContext = {
@@ -21,11 +22,6 @@ const baseEvent = <TType extends BroskiRuntimeEvent["type"]>(
 		...(ctx.cwd ? { cwd: ctx.cwd } : {}),
 		...(backendData ? { backendData } : {}),
 	} as Extract<BroskiRuntimeEvent, { type: TType }>);
-
-function pickToolCallId(item: any): string | undefined {
-	const value = item?.callId ?? item?.callID ?? item?.call_id ?? item?.id;
-	return typeof value === "string" && value.length > 0 ? value : undefined;
-}
 
 function pickToolName(item: any): string | undefined {
 	if (!item || typeof item !== "object") return undefined;
@@ -227,7 +223,7 @@ export function mapCodexStreamToRuntimeEvent(
 					if (!isCodexToolItem(item)) return null;
 
 					const isToolStart = streamMessage.method === "item/started";
-					const toolCallId = pickToolCallId(item);
+					const toolCallId = extractToolCallId(item);
 					const toolName = pickToolName(item);
 					const input = item?.input ??
 						item?.arguments ?? {
@@ -301,7 +297,7 @@ export function mapCodexStreamToRuntimeEvent(
 						return null;
 					}
 
-					const toolCallId = pickToolCallId(item);
+					const toolCallId = extractToolCallId(item);
 					if (!toolCallId) return null;
 
 					if (itemType === "function_call" || itemType === "custom_tool_call") {

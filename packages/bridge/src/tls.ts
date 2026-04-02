@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFile, stat, unlink } from "node:fs/promises";
+import { readFile, unlink } from "node:fs/promises";
+import { fileExists } from "./utils/fs-helpers";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { findBinary, generateSelfSignedCertificate } from "./platform";
@@ -23,14 +24,6 @@ function pemToDer(pem: string): Buffer {
 	return Buffer.from(b64, "base64");
 }
 
-async function fileExists(path: string): Promise<boolean> {
-	try {
-		const s = await stat(path);
-		return s.isFile();
-	} catch {
-		return false;
-	}
-}
 
 function isTruthyEnv(value: string | undefined, fallback: boolean): boolean {
 	if (value == null) return fallback;

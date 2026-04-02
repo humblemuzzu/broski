@@ -1,4 +1,5 @@
 import type { BroskiRuntimeEvent } from "../types/runtime";
+import { extractToolCallId } from "./shared";
 import { enrichRuntimeEvent } from "./stream-contract";
 import { mapOpenCodeStatusToRuntimeState } from "./opencode-runtime-read-models";
 
@@ -14,11 +15,6 @@ function extractMessageId(source: any): string | undefined {
 
 function extractPartId(source: any): string | undefined {
 	const value = source?.partID ?? source?.partId ?? source?.part_id ?? source?.id;
-	return typeof value === "string" && value.length > 0 ? value : undefined;
-}
-
-function extractToolCallId(source: any): string | undefined {
-	const value = source?.callID ?? source?.callId ?? source?.call_id ?? source?.id;
 	return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 

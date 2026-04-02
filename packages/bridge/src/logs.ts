@@ -1,4 +1,5 @@
 import { mkdir, open, stat, writeFile } from "node:fs/promises";
+import { fileExists } from "./utils/fs-helpers";
 import { homedir, platform, release } from "node:os";
 import { basename, resolve } from "node:path";
 import packageMeta from "../package.json";
@@ -59,14 +60,6 @@ function mergeOptions(options?: Partial<LogsRunOptions>): LogsRunOptions {
 	};
 }
 
-async function fileExists(path: string): Promise<boolean> {
-	try {
-		await stat(path);
-		return true;
-	} catch {
-		return false;
-	}
-}
 
 async function getLogFiles(includeErrors: boolean): Promise<string[]> {
 	const files: string[] = [];

@@ -548,6 +548,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	// kills long-running sessions that need approval. 10 min gives enough time for
 	// app background → resume → approve flow, even on slow networks.
 	const PERMISSION_TIMEOUT_MS = 600_000; // 10 minutes
+	const CX_ITEM_CACHE_MAX = 5000; // Prevent unbounded growth of Codex item cache
+	const CX_ITEM_CACHE_PRUNE = 1000; // Evict oldest 20% on overflow
+	const MAX_BATCH_SIZE = 50; // DoS guard: reject oversized batch envelopes
 
 	// Recent event buffer: keeps last N stream events per session for instant replay
 	// on reconnect. When the app disconnects and reconnects, the external tail syncs
@@ -1080,6 +1083,10 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 						const itemId = safeString(item?.id);
 						if (threadId && turnId && itemId) {
 							cxItemCache.set(`${threadId}:${turnId}:${itemId}`, item);
+							if (cxItemCache.size > CX_ITEM_CACHE_MAX) {
+								const keys = [...cxItemCache.keys()];
+								for (let i = 0; i < CX_ITEM_CACHE_PRUNE; i++) cxItemCache.delete(keys[i]!);
+							}
 							if (safeString(item?.type) === "fileChange" && n.method === "item/started") {
 								void snapshotCodexFileChange(threadId, turnId, itemId, item).catch(() => {});
 							}
@@ -2166,6 +2173,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 				// Client might have disconnected, ignore
 			}
 		}
+
+		// Evict stale chat dedup entries (older than 5 minutes)
+		const CHAT_DEDUP_TTL_MS = 5 * 60 * 1000;
+		for (const [key, tsMs] of recentChatMessageIds) {
+			if (now - tsMs > CHAT_DEDUP_TTL_MS) recentChatMessageIds.delete(key);
+		}
 	}, TICK_INTERVAL_MS);
 
 	// Periodic entitlement refresh (best-effort). This makes revocations take effect
@@ -2971,6 +2984,14 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 					reply({
 						type: "error",
 						message: "Invalid batch: messages must be an array",
+					});
+					return;
+				}
+
+				if (batchedMessages.length > MAX_BATCH_SIZE) {
+					reply({
+						type: "error",
+						message: `Batch too large: ${batchedMessages.length} messages (max ${MAX_BATCH_SIZE})`,
 					});
 					return;
 				}

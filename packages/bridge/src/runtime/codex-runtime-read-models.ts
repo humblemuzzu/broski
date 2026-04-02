@@ -5,6 +5,7 @@ import type {
 	BroskiRuntimeState,
 	BroskiSessionSummary,
 } from "../types/runtime";
+import { normalizeTimestampMs } from "./shared";
 
 export const codexRuntimeCapabilities: BroskiRuntimeCapabilities = {
 	canStreamText: false,
@@ -22,11 +23,6 @@ export const codexRuntimeCapabilities: BroskiRuntimeCapabilities = {
 	canRequestPermissions: true,
 	backendExtras: ["collaboration", "policy-amendments", "review-threads"],
 };
-
-function normalizeTimestampMs(value: number | undefined): number {
-	if (!value || !Number.isFinite(value)) return 0;
-	return value < 1_000_000_000_000 ? value * 1000 : value;
-}
 
 export function mapCodexThreadToRuntimeSession(thread: CodexThread & { threadName?: string }): BroskiSessionSummary {
 	const statusType = thread.status?.type;

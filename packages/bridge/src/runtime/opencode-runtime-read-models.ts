@@ -5,6 +5,7 @@ import type {
 	BroskiRuntimeState,
 	BroskiSessionSummary,
 } from "../types/runtime";
+import { normalizeTimestampMs } from "./shared";
 
 const openCodeRuntimeCapabilities: BroskiRuntimeCapabilities = {
 	canStreamText: true,
@@ -22,11 +23,6 @@ const openCodeRuntimeCapabilities: BroskiRuntimeCapabilities = {
 	canRequestPermissions: true,
 	backendExtras: ["workspace-metadata", "todos", "projects"],
 };
-
-function normalizeTimestampMs(value: number | undefined): number {
-	if (!value || !Number.isFinite(value)) return 0;
-	return value < 1_000_000_000_000 ? value * 1000 : value;
-}
 
 export function mapOpenCodeSessionToRuntimeSession(session: SessionSummary): BroskiSessionSummary {
 	return {

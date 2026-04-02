@@ -5,6 +5,7 @@ import type {
 	BroskiRuntimeState,
 	BroskiSessionSummary,
 } from "../types/runtime";
+import { normalizeTimestampMs } from "./shared";
 
 export const claudeCodeRuntimeCapabilities: BroskiRuntimeCapabilities = {
 	canStreamText: true,
@@ -22,11 +23,6 @@ export const claudeCodeRuntimeCapabilities: BroskiRuntimeCapabilities = {
 	canRequestPermissions: true,
 	backendExtras: ["elicitation", "checkpoints", "subagents", "local-config"],
 };
-
-function normalizeTimestampMs(value: number | undefined): number {
-	if (!value || !Number.isFinite(value)) return 0;
-	return value < 1_000_000_000_000 ? value * 1000 : value;
-}
 
 export function mapClaudeCodeModelToSummary(model: ClaudeCodeSupportedModel): BroskiModelSummary {
 	return {

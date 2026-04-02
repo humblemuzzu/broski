@@ -37,7 +37,6 @@ import { performUpdate, startPeriodicUpdateCheck, startupUpdateCheck, stopPeriod
 
 // Daemon (Always On mode) configuration
 const BROSKI_LOG_DIR = resolve(homedir(), ".broski", "logs");
-const _BROSKI_PID_FILE = resolve(homedir(), ".broski", "bridge.pid");
 
 type ManagedOpenCodeServer = {
 	url: string;
@@ -1104,6 +1103,13 @@ async function main() {
 	if (!IS_WINDOWS) {
 		process.on("SIGTSTP", () => void shutdown("SIGTSTP"));
 	}
+	let _shuttingDownFromRejection = false;
+	process.on("unhandledRejection", (reason) => {
+		if (_shuttingDownFromRejection) return;
+		_shuttingDownFromRejection = true;
+		console.error("[FATAL] Unhandled promise rejection:", reason instanceof Error ? reason.stack : reason);
+		void shutdown("UNHANDLED_REJECTION", 1);
+	});
 	verboseMode = cli.verbose;
 	managedHostname = cli.opencodeHostname;
 	managedPort = cli.opencodePort;

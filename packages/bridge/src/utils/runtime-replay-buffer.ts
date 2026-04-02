@@ -1,5 +1,6 @@
 import type { ServerMessage } from "../types";
 import type { BroskiBackend } from "../types/runtime";
+import { normalizeString } from "../runtime/shared";
 
 const MAX_EVENTS_PER_STREAM = 500;
 const MAX_EVENT_AGE_MS = 5 * 60 * 1000;
@@ -11,12 +12,6 @@ type BufferedRuntimeEvent = {
 };
 
 const runtimeEventBuffers = new Map<string, BufferedRuntimeEvent[]>();
-
-function normalizeString(value: unknown): string | undefined {
-	if (typeof value !== "string") return undefined;
-	const trimmed = value.trim();
-	return trimmed.length > 0 ? trimmed : undefined;
-}
 
 function streamKey(backend: BroskiBackend, sessionId?: string, cwd?: string): string {
 	const normalizedSessionId = normalizeString(sessionId);
