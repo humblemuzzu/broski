@@ -60,6 +60,7 @@ class ChatInputBarContent extends ConsumerWidget {
     required this.onModelTap,
     required this.onSetCodexReasoningEffort,
     required this.onSetPiThinkingLevel,
+    this.onMenuTap,
   });
 
   // --- Text input state (from _ChatScreenState) ---
@@ -102,6 +103,7 @@ class ChatInputBarContent extends ConsumerWidget {
   final VoidCallback onModelTap;
   final void Function(String?) onSetCodexReasoningEffort;
   final void Function(String?) onSetPiThinkingLevel;
+  final VoidCallback? onMenuTap;
 
   /// Handles CC permission mode change: persists config and optionally applies
   /// to the live session.
@@ -244,11 +246,19 @@ class ChatInputBarContent extends ConsumerWidget {
     final variant = _currentVariant(ref);
     final variants = _availableVariants(ref);
     final variantChanged = _onVariantChanged(ref);
-    // CC permission mode change callback
-    final ccPermModeChanged = isClaudeCode
-        ? (ClaudeCodePermissionMode mode) =>
-              _handleCCPermissionModeChanged(context, ref, mode)
-        : null;
+
+    // Unified model display string for all backends
+    final modelDisplay = isClaudeCode
+        ? (ccConfig?.model ??
+              ccModel ??
+              ccInit?.model ??
+              ccSessionModel ??
+              ccDraftModel)
+        : isCodex
+        ? ref.watch(chatSessionProvider.select((s) => s.cxModel))
+        : isPi
+        ? ref.watch(chatSessionProvider.select((s) => s.piModel))
+        : ref.watch(selectionProvider).model?.displayString;
 
     if (inputStyle == InputBarStyle.cli) {
       return CliStyleInputBar(
@@ -285,27 +295,20 @@ class ChatInputBarContent extends ConsumerWidget {
                   ccDraftModel)
             : null,
         onCCModelTap: isClaudeCode ? onModelTap : null,
-        onCCPermissionModeChanged: ccPermModeChanged,
         // Codex specific
         codexModel: isCodex
             ? ref.watch(chatSessionProvider.select((s) => s.cxModel))
             : null,
         onCodexModelTap: isCodex ? onModelTap : null,
-        // Codex Collaboration Mode (SDK v0.87.0+)
-        codexCollabMode: isCodex
-            ? ref.watch(codexSettingsProvider).collaborationMode
-            : null,
-        onCodexCollabModeChanged: isCodex
-            ? (mode) => ref
-                  .read(codexSettingsProvider.notifier)
-                  .setCollaborationMode(mode)
-            : null,
         customAccentColor: customAccent,
         glowStyle: glowStyle,
         // Variant/Thinking Level
         currentVariant: variant,
         availableVariants: variants,
         onVariantChanged: variantChanged,
+        // ⋯ menu
+        onMenuTap: onMenuTap,
+        modelDisplay: modelDisplay,
       );
     }
 
@@ -328,35 +331,8 @@ class ChatInputBarContent extends ConsumerWidget {
       onTakePhoto: onTakePhoto,
       attachIcon: AppIcons.add,
       // Model selector
-      currentModel: isClaudeCode
-          ? ref.watch(chatSessionProvider.select((s) => s.ccModel))
-          : isCodex
-          ? ref.watch(chatSessionProvider.select((s) => s.cxModel))
-          : isPi
-          ? ref.watch(chatSessionProvider.select((s) => s.piModel))
-          : ref.watch(selectionProvider).model?.displayString,
+      currentModel: modelDisplay,
       onModelTap: onModelTap,
-      // OpenCode specific
-      agents: isOpenCode ? agents : const [],
-      currentAgent: isOpenCode ? selectedAgent : null,
-      onAgentChanged: isOpenCode ? onAgentChanged : null,
-      // Claude Code specific
-      ccPermissionMode: isClaudeCode
-          ? (ref.watch(ccConfigProvider).valueOrNull?.permissionMode ??
-                ref
-                    .watch(chatSessionProvider.select((s) => s.ccInit))
-                    ?.permissionMode)
-          : null,
-      onCCPermissionModeChanged: ccPermModeChanged,
-      // Codex specific
-      codexCollabMode: isCodex
-          ? ref.watch(codexSettingsProvider).collaborationMode
-          : null,
-      onCodexCollabModeChanged: isCodex
-          ? (mode) => ref
-                .read(codexSettingsProvider.notifier)
-                .setCollaborationMode(mode)
-          : null,
       // Variant/Thinking Level
       currentVariant: variant,
       availableVariants: variants,
@@ -364,6 +340,8 @@ class ChatInputBarContent extends ConsumerWidget {
       // Glow style and accent color
       glowStyle: glowStyle,
       accentColor: customAccent,
+      // ⋯ menu
+      onMenuTap: onMenuTap,
     );
   }
 }

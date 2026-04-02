@@ -15,9 +15,9 @@ import 'package:broski/models/session_context.dart';
 import 'package:broski/models/vcs.dart';
 import 'package:broski/providers/appearance_provider.dart';
 import 'package:broski/providers/chat_provider.dart';
-import 'package:broski/providers/claude_code_provider.dart';
+// claude_code_provider now used in actions_sheet_opener + input_bar_content
 import 'package:broski/providers/codex_settings_provider.dart';
-import 'package:broski/providers/codex/cx_rate_limits_provider.dart';
+// cx_rate_limits_provider now used in actions_sheet_opener.dart
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/file_search_provider.dart';
 import 'package:broski/providers/selection_provider.dart';
@@ -77,6 +77,8 @@ import 'package:broski/widgets/pi/pi_queue_indicator.dart';
 import 'package:broski/services/haptics_service.dart';
 import 'package:broski/services/image_picker_service.dart';
 import 'package:broski/services/websocket_service.dart';
+import 'package:broski/theme/app_icons.dart';
+import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/utils/responsive.dart';
 import 'package:broski/utils/snackbar_helpers.dart';
@@ -88,18 +90,18 @@ import 'package:broski/widgets/chat/custom_tool_autocomplete.dart';
 import 'package:broski/widgets/chat/cx_queue_bar.dart';
 import 'package:broski/widgets/chat/cx_steer_bar.dart';
 import 'package:broski/screens/chat/auto_send_cx.dart' as ascx;
-import 'package:broski/widgets/chat/floating_header.dart';
 import 'package:broski/widgets/chat/input_bar_content.dart';
+import 'package:broski/screens/chat/actions_sheet_opener.dart';
 import 'package:broski/widgets/chat/message_group.dart';
 import 'package:broski/widgets/chat/retry_status_banner.dart';
 import 'package:broski/widgets/chat/revert_state_banner.dart';
-import 'package:broski/widgets/chat/subagent_activity.dart';
+// SubagentActivityIndicator removed — was shown under top bar, no longer needed
 import 'package:broski/widgets/chat/variant_card_builder.dart';
 import 'package:broski/widgets/file_tagging.dart';
 import 'package:broski/widgets/multi_agent_tree.dart';
 import 'package:broski/widgets/opencode_branding.dart';
 import 'package:broski/widgets/pi_branding.dart';
-import 'package:broski/widgets/power_sheet.dart';
+// power_sheet.dart import removed — settings consolidated into actions sheets
 import 'package:broski/widgets/session_sidebar.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -424,12 +426,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // "Tried to modify a provider while the widget tree was building" error
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ci.setupInitialProjectContext(
-        ref: ref,
-        bridge: bridge,
-        widget: widget,
-        piMenuAction: widget.isPi ? _handlePiMenuAction : null,
-      );
+      ci.setupInitialProjectContext(ref: ref, bridge: bridge, widget: widget);
     });
     // FIX: Use listenManual for proper subscription lifecycle management
     _connectionSubscription = ref.listenManual(connectionProvider, (
@@ -935,6 +932,35 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   Future<void> _forkPiSessionFromEntry(String entryId) =>
       psa.forkPiSessionFromEntry(context: context, ref: ref, entryId: entryId);
 
+  /// Opens the backend-specific actions sheet (⋯ menu from input bar).
+  void _openActionsSheet() {
+    final onAction = widget.isClaudeCode
+        ? _handleClaudeCodeMenuAction
+        : widget.isCodex
+        ? _handleCodexMenuAction
+        : widget.isPi
+        ? _handlePiMenuAction
+        : (String value) => _handleMenuActionWithMessages(
+            value,
+            ref.read(chatSessionProvider).messages,
+          );
+    openActionsSheet(
+      context: context,
+      ref: ref,
+      isClaudeCode: widget.isClaudeCode,
+      isCodex: widget.isCodex,
+      isPi: widget.isPi,
+      onAction: onAction,
+      ccSessionModel: widget.ccSession?.model,
+      ccDraftModel: widget.ccDraftModel,
+      vcsInfo: _vcsInfo,
+      isSessionShared: widget.isOpenCode ? widget.session.isShared : false,
+      isCompacting: ref.read(chatSessionProvider).isCompacting,
+      onModelTap: widget.isOpenCode ? () => _showModelSelector(context) : null,
+      onOpenSidebar: () => Scaffold.of(context).openEndDrawer(),
+    );
+  }
+
   void _showCodexAppsSheet() {
     // Delegate to modular sheet
     CxAppsSheet.show(context);
@@ -1218,10 +1244,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     _cxQueueSubscription?.close();
     _piExtensionUiSub?.cancel();
     _bgSyncTimer?.cancel();
-    // Clear Pi power menu callback
-    if (widget.isPi && piPowerMenuCallback == _handlePiMenuAction) {
-      piPowerMenuCallback = null;
-    }
     ref.read(bridgeServiceProvider).setView(projectPath: 'global');
     _controller.dispose();
     _scrollController.dispose();
@@ -1248,9 +1270,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final sessionDiffs = ref.watch(
       chatSessionProvider.select((s) => s.sessionDiffs),
     );
-    final isCompacting = ref.watch(
-      chatSessionProvider.select((s) => s.isCompacting),
-    );
+    // isCompacting now read on-demand in _openActionsSheet
     final sessionStatus = ref.watch(
       chatSessionProvider.select((s) => s.sessionStatus),
     );
@@ -1397,9 +1417,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                                 controller: _scrollController,
                                 // PERF: Pre-render 500px above/below viewport for smoother scrolling
                                 cacheExtent: 500,
-                                padding: const EdgeInsets.fromLTRB(
+                                padding: EdgeInsets.fromLTRB(
                                   20,
-                                  20,
+                                  MediaQuery.of(context).padding.top + 48,
                                   20,
                                   90,
                                 ),
@@ -1625,87 +1645,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                   (sessionStatus.isRetry ? 90 : 50),
               child: RevertStateBanner(onUndoRevert: _unrevertSession),
             ),
-          // Floating header at top (glass pills)
+          // Minimal floating back button (top-left)
           Positioned(
-            left: 0,
-            right: 0,
-            top: 0,
-            child: FloatingHeader(
-              projectName: widget.projectName,
-              isConnected: connection.isConnected,
-              currentModel: widget.isOpenCode
-                  ? ref.watch(selectionProvider).model
-                  : null,
-              rttMs: connection.rttMs,
-              onBack: () => Navigator.of(context).pop(),
-              onModelTap: widget.isOpenCode
-                  ? () => _showModelSelector(context)
-                  : null,
-              onMenu: widget.isClaudeCode
-                  ? (value) => _handleClaudeCodeMenuAction(value)
-                  : widget.isCodex
-                  ? (value) => _handleCodexMenuAction(value)
-                  : widget.isPi
-                  ? (value) => _handlePiMenuAction(value)
-                  : widget.isOpenCode
-                  ? (value) => _handleMenuActionWithMessages(value, messages)
-                  : null,
-              onOpenSidebar: () => Scaffold.of(context).openEndDrawer(),
-              currentAgent: _selectedAgent,
-              agents: widget.isOpenCode ? _agents : [],
-              onAgentChanged: widget.isOpenCode
-                  ? (agent) => setState(() => _selectedAgent = agent)
-                  : null,
-              vcsInfo: _vcsInfo,
-              isSessionShared: widget.isOpenCode
-                  ? widget.session.isShared
-                  : false,
-              isCompacting: isCompacting,
-              sessionStatus: sessionStatus,
-              isStreaming: widget.isClaudeCode
-                  ? ccIsStreaming
-                  : widget.isCodex
-                  ? ref.watch(
-                      chatSessionProvider.select((s) => s.cxIsStreaming),
-                    )
-                  : widget.isPi
-                  ? ref.watch(
-                      chatSessionProvider.select((s) => s.piIsStreaming),
-                    )
-                  : _hasStreamingMessage(messages),
-              isClaudeCode: widget.isClaudeCode,
-              isCodex: widget.isCodex,
-              isPi: widget.isPi,
-              ccModel: widget.isClaudeCode
-                  ? (ref.watch(ccConfigProvider).valueOrNull?.model ??
-                        ccModel ??
-                        ccInit?.model ??
-                        widget.ccSession?.model ??
-                        widget.ccDraftModel)
-                  : null,
-              codexModel: widget.isCodex
-                  ? ref.watch(chatSessionProvider.select((s) => s.cxModel))
-                  : null,
-              cxRateLimitData: widget.isCodex
-                  ? ref.watch(cxLiveRateLimitsProvider)
-                  : null,
-              sessionContext: _sessionContext,
-              piModel: widget.isPi
-                  ? ref.watch(chatSessionProvider.select((s) => s.piModel))
-                  : null,
-            ),
-          ),
-          // Subagent activity indicator (Claude Code only)
-          if (widget.isClaudeCode)
-            Positioned(
-              left: 0,
-              right: 0,
-              top: MediaQuery.of(context).padding.top + 44,
-              child: SubagentActivityIndicator(
-                messages: messages,
-                isStreaming: ccIsStreaming,
+            left: 12,
+            top: MediaQuery.of(context).padding.top + 6,
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: theme.backgroundPanel.withValues(alpha: 0.85),
+                  borderRadius: Radii.brLg,
+                  border: Border.all(
+                    color: theme.border.withValues(alpha: 0.3),
+                    width: 0.5,
+                  ),
+                ),
+                child: Center(
+                  child: Icon(AppIcons.back, color: theme.text, size: 20),
+                ),
               ),
             ),
+          ),
         ],
       ),
     );
@@ -1756,6 +1718,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           : _showModelsDialog,
       onSetCodexReasoningEffort: _setCodexReasoningEffort,
       onSetPiThinkingLevel: _setPiThinkingLevel,
+      onMenuTap: _openActionsSheet,
     );
   }
 

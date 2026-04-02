@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:broski/models/agent.dart';
 import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/claude_code.dart';
-import 'package:broski/models/codex.dart';
 import 'package:broski/models/file_attachment.dart';
 import 'package:broski/models/glow_style.dart';
 import 'package:broski/models/project.dart';
@@ -12,8 +11,8 @@ import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/widgets/chat/glow_border_painter.dart';
+import 'package:broski/utils/format_utils.dart';
 import 'package:broski/widgets/file_tagging.dart';
-import 'package:broski/widgets/power_sheet.dart';
 import 'package:broski/widgets/voice_input_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -48,13 +47,9 @@ class CliStyleInputBar extends StatefulWidget {
     this.ccPermissionMode,
     this.ccModel,
     this.onCCModelTap,
-    this.onCCPermissionModeChanged,
     // Codex specific props
     this.codexModel,
     this.onCodexModelTap,
-    // Codex Collaboration Mode (SDK v0.87.0+)
-    this.codexCollabMode,
-    this.onCodexCollabModeChanged,
     // Custom accent color (null = use agent/permission mode color)
     this.customAccentColor,
     // Glow style for border accent
@@ -63,6 +58,10 @@ class CliStyleInputBar extends StatefulWidget {
     this.currentVariant,
     this.availableVariants = const [],
     this.onVariantChanged,
+    // ⋯ menu
+    this.onMenuTap,
+    // Unified model display string (for all backends)
+    this.modelDisplay,
   });
   final TextEditingController controller;
   final FocusNode focusNode;
@@ -89,13 +88,9 @@ class CliStyleInputBar extends StatefulWidget {
   final ClaudeCodePermissionMode? ccPermissionMode;
   final String? ccModel;
   final VoidCallback? onCCModelTap;
-  final void Function(ClaudeCodePermissionMode)? onCCPermissionModeChanged;
   // Codex specific props
   final String? codexModel;
   final VoidCallback? onCodexModelTap;
-  // Codex Collaboration Mode (SDK v0.87.0+)
-  final CodexCollaborationMode? codexCollabMode;
-  final void Function(CodexCollaborationMode)? onCodexCollabModeChanged;
   // Custom accent color (null = use agent/permission mode color)
   final Color? customAccentColor;
   // Glow style for border accent
@@ -104,6 +99,10 @@ class CliStyleInputBar extends StatefulWidget {
   final String? currentVariant;
   final List<String> availableVariants;
   final void Function(String?)? onVariantChanged;
+  // ⋯ menu
+  final VoidCallback? onMenuTap;
+  // Unified model display string
+  final String? modelDisplay;
   @override
   State<CliStyleInputBar> createState() => _CliStyleInputBarState();
 }
@@ -161,50 +160,39 @@ class _CliStyleInputBarState extends State<CliStyleInputBar> {
     }
   }
 
-  /// Show the unified PowerSheet for all backends
-  void _showPowerSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.55,
-        maxChildSize: 0.9,
-        minChildSize: 0.3,
-        expand: false,
-        builder: (context, scrollController) => PowerSheet(
-          backend: widget.backend,
-          project: widget.project,
-          onAttachFile: widget.onAttachTap,
-          onTakePhoto: widget.onTakePhoto,
-          // Model - depends on backend
-          currentModel: widget.backend == AgentType.claudeCode
-              ? widget.ccModel
-              : widget.backend == AgentType.codex
-              ? widget.codexModel
-              : widget.currentModel?.modelID,
-          onModelTap: widget.backend == AgentType.claudeCode
-              ? widget.onCCModelTap
-              : widget.backend == AgentType.codex
-              ? widget.onCodexModelTap
-              : widget.onModelTap,
-          // Thinking level / variants
-          currentVariant: widget.currentVariant,
-          availableVariants: widget.availableVariants,
-          onVariantChanged: widget.onVariantChanged,
-          // OpenCode agents
-          agents: widget.agents,
-          currentAgent: widget.currentAgent,
-          onAgentChanged: widget.onAgentChanged,
-          // Claude Code permission mode
-          ccPermissionMode: widget.ccPermissionMode,
-          onCCPermissionModeChanged: widget.onCCPermissionModeChanged,
-          // Codex collaboration mode
-          codexCollabMode: widget.codexCollabMode,
-          onCodexCollabModeChanged: widget.onCodexCollabModeChanged,
-          scrollController: scrollController,
-        ),
-      ),
+  /// Get unified model display string for the chip.
+  /// Uses the pre-computed modelDisplay from input_bar_content when available,
+  /// falls back to backend-specific model fields.
+  String _getUnifiedModelDisplay() {
+    if (widget.modelDisplay != null && widget.modelDisplay!.isNotEmpty) {
+      return getModelDisplayName(
+        widget.modelDisplay,
+        fallback: 'Model',
+        maxLength: 14,
+      );
+    }
+    // Fallback to backend-specific fields
+    final isClaudeCode = widget.backend == AgentType.claudeCode;
+    final isCodex = widget.backend == AgentType.codex;
+    if (isClaudeCode) {
+      return getModelDisplayName(
+        widget.ccModel,
+        fallback: 'Model',
+        maxLength: 14,
+      );
+    }
+    if (isCodex) {
+      return getModelDisplayName(
+        widget.codexModel,
+        fallback: 'Model',
+        maxLength: 14,
+      );
+    }
+    // OpenCode / Pi — use SelectedModel
+    return getModelDisplayName(
+      widget.currentModel?.modelID,
+      fallback: 'Model',
+      maxLength: 14,
     );
   }
 
@@ -247,90 +235,20 @@ class _CliStyleInputBarState extends State<CliStyleInputBar> {
     return variant[0].toUpperCase() + variant.substring(1);
   }
 
-  String _getModelDisplayName(SelectedModel? model) {
-    if (model == null) return 'Auto';
-    // Try to extract clean model name
-    final id = model.modelID;
-    if (id.contains('opus')) return 'Claude Opus 4.5 (latest)';
-    if (id.contains('sonnet')) return 'Claude Sonnet 4';
-    if (id.contains('haiku')) return 'Claude Haiku';
-    if (id.contains('gpt-4')) return 'GPT-4';
-    if (id.contains('gpt-3')) return 'GPT-3.5';
-    return id;
-  }
-
-  String _getProviderName(SelectedModel? model) {
-    if (model == null) return '';
-    final provider = model.providerID.toLowerCase();
-    if (provider.contains('anthropic')) return 'Anthropic';
-    if (provider.contains('openai')) return 'OpenAI';
-    if (provider.contains('google')) return 'Google';
-    if (provider.contains('openrouter')) return 'OpenRouter';
-    return model.providerID;
-  }
-
-  /// Get Claude Code model display name from model string
-  String _getCCModelDisplayName(String? model) {
-    if (model == null || model.isEmpty) return 'Auto';
-    final m = model.toLowerCase();
-    if (m.contains('opus')) return 'Opus';
-    if (m.contains('sonnet')) return 'Sonnet';
-    if (m.contains('haiku')) return 'Haiku';
-    if (m == 'auto') return 'Auto';
-    // Return just the model part if it's a full model ID
-    final parts = model.split('/');
-    return parts.last;
-  }
-
-  /// Get Codex model display name from model string
-  String _getCodexModelDisplayName(String? model) {
-    if (model == null || model.isEmpty) return 'gpt-5.2-codex';
-    // Keep it short for display
-    if (model.length > 16) return '${model.substring(0, 14)}...';
-    return model;
-  }
-
-  /// Get Codex collaboration mode display name
-  String _getCodexCollabModeDisplay(CodexCollaborationMode? mode) {
-    switch (mode) {
-      case CodexCollaborationMode.plan:
-        return 'Plan';
-      case CodexCollaborationMode.defaultMode:
-        return 'Default';
-      case null:
-        return 'Default';
-    }
-  }
-
-  /// Get color for Codex collaboration mode
-  Color _getCodexCollabModeColor(
-    CodexCollaborationMode? mode,
-    OpenCodeTheme theme,
-  ) {
-    switch (mode) {
-      case CodexCollaborationMode.plan:
-        return theme.warning; // Planning mode - amber
-      case CodexCollaborationMode.defaultMode:
-        return theme.primary; // Default coding mode - primary
-      case null:
-        return theme.primary;
-    }
-  }
-
-  /// Get color for permission mode
+  /// Get color for permission mode (used for glow accent)
   Color _getPermissionModeColor(
     ClaudeCodePermissionMode? mode,
     OpenCodeTheme theme,
   ) {
     switch (mode) {
       case ClaudeCodePermissionMode.defaultMode:
-        return theme.primary; // Normal mode - primary color
+        return theme.primary;
       case ClaudeCodePermissionMode.acceptEdits:
-        return theme.success; // Auto-accept edits - green
+        return theme.success;
       case ClaudeCodePermissionMode.plan:
-        return theme.warning; // Plan mode - amber/yellow
+        return theme.warning;
       case ClaudeCodePermissionMode.bypassPermissions:
-        return theme.error; // Dangerous mode - red
+        return theme.error;
       case ClaudeCodePermissionMode.dontAsk:
         return theme.warning;
       case null:
@@ -345,7 +263,6 @@ class _CliStyleInputBarState extends State<CliStyleInputBar> {
     // Priority: custom accent color > permission mode color (CC) > agent color (OC)
     final isClaudeCode = widget.backend == AgentType.claudeCode;
     final isCodex = widget.backend == AgentType.codex;
-    final isOpenCode = widget.backend == AgentType.opencode;
     final Color agentColor;
     if (widget.customAccentColor != null) {
       agentColor = widget.customAccentColor!;
@@ -455,276 +372,191 @@ class _CliStyleInputBarState extends State<CliStyleInputBar> {
                           ),
                         ),
                       ),
-                      // Bottom info rows - agent + actions on top, model below
+                      // Bottom: Unified action row — [+] [Model▾] [Thinking▾]  [🎤] [⋯] [↑]
                       Padding(
                         padding: EdgeInsets.fromLTRB(
-                          16,
+                          12,
                           0,
                           12,
                           MediaQuery.of(context).padding.bottom + 12,
                         ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Row(
                           children: [
-                            // ROW 1: Agent/mode + action buttons
-                            Row(
-                              children: [
-                                // Agent/mode selector - opens PowerSheet
-                                GestureDetector(
-                                  onTap: () => _showPowerSheet(context),
-                                  child: Text(
-                                    isClaudeCode
-                                        ? (widget
-                                                  .ccPermissionMode
-                                                  ?.displayName ??
-                                              'Default')
-                                        : isCodex
-                                        ? _getCodexCollabModeDisplay(
-                                            widget.codexCollabMode,
-                                          )
-                                        : (agent?.displayName ?? 'Build'),
-                                    style: TextStyle(
-                                      color: isCodex
-                                          ? _getCodexCollabModeColor(
-                                              widget.codexCollabMode,
-                                              theme,
-                                            )
-                                          : agentColor,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                            // Attachment button (+)
+                            if (widget.onAttachTap != null)
+                              GestureDetector(
+                                onTap: widget.onAttachTap,
+                                child: Padding(
+                                  padding: Insets.cardXs,
+                                  child: Icon(
+                                    widget.attachIcon,
+                                    color: theme.textMuted,
+                                    size: 22,
                                   ),
                                 ),
-                                const Spacer(),
-                                // Attachment button
-                                if (widget.onAttachTap != null)
-                                  GestureDetector(
-                                    onTap: widget.onAttachTap,
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(right: 12),
-                                      child: Icon(
-                                        widget.attachIcon,
-                                        color: theme.textMuted,
-                                        size: 22,
-                                      ),
-                                    ),
-                                  ),
-                                // Voice input button
-                                Consumer(
-                                  builder: (context, ref, _) {
-                                    return VoiceInputButton(
-                                      size: 22,
-                                      padding: const EdgeInsets.only(right: 10),
-                                      onTranscription: (text) {
-                                        if (text.isEmpty) return;
-                                        final ctrl = widget.controller;
-                                        final current = ctrl.text;
-                                        final newText = current.isEmpty
-                                            ? text
-                                            : (current.endsWith(' ')
-                                                  ? '$current$text'
-                                                  : '$current $text');
-                                        ctrl.value = TextEditingValue(
-                                          text: newText,
-                                          selection: TextSelection.collapsed(
-                                            offset: newText.length,
-                                          ),
-                                        );
-                                        Future.microtask(
-                                          () => widget.focusNode.requestFocus(),
-                                        );
-                                      },
-                                    );
-                                  },
-                                ),
-                                // Send button (minimal)
-                                GestureDetector(
-                                  onTap: widget.canSend ? widget.onSend : null,
-                                  onLongPress: widget.canSend
-                                      ? widget.onLongPressSend
-                                      : null,
-                                  child: Container(
-                                    width: 28,
-                                    height: 28,
-                                    decoration: BoxDecoration(
-                                      color: widget.canSend
-                                          ? theme.text
-                                          : theme.textMuted.withValues(
-                                              alpha: 0.15,
-                                            ),
-                                      borderRadius: Radii.brSm,
-                                    ),
-                                    child: Center(
-                                      child: Icon(
-                                        AppIcons.arrowUp,
-                                        color: widget.canSend
-                                            ? theme.background
-                                            : theme.textMuted.withValues(
-                                                alpha: 0.4,
-                                              ),
-                                        size: 16,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            // ROW 2: Model + variant/thinking level
+                              ),
+                            const SizedBox(width: Spacing.xs),
+                            // Model chip
                             GestureDetector(
                               onTap: isClaudeCode
                                   ? widget.onCCModelTap
                                   : isCodex
                                   ? widget.onCodexModelTap
                                   : widget.onModelTap,
-                              child: Row(
-                                children: [
-                                  // Model name
-                                  if (isClaudeCode)
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: Radii.brSm,
+                                  border: Border.all(
+                                    color: theme.textMuted.withValues(
+                                      alpha: 0.25,
+                                    ),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
                                     Text(
-                                      _getCCModelDisplayName(widget.ccModel),
-                                      style: TextStyle(
-                                        color: theme.textMuted,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    )
-                                  else if (isCodex)
-                                    Text(
-                                      _getCodexModelDisplayName(
-                                        widget.codexModel,
-                                      ),
-                                      style: TextStyle(
-                                        color: theme.textMuted,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    )
-                                  else ...[
-                                    Text(
-                                      _getModelDisplayName(widget.currentModel),
+                                      _getUnifiedModelDisplay(),
                                       style: TextStyle(
                                         color: theme.textMuted,
                                         fontSize: 12,
                                         fontWeight: FontWeight.w500,
                                       ),
                                     ),
-                                    // Provider name (muted) - only for OpenCode
-                                    if (_getProviderName(
-                                      widget.currentModel,
-                                    ).isNotEmpty) ...[
-                                      const SizedBox(width: 5),
-                                      Text(
-                                        _getProviderName(widget.currentModel),
-                                        style: TextStyle(
-                                          color: theme.textMuted.withValues(
-                                            alpha: 0.4,
-                                          ),
-                                          fontSize: 12,
-                                        ),
+                                    const SizedBox(width: 3),
+                                    Icon(
+                                      AppIcons.expandMore,
+                                      size: 12,
+                                      color: theme.textMuted.withValues(
+                                        alpha: 0.6,
                                       ),
-                                    ],
+                                    ),
                                   ],
-                                  // Variant / thinking level (if applicable)
-                                  if (isClaudeCode &&
-                                      widget.currentVariant != null) ...[
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                      ),
-                                      child: Text(
-                                        '·',
-                                        style: TextStyle(
-                                          color: theme.textMuted.withValues(
-                                            alpha: 0.3,
-                                          ),
-                                          fontSize: 12,
-                                        ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: Spacing.sm),
+                            // Thinking level chip (if variants available)
+                            if (widget.availableVariants.isNotEmpty)
+                              GestureDetector(
+                                onTap: _cycleVariant,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    borderRadius: Radii.brSm,
+                                    border: Border.all(
+                                      color: theme.textMuted.withValues(
+                                        alpha: 0.25,
                                       ),
                                     ),
-                                    GestureDetector(
-                                      onTap: () => _showPowerSheet(context),
-                                      child: Text(
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        AppIcons.bolt,
+                                        size: 11,
+                                        color: widget.currentVariant != null
+                                            ? theme.primary
+                                            : theme.textMuted.withValues(
+                                                alpha: 0.6,
+                                              ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
                                         _formatThinkingLevelDisplay(
-                                          widget.currentVariant!,
+                                          widget.currentVariant ?? 'medium',
                                         ),
-                                        style: TextStyle(
-                                          color: theme.primary.withValues(
-                                            alpha: 0.7,
-                                          ),
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                  ] else if (isCodex &&
-                                      widget.currentVariant != null &&
-                                      widget.currentVariant != 'medium') ...[
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                      ),
-                                      child: Text(
-                                        '·',
-                                        style: TextStyle(
-                                          color: theme.textMuted.withValues(
-                                            alpha: 0.3,
-                                          ),
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                    GestureDetector(
-                                      onTap: () => _showPowerSheet(context),
-                                      child: Text(
-                                        _formatThinkingLevelDisplay(
-                                          widget.currentVariant!,
-                                        ),
-                                        style: TextStyle(
-                                          color: theme.primary.withValues(
-                                            alpha: 0.7,
-                                          ),
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                  ] else if (isOpenCode &&
-                                      widget.availableVariants.isNotEmpty) ...[
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                      ),
-                                      child: Text(
-                                        '·',
-                                        style: TextStyle(
-                                          color: theme.textMuted.withValues(
-                                            alpha: 0.3,
-                                          ),
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                    GestureDetector(
-                                      onTap: widget.onVariantChanged != null
-                                          ? () => _cycleVariant()
-                                          : null,
-                                      child: Text(
-                                        widget.currentVariant ?? 'Default',
                                         style: TextStyle(
                                           color: widget.currentVariant != null
-                                              ? theme.primary.withValues(
-                                                  alpha: 0.7,
-                                                )
+                                              ? theme.primary
                                               : theme.textMuted,
                                           fontSize: 12,
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
-                                    ),
-                                  ],
-                                ],
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            // Settings / power menu button (sliders icon)
+                            if (widget.onMenuTap != null) ...[
+                              const SizedBox(width: Spacing.sm),
+                              GestureDetector(
+                                onTap: widget.onMenuTap,
+                                child: Padding(
+                                  padding: Insets.cardXs,
+                                  child: Icon(
+                                    AppIcons.tune,
+                                    color: theme.textMuted,
+                                    size: 18,
+                                  ),
+                                ),
+                              ),
+                            ],
+                            const Spacer(),
+                            // Voice input button
+                            Consumer(
+                              builder: (context, ref, _) {
+                                return VoiceInputButton(
+                                  size: 22,
+                                  padding: Insets.cardXs,
+                                  onTranscription: (text) {
+                                    if (text.isEmpty) return;
+                                    final ctrl = widget.controller;
+                                    final current = ctrl.text;
+                                    final newText = current.isEmpty
+                                        ? text
+                                        : (current.endsWith(' ')
+                                              ? '$current$text'
+                                              : '$current $text');
+                                    ctrl.value = TextEditingValue(
+                                      text: newText,
+                                      selection: TextSelection.collapsed(
+                                        offset: newText.length,
+                                      ),
+                                    );
+                                    Future.microtask(
+                                      () => widget.focusNode.requestFocus(),
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                            const SizedBox(width: 6),
+                            // Send button (minimal)
+                            GestureDetector(
+                              onTap: widget.canSend ? widget.onSend : null,
+                              onLongPress: widget.canSend
+                                  ? widget.onLongPressSend
+                                  : null,
+                              child: Container(
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  color: widget.canSend
+                                      ? theme.text
+                                      : theme.textMuted.withValues(alpha: 0.15),
+                                  borderRadius: Radii.brSm,
+                                ),
+                                child: Center(
+                                  child: Icon(
+                                    AppIcons.arrowUp,
+                                    color: widget.canSend
+                                        ? theme.background
+                                        : theme.textMuted.withValues(
+                                            alpha: 0.4,
+                                          ),
+                                    size: 16,
+                                  ),
+                                ),
                               ),
                             ),
                           ],

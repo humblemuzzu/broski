@@ -15,7 +15,7 @@ import 'package:broski/services/bridge/bridge_runtime.dart';
 import 'package:broski/screens/chat_screen.dart';
 import 'package:broski/screens/pi/pi_extension_ui_request_handler.dart';
 import 'package:broski/services/bridge_service.dart';
-import 'package:broski/widgets/power_sheet.dart';
+// power_sheet.dart import removed — piPowerMenuCallback no longer needed
 import 'package:broski/providers/codex/cx_error_listener.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -53,14 +53,13 @@ void setViewForAgent({
 }
 
 /// Sets up initial project context and view routing in the first post-frame
-/// callback. Also sets [piPowerMenuCallback] for Pi sessions.
+/// callback.
 ///
 /// Extracted from `_ChatScreenState.initState` in `chat_screen.dart`.
 void setupInitialProjectContext({
   required WidgetRef ref,
   required BridgeService bridge,
   required ChatScreen widget,
-  required void Function(String)? piMenuAction,
 }) {
   final selection = ref.read(selectionProvider.notifier);
   final initialProject = widget.isOpenCode
@@ -75,9 +74,6 @@ void setupInitialProjectContext({
     selection.selectSession(widget.session);
   }
   setViewForAgent(bridge: bridge, widget: widget);
-  if (widget.isPi) {
-    piPowerMenuCallback = piMenuAction;
-  }
 }
 
 /// Result from setting up Claude Code subscriptions.

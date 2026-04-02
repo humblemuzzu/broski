@@ -1,16 +1,13 @@
-import 'package:broski/models/agent.dart';
 import 'package:broski/models/agent_type.dart';
-import 'package:broski/models/claude_code/cc_permission.dart';
-import 'package:broski/models/codex.dart';
 import 'package:broski/models/file_attachment.dart';
 import 'package:broski/models/glow_style.dart';
 import 'package:broski/models/project.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/format_utils.dart';
 import 'package:broski/widgets/chat/pill_glow_painter.dart';
 import 'package:broski/widgets/file_tagging.dart';
-import 'package:broski/widgets/power_sheet.dart';
 import 'package:broski/widgets/voice_input_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -38,16 +35,6 @@ class FloatingInputBar extends ConsumerWidget {
     // Model selector
     this.currentModel,
     this.onModelTap,
-    // OpenCode specific
-    this.agents = const [],
-    this.currentAgent,
-    this.onAgentChanged,
-    // Claude Code specific
-    this.ccPermissionMode,
-    this.onCCPermissionModeChanged,
-    // Codex specific
-    this.codexCollabMode,
-    this.onCodexCollabModeChanged,
     // Variant/Thinking Level (all backends)
     this.currentVariant,
     this.availableVariants = const [],
@@ -55,6 +42,8 @@ class FloatingInputBar extends ConsumerWidget {
     // Glow style and accent color
     this.glowStyle = GlowStyle.none,
     this.accentColor,
+    // ⋯ menu
+    this.onMenuTap,
   });
   final TextEditingController controller;
   final FocusNode focusNode;
@@ -75,16 +64,6 @@ class FloatingInputBar extends ConsumerWidget {
   // Model selector
   final String? currentModel;
   final VoidCallback? onModelTap;
-  // OpenCode specific
-  final List<Agent> agents;
-  final String? currentAgent;
-  final void Function(String?)? onAgentChanged;
-  // Claude Code specific
-  final ClaudeCodePermissionMode? ccPermissionMode;
-  final void Function(ClaudeCodePermissionMode)? onCCPermissionModeChanged;
-  // Codex specific
-  final CodexCollaborationMode? codexCollabMode;
-  final void Function(CodexCollaborationMode)? onCodexCollabModeChanged;
   // Variant/Thinking Level (all backends)
   final String? currentVariant;
   final List<String> availableVariants;
@@ -92,40 +71,20 @@ class FloatingInputBar extends ConsumerWidget {
   // Glow style and accent color
   final GlowStyle glowStyle;
   final Color? accentColor;
-  void _showPowerSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.55,
-        maxChildSize: 0.9,
-        minChildSize: 0.3,
-        expand: false,
-        builder: (context, scrollController) => PowerSheet(
-          backend: backend,
-          project: project,
-          onAttachFile: onAttachTap,
-          onTakePhoto: onTakePhoto,
-          currentModel: currentModel,
-          onModelTap: onModelTap,
-          currentVariant: currentVariant,
-          availableVariants: availableVariants,
-          onVariantChanged: onVariantChanged,
-          // OpenCode
-          agents: agents,
-          currentAgent: currentAgent,
-          onAgentChanged: onAgentChanged,
-          // Claude Code
-          ccPermissionMode: ccPermissionMode,
-          onCCPermissionModeChanged: onCCPermissionModeChanged,
-          // Codex
-          codexCollabMode: codexCollabMode,
-          onCodexCollabModeChanged: onCodexCollabModeChanged,
-          scrollController: scrollController,
-        ),
-      ),
-    );
+  // ⋯ menu
+  final VoidCallback? onMenuTap;
+
+  /// Cycle through available variants on tap.
+  void _cycleVariant() {
+    if (availableVariants.isEmpty || onVariantChanged == null) return;
+    final current = currentVariant;
+    if (current == null) {
+      onVariantChanged!(availableVariants.first);
+    } else {
+      final idx = availableVariants.indexOf(current);
+      final next = (idx + 1) % availableVariants.length;
+      onVariantChanged!(availableVariants[next]);
+    }
   }
 
   @override
@@ -230,40 +189,11 @@ class FloatingInputBar extends ConsumerWidget {
                             onSubmitted: canSend ? (_) => onSend() : null,
                           ),
                         ),
-                        // Bottom: Action row
+                        // Bottom: Action row — [+] [Model▾] [Thinking▾]  [🎤] [⋯] [↑]
                         Padding(
                           padding: const EdgeInsets.fromLTRB(12, 2, 10, 10),
                           child: Row(
                             children: [
-                              // Project chip (left)
-                              GestureDetector(
-                                onTap: () => _showPowerSheet(context),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    borderRadius: Radii.brXl,
-                                    border: Border.all(
-                                      color: _fade(kMuted, 0.25),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    project.name.isNotEmpty
-                                        ? project.name
-                                        : 'Project',
-                                    style: TextStyle(
-                                      color: kMuted,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ),
-                              const Spacer(),
                               // Attach button (+)
                               if (onAttachTap != null)
                                 GestureDetector(
@@ -278,6 +208,102 @@ class FloatingInputBar extends ConsumerWidget {
                                   ),
                                 ),
                               const SizedBox(width: Spacing.xs),
+                              // Model chip
+                              GestureDetector(
+                                onTap: onModelTap,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    borderRadius: Radii.brSm,
+                                    border: Border.all(
+                                      color: _fade(kMuted, 0.25),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        getModelDisplayName(
+                                          currentModel,
+                                          fallback: 'Model',
+                                          maxLength: 14,
+                                        ),
+                                        style: TextStyle(
+                                          color: kMuted,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 3),
+                                      Icon(
+                                        AppIcons.expandMore,
+                                        size: 12,
+                                        color: _fade(kMuted, 0.6),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: Spacing.sm),
+                              // Thinking level chip (only if variants available)
+                              if (availableVariants.isNotEmpty)
+                                GestureDetector(
+                                  onTap: _cycleVariant,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 5,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      borderRadius: Radii.brSm,
+                                      border: Border.all(
+                                        color: _fade(kMuted, 0.25),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          AppIcons.bolt,
+                                          size: 11,
+                                          color: currentVariant != null
+                                              ? theme.primary
+                                              : _fade(kMuted, 0.6),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          _formatVariantDisplay(currentVariant),
+                                          style: TextStyle(
+                                            color: currentVariant != null
+                                                ? theme.primary
+                                                : kMuted,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              // Settings / power menu button (sliders icon)
+                              if (onMenuTap != null) ...[
+                                const SizedBox(width: Spacing.sm),
+                                GestureDetector(
+                                  onTap: onMenuTap,
+                                  child: Padding(
+                                    padding: Insets.cardXs,
+                                    child: Icon(
+                                      AppIcons.tune,
+                                      color: kMuted,
+                                      size: 18,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                              const Spacer(),
                               // Voice input button
                               VoiceInputButton(
                                 size: 20,
@@ -300,19 +326,6 @@ class FloatingInputBar extends ConsumerWidget {
                                     () => focusNode.requestFocus(),
                                   );
                                 },
-                              ),
-                              const SizedBox(width: Spacing.xs),
-                              // Tune / PowerSheet button
-                              GestureDetector(
-                                onTap: () => _showPowerSheet(context),
-                                child: Padding(
-                                  padding: Insets.cardXs,
-                                  child: Icon(
-                                    AppIcons.tune,
-                                    color: kMuted,
-                                    size: 20,
-                                  ),
-                                ),
                               ),
                               const SizedBox(width: 6),
                               // Send button
@@ -352,6 +365,30 @@ class FloatingInputBar extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  /// Format variant/thinking level for display.
+  String _formatVariantDisplay(String? variant) {
+    if (variant == null || variant.isEmpty) return 'Auto';
+    switch (variant.toLowerCase()) {
+      case 'none':
+        return 'None';
+      case 'minimal':
+        return 'Min';
+      case 'low':
+        return 'Low';
+      case 'medium':
+        return 'Med';
+      case 'high':
+        return 'High';
+      case 'xhigh':
+        return 'XHigh';
+      case 'max':
+        return 'Max';
+      default:
+        // Capitalize first letter for unknown variants
+        return variant[0].toUpperCase() + variant.substring(1);
+    }
   }
 
   /// Local fade helper (avoids importing top-level function from chat_screen).

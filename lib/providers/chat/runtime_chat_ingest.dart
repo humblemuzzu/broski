@@ -126,8 +126,9 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
         when event.kind == 'external-user-message') {
       // Dedup by content hash + timestamp bucket (16-second window)
       final payload = event.payload;
-      final extContent =
-          payload is Map ? (payload['content'] ?? '').toString() : '';
+      final extContent = payload is Map
+          ? (payload['content'] ?? '').toString()
+          : '';
       final bucket = event.timestampMs ~/ 16000;
       final dedupKey = '${extContent.hashCode}:$bucket';
       if (_seenExternalUserMessages.contains(dedupKey)) return;
