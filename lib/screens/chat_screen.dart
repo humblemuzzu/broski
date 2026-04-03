@@ -1645,26 +1645,116 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                   (sessionStatus.isRetry ? 90 : 50),
               child: RevertStateBanner(onUndoRevert: _unrevertSession),
             ),
-          // Minimal floating back button (top-left)
+          // Slim floating header: [←] title [context pill]
           Positioned(
-            left: 12,
-            top: MediaQuery.of(context).padding.top + 6,
-            child: GestureDetector(
-              onTap: () => Navigator.of(context).pop(),
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: theme.backgroundPanel.withValues(alpha: 0.85),
-                  borderRadius: Radii.brLg,
-                  border: Border.all(
-                    color: theme.border.withValues(alpha: 0.3),
-                    width: 0.5,
+            left: 0,
+            right: 0,
+            top: 0,
+            child: Container(
+              padding: EdgeInsets.fromLTRB(
+                12,
+                MediaQuery.of(context).padding.top + 4,
+                12,
+                6,
+              ),
+              child: Row(
+                children: [
+                  // Back button
+                  GestureDetector(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: theme.backgroundPanel.withValues(alpha: 0.85),
+                        borderRadius: Radii.brLg,
+                        border: Border.all(
+                          color: theme.border.withValues(alpha: 0.3),
+                          width: 0.5,
+                        ),
+                      ),
+                      child: Center(
+                        child: Icon(
+                          AppIcons.back,
+                          color: theme.text,
+                          size: 20,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-                child: Center(
-                  child: Icon(AppIcons.back, color: theme.text, size: 20),
-                ),
+                  const SizedBox(width: Spacing.sm),
+                  // Session title
+                  Expanded(
+                    child: Text(
+                      widget.effectiveTitle,
+                      style: TextStyle(
+                        color: theme.text,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: Spacing.sm),
+                  // Context usage pill — taps to open sidebar
+                  if (_sessionContext.tokens.contextTokens > 0 ||
+                      _sessionContext.tokens.total > 0)
+                    GestureDetector(
+                      onTap: () => Scaffold.of(context).openEndDrawer(),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: theme.backgroundPanel.withValues(alpha: 0.85),
+                          borderRadius: Radii.brXl,
+                          border: Border.all(
+                            color: theme.border.withValues(alpha: 0.3),
+                            width: 0.5,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                value: (_sessionContext.contextUsagePercent / 100)
+                                    .clamp(0.0, 1.0),
+                                strokeWidth: 2,
+                                backgroundColor:
+                                    theme.textMuted.withValues(alpha: 0.15),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  _sessionContext.contextUsagePercent > 80
+                                      ? theme.error
+                                      : _sessionContext.contextUsagePercent > 50
+                                      ? theme.warning
+                                      : theme.info,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '${TokenUsage.formatTokenCount(_sessionContext.tokens.contextTokens > 0 ? _sessionContext.tokens.contextTokens : _sessionContext.tokens.total)}'
+                              '/${TokenUsage.formatTokenCount(_sessionContext.tokens.contextWindow)}',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: _sessionContext.contextUsagePercent > 80
+                                    ? theme.error
+                                    : _sessionContext.contextUsagePercent > 50
+                                    ? theme.warning
+                                    : theme.info,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),

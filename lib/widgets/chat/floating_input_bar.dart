@@ -6,6 +6,7 @@ import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/utils/format_utils.dart';
+import 'package:broski/widgets/chat/input_popup_menu.dart';
 import 'package:broski/widgets/chat/pill_glow_painter.dart';
 import 'package:broski/widgets/file_tagging.dart';
 import 'package:broski/widgets/voice_input_button.dart';
@@ -44,6 +45,14 @@ class FloatingInputBar extends ConsumerWidget {
     this.accentColor,
     // ⋯ menu
     this.onMenuTap,
+    // Permission/mode chip (CC/CX only)
+    this.currentMode,
+    this.modeOptions = const {},
+    this.onModeChanged,
+    // Fast mode (CC/CX only, per-model)
+    this.showFastToggle = false,
+    this.fastEnabled = false,
+    this.onFastChanged,
   });
   final TextEditingController controller;
   final FocusNode focusNode;
@@ -73,19 +82,14 @@ class FloatingInputBar extends ConsumerWidget {
   final Color? accentColor;
   // ⋯ menu
   final VoidCallback? onMenuTap;
-
-  /// Cycle through available variants on tap.
-  void _cycleVariant() {
-    if (availableVariants.isEmpty || onVariantChanged == null) return;
-    final current = currentVariant;
-    if (current == null) {
-      onVariantChanged!(availableVariants.first);
-    } else {
-      final idx = availableVariants.indexOf(current);
-      final next = (idx + 1) % availableVariants.length;
-      onVariantChanged!(availableVariants[next]);
-    }
-  }
+  // Permission/mode chip (CC/CX only) — wireValue → displayLabel
+  final String? currentMode;
+  final Map<String, String> modeOptions;
+  final void Function(String)? onModeChanged;
+  // Fast mode (CC/CX only, per-model)
+  final bool showFastToggle;
+  final bool fastEnabled;
+  final void Function(bool)? onFastChanged;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -248,10 +252,24 @@ class FloatingInputBar extends ConsumerWidget {
                                 ),
                               ),
                               const SizedBox(width: Spacing.sm),
-                              // Thinking level chip (only if variants available)
+                              // Thinking level chip — tap opens popup with optional fast toggle
                               if (availableVariants.isNotEmpty)
                                 GestureDetector(
-                                  onTap: _cycleVariant,
+                                  onTapDown: (d) async {
+                                    await showThinkingPopup(
+                                      context: context,
+                                      tapPosition: d.globalPosition,
+                                      thinkingValues: availableVariants,
+                                      currentThinking: currentVariant,
+                                      formatLabel: _formatVariantDisplay,
+                                      onThinkingChanged: (v) =>
+                                          onVariantChanged?.call(v),
+                                      showFastToggle: showFastToggle,
+                                      fastEnabled: fastEnabled,
+                                      onFastChanged: onFastChanged,
+                                      accentColor: theme.primary,
+                                    );
+                                  },
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 10,
@@ -288,6 +306,34 @@ class FloatingInputBar extends ConsumerWidget {
                                     ),
                                   ),
                                 ),
+                              // Permission/mode chip (CC/CX only) — icon only to save space
+                              if (currentMode != null &&
+                                  modeOptions.isNotEmpty) ...[
+                                const SizedBox(width: Spacing.xs),
+                                GestureDetector(
+                                  onTapDown: (d) async {
+                                    final picked = await showChipPopup(
+                                      context: context,
+                                      tapPosition: d.globalPosition,
+                                      values: modeOptions.keys.toList(),
+                                      currentValue: currentMode,
+                                      formatLabel: (v) =>
+                                          modeOptions[v] ?? v,
+                                    );
+                                    if (picked != null) {
+                                      onModeChanged?.call(picked);
+                                    }
+                                  },
+                                  child: Padding(
+                                    padding: Insets.cardXs,
+                                    child: Icon(
+                                      AppIcons.shieldCheck,
+                                      size: 18,
+                                      color: _fade(kMuted, 0.6),
+                                    ),
+                                  ),
+                                ),
+                              ],
                               // Settings / power menu button (sliders icon)
                               if (onMenuTap != null) ...[
                                 const SizedBox(width: Spacing.sm),

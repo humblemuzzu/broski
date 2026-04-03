@@ -141,6 +141,19 @@ enum CodexApprovalPolicy {
         return 'never';
     }
   }
+
+  String get displayName {
+    switch (this) {
+      case CodexApprovalPolicy.unlessTrusted:
+        return 'Unless Trusted';
+      case CodexApprovalPolicy.onFailure:
+        return 'On Failure';
+      case CodexApprovalPolicy.onRequest:
+        return 'On Request';
+      case CodexApprovalPolicy.never:
+        return 'Full Access';
+    }
+  }
 }
 
 enum CodexReasoningEffort {

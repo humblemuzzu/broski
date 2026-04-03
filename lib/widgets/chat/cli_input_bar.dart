@@ -12,6 +12,7 @@ import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/widgets/chat/glow_border_painter.dart';
 import 'package:broski/utils/format_utils.dart';
+import 'package:broski/widgets/chat/input_popup_menu.dart';
 import 'package:broski/widgets/file_tagging.dart';
 import 'package:broski/widgets/voice_input_button.dart';
 import 'package:flutter/material.dart';
@@ -62,6 +63,14 @@ class CliStyleInputBar extends StatefulWidget {
     this.onMenuTap,
     // Unified model display string (for all backends)
     this.modelDisplay,
+    // Permission/mode chip (CC/CX only)
+    this.currentMode,
+    this.modeOptions = const {},
+    this.onModeChanged,
+    // Fast mode (CC/CX only, per-model)
+    this.showFastToggle = false,
+    this.fastEnabled = false,
+    this.onFastChanged,
   });
   final TextEditingController controller;
   final FocusNode focusNode;
@@ -103,6 +112,14 @@ class CliStyleInputBar extends StatefulWidget {
   final VoidCallback? onMenuTap;
   // Unified model display string
   final String? modelDisplay;
+  // Permission/mode chip (CC/CX only) — wireValue → displayLabel
+  final String? currentMode;
+  final Map<String, String> modeOptions;
+  final void Function(String)? onModeChanged;
+  // Fast mode (CC/CX only, per-model)
+  final bool showFastToggle;
+  final bool fastEnabled;
+  final void Function(bool)? onFastChanged;
   @override
   State<CliStyleInputBar> createState() => _CliStyleInputBarState();
 }
@@ -145,19 +162,6 @@ class _CliStyleInputBarState extends State<CliStyleInputBar> {
     _placeholderTimer?.cancel();
     _placeholderIndex.dispose();
     super.dispose();
-  }
-
-  /// Cycle through variants/thinking levels
-  void _cycleVariant() {
-    if (widget.availableVariants.isEmpty) return;
-    final current = widget.currentVariant;
-    if (current == null) {
-      widget.onVariantChanged?.call(widget.availableVariants.first);
-    } else {
-      final currentIndex = widget.availableVariants.indexOf(current);
-      final nextIndex = (currentIndex + 1) % widget.availableVariants.length;
-      widget.onVariantChanged?.call(widget.availableVariants[nextIndex]);
-    }
   }
 
   /// Get unified model display string for the chip.
@@ -440,10 +444,24 @@ class _CliStyleInputBarState extends State<CliStyleInputBar> {
                               ),
                             ),
                             const SizedBox(width: Spacing.sm),
-                            // Thinking level chip (if variants available)
+                            // Thinking level chip — tap opens popup with optional fast toggle
                             if (widget.availableVariants.isNotEmpty)
                               GestureDetector(
-                                onTap: _cycleVariant,
+                                onTapDown: (d) async {
+                                  await showThinkingPopup(
+                                    context: context,
+                                    tapPosition: d.globalPosition,
+                                    thinkingValues: widget.availableVariants,
+                                    currentThinking: widget.currentVariant,
+                                    formatLabel: _formatThinkingLevelDisplay,
+                                    onThinkingChanged: (v) =>
+                                        widget.onVariantChanged?.call(v),
+                                    showFastToggle: widget.showFastToggle,
+                                    fastEnabled: widget.fastEnabled,
+                                    onFastChanged: widget.onFastChanged,
+                                    accentColor: theme.primary,
+                                  );
+                                },
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 10,
@@ -486,6 +504,36 @@ class _CliStyleInputBarState extends State<CliStyleInputBar> {
                                   ),
                                 ),
                               ),
+                            // Permission/mode chip (CC/CX only) — icon only to save space
+                            if (widget.currentMode != null &&
+                                widget.modeOptions.isNotEmpty) ...[
+                              const SizedBox(width: Spacing.xs),
+                              GestureDetector(
+                                onTapDown: (d) async {
+                                  final picked = await showChipPopup(
+                                    context: context,
+                                    tapPosition: d.globalPosition,
+                                    values: widget.modeOptions.keys.toList(),
+                                    currentValue: widget.currentMode,
+                                    formatLabel: (v) =>
+                                        widget.modeOptions[v] ?? v,
+                                  );
+                                  if (picked != null) {
+                                    widget.onModeChanged?.call(picked);
+                                  }
+                                },
+                                child: Padding(
+                                  padding: Insets.cardXs,
+                                  child: Icon(
+                                    AppIcons.shieldCheck,
+                                    size: 18,
+                                    color: theme.textMuted.withValues(
+                                      alpha: 0.6,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                             // Settings / power menu button (sliders icon)
                             if (widget.onMenuTap != null) ...[
                               const SizedBox(width: Spacing.sm),

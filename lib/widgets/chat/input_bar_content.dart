@@ -9,7 +9,9 @@ import 'package:broski/models/prompt_accent_color.dart';
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/claude_code_provider.dart';
 import 'package:broski/providers/claude_code_variant_provider.dart';
+import 'package:broski/providers/codex_provider.dart';
 import 'package:broski/providers/codex_settings_provider.dart';
+import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/glow_style_provider.dart';
 import 'package:broski/providers/input_style_provider.dart';
@@ -162,17 +164,74 @@ class ChatInputBarContent extends ConsumerWidget {
   }
 
   /// Resolves the list of available variants for the active agent.
+  /// All backends use dynamic per-model data from their respective SDKs.
   List<String> _availableVariants(WidgetRef ref) {
     if (isOpenCode) {
       return ref
           .watch(openCodeVariantProvider)
           .getAvailableVariants(ref.watch(selectionProvider).model);
     }
-    if (isClaudeCode) return claudeCodeVariants;
+    if (isClaudeCode) {
+      // Dynamic: use per-model supportedEffortLevels from CC SDK init data
+      final chatState = ref.read(chatSessionProvider);
+      final cwd = chatState.ccCwd ?? effectivePath;
+      final modelsAsync = ref.watch(ccSupportedModelsProvider(cwd));
+      final currentModel = ref.watch(ccConfigProvider).valueOrNull?.model ??
+          chatState.ccModel ??
+          chatState.ccInit?.model ??
+          ccSessionModel ??
+          ccDraftModel;
+      final models = modelsAsync.valueOrNull ?? const [];
+      if (models.isNotEmpty && currentModel != null) {
+        // Find the current model's supported effort levels
+        final match = models.cast<ClaudeCodeSupportedModel?>().firstWhere(
+          (m) => m!.value == currentModel,
+          orElse: () => null,
+        );
+        if (match != null &&
+            match.supportedEffortLevels != null &&
+            match.supportedEffortLevels!.isNotEmpty) {
+          return match.supportedEffortLevels!;
+        }
+      }
+      // Fallback: all effort levels from models that support effort
+      final allEfforts = models
+          .where((m) => m.supportedEffortLevels != null)
+          .expand((m) => m.supportedEffortLevels!)
+          .toSet()
+          .toList();
+      if (allEfforts.isNotEmpty) return allEfforts;
+      // Last resort: standard CC effort levels (protocol-defined)
+      return const ['low', 'medium', 'high', 'max'];
+    }
     if (isCodex) {
+      // Dynamic: use per-model supportedReasoningEfforts from Codex model/list API
+      final currentModel = ref.watch(
+        chatSessionProvider.select((s) => s.cxModel),
+      );
+      final modelsAsync = ref.watch(codexModelsProvider);
+      final models = modelsAsync.valueOrNull ?? const [];
+      if (models.isNotEmpty && currentModel != null) {
+        final match = models.cast<CodexModel?>().firstWhere(
+          (m) => m!.id == currentModel,
+          orElse: () => null,
+        );
+        if (match != null && match.supportedReasoningEfforts.isNotEmpty) {
+          return match.supportedReasoningEfforts;
+        }
+      }
+      // Fallback: standard Codex reasoning efforts (protocol-defined)
       return CodexReasoningEffort.values.map((e) => e.wireValue).toList();
     }
     if (isPi) {
+      // Dynamic: use per-model available levels from bridge
+      final cwd = ref.read(chatSessionProvider).piCwd ?? effectivePath;
+      final capsAsync = ref.watch(piThinkingCapabilitiesProvider(cwd));
+      final caps = capsAsync.valueOrNull;
+      if (caps != null && caps.availableLevels.isNotEmpty) {
+        return caps.availableLevels.map((l) => l.wireValue).toList();
+      }
+      // Fallback: standard Pi thinking levels (protocol-defined)
       return PiThinkingLevel.values.map((e) => e.wireValue).toList();
     }
     return const [];
@@ -247,6 +306,101 @@ class ChatInputBarContent extends ConsumerWidget {
     final variants = _availableVariants(ref);
     final variantChanged = _onVariantChanged(ref);
 
+    // Permission/mode chip data (CC/CX only — protocol-defined modes from SDK)
+    // CC: PermissionMode from SDK type system (5 fixed modes)
+    // CX: AskForApproval from SDK protocol (4 fixed policies)
+    final String? currentMode;
+    final Map<String, String> modeOptions;
+    final void Function(String)? onModeChanged;
+    if (isClaudeCode) {
+      final ccPerm = ccConfig?.permissionMode ??
+          ref
+              .watch(chatSessionProvider.select((s) => s.ccInit))
+              ?.permissionMode;
+      currentMode = ccPerm?.wireValue;
+      modeOptions = {
+        for (final m in ClaudeCodePermissionMode.values)
+          m.wireValue: m.displayName,
+      };
+      onModeChanged = (wireValue) {
+        final mode = ClaudeCodePermissionMode.fromWireValue(wireValue);
+        _handleCCPermissionModeChanged(context, ref, mode);
+      };
+    } else if (isCodex) {
+      // Codex: approval policy (permission equivalent), not collab mode
+      final cxApproval = ref.watch(codexSettingsProvider).approvalPolicy;
+      currentMode = cxApproval.wireValue;
+      modeOptions = {
+        for (final m in CodexApprovalPolicy.values)
+          m.wireValue: m.displayName,
+      };
+      onModeChanged = (wireValue) {
+        final policy = CodexApprovalPolicy.values.firstWhere(
+          (p) => p.wireValue == wireValue,
+          orElse: () => CodexApprovalPolicy.onRequest,
+        );
+        ref.read(codexSettingsProvider.notifier).setApprovalPolicy(policy);
+      };
+    } else {
+      currentMode = null;
+      modeOptions = const {};
+      onModeChanged = null;
+    }
+
+    // Fast mode data (CC/CX only, per-model from SDK)
+    final bool showFastToggle;
+    final bool fastEnabled;
+    final void Function(bool)? onFastChanged;
+    if (isClaudeCode) {
+      // CC: check if current model supports fast mode from SDK init data
+      final chatState = ref.read(chatSessionProvider);
+      final cwd = chatState.ccCwd ?? effectivePath;
+      final modelsAsync = ref.watch(ccSupportedModelsProvider(cwd));
+      final currentModelStr = ccConfig?.model ??
+          chatState.ccModel ??
+          chatState.ccInit?.model ??
+          ccSessionModel ??
+          ccDraftModel;
+      final models = modelsAsync.valueOrNull ?? const [];
+      final currentModelInfo = (models.isNotEmpty && currentModelStr != null)
+          ? models.cast<ClaudeCodeSupportedModel?>().firstWhere(
+                (m) => m!.value == currentModelStr,
+                orElse: () => null,
+              )
+          : null;
+      showFastToggle = currentModelInfo?.supportsFastMode == true;
+      // Fast mode state from init message
+      fastEnabled = chatState.ccInit?.fastModeState == 'on';
+      onFastChanged = showFastToggle
+          ? (enabled) {
+              // Toggle via ccApplySettings (same as quick settings sheet)
+              final sid = chatState.ccSessionId;
+              if (sid != null && sid.isNotEmpty) {
+                ref
+                    .read(bridgeServiceProvider)
+                    .ccApplySettings(
+                      sessionId: sid,
+                      settings: {'fastMode': enabled},
+                    );
+              }
+            }
+          : null;
+    } else if (isCodex) {
+      // CX: service tier fast/flex from settings
+      showFastToggle = true; // Codex always supports fast mode
+      final cxSettings = ref.watch(codexSettingsProvider);
+      fastEnabled = cxSettings.serviceTier == CodexServiceTier.fast;
+      onFastChanged = (enabled) {
+        ref.read(codexSettingsProvider.notifier).setServiceTier(
+              enabled ? CodexServiceTier.fast : CodexServiceTier.flex,
+            );
+      };
+    } else {
+      showFastToggle = false;
+      fastEnabled = false;
+      onFastChanged = null;
+    }
+
     // Unified model display string for all backends
     final modelDisplay = isClaudeCode
         ? (ccConfig?.model ??
@@ -309,6 +463,14 @@ class ChatInputBarContent extends ConsumerWidget {
         // ⋯ menu
         onMenuTap: onMenuTap,
         modelDisplay: modelDisplay,
+        // Permission/mode chip
+        currentMode: currentMode,
+        modeOptions: modeOptions,
+        onModeChanged: onModeChanged,
+        // Fast mode
+        showFastToggle: showFastToggle,
+        fastEnabled: fastEnabled,
+        onFastChanged: onFastChanged,
       );
     }
 
@@ -342,6 +504,14 @@ class ChatInputBarContent extends ConsumerWidget {
       accentColor: customAccent,
       // ⋯ menu
       onMenuTap: onMenuTap,
+      // Permission/mode chip
+      currentMode: currentMode,
+      modeOptions: modeOptions,
+      onModeChanged: onModeChanged,
+      // Fast mode
+      showFastToggle: showFastToggle,
+      fastEnabled: fastEnabled,
+      onFastChanged: onFastChanged,
     );
   }
 }
