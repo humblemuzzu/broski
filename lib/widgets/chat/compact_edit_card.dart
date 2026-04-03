@@ -5,6 +5,7 @@ import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/app_typography.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/diff_utils.dart';
 import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -175,17 +176,15 @@ class CompactEditCard extends ConsumerWidget {
     if (diff != null && diff.isNotEmpty) {
       return _parseUnifiedDiff(diff);
     }
-    // Fall back to oldString/newString format (OpenCode/Claude Code)
-    // Add removed lines
-    if (_oldString.isNotEmpty) {
-      for (final line in _oldString.split('\n')) {
-        lines.add(_DiffLine(text: line, isAdded: false));
-      }
-    }
-    // Add added lines
-    if (_newString.isNotEmpty) {
-      for (final line in _newString.split('\n')) {
-        lines.add(_DiffLine(text: line, isAdded: true));
+    // Compute a proper line-level diff from oldString/newString
+    if (_oldString.isNotEmpty || _newString.isNotEmpty) {
+      final computed = UnifiedDiff.generate(
+        filePath: _getFilePath(),
+        before: _oldString,
+        after: _newString,
+      );
+      if (computed.isNotEmpty) {
+        return _parseUnifiedDiff(computed);
       }
     }
     return lines;
@@ -486,94 +485,75 @@ class _FullDiffContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final diffLines = <Widget>[];
-    // If we have unified diff, parse and display it
-    if (unifiedDiff != null && unifiedDiff!.isNotEmpty) {
-      for (final line in unifiedDiff!.split('\n')) {
-        // Skip diff headers
-        if (line.startsWith('---') ||
-            line.startsWith('+++') ||
-            line.startsWith('diff ') ||
-            line.startsWith('index ')) {
-          continue;
-        }
-        // Hunk headers get special styling
-        if (line.startsWith('@@')) {
-          diffLines.add(
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              color: theme.info.withValues(alpha: 0.1),
-              child: Text(
-                line,
-                style: AppTypography.codeSmall(color: theme.info),
-                softWrap: false,
-              ),
-            ),
-          );
-          continue;
-        }
-        // Added lines
-        if (line.startsWith('+')) {
-          diffLines.add(
-            _buildDiffLine(
-              line: line.substring(1),
-              prefix: '+',
-              color: theme.diffAdded,
-              theme: theme,
-            ),
-          );
-        }
-        // Removed lines
-        else if (line.startsWith('-')) {
-          diffLines.add(
-            _buildDiffLine(
-              line: line.substring(1),
-              prefix: '-',
-              color: theme.diffRemoved,
-              theme: theme,
-            ),
-          );
-        }
-        // Context lines
-        else if (line.isNotEmpty) {
-          diffLines.add(
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              child: Text(
-                '  $line',
-                style: AppTypography.codeSmall(color: theme.textMuted),
-                softWrap: false,
-              ),
-            ),
-          );
-        }
+
+    // Resolve the effective diff: use provided unified diff, or compute one
+    final effectiveDiff = (unifiedDiff != null && unifiedDiff!.isNotEmpty)
+        ? unifiedDiff!
+        : (oldString.isNotEmpty || newString.isNotEmpty)
+            ? UnifiedDiff.generate(
+                filePath: 'file',
+                before: oldString,
+                after: newString,
+              )
+            : '';
+
+    for (final line in effectiveDiff.split('\n')) {
+      // Skip diff headers
+      if (line.startsWith('---') ||
+          line.startsWith('+++') ||
+          line.startsWith('diff ') ||
+          line.startsWith('index ')) {
+        continue;
       }
-    } else {
-      // Fall back to oldString/newString format
-      // Add removed lines
-      if (oldString.isNotEmpty) {
-        for (final line in oldString.split('\n')) {
-          diffLines.add(
-            _buildDiffLine(
-              line: line,
-              prefix: '-',
-              color: theme.diffRemoved,
-              theme: theme,
+      // Hunk headers
+      if (line.startsWith('@@')) {
+        diffLines.add(
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            color: theme.info.withValues(alpha: 0.1),
+            child: Text(
+              line,
+              style: AppTypography.codeSmall(color: theme.info),
+              softWrap: false,
             ),
-          );
-        }
+          ),
+        );
+        continue;
       }
-      // Add added lines
-      if (newString.isNotEmpty) {
-        for (final line in newString.split('\n')) {
-          diffLines.add(
-            _buildDiffLine(
-              line: line,
-              prefix: '+',
-              color: theme.diffAdded,
-              theme: theme,
+      // Added lines
+      if (line.startsWith('+')) {
+        diffLines.add(
+          _buildDiffLine(
+            line: line.substring(1),
+            prefix: '+',
+            color: theme.diffAdded,
+            theme: theme,
+          ),
+        );
+      }
+      // Removed lines
+      else if (line.startsWith('-')) {
+        diffLines.add(
+          _buildDiffLine(
+            line: line.substring(1),
+            prefix: '-',
+            color: theme.diffRemoved,
+            theme: theme,
+          ),
+        );
+      }
+      // Context lines
+      else if (line.isNotEmpty) {
+        diffLines.add(
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            child: Text(
+              '  $line',
+              style: AppTypography.codeSmall(color: theme.textMuted),
+              softWrap: false,
             ),
-          );
-        }
+          ),
+        );
       }
     }
     if (diffLines.isEmpty) {
