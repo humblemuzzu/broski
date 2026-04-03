@@ -500,12 +500,12 @@ class _FullDiffContent extends StatelessWidget {
         if (line.startsWith('@@')) {
           diffLines.add(
             Container(
-              width: double.infinity,
-              padding: Insets.chip,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               color: theme.info.withValues(alpha: 0.1),
               child: Text(
                 line,
                 style: AppTypography.codeSmall(color: theme.info),
+                softWrap: false,
               ),
             ),
           );
@@ -537,11 +537,11 @@ class _FullDiffContent extends StatelessWidget {
         else if (line.isNotEmpty) {
           diffLines.add(
             Container(
-              width: double.infinity,
-              padding: Insets.chip,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               child: Text(
                 '  $line',
                 style: AppTypography.codeSmall(color: theme.textMuted),
+                softWrap: false,
               ),
             ),
           );
@@ -589,9 +589,15 @@ class _FullDiffContent extends StatelessWidget {
         border: Border.all(color: theme.borderSubtle.withValues(alpha: 0.5)),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: diffLines,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: IntrinsicWidth(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: diffLines,
+          ),
+        ),
       ),
     );
   }
@@ -603,10 +609,9 @@ class _FullDiffContent extends StatelessWidget {
     required OpenCodeTheme theme,
   }) {
     return Container(
-      width: double.infinity,
-      padding: Insets.chip,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
+        color: color.withValues(alpha: 0.12),
         border: Border(left: BorderSide(color: color, width: 3)),
       ),
       child: Text.rich(
@@ -624,6 +629,7 @@ class _FullDiffContent extends StatelessWidget {
             ),
           ],
         ),
+        softWrap: false,
       ),
     );
   }

@@ -353,35 +353,44 @@ class _FullContentView extends StatelessWidget {
         border: Border.all(color: theme.borderSubtle.withValues(alpha: 0.5)),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (final line in lines)
-            Container(
-              width: double.infinity,
-              padding: Insets.chip,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.15),
-                border: Border(left: BorderSide(color: color, width: 3)),
-              ),
-              child: Text.rich(
-                TextSpan(
-                  children: [
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: IntrinsicWidth(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final line in lines)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    border: Border(left: BorderSide(color: color, width: 3)),
+                  ),
+                  child: Text.rich(
                     TextSpan(
-                      text: '+ ',
-                      style: AppTypography.codeSmall(
-                        color: color,
-                      ).copyWith(fontWeight: FontWeight.bold),
+                      children: [
+                        TextSpan(
+                          text: '+ ',
+                          style: AppTypography.codeSmall(
+                            color: color,
+                          ).copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        TextSpan(
+                          text: line.isEmpty ? ' ' : line,
+                          style: AppTypography.codeSmall(color: theme.text),
+                        ),
+                      ],
                     ),
-                    TextSpan(
-                      text: line.isEmpty ? ' ' : line,
-                      style: AppTypography.codeSmall(color: theme.text),
-                    ),
-                  ],
+                    softWrap: false,
+                  ),
                 ),
-              ),
-            ),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -157,6 +157,27 @@ class CompactToolCard extends ConsumerWidget {
     return _buildGenericContent(theme);
   }
 
+  /// Builds a horizontally scrollable code block with proper styling.
+  Widget _codeBlock(String content, OpenCodeTheme theme) {
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.backgroundElement,
+        borderRadius: Radii.brSm,
+        border: Border.all(color: theme.borderSubtle.withValues(alpha: 0.5)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      padding: const EdgeInsets.all(12),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: SelectableText(
+          content,
+          style: AppTypography.codeSmall(color: theme.text),
+        ),
+      ),
+    );
+  }
+
   Widget _buildReadContent(OpenCodeTheme theme) {
     final path =
         tool.input['path'] as String? ??
@@ -174,10 +195,8 @@ class CompactToolCard extends ConsumerWidget {
         ),
         DetailSection(
           label: 'Content',
-          child: SelectableText(
-            tool.output ?? 'Loading...',
-            style: AppTypography.codeSmall(color: theme.text),
-          ),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: _codeBlock(tool.output ?? 'Loading...', theme),
         ),
       ],
     );
@@ -202,17 +221,15 @@ class CompactToolCard extends ConsumerWidget {
         if (content.isNotEmpty)
           DetailSection(
             label: 'Content',
-            child: SelectableText(
-              content,
-              style: AppTypography.codeSmall(color: theme.text),
-            ),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: _codeBlock(content, theme),
           ),
         if (tool.output != null && tool.output!.isNotEmpty)
           DetailSection(
             label: 'Result',
             child: SelectableText(
               tool.output!,
-              style: AppTypography.codeSmall(color: theme.text),
+              style: AppTypography.bodySmall(color: theme.text),
             ),
           ),
       ],
@@ -226,17 +243,16 @@ class CompactToolCard extends ConsumerWidget {
       children: [
         DetailSection(
           label: 'Command',
-          child: SelectableText(
-            command,
-            style: AppTypography.codeSmall(color: theme.text),
-          ),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: _codeBlock(command, theme),
         ),
         DetailSection(
           label: 'Output',
-          child: SelectableText(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: _codeBlock(
             tool.output ??
                 (tool.status == 'running' ? 'Running...' : 'No output'),
-            style: AppTypography.codeSmall(color: theme.text),
+            theme,
           ),
         ),
         // Status indicator for errors
@@ -269,10 +285,8 @@ class CompactToolCard extends ConsumerWidget {
         ),
         DetailSection(
           label: 'Matches',
-          child: SelectableText(
-            tool.output ?? 'Searching...',
-            style: AppTypography.codeSmall(color: theme.text),
-          ),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: _codeBlock(tool.output ?? 'Searching...', theme),
         ),
       ],
     );
@@ -292,10 +306,8 @@ class CompactToolCard extends ConsumerWidget {
         ),
         DetailSection(
           label: 'Contents',
-          child: SelectableText(
-            tool.output ?? 'Listing...',
-            style: AppTypography.codeSmall(color: theme.text),
-          ),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: _codeBlock(tool.output ?? 'Listing...', theme),
         ),
       ],
     );
@@ -336,10 +348,8 @@ class CompactToolCard extends ConsumerWidget {
           ),
         DetailSection(
           label: 'Results',
-          child: SelectableText(
-            tool.output ?? 'Searching...',
-            style: AppTypography.codeSmall(color: theme.text),
-          ),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: _codeBlock(tool.output ?? 'Searching...', theme),
         ),
       ],
     );
@@ -407,17 +417,16 @@ class CompactToolCard extends ConsumerWidget {
         if (tool.input.isNotEmpty)
           DetailSection(
             label: 'Input',
-            child: SelectableText(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: _codeBlock(
               const JsonEncoder.withIndent('  ').convert(tool.input),
-              style: AppTypography.codeSmall(color: theme.text),
+              theme,
             ),
           ),
         DetailSection(
           label: 'Output',
-          child: SelectableText(
-            tool.output ?? 'No output',
-            style: AppTypography.codeSmall(color: theme.text),
-          ),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: _codeBlock(tool.output ?? 'No output', theme),
         ),
       ],
     );
