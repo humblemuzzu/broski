@@ -317,8 +317,7 @@ class FloatingInputBar extends ConsumerWidget {
                                       tapPosition: d.globalPosition,
                                       values: modeOptions.keys.toList(),
                                       currentValue: currentMode,
-                                      formatLabel: (v) =>
-                                          modeOptions[v] ?? v,
+                                      formatLabel: (v) => modeOptions[v] ?? v,
                                     );
                                     if (picked != null) {
                                       onModeChanged?.call(picked);

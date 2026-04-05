@@ -176,7 +176,8 @@ class ChatInputBarContent extends ConsumerWidget {
       final chatState = ref.read(chatSessionProvider);
       final cwd = chatState.ccCwd ?? effectivePath;
       final modelsAsync = ref.watch(ccSupportedModelsProvider(cwd));
-      final currentModel = ref.watch(ccConfigProvider).valueOrNull?.model ??
+      final currentModel =
+          ref.watch(ccConfigProvider).valueOrNull?.model ??
           chatState.ccModel ??
           chatState.ccInit?.model ??
           ccSessionModel ??
@@ -313,7 +314,8 @@ class ChatInputBarContent extends ConsumerWidget {
     final Map<String, String> modeOptions;
     final void Function(String)? onModeChanged;
     if (isClaudeCode) {
-      final ccPerm = ccConfig?.permissionMode ??
+      final ccPerm =
+          ccConfig?.permissionMode ??
           ref
               .watch(chatSessionProvider.select((s) => s.ccInit))
               ?.permissionMode;
@@ -331,8 +333,7 @@ class ChatInputBarContent extends ConsumerWidget {
       final cxApproval = ref.watch(codexSettingsProvider).approvalPolicy;
       currentMode = cxApproval.wireValue;
       modeOptions = {
-        for (final m in CodexApprovalPolicy.values)
-          m.wireValue: m.displayName,
+        for (final m in CodexApprovalPolicy.values) m.wireValue: m.displayName,
       };
       onModeChanged = (wireValue) {
         final policy = CodexApprovalPolicy.values.firstWhere(
@@ -356,7 +357,8 @@ class ChatInputBarContent extends ConsumerWidget {
       final chatState = ref.read(chatSessionProvider);
       final cwd = chatState.ccCwd ?? effectivePath;
       final modelsAsync = ref.watch(ccSupportedModelsProvider(cwd));
-      final currentModelStr = ccConfig?.model ??
+      final currentModelStr =
+          ccConfig?.model ??
           chatState.ccModel ??
           chatState.ccInit?.model ??
           ccSessionModel ??
@@ -364,9 +366,9 @@ class ChatInputBarContent extends ConsumerWidget {
       final models = modelsAsync.valueOrNull ?? const [];
       final currentModelInfo = (models.isNotEmpty && currentModelStr != null)
           ? models.cast<ClaudeCodeSupportedModel?>().firstWhere(
-                (m) => m!.value == currentModelStr,
-                orElse: () => null,
-              )
+              (m) => m!.value == currentModelStr,
+              orElse: () => null,
+            )
           : null;
       showFastToggle = currentModelInfo?.supportsFastMode == true;
       // Fast mode state from init message
@@ -391,7 +393,9 @@ class ChatInputBarContent extends ConsumerWidget {
       final cxSettings = ref.watch(codexSettingsProvider);
       fastEnabled = cxSettings.serviceTier == CodexServiceTier.fast;
       onFastChanged = (enabled) {
-        ref.read(codexSettingsProvider.notifier).setServiceTier(
+        ref
+            .read(codexSettingsProvider.notifier)
+            .setServiceTier(
               enabled ? CodexServiceTier.fast : CodexServiceTier.flex,
             );
       };

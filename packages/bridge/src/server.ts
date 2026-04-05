@@ -2145,7 +2145,16 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			}
 
 			// Only keep one in-flight ping per client to make RTT meaningful.
-			if (ctx.pendingPing) continue;
+			// But expire stale pings — if the pong was lost (e.g. during a
+			// Tailscale DERP-to-direct path migration), we must not block
+			// all future pings forever.  30s is generous (normal RTT < 500ms).
+			if (ctx.pendingPing) {
+				if (now - ctx.pendingPing.sentAt > 30_000) {
+					ctx.pendingPing = undefined;
+				} else {
+					continue;
+				}
+			}
 
 			const ping = {
 				id: `ping_${now}_${Math.floor(Math.random() * 1_000_000)}`,

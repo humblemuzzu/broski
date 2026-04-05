@@ -490,12 +490,12 @@ class _FullDiffContent extends StatelessWidget {
     final effectiveDiff = (unifiedDiff != null && unifiedDiff!.isNotEmpty)
         ? unifiedDiff!
         : (oldString.isNotEmpty || newString.isNotEmpty)
-            ? UnifiedDiff.generate(
-                filePath: 'file',
-                before: oldString,
-                after: newString,
-              )
-            : '';
+        ? UnifiedDiff.generate(
+            filePath: 'file',
+            before: oldString,
+            after: newString,
+          )
+        : '';
 
     for (final line in effectiveDiff.split('\n')) {
       // Skip diff headers

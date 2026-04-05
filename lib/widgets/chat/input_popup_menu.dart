@@ -97,117 +97,127 @@ Future<void> showThinkingPopup({
   // Speed section (only if model supports fast mode)
   if (showFastToggle) {
     // Section header
-    items.add(PopupMenuItem<String>(
-      enabled: false,
-      height: 28,
-      child: Text(
-        'Speed',
-        style: TextStyle(
-          color: theme.textMuted,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.5,
+    items.add(
+      PopupMenuItem<String>(
+        enabled: false,
+        height: 28,
+        child: Text(
+          'Speed',
+          style: TextStyle(
+            color: theme.textMuted,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
+          ),
         ),
       ),
-    ));
+    );
     // Fast option
-    items.add(PopupMenuItem<String>(
-      value: '_fast_on',
-      height: 40,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: 20,
-            child: fastEnabled
-                ? Icon(AppIcons.check, size: 15, color: accent)
-                : null,
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'Fast',
-            style: TextStyle(
-              color: fastEnabled ? accent : theme.text,
-              fontSize: 14,
-              fontWeight: fastEnabled ? FontWeight.w600 : FontWeight.w400,
+    items.add(
+      PopupMenuItem<String>(
+        value: '_fast_on',
+        height: 40,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 20,
+              child: fastEnabled
+                  ? Icon(AppIcons.check, size: 15, color: accent)
+                  : null,
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            Text(
+              'Fast',
+              style: TextStyle(
+                color: fastEnabled ? accent : theme.text,
+                fontSize: 14,
+                fontWeight: fastEnabled ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
       ),
-    ));
+    );
     // Normal option
-    items.add(PopupMenuItem<String>(
-      value: '_fast_off',
-      height: 40,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: 20,
-            child: !fastEnabled
-                ? Icon(AppIcons.check, size: 15, color: accent)
-                : null,
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'Normal',
-            style: TextStyle(
-              color: !fastEnabled ? accent : theme.text,
-              fontSize: 14,
-              fontWeight: !fastEnabled ? FontWeight.w600 : FontWeight.w400,
+    items.add(
+      PopupMenuItem<String>(
+        value: '_fast_off',
+        height: 40,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 20,
+              child: !fastEnabled
+                  ? Icon(AppIcons.check, size: 15, color: accent)
+                  : null,
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            Text(
+              'Normal',
+              style: TextStyle(
+                color: !fastEnabled ? accent : theme.text,
+                fontSize: 14,
+                fontWeight: !fastEnabled ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
       ),
-    ));
+    );
     // Divider between Speed and Thinking sections
     items.add(const PopupMenuDivider(height: 8));
   }
 
   // Thinking section header (only show label if we also have Speed section)
   if (showFastToggle) {
-    items.add(PopupMenuItem<String>(
-      enabled: false,
-      height: 28,
-      child: Text(
-        'Reasoning',
-        style: TextStyle(
-          color: theme.textMuted,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.5,
+    items.add(
+      PopupMenuItem<String>(
+        enabled: false,
+        height: 28,
+        child: Text(
+          'Reasoning',
+          style: TextStyle(
+            color: theme.textMuted,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
+          ),
         ),
       ),
-    ));
+    );
   }
 
   // Thinking level items
   for (final v in thinkingValues) {
     final isSelected = v == currentThinking;
-    items.add(PopupMenuItem<String>(
-      value: v,
-      height: 44,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: 20,
-            child: isSelected
-                ? Icon(AppIcons.check, size: 15, color: accent)
-                : null,
-          ),
-          const SizedBox(width: 8),
-          Text(
-            formatLabel(v),
-            style: TextStyle(
-              color: isSelected ? accent : theme.text,
-              fontSize: 14,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+    items.add(
+      PopupMenuItem<String>(
+        value: v,
+        height: 44,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 20,
+              child: isSelected
+                  ? Icon(AppIcons.check, size: 15, color: accent)
+                  : null,
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            Text(
+              formatLabel(v),
+              style: TextStyle(
+                color: isSelected ? accent : theme.text,
+                fontSize: 14,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
       ),
-    ));
+    );
   }
 
   // Calculate menu height

@@ -58,9 +58,9 @@ export async function handle(
 			if (!connCtx) return true;
 			connCtx.lastPongAt = Date.now();
 			connCtx.lastRttMs = Math.max(0, connCtx.lastPongAt - (message.sentAt as number));
-			if (connCtx.pendingPing?.id === message.id) {
-				connCtx.pendingPing = undefined;
-			}
+			// Always clear pendingPing — even a late/mismatched pong proves the
+			// client is alive and unblocks the next heartbeat ping cycle.
+			connCtx.pendingPing = undefined;
 			if (connCtx.connectionType === "unknown") {
 				connCtx.connectionType = connCtx.lastRttMs > 30 ? "tailscale" : "local";
 			}
@@ -75,6 +75,13 @@ export async function handle(
 			return true;
 		}
 		case "client_ping": {
+			// Receiving a client_ping proves the client is alive — update
+			// lastPongAt so the bridge heartbeat doesn't kill a healthy
+			// connection when its own ping/pong cycle has a lost packet.
+			const pingCtx = ctx.contexts.get(ws);
+			if (pingCtx) {
+				pingCtx.lastPongAt = Date.now();
+			}
 			ctx.send(ws, {
 				type: "client_pong",
 				id: message.id,

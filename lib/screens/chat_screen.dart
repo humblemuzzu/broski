@@ -1674,11 +1674,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                         ),
                       ),
                       child: Center(
-                        child: Icon(
-                          AppIcons.back,
-                          color: theme.text,
-                          size: 20,
-                        ),
+                        child: Icon(AppIcons.back, color: theme.text, size: 20),
                       ),
                     ),
                   ),
@@ -1722,11 +1718,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                               width: 14,
                               height: 14,
                               child: CircularProgressIndicator(
-                                value: (_sessionContext.contextUsagePercent / 100)
-                                    .clamp(0.0, 1.0),
+                                value:
+                                    (_sessionContext.contextUsagePercent / 100)
+                                        .clamp(0.0, 1.0),
                                 strokeWidth: 2,
-                                backgroundColor:
-                                    theme.textMuted.withValues(alpha: 0.15),
+                                backgroundColor: theme.textMuted.withValues(
+                                  alpha: 0.15,
+                                ),
                                 valueColor: AlwaysStoppedAnimation<Color>(
                                   _sessionContext.contextUsagePercent > 80
                                       ? theme.error
