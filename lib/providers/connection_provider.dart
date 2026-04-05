@@ -257,6 +257,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
   StreamSubscription<Map<String, dynamic>>? _messageSub;
   StreamSubscription<NetworkState>? _networkSub;
   Timer? _reconnectTimer;
+  Timer? _networkDebounceTimer;
   int _reconnectAttempts = 0;
   int _failureStreak = 0;
   bool _isConnecting = false;
@@ -383,6 +384,14 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
 
       // Try endpoints (first success wins)
       final result = await _tryConnectConcurrent(endpoints, info);
+
+      // App went to background while we were awaiting — abort cleanly.
+      // forceClose() already killed the socket; continuing would just
+      // produce confusing errors.
+      if (_isBackgrounding) {
+        debugPrint('[Connection] Aborting connect — app went to background');
+        return;
+      }
 
       if (result == null || !result.success) {
         throw StateError(
@@ -594,14 +603,16 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
         return;
       }
 
+      final blocksRetry =
+          isAuthError || isLicenseError || isTooManyMachines || isPinError;
       state = state.copyWith(
         status: ConnectionStatus.disconnected,
         error: errorMessage,
         lastEvent: ConnectionEvent.failed,
-        isReconnecting: !isAuthError && !isLicenseError && !isTooManyMachines,
+        isReconnecting: !blocksRetry,
       );
-      // Don't auto-reconnect for auth/license errors - user needs to take action
-      if (!isAuthError && !isLicenseError && !isTooManyMachines) {
+      // Don't auto-reconnect for auth/license/cert errors - user needs to take action
+      if (!blocksRetry) {
         _scheduleSmartReconnect();
       }
     } finally {
@@ -1182,46 +1193,49 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
   }
 
   /// Handle network state changes from connectivity_plus.
-  /// Triggers immediate reconnection when network comes back online.
+  /// Debounced (1s) to prevent reconnect storms when the network bounces
+  /// rapidly (e.g. WiFi→cell→WiFi on elevator/subway transitions).
   void _handleNetworkChange(NetworkState networkState) {
     final hasNetwork =
         networkState != NetworkState.none &&
         networkState != NetworkState.unknown;
 
-    // If we just got network back and we're disconnected, try to reconnect immediately
-    if (hasNetwork &&
-        state.connection != null &&
-        state.status == ConnectionStatus.disconnected &&
-        !_isConnecting &&
-        !state.isOfflineMode) {
-      final sub = _ref.read(appSubscriptionProvider);
-      if (!sub.entitled) return;
-      // Reset failure streak since network change is a fresh start
+    if (!hasNetwork) return;
+    if (state.connection == null) return;
+    if (state.status != ConnectionStatus.disconnected) return;
+    if (_isConnecting) return;
+    if (state.isOfflineMode) return;
+
+    final sub = _ref.read(appSubscriptionProvider);
+    if (!sub.entitled) return;
+
+    // Debounce: wait 1s for the network to settle before reacting.
+    // Each new event restarts the timer, so rapid WiFi→cell→WiFi
+    // only fires one reconnect attempt after the storm passes.
+    _networkDebounceTimer?.cancel();
+    _networkDebounceTimer = Timer(const Duration(seconds: 1), () {
+      // Re-check guards — state may have changed during the debounce window
+      if (state.connection == null) return;
+      if (state.status != ConnectionStatus.disconnected) return;
+      if (_isConnecting) return;
+
       _failureStreak = 0;
       _reconnectAttempts = max(_reconnectAttempts, 1);
-
-      // Cancel any pending reconnect timer
       _reconnectTimer?.cancel();
 
-      // Determine preferred connection type based on network state
       ConnectionType? preferredType;
       if (networkState == NetworkState.vpn) {
-        // VPN likely means Tailscale, try tailscale/magicDNS first
         preferredType = _lastSuccessfulType ?? ConnectionType.tailscale;
       } else if (networkState == NetworkState.wifi ||
           networkState == NetworkState.ethernet) {
-        // Local network, try local first
         preferredType = ConnectionType.local;
       }
 
-      // Reconnect with short delay to let network stabilize
-      _reconnectTimer = Timer(const Duration(milliseconds: 500), () {
-        final connection = state.connection;
-        if (connection != null) {
-          connect(connection, preferredType: preferredType);
-        }
-      });
-    }
+      final connection = state.connection;
+      if (connection != null) {
+        connect(connection, preferredType: preferredType);
+      }
+    });
   }
 
   /// Smart reconnection that adapts strategy based on failure patterns.
@@ -1251,17 +1265,26 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     _currentPolicy = _selectReconnectPolicy();
     _reconnectAttempts += 1;
 
-    // Check if we've exceeded max attempts
+    // After max attempts, switch to a slow 60s retry instead of giving up.
+    // This keeps the connection recoverable (e.g. Mac wakes from long sleep)
+    // without burning battery on rapid retries.
     if (_currentPolicy.maxAttempts > 0 &&
         _reconnectAttempts >= _currentPolicy.maxAttempts) {
       debugPrint(
-        '[Connection] Max reconnection attempts reached (${_currentPolicy.maxAttempts})',
+        '[Connection] Max rapid attempts reached (${_currentPolicy.maxAttempts}), '
+        'switching to slow 60s retry',
       );
       state = state.copyWith(
-        isReconnecting: false,
+        isReconnecting: true,
         error:
-            'Unable to reconnect after ${_currentPolicy.maxAttempts} attempts',
+            'Unable to reconnect after ${_currentPolicy.maxAttempts} attempts. Still trying…',
       );
+      _reconnectTimer = Timer(const Duration(seconds: 60), () {
+        final connection = state.connection;
+        if (connection != null) {
+          connect(connection, preferredType: _lastSuccessfulType);
+        }
+      });
       return;
     }
 
@@ -1397,6 +1420,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     _messageSub?.cancel();
     _networkSub?.cancel();
     _reconnectTimer?.cancel();
+    _networkDebounceTimer?.cancel();
     _sentMessages.clear();
     super.dispose();
   }

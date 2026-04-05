@@ -58,7 +58,7 @@ class WebSocketService {
   Timer? _pongTimeoutTimer;
   DateTime? _lastPongReceived;
   static const _heartbeatInterval = Duration(seconds: 15);
-  static const _pongTimeout = Duration(seconds: 10);
+  static const _pongTimeout = Duration(seconds: 30);
   bool _waitingForPong = false;
 
   // Server tick detection (bridge sends tick every 30s)
