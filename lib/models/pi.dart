@@ -660,9 +660,26 @@ class PiTreeNode {
   final String type;
   final String timestamp;
   final String? label;
+  final int depth;
+  final bool isOnActivePath;
+  final int childCount;
+
+  // Message fields
   final String? role;
   final String? text;
-  final int childCount;
+  final String? stopReason;
+
+  // Tool result fields
+  final String? toolName;
+  final String? toolArgs;
+
+  // Bash execution
+  final String? command;
+
+  // Settings entries
+  final String? modelId;
+  final String? thinkingLevel;
+  final String? customType;
 
   const PiTreeNode({
     required this.id,
@@ -670,9 +687,18 @@ class PiTreeNode {
     required this.type,
     required this.timestamp,
     this.label,
+    this.depth = 0,
+    this.isOnActivePath = false,
+    this.childCount = 0,
     this.role,
     this.text,
-    this.childCount = 0,
+    this.stopReason,
+    this.toolName,
+    this.toolArgs,
+    this.command,
+    this.modelId,
+    this.thinkingLevel,
+    this.customType,
   });
 
   factory PiTreeNode.fromJson(Map<String, dynamic> json) {
@@ -682,18 +708,52 @@ class PiTreeNode {
       type: json['type'] as String? ?? '',
       timestamp: json['timestamp'] as String? ?? '',
       label: json['label'] as String?,
+      depth: json['depth'] as int? ?? 0,
+      isOnActivePath: json['isOnActivePath'] as bool? ?? false,
+      childCount: json['childCount'] as int? ?? 0,
       role: json['role'] as String?,
       text: json['text'] as String?,
-      childCount: json['childCount'] as int? ?? 0,
+      stopReason: json['stopReason'] as String?,
+      toolName: json['toolName'] as String?,
+      toolArgs: json['toolArgs'] as String?,
+      command: json['command'] as String?,
+      modelId: json['modelId'] as String?,
+      thinkingLevel: json['thinkingLevel'] as String?,
+      customType: json['customType'] as String?,
     );
   }
+
+  // ── Type helpers ──
 
   bool get isMessage => type == 'message';
   bool get isUserMessage => isMessage && role == 'user';
   bool get isAssistantMessage => isMessage && role == 'assistant';
+  bool get isToolResult => isMessage && role == 'toolResult';
+  bool get isBashExecution => isMessage && role == 'bashExecution';
+  bool get isCustomMessage => type == 'custom_message';
   bool get isCompaction => type == 'compaction';
   bool get isBranchSummary => type == 'branch_summary';
+  bool get isModelChange => type == 'model_change';
+  bool get isThinkingChange => type == 'thinking_level_change';
+  bool get isLabel => type == 'label';
+  bool get isSessionInfo => type == 'session_info';
+  bool get isCustomEntry => type == 'custom';
   bool get isFork => childCount > 1;
+
+  /// Settings/bookkeeping entries hidden in default filter view.
+  bool get isSettingsEntry =>
+      isLabel ||
+      isCustomEntry ||
+      isModelChange ||
+      isThinkingChange ||
+      isSessionInfo;
+
+  /// Whether this is an assistant message with only tool calls (no text).
+  bool get isAssistantToolCallOnly =>
+      isAssistantMessage &&
+      (text == null || text!.isEmpty) &&
+      stopReason != 'aborted' &&
+      stopReason != 'error';
 }
 
 /// Session tree with nodes and current leaf position.
