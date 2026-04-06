@@ -1049,6 +1049,7 @@ export type ClientMessage =
 	| { type: "pi_get_session_stats"; projectPath?: string }
 	| { type: "pi_get_modified_files"; projectPath?: string }
 	| { type: "pi_get_messages"; projectPath?: string }
+	| { type: "pi_read_session_messages"; sessionPath?: string; sessionId?: string; limit?: number }
 	| { type: "pi_set_session_name"; name: string; projectPath?: string }
 	| { type: "pi_fork"; entryId: string; projectPath?: string }
 	| { type: "pi_get_fork_messages"; projectPath?: string }
@@ -2204,6 +2205,7 @@ export type ServerMessage =
 	| { type: "pi_session_stats"; data: any; requestId?: string }
 	| { type: "pi_modified_files"; data: Array<{ file: string; additions: number; deletions: number }>; requestId?: string }
 	| { type: "pi_messages"; data: any[]; requestId?: string }
+	| { type: "pi_session_messages"; data: any[]; requestId?: string }
 	| { type: "pi_session_name_set"; data: boolean; requestId?: string }
 	| {
 			type: "pi_fork_result";

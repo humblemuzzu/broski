@@ -16,6 +16,7 @@ import * as piCustomMessage from "./pi_custom_message";
 import * as piLabels from "./pi_labels";
 import * as piTools from "./pi_tools";
 import * as piTree from "./pi_tree";
+import * as piSessionMessages from "./pi_session_messages";
 import { sendPiRuntimeEvent } from "./pi_stream_delivery";
 import { recordRuntimeEvent } from "../utils/runtime-replay-buffer";
 import { startPiExternalTail, type PiExternalTailContext } from "../connectors/pi/pi-external-tail";
@@ -293,6 +294,7 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
 	const cwd = optionalCwd ?? normalizeCwd();
 
 	// Delegate to sub-handlers first
+	if (await piSessionMessages.handle(message, reply)) return true;
 	if (await piTools.handle(message, reply)) return true;
 	if (await piAbort.handle(message, reply)) return true;
 	if (await piBash.handle(message, reply, broadcast)) return true;

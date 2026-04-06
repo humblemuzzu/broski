@@ -438,6 +438,29 @@ class PiBridgeService {
     return data.whereType<Map<String, dynamic>>().toList();
   }
 
+  /// Read messages directly from a Pi session JSONL file without
+  /// needing a live AgentSession instance. Much faster than [getMessages]
+  /// because it skips model resolution, extension loading, etc.
+  Future<List<Map<String, dynamic>>> readSessionMessages({
+    String? sessionPath,
+    String? sessionId,
+    int? limit,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'pi_read_session_messages',
+      'requestId': requestId,
+      if (sessionPath != null) 'sessionPath': sessionPath,
+      if (sessionId != null) 'sessionId': sessionId,
+      if (limit != null) 'limit': limit,
+    });
+
+    final response =
+        await _waitFor('pi_session_messages', requestId: requestId);
+    final data = response['data'] as List<dynamic>? ?? const [];
+    return data.whereType<Map<String, dynamic>>().toList();
+  }
+
   Future<PiSessionStats> getSessionStats({String? projectPath}) async {
     final requestId = _generateRequestId();
     _socket.send({

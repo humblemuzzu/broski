@@ -75,6 +75,11 @@ export function startPiExternalTail(
 				agentActive = false;
 			}
 			if (offset >= fileSize) {
+				// Caught up to end of file — any new content from now on is live.
+				if (!initialSyncDone) {
+					initialSyncDone = true;
+					console.log(`[Pi tail] Initial sync done, ${seenMessageIds.size} baseline messages`);
+				}
 				pumping = false;
 				return;
 			}
@@ -104,11 +109,10 @@ export function startPiExternalTail(
 					}
 				}
 
-				if (!initialSyncDone) {
+				// Check if we've caught up after this read
+				if (!initialSyncDone && offset >= fileSize) {
 					initialSyncDone = true;
 					console.log(`[Pi tail] Initial sync done, ${seenMessageIds.size} baseline messages`);
-
-
 				}
 			} finally {
 				await fh.close().catch(() => {});

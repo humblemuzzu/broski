@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:broski/models/message.dart';
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
@@ -144,6 +146,8 @@ Future<bool> hydrateSession({
     final widgetSessionId = widget.piSession?.id ?? '';
     final isDraft = widget.piSession == null;
     final piBridge = ref.read(piBridgeServiceProvider);
+    final sessionPath = widget.piSession?.path;
+    final hasSessionPath = sessionPath != null && sessionPath.isNotEmpty;
 
     // On reconnect, the session is already alive in the bridge — don't
     // create a new one or switch sessions. Just re-sync state and hydrate.
@@ -173,61 +177,109 @@ Future<bool> hydrateSession({
       return true; // Call _loadSessionContext
     }
 
-    // Initial load path — only runs on first open, not on reconnect.
-    if (isDraft && !connection.isOfflineMode) {
-      try {
-        await piBridge.newSession(projectPath: cwd);
-      } catch (_) {
-        // Best effort — first message will still create one
-      }
-    } else if (widget.piSession?.path != null &&
-        (widget.piSession?.path.isNotEmpty ?? false)) {
-      try {
-        await piBridge.switchSession(
-          sessionPath: widget.piSession!.path,
-          projectPath: cwd,
-        );
-      } catch (_) {
-        // Best effort
-      }
-    }
     chat.setPiSession(
       sessionId: widgetSessionId,
       cwd: cwd,
       model: widget.piSession?.name,
     );
-    // Existing session: hydrate transcript
-    if (widgetSessionId.isNotEmpty && !connection.isOfflineMode) {
+
+    if (isDraft && !connection.isOfflineMode) {
+      // New session — create it on the bridge
       try {
-        final items = await piBridge.getMessages(projectPath: cwd);
-        chat.hydratePiTranscript(items);
+        await piBridge.newSession(projectPath: cwd);
+      } catch (_) {
+        // Best effort — first message will still create one
+      }
+    } else if (hasSessionPath &&
+        widgetSessionId.isNotEmpty &&
+        !connection.isOfflineMode) {
+      // Existing session: fast path — read messages directly from the
+      // JSONL file without building a full AgentSession instance. This
+      // skips model resolution, extension loading, etc. and returns
+      // messages in ~100ms instead of 2-4 seconds.
+      var fastPathWorked = false;
+      try {
+        final items = await piBridge.readSessionMessages(
+          sessionPath: sessionPath,
+          sessionId: widgetSessionId,
+        );
+        if (items.isNotEmpty) {
+          chat.hydratePiTranscript(items);
+          scrollToBottom(animate: false);
+          fastPathWorked = true;
+        }
+      } catch (_) {
+        // Fast path failed — fall back to full instance path below
+      }
+
+      // Background: start the live instance so it's ready when the user
+      // sends a message. If the fast path failed, also load messages here.
+      unawaited(Future(() async {
+        try {
+          await piBridge.switchSession(
+            sessionPath: sessionPath,
+            projectPath: cwd,
+          );
+        } catch (_) {
+          // Best effort
+        }
+        // If fast path didn't load messages, fall back to the instance-based
+        // getMessages (slower but always works).
+        if (!fastPathWorked) {
+          try {
+            final items = await piBridge.getMessages(projectPath: cwd);
+            chat.hydratePiTranscript(items);
+          } catch (_) {
+            // Best effort
+          }
+        }
+        try {
+          final piState = await piBridge.getState(projectPath: cwd);
+          chat.setPiModel(
+            piState.model != null
+                ? '${piState.model!.provider}/${piState.model!.id}'
+                : null,
+            modelData: piState.model,
+          );
+          chat.setPiThinkingLevel(piState.thinkingLevel);
+        } catch (_) {
+          // Best effort
+        }
+      }));
+    } else if (hasSessionPath) {
+      // Has path but no session ID or offline — just switch
+      try {
+        await piBridge.switchSession(
+          sessionPath: sessionPath,
+          projectPath: cwd,
+        );
       } catch (_) {
         // Best effort
       }
-    }
-    // Fetch state to sync model/thinking level and pick up session ID
-    if (!connection.isOfflineMode) {
-      try {
-        final piState = await piBridge.getState(projectPath: cwd);
-        if (piState.sessionId.isNotEmpty && widgetSessionId.isEmpty) {
-          chat.setPiSession(
-            sessionId: piState.sessionId,
-            cwd: cwd,
-            model: piState.model != null
+      // Fetch state to sync model/thinking level
+      if (!connection.isOfflineMode) {
+        try {
+          final piState = await piBridge.getState(projectPath: cwd);
+          if (piState.sessionId.isNotEmpty && widgetSessionId.isEmpty) {
+            chat.setPiSession(
+              sessionId: piState.sessionId,
+              cwd: cwd,
+              model: piState.model != null
+                  ? '${piState.model!.provider}/${piState.model!.id}'
+                  : null,
+              thinkingLevel: piState.thinkingLevel,
+            );
+          }
+          chat.setPiModel(
+            piState.model != null
                 ? '${piState.model!.provider}/${piState.model!.id}'
                 : null,
-            thinkingLevel: piState.thinkingLevel,
+            modelData: piState.model,
           );
+          chat.setPiThinkingLevel(piState.thinkingLevel);
+        } catch (_) {
+          // Best effort
         }
-        chat.setPiModel(
-          piState.model != null
-              ? '${piState.model!.provider}/${piState.model!.id}'
-              : null,
-          modelData: piState.model,
-        );
-        chat.setPiThinkingLevel(piState.thinkingLevel);
-      } catch (_) {
-        // Best effort
       }
     }
     scrollToBottom(animate: false);
