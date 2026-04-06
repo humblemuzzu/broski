@@ -996,6 +996,16 @@ export async function getSession(sessionId: string, cwd?: string): Promise<Claud
 	};
 }
 
+export async function getModifiedFiles(
+	sessionId: string,
+	cwd?: string,
+): Promise<import("../handlers/session-stats").ModifiedFileEntry[]> {
+	const filePath = await findSessionFile(sessionId, cwd);
+	if (!filePath) return [];
+	const { getCCModifiedFiles } = await import("./claude-code/cc-session-stats");
+	return getCCModifiedFiles(filePath);
+}
+
 export async function getSessionMessages(
 	sessionId: string,
 	cwd?: string,

@@ -1,4 +1,5 @@
 import type { ClaudeCodeSession, ClaudeCodeTranscriptMessage, ProjectSummary, ServerMessage } from "../types";
+import type { ModifiedFileEntry } from "./session-stats";
 import type { BroskiSessionSummary } from "../types/runtime";
 
 type ReplyFn = (msg: ServerMessage) => void;
@@ -13,6 +14,8 @@ type HandlerContext = {
 		forkSession: (sessionId: string, messageId: string, cwd?: string) => Promise<ClaudeCodeSession | null>;
 		renameSession: (sessionId: string, name: string, cwd?: string) => Promise<ClaudeCodeSession | null>;
 		listActiveSessions: () => { sessionId: string; cwd: string; startedAt: number | undefined }[];
+		resolveSessionFilePath: (sessionId: string, cwd?: string) => Promise<string | null>;
+		getModifiedFiles: (sessionId: string, cwd?: string) => Promise<ModifiedFileEntry[]>;
 	};
 	mapClaudeCodeSessionToRuntimeSession: (session: ClaudeCodeSession) => BroskiSessionSummary;
 };
@@ -102,6 +105,13 @@ export async function handle(message: Record<string, unknown>, reply: ReplyFn, c
 				startedAt: s.startedAt,
 			}));
 			reply({ type: "cc_active_sessions", data: sessions });
+			return true;
+		}
+		case "cc_get_modified_files": {
+			const sessionId = message.sessionId as string;
+			const cwd = message.cwd as string | undefined;
+			const files = await ctx.claudeCode.getModifiedFiles(sessionId, cwd);
+			reply({ type: "cc_modified_files", data: files, sessionId });
 			return true;
 		}
 		default:

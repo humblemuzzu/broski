@@ -562,6 +562,22 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
 			return true;
 		}
 
+		case "pi_get_modified_files": {
+			const instance = await pi.getOrCreateInstance(cwd);
+			const sessionPath = instance.session.sessionFile;
+			let files: Array<{ file: string; additions: number; deletions: number }> = [];
+			if (sessionPath) {
+				const { getPiModifiedFiles } = await import("../connectors/pi/pi-session-stats");
+				files = await getPiModifiedFiles(sessionPath);
+			}
+			reply({
+				type: "pi_modified_files",
+				data: files,
+				requestId: message.requestId,
+			});
+			return true;
+		}
+
 		case "pi_get_messages": {
 			const instance = await pi.getOrCreateInstance(cwd);
 			reply({

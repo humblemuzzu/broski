@@ -53,6 +53,7 @@ const SESSION_OPS = new Set([
 	"cc_rename_session",
 	"cc_background_session",
 	"cc_get_active_sessions",
+	"cc_get_modified_files",
 ]);
 
 const SKILL_OPS = new Set(["cc_list_skills", "cc_get_skill", "cc_save_skill", "cc_delete_skill"]);

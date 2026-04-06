@@ -136,6 +136,25 @@ extension BridgeServiceCodexThreads on BridgeService {
         .toList();
   }
 
+  Future<List<Map<String, dynamic>>> cxGetModifiedFiles(String threadId) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_get_modified_files',
+      'requestId': requestId,
+      'threadId': threadId,
+    });
+    try {
+      final response = await _waitFor(
+        'cx_modified_files',
+        requestId: requestId,
+      );
+      final data = response['data'] as List<dynamic>? ?? const [];
+      return data.whereType<Map<String, dynamic>>().toList(growable: false);
+    } catch (_) {
+      return const [];
+    }
+  }
+
   Future<List<Map<String, dynamic>>> cxListModels() async {
     final requestId = _generateRequestId();
     _socket.send({'type': 'cx_model_list', 'requestId': requestId});

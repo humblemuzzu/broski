@@ -94,8 +94,7 @@ void main() {
       const initial = BridgeConnectionState();
       final atMaxAttempts = initial.copyWith(
         status: ConnectionStatus.disconnected,
-        error:
-            'Unable to reconnect after 12 attempts. Still trying…',
+        error: 'Unable to reconnect after 12 attempts. Still trying…',
         isReconnecting: true, // Fix 1b: was false before
       );
 
@@ -433,7 +432,10 @@ void main() {
       final delay = computeBackoff(ReconnectPolicy.defaultPolicy, 0, random);
       // At attempt 0, base = initialMs * factor^max(0-1, 0) = initialMs * 1
       // With jitter, it should be close to initialMs
-      expect(delay, greaterThanOrEqualTo(ReconnectPolicy.defaultPolicy.initialMs));
+      expect(
+        delay,
+        greaterThanOrEqualTo(ReconnectPolicy.defaultPolicy.initialMs),
+      );
     });
   });
 
@@ -655,10 +657,7 @@ void main() {
 
     test('BridgeConnectionState.copyWith updates connection', () {
       const original = BridgeConnectionState(
-        connection: ConnectionInfo(
-          localIP: '192.168.1.10',
-          port: 3000,
-        ),
+        connection: ConnectionInfo(localIP: '192.168.1.10', port: 3000),
         status: ConnectionStatus.connected,
       );
 

@@ -174,6 +174,10 @@ extension RuntimeCcMetadataHandler on ChatSessionNotifier {
 
     final toolMeta = _ccMetadataFromToolUseResult(backendData['toolUseResult']);
 
+    // Accumulate file diffs into sessionDiffs for the Changes sidebar section.
+    // _ccMetadataFromToolUseResult sets 'filediff' when the tool modified a file.
+    _accumulateCcSessionDiff(toolMeta, toolUseId);
+
     final parentToolUseId = backendData['parentToolUseId']?.toString();
     if (parentToolUseId != null && parentToolUseId.isNotEmpty) {
       final nested = _ccNestedToolCalls[parentToolUseId];
@@ -219,5 +223,48 @@ extension RuntimeCcMetadataHandler on ChatSessionNotifier {
         },
       );
     });
+  }
+
+  /// Accumulate a CC file diff into sessionDiffs (sidebar Changes section).
+  /// Merges by file path: if the same file is edited again, update its entry.
+  void _accumulateCcSessionDiff(
+    Map<String, dynamic> toolMeta,
+    String toolUseId,
+  ) {
+    final filediff = toolMeta['filediff'];
+    if (filediff is! Map<String, dynamic>) return;
+
+    final file = filediff['file'] as String? ?? '';
+    if (file.isEmpty) return;
+
+    final entry = DiffEntry(
+      file: file,
+      before: filediff['before'] as String? ?? '',
+      after: filediff['after'] as String? ?? '',
+      additions: (filediff['additions'] as num?)?.toInt() ?? 0,
+      deletions: (filediff['deletions'] as num?)?.toInt() ?? 0,
+      diff: toolMeta['diff'] as String?,
+      partId: toolUseId,
+    );
+
+    // Merge: replace existing entry for same file, or append
+    final current = List<DiffEntry>.from(state.sessionDiffs);
+    final idx = current.indexWhere((d) => d.file == file);
+    if (idx >= 0) {
+      // Sum additions/deletions from the new edit
+      final old = current[idx];
+      current[idx] = DiffEntry(
+        file: file,
+        before: old.before,
+        after: entry.after,
+        additions: old.additions + entry.additions,
+        deletions: old.deletions + entry.deletions,
+        diff: entry.diff ?? old.diff,
+        partId: entry.partId,
+      );
+    } else {
+      current.add(entry);
+    }
+    state = state.copyWith(sessionDiffs: current);
   }
 }

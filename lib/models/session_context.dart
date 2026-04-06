@@ -113,6 +113,7 @@ class SessionContext {
     int cacheWriteTokens = 0,
     int contextWindow = kDefaultContextWindow,
     int contextTokens = 0,
+    List<ModifiedFile> modifiedFiles = const [],
   }) {
     final total = inputTokens + outputTokens;
     return SessionContext(
@@ -129,7 +130,7 @@ class SessionContext {
       // Codex SDK does not provide cost data
       cost: 0.0,
       lsp: const [],
-      modifiedFiles: const [],
+      modifiedFiles: modifiedFiles,
     );
   }
 
@@ -147,6 +148,7 @@ class SessionContext {
     /// This is NOT the cumulative cache — it's what's actually occupying the window right now.
     int actualContextTokens = 0,
     double totalCost = 0,
+    List<ModifiedFile> modifiedFiles = const [],
   }) {
     final total = inputTokens + outputTokens;
     return SessionContext(
@@ -154,9 +156,6 @@ class SessionContext {
         input: inputTokens,
         output: outputTokens,
         total: total,
-        // Use actualContextTokens from Pi's getContextUsage() which estimates
-        // what's actually in the context window. Falls back to just inputTokens
-        // (a rough but sane approximation — NOT including cache which is cumulative).
         contextTokens: actualContextTokens > 0
             ? actualContextTokens
             : inputTokens,
@@ -166,7 +165,7 @@ class SessionContext {
       ),
       cost: totalCost,
       lsp: const [],
-      modifiedFiles: const [],
+      modifiedFiles: modifiedFiles,
     );
   }
 

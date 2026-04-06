@@ -304,6 +304,16 @@ export async function findThreadFilePath(threadId: string): Promise<string | nul
 	return null;
 }
 
+/**
+ * Get per-file modified files for a Codex thread (for sidebar display).
+ */
+export async function getModifiedFiles(threadId: string): Promise<import("../handlers/session-stats").ModifiedFileEntry[]> {
+	const filePath = await findThreadFilePath(threadId);
+	if (!filePath) return [];
+	const { getCxModifiedFiles } = await import("./codex/cx-session-stats");
+	return getCxModifiedFiles(filePath);
+}
+
 // ============================================================================
 // TRANSCRIPT MESSAGE TYPES (must match `packages/bridge/src/types.ts`)
 // ============================================================================

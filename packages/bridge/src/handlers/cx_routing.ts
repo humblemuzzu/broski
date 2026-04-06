@@ -95,7 +95,7 @@ const THREAD_OPS = new Set([
 	"cx_thread_unsubscribe",
 ]);
 
-const FILE_OPS = new Set(["cx_get_thread_messages", "cx_undo_files"]);
+const FILE_OPS = new Set(["cx_get_thread_messages", "cx_undo_files", "cx_get_modified_files"]);
 
 const CONFIG_OPS = new Set(["cx_model_list", "cx_config_read", "cx_config_value_write"]);
 

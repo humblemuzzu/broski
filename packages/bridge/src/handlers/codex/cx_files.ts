@@ -4,6 +4,7 @@
  */
 
 import type { CodexAppServerClient } from "../../connectors/codex";
+import type { ModifiedFileEntry } from "../../handlers/session-stats";
 
 export type CxFilesHandlerContext = {
 	safeString: (v: unknown) => string;
@@ -11,6 +12,8 @@ export type CxFilesHandlerContext = {
 	logError: (message: string, ...args: unknown[]) => void;
 	codexFs: {
 		getThreadMessagesFromFs: (threadId: string) => Promise<any[]>;
+		findThreadFilePath: (threadId: string) => Promise<string | null>;
+		getModifiedFiles: (threadId: string) => Promise<ModifiedFileEntry[]>;
 	};
 	codexClient: CodexAppServerClient | null;
 	ensureUndoStack: (threadId: string) => string[];
@@ -225,6 +228,36 @@ export async function handleCxFiles(
 						revertedPaths: revertedAll,
 						error: err?.message ?? String(err),
 					},
+					requestId: message.requestId,
+				});
+			}
+			return true;
+		}
+		case "cx_get_modified_files": {
+			const threadId = safeString(message.threadId);
+			if (!threadId) {
+				reply({
+					type: "cx_modified_files",
+					data: [],
+					threadId: "",
+					requestId: message.requestId,
+				});
+				return true;
+			}
+			try {
+				const files = await codexFs.getModifiedFiles(threadId);
+				reply({
+					type: "cx_modified_files",
+					data: files,
+					threadId,
+					requestId: message.requestId,
+				});
+			} catch (err: any) {
+				logError(`[cx_get_modified_files] Error:`, err?.message ?? err);
+				reply({
+					type: "cx_modified_files",
+					data: [],
+					threadId,
 					requestId: message.requestId,
 				});
 			}

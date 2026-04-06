@@ -451,6 +451,27 @@ class PiBridgeService {
     return PiSessionStats.fromJson(data);
   }
 
+  Future<List<Map<String, dynamic>>> getModifiedFiles({
+    String? projectPath,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'pi_get_modified_files',
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    try {
+      final response = await _waitFor(
+        'pi_modified_files',
+        requestId: requestId,
+      );
+      final data = response['data'] as List<dynamic>? ?? const [];
+      return data.whereType<Map<String, dynamic>>().toList(growable: false);
+    } catch (_) {
+      return const [];
+    }
+  }
+
   Future<bool> setSessionName({
     required String name,
     String? projectPath,

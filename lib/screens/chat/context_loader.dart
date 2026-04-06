@@ -26,6 +26,23 @@ Future<SessionContext> loadSessionContext({
     final chatState = ref.read(chatSessionProvider);
     final tokenUsage = chatState.ccTokenUsage;
     final ccConfig = ref.read(ccConfigProvider).valueOrNull;
+    final sessionId = chatState.ccSessionId ?? widget.ccSession?.id ?? '';
+
+    // Fetch per-file modified files from bridge (scans CC .jsonl transcript)
+    List<ModifiedFile> modifiedFiles = const [];
+    if (sessionId.isNotEmpty) {
+      try {
+        final bridge = ref.read(bridgeServiceProvider);
+        final raw = await bridge.ccGetModifiedFiles(
+          sessionId,
+          cwd: chatState.ccCwd,
+        );
+        modifiedFiles = raw.map((item) => ModifiedFile.fromJson(item)).toList();
+      } catch (_) {
+        // Non-critical — sidebar just shows empty
+      }
+    }
+
     final context = SessionContext.fromClaudeCode(
       inputTokens: tokenUsage?.inputTokens ?? 0,
       outputTokens: tokenUsage?.outputTokens ?? 0,
@@ -37,9 +54,8 @@ Future<SessionContext> loadSessionContext({
       contextWindow:
           tokenUsage?.effectiveContextWindow ?? kDefaultContextWindow,
       lastIterContextTokens: tokenUsage?.lastIterContextTokens,
-      modifiedFiles: const [],
+      modifiedFiles: modifiedFiles,
     );
-    final sessionId = chatState.ccSessionId ?? widget.ccSession?.id ?? '';
     if (sessionId.isNotEmpty) {
       await storage.cacheSessionContext(sessionId, context);
     }
@@ -60,6 +76,20 @@ Future<SessionContext> loadSessionContext({
     final reasoningTokens = total?.reasoningOutputTokens ?? 0;
     final cacheWriteTokens = total?.cacheWriteTokens ?? 0;
     final contextTokens = last?.inputTokens ?? inputTokens;
+    final threadId = chatState.cxThreadId ?? widget.cxThread?.id ?? '';
+
+    // Fetch per-file modified files from bridge (scans Codex .jsonl)
+    List<ModifiedFile> modifiedFiles = const [];
+    if (threadId.isNotEmpty) {
+      try {
+        final bridge = ref.read(bridgeServiceProvider);
+        final raw = await bridge.cxGetModifiedFiles(threadId);
+        modifiedFiles = raw.map((item) => ModifiedFile.fromJson(item)).toList();
+      } catch (_) {
+        // Non-critical — sidebar just shows empty
+      }
+    }
+
     final context = SessionContext.fromCodex(
       inputTokens: inputTokens,
       outputTokens: outputTokens,
@@ -68,8 +98,8 @@ Future<SessionContext> loadSessionContext({
       cacheWriteTokens: cacheWriteTokens,
       contextWindow: contextWindow,
       contextTokens: contextTokens,
+      modifiedFiles: modifiedFiles,
     );
-    final threadId = chatState.cxThreadId ?? widget.cxThread?.id ?? '';
     if (threadId.isNotEmpty) {
       await storage.cacheSessionContext(threadId, context);
     }
@@ -82,7 +112,19 @@ Future<SessionContext> loadSessionContext({
       final piBridge = ref.read(piBridgeServiceProvider);
       final chatState = ref.read(chatSessionProvider);
       final cwd = chatState.piCwd;
-      final stats = await piBridge.getSessionStats(projectPath: cwd);
+
+      // Fetch stats and modified files in parallel
+      final statsFuture = piBridge.getSessionStats(projectPath: cwd);
+      final filesFuture = piBridge.getModifiedFiles(projectPath: cwd);
+      final stats = await statsFuture;
+      List<ModifiedFile> modifiedFiles = const [];
+      try {
+        final raw = await filesFuture;
+        modifiedFiles = raw.map((item) => ModifiedFile.fromJson(item)).toList();
+      } catch (_) {
+        // Non-critical
+      }
+
       final ctxUsage = stats.contextUsage;
       return SessionContext.fromPi(
         inputTokens: stats.tokens.input,
@@ -95,6 +137,7 @@ Future<SessionContext> loadSessionContext({
             chatState.piModelData?.contextWindow ??
             kDefaultContextWindow,
         actualContextTokens: ctxUsage?.tokens ?? 0,
+        modifiedFiles: modifiedFiles,
       );
     } catch (_) {
       return SessionContext.empty();

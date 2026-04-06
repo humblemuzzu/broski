@@ -51,3 +51,31 @@ export function aggregateFileDiffs(
 
 /** Empty summary constant for sessions with no file changes. */
 export const EMPTY_SUMMARY: SessionDiffSummary = { additions: 0, deletions: 0, files: 0 };
+
+/** Per-file modified file entry (same shape the phone sidebar expects). */
+export type ModifiedFileEntry = { file: string; additions: number; deletions: number };
+
+/**
+ * Deduplicate per-file diffs: same file edited multiple times → sum all edits.
+ * Returns a clean array suitable for the sidebar's modifiedFiles list.
+ */
+export function deduplicateFileDiffs(
+	diffs: Array<{ file: string; additions: number; deletions: number }>,
+): ModifiedFileEntry[] {
+	const byFile = new Map<string, { additions: number; deletions: number }>();
+	for (const d of diffs) {
+		if (!d.file) continue;
+		const existing = byFile.get(d.file);
+		if (existing) {
+			existing.additions += d.additions;
+			existing.deletions += d.deletions;
+		} else {
+			byFile.set(d.file, { additions: d.additions, deletions: d.deletions });
+		}
+	}
+	return Array.from(byFile.entries()).map(([file, stats]) => ({
+		file,
+		additions: stats.additions,
+		deletions: stats.deletions,
+	}));
+}

@@ -592,6 +592,7 @@ export type ClientMessage =
 			limit?: number;
 	  }
 	| { type: "cc_delete_session"; sessionId: string; cwd?: string }
+	| { type: "cc_get_modified_files"; sessionId: string; cwd?: string }
 	| {
 			type: "cc_fork_session";
 			sessionId: string;
@@ -882,6 +883,7 @@ export type ClientMessage =
 			extraLogFiles?: string[] | null;
 	  }
 	| { type: "cx_undo_files"; threadId: string; count?: number }
+	| { type: "cx_get_modified_files"; threadId: string }
 	| { type: "cx_agents_read"; cwd: string }
 	| { type: "cx_agents_write"; cwd: string; content: string }
 	// Codex new features (mid-2026 SDK update)
@@ -1045,6 +1047,7 @@ export type ClientMessage =
 	| { type: "pi_switch_session"; sessionPath: string; projectPath?: string }
 	| { type: "pi_delete_session"; sessionPath: string; projectPath?: string }
 	| { type: "pi_get_session_stats"; projectPath?: string }
+	| { type: "pi_get_modified_files"; projectPath?: string }
 	| { type: "pi_get_messages"; projectPath?: string }
 	| { type: "pi_set_session_name"; name: string; projectPath?: string }
 	| { type: "pi_fork"; entryId: string; projectPath?: string }
@@ -1737,6 +1740,12 @@ export type ServerMessage =
 			requestId?: string;
 	  }
 	| {
+			type: "cc_modified_files";
+			data: Array<{ file: string; additions: number; deletions: number }>;
+			sessionId: string;
+			requestId?: string;
+	  }
+	| {
 			type: "cc_session_forked";
 			data: ClaudeCodeSession | null;
 			requestId?: string;
@@ -2030,6 +2039,12 @@ export type ServerMessage =
 			requestId?: string;
 	  }
 	| {
+			type: "cx_modified_files";
+			data: Array<{ file: string; additions: number; deletions: number }>;
+			threadId: string;
+			requestId?: string;
+	  }
+	| {
 			type: "cx_agents";
 			data: { exists: boolean; path: string; content: string };
 			requestId?: string;
@@ -2187,6 +2202,7 @@ export type ServerMessage =
 	| { type: "pi_session_switched"; data: boolean; requestId?: string }
 	| { type: "pi_session_deleted"; data: boolean; requestId?: string }
 	| { type: "pi_session_stats"; data: any; requestId?: string }
+	| { type: "pi_modified_files"; data: Array<{ file: string; additions: number; deletions: number }>; requestId?: string }
 	| { type: "pi_messages"; data: any[]; requestId?: string }
 	| { type: "pi_session_name_set"; data: boolean; requestId?: string }
 	| {
