@@ -2284,7 +2284,9 @@ export type ServerMessage =
 	| { type: "unified_projects"; backend: BroskiBackend; data: unknown[]; requestId?: string }
 	| { type: "unified_session_deleted"; backend: BroskiBackend; data: boolean; requestId?: string }
 	| { type: "unified_model_set"; backend: BroskiBackend; data: boolean; requestId?: string }
-	| { type: "unified_aborted"; backend: BroskiBackend; data: boolean; requestId?: string };
+	| { type: "unified_aborted"; backend: BroskiBackend; data: boolean; requestId?: string }
+	// Network endpoint live updates (bridge re-discovers IPs periodically)
+	| { type: "network_endpoints_updated"; data: { localIP: string | null; tailscaleIP: string | null; hotspotIP: string | null; port: number } };
 
 // Feature 11: File Content
 export type FileContent = {

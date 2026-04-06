@@ -75,6 +75,7 @@ import {
 	isTailscaleAddress,
 	resolveClaudeCommandFilePath,
 } from "./security";
+import { getHotspotIP, getLocalIP, getTailscaleIPAsync } from "./network";
 import { ensureTlsMaterial, isTlsEnabledByEnv, type TlsMaterial } from "./tls";
 import type {
 	AgentStatusInfo,
@@ -2203,6 +2204,51 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		})().catch(() => {});
 	}, 60_000);
 
+	// ── Network endpoint watcher ─────────────────────────────────────────
+	// Every 10s, re-discover IPs and broadcast changes to connected phones.
+	// getLocalIP/getHotspotIP use os.networkInterfaces() (microseconds, sync).
+	// getTailscaleIPAsync uses Bun.spawn (non-blocking, won't stall streaming).
+	let _lastLocalIP: string | null = getLocalIP();
+	let _lastTailscaleIP: string | null = null;
+	let _lastHotspotIP: string | null = getHotspotIP();
+	// Seed Tailscale IP asynchronously on first tick (don't block startup).
+	void getTailscaleIPAsync().then((ip) => {
+		_lastTailscaleIP = ip;
+	});
+	const networkWatchTimer = setInterval(() => {
+		void (async () => {
+			const localIP = getLocalIP();
+			const hotspotIP = getHotspotIP();
+			const tailscaleIP = await getTailscaleIPAsync();
+
+			if (
+				localIP === _lastLocalIP &&
+				tailscaleIP === _lastTailscaleIP &&
+				hotspotIP === _lastHotspotIP
+			) {
+				return; // Nothing changed
+			}
+
+			_lastLocalIP = localIP;
+			_lastTailscaleIP = tailscaleIP;
+			_lastHotspotIP = hotspotIP;
+
+			logInfo(
+				`[Network] Endpoints changed — local=${localIP}, tailscale=${tailscaleIP}, hotspot=${hotspotIP}`,
+			);
+
+			broadcast({
+				type: "network_endpoints_updated",
+				data: {
+					localIP,
+					tailscaleIP,
+					hotspotIP,
+					port: securePort,
+				},
+			} as ServerMessage);
+		})().catch(() => {});
+	}, 10_000);
+
 	const ALLOWED_PROXY_PORTS = buildProxyPortAllowlist();
 
 	const httpDeps: HandleHttpDeps = {
@@ -3037,6 +3083,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			clearInterval(heartbeatTimer);
 			clearInterval(tickTimer);
 			clearInterval(entitlementRefreshTimer);
+			clearInterval(networkWatchTimer);
 			for (const t of cloudAuthTimers.values()) clearTimeout(t);
 			cloudAuthTimers.clear();
 			for (const waiter of ccPermissionWaiters.values()) {

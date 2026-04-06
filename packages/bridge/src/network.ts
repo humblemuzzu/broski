@@ -56,6 +56,21 @@ export async function getTailscaleIP(): Promise<string | null> {
 	return null;
 }
 
+/** Non-blocking variant for use in periodic polling (won't stall the event loop). */
+export async function getTailscaleIPAsync(): Promise<string | null> {
+	try {
+		const proc = Bun.spawn([TAILSCALE_CLI, "ip", "-4"], {
+			stdout: "pipe",
+			stderr: "ignore",
+		});
+		const text = await new Response(proc.stdout).text();
+		const trimmed = text.trim();
+		return trimmed.startsWith("100.") ? trimmed : null;
+	} catch {
+		return null;
+	}
+}
+
 export async function isTailscaleConnected(): Promise<boolean> {
 	const output = runWithTimeout(TAILSCALE_CLI, ["status"]);
 	if (!output) return false;

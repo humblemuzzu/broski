@@ -1172,6 +1172,34 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
       );
     }
 
+    if (message['type'] == 'network_endpoints_updated') {
+      final data = message['data'] as Map<String, dynamic>? ?? const {};
+      final conn = state.connection;
+      if (conn != null) {
+        final updated = ConnectionInfo(
+          localIP: data['localIP'] as String? ?? conn.localIP,
+          tailscaleIP: data['tailscaleIP'] as String? ?? conn.tailscaleIP,
+          hotspotIP: data['hotspotIP'] as String? ?? conn.hotspotIP,
+          magicDNSHostname: conn.magicDNSHostname,
+          funnelURL: conn.funnelURL,
+          port: conn.port,
+          version: conn.version,
+          authToken: conn.authToken,
+          tlsEnabled: conn.tlsEnabled,
+          certSha256: conn.certSha256,
+        );
+        if (!conn.sameIdentity(updated)) {
+          state = state.copyWith(connection: updated);
+          _storage.saveConnection(updated);
+          debugPrint(
+            '[Connection] Endpoints updated — '
+            'local=${updated.localIP}, ts=${updated.tailscaleIP}, '
+            'hotspot=${updated.hotspotIP}',
+          );
+        }
+      }
+    }
+
     if (message['type'] == 'device_connected') {
       final data = message['data'] as Map<String, dynamic>? ?? const {};
       final device = DeviceInfo.fromJson(data);

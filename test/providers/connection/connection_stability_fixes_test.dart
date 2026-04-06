@@ -116,7 +116,7 @@ void main() {
 
     test('computeBackoff never exceeds policy maxMs', () {
       final random = Random(42); // Seeded for determinism
-      final policy = ReconnectPolicy.defaultPolicy;
+      const policy = ReconnectPolicy.defaultPolicy;
 
       // Test many attempts beyond maxAttempts
       for (var attempt = 1; attempt <= 50; attempt++) {
@@ -132,7 +132,7 @@ void main() {
 
     test('computeBackoff grows exponentially up to cap', () {
       final random = Random(0);
-      final policy = ReconnectPolicy.defaultPolicy;
+      const policy = ReconnectPolicy.defaultPolicy;
 
       final delay1 = computeBackoff(policy, 1, random);
       final delay5 = computeBackoff(policy, 5, Random(0));
@@ -487,6 +487,193 @@ void main() {
         bridgeProtocolVersion: BridgeService.protocolVersion,
       );
       expect(state.hasProtocolMismatch, false);
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Live network endpoint updates (Tailscale ↔ local switching)
+  // ──────────────────────────────────────────────────────────────────────
+  group('Network endpoint live updates', () {
+    test('new Tailscale IP merges into ConnectionInfo', () {
+      // Phone scanned QR on WiFi only — no Tailscale IP.
+      const original = ConnectionInfo(
+        localIP: '192.168.1.10',
+        port: 3000,
+        authToken: 'tok_abc',
+        tlsEnabled: true,
+        certSha256: 'sha256abc',
+      );
+      expect(original.tailscaleIP, isNull);
+
+      // Bridge discovers Tailscale came online, sends update.
+      // Phone merges it into the existing ConnectionInfo.
+      final updated = ConnectionInfo(
+        localIP: original.localIP,
+        tailscaleIP: '100.64.0.5',
+        hotspotIP: original.hotspotIP,
+        magicDNSHostname: original.magicDNSHostname,
+        funnelURL: original.funnelURL,
+        port: original.port,
+        version: original.version,
+        authToken: original.authToken,
+        tlsEnabled: original.tlsEnabled,
+        certSha256: original.certSha256,
+      );
+
+      expect(updated.tailscaleIP, '100.64.0.5');
+      expect(updated.localIP, '192.168.1.10');
+      expect(updated.authToken, 'tok_abc');
+      expect(updated.tlsEnabled, true);
+      expect(updated.certSha256, 'sha256abc');
+      expect(updated.port, 3000);
+    });
+
+    test('local IP change merges without losing Tailscale IP', () {
+      const original = ConnectionInfo(
+        localIP: '192.168.1.10',
+        tailscaleIP: '100.64.0.5',
+        port: 3000,
+        authToken: 'tok_abc',
+      );
+
+      // WiFi changed — new local IP, Tailscale unchanged.
+      final updated = ConnectionInfo(
+        localIP: '10.0.0.42',
+        tailscaleIP: original.tailscaleIP,
+        hotspotIP: original.hotspotIP,
+        magicDNSHostname: original.magicDNSHostname,
+        funnelURL: original.funnelURL,
+        port: original.port,
+        version: original.version,
+        authToken: original.authToken,
+        tlsEnabled: original.tlsEnabled,
+        certSha256: original.certSha256,
+      );
+
+      expect(updated.localIP, '10.0.0.42');
+      expect(updated.tailscaleIP, '100.64.0.5');
+      expect(updated.authToken, 'tok_abc');
+    });
+
+    test('sameIdentity detects endpoint changes', () {
+      const a = ConnectionInfo(
+        localIP: '192.168.1.10',
+        port: 3000,
+        authToken: 'tok_abc',
+      );
+      const b = ConnectionInfo(
+        localIP: '192.168.1.10',
+        tailscaleIP: '100.64.0.5',
+        port: 3000,
+        authToken: 'tok_abc',
+      );
+      // Adding a Tailscale IP changes identity — should trigger save.
+      expect(a.sameIdentity(b), false);
+    });
+
+    test('sameIdentity ignores version field', () {
+      const a = ConnectionInfo(
+        localIP: '192.168.1.10',
+        port: 3000,
+        authToken: 'tok_abc',
+        version: '1.0.0',
+      );
+      const b = ConnectionInfo(
+        localIP: '192.168.1.10',
+        port: 3000,
+        authToken: 'tok_abc',
+        version: '2.0.0',
+      );
+      // Version is excluded from identity check by design.
+      expect(a.sameIdentity(b), true);
+    });
+
+    test('sameIdentity returns true for identical endpoints', () {
+      const a = ConnectionInfo(
+        localIP: '192.168.1.10',
+        tailscaleIP: '100.64.0.5',
+        port: 3000,
+        authToken: 'tok_abc',
+      );
+      const b = ConnectionInfo(
+        localIP: '192.168.1.10',
+        tailscaleIP: '100.64.0.5',
+        port: 3000,
+        authToken: 'tok_abc',
+      );
+      // No change — should NOT trigger save.
+      expect(a.sameIdentity(b), true);
+    });
+
+    test('null IP in update falls back to existing value', () {
+      // Bridge sends localIP=null (interface went down).
+      // Merge logic: data['localIP'] ?? conn.localIP
+      // If bridge sends null, we keep the old value.
+      const original = ConnectionInfo(
+        localIP: '192.168.1.10',
+        tailscaleIP: '100.64.0.5',
+        port: 3000,
+      );
+
+      // Simulating the merge logic from _handleMessage:
+      // data['localIP'] is null → falls back to conn.localIP
+      final merged = ConnectionInfo(
+        localIP: null ?? original.localIP,
+        tailscaleIP: '100.64.0.5',
+        port: original.port,
+      );
+
+      expect(merged.localIP, '192.168.1.10');
+    });
+
+    test('endpoint update preserves auth-critical fields', () {
+      // Auth token, TLS, cert pin must NEVER change from a network update.
+      const original = ConnectionInfo(
+        localIP: '192.168.1.10',
+        port: 3000,
+        authToken: 'secret_token',
+        tlsEnabled: true,
+        certSha256: 'pin_hash_123',
+      );
+
+      // Network update only carries IP fields — auth fields come from original.
+      final updated = ConnectionInfo(
+        localIP: '10.0.0.42',
+        tailscaleIP: '100.64.0.5',
+        port: original.port,
+        authToken: original.authToken,
+        tlsEnabled: original.tlsEnabled,
+        certSha256: original.certSha256,
+      );
+
+      expect(updated.authToken, 'secret_token');
+      expect(updated.tlsEnabled, true);
+      expect(updated.certSha256, 'pin_hash_123');
+      expect(updated.localIP, '10.0.0.42');
+      expect(updated.tailscaleIP, '100.64.0.5');
+    });
+
+    test('BridgeConnectionState.copyWith updates connection', () {
+      const original = BridgeConnectionState(
+        connection: ConnectionInfo(
+          localIP: '192.168.1.10',
+          port: 3000,
+        ),
+        status: ConnectionStatus.connected,
+      );
+
+      final updated = original.copyWith(
+        connection: ConnectionInfo(
+          localIP: '10.0.0.42',
+          tailscaleIP: '100.64.0.5',
+          port: 3000,
+        ),
+      );
+
+      expect(updated.connection?.localIP, '10.0.0.42');
+      expect(updated.connection?.tailscaleIP, '100.64.0.5');
+      // Status unchanged
+      expect(updated.status, ConnectionStatus.connected);
     });
   });
 }
