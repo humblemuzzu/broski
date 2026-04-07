@@ -660,6 +660,7 @@ class PiTreeNode {
   final String type;
   final String timestamp;
   final String? label;
+  final String? labelTimestamp;
   final int depth;
   final bool isOnActivePath;
   final int childCount;
@@ -687,6 +688,7 @@ class PiTreeNode {
     required this.type,
     required this.timestamp,
     this.label,
+    this.labelTimestamp,
     this.depth = 0,
     this.isOnActivePath = false,
     this.childCount = 0,
@@ -708,6 +710,7 @@ class PiTreeNode {
       type: json['type'] as String? ?? '',
       timestamp: json['timestamp'] as String? ?? '',
       label: json['label'] as String?,
+      labelTimestamp: json['labelTimestamp'] as String?,
       depth: json['depth'] as int? ?? 0,
       isOnActivePath: json['isOnActivePath'] as bool? ?? false,
       childCount: json['childCount'] as int? ?? 0,

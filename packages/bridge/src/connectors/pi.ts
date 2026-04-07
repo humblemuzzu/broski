@@ -1,5 +1,6 @@
+import { copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { rm } from "node:fs/promises";
-import { basename, resolve, sep } from "node:path";
+import { basename, join, resolve, sep } from "node:path";
 import type { ThinkingLevel } from "@mariozechner/pi-agent-core";
 import type { Model } from "@mariozechner/pi-ai";
 import {
@@ -11,6 +12,7 @@ import {
 	getAgentDir,
 	ModelRegistry,
 	type SessionInfo,
+	type SessionStartEvent,
 	SessionManager,
 	SettingsManager,
 	VERSION,
@@ -96,6 +98,314 @@ const drainAuthStorageErrors = (): void => {
 	}
 };
 
+// ── Session lifecycle helpers ────────────────────────────────────────────────
+
+function extractUserMessageText(content: string | Array<{ type: string; text?: string }>): string {
+	if (typeof content === "string") return content;
+	return content
+		.filter((part): part is { type: "text"; text: string } => part.type === "text" && typeof part.text === "string")
+		.map((part) => part.text)
+		.join("");
+}
+
+function makeEmitter(instance: PiInstance) {
+	return (event: AgentSessionEvent | PiBridgeSyntheticEvent) => {
+		for (const listener of instance.listeners) {
+			try {
+				listener(event);
+			} catch {
+				// Listener errors should never crash the bridge.
+			}
+		}
+	};
+}
+
+function makeExtensionUiBridge(instance: PiInstance) {
+	const emitToListeners = makeEmitter(instance);
+	return createPiExtensionUiBridge((streamMessage) => {
+		emitToListeners({ type: "__pi_bridge_stream__", streamMessage });
+	});
+}
+
+function buildCommandContextActions(instance: PiInstance) {
+	return {
+		waitForIdle: () => instance.session.agent.waitForIdle(),
+		newSession: async (setupOptions?: { parentSession?: string; setup?: (sm: SessionManager) => Promise<void> }) => {
+			return createNewSession(instance, setupOptions);
+		},
+		fork: async (entryId: string) => {
+			return forkSession(instance, entryId);
+		},
+		navigateTree: async (
+			targetId: string,
+			navOptions?: {
+				summarize?: boolean;
+				customInstructions?: string;
+				replaceInstructions?: boolean;
+				label?: string;
+			},
+		) => {
+			const result = await instance.session.navigateTree(targetId, {
+				summarize: navOptions?.summarize,
+				customInstructions: navOptions?.customInstructions,
+				replaceInstructions: navOptions?.replaceInstructions,
+				label: navOptions?.label,
+			});
+			return { cancelled: result.cancelled };
+		},
+		switchSession: async (sessionPath: string) => {
+			return switchToSession(instance, sessionPath);
+		},
+		reload: async () => {
+			await instance.session.reload();
+		},
+	};
+}
+
+async function bindExtensionsOnSession(instance: PiInstance, session: AgentSession): Promise<void> {
+	await session.bindExtensions({
+		uiContext: instance.extensionUiBridge.uiContext,
+		commandContextActions: buildCommandContextActions(instance),
+		onError: (error) => {
+			instance.extensionUiBridge.uiContext.notify(`[${error.extensionPath}] ${error.error}`, "error");
+		},
+	});
+}
+
+/**
+ * Core rebuild: tears down the current session and creates a new one.
+ *
+ * After this call, instance.session is the NEW session. The old session is disposed.
+ * All listeners stay attached (they reference instance.listeners which is stable).
+ */
+async function rebuildInstanceSession(
+	instance: PiInstance,
+	sessionManager: SessionManager,
+	sessionStartEvent?: SessionStartEvent,
+): Promise<void> {
+	// 1. Emit shutdown to old extensions (best-effort)
+	try {
+		const runner = instance.session.extensionRunner;
+		if (runner) {
+			await runner.emit({ type: "session_shutdown" as const });
+		}
+	} catch {
+		// Shutdown event failure should not block rebuild.
+	}
+
+	// 2. Tear down old session
+	instance.unsubscribe();
+	instance.extensionUiBridge.dispose();
+	instance.session.dispose();
+
+	// 3. Reload resources for consistency
+	await instance.resourceLoader.reload();
+
+	// 4. Create new session
+	const { session } = await createAgentSession({
+		cwd: instance.cwd,
+		authStorage: getAuthStorage(),
+		modelRegistry: getModelRegistry(),
+		sessionManager,
+		settingsManager: instance.settingsManager,
+		resourceLoader: instance.resourceLoader,
+		sessionStartEvent,
+	});
+
+	// 5. Swap references
+	instance.session = session;
+	instance.extensionUiBridge = makeExtensionUiBridge(instance);
+	const emitToListeners = makeEmitter(instance);
+	instance.unsubscribe = session.subscribe((event) => {
+		emitToListeners(event);
+	});
+
+	// 6. Bind extensions on new session
+	await bindExtensionsOnSession(instance, session);
+}
+
+// ── Public session lifecycle functions ───────────────────────────────────────
+
+/**
+ * Create a new empty session for a Pi instance.
+ * Mirrors AgentSessionRuntime.newSession().
+ */
+export async function createNewSession(
+	instance: PiInstance,
+	setupOptions?: { parentSession?: string; setup?: (sm: SessionManager) => Promise<void> },
+): Promise<{ cancelled: boolean }> {
+	// Emit before_switch for extension cancellation
+	const runner = instance.session.extensionRunner;
+	if (runner?.hasHandlers("session_before_switch")) {
+		const result = await runner.emit({ type: "session_before_switch", reason: "new" } as any);
+		if ((result as any)?.cancel === true) return { cancelled: true };
+	}
+
+	const previousSessionFile = instance.session.sessionFile ?? undefined;
+	const sessionDir = instance.session.sessionManager.getSessionDir();
+	const newManager = SessionManager.create(instance.cwd, sessionDir);
+	if (setupOptions?.parentSession) {
+		newManager.newSession({ parentSession: setupOptions.parentSession });
+	}
+
+	await rebuildInstanceSession(instance, newManager, {
+		type: "session_start",
+		reason: "new",
+		previousSessionFile,
+	});
+
+	if (setupOptions?.setup) {
+		await setupOptions.setup(instance.session.sessionManager);
+		instance.session.agent.state.messages = instance.session.sessionManager.buildSessionContext().messages;
+	}
+
+	return { cancelled: false };
+}
+
+/**
+ * Switch to an existing session.
+ * Mirrors AgentSessionRuntime.switchSession().
+ */
+export async function switchToSession(
+	instance: PiInstance,
+	sessionPath: string,
+): Promise<{ cancelled: boolean }> {
+	const runner = instance.session.extensionRunner;
+	if (runner?.hasHandlers("session_before_switch")) {
+		const result = await runner.emit({
+			type: "session_before_switch",
+			reason: "resume",
+			targetSessionFile: sessionPath,
+		} as any);
+		if ((result as any)?.cancel === true) return { cancelled: true };
+	}
+
+	const previousSessionFile = instance.session.sessionFile ?? undefined;
+	const sm = SessionManager.open(sessionPath);
+
+	await rebuildInstanceSession(instance, sm, {
+		type: "session_start",
+		reason: "resume",
+		previousSessionFile,
+	});
+
+	return { cancelled: false };
+}
+
+/**
+ * Fork from a specific user message entry.
+ * Mirrors AgentSessionRuntime.fork().
+ */
+export async function forkSession(
+	instance: PiInstance,
+	entryId: string,
+): Promise<{ cancelled: boolean; selectedText?: string }> {
+	// Emit before_fork for extension cancellation
+	const runner = instance.session.extensionRunner;
+	if (runner?.hasHandlers("session_before_fork")) {
+		const result = await runner.emit({ type: "session_before_fork", entryId } as any);
+		if ((result as any)?.cancel === true) return { cancelled: true };
+	}
+
+	const sm = instance.session.sessionManager;
+	const selectedEntry = sm.getEntry(entryId) as any;
+	if (!selectedEntry || selectedEntry.type !== "message" || selectedEntry.message?.role !== "user") {
+		throw new Error("Invalid entry ID for forking");
+	}
+
+	const previousSessionFile = instance.session.sessionFile ?? undefined;
+	const selectedText = extractUserMessageText(selectedEntry.message.content);
+	const sessionDir = sm.getSessionDir();
+
+	if (sm.isPersisted()) {
+		const currentSessionFile = instance.session.sessionFile;
+		if (!currentSessionFile) throw new Error("Persisted session is missing a session file");
+
+		if (!selectedEntry.parentId) {
+			// Fork from root — create new session with parent link
+			const newManager = SessionManager.create(instance.cwd, sessionDir);
+			newManager.newSession({ parentSession: currentSessionFile });
+			await rebuildInstanceSession(instance, newManager, {
+				type: "session_start",
+				reason: "fork",
+				previousSessionFile,
+			});
+			return { cancelled: false, selectedText };
+		}
+
+		// Fork from mid-conversation — create branched session file
+		const sourceManager = SessionManager.open(currentSessionFile, sessionDir);
+		const forkedPath = sourceManager.createBranchedSession(selectedEntry.parentId);
+		if (!forkedPath) throw new Error("Failed to create forked session");
+
+		const forkedManager = SessionManager.open(forkedPath, sessionDir);
+		await rebuildInstanceSession(instance, forkedManager, {
+			type: "session_start",
+			reason: "fork",
+			previousSessionFile,
+		});
+		return { cancelled: false, selectedText };
+	}
+
+	// Non-persisted session — branch in place
+	if (!selectedEntry.parentId) {
+		sm.newSession({ parentSession: instance.session.sessionFile });
+	} else {
+		const branchedPath = sm.createBranchedSession(selectedEntry.parentId);
+		if (!branchedPath) throw new Error("Failed to create forked session (non-persisted branch)");
+	}
+	await rebuildInstanceSession(instance, sm, {
+		type: "session_start",
+		reason: "fork",
+		previousSessionFile,
+	});
+	return { cancelled: false, selectedText };
+}
+
+/**
+ * Import a JSONL session file.
+ * Mirrors AgentSessionRuntime.importFromJsonl().
+ */
+export async function importFromJsonl(
+	instance: PiInstance,
+	inputPath: string,
+): Promise<{ cancelled: boolean }> {
+	const resolvedPath = resolve(inputPath);
+	if (!existsSync(resolvedPath)) throw new Error(`File not found: ${resolvedPath}`);
+
+	const sessionDir = instance.session.sessionManager.getSessionDir();
+	if (!existsSync(sessionDir)) mkdirSync(sessionDir, { recursive: true });
+
+	const destinationPath = join(sessionDir, basename(resolvedPath));
+
+	// Emit before_switch for extension cancellation
+	const runner = instance.session.extensionRunner;
+	if (runner?.hasHandlers("session_before_switch")) {
+		const result = await runner.emit({
+			type: "session_before_switch",
+			reason: "resume",
+			targetSessionFile: destinationPath,
+		} as any);
+		if ((result as any)?.cancel === true) return { cancelled: true };
+	}
+
+	const previousSessionFile = instance.session.sessionFile ?? undefined;
+	if (resolve(destinationPath) !== resolvedPath) {
+		copyFileSync(resolvedPath, destinationPath);
+	}
+
+	const sm = SessionManager.open(destinationPath, sessionDir);
+	await rebuildInstanceSession(instance, sm, {
+		type: "session_start",
+		reason: "resume",
+		previousSessionFile,
+	});
+
+	return { cancelled: false };
+}
+
+// ── Instance creation ───────────────────────────────────────────────────────
+
 async function buildInstance(cwd: string, options?: GetOrCreatePiOptions): Promise<PiInstance> {
 	const settingsManager = SettingsManager.create(cwd);
 	const resourceLoader = new DefaultResourceLoader({ cwd, settingsManager });
@@ -121,69 +431,27 @@ async function buildInstance(cwd: string, options?: GetOrCreatePiOptions): Promi
 
 	const listeners = new Set<PiEventListener>();
 
-	const emitToListeners = (event: AgentSessionEvent | PiBridgeSyntheticEvent) => {
-		for (const listener of listeners) {
-			try {
-				listener(event);
-			} catch {
-				// Listener errors should never crash the bridge.
-			}
-		}
-	};
-
-	const extensionUiBridge = createPiExtensionUiBridge((streamMessage) => {
-		emitToListeners({
-			type: "__pi_bridge_stream__",
-			streamMessage,
-		});
-	});
-
-	await session.bindExtensions({
-		uiContext: extensionUiBridge.uiContext,
-		commandContextActions: {
-			waitForIdle: () => session.agent.waitForIdle(),
-			newSession: async (setupOptions) => ({
-				cancelled: !(await session.newSession(setupOptions)),
-			}),
-			fork: async (entryId) => {
-				const result = await session.fork(entryId);
-				return { cancelled: result.cancelled };
-			},
-			navigateTree: async (targetId, navOptions) => {
-				const result = await session.navigateTree(targetId, {
-					summarize: navOptions?.summarize,
-					customInstructions: navOptions?.customInstructions,
-					replaceInstructions: navOptions?.replaceInstructions,
-					label: navOptions?.label,
-				});
-				return { cancelled: result.cancelled };
-			},
-			switchSession: async (sessionPath) => ({
-				cancelled: !(await session.switchSession(sessionPath)),
-			}),
-			reload: async () => {
-				await session.reload();
-			},
-		},
-		onError: (error) => {
-			extensionUiBridge.uiContext.notify(`[${error.extensionPath}] ${error.error}`, "error");
-		},
-	});
-
-	const unsubscribe = session.subscribe((event) => {
-		emitToListeners(event);
-	});
-
-	return {
+	// Create instance first — lifecycle helpers reference it via closures.
+	const instance: PiInstance = {
 		session,
 		resourceLoader,
 		settingsManager,
 		listeners,
-		extensionUiBridge,
-		unsubscribe,
+		extensionUiBridge: null as any, // set below
+		unsubscribe: null as any, // set below
 		cwd,
 		createdAt: Date.now(),
 	};
+
+	instance.extensionUiBridge = makeExtensionUiBridge(instance);
+	const emitToListeners = makeEmitter(instance);
+	instance.unsubscribe = session.subscribe((event) => {
+		emitToListeners(event);
+	});
+
+	await bindExtensionsOnSession(instance, session);
+
+	return instance;
 }
 
 export async function getOrCreateInstance(cwd?: string, options?: GetOrCreatePiOptions): Promise<PiInstance> {
@@ -192,7 +460,7 @@ export async function getOrCreateInstance(cwd?: string, options?: GetOrCreatePiO
 
 	if (existing) {
 		if (options?.sessionPath && existing.session.sessionFile !== options.sessionPath) {
-			await existing.session.switchSession(options.sessionPath);
+			await switchToSession(existing, options.sessionPath);
 		}
 
 		if (options?.provider && options.modelId) {
@@ -335,7 +603,7 @@ export async function deleteSession(sessionPath: string): Promise<boolean> {
 		for (const instance of instances.values()) {
 			const currentFile = instance.session.sessionFile ? resolve(instance.session.sessionFile) : null;
 			if (currentFile === resolvedPath) {
-				await instance.session.newSession();
+				await createNewSession(instance);
 			}
 		}
 

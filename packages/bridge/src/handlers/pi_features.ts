@@ -515,10 +515,9 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
 			const desiredThinkingLevel =
 				typeof message.thinkingLevel === "string" ? parseThinkingLevel(message.thinkingLevel) : undefined;
 
-			// newSession() only accepts { parentSession?, setup? } — apply overrides after creation
-			const created = await instance.session.newSession();
+			const result = await pi.createNewSession(instance);
 
-			if (created) {
+			if (!result.cancelled) {
 				try {
 					if (desiredModel) await instance.session.setModel(desiredModel);
 					if (desiredThinkingLevel) instance.session.setThinkingLevel(desiredThinkingLevel);
@@ -529,15 +528,15 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
 			}
 
 			await ensureStreamBridge(cwd, broadcast);
-			reply({ type: "pi_session_created", data: created, requestId: message.requestId });
+			reply({ type: "pi_session_created", data: !result.cancelled, requestId: message.requestId });
 			void broadcastPiRuntimeSessions(broadcast);
 			return true;
 		}
 
 		case "pi_switch_session": {
 			const instance = await pi.getOrCreateInstance(cwd);
-			const switched = await instance.session.switchSession(String(message.sessionPath ?? ""));
-			reply({ type: "pi_session_switched", data: switched, requestId: message.requestId });
+			const result = await pi.switchToSession(instance, String(message.sessionPath ?? ""));
+			reply({ type: "pi_session_switched", data: !result.cancelled, requestId: message.requestId });
 			void broadcastPiRuntimeSessions(broadcast);
 			return true;
 		}
@@ -599,7 +598,7 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
 
 		case "pi_fork": {
 			const instance = await pi.getOrCreateInstance(cwd);
-			const result = await instance.session.fork(String(message.entryId ?? ""));
+			const result = await pi.forkSession(instance, String(message.entryId ?? ""));
 			reply({
 				type: "pi_fork_result",
 				data: { text: result.selectedText, cancelled: result.cancelled },
@@ -688,8 +687,8 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
 			if (!inputPath) {
 				throw new Error("No inputPath provided for JSONL import");
 			}
-			const success = await instance.session.importFromJsonl(inputPath);
-			reply({ type: "pi_jsonl_imported", data: { success }, requestId: message.requestId });
+			const result = await pi.importFromJsonl(instance, inputPath);
+			reply({ type: "pi_jsonl_imported", data: { success: !result.cancelled }, requestId: message.requestId });
 			return true;
 		}
 

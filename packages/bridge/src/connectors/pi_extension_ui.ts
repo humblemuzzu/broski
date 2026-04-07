@@ -191,6 +191,10 @@ export function createPiExtensionUiBridge(emitStreamMessage: (message: PiStreamM
 			// Not currently surfaced to mobile UI.
 		},
 
+		setHiddenThinkingLabel: (_label?: string) => {
+			// Not currently surfaced to mobile UI.
+		},
+
 		setWidget: (key: string, content: unknown, options?: { placement?: "aboveEditor" | "belowEditor" }) => {
 			if (content !== undefined && !Array.isArray(content)) return;
 

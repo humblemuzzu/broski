@@ -103,4 +103,5 @@ export type PiStreamMessage =
 	| { type: "extension-ui-request"; id: string; method: string; [key: string]: any }
 	| { type: "error"; message: string; code?: string }
 	| { type: "bash-output"; content: string }
+	| { type: "queue-update"; steering: string[]; followUp: string[] }
 	| { type: "external-user-message"; content: string; timestamp: number };

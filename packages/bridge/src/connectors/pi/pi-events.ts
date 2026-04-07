@@ -295,6 +295,13 @@ export function translateEvent(event: AgentSessionEvent | PiBridgeSyntheticEvent
 				...(event.finalError ? { finalError: event.finalError } : {}),
 			};
 
+		case "queue_update":
+			return {
+				type: "queue-update",
+				steering: [...event.steering],
+				followUp: [...event.followUp],
+			};
+
 		default:
 			return null;
 	}
