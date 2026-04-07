@@ -119,26 +119,11 @@ void main() {
     });
 
     test('statusLabel returns correct labels', () {
-      expect(
-        const VcsDiffFile(file: 'a', status: 'added').statusLabel,
-        'A',
-      );
-      expect(
-        const VcsDiffFile(file: 'a', status: 'deleted').statusLabel,
-        'D',
-      );
-      expect(
-        const VcsDiffFile(file: 'a', status: 'modified').statusLabel,
-        'M',
-      );
-      expect(
-        const VcsDiffFile(file: 'a', status: 'unknown').statusLabel,
-        '?',
-      );
-      expect(
-        const VcsDiffFile(file: 'a').statusLabel,
-        '?',
-      );
+      expect(const VcsDiffFile(file: 'a', status: 'added').statusLabel, 'A');
+      expect(const VcsDiffFile(file: 'a', status: 'deleted').statusLabel, 'D');
+      expect(const VcsDiffFile(file: 'a', status: 'modified').statusLabel, 'M');
+      expect(const VcsDiffFile(file: 'a', status: 'unknown').statusLabel, '?');
+      expect(const VcsDiffFile(file: 'a').statusLabel, '?');
     });
 
     test('status convenience getters', () {

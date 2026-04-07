@@ -25,6 +25,7 @@ export async function handleCxMcp(message: any, reply: (msg: any) => void, ctx: 
 			const result: any = await client.request("mcpServerStatus/list", {
 				cursor: message.cursor ?? null,
 				limit: message.limit ?? 200,
+				...(message.detail ? { detail: message.detail } : {}),
 			});
 			reply({
 				type: "cx_mcp_status",

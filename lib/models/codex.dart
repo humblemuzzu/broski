@@ -436,6 +436,7 @@ class CodexThreadStatus {
 
 class CodexThread {
   final String id;
+  final String? forkedFromId; // SDK mid-2026: source thread when forked
   final String preview;
   final String cwd;
   final int createdAt; // unix seconds
@@ -453,6 +454,7 @@ class CodexThread {
 
   const CodexThread({
     required this.id,
+    this.forkedFromId,
     required this.preview,
     required this.cwd,
     required this.createdAt,
@@ -473,6 +475,7 @@ class CodexThread {
     final createdAt = json['createdAt'] as int? ?? 0;
     return CodexThread(
       id: json['id'] as String? ?? '',
+      forkedFromId: json['forkedFromId'] as String?,
       preview: json['preview'] as String? ?? '',
       cwd: json['cwd'] as String? ?? '',
       createdAt: createdAt,
@@ -498,6 +501,7 @@ class CodexThread {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      if (forkedFromId != null) 'forkedFromId': forkedFromId,
       'preview': preview,
       'cwd': cwd,
       'createdAt': createdAt,

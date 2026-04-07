@@ -4,6 +4,7 @@ extension BridgeServiceCodexRuntime on BridgeService {
   Future<List<Map<String, dynamic>>> cxListMcpServerStatus({
     String? cursor,
     int limit = 200,
+    String? detail, // "full" (default) or "toolsAndAuthOnly" (faster)
   }) async {
     final requestId = _generateRequestId();
     _socket.send({
@@ -11,6 +12,7 @@ extension BridgeServiceCodexRuntime on BridgeService {
       'requestId': requestId,
       'cursor': cursor,
       'limit': limit,
+      if (detail != null) 'detail': detail,
     });
     final response = await _waitFor(
       'cx_mcp_status',

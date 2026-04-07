@@ -214,38 +214,40 @@ Future<bool> hydrateSession({
 
       // Background: start the live instance so it's ready when the user
       // sends a message. If the fast path failed, also load messages here.
-      unawaited(Future(() async {
-        try {
-          await piBridge.switchSession(
-            sessionPath: sessionPath,
-            projectPath: cwd,
-          );
-        } catch (_) {
-          // Best effort
-        }
-        // If fast path didn't load messages, fall back to the instance-based
-        // getMessages (slower but always works).
-        if (!fastPathWorked) {
+      unawaited(
+        Future(() async {
           try {
-            final items = await piBridge.getMessages(projectPath: cwd);
-            chat.hydratePiTranscript(items);
+            await piBridge.switchSession(
+              sessionPath: sessionPath,
+              projectPath: cwd,
+            );
           } catch (_) {
             // Best effort
           }
-        }
-        try {
-          final piState = await piBridge.getState(projectPath: cwd);
-          chat.setPiModel(
-            piState.model != null
-                ? '${piState.model!.provider}/${piState.model!.id}'
-                : null,
-            modelData: piState.model,
-          );
-          chat.setPiThinkingLevel(piState.thinkingLevel);
-        } catch (_) {
-          // Best effort
-        }
-      }));
+          // If fast path didn't load messages, fall back to the instance-based
+          // getMessages (slower but always works).
+          if (!fastPathWorked) {
+            try {
+              final items = await piBridge.getMessages(projectPath: cwd);
+              chat.hydratePiTranscript(items);
+            } catch (_) {
+              // Best effort
+            }
+          }
+          try {
+            final piState = await piBridge.getState(projectPath: cwd);
+            chat.setPiModel(
+              piState.model != null
+                  ? '${piState.model!.provider}/${piState.model!.id}'
+                  : null,
+              modelData: piState.model,
+            );
+            chat.setPiThinkingLevel(piState.thinkingLevel);
+          } catch (_) {
+            // Best effort
+          }
+        }),
+      );
     } else if (hasSessionPath) {
       // Has path but no session ID or offline — just switch
       try {

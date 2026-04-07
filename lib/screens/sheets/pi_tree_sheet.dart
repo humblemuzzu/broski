@@ -119,7 +119,11 @@ class _PiTreeSheetState extends ConsumerState<_PiTreeSheet> {
                   alignment: Alignment.centerLeft,
                   child: IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: Icon(AppIcons.close, color: theme.textMuted, size: 24),
+                    icon: Icon(
+                      AppIcons.close,
+                      color: theme.textMuted,
+                      size: 24,
+                    ),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
@@ -198,11 +202,16 @@ class _PiTreeSheetState extends ConsumerState<_PiTreeSheet> {
               decoration: InputDecoration(
                 hintText: 'Search entries…',
                 hintStyle: AppTypography.bodySmall(color: theme.textMuted),
-                prefixIcon:
-                    Icon(AppIcons.search, size: 16, color: theme.textMuted),
+                prefixIcon: Icon(
+                  AppIcons.search,
+                  size: 16,
+                  color: theme.textMuted,
+                ),
                 isDense: true,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 filled: true,
                 fillColor: theme.backgroundElement,
                 border: OutlineInputBorder(
@@ -234,8 +243,9 @@ class _PiTreeSheetState extends ConsumerState<_PiTreeSheet> {
                       isCurrentLeaf: node.id == tree.leafId,
                       isSelected: _selectedNodeId == node.id,
                       onTap: () => setState(() {
-                        _selectedNodeId =
-                            _selectedNodeId == node.id ? null : node.id;
+                        _selectedNodeId = _selectedNodeId == node.id
+                            ? null
+                            : node.id;
                       }),
                     );
                   },

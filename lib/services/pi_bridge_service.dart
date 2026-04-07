@@ -455,8 +455,10 @@ class PiBridgeService {
       if (limit != null) 'limit': limit,
     });
 
-    final response =
-        await _waitFor('pi_session_messages', requestId: requestId);
+    final response = await _waitFor(
+      'pi_session_messages',
+      requestId: requestId,
+    );
     final data = response['data'] as List<dynamic>? ?? const [];
     return data.whereType<Map<String, dynamic>>().toList();
   }

@@ -861,6 +861,7 @@ export type ClientMessage =
 			type: "cx_mcp_status_list";
 			cursor?: string | null;
 			limit?: number | null;
+			detail?: "full" | "toolsAndAuthOnly" | null;
 	  }
 	| { type: "cx_mcp_reload" }
 	| {

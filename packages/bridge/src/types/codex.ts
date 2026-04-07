@@ -13,6 +13,7 @@ export type CodexPrompt = {
 
 export type CodexThread = {
 	id: string;
+	forkedFromId?: string | null; // SDK mid-2026: source thread when forked
 	preview: string;
 	modelProvider?: string;
 	createdAt: number; // Unix timestamp seconds

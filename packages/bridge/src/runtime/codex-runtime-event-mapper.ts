@@ -178,6 +178,9 @@ export function mapCodexStreamToRuntimeEvent(
 							method: streamMessage.method,
 							turnId: params.turnId ?? params.turn?.id,
 							status: params.turn?.status,
+							...(params.turn?.durationMs != null ? { durationMs: params.turn.durationMs } : {}),
+							...(params.turn?.startedAt != null ? { startedAt: params.turn.startedAt } : {}),
+							...(params.turn?.completedAt != null ? { completedAt: params.turn.completedAt } : {}),
 						}),
 						...(typeof params.turn?.status === "string" ? { stopReason: params.turn.status } : {}),
 					};

@@ -39,8 +39,11 @@ export function mapCodexThreadFromSdk({
 				}
 			: undefined;
 
+	const forkedFromId = safeString(thread?.forkedFromId).trim() || null;
+
 	return {
 		id: safeString(thread?.id),
+		...(forkedFromId ? { forkedFromId } : {}),
 		preview: safeString(thread?.preview),
 		modelProvider: safeString(thread?.modelProvider) || undefined,
 		createdAt: Number(thread?.createdAt ?? 0) || 0,
