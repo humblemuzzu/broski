@@ -171,6 +171,17 @@ class SessionSidebar extends StatelessWidget {
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
+                            if (vcsInfo!.isOnFeatureBranch) ...[
+                              const SizedBox(width: 6),
+                              Text(
+                                '← ${vcsInfo!.defaultBranch}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: theme.textMuted.withValues(alpha: 0.6),
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),

@@ -20,6 +20,7 @@ type OpenCodeFeaturesLike = {
 	) => Promise<any>;
 	listAgents: (dir?: string) => Promise<any[]>;
 	getVcsInfo: (dir?: string) => Promise<any>;
+	getVcsDiff: (mode: "git" | "branch", dir?: string) => Promise<any[]>;
 	getLspStatus: (dir?: string) => Promise<any[]>;
 	getFormatterStatus: (dir?: string) => Promise<any[]>;
 	listToolIds: (dir?: string) => Promise<string[]>;
@@ -94,6 +95,12 @@ export async function handle(
 			const oc = requireOpenCode();
 			const vcs = await oc.getVcsInfo(message.projectPath);
 			reply({ type: "vcs", data: vcs });
+			return true;
+		}
+		case "get_vcs_diff": {
+			const oc = requireOpenCode();
+			const diffs = await oc.getVcsDiff(message.mode, message.projectPath);
+			reply({ type: "vcs_diff", data: diffs, requestId: message.requestId });
 			return true;
 		}
 		case "get_lsp_status": {

@@ -87,6 +87,17 @@ class SessionActionsContent extends StatelessWidget {
                             fontWeight: FontWeight.w500,
                           ),
                         ),
+                        if (vcsInfo!.isOnFeatureBranch) ...[
+                          const SizedBox(width: 4),
+                          Text(
+                            '← ${vcsInfo!.defaultBranch}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: theme.success.withValues(alpha: 0.6),
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),

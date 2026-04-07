@@ -259,6 +259,8 @@ export type ClientMessage =
 	  }
 	// Feature 10: Git/VCS Information
 	| { type: "get_vcs"; projectPath?: string }
+	| { type: "get_vcs_diff"; projectPath?: string; mode: "git" | "branch" }
+	| { type: "git_review_diff"; projectPath?: string; mode: "git" | "branch" }
 	// Feature 11: File Content Read
 	| { type: "read_file"; path: string; projectPath?: string }
 	// Feature 21: Binary File Content Read (images, PDFs, etc.)
@@ -580,6 +582,7 @@ export type ClientMessage =
 			projectPath?: string;
 			agent?: string;
 			model?: string | { providerID: string; modelID: string };
+			messageId?: string;
 	  }
 	// Claude Code-specific messages
 	| { type: "cc_list_projects" }
@@ -1191,8 +1194,18 @@ export type SessionSummary = {
 // VCS/Git information from OpenCode SDK
 export type VcsInfo = {
 	branch?: string;
+	default_branch?: string;
 };
 
+// VCS diff file from OpenCode SDK vcs.diff() endpoint
+export type VcsDiffFile = {
+	file: string;
+	before: string;
+	after: string;
+	additions: number;
+	deletions: number;
+	status?: "added" | "deleted" | "modified";
+};
 // LSP server status from OpenCode SDK
 export type LspServerStatus = {
 	id: string;
@@ -1478,6 +1491,7 @@ export type ServerMessage =
 	  }
 	// Feature 10: Git/VCS Information
 	| { type: "vcs"; data: VcsInfo; requestId?: string }
+	| { type: "vcs_diff"; data: VcsDiffFile[]; requestId?: string }
 	// Feature 11: File Content Read
 	| {
 			type: "file_content";

@@ -11,6 +11,8 @@ import {
 } from "./security";
 import type { GitHandlerContext, GitReply } from "./types";
 import { ensureSecureCwd, errorReply } from "./util";
+import { resolve } from "node:path";
+import { readFile } from "node:fs/promises";
 
 export async function handleGitCommand(message: any, reply: GitReply, ctx: GitHandlerContext): Promise<boolean> {
 	const requestId = typeof message?.requestId === "string" ? message.requestId : undefined;
@@ -446,6 +448,149 @@ export async function handleGitCommand(message: any, reply: GitReply, ctx: GitHa
 			reply({
 				type: "git_commit_diff_result",
 				data: result.stdout,
+				...(requestId ? { requestId } : {}),
+			});
+			break;
+		}
+
+		case "git_review_diff": {
+			const secureCwd = await ensureSecureCwd(message, ctx);
+			if (!secureCwd) {
+				errorReply(reply, "Access denied", requestId);
+				break;
+			}
+
+			const mode = ctx.safeString(message.mode).trim();
+			if (mode !== "git" && mode !== "branch") {
+				errorReply(reply, "Invalid mode: must be 'git' or 'branch'", requestId);
+				break;
+			}
+
+			let defaultBranch = "";
+			if (mode === "branch") {
+				// Detect default branch: try origin/HEAD, fallback to main/master
+				const symRef = await runGit(["symbolic-ref", "refs/remotes/origin/HEAD", "--short"], secureCwd);
+				if (symRef.exitCode === 0 && symRef.stdout.trim()) {
+					// e.g. "origin/main" → "main"
+					defaultBranch = symRef.stdout.trim().replace(/^origin\//, "");
+				} else {
+					// Fallback: check if main or master exists
+					const mainCheck = await runGit(["rev-parse", "--verify", "main"], secureCwd);
+					if (mainCheck.exitCode === 0) {
+						defaultBranch = "main";
+					} else {
+						const masterCheck = await runGit(["rev-parse", "--verify", "master"], secureCwd);
+						if (masterCheck.exitCode === 0) {
+							defaultBranch = "master";
+						} else {
+							errorReply(reply, "Could not determine default branch", requestId);
+							break;
+						}
+					}
+				}
+			}
+
+			// Get file list with stats
+			const diffArgs = mode === "git"
+				? ["diff", "--numstat", "--diff-filter=ACDMR", "-z"]
+				: ["diff", "--numstat", "--diff-filter=ACDMR", "-z", `${defaultBranch}...HEAD`];
+
+			let numstatResult = await runGit(diffArgs, secureCwd);
+			if (numstatResult.exitCode !== 0) {
+				// If branch mode fails (no common ancestor), try two-dot diff
+				if (mode === "branch") {
+					const fallbackArgs = ["diff", "--numstat", "--diff-filter=ACDMR", "-z", `${defaultBranch}..HEAD`];
+					numstatResult = await runGit(fallbackArgs, secureCwd);
+					if (numstatResult.exitCode !== 0) {
+						errorReply(reply, "git diff failed", requestId);
+						break;
+					}
+				} else {
+					errorReply(reply, "git diff failed", requestId);
+					break;
+				}
+			}
+
+			// Also get the diff-filter status for each file
+			const statusArgs = mode === "git"
+				? ["diff", "--name-status", "--diff-filter=ACDMR"]
+				: ["diff", "--name-status", "--diff-filter=ACDMR", `${defaultBranch}...HEAD`];
+			const statusResult = await runGit(statusArgs, secureCwd);
+
+			// Parse name-status into a map: file → status
+			const statusMap = new Map<string, string>();
+			if (statusResult.exitCode === 0) {
+				for (const line of statusResult.stdout.trim().split("\n")) {
+					if (!line) continue;
+					const parts = line.split("\t");
+					if (parts.length >= 2) {
+						const s = parts[0].charAt(0); // A, D, M, R, C
+						const file = parts[parts.length - 1]; // last part (handles renames)
+						const status = s === "A" ? "added" : s === "D" ? "deleted" : "modified";
+						statusMap.set(file, status);
+					}
+				}
+			}
+
+			// Parse numstat: "additions\tdeletions\tfilename" (NUL-separated with -z)
+			const files: Array<{
+				file: string;
+				before: string;
+				after: string;
+				additions: number;
+				deletions: number;
+				status?: string;
+			}> = [];
+
+			const numstatLines = numstatResult.stdout.split("\0").filter(Boolean);
+			for (const entry of numstatLines) {
+				const parts = entry.split("\t");
+				if (parts.length < 3) continue;
+				const additions = parts[0] === "-" ? 0 : parseInt(parts[0], 10) || 0;
+				const deletions = parts[1] === "-" ? 0 : parseInt(parts[1], 10) || 0;
+				const file = parts.slice(2).join("\t"); // rejoin in case filename has tabs
+				if (!file || !isSafePathSpec(file)) continue;
+
+				const status = statusMap.get(file) || "modified";
+
+				// Get before/after content for each file (limit to prevent huge payloads)
+				let before = "";
+				let after = "";
+
+				try {
+					if (status !== "added") {
+						const ref = mode === "git" ? "HEAD" : defaultBranch;
+						const showResult = await runGit(["show", `${ref}:${file}`], secureCwd);
+						if (showResult.exitCode === 0) {
+							before = showResult.stdout.slice(0, 100_000); // cap at 100KB
+						}
+					}
+					if (status !== "deleted") {
+						if (mode === "git") {
+							// Working tree: read file directly
+							const fullPath = resolve(secureCwd, file);
+							// Security: ensure resolved path is under secureCwd
+							if (fullPath.startsWith(resolve(secureCwd))) {
+								after = (await readFile(fullPath, "utf-8")).slice(0, 100_000);
+							}
+						} else {
+							// Branch mode: HEAD version
+							const showResult = await runGit(["show", `HEAD:${file}`], secureCwd);
+							if (showResult.exitCode === 0) {
+								after = showResult.stdout.slice(0, 100_000);
+							}
+						}
+					}
+				} catch {
+					// Binary files or read errors — leave before/after empty
+				}
+
+				files.push({ file, before, after, additions, deletions, status });
+			}
+
+			reply({
+				type: "vcs_diff",
+				data: files,
 				...(requestId ? { requestId } : {}),
 			});
 			break;

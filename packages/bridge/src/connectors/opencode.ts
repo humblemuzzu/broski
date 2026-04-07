@@ -46,6 +46,7 @@ import type {
 	TextSearchResult,
 	Todo,
 	ToolInfo,
+	VcsDiffFile,
 	VcsInfo,
 	Worktree,
 } from "../types";
@@ -748,6 +749,7 @@ export class OpenCodeConnector {
 		directory?: string,
 		agent?: string,
 		model?: { providerID: string; modelID: string },
+		messageId?: string,
 	) {
 		const { data } = await this.client.session.shell({
 			sessionID: sessionId,
@@ -755,6 +757,7 @@ export class OpenCodeConnector {
 			command,
 			...(agent ? { agent } : {}),
 			...(model ? { model } : {}),
+			...(messageId ? { messageID: messageId } : {}),
 		});
 		return data;
 	}
@@ -850,10 +853,29 @@ export class OpenCodeConnector {
 			const { data: vcs } = await this.client.vcs.get({ directory });
 			return {
 				branch: vcs?.branch,
+				default_branch: vcs?.default_branch,
 			};
 		} catch {
 			// VCS endpoint might not be available or not in a git repo
 			return {};
+		}
+	}
+
+
+	// Feature 10b: VCS Diff (working tree or vs default branch)
+	async getVcsDiff(mode: "git" | "branch", directory?: string): Promise<VcsDiffFile[]> {
+		try {
+			const { data } = await this.client.vcs.diff({ directory, mode });
+			return (data ?? []).map((d) => ({
+				file: d.file,
+				before: d.before,
+				after: d.after,
+				additions: d.additions,
+				deletions: d.deletions,
+				status: d.status,
+			}));
+		} catch {
+			return [];
 		}
 	}
 

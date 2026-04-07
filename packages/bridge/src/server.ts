@@ -2928,6 +2928,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			case "git_stash":
 			case "git_stash_pop":
 			case "git_commit_diff":
+			case "git_review_diff":
 			case "github_remote":
 			case "github_issues":
 			case "github_prs":

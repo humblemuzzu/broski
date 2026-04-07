@@ -1,7 +1,9 @@
 import 'package:broski/models/git.dart';
+import 'package:broski/models/vcs.dart';
 import 'package:broski/providers/git_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/screens/sheets/git_commit_sheet.dart';
+import 'package:broski/screens/sheets/oc_review_tab.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/app_typography.dart';
 import 'package:broski/theme/design_tokens.dart';
@@ -19,15 +21,18 @@ class GitPanelSheet extends ConsumerStatefulWidget {
     super.key,
     required this.projectPath,
     this.projectName,
+    this.vcsInfo,
     required this.scrollController,
   });
   final String projectPath;
   final String? projectName;
+  final VcsInfo? vcsInfo;
   final ScrollController scrollController;
   static Future<void> show({
     required BuildContext context,
     required String projectPath,
     String? projectName,
+    VcsInfo? vcsInfo,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -42,6 +47,7 @@ class GitPanelSheet extends ConsumerStatefulWidget {
           return GitPanelSheet(
             projectPath: projectPath,
             projectName: projectName,
+            vcsInfo: vcsInfo,
             scrollController: scrollController,
           );
         },
@@ -248,7 +254,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
   // Segmented bar
   // ═══════════════════════════════════════════════════════════════════════════
   Widget _buildSegmentedBar(OpenCodeTheme theme) {
-    const labels = ['Changes', 'GitHub', 'History'];
+    const labels = ['Changes', 'Review', 'GitHub', 'History'];
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: Container(
@@ -258,7 +264,7 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
           borderRadius: Radii.brMd,
         ),
         child: Row(
-          children: List.generate(3, (i) {
+          children: List.generate(labels.length, (i) {
             final selected = _selectedTab == i;
             return Expanded(
               child: GestureDetector(
@@ -306,8 +312,13 @@ class _GitPanelSheetState extends ConsumerState<GitPanelSheet> {
       case 0:
         return _buildChangesTab(theme, statusAsync);
       case 1:
-        return _buildGitHubTab(theme, remoteAsync, issuesAsync, prsAsync);
+        return ReviewTab(
+          projectPath: widget.projectPath,
+          defaultBranch: widget.vcsInfo?.defaultBranch,
+        );
       case 2:
+        return _buildGitHubTab(theme, remoteAsync, issuesAsync, prsAsync);
+      case 3:
         return _buildHistoryTab(theme, logAsync, branchesAsync);
       default:
         return const SizedBox.shrink();

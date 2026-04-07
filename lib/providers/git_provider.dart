@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/git.dart';
+import 'package:broski/models/vcs.dart';
 import 'package:broski/providers/agent_type_provider.dart';
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
@@ -244,5 +245,43 @@ final githubPrsProvider = FutureProvider.autoDispose
       return bridge.githubPrs(
         projectPath: request.projectPath,
         state: request.state,
+      );
+    });
+
+/// Request params for VCS diff.
+class VcsDiffRequest {
+  const VcsDiffRequest({required this.projectPath, required this.mode});
+
+  final String projectPath;
+
+  /// "git" for working tree diff, "branch" for diff vs default branch.
+  final String mode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is VcsDiffRequest &&
+          projectPath == other.projectPath &&
+          mode == other.mode;
+
+  @override
+  int get hashCode => Object.hash(projectPath, mode);
+}
+
+final vcsDiffProvider = FutureProvider.autoDispose
+    .family<List<VcsDiffFile>, VcsDiffRequest>((ref, request) async {
+      final bridge = ref.watch(bridgeServiceProvider);
+      final agentType = ref.watch(agentTypeProvider);
+
+      // OpenCode has a richer SDK endpoint; all others use the unified git handler
+      if (agentType == AgentType.opencode) {
+        return bridge.getVcsDiff(
+          mode: request.mode,
+          projectPath: request.projectPath,
+        );
+      }
+      return bridge.gitReviewDiff(
+        mode: request.mode,
+        projectPath: request.projectPath,
       );
     });

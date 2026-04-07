@@ -20,6 +20,46 @@ extension BridgeServiceGit on BridgeService {
     return VcsInfo.fromJson(data);
   }
 
+  /// Get VCS diff via OpenCode SDK (richer data, OC-only).
+  /// [mode] is "git" for working tree changes, "branch" for diff vs default branch.
+  Future<List<VcsDiffFile>> getVcsDiff({
+    required String mode,
+    String? projectPath,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'get_vcs_diff',
+      'mode': mode,
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    final response = await _waitFor('vcs_diff', requestId: requestId);
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data
+        .map((f) => VcsDiffFile.fromJson(f as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Get review diff via unified git handler (works for ALL backends).
+  /// [mode] is "git" for working tree changes, "branch" for diff vs default branch.
+  Future<List<VcsDiffFile>> gitReviewDiff({
+    required String mode,
+    String? projectPath,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'git_review_diff',
+      'mode': mode,
+      'requestId': requestId,
+      if (projectPath != null) 'projectPath': projectPath,
+    });
+    final response = await _waitFor('vcs_diff', requestId: requestId);
+    final data = response['data'] as List<dynamic>? ?? [];
+    return data
+        .map((f) => VcsDiffFile.fromJson(f as Map<String, dynamic>))
+        .toList();
+  }
+
   /// Get git status of files in the project
   Future<List<FileStatusInfo>> getFileStatus({String? projectPath}) async {
     final requestId = _generateRequestId();
