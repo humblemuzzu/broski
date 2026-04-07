@@ -385,6 +385,8 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
         return 'Skip all permission prompts';
       case ClaudeCodePermissionMode.dontAsk:
         return 'Never prompt; deny unapproved tools';
+      case ClaudeCodePermissionMode.auto:
+        return 'AI classifier approves safe actions';
     }
   }
 

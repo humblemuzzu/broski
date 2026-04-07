@@ -129,5 +129,34 @@ Widget? buildCcSystemMessageCard({
     );
   }
 
+  if (variant == 'cc-permission-denials') {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.bgRaised,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: theme.warning.withValues(alpha: 0.25),
+          width: 0.5,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(AppIcons.block, size: 14, color: theme.warning),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message.text,
+              style: TextStyle(fontSize: 12, color: theme.textMuted),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   return null;
 }

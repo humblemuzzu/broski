@@ -39,6 +39,7 @@ part 'bridge/bridge_cc_memory.dart';
 part 'bridge/bridge_cc_plugins.dart';
 part 'bridge/bridge_cc_sessions.dart';
 part 'bridge/bridge_cc_skills.dart';
+part 'bridge/bridge_cc_subagents.dart';
 part 'bridge/bridge_claude_code_updates.dart';
 // ============================================================
 // Existing part files (CC, CX, OC)

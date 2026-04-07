@@ -1,5 +1,5 @@
 /// Hook event types supported by the Claude Code SDK.
-/// SDK 0.2.87: 26 events.
+/// SDK 0.2.92: 27 events (added PermissionDenied).
 enum ClaudeCodeHookEvent {
   preToolUse,
   postToolUse,
@@ -10,6 +10,7 @@ enum ClaudeCodeHookEvent {
   stop,
   stopFailure,
   permissionRequest,
+  permissionDenied,
   userPromptSubmit,
   subagentStart,
   subagentStop,
@@ -48,6 +49,8 @@ enum ClaudeCodeHookEvent {
         return 'StopFailure';
       case ClaudeCodeHookEvent.permissionRequest:
         return 'PermissionRequest';
+      case ClaudeCodeHookEvent.permissionDenied:
+        return 'PermissionDenied';
       case ClaudeCodeHookEvent.userPromptSubmit:
         return 'UserPromptSubmit';
       case ClaudeCodeHookEvent.subagentStart:
@@ -105,6 +108,8 @@ enum ClaudeCodeHookEvent {
         return ClaudeCodeHookEvent.stopFailure;
       case 'PermissionRequest':
         return ClaudeCodeHookEvent.permissionRequest;
+      case 'PermissionDenied':
+        return ClaudeCodeHookEvent.permissionDenied;
       case 'UserPromptSubmit':
         return ClaudeCodeHookEvent.userPromptSubmit;
       case 'SubagentStart':
@@ -164,6 +169,8 @@ enum ClaudeCodeHookEvent {
         return 'Stop Failure';
       case ClaudeCodeHookEvent.permissionRequest:
         return 'Permission Request';
+      case ClaudeCodeHookEvent.permissionDenied:
+        return 'Permission Denied';
       case ClaudeCodeHookEvent.userPromptSubmit:
         return 'User Prompt Submit';
       case ClaudeCodeHookEvent.subagentStart:

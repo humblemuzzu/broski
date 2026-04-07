@@ -8,7 +8,7 @@ set -e
 #   sh scripts/build.sh              # build all platforms
 #   sh scripts/build.sh --target darwin-arm64   # build one platform
 
-ENTRY="./src/index.ts"
+ENTRY="./src/bootstrap.ts"
 DIST="./dist"
 
 # Read version from package.json
@@ -114,11 +114,36 @@ build_target() {
   OUTPUT_NAME="$2"
   PLATFORM="$3"
 
+  # ── Step 1: Build native PTY FIRST (so we can embed it) ──
+  build_pty_helper "$PLATFORM"
+
+  # ── Step 2: Embed PTY dylib into bootstrap.ts before compilation ──
+  # This makes the binary truly self-contained: on first run it extracts the
+  # dylib next to itself. No extra files needed.
+  COMPILED_ENTRY="$ENTRY"
+  case "$PLATFORM" in
+    darwin-*) PTY_EMBED_LIB="${DIST}/libbroski_pty.dylib" ;;
+    linux-*)  PTY_EMBED_LIB="${DIST}/libbroski_pty.so" ;;
+    *)        PTY_EMBED_LIB="" ;;
+  esac
+
+  if [ -n "$PTY_EMBED_LIB" ] && [ -f "$PTY_EMBED_LIB" ]; then
+    PTY_B64=$(base64 < "$PTY_EMBED_LIB" | tr -d '\n')
+    # Keep temp file in src/ so relative imports (./index) resolve correctly
+    COMPILED_ENTRY="./src/_bootstrap_embedded.ts"
+    sed "s|%%EMBEDDED_PTY_LIB_BASE64_PLACEHOLDER%%|${PTY_B64}|" "$ENTRY" > "$COMPILED_ENTRY"
+    echo "    ✓ PTY library embedded ($(wc -c < "$PTY_EMBED_LIB" | tr -d ' ') bytes)"
+  else
+    echo "    - No PTY library to embed"
+  fi
+
+  # ── Step 3: Compile the binary ──
   echo "  Building ${OUTPUT_NAME} (${BUN_TARGET})..."
-  bun build --compile --target="$BUN_TARGET" "$ENTRY" --outfile "${DIST}/${OUTPUT_NAME}"
+  bun build --compile --target="$BUN_TARGET" "$COMPILED_ENTRY" --outfile "${DIST}/${OUTPUT_NAME}"
   echo "    Done."
 
-  build_pty_helper "$PLATFORM"
+  # Clean up temp file
+  rm -f "./src/_bootstrap_embedded.ts" 2>/dev/null
 
   # Build native license library (best-effort).
   # Disabled by default because it adds Rust as a build dependency and may require network access.
@@ -272,43 +297,76 @@ for binary in "$DIST"/broski-*; do
     # Replace placeholder in the compiled binary.
     # The placeholder is a fixed-length string so the binary size doesn't change.
     # We use perl for in-place binary-safe replacement.
-    perl -pi -e "s/%%NATIVE_LIB_HASH_PLACEHOLDER%%/${NATIVE_HASH}/g" "$binary"
+    perl -pi -e "s/%%__NATIVE_LIB_HASH_PLACEHOLDER____000000000000000000000000000%%/${NATIVE_HASH}/g" "$binary"
   else
     echo "    - $(basename "$binary"): no native lib (placeholder stays, check skipped at runtime)"
   fi
 done
 
 # ──────────────────────────────────────────────
-# Hash PTY sidecar library (if present)
+# Bake PTY library hash (for integrity verification)
 # ──────────────────────────────────────────────
+# Even though the PTY lib is now embedded in the binary and extracted on first
+# run, we still verify its hash at load time (in case someone replaces the
+# extracted file). The hash is baked at compile time via the embedded bootstrap,
+# so no perl patching needed — the hash was computed before compilation.
+# This section just logs the hash for the build output.
 
 echo ""
-echo "  Baking PTY sidecar hashes..."
-for binary in "$DIST"/broski-*; do
+echo "  PTY sidecar hashes (embedded in binary):"
+for lib in "$DIST"/libbroski_pty.*; do
+  [ -f "$lib" ] || continue
+  PTY_HASH=$(shasum -a 256 "$lib" | awk '{print $1}')
+  echo "    ✓ $(basename "$lib"): ${PTY_HASH}"
+done
+
+# ──────────────────────────────────────────────
+# Emit package.json for Pi SDK compatibility
+# ──────────────────────────────────────────────
+# The Pi SDK (@mariozechner/pi-coding-agent) reads package.json at import
+# time via readFileSync(join(dirname(process.execPath), "package.json")).
+# In a compiled Bun binary, dirname(process.execPath) is the dist/ folder.
+# Without this file, the binary crashes on startup with ENOENT.
+
+echo ""
+echo "  Emitting package.json for Pi SDK..."
+cat > "${DIST}/package.json" <<EOF
+{"name":"broski-bridge","version":"${VERSION}"}
+EOF
+echo "    ✓ ${DIST}/package.json (v${VERSION})"
+
+# ──────────────────────────────────────────────
+# macOS ad-hoc codesign (re-sign after patching)
+# ──────────────────────────────────────────────
+# ⚠️ ORDER MATTERS: This MUST run AFTER all binary patching (hash baking
+# above) because perl -pi -e invalidates the Mach-O ad-hoc signature that
+# Bun generates during compilation. Without re-signing, macOS Gatekeeper
+# kills the binary with "Killed: 9".
+#
+# Uses ad-hoc signing (codesign -s -) which doesn't require an Apple
+# Developer certificate. For App Store / notarized distribution, replace
+# with a real signing identity.
+
+echo ""
+echo "  Re-signing macOS binaries..."
+for binary in "$DIST"/broski-*darwin*; do
   [ -f "$binary" ] || continue
   case "$binary" in *.sig|*.dylib|*.so|*.dll) continue ;; esac
 
-  case "$binary" in
-    *darwin*) PTY_LIB="${DIST}/libbroski_pty.dylib" ;;
-    *linux*) PTY_LIB="${DIST}/libbroski_pty.so" ;;
-    *) PTY_LIB="" ;;
-  esac
-
-  if [ -n "$PTY_LIB" ] && [ -f "$PTY_LIB" ]; then
-    PTY_HASH=$(shasum -a 256 "$PTY_LIB" | awk '{print $1}')
-    echo "    ✓ $(basename "$binary"): ${PTY_HASH}"
-    perl -pi -e "s/%%PTY_LIB_HASH_PLACEHOLDER%%/${PTY_HASH}/g" "$binary"
+  if command -v codesign >/dev/null 2>&1; then
+    codesign -f -s - "$binary" 2>/dev/null
+    echo "    ✓ $(basename "$binary"): ad-hoc signed"
   else
-    echo "    - $(basename "$binary"): no PTY lib (placeholder stays)"
+    echo "    ⚠ $(basename "$binary"): codesign not available (not on macOS?)"
   fi
 done
 
 # ──────────────────────────────────────────────
 # Sign each binary (create .sig sidecar files)
 # ──────────────────────────────────────────────
-# ⚠️ ORDER MATTERS: This MUST run AFTER native hash baking (above) and AFTER
-# macOS codesign (if applicable) because both modify the binary. The .sig is
-# a signature of the FINAL binary.
+# ⚠️ ORDER MATTERS: This MUST run AFTER native hash baking AND macOS codesign
+# (both above) because both modify the binary. The .sig is a signature of the
+# FINAL binary.
 #
 # The .sig file contains an Ed25519 signature of the binary's SHA-256 hash.
 # This is the primary tamper-protection on Linux (no OS codesign) and

@@ -2961,6 +2961,9 @@ export async function queryClaudeCode(
 					...(errors.length > 0 ? { errors } : {}),
 					...(permissionDenials ? { permissionDenials } : {}),
 					...(typeof message.fast_mode_state === "string" ? { fastModeState: message.fast_mode_state } : {}),
+					// SDK 0.2.92: terminal reason + deferred tool use
+					...(typeof message.terminal_reason === "string" ? { terminalReason: message.terminal_reason } : {}),
+					...("deferred_tool_use" in message && message.deferred_tool_use ? { deferredToolUse: message.deferred_tool_use } : {}),
 				});
 
 				if ("structured_output" in message && message.structured_output !== undefined) {

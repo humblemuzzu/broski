@@ -62,6 +62,8 @@ class ClaudeCodeSubagent {
   final bool background;
   final String? isolation;
   final String? initialPrompt;
+  final String? memory;
+  final dynamic effort;
 
   const ClaudeCodeSubagent({
     required this.name,
@@ -77,6 +79,8 @@ class ClaudeCodeSubagent {
     this.background = false,
     this.isolation,
     this.initialPrompt,
+    this.memory,
+    this.effort,
   });
 
   factory ClaudeCodeSubagent.fromJson(Map<String, dynamic> json) {
@@ -99,6 +103,8 @@ class ClaudeCodeSubagent {
       background: json['background'] as bool? ?? false,
       isolation: json['isolation'] as String?,
       initialPrompt: json['initialPrompt'] as String?,
+      memory: json['memory'] as String?,
+      effort: json['effort'],
     );
   }
 
@@ -120,6 +126,8 @@ class ClaudeCodeSubagent {
       if (isolation != null && isolation!.isNotEmpty) 'isolation': isolation,
       if (initialPrompt != null && initialPrompt!.isNotEmpty)
         'initialPrompt': initialPrompt,
+      if (memory != null) 'memory': memory,
+      if (effort != null) 'effort': effort,
     };
   }
 
@@ -137,6 +145,8 @@ class ClaudeCodeSubagent {
     bool? background,
     String? isolation,
     String? initialPrompt,
+    String? memory,
+    dynamic effort,
   }) {
     return ClaudeCodeSubagent(
       name: name ?? this.name,
@@ -152,6 +162,8 @@ class ClaudeCodeSubagent {
       background: background ?? this.background,
       isolation: isolation ?? this.isolation,
       initialPrompt: initialPrompt ?? this.initialPrompt,
+      memory: memory ?? this.memory,
+      effort: effort ?? this.effort,
     );
   }
 }

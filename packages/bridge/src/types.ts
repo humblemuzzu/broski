@@ -748,6 +748,9 @@ export type ClientMessage =
 	| { type: "cc_get_context_usage"; sessionId: string; requestId?: string }
 	| { type: "cc_apply_settings"; sessionId: string; settings: Record<string, unknown>; requestId?: string }
 	| { type: "cc_tag_session"; sessionId: string; tag?: string | null; cwd?: string; requestId?: string }
+	// SDK 0.2.92: Subagent inspection
+	| { type: "cc_list_subagents"; sessionId: string; cwd?: string; requestId?: string }
+	| { type: "cc_get_subagent_messages"; sessionId: string; agentId: string; cwd?: string; limit?: number; offset?: number; requestId?: string }
 	// Codex (OpenAI Codex app-server) messages
 	| { type: "cx_list_projects"; refresh?: boolean }
 	| {
@@ -1959,6 +1962,9 @@ export type ServerMessage =
 			requestId?: string;
 	  }
 	| { type: "cc_stream"; data: ClaudeCodeStreamMessage; sessionId: string }
+	// SDK 0.2.92: Subagent inspection responses
+	| { type: "cc_subagents"; data: string[]; requestId?: string }
+	| { type: "cc_subagent_messages"; data: Array<{ role: string; content: unknown; uuid?: string }>; requestId?: string }
 	// Codex (OpenAI Codex app-server)
 	| {
 			type: "cx_global";
@@ -2664,7 +2670,7 @@ export type ClaudeCodeCommand = {
 };
 
 // Claude Code Permission Mode
-export type ClaudeCodePermissionMode = "default" | "acceptEdits" | "plan" | "bypassPermissions" | "dontAsk";
+export type ClaudeCodePermissionMode = "default" | "acceptEdits" | "plan" | "bypassPermissions" | "dontAsk" | "auto";
 
 export type ClaudeCodeBeta = "context-1m-2025-08-07";
 
@@ -2740,6 +2746,8 @@ export type ClaudeCodeSubagent = {
 	background?: boolean; // Run this subagent as background task by default
 	isolation?: "worktree"; // Run this subagent in isolated git worktree
 	initialPrompt?: string; // SDK 0.2.87: Auto-submitted as first user turn
+	memory?: "user" | "project" | "local"; // SDK 0.2.92: Memory scope for subagent
+	effort?: ClaudeCodeEffort | number; // SDK 0.2.92: Reasoning effort level
 };
 
 // Claude Code Custom Tool Parameter

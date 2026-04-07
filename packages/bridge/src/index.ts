@@ -296,9 +296,8 @@ async function runQR(detectHotspot: boolean): Promise<void> {
 	const magicDNS = await getTailscaleMagicDNS();
 	const hotspotIP = detectHotspot ? getHotspotIP() : null;
 
-	// Get version
-	const packageJson = await Bun.file(new URL("../package.json", import.meta.url)).json();
-	const version = packageJson.version ?? "0.1.0";
+	// Get version (use static import — Bun.file() fails in compiled binaries)
+	const version = packageMeta.version ?? "0.1.0";
 
 	displayQRCode({
 		localIP,
@@ -1144,8 +1143,7 @@ async function main() {
 		}
 	}
 
-	const packageJson = await Bun.file(new URL("../package.json", import.meta.url)).json();
-	const version = packageJson.version ?? "0.1.0";
+	const version = packageMeta.version ?? "0.1.0";
 
 	displayBanner();
 

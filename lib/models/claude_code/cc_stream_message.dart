@@ -1029,6 +1029,8 @@ class CCResultComplete extends ClaudeCodeStreamMessage {
   final List<String> errors;
   final List<CCPermissionDenial> permissionDenials;
   final String? fastModeState;
+  final String? terminalReason;
+  final Map<String, dynamic>? deferredToolUse;
 
   const CCResultComplete({
     this.stopReason,
@@ -1040,6 +1042,8 @@ class CCResultComplete extends ClaudeCodeStreamMessage {
     this.errors = const [],
     this.permissionDenials = const [],
     this.fastModeState,
+    this.terminalReason,
+    this.deferredToolUse,
     super.parentToolUseId,
   });
 
@@ -1062,6 +1066,8 @@ class CCResultComplete extends ClaudeCodeStreamMessage {
               .toList() ??
           const [],
       fastModeState: json['fastModeState'] as String?,
+      terminalReason: json['terminalReason'] as String?,
+      deferredToolUse: json['deferredToolUse'] as Map<String, dynamic>?,
       parentToolUseId: json['parentToolUseId'] as String?,
     );
   }

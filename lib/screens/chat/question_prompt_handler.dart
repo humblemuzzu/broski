@@ -74,6 +74,9 @@ void maybeShowPermissionPromptFromList({
         approveWithExecpolicyLabel: execpolicyLabel,
         onDenyWithMessage: (message) =>
             onRespond(request, 'reject', message: message),
+        // NOTE: onDefer not wired yet — SDK PermissionResult only supports
+        // allow/deny. Defer is valid in HookPermissionDecision but the bridge
+        // doesn't distinguish hook vs SDK waiter permissions yet.
       ),
     ).whenComplete(() => setActivePermissionId(null));
   });

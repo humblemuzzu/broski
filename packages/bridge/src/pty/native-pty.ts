@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { isCompiledBinary } from "../platform";
 import type { PtySession } from "../types";
 
-const EXPECTED_PTY_LIB_HASH = "%%PTY_LIB_HASH_PLACEHOLDER%%";
+const EXPECTED_PTY_LIB_HASH = "%%_____PTY_LIB_HASH_PLACEHOLDER__________000000000000000000000%%";
 const MAX_NATIVE_PTY_SESSIONS = 20;
 
 const SIGWINCH = 28;

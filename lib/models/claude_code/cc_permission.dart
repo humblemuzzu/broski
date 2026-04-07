@@ -4,7 +4,8 @@ enum ClaudeCodePermissionMode {
   acceptEdits,
   plan,
   bypassPermissions,
-  dontAsk;
+  dontAsk,
+  auto;
 
   String get wireValue {
     switch (this) {
@@ -18,6 +19,8 @@ enum ClaudeCodePermissionMode {
         return 'bypassPermissions';
       case ClaudeCodePermissionMode.dontAsk:
         return 'dontAsk';
+      case ClaudeCodePermissionMode.auto:
+        return 'auto';
     }
   }
 
@@ -31,6 +34,8 @@ enum ClaudeCodePermissionMode {
         return ClaudeCodePermissionMode.bypassPermissions;
       case 'dontAsk':
         return ClaudeCodePermissionMode.dontAsk;
+      case 'auto':
+        return ClaudeCodePermissionMode.auto;
       default:
         return ClaudeCodePermissionMode.defaultMode;
     }
@@ -48,6 +53,8 @@ enum ClaudeCodePermissionMode {
         return 'Bypass Permissions';
       case ClaudeCodePermissionMode.dontAsk:
         return "Don't Ask";
+      case ClaudeCodePermissionMode.auto:
+        return 'Auto';
     }
   }
 }

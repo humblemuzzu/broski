@@ -2,7 +2,7 @@
 set -e
 
 # ──────────────────────────────────────────────
-# Broski Bridge — Installer for macOS & Linux
+# Broski Bridge — One-Line Installer
 # ──────────────────────────────────────────────
 # Usage:
 #   curl -fsSL https://broskiapp.com/install.sh | sh
@@ -10,7 +10,6 @@ set -e
 VERSION="0.1.0"
 BASE_URL="https://broskiapp.com/download"
 INSTALL_DIR="$HOME/.broski/bin"
-# ANALYTICS_URL removed — endpoint disabled to prevent unauthenticated abuse
 
 echo ""
 echo "  ____                _    _ "
@@ -67,73 +66,74 @@ mkdir -p "$INSTALL_DIR"
 echo "  Downloading ${BINARY_NAME}..."
 curl -fSL "${BASE_URL}/${BINARY_NAME}" -o "${INSTALL_DIR}/broski"
 chmod +x "${INSTALL_DIR}/broski"
-echo "  Downloaded to ${INSTALL_DIR}/broski"
+echo "  ✓ Binary installed"
 
 # ── Download signature file (integrity verification) ──
-echo "  Downloading signature..."
 if curl -fSL "${BASE_URL}/${BINARY_NAME}.sig" -o "${INSTALL_DIR}/broski.sig" 2>/dev/null; then
-  echo "  Signature downloaded to ${INSTALL_DIR}/broski.sig"
+  echo "  ✓ Signature downloaded"
 else
-  echo "  ⚠ Signature not available (binary will still work, sentinel check active)"
   rm -f "${INSTALL_DIR}/broski.sig" 2>/dev/null
 fi
+
+# ── Download native PTY library ──────────────
+# Enables terminal sessions from the app. Optional — bridge works without it
+# if OpenCode is running, but needed for standalone terminal access.
+PTY_LIB=""
+case "$OS" in
+  darwin) PTY_LIB="libbroski_pty.dylib" ;;
+  linux)  PTY_LIB="libbroski_pty.so" ;;
+esac
+
+if [ -n "$PTY_LIB" ]; then
+  if curl -fSL "${BASE_URL}/${PTY_LIB}" -o "${INSTALL_DIR}/${PTY_LIB}" 2>/dev/null; then
+    echo "  ✓ PTY library installed"
+  else
+    echo "  ⚠ PTY library not available (terminal still works via OpenCode)"
+    rm -f "${INSTALL_DIR}/${PTY_LIB}" 2>/dev/null
+  fi
+fi
+
 echo ""
 
 # ── Add to PATH ──────────────────────────────
-add_to_path() {
-  PROFILE_FILE="$1"
-  EXPORT_LINE="export PATH=\"${INSTALL_DIR}:\$PATH\""
-
-  if [ -f "$PROFILE_FILE" ]; then
-    if grep -q "$INSTALL_DIR" "$PROFILE_FILE" 2>/dev/null; then
-      return 0  # Already in PATH config
-    fi
-  fi
-
-  echo "" >> "$PROFILE_FILE"
-  echo "# Broski" >> "$PROFILE_FILE"
-  echo "$EXPORT_LINE" >> "$PROFILE_FILE"
-  echo "  Added to PATH in ${PROFILE_FILE}"
-}
-
-# Detect shell (used for PATH config and success message)
 CURRENT_SHELL=$(basename "${SHELL:-/bin/sh}")
+PROFILE_FILE=""
 
-# Check if already in PATH
 case ":$PATH:" in
   *":${INSTALL_DIR}:"*)
     echo "  Already in PATH."
     ;;
   *)
     case "$CURRENT_SHELL" in
-      zsh)
-        add_to_path "$HOME/.zshrc"
-        ;;
-      bash)
-        add_to_path "$HOME/.bashrc"
-        ;;
+      zsh)  PROFILE_FILE="$HOME/.zshrc" ;;
+      bash) PROFILE_FILE="$HOME/.bashrc" ;;
       fish)
-        # Fish uses a different mechanism
-        if ! fish -c "echo \$PATH" 2>/dev/null | grep -q "$INSTALL_DIR"; then
-          fish -c "set -Ux fish_user_paths $INSTALL_DIR \$fish_user_paths" 2>/dev/null || true
-          echo "  Added to PATH via fish universal variable."
-        fi
+        fish -c "set -Ux fish_user_paths $INSTALL_DIR \$fish_user_paths" 2>/dev/null || true
+        echo "  ✓ Added to PATH (fish)"
         ;;
-      *)
-        # Fallback: try .profile
-        add_to_path "$HOME/.profile"
-        ;;
+      *)    PROFILE_FILE="$HOME/.profile" ;;
     esac
+
+    if [ -n "$PROFILE_FILE" ]; then
+      if ! grep -q "$INSTALL_DIR" "$PROFILE_FILE" 2>/dev/null; then
+        echo "" >> "$PROFILE_FILE"
+        echo "# Broski" >> "$PROFILE_FILE"
+        echo "export PATH=\"${INSTALL_DIR}:\$PATH\"" >> "$PROFILE_FILE"
+      fi
+      echo "  ✓ Added to PATH in ${PROFILE_FILE}"
+    fi
     ;;
 esac
 
-# ── Track install (disabled — endpoint removed) ──
+# ── Source PATH immediately ──────────────────
+# So `broski` works right now without restarting the terminal
+export PATH="${INSTALL_DIR}:$PATH"
 
 # ── Done ─────────────────────────────────────
 echo ""
-echo "  Broski v${VERSION} installed successfully!"
+echo "  ✅ Broski v${VERSION} installed!"
 echo ""
-echo "  Next steps:"
-echo "    1. Restart your terminal (or run: source ~/.${CURRENT_SHELL:-bash}rc)"
-echo "    2. Run 'broski setup' to get started."
+echo "  Run this now:"
+echo ""
+echo "    source ~/.${CURRENT_SHELL}rc && broski setup"
 echo ""

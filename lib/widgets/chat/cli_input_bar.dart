@@ -255,6 +255,8 @@ class _CliStyleInputBarState extends State<CliStyleInputBar> {
         return theme.error;
       case ClaudeCodePermissionMode.dontAsk:
         return theme.warning;
+      case ClaudeCodePermissionMode.auto:
+        return theme.accent;
       case null:
         return theme.primary;
     }

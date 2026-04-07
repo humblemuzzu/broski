@@ -259,6 +259,17 @@ Widget? buildVariantCard({
     return CxTerminalInteractionCard(itemId: itemId);
   }
 
+  // CC terminal reason: variant = 'cc-terminal:tool_deferred' etc.
+  if (variant.startsWith('cc-terminal:')) {
+    final reason = variant.replaceFirst('cc-terminal:', '');
+    final isDeferred = reason == 'tool_deferred';
+    return CompactTaskNotificationCard(
+      taskId: message.id,
+      status: isDeferred ? 'stopped' : 'failed',
+      summary: message.text.replaceFirst(RegExp(r'^[⛔⚠️🛑🚫⏸️✅]\s*'), ''),
+    );
+  }
+
   final ccSystemCard = buildCcSystemMessageCard(
     context: context,
     message: message,

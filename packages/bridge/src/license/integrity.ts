@@ -180,7 +180,7 @@ function computeSecuritySentinel(): string {
  * The expected hash is set by the build script: %%NATIVE_LIB_HASH_PLACEHOLDER%%
  * If the placeholder is still present, we're in dev mode and skip the check.
  */
-const EXPECTED_NATIVE_LIB_HASH = "%%NATIVE_LIB_HASH_PLACEHOLDER%%";
+const EXPECTED_NATIVE_LIB_HASH = "%%__NATIVE_LIB_HASH_PLACEHOLDER____000000000000000000000000000%%";
 
 function getNativeLibFilename(): string {
 	if (process.platform === "win32") return "broski_license.dll";

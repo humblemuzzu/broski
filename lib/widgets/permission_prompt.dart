@@ -21,6 +21,8 @@ class PermissionPrompt extends StatefulWidget {
     this.onApproveWithExecpolicy,
     this.approveWithExecpolicyLabel,
     this.onDenyWithMessage,
+    this.onDefer,
+    this.deferLabel = 'Defer',
   });
   final PermissionRequest request;
   final VoidCallback onApprove;
@@ -37,6 +39,10 @@ class PermissionPrompt extends StatefulWidget {
 
   /// Called when user wants to deny with a feedback message
   final void Function(String message)? onDenyWithMessage;
+
+  /// Called when user wants to defer a permission decision (CC auto mode)
+  final VoidCallback? onDefer;
+  final String deferLabel;
   @override
   State<PermissionPrompt> createState() => _PermissionPromptState();
 }
@@ -400,6 +406,23 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                             // Row 1: Reject | Once
                             Row(
                               children: [
+                                if (widget.onDefer != null) ...[
+                                  Expanded(
+                                    child: OutlinedButton(
+                                      onPressed: widget.onDefer,
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: theme.textMuted,
+                                        side: BorderSide(
+                                          color: theme.textMuted.withValues(
+                                            alpha: 0.5,
+                                          ),
+                                        ),
+                                      ),
+                                      child: Text(widget.deferLabel),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                ],
                                 Expanded(
                                   child: OutlinedButton(
                                     onPressed: _handleRejectTap,

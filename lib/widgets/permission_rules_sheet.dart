@@ -861,6 +861,8 @@ class _PermissionModeOption extends StatelessWidget {
         return 'Skip all permission prompts';
       case ClaudeCodePermissionMode.dontAsk:
         return 'Never prompt; deny unapproved actions';
+      case ClaudeCodePermissionMode.auto:
+        return 'AI classifier approves safe tool calls';
     }
   }
 
@@ -876,6 +878,8 @@ class _PermissionModeOption extends StatelessWidget {
         return AppIcons.speed;
       case ClaudeCodePermissionMode.dontAsk:
         return AppIcons.block;
+      case ClaudeCodePermissionMode.auto:
+        return AppIcons.autoAwesome;
     }
   }
 
@@ -892,6 +896,8 @@ class _PermissionModeOption extends StatelessWidget {
         return theme.error;
       case ClaudeCodePermissionMode.dontAsk:
         return theme.warning;
+      case ClaudeCodePermissionMode.auto:
+        return theme.accent;
     }
   }
 

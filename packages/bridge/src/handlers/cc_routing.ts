@@ -17,6 +17,7 @@ import * as ccMemory from "./cc_memory";
 import * as ccPlugins from "./cc_plugins";
 import * as ccSessions from "./cc_sessions";
 import * as ccSkills from "./cc_skills";
+import * as ccSubagents from "./cc_subagents";
 import { resolveHookPermissionByToolUse, getHookWaiterKeys } from "./cc_permission_hook";
 
 type ReplyFn = (msg: ServerMessage) => void;
@@ -112,6 +113,8 @@ const PLUGIN_OPS = new Set([
 	"cc_reload_plugins",
 ]);
 
+const SUBAGENT_OPS = new Set(["cc_list_subagents", "cc_get_subagent_messages"]);
+
 export async function handle(
 	message: Record<string, unknown>,
 	reply: ReplyFn,
@@ -187,6 +190,13 @@ export async function handle(
 	if (PLUGIN_OPS.has(type)) {
 		if (await ccPlugins.handle(message, reply)) return true;
 		reply({ type: "error", message: "Unhandled CC plugins message" });
+		return true;
+	}
+
+	// SDK 0.2.92: Subagent inspection (filesystem queries, no live session needed)
+	if (SUBAGENT_OPS.has(type)) {
+		if (await ccSubagents.handle(message, reply)) return true;
+		reply({ type: "error", message: "Unhandled CC subagent message" });
 		return true;
 	}
 

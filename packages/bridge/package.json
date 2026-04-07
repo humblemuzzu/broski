@@ -51,10 +51,11 @@
     "check": "biome check src/ && tsc --noEmit"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.2.86",
+    "@anthropic-ai/claude-agent-sdk": "^0.2.92",
     "@clack/prompts": "^1.0.0",
     "@mariozechner/pi-coding-agent": "^0.64.0",
-    "@opencode-ai/sdk": "file:../../reference/opencode/packages/sdk/js",
+    "@opencode-ai/sdk": "^1.3.17",
+    "cross-spawn": "^7.0.6",
     "ignore": "^7.0.5",
     "picocolors": "^1.1.1",
     "qrcode-terminal": "^0.12.0",
@@ -62,7 +63,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.9",
-    "@types/bun": "^1.2.16"
+    "@types/bun": "^1.2.16",
+    "@types/cross-spawn": "^6.0.6"
   },
   "engines": {
     "bun": ">=1.0.0"

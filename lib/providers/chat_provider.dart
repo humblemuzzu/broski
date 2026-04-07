@@ -3,6 +3,7 @@ import 'dart:developer' as developer;
 
 import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/claude_code.dart';
+import 'package:broski/models/claude_code/cc_terminal_reason.dart';
 import 'package:broski/models/codex.dart';
 import 'package:broski/models/file_attachment.dart';
 import 'package:broski/models/message.dart';

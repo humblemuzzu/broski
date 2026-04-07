@@ -103,6 +103,24 @@ extension RuntimeCcMetadataHandler on ChatSessionNotifier {
     // Fast mode state
     final fastModeState = backendData['fastModeState']?.toString();
     _emitCcFastModeState(fastModeState);
+
+    // SDK 0.2.92: Terminal reason — why the session stopped
+    final terminalReason = backendData['terminalReason']?.toString();
+    if (terminalReason != null &&
+        terminalReason.isNotEmpty &&
+        terminalReason != 'completed') {
+      final reason = ClaudeCodeTerminalReason.fromWireValue(terminalReason);
+      _addMessage(
+        ChatMessage(
+          id: 'cc-terminal-${DateTime.now().microsecondsSinceEpoch}',
+          sessionId: sessionId,
+          role: MessageRole.system,
+          createdAt: DateTime.now(),
+          text: '${reason.icon} ${reason.displayName}',
+          variant: 'cc-terminal:$terminalReason',
+        ),
+      );
+    }
   }
 
   // ---------------------------------------------------------------------------
