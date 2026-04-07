@@ -1,7 +1,9 @@
 import 'package:broski/models/card_style.dart';
+import 'package:broski/models/claude_code.dart';
 import 'package:broski/models/message.dart';
 import 'package:broski/models/session_context.dart';
 import 'package:broski/providers/card_style_provider.dart';
+import 'package:broski/screens/chat_screen.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/app_typography.dart';
 import 'package:broski/theme/design_tokens.dart';
@@ -80,6 +82,18 @@ class CompactAgentCard extends ConsumerWidget {
     final tool = _tool;
     if (tool == null) return 'running';
     return tool.status;
+  }
+
+  /// Get subagent session ID (from notification or tool metadata)
+  String? get _subagentSessionId {
+    if (_isNotification) {
+      final sid = _notification!.sessionId;
+      return sid.isNotEmpty ? sid : null;
+    }
+    // Tool call may have session_id in metadata (populated by runtime handler)
+    final meta = _tool?.metadata;
+    if (meta == null) return null;
+    return meta['subagentSessionId'] as String? ?? meta['sessionId'] as String?;
   }
 
   /// Get output
@@ -363,6 +377,57 @@ class CompactAgentCard extends ConsumerWidget {
                     },
                   ),
           ),
+          // View full session button (when subagent has a session ID)
+          if (_subagentSessionId != null)
+            Padding(
+              padding: const EdgeInsets.only(top: Spacing.md),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    final sessionId = _subagentSessionId!;
+                    final cwd = _isNotification
+                        ? ''
+                        : (_tool?.input['cwd'] as String? ?? '');
+                    Navigator.pop(context); // close detail sheet
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ChatScreen.claudeCode(
+                          ccSession: ClaudeCodeSession(
+                            id: sessionId,
+                            cwd: cwd,
+                            createdAt: 0,
+                            updatedAt: 0,
+                            title: _capitalize(_agentType),
+                            isBackground: true,
+                            subagentName: _agentType,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                  icon: Icon(
+                    AppIcons.openExternal,
+                    size: 16,
+                    color: theme.info,
+                  ),
+                  label: Text(
+                    'View Full Session',
+                    style: TextStyle(
+                      color: theme.info,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: theme.info.withValues(alpha: 0.4)),
+                    shape: RoundedRectangleBorder(borderRadius: Radii.brMd),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

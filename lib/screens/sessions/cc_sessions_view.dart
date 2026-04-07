@@ -205,6 +205,7 @@ class ClaudeCodeSessionsViewState
   final _searchController = TextEditingController();
   String _searchQuery = '';
   String _sortBy = 'updatedAt';
+  bool _showSubagentSessions = false;
   Timer? _searchDebounce;
   @override
   void initState() {
@@ -740,6 +741,33 @@ class ClaudeCodeSessionsViewState
                                 setState(() => _sortBy = value);
                               },
                             ),
+                            // Subagent sessions filter
+                            Builder(
+                              builder: (context) {
+                                final allSessions =
+                                    ref.watch(ccSessionsProvider).valueOrNull ??
+                                    const <ClaudeCodeSession>[];
+                                final subagentCount = allSessions
+                                    .where((s) => s.isSubagentSession)
+                                    .length;
+                                if (subagentCount == 0) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Padding(
+                                  padding: const EdgeInsets.only(
+                                    left: Spacing.sm,
+                                  ),
+                                  child: BackgroundTasksChip(
+                                    count: subagentCount,
+                                    isExpanded: _showSubagentSessions,
+                                    onTap: () => setState(
+                                      () => _showSubagentSessions =
+                                          !_showSubagentSessions,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
                           ],
                         ),
                         const SizedBox(height: Spacing.md),
@@ -821,6 +849,11 @@ class ClaudeCodeSessionsViewState
                                   : s.displayTitle.toLowerCase().contains(
                                       _searchQuery,
                                     ),
+                            )
+                            // Hide subagent sessions unless toggled on
+                            .where(
+                              (s) =>
+                                  _showSubagentSessions || !s.isSubagentSession,
                             )
                             .toList()
                           ..sort((a, b) {
