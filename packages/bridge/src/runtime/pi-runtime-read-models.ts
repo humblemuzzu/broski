@@ -95,10 +95,12 @@ export function mapPiSessionToRuntimeSession(
 		? piPathToSessionId(allSessions, session.parentSessionPath!)
 		: undefined;
 
-	// Count children that point to this session's path
-	const childCount = allSessions
+	// Count children: handoff sessions + tool-based subagent invocations
+	const handoffChildCount = allSessions
 		? allSessions.filter((s) => s.parentSessionPath === session.path).length
 		: 0;
+	const toolChildCount = session.subagentToolCount ?? 0;
+	const childCount = handoffChildCount + toolChildCount;
 
 	// Pi parentSession comes from handoff continuations or forks
 	const sessionKind = hasParent ? "handoff" : "root";

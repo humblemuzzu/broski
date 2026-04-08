@@ -13,6 +13,47 @@ import { aggregateFileDiffs, countUnifiedDiffStats, deduplicateFileDiffs } from 
 // Cache: sessionPath → { mtime, summary }
 const statsCache = new Map<string, { mtime: number; summary: SessionDiffSummary }>();
 
+// Cache: sessionPath → { mtime, count }
+const subagentCountCache = new Map<string, { mtime: number; count: number }>();
+
+const SUBAGENT_TOOL_NAMES = new Set(["task", "Task", "oracle", "finder", "code_review", "look_at", "librarian"]);
+
+/**
+ * Count subagent tool invocations in a Pi session JSONL.
+ * Fast: only checks for toolCall entries with known subagent tool names.
+ */
+export async function countSubagentTools(filePath: string): Promise<number> {
+	try {
+		const fileStat = await stat(filePath);
+		const mtime = fileStat.mtime.getTime();
+
+		const cached = subagentCountCache.get(filePath);
+		if (cached && cached.mtime === mtime) return cached.count;
+
+		const text = await Bun.file(filePath).text();
+		await Bun.sleep(0);
+		let count = 0;
+		for (const line of text.split("\n")) {
+			if (!line || !line.includes('"toolCall"')) continue;
+			let parsed: any;
+			try { parsed = JSON.parse(line); } catch { continue; }
+			if (parsed?.type !== "message") continue;
+			const content = parsed.message?.content;
+			if (!Array.isArray(content)) continue;
+			for (const block of content) {
+				if (block?.type === "toolCall" && SUBAGENT_TOOL_NAMES.has(block.name)) {
+					count++;
+				}
+			}
+		}
+
+		subagentCountCache.set(filePath, { mtime, count });
+		return count;
+	} catch {
+		return 0;
+	}
+}
+
 /**
  * Scan a Pi .jsonl session file and extract per-file diff entries.
  *

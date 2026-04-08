@@ -247,6 +247,7 @@ class PiSessionInfo {
   final String firstMessage;
   final String? allMessagesText;
   final SessionSummaryStats? summary;
+  final int? subagentToolCount;
 
   const PiSessionInfo({
     required this.path,
@@ -260,6 +261,7 @@ class PiSessionInfo {
     required this.firstMessage,
     this.allMessagesText,
     this.summary,
+    this.subagentToolCount,
   });
 
   factory PiSessionInfo.fromJson(Map<String, dynamic> json) {
@@ -283,6 +285,7 @@ class PiSessionInfo {
           : SessionSummaryStats.fromJson(
               json['summary'] as Map<String, dynamic>,
             ),
+      subagentToolCount: (json['subagentToolCount'] as num?)?.toInt(),
     );
   }
 

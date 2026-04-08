@@ -2665,6 +2665,7 @@ export type ClaudeCodeSession = {
 	hasSubagentActivity?: boolean;
 	subagentName?: string;
 	subagentCount?: number; // Number of subagent JSONL files under this session
+	parentSessionId?: string; // For subagents: the parent session that spawned this agent
 	gitBranch?: string;
 	summary?: { additions: number; deletions: number; files: number };
 	// SDK 0.2.87: SDKSessionInfo fields

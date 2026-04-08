@@ -20,6 +20,7 @@ import 'package:broski/screens/sessions/cc_sessions_view.dart';
 import 'package:broski/screens/sessions/cx_threads_view.dart';
 import 'package:broski/screens/sessions/new_session_content.dart';
 import 'package:broski/screens/sessions/pi_sessions_view.dart';
+import 'package:broski/screens/sessions/subagent_tasks_view.dart';
 import 'package:broski/screens/sheets/session_options_sheet.dart';
 import 'package:broski/screens/sheets/sessions_title_filters_sheet.dart';
 import 'package:broski/theme/app_icons.dart';
@@ -90,6 +91,15 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
   @override
   Widget build(BuildContext context) {
     final agentType = ref.watch(agentTypeProvider);
+    final showTasks = ref.watch(showTasksTabProvider);
+
+    // Tasks tab — shared across all backends
+    if (showTasks) {
+      return _TasksTabWrapper(
+        onBack: () => ref.read(showTasksTabProvider.notifier).state = false,
+      );
+    }
+
     if (agentType == AgentType.claudeCode) {
       return ClaudeCodeSessionsView(onRefresh: _refresh);
     }
@@ -943,7 +953,11 @@ class _ModernHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          Row(
+          // Filter chips row - wraps on narrow screens, scrolls on very narrow
+          Wrap(
+            spacing: Spacing.sm,
+            runSpacing: Spacing.sm,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               FilterChipButton(
                 label: label,
@@ -955,12 +969,10 @@ class _ModernHeader extends StatelessWidget {
                   onSelected: onFilterChanged,
                 ),
               ),
-              const SizedBox(width: Spacing.sm),
               TitleFiltersChip(
                 count: titleFilterCount,
                 onTap: onTitleFiltersTap,
               ),
-              const SizedBox(width: Spacing.sm),
               // Background tasks toggle
               if (backgroundTaskCount > 0)
                 BackgroundTasksChip(
@@ -968,7 +980,6 @@ class _ModernHeader extends StatelessWidget {
                   isExpanded: showBackgroundTasks,
                   onTap: onToggleBackgroundTasks,
                 ),
-              const SizedBox(width: Spacing.sm),
               const ArchiveFilterChip(),
             ],
           ),
@@ -1122,6 +1133,85 @@ class _PulsingDotState extends State<_PulsingDot>
 }
 
 /// "Load more" button shown when a project group is truncated.
+// ============================================================================
+// ============================================================================
+// TASKS TAB WRAPPER
+// ============================================================================
+
+/// Wrapper for the Tasks tab that shows subagent sessions for the active backend.
+class _TasksTabWrapper extends ConsumerWidget {
+  const _TasksTabWrapper({required this.onBack});
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ocTheme = OpenCodeTheme.of(context);
+    final backend = ref.watch(agentTypeProvider);
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: onBack,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              AppIcons.chevronLeft,
+                              size: 20,
+                              color: ocTheme.primary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Sessions',
+                              style: TextStyle(
+                                color: ocTheme.primary,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: Spacing.md),
+                  Text(
+                    'Tasks',
+                    style: TextStyle(
+                      color: ocTheme.text,
+                      fontSize: 32,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: Spacing.xs),
+                  Text(
+                    'Subagent sessions from ${backend.displayName}',
+                    style: TextStyle(
+                      color: ocTheme.textMuted,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Expanded(child: SubagentTasksView()),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ============================================================================
 // Claude Code Sessions View
 // ============================================================================

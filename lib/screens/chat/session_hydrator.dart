@@ -70,6 +70,8 @@ Future<bool> hydrateSession({
       title: widget.ccSession?.displayTitle ?? widget.ccDraftTitle,
     );
     final sessionId = widget.ccSession?.id;
+    final parentSessionId = widget.ccSession?.parentSessionId;
+    final isSubagent = widget.ccSession?.isSubagentSession == true;
     if (sessionId != null && sessionId.isNotEmpty) {
       if (connection.isOfflineMode) {
         final cachedMessages = await storage.getCachedCCMessages(sessionId);
@@ -78,9 +80,18 @@ Future<bool> hydrateSession({
         }
       } else {
         try {
-          final items = await ref
-              .read(bridgeServiceProvider)
-              .ccGetSessionMessages(sessionId, cwd: cwd);
+          final bridge = ref.read(bridgeServiceProvider);
+          List<Map<String, dynamic>> items;
+          if (isSubagent) {
+            // Load subagent messages using parent session ID + agent ID
+            items = await bridge.ccGetSubagentMessages(
+              sessionId: parentSessionId!,
+              agentId: sessionId,
+              cwd: cwd,
+            );
+          } else {
+            items = await bridge.ccGetSessionMessages(sessionId, cwd: cwd);
+          }
           chat.hydrateClaudeCodeTranscript(items);
           final chatState = ref.read(chatSessionProvider);
           if (chatState.messages.isNotEmpty) {

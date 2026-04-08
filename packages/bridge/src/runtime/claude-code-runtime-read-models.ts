@@ -63,7 +63,10 @@ export function mapClaudeCodeSessionToRuntimeSession(session: ClaudeCodeSession)
 		...(session.model ? { modelLabel: session.model } : {}),
 		...(session.summary ? { summary: session.summary } : {}),
 		sessionKind,
-		...(session.hasSubagentActivity ? { childSessionCount: session.subagentCount ?? 0 } : {}),
+		...(session.parentSessionId ? { parentSessionId: session.parentSessionId } : {}),
+		...(session.hasSubagentActivity || (session.subagentCount && session.subagentCount > 0)
+			? { childSessionCount: session.subagentCount ?? 0 }
+			: {}),
 		...(session.subagentName ? { subagentType: session.subagentName } : {}),
 		backendData: {
 			...(session.messageCount !== undefined ? { messageCount: session.messageCount } : {}),

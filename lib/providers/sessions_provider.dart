@@ -592,6 +592,9 @@ class SessionsTitleExcludeFiltersNotifier extends StateNotifier<List<String>> {
 /// When false (default), background tasks are collapsed under parent sessions.
 final showBackgroundTasksProvider = StateProvider<bool>((ref) => false);
 
+/// Whether the sessions screen is showing the dedicated Tasks tab.
+final showTasksTabProvider = StateProvider<bool>((ref) => false);
+
 /// Tracks which parent sessions have their children expanded.
 /// Key: parent session ID, Value: true if expanded.
 final expandedSessionsProvider =
@@ -697,6 +700,7 @@ final sessionsListProvider = StreamProvider<List<SessionSummary>>((ref) async* {
     final freshAll = await bridge.listSessions(
       projectPath: null,
       search: searchQuery.isNotEmpty ? searchQuery : null,
+      limit: 5000, // Fetch enough to include all root + child sessions
     );
 
     // Cache the sessions for offline use (only full fetches, not search results)

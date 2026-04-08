@@ -206,6 +206,7 @@ class ClaudeCodeSessionsViewState
   String _searchQuery = '';
   String _sortBy = 'updatedAt';
   bool _showSubagentSessions = false;
+  final Set<String> _expandedParents = {};
   Timer? _searchDebounce;
   @override
   void initState() {
@@ -708,67 +709,76 @@ class ClaudeCodeSessionsViewState
                           ),
                         ),
                         const SizedBox(height: 14),
-                        Row(
-                          children: [
-                            FilterChipButton(
-                              label: label,
-                              onTap: () => showProjectFilter(
-                                context: context,
-                                theme: theme,
-                                selectedPath: filterCwd,
-                                projectsProvider: ccFilterProjectsProvider,
-                                onSelected: (path) {
-                                  ref
-                                          .read(
-                                            ccSessionsFilterCwdProvider
-                                                .notifier,
-                                          )
-                                          .state =
-                                      path;
-                                  ref.read(ccSessionsProvider.notifier).load();
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              FilterChipButton(
+                                label: label,
+                                onTap: () => showProjectFilter(
+                                  context: context,
+                                  theme: theme,
+                                  selectedPath: filterCwd,
+                                  projectsProvider: ccFilterProjectsProvider,
+                                  onSelected: (path) {
+                                    ref
+                                            .read(
+                                              ccSessionsFilterCwdProvider
+                                                  .notifier,
+                                            )
+                                            .state =
+                                        path;
+                                    ref
+                                        .read(ccSessionsProvider.notifier)
+                                        .load();
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: Spacing.sm),
+                              TitleFiltersChip(
+                                count: titleFilterCount,
+                                onTap: () => _showTitleFiltersSheet(context),
+                              ),
+                              const SizedBox(width: Spacing.sm),
+                              SortChip(
+                                sortBy: _sortBy,
+                                onChanged: (value) {
+                                  setState(() => _sortBy = value);
                                 },
                               ),
-                            ),
-                            const SizedBox(width: Spacing.sm),
-                            TitleFiltersChip(
-                              count: titleFilterCount,
-                              onTap: () => _showTitleFiltersSheet(context),
-                            ),
-                            const SizedBox(width: Spacing.sm),
-                            SortChip(
-                              sortBy: _sortBy,
-                              onChanged: (value) {
-                                setState(() => _sortBy = value);
-                              },
-                            ),
-                            // Subagent sessions filter
-                            Builder(
-                              builder: (context) {
-                                final allSessions =
-                                    ref.watch(ccSessionsProvider).valueOrNull ??
-                                    const <ClaudeCodeSession>[];
-                                final subagentCount = allSessions
-                                    .where((s) => s.isSubagentSession)
-                                    .length;
-                                if (subagentCount == 0) {
-                                  return const SizedBox.shrink();
-                                }
-                                return Padding(
-                                  padding: const EdgeInsets.only(
-                                    left: Spacing.sm,
-                                  ),
-                                  child: BackgroundTasksChip(
-                                    count: subagentCount,
-                                    isExpanded: _showSubagentSessions,
-                                    onTap: () => setState(
-                                      () => _showSubagentSessions =
-                                          !_showSubagentSessions,
+                              // Subagent sessions filter
+                              Builder(
+                                builder: (context) {
+                                  final allSessions = ref
+                                          .watch(ccSessionsProvider)
+                                          .valueOrNull ??
+                                      const <ClaudeCodeSession>[];
+                                  final subagentCount = allSessions
+                                      .where((s) => s.isSubagentSession)
+                                      .length;
+                                  if (subagentCount == 0) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  return Padding(
+                                    padding: const EdgeInsets.only(
+                                      left: Spacing.sm,
                                     ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
+                                    child: BackgroundTasksChip(
+                                      count: subagentCount,
+                                      isExpanded: _showSubagentSessions,
+                                      onTap: () => setState(() {
+                                        _showSubagentSessions =
+                                            !_showSubagentSessions;
+                                        if (!_showSubagentSessions) {
+                                          _expandedParents.clear();
+                                        }
+                                      }),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
                         ),
                         const SizedBox(height: Spacing.md),
                         SessionsSearchBar(
@@ -828,11 +838,11 @@ class ClaudeCodeSessionsViewState
                     if (sessions.isEmpty) {
                       return [const SliverFillRemaining(child: CCEmptyState())];
                     }
-                    // Sort by updatedAt descending
                     final titleFilters = ref.watch(
                       sessionsTitleExcludeFiltersProvider(AgentType.claudeCode),
                     );
-                    final sorted =
+                    // Filter by project, title, search — but keep ALL sessions for grouping
+                    final filtered =
                         sessions
                             .where((s) => projectPathMatches(s.cwd, filterCwd))
                             .where(
@@ -850,11 +860,6 @@ class ClaudeCodeSessionsViewState
                                       _searchQuery,
                                     ),
                             )
-                            // Hide subagent sessions unless toggled on
-                            .where(
-                              (s) =>
-                                  _showSubagentSessions || !s.isSubagentSession,
-                            )
                             .toList()
                           ..sort((a, b) {
                             if (_sortBy == 'updatedAt') {
@@ -862,11 +867,23 @@ class ClaudeCodeSessionsViewState
                             }
                             return b.createdAt.compareTo(a.createdAt);
                           });
+
+                    // Separate root sessions from subagent children
+                    final rootSessions = filtered
+                        .where((s) => !s.isSubagentSession)
+                        .toList();
+                    final childMap = <String, List<ClaudeCodeSession>>{};
+                    for (final s in filtered.where((s) => s.isSubagentSession)) {
+                      if (s.parentSessionId != null) {
+                        childMap.putIfAbsent(s.parentSessionId!, () => []).add(s);
+                      }
+                    }
+
                     // Predictive prefetching: preload messages for top 3 CC sessions
                     WidgetsBinding.instance.addPostFrameCallback((_) {
-                      prefetchTopCCSessions(ref, sorted);
+                      prefetchTopCCSessions(ref, rootSessions);
                     });
-                    if (sorted.isEmpty) {
+                    if (rootSessions.isEmpty) {
                       if (_searchQuery.isNotEmpty) {
                         return [
                           SliverFillRemaining(
@@ -885,12 +902,64 @@ class ClaudeCodeSessionsViewState
                       return [const SliverFillRemaining(child: CCEmptyState())];
                     }
                     // Separate highlighted and regular sessions
-                    final highlightedSessions = sorted
+                    final highlightedSessions = rootSessions
                         .where((s) => highlights.isSessionHighlighted(s.id))
                         .toList();
-                    final regularSessions = sorted
+                    final regularSessions = rootSessions
                         .where((s) => !highlights.isSessionHighlighted(s.id))
                         .toList();
+
+                    // Helper to add a session card + optional children
+                    void addSessionWithChildren(
+                      List<Widget> items,
+                      ClaudeCodeSession session,
+                    ) {
+                      items.add(
+                        Padding(
+                          padding: Insets.bottomMd,
+                          child: CCSessionCard(
+                            session: session,
+                            onTap: () => _openSession(session),
+                            onLongPress: () => _showSessionOptions(session),
+                            onDelete: () => _deleteSession(session),
+                          ),
+                        ),
+                      );
+                      final children = childMap[session.id] ?? [];
+                      if (_showSubagentSessions && children.isNotEmpty) {
+                        final isExpanded = _expandedParents.contains(session.id);
+                        items.add(
+                          _CCChildExpandRow(
+                            count: children.length,
+                            isExpanded: isExpanded,
+                            onTap: () => setState(() {
+                              if (isExpanded) {
+                                _expandedParents.remove(session.id);
+                              } else {
+                                _expandedParents.add(session.id);
+                              }
+                            }),
+                          ),
+                        );
+                        if (isExpanded) {
+                          for (final child in children) {
+                            items.add(
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  left: 24,
+                                  bottom: 8,
+                                ),
+                                child: _CCChildSessionCard(
+                                  session: child,
+                                  onTap: () => _openSession(child),
+                                ),
+                              ),
+                            );
+                          }
+                        }
+                      }
+                    }
+
                     return [
                       // Highlighted Sessions Section
                       if (highlightedSessions.isNotEmpty)
@@ -908,20 +977,8 @@ class ClaudeCodeSessionsViewState
                         final isGrouped = filterCwd == null;
                         final ccItems = <Widget>[];
                         if (!isGrouped) {
-                          // Flat list when filtered
                           for (final session in regularSessions) {
-                            ccItems.add(
-                              Padding(
-                                padding: Insets.bottomMd,
-                                child: CCSessionCard(
-                                  session: session,
-                                  onTap: () => _openSession(session),
-                                  onLongPress: () =>
-                                      _showSessionOptions(session),
-                                  onDelete: () => _deleteSession(session),
-                                ),
-                              ),
-                            );
+                            addSessionWithChildren(ccItems, session);
                           }
                         } else {
                           // Group by project directory
@@ -947,12 +1004,7 @@ class ClaudeCodeSessionsViewState
                             final name = parts.isEmpty ? 'Global' : parts.last;
                             ccItems.add(
                               Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  4,
-                                  14,
-                                  4,
-                                  10,
-                                ),
+                                padding: const EdgeInsets.fromLTRB(4, 14, 4, 10),
                                 child: Builder(
                                   builder: (context) {
                                     final ocT = OpenCodeTheme.of(context);
@@ -978,18 +1030,7 @@ class ClaudeCodeSessionsViewState
                                 : kSessionsPerProjectDefault;
                             final visible = group.take(limit);
                             for (final session in visible) {
-                              ccItems.add(
-                                Padding(
-                                  padding: Insets.bottomMd,
-                                  child: CCSessionCard(
-                                    session: session,
-                                    onTap: () => _openSession(session),
-                                    onLongPress: () =>
-                                        _showSessionOptions(session),
-                                    onDelete: () => _deleteSession(session),
-                                  ),
-                                ),
-                              );
+                              addSessionWithChildren(ccItems, session);
                             }
                             final remaining = group.length - limit;
                             if (remaining > 0) {
@@ -1127,6 +1168,205 @@ class CCEmptyState extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Expand/collapse row for CC subagent children under a parent session.
+class _CCChildExpandRow extends StatelessWidget {
+  const _CCChildExpandRow({
+    required this.count,
+    required this.isExpanded,
+    required this.onTap,
+  });
+
+  final int count;
+  final bool isExpanded;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.only(left: 16, top: 4, bottom: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(AppIcons.forkRight, size: 14, color: ocTheme.accent),
+            const SizedBox(width: 6),
+            Text(
+              '$count subagent${count == 1 ? '' : 's'}',
+              style: TextStyle(
+                color: ocTheme.accent,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(width: 4),
+            AnimatedRotation(
+              turns: isExpanded ? 0.25 : 0,
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                AppIcons.chevronRight,
+                size: 14,
+                color: ocTheme.accent,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Compact card for CC subagent child sessions.
+class _CCChildSessionCard extends StatelessWidget {
+  const _CCChildSessionCard({required this.session, required this.onTap});
+
+  final ClaudeCodeSession session;
+  final VoidCallback onTap;
+
+  String _formatDate(int timestampMs) {
+    final date = DateTime.fromMillisecondsSinceEpoch(timestampMs);
+    final now = DateTime.now();
+    final diff = now.difference(date);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${date.day}/${date.month}/${date.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+    final title = session.displayTitle;
+    final stats = session.summary;
+    final hasStats =
+        stats != null && (stats.additions > 0 || stats.deletions > 0);
+    final agentLabel = session.subagentName ?? 'Subagent';
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: ocTheme.backgroundElement.withValues(alpha: 0.4),
+          borderRadius: Radii.brSm,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Row(
+          children: [
+            Container(
+              width: 2,
+              decoration: BoxDecoration(
+                color: ocTheme.accent.withValues(alpha: 0.4),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(8),
+                  bottomLeft: Radius.circular(8),
+                ),
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          agentLabel,
+                          style: TextStyle(
+                            color: ocTheme.accent,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: TextStyle(
+                              color: ocTheme.text.withValues(alpha: 0.85),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: Spacing.xs),
+                    Row(
+                      children: [
+                        Text(
+                          _formatDate(session.updatedAt),
+                          style: TextStyle(
+                            color: ocTheme.textMuted,
+                            fontSize: 11,
+                          ),
+                        ),
+                        if (hasStats) ...[
+                          Text(
+                            ' · ',
+                            style: TextStyle(
+                              color: ocTheme.textMuted.withValues(alpha: 0.5),
+                              fontSize: 11,
+                            ),
+                          ),
+                          if (stats.additions > 0)
+                            Text(
+                              '+${stats.additions}',
+                              style: TextStyle(
+                                color: ocTheme.diffAdded,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          if (stats.additions > 0 && stats.deletions > 0)
+                            const SizedBox(width: 4),
+                          if (stats.deletions > 0)
+                            Text(
+                              '-${stats.deletions}',
+                              style: TextStyle(
+                                color: ocTheme.diffRemoved,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                        ],
+                        if (session.model != null) ...[
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: ocTheme.accent.withValues(alpha: 0.12),
+                              borderRadius: Radii.brXs,
+                            ),
+                            child: Text(
+                              session.model!,
+                              style: TextStyle(
+                                color: ocTheme.accent,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

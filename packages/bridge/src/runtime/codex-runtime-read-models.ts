@@ -1,4 +1,5 @@
 import type { CodexThread } from "../types";
+import { getCollabParent } from "../connectors/codex/cx-collab-cache";
 import type {
 	BroskiModelSummary,
 	BroskiRuntimeCapabilities,
@@ -33,6 +34,13 @@ export function mapCodexThreadToRuntimeSession(thread: CodexThread & { threadNam
 	const isFork = !!thread.forkedFromId && !isCollabChild;
 	const sessionKind = isCollabChild ? "subagent" : isFork ? "fork" : "root";
 
+	// For collab children, look up parent from the persisted collab cache
+	let parentId = thread.forkedFromId ?? undefined;
+	if (isCollabChild && !parentId) {
+		const collabParent = getCollabParent(thread.id);
+		if (collabParent) parentId = collabParent.parentThreadId;
+	}
+
 	return {
 		id: thread.id,
 		backend: "codex",
@@ -44,7 +52,7 @@ export function mapCodexThreadToRuntimeSession(thread: CodexThread & { threadNam
 		...(thread.modelProvider ? { modelLabel: thread.modelProvider } : {}),
 		...(thread.summary ? { summary: thread.summary } : {}),
 		sessionKind,
-		...(thread.forkedFromId ? { parentSessionId: thread.forkedFromId } : {}),
+		...(parentId ? { parentSessionId: parentId } : {}),
 		...(isCollabChild && thread.agentNickname ? { subagentType: thread.agentNickname } : {}),
 		backendData: {
 			...(thread.cliVersion ? { cliVersion: thread.cliVersion } : {}),

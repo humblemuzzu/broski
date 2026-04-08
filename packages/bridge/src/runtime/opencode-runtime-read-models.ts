@@ -30,12 +30,11 @@ const openCodeRuntimeCapabilities: BroskiRuntimeCapabilities = {
  */
 function extractOcSubagentType(title: string, parentID?: string): string | undefined {
 	if (!parentID) return undefined;
+	// OpenCode titles follow: "description (@agentName subagent)"
 	const match = title.match(/\(@(\S+)\s+subagent\)\s*$/);
 	if (match) return `@${match[1]}`;
-	// Fallback: check for common agent-type prefixes in the title
-	const lower = title.toLowerCase();
-	if (lower.startsWith("child session")) return "@task";
-	return "@task"; // All OC children with parentID are subagent tasks
+	// No pattern match — return undefined so the UI can show a generic "subagent" label
+	return undefined;
 }
 
 export function mapOpenCodeSessionToRuntimeSession(session: SessionSummary): BroskiSessionSummary {

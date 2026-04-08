@@ -1,5 +1,7 @@
 import type { CodexStreamMessage } from "../types";
+import type { CodexCollabAgentSpawnEndEvent } from "../types/codex";
 import type { BroskiBackendData, BroskiRuntimeEvent } from "../types/runtime";
+import { recordCollabSpawn } from "../connectors/codex/cx-collab-cache";
 import { extractToolCallId } from "./shared";
 import { enrichRuntimeEvent } from "./stream-contract";
 
@@ -600,8 +602,25 @@ export function mapCodexStreamToRuntimeEvent(
 			}
 		}
 
+		case "collab_spawn_end": {
+			// Persist parent→child thread mapping for reconnect survival
+			const spawnData = streamMessage.data as CodexCollabAgentSpawnEndEvent;
+			if (spawnData?.newThreadId && spawnData.senderThreadId) {
+				recordCollabSpawn(
+					spawnData.senderThreadId,
+					spawnData.newThreadId,
+					spawnData.newAgentNickname,
+					spawnData.newAgentRole,
+					spawnData.prompt,
+				);
+			}
+			return {
+				...baseEvent("backend_event", ctx),
+				kind: streamMessage.type,
+				payload: streamMessage.data ?? streamMessage,
+			};
+		}
 		case "collab_spawn_begin":
-		case "collab_spawn_end":
 		case "collab_interaction_begin":
 		case "collab_interaction_end":
 		case "collab_waiting_begin":

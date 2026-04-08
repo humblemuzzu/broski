@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join, relative } from "node:path";
+import { scanSubagentDir } from "./claude-code/cc-subagent-scan";
 import type {
 	ElicitationRequest,
 	ElicitationResult,
@@ -915,6 +916,7 @@ export async function listSessions(cwd?: string): Promise<ClaudeCodeSession[]> {
 			try {
 				const files = await readdir(projectDir);
 				const sessionFiles = files.filter((f) => f.endsWith(".jsonl"));
+				const sessionIdsWithJsonl = new Set(sessionFiles.map((f) => basename(f, ".jsonl")));
 
 				for (const file of sessionFiles) {
 					const sessionId = basename(file, ".jsonl");
@@ -947,6 +949,26 @@ export async function listSessions(cwd?: string): Promise<ClaudeCodeSession[]> {
 						gitBranch: preview.gitBranch,
 						_filePath: filePath, // internal: used for stats computation below
 					} as ClaudeCodeSession & { _filePath: string });
+
+					// Scan subagents/ subdirectory for subagent session files
+					const subagentCount = await scanSubagentDir(projectDir, sessionId, sessionCwd, cwd, sessions, readSessionPreview);
+
+					// Annotate parent session with subagent count
+					if (subagentCount > 0) {
+						const parentSession = sessions.find(
+							(s) => s.id === sessionId && (s as any)._filePath === filePath,
+						);
+						if (parentSession) {
+							(parentSession as ClaudeCodeSession).subagentCount = subagentCount;
+						}
+					}
+				}
+
+				// Also scan for orphaned subagent directories (sessions archived/compacted with no .jsonl)
+				const allDirs = files.filter((f) => !f.endsWith(".jsonl") && !f.endsWith("index.json") && !f.endsWith(".json"));
+				for (const dirName of allDirs) {
+					if (sessionIdsWithJsonl.has(dirName)) continue; // already processed above
+					await scanSubagentDir(projectDir, dirName, cwd ?? "", cwd, sessions, readSessionPreview);
 				}
 			} catch {}
 		}

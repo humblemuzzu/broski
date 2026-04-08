@@ -44,6 +44,7 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
   String _searchQuery = '';
   Timer? _searchDebounce;
   bool _showSubagentThreads = false;
+  final Set<String> _expandedParents = {};
   final _scrollController = ScrollController();
   @override
   void initState() {
@@ -540,71 +541,78 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
                           ),
                         ),
                         const SizedBox(height: 14),
-                        Row(
-                          children: [
-                            FilterChipButton(
-                              label: label,
-                              onTap: () => showProjectFilter(
-                                context: context,
-                                theme: theme,
-                                selectedPath: filterCwd,
-                                projectsProvider: codexFilterProjectsProvider,
-                                onSelected: (path) {
-                                  ref
-                                          .read(
-                                            codexThreadsFilterCwdProvider
-                                                .notifier,
-                                          )
-                                          .state =
-                                      path;
-                                  ref
-                                      .read(codexThreadsProvider.notifier)
-                                      .load();
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              FilterChipButton(
+                                label: label,
+                                onTap: () => showProjectFilter(
+                                  context: context,
+                                  theme: theme,
+                                  selectedPath: filterCwd,
+                                  projectsProvider:
+                                      codexFilterProjectsProvider,
+                                  onSelected: (path) {
+                                    ref
+                                            .read(
+                                              codexThreadsFilterCwdProvider
+                                                  .notifier,
+                                            )
+                                            .state =
+                                        path;
+                                    ref
+                                        .read(codexThreadsProvider.notifier)
+                                        .load();
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: Spacing.sm),
+                              TitleFiltersChip(
+                                count: titleFilterCount,
+                                onTap: () => _showTitleFiltersSheet(context),
+                              ),
+                              const SizedBox(width: Spacing.sm),
+                              SortChip(
+                                sortBy: _sortBy,
+                                onChanged: (value) {
+                                  setState(() => _sortBy = value);
                                 },
                               ),
-                            ),
-                            const SizedBox(width: Spacing.sm),
-                            TitleFiltersChip(
-                              count: titleFilterCount,
-                              onTap: () => _showTitleFiltersSheet(context),
-                            ),
-                            const SizedBox(width: Spacing.sm),
-                            SortChip(
-                              sortBy: _sortBy,
-                              onChanged: (value) {
-                                setState(() => _sortBy = value);
-                              },
-                            ),
-                            Builder(
-                              builder: (context) {
-                                final allThreads =
-                                    threadsAsync.valueOrNull ?? [];
-                                final subagentCount = allThreads
-                                    .where(
-                                      (t) =>
-                                          t.agentNickname != null ||
-                                          t.agentRole != null,
-                                    )
-                                    .length;
-                                if (subagentCount == 0) {
-                                  return const SizedBox.shrink();
-                                }
-                                return Padding(
-                                  padding: const EdgeInsets.only(
-                                    left: Spacing.sm,
-                                  ),
-                                  child: BackgroundTasksChip(
-                                    count: subagentCount,
-                                    isExpanded: _showSubagentThreads,
-                                    onTap: () => setState(
-                                      () => _showSubagentThreads =
-                                          !_showSubagentThreads,
+                              Builder(
+                                builder: (context) {
+                                  final allThreads =
+                                      threadsAsync.valueOrNull ?? [];
+                                  final subagentCount = allThreads
+                                      .where(
+                                        (t) =>
+                                            t.agentNickname != null ||
+                                            t.agentRole != null,
+                                      )
+                                      .length;
+                                  if (subagentCount == 0) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  return Padding(
+                                    padding: const EdgeInsets.only(
+                                      left: Spacing.sm,
                                     ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
+                                    child: BackgroundTasksChip(
+                                      count: subagentCount,
+                                      isExpanded: _showSubagentThreads,
+                                      onTap: () => setState(() {
+                                        _showSubagentThreads =
+                                            !_showSubagentThreads;
+                                        if (!_showSubagentThreads) {
+                                          _expandedParents.clear();
+                                        }
+                                      }),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
                         ),
                         const SizedBox(height: Spacing.md),
                         SessionsSearchBar(
@@ -663,6 +671,7 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
                     final titleFilters = ref.watch(
                       sessionsTitleExcludeFiltersProvider(AgentType.codex),
                     );
+                    // Filter but keep all threads for grouping
                     final filtered =
                         threads
                             .where((t) => projectPathMatches(t.cwd, filterCwd))
@@ -681,12 +690,6 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
                                       _searchQuery,
                                     ),
                             )
-                            .where(
-                              (t) =>
-                                  _showSubagentThreads ||
-                                  (t.agentNickname == null &&
-                                      t.agentRole == null),
-                            )
                             .toList()
                           ..sort((a, b) {
                             if (_sortBy == 'updatedAt') {
@@ -694,11 +697,42 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
                             }
                             return b.createdAt.compareTo(a.createdAt);
                           });
-                    // Predictive prefetching: preload messages for top 3 CX threads
+
+                    // Classify threads:
+                    // - Root: no agentNickname/agentRole AND no forkedFromId
+                    // - Fork children: have forkedFromId → group under parent
+                    // - Collab children: have agentNickname/agentRole → flat when toggled
+                    bool isChild(CodexThread t) =>
+                        t.agentNickname != null ||
+                        t.agentRole != null ||
+                        (t.forkedFromId != null && t.forkedFromId!.isNotEmpty);
+
+                    final rootThreads = filtered
+                        .where((t) => !isChild(t))
+                        .toList();
+
+                    // Build fork children map (keyed by forkedFromId)
+                    final forkChildMap = <String, List<CodexThread>>{};
+                    for (final t in filtered.where(
+                      (t) => t.forkedFromId != null && t.forkedFromId!.isNotEmpty,
+                    )) {
+                      forkChildMap.putIfAbsent(t.forkedFromId!, () => []).add(t);
+                    }
+
+                    // Collab children (no forkedFromId, just agentNickname/agentRole)
+                    final collabChildren = filtered
+                        .where(
+                          (t) =>
+                              (t.agentNickname != null || t.agentRole != null) &&
+                              (t.forkedFromId == null || t.forkedFromId!.isEmpty),
+                        )
+                        .toList();
+
+                    // Predictive prefetching
                     WidgetsBinding.instance.addPostFrameCallback((_) {
-                      prefetchTopCxThreads(ref, filtered);
+                      prefetchTopCxThreads(ref, rootThreads);
                     });
-                    if (filtered.isEmpty) {
+                    if (rootThreads.isEmpty && collabChildren.isEmpty) {
                       if (_searchQuery.isNotEmpty) {
                         return [
                           SliverFillRemaining(
@@ -718,32 +752,75 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
                         const SliverFillRemaining(child: CodexEmptyState()),
                       ];
                     }
-                    final highlightedThreads = filtered
+                    final highlightedThreads = rootThreads
                         .where((t) => highlights.isSessionHighlighted(t.id))
                         .toList();
-                    final regularThreads = filtered
+                    final regularThreads = rootThreads
                         .where((t) => !highlights.isSessionHighlighted(t.id))
                         .toList();
-                    // Build grouped items for regular threads
+
+                    // Helper to add a thread card + optional fork children
+                    void addThreadWithChildren(
+                      List<Widget> items,
+                      CodexThread thread,
+                    ) {
+                      items.add(
+                        Padding(
+                          padding: Insets.bottomMd,
+                          child: CodexThreadCard(
+                            thread: thread,
+                            isHighlighted: highlights.isSessionHighlighted(
+                              thread.id,
+                            ),
+                            highlightColor: highlights.color,
+                            onTap: () => _openThread(thread),
+                            onLongPress: () => _showThreadOptions(thread),
+                            onArchive: () => _archiveThread(thread),
+                          ),
+                        ),
+                      );
+                      final forkChildren = forkChildMap[thread.id] ?? [];
+                      if (_showSubagentThreads && forkChildren.isNotEmpty) {
+                        final isExpanded = _expandedParents.contains(thread.id);
+                        items.add(
+                          _CxChildExpandRow(
+                            count: forkChildren.length,
+                            label: 'fork',
+                            isExpanded: isExpanded,
+                            onTap: () => setState(() {
+                              if (isExpanded) {
+                                _expandedParents.remove(thread.id);
+                              } else {
+                                _expandedParents.add(thread.id);
+                              }
+                            }),
+                          ),
+                        );
+                        if (isExpanded) {
+                          for (final child in forkChildren) {
+                            items.add(
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  left: 24,
+                                  bottom: 8,
+                                ),
+                                child: _CxChildThreadCard(
+                                  thread: child,
+                                  onTap: () => _openThread(child),
+                                ),
+                              ),
+                            );
+                          }
+                        }
+                      }
+                    }
+
+                    // Build grouped items
                     final cxIsGrouped = filterCwd == null;
                     final cxGroupedItems = <Widget>[];
                     if (!cxIsGrouped) {
                       for (final t in regularThreads) {
-                        cxGroupedItems.add(
-                          Padding(
-                            padding: Insets.bottomMd,
-                            child: CodexThreadCard(
-                              thread: t,
-                              isHighlighted: highlights.isSessionHighlighted(
-                                t.id,
-                              ),
-                              highlightColor: highlights.color,
-                              onTap: () => _openThread(t),
-                              onLongPress: () => _showThreadOptions(t),
-                              onArchive: () => _archiveThread(t),
-                            ),
-                          ),
-                        );
+                        addThreadWithChildren(cxGroupedItems, t);
                       }
                     } else {
                       final groups = <String, List<CodexThread>>{};
@@ -792,21 +869,7 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
                             : kSessionsPerProjectDefault;
                         final visible = group.take(limit);
                         for (final t in visible) {
-                          cxGroupedItems.add(
-                            Padding(
-                              padding: Insets.bottomMd,
-                              child: CodexThreadCard(
-                                thread: t,
-                                isHighlighted: highlights.isSessionHighlighted(
-                                  t.id,
-                                ),
-                                highlightColor: highlights.color,
-                                onTap: () => _openThread(t),
-                                onLongPress: () => _showThreadOptions(t),
-                                onArchive: () => _archiveThread(t),
-                              ),
-                            ),
-                          );
+                          addThreadWithChildren(cxGroupedItems, t);
                         }
                         final remaining = group.length - limit;
                         if (remaining > 0) {
@@ -821,6 +884,41 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
                         }
                       }
                     }
+
+                    // Collab agents section (no parent link, show flat)
+                    if (_showSubagentThreads && collabChildren.isNotEmpty) {
+                      cxGroupedItems.add(
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(4, 14, 4, 10),
+                          child: Builder(
+                            builder: (context) {
+                              final ocTheme = OpenCodeTheme.of(context);
+                              return Text(
+                                'COLLAB AGENTS',
+                                style: TextStyle(
+                                  color: ocTheme.textMuted,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.5,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      );
+                      for (final t in collabChildren) {
+                        cxGroupedItems.add(
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: _CxChildThreadCard(
+                              thread: t,
+                              onTap: () => _openThread(t),
+                            ),
+                          ),
+                        );
+                      }
+                    }
+
                     return [
                       if (highlightedThreads.isNotEmpty)
                         SliverToBoxAdapter(
@@ -965,6 +1063,211 @@ class CodexEmptyState extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Expand/collapse row for Codex fork/collab children under a parent thread.
+class _CxChildExpandRow extends StatelessWidget {
+  const _CxChildExpandRow({
+    required this.count,
+    required this.label,
+    required this.isExpanded,
+    required this.onTap,
+  });
+
+  final int count;
+  final String label;
+  final bool isExpanded;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.only(left: 16, top: 4, bottom: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(AppIcons.forkRight, size: 14, color: ocTheme.info),
+            const SizedBox(width: 6),
+            Text(
+              '$count $label${count == 1 ? '' : 's'}',
+              style: TextStyle(
+                color: ocTheme.info,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(width: 4),
+            AnimatedRotation(
+              turns: isExpanded ? 0.25 : 0,
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                AppIcons.chevronRight,
+                size: 14,
+                color: ocTheme.info,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Compact card for Codex child threads (forks or collab agents).
+class _CxChildThreadCard extends StatelessWidget {
+  const _CxChildThreadCard({required this.thread, required this.onTap});
+
+  final CodexThread thread;
+  final VoidCallback onTap;
+
+  String _formatDate(int timestampSec) {
+    final date = DateTime.fromMillisecondsSinceEpoch(timestampSec * 1000);
+    final now = DateTime.now();
+    final diff = now.difference(date);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${date.day}/${date.month}/${date.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+    final title = thread.displayTitle;
+    final stats = thread.summary;
+    final hasStats =
+        stats != null && (stats.additions > 0 || stats.deletions > 0);
+    final isCollab = thread.agentNickname != null || thread.agentRole != null;
+    final label = isCollab
+        ? (thread.agentNickname ?? thread.agentRole ?? 'Agent')
+        : 'Fork';
+    final accentColor = isCollab ? ocTheme.warning : ocTheme.info;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: ocTheme.backgroundElement.withValues(alpha: 0.4),
+          borderRadius: Radii.brSm,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Row(
+          children: [
+            Container(
+              width: 2,
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: 0.4),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(8),
+                  bottomLeft: Radius.circular(8),
+                ),
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          label,
+                          style: TextStyle(
+                            color: accentColor,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: TextStyle(
+                              color: ocTheme.text.withValues(alpha: 0.85),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: Spacing.xs),
+                    Row(
+                      children: [
+                        Text(
+                          _formatDate(thread.updatedAt),
+                          style: TextStyle(
+                            color: ocTheme.textMuted,
+                            fontSize: 11,
+                          ),
+                        ),
+                        if (hasStats) ...[
+                          Text(
+                            ' · ',
+                            style: TextStyle(
+                              color: ocTheme.textMuted.withValues(alpha: 0.5),
+                              fontSize: 11,
+                            ),
+                          ),
+                          if (stats.additions > 0)
+                            Text(
+                              '+${stats.additions}',
+                              style: TextStyle(
+                                color: ocTheme.diffAdded,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          if (stats.additions > 0 && stats.deletions > 0)
+                            const SizedBox(width: 4),
+                          if (stats.deletions > 0)
+                            Text(
+                              '-${stats.deletions}',
+                              style: TextStyle(
+                                color: ocTheme.diffRemoved,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                        ],
+                        if (thread.agentRole != null) ...[
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: accentColor.withValues(alpha: 0.12),
+                              borderRadius: Radii.brXs,
+                            ),
+                            child: Text(
+                              thread.agentRole!,
+                              style: TextStyle(
+                                color: accentColor,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -258,7 +258,8 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
     return 'Session ${session.id}';
   }
 
-  Widget _buildChildExpandRow(String parentPath, int count, bool isExpanded) {
+  Widget _buildChildExpandRow(String parentPath, int count, bool isExpanded, {int toolCount = 0}) {
+    final totalCount = count + toolCount;
     return GestureDetector(
       onTap: () => setState(() {
         if (isExpanded) {
@@ -278,7 +279,7 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
                 Icon(AppIcons.forkRight, size: 14, color: ocTheme.info),
                 const SizedBox(width: 6),
                 Text(
-                  '$count handoff${count == 1 ? '' : 's'}',
+                  '$totalCount subagent${totalCount == 1 ? '' : 's'}',
                   style: TextStyle(
                     color: ocTheme.info,
                     fontSize: 12,
@@ -314,9 +315,15 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
     final titleFilterCount = ref
         .watch(sessionsTitleExcludeFiltersProvider(AgentType.pi))
         .length;
-    final childSessionCount = (sessionsAsync.valueOrNull ?? [])
-        .where((s) => s.parentSessionPath != null)
+    final allPiSessions = sessionsAsync.valueOrNull ?? [];
+    final handoffChildCount = allPiSessions
+        .where((s) => s.parentSessionPath != null && s.parentSessionPath!.isNotEmpty)
         .length;
+    final toolSubagentCount = allPiSessions.fold<int>(
+      0,
+      (sum, s) => sum + (s.subagentToolCount ?? 0),
+    );
+    final childSessionCount = handoffChildCount + toolSubagentCount;
     final label = filterLabel(
       selectedPath: filterCwd,
       projects: piFilterProjects,
@@ -405,52 +412,64 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
                         ),
                       ),
                       const SizedBox(height: 14),
-                      // Filter chips row
+                      // Filter chips row — scrollable horizontally
                       Row(
                         children: [
-                          FilterChipButton(
-                            label: label,
-                            onTap: () => showProjectFilter(
-                              context: context,
-                              theme: theme,
-                              selectedPath: filterCwd,
-                              projectsProvider: piFilterProjectsProvider,
-                              onSelected: (path) {
-                                ref
-                                        .read(
-                                          piSessionsFilterCwdProvider.notifier,
-                                        )
-                                        .state =
-                                    path;
-                              },
+                          Expanded(
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
+                                  FilterChipButton(
+                                    label: label,
+                                    onTap: () => showProjectFilter(
+                                      context: context,
+                                      theme: theme,
+                                      selectedPath: filterCwd,
+                                      projectsProvider:
+                                          piFilterProjectsProvider,
+                                      onSelected: (path) {
+                                        ref
+                                                .read(
+                                                  piSessionsFilterCwdProvider
+                                                      .notifier,
+                                                )
+                                                .state =
+                                            path;
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: Spacing.sm),
+                                  TitleFiltersChip(
+                                    count: titleFilterCount,
+                                    onTap: () =>
+                                        _showTitleFiltersSheet(context),
+                                  ),
+                                  const SizedBox(width: Spacing.sm),
+                                  SortChip(
+                                    sortBy: _sortBy,
+                                    onChanged: (value) {
+                                      setState(() => _sortBy = value);
+                                    },
+                                  ),
+                                  if (childSessionCount > 0) ...[
+                                    const SizedBox(width: Spacing.sm),
+                                    BackgroundTasksChip(
+                                      count: childSessionCount,
+                                      isExpanded: _showChildSessions,
+                                      onTap: () => setState(() {
+                                        _showChildSessions =
+                                            !_showChildSessions;
+                                        if (!_showChildSessions) {
+                                          _expandedParents.clear();
+                                        }
+                                      }),
+                                    ),
+                                  ],
+                                ],
+                              ),
                             ),
                           ),
-                          const SizedBox(width: Spacing.sm),
-                          TitleFiltersChip(
-                            count: titleFilterCount,
-                            onTap: () => _showTitleFiltersSheet(context),
-                          ),
-                          const SizedBox(width: Spacing.sm),
-                          SortChip(
-                            sortBy: _sortBy,
-                            onChanged: (value) {
-                              setState(() => _sortBy = value);
-                            },
-                          ),
-                          if (childSessionCount > 0) ...[
-                            const SizedBox(width: Spacing.sm),
-                            BackgroundTasksChip(
-                              count: childSessionCount,
-                              isExpanded: _showChildSessions,
-                              onTap: () => setState(() {
-                                _showChildSessions = !_showChildSessions;
-                                if (!_showChildSessions) {
-                                  _expandedParents.clear();
-                                }
-                              }),
-                            ),
-                          ],
-                          const Spacer(),
                           IconButton(
                             onPressed: _showNewSessionSheet,
                             icon: Icon(AppIcons.add, color: ocTheme.text),
@@ -647,8 +666,9 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
                         session.id,
                       );
                       final children = childMap[session.path] ?? [];
-                      final hasChildren =
-                          _showChildSessions && children.isNotEmpty;
+                      final toolCount = session.subagentToolCount ?? 0;
+                      final hasAnyChildren =
+                          _showChildSessions && (children.isNotEmpty || toolCount > 0);
                       final isExpanded = _expandedParents.contains(
                         session.path,
                       );
@@ -665,12 +685,13 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
                           ),
                         ),
                       );
-                      if (hasChildren) {
+                      if (hasAnyChildren) {
                         piGroupedItems.add(
                           _buildChildExpandRow(
                             session.path,
                             children.length,
                             isExpanded,
+                            toolCount: toolCount,
                           ),
                         );
                         if (isExpanded) {
@@ -743,8 +764,9 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
                           session.id,
                         );
                         final children = childMap[session.path] ?? [];
-                        final hasChildren =
-                            _showChildSessions && children.isNotEmpty;
+                        final toolCount = session.subagentToolCount ?? 0;
+                        final hasAnyChildren =
+                            _showChildSessions && (children.isNotEmpty || toolCount > 0);
                         final isChildExpanded = _expandedParents.contains(
                           session.path,
                         );
@@ -761,12 +783,13 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
                             ),
                           ),
                         );
-                        if (hasChildren) {
+                        if (hasAnyChildren) {
                           piGroupedItems.add(
                             _buildChildExpandRow(
                               session.path,
                               children.length,
                               isChildExpanded,
+                              toolCount: toolCount,
                             ),
                           );
                           if (isChildExpanded) {

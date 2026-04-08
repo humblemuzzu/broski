@@ -725,14 +725,21 @@ export function mapSessionInfo(session: SessionInfo): PiSessionInfo {
 	};
 }
 
-/** Enrich a list of Pi sessions with diff stats (computed in parallel, cached by mtime). */
+/** Enrich a list of Pi sessions with diff stats and subagent tool counts (parallel, cached by mtime). */
 export async function enrichSessionsWithStats(sessions: PiSessionInfo[]): Promise<void> {
+	const { countSubagentTools } = await import("./pi/pi-session-stats");
 	await Promise.all(
 		sessions.map(async (session) => {
 			if (!session.path) return;
-			const summary = await computePiSessionStats(session.path);
+			const [summary, toolCount] = await Promise.all([
+				computePiSessionStats(session.path),
+				countSubagentTools(session.path),
+			]);
 			if (summary && (summary.additions > 0 || summary.deletions > 0 || summary.files > 0)) {
 				session.summary = summary;
+			}
+			if (toolCount > 0) {
+				session.subagentToolCount = toolCount;
 			}
 		}),
 	);

@@ -49,6 +49,7 @@ export type PiSessionInfo = {
 	firstMessage: string;
 	allMessagesText?: string;
 	summary?: { additions: number; deletions: number; files: number };
+	subagentToolCount?: number; // Count of Task/oracle/finder/etc. tool invocations
 };
 
 export type PiCommandPayload = {

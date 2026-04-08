@@ -11,6 +11,8 @@ class ClaudeCodeSession {
   final bool isBackground;
   final bool hasSubagentActivity;
   final String? subagentName;
+  final String? parentSessionId;
+  final int? subagentCount;
   final SessionSummaryStats? summary;
   final String? gitBranch;
   final String? customTitle;
@@ -29,6 +31,8 @@ class ClaudeCodeSession {
     this.isBackground = false,
     this.hasSubagentActivity = false,
     this.subagentName,
+    this.parentSessionId,
+    this.subagentCount,
     this.summary,
     this.gitBranch,
     this.customTitle,
@@ -49,6 +53,8 @@ class ClaudeCodeSession {
       isBackground: json['isBackground'] as bool? ?? false,
       hasSubagentActivity: json['hasSubagentActivity'] as bool? ?? false,
       subagentName: json['subagentName'] as String?,
+      parentSessionId: json['parentSessionId'] as String?,
+      subagentCount: (json['subagentCount'] as num?)?.toInt(),
       summary: json['summary'] == null
           ? null
           : SessionSummaryStats.fromJson(
@@ -74,6 +80,8 @@ class ClaudeCodeSession {
       if (isBackground) 'isBackground': isBackground,
       if (hasSubagentActivity) 'hasSubagentActivity': hasSubagentActivity,
       if (subagentName != null) 'subagentName': subagentName,
+      if (parentSessionId != null) 'parentSessionId': parentSessionId,
+      if (subagentCount != null) 'subagentCount': subagentCount,
       if (gitBranch != null) 'gitBranch': gitBranch,
       if (customTitle != null) 'customTitle': customTitle,
       if (firstPrompt != null) 'firstPrompt': firstPrompt,
@@ -86,7 +94,12 @@ class ClaudeCodeSession {
   String get displayTitle =>
       customTitle ?? title ?? 'Session ${id.substring(0, 8)}';
 
-  bool get isSubagentSession => isBackground || hasSubagentActivity;
+  /// Whether this session IS a subagent (child of another session)
+  bool get isSubagentSession =>
+      isBackground && parentSessionId != null && parentSessionId!.isNotEmpty;
+
+  /// Whether this session HAS subagent children
+  bool get hasChildren => (subagentCount ?? 0) > 0 || hasSubagentActivity;
 
   DateTime get createdAtDateTime =>
       DateTime.fromMillisecondsSinceEpoch(createdAt);
