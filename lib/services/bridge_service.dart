@@ -199,9 +199,16 @@ class BridgeService {
     _earlyResponsesByRequestId[requestId] = message;
     _earlyResponseAtMs[requestId] = nowMs;
 
+    // Evict oldest entries when the cache is full instead of nuking everything.
     if (_earlyResponsesByRequestId.length > 64) {
-      _earlyResponsesByRequestId.clear();
-      _earlyResponseAtMs.clear();
+      // Sort by arrival time, remove the oldest half.
+      final entries = _earlyResponseAtMs.entries.toList()
+        ..sort((a, b) => a.value.compareTo(b.value));
+      final toRemove = entries.take(32);
+      for (final entry in toRemove) {
+        _earlyResponsesByRequestId.remove(entry.key);
+        _earlyResponseAtMs.remove(entry.key);
+      }
     }
   }
 

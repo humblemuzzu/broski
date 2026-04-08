@@ -54,6 +54,21 @@ export class RuntimeSendQueue {
 		state.timer = setTimeout(() => this.flush(ws), this.batchDelay(ws, state.messages.length));
 	}
 
+	/**
+	 * Send a message to all sockets with per-socket error isolation.
+	 * A dead socket won't prevent other sockets from receiving the message.
+	 */
+	broadcast(sockets: Set<ServerWebSocket<unknown>>, message: ServerMessage): void {
+		const payload = JSON.stringify(message);
+		for (const ws of sockets) {
+			try {
+				ws.send(payload);
+			} catch {
+				this.disposeSocket(ws);
+			}
+		}
+	}
+
 	disposeSocket(ws: ServerWebSocket<unknown>): void {
 		const state = this.queues.get(ws);
 		if (!state) return;

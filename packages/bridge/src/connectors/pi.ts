@@ -58,6 +58,7 @@ export type PiInstance = {
 	unsubscribe: () => void;
 	cwd: string;
 	createdAt: number;
+	lastActivityAt: number;
 };
 
 export type PiActiveRuntimeState = {
@@ -110,6 +111,7 @@ function extractUserMessageText(content: string | Array<{ type: string; text?: s
 
 function makeEmitter(instance: PiInstance) {
 	return (event: AgentSessionEvent | PiBridgeSyntheticEvent) => {
+		instance.lastActivityAt = Date.now();
 		for (const listener of instance.listeners) {
 			try {
 				listener(event);
@@ -441,6 +443,7 @@ async function buildInstance(cwd: string, options?: GetOrCreatePiOptions): Promi
 		unsubscribe: null as any, // set below
 		cwd,
 		createdAt: Date.now(),
+		lastActivityAt: Date.now(),
 	};
 
 	instance.extensionUiBridge = makeExtensionUiBridge(instance);
@@ -459,6 +462,8 @@ export async function getOrCreateInstance(cwd?: string, options?: GetOrCreatePiO
 	const existing = instances.get(normalizedCwd);
 
 	if (existing) {
+		existing.lastActivityAt = Date.now();
+
 		if (options?.sessionPath && existing.session.sessionFile !== options.sessionPath) {
 			await switchToSession(existing, options.sessionPath);
 		}
@@ -511,6 +516,24 @@ export function disposeAll(): void {
 	for (const cwd of instances.keys()) {
 		disposeInstance(cwd);
 	}
+}
+
+/**
+ * Dispose instances that have been idle (no events, no API access) for
+ * longer than `maxIdleMs`.  Only prunes instances with zero listeners
+ * and whose agent is not actively streaming.
+ */
+export function pruneIdleInstances(maxIdleMs = 30 * 60_000): number {
+	const now = Date.now();
+	let pruned = 0;
+	for (const [cwd, instance] of instances) {
+		if (instance.listeners.size > 0) continue;
+		if (instance.session.agent.state.isStreaming) continue;
+		if (now - instance.lastActivityAt < maxIdleMs) continue;
+		disposeInstance(cwd);
+		pruned++;
+	}
+	return pruned;
 }
 
 export function respondToExtensionUi(cwd: string, response: PiExtensionUiResponseInput): boolean {

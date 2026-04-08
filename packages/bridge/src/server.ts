@@ -826,10 +826,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	};
 
 	const broadcast = (message: ServerMessage) => {
-		const payload = JSON.stringify(message);
-		for (const ws of sockets) {
-			ws.send(payload);
-		}
+		runtimeSendQueue.broadcast(sockets, message);
 	};
 
 	const ptyRuntime = new PtyRuntime({
@@ -2167,6 +2164,27 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		}
 	}, HEARTBEAT_INTERVAL_MS);
 
+	// Prune stale event buffers every 5 minutes.  Replay only uses events
+	// from the last 60s, so buffers for sessions that haven't streamed in
+	// 2 minutes are dead weight.  Also prevents unbounded growth over very
+	// long bridge uptimes (months without restart).
+	const EVENT_BUFFER_STALE_MS = 120_000;
+	const EVENT_BUFFER_PRUNE_INTERVAL_MS = 300_000;
+	const pruneEventBuffers = (buffers: Map<string, Array<{ event: any; ts: number }>>) => {
+		const now = Date.now();
+		for (const [key, buf] of buffers) {
+			const newest = buf.length > 0 ? buf[buf.length - 1]!.ts : 0;
+			if (now - newest > EVENT_BUFFER_STALE_MS) {
+				buffers.delete(key);
+			}
+		}
+	};
+	const eventBufferPruneTimer = setInterval(() => {
+		pruneEventBuffers(ccEventBuffers);
+		pruneEventBuffers(cxEventBuffers);
+		pi.pruneIdleInstances();
+	}, EVENT_BUFFER_PRUNE_INTERVAL_MS);
+
 	// Tick timer: Simple liveness signal to all connected clients.
 	// Clients should expect a tick every TICK_INTERVAL_MS. If 2x interval passes
 	// without a tick, the client should consider the connection dead and reconnect.
@@ -3102,6 +3120,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			clearInterval(tickTimer);
 			clearInterval(entitlementRefreshTimer);
 			clearInterval(networkWatchTimer);
+			clearInterval(eventBufferPruneTimer);
 			for (const t of cloudAuthTimers.values()) clearTimeout(t);
 			cloudAuthTimers.clear();
 			for (const waiter of ccPermissionWaiters.values()) {

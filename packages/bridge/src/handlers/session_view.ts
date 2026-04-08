@@ -130,6 +130,15 @@ export async function handle(
 		}
 	}
 
+	// Helper: consider a socket "stale" if it's gone from the sockets set OR
+	// if its last pong is older than 30s (likely dead but TCP hasn't caught up).
+	const isSocketStale = (sock: ServerWebSocket<unknown>): boolean => {
+		if (!ctx.sockets.has(sock)) return true;
+		const sockCtx = ctx.contexts.get(sock);
+		if (!sockCtx) return true;
+		return Date.now() - sockCtx.lastPongAt > 30_000;
+	};
+
 	// Re-bind ownership for active BRIDGE-OWNED sessions on reconnect.
 	// IMPORTANT: Only re-bind if there was a previous owner (meaning the bridge
 	// started this session via cc_chat/oc_chat/cx_chat). If there's no previous
@@ -144,7 +153,7 @@ export async function handle(
 
 		if (isActive && hadBridgeOwner) {
 			// Bridge started this session — re-bind ownership on reconnect
-			if (!ctx.sockets.has(prevOwner)) {
+			if (prevOwner !== ws && isSocketStale(prevOwner)) {
 				ctx.ccSessionOwners.set(nextSessionId, ws);
 				ctx.logInfo(
 					`[RTS] set_view: Re-bound CC session ${nextSessionId} owner (stale socket)`,
@@ -175,7 +184,7 @@ export async function handle(
 
 		if (isActive && hadBridgeOwner) {
 			// Bridge started this session — re-bind on reconnect
-			if (!ctx.sockets.has(prevOwner)) {
+			if (prevOwner !== ws && isSocketStale(prevOwner)) {
 				ctx.cxThreadOwners.set(nextSessionId, ws);
 				ctx.logInfo(
 					`[RTS] set_view: Re-bound CX thread ${nextSessionId} owner (stale socket)`,
