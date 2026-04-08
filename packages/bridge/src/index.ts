@@ -539,10 +539,10 @@ async function runRestart(): Promise<void> {
 	console.log("Starting service...");
 	await restartDaemon();
 
-	// Wait for it to be ready
+	// Wait for it to be ready (30s timeout — OpenCode bootstrap alone can take 10s+)
 	let ready = false;
 	process.stdout.write("Waiting for bridge");
-	for (let i = 0; i < 30; i++) {
+	for (let i = 0; i < 60; i++) {
 		await Bun.sleep(500);
 		process.stdout.write(".");
 		if (await checkPortInUse(port)) {
@@ -1250,34 +1250,9 @@ async function main() {
 		opencodeConnector = null;
 	}
 
-	if (cli.daemon) console.log("[daemon] Detecting network...");
-	const localIP = getLocalIP();
-	if (cli.daemon) console.log(`[daemon] localIP: ${localIP}`);
-	const tailscaleIP = await getTailscaleIP();
-	if (cli.daemon) console.log(`[daemon] tailscaleIP: ${tailscaleIP}`);
-	const magicDNS = await getTailscaleMagicDNS();
-	if (cli.daemon) console.log(`[daemon] magicDNS: ${magicDNS}`);
-	const tailscaleConnected = await isTailscaleConnected();
-	if (cli.daemon) console.log(`[daemon] tailscaleConnected: ${tailscaleConnected}`);
-	const hotspotIP = cli.detectHotspot ? getHotspotIP() : null;
-	if (cli.daemon) console.log(`[daemon] hotspotIP: ${hotspotIP}`);
-
-	if (cli.detectHotspot) {
-		if (hotspotIP) {
-			console.log(`✓ Hotspot IP detected: ${hotspotIP}`);
-		} else {
-			console.log("ℹ️  Hotspot detection enabled but no hotspot IP found");
-			console.log("   Ensure your device is connected to a mobile hotspot");
-		}
-	}
-
-	if (!tailscaleConnected) {
-		console.log("ℹ️  Tailscale not connected. Local network access only.");
-		if (cli.enableFunnel) {
-			console.log("⚠️  --funnel requires Tailscale. Skipping Funnel setup.");
-		}
-	}
-
+	// Load auth + create server FIRST so the port binds fast.
+	// Network detection (Tailscale CLI calls) can take 5-15s and is only
+	// needed for QR display / funnel — defer it until after the port is up.
 	if (cli.daemon) console.log("[daemon] Loading auth token...");
 	// Load persistent auth token (same token survives bridge restarts)
 	const auth = await loadOrCreateAuthState(cli.newToken, config.security.tokenTtlDays);
@@ -1298,7 +1273,10 @@ async function main() {
 
 	// Create bridge server
 	try {
-		const willEnableFunnel = cli.enableFunnel && tailscaleConnected;
+		// If --funnel is requested, optimistically enable the loopback server.
+		// Tailscale connectivity is checked after binding (the loopback server
+		// on 127.0.0.1:0 is harmless if funnel turns out to be unavailable).
+		const willEnableFunnel = cli.enableFunnel;
 		bridgeServer = await createBridgeServer({
 			port: effectivePort,
 			opencode,
@@ -1352,6 +1330,36 @@ async function main() {
 		process.exit(1);
 	}
 	const bridgePort = bridgeServer.port();
+
+	// Port is now bound — health checks will pass.
+	// Now do the slow network detection (Tailscale CLI calls).
+	if (cli.daemon) console.log("[daemon] Detecting network...");
+	const localIP = getLocalIP();
+	if (cli.daemon) console.log(`[daemon] localIP: ${localIP}`);
+	const tailscaleIP = await getTailscaleIP();
+	if (cli.daemon) console.log(`[daemon] tailscaleIP: ${tailscaleIP}`);
+	const magicDNS = await getTailscaleMagicDNS();
+	if (cli.daemon) console.log(`[daemon] magicDNS: ${magicDNS}`);
+	const tailscaleConnected = await isTailscaleConnected();
+	if (cli.daemon) console.log(`[daemon] tailscaleConnected: ${tailscaleConnected}`);
+	const hotspotIP = cli.detectHotspot ? getHotspotIP() : null;
+	if (cli.daemon) console.log(`[daemon] hotspotIP: ${hotspotIP}`);
+
+	if (cli.detectHotspot) {
+		if (hotspotIP) {
+			console.log(`✓ Hotspot IP detected: ${hotspotIP}`);
+		} else {
+			console.log("ℹ️  Hotspot detection enabled but no hotspot IP found");
+			console.log("   Ensure your device is connected to a mobile hotspot");
+		}
+	}
+
+	if (!tailscaleConnected) {
+		console.log("ℹ️  Tailscale not connected. Local network access only.");
+		if (cli.enableFunnel) {
+			console.log("⚠️  --funnel requires Tailscale. Skipping Funnel setup.");
+		}
+	}
 
 	let funnelURL: string | null = null;
 	if (cli.enableFunnel && tailscaleConnected) {
