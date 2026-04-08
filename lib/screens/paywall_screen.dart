@@ -1,6 +1,5 @@
 import 'package:broski/providers/app_auth_provider.dart';
 import 'package:broski/providers/app_subscription_provider.dart';
-import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/onboarding_provider.dart'
     show onboardingProvider, kDevBypassOnboarding;
 import 'package:broski/theme/app_icons.dart';
@@ -15,29 +14,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class PaywallScreen extends ConsumerWidget {
-  const PaywallScreen({super.key, this.showCloseButton = true});
+  const PaywallScreen({super.key, this.showCloseButton = false});
 
-  /// Whether to show the X close button (for Apple compliance).
-  /// Set to false only during initial onboarding before any content is shown.
+  /// Whether to show the X close button.
+  /// false by default — hard paywall gate (no escape without subscribing).
+  /// Set to true only when the paywall is pushed as a modal from inside the app
+  /// (e.g. from the upgrade banner or settings).
   final bool showCloseButton;
   void _handleDismiss(BuildContext context, WidgetRef ref) {
     HapticFeedback.lightImpact();
-    final onboarding = ref.read(onboardingProvider);
-    final sub = ref.read(appSubscriptionProvider);
-    // Mark paywall as dismissed this session
-    ref.read(paywallDismissedThisSessionProvider.notifier).state = true;
-    // If we're in onboarding flow, complete it (user chose to skip payment)
-    if (!onboarding.hasCompletedOnboarding) {
-      ref.read(onboardingProvider.notifier).completeOnboarding();
-    }
-    // If user is NOT entitled, put them in offline mode so they land in MainShell
-    // with the upgrade banner instead of going to the scanner
-    if (!sub.entitled) {
-      Future.microtask(
-        () => ref.read(connectionProvider.notifier).enterUnpaidPreviewMode(),
-      );
-    }
-    // If this was pushed as a modal, pop it
+    // Only works when paywall was pushed as a modal (showCloseButton == true).
     if (Navigator.of(context).canPop()) {
       Navigator.of(context).pop();
     }
@@ -364,15 +350,15 @@ class PaywallScreen extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(height: 14),
-                        // Subscription disclosure + legal links (Apple 3.1.2)
+                        // Subscription disclosure (Apple 3.1.2 compliance)
                         SizedBox(
                           width: double.infinity,
                           child: Text(
-                            'Auto-renews. Cancel anytime in Settings.',
+                            'Automatically renews · Cancel anytime in Settings.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.3),
-                              fontSize: 10,
+                              color: Colors.white.withValues(alpha: 0.4),
+                              fontSize: 12,
                             ),
                           ),
                         ),

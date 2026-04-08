@@ -143,7 +143,8 @@ class _SubscribeButton extends ConsumerWidget {
               HapticFeedback.mediumImpact();
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => const PaywallScreen(),
+                  builder: (_) =>
+                      const PaywallScreen(showCloseButton: true),
                   fullscreenDialog: true,
                 ),
               );
@@ -240,7 +241,7 @@ class SubscribeBanner extends ConsumerWidget {
         HapticFeedback.mediumImpact();
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => const PaywallScreen(),
+            builder: (_) => const PaywallScreen(showCloseButton: true),
             fullscreenDialog: true,
           ),
         );

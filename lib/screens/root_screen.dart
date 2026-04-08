@@ -64,25 +64,10 @@ class RootScreen extends ConsumerWidget {
         }
         return const _LoadingScreen();
       }
-      // Show paywall on every app open for unpaid users (dismissible).
-      final paywallDismissed = ref.watch(paywallDismissedThisSessionProvider);
-      if (!subState.entitled && !paywallDismissed) {
-        return const PaywallScreen(showCloseButton: true);
-      }
-      // Unpaid preview mode: user can browse UI, but cannot scan/connect.
-      // Disconnect active connections but preserve saved pairing data
-      // so auto-reconnect works after subscription renewal.
+      // Hard paywall: no app access without active subscription.
+      // The paywall is non-dismissible — user must subscribe to proceed.
       if (!subState.entitled) {
-        if (!connectionState.isOfflineMode ||
-            connectionState.isConnected ||
-            connectionState.isConnecting ||
-            connectionState.isReconnecting) {
-          Future.microtask(
-            () =>
-                ref.read(connectionProvider.notifier).enterUnpaidPreviewMode(),
-          );
-        }
-        return const MainShell();
+        return const PaywallScreen();
       }
     }
     // DEV BYPASS: auto-enter offline mode so we land in MainShell (debug only)
