@@ -26,6 +26,13 @@ export const codexRuntimeCapabilities: BroskiRuntimeCapabilities = {
 
 export function mapCodexThreadToRuntimeSession(thread: CodexThread & { threadName?: string }): BroskiSessionSummary {
 	const statusType = thread.status?.type;
+
+	// Codex child agents have agentNickname/agentRole set (spawned via collab system).
+	// forkedFromId means a user-initiated fork.
+	const isCollabChild = !!thread.agentNickname || !!thread.agentRole;
+	const isFork = !!thread.forkedFromId && !isCollabChild;
+	const sessionKind = isCollabChild ? "subagent" : isFork ? "fork" : "root";
+
 	return {
 		id: thread.id,
 		backend: "codex",
@@ -36,6 +43,9 @@ export function mapCodexThreadToRuntimeSession(thread: CodexThread & { threadNam
 		...(statusType ? { isActive: statusType === "active" || statusType === "running" } : {}),
 		...(thread.modelProvider ? { modelLabel: thread.modelProvider } : {}),
 		...(thread.summary ? { summary: thread.summary } : {}),
+		sessionKind,
+		...(thread.forkedFromId ? { parentSessionId: thread.forkedFromId } : {}),
+		...(isCollabChild && thread.agentNickname ? { subagentType: thread.agentNickname } : {}),
 		backendData: {
 			...(thread.cliVersion ? { cliVersion: thread.cliVersion } : {}),
 			...(thread.source ? { source: thread.source } : {}),

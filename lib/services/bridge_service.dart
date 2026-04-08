@@ -19,6 +19,7 @@ import 'package:broski/models/opencode_plugin_file.dart';
 import 'package:broski/models/permission_rule.dart';
 import 'package:broski/models/project.dart';
 import 'package:broski/models/provider.dart';
+import 'package:broski/models/runtime/runtime_session_summary.dart';
 import 'package:broski/models/search_result.dart';
 import 'package:broski/models/session.dart';
 import 'package:broski/models/skill.dart';
@@ -70,6 +71,7 @@ part 'bridge/bridge_sessions_lifecycle.dart';
 part 'bridge/bridge_skills_universal.dart';
 part 'bridge/bridge_worktrees.dart';
 part 'bridge/bridge_unified.dart';
+part 'bridge/bridge_unified_children.dart';
 part 'bridge/bridge_message_replay.dart';
 
 class BridgeService {

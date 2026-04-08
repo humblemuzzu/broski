@@ -43,6 +43,7 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
   Timer? _searchDebounce;
+  bool _showSubagentThreads = false;
   final _scrollController = ScrollController();
   @override
   void initState() {
@@ -574,6 +575,35 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
                                 setState(() => _sortBy = value);
                               },
                             ),
+                            Builder(
+                              builder: (context) {
+                                final allThreads =
+                                    threadsAsync.valueOrNull ?? [];
+                                final subagentCount = allThreads
+                                    .where(
+                                      (t) =>
+                                          t.agentNickname != null ||
+                                          t.agentRole != null,
+                                    )
+                                    .length;
+                                if (subagentCount == 0) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Padding(
+                                  padding: const EdgeInsets.only(
+                                    left: Spacing.sm,
+                                  ),
+                                  child: BackgroundTasksChip(
+                                    count: subagentCount,
+                                    isExpanded: _showSubagentThreads,
+                                    onTap: () => setState(
+                                      () => _showSubagentThreads =
+                                          !_showSubagentThreads,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
                           ],
                         ),
                         const SizedBox(height: Spacing.md),
@@ -650,6 +680,12 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
                                   : t.displayTitle.toLowerCase().contains(
                                       _searchQuery,
                                     ),
+                            )
+                            .where(
+                              (t) =>
+                                  _showSubagentThreads ||
+                                  (t.agentNickname == null &&
+                                      t.agentRole == null),
                             )
                             .toList()
                           ..sort((a, b) {

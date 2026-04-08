@@ -73,6 +73,8 @@ export type BroskiRuntimeState = {
 	backendData?: BroskiBackendData;
 };
 
+export type BroskiSessionKind = "root" | "subagent" | "fork" | "handoff";
+
 export type BroskiSessionSummary = {
 	id: string;
 	backend: BroskiBackend;
@@ -83,6 +85,10 @@ export type BroskiSessionSummary = {
 	isActive?: boolean;
 	modelLabel?: string;
 	summary?: BroskiSessionDiffSummary;
+	parentSessionId?: string;
+	childSessionCount?: number;
+	sessionKind?: BroskiSessionKind;
+	subagentType?: string;
 	backendData?: BroskiBackendData;
 };
 

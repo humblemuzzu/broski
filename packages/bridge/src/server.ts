@@ -41,6 +41,7 @@ import * as ocRouting from "./handlers/oc_routing";
 import * as piFeatures from "./handlers/pi_features";
 import * as sessionViewHandler from "./handlers/session_view";
 import * as unified from "./handlers/unified";
+import * as unifiedChildren from "./handlers/unified_session_children";
 import { createFetchHandler, type FetchHandlerDeps, type HandleHttpDeps } from "./http-handler";
 import { buildProxyPortAllowlist, toErrorMessage, toPublicErrorMessage } from "./http-utils";
 import { type LocalLicenseState, loadLocalLicenseState, refreshLocalLicenseFromCloud } from "./license";
@@ -2686,25 +2687,41 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
 		// ── Phase 4: Unified request messages ────────────────────────────────
 		if (message.type.startsWith("unified_")) {
+			const unifiedOcCtx = () => {
+				try {
+					return requireOpenCode();
+				} catch {
+					return null;
+				}
+			};
 			const handled = await unified.handle(message, reply, {
 				claudeCode,
 				ensureCodexClient,
-				requireOpenCode: () => {
-					try {
-						return requireOpenCode();
-					} catch {
-						return null;
-					}
-				},
+				requireOpenCode: unifiedOcCtx,
 				log: logInfo,
 			});
-			if (!handled) {
-				reply({
-					type: "error",
-					message: `Unhandled unified message: ${message.type}`,
-					requestId: message.requestId,
-				});
-			}
+			if (handled) return;
+
+			// Try unified session children handler
+			const { listSubagents, getSubagentMessages } = await import("@anthropic-ai/claude-agent-sdk");
+			const childrenHandled = await unifiedChildren.handle(message, reply, {
+				requireOpenCode: unifiedOcCtx,
+				claudeCode: {
+					listSubagents: (sessionId: string, cwd?: string) =>
+						listSubagents(sessionId, { dir: cwd }),
+					getSubagentMessages: (sessionId: string, agentId: string, cwd?: string) =>
+						getSubagentMessages(sessionId, agentId, { dir: cwd }),
+				},
+				ensureCodexClient,
+				log: logInfo,
+			});
+			if (childrenHandled) return;
+
+			reply({
+				type: "error",
+				message: `Unhandled unified message: ${message.type}`,
+				requestId: message.requestId,
+			});
 			return;
 		}
 

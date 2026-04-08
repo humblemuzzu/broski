@@ -34,6 +34,10 @@ class RuntimeSessionSummary {
   final bool? isActive;
   final String? modelLabel;
   final RuntimeSessionDiffSummary? summary;
+  final String? parentSessionId;
+  final int? childSessionCount;
+  final String? sessionKind; // "root" | "subagent" | "fork" | "handoff"
+  final String? subagentType;
   final Map<String, dynamic>? backendData;
 
   const RuntimeSessionSummary({
@@ -46,8 +50,32 @@ class RuntimeSessionSummary {
     this.isActive,
     this.modelLabel,
     this.summary,
+    this.parentSessionId,
+    this.childSessionCount,
+    this.sessionKind,
+    this.subagentType,
     this.backendData,
   });
+
+  /// Whether this is a subagent/task session (created by an agent tool, not the user)
+  bool get isSubagentSession => sessionKind == 'subagent';
+
+  /// Whether this is a fork (user-initiated branch of another session)
+  bool get isForkedSession => sessionKind == 'fork';
+
+  /// Whether this is a handoff continuation
+  bool get isHandoffSession => sessionKind == 'handoff';
+
+  /// Whether this is a root session (user-created, top-level)
+  bool get isRootSession =>
+      sessionKind == 'root' || sessionKind == null;
+
+  /// Whether this session has children (subagents, forks, or handoffs)
+  bool get hasChildren => (childSessionCount ?? 0) > 0;
+
+  /// Whether this session has a parent
+  bool get hasParent =>
+      parentSessionId != null && parentSessionId!.isNotEmpty;
 
   factory RuntimeSessionSummary.fromJson(Map<String, dynamic> json) {
     final summaryJson = _asMap(json['summary']);
@@ -65,6 +93,10 @@ class RuntimeSessionSummary {
       summary: summaryJson == null
           ? null
           : RuntimeSessionDiffSummary.fromJson(summaryJson),
+      parentSessionId: json['parentSessionId'] as String?,
+      childSessionCount: (json['childSessionCount'] as num?)?.toInt(),
+      sessionKind: json['sessionKind'] as String?,
+      subagentType: json['subagentType'] as String?,
       backendData: _asMap(json['backendData']),
     );
   }
@@ -80,6 +112,10 @@ class RuntimeSessionSummary {
       if (isActive != null) 'isActive': isActive,
       if (modelLabel != null) 'modelLabel': modelLabel,
       if (summary != null) 'summary': summary!.toJson(),
+      if (parentSessionId != null) 'parentSessionId': parentSessionId,
+      if (childSessionCount != null) 'childSessionCount': childSessionCount,
+      if (sessionKind != null) 'sessionKind': sessionKind,
+      if (subagentType != null) 'subagentType': subagentType,
       if (backendData != null) 'backendData': backendData,
     };
   }

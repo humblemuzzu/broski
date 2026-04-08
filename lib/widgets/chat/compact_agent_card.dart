@@ -1,7 +1,13 @@
+import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/card_style.dart';
 import 'package:broski/models/claude_code.dart';
+import 'package:broski/models/codex.dart';
 import 'package:broski/models/message.dart';
+import 'package:broski/models/pi.dart';
+import 'package:broski/models/project.dart';
+import 'package:broski/models/session.dart';
 import 'package:broski/models/session_context.dart';
+import 'package:broski/providers/agent_type_provider.dart';
 import 'package:broski/providers/card_style_provider.dart';
 import 'package:broski/screens/chat_screen.dart';
 import 'package:broski/theme/app_icons.dart';
@@ -379,54 +385,12 @@ class CompactAgentCard extends ConsumerWidget {
           ),
           // View full session button (when subagent has a session ID)
           if (_subagentSessionId != null)
-            Padding(
-              padding: const EdgeInsets.only(top: Spacing.md),
-              child: SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    final sessionId = _subagentSessionId!;
-                    final cwd = _isNotification
-                        ? ''
-                        : (_tool?.input['cwd'] as String? ?? '');
-                    Navigator.pop(context); // close detail sheet
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ChatScreen.claudeCode(
-                          ccSession: ClaudeCodeSession(
-                            id: sessionId,
-                            cwd: cwd,
-                            createdAt: 0,
-                            updatedAt: 0,
-                            title: _capitalize(_agentType),
-                            isBackground: true,
-                            subagentName: _agentType,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                  icon: Icon(
-                    AppIcons.openExternal,
-                    size: 16,
-                    color: theme.info,
-                  ),
-                  label: Text(
-                    'View Full Session',
-                    style: TextStyle(
-                      color: theme.info,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: theme.info.withValues(alpha: 0.4)),
-                    shape: RoundedRectangleBorder(borderRadius: Radii.brMd),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                ),
-              ),
+            _ViewFullSessionButton(
+              sessionId: _subagentSessionId!,
+              agentType: _agentType,
+              cwd: _isNotification
+                  ? ''
+                  : (_tool?.input['cwd'] as String? ?? ''),
             ),
         ],
       ),
@@ -724,5 +688,120 @@ class _TokenChip extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+/// Backend-aware "View Full Session" button for subagent detail sheets.
+/// Navigates to the appropriate ChatScreen constructor based on the active backend.
+class _ViewFullSessionButton extends ConsumerWidget {
+  const _ViewFullSessionButton({
+    required this.sessionId,
+    required this.agentType,
+    required this.cwd,
+  });
+
+  final String sessionId;
+  final String agentType;
+  final String cwd;
+
+  String _capitalize(String s) =>
+      s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = OpenCodeTheme.of(context);
+    final backend = ref.watch(agentTypeProvider);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: Spacing.md),
+      child: SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: () {
+            Navigator.pop(context); // close detail sheet
+            _navigateToSession(context, ref, backend);
+          },
+          icon: Icon(AppIcons.openExternal, size: 16, color: theme.info),
+          label: Text(
+            'View Full Session',
+            style: TextStyle(
+              color: theme.info,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          style: OutlinedButton.styleFrom(
+            side: BorderSide(color: theme.info.withValues(alpha: 0.4)),
+            shape: RoundedRectangleBorder(borderRadius: Radii.brMd),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _navigateToSession(
+    BuildContext context,
+    WidgetRef ref,
+    AgentType backend,
+  ) {
+    final title = _capitalize(agentType);
+    Widget screen;
+
+    switch (backend) {
+      case AgentType.claudeCode:
+        screen = ChatScreen.claudeCode(
+          ccSession: ClaudeCodeSession(
+            id: sessionId,
+            cwd: cwd,
+            createdAt: 0,
+            updatedAt: 0,
+            title: title,
+            isBackground: true,
+            subagentName: agentType,
+          ),
+        );
+      case AgentType.opencode:
+        final session = SessionSummary(
+          id: sessionId,
+          title: title,
+          projectID: '',
+          directory: cwd,
+          parentID: '',
+          time: const SessionTime(created: 0, updated: 0),
+        );
+        final project = ProjectSummary(
+          id: '',
+          name: cwd.split('/').where((p) => p.isNotEmpty).lastOrNull ??
+              'Project',
+          path: cwd,
+        );
+        screen = ChatScreen(project: project, session: session);
+      case AgentType.codex:
+        screen = ChatScreen.codex(
+          cxThread: CodexThread(
+            id: sessionId,
+            preview: title,
+            cwd: cwd,
+            createdAt: DateTime.now().millisecondsSinceEpoch,
+            updatedAt: DateTime.now().millisecondsSinceEpoch,
+            agentNickname: agentType,
+          ),
+        );
+      case AgentType.pi:
+        screen = ChatScreen.pi(
+          piSession: PiSessionInfo(
+            path: '',
+            id: sessionId,
+            cwd: cwd,
+            created: DateTime.now(),
+            modified: DateTime.now(),
+            messageCount: 0,
+            firstMessage: title,
+          ),
+        );
+    }
+
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
   }
 }

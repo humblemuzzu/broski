@@ -48,6 +48,11 @@ export function mapClaudeCodeModelToSummary(model: ClaudeCodeSupportedModel): Br
 }
 
 export function mapClaudeCodeSessionToRuntimeSession(session: ClaudeCodeSession): BroskiSessionSummary {
+	// CC subagents are stored in subagents/ directory, not as separate sessions.
+	// A session IS a subagent if isBackground is true (detected via parent_tool_use_id in JSONL).
+	const isSubagent = session.isBackground === true;
+	const sessionKind = isSubagent ? "subagent" : "root";
+
 	return {
 		id: session.id,
 		backend: "claude-code",
@@ -57,6 +62,9 @@ export function mapClaudeCodeSessionToRuntimeSession(session: ClaudeCodeSession)
 		updatedAtMs: normalizeTimestampMs(session.updatedAt),
 		...(session.model ? { modelLabel: session.model } : {}),
 		...(session.summary ? { summary: session.summary } : {}),
+		sessionKind,
+		...(session.hasSubagentActivity ? { childSessionCount: session.subagentCount ?? 0 } : {}),
+		...(session.subagentName ? { subagentType: session.subagentName } : {}),
 		backendData: {
 			...(session.messageCount !== undefined ? { messageCount: session.messageCount } : {}),
 			...(session.isBackground !== undefined ? { isBackground: session.isBackground } : {}),

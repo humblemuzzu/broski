@@ -38,6 +38,8 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
   String _searchQuery = '';
   Timer? _searchDebounce;
   String _sortBy = 'updatedAt';
+  bool _showChildSessions = false;
+  final Set<String> _expandedParents = {};
 
   @override
   void dispose() {
@@ -248,6 +250,59 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
     );
   }
 
+  String _sessionTitle(PiSessionInfo session) {
+    if ((session.name ?? '').trim().isNotEmpty) return session.name!.trim();
+    if (session.firstMessage.trim().isNotEmpty) {
+      return session.firstMessage.trim();
+    }
+    return 'Session ${session.id}';
+  }
+
+  Widget _buildChildExpandRow(String parentPath, int count, bool isExpanded) {
+    return GestureDetector(
+      onTap: () => setState(() {
+        if (isExpanded) {
+          _expandedParents.remove(parentPath);
+        } else {
+          _expandedParents.add(parentPath);
+        }
+      }),
+      child: Padding(
+        padding: const EdgeInsets.only(left: 16, top: 4, bottom: 8),
+        child: Builder(
+          builder: (context) {
+            final ocTheme = OpenCodeTheme.of(context);
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(AppIcons.forkRight, size: 14, color: ocTheme.info),
+                const SizedBox(width: 6),
+                Text(
+                  '$count handoff${count == 1 ? '' : 's'}',
+                  style: TextStyle(
+                    color: ocTheme.info,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                AnimatedRotation(
+                  turns: isExpanded ? 0.25 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Icon(
+                    AppIcons.chevronRight,
+                    size: 14,
+                    color: ocTheme.info,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
@@ -258,6 +313,9 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
     final highlights = ref.watch(highlightsProvider);
     final titleFilterCount = ref
         .watch(sessionsTitleExcludeFiltersProvider(AgentType.pi))
+        .length;
+    final childSessionCount = (sessionsAsync.valueOrNull ?? [])
+        .where((s) => s.parentSessionPath != null)
         .length;
     final label = filterLabel(
       selectedPath: filterCwd,
@@ -379,6 +437,19 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
                               setState(() => _sortBy = value);
                             },
                           ),
+                          if (childSessionCount > 0) ...[
+                            const SizedBox(width: Spacing.sm),
+                            BackgroundTasksChip(
+                              count: childSessionCount,
+                              isExpanded: _showChildSessions,
+                              onTap: () => setState(() {
+                                _showChildSessions = !_showChildSessions;
+                                if (!_showChildSessions) {
+                                  _expandedParents.clear();
+                                }
+                              }),
+                            ),
+                          ],
                           const Spacer(),
                           IconButton(
                             onPressed: _showNewSessionSheet,
@@ -555,18 +626,31 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
                       .where((s) => !highlights.isSessionHighlighted(s.id))
                       .toList();
 
+                  // Separate root sessions from handoff children
+                  final rootRegular = regularSessions
+                      .where((s) => s.parentSessionPath == null)
+                      .toList();
+                  final childMap = <String, List<PiSessionInfo>>{};
+                  for (final c in regularSessions.where(
+                    (s) => s.parentSessionPath != null,
+                  )) {
+                    childMap.putIfAbsent(c.parentSessionPath!, () => []).add(c);
+                  }
+
                   // Build grouped items
                   final piIsGrouped = filterCwd == null;
                   final piGroupedItems = <Widget>[];
                   if (!piIsGrouped) {
-                    for (final session in regularSessions) {
-                      final title = (session.name ?? '').trim().isNotEmpty
-                          ? session.name!.trim()
-                          : session.firstMessage.trim().isNotEmpty
-                          ? session.firstMessage.trim()
-                          : 'Session ${session.id}';
+                    for (final session in rootRegular) {
+                      final title = _sessionTitle(session);
                       final isHighlighted = highlights.isSessionHighlighted(
                         session.id,
+                      );
+                      final children = childMap[session.path] ?? [];
+                      final hasChildren =
+                          _showChildSessions && children.isNotEmpty;
+                      final isExpanded = _expandedParents.contains(
+                        session.path,
                       );
                       piGroupedItems.add(
                         Padding(
@@ -581,10 +665,35 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
                           ),
                         ),
                       );
+                      if (hasChildren) {
+                        piGroupedItems.add(
+                          _buildChildExpandRow(
+                            session.path,
+                            children.length,
+                            isExpanded,
+                          ),
+                        );
+                        if (isExpanded) {
+                          for (final child in children) {
+                            piGroupedItems.add(
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  left: 24,
+                                  bottom: 8,
+                                ),
+                                child: _PiChildSessionCard(
+                                  session: child,
+                                  onTap: () => _openSession(child),
+                                ),
+                              ),
+                            );
+                          }
+                        }
+                      }
                     }
                   } else {
                     final groups = <String, List<PiSessionInfo>>{};
-                    for (final s in regularSessions) {
+                    for (final s in rootRegular) {
                       groups.putIfAbsent(s.cwd, () => []).add(s);
                     }
                     final directories = groups.keys.toList()
@@ -629,13 +738,15 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
                           : kSessionsPerProjectDefault;
                       final visible = group.take(limit);
                       for (final session in visible) {
-                        final title = (session.name ?? '').trim().isNotEmpty
-                            ? session.name!.trim()
-                            : session.firstMessage.trim().isNotEmpty
-                            ? session.firstMessage.trim()
-                            : 'Session ${session.id}';
+                        final title = _sessionTitle(session);
                         final isHighlighted = highlights.isSessionHighlighted(
                           session.id,
+                        );
+                        final children = childMap[session.path] ?? [];
+                        final hasChildren =
+                            _showChildSessions && children.isNotEmpty;
+                        final isChildExpanded = _expandedParents.contains(
+                          session.path,
                         );
                         piGroupedItems.add(
                           Padding(
@@ -650,6 +761,31 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
                             ),
                           ),
                         );
+                        if (hasChildren) {
+                          piGroupedItems.add(
+                            _buildChildExpandRow(
+                              session.path,
+                              children.length,
+                              isChildExpanded,
+                            ),
+                          );
+                          if (isChildExpanded) {
+                            for (final child in children) {
+                              piGroupedItems.add(
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    left: 24,
+                                    bottom: 8,
+                                  ),
+                                  child: _PiChildSessionCard(
+                                    session: child,
+                                    onTap: () => _openSession(child),
+                                  ),
+                                ),
+                              );
+                            }
+                          }
+                        }
                       }
                       final remaining = group.length - limit;
                       if (remaining > 0) {
@@ -691,6 +827,169 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Compact card for Pi child/handoff sessions.
+/// Mirrors [ChildSessionCard] but uses [PiSessionInfo].
+class _PiChildSessionCard extends StatelessWidget {
+  const _PiChildSessionCard({required this.session, required this.onTap});
+
+  final PiSessionInfo session;
+  final VoidCallback onTap;
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final diff = now.difference(date);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${date.day}/${date.month}/${date.year}';
+  }
+
+  String _getTitle() {
+    if ((session.name ?? '').trim().isNotEmpty) {
+      return session.name!.trim();
+    }
+    if (session.firstMessage.trim().isNotEmpty) {
+      return session.firstMessage.trim();
+    }
+    return 'Handoff session';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ocTheme = OpenCodeTheme.of(context);
+    final title = _getTitle();
+    final stats = session.summary;
+    final hasStats =
+        stats != null && (stats.additions > 0 || stats.deletions > 0);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: ocTheme.backgroundElement.withValues(alpha: 0.4),
+          borderRadius: Radii.brSm,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Row(
+          children: [
+            Container(
+              width: 2,
+              decoration: BoxDecoration(
+                color: ocTheme.info.withValues(alpha: 0.4),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(8),
+                  bottomLeft: Radius.circular(8),
+                ),
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'Handoff',
+                          style: TextStyle(
+                            color: ocTheme.info,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: TextStyle(
+                              color: ocTheme.text.withValues(alpha: 0.85),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: Spacing.xs),
+                    Row(
+                      children: [
+                        Text(
+                          _formatDate(session.modified),
+                          style: TextStyle(
+                            color: ocTheme.textMuted,
+                            fontSize: 11,
+                          ),
+                        ),
+                        if (hasStats) ...[
+                          Text(
+                            ' · ',
+                            style: TextStyle(
+                              color: ocTheme.textMuted.withValues(alpha: 0.5),
+                              fontSize: 11,
+                            ),
+                          ),
+                          if (stats.additions > 0)
+                            Text(
+                              '+${stats.additions}',
+                              style: TextStyle(
+                                color: ocTheme.diffAdded,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          if (stats.additions > 0 && stats.deletions > 0)
+                            Text(
+                              ' ',
+                              style: TextStyle(
+                                color: ocTheme.textMuted,
+                                fontSize: 11,
+                              ),
+                            ),
+                          if (stats.deletions > 0)
+                            Text(
+                              '-${stats.deletions}',
+                              style: TextStyle(
+                                color: ocTheme.diffRemoved,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                        ],
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: ocTheme.info.withValues(alpha: 0.12),
+                            borderRadius: Radii.brXs,
+                          ),
+                          child: Text(
+                            '${session.messageCount} msgs',
+                            style: TextStyle(
+                              color: ocTheme.info,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

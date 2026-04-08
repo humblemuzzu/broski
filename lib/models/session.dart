@@ -33,19 +33,21 @@ class SessionSummary {
   final SessionProject?
   project; // Global session list project metadata (SDK v1.2.10+)
 
-  /// Whether this is a background/subagent task (title contains @agent subagent pattern)
+  /// Whether this is a subagent/task session.
+  /// OpenCode: ALL sessions with parentID are subagent children (OC doesn't have user forks via parentID).
+  /// The title pattern "(@agent subagent)" is a bonus indicator but not required.
   bool get isBackgroundTask {
     if (parentID == null || parentID!.isEmpty) return false;
-    final titleLower = title.toLowerCase();
-    return titleLower.contains('@agent') ||
-        titleLower.contains('subagent') ||
-        titleLower.contains('background');
+    // Any OC session with a parentID is a subagent child
+    return true;
   }
 
-  /// Whether this session was forked from another session (has parent but not a background task)
+  /// Whether this session was forked from another session.
+  /// In OpenCode, forks use a different mechanism (share URL), not parentID.
+  /// parentID is exclusively used for subagent children.
   bool get isForkedSession {
-    if (parentID == null || parentID!.isEmpty) return false;
-    return !isBackgroundTask;
+    // OC doesn't use parentID for forks — all parentID sessions are subagents
+    return false;
   }
 
   /// Whether this is a root/main session (no parent)

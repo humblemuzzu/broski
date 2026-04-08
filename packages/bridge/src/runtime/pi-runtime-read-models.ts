@@ -77,7 +77,32 @@ export function mapPiStateToRuntimeState(piState: PiStatePayload): BroskiRuntime
 	};
 }
 
-export function mapPiSessionToRuntimeSession(session: PiSessionInfo): BroskiSessionSummary {
+/**
+ * Derive a stable session ID from a Pi session file path.
+ * Pi uses file paths for parent links, but we need IDs for the unified model.
+ */
+function piPathToSessionId(sessions: PiSessionInfo[], parentPath: string): string | undefined {
+	const match = sessions.find((s) => s.path === parentPath);
+	return match?.id;
+}
+
+export function mapPiSessionToRuntimeSession(
+	session: PiSessionInfo,
+	allSessions?: PiSessionInfo[],
+): BroskiSessionSummary {
+	const hasParent = !!session.parentSessionPath;
+	const parentId = hasParent && allSessions
+		? piPathToSessionId(allSessions, session.parentSessionPath!)
+		: undefined;
+
+	// Count children that point to this session's path
+	const childCount = allSessions
+		? allSessions.filter((s) => s.parentSessionPath === session.path).length
+		: 0;
+
+	// Pi parentSession comes from handoff continuations or forks
+	const sessionKind = hasParent ? "handoff" : "root";
+
 	return {
 		id: session.id,
 		backend: "pi",
@@ -86,6 +111,10 @@ export function mapPiSessionToRuntimeSession(session: PiSessionInfo): BroskiSess
 		createdAtMs: session.created,
 		updatedAtMs: session.modified,
 		...(session.summary ? { summary: session.summary } : {}),
+		...(parentId ? { parentSessionId: parentId } : {}),
+		...(childCount > 0 ? { childSessionCount: childCount } : {}),
+		sessionKind,
+		...(hasParent ? { subagentType: "handoff" } : {}),
 		backendData: {
 			path: session.path,
 			parentSessionPath: session.parentSessionPath,
@@ -110,7 +139,7 @@ export function mapPiSessionsToRuntimeSessions(
 	const activeKeySet = new Set(activeKeys);
 
 	return sessions.map((session) => {
-		const summary = mapPiSessionToRuntimeSession(session);
+		const summary = mapPiSessionToRuntimeSession(session, sessions);
 		const sessionKey = `${session.id}::${session.cwd}`;
 		return activeKeySet.has(sessionKey) ? { ...summary, isActive: true } : summary;
 	});

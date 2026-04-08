@@ -24,7 +24,26 @@ const openCodeRuntimeCapabilities: BroskiRuntimeCapabilities = {
 	backendExtras: ["workspace-metadata", "todos", "projects"],
 };
 
+/**
+ * Extract the agent type from an OpenCode child session title.
+ * OpenCode titles follow the pattern: "description (@agentName subagent)"
+ */
+function extractOcSubagentType(title: string, parentID?: string): string | undefined {
+	if (!parentID) return undefined;
+	const match = title.match(/\(@(\S+)\s+subagent\)\s*$/);
+	if (match) return `@${match[1]}`;
+	// Fallback: check for common agent-type prefixes in the title
+	const lower = title.toLowerCase();
+	if (lower.startsWith("child session")) return "@task";
+	return "@task"; // All OC children with parentID are subagent tasks
+}
+
 export function mapOpenCodeSessionToRuntimeSession(session: SessionSummary): BroskiSessionSummary {
+	const hasParent = !!session.parentID;
+	// OpenCode doesn't have user-initiated forks that set parentID (forks use a different field).
+	// Any session with parentID is a subagent child.
+	const sessionKind = hasParent ? "subagent" : "root";
+
 	return {
 		id: session.id,
 		backend: "opencode",
@@ -33,6 +52,9 @@ export function mapOpenCodeSessionToRuntimeSession(session: SessionSummary): Bro
 		createdAtMs: normalizeTimestampMs(session.time.created),
 		updatedAtMs: normalizeTimestampMs(session.time.updated),
 		...(session.summary ? { summary: session.summary } : {}),
+		...(hasParent ? { parentSessionId: session.parentID } : {}),
+		sessionKind,
+		...(hasParent ? { subagentType: extractOcSubagentType(session.title, session.parentID) } : {}),
 		backendData: {
 			...(session.slug ? { slug: session.slug } : {}),
 			...(session.workspaceID ? { workspaceID: session.workspaceID } : {}),

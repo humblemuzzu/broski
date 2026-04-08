@@ -62,7 +62,7 @@ export async function handle(message: any, reply: Reply, ctx: UnifiedContext): P
 				case "opencode": {
 					try {
 						const oc = ctx.requireOpenCode();
-						data = oc ? await oc.listSessions(message.cwd) : [];
+						data = oc ? await oc.listSessions(message.cwd, { roots: message.roots }) : [];
 					} catch {
 						data = [];
 					}
