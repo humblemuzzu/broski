@@ -106,7 +106,7 @@ export type ClientMessage =
 			count?: number;
 			timestamp?: number;
 	  }
-	// Cloud auth (Convex session) used for licensing/entitlements.
+	// Cloud auth handshake — bridge accepts without validation (open-source).
 	| { type: "auth_session"; sessionToken: string; requestId?: string }
 	| {
 			type: "set_view";
@@ -1252,7 +1252,7 @@ export type StatusPayload = {
 export type ServerMessage =
 	| {
 			type: "auth_session_ok";
-			data: { appUserId: string; entitled: boolean; status?: string };
+			data: { entitled: boolean };
 			requestId?: string;
 	  }
 	| { type: "projects"; data: ProjectSummary[]; requestId?: string }

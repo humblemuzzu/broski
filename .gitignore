@@ -153,7 +153,6 @@ packages/bridge/dist/
 # Convex
 convex/_generated/
 .asc/
-.license-keys/
 
 # docs/
 docs/assets/
@@ -163,3 +162,4 @@ docs/tla/
 .pi/
 dataset-export/
 broski_pi_20260406_215352_37871691.md
+customized-claude.md

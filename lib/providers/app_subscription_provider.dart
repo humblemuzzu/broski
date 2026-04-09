@@ -9,10 +9,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
-/// Tracks whether the paywall was dismissed this session (resets on app restart).
-/// Used to show paywall on every app open for unpaid users.
-final paywallDismissedThisSessionProvider = StateProvider<bool>((ref) => false);
-
 class AppSubscriptionState {
   const AppSubscriptionState({
     this.isLoading = false,

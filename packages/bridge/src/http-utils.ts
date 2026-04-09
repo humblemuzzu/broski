@@ -4,10 +4,6 @@
  * Pure helpers for JSON responses, error sanitization, origin validation,
  * auth token extraction, and proxy port allowlisting.
  */
-import { createHash } from "node:crypto";
-import type { LocalLicenseState } from "./license";
-import { refreshLocalLicenseFromCloud } from "./license";
-
 // ── JSON Response Helpers ──────────────────────────────────────────────
 
 export function jsonResponse(data: unknown, status = 200): Response {
@@ -151,65 +147,6 @@ export function isAllowedProxyPort(port: number, allowedPorts: Set<number>): boo
 	if (allowedPorts.has(port)) return true;
 	if (port >= 10000 && port <= 65535) return true;
 	return false;
-}
-
-// ── HTTP Entitlement Check ─────────────────────────────────────────────
-
-export interface HttpEntitlementDeps {
-	requireEntitlement: boolean;
-	safeString: (v: unknown) => string;
-	convexHttpBaseUrl: string;
-	ENTITLEMENT_CACHE_TTL_MS: number;
-	OFFLINE_GRACE_MS: number;
-	entitlementCache: Map<string, { checkedAt: number; appUserId: string; entitled: boolean; status?: string }>;
-	getLocalLicense: () => LocalLicenseState | null;
-	setLocalLicense: (l: LocalLicenseState) => void;
-}
-
-export async function checkHttpEntitlement(req: Request, deps: HttpEntitlementDeps): Promise<Response | null> {
-	if (!deps.requireEntitlement) return null;
-	const cloudSession = deps.safeString(req.headers.get("x-broski-session")).trim();
-	if (!cloudSession) return publicJson({ error: "LICENSE_REQUIRED" }, 402);
-	const tokenHash = createHash("sha256").update(cloudSession, "utf8").digest("hex");
-	const cached = deps.entitlementCache.get(tokenHash);
-	const now = Date.now();
-	if (cached && now - cached.checkedAt <= deps.ENTITLEMENT_CACHE_TTL_MS) {
-		if (!cached.entitled) return publicJson({ error: "LICENSE_REQUIRED" }, 402);
-	} else if (deps.convexHttpBaseUrl) {
-		try {
-			const refreshed = await refreshLocalLicenseFromCloud({
-				convexHttpBaseUrl: deps.convexHttpBaseUrl,
-				sessionToken: cloudSession,
-			});
-			if (!refreshed.ok) {
-				if (refreshed.status === 401) return publicJson({ error: "INVALID_SESSION" }, 401);
-				if (refreshed.status === 403) return publicJson({ error: "LICENSE_REQUIRED" }, 402);
-				const localLicense = deps.getLocalLicense();
-				const nowSec = Math.floor(Date.now() / 1000);
-				if (localLicense?.entitled && localLicense.sessionTokenHash === tokenHash && nowSec <= localLicense.exp) {
-					// allow via local license
-				} else if (!(cached?.entitled && now - cached.checkedAt <= deps.OFFLINE_GRACE_MS)) {
-					return publicJson({ error: "CLOUD_AUTH_FAILED" }, 503);
-				}
-			} else {
-				if (refreshed.state.entitled) deps.setLocalLicense(refreshed.state);
-				deps.entitlementCache.set(tokenHash, {
-					checkedAt: now,
-					appUserId: refreshed.state.appUserId,
-					entitled: refreshed.state.entitled,
-					...(refreshed.state.status ? { status: refreshed.state.status } : {}),
-				});
-				if (!refreshed.state.entitled) return publicJson({ error: "LICENSE_REQUIRED" }, 402);
-			}
-		} catch {
-			if (!(cached?.entitled && now - cached.checkedAt <= deps.OFFLINE_GRACE_MS)) {
-				return publicJson({ error: "CLOUD_AUTH_FAILED" }, 503);
-			}
-		}
-	} else {
-		return publicJson({ error: "CLOUD_AUTH_UNAVAILABLE" }, 503);
-	}
-	return null;
 }
 
 // ── Proxy Helpers ──────────────────────────────────────────────────────

@@ -12,13 +12,6 @@ export function getDefaultConfig(): BroskiConfig {
 			lastRunAt: undefined,
 			lastRunVersion: undefined,
 		},
-		cloud: {
-			convexHttpBaseUrl: "https://neat-gerbil-813.convex.site",
-			requireEntitlement: true,
-			entitlementCacheTtlMs: 30_000,
-			entitlementRecheckMs: 30 * 60_000,
-			offlineGraceHours: 72,
-		},
 		network: {
 			port: 18274,
 			mode: "local",

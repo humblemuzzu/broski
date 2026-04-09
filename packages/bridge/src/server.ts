@@ -44,7 +44,6 @@ import * as unified from "./handlers/unified";
 import * as unifiedChildren from "./handlers/unified_session_children";
 import { createFetchHandler, type FetchHandlerDeps, type HandleHttpDeps } from "./http-handler";
 import { buildProxyPortAllowlist, toErrorMessage, toPublicErrorMessage } from "./http-utils";
-import { type LocalLicenseState, loadLocalLicenseState, refreshLocalLicenseFromCloud } from "./license";
 import type { BridgeLogger } from "./logging/logger";
 import { startOpenCodeExternalTail as _startOpenCodeExternalTail } from "./oc-external-tail";
 import { isCompiledBinary } from "./platform";
@@ -96,10 +95,6 @@ import { recordRuntimeEvent, replayRuntimeEventsSince } from "./utils/runtime-re
 // Re-export for backward compatibility (external consumers import from './server')
 export { type AuthTokenState, loadOrCreateAuthState, loadOrCreateAuthToken } from "./auth-token";
 
-/** Message types exempt from cloud auth / entitlement checks. Shared constant to keep
- *  the defense-in-depth check in handleMessage and processSingleMessage in sync. */
-const ENTITLEMENT_EXEMPT_TYPES = new Set(["auth_session", "pong", "client_ping", "batch"]);
-
 // Debug flags are dev-only — disabled in compiled binaries to prevent leaking
 // session IDs, file paths, and internal state in production console output.
 // All log calls go through the leveled logger (logUser/logInfo/logDebug/logError)
@@ -142,13 +137,6 @@ export type BridgeServerOptions = {
 	version: string;
 	auth: AuthTokenState;
 	tokenTtlDays?: number;
-	cloud?: {
-		convexHttpBaseUrl?: string;
-		requireEntitlement?: boolean;
-		entitlementCacheTtlMs?: number;
-		entitlementRecheckMs?: number;
-		offlineGraceHours?: number;
-	};
 	/**
 	 * When true, also starts a loopback-only plaintext WS/HTTP server used for
 	 * Tailscale Funnel (which terminates TLS at the edge and proxies to localhost).
@@ -185,15 +173,6 @@ type ConnectionContext = {
 	platform?: string;
 	protocolVersion?: string;
 	connectedAt: number;
-	// Cloud-authenticated session (Convex) for licensing/entitlements.
-	cloudAuthed?: boolean;
-	cloudAppUserId?: string;
-	cloudEntitled?: boolean;
-	cloudStatus?: string;
-	cloudCheckedAt?: number;
-	cloudSessionToken?: string;
-	cloudSessionTokenHash?: string;
-	licenseExpSec?: number;
 };
 
 type ClientQueue = {
@@ -304,47 +283,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	const sockets = new Set<ServerWebSocket<unknown>>();
 	const contexts = new Map<ServerWebSocket<unknown>, ConnectionContext>();
 	const clientQueues = new Map<ServerWebSocket<unknown>, ClientQueue>();
-	const cloudAuthTimers = new Map<ServerWebSocket<unknown>, Timer>();
-	let localLicense: LocalLicenseState | null = null;
-	// In compiled binaries, ignore config/env overrides for security-critical timings.
-	// Users must not be able to extend cache or grace periods to bypass license checks.
 	const compiled = isCompiledBinary();
-	const ENTITLEMENT_CACHE_TTL_MS = compiled
-		? 30_000 // 30 seconds — hardcoded for production
-		: Math.max(
-				5_000,
-				Math.min(
-					Number(options.cloud?.entitlementCacheTtlMs ?? process.env.BROSKI_ENTITLEMENT_CACHE_TTL_MS ?? "30000"),
-					10 * 60 * 1000,
-				),
-			);
-	const ENTITLEMENT_RECHECK_MS = compiled
-		? 30 * 60_000 // 30 minutes — hardcoded for production
-		: Math.max(
-				60_000,
-				Math.min(
-					Number(
-						options.cloud?.entitlementRecheckMs ?? process.env.BROSKI_ENTITLEMENT_RECHECK_MS ?? String(30 * 60_000),
-					),
-					24 * 60 * 60 * 1000,
-				),
-			);
-	const OFFLINE_GRACE_MS = compiled
-		? 72 * 60 * 60 * 1000 // 72 hours — hardcoded for production
-		: Math.max(
-				0,
-				Math.min(
-					Number(options.cloud?.offlineGraceHours ?? process.env.BROSKI_LICENSE_OFFLINE_GRACE_HOURS ?? "72") *
-						60 *
-						60 *
-						1000,
-					7 * 24 * 60 * 60 * 1000,
-				),
-			);
-	const entitlementCache = new Map<
-		string,
-		{ checkedAt: number; appUserId: string; entitled: boolean; status?: string }
-	>();
 
 	// Web dashboard dist directory (served by bridge HTTP when present).
 	const webDistDir = (() => {
@@ -354,197 +293,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		return resolve(import.meta.dir, "..", "..", "web-app", "dist");
 	})();
 
-	try {
-		localLicense = await loadLocalLicenseState();
-		if (localLicense?.entitled) {
-			const expInSec = Math.max(0, localLicense.exp - Math.floor(Date.now() / 1000));
-			log(`[License] Local license loaded (expires in ${Math.floor(expInSec / 60)} min)`);
-		}
-	} catch {
-		// ignore
-	}
-
-	const clearCloudAuthTimer = (ws: ServerWebSocket<unknown>) => {
-		const t = cloudAuthTimers.get(ws);
-		if (t) clearTimeout(t);
-		cloudAuthTimers.delete(ws);
-	};
-
-	const scheduleCloudAuthDeadline = (ws: ServerWebSocket<unknown>) => {
-		clearCloudAuthTimer(ws);
-		if (!requireEntitlement) return;
-		const t = setTimeout(() => {
-			const ctx = contexts.get(ws);
-			if (ctx?.cloudAuthed) return;
-			try {
-				send(ws, {
-					type: "error",
-					message: "CLOUD_AUTH_REQUIRED",
-					code: "CLOUD_AUTH_REQUIRED",
-				});
-			} catch {
-				// ignore
-			}
-			try {
-				ws.close(4401, "Cloud auth required");
-			} catch {
-				// ignore
-			}
-		}, 10_000);
-		cloudAuthTimers.set(ws, t);
-	};
-
-	const refreshCloudEntitlement = async (
-		ws: ServerWebSocket<unknown>,
-		ctx: ConnectionContext,
-		reason: string,
-	): Promise<void> => {
-		if (!requireEntitlement) return;
-		if (!convexHttpBaseUrl) return;
-		const sessionToken = ctx.cloudSessionToken;
-		if (!sessionToken) return;
-
-		const now = Date.now();
-		if (ctx.cloudCheckedAt && now - ctx.cloudCheckedAt < ENTITLEMENT_RECHECK_MS) return;
-
-		const tokenHash = createHash("sha256").update(sessionToken, "utf8").digest("hex");
-		const cached = entitlementCache.get(tokenHash);
-		// Only use cache if entitled=true. If cache says NOT entitled, always do fresh check
-		// (subscription might have just renewed, especially in sandbox where they renew every 5 min)
-		if (cached?.entitled && now - cached.checkedAt <= ENTITLEMENT_CACHE_TTL_MS) {
-			contexts.set(ws, {
-				...ctx,
-				cloudAuthed: true,
-				cloudAppUserId: cached.appUserId,
-				cloudEntitled: cached.entitled,
-				cloudStatus: cached.status,
-				cloudCheckedAt: cached.checkedAt,
-				cloudSessionTokenHash: tokenHash,
-				licenseExpSec: localLicense?.sessionTokenHash === tokenHash ? localLicense.exp : undefined,
-			});
-			return;
-		}
-
-		try {
-			const refreshed = await refreshLocalLicenseFromCloud({
-				convexHttpBaseUrl,
-				sessionToken,
-			});
-
-			if (!refreshed.ok) {
-				if (refreshed.status === 401) {
-					try {
-						ws.close(4401, "Invalid session");
-					} catch {
-						// ignore
-					}
-					return;
-				}
-
-				// Keep working if we have a valid local license for this session and it's not expired.
-				const nowSec = Math.floor(Date.now() / 1000);
-				if (localLicense?.entitled && localLicense.sessionTokenHash === tokenHash && nowSec <= localLicense.exp) {
-					contexts.set(ws, {
-						...ctx,
-						cloudAuthed: true,
-						cloudAppUserId: localLicense.appUserId,
-						cloudEntitled: true,
-						cloudStatus: localLicense.status,
-						cloudCheckedAt: now,
-						cloudSessionTokenHash: tokenHash,
-						licenseExpSec: localLicense.exp,
-					});
-					log(`[CloudAuth] Refresh failed (${reason}); using valid local license`);
-					return;
-				}
-
-				if (cached?.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS) {
-					contexts.set(ws, {
-						...ctx,
-						cloudAuthed: true,
-						cloudAppUserId: cached.appUserId,
-						cloudEntitled: cached.entitled,
-						cloudStatus: cached.status,
-						cloudCheckedAt: cached.checkedAt,
-						cloudSessionTokenHash: tokenHash,
-						licenseExpSec: localLicense?.sessionTokenHash === tokenHash ? localLicense.exp : undefined,
-					});
-					log(`[CloudAuth] Offline grace applied during refresh (${reason})`);
-					return;
-				}
-
-				if (refreshed.status === 403) {
-					try {
-						ws.close(4403, "License required");
-					} catch {
-						// ignore
-					}
-					return;
-				}
-
-				log(`[CloudAuth] Refresh failed (${reason}): ${refreshed.code} ${refreshed.message}`);
-				return;
-			}
-
-			if (refreshed.state.entitled) localLicense = refreshed.state;
-			const record = {
-				checkedAt: now,
-				appUserId: refreshed.state.appUserId,
-				entitled: refreshed.state.entitled,
-				...(refreshed.state.status ? { status: refreshed.state.status } : {}),
-			};
-			entitlementCache.set(tokenHash, record);
-			contexts.set(ws, {
-				...ctx,
-				cloudAuthed: true,
-				cloudAppUserId: refreshed.state.appUserId,
-				cloudEntitled: refreshed.state.entitled,
-				cloudStatus: refreshed.state.status,
-				cloudCheckedAt: record.checkedAt,
-				cloudSessionTokenHash: tokenHash,
-				licenseExpSec: refreshed.state.exp,
-			});
-			if (!refreshed.state.entitled) {
-				try {
-					ws.close(4403, "License required");
-				} catch {
-					// ignore
-				}
-			}
-		} catch (error) {
-			const nowSec = Math.floor(Date.now() / 1000);
-			if (localLicense?.entitled && localLicense.sessionTokenHash === tokenHash && nowSec <= localLicense.exp) {
-				contexts.set(ws, {
-					...ctx,
-					cloudAuthed: true,
-					cloudAppUserId: localLicense.appUserId,
-					cloudEntitled: true,
-					cloudStatus: localLicense.status,
-					cloudCheckedAt: now,
-					cloudSessionTokenHash: tokenHash,
-					licenseExpSec: localLicense.exp,
-				});
-				log(`[CloudAuth] Cloud unreachable during refresh (${reason}); using valid local license`);
-				return;
-			}
-
-			if (cached?.entitled && now - cached.checkedAt <= OFFLINE_GRACE_MS) {
-				contexts.set(ws, {
-					...ctx,
-					cloudAuthed: true,
-					cloudAppUserId: cached.appUserId,
-					cloudEntitled: cached.entitled,
-					cloudStatus: cached.status,
-					cloudCheckedAt: cached.checkedAt,
-					cloudSessionTokenHash: tokenHash,
-					licenseExpSec: localLicense?.sessionTokenHash === tokenHash ? localLicense.exp : undefined,
-				});
-				log(`[CloudAuth] Offline grace applied during refresh (${reason})`);
-				return;
-			}
-			log(`[CloudAuth] Refresh failed (${reason}): ${toErrorMessage(error)}`);
-		}
-	};
 	// Permission/approval timeout: 10 minutes.
 	// Users may background the app for extended periods; auto-rejecting after 2 minutes
 	// kills long-running sessions that need approval. 10 min gives enough time for
@@ -734,37 +482,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	let authExpiresAt = authState.expiresAt;
 	// Never allow token-in-URL in production binaries.
 	const allowTokenInUrl = !compiled && process.env.BROSKI_ALLOW_TOKEN_IN_URL === "1";
-	// In production binaries, do not allow environment flags to weaken enforcement.
-	const requireEntitlement = compiled
-		? true
-		: isTruthyEnv(process.env.BROSKI_REQUIRE_ENTITLEMENT, !!options.cloud?.requireEntitlement);
-	// Defense-in-depth: if we're compiled but entitlement somehow got disabled, abort.
-	// This catches scenarios where someone patches the `compiled` const or ternary above.
-	if (compiled && !requireEntitlement) {
-		throw new Error("FATAL: Entitlement enforcement disabled in compiled binary. Binary may be tampered.");
-	}
-	const convexHttpBaseUrlRaw = (
-		compiled
-			? (options.cloud?.convexHttpBaseUrl ?? "")
-			: (options.cloud?.convexHttpBaseUrl ??
-				process.env.BROSKI_CONVEX_HTTP_BASE_URL ??
-				process.env.CONVEX_HTTP_BASE_URL ??
-				"")
-	)
-		.trim()
-		.replace(/\/+$/, "");
-	const convexHttpBaseUrl = (() => {
-		if (!convexHttpBaseUrlRaw) return "";
-		try {
-			const u = new URL(convexHttpBaseUrlRaw);
-			if (u.protocol !== "https:" && !(u.protocol === "http:" && !compiled)) return "";
-			// Cheap "pinning": require Convex HTTPS hostnames in production.
-			if (compiled && !u.hostname.endsWith(".convex.site")) return "";
-			return `${u.protocol}//${u.host}`;
-		} catch {
-			return "";
-		}
-	})();
+	// Bridge is open-source — no entitlement enforcement.
+	// Convex URL kept only if needed for push notifications or analytics.
 	// In production binaries, always enable TLS for any non-loopback access.
 	// Allowing BROSKI_TLS=0 creates sniffing/MITM risk on WiFi/hotspot.
 	const tlsEnabled = compiled ? true : isTlsEnabledByEnv();
@@ -2210,19 +1929,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		}
 	}, TICK_INTERVAL_MS);
 
-	// Periodic entitlement refresh (best-effort). This makes revocations take effect
-	// without requiring the client to reconnect.
-	const entitlementRefreshTimer = setInterval(() => {
-		if (!requireEntitlement) return;
-		void (async () => {
-			for (const ws of sockets) {
-				const ctx = contexts.get(ws);
-				if (!ctx?.cloudAuthed || !ctx.cloudSessionToken) continue;
-				await refreshCloudEntitlement(ws, ctx, "timer");
-			}
-		})().catch(() => {});
-	}, 60_000);
-
 	// ── Network endpoint watcher ─────────────────────────────────────────
 	// Every 10s, re-discover IPs and broadcast changes to connected phones.
 	// getLocalIP/getHotspotIP use os.networkInterfaces() (microseconds, sync).
@@ -2285,18 +1991,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		handleCxPermissionHook: (request: Request) => {
 			const hookCtx: CxPermissionHookContext = { broadcast, logInfo, logDebug, DEBUG_RTS };
 			return handleCxPermissionHook(request, hookCtx);
-		},
-		entitlementDeps: {
-			requireEntitlement,
-			safeString,
-			convexHttpBaseUrl,
-			ENTITLEMENT_CACHE_TTL_MS,
-			OFFLINE_GRACE_MS,
-			entitlementCache,
-			getLocalLicense: () => localLicense,
-			setLocalLicense: (l) => {
-				localLicense = l;
-			},
 		},
 	};
 
@@ -2431,8 +2125,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			};
 			contexts.set(ws, baseCtx);
 			logUser(`Client connected (${sockets.size} active)`);
-			logInfo(`[WS] Client CONNECTED (${sockets.size} total) - requireEntitlement=${requireEntitlement}`);
-			scheduleCloudAuthDeadline(ws);
+			logInfo(`[WS] Client CONNECTED (${sockets.size} total)`);
 			void sendStatus(ws);
 		},
 		close(ws: ServerWebSocket<unknown>, code?: number, reason?: string) {
@@ -2449,10 +2142,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 				}
 				return;
 			}
-			clearCloudAuthTimer(ws);
 			const ctx = contexts.get(ws);
 			logInfo(
-				`[WS] Disconnect context - cloudAuthed=${ctx?.cloudAuthed}, cloudEntitled=${ctx?.cloudEntitled}, deviceId=${ctx?.deviceId}`,
+				`[WS] Disconnect context - deviceId=${ctx?.deviceId}`,
 			);
 			const disconnectedDeviceId = ctx?.deviceId;
 			const disconnectedDeviceName = ctx?.deviceName;
@@ -2625,39 +2317,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		reply: (response: ServerMessage) => void,
 	) => {
 		const ctx = contexts.get(ws);
-		if (requireEntitlement && !ENTITLEMENT_EXEMPT_TYPES.has(message.type)) {
-			if (!ctx?.cloudAuthed || !ctx.cloudEntitled) {
-				reply({
-					type: "error",
-					message: "LICENSE_REQUIRED",
-					code: "LICENSE_REQUIRED",
-					requestId: message.requestId,
-				});
-				try {
-					ws.close(4403, "License required");
-				} catch {
-					// ignore
-				}
-				return;
-			}
-			if (typeof ctx.licenseExpSec === "number") {
-				const nowSec = Math.floor(Date.now() / 1000);
-				if (nowSec > ctx.licenseExpSec) {
-					reply({
-						type: "error",
-						message: "LICENSE_EXPIRED",
-						code: "LICENSE_EXPIRED",
-						requestId: message.requestId,
-					});
-					try {
-						ws.close(4403, "License expired");
-					} catch {
-						// ignore
-					}
-					return;
-				}
-			}
-		}
 
 		// Security: never trust client-supplied filesystem roots.
 		// Many message types accept `cwd` / `projectPath` and downstream SDKs
@@ -2764,23 +2423,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
 		if (
 			await handleAuth(message, reply, {
-				requireEntitlement,
-				convexHttpBaseUrl,
-				ENTITLEMENT_CACHE_TTL_MS,
-				OFFLINE_GRACE_MS,
-				entitlementCache,
-				contexts,
 				ws,
-				ctx,
-				clearCloudAuthTimer,
 				log,
-				logUser,
-				logInfo,
-				toErrorMessage,
-				getLocalLicense: () => localLicense,
-				setLocalLicense: (l) => {
-					localLicense = l;
-				},
 			})
 		)
 			return;
@@ -3030,44 +2674,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			send(ws, requestId ? ({ ...response, requestId } as ServerMessage) : response);
 		};
 
-		// Defense-in-depth: enforce entitlement before even entering the main
-		// per-message switch (a patched `processSingleMessage` should not be enough).
-		if (requireEntitlement) {
-			if (!ENTITLEMENT_EXEMPT_TYPES.has(message.type)) {
-				const c = contexts.get(ws);
-				if (!c?.cloudAuthed || !c.cloudEntitled) {
-					log(`[MSG] BLOCKED ${message.type} - cloudAuthed=${c?.cloudAuthed}, cloudEntitled=${c?.cloudEntitled}`);
-					reply({
-						type: "error",
-						message: "LICENSE_REQUIRED",
-						code: "LICENSE_REQUIRED",
-					});
-					try {
-						ws.close(4403, "License required");
-					} catch {
-						// ignore
-					}
-					return;
-				}
-				if (typeof c.licenseExpSec === "number") {
-					const nowSec = Math.floor(Date.now() / 1000);
-					if (nowSec > c.licenseExpSec) {
-						reply({
-							type: "error",
-							message: "LICENSE_EXPIRED",
-							code: "LICENSE_EXPIRED",
-						});
-						try {
-							ws.close(4403, "License expired");
-						} catch {
-							// ignore
-						}
-						return;
-					}
-				}
-			}
-		}
-
 		try {
 			if (message.type === "batch") {
 				const batchedMessages = message.messages as Array<ClientMessage & { requestId?: string }>;
@@ -3118,11 +2724,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		stop: (force = true) => {
 			clearInterval(heartbeatTimer);
 			clearInterval(tickTimer);
-			clearInterval(entitlementRefreshTimer);
 			clearInterval(networkWatchTimer);
 			clearInterval(eventBufferPruneTimer);
-			for (const t of cloudAuthTimers.values()) clearTimeout(t);
-			cloudAuthTimers.clear();
 			for (const waiter of ccPermissionWaiters.values()) {
 				clearTimeout(waiter.timer);
 				waiter.resolve({ response: "reject" });

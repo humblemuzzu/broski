@@ -1,5 +1,24 @@
 # Broski Bridge — License & Binary Signing Guide
 
+> ⚠️ **DEPRECATED — HISTORICAL RELEASE GUIDE**
+>
+> The entire license enforcement and binary signing system described below
+> has been **removed** from the bridge. The bridge is now open-source and
+> distributed as a plain Bun/npm package without machine-bound signed
+> licenses, Ed25519 `.sig` sidecars, or runtime integrity checks.
+>
+> All monetization is now handled app-side via RevenueCat. The Convex
+> `/me/license` and `/me/machines` endpoints no longer exist, and the
+> `packages/bridge/src/license/` directory has been deleted.
+>
+> Kept for historical reference only. See current code in
+> `packages/bridge/` and `lib/providers/app_subscription_provider.dart`
+> for the live architecture.
+
+---
+
+# Broski Bridge — License & Binary Signing Guide
+
 > **Read this before every release.** This covers everything needed to ship
 > tamper-proof binaries on macOS, Linux, and Windows. Total cost: $0 extra
 > (uses your existing Apple Developer cert + free Ed25519 signing).

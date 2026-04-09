@@ -8,7 +8,6 @@ void main() {
         blocksAutoReconnect(
           entitled: false,
           error: null,
-          licenseRetryAttempted: false,
         ),
         isTrue,
       );
@@ -19,7 +18,6 @@ void main() {
         blocksAutoReconnect(
           entitled: true,
           error: 'Authentication failed. Scan a new QR code.',
-          licenseRetryAttempted: false,
         ),
         isTrue,
       );
@@ -28,26 +26,6 @@ void main() {
           entitled: true,
           error:
               'Secure connection failed (certificate mismatch). Scan a new QR code.',
-          licenseRetryAttempted: false,
-        ),
-        isTrue,
-      );
-    });
-
-    test('blocks license retry failures', () {
-      expect(
-        blocksAutoReconnect(
-          entitled: true,
-          error: 'Subscription required. Subscribe to Pro in Settings.',
-          licenseRetryAttempted: false,
-        ),
-        isTrue,
-      );
-      expect(
-        blocksAutoReconnect(
-          entitled: true,
-          error: null,
-          licenseRetryAttempted: true,
         ),
         isTrue,
       );
@@ -58,7 +36,6 @@ void main() {
         blocksAutoReconnect(
           entitled: true,
           error: null,
-          licenseRetryAttempted: false,
         ),
         isFalse,
       );
@@ -69,7 +46,6 @@ void main() {
         blocksAutoReconnect(
           entitled: true,
           error: 'Connection timeout',
-          licenseRetryAttempted: false,
         ),
         isFalse,
       );

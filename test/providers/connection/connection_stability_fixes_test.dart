@@ -155,7 +155,6 @@ void main() {
           entitled: true,
           error:
               'Secure connection failed (certificate mismatch). Scan a new QR code.',
-          licenseRetryAttempted: false,
         ),
         isTrue,
       );
@@ -163,8 +162,7 @@ void main() {
 
     test('cert pin error state has isReconnecting=false', () {
       // After fix 1c, a cert pin error should NOT set isReconnecting=true.
-      // The old code only excluded isAuthError/isLicenseError/isTooManyMachines.
-      // Now isPinError is also excluded.
+      // The old code only excluded isAuthError. Now isPinError is also excluded.
       const initial = BridgeConnectionState();
       final pinError = initial.copyWith(
         status: ConnectionStatus.disconnected,
@@ -186,7 +184,6 @@ void main() {
         blocksAutoReconnect(
           entitled: true,
           error: 'Connection timeout',
-          licenseRetryAttempted: false,
         ),
         isFalse,
       );
@@ -194,7 +191,6 @@ void main() {
         blocksAutoReconnect(
           entitled: true,
           error: 'WebSocket connection refused',
-          licenseRetryAttempted: false,
         ),
         isFalse,
       );
@@ -202,7 +198,6 @@ void main() {
         blocksAutoReconnect(
           entitled: true,
           error: 'Network unreachable',
-          licenseRetryAttempted: false,
         ),
         isFalse,
       );
@@ -213,18 +208,6 @@ void main() {
         blocksAutoReconnect(
           entitled: true,
           error: 'Authentication failed. Scan a new QR code.',
-          licenseRetryAttempted: false,
-        ),
-        isTrue,
-      );
-    });
-
-    test('license errors still block reconnect', () {
-      expect(
-        blocksAutoReconnect(
-          entitled: true,
-          error: 'Subscription required. Subscribe to Pro in Settings.',
-          licenseRetryAttempted: false,
         ),
         isTrue,
       );
@@ -235,7 +218,6 @@ void main() {
         blocksAutoReconnect(
           entitled: true,
           error: 'Sign-in expired. Please sign out and sign in again.',
-          licenseRetryAttempted: false,
         ),
         isTrue,
       );
@@ -355,7 +337,6 @@ void main() {
     final nonRetriableErrors = [
       'Authentication failed. Scan a new QR code.',
       'Secure connection failed (certificate mismatch). Scan a new QR code.',
-      'Subscription required. Subscribe to Pro in Settings.',
       'Sign-in expired. Please sign out and sign in again.',
     ];
 
@@ -365,8 +346,7 @@ void main() {
           blocksAutoReconnect(
             entitled: true,
             error: error,
-            licenseRetryAttempted: false,
-          ),
+            ),
           isTrue,
           reason: 'Should block reconnect for: $error',
         );
@@ -388,8 +368,7 @@ void main() {
           blocksAutoReconnect(
             entitled: true,
             error: error,
-            licenseRetryAttempted: false,
-          ),
+            ),
           isFalse,
           reason: 'Should allow reconnect for: $error',
         );

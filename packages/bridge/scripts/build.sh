@@ -144,92 +144,7 @@ build_target() {
 
   # Clean up temp file
   rm -f "./src/_bootstrap_embedded.ts" 2>/dev/null
-
-  # Build native license library (best-effort).
-  # Disabled by default because it adds Rust as a build dependency and may require network access.
-  # Enable explicitly with: BROSKI_BUILD_NATIVE_LICENSE=1
-  if [ "${BROSKI_BUILD_NATIVE_LICENSE:-0}" != "1" ]; then
-    echo "  Skipping native license library build (set BROSKI_BUILD_NATIVE_LICENSE=1 to enable)"
-    return 0
-  fi
-
-  # Only build for host target by default.
-  HOST_TRIPLE=""
-  if command -v rustc >/dev/null 2>&1; then
-    HOST_TRIPLE=$(rustc -vV 2>/dev/null | grep '^host:' | awk '{print $2}')
-  fi
-  RUST_TARGET=""
-  LIB_NAME=""
-  case "$PLATFORM" in
-    darwin-arm64)
-      RUST_TARGET="aarch64-apple-darwin"
-      LIB_NAME="libbroski_license.dylib"
-      ;;
-    darwin-x64)
-      RUST_TARGET="x86_64-apple-darwin"
-      LIB_NAME="libbroski_license.dylib"
-      ;;
-    linux-x64)
-      RUST_TARGET="x86_64-unknown-linux-gnu"
-      LIB_NAME="libbroski_license.so"
-      ;;
-    linux-arm64)
-      RUST_TARGET="aarch64-unknown-linux-gnu"
-      LIB_NAME="libbroski_license.so"
-      ;;
-    windows-x64)
-      RUST_TARGET="x86_64-pc-windows-msvc"
-      LIB_NAME="broski_license.dll"
-      ;;
-  esac
-
-  if [ -n "$RUST_TARGET" ] && [ -n "$HOST_TRIPLE" ] && [ "$RUST_TARGET" = "$HOST_TRIPLE" ] && command -v cargo >/dev/null 2>&1; then
-    echo "  Building native license library (${RUST_TARGET})..."
-    (cd native/license && cargo build --release --target "$RUST_TARGET") || echo "    Warning: native license build failed; continuing without it."
-    SRC_PATH="native/license/target/${RUST_TARGET}/release/${LIB_NAME}"
-    if [ -f "$SRC_PATH" ]; then
-      cp "$SRC_PATH" "${DIST}/${LIB_NAME}"
-      echo "    Native lib copied: ${DIST}/${LIB_NAME}"
-    else
-      echo "    Warning: native lib not found at ${SRC_PATH}"
-    fi
-  else
-    echo "  Skipping native license library build for ${PLATFORM} (host=${HOST_TRIPLE})"
-  fi
 }
-
-# ──────────────────────────────────────────────
-# Compute security sentinel (integrity check hash)
-# ──────────────────────────────────────────────
-echo "  Computing security sentinel..."
-SENTINEL=$(node -e "
-const crypto = require('crypto');
-const values = [
-  'MCowBQYDK2VwAyEARXrmjPy-wNpwAzbarnZIQc9hvmOFrVLv5dTuGK2j-eM',
-  'BRSK-LICENSE',
-  '.convex.site',
-  'EdDSA',
-  'v1',
-];
-process.stdout.write(crypto.createHash('sha256').update(values.join('\x00')).digest('hex'));
-")
-echo "  Sentinel: ${SENTINEL}"
-
-# Verify the sentinel matches what's hardcoded in integrity.ts
-# (catches dev mistakes where someone updates a value but forgets to update the hash)
-# Extract only the hex chunk lines (they're the lines with just hex strings in single quotes)
-EXPECTED_IN_CODE=$(sed -n '/EXPECTED_SENTINEL_CHUNKS/,/^\]/p' src/license/integrity.ts \
-  | grep -oE "'[0-9a-f]+'" | tr -d "'" | tr -d '\n')
-if [ -n "$EXPECTED_IN_CODE" ] && [ "$EXPECTED_IN_CODE" = "$SENTINEL" ]; then
-  echo "  ✓ Sentinel matches hardcoded value in integrity.ts"
-else
-  echo "  ⚠ WARNING: Sentinel mismatch!"
-  echo "    Computed: ${SENTINEL}"
-  echo "    In code:  ${EXPECTED_IN_CODE}"
-  echo "    If you changed security constants, update EXPECTED_SENTINEL_CHUNKS in integrity.ts"
-  echo ""
-fi
-echo ""
 
 TARGETS="
 darwin-arm64:broski-darwin-arm64
@@ -262,55 +177,8 @@ if [ "$BUILT" -eq 0 ]; then
 fi
 
 # ──────────────────────────────────────────────
-# Hash native sidecar library (if present)
+# PTY library hashes (informational)
 # ──────────────────────────────────────────────
-# ⚠️ ORDER MATTERS: This MUST run BEFORE signing because it modifies the binary.
-#
-# Bake the SHA-256 of the native .dylib/.so/.dll into each compiled binary.
-# This prevents an attacker from swapping the sidecar with a fake one that
-# always returns "license valid". Without this, Ghidra users could:
-#   1. Write a fake libbroski_license.dylib with verify_jws → always return 1
-#   2. Drop it next to the binary
-#   3. The binary would load it via FFI and trust it blindly
-#
-# The hash replaces %%NATIVE_LIB_HASH_PLACEHOLDER%% in the compiled output.
-
-echo ""
-echo "  Baking native sidecar hashes..."
-for binary in "$DIST"/broski-*; do
-  [ -f "$binary" ] || continue
-  # Skip .sig files
-  case "$binary" in *.sig) continue ;; esac
-
-  # Determine which native lib this binary would load
-  case "$binary" in
-    *darwin*)  NATIVE_LIB="${DIST}/libbroski_license.dylib" ;;
-    *linux*)   NATIVE_LIB="${DIST}/libbroski_license.so" ;;
-    *windows*) NATIVE_LIB="${DIST}/broski_license.dll" ;;
-    *)         NATIVE_LIB="" ;;
-  esac
-
-  if [ -n "$NATIVE_LIB" ] && [ -f "$NATIVE_LIB" ]; then
-    NATIVE_HASH=$(shasum -a 256 "$NATIVE_LIB" | awk '{print $1}')
-    echo "    ✓ $(basename "$binary"): ${NATIVE_HASH:0:16}..."
-
-    # Replace placeholder in the compiled binary.
-    # The placeholder is a fixed-length string so the binary size doesn't change.
-    # We use perl for in-place binary-safe replacement.
-    perl -pi -e "s/%%__NATIVE_LIB_HASH_PLACEHOLDER____000000000000000000000000000%%/${NATIVE_HASH}/g" "$binary"
-  else
-    echo "    - $(basename "$binary"): no native lib (placeholder stays, check skipped at runtime)"
-  fi
-done
-
-# ──────────────────────────────────────────────
-# Bake PTY library hash (for integrity verification)
-# ──────────────────────────────────────────────
-# Even though the PTY lib is now embedded in the binary and extracted on first
-# run, we still verify its hash at load time (in case someone replaces the
-# extracted file). The hash is baked at compile time via the embedded bootstrap,
-# so no perl patching needed — the hash was computed before compilation.
-# This section just logs the hash for the build output.
 
 echo ""
 echo "  PTY sidecar hashes (embedded in binary):"
@@ -336,22 +204,16 @@ EOF
 echo "    ✓ ${DIST}/package.json (v${VERSION})"
 
 # ──────────────────────────────────────────────
-# macOS ad-hoc codesign (re-sign after patching)
+# macOS ad-hoc codesign
 # ──────────────────────────────────────────────
-# ⚠️ ORDER MATTERS: This MUST run AFTER all binary patching (hash baking
-# above) because perl -pi -e invalidates the Mach-O ad-hoc signature that
-# Bun generates during compilation. Without re-signing, macOS Gatekeeper
-# kills the binary with "Killed: 9".
-#
-# Uses ad-hoc signing (codesign -s -) which doesn't require an Apple
-# Developer certificate. For App Store / notarized distribution, replace
-# with a real signing identity.
+# Ad-hoc signing (codesign -s -) doesn't require an Apple Developer
+# certificate. Without it, macOS Gatekeeper kills the binary with "Killed: 9".
 
 echo ""
-echo "  Re-signing macOS binaries..."
+echo "  Signing macOS binaries..."
 for binary in "$DIST"/broski-*darwin*; do
   [ -f "$binary" ] || continue
-  case "$binary" in *.sig|*.dylib|*.so|*.dll) continue ;; esac
+  case "$binary" in *.dylib|*.so|*.dll) continue ;; esac
 
   if command -v codesign >/dev/null 2>&1; then
     codesign -f -s - "$binary" 2>/dev/null
@@ -360,56 +222,6 @@ for binary in "$DIST"/broski-*darwin*; do
     echo "    ⚠ $(basename "$binary"): codesign not available (not on macOS?)"
   fi
 done
-
-# ──────────────────────────────────────────────
-# Sign each binary (create .sig sidecar files)
-# ──────────────────────────────────────────────
-# ⚠️ ORDER MATTERS: This MUST run AFTER native hash baking AND macOS codesign
-# (both above) because both modify the binary. The .sig is a signature of the
-# FINAL binary.
-#
-# The .sig file contains an Ed25519 signature of the binary's SHA-256 hash.
-# This is the primary tamper-protection on Linux (no OS codesign) and
-# defense-in-depth on macOS/Windows.
-#
-# Requires BROSKI_LICENSE_PRIVATE_KEY_PKCS8_B64URL env var (same key used
-# by Convex to sign licenses). In CI, set this as a secret.
-# If not set, binaries ship unsigned (sentinel check is still active).
-
-SIGN_KEY="${BROSKI_LICENSE_PRIVATE_KEY_PKCS8_B64URL:-}"
-if [ -n "$SIGN_KEY" ]; then
-  echo ""
-  echo "  Signing binaries..."
-  for binary in "$DIST"/broski-*; do
-    [ -f "$binary" ] || continue
-    # Skip .sig files and native libs
-    case "$binary" in *.sig|*.dylib|*.so|*.dll) continue ;; esac
-    SIG_FILE="${binary}.sig"
-    # Compute SHA-256 → sign with Ed25519 → base64url
-    node -e "
-      const crypto = require('crypto');
-      const fs = require('fs');
-      const privDerB64 = process.env.BROSKI_LICENSE_PRIVATE_KEY_PKCS8_B64URL;
-      const privDer = Buffer.from(privDerB64, 'base64url');
-      const privKey = crypto.createPrivateKey({ key: privDer, format: 'der', type: 'pkcs8' });
-      const binaryData = fs.readFileSync('${binary}');
-      const hash = crypto.createHash('sha256').update(binaryData).digest('hex');
-      const sig = crypto.sign(null, Buffer.from(hash, 'utf-8'), privKey);
-      fs.writeFileSync('${SIG_FILE}', sig.toString('base64url'));
-    " 2>/dev/null
-
-    if [ -f "$SIG_FILE" ]; then
-      echo "    ✓ Signed: $(basename "$binary") → $(basename "$SIG_FILE")"
-    else
-      echo "    ✗ Failed to sign: $(basename "$binary")"
-    fi
-  done
-else
-  echo ""
-  echo "  ⚠ Skipping binary signing (BROSKI_LICENSE_PRIVATE_KEY_PKCS8_B64URL not set)"
-  echo "    Set this env var in CI to enable .sig sidecar files."
-  echo "    Binaries will still work but without signed hash verification on Linux."
-fi
 
 # Print file sizes
 echo ""

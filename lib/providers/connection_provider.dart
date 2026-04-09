@@ -261,7 +261,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
   int _reconnectAttempts = 0;
   int _failureStreak = 0;
   bool _isConnecting = false;
-  bool _licenseRetryAttempted = false; // Prevents infinite license sync loop
+  // License retry removed — bridge no longer enforces entitlement
   bool _onboardingRetryAttempted =
       false; // One retry for Local Network permission timeout
   final _random = Random();
@@ -441,7 +441,6 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
         debugPrint('[Connection] Sending auth_session...');
         await _bridge.authSession(sessionToken: sessionToken);
         debugPrint('[Connection] auth_session SUCCESS');
-        _licenseRetryAttempted = false; // Reset on successful auth
         _onboardingRetryAttempted = false; // Reset on successful auth
       }
       _socket.endHandshake();
@@ -471,98 +470,18 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
       final isMissingSessionToken =
           lower.contains('missing sign-in token') ||
           lower.contains('missing session token');
-      final isLicenseError =
-          lower.contains('license_required') ||
-          lower.contains('license required') ||
-          lower.contains('license_expired') ||
-          lower.contains('license signing') ||
-          lower.contains('cloud auth failed') ||
-          lower.contains('cloud_auth_failed');
-      final isTooManyMachines = lower.contains('too many machines');
       final isAuthError =
           errString.contains('401') ||
           lower.contains('unauthorized') ||
           lower.contains('forbidden') ||
-          lower.contains('invalid session') ||
-          isLicenseError;
+          lower.contains('invalid session');
       final isPinError =
           lower.contains('handshake') && lower.contains('certificate');
 
-      // For license errors: server is authoritative.
-      // If server says LICENSE_REQUIRED, that's final - don't retry endlessly.
-      // Only try ONE sync refresh if locally entitled, then STOP.
-      if (isLicenseError && !isTooManyMachines) {
-        final subState = _ref.read(appSubscriptionProvider);
-
-        if (_licenseRetryAttempted) {
-          // Already tried sync once - server still says no. STOP.
-          debugPrint(
-            '[Connection] License retry already attempted - STOPPING (server is authoritative)',
-          );
-          // Server is authoritative — sync entitlement state so UI shows paywall
-          _ref.read(appSubscriptionProvider.notifier).seedEntitlement(false);
-          state = state.copyWith(
-            status: ConnectionStatus.disconnected,
-            error:
-                'Subscription not active on server. Please check your subscription status.',
-            lastEvent: ConnectionEvent.failed,
-            isReconnecting: false,
-          );
-          return;
-        }
-
-        if (subState.entitled) {
-          // Local says entitled, server says no - try ONE sync
-          _licenseRetryAttempted = true;
-          debugPrint(
-            '[Connection] License error but locally entitled - trying ONE sync (then stop)',
-          );
-          state = state.copyWith(
-            status: ConnectionStatus.disconnected,
-            error: 'Verifying subscription...',
-            lastEvent: ConnectionEvent.failed,
-            isReconnecting: true,
-          );
-
-          Future.microtask(() async {
-            try {
-              await _ref
-                  .read(appSubscriptionProvider.notifier)
-                  .configureAndRefresh();
-              await Future.delayed(const Duration(seconds: 2));
-
-              // After sync, try ONE more time - but flag is set so if it fails again we stop
-              debugPrint('[Connection] Sync done - trying ONE more connection');
-              if (state.connection != null) {
-                connect(state.connection!);
-              }
-            } catch (e) {
-              debugPrint('[Connection] Subscription sync failed: $e');
-              state = state.copyWith(
-                status: ConnectionStatus.disconnected,
-                error: 'Subscription sync failed. Please try again.',
-                isReconnecting: false,
-              );
-            }
-          });
-          return;
-        }
-      }
-
       // Determine error message
       String errorMessage;
-      if (isTooManyMachines) {
-        errorMessage =
-            'Machine limit reached (3 max). Remove a device in Account settings.';
-      } else if (isMissingSessionToken) {
+      if (isMissingSessionToken) {
         errorMessage = 'Sign-in expired. Please sign out and sign in again.';
-      } else if (lower.contains('license signing') ||
-          lower.contains('cloud auth failed')) {
-        // Server-side configuration issue - not a user problem
-        errorMessage =
-            'Server configuration error. Please contact support or try again later.';
-      } else if (isLicenseError) {
-        errorMessage = 'Subscription required. Subscribe to Pro in Settings.';
       } else if (isAuthError) {
         errorMessage = 'Authentication failed. Scan a new QR code.';
       } else if (isPinError) {
@@ -603,15 +522,14 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
         return;
       }
 
-      final blocksRetry =
-          isAuthError || isLicenseError || isTooManyMachines || isPinError;
+      final blocksRetry = isAuthError || isPinError;
       state = state.copyWith(
         status: ConnectionStatus.disconnected,
         error: errorMessage,
         lastEvent: ConnectionEvent.failed,
         isReconnecting: !blocksRetry,
       );
-      // Don't auto-reconnect for auth/license/cert errors - user needs to take action
+      // Don't auto-reconnect for auth/cert errors - user needs to take action
       if (!blocksRetry) {
         _scheduleSmartReconnect();
       }
@@ -1003,7 +921,6 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     _reconnectAttempts = 0;
     _failureStreak = 0;
     _sentMessages.clear();
-    _licenseRetryAttempted = false; // Reset for fresh start
     _onboardingRetryAttempted = false; // Reset for fresh start
 
     // Clear connection state BEFORE disconnecting to prevent
@@ -1018,31 +935,6 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     );
 
     // Now disconnect the socket
-    await _socket.disconnect();
-  }
-
-  /// Unpaid preview mode: allow browsing UI but prevent all connect/reconnect
-  /// flows. Preserves saved bridge connection so we can auto-reconnect when
-  /// the user regains entitlement (e.g. repurchase after expiry).
-  ///
-  /// This is intentionally idempotent and safe to call multiple times.
-  Future<void> enterUnpaidPreviewMode() async {
-    // Stop any reconnection activity immediately.
-    _reconnectTimer?.cancel();
-    _reconnectAttempts = 0;
-    _failureStreak = 0;
-    _sentMessages.clear();
-
-    // Disconnect socket and enter offline mode, but KEEP saved connection
-    // data in storage so auto-reconnect works after subscription renewal.
-    state = state.copyWith(
-      status: ConnectionStatus.disconnected,
-      isOfflineMode: true,
-      devBypassAutoOfflineEnabled: false,
-      isReconnecting: false,
-      error: null,
-    );
-
     await _socket.disconnect();
   }
 
@@ -1111,7 +1003,6 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
       if (blocksAutoReconnect(
         entitled: sub.entitled,
         error: state.error,
-        licenseRetryAttempted: _licenseRetryAttempted,
       )) {
         state = state.copyWith(isReconnecting: false);
         return;

@@ -192,13 +192,6 @@ describe("End-to-End Configuration Flow", () => {
 				lastRunAt: new Date().toISOString(),
 				lastRunVersion: "1.0.0",
 			},
-			cloud: {
-				convexHttpBaseUrl: "https://neat-gerbil-813.convex.site",
-				requireEntitlement: true,
-				entitlementCacheTtlMs: 30000,
-				entitlementRecheckMs: 1800000,
-				offlineGraceHours: 72,
-			},
 			network: {
 				port: mockNetworkResult.port,
 				mode: mockNetworkResult.mode,

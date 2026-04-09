@@ -1,7 +1,7 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { CompactSign, createRemoteJWKSet, importPKCS8, jwtVerify } from "jose";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const http = httpRouter();
 
@@ -22,25 +22,6 @@ async function sha256Hex(input: string) {
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
-}
-
-function base64UrlToBase64(b64url: string): string {
-  const normalized = b64url.replace(/-/g, "+").replace(/_/g, "/");
-  const padLen = (4 - (normalized.length % 4)) % 4;
-  return normalized + "=".repeat(padLen);
-}
-
-function derB64UrlToPem(derB64Url: string, label: "PRIVATE KEY" | "PUBLIC KEY"): string {
-  const b64 = base64UrlToBase64(derB64Url);
-  const lines = b64.match(/.{1,64}/g) ?? [];
-  return `-----BEGIN ${label}-----\n${lines.join("\n")}\n-----END ${label}-----\n`;
-}
-
-function getMaxMachines(): number {
-  const raw = process.env.BROSKI_MAX_MACHINES ?? "3";
-  const n = Number(raw);
-  if (!Number.isFinite(n) || n <= 0) return 3;
-  return Math.min(Math.max(Math.floor(n), 1), 10);
 }
 
 async function hmacSha256Hex(secret: string, message: string) {
@@ -272,92 +253,6 @@ http.route({
     const auth = await requireSession(ctx, req);
     if (!auth.ok) return auth.response;
     return json({ ok: true, user: publicUser(auth.user) });
-  }),
-});
-
-http.route({
-  path: "/me/license",
-  method: "POST",
-  handler: httpAction(async (ctx, req) => {
-    const auth = await requireSession(ctx, req);
-    if (!auth.ok) return auth.response;
-
-    let body: any;
-    try {
-      body = await req.json();
-    } catch {
-      return error("Invalid JSON body", 400);
-    }
-
-    const machineIdHash =
-      typeof body?.machineIdHash === "string" ? body.machineIdHash.trim() : "";
-    if (machineIdHash.length < 16 || machineIdHash.length > 128) {
-      return error("Missing machineIdHash", 400);
-    }
-
-    const maxMachines = getMaxMachines();
-    const upsert = await ctx.runMutation(internal.machines.upsertMachine, {
-      userId: auth.user._id,
-      machineIdHash,
-      maxMachines,
-    });
-    if (!upsert.ok) {
-      return error("Too many machines on this account", 403);
-    }
-
-    const privDerB64Url = (process.env.BROSKI_LICENSE_PRIVATE_KEY_PKCS8_B64URL ?? "").trim();
-    if (!privDerB64Url) {
-      return error("License signing key not configured", 500);
-    }
-
-    let key: CryptoKey;
-    try {
-      const privPem = derB64UrlToPem(privDerB64Url, "PRIVATE KEY");
-      key = await importPKCS8(privPem, "EdDSA");
-    } catch {
-      return error("Invalid license signing key", 500);
-    }
-
-    const nowSec = Math.floor(Date.now() / 1000);
-    const graceHoursRaw = Number(process.env.BROSKI_LICENSE_OFFLINE_GRACE_HOURS ?? "72");
-    const graceHours = Number.isFinite(graceHoursRaw) ? graceHoursRaw : 72;
-    const graceSec = Math.min(Math.max(graceHours, 1), 168) * 60 * 60; // cap 7 days
-
-    const entitled = !!auth.user.subscription?.entitlementActive;
-    const status = auth.user.subscription?.status ?? (entitled ? "active" : "inactive");
-    const subscriptionExpiresAtMs = auth.user.subscription?.expiresAtMs ?? null;
-    const subscriptionExpSec =
-      subscriptionExpiresAtMs != null ? Math.floor(subscriptionExpiresAtMs / 1000) : null;
-
-    let exp = nowSec + graceSec;
-    if (subscriptionExpSec != null) {
-      exp = Math.min(exp, subscriptionExpSec);
-    }
-    // If not entitled, keep the token short-lived to reduce stale caching.
-    if (!entitled) {
-      exp = Math.min(exp, nowSec + 300);
-    }
-
-    const payload = {
-      appUserId: auth.user.appUserId,
-      sessionTokenHash: auth.tokenHash,
-      machineIdHash,
-      entitled,
-      status,
-      iat: nowSec,
-      exp,
-    };
-
-    let jws: string;
-    try {
-      jws = await new CompactSign(new TextEncoder().encode(JSON.stringify(payload)))
-        .setProtectedHeader({ alg: "EdDSA", typ: "BRSK-LICENSE", kid: "v1" })
-        .sign(key);
-    } catch {
-      return error("Failed to sign license", 500);
-    }
-
-    return json({ ok: true, license: jws, payload });
   }),
 });
 
@@ -715,73 +610,6 @@ http.route({
 // NOTE: /hooks/bridge-install endpoint removed — unauthenticated, no rate
 // limiting, anyone could spam thousands of DB writes to exhaust Convex quota.
 // Re-add with auth or rate limiting when bridge binary distribution is live.
-
-// ─── Machine management ────────────────────────────────────────────────────
-
-http.route({
-  path: "/me/machines",
-  method: "GET",
-  handler: httpAction(async (ctx, req) => {
-    const auth = await requireSession(ctx, req);
-    if (!auth.ok) return auth.response;
-
-    const machines = await ctx.runQuery(internal.machines.listActiveByUser, {
-      userId: auth.user._id,
-    });
-
-    const maxMachines = getMaxMachines();
-
-    return json({
-      ok: true,
-      maxMachines,
-      machines: machines.map((m: any) => ({
-        id: m._id,
-        machineIdHash: m.machineIdHash,
-        firstSeenAt: m.firstSeenAtMs,
-        lastSeenAt: m.lastSeenAtMs,
-      })),
-    });
-  }),
-});
-
-http.route({
-  path: "/me/machines/revoke",
-  method: "POST",
-  handler: httpAction(async (ctx, req) => {
-    const auth = await requireSession(ctx, req);
-    if (!auth.ok) return auth.response;
-
-    let body: any;
-    try {
-      body = await req.json();
-    } catch {
-      return error("Invalid JSON body", 400);
-    }
-
-    const machineId = typeof body?.machineId === "string" ? body.machineId.trim() : "";
-    if (!machineId) {
-      return error("Missing machineId", 400);
-    }
-
-    // Verify machine belongs to user
-    const machines = await ctx.runQuery(internal.machines.listActiveByUser, {
-      userId: auth.user._id,
-    });
-
-    const machine = machines.find((m: any) => m._id === machineId);
-    if (!machine) {
-      return error("Machine not found", 404);
-    }
-
-    // Revoke the machine
-    await ctx.runMutation(internal.machines.revokeMachine, {
-      machineId,
-    });
-
-    return json({ ok: true });
-  }),
-});
-
 
 // ─── Waitlist ──────────────────────────────────────────────────────────────
 

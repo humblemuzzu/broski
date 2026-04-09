@@ -174,13 +174,6 @@ actual key content here
 			expect(text.includes("opencode not available")).toBe(true);
 		});
 
-		test("detects entitlement failures", () => {
-			const logs = ["Validating session entitlement", "auth_session check failed - not entitled", "Access denied"];
-
-			const text = logs.join("\n").toLowerCase();
-			expect(text.includes("auth_session") && text.includes("not entitled")).toBe(true);
-		});
-
 		test("detects proxy blocking", () => {
 			const logs = [
 				"Handling proxy request to localhost:3000",

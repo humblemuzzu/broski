@@ -10,9 +10,7 @@ import type { OpenCodeConnector } from "./connectors/opencode";
 import {
 	buildProxyForwardHeaders,
 	buildProxyShim,
-	checkHttpEntitlement,
 	extractTokenFromRequest,
-	type HttpEntitlementDeps,
 	isAllowedBrowserRequest,
 	isAllowedOrigin,
 	isAllowedProxyPort,
@@ -34,7 +32,6 @@ export interface HandleHttpDeps {
 	opencode: OpenCodeConnector | null;
 	listFilesDirectly: (path: string) => Promise<unknown>;
 	logUser: (msg: string) => void;
-	entitlementDeps: HttpEntitlementDeps;
 	handleCcPermissionHook?: (request: Request) => Promise<Response>;
 	handleCxPermissionHook?: (request: Request) => Promise<Response>;
 }
@@ -146,8 +143,6 @@ export async function handleHttpRequest(request: Request, deps: HandleHttpDeps):
 
 	// ── /projects ──────────────────────────────────────────────────────
 	if (url.pathname === "/projects") {
-		const denied = await checkHttpEntitlement(request, deps.entitlementDeps);
-		if (denied) return denied;
 		if (!deps.opencode) return jsonResponse({ error: "OpenCode not available" }, 503);
 		try {
 			const data = await deps.opencode.listProjects();
@@ -159,8 +154,6 @@ export async function handleHttpRequest(request: Request, deps: HandleHttpDeps):
 
 	// ── /browse ────────────────────────────────────────────────────────
 	if (url.pathname === "/browse") {
-		const denied = await checkHttpEntitlement(request, deps.entitlementDeps);
-		if (denied) return denied;
 		const path = url.searchParams.get("path");
 		if (!path) return jsonResponse({ error: "Missing path" }, 400);
 		try {

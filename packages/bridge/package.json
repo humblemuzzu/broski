@@ -1,10 +1,13 @@
 {
-  "name": "broski",
+  "name": "broski-bridge",
   "version": "0.1.0",
-  "description": "Bridge server connecting Broski mobile app to AI coding agents (OpenCode, Claude Code, Codex)",
+  "description": "Bridge server connecting Broski mobile app to AI coding agents (OpenCode, Claude Code, Codex, Pi)",
   "author": "humblemuzzu <broskiappp@gmail.com>",
-  "license": "UNLICENSED",
-  "private": true,
+  "license": "MIT",
+  "private": false,
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/humblemuzzu/broski.git",
@@ -16,6 +19,9 @@
   },
   "keywords": [
     "opencode",
+    "claude-code",
+    "codex",
+    "pi",
     "ai",
     "coding-agent",
     "mobile",

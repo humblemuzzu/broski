@@ -78,17 +78,6 @@ export default defineSchema({
     raw: v.optional(v.any()),
   }).index("by_appUserId", ["appUserId"]),
 
-  machines: defineTable({
-    userId: v.id("users"),
-    machineIdHash: v.string(), // stable hash produced by the bridge (not raw hardware identifiers)
-    firstSeenAtMs: v.number(),
-    lastSeenAtMs: v.number(),
-    revokedAtMs: v.optional(v.number()),
-  })
-    .index("by_user_machine", ["userId", "machineIdHash"])
-    .index("by_machineIdHash", ["machineIdHash"])
-    .index("by_userId", ["userId"]),
-
   stripeEvents: defineTable({
     receivedAtMs: v.number(),
     eventType: v.optional(v.string()),

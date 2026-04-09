@@ -80,13 +80,6 @@ String _mapKnownBridgeError(String message) {
   if (lower == 'missing cwd') {
     return 'No project folder selected. Open a project first.';
   }
-  if (lower.contains('license_required') ||
-      lower.contains('license required')) {
-    return 'Subscription required. Subscribe to Pro in Settings.';
-  }
-  if (lower.contains('license_expired') || lower.contains('license expired')) {
-    return 'Your subscription has expired. Renew in Settings.';
-  }
   if (lower.contains('rate_limited') || lower.contains('rate limited')) {
     return 'Too many requests. Wait a moment and try again.';
   }
@@ -134,8 +127,6 @@ String humanErrorLabel(String? code) {
     'Error' => 'Error',
 
     // Bridge-level
-    'LICENSE_REQUIRED' => 'Subscription Required',
-    'LICENSE_EXPIRED' => 'Subscription Expired',
     'INVALID_SESSION' => 'Session Expired',
     'RATE_LIMITED' => 'Rate Limited',
     'CLOUD_AUTH_REQUIRED' => 'Sign-in Required',

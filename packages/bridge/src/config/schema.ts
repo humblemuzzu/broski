@@ -10,21 +10,6 @@ export const BroskiConfigSchema = z.object({
 			lastRunVersion: z.string().optional(),
 		})
 		.default({ completedSetup: false }),
-	cloud: z
-		.object({
-			convexHttpBaseUrl: z.string().default("https://neat-gerbil-813.convex.site"),
-			requireEntitlement: z.boolean().default(true),
-			entitlementCacheTtlMs: z.number().default(30_000),
-			entitlementRecheckMs: z.number().default(30 * 60_000),
-			offlineGraceHours: z.number().default(72),
-		})
-		.default({
-			convexHttpBaseUrl: "https://neat-gerbil-813.convex.site",
-			requireEntitlement: true,
-			entitlementCacheTtlMs: 30_000,
-			entitlementRecheckMs: 30 * 60_000,
-			offlineGraceHours: 72,
-		}),
 	network: z
 		.object({
 			port: z.number().default(18274),

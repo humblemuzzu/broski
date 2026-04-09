@@ -363,103 +363,6 @@ async function runShowToken(): Promise<void> {
 	console.log("  Or run `broski qr` to generate a scannable QR code.");
 }
 
-async function runAccount(): Promise<void> {
-	const { loadLocalLicenseState, getLicenseCrypto } = await import("./license");
-	const { loadStoredLicense, getStoredLicensePath } = await import("./license/store");
-
-	console.log("");
-	console.log("  ╭─────────────────────────────────────────────╮");
-	console.log("  │            BROSKI ACCOUNT STATUS            │");
-	console.log("  ╰─────────────────────────────────────────────╯");
-	console.log("");
-
-	// Check if license file exists
-	const stored = await loadStoredLicense();
-	if (!stored) {
-		console.log("  Status: Not connected");
-		console.log("");
-		console.log("  No license found. Connect the Broski iOS app to activate.");
-		console.log("");
-		console.log("  Steps:");
-		console.log("    1. Run `broski` to start the bridge");
-		console.log("    2. Open the Broski app on your iPhone");
-		console.log("    3. Scan the QR code to connect");
-		console.log("");
-		return;
-	}
-
-	// Try to load and decrypt the license
-	const license = await loadLocalLicenseState();
-	if (!license) {
-		console.log("  Status: License invalid or corrupted");
-		console.log("");
-		console.log("  The cached license could not be decrypted.");
-		console.log("  This can happen if the machine ID changed.");
-		console.log("");
-		console.log("  Reconnect via the Broski app to refresh your license.");
-		console.log("");
-		return;
-	}
-
-	// Calculate expiry
-	const nowSec = Math.floor(Date.now() / 1000);
-	const expiresSec = license.exp;
-	const expiresDate = new Date(expiresSec * 1000);
-	const daysRemaining = Math.ceil((expiresSec - nowSec) / (60 * 60 * 24));
-	const isExpired = nowSec > expiresSec;
-
-	// Get machine ID
-	const crypto = getLicenseCrypto();
-	const machineIdHash = crypto.machineIdHash();
-	const machineIdShort = machineIdHash ? `${machineIdHash.slice(0, 12)}...` : "unknown";
-
-	// Display status
-	const statusEmoji = license.entitled ? (isExpired ? "⚠️" : "✓") : "✗";
-	const statusText = license.entitled ? (isExpired ? "Expired" : "Pro") : "Not Subscribed";
-
-	console.log(`  Subscription: ${statusEmoji} ${statusText}`);
-	console.log("");
-
-	if (license.entitled && !isExpired) {
-		console.log(`  Expires:      ${expiresDate.toLocaleDateString()} (${daysRemaining} days)`);
-	} else if (isExpired) {
-		console.log(`  Expired:      ${expiresDate.toLocaleDateString()}`);
-	}
-
-	console.log(`  User ID:      ${license.appUserId}`);
-	console.log(`  Machine:      ${machineIdShort}`);
-	console.log("");
-
-	// Show last verified time from stored license
-	if (stored.updatedAtMs) {
-		const _lastVerified = new Date(stored.updatedAtMs);
-		const minAgo = Math.floor((Date.now() - stored.updatedAtMs) / 60000);
-		const timeAgoText =
-			minAgo < 1 ? "just now" : minAgo < 60 ? `${minAgo} min ago` : `${Math.floor(minAgo / 60)} hours ago`;
-		console.log(`  Last verified: ${timeAgoText}`);
-	}
-
-	console.log("");
-	console.log("  ─────────────────────────────────────────────");
-	console.log("");
-
-	if (!license.entitled) {
-		console.log("  To subscribe: Open the Broski app → Settings → Subscribe");
-		console.log("");
-	} else if (isExpired) {
-		console.log("  To renew: Open the Broski app → Settings → Manage Subscription");
-		console.log("");
-	} else {
-		console.log("  Manage subscription & devices in the Broski iOS app.");
-		console.log("");
-	}
-
-	// Show license file path for debugging
-	const licensePath = getStoredLicensePath();
-	console.log(`  License file: ${licensePath}`);
-	console.log("");
-}
-
 async function runStop(): Promise<void> {
 	console.log("Stopping Broski bridge...\n");
 
@@ -957,20 +860,12 @@ async function main() {
 	const argvHas = (flag: string): boolean => process.argv.includes(flag);
 	const argvHasPortFlag = argvHas("--port") || argvHas("--bridge-port");
 
-	// Runtime hardening: strip dangerous env vars and detect tampering.
-	// Must run BEFORE any code reads process.env for security-critical values.
-	const { sanitizeEnvironment } = await import("./license/hardening");
-	sanitizeEnvironment();
-
 	// Apply config defaults only when user didn't explicitly override via env/CLI.
 	if (!process.env.BROSKI_TLS) {
 		process.env.BROSKI_TLS = config.security.tls ? "1" : "0";
 	}
 	if (!process.env.BROSKI_TOKEN_TTL_DAYS) {
 		process.env.BROSKI_TOKEN_TTL_DAYS = String(config.security.tokenTtlDays);
-	}
-	if (!process.env.BROSKI_CONVEX_HTTP_BASE_URL && config.cloud.convexHttpBaseUrl) {
-		process.env.BROSKI_CONVEX_HTTP_BASE_URL = config.cloud.convexHttpBaseUrl;
 	}
 	if (cli.help) {
 		printHelp();
@@ -1092,10 +987,7 @@ async function main() {
 		return;
 	}
 
-	if (cli.subCommand === "account") {
-		await runAccount();
-		return;
-	}
+
 
 	process.on("SIGINT", () => void shutdown("SIGINT"));
 	process.on("SIGTERM", () => void shutdown("SIGTERM"));
@@ -1150,65 +1042,6 @@ async function main() {
 	const port = cli.bridgePort;
 	const effectivePort =
 		!argvHasPortFlag && !process.env.BROSKI_PORT && config.network.port ? config.network.port : port;
-
-	// Binary integrity check — always runs in compiled mode, cannot be disabled.
-	// Verifies: platform code signature (macOS/Windows) + security sentinel
-	// (critical constants like Ed25519 pubkey and Convex domain haven't been patched).
-	if (cli.subCommand === "serve" && isCompiledBinary()) {
-		const { verifyBinaryIntegrity, startPeriodicIntegrityCheck } = await import("./license");
-
-		const integrity = verifyBinaryIntegrity();
-		if (!integrity.ok) {
-			const reasons = [
-				integrity.checks.codesign.ok ? null : integrity.checks.codesign.reason,
-				integrity.checks.sentinel.ok ? null : integrity.checks.sentinel.reason,
-				integrity.checks.signedHash.ok ? null : integrity.checks.signedHash.reason,
-				integrity.checks.nativeSidecar.ok ? null : integrity.checks.nativeSidecar.reason,
-				integrity.checks.nativeLibPresence.ok ? null : integrity.checks.nativeLibPresence.reason,
-			].filter(Boolean);
-			console.error("❌ Integrity check failed:");
-			for (const reason of reasons) {
-				console.error(`   • ${reason}`);
-			}
-			console.error("   The binary may have been modified. Download a fresh copy from the official source.");
-			void shutdown("INTEGRITY_FAIL", 1);
-			return;
-		}
-
-		// Re-verify every 5 minutes in the background.
-		// Catches post-startup tampering (debugger attach, memory patching).
-		startPeriodicIntegrityCheck((result) => {
-			const reasons = [
-				result.checks.codesign.ok ? null : result.checks.codesign.reason,
-				result.checks.sentinel.ok ? null : result.checks.sentinel.reason,
-				result.checks.signedHash.ok ? null : result.checks.signedHash.reason,
-				result.checks.nativeSidecar.ok ? null : result.checks.nativeSidecar.reason,
-				result.checks.nativeLibPresence.ok ? null : result.checks.nativeLibPresence.reason,
-			].filter(Boolean);
-			console.error("❌ Runtime integrity check failed:");
-			for (const reason of reasons) {
-				console.error(`   • ${reason}`);
-			}
-			console.error("   Shutting down for security.");
-			void shutdown("INTEGRITY_FAIL", 1);
-		});
-
-		// Runtime hardening: anti-debug, anti-injection monitoring.
-		const { initRuntimeHardening, startHardeningMonitor } = await import("./license/hardening");
-		const hardeningFlags = initRuntimeHardening();
-
-		// Don't crash on detection — silently degrade so the connection
-		// between "debugger attached" and "failure" isn't obvious.
-		if (hardeningFlags.debuggerDetected || hardeningFlags.injectionDetected) {
-			// Corrupt the auth state expiry so connections fail "naturally"
-			// rather than with a "debugger detected" error message.
-			// This makes reverse engineering the detection harder.
-		}
-
-		startHardeningMonitor((_flags) => {
-			void shutdown("SECURITY", 0);
-		});
-	}
 
 	let bootstrap: OpencodeBootstrap | null = null;
 	let opencode: OpenCodeConnector | null = null;
@@ -1283,13 +1116,6 @@ async function main() {
 			version,
 			auth,
 			tokenTtlDays: config.security.tokenTtlDays,
-			cloud: {
-				convexHttpBaseUrl: config.cloud.convexHttpBaseUrl,
-				requireEntitlement: config.cloud.requireEntitlement,
-				entitlementCacheTtlMs: config.cloud.entitlementCacheTtlMs,
-				entitlementRecheckMs: config.cloud.entitlementRecheckMs,
-				offlineGraceHours: config.cloud.offlineGraceHours,
-			},
 			enableLoopbackInsecureServer: willEnableFunnel,
 			restartOpenCode: restartManagedOpenCode,
 			bridgeLogger,

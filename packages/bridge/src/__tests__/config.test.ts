@@ -21,13 +21,6 @@ describe("Config Schema", () => {
 				lastRunAt: "2023-12-01T00:00:00Z",
 				lastRunVersion: "1.0.0",
 			},
-			cloud: {
-				convexHttpBaseUrl: "https://test.convex.site",
-				requireEntitlement: true,
-				entitlementCacheTtlMs: 30000,
-				entitlementRecheckMs: 1800000,
-				offlineGraceHours: 72,
-			},
 			network: {
 				port: 18274,
 				mode: "local" as const,
@@ -57,7 +50,6 @@ describe("Config Schema", () => {
 		const invalidConfig = {
 			version: 2, // wrong version
 			wizard: { completedSetup: false },
-			cloud: {},
 			network: {},
 			security: {},
 			agents: {},
@@ -73,7 +65,6 @@ describe("Config Schema", () => {
 			version: 1,
 			// Provide empty objects to trigger individual field defaults
 			wizard: {},
-			cloud: {},
 			network: {},
 			security: {},
 			agents: {},
