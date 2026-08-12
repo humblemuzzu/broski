@@ -16,7 +16,6 @@ type ConnectionMetrics = {
 type ConnectionState = {
   wsUrl: string
   bridgeAuthToken: string | null
-  convexSessionToken: string | null
   wsState: WebSocketState
   lastClose: null | { code: number; reason: string }
   devices: DeviceInfo[]
@@ -25,19 +24,15 @@ type ConnectionState = {
   activeAgent: AgentType
   statusPayload: StatusPayload | null
   metrics: ConnectionMetrics | null
-  cloud: null | { appUserId: string; entitled: boolean; status?: string }
   client: WebSocketClient
 
   setWsUrl: (wsUrl: string) => void
   setBridgeAuthToken: (token: string | null) => void
-  setConvexSessionToken: (token: string | null) => void
   connect: () => void
   disconnect: () => void
   send: WebSocketClient["send"]
   registerDevice: () => void
   setActiveAgent: (agent: AgentType) => void
-  authenticateCloud: () => void
-  setCloudAuthOk: (data: { appUserId: string; entitled: boolean; status?: string }) => void
 
   setDevices: (devices: DeviceInfo[]) => void
   upsertDevice: (device: DeviceInfo) => void
@@ -57,7 +52,6 @@ export const useConnectionStore = create<ConnectionState>()(
     (set, get) => ({
       wsUrl: DEFAULT_BRIDGE_WS_URL,
       bridgeAuthToken: null,
-      convexSessionToken: null,
       wsState: "idle",
       lastClose: null,
       devices: [],
@@ -66,12 +60,10 @@ export const useConnectionStore = create<ConnectionState>()(
       activeAgent: "claude-code",
       statusPayload: null,
       metrics: null,
-      cloud: null,
       client,
 
       setWsUrl: (wsUrl) => set({ wsUrl }),
       setBridgeAuthToken: (token) => set({ bridgeAuthToken: token }),
-      setConvexSessionToken: (token) => set({ convexSessionToken: token }),
       connect: () => {
         const { wsUrl, bridgeAuthToken } = get()
         set({ wsState: "connecting" })
@@ -95,12 +87,6 @@ export const useConnectionStore = create<ConnectionState>()(
         set({ activeAgent: agent })
         get().send({ type: "set_agent", agent })
       },
-      authenticateCloud: () => {
-        const tok = (get().convexSessionToken ?? "").trim()
-        if (!tok) return
-        get().send({ type: "auth_session", sessionToken: tok })
-      },
-      setCloudAuthOk: (data) => set({ cloud: data }),
 
       setDevices: (devices) => set({ devices }),
       upsertDevice: (device) =>

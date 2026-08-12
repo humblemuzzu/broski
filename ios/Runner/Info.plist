@@ -24,17 +24,6 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleTypeRole</key>
-			<string>Editor</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>com.googleusercontent.apps.301002948584-3lpgq673v734fs4206f976uslh3btn6d</string>
-			</array>
-		</dict>
-	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
@@ -78,9 +67,5 @@
 		<string>UIInterfaceOrientationPortrait</string>
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 	</array>
-	<key>GIDClientID</key>
-	<string>301002948584-3lpgq673v734fs4206f976uslh3btn6d.apps.googleusercontent.com</string>
-	<key>GIDServerClientID</key>
-	<string>301002948584-s7u5tj35c1f50eik5feqernd2j3ddk8h.apps.googleusercontent.com</string>
 </dict>
 </plist>

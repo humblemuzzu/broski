@@ -32,7 +32,7 @@ function readServerSource(): string {
 	const path = require("node:path");
 	const serverSrc = fs.readFileSync(path.resolve(__dirname, "..", "server.ts"), "utf-8");
 	// Also read extracted handler files so source invariant tests cover them
-	const handlerFiles = ["auth.ts", "cc_chat.ts", "devices.ts", "session_view.ts", "cx_routing.ts", "misc.ts"];
+	const handlerFiles = ["cc_chat.ts", "devices.ts", "session_view.ts", "cx_routing.ts", "misc.ts"];
 	const handlerSrcs = handlerFiles.map((f: string) => {
 		try {
 			return fs.readFileSync(path.resolve(__dirname, "..", "handlers", f), "utf-8");

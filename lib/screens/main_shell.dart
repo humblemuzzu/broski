@@ -1,14 +1,12 @@
 import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/nav_bar_style.dart';
 import 'package:broski/providers/agent_type_provider.dart';
-import 'package:broski/providers/app_subscription_provider.dart';
 import 'package:broski/providers/appearance_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/nav_bar_style_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/providers/sessions_provider.dart';
 import 'package:broski/screens/browse_screen.dart';
-import 'package:broski/screens/paywall_screen.dart';
 import 'package:broski/screens/projects_screen.dart';
 import 'package:broski/screens/sessions_screen.dart';
 import 'package:broski/screens/settings_screen.dart';
@@ -17,11 +15,9 @@ import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/utils/responsive.dart';
-import 'package:broski/widgets/adaptive_container.dart';
 import 'package:broski/widgets/app_background.dart';
 import 'package:broski/widgets/glassmorphic_nav_bar.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class MainShell extends ConsumerStatefulWidget {
@@ -69,7 +65,6 @@ class _MainShellState extends ConsumerState<MainShell> {
   Widget build(BuildContext context) {
     final connection = ref.watch(connectionProvider);
     final navBarStyle = ref.watch(navBarStyleProvider);
-    final sub = ref.watch(appSubscriptionProvider);
     final theme = Theme.of(context);
     // Listen for connection changes and set global view when connected
     ref.listen(connectionProvider, (previous, next) {
@@ -112,30 +107,7 @@ class _MainShellState extends ConsumerState<MainShell> {
               TickerMode(enabled: _index == 3, child: const SettingsScreen()),
             ],
           ),
-          // Unpaid UX:
-          // - Tabs 0-2: center CTA (competitor-style empty state)
-          // - Settings tab: subtle top banner
-          if (!sub.entitled && _index != 3)
-            const Positioned.fill(
-              child: SafeArea(
-                child: AdaptiveContainer(
-                  width: ContentWidth.narrow,
-                  child: Align(
-                    alignment: Alignment.center,
-                    child: _UnpaidCenterCta(),
-                  ),
-                ),
-              ),
-            ),
-          if (!sub.entitled && _index == 3)
-            const Positioned(
-              left: 0,
-              right: 0,
-              top: 0,
-              child: _UpgradeBanner(),
-            ),
-          // Offline mode banner at top (only show if entitled - unpaid users see upgrade banner instead)
-          if (connection.isOfflineMode && sub.entitled)
+          if (connection.isOfflineMode)
             Positioned(
               left: 0,
               right: 0,
@@ -162,9 +134,7 @@ class _MainShellState extends ConsumerState<MainShell> {
               ),
             ),
           // Reconnecting banner - shows during auto-reconnect attempts
-          if (sub.entitled &&
-              connection.isReconnecting &&
-              !connection.isOfflineMode)
+          if (connection.isReconnecting && !connection.isOfflineMode)
             Positioned(
               left: 0,
               right: 0,
@@ -206,137 +176,6 @@ class _MainShellState extends ConsumerState<MainShell> {
       case NavBarStyle.glassmorphic:
         return GlasmorphicNavBar(currentIndex: _index, onTap: onTap);
     }
-  }
-}
-
-class _UpgradeBanner extends ConsumerWidget {
-  const _UpgradeBanner();
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return SafeArea(
-      bottom: false,
-      child: GestureDetector(
-        onTap: () {
-          HapticFeedback.mediumImpact();
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => const PaywallScreen(showCloseButton: true),
-              fullscreenDialog: true,
-            ),
-          );
-        },
-        child: Builder(
-          builder: (context) {
-            final ocTheme = OpenCodeTheme.of(context);
-            return Container(
-              margin: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: ocTheme.backgroundPanel,
-                borderRadius: Radii.brXl,
-                border: Border.all(
-                  color: ocTheme.warning.withValues(alpha: 0.3),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(AppIcons.subscription, color: ocTheme.warning, size: 16),
-                  const SizedBox(width: Spacing.sm),
-                  Text(
-                    'Upgrade',
-                    style: TextStyle(
-                      color: ocTheme.text,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(width: Spacing.xs),
-                  Icon(
-                    AppIcons.chevronRight,
-                    color: ocTheme.textMuted,
-                    size: 18,
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-class _UnpaidCenterCta extends ConsumerWidget {
-  const _UnpaidCenterCta();
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final ocTheme = OpenCodeTheme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 28),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: Spacing.lg),
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: ocTheme.backgroundPanel.withValues(alpha: 0.65),
-              borderRadius: Radii.brXl,
-              border: Border.all(color: ocTheme.borderSubtle),
-            ),
-            child: Icon(AppIcons.lock, color: ocTheme.textMuted, size: 28),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            'Not connected yet',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: ocTheme.text,
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.3,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Upgrade to connect your Mac and access projects, sessions, and chat.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: ocTheme.textMuted,
-              fontSize: 13,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 18),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                HapticFeedback.mediumImpact();
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const PaywallScreen(showCloseButton: true),
-                    fullscreenDialog: true,
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: ocTheme.primary,
-                foregroundColor: ocTheme.selectedListItemText,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: Radii.brLg),
-              ),
-              child: const Text(
-                'Upgrade to connect',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 

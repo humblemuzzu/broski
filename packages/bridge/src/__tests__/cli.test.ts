@@ -146,11 +146,6 @@ describe("CLI Parser", () => {
 		expect(result.subCommand).toBe("qr");
 	});
 
-	test("parses account command", () => {
-		const result = parseCli(["node", "broski", "account"], {});
-		expect(result.subCommand).toBe("account");
-	});
-
 	test("parses update command", () => {
 		const result = parseCli(["node", "broski", "update"], {});
 		expect(result.subCommand).toBe("update");

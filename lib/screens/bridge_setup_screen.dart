@@ -12,7 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// "Run the Bridge" screen shown after paywall during onboarding.
+/// "Run the Bridge" screen shown during onboarding.
 /// Pixel-perfect terminal mockup matching Figma design.
 class BridgeSetupScreen extends ConsumerStatefulWidget {
   const BridgeSetupScreen({super.key});

@@ -106,8 +106,6 @@ export type ClientMessage =
 			count?: number;
 			timestamp?: number;
 	  }
-	// Cloud auth handshake — bridge accepts without validation (open-source).
-	| { type: "auth_session"; sessionToken: string; requestId?: string }
 	| {
 			type: "set_view";
 			projectPath?: string;
@@ -1250,11 +1248,6 @@ export type StatusPayload = {
 };
 
 export type ServerMessage =
-	| {
-			type: "auth_session_ok";
-			data: { entitled: boolean };
-			requestId?: string;
-	  }
 	| { type: "projects"; data: ProjectSummary[]; requestId?: string }
 	| {
 			type: "sessions";

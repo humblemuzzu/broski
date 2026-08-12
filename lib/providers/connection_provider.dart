@@ -6,7 +6,6 @@ import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/connection.dart';
 import 'package:broski/models/connection_quality.dart';
 import 'package:broski/models/device.dart';
-import 'package:broski/providers/app_subscription_provider.dart';
 import 'package:broski/providers/connection/connection_endpoint_racer.dart';
 import 'package:broski/providers/connection/connection_error_policy.dart';
 import 'package:broski/providers/onboarding_provider.dart';
@@ -261,7 +260,6 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
   int _reconnectAttempts = 0;
   int _failureStreak = 0;
   bool _isConnecting = false;
-  // License retry removed — bridge no longer enforces entitlement
   bool _onboardingRetryAttempted =
       false; // One retry for Local Network permission timeout
   final _random = Random();
@@ -296,8 +294,6 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
       debugPrint('  - port: ${saved.port}');
       debugPrint('  - hasAuthToken: ${saved.authToken != null}');
       // Only hydrate state here. RootScreen decides when/if to auto-connect.
-      // This prevents unpaid users from entering reconnect loops before the
-      // subscription state is fully known.
       state = state.copyWith(connection: saved);
     } else {
       debugPrint('[Connection] No saved connection found');
@@ -422,27 +418,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
         '[Connection] Socket ready via ${result.type.name}, completing auth handshake',
       );
 
-      final subState = _ref.read(appSubscriptionProvider);
-      final sessionToken = await _storage.getAppSessionToken();
-      debugPrint(
-        '[Connection] Auth check - entitled: ${subState.entitled}, hasSessionToken: ${sessionToken != null}',
-      );
-
-      // If the user is locally entitled, cloud auth must be present.
-      // Without it, the bridge will (correctly) reject us, which otherwise
-      // looks like an infinite reconnect loop. Fail fast with a clear error.
-      if (subState.entitled && sessionToken == null) {
-        throw StateError(
-          'Invalid session (missing sign-in token). Please sign out and sign in again.',
-        );
-      }
-
-      if (sessionToken != null) {
-        debugPrint('[Connection] Sending auth_session...');
-        await _bridge.authSession(sessionToken: sessionToken);
-        debugPrint('[Connection] auth_session SUCCESS');
-        _onboardingRetryAttempted = false; // Reset on successful auth
-      }
+      _onboardingRetryAttempted = false;
       _socket.endHandshake();
       debugPrint('[Connection] Handshake ended, queue flushed');
 
@@ -465,11 +441,8 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
       final errString = '$error';
       final lower = errString.toLowerCase();
       debugPrint(
-        '[Connection] Error analysis - isLicense: ${lower.contains('license')}, isAuth: ${lower.contains('401') || lower.contains('unauthorized')}',
+        '[Connection] Error analysis - isAuth: ${lower.contains('401') || lower.contains('unauthorized')}',
       );
-      final isMissingSessionToken =
-          lower.contains('missing sign-in token') ||
-          lower.contains('missing session token');
       final isAuthError =
           errString.contains('401') ||
           lower.contains('unauthorized') ||
@@ -480,9 +453,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
 
       // Determine error message
       String errorMessage;
-      if (isMissingSessionToken) {
-        errorMessage = 'Sign-in expired. Please sign out and sign in again.';
-      } else if (isAuthError) {
+      if (isAuthError) {
         errorMessage = 'Authentication failed. Scan a new QR code.';
       } else if (isPinError) {
         errorMessage =
@@ -962,7 +933,7 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
   }
 
   /// Ensure we attempt to reconnect automatically when we have a saved
-  /// connection and the user is entitled.
+  /// connection.
   ///
   /// RootScreen can call this when rendering the "connected app" surfaces,
   /// to avoid a one-frame jump to ConnectionLostScreen on cold start.
@@ -972,9 +943,6 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     if (_isConnecting) return;
     if (state.isReconnecting) return;
     if (_isBackgrounding) return;
-
-    final sub = _ref.read(appSubscriptionProvider);
-    if (!sub.entitled) return;
 
     _reconnectTimer?.cancel();
     _reconnectAttempts = max(_reconnectAttempts, 1);
@@ -998,12 +966,8 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
         !_isConnecting &&
         !_isBackgrounding &&
         !state.isOfflineMode) {
-      final sub = _ref.read(appSubscriptionProvider);
-      debugPrint('[Connection] Disconnected - entitled: ${sub.entitled}');
-      if (blocksAutoReconnect(
-        entitled: sub.entitled,
-        error: state.error,
-      )) {
+      debugPrint('[Connection] Disconnected unexpectedly');
+      if (blocksAutoReconnect(error: state.error)) {
         state = state.copyWith(isReconnecting: false);
         return;
       }
@@ -1125,9 +1089,6 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     if (_isConnecting) return;
     if (state.isOfflineMode) return;
 
-    final sub = _ref.read(appSubscriptionProvider);
-    if (!sub.entitled) return;
-
     // Debounce: wait 1s for the network to settle before reacting.
     // Each new event restarts the timer, so rapid WiFi→cell→WiFi
     // only fires one reconnect attempt after the storm passes.
@@ -1163,8 +1124,6 @@ class ConnectionNotifier extends StateNotifier<BridgeConnectionState>
     if (state.connection == null) return;
     if (_reconnectTimer?.isActive ?? false) return;
     if (state.isOfflineMode) return;
-    final sub = _ref.read(appSubscriptionProvider);
-    if (!sub.entitled) return;
 
     // During onboarding, don't auto-reconnect. The user should just re-scan.
     // The reconnect machinery is designed for post-onboarding scenarios where

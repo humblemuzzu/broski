@@ -23,7 +23,6 @@ export const STORAGE_KEYS = {
   workspaceLayout: "broski:web:workspaceLayout:v1",
   selectedProject: "broski:web:selectedProject",
   selectedSession: "broski:web:selectedSession",
-  convexSessionToken: "broski:web:convexSessionToken",
   specByProject: "broski:web:specByProject:v1",
   previewByProject: "broski:web:previewByProject:v1",
   settings: "broski:web:settings:v1",

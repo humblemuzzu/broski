@@ -17,10 +17,6 @@ import { useIntegrationsStore } from "@/stores/integrations-store"
 
 export function routeServerMessage(msg: ServerMessage) {
   switch (msg.type) {
-    case "auth_session_ok": {
-      useConnectionStore.getState().setCloudAuthOk(msg.data)
-      return
-    }
     case "status": {
       useConnectionStore.getState().setStatusPayload(msg.data)
       return
@@ -83,16 +79,6 @@ export function routeServerMessage(msg: ServerMessage) {
     }
     case "cc_sessions": {
       useSessionsStore.getState().setClaudeCodeSessions(msg.data)
-      return
-    }
-    case "cc_session_created": {
-      useSessionsStore.getState().upsertClaudeCodeSession(msg.data as any)
-      const pending = useSessionsStore.getState().pendingCreate
-      if (pending && pending.requestId === (msg as any).requestId && pending.agent === "claude-code") {
-        useSessionsStore.getState().setPendingCreate(null)
-        useSessionsStore.getState().selectSession((msg.data as any).id, "claude-code")
-        useWorkspaceStore.getState().openChat("claude-code", (msg.data as any).id)
-      }
       return
     }
     case "cc_session_messages": {

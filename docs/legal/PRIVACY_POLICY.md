@@ -7,35 +7,17 @@
 
 This Privacy Policy explains how Broski, operated by humblemuzzu ("we," "us," or "our"), collects, uses, stores, and protects information when you use the Broski mobile application ("App") and related services. By using the App, you agree to the practices described in this Privacy Policy.
 
-Broski is a mobile application that allows you to remotely control AI coding agents running on your personal computer from your mobile device. The App connects to a bridge server you run on your own machine and to our cloud services for authentication and subscription management.
+Broski is a mobile application that allows you to remotely control AI coding agents running on your personal computer from your mobile device. The App connects to a bridge server you run on your own machine. There is no cloud account, paid subscription, or third-party billing service.
 
 ## 2. Information We Collect
 
 ### 2.1 Account Information
 
-When you create an account, we collect the following information through Google Sign-In or Apple Sign-In:
-
-| Data | Source | Purpose |
-|------|--------|---------|
-| Email address | Google or Apple sign-in | Account identification, subscription management, support communications |
-| Display name | Google or Apple sign-in (if provided) | Account display |
-| Authentication tokens | Google or Apple | Verifying your identity |
-
-We do not collect or store your Google or Apple account passwords.
+The App does not require an account. There is no Google Sign-In, Apple Sign-In, or cloud user profile.
 
 ### 2.2 Subscription and Payment Information
 
-We use RevenueCat to manage subscriptions and Apple's App Store (or Google Play) for payment processing.
-
-| Data | Collected By | Purpose |
-|------|-------------|---------|
-| Subscription status (active, expired, cancelled) | RevenueCat / Our servers | Determining access to the App |
-| Product identifier (plan type) | RevenueCat | Subscription management |
-| Purchase receipt validation | Apple App Store / Google Play | Verifying legitimate purchases |
-| Original app user ID | RevenueCat | Linking subscription to account |
-| Subscription expiration date | RevenueCat / Our servers | Managing subscription lifecycle |
-
-**We do not collect or store your credit card number, billing address, or any direct payment information.** All payment processing is handled entirely by Apple (App Store) or Google (Google Play).
+Broski does not sell subscriptions and does not use RevenueCat, Stripe, or App Store / Google Play billing.
 
 ### 2.3 Device and Machine Information
 
@@ -101,53 +83,36 @@ We use the information we collect solely for the following purposes:
 ```
 Your Phone (Broski App)
         |
-        | (1) Auth: Google/Apple Sign-In tokens
-        ↓
-Our Cloud (Convex) ←── (2) RevenueCat subscription webhooks
-  Stores: email, subscription status,
-  machine ID hashes, session tokens
-        |
-        | (3) Session token returned to app
-        ↓
-Your Phone (Broski App)
-        |
-        | (4) Direct peer-to-peer connection
-        |     (Local WiFi, Tailscale VPN, or Tailscale Funnel)
+        | Direct peer-to-peer connection
+        | (Local WiFi, Tailscale VPN, or Tailscale Funnel)
+        | QR pairing token + TLS cert pin
         ↓
 Your Computer (Bridge Server)
         |
-        | (5) Local process communication
+        | Local process communication
         ↓
 AI Agents (Claude Code, OpenCode, Codex)
         |
-        | (6) API calls using YOUR configured keys
+        | API calls using YOUR configured keys
         ↓
 AI Providers (Anthropic, OpenAI, Google, etc.)
 ```
 
-**Steps 4-6 do not involve our servers.** Your code, conversations, and AI interactions flow directly between your devices and the AI providers you configure.
+Your code, conversations, and AI interactions flow directly between your devices and the AI providers you configure. Broski does not operate a cloud account or billing backend.
 
 ## 5. Third-Party Services and Data Processors
 
 ### 5.1 Authentication Providers
 
-| Provider | Data Shared | Purpose | Privacy Policy |
-|----------|------------|---------|----------------|
-| Google (Sign-In) | OAuth tokens, email, display name | Account creation and authentication | [google.com/policies/privacy](https://policies.google.com/privacy) |
-| Apple (Sign-In) | Identity token, optional name, optional email | Account creation and authentication | [apple.com/privacy](https://www.apple.com/privacy/) |
+None. The App does not use Google Sign-In, Apple Sign-In, or a cloud user account.
 
 ### 5.2 Subscription Management
 
-| Provider | Data Shared | Purpose | Privacy Policy |
-|----------|------------|---------|----------------|
-| RevenueCat | App user ID, subscription status, purchase receipts | Subscription lifecycle management | [revenuecat.com/privacy](https://www.revenuecat.com/privacy/) |
-| Apple App Store | Purchase transactions | Payment processing | [apple.com/privacy](https://www.apple.com/privacy/) |
+None. Broski does not sell subscriptions.
 
 ### 5.3 Cloud Infrastructure
 
-| Provider | Data Stored | Purpose | Privacy Policy |
-|----------|------------|---------|----------------|
-| Convex | Account data, subscription status, machine ID hashes | Backend services for auth and licensing | [convex.dev/legal/privacy](https://www.convex.dev/legal/privacy) |
+None. There is no Convex (or other) Broski cloud backend.
 
 ### 5.4 AI Service Providers (User-Configured)
 
@@ -212,9 +177,6 @@ All locally stored data uses platform-native encrypted storage:
 
 You have the right to:
 
-- **Access your data:** View your account information within the App (Settings > Account)
-- **Delete your account:** Permanently delete your account and all associated data from our servers (Settings > Account > Delete Account)
-- **Revoke machines:** Remove registered machines from your account
 - **Clear local data:** Clear all cached data from your device (Settings > Clear Cache)
 - **Disconnect:** Remove bridge connection and all local session data
 - **Uninstall:** Remove the App and all locally stored data from your device
@@ -225,18 +187,16 @@ If you are located in the European Economic Area (EEA), United Kingdom, or Switz
 
 | Right | How to Exercise |
 |-------|----------------|
-| Right to access | Settings > Account, or email us |
+| Right to access | Email us |
 | Right to rectification | Email us to correct inaccurate data |
-| Right to erasure ("right to be forgotten") | Settings > Account > Delete Account |
+| Right to erasure ("right to be forgotten") | Uninstall the App and clear local cache |
 | Right to data portability | Email us for a copy of your data |
 | Right to restrict processing | Email us |
 | Right to object | Email us |
-| Right to withdraw consent | Sign out and delete your account at any time |
+| Right to withdraw consent | Uninstall the App at any time |
 | Right to lodge a complaint | Contact your local data protection authority |
 
-Our legal bases for processing are: performance of contract (providing the service you subscribed to), legitimate interest (licensing enforcement, security), and legal obligation (tax records, fraud prevention).
-
-For data transfers outside the EEA: Convex and RevenueCat are US-based services. Transfers are governed by Standard Contractual Clauses (SCCs) or equivalent safeguards maintained by these providers.
+Our legal bases for processing are: performance of contract (providing the local app) and legitimate interest (security). There is no cloud account processor.
 
 ### 8.3 California Users (CCPA/CPRA)
 
@@ -251,8 +211,8 @@ If you are a California resident, you have the right to:
 
 | Category | Collected | Sold | Disclosed for Business Purpose |
 |----------|----------|------|-------------------------------|
-| Identifiers (email, device ID) | Yes | No | Yes (to service providers listed in Section 5) |
-| Commercial information (subscription status) | Yes | No | Yes (to RevenueCat for subscription management) |
+| Identifiers (email, device ID) | No | No | No |
+| Commercial information (subscription status) | No | No | No |
 | Internet or network activity | No | No | No |
 | Geolocation data | No | No | No |
 | Biometric information | No | No | No |
@@ -276,7 +236,7 @@ The App requests the following device permissions:
 | Camera | Scanning QR codes for bridge connection setup; attaching photos to AI conversations | None sent to our servers -- photos go to your bridge only |
 | Photo Library | Attaching images to AI conversations | None sent to our servers -- images go to your bridge only |
 | Local Network (iOS) | Discovering your bridge server on local WiFi | None |
-| Notifications | Alerting you when AI tasks complete or subscription status changes | None |
+| Notifications | Alerting you when AI tasks complete | None |
 
 All permissions are optional and requested at the time of use. The App functions without camera or photo library access (you can enter connection details manually).
 
@@ -295,9 +255,7 @@ Your continued use of the App after changes are posted constitutes your acceptan
 Based on Apple's App Privacy requirements:
 
 **Data Linked to You:**
-- Email address (for account management)
-- Purchase history (subscription status, via RevenueCat)
-- Device ID (random UUID, for licensing)
+- None
 
 **Data Not Linked to You:**
 - None
@@ -306,7 +264,7 @@ Based on Apple's App Privacy requirements:
 - None -- We do not track users across third-party apps or websites
 
 **Data Not Collected:**
-- Location, Contacts, Health & Fitness, Browsing History, Search History, Financial Info (other than subscription status), Sensitive Info, User Content, Diagnostics, Advertising Data
+- Location, Contacts, Health & Fitness, Browsing History, Search History, Financial Info, Sensitive Info, User Content, Diagnostics, Advertising Data
 
 ## 13. Contact Us
 

@@ -152,7 +152,6 @@ void main() {
       // actually calls the check before scheduling reconnect.
       expect(
         blocksAutoReconnect(
-          entitled: true,
           error:
               'Secure connection failed (certificate mismatch). Scan a new QR code.',
         ),
@@ -180,46 +179,29 @@ void main() {
     test('transient errors still allow reconnect', () {
       // Verify we didn't break normal reconnection by being too aggressive
       // with the blocksRetry check.
+      expect(blocksAutoReconnect(error: 'Connection timeout'), isFalse);
       expect(
-        blocksAutoReconnect(
-          entitled: true,
-          error: 'Connection timeout',
-        ),
+        blocksAutoReconnect(error: 'WebSocket connection refused'),
         isFalse,
       );
-      expect(
-        blocksAutoReconnect(
-          entitled: true,
-          error: 'WebSocket connection refused',
-        ),
-        isFalse,
-      );
-      expect(
-        blocksAutoReconnect(
-          entitled: true,
-          error: 'Network unreachable',
-        ),
-        isFalse,
-      );
+      expect(blocksAutoReconnect(error: 'Network unreachable'), isFalse);
     });
 
     test('auth errors still block reconnect', () {
       expect(
         blocksAutoReconnect(
-          entitled: true,
           error: 'Authentication failed. Scan a new QR code.',
         ),
         isTrue,
       );
     });
 
-    test('sign-in expired errors block reconnect', () {
+    test('sign-in expired errors no longer exist as a reconnect class', () {
       expect(
         blocksAutoReconnect(
-          entitled: true,
           error: 'Sign-in expired. Please sign out and sign in again.',
         ),
-        isTrue,
+        isFalse,
       );
     });
   });
@@ -337,16 +319,12 @@ void main() {
     final nonRetriableErrors = [
       'Authentication failed. Scan a new QR code.',
       'Secure connection failed (certificate mismatch). Scan a new QR code.',
-      'Sign-in expired. Please sign out and sign in again.',
     ];
 
     for (final error in nonRetriableErrors) {
       test('blocks reconnect for: "${error.substring(0, 40)}..."', () {
         expect(
-          blocksAutoReconnect(
-            entitled: true,
-            error: error,
-            ),
+          blocksAutoReconnect(error: error),
           isTrue,
           reason: 'Should block reconnect for: $error',
         );
@@ -365,10 +343,7 @@ void main() {
     for (final error in retriableErrors) {
       test('allows reconnect for: "$error"', () {
         expect(
-          blocksAutoReconnect(
-            entitled: true,
-            error: error,
-            ),
+          blocksAutoReconnect(error: error),
           isFalse,
           reason: 'Should allow reconnect for: $error',
         );

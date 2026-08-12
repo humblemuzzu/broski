@@ -2,17 +2,8 @@
   "name": "broski-backend",
   "private": true,
   "type": "module",
-  "scripts": {
-    "convex:dev": "convex dev",
-    "convex:deploy": "convex deploy",
-    "convex:codegen": "convex codegen"
-  },
   "devDependencies": {
-    "convex": "^1.19.3",
     "puppeteer-core": "^24.37.2",
     "typescript": "^5.6.3"
-  },
-  "dependencies": {
-    "jose": "^5.10.0"
   }
 }

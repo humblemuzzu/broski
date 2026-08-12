@@ -495,11 +495,10 @@ rm -rf ~/.opencode`}</CodeBlock>
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">What third-party services does Broski use?</h3>
             <p className="text-muted-foreground mb-3">
-              Exactly two:
+              None for accounts or billing. Broski is local-first and open source.
             </p>
             <ul className="text-muted-foreground space-y-2">
-              <li>&#8226; <strong className="text-foreground">Authentication (Google/Apple Sign-In):</strong> Standard OAuth 2.0 for identity. Receives your name and email only &mdash; never code, conversations, or usage data.</li>
-              <li>&#8226; <strong className="text-foreground">Subscription (RevenueCat):</strong> Purchase verification via Apple/Google APIs. Receives transaction data and subscription status only &mdash; never code, conversations, or usage data.</li>
+              <li>&#8226; Pairing uses the local bridge auth token from the QR code. There is no Google/Apple sign-in or RevenueCat subscription.</li>
             </ul>
             <p className="text-muted-foreground mt-3 text-sm">
               If you enable voice input, audio goes to Groq or OpenAI using your own API key. This is opt-in and off by default.
@@ -507,10 +506,9 @@ rm -rf ~/.opencode`}</CodeBlock>
           </div>
 
           <div className="border border-border/50 rounded-lg p-5">
-            <h3 className="font-semibold mb-2">What happens if I cancel my subscription?</h3>
+            <h3 className="font-semibold mb-2">Is there a Broski subscription?</h3>
             <p className="text-muted-foreground">
-              Your pairing data is preserved. If you resubscribe later, the app reconnects to your system automatically
-              &mdash; no QR rescan needed. We don&apos;t delete your data or hold it hostage when you leave.
+              No. Broski is free and open source. Your pairing data stays on your phone and machine.
             </p>
           </div>
 

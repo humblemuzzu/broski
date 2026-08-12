@@ -19,7 +19,6 @@ import {
 	readFileDirectly as _readFileDirectly,
 } from "./file-ops";
 import * as fileSearch from "./file-search";
-import { handleAuth } from "./handlers/auth";
 import { handleCcChat } from "./handlers/cc_chat";
 import type { ClaudeElicitationReply } from "./handlers/cc_elicitation";
 import * as ccElicitation from "./handlers/cc_elicitation";
@@ -482,8 +481,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	let authExpiresAt = authState.expiresAt;
 	// Never allow token-in-URL in production binaries.
 	const allowTokenInUrl = !compiled && process.env.BROSKI_ALLOW_TOKEN_IN_URL === "1";
-	// Bridge is open-source — no entitlement enforcement.
-	// Convex URL kept only if needed for push notifications or analytics.
+	// Bridge is open-source — no cloud auth or paid-access checks.
 	// In production binaries, always enable TLS for any non-loopback access.
 	// Allowing BROSKI_TLS=0 creates sniffing/MITM risk on WiFi/hotspot.
 	const tlsEnabled = compiled ? true : isTlsEnabledByEnv();
@@ -2421,13 +2419,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			return;
 		if (ccElicitation.handle(message, ccElicitationWaiters)) return;
 
-		if (
-			await handleAuth(message, reply, {
-				ws,
-				log,
-			})
-		)
-			return;
 		if (
 			await handleCcChat(message, reply, {
 				claudeCode,

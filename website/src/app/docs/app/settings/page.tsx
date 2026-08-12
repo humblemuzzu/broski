@@ -225,13 +225,12 @@ export default function SettingsPage() {
         configure voice input, no audio is ever recorded or sent anywhere.
       </Callout>
 
-      <h2 id="account" className="text-xl font-semibold mb-4 mt-10">Account Section</h2>
+      <h2 id="account" className="text-xl font-semibold mb-4 mt-10">AI Usage</h2>
 
-      <h3 id="subscription" className="text-lg font-medium mb-3 mt-6">Subscription Usage</h3>
+      <h3 id="subscription" className="text-lg font-medium mb-3 mt-6">Provider Usage</h3>
       <ul className="list-disc list-inside text-muted-foreground space-y-1 mb-6">
-        <li><strong>API limits</strong> - Current usage vs limits</li>
-        <li><strong>Credits</strong> - Remaining balance</li>
-        <li><strong>Billing</strong> - Subscription management</li>
+        <li><strong>API limits</strong> - Current Claude / OpenAI / Codex usage vs limits</li>
+        <li><strong>Credits</strong> - Remaining balance on your AI provider</li>
       </ul>
 
       <h2 id="support" className="text-xl font-semibold mb-4 mt-10">Support Section</h2>

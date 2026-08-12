@@ -46,9 +46,9 @@ class WebSocketService {
   bool _isReconnecting = false;
   bool _isHandshaking = false;
 
-  // During the cloud-auth handshake, the bridge only accepts a very small set
-  // of message types (until `auth_session_ok`). Everything else must be queued.
-  static const _handshakeAllowedTypes = {'auth_session', 'client_ping', 'pong'};
+  // While the socket is still opening, queue app messages so they don't race
+  // ahead of the connection.
+  static const _handshakeAllowedTypes = {'client_ping', 'pong'};
 
   // Unified heartbeat state — a single timer handles both:
   //   1. Client ping/pong (is the network path alive?)
@@ -107,7 +107,7 @@ class WebSocketService {
 
   /// Start gating outgoing messages (queue everything except handshake types).
   /// ConnectionProvider calls this before WS connect so early UI messages
-  /// cannot race ahead of cloud auth.
+  /// cannot race ahead of the open socket.
   void beginHandshake() {
     _isHandshaking = true;
 
@@ -123,7 +123,7 @@ class WebSocketService {
     }
   }
 
-  /// End gating and flush queued messages now that cloud auth succeeded.
+  /// End gating and flush queued messages now that the socket is ready.
   void endHandshake() {
     _isHandshaking = false;
     _flushReconnectQueue();

@@ -150,8 +150,6 @@ packages/bridge/dist/
 *.dylib
 *.d
 
-# Convex
-convex/_generated/
 .asc/
 
 # docs/

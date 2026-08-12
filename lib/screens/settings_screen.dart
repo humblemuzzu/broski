@@ -1,14 +1,12 @@
 import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/project.dart';
 import 'package:broski/providers/agent_type_provider.dart';
-import 'package:broski/providers/app_auth_provider.dart';
 import 'package:broski/providers/app_info_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/onboarding_provider.dart';
 import 'package:broski/providers/selection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/providers/theme_provider.dart';
-import 'package:broski/screens/account_screen.dart';
 import 'package:broski/screens/ai_backend_screen.dart';
 import 'package:broski/screens/claude_code_commands_screen.dart';
 import 'package:broski/screens/claude_code_mcp_screen.dart';
@@ -44,7 +42,6 @@ import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:broski/widgets/adaptive_container.dart';
 import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:broski/widgets/connection_quality_indicator.dart';
-import 'package:broski/widgets/upgrade_overlay.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -60,7 +57,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final connection = ref.watch(connectionProvider);
-    final appAuth = ref.watch(appAuthProvider);
     final currentThemeInfo = ref.watch(currentThemeInfoProvider);
     final currentAgent = ref.watch(agentTypeProvider);
     final appVersion = ref.watch(appVersionProvider);
@@ -88,10 +84,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                 ),
               ),
-              // Subscribe banner for unpaid users
-              const SliverToBoxAdapter(child: SubscribeBanner()),
-              const SliverToBoxAdapter(child: _SectionDivider()),
-              const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxl)),
               const SliverToBoxAdapter(
                 child: _SectionHeader(title: 'Connection'),
               ),
@@ -353,55 +345,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ),
                         ),
                       ],
-                    ),
-                  ),
-                ),
-              ),
-              // ── Account ─────────────────────────────────────────
-              const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
-              const SliverToBoxAdapter(child: _SectionHeader(title: 'Account')),
-              const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: Insets.screenH,
-                  child: _SettingsCard(
-                    child: _SettingsTile(
-                      title:
-                          appAuth.user?.displayName ??
-                          appAuth.user?.email ??
-                          'Account',
-                      subtitle: appAuth.user != null
-                          ? 'Subscription, sign out, and more'
-                          : 'Sign in to manage your account',
-                      icon: AppIcons.person,
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (appAuth.user != null)
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.primary,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          const SizedBox(width: Spacing.sm),
-                          Icon(
-                            AppIcons.chevronRight,
-                            size: 20,
-                            color: theme.colorScheme.onSurface.withValues(
-                              alpha: 0.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const AccountScreen(),
-                        ),
-                      ),
                     ),
                   ),
                 ),
@@ -1065,27 +1008,6 @@ class _SectionHeader extends StatelessWidget {
           fontSize: 11,
           fontWeight: FontWeight.w700,
           letterSpacing: 1.2,
-        ),
-      ),
-    );
-  }
-}
-
-class _SectionDivider extends StatelessWidget {
-  const _SectionDivider();
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      margin: Insets.screenH,
-      height: 1,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            theme.colorScheme.onSurface.withValues(alpha: 0),
-            theme.colorScheme.onSurface.withValues(alpha: 0.1),
-            theme.colorScheme.onSurface.withValues(alpha: 0),
-          ],
         ),
       ),
     );

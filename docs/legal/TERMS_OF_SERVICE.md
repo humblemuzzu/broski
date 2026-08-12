@@ -21,7 +21,7 @@ Broski is a mobile application that allows you to remotely control AI coding age
 - Manage AI sessions and projects
 - Open and interact with terminal sessions on your computer
 
-**Important:** Broski is a remote control interface. The App connects to a bridge server that you install and run on your own computer, and to our cloud services for authentication and subscription management. We do not provide AI services, host your code, or store your conversations. AI capabilities are provided by third-party services (Anthropic, OpenAI, Google, etc.) that you configure independently.
+**Important:** Broski is a remote control interface. The App connects to a bridge server that you install and run on your own computer. We do not provide AI services, host your code, or store your conversations. AI capabilities are provided by third-party services (Anthropic, OpenAI, Google, etc.) that you configure independently. Broski is free and open source; there is no paid subscription or cloud account required to use the App.
 
 ## 3. Eligibility
 
@@ -34,64 +34,19 @@ You must be at least 17 years old to use the App. By using the App, you represen
 
 If you are using the App on behalf of an organization, you represent and warrant that you have authority to bind that organization to these Terms.
 
-## 4. Account Registration and Security
+## 4. Pairing and Security
 
-### 4.1 Account Required
+You pair the App to your own computer by scanning the QR code shown by the local bridge. You are responsible for:
 
-To use the App, you must create an account using Google Sign-In or Apple Sign-In. You agree to provide accurate and complete information during sign-in.
-
-### 4.2 Account Security
-
-You are responsible for:
-
-- Maintaining the confidentiality of your account credentials
 - Maintaining the security of your bridge server and its authentication token
-- All activities that occur under your account, whether or not authorized by you
-- Promptly notifying us of any unauthorized use of your account
+- All activity on machines you pair with the App
+- Promptly rotating the bridge token if it is exposed
 
-We are not liable for any loss or damage arising from your failure to secure your account or bridge server credentials.
+We are not liable for any loss or damage arising from your failure to secure your bridge server credentials.
 
-### 4.3 Account Deletion
+## 5. No Paid Subscription
 
-You may delete your account at any time through the App (Settings > Account > Delete Account). Account deletion will:
-
-- Permanently remove your account data from our servers
-- Revoke all registered machine authorizations
-- Not automatically cancel your active subscription -- you must cancel your subscription through the App Store (or Google Play) before or after deleting your account to stop future charges
-
-## 5. Subscription Terms
-
-### 5.1 Subscription Required
-
-Access to the App requires a paid subscription. The App offers a monthly auto-renewable subscription at the price displayed on the subscription screen at the time of purchase (currently $9.99 USD per month, or local equivalent). Prices are set by us and may vary by region due to currency conversion and local taxes.
-
-### 5.2 Billing and Renewal
-
-- **Payment method:** All payments are processed through Apple's App Store (iOS) or Google Play (Android). We do not directly process payments or have access to your payment method details.
-- **Auto-renewal:** Your subscription will automatically renew at the end of each monthly billing period unless you cancel at least 24 hours before the end of the current period.
-- **Billing:** Your App Store or Google Play account will be charged for renewal within 24 hours prior to the end of the current period at the then-current subscription price.
-- **Price changes:** We may change subscription prices at any time. Price changes will take effect at the start of the next subscription period following the date of the price change. If you do not agree with a price change, you may cancel your subscription before it renews at the new price.
-
-### 5.3 Free Trials
-
-If a free trial is offered (which may change from time to time), the following applies:
-
-- The free trial period, if any, will be clearly stated at the time of offer
-- Any unused portion of a free trial will be forfeited when you purchase a subscription
-- After the free trial ends, your subscription will automatically begin at the stated price unless you cancel before the trial expires
-
-### 5.4 Cancellation and Refunds
-
-- **How to cancel:** You must cancel your subscription through your Apple App Store or Google Play account settings. Deleting the App does not cancel your subscription.
-- **Effect of cancellation:** Your access to the App will continue until the end of the current billing period. After that, your subscription will not renew and access will be restricted.
-- **Refunds:** All refund requests must be directed to Apple (for App Store purchases) or Google (for Google Play purchases), in accordance with their respective refund policies. We do not process refunds directly.
-  - Apple: [reportaproblem.apple.com](https://reportaproblem.apple.com)
-  - Google Play: [support.google.com/googleplay/answer/2479637](https://support.google.com/googleplay/answer/2479637)
-- **No partial refunds:** We do not offer prorated refunds for unused portions of a subscription period.
-
-### 5.5 Subscription Restoration
-
-If you reinstall the App or switch devices, you can restore your subscription using the "Restore Purchases" feature in the App.
+Broski is free and open source. There is no in-app purchase, subscription, trial, restore-purchases flow, or cloud entitlement check.
 
 ## 6. User Responsibilities
 
@@ -180,10 +135,6 @@ Your use of the App is also subject to the terms of the platform from which you 
 - [Apple Media Services Terms and Conditions](https://www.apple.com/legal/internet-services/itunes/)
 - [Google Play Terms of Service](https://play.google.com/about/play-terms/)
 
-### 8.4 RevenueCat
-
-We use RevenueCat for subscription management. RevenueCat processes subscription data as described in our [Privacy Policy](/docs/legal/PRIVACY_POLICY.md) and their [Privacy Policy](https://www.revenuecat.com/privacy/).
-
 ## 9. Disclaimer of Warranties
 
 TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW:
@@ -256,11 +207,7 @@ To the maximum extent permitted by applicable law, you agree to indemnify, defen
 
 ### 12.1 By You
 
-You may terminate these Terms at any time by:
-
-- Canceling your subscription through the App Store or Google Play
-- Deleting your account through the App (Settings > Account > Delete Account)
-- Uninstalling the App from your devices
+You may terminate these Terms at any time by uninstalling the App from your devices.
 
 ### 12.2 By Us
 
@@ -268,7 +215,7 @@ We reserve the right to suspend or terminate your account and access to the App,
 
 - You breach any provision of these Terms
 - You engage in fraudulent, abusive, or illegal activity
-- You attempt to circumvent licensing, subscription, or security measures
+- You attempt to circumvent security measures
 - We are required to do so by law, regulation, or legal process
 - We discontinue the App or the service (with reasonable notice when practicable)
 

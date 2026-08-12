@@ -1,8 +1,6 @@
 import 'package:broski/models/message.dart';
-import 'package:broski/providers/app_subscription_provider.dart';
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/service_providers.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -21,12 +19,6 @@ Future<void> respondToPermission({
   String? message,
   Object? execpolicyAmendment,
 }) async {
-  final entitlement = ref.read(appSubscriptionProvider).entitled;
-  if (!entitlement) {
-    showInfo(context, 'Subscription required to approve tools.');
-    Navigator.pop(context);
-    return;
-  }
   final bridge = ref.read(bridgeServiceProvider);
   final chat = ref.read(chatSessionProvider.notifier);
   if (isClaudeCode) {

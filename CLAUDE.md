@@ -15,7 +15,7 @@ Phone (Flutter) ←TLS WebSocket→ Bridge (Bun/TS on your Mac) ←SDK→ {Claud
 - **Bridge** (`packages/bridge/`) — TypeScript server on the user's dev machine. Connects to local AI agents via their SDKs, exposes WebSocket + HTTP API.
 - **Flutter app** (`lib/`) — iOS/Android app. Renders UI only; all AI logic stays on Mac.
 - **Connection methods:** Local WiFi, Tailscale (mesh VPN), Tailscale Funnel (public HTTPS via .ts.net).
-- **Auth layers:** Bridge auth token (from QR), cloud session token (Convex/RevenueCat), TLS cert pinning.
+- **Auth layers:** Bridge auth token (from QR), TLS cert pinning.
 - **509 Dart files** (~137K LOC), **217 TypeScript files** (~53K LOC).
 
 ### Core features that are INTENTIONAL, not vulnerabilities:
@@ -27,22 +27,21 @@ Phone (Flutter) ←TLS WebSocket→ Bridge (Bun/TS on your Mac) ←SDK→ {Claud
 
 ### The architecture (so you understand the threat model):
 - **Bridge** (`packages/bridge/`) = TypeScript server running on the user's own dev machine. It connects to local AI agents and exposes a WebSocket + HTTP API.
-- **Flutter app** (`lib/`) = iOS/Android app that connects to the bridge over TLS WebSocket. Authenticated via token from QR code + cloud session (Convex).
+- **Flutter app** (`lib/`) = iOS/Android app that connects to the bridge over TLS WebSocket. Authenticated via token from QR code.
 - **Connection methods:** Local WiFi, Tailscale (private mesh VPN), Tailscale Funnel (public HTTPS via .ts.net).
-- **Auth layers:** Bridge auth token (from QR), cloud session token (from Convex/RevenueCat entitlement), TLS cert pinning (SHA-256 fingerprint from QR).
+- **Auth layers:** Bridge auth token (from QR), TLS cert pinning (SHA-256 fingerprint from QR).
 
 ### Security context for audits:
 - This is a **personal dev tool**, not a multi-tenant SaaS. The user owns both the phone and the machine.
 - Bearer token auth is standard for this category (same as VS Code tunnels, ngrok, SSH keys).
 - The bridge deliberately has broad filesystem and process access because that is its job.
 - Web app (`web-app/`) exists but is NOT launched yet. Bridge serves its static assets without auth (standard SPA behavior) but all API/WS endpoints require auth.
-- Compiled production binaries disable all debug flags, force TLS, hardcode entitlement timings, and ignore env overrides that could weaken security.
+- Compiled production binaries disable all debug flags, force TLS, and ignore env overrides that could weaken security.
 
 ### What IS worth auditing:
 - Auth token lifecycle (rotation, storage, transmission security)
 - TLS enforcement and cert pinning correctness
 - Path traversal protections (realpath, symlink defense, base path checks)
-- License/entitlement bypass attempts
 - Input validation and injection (prototype pollution, message size limits)
 - Rate limiting and DoS protection
 
@@ -363,7 +362,6 @@ packages/bridge/src/
     codex.ts                        ← Codex-specific types
     pi.ts                           ← Pi-specific types
   pty/                              ← 5 files (1,213 lines) — runtime, native-pty, manager, output, types
-  license/                          ← 8 files (1,283 lines) — integrity, hardening, fallback, crypto, store
   doctor/                           ← 15 files (1,224 lines) — checks for agents, network, security, daemon
   config/                           ← 4 files — schema, defaults, read-write
   logging/                          ← 2 files — structured logger, redaction

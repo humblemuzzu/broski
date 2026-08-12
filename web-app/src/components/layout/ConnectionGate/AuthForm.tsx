@@ -7,27 +7,21 @@ import { Input } from "@/components/ui/input"
 interface AuthFormProps {
   wsUrl: string
   bridgeAuthToken: string | null
-  convexSessionToken: string | null
   wsState: string
   onWsUrlChange: (url: string) => void
   onBridgeTokenChange: (token: string | null) => void
-  onConvexTokenChange: (token: string | null) => void
   onConnect: () => void
   onDisconnect: () => void
-  onCloudAuth: () => void
 }
 
 export const AuthForm = React.memo<AuthFormProps>(({
   wsUrl,
   bridgeAuthToken,
-  convexSessionToken,
   wsState,
   onWsUrlChange,
   onBridgeTokenChange,
-  onConvexTokenChange,
   onConnect,
   onDisconnect,
-  onCloudAuth,
 }) => {
   return (
     <div className="space-y-3">
@@ -49,15 +43,6 @@ export const AuthForm = React.memo<AuthFormProps>(({
         placeholder="broski bridge token"
       />
 
-      <label className="block text-xs text-muted-foreground">
-        Convex Session Token (for license gating)
-      </label>
-      <Input
-        value={convexSessionToken ?? ""}
-        onChange={(e) => onConvexTokenChange(e.target.value || null)}
-        placeholder="session token (Bearer)"
-      />
-
       <div className="flex items-center gap-2">
         <Button
           onClick={onConnect}
@@ -67,13 +52,6 @@ export const AuthForm = React.memo<AuthFormProps>(({
         </Button>
         <Button variant="outline" onClick={onDisconnect}>
           Disconnect
-        </Button>
-        <Button
-          variant="outline"
-          onClick={onCloudAuth}
-          disabled={!convexSessionToken}
-        >
-          Cloud Auth
         </Button>
       </div>
       

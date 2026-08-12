@@ -132,9 +132,6 @@ function detectLikelyIssues(lines: string[]): string[] {
 	if (text.includes("tailscale not connected") || text.includes("funnel requires tailscale")) {
 		issues.push("Tailscale appears disconnected: remote access/Funnel may not work until reconnect.");
 	}
-	if (text.includes("auth_session") && text.includes("not entitled")) {
-		issues.push("Entitlement check failed for at least one session.");
-	}
 	if (text.includes("ws rejected")) {
 		issues.push("WebSocket connection rejected events found (auth/origin/client-limit).");
 	}

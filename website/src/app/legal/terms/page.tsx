@@ -44,8 +44,8 @@ export default function TermsOfServicePage() {
           Broski is a mobile application that lets you remotely control AI
           coding agents (Claude Code, OpenCode, Codex) running on your computer
           from your phone. It connects to a bridge server you run on your own
-          machine and to our cloud for authentication and subscription
-          management.
+          machine. Broski is free and open source; there is no paid
+          subscription or cloud account.
         </p>
         <div className="bg-card/50 border border-border/50 rounded-lg p-4 mt-4">
           <p className="text-muted-foreground text-sm">
@@ -61,77 +61,20 @@ export default function TermsOfServicePage() {
           3. Eligibility &amp; Account
         </h2>
         <p className="text-muted-foreground leading-relaxed">
-          You must be at least 17 years old. An account via Google Sign-In or
-          Apple Sign-In is required to use the App. You are responsible for
-          maintaining the security of your account, bridge server credentials,
-          and all activities under your account.
-        </p>
-        <p className="text-muted-foreground leading-relaxed mt-4">
-          You may delete your account at any time (Settings &gt; Account &gt;
-          Delete Account). Account deletion removes all your data from our
-          servers but does not automatically cancel your subscription.
+          You must be at least 17 years old. No cloud account is required. You
+          pair the App to your own computer by scanning the QR code shown by
+          the local bridge. You are responsible for maintaining the security of
+          your bridge server credentials.
         </p>
       </section>
 
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">4. Subscription Terms</h2>
-        <ul className="space-y-3 text-muted-foreground">
-          <li className="flex items-start gap-3">
-            <span className="text-primary mt-1">&#8226;</span>
-            <span>
-              <strong className="text-foreground">Price:</strong> $9.99
-              USD/month (or local equivalent). Prices may vary by region.
-            </span>
-          </li>
-          <li className="flex items-start gap-3">
-            <span className="text-primary mt-1">&#8226;</span>
-            <span>
-              <strong className="text-foreground">Billing:</strong> Processed
-              through Apple App Store or Google Play. We do not access your
-              payment details.
-            </span>
-          </li>
-          <li className="flex items-start gap-3">
-            <span className="text-primary mt-1">&#8226;</span>
-            <span>
-              <strong className="text-foreground">Auto-renewal:</strong>{" "}
-              Automatically renews monthly unless cancelled at least 24 hours
-              before the end of the current period.
-            </span>
-          </li>
-          <li className="flex items-start gap-3">
-            <span className="text-primary mt-1">&#8226;</span>
-            <span>
-              <strong className="text-foreground">Cancellation:</strong> Cancel
-              through your App Store or Google Play account settings. Deleting
-              the app does NOT cancel your subscription. Access continues until
-              end of current billing period.
-            </span>
-          </li>
-          <li className="flex items-start gap-3">
-            <span className="text-primary mt-1">&#8226;</span>
-            <span>
-              <strong className="text-foreground">Refunds:</strong> Handled by
-              Apple (
-              <a
-                href="https://reportaproblem.apple.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary hover:underline"
-              >
-                reportaproblem.apple.com
-              </a>
-              ) or Google Play. We do not process refunds directly.
-            </span>
-          </li>
-          <li className="flex items-start gap-3">
-            <span className="text-primary mt-1">&#8226;</span>
-            <span>
-              <strong className="text-foreground">Restore:</strong> Use
-              &quot;Restore Purchases&quot; in the App when switching devices.
-            </span>
-          </li>
-        </ul>
+        <h2 className="text-xl font-semibold mb-4">4. No Paid Subscription</h2>
+        <p className="text-muted-foreground leading-relaxed">
+          Broski is free and open source. There is no in-app purchase,
+          subscription, trial, restore-purchases flow, or cloud entitlement
+          check.
+        </p>
       </section>
 
       <section className="mb-8">
@@ -209,9 +152,8 @@ export default function TermsOfServicePage() {
           </li>
         </ul>
         <p className="text-muted-foreground mt-4 text-sm">
-          We use RevenueCat for subscription management and Convex for cloud
-          backend services. We are not responsible for the availability or
-          behavior of any third-party services.
+          We are not responsible for the availability or behavior of any
+          third-party services.
         </p>
       </section>
 
@@ -223,7 +165,7 @@ export default function TermsOfServicePage() {
           The App and its content are owned by us and protected by intellectual
           property laws. We grant you a limited, non-exclusive,
           non-transferable, revocable license to use the App subject to these
-          Terms and active subscription.
+          Terms.
         </p>
         <p className="text-muted-foreground leading-relaxed mt-4">
           You retain full ownership of all content you create or transmit
@@ -318,11 +260,8 @@ export default function TermsOfServicePage() {
           11. Termination
         </h2>
         <p className="text-muted-foreground leading-relaxed">
-          You may stop using the App at any time by cancelling your subscription
-          and deleting your account. We may suspend or terminate access for
-          Terms violations, fraud, or if required by law. Termination does not
-          automatically cancel your subscription billing &mdash; you must cancel
-          through the App Store or Google Play.
+          You may stop using the App at any time. We may suspend or terminate
+          access for Terms violations, fraud, or if required by law.
         </p>
       </section>
 

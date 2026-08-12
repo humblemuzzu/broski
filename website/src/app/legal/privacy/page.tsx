@@ -26,8 +26,7 @@ export default function PrivacyPolicyPage() {
           Broski is a mobile application that allows you to remotely control AI
           coding agents running on your personal computer from your mobile
           device. The App connects to a bridge server you run on your own
-          machine and to our cloud services for authentication and subscription
-          management.
+          machine. There is no cloud account or paid subscription.
         </p>
       </section>
 
@@ -40,51 +39,17 @@ export default function PrivacyPolicyPage() {
           2.1 Account Information
         </h3>
         <p className="text-muted-foreground mb-4">
-          When you create an account via Google Sign-In or Apple Sign-In, we
-          collect:
+          The App does not require an account. There is no Google Sign-In,
+          Apple Sign-In, or cloud user profile.
         </p>
-        <ul className="space-y-2 text-muted-foreground">
-          <li className="flex items-start gap-3">
-            <span className="text-primary mt-1">&#8226;</span>
-            <span>
-              <strong className="text-foreground">Email address</strong> &mdash;
-              Account identification, subscription management, support
-              communications
-            </span>
-          </li>
-          <li className="flex items-start gap-3">
-            <span className="text-primary mt-1">&#8226;</span>
-            <span>
-              <strong className="text-foreground">Display name</strong> &mdash;
-              From sign-in provider (if provided)
-            </span>
-          </li>
-          <li className="flex items-start gap-3">
-            <span className="text-primary mt-1">&#8226;</span>
-            <span>
-              <strong className="text-foreground">Auth tokens</strong> &mdash;
-              Verifying your identity (we do not store your Google or Apple
-              passwords)
-            </span>
-          </li>
-        </ul>
 
         <h3 className="text-lg font-medium mb-3 mt-6">
           2.2 Subscription &amp; Payment Information
         </h3>
         <p className="text-muted-foreground mb-4">
-          We use RevenueCat for subscription management and Apple&apos;s App
-          Store (or Google Play) for payment processing. We collect subscription
-          status, product identifiers, and purchase receipt validation data.
+          Broski is free and open source. It does not use RevenueCat, Stripe,
+          or App Store / Google Play billing.
         </p>
-        <div className="bg-card/50 border border-border/50 rounded-lg p-4">
-          <p className="text-muted-foreground text-sm">
-            <strong className="text-foreground">Important:</strong> We do not
-            collect or store your credit card number, billing address, or any
-            direct payment information. All payment processing is handled
-            entirely by Apple or Google.
-          </p>
-        </div>
 
         <h3 className="text-lg font-medium mb-3 mt-6">
           2.3 Device &amp; Machine Information
@@ -170,12 +135,6 @@ export default function PrivacyPolicyPage() {
         <h2 className="text-xl font-semibold mb-4">4. How Data Flows</h2>
         <div className="bg-card/50 border border-border/50 rounded-lg p-6 font-mono text-sm text-muted-foreground">
           <p>Your Phone (Broski App)</p>
-          <p className="ml-4">&darr;&uarr; Auth via Google/Apple Sign-In</p>
-          <p>Our Cloud (Convex) &larr; RevenueCat webhooks</p>
-          <p className="text-xs ml-4">
-            Stores: email, subscription status, machine ID hashes
-          </p>
-          <p className="mt-2">Your Phone (Broski App)</p>
           <p className="ml-4">
             &darr;&uarr; Direct peer-to-peer (WiFi / Tailscale VPN / Funnel)
           </p>
@@ -197,38 +156,6 @@ export default function PrivacyPolicyPage() {
           5. Third-Party Services
         </h2>
         <ul className="space-y-2 text-muted-foreground">
-          <li>
-            <strong className="text-foreground">RevenueCat</strong> &mdash;
-            Subscription management (
-            <a
-              href="https://www.revenuecat.com/privacy/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary hover:underline"
-            >
-              Privacy Policy
-            </a>
-            )
-          </li>
-          <li>
-            <strong className="text-foreground">Convex</strong> &mdash; Cloud
-            backend for auth and licensing (
-            <a
-              href="https://www.convex.dev/legal/privacy"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary hover:underline"
-            >
-              Privacy Policy
-            </a>
-            )
-          </li>
-          <li>
-            <strong className="text-foreground">
-              Google / Apple (Sign-In)
-            </strong>{" "}
-            &mdash; Authentication
-          </li>
           <li>
             <strong className="text-foreground">
               AI Providers (user-configured)
@@ -277,16 +204,8 @@ export default function PrivacyPolicyPage() {
           <li className="flex items-start gap-3">
             <span className="text-[#7fd88f] mt-1">&#8226;</span>
             <span>
-              <strong className="text-foreground">Access your data</strong>{" "}
-              &mdash; View account information in Settings &gt; Account
-            </span>
-          </li>
-          <li className="flex items-start gap-3">
-            <span className="text-[#7fd88f] mt-1">&#8226;</span>
-            <span>
-              <strong className="text-foreground">Delete your account</strong>{" "}
-              &mdash; Settings &gt; Account &gt; Delete Account (permanently
-              removes all data from our servers)
+              <strong className="text-foreground">Clear local data</strong>{" "}
+              &mdash; Settings &gt; Clear Cache
             </span>
           </li>
           <li className="flex items-start gap-3">

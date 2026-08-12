@@ -1,14 +1,10 @@
-import 'package:broski/providers/app_auth_provider.dart';
-import 'package:broski/providers/app_subscription_provider.dart';
 import 'package:broski/providers/chat/runtime_shadow_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/onboarding_provider.dart';
 import 'package:broski/screens/bridge_setup_screen.dart';
 import 'package:broski/screens/connection_lost_screen.dart';
 import 'package:broski/screens/main_shell.dart';
-import 'package:broski/screens/onboarding_auth_screen.dart';
 import 'package:broski/screens/onboarding_screen.dart';
-import 'package:broski/screens/paywall_screen.dart';
 import 'package:broski/screens/scan_screen.dart';
 import 'package:broski/screens/system_linked_screen.dart';
 import 'package:broski/theme/app_icons.dart';
@@ -26,49 +22,14 @@ class RootScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(runtimeShadowBootstrapProvider);
-    final authState = ref.watch(appAuthProvider);
-    final subState = ref.watch(appSubscriptionProvider);
     final connectionState = ref.watch(connectionProvider);
     final onboardingState = ref.watch(onboardingProvider);
-    if (onboardingState.isLoading || authState.isLoading) {
+    if (onboardingState.isLoading) {
       return const _LoadingScreen();
     }
-    // Onboarding in progress — the flow handles auth, paywall, and scanner internally
+    // Onboarding in progress — the flow handles welcome, bridge setup, and scanner
     if (!onboardingState.hasCompletedOnboarding) {
       return _OnboardingFlow(state: onboardingState);
-    }
-    // Post-onboarding: normal app routing
-    // DEV BYPASS: skip auth + paywall gates entirely
-    if (!kDevBypassOnboarding && !authState.isSignedIn) {
-      return const OnboardingAuthScreen();
-    }
-    // Subscription gate (paid vs unpaid) is a foundational routing decision.
-    // Prefer a loading screen until RevenueCat is configured so we don't
-    // accidentally enter connect/reconnect flows with unknown entitlement.
-    if (!kDevBypassOnboarding) {
-      if (!subState.isConfigured) {
-        if (!subState.isLoading && subState.error == null) {
-          Future.microtask(
-            () => ref
-                .read(appSubscriptionProvider.notifier)
-                .configureAndRefresh(),
-          );
-        }
-        if (subState.error != null) {
-          return _SubscriptionErrorScreen(
-            message: subState.error!,
-            onRetry: () => ref
-                .read(appSubscriptionProvider.notifier)
-                .configureAndRefresh(),
-          );
-        }
-        return const _LoadingScreen();
-      }
-      // Hard paywall: no app access without active subscription.
-      // The paywall is non-dismissible — user must subscribe to proceed.
-      if (!subState.entitled) {
-        return const PaywallScreen();
-      }
     }
     // DEV BYPASS: auto-enter offline mode so we land in MainShell (debug only)
     if (kDebugMode &&
@@ -139,66 +100,6 @@ class _LoadingScreen extends StatelessWidget {
               style: AppTypography.labelLarge(color: theme.textMuted),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SubscriptionErrorScreen extends StatelessWidget {
-  const _SubscriptionErrorScreen({
-    required this.message,
-    required this.onRetry,
-  });
-  final String message;
-  final VoidCallback onRetry;
-  @override
-  Widget build(BuildContext context) {
-    final theme = OpenCodeTheme.of(context);
-    return Scaffold(
-      backgroundColor: theme.background,
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: Insets.cardLg,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(AppIcons.error, color: theme.error, size: 44),
-                const SizedBox(height: 14),
-                Text(
-                  'Subscription unavailable',
-                  style: TextStyle(
-                    color: theme.text,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: Spacing.sm),
-                Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: AppTypography.label(color: theme.textMuted),
-                  maxLines: 4,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 18),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: onRetry,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: theme.primary,
-                      foregroundColor: theme.selectedListItemText,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: Radii.brMd),
-                    ),
-                    child: const Text('Retry'),
-                  ),
-                ),
-              ],
-            ),
-          ),
         ),
       ),
     );
@@ -289,31 +190,11 @@ class _ConnectingScreen extends ConsumerWidget {
 }
 
 /// Animated onboarding flow with smooth transitions.
-/// Converted to ConsumerWidget to auto-advance auth/paywall steps.
 class _OnboardingFlow extends ConsumerWidget {
   const _OnboardingFlow({required this.state});
   final OnboardingState state;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(appAuthProvider);
-    final subState = ref.watch(appSubscriptionProvider);
-    // Auto-advance: if we're on auth step but already signed in, skip forward
-    // (disabled in dev bypass — we want to VIEW the auth screen)
-    if (!kDevBypassOnboarding &&
-        state.currentStep == OnboardingStep.auth &&
-        authState.isSignedIn) {
-      Future.microtask(
-        () => ref.read(onboardingProvider.notifier).finishAuth(),
-      );
-    }
-    // Auto-advance: if we're on paywall step but already entitled, skip forward
-    if (!kDevBypassOnboarding &&
-        state.currentStep == OnboardingStep.paywall &&
-        subState.entitled) {
-      Future.microtask(
-        () => ref.read(onboardingProvider.notifier).finishPaywall(),
-      );
-    }
     Widget content = AnimatedSwitcher(
       duration: const Duration(milliseconds: 350),
       switchInCurve: Curves.easeOutCubic,
@@ -345,10 +226,6 @@ class _OnboardingFlow extends ConsumerWidget {
     switch (state.currentStep) {
       case OnboardingStep.welcome:
         return const OnboardingScreen(key: ValueKey('onboarding'));
-      case OnboardingStep.auth:
-        return const OnboardingAuthScreen(key: ValueKey('auth'));
-      case OnboardingStep.paywall:
-        return const PaywallScreen(key: ValueKey('paywall'));
       case OnboardingStep.bridgeSetup:
         return const BridgeSetupScreen(key: ValueKey('bridgeSetup'));
       case OnboardingStep.scanner:

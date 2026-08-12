@@ -15,15 +15,20 @@ class BackgroundTasksChip extends StatelessWidget {
     required this.count,
     required this.isExpanded,
     required this.onTap,
+    this.onLongPress,
   });
   final int count;
   final bool isExpanded;
   final VoidCallback onTap;
+
+  /// Long-press opens the unified Tasks tab across all backends.
+  final VoidCallback? onLongPress;
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
     return InkWell(
       onTap: onTap,
+      onLongPress: onLongPress,
       borderRadius: Radii.brFull,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),

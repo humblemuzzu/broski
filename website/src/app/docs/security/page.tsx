@@ -497,21 +497,12 @@ export default function SecurityPage() {
 
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">
-              Subscription Management (RevenueCat)
+              No subscription backend
             </h3>
             <p className="text-sm text-muted-foreground mb-3">
-              Handles App Store / Play Store purchase verification. This is
-              standard infrastructure for subscription apps.
+              Broski is free and open source. There is no RevenueCat, Stripe,
+              or cloud billing service.
             </p>
-            <SimpleTable
-              headers={["Receives", "Does NOT Receive"]}
-              rows={[
-                ["Purchase transaction data (via Apple/Google)", "Your code or projects"],
-                ["Subscription status (active/expired)", "Your conversations"],
-                ["Anonymous app user ID", "Your file system"],
-                ["", "Any behavioral data"],
-              ]}
-            />
           </div>
         </div>
 
@@ -837,20 +828,17 @@ export default function SecurityPage() {
             </h3>
             <p className="text-muted-foreground">
               We don&apos;t have data to sell. We don&apos;t collect analytics,
-              we don&apos;t track usage, we don&apos;t store conversations. Our
-              revenue comes from subscriptions, not data.
+              we don&apos;t track usage, we don&apos;t store conversations.
             </p>
           </div>
 
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">
-              &ldquo;What happens if I cancel my subscription?&rdquo;
+              &ldquo;Is there a Broski subscription?&rdquo;
             </h3>
             <p className="text-muted-foreground">
-              Your pairing data is preserved. If you resubscribe later, the app
-              automatically reconnects to your system without needing to rescan the
-              QR code. We don&apos;t hold your data hostage or delete anything
-              when you leave.
+              No. Broski is free and open source. Pairing data stays on your
+              phone and your machine.
             </p>
           </div>
 

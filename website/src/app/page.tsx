@@ -57,14 +57,7 @@ function useScrolled() {
 }
 
 function useWaitlistCount() {
-  const [c, setC] = useState(0);
-  useEffect(() => {
-    fetch("/api/waitlist-count")
-      .then((r) => r.json())
-      .then((d) => { if (d.success) setC(d.count); })
-      .catch(() => {});
-  }, []);
-  return c;
+  return 0;
 }
 
 function useTheme() {
@@ -166,13 +159,9 @@ function WaitlistForm({ id }: { id?: string }) {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !isValidEmail(email)) { setStatus("error"); setMsg("Please enter a valid email"); return; }
-    setStatus("loading");
-    try {
-      const r = await fetch("/api/waitlist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) });
-      const d = await r.json();
-      if (d.success) { setStatus("success"); setMsg("You're on the list!"); setEmail(""); fireConfetti(); }
-      else { setStatus("error"); setMsg(d.error || "Something went wrong."); }
-    } catch { setStatus("error"); setMsg("Something went wrong."); }
+    setStatus("success");
+    setMsg("Broski is open source — no waitlist or subscription.");
+    setEmail("");
   };
   return (
     <div className="w-full max-w-md">
@@ -688,10 +677,9 @@ function Pricing() {
           <div className="p-8 sm:p-10 rounded-2xl border border-surface-2 bg-surface-glass backdrop-blur-md relative overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
             <div className="mb-5">
-              <span className="text-5xl sm:text-6xl font-bold tracking-[-0.04em]">$9.99</span>
-              <span className="text-lg text-muted-foreground ml-1">/month</span>
+              <span className="text-5xl sm:text-6xl font-bold tracking-[-0.04em]">Free</span>
             </div>
-            <p className="text-muted-foreground mb-6">7-day free trial. Cancel anytime.</p>
+            <p className="text-muted-foreground mb-6">Open source. No subscription, no paywall.</p>
             <div className="grid grid-cols-2 gap-2 text-left max-w-xs mx-auto">
               {["All 4 agents", "25+ screens", "Unlimited sessions", "File browser", "Built-in terminal", "Priority support"].map((f, i) => (
                 <div key={i} className="flex items-center gap-2 text-[13px] text-muted-foreground">
@@ -716,7 +704,7 @@ function FinalCTA() {
             Stop doom scrolling.<br /><span className="font-serif italic text-primary">Start shipping.</span>
           </h2>
         </Reveal>
-        <Reveal delay={100}><p className="text-muted-foreground mb-10">Launching soon. Be the first to know.</p></Reveal>
+        <Reveal delay={100}><p className="text-muted-foreground mb-10">Free and open source. Pair your phone to your machine.</p></Reveal>
         <Reveal delay={200} className="flex justify-center"><WaitlistForm /></Reveal>
         {count > 0 && (
           <Reveal delay={300}>

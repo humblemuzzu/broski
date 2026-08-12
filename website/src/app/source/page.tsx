@@ -95,16 +95,7 @@ function useTheme() {
 }
 
 function useWaitlistCount() {
-  const [c, setC] = useState(0);
-  useEffect(() => {
-    fetch("/api/waitlist-count")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.success) setC(d.count);
-      })
-      .catch(() => {});
-  }, []);
-  return c;
+  return 0;
 }
 
 function useActiveSection() {
@@ -214,27 +205,9 @@ function WaitlistForm({ id }: { id?: string }) {
       setMsg("Please enter a valid email");
       return;
     }
-    setStatus("loading");
-    try {
-      const r = await fetch("/api/waitlist", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      const d = await r.json();
-      if (d.success) {
-        setStatus("success");
-        setMsg("You're on the list!");
-        setEmail("");
-        fireConfetti();
-      } else {
-        setStatus("error");
-        setMsg(d.error || "Something went wrong.");
-      }
-    } catch {
-      setStatus("error");
-      setMsg("Something went wrong.");
-    }
+    setStatus("success");
+    setMsg("Broski is open source — no waitlist or subscription.");
+    setEmail("");
   };
   return (
     <div className="w-full max-w-md">

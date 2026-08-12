@@ -7,29 +7,16 @@ import { useConnectionStore } from "@/stores/connection-store"
 import { useProjectsStore } from "@/stores/projects-store"
 
 import { AuthForm } from "./AuthForm"
-import { GoogleSignInSection } from "./GoogleSignInSection"
-import { CloudAuthStatus } from "./CloudAuthStatus"
 
 export function ConnectionGate({ children }: { children: React.ReactNode }) {
-  const googleClientId = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID as
-    | string
-    | undefined
-    
   const wsUrl = useConnectionStore((s) => s.wsUrl)
   const wsState = useConnectionStore((s) => s.wsState)
-  const lastClose = useConnectionStore((s) => s.lastClose)
   const setWsUrl = useConnectionStore((s) => s.setWsUrl)
   const connect = useConnectionStore((s) => s.connect)
   const disconnect = useConnectionStore((s) => s.disconnect)
   const bridgeAuthToken = useConnectionStore((s) => s.bridgeAuthToken)
   const setBridgeAuthToken = useConnectionStore((s) => s.setBridgeAuthToken)
-  const convexSessionToken = useConnectionStore((s) => s.convexSessionToken)
-  const setConvexSessionToken = useConnectionStore((s) => s.setConvexSessionToken)
   const registerDevice = useConnectionStore((s) => s.registerDevice)
-  const setActiveAgent = useConnectionStore((s) => s.setActiveAgent)
-  const activeAgent = useConnectionStore((s) => s.activeAgent)
-  const authenticateCloud = useConnectionStore((s) => s.authenticateCloud)
-  const cloud = useConnectionStore((s) => s.cloud)
   const send = useConnectionStore((s) => s.send)
 
   React.useEffect(() => {
@@ -52,8 +39,6 @@ export function ConnectionGate({ children }: { children: React.ReactNode }) {
     if (didBootstrap.current) return
     didBootstrap.current = true
 
-    // Cloud auth must happen quickly if entitlement gating is enabled.
-    authenticateCloud()
     registerDevice()
     // Notify bridge of the current agent (read once, don't depend on it).
     const currentAgent = useConnectionStore.getState().activeAgent
@@ -88,24 +73,11 @@ export function ConnectionGate({ children }: { children: React.ReactNode }) {
           <AuthForm
             wsUrl={wsUrl}
             bridgeAuthToken={bridgeAuthToken}
-            convexSessionToken={convexSessionToken}
             wsState={wsState}
             onWsUrlChange={setWsUrl}
             onBridgeTokenChange={setBridgeAuthToken}
-            onConvexTokenChange={setConvexSessionToken}
             onConnect={connect}
             onDisconnect={disconnect}
-            onCloudAuth={authenticateCloud}
-          />
-
-          <GoogleSignInSection
-            googleClientId={googleClientId}
-            onTokenReceived={setConvexSessionToken}
-          />
-
-          <CloudAuthStatus
-            cloud={cloud}
-            lastClose={lastClose}
           />
         </div>
       </div>

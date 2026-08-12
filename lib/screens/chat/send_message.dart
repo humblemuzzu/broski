@@ -6,7 +6,6 @@ import 'package:broski/models/codex.dart';
 import 'package:broski/models/file_attachment.dart';
 import 'package:broski/models/message.dart';
 import 'package:broski/models/pi.dart';
-import 'package:broski/providers/app_subscription_provider.dart';
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/claude_code_provider.dart';
 import 'package:broski/providers/claude_code_variant_provider.dart';
@@ -19,7 +18,6 @@ import 'package:broski/providers/selection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/screens/chat/codex_slash_commands.dart';
 import 'package:broski/utils/opencode_id.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -75,11 +73,6 @@ void sendMessage({
   required VoidCallback showCodexRollbackSheet,
   required VoidCallback showCodexAgentsSheet,
 }) {
-  final entitlement = ref.read(appSubscriptionProvider).entitled;
-  if (!entitlement) {
-    showInfo(context, 'Subscription required to send messages.');
-    return;
-  }
   final text = controller.text.trim();
   final hasAttachments = attachedFiles.isNotEmpty;
   if (text.isEmpty && !hasAttachments) return;

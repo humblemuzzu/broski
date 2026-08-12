@@ -6,9 +6,12 @@ part of '../bridge_service.dart';
 /// per operation, parameterized by [AgentType].
 extension BridgeUnified on BridgeService {
   /// List sessions/threads for any backend.
+  /// [roots] defaults to true for backends that support it (OC), returning
+  /// only root sessions. Set to false to get the flat listing.
   Future<List<Map<String, dynamic>>> unifiedListSessions({
     required AgentType backend,
     String? cwd,
+    bool roots = true,
   }) async {
     final requestId = _generateRequestId();
     _socket.send({
@@ -16,6 +19,7 @@ extension BridgeUnified on BridgeService {
       'backend': backend.wireValue,
       'requestId': requestId,
       if (cwd != null) 'cwd': cwd,
+      'roots': roots,
     });
     final response = await _waitFor('unified_sessions', requestId: requestId);
     final data = response['data'];
