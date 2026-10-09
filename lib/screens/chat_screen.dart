@@ -41,6 +41,8 @@ import 'package:broski/screens/chat/oc_menu_handler.dart' as omh;
 import 'package:broski/screens/chat/oc_message_delete_action.dart';
 import 'package:broski/screens/chat/ordered_parts_builder.dart' as opb;
 import 'package:broski/screens/chat/permission_responder.dart';
+import 'package:broski/screens/chat/pi_durable_commands.dart';
+import 'package:broski/screens/chat/pi_durable_menu_handler.dart';
 import 'package:broski/screens/chat/pi_session_actions.dart' as psa;
 import 'package:broski/screens/chat/project_initializer.dart';
 import 'package:broski/screens/chat/project_tools_handler.dart' as pth;
@@ -614,6 +616,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       }
       return;
     }
+    // Pi Durable mode — its skills, and nothing OpenCode-specific
+    if (widget.isPiDurable) {
+      final commands = await loadPiDurableCommands(
+        ref: ref,
+        cwd: ref.read(chatSessionProvider).pdCwd ?? widget.project.path,
+      );
+      if (mounted) {
+        setState(() {
+          _agents = const [];
+          _commands = commands;
+        });
+      }
+      return;
+    }
     // OpenCode mode
     final result = await loadOpenCodeCommandsAndAgents(
       ref: ref,
@@ -941,6 +957,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   Future<void> _piCompact() => psa.piCompact(context: context, ref: ref);
 
+  void _handlePiDurableMenuAction(String value) => handlePiDurableMenuAction(
+    context,
+    ref,
+    value,
+    onStop: _stopGeneration,
+    onShowModel: _showPiDurableModelSheet,
+  );
+
   Future<void> _piNewSession() => psa.piNewSession(context: context, ref: ref);
 
   void _showPiModelSheet() => showPiModelSheet(context);
@@ -965,6 +989,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         ? _handleCodexMenuAction
         : widget.isPi
         ? _handlePiMenuAction
+        : widget.isPiDurable
+        ? _handlePiDurableMenuAction
         : (String value) => _handleMenuActionWithMessages(
             value,
             ref.read(chatSessionProvider).messages,
@@ -975,6 +1001,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       isClaudeCode: widget.isClaudeCode,
       isCodex: widget.isCodex,
       isPi: widget.isPi,
+      isPiDurable: widget.isPiDurable,
       onAction: onAction,
       ccSessionModel: widget.ccSession?.model,
       ccDraftModel: widget.ccDraftModel,

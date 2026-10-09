@@ -36,11 +36,13 @@ extension BridgeServicePiDurable on BridgeService {
   /// [requestId] is the exactly-once key: pass the optimistic message id so a
   /// retry after a reconnect cannot append the same prompt twice. [steer]
   /// queues the prompt into the running turn instead of starting a new one.
+  /// [images] travel as pi-ai `ImageContent` blocks beside [content].
   Future<int?> pdChat({
     required String sessionId,
     required String content,
     required String requestId,
     bool steer = false,
+    List<Map<String, dynamic>>? images,
   }) async {
     _socket.send(
       buildPiDurableChat(
@@ -48,12 +50,33 @@ extension BridgeServicePiDurable on BridgeService {
         content: content,
         requestId: requestId,
         steer: steer,
+        images: images,
       ),
     );
     final response = await _waitFor('pd_chat_accepted', requestId: requestId);
     final data = response['data'];
     if (data is! Map) return null;
     return (data['submissionId'] as num?)?.toInt();
+  }
+
+  /// `pd_compact` → whether the bridge admitted the compaction.
+  ///
+  /// Compaction is durable: the summary lands at the next turn boundary while
+  /// the session keeps working, so this only reports admission.
+  Future<bool> pdCompact({
+    required String sessionId,
+    String? instructions,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send(
+      buildPiDurableCompact(
+        sessionId: sessionId,
+        requestId: requestId,
+        instructions: instructions,
+      ),
+    );
+    final response = await _waitFor('pd_compacted', requestId: requestId);
+    return response['data'] == true;
   }
 
   /// `pd_get_transcript` → the newest committed page, oldest first.

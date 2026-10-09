@@ -169,8 +169,9 @@ void setupCxErrorListenerIfCodex({
   setupCxErrorListener(ref, context);
 }
 
-/// Sets up token usage listeners that refresh the header context pill
-/// when CC or CX turn token counts change.
+/// Sets up token usage listeners that refresh the header context pill when CC,
+/// CX or Pi Durable turn usage changes. The durable pill also needs this because
+/// the bridge's `runtime_state` can land after the first `loadSessionContext`.
 ///
 /// Extracted from `_ChatScreenState.initState` in `chat_screen.dart`.
 void setupTokenUsageListeners({
@@ -186,6 +187,11 @@ void setupTokenUsageListeners({
   } else if (widget.isCodex) {
     ref.listenManual(
       chatSessionProvider.select((s) => s.cxTokenUsage),
+      (_, __) => onTokenUsageChanged(),
+    );
+  } else if (widget.isPiDurable) {
+    ref.listenManual(
+      chatSessionProvider.select((s) => s.pdUsage),
       (_, __) => onTokenUsageChanged(),
     );
   }

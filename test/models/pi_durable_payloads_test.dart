@@ -1,3 +1,4 @@
+import 'package:broski/models/file_attachment.dart';
 import 'package:broski/models/pi_durable/pi_durable_payloads.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -87,6 +88,78 @@ void main() {
         messageId,
       );
     });
+  });
+
+  group('pd_chat images', () {
+    test('carries image attachments in the bridge shape, or omits them', () {
+      final images = piDurableImagesFromAttachments([
+        FileAttachment.fromImage(
+          filename: 'shot.png',
+          mimeType: 'image/png',
+          base64Data: 'AAAA',
+        ),
+        FileAttachment.fromPath('lib/main.dart'),
+      ]);
+      expect(images, [
+        {'data': 'AAAA', 'mimeType': 'image/png'},
+      ]);
+      expect(
+        buildPiDurableChat(
+          sessionId: 's-1',
+          content: 'look',
+          requestId: 'pd-1',
+          images: images,
+        )['images'],
+        images,
+      );
+      expect(
+        buildPiDurableChat(
+          sessionId: 's-1',
+          content: 'plain',
+          requestId: 'pd-2',
+        ).containsKey('images'),
+        isFalse,
+      );
+    });
+
+    test('names file attachments in the prompt and labels images', () {
+      expect(composePiDurablePrompt('do it', const []), 'do it');
+      expect(
+        composePiDurablePrompt('do it', [FileAttachment.fromPath('a/b.dart')]),
+        'do it\nReferenced project paths:\n@a/b.dart',
+      );
+      expect(
+        composePiDurablePrompt('', [
+          FileAttachment.fromImage(
+            filename: 'shot.png',
+            mimeType: 'image/png',
+            base64Data: 'AAAA',
+          ),
+        ]),
+        '\n[Image attached]',
+      );
+    });
+  });
+
+  group('pd_compact payload', () {
+    test(
+      'carries the session and request id, instructions only when given',
+      () {
+        expect(buildPiDurableCompact(sessionId: 's-1', requestId: 'r-1'), {
+          'type': 'pd_compact',
+          'sessionId': 's-1',
+          'requestId': 'r-1',
+        });
+        expect(
+          buildPiDurableCompact(
+            sessionId: 's-1',
+            requestId: 'r-2',
+            instructions: 'keep the API notes',
+          )['instructions'],
+          'keep the API notes',
+        );
+      },
+    );
   });
 
   group('pd_get_transcript payload', () {

@@ -1,7 +1,9 @@
 # Pi Backend Architecture — Deep Reference
 
 > Last updated: 2026-03-31
-> Source of truth: `reference/pi-mono/`, `packages/bridge/src/connectors/pi.ts`, `packages/bridge/src/handlers/pi_features.ts`
+> Source of truth: `reference/pi-mono/`, `packages/bridge/src/connectors/pi.ts` + `connectors/pi/`, `packages/bridge/src/handlers/pi_features.ts` + `handlers/pi_*.ts`
+>
+> **SDK note (2026):** the Pi SDK moved from the `@mariozechner/*` scope to `@earendil-works/pi-coding-agent|pi-ai|pi-agent-core@1.1.0`, and the removed `AuthStorage` / `ModelRegistry` were replaced by `ModelRuntime`. Where a section below still names the old scope or `ModelRegistry`, read it as the historical API — the bridge uses `ModelRuntime` (`connectors/pi/pi-model-runtime.ts`). The connector and handler were also split: `connectors/pi.ts` is now a 36-line facade over `connectors/pi/` (18 modules), and `handlers/pi_features.ts` is a 48-line router over `handlers/pi_*.ts`. Sections 22 and 25 list the functions and messages, which still exist, spread across those modules.
 
 ---
 
@@ -20,7 +22,7 @@
 11. [Tool System](#11-tool-system)
 12. [Extension UI System](#12-extension-ui-system)
 13. [Permission System — beforeToolCall / afterToolCall](#13-permission-system--beforetoolcall--aftertoolcall)
-14. [ModelRegistry — Model Discovery and Selection](#14-modelregistry--model-discovery-and-selection)
+14. [ModelRuntime — Model Discovery and Selection](#14-modelruntime--model-discovery-and-selection)
 15. [Thinking / Reasoning Levels](#15-thinking--reasoning-levels)
 16. [Error Handling and Auto-Retry](#16-error-handling-and-auto-retry)
 17. [Compaction — Context Window Management](#17-compaction--context-window-management)
@@ -51,13 +53,13 @@ The data flow from the user's phone to Pi and back:
 Flutter App  ←→  WebSocket  ←→  Bridge Server  ←→  Pi SDK (in-process)  ←→  LLM API
 ```
 
-Pi runs **in-process** within the bridge — there is no separate Pi process. The bridge imports `@mariozechner/pi-coding-agent` directly, creates `AgentSession` instances, and subscribes to their event streams.
+Pi runs **in-process** within the bridge — there is no separate Pi process. The bridge imports `@earendil-works/pi-coding-agent` directly (through the `connectors/pi/` modules), creates `AgentSession` instances, and subscribes to their event streams.
 
 ### Key architectural decisions:
 
 - **Event-driven**: Pi emits a stream of `AgentSessionEvent` objects. The bridge subscribes to these events, translates them to `PiStreamMessage` wire format, then maps those to normalized `BroskiRuntimeEvent` objects broadcast to clients.
 - **Extension-first permissions**: Pi is "yolo" by default — all tools execute without asking. Permission checks are added via extensions that hook `beforeToolCall`.
-- **Multi-model**: Pi supports any LLM provider via its `pi-ai` abstraction. Models are registered in a `ModelRegistry` that discovers available models from API keys.
+- **Multi-model**: Pi supports any LLM provider via its `pi-ai` abstraction. Models and credentials come from a `ModelRuntime` (`ModelRuntime.create()`), which reads the agent dir (`~/.pi/agent/auth.json`, `models.json`) and covers both API keys and OAuth/subscription logins.
 - **Session persistence**: Every message is written to a JSONL file. Sessions can be resumed, forked, and navigated as a tree.
 
 ---
@@ -81,9 +83,9 @@ reference/pi-mono/
 ```
 
 **Packages used by Broski bridge:**
-- `@mariozechner/pi-agent-core` — `Agent`, `AgentEvent`, `AgentMessage`, `AgentTool`, `ThinkingLevel`
-- `@mariozechner/pi-ai` — `Model`, `streamSimple`, `AssistantMessage`, `AssistantMessageEvent`, content types
-- `@mariozechner/pi-coding-agent` — `AgentSession`, `createAgentSession`, `SessionManager`, `ModelRegistry`, `AuthStorage`, `SettingsManager`, `DefaultResourceLoader`, tools, extensions
+- `@earendil-works/pi-agent-core` — `Agent`, `AgentEvent`, `AgentMessage`, `AgentTool`, `ThinkingLevel`
+- `@earendil-works/pi-ai` — `Model`, `streamSimple`, `AssistantMessage`, `AssistantMessageEvent`, content types
+- `@earendil-works/pi-coding-agent` — `AgentSession`, `createAgentSession`, `SessionManager`, `ModelRuntime`, `SettingsManager`, `DefaultResourceLoader`, tools, extensions
 
 ---
 
@@ -364,7 +366,7 @@ export { AgentSession, AgentSessionEvent, createAgentSession };
 export { SessionManager, SessionInfo };
 
 // Auth and models
-export { AuthStorage, ModelRegistry };
+export { ModelRuntime };  // replaced the removed AuthStorage / ModelRegistry
 
 // Settings
 export { SettingsManager };
@@ -392,8 +394,7 @@ async function createAgentSession(options: CreateAgentSessionOptions): Promise<C
 interface CreateAgentSessionOptions {
   cwd?: string;
   agentDir?: string;
-  authStorage?: AuthStorage;
-  modelRegistry?: ModelRegistry;
+  modelRuntime?: ModelRuntime;
   model?: Model<any>;
   thinkingLevel?: ThinkingLevel;
   scopedModels?: Array<{ model: Model<any>; thinkingLevel?: ThinkingLevel }>;
@@ -406,7 +407,7 @@ interface CreateAgentSessionOptions {
 ```
 
 What it does:
-1. Creates/loads `AuthStorage`, `ModelRegistry`, `SettingsManager`, `SessionManager`
+1. Creates/loads `ModelRuntime`, `SettingsManager`, `SessionManager`
 2. Creates `DefaultResourceLoader` and loads skills, prompts, context files, extensions
 3. Resolves the model (from options, session restore, or settings default)
 4. Creates an `Agent` instance with `convertToLlm`, `streamFn`, `transformContext`
@@ -875,41 +876,49 @@ interface AfterToolCallContext {
 
 ---
 
-## 14. ModelRegistry — Model Discovery and Selection
+## 14. ModelRuntime — Model Discovery and Selection
+
+> Historical: this section used to describe `ModelRegistry`, created from an `AuthStorage`. The SDK now exposes `ModelRuntime`, created with `ModelRuntime.create()`.
 
 ### Architecture
 
 ```
 pi-ai (models.generated.ts)     ←  Static model definitions with costs, context windows
         ↓
-ModelRegistry (coding-agent)     ←  Discovers which models have API keys configured
+ModelRuntime (coding-agent)      ←  Discovers which models have usable credentials
         ↓
-AuthStorage                      ←  Stores API keys and OAuth credentials
+agent dir (~/.pi/agent/)         ←  auth.json (API keys + OAuth), models.json
 ```
 
-### ModelRegistry API
+### ModelRuntime API
 
 ```typescript
-class ModelRegistry {
-  static create(authStorage: AuthStorage): ModelRegistry;
-  getAvailable(): Model<any>[];          // Models with configured auth
-  getAll(): Model<any>[];                // All known models
-  find(provider: string, modelId: string): Model<any> | undefined;
-  hasConfiguredAuth(model: Model<any>): boolean;
-  isUsingOAuth(model: Model<any>): boolean;
-  getApiKeyAndHeaders(model): Promise<{ ok: boolean; apiKey?; headers?; error? }>;
-  refresh(): void;
+class ModelRuntime {
+  static create(options?): Promise<ModelRuntime>;
+  getModels(providerId?): readonly Model<Api>[];         // All known models
+  getModel(providerId, modelId): Model<Api> | undefined;
+  getAvailableSnapshot(): readonly Model<Api>[];         // Models with configured auth
+  getError(): string | undefined;
+  isUsingOAuth(providerId: string): boolean;
+  isUsingSubscription(providerId: string): boolean;
+  listCredentials(options?): Promise<readonly CredentialInfo[]>;
+  checkAuth(providerId: string, options?): Promise<AuthCheck | undefined>;
+  getProviderAuthStatus(providerId: string): AuthStatus;
+  refresh(options?): Promise<ModelsRefreshResult>;
 }
 ```
 
 ### Bridge Model API
 
 ```typescript
-// Connector (pi.ts):
-function listAvailableModels(): PiModelPayload[];
-function listAllModels(): PiModelPayload[];
-function refreshModels(): void;
-function mapModel(model: Model<any>): PiModelPayload;
+// Connector (connectors/pi/pi-model-runtime.ts):
+function ensurePiModelRuntime(): Promise<ModelRuntime>;
+function listAvailableModels(): Promise<PiModelPayload[]>;
+function listAllModels(): Promise<PiModelPayload[]>;
+function listConfiguredProviders(): Promise<string[]>;
+function refreshModels(): Promise<void>;
+function findModel(provider, modelId): Promise<Model<any> | undefined>;
+function mapPiModel(model: Model<any>): PiModelPayload;
 ```
 
 ### PiModelPayload (Wire Format)
@@ -1176,8 +1185,8 @@ type PiSessionInfo = {
   modified: number;      // Epoch ms
   messageCount: number;
   firstMessage: string;  // Preview text
-  allMessagesText?: string;
   summary?: { additions: number; deletions: number; files: number };
+  subagentToolCount?: number;  // Task/oracle/finder/... tool invocations
 };
 ```
 
@@ -1225,9 +1234,9 @@ pi_set_follow_up_mode → pi_follow_up_mode_set
 
 ## 22. Our Bridge Connector — `connectors/pi.ts`
 
-**File:** `packages/bridge/src/connectors/pi.ts` (534 lines)
+**File:** `packages/bridge/src/connectors/pi.ts` (36-line facade) + `packages/bridge/src/connectors/pi/` (18 modules, 2,598 lines)
 
-This file manages Pi instances and provides the bridge API.
+`pi.ts` is a thin re-export facade. Instance management and the bridge API now live in `connectors/pi/`: `pi-instance.ts`, `pi-instance-types.ts`, `pi-session-lifecycle.ts`, `pi-session-queries.ts`, `pi-session-state.ts`, `pi-session-info.ts`, `pi-session-stats.ts`, `pi-session-list-cache.ts`, `pi-single-flight.ts`, `pi-model-runtime.ts`, `pi-events.ts`, `pi-external-tail.ts`, `pi-ui-theme.ts`, `pi-extension-binding.ts`, `pi-subagent-registry.ts`, `pi-subagent-extraction.ts`, `pi-session-enrich.ts`, `pi-cwd.ts`.
 
 ### Instance Management
 
@@ -1281,7 +1290,7 @@ type PiInstance = {
 
 ## 23. Our Extension UI Bridge — `pi_extension_ui.ts`
 
-**File:** `packages/bridge/src/connectors/pi_extension_ui.ts` (293 lines)
+**File:** `packages/bridge/src/connectors/pi_extension_ui.ts` (335 lines)
 
 ### How It Works
 
@@ -1381,7 +1390,9 @@ type PiStreamMessage =
 
 ## 25. Our Handler — `handlers/pi_features.ts`
 
-**File:** `packages/bridge/src/handlers/pi_features.ts` (707 lines)
+**File:** `packages/bridge/src/handlers/pi_features.ts` (48-line router) + `packages/bridge/src/handlers/pi_*.ts` (21 files)
+
+`pi_features.ts` is now a small router; the handlers live in `handlers/`: `pi_chat.ts`, `pi_stream_bridge.ts`, `pi_stream_delivery.ts`, `pi_session_lifecycle.ts`, `pi_session_data.ts`, `pi_session_messages.ts`, `pi_message_helpers.ts`, `pi_models.ts`, `pi_settings.ts`, `pi_tools.ts`, `pi_bash.ts`, `pi_tree.ts`, `pi_labels.ts`, `pi_abort.ts`, `pi_custom_message.ts`, `pi_state_events.ts`, `pi_external_tail_sync.ts`, `pi_extension_ui_requests.ts`, `pi_subagent_messages.ts` (plus the router itself and `pi_durable.ts`).
 
 ### Sub-Handlers
 

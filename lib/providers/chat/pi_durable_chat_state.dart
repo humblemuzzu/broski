@@ -26,6 +26,8 @@ final class PiDurableChatState extends ChatSessionState {
     this.pdThinkingLevel,
     this.pdIsStreaming = false,
     this.pdResumeNotice,
+    this.pdUsage,
+    this.pdContextTokens,
   });
 
   final String? pdSessionId;
@@ -37,6 +39,13 @@ final class PiDurableChatState extends ChatSessionState {
   /// Set from a `resumed` backend_event: work the Mac picked back up after a
   /// crash. Rendered as a dismissible banner instead of a transcript message.
   final String? pdResumeNotice;
+
+  /// The bridge's `backendData.usage`: per-model token buckets and cost.
+  final Map<String, dynamic>? pdUsage;
+
+  /// The newest answer's prompt size from `backendData.contextTokens`, which
+  /// together with the model catalog's context window forms the pill's %.
+  final int? pdContextTokens;
 
   @override
   AgentType get agentType => AgentType.piDurable;
@@ -67,6 +76,8 @@ final class PiDurableChatState extends ChatSessionState {
     Object? pdThinkingLevel = _absent,
     bool? pdIsStreaming,
     Object? pdResumeNotice = _absent,
+    Object? pdUsage = _absent,
+    Object? pdContextTokens = _absent,
     // Ignored (wrong subclass)
     bool? isClaudeCode,
     Object? ccSessionId = _absent,
@@ -124,6 +135,8 @@ final class PiDurableChatState extends ChatSessionState {
       ),
       pdIsStreaming: pdIsStreaming ?? this.pdIsStreaming,
       pdResumeNotice: _resolve<String>(pdResumeNotice, this.pdResumeNotice),
+      pdUsage: _resolve<Map<String, dynamic>>(pdUsage, this.pdUsage),
+      pdContextTokens: _resolve<int>(pdContextTokens, this.pdContextTokens),
     );
   }
 }
@@ -148,5 +161,12 @@ extension PiDurableChatStateAccess on ChatSessionState {
       : false;
   String? get pdResumeNotice => this is PiDurableChatState
       ? (this as PiDurableChatState).pdResumeNotice
+      : null;
+
+  Map<String, dynamic>? get pdUsage =>
+      this is PiDurableChatState ? (this as PiDurableChatState).pdUsage : null;
+
+  int? get pdContextTokens => this is PiDurableChatState
+      ? (this as PiDurableChatState).pdContextTokens
       : null;
 }

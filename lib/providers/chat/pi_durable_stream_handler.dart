@@ -108,6 +108,9 @@ extension PiDurableStreamHandler on ChatSessionNotifier {
     final current = state;
     if (current is! PiDurableChatState) return;
     final runtimeModel = runtimeState?.model;
+    final backendData = runtimeState?.backendData;
+    final usage = backendData?['usage'];
+    final contextTokens = backendData?['contextTokens'];
     state = current.copyWith(
       sessionStatus: _runtimeSessionStatus(runtimeState, turn),
       pdSessionId: (current.pdSessionId ?? '').isEmpty
@@ -117,6 +120,8 @@ extension PiDurableStreamHandler on ChatSessionNotifier {
       pdModel: runtimeModel?.label ?? runtimeModel?.id ?? current.pdModel,
       pdIsStreaming: turn.isStreaming,
       isCompacting: runtimeState?.isCompacting ?? current.isCompacting,
+      pdUsage: usage is Map ? usage.cast<String, dynamic>() : _absent,
+      pdContextTokens: contextTokens is num ? contextTokens.toInt() : _absent,
     );
   }
 }

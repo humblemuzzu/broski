@@ -9,6 +9,7 @@ import 'package:broski/widgets/chat/cc_actions_content.dart';
 import 'package:broski/widgets/chat/codex_actions_content.dart';
 import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:broski/widgets/chat/pi_actions_content.dart';
+import 'package:broski/widgets/chat/pi_durable_actions_content.dart';
 import 'package:broski/widgets/chat/session_actions_content.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,6 +24,7 @@ void openActionsSheet({
   required bool isClaudeCode,
   required bool isCodex,
   required bool isPi,
+  required bool isPiDurable,
   required void Function(String) onAction,
   // CC-specific (widget props not in providers)
   String? ccSessionModel,
@@ -64,6 +66,13 @@ void openActionsSheet({
       theme: theme,
       connection: connection,
       chatState: chatState,
+      onAction: onAction,
+    );
+  } else if (isPiDurable) {
+    _openPiDurableSheet(
+      context,
+      theme: theme,
+      connection: connection,
       onAction: onAction,
     );
   } else {
@@ -162,6 +171,28 @@ void _openPiSheet(
       rttMs: connection.rttMs,
       piModel: chatState.piModel,
       isStreaming: chatState.piIsStreaming,
+      onAction: (action) {
+        Navigator.pop(context);
+        onAction(action);
+      },
+    ),
+  );
+}
+
+void _openPiDurableSheet(
+  BuildContext context, {
+  required OpenCodeTheme theme,
+  required BridgeConnectionState connection,
+  required void Function(String) onAction,
+}) {
+  DetailSheet.show(
+    context: context,
+    title: 'Pi Durable',
+    initialSize: 0.55,
+    child: PiDurableActionsContent(
+      theme: theme,
+      isConnected: connection.isConnected,
+      rttMs: connection.rttMs,
       onAction: (action) {
         Navigator.pop(context);
         onAction(action);
