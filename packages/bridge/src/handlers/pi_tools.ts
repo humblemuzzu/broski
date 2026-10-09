@@ -49,24 +49,25 @@ export async function handle(message: any, reply: Reply): Promise<boolean> {
 		// ── Model Capabilities ───────────────────────────────────────────
 		case "pi_get_thinking_capabilities": {
 			const instance = await pi.getOrCreateInstance(cwd);
+			const availableLevels = instance.session.getAvailableThinkingLevels();
 			const capabilities: PiThinkingCapabilities = {
 				supportsThinking: instance.session.supportsThinking(),
-				supportsXhigh: instance.session.supportsXhighThinking(),
-				availableLevels: instance.session.getAvailableThinkingLevels(),
+				supportsXhigh: availableLevels.includes("xhigh"),
+				availableLevels,
 			};
 			reply({ type: "pi_thinking_capabilities", data: capabilities, requestId: message.requestId });
 			return true;
 		}
 
 		case "pi_list_all_models": {
-			const models = pi.listAllModels();
+			const models = await pi.listAllModels();
 			reply({ type: "pi_all_models", data: models, requestId: message.requestId });
 			return true;
 		}
 
 		case "pi_refresh_models": {
-			pi.refreshModels();
-			const models = pi.listAvailableModels();
+			await pi.refreshModels();
+			const models = await pi.listAvailableModels();
 			reply({ type: "pi_models_refreshed", data: models, requestId: message.requestId });
 			return true;
 		}

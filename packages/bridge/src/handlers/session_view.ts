@@ -3,6 +3,8 @@ import type { ServerWebSocket } from "bun";
 import type { AgentType, ServerMessage } from "../types";
 import { getPendingExtensionUiRequests, stopPiExternalTail, syncPiExternalTail } from "./pi_features";
 import {
+	countPiWatchers,
+	prunePiWatchers,
 	registerPiWatcher,
 	replayPendingExtensionUiRequests,
 	replayPiRuntimeEvents,
@@ -88,6 +90,7 @@ export async function handle(
 		connectedAt: Date.now(),
 	};
 	const prevKey = ctx.makeSessionKey(existing.viewAgent as AgentType | undefined, existing.sessionId);
+	const prevPiSessionId = existing.viewAgent === "pi" ? existing.sessionId : undefined;
 	const nextAgent =
 		(message.agent as AgentType | undefined) ??
 		existing.viewAgent ??
@@ -120,6 +123,12 @@ export async function handle(
 	});
 
 	unregisterPiWatcher(ws);
+	if (prevPiSessionId && prevPiSessionId !== nextSessionId && countPiWatchers(prevPiSessionId) === 0) {
+		stopPiExternalTail(prevPiSessionId);
+	}
+	for (const orphanedSessionId of prunePiWatchers((sock) => ctx.sockets.has(sock))) {
+		stopPiExternalTail(orphanedSessionId);
+	}
 	if (nextAgent === "pi" && nextSessionId) {
 		registerPiWatcher(ws, nextSessionId);
 		// Start external tail for Pi sessions running in terminal (not bridge-owned).

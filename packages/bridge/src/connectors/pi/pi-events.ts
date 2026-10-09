@@ -1,6 +1,12 @@
-import type { AgentMessage } from "@mariozechner/pi-agent-core";
-import type { AssistantMessage, TextContent, ThinkingContent, ToolCall, ToolResultMessage } from "@mariozechner/pi-ai";
-import type { AgentSessionEvent } from "@mariozechner/pi-coding-agent";
+import type { AgentMessage } from "@earendil-works/pi-agent-core";
+import type {
+	AssistantMessage,
+	TextContent,
+	ThinkingContent,
+	ToolCall,
+	ToolResultMessage,
+} from "@earendil-works/pi-ai";
+import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 import type { PiStreamMessage } from "../../types";
 
 export type PiBridgeSyntheticEvent = {
@@ -97,7 +103,9 @@ interface MappedMessage {
 	[key: string]: unknown;
 }
 
-export function mapAgentMessage(message: AgentMessage): MappedMessage {
+export function mapAgentMessage(message: AgentMessage): MappedMessage | null {
+	if (message.role === "system") return null;
+
 	if (message.role === "user") {
 		return {
 			role: "user",
@@ -142,6 +150,15 @@ export function mapAgentMessage(message: AgentMessage): MappedMessage {
 	};
 }
 
+export function mapAgentMessages(messages: AgentMessage[]): MappedMessage[] {
+	const mapped: MappedMessage[] = [];
+	for (const message of messages) {
+		const entry = mapAgentMessage(message);
+		if (entry) mapped.push(entry);
+	}
+	return mapped;
+}
+
 export function mapToolResult(message: ToolResultMessage): MappedMessage {
 	return {
 		role: "toolResult",
@@ -164,32 +181,58 @@ export function translateEvent(event: AgentSessionEvent | PiBridgeSyntheticEvent
 			return { type: "agent-start" };
 
 		case "agent_end":
+			if (event.willRetry) return null;
 			return {
 				type: "agent-end",
-				messages: event.messages.map(mapAgentMessage),
+				messages: mapAgentMessages(event.messages),
 			};
+
+		case "agent_settled":
+			return { type: "agent-settled", aborted: event.aborted };
 
 		case "turn_start":
 			return { type: "turn-start" };
 
-		case "turn_end":
+		case "turn_end": {
+			const message = mapAgentMessage(event.message);
+			if (!message) return null;
 			return {
 				type: "turn-end",
-				message: mapAgentMessage(event.message),
+				message,
 				toolResults: event.toolResults.map(mapToolResult),
 			};
+		}
 
-		case "message_start":
+		case "message_start": {
+			const message = mapAgentMessage(event.message);
+			return message ? { type: "message-start", message } : null;
+		}
+
+		case "message_end": {
+			const message = mapAgentMessage(event.message);
+			return message ? { type: "message-end", message } : null;
+		}
+
+		case "session_info_changed":
+			return { type: "session-info-changed", name: event.name ?? null };
+
+		case "thinking_level_changed":
+			return { type: "thinking-level-changed", level: event.level };
+
+		case "summarization_retry_scheduled":
 			return {
-				type: "message-start",
-				message: mapAgentMessage(event.message),
+				type: "summarization-retry-scheduled",
+				attempt: event.attempt,
+				maxAttempts: event.maxAttempts,
+				delayMs: event.delayMs,
+				errorMessage: event.errorMessage,
 			};
 
-		case "message_end":
-			return {
-				type: "message-end",
-				message: mapAgentMessage(event.message),
-			};
+		case "summarization_retry_finished":
+			return { type: "summarization-retry-finished" };
+
+		case "bash_execution_update":
+			return { type: "bash-output", content: event.delta };
 
 		case "message_update": {
 			const assistantEvent = event.assistantMessageEvent;

@@ -1,5 +1,11 @@
 import { randomUUID } from "node:crypto";
+import type {
+	ExtensionUIContext,
+	ExtensionUIDialogOptions,
+	ExtensionWidgetOptions,
+} from "@earendil-works/pi-coding-agent";
 import type { PiStreamMessage } from "../types";
+import { getPiUiTheme } from "./pi/pi-ui-theme";
 
 type DialogMethod = "select" | "confirm" | "input" | "editor";
 
@@ -19,7 +25,7 @@ type PendingRequest = {
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 export type PiExtensionUiBridge = {
-	uiContext: any;
+	uiContext: ExtensionUIContext;
 	resolveResponse: (response: PiExtensionUiResponseInput) => boolean;
 	getPendingRequests: () => PiStreamMessage[];
 	dispose: () => void;
@@ -98,8 +104,8 @@ export function createPiExtensionUiBridge(emitStreamMessage: (message: PiStreamM
 		});
 	};
 
-	const uiContext: any = {
-		select: (title: string, options: string[], opts?: { timeout?: number; signal?: AbortSignal }) =>
+	const uiContext: ExtensionUIContext = {
+		select: (title: string, options: string[], opts?: ExtensionUIDialogOptions) =>
 			createDialogPromise<string | undefined>(
 				"select",
 				{
@@ -116,7 +122,7 @@ export function createPiExtensionUiBridge(emitStreamMessage: (message: PiStreamM
 				opts?.signal,
 			),
 
-		confirm: (title: string, message: string, opts?: { timeout?: number; signal?: AbortSignal }) =>
+		confirm: (title: string, message: string, opts?: ExtensionUIDialogOptions) =>
 			createDialogPromise<boolean>(
 				"confirm",
 				{
@@ -133,7 +139,7 @@ export function createPiExtensionUiBridge(emitStreamMessage: (message: PiStreamM
 				opts?.signal,
 			),
 
-		input: (title: string, placeholder?: string, opts?: { timeout?: number; signal?: AbortSignal }) =>
+		input: (title: string, placeholder?: string, opts?: ExtensionUIDialogOptions) =>
 			createDialogPromise<string | undefined>(
 				"input",
 				{
@@ -150,7 +156,7 @@ export function createPiExtensionUiBridge(emitStreamMessage: (message: PiStreamM
 				opts?.signal,
 			),
 
-		editor: (title: string, prefill?: string, opts?: { timeout?: number; signal?: AbortSignal }) =>
+		editor: (title: string, prefill?: string, opts?: ExtensionUIDialogOptions) =>
 			createDialogPromise<string | undefined>(
 				"editor",
 				{
@@ -191,11 +197,19 @@ export function createPiExtensionUiBridge(emitStreamMessage: (message: PiStreamM
 			// Not currently surfaced to mobile UI.
 		},
 
+		setWorkingVisible: (_visible: boolean) => {
+			// No terminal loader in bridge mode.
+		},
+
+		setWorkingIndicator: (_options?: { frames?: string[]; intervalMs?: number }) => {
+			// No terminal loader in bridge mode.
+		},
+
 		setHiddenThinkingLabel: (_label?: string) => {
 			// Not currently surfaced to mobile UI.
 		},
 
-		setWidget: (key: string, content: unknown, options?: { placement?: "aboveEditor" | "belowEditor" }) => {
+		setWidget: (key: string, content: unknown, options?: ExtensionWidgetOptions) => {
 			if (content !== undefined && !Array.isArray(content)) return;
 
 			emitStreamMessage({
@@ -203,7 +217,7 @@ export function createPiExtensionUiBridge(emitStreamMessage: (message: PiStreamM
 				id: randomUUID(),
 				method: "setWidget",
 				widgetKey: key,
-				widgetLines: content as string[] | undefined,
+				widgetLines: content === undefined ? undefined : content.filter((line) => typeof line === "string"),
 				...(options?.placement ? { widgetPlacement: options.placement } : {}),
 			});
 		},
@@ -225,10 +239,7 @@ export function createPiExtensionUiBridge(emitStreamMessage: (message: PiStreamM
 			});
 		},
 
-		custom: async () => {
-			// Not supported in mobile bridge mode.
-			return undefined;
-		},
+		custom: <T>() => Promise.resolve(undefined as T),
 
 		pasteToEditor: (text: string) => {
 			emitStreamMessage({
@@ -254,7 +265,15 @@ export function createPiExtensionUiBridge(emitStreamMessage: (message: PiStreamM
 			// Not supported in mobile bridge mode.
 		},
 
-		theme: {},
+		getEditorComponent: () => undefined,
+
+		addAutocompleteProvider: (_factory: unknown) => {
+			// No editor in bridge mode.
+		},
+
+		get theme() {
+			return getPiUiTheme();
+		},
 
 		getAllThemes: () => [],
 

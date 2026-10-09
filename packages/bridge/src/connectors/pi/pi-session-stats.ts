@@ -6,7 +6,11 @@
  * Cached by sessionId:mtime to avoid re-scanning unchanged files.
  */
 
+import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
+import { createInterface } from "node:readline";
+import type { AssistantMessage, JsonObject, ToolResultMessage } from "@earendil-works/pi-ai";
+import { type FileEntry, parseSessionEntries } from "@earendil-works/pi-coding-agent";
 import type { ModifiedFileEntry, SessionDiffSummary } from "../../handlers/session-stats";
 import { aggregateFileDiffs, countUnifiedDiffStats, deduplicateFileDiffs } from "../../handlers/session-stats";
 
@@ -17,6 +21,40 @@ const statsCache = new Map<string, { mtime: number; summary: SessionDiffSummary 
 const subagentCountCache = new Map<string, { mtime: number; count: number }>();
 
 const SUBAGENT_TOOL_NAMES = new Set(["task", "Task", "oracle", "finder", "code_review", "look_at", "librarian"]);
+
+type FileDiffs = Array<{ file: string; additions: number; deletions: number }>;
+type ToolCallArgs = { path: string; writeLineCount?: number };
+
+/** Session files reach many MB — stream them line by line so a scan never holds a whole file in memory. */
+async function forEachEntry(
+	filePath: string,
+	matches: (line: string) => boolean,
+	visit: (entry: FileEntry) => void,
+): Promise<void> {
+	const stream = createReadStream(filePath, { encoding: "utf8" });
+	const lines = createInterface({ input: stream, crlfDelay: Number.POSITIVE_INFINITY });
+	try {
+		for await (const line of lines) {
+			if (!matches(line)) continue;
+			for (const entry of parseSessionEntries(line)) visit(entry);
+		}
+	} finally {
+		lines.close();
+		stream.destroy();
+	}
+}
+
+function isJsonObject(value: unknown): value is JsonObject {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function countLines(text: string): number {
+	let lines = 1;
+	for (let i = 0; i < text.length; i++) {
+		if (text.charCodeAt(i) === 10) lines++;
+	}
+	return lines;
+}
 
 /**
  * Count subagent tool invocations in a Pi session JSONL.
@@ -30,32 +68,95 @@ export async function countSubagentTools(filePath: string): Promise<number> {
 		const cached = subagentCountCache.get(filePath);
 		if (cached && cached.mtime === mtime) return cached.count;
 
-		const text = await Bun.file(filePath).text();
-		await Bun.sleep(0);
 		let count = 0;
-		for (const line of text.split("\n")) {
-			if (!line || !line.includes('"toolCall"')) continue;
-			let parsed: any;
-			try {
-				parsed = JSON.parse(line);
-			} catch {
-				continue;
-			}
-			if (parsed?.type !== "message") continue;
-			const content = parsed.message?.content;
-			if (!Array.isArray(content)) continue;
-			for (const block of content) {
-				if (block?.type === "toolCall" && SUBAGENT_TOOL_NAMES.has(block.name)) {
-					count++;
+		await forEachEntry(
+			filePath,
+			(line) => line.includes('"toolCall"'),
+			(entry) => {
+				if (entry.type !== "message") return;
+				const message = entry.message;
+				if (message.role !== "assistant") return;
+				for (const block of message.content) {
+					if (block.type === "toolCall" && SUBAGENT_TOOL_NAMES.has(block.name)) {
+						count++;
+					}
 				}
-			}
-		}
+			},
+		);
 
 		subagentCountCache.set(filePath, { mtime, count });
 		return count;
 	} catch {
 		return 0;
 	}
+}
+
+function collectToolCallArgs(message: AssistantMessage, toolCallArgs: Map<string, ToolCallArgs>): void {
+	for (const block of message.content) {
+		if (block.type !== "toolCall") continue;
+		const args = block.arguments;
+		const path = typeof args.path === "string" ? args.path : "";
+		if (!path) continue;
+
+		const content = typeof args.content === "string" && args.content.length > 0 ? args.content : undefined;
+		toolCallArgs.set(block.id, {
+			path,
+			...(content !== undefined ? { writeLineCount: countLines(content) } : {}),
+		});
+	}
+}
+
+function resultToDiffs(message: ToolResultMessage, toolCallArgs: Map<string, ToolCallArgs>): FileDiffs {
+	const callArgs = toolCallArgs.get(message.toolCallId);
+	const details = isJsonObject(message.details) ? message.details : undefined;
+
+	if (message.toolName === "edit") {
+		// Pi edit results store data in two places:
+		//   - details.filePath: the edited file's absolute path
+		//   - details.diff: unified diff (Pi's generateDiffString output)
+		//   - content[0].text: may ALSO contain the diff (standard unified format)
+		let file = callArgs?.path ?? "";
+		if (!file && typeof details?.filePath === "string") {
+			file = details.filePath;
+		}
+
+		let diff = "";
+		if (typeof details?.diff === "string" && details.diff.length > 20) {
+			diff = details.diff;
+		}
+		if (!diff) {
+			for (const block of message.content) {
+				if (block.type === "text" && (block.text.startsWith("---") || block.text.includes("@@"))) {
+					diff = block.text;
+					break;
+				}
+			}
+		}
+		if (!diff) return [];
+
+		if (!file) {
+			// Standard: "--- a/path" or Pi format: "--- filename\toriginal"
+			const headerMatch = diff.match(/^---\s+(?:a\/)?(\S+)/m);
+			const headerFile = headerMatch?.[1];
+			if (headerFile) file = headerFile;
+		}
+		if (!file) file = "unknown";
+
+		const stats = countUnifiedDiffStats(diff);
+		return stats.additions > 0 || stats.deletions > 0
+			? [{ file, additions: stats.additions, deletions: stats.deletions }]
+			: [];
+	}
+
+	if (message.toolName === "write") {
+		// Real line count from the actual file content in toolCall arguments
+		const file = callArgs?.path ?? "";
+		const writeLineCount = callArgs?.writeLineCount;
+		if (!file || writeLineCount === undefined) return [];
+		return [{ file, additions: writeLineCount, deletions: 0 }];
+	}
+
+	return [];
 }
 
 /**
@@ -69,142 +170,29 @@ export async function countSubagentTools(filePath: string): Promise<number> {
  * For writes: we use arguments.content from the preceding assistant toolCall
  *             to count real lines, since the toolResult only has a byte count.
  */
-async function scanPiFileDiffs(
-	filePath: string,
-): Promise<Array<{ file: string; additions: number; deletions: number }>> {
-	const text = await Bun.file(filePath).text();
-	await Bun.sleep(0);
-	const lines = text.split("\n");
-	const fileDiffs: Array<{ file: string; additions: number; deletions: number }> = [];
+async function scanPiFileDiffs(filePath: string): Promise<FileDiffs> {
+	const toolCallArgs = new Map<string, ToolCallArgs>();
+	const fileDiffs: FileDiffs = [];
 
-	// Pass 1: Collect tool call arguments from assistant messages.
-	// Maps toolCallId → { name, path, content, old_str, new_str }
-	const toolCallArgs = new Map<
-		string,
-		{ name: string; path: string; content?: string; oldStr?: string; newStr?: string }
-	>();
+	await forEachEntry(
+		filePath,
+		(line) =>
+			line.includes('"toolCall"') ||
+			(line.includes('"toolResult"') && (line.includes('"edit"') || line.includes('"write"'))),
+		(entry) => {
+			if (entry.type !== "message") return;
+			const message = entry.message;
 
-	for (const line of lines) {
-		if (!line) continue;
-		if (!line.includes('"toolCall"')) continue;
-
-		let parsed: any;
-		try {
-			parsed = JSON.parse(line);
-		} catch {
-			continue;
-		}
-
-		if (parsed?.type !== "message") continue;
-		const message = parsed?.message;
-		if (!message || message.role !== "assistant") continue;
-
-		const content = Array.isArray(message.content) ? message.content : [];
-		for (const item of content) {
-			if (item?.type !== "toolCall") continue;
-			const id = item.id as string | undefined;
-			const name = item.name as string | undefined;
-			const args = item.arguments;
-			if (!id || !name || !args || typeof args !== "object") continue;
-
-			const path = typeof args.path === "string" ? args.path : "";
-			if (!path) continue;
-
-			toolCallArgs.set(id, {
-				name,
-				path,
-				content: typeof args.content === "string" ? args.content : undefined,
-				oldStr: typeof args.old_str === "string" ? args.old_str : undefined,
-				newStr: typeof args.new_str === "string" ? args.new_str : undefined,
-			});
-		}
-	}
-
-	// Pass 2: Process toolResult messages.
-	for (const line of lines) {
-		if (!line) continue;
-		if (!line.includes('"toolResult"')) continue;
-		if (!line.includes('"edit"') && !line.includes('"write"')) continue;
-
-		let parsed: any;
-		try {
-			parsed = JSON.parse(line);
-		} catch {
-			continue;
-		}
-
-		if (parsed?.type !== "message") continue;
-		const message = parsed?.message;
-		if (!message || message.role !== "toolResult") continue;
-
-		const toolName = message.toolName as string | undefined;
-		if (!toolName) continue;
-		const toolCallId = message.toolCallId as string | undefined;
-		const callArgs = toolCallId ? toolCallArgs.get(toolCallId) : undefined;
-
-		if (toolName === "edit") {
-			// Pi edit results store data in two places:
-			//   - details.filePath: the edited file's absolute path
-			//   - details.diff: unified diff (Pi's generateDiffString output)
-			//   - content[0].text: may ALSO contain the diff (standard unified format)
-			// Some Pi versions put the diff in details.diff, others in content text.
-			const details = message.details;
-			let diff = "";
-			let file = "";
-
-			// File path: toolCall args > details.filePath > diff header > content text
-			file = callArgs?.path ?? "";
-			if (!file && details && typeof details === "object") {
-				file = typeof details.filePath === "string" ? details.filePath : "";
+			if (message.role === "assistant") {
+				collectToolCallArgs(message, toolCallArgs);
+				return;
 			}
 
-			// Diff: details.diff > content[0].text (if it looks like a diff)
-			if (details && typeof details === "object" && typeof details.diff === "string" && details.diff.length > 20) {
-				diff = details.diff;
+			if (message.role === "toolResult") {
+				fileDiffs.push(...resultToDiffs(message, toolCallArgs));
 			}
-			if (!diff) {
-				const msgContent = Array.isArray(message.content) ? message.content : [];
-				for (const c of msgContent) {
-					if (c?.type === "text" && typeof c.text === "string") {
-						// Check if content text IS a diff (starts with --- or has @@ markers)
-						if (c.text.startsWith("---") || c.text.includes("@@")) {
-							diff = c.text;
-							break;
-						}
-					}
-				}
-			}
-			if (!diff) continue;
-
-			// Extract file path from diff header if still missing
-			if (!file) {
-				// Standard: "--- a/path" or Pi format: "--- filename\toriginal"
-				const headerMatch = diff.match(/^---\s+(?:a\/)?(\S+)/m);
-				const headerFile = headerMatch?.[1];
-				if (headerFile) file = headerFile;
-			}
-			if (!file) file = "unknown";
-
-			const stats = countUnifiedDiffStats(diff);
-			if (stats.additions > 0 || stats.deletions > 0) {
-				fileDiffs.push({ file, additions: stats.additions, deletions: stats.deletions });
-			}
-			continue;
-		}
-
-		if (toolName === "write") {
-			// File path from toolCall arguments (exact)
-			const file = callArgs?.path ?? "";
-			if (!file) continue;
-
-			// Real line count from the actual file content in toolCall arguments
-			const fileContent = callArgs?.content;
-			if (typeof fileContent === "string" && fileContent.length > 0) {
-				const lineCount = fileContent.split("\n").length;
-				fileDiffs.push({ file, additions: lineCount, deletions: 0 });
-			}
-		}
-	}
+		},
+	);
 
 	return fileDiffs;
 }

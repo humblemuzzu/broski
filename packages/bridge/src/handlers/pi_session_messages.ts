@@ -19,8 +19,8 @@ import {
 	parseSessionEntries,
 	type SessionEntry,
 	SessionManager,
-} from "@mariozechner/pi-coding-agent";
-import { mapAgentMessage } from "../connectors/pi/pi-events";
+} from "@earendil-works/pi-coding-agent";
+import { mapAgentMessages } from "../connectors/pi/pi-events";
 import type { ServerMessage } from "../types";
 
 type Reply = (message: ServerMessage) => void;
@@ -50,7 +50,7 @@ async function resolveSessionPath(sessionId: string): Promise<string | null> {
  * without needing a live AgentSession instance. Supports an optional
  * limit to return only the last N messages (for pagination).
  */
-async function readSessionMessages(sessionPath: string, limit?: number): Promise<ReturnType<typeof mapAgentMessage>[]> {
+async function readSessionMessages(sessionPath: string, limit?: number): Promise<ReturnType<typeof mapAgentMessages>> {
 	const content = await readFile(sessionPath, "utf-8");
 	const fileEntries = parseSessionEntries(content);
 
@@ -67,7 +67,7 @@ async function readSessionMessages(sessionPath: string, limit?: number): Promise
 
 	// Build context using tree traversal — handles compaction, branching, etc.
 	const context = buildSessionContext(entries);
-	const messages = context.messages.map(mapAgentMessage);
+	const messages = mapAgentMessages(context.messages);
 
 	if (limit && limit > 0 && messages.length > limit) {
 		return messages.slice(-limit);

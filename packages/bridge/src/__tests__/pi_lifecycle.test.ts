@@ -2,7 +2,7 @@
  * Pi Session Lifecycle Integration Tests
  *
  * Tests the 4 session lifecycle operations that were migrated from
- * AgentSession to our bridge-level implementation (Pi SDK v0.65.2):
+ * AgentSession to our bridge-level implementation (Pi SDK v1.1.0):
  *
  *   1. createNewSession  — create a fresh empty session
  *   2. switchToSession   — switch to an existing session by path
@@ -30,12 +30,12 @@ import * as pi from "../connectors/pi";
 let testCwd: string;
 
 /** Providers with credentials configured in ~/.pi/agent/auth.json. */
-const configuredProviders = pi.getAuthStorage().list();
+const configuredProviders = await pi.listConfiguredProviders();
 const hasConfiguredProvider = configuredProviders.length > 0;
 
 /** Pick the cheapest available model from a provider that has credentials configured. */
-function pickCheapModel(): { provider: string; modelId: string } | undefined {
-	const models = pi.listAvailableModels().filter((m) => configuredProviders.includes(m.provider));
+async function pickCheapModel(): Promise<{ provider: string; modelId: string } | undefined> {
+	const models = (await pi.listAvailableModels()).filter((m) => configuredProviders.includes(m.provider));
 	// Prefer haiku (cheapest), then any flash/lite model, then first available
 	const preferred = ["haiku", "flash-lite", "flash", "mini"];
 	for (const hint of preferred) {
@@ -80,7 +80,7 @@ afterAll(() => {
 
 describe.skipIf(!hasConfiguredProvider)("Pi Session Lifecycle", () => {
 	test("can create instance and verify initial state", async () => {
-		const model = pickCheapModel();
+		const model = await pickCheapModel();
 		if (!model) {
 			console.warn("No Pi models available — skipping lifecycle tests");
 			return;

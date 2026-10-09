@@ -104,6 +104,7 @@ export type PiSubagentInvocationPayload = {
 export type PiStreamMessage =
 	| { type: "agent-start" }
 	| { type: "agent-end"; messages: any[] }
+	| { type: "agent-settled"; aborted: boolean }
 	| { type: "turn-start" }
 	| { type: "turn-end"; message: any; toolResults: any[] }
 	| { type: "message-start"; message: any }
@@ -120,6 +121,16 @@ export type PiStreamMessage =
 	| { type: "compaction-end"; aborted: boolean; willRetry: boolean; errorMessage?: string }
 	| { type: "retry-start"; attempt: number; maxAttempts: number; delayMs: number; errorMessage: string }
 	| { type: "retry-end"; success: boolean; attempt: number; finalError?: string }
+	| {
+			type: "summarization-retry-scheduled";
+			attempt: number;
+			maxAttempts: number;
+			delayMs: number;
+			errorMessage: string;
+	  }
+	| { type: "summarization-retry-finished" }
+	| { type: "thinking-level-changed"; level: string }
+	| { type: "session-info-changed"; name: string | null }
 	| { type: "extension-ui-request"; id: string; method: string; [key: string]: any }
 	| { type: "error"; message: string; code?: string }
 	| { type: "bash-output"; content: string }

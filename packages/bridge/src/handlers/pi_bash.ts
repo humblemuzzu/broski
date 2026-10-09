@@ -1,11 +1,9 @@
 import * as pi from "../connectors/pi";
 import type { ServerMessage } from "../types";
-import type { BroskiRuntimeEvent } from "../types/runtime";
 
 type Reply = (message: ServerMessage) => void;
-type Broadcast = (message: ServerMessage) => void;
 
-export async function handle(message: any, reply: Reply, broadcast: Broadcast): Promise<boolean> {
+export async function handle(message: any, reply: Reply): Promise<boolean> {
 	const cwd =
 		typeof message?.projectPath === "string" && message.projectPath.trim()
 			? message.projectPath.trim()
@@ -28,26 +26,8 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
 
 			const excludeFromContext = message.excludeFromContext === true;
 
-			// Stream output chunks to the client via runtime_event (Phase 4)
-			const onChunk = (chunk: string) => {
-				const sessionId = instance.session.sessionId;
-				const runtimeEvent: BroskiRuntimeEvent = {
-					type: "backend_event",
-					backend: "pi",
-					timestampMs: Date.now(),
-					sessionId,
-					kind: "bash-output",
-					payload: { content: chunk },
-				};
-				broadcast({
-					type: "runtime_event",
-					backend: "pi",
-					data: runtimeEvent,
-				});
-			};
-
 			try {
-				const result = await instance.session.executeBash(command, onChunk, { excludeFromContext });
+				const result = await instance.session.executeBash(command, undefined, { excludeFromContext });
 				reply({
 					type: "pi_bash_result",
 					data: {

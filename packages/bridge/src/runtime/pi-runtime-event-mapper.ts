@@ -38,6 +38,12 @@ export function mapPiStreamToRuntimeEvent(
 				}),
 			};
 
+		case "agent-settled":
+			return baseEvent("agent_finished", ctx, {
+				sourceType: piEvent.type,
+				aborted: piEvent.aborted,
+			});
+
 		case "text-delta":
 			return {
 				...baseEvent("assistant_text_delta", ctx, { sourceType: piEvent.type }),
@@ -110,6 +116,39 @@ export function mapPiStreamToRuntimeEvent(
 				...(piEvent.finalError ? { finalError: piEvent.finalError } : {}),
 			};
 
+		case "summarization-retry-scheduled":
+			return {
+				...baseEvent("retry_started", ctx, { sourceType: piEvent.type }),
+				attempt: piEvent.attempt,
+				maxAttempts: piEvent.maxAttempts,
+				delayMs: piEvent.delayMs,
+				errorMessage: piEvent.errorMessage,
+			};
+
+		case "summarization-retry-finished":
+			return baseEvent("retry_finished", ctx, { sourceType: piEvent.type });
+
+		case "queue-update":
+			return {
+				...baseEvent("backend_event", ctx),
+				kind: "queue-update",
+				payload: { steering: piEvent.steering, followUp: piEvent.followUp },
+			};
+
+		case "thinking-level-changed":
+			return {
+				...baseEvent("backend_event", ctx),
+				kind: "thinking-level-changed",
+				payload: { level: piEvent.level },
+			};
+
+		case "session-info-changed":
+			return {
+				...baseEvent("backend_event", ctx),
+				kind: "session-info-changed",
+				payload: { name: piEvent.name },
+			};
+
 		case "error":
 			return {
 				...baseEvent("error", ctx, { sourceType: piEvent.type }),
@@ -144,6 +183,13 @@ export function mapPiStreamToRuntimeEvent(
 					content: piEvent.content,
 					timestamp: piEvent.timestamp,
 				},
+			};
+
+		case "bash-output":
+			return {
+				...baseEvent("backend_event", ctx),
+				kind: "bash-output",
+				payload: { content: piEvent.content },
 			};
 
 		case "tool-call-start":

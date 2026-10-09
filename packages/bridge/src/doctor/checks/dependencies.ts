@@ -7,7 +7,7 @@ import type { CheckResult } from "../types";
 const OPENCODE_FIX = "Install OpenCode: curl -fsSL https://opencode.ai/install | bash (or bun add -g opencode-ai)";
 const CLAUDE_FIX = "Install Claude Code: curl -fsSL https://claude.ai/install.sh | bash";
 const CODEX_FIX = "Install Codex: npm i -g @openai/codex";
-const PI_FIX = "Install Pi: npm i -g @mariozechner/pi-coding-agent";
+const PI_FIX = "Install Pi: npm i -g @earendil-works/pi-coding-agent";
 
 export async function runDependencyChecks(): Promise<CheckResult[]> {
 	const results: CheckResult[] = [];

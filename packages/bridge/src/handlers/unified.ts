@@ -172,7 +172,7 @@ export async function handle(message: any, reply: Reply, ctx: UnifiedContext): P
 				}
 				case "pi": {
 					const piMod = await import("../connectors/pi");
-					data = piMod.listAvailableModels();
+					data = await piMod.listAvailableModels();
 					break;
 				}
 			}

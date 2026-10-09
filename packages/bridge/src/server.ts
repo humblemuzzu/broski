@@ -2776,6 +2776,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			void uninstallCcHook(logInfo).catch(() => {});
 			void uninstallCxHook(logInfo).catch(() => {});
 			pi.disposeAll();
+			piFeatures.stopAllPiExternalTails();
 			try {
 				secureServer.stop(force);
 			} catch {

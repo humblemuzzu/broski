@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
-import type { ThinkingLevel } from "@mariozechner/pi-agent-core";
-import type { Model } from "@mariozechner/pi-ai";
+import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
+import type { Model } from "@earendil-works/pi-ai/compat";
 import * as pi from "../connectors/pi";
 import { type PiExternalTailContext, startPiExternalTail } from "../connectors/pi/pi-external-tail";
 import { mapPiStreamToRuntimeEvent } from "../runtime/pi-runtime-event-mapper";
@@ -17,7 +17,7 @@ import * as piBash from "./pi_bash";
 import * as piCustomMessage from "./pi_custom_message";
 import * as piLabels from "./pi_labels";
 import * as piSessionMessages from "./pi_session_messages";
-import { sendPiRuntimeEvent } from "./pi_stream_delivery";
+import { isPiStateChangingEvent } from "./pi_state_events";
 import * as piTools from "./pi_tools";
 import * as piTree from "./pi_tree";
 
@@ -55,6 +55,7 @@ const parseThinkingLevel = (value: unknown): ThinkingLevel => {
 		case "medium":
 		case "high":
 		case "xhigh":
+		case "max":
 			return normalized;
 		default:
 			throw new Error(`Invalid Pi thinking level: ${String(value)}`);
@@ -184,7 +185,7 @@ async function ensureStreamBridge(cwd: string, broadcast: Broadcast, force = fal
 
 		// Keep runtime_state authoritative. On start/end/error we publish a fresh
 		// snapshot so the client never gets stuck in streaming state.
-		if (streamMessage.type === "agent-end" || streamMessage.type === "agent-start" || streamMessage.type === "error") {
+		if (isPiStateChangingEvent(streamMessage)) {
 			const state = pi.mapStatePayload(liveInstance);
 			broadcast({
 				type: "runtime_state",
@@ -299,7 +300,8 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
 	if (await piSessionMessages.handle(message, reply)) return true;
 	if (await piTools.handle(message, reply)) return true;
 	if (await piAbort.handle(message, reply)) return true;
-	if (await piBash.handle(message, reply, broadcast)) return true;
+	if (message.type === "pi_execute_bash") await ensureStreamBridge(cwd, broadcast);
+	if (await piBash.handle(message, reply)) return true;
 	if (await piLabels.handle(message, reply)) return true;
 	if (await piTree.handle(message, reply)) return true;
 	if (await piCustomMessage.handle(message, reply)) return true;
@@ -425,7 +427,7 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
 		}
 
 		case "pi_list_models": {
-			const models = pi.listAvailableModels();
+			const models = await pi.listAvailableModels();
 			reply({ type: "pi_models", data: models, requestId: message.requestId });
 			// Use broadcast (not reply) for runtime_models so the message doesn't
 			// carry the request-specific requestId, which would pollute the Flutter
@@ -435,7 +437,7 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
 		}
 
 		case "pi_set_model": {
-			const model = pi.getModelRegistry().find(String(message.provider ?? ""), String(message.modelId ?? ""));
+			const model = await pi.findModel(String(message.provider ?? ""), String(message.modelId ?? ""));
 			if (!model) {
 				throw new Error(`Pi model not found: ${String(message.provider ?? "")}/${String(message.modelId ?? "")}`);
 			}
@@ -512,7 +514,7 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
 			const desiredName = typeof message.name === "string" && message.name.trim() ? message.name.trim() : undefined;
 			let desiredModel: Model<any> | undefined;
 			if (typeof message.provider === "string" && typeof message.modelId === "string") {
-				desiredModel = pi.getModelRegistry().find(message.provider, message.modelId);
+				desiredModel = await pi.findModel(message.provider, message.modelId);
 			}
 			const desiredThinkingLevel =
 				typeof message.thinkingLevel === "string" ? parseThinkingLevel(message.thinkingLevel) : undefined;
@@ -585,7 +587,7 @@ export async function handle(message: any, reply: Reply, broadcast: Broadcast): 
 			const instance = await pi.getOrCreateInstance(cwd);
 			reply({
 				type: "pi_messages",
-				data: instance.session.messages.map(pi.mapAgentMessage),
+				data: pi.mapAgentMessages(instance.session.messages),
 				requestId: message.requestId,
 			});
 			return true;

@@ -10,7 +10,6 @@ const EVENT_TTL_MS = 60_000;
 const piWatchersBySessionId = new Map<string, Set<ServerWebSocket<unknown>>>();
 const piSessionIdBySocket = new Map<ServerWebSocket<unknown>, string>();
 const piEventBuffers = new Map<string, Array<{ message: ServerMessage; ts: number }>>();
-const piSendQueues = new Map<ServerWebSocket<unknown>, { messages: ServerMessage[]; timer: Timer | null }>();
 
 function send(ws: ServerWebSocket<unknown>, message: ServerMessage): boolean {
 	try {
@@ -19,52 +18,6 @@ function send(ws: ServerWebSocket<unknown>, message: ServerMessage): boolean {
 	} catch {
 		return false;
 	}
-}
-
-function isBatchablePiRuntimeMessage(message: ServerMessage): boolean {
-	return (
-		message.type === "runtime_event" &&
-		(message.data?.type === "assistant_text_delta" ||
-			message.data?.type === "assistant_thinking_delta" ||
-			message.data?.type === "tool_updated")
-	);
-}
-
-function flushPiSendQueue(ws: ServerWebSocket<unknown>): boolean {
-	const state = piSendQueues.get(ws);
-	if (!state || state.messages.length === 0) return true;
-	if (state.timer) {
-		clearTimeout(state.timer);
-		state.timer = null;
-	}
-	const messages = state.messages.splice(0, state.messages.length);
-	if (messages.length === 1) {
-		return send(ws, messages[0]!);
-	}
-	return send(ws, {
-		type: "batch",
-		messages,
-		count: messages.length,
-		timestamp: Date.now(),
-	} as ServerMessage);
-}
-
-function enqueuePiRuntimeMessage(ws: ServerWebSocket<unknown>, message: ServerMessage): boolean {
-	if (!isBatchablePiRuntimeMessage(message)) {
-		return send(ws, message);
-	}
-	const state = piSendQueues.get(ws) ?? { messages: [], timer: null };
-	state.messages.push(message);
-	if (!state.timer) {
-		state.timer = setTimeout(() => {
-			const ok = flushPiSendQueue(ws);
-			if (!ok) {
-				piSendQueues.delete(ws);
-			}
-		}, 6);
-	}
-	piSendQueues.set(ws, state);
-	return true;
 }
 
 function trimBuffer(sessionId: string): void {
@@ -80,13 +33,6 @@ function trimBuffer(sessionId: string): void {
 		recent.splice(0, recent.length - SESSION_EVENT_BUFFER_SIZE);
 	}
 	piEventBuffers.set(sessionId, recent);
-}
-
-function bufferEvent(sessionId: string, message: ServerMessage): void {
-	const existing = piEventBuffers.get(sessionId) ?? [];
-	existing.push({ message, ts: Date.now() });
-	piEventBuffers.set(sessionId, existing);
-	trimBuffer(sessionId);
 }
 
 export function registerPiWatcher(ws: ServerWebSocket<unknown>, sessionId: string): void {
@@ -111,37 +57,32 @@ export function unregisterPiWatcher(ws: ServerWebSocket<unknown>): void {
 			}
 		}
 	}
-	const queue = piSendQueues.get(ws);
-	if (queue?.timer) {
-		clearTimeout(queue.timer);
-	}
-	piSendQueues.delete(ws);
 }
 
-export function sendPiRuntimeEvent(sessionId: string, message: ServerMessage): void {
-	trimBuffer(sessionId);
-	const watchers = piWatchersBySessionId.get(sessionId);
-	if (!watchers || watchers.size === 0) {
-		bufferEvent(sessionId, message);
-		return;
-	}
+/** Number of connected sockets currently viewing a Pi session. */
+export function countPiWatchers(sessionId: string): number {
+	return piWatchersBySessionId.get(sessionId.trim())?.size ?? 0;
+}
 
-	let delivered = 0;
-	for (const watcher of [...watchers]) {
-		if (enqueuePiRuntimeMessage(watcher, message)) {
-			delivered += 1;
-			continue;
+/**
+ * Forget watchers whose socket is no longer connected, since nothing calls
+ * unregisterPiWatcher on disconnect. Returns the sessions that lost their last
+ * watcher so callers can release session-scoped resources (external tails).
+ */
+export function prunePiWatchers(isLive: (ws: ServerWebSocket<unknown>) => boolean): string[] {
+	const orphaned: string[] = [];
+	for (const [sessionId, watchers] of piWatchersBySessionId) {
+		for (const ws of [...watchers]) {
+			if (isLive(ws)) continue;
+			watchers.delete(ws);
+			piSessionIdBySocket.delete(ws);
 		}
-		watchers.delete(watcher);
-		piSessionIdBySocket.delete(watcher);
+		if (watchers.size === 0) {
+			piWatchersBySessionId.delete(sessionId);
+			orphaned.push(sessionId);
+		}
 	}
-
-	if (watchers.size === 0) {
-		piWatchersBySessionId.delete(sessionId);
-	}
-	if (delivered === 0) {
-		bufferEvent(sessionId, message);
-	}
+	return orphaned;
 }
 
 export function replayPiRuntimeEvents(ws: ServerWebSocket<unknown>, sessionId: string): number {

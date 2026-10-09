@@ -27,7 +27,7 @@ import { getInstance, getOrCreateInstance } from "../pi";
  * NOT subagents — they are regular file/shell operations that the model
  * calls directly without spawning a child agent.
  *
- * Source: verified against @mariozechner/pi-agent-core built-in tool set
+ * Source: verified against @earendil-works/pi-agent-core built-in tool set
  * and cross-checked against real session JSONL tool names.
  */
 const BUILTIN_TOOL_NAMES = new Set<string>([

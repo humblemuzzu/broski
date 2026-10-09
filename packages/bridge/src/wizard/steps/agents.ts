@@ -97,7 +97,7 @@ export async function runAgentsStep(prompter: WizardPrompter, options: { isQuick
 			{
 				value: "pi",
 				label: `Pi ${detected.pi.found ? success("(detected)") : warning("(not found)")}`,
-				hint: detected.pi.found ? (detected.pi.path ?? undefined) : "npm i -g @mariozechner/pi-coding-agent",
+				hint: detected.pi.found ? (detected.pi.path ?? undefined) : "npm i -g @earendil-works/pi-coding-agent",
 			},
 		],
 	});
@@ -118,7 +118,7 @@ export async function runAgentsStep(prompter: WizardPrompter, options: { isQuick
 		warnings.push(`  ${warning("⚠")} Codex not found. Install: ${bold("npm i -g @openai/codex")}`);
 	}
 	if (selected.includes("pi") && !detected.pi.found) {
-		warnings.push(`  ${warning("⚠")} Pi not found. Install: ${bold("npm i -g @mariozechner/pi-coding-agent")}`);
+		warnings.push(`  ${warning("⚠")} Pi not found. Install: ${bold("npm i -g @earendil-works/pi-coding-agent")}`);
 	}
 	if (warnings.length > 0) {
 		await prompter.note(warnings.join("\n"), "Missing Agents");

@@ -1,22 +1,20 @@
 import { copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { basename, join, resolve, sep } from "node:path";
-import type { ThinkingLevel } from "@mariozechner/pi-agent-core";
-import type { Model } from "@mariozechner/pi-ai";
+import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
+import type { Model } from "@earendil-works/pi-ai/compat";
 import {
 	type AgentSession,
 	type AgentSessionEvent,
-	AuthStorage,
 	createAgentSession,
 	DefaultResourceLoader,
 	getAgentDir,
-	ModelRegistry,
 	type SessionInfo,
 	SessionManager,
 	type SessionStartEvent,
 	SettingsManager,
 	VERSION,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import type {
 	PiCommandPayload,
 	PiForkMessagePayload,
@@ -26,7 +24,17 @@ import type {
 	ProjectSummary,
 } from "../types";
 import type { PiBridgeSyntheticEvent } from "./pi/pi-events";
-import { computePiSessionStats } from "./pi/pi-session-stats";
+import {
+	ensurePiModelRuntime,
+	findModel,
+	listAllModels,
+	listAvailableModels,
+	listConfiguredProviders,
+	logPiModelRuntimeErrors,
+	mapPiModel,
+	refreshModels,
+} from "./pi/pi-model-runtime";
+import { enrichPiSessionsWithStats } from "./pi/pi-session-enrich";
 import {
 	createPiExtensionUiBridge,
 	type PiExtensionUiBridge,
@@ -66,8 +74,7 @@ export type PiActiveRuntimeState = {
 	state: PiStatePayload;
 };
 
-let authStorage: AuthStorage | null = null;
-let modelRegistry: ModelRegistry | null = null;
+type PiSessionRebuildEvent = SessionStartEvent & { reason: "reload" | "new" | "resume" | "fork" };
 
 const instances = new Map<string, PiInstance>();
 
@@ -77,27 +84,6 @@ const normalizeCwd = (cwd?: string): string => {
 };
 
 const getSessionsRoot = (): string => resolve(getAgentDir(), "sessions");
-
-export function getAuthStorage(): AuthStorage {
-	if (!authStorage) {
-		authStorage = AuthStorage.create();
-	}
-	return authStorage;
-}
-
-export function getModelRegistry(): ModelRegistry {
-	if (!modelRegistry) {
-		modelRegistry = ModelRegistry.create(getAuthStorage());
-	}
-	return modelRegistry!;
-}
-
-const drainAuthStorageErrors = (): void => {
-	const errors = getAuthStorage().drainErrors();
-	for (const error of errors) {
-		console.warn(`[pi-auth-storage] ${error.message}`);
-	}
-};
 
 // ── Session lifecycle helpers ────────────────────────────────────────────────
 
@@ -183,13 +169,13 @@ async function bindExtensionsOnSession(instance: PiInstance, session: AgentSessi
 async function rebuildInstanceSession(
 	instance: PiInstance,
 	sessionManager: SessionManager,
-	sessionStartEvent?: SessionStartEvent,
+	sessionStartEvent: PiSessionRebuildEvent,
 ): Promise<void> {
 	// 1. Emit shutdown to old extensions (best-effort)
 	try {
 		const runner = instance.session.extensionRunner;
 		if (runner) {
-			await runner.emit({ type: "session_shutdown" as const });
+			await runner.emit({ type: "session_shutdown", reason: sessionStartEvent.reason });
 		}
 	} catch {
 		// Shutdown event failure should not block rebuild.
@@ -206,8 +192,7 @@ async function rebuildInstanceSession(
 	// 4. Create new session
 	const { session } = await createAgentSession({
 		cwd: instance.cwd,
-		authStorage: getAuthStorage(),
-		modelRegistry: getModelRegistry(),
+		modelRuntime: await ensurePiModelRuntime(),
 		sessionManager,
 		settingsManager: instance.settingsManager,
 		resourceLoader: instance.resourceLoader,
@@ -258,7 +243,7 @@ export async function createNewSession(
 
 	if (setupOptions?.setup) {
 		await setupOptions.setup(instance.session.sessionManager);
-		instance.session.agent.state.messages = instance.session.sessionManager.buildSessionContext().messages;
+		instance.session.refreshContext();
 	}
 
 	return { cancelled: false };
@@ -404,22 +389,22 @@ export async function importFromJsonl(instance: PiInstance, inputPath: string): 
 
 async function buildInstance(cwd: string, options?: GetOrCreatePiOptions): Promise<PiInstance> {
 	const settingsManager = SettingsManager.create(cwd);
-	const resourceLoader = new DefaultResourceLoader({ cwd, settingsManager });
+	const resourceLoader = new DefaultResourceLoader({ cwd, agentDir: getAgentDir(), settingsManager });
 	await resourceLoader.reload();
 
 	const sessionManager = options?.sessionPath
 		? SessionManager.open(options.sessionPath)
 		: SessionManager.continueRecent(cwd);
 
-	const registry = getModelRegistry();
-	const model = options?.provider && options.modelId ? registry.find(options.provider, options.modelId) : undefined;
+	const modelRuntime = await ensurePiModelRuntime();
+	const model =
+		options?.provider && options.modelId ? modelRuntime.getModel(options.provider, options.modelId) : undefined;
 
 	const { session } = await createAgentSession({
 		cwd,
 		model,
 		thinkingLevel: options?.thinkingLevel,
-		authStorage: getAuthStorage(),
-		modelRegistry: registry,
+		modelRuntime,
 		sessionManager,
 		settingsManager,
 		resourceLoader,
@@ -463,7 +448,7 @@ export async function getOrCreateInstance(cwd?: string, options?: GetOrCreatePiO
 		}
 
 		if (options?.provider && options.modelId) {
-			const model = getModelRegistry().find(options.provider, options.modelId);
+			const model = await findModel(options.provider, options.modelId);
 			if (model) {
 				await existing.session.setModel(model);
 			}
@@ -575,22 +560,11 @@ export async function listProjects(): Promise<ProjectSummary[]> {
 		}));
 }
 
-export function listAvailableModels(): PiModelPayload[] {
-	return getModelRegistry().getAvailable().map(mapModel);
-}
-
-export function listAllModels(): PiModelPayload[] {
-	return getModelRegistry().getAll().map(mapModel);
-}
-
-export function refreshModels(): void {
-	getModelRegistry().refresh();
-}
-
 export async function isPiAvailable(): Promise<PiAvailability> {
 	try {
-		const models = getModelRegistry().getAvailable();
-		drainAuthStorageErrors();
+		const runtime = await ensurePiModelRuntime();
+		logPiModelRuntimeErrors(runtime);
+		const models = runtime.getAvailableSnapshot();
 		return {
 			available: true,
 			authenticated: models.length > 0,
@@ -598,7 +572,6 @@ export async function isPiAvailable(): Promise<PiAvailability> {
 			version: VERSION,
 		};
 	} catch {
-		drainAuthStorageErrors();
 		return {
 			available: false,
 			authenticated: false,
@@ -742,47 +715,12 @@ export function mapSessionInfo(session: SessionInfo): PiSessionInfo {
 	};
 }
 
-/** Enrich a list of Pi sessions with diff stats and subagent tool counts (parallel, cached by mtime). */
 export async function enrichSessionsWithStats(sessions: PiSessionInfo[]): Promise<void> {
-	const { countSubagentTools } = await import("./pi/pi-session-stats");
-	await Promise.all(
-		sessions.map(async (session) => {
-			if (!session.path) return;
-			const [summary, toolCount] = await Promise.all([
-				computePiSessionStats(session.path),
-				countSubagentTools(session.path),
-			]);
-			if (summary && (summary.additions > 0 || summary.deletions > 0 || summary.files > 0)) {
-				session.summary = summary;
-			}
-			if (toolCount > 0) {
-				session.subagentToolCount = toolCount;
-			}
-		}),
-	);
+	return enrichPiSessionsWithStats(sessions);
 }
 
 export function mapModel(model: Model<any>): PiModelPayload {
-	return {
-		id: model.id,
-		name: model.name,
-		provider: model.provider,
-		api: String(model.api),
-		contextWindow: Number(model.contextWindow ?? 0),
-		maxTokens: Number(model.maxTokens ?? 0),
-		reasoning: Boolean(model.reasoning),
-		input: Array.isArray(model.input) ? model.input.map((entry) => String(entry)) : ["text"],
-		cost: {
-			input: Number(model.cost?.input ?? 0),
-			output: Number(model.cost?.output ?? 0),
-			cacheRead: Number(model.cost?.cacheRead ?? 0),
-			cacheWrite: Number(model.cost?.cacheWrite ?? 0),
-		},
-		authenticated: getModelRegistry()
-			.getAvailable()
-			.some((m) => m.id === model.id && m.provider === model.provider),
-		isOAuth: getModelRegistry().isUsingOAuth(model),
-	};
+	return mapPiModel(model);
 }
 
 /**
@@ -838,4 +776,5 @@ export function isSessionActivelyStreaming(sessionId: string): boolean {
 	return false;
 }
 
-export { mapAgentMessage, mapToolResult, translateEvent } from "./pi/pi-events";
+export { mapAgentMessage, mapAgentMessages, mapToolResult, translateEvent } from "./pi/pi-events";
+export { findModel, listAllModels, listAvailableModels, listConfiguredProviders, refreshModels };
