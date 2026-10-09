@@ -17,6 +17,10 @@ export type GetOrCreatePiOptions = {
 	modelId?: string;
 	thinkingLevel?: ThinkingLevel;
 	sessionPath?: string;
+	/** Root holding one session directory per cwd. Defaults to <agentDir>/sessions. */
+	sessionRoot?: string;
+	/** Skip extensions from the user's pi settings and packages. Defaults to false. */
+	noExtensions?: boolean;
 };
 
 export type PiAvailability = {

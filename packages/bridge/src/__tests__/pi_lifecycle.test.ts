@@ -29,9 +29,17 @@ import * as pi from "../connectors/pi";
 /** Temp directory used as cwd for all tests. Cleaned up after. */
 let testCwd: string;
 
+/** Temp sessions root — keeps test sessions out of ~/.pi/agent/sessions. */
+let sessionRoot: string;
+
 /** Providers with credentials configured in ~/.pi/agent/auth.json. */
 const configuredProviders = await pi.listConfiguredProviders();
 const hasConfiguredProvider = configuredProviders.length > 0;
+
+/** Every instance in this suite reads credentials from the real agent dir, but stores sessions in the temp root. */
+function getInstance(options: pi.GetOrCreatePiOptions = {}): Promise<PiInstance> {
+	return pi.getOrCreateInstance(testCwd, { sessionRoot, noExtensions: true, ...options });
+}
 
 /** Pick the cheapest available model from a provider that has credentials configured. */
 async function pickCheapModel(): Promise<{ provider: string; modelId: string } | undefined> {
@@ -64,6 +72,7 @@ function collectEvents(instance: PiInstance, durationMs = 500): Promise<string[]
 
 beforeAll(() => {
 	testCwd = mkdtempSync(join(tmpdir(), "broski-pi-lifecycle-"));
+	sessionRoot = mkdtempSync(join(tmpdir(), "broski-pi-lifecycle-sessions-"));
 	mkdirSync(testCwd, { recursive: true });
 });
 
@@ -71,6 +80,7 @@ afterAll(() => {
 	pi.disposeAll();
 	try {
 		rmSync(testCwd, { recursive: true, force: true });
+		rmSync(sessionRoot, { recursive: true, force: true });
 	} catch {
 		// best-effort cleanup
 	}
@@ -86,7 +96,7 @@ describe.skipIf(!hasConfiguredProvider)("Pi Session Lifecycle", () => {
 			return;
 		}
 
-		const instance = await pi.getOrCreateInstance(testCwd, model);
+		const instance = await getInstance(model);
 
 		expect(instance).toBeDefined();
 		expect(instance.cwd).toBe(resolve(testCwd));
@@ -100,7 +110,7 @@ describe.skipIf(!hasConfiguredProvider)("Pi Session Lifecycle", () => {
 	}, 30_000);
 
 	test("createNewSession — creates a fresh session with new ID", async () => {
-		const instance = await pi.getOrCreateInstance(testCwd);
+		const instance = await getInstance();
 		const oldSessionId = instance.session.sessionId;
 		const oldSessionFile = instance.session.sessionFile;
 
@@ -122,7 +132,7 @@ describe.skipIf(!hasConfiguredProvider)("Pi Session Lifecycle", () => {
 	}, 30_000);
 
 	test("createNewSession — event subscription survives rebuild", async () => {
-		const instance = await pi.getOrCreateInstance(testCwd);
+		const instance = await getInstance();
 		let eventReceived = false;
 
 		// Add listener BEFORE rebuild
@@ -139,7 +149,7 @@ describe.skipIf(!hasConfiguredProvider)("Pi Session Lifecycle", () => {
 	}, 30_000);
 
 	test("switchToSession — switches to a different session and back", async () => {
-		const instance = await pi.getOrCreateInstance(testCwd);
+		const instance = await getInstance();
 
 		// Create session A
 		await pi.createNewSession(instance);
@@ -169,7 +179,7 @@ describe.skipIf(!hasConfiguredProvider)("Pi Session Lifecycle", () => {
 	}, 60_000);
 
 	test("prompt + createNewSession — messages reset after new session", async () => {
-		const instance = await pi.getOrCreateInstance(testCwd);
+		const instance = await getInstance();
 		await pi.createNewSession(instance);
 
 		// Send a short prompt
@@ -196,7 +206,7 @@ describe.skipIf(!hasConfiguredProvider)("Pi Session Lifecycle", () => {
 	}, 60_000);
 
 	test("forkSession — forks from a user message", async () => {
-		const instance = await pi.getOrCreateInstance(testCwd);
+		const instance = await getInstance();
 		await pi.createNewSession(instance);
 
 		// Send a prompt to create a user message we can fork from
@@ -232,7 +242,7 @@ describe.skipIf(!hasConfiguredProvider)("Pi Session Lifecycle", () => {
 	}, 60_000);
 
 	test("importFromJsonl — imports a session file", async () => {
-		const instance = await pi.getOrCreateInstance(testCwd);
+		const instance = await getInstance();
 		await pi.createNewSession(instance);
 
 		// Create a minimal valid JSONL file to import
@@ -258,7 +268,7 @@ describe.skipIf(!hasConfiguredProvider)("Pi Session Lifecycle", () => {
 	}, 30_000);
 
 	test("deleteSession — deleting active session triggers new session", async () => {
-		const instance = await pi.getOrCreateInstance(testCwd);
+		const instance = await getInstance();
 		await pi.createNewSession(instance);
 
 		// Send a prompt so the session gets persisted to disk
@@ -280,7 +290,7 @@ describe.skipIf(!hasConfiguredProvider)("Pi Session Lifecycle", () => {
 		if (sessionFile) {
 			expect(existsSync(sessionFile)).toBe(true);
 
-			const deleted = await pi.deleteSession(sessionFile);
+			const deleted = await pi.deleteSession(sessionFile, { root: sessionRoot });
 			expect(deleted).toBe(true);
 
 			// After deleting the active session, a new session should have been created
@@ -289,7 +299,7 @@ describe.skipIf(!hasConfiguredProvider)("Pi Session Lifecycle", () => {
 	}, 60_000);
 
 	test("mapStatePayload — returns valid state after lifecycle operations", async () => {
-		const instance = await pi.getOrCreateInstance(testCwd);
+		const instance = await getInstance();
 
 		// After any lifecycle operation, state should be self-consistent
 		await pi.createNewSession(instance);
@@ -303,7 +313,7 @@ describe.skipIf(!hasConfiguredProvider)("Pi Session Lifecycle", () => {
 	}, 30_000);
 
 	test("multiple rapid createNewSession — no crash or leak", async () => {
-		const instance = await pi.getOrCreateInstance(testCwd);
+		const instance = await getInstance();
 		const sessionIds = new Set<string>();
 
 		// Rapid-fire 5 new sessions
@@ -320,7 +330,7 @@ describe.skipIf(!hasConfiguredProvider)("Pi Session Lifecycle", () => {
 	}, 60_000);
 
 	test("listSessions — session with content appears in list", async () => {
-		const instance = await pi.getOrCreateInstance(testCwd);
+		const instance = await getInstance();
 		await pi.createNewSession(instance);
 
 		// Send a prompt so the session has content and is fully persisted
@@ -338,7 +348,7 @@ describe.skipIf(!hasConfiguredProvider)("Pi Session Lifecycle", () => {
 		const currentFile = instance.session.sessionFile;
 		expect(currentFile).toBeTruthy();
 
-		const sessions = await pi.listSessions(testCwd);
+		const sessions = await pi.listSessions(testCwd, { root: sessionRoot });
 		const paths = sessions.map((s) => s.path);
 
 		// Session with content should appear in the list

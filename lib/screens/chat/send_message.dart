@@ -18,6 +18,7 @@ import 'package:broski/providers/selection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/screens/chat/codex_slash_commands.dart';
 import 'package:broski/screens/chat/pi_bang_command.dart';
+import 'package:broski/screens/chat/pi_durable_chat_actions.dart';
 import 'package:broski/utils/opencode_id.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -78,6 +79,21 @@ void sendMessage({
   final hasAttachments = attachedFiles.isNotEmpty;
   if (text.isEmpty && !hasAttachments) return;
   if (!connection.isConnected) return;
+
+  // Pi Durable owns its own send path (pd_chat with an exactly-once requestId).
+  if (ref.read(chatSessionProvider).isPiDurable) {
+    final sent = sendPiDurableMessage(
+      ref: ref,
+      text: text,
+      attachedFiles: attachedFiles,
+    );
+    if (sent) {
+      controller.clear();
+      clearAttachments();
+      scrollToBottom();
+    }
+    return;
+  }
 
   // Check for streaming state (different per agent)
   if (isClaudeCode) {

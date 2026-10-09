@@ -55,8 +55,13 @@ extension PiStreamHandler on ChatSessionNotifier {
     state = state.copyWith(piIsStreaming: streaming);
   }
 
-  /// Hydrate Pi transcript from raw bridge messages
-  void hydratePiTranscript(List<Map<String, dynamic>> items) {
+  /// Hydrate a Pi transcript from raw bridge messages. The durable backend
+  /// emits the same message shapes, so it reuses this path with its own id
+  /// prefix.
+  void hydratePiTranscript(
+    List<Map<String, dynamic>> items, {
+    String idPrefix = 'pi',
+  }) {
     _suppressEmit = true;
     _messages.clear();
     _order.clear();
@@ -78,8 +83,8 @@ extension PiStreamHandler on ChatSessionNotifier {
         lastAssistantMsgId = null;
         final text = item['content'] as String? ?? '';
         final msg = ChatMessage(
-          id: 'pi-${_messages.length}',
-          sessionId: state.piSessionId ?? '',
+          id: '$idPrefix-${_messages.length}',
+          sessionId: state.effectiveSessionId ?? '',
           role: MessageRole.user,
           createdAt: createdAt,
           text: text,
@@ -124,21 +129,21 @@ extension PiStreamHandler on ChatSessionNotifier {
 
         final reasoningParts = <ReasoningPart>[];
         if (thinking != null && thinking.trim().isNotEmpty) {
-          final msgId = 'pi-${_messages.length}';
+          final msgId = '$idPrefix-${_messages.length}';
           reasoningParts.add(
             ReasoningPart(
-              id: 'pi-thinking-${_messages.length}',
+              id: '$idPrefix-thinking-${_messages.length}',
               messageId: msgId,
               text: thinking,
             ),
           );
         }
 
-        final msgId = 'pi-${_messages.length}';
+        final msgId = '$idPrefix-${_messages.length}';
         lastAssistantMsgId = msgId;
         final msg = ChatMessage(
           id: msgId,
-          sessionId: state.piSessionId ?? '',
+          sessionId: state.effectiveSessionId ?? '',
           role: MessageRole.assistant,
           createdAt: createdAt,
           text: text,
@@ -192,8 +197,8 @@ extension PiStreamHandler on ChatSessionNotifier {
       } else if (role == 'bashExecution') {
         final bashCard = piBashTranscriptCard(
           item: item,
-          id: 'pi-${_messages.length}',
-          sessionId: state.piSessionId ?? '',
+          id: '$idPrefix-${_messages.length}',
+          sessionId: state.effectiveSessionId ?? '',
         );
         if (bashCard != null) {
           _messages[bashCard.id] = bashCard;
@@ -202,8 +207,8 @@ extension PiStreamHandler on ChatSessionNotifier {
       } else if (role == 'compactionSummary' || role == 'branchSummary') {
         // Render as a compaction divider
         final msg = ChatMessage(
-          id: 'pi-${_messages.length}',
-          sessionId: state.piSessionId ?? '',
+          id: '$idPrefix-${_messages.length}',
+          sessionId: state.effectiveSessionId ?? '',
           role: MessageRole.system,
           createdAt: createdAt,
           text: item['content'] as String? ?? 'Context compacted',

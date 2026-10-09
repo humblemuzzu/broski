@@ -5,6 +5,7 @@ import { closePiDurableHost, type PiDurableDeps, piDurableAvailability, piDurabl
 import * as ops from "./pi_durable/ops";
 import { parsePiDurableModelRef, parsePiDurableThinkingLevel } from "./pi_durable/read-models";
 import { attachPiDurableView, closePiDurableViews, detachPiDurableView, piDurableViewOf } from "./pi_durable/view";
+import { listPiDurableSkills } from "./unified_pi";
 
 export { piDurableAvailability };
 
@@ -70,6 +71,9 @@ export async function handleUnified(
 			case "unified_list_models":
 				await unifiedListModels(requestId, reply, deps);
 				return true;
+			case "unified_list_skills":
+				await unifiedListSkills(message, requestId, reply);
+				return true;
 			case "unified_set_model":
 				await unifiedSetModel(message, requestId, reply, deps);
 				return true;
@@ -107,6 +111,15 @@ async function unifiedListProjects(requestId: string | undefined, reply: Reply, 
 async function unifiedListModels(requestId: string | undefined, reply: Reply, deps: PiDurableDeps): Promise<void> {
 	const data = await ops.listModels(deps);
 	reply({ type: "unified_models", backend: "pi-durable", data, requestId });
+}
+
+async function unifiedListSkills(
+	message: Record<string, unknown>,
+	requestId: string | undefined,
+	reply: Reply,
+): Promise<void> {
+	const data = await listPiDurableSkills({ cwd: stringField(message, "cwd") });
+	reply({ type: "unified_skills", backend: "pi-durable", data, requestId });
 }
 
 async function unifiedSetModel(

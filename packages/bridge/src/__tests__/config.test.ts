@@ -1,7 +1,7 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdir, rm } from "node:fs/promises";
+import { afterEach, describe, expect, test } from "bun:test";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { resolve } from "node:path";
+import { join } from "node:path";
 import {
 	type BroskiConfig,
 	BroskiConfigSchema,
@@ -11,6 +11,25 @@ import {
 	updateConfig,
 	writeConfig,
 } from "../config";
+
+const tempDirs: string[] = [];
+
+/** Temp config path — config writes must never reach the user's real ~/.broski/config.json. */
+function tempConfigPath(): string {
+	const dir = mkdtempSync(join(tmpdir(), "broski-config-"));
+	tempDirs.push(dir);
+	return join(dir, "config.json");
+}
+
+afterEach(() => {
+	for (const dir of tempDirs.splice(0)) {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+function readPersistedConfig(path: string): BroskiConfig {
+	return JSON.parse(readFileSync(path, "utf-8")) as BroskiConfig;
+}
 
 describe("Config Schema", () => {
 	test("BroskiConfigSchema validates correct config", () => {
@@ -109,24 +128,24 @@ describe("Config Schema", () => {
 
 describe("Default Config", () => {
 	test("getDefaultConfig returns valid config", () => {
-		const config = getDefaultConfig();
-		const result = BroskiConfigSchema.safeParse(config);
+		const defaults = getDefaultConfig();
+		const result = BroskiConfigSchema.safeParse(defaults);
 		expect(result.success).toBe(true);
 	});
 
 	test("getDefaultConfig has expected defaults", () => {
-		const config = getDefaultConfig();
-		expect(config.version).toBe(1);
-		expect(config.wizard.completedSetup).toBe(false);
-		expect(config.network.port).toBe(18274);
-		expect(config.network.mode).toBe("local");
-		expect(config.security.tls).toBe(true);
-		expect(config.security.tokenTtlDays).toBe(7);
-		expect(config.agents.opencode).toBe(true);
-		expect(config.agents.claudeCode).toBe(false);
-		expect(config.agents.codex).toBe(false);
-		expect(config.daemon.installed).toBe(false);
-		expect(config.daemon.type).toBe("none");
+		const defaults = getDefaultConfig();
+		expect(defaults.version).toBe(1);
+		expect(defaults.wizard.completedSetup).toBe(false);
+		expect(defaults.network.port).toBe(18274);
+		expect(defaults.network.mode).toBe("local");
+		expect(defaults.security.tls).toBe(true);
+		expect(defaults.security.tokenTtlDays).toBe(7);
+		expect(defaults.agents.opencode).toBe(true);
+		expect(defaults.agents.claudeCode).toBe(false);
+		expect(defaults.agents.codex).toBe(false);
+		expect(defaults.daemon.installed).toBe(false);
+		expect(defaults.daemon.type).toBe("none");
 	});
 
 	test("getDefaultConfig returns fresh objects", () => {
@@ -151,56 +170,37 @@ describe("Config Path", () => {
 	});
 });
 
-// Temporary directory setup for file tests
-const createTempConfigDir = async () => {
-	const tempDir = resolve(tmpdir(), `broski-test-${Date.now()}`);
-	await mkdir(tempDir, { recursive: true });
-	return tempDir;
-};
-
 describe("Config Read/Write", () => {
-	let tempConfigPath: string;
-
-	beforeEach(async () => {
-		const tempDir = await createTempConfigDir();
-		tempConfigPath = resolve(tempDir, "config.json");
-		// Mock getConfigPath to return our temp path
-		// Note: This would require dependency injection or mocking in a real implementation
-	});
-
-	afterEach(async () => {
-		try {
-			await rm(tempConfigPath, { force: true });
-		} catch {
-			// ignore cleanup errors
-		}
-	});
-
 	test("readConfig returns default config when file missing", async () => {
-		// Since we can't easily mock the config path, we'll test the behavior indirectly
-		// by verifying that readConfig always returns a valid config structure
-		const config = await readConfig();
-		const result = BroskiConfigSchema.safeParse(config);
-		expect(result.success).toBe(true);
+		const path = tempConfigPath();
+
+		const defaults = await readConfig(path);
+
+		expect(BroskiConfigSchema.safeParse(defaults).success).toBe(true);
+		expect(defaults.network.port).toBe(18274);
 	});
 
-	test("writeConfig creates valid JSON", async () => {
+	test("writeConfig persists valid JSON", async () => {
+		const path = tempConfigPath();
 		const config = getDefaultConfig();
 		config.network.port = 8080;
 
-		// Write to temp path directly to test the writeConfig logic
-		await writeConfig(config);
+		await writeConfig(config, path);
 
-		// The actual implementation writes to ~/.broski/config.json
-		// We can only test that the function completes without error
-		// In a real test setup, we'd need dependency injection for the file path
+		const persisted = readPersistedConfig(path);
+		expect(persisted.network.port).toBe(8080);
+		expect(BroskiConfigSchema.safeParse(persisted).success).toBe(true);
+
+		const roundTripped = await readConfig(path);
+		expect(roundTripped.network.port).toBe(8080);
 	});
 });
 
 describe("Config Update", () => {
 	test("updateConfig merges partial config", async () => {
-		// This tests the merge logic indirectly
-		// In practice, it reads current config, merges, validates, and writes back
+		const path = tempConfigPath();
+		await writeConfig(getDefaultConfig(), path);
+
 		const partial: Partial<BroskiConfig> = {
 			network: {
 				port: 9090,
@@ -209,18 +209,13 @@ describe("Config Update", () => {
 			},
 		};
 
-		// Test that we can call updateConfig without errors
-		// The actual file operations use the default config path
-		try {
-			const updated = await updateConfig(partial);
-			expect(updated.network.port).toBe(9090);
-			expect(updated.network.mode).toBe("tailscale");
-			expect(updated.network.enableFunnel).toBe(true);
-		} catch (error) {
-			// Expected if config file doesn't exist or has permission issues
-			// The test at least verifies the function signature and basic validation
-			expect(error).toBeDefined();
-		}
+		const updated = await updateConfig(partial, path);
+		expect(updated.network.port).toBe(9090);
+		expect(updated.network.mode).toBe("tailscale");
+		expect(updated.network.enableFunnel).toBe(true);
+		expect(updated.security.tls).toBe(true);
+
+		expect(readPersistedConfig(path)).toEqual(updated);
 	});
 
 	test("config validation with all network modes", () => {

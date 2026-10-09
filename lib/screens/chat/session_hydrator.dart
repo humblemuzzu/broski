@@ -5,6 +5,7 @@ import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/chat/pi_durable_chat_actions.dart';
 import 'package:broski/screens/chat_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -59,6 +60,14 @@ Future<bool> hydrateSession({
   final chat = ref.read(chatSessionProvider.notifier);
   // Reset pagination state
   setPaginationState(loadingMore: false, loadedAll: false);
+
+  // Pi Durable: attach the live view and hydrate the committed transcript.
+  if (widget.isPiDurable) {
+    await hydratePiDurableSession(ref: ref, widget: widget);
+    scrollToBottom(animate: false);
+    setPaginationState(loadingMore: false, loadedAll: true);
+    return false;
+  }
 
   // Claude Code mode
   if (widget.isClaudeCode) {

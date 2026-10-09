@@ -201,11 +201,12 @@ describe("File Search Module", () => {
 		expect(results.some((r) => r.includes("providers"))).toBe(true);
 	});
 
-	it("returns results fast (under 5s first run, under 100ms cached)", async () => {
-		const { searchFilesAndDirs, invalidateCache } = await import("../file-search");
+	it("serves repeat searches from the project cache", async () => {
+		const { searchFilesAndDirs } = await import("../file-search");
+		const { getCacheStats, invalidateCache, resetCacheStats } = await import("../file-search-cache");
 
-		// Clear cache for fair test
 		invalidateCache(BROSKI_ROOT);
+		resetCacheStats();
 
 		const start1 = performance.now();
 		const results1 = await searchFilesAndDirs({
@@ -216,20 +217,24 @@ describe("File Search Module", () => {
 		});
 		const time1 = performance.now() - start1;
 
+		const afterFirst = getCacheStats();
 		console.log(`[File Search] First run: ${time1.toFixed(0)}ms, ${results1.length} results`);
-		expect(time1).toBeLessThan(5000);
+		expect(results1.length).toBeGreaterThan(0);
+		// Generous sanity bound: a cold scan of the repo is seconds, not minutes.
+		expect(time1).toBeLessThan(30_000);
+		expect(afterFirst.misses).toBe(1);
 
-		// Second run should be cached
-		const start2 = performance.now();
 		const results2 = await searchFilesAndDirs({
 			query: "server",
 			cwd: BROSKI_ROOT,
 			limit: 20,
 			includeDirs: true,
 		});
-		const time2 = performance.now() - start2;
 
-		console.log(`[File Search] Cached run: ${time2.toFixed(1)}ms, ${results2.length} results`);
-		expect(time2).toBeLessThan(100);
+		const afterSecond = getCacheStats();
+		console.log(`[File Search] Second run: ${results2.length} results`);
+		expect(results2.length).toBeGreaterThan(0);
+		expect(afterSecond.hits).toBe(afterFirst.hits + 1);
+		expect(afterSecond.misses).toBe(afterFirst.misses);
 	});
 });

@@ -121,6 +121,11 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
       _handleRuntimeCxBackendEvent(event);
     }
 
+    if (event case RuntimeBackendEvent()
+        when event.backend == AgentType.piDurable) {
+      _handlePiDurableBackendEvent(event);
+    }
+
     // External user message — prompt typed on Mac terminal, show it on phone
     if (event case RuntimeBackendEvent()
         when event.kind == 'external-user-message') {
@@ -228,6 +233,8 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
         ? AgentType.codex
         : state.isPi
         ? AgentType.pi
+        : state.isPiDurable
+        ? AgentType.piDurable
         : AgentType.opencode;
     if (backend != activeBackend) return false;
 
@@ -340,6 +347,9 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
           piIsStreaming: turn.isStreaming,
           isCompacting: runtimeState?.isCompacting ?? state.isCompacting,
         );
+        break;
+      case AgentType.piDurable:
+        applyPiDurableRuntimeState(runtimeState: runtimeState, turn: turn);
         break;
     }
   }

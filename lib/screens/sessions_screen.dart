@@ -19,6 +19,7 @@ import 'package:broski/screens/chat_screen.dart';
 import 'package:broski/screens/sessions/cc_sessions_view.dart';
 import 'package:broski/screens/sessions/cx_threads_view.dart';
 import 'package:broski/screens/sessions/new_session_content.dart';
+import 'package:broski/screens/sessions/pi_durable_sessions_view.dart';
 import 'package:broski/screens/sessions/pi_sessions_view.dart';
 import 'package:broski/screens/sessions/subagent_tasks_view.dart';
 import 'package:broski/screens/sheets/session_options_sheet.dart';
@@ -108,6 +109,9 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     }
     if (agentType == AgentType.pi) {
       return PiSessionsView(onRefresh: _refresh);
+    }
+    if (agentType == AgentType.piDurable) {
+      return PiDurableSessionsView(onRefresh: _refresh);
     }
     final connection = ref.watch(connectionProvider);
     final theme = Theme.of(context);

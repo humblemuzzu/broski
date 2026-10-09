@@ -11,6 +11,7 @@
 
 import type { BroskiBackend } from "../types/runtime";
 import { handleUnified as handlePiDurableUnified } from "./pi_durable";
+import { listPiSkills, setPiModel } from "./unified_pi";
 
 type Reply = (msg: any) => void;
 
@@ -221,9 +222,11 @@ export async function handle(message: any, reply: Reply, ctx: UnifiedContext): P
 					break;
 				}
 				case "pi": {
-					// Pi model requires provider + modelId; the unified message only carries
-					// a single model string. For now, return false. Use pi_set_model instead.
-					success = false;
+					try {
+						success = await setPiModel(message);
+					} catch {
+						success = false;
+					}
 					break;
 				}
 			}
@@ -303,10 +306,14 @@ export async function handle(message: any, reply: Reply, ctx: UnifiedContext): P
 					}
 					break;
 				}
-				case "pi":
-					// Pi does not have a skills concept — return empty
-					data = [];
+				case "pi": {
+					try {
+						data = await listPiSkills(message.cwd);
+					} catch {
+						data = [];
+					}
 					break;
+				}
 			}
 			reply({ type: "unified_skills", backend, data, requestId: message.requestId });
 			return true;

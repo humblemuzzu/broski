@@ -283,6 +283,8 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
         return 'Thinking Level';
       case AgentType.pi:
         return 'Thinking Level';
+      case AgentType.piDurable:
+        return 'Thinking Level';
     }
   }
 
@@ -885,6 +887,8 @@ class _ProjectToolsButton extends StatelessWidget {
         return 'Skills, Agents, MCP';
       case AgentType.pi:
         return 'Skills, Prompts, Sessions, Model Controls';
+      case AgentType.piDurable:
+        return 'Durable sessions and Model Controls';
     }
   }
 }

@@ -108,6 +108,8 @@ class _UnifiedPermissionContent extends ConsumerWidget {
         return const _CodexPermissionContent();
       case AgentType.pi:
         return const _PiPermissionContent();
+      case AgentType.piDurable:
+        return const _PiPermissionContent();
     }
   }
 }

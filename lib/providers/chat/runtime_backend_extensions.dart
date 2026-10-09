@@ -80,6 +80,7 @@ AgentType _resolveBackend(ChatSessionState state) {
   if (state.isClaudeCode) return AgentType.claudeCode;
   if (state.isCodex) return AgentType.codex;
   if (state.isPi) return AgentType.pi;
+  if (state.isPiDurable) return AgentType.piDurable;
   return AgentType.opencode;
 }
 
@@ -91,6 +92,8 @@ bool _resolveStreamingFlag(ChatSessionState state, AgentType backend) {
       return state.cxIsStreaming;
     case AgentType.pi:
       return state.piIsStreaming;
+    case AgentType.piDurable:
+      return state.pdIsStreaming;
     case AgentType.opencode:
       return state.sessionStatus.isBusy || state.sessionStatus.isRetry;
   }

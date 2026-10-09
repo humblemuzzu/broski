@@ -71,6 +71,8 @@ extension BridgeUnified on BridgeService {
   Future<bool> unifiedSetModel({
     required AgentType backend,
     required String model,
+    String? sessionId,
+    String? thinkingLevel,
     String? cwd,
   }) async {
     final requestId = _generateRequestId();
@@ -79,6 +81,8 @@ extension BridgeUnified on BridgeService {
       'backend': backend.wireValue,
       'model': model,
       'requestId': requestId,
+      if (sessionId != null) 'sessionId': sessionId,
+      if (thinkingLevel != null) 'thinkingLevel': thinkingLevel,
       if (cwd != null) 'cwd': cwd,
     });
     final response = await _waitFor('unified_model_set', requestId: requestId);

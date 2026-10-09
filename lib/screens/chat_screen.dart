@@ -74,6 +74,7 @@ import 'package:broski/screens/sheets/cx_apps_sheet.dart';
 import 'package:broski/screens/sheets/cx_model_sheet.dart';
 import 'package:broski/screens/sheets/cx_remote_skills_sheet.dart';
 import 'package:broski/screens/sheets/cx_rollback_sheet.dart';
+import 'package:broski/screens/sheets/pi_durable_model_sheet.dart';
 import 'package:broski/screens/sheets/pi_model_sheet.dart';
 import 'package:broski/services/haptics_service.dart';
 import 'package:broski/services/image_picker_service.dart';
@@ -92,6 +93,7 @@ import 'package:broski/widgets/chat/cx_queue_bar.dart';
 import 'package:broski/widgets/chat/cx_steer_bar.dart';
 import 'package:broski/widgets/chat/input_bar_content.dart';
 import 'package:broski/widgets/chat/message_group.dart';
+import 'package:broski/widgets/chat/pi_durable_status_banner.dart';
 import 'package:broski/widgets/chat/retry_status_banner.dart';
 import 'package:broski/widgets/chat/revert_state_banner.dart';
 import 'package:broski/widgets/chat/variant_card_builder.dart';
@@ -118,6 +120,7 @@ class ChatScreen extends ConsumerStatefulWidget {
     required this.session,
     this.initialPrompt,
     this.readOnly = false,
+    this.isPiDurable = false,
   }) : ccSession = null,
        ccDraftCwd = null,
        ccDraftTitle = null,
@@ -157,6 +160,7 @@ class ChatScreen extends ConsumerStatefulWidget {
        isClaudeCode = true,
        isCodex = false,
        isPi = false,
+       isPiDurable = false,
        piSession = null,
        piDraftCwd = null,
        piDraftTitle = null;
@@ -188,6 +192,7 @@ class ChatScreen extends ConsumerStatefulWidget {
        isClaudeCode = true,
        isCodex = false,
        isPi = false,
+       isPiDurable = false,
        piSession = null,
        piDraftCwd = null,
        piDraftTitle = null;
@@ -216,6 +221,7 @@ class ChatScreen extends ConsumerStatefulWidget {
        isClaudeCode = false,
        isCodex = true,
        isPi = false,
+       isPiDurable = false,
        piSession = null,
        piDraftCwd = null,
        piDraftTitle = null;
@@ -247,6 +253,7 @@ class ChatScreen extends ConsumerStatefulWidget {
        isClaudeCode = false,
        isCodex = true,
        isPi = false,
+       isPiDurable = false,
        piSession = null,
        piDraftCwd = null,
        piDraftTitle = null;
@@ -276,6 +283,7 @@ class ChatScreen extends ConsumerStatefulWidget {
        isClaudeCode = false,
        isCodex = false,
        isPi = true,
+       isPiDurable = false,
        piDraftCwd = null,
        piDraftTitle = null;
 
@@ -305,6 +313,7 @@ class ChatScreen extends ConsumerStatefulWidget {
        isClaudeCode = false,
        isCodex = false,
        isPi = true,
+       isPiDurable = false,
        piSession = null,
        piDraftCwd = cwd,
        piDraftTitle = title;
@@ -321,6 +330,10 @@ class ChatScreen extends ConsumerStatefulWidget {
   final bool isClaudeCode;
   final bool isCodex;
   final bool isPi;
+
+  /// Pi Durable sessions reuse the generic `project`/`session` fields for their
+  /// id, cwd and title; this only marks which backend owns the screen.
+  final bool isPiDurable;
   final PiSessionInfo? piSession;
   final String? piDraftCwd;
   final String? piDraftTitle;
@@ -330,7 +343,7 @@ class ChatScreen extends ConsumerStatefulWidget {
   /// operations (e.g. Pi switchSession). Used to view finished subagent
   /// transcripts without accidentally mutating live bridge state.
   final bool readOnly;
-  bool get isOpenCode => !isClaudeCode && !isCodex && !isPi;
+  bool get isOpenCode => !isClaudeCode && !isCodex && !isPi && !isPiDurable;
 
   /// Get the effective session ID
   String get effectiveSessionId => isClaudeCode
@@ -1621,6 +1634,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                   ),
                 // Codex: show steer bar when streaming
                 if (widget.isCodex && cxIsStreaming) const CxSteerBar(),
+                // Pi Durable: banner when the Mac resumed interrupted work
+                if (widget.isPiDurable) const PiDurableStatusBanner(),
                 // Codex: show queued message bar when messages are queued
                 if (widget.isCodex && cxIsStreaming)
                   Consumer(
@@ -1817,6 +1832,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       isClaudeCode: widget.isClaudeCode,
       isCodex: widget.isCodex,
       isPi: widget.isPi,
+      isPiDurable: widget.isPiDurable,
       selectedAgent: _selectedAgent,
       agents: _agents,
       project: widget.project,
@@ -1835,6 +1851,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           ? _showClaudeCodeModelSheet
           : widget.isCodex
           ? _showCodexModelSheet
+          : widget.isPiDurable
+          ? _showPiDurableModelSheet
           : widget.isPi
           ? _showPiModelSheet
           : _showModelsDialog,
@@ -1944,6 +1962,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     ref: ref,
     projectPath: widget.project.path,
   );
+
+  void _showPiDurableModelSheet() =>
+      showPiDurableModelSheet(context: context, ref: ref);
 
   /// Stop AI generation for all backends
   /// Sends abort to bridge and clears local streaming states

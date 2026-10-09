@@ -251,6 +251,8 @@ class _TaskCard extends ConsumerWidget {
         return '';
       case AgentType.opencode:
         return '';
+      case AgentType.piDurable:
+        return '';
     }
   }
 
@@ -336,6 +338,10 @@ class _TaskCard extends ConsumerWidget {
           ),
           readOnly: true,
         );
+      case AgentType.piDurable:
+        // Durable sessions are opened from the sessions list; a task card has
+        // no synthetic id that maps to one.
+        return;
     }
 
     Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
@@ -490,6 +496,8 @@ class _TaskCard extends ConsumerWidget {
         return AppIcons.smartToy;
       case AgentType.pi:
         return AppIcons.autoAwesome;
+      case AgentType.piDurable:
+        return AppIcons.history;
     }
   }
 }

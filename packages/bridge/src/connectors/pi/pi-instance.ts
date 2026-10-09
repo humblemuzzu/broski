@@ -11,18 +11,25 @@ import { bindExtensionsOnSession, createExtensionUiBridge, makeEmitter } from ".
 import type { GetOrCreatePiOptions, PiActiveRuntimeState, PiEventListener, PiInstance } from "./pi-instance-types";
 import { ensurePiModelRuntime, findModel } from "./pi-model-runtime";
 import { buildCommandContextActions, switchToSession } from "./pi-session-lifecycle";
+import { defaultSessionDirForCwd } from "./pi-session-list-cache";
 import { mapStatePayload } from "./pi-session-state";
 
 const instances = new Map<string, PiInstance>();
 
 async function buildInstance(cwd: string, options?: GetOrCreatePiOptions): Promise<PiInstance> {
 	const settingsManager = SettingsManager.create(cwd);
-	const resourceLoader = new DefaultResourceLoader({ cwd, agentDir: getAgentDir(), settingsManager });
+	const resourceLoader = new DefaultResourceLoader({
+		cwd,
+		agentDir: getAgentDir(),
+		settingsManager,
+		noExtensions: options?.noExtensions,
+	});
 	await resourceLoader.reload();
 
+	const sessionDir = options?.sessionRoot ? defaultSessionDirForCwd(cwd, options.sessionRoot) : undefined;
 	const sessionManager = options?.sessionPath
-		? SessionManager.open(options.sessionPath)
-		: SessionManager.continueRecent(cwd);
+		? SessionManager.open(options.sessionPath, sessionDir)
+		: SessionManager.continueRecent(cwd, sessionDir);
 
 	const modelRuntime = await ensurePiModelRuntime();
 	const model =

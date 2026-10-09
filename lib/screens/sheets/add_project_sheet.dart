@@ -129,6 +129,7 @@ class _AddProjectContentState extends ConsumerState<_AddProjectContent> {
       AgentType.codex => 'Codex',
       AgentType.opencode => 'OpenCode',
       AgentType.pi => 'Pi',
+      AgentType.piDurable => 'Pi Durable',
     };
 
     return Column(

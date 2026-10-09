@@ -4,22 +4,20 @@ import { dirname, resolve } from "node:path";
 import { getDefaultConfig } from "./defaults";
 import { type BroskiConfig, BroskiConfigSchema } from "./schema";
 
-const CONFIG_PATH = resolve(homedir(), ".broski", "config.json");
-
 /**
  * Get the path to the config file.
  */
 export function getConfigPath(): string {
-	return CONFIG_PATH;
+	return resolve(homedir(), ".broski", "config.json");
 }
 
 /**
  * Read and validate the config file.
  * Returns default config if the file is missing or invalid.
  */
-export async function readConfig(): Promise<BroskiConfig> {
+export async function readConfig(path = getConfigPath()): Promise<BroskiConfig> {
 	try {
-		const raw = await readFile(CONFIG_PATH, "utf-8");
+		const raw = await readFile(path, "utf-8");
 		const parsed = JSON.parse(raw);
 		const result = BroskiConfigSchema.safeParse(parsed);
 		if (result.success) {
@@ -37,14 +35,14 @@ export async function readConfig(): Promise<BroskiConfig> {
 /**
  * Write the config atomically (write to .tmp, then rename).
  */
-export async function writeConfig(config: BroskiConfig): Promise<void> {
-	const dir = dirname(CONFIG_PATH);
+export async function writeConfig(config: BroskiConfig, path = getConfigPath()): Promise<void> {
+	const dir = dirname(path);
 	await mkdir(dir, { recursive: true });
 
-	const tmpPath = `${CONFIG_PATH}.tmp`;
+	const tmpPath = `${path}.tmp`;
 	const content = `${JSON.stringify(config, null, 2)}\n`;
 	await writeFile(tmpPath, content, { mode: 0o600 });
-	await rename(tmpPath, CONFIG_PATH);
+	await rename(tmpPath, path);
 }
 
 /**
@@ -74,13 +72,13 @@ function deepMerge(target: Record<string, any>, source: Record<string, any>): Re
 /**
  * Read config, deep-merge the partial update, validate, and write back.
  */
-export async function updateConfig(partial: Partial<BroskiConfig>): Promise<BroskiConfig> {
-	const current = await readConfig();
+export async function updateConfig(partial: Partial<BroskiConfig>, path = getConfigPath()): Promise<BroskiConfig> {
+	const current = await readConfig(path);
 	const merged = deepMerge(current as Record<string, any>, partial as Record<string, any>);
 	const result = BroskiConfigSchema.safeParse(merged);
 	if (!result.success) {
 		throw new Error(`Invalid config after merge: ${result.error.message}`);
 	}
-	await writeConfig(result.data);
+	await writeConfig(result.data, path);
 	return result.data;
 }

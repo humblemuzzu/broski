@@ -82,6 +82,9 @@ extension BridgeServiceSkillsUniversal on BridgeService {
             extra: {'piSource': source},
           );
         }).toList();
+      case AgentType.piDurable:
+        // No skills surface yet for the durable backend.
+        return const [];
     }
   }
 
@@ -106,6 +109,8 @@ extension BridgeServiceSkillsUniversal on BridgeService {
       case AgentType.codex:
         return cxGetSkill(name: skill.name, source: skill.source, cwd: cwd);
       case AgentType.pi:
+        return null;
+      case AgentType.piDurable:
         return null;
     }
   }
@@ -141,6 +146,8 @@ extension BridgeServiceSkillsUniversal on BridgeService {
         );
       case AgentType.pi:
         return false;
+      case AgentType.piDurable:
+        return false;
     }
   }
 
@@ -158,6 +165,8 @@ extension BridgeServiceSkillsUniversal on BridgeService {
       case AgentType.codex:
         return cxDeleteSkill(name: name, source: source, cwd: cwd);
       case AgentType.pi:
+        return false;
+      case AgentType.piDurable:
         return false;
     }
   }

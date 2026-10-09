@@ -21,11 +21,13 @@ const getSessionsRoot = (): string => resolve(getAgentDir(), "sessions");
 const listSessionsInFlight = new Map<string, Promise<PiSessionInfo[]>>();
 const listProjectsInFlight = new Map<string, Promise<ProjectSummary[]>>();
 
-export function listSessions(cwd?: string): Promise<PiSessionInfo[]> {
+export function listSessions(cwd?: string, options: SessionListOptions = {}): Promise<PiSessionInfo[]> {
 	const resolvedCwd = cwd ? normalizeCwd(cwd) : undefined;
 
 	return singleFlight(listSessionsInFlight, resolvedCwd ?? "", async () => {
-		const sessions = resolvedCwd ? await listSessionInfosForCwd(resolvedCwd) : await listAllSessionInfos();
+		const sessions = resolvedCwd
+			? await listSessionInfosForCwd(resolvedCwd, options)
+			: await listAllSessionInfos(options);
 		const mapped = sessions.map(mapSessionInfo);
 		await enrichSessionsWithStats(mapped);
 		return mapped;
@@ -56,9 +58,9 @@ export async function isPiAvailable(): Promise<PiAvailability> {
 	}
 }
 
-export async function deleteSession(sessionPath: string): Promise<boolean> {
+export async function deleteSession(sessionPath: string, options: SessionListOptions = {}): Promise<boolean> {
 	const resolvedPath = resolve((sessionPath || "").trim());
-	const sessionsRoot = getSessionsRoot();
+	const sessionsRoot = options.root ? resolve(options.root) : getSessionsRoot();
 
 	if (!resolvedPath.endsWith(".jsonl")) return false;
 	if (resolvedPath !== sessionsRoot && !resolvedPath.startsWith(`${sessionsRoot}${sep}`)) return false;

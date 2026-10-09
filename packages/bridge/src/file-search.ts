@@ -12,6 +12,9 @@ import { readdir, realpath, stat } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join, parse as parsePath, sep } from "node:path";
 import ignore from "ignore";
+import { getCachedProject, setCachedProject } from "./file-search-cache";
+
+export { invalidateCache } from "./file-search-cache";
 
 // =============================================================================
 // Types
@@ -26,17 +29,10 @@ export type FileSearchOptions = {
 	includeDirs?: boolean;
 };
 
-type CacheEntry = {
-	files: string[];
-	dirs: string[];
-	fetchedAt: number;
-};
-
 // =============================================================================
 // Configuration
 // =============================================================================
 
-const CACHE_TTL_MS = 30_000; // 30 seconds
 const DEFAULT_LIMIT = 50;
 const MAX_SCAN_TIME_MS = 5000; // 5 seconds max for initial scan
 
@@ -65,48 +61,6 @@ const EXCLUDE_PATTERNS = [
 
 // Security: Only allow searching within home directory or OS temp directory
 const ALLOWED_BASE_PATHS = [homedir(), tmpdir()];
-
-// =============================================================================
-// Cache
-// =============================================================================
-
-const projectCache = new Map<string, CacheEntry>();
-
-function getCacheKey(cwd: string): string {
-	return cwd;
-}
-
-function getFromCache(cwd: string): CacheEntry | null {
-	const key = getCacheKey(cwd);
-	const entry = projectCache.get(key);
-	if (!entry) return null;
-
-	// Check if cache is still valid
-	if (Date.now() - entry.fetchedAt > CACHE_TTL_MS) {
-		projectCache.delete(key);
-		return null;
-	}
-
-	return entry;
-}
-
-function setCache(cwd: string, files: string[], dirs: string[]): void {
-	const key = getCacheKey(cwd);
-	projectCache.set(key, {
-		files,
-		dirs,
-		fetchedAt: Date.now(),
-	});
-}
-
-// Invalidate cache for a project (call after file changes)
-export function invalidateCache(cwd?: string): void {
-	if (cwd) {
-		projectCache.delete(getCacheKey(cwd));
-	} else {
-		projectCache.clear();
-	}
-}
 
 // =============================================================================
 // Security
@@ -390,19 +344,19 @@ export async function searchFilesAndDirs(options: FileSearchOptions): Promise<Fi
 	}
 
 	// Try cache first
-	let cached = getFromCache(expandedCwd);
+	let cached = getCachedProject(expandedCwd);
 
 	if (!cached) {
 		// Scan project (this happens in background after first request)
 		const { files, dirs } = await scanProject(expandedCwd);
-		setCache(expandedCwd, files, dirs);
+		setCachedProject(expandedCwd, files, dirs);
 		cached = { files, dirs, fetchedAt: Date.now() };
 
 		// Trigger background refresh for next time
 		setTimeout(() => {
 			scanProject(expandedCwd)
 				.then(({ files, dirs }) => {
-					setCache(expandedCwd, files, dirs);
+					setCachedProject(expandedCwd, files, dirs);
 				})
 				.catch(() => {});
 		}, 100);

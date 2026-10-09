@@ -1,16 +1,19 @@
 import 'package:broski/models/agent_type.dart';
 import 'package:broski/providers/agent_type_provider.dart';
+import 'package:broski/providers/pi_durable/pi_durable_flag_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/utils/responsive.dart';
 import 'package:broski/widgets/adaptive_container.dart';
+import 'package:broski/widgets/pi_branding.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-/// Screen for selecting the AI backend (OpenCode, Claude Code, Codex, Pi).
+/// Screen for selecting the AI backend, plus the Experimental toggle that gates
+/// backends which are not ready to be visible by default.
 class AIBackendScreen extends ConsumerWidget {
   const AIBackendScreen({super.key});
 
@@ -19,6 +22,8 @@ class AIBackendScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
     final currentAgent = ref.watch(agentTypeProvider);
+    final piDurableEnabled = ref.watch(piDurableEnabledProvider);
+    final backends = visibleAgentTypes(piDurableEnabled: piDurableEnabled);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -60,32 +65,21 @@ class AIBackendScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: Spacing.xl),
-            _BackendOptionCard(
-              title: 'OpenCode',
-              icon: const _BackendLogo(agentType: AgentType.opencode),
-              isSelected: currentAgent == AgentType.opencode,
-              onTap: () => _selectAgent(ref, AgentType.opencode),
-            ),
-            const SizedBox(height: Spacing.lg),
-            _BackendOptionCard(
-              title: 'Claude Code',
-              icon: const _BackendLogo(agentType: AgentType.claudeCode),
-              isSelected: currentAgent == AgentType.claudeCode,
-              onTap: () => _selectAgent(ref, AgentType.claudeCode),
-            ),
-            const SizedBox(height: Spacing.lg),
-            _BackendOptionCard(
-              title: 'Codex',
-              icon: const _BackendLogo(agentType: AgentType.codex),
-              isSelected: currentAgent == AgentType.codex,
-              onTap: () => _selectAgent(ref, AgentType.codex),
-            ),
-            const SizedBox(height: Spacing.lg),
-            _BackendOptionCard(
-              title: 'Pi',
-              icon: const _BackendLogo(agentType: AgentType.pi),
-              isSelected: currentAgent == AgentType.pi,
-              onTap: () => _selectAgent(ref, AgentType.pi),
+            for (final type in backends) ...[
+              _BackendOptionCard(
+                title: type.displayName,
+                subtitle: type.description,
+                icon: _BackendLogo(agentType: type),
+                isSelected: currentAgent == type,
+                onTap: () => _selectAgent(ref, type),
+              ),
+              const SizedBox(height: Spacing.lg),
+            ],
+            const SizedBox(height: Spacing.sm),
+            _ExperimentalToggle(
+              enabled: piDurableEnabled,
+              onChanged: (value) =>
+                  ref.read(piDurableEnabledProvider.notifier).setEnabled(value),
             ),
             const SizedBox(height: Spacing.xl),
             Container(
@@ -143,9 +137,11 @@ class _BackendOptionCard extends StatelessWidget {
     required this.icon,
     required this.isSelected,
     required this.onTap,
+    this.subtitle,
   });
 
   final String title;
+  final String? subtitle;
   final Widget icon;
   final bool isSelected;
   final VoidCallback onTap;
@@ -186,13 +182,28 @@ class _BackendOptionCard extends StatelessWidget {
             icon,
             const SizedBox(width: Spacing.lg),
             Expanded(
-              child: Text(
-                title,
-                style: TextStyle(
-                  color: theme.colorScheme.onSurface,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (subtitle != null)
+                    Text(
+                      subtitle!,
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.6,
+                        ),
+                        fontSize: 12,
+                      ),
+                    ),
+                ],
               ),
             ),
             Container(
@@ -278,6 +289,82 @@ class _BackendLogo extends StatelessWidget {
             fit: BoxFit.contain,
           ),
         );
+      case AgentType.piDurable:
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            const PiBranding(width: 50, durable: true),
+            Positioned(
+              right: 0,
+              top: 0,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary,
+                  borderRadius: Radii.brXs,
+                ),
+                child: Text(
+                  'D',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onPrimary,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
     }
+  }
+}
+
+/// Gates experimental backends. Off by default; turning it off also moves the
+/// selection off a backend that is about to disappear.
+class _ExperimentalToggle extends StatelessWidget {
+  const _ExperimentalToggle({required this.enabled, required this.onChanged});
+
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final ocTheme = OpenCodeTheme.of(context);
+    return Container(
+      padding: Insets.card,
+      decoration: BoxDecoration(
+        color: ocTheme.backgroundPanel,
+        borderRadius: Radii.brMd,
+        border: Border.all(color: ocTheme.borderSubtle),
+      ),
+      child: Row(
+        children: [
+          Icon(AppIcons.science, color: ocTheme.textMuted, size: 20),
+          const SizedBox(width: Spacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Experimental',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'Show backends that are still in development',
+                  style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          Switch(value: enabled, onChanged: onChanged),
+        ],
+      ),
+    );
   }
 }

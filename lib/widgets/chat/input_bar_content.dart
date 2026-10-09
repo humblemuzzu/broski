@@ -45,6 +45,7 @@ class ChatInputBarContent extends ConsumerWidget {
     required this.isClaudeCode,
     required this.isCodex,
     required this.isPi,
+    this.isPiDurable = false,
     this.selectedAgent,
     this.agents = const [],
     required this.project,
@@ -81,7 +82,8 @@ class ChatInputBarContent extends ConsumerWidget {
   final bool isClaudeCode;
   final bool isCodex;
   final bool isPi;
-  bool get isOpenCode => !isClaudeCode && !isCodex && !isPi;
+  final bool isPiDurable;
+  bool get isOpenCode => !isClaudeCode && !isCodex && !isPi && !isPiDurable;
 
   // --- OpenCode agent selection ---
   final String? selectedAgent;
@@ -158,6 +160,11 @@ class ChatInputBarContent extends ConsumerWidget {
     if (isPi) {
       return ref
           .watch(chatSessionProvider.select((s) => s.piThinkingLevel))
+          ?.wireValue;
+    }
+    if (isPiDurable) {
+      return ref
+          .watch(chatSessionProvider.select((s) => s.pdThinkingLevel))
           ?.wireValue;
     }
     return null;
@@ -296,6 +303,8 @@ class ChatInputBarContent extends ConsumerWidget {
         ? AgentType.codex
         : isPi
         ? AgentType.pi
+        : isPiDurable
+        ? AgentType.piDurable
         : AgentType.opencode;
     // Build project for power sheet
     final powerProject = isOpenCode
@@ -416,6 +425,8 @@ class ChatInputBarContent extends ConsumerWidget {
         ? ref.watch(chatSessionProvider.select((s) => s.cxModel))
         : isPi
         ? ref.watch(chatSessionProvider.select((s) => s.piModel))
+        : isPiDurable
+        ? ref.watch(chatSessionProvider.select((s) => s.pdModel))
         : ref.watch(selectionProvider).model?.displayString;
 
     if (inputStyle == InputBarStyle.cli) {

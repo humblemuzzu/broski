@@ -1,6 +1,7 @@
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/chat/pi_durable_chat_actions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Stop AI generation for all backends.
@@ -16,6 +17,10 @@ void stopGeneration({
 }) {
   final bridge = ref.read(bridgeServiceProvider);
   final notifier = ref.read(chatSessionProvider.notifier);
+  if (ref.read(chatSessionProvider).isPiDurable) {
+    stopPiDurableGeneration(ref);
+    return;
+  }
   if (isClaudeCode) {
     final chatState = ref.read(chatSessionProvider);
     final sid = chatState.ccSessionId;

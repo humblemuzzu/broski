@@ -82,6 +82,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       AgentType.codex => storage.getCachedCodexProjects(),
       AgentType.claudeCode => storage.getCachedCCProjects(),
       AgentType.pi => storage.getCachedPiProjects(),
+      AgentType.piDurable => Future.value(const <ProjectSummary>[]),
     };
 
     Future<void> setCache(List<ProjectSummary> projects) => switch (agentType) {
@@ -89,6 +90,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       AgentType.codex => storage.cacheCodexProjects(projects),
       AgentType.claudeCode => storage.cacheCCProjects(projects),
       AgentType.pi => storage.cachePiProjects(projects),
+      AgentType.piDurable => Future.value(),
     };
 
     // Offline mode: return per-agent cached projects
@@ -104,6 +106,9 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
         AgentType.codex => await bridge.cxListProjects(),
         AgentType.opencode => await bridge.listProjects(),
         AgentType.pi => await ref.read(piBridgeServiceProvider).listProjects(),
+        AgentType.piDurable => (await bridge.unifiedListProjects(
+          backend: AgentType.piDurable,
+        )).map(ProjectSummary.fromJson).toList(),
       };
       if (projects.isNotEmpty) {
         await setCache(projects);

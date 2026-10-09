@@ -813,6 +813,9 @@ class _ViewFullSessionButton extends ConsumerWidget {
           ),
           readOnly: true,
         );
+      case AgentType.piDurable:
+        // Durable sessions have no synthetic child ids to open here.
+        return;
     }
 
     Navigator.push(context, MaterialPageRoute(builder: (_) => screen));

@@ -64,6 +64,13 @@ Future<void> respondToPermission({
       response: response,
       execpolicyAmendment: execpolicyAmendment,
     );
+  } else if (ref.read(chatSessionProvider).isPiDurable) {
+    bridge.pdPermissionResponse(
+      sessionId: request.sessionId,
+      requestId: request.id,
+      response: response,
+      reason: message,
+    );
   } else {
     bridge.respondToPermission(
       sessionId: request.sessionId,

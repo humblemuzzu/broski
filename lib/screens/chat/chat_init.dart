@@ -42,6 +42,15 @@ void setViewForAgent({
     if (threadId.isNotEmpty) {
       bridge.setView(sessionId: threadId, agent: 'codex');
     }
+  } else if (widget.isPiDurable) {
+    final sessionId = widget.session.id;
+    if (sessionId.isNotEmpty) {
+      bridge.setView(
+        sessionId: sessionId,
+        agent: 'pi-durable',
+        lastRuntimeSeq: 0,
+      );
+    }
   } else if (widget.isPi) {
     final sessionId = widget.piSession?.id ?? '';
     if (sessionId.isNotEmpty) {
@@ -60,7 +69,7 @@ void setupInitialProjectContext({
   required ChatScreen widget,
 }) {
   final selection = ref.read(selectionProvider.notifier);
-  final initialProject = widget.isOpenCode
+  final initialProject = widget.isOpenCode || widget.isPiDurable
       ? widget.project
       : ProjectSummary(
           id: '',

@@ -149,6 +149,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                     AgentType.claudeCode => 'CC',
                                     AgentType.codex => 'CX',
                                     AgentType.pi => 'PI',
+                                    AgentType.piDurable => 'PD',
                                   },
                                   style: TextStyle(
                                     color: theme.colorScheme.primary,
@@ -631,6 +632,8 @@ class _PowerFeaturesTile extends StatelessWidget {
         return 4;
       case AgentType.pi:
         return 4;
+      case AgentType.piDurable:
+        return 0;
     }
   }
 }
@@ -969,6 +972,8 @@ class _PowerFeaturesExpandedCard extends StatelessWidget {
             ),
           ),
         ];
+      case AgentType.piDurable:
+        return [];
     }
   }
 
