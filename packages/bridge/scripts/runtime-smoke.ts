@@ -138,7 +138,7 @@ async function probePi(): Promise<ProbeResult> {
   const result: ProbeResult = {
     backend: 'pi',
     ok: true,
-    version: packageVersion('@mariozechner/pi-coding-agent'),
+    version: packageVersion('@earendil-works/pi-coding-agent'),
     checks: [],
     warnings: [],
   }

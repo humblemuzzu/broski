@@ -191,10 +191,13 @@ done
 # ──────────────────────────────────────────────
 # Emit package.json for Pi SDK compatibility
 # ──────────────────────────────────────────────
-# The Pi SDK (@mariozechner/pi-coding-agent) reads package.json at import
-# time via readFileSync(join(dirname(process.execPath), "package.json")).
-# In a compiled Bun binary, dirname(process.execPath) is the dist/ folder.
-# Without this file, the binary crashes on startup with ENOENT.
+# The Pi SDK (@earendil-works/pi-coding-agent) resolves its package dir from
+# dirname(process.execPath) in a compiled Bun binary, so it reads package.json
+# from the dist/ folder next to the binary at import time
+# (readFileSync(join(dirname(process.execPath), "package.json"))). Missing, it
+# falls back to the SDK defaults; src/bootstrap.ts recreates the file on first run.
+# pi-durable, chord and pi-ai read no package-relative assets from the executable
+# dir (pi-ai's OAuth flows are registered from code — see connectors/pi/pi-model-runtime.ts).
 
 echo ""
 echo "  Emitting package.json for Pi SDK..."
