@@ -73,7 +73,6 @@ function plain(info: SessionInfo): Record<string, unknown> {
 		modified: info.modified.getTime(),
 		messageCount: info.messageCount,
 		firstMessage: info.firstMessage,
-		allMessagesText: info.allMessagesText,
 	};
 }
 
@@ -137,6 +136,47 @@ describe("pi session list cache", () => {
 
 		const forCwd = await listSessionInfosForCwd(CWD_A, { root });
 		expect(forCwd.map(plain)).toEqual(byModifiedDesc(await SessionManager.listAll(dirA)).map(plain));
+	});
+
+	test("drops allMessagesText the SDK builds", async () => {
+		const root = await makeRoot();
+		const dirA = await makeProjectDir(root, CWD_A);
+		await writeFile(
+			join(dirA, "a1.jsonl"),
+			sessionFile(CWD_A, "id-a1", [
+				{ role: "user", text: "hello", timestamp: 1_700_000_100_000 },
+				{ role: "assistant", text: "world", timestamp: 1_700_000_200_000 },
+			]),
+		);
+
+		const fromSdk = await SessionManager.listAll(dirA);
+		expect(fromSdk[0]?.allMessagesText).toBe("hello world");
+
+		clearPiSessionListCache();
+		const listed = await listAllSessionInfos({ root });
+		expect(listed[0]?.allMessagesText).toBe("");
+
+		const warm = await listSessionInfosForCwd(CWD_A, { root });
+		expect(warm[0]?.allMessagesText).toBe("");
+	});
+
+	test("byte accounting excludes allMessagesText", async () => {
+		const root = await makeRoot();
+		const dirA = await makeProjectDir(root, CWD_A);
+		await writeFile(
+			join(dirA, "a1.jsonl"),
+			sessionFile(CWD_A, "id-a1", [
+				{ role: "user", text: "hi", timestamp: 1_700_000_100_000 },
+				{ role: "assistant", text: "y".repeat(200_000), timestamp: 1_700_000_200_000 },
+			]),
+		);
+
+		const fromSdk = await SessionManager.listAll(dirA);
+		expect(fromSdk[0]?.allMessagesText.length ?? 0).toBeGreaterThan(190_000);
+
+		clearPiSessionListCache();
+		await listSessionInfosForCwd(CWD_A, { root });
+		expect(getPiSessionListCacheStats().bytes).toBeLessThan(10_000);
 	});
 
 	test("re-reads only directories whose files changed", async () => {

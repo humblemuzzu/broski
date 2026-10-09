@@ -138,7 +138,6 @@ void main() {
         'modified': 1700000005000,
         'messageCount': 42,
         'firstMessage': 'hello',
-        'allMessagesText': 'hello world',
         'summary': {'additions': 10, 'deletions': 2, 'files': 3},
         'subagentToolCount': 4,
       });
@@ -151,7 +150,6 @@ void main() {
       expect(info.modified, DateTime.fromMillisecondsSinceEpoch(1700000005000));
       expect(info.messageCount, 42);
       expect(info.firstMessage, 'hello');
-      expect(info.allMessagesText, 'hello world');
       expect(info.summary?.additions, 10);
       expect(info.summary?.files, 3);
       expect(info.subagentToolCount, 4);
@@ -167,7 +165,6 @@ void main() {
       expect(info.id, 'pi-2');
       expect(info.name, isNull);
       expect(info.parentSessionPath, isNull);
-      expect(info.allMessagesText, isNull);
       expect(info.summary, isNull);
       expect(info.subagentToolCount, isNull);
       expect(info.created, DateTime.fromMillisecondsSinceEpoch(0));

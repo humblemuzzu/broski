@@ -109,12 +109,19 @@ void sendMessage({
     }
   } else if (isPi) {
     final piCwd = chatState.piCwd ?? piSession?.cwd ?? piDraftCwd;
-    if (runPiBangCommand(ref: ref, text: text, cwd: piCwd)) {
+    final bangOutcome = runPiBangCommand(
+      context: context,
+      ref: ref,
+      text: text,
+      cwd: piCwd,
+    );
+    if (bangOutcome == PiBangCommandOutcome.dispatched) {
       controller.clear();
       clearAttachments();
       scrollToBottom();
       return;
     }
+    if (bangOutcome == PiBangCommandOutcome.blocked) return;
     // Pi mid-turn: steer the agent
     if (chatState.piIsStreaming) {
       final piBridge = ref.read(piBridgeServiceProvider);

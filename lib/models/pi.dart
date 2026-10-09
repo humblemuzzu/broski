@@ -245,7 +245,6 @@ class PiSessionInfo {
   final DateTime modified;
   final int messageCount;
   final String firstMessage;
-  final String? allMessagesText;
   final SessionSummaryStats? summary;
   final int? subagentToolCount;
 
@@ -259,7 +258,6 @@ class PiSessionInfo {
     required this.modified,
     required this.messageCount,
     required this.firstMessage,
-    this.allMessagesText,
     this.summary,
     this.subagentToolCount,
   });
@@ -279,7 +277,6 @@ class PiSessionInfo {
       ),
       messageCount: json['messageCount'] as int? ?? 0,
       firstMessage: json['firstMessage'] as String? ?? '',
-      allMessagesText: json['allMessagesText'] as String?,
       summary: json['summary'] == null
           ? null
           : SessionSummaryStats.fromJson(
@@ -300,7 +297,6 @@ class PiSessionInfo {
       'modified': modified.millisecondsSinceEpoch,
       'messageCount': messageCount,
       'firstMessage': firstMessage,
-      if (allMessagesText != null) 'allMessagesText': allMessagesText,
     };
   }
 }

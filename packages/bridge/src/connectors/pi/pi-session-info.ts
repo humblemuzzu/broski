@@ -16,7 +16,6 @@ export function mapSessionInfo(session: SessionInfo): PiSessionInfo {
 		modified: session.modified.getTime(),
 		messageCount: session.messageCount,
 		firstMessage: session.firstMessage,
-		allMessagesText: session.allMessagesText,
 		// summary is populated asynchronously by enrichSessionsWithStats()
 	};
 }

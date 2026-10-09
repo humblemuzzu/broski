@@ -5,6 +5,10 @@
  * reuse it is `SessionManager.listAll(dir)`, which is cached per project
  * directory and keyed by the `(name, mtimeMs, size)` fingerprint of the dir's
  * files. A warm call therefore only re-reads directories whose files changed.
+ *
+ * `allMessagesText` (the concatenated text of every message in the session) is
+ * dropped before caching: no read model consumes it and it dwarfs the rest of
+ * the listing.
  */
 
 import { readdir, stat } from "node:fs/promises";
@@ -65,11 +69,15 @@ function estimateBytes(infos: SessionInfo[]): number {
 	for (const info of infos) {
 		bytes += 160;
 		bytes += 2 * (info.path.length + info.id.length + info.cwd.length + info.firstMessage.length);
-		bytes += 2 * info.allMessagesText.length;
 		bytes += 2 * (info.name?.length ?? 0);
 		bytes += 2 * (info.parentSessionPath?.length ?? 0);
 	}
 	return bytes;
+}
+
+function dropAllMessagesText(infos: SessionInfo[]): SessionInfo[] {
+	for (const info of infos) info.allMessagesText = "";
+	return infos;
 }
 
 function touch(dir: string, entry: DirEntry): void {
@@ -135,7 +143,7 @@ async function loadDir(dir: string, lister: SessionInfoLister, maxBytes: number)
 		return cached.infos;
 	}
 
-	const infos = await lister(dir);
+	const infos = dropAllMessagesText(await lister(dir));
 	store(dir, signature, infos, maxBytes);
 	return infos;
 }

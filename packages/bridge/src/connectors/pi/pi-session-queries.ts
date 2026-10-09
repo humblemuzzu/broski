@@ -1,6 +1,6 @@
 import { rm } from "node:fs/promises";
 import { resolve, sep } from "node:path";
-import { getAgentDir, SessionManager, VERSION } from "@earendil-works/pi-coding-agent";
+import { getAgentDir, VERSION } from "@earendil-works/pi-coding-agent";
 import type { PiSessionInfo, ProjectSummary } from "../../types";
 import { normalizeCwd } from "./pi-cwd";
 import { listInstances } from "./pi-instance";
@@ -8,7 +8,12 @@ import type { PiAvailability } from "./pi-instance-types";
 import { ensurePiModelRuntime, logPiModelRuntimeErrors } from "./pi-model-runtime";
 import { enrichSessionsWithStats, mapSessionInfo } from "./pi-session-info";
 import { createNewSession } from "./pi-session-lifecycle";
-import { listAllSessionInfos, listProjectSummaries, listSessionInfosForCwd } from "./pi-session-list-cache";
+import {
+	listAllSessionInfos,
+	listProjectSummaries,
+	listSessionInfosForCwd,
+	type SessionListOptions,
+} from "./pi-session-list-cache";
 import { singleFlight } from "./pi-single-flight";
 
 const getSessionsRoot = (): string => resolve(getAgentDir(), "sessions");
@@ -78,7 +83,10 @@ export async function deleteSession(sessionPath: string): Promise<boolean> {
  * Resolve a Pi session ID to the JSONL file path on disk.
  * Returns null if the session file cannot be found.
  */
-export async function resolveSessionFilePath(sessionId: string): Promise<string | null> {
+export async function resolveSessionFilePath(
+	sessionId: string,
+	options: SessionListOptions = {},
+): Promise<string | null> {
 	for (const instance of listInstances()) {
 		if (instance.session.sessionId === sessionId && instance.session.sessionFile) {
 			return resolve(instance.session.sessionFile);
@@ -86,14 +94,14 @@ export async function resolveSessionFilePath(sessionId: string): Promise<string 
 	}
 
 	try {
-		const sessions = await SessionManager.listAll();
+		const sessions = await listAllSessionInfos(options);
 		for (const session of sessions) {
 			if (session.id === sessionId && session.path) {
 				return resolve(session.path);
 			}
 		}
 	} catch {
-		// ignore
+		return null;
 	}
 
 	return null;
