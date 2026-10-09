@@ -9,6 +9,7 @@ import type { EnvTarget, Extension, HarnessOptions, PromptSection, Registry } fr
 import { createRegistry, defineExtension, section } from "@earendil-works/pi-durable";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import { CodingTools } from "@earendil-works/pi-durable/tools";
+import { createPiDurableSearchExtension } from "./tools";
 
 export const PI_DURABLE_PROJECT_EXTENSION = "broski-project";
 
@@ -71,6 +72,7 @@ export function createPiDurableAgentSetup(options: PiDurableAgentSetupOptions): 
 	const project = loadPiDurableProjectContext(options.cwd, agentDir);
 	const registry = createRegistry();
 	registry.install(CodingTools);
+	registry.install(createPiDurableSearchExtension(options.cwd));
 	registry.install(createPiDurableProjectExtension(project));
 	for (const extension of options.extensions ?? []) registry.install(extension);
 	return { registry, project };

@@ -14,6 +14,7 @@ void showProjectToolsSheetAction({
   required bool isClaudeCode,
   required bool isCodex,
   required bool isPi,
+  required bool isPiDurable,
   required String projectName,
   required String effectivePath,
   required ProjectSummary project,
@@ -25,12 +26,16 @@ void showProjectToolsSheetAction({
       ? AgentType.codex
       : isPi
       ? AgentType.pi
+      : isPiDurable
+      ? AgentType.piDurable
       : AgentType.opencode;
-  final resolvedProject = backend == AgentType.opencode
+  final usesSelectedProject =
+      backend == AgentType.opencode || backend == AgentType.piDurable;
+  final resolvedProject = usesSelectedProject
       ? project
       : ProjectSummary(id: '', name: projectName, path: effectivePath);
   ref.read(selectionProvider.notifier).selectProject(resolvedProject);
-  if (backend == AgentType.opencode && session.id.isNotEmpty) {
+  if (usesSelectedProject && session.id.isNotEmpty) {
     ref.read(selectionProvider.notifier).selectSession(session);
   }
   showModalBottomSheet(

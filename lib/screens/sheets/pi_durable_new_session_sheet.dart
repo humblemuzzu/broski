@@ -8,6 +8,7 @@ import 'package:broski/providers/service_providers.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
 import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
@@ -126,7 +127,7 @@ class _NewSessionContentState extends ConsumerState<_NewSessionContent> {
               child: Center(child: CircularProgressIndicator()),
             ),
             error: (error, _) => Text(
-              'Could not load models: $error',
+              'Could not load models: ${humanizeError(error)}',
               style: TextStyle(color: theme.error, fontSize: 13),
             ),
             data: (list) => Column(
@@ -178,7 +179,7 @@ class _NewSessionContentState extends ConsumerState<_NewSessionContent> {
     } catch (error) {
       if (!mounted) return;
       setState(() => _creating = false);
-      showError(context, 'Could not create session: $error');
+      showError(context, 'Could not create session: ${humanizeError(error)}');
     }
   }
 }
@@ -200,7 +201,7 @@ class _ProjectPicker extends ConsumerWidget {
       error: (error, _) => Padding(
         padding: const EdgeInsets.all(24),
         child: Text(
-          'Could not list projects: $error',
+          'Could not list projects: ${humanizeError(error)}',
           style: TextStyle(color: theme.error, fontSize: 13),
         ),
       ),

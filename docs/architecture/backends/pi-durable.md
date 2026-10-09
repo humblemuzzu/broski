@@ -16,11 +16,11 @@ losing it. The two backends share the pi *model runtime* and nothing else.
 
 | Area | Files |
 |------|-------|
-| Connector | `connectors/pi-durable/` (8 modules) — `index`, `harness-host`, `session-store`, `storage-lock`, `permissions`, `session-runtime`, `model-runtime`, `agent-setup` |
+| Connector | `connectors/pi-durable/` (8 modules) — `index`, `harness-host`, `session-store`, `storage-lock`, `permissions`, `session-runtime`, `model-runtime`, `agent-setup`; read-only tools in `tools/` (7 modules) |
 | Handler | `handlers/pi_durable.ts` (router) + `handlers/pi_durable/` (6) — `host`, `ops`, `view`, `events`, `transport`, `read-models` |
 | Runtime | `runtime/pi-durable-runtime-event-mapper.ts`, `pi-durable-runtime-read-models.ts`, `pi-durable-partial-message.ts` |
 | Contract | `types/pi-durable.ts` — the `pd_*` client/server message pairs |
-| Tests | `__tests__/pi_durable/` (`harness-host`, `mapper`, `session-store`, `storage-lock`, `handler`, `handler_stream`) + fixture `fixtures/pi-durable-events.jsonl` |
+| Tests | `__tests__/pi_durable/` (`harness-host`, `mapper`, `session-store`, `storage-lock`, `handler`, `handler_stream`, `search_tools`, `search_tools_harness`) + fixture `fixtures/pi-durable-events.jsonl` |
 
 `PiDurableHarnessHost` (`harness-host.ts`) owns every open harness in the bridge process: one JSONL storage per
 session, a shared `ModelRuntime`, our permission extension, and an idle timeout (`PI_DURABLE_IDLE_TIMEOUT_MS`,
@@ -96,6 +96,25 @@ and late joins cost ~0 ms, so the bridge attaches lazily with the phone and deta
    does **not** currently mark `backendData.denied`, so "denied" and "failed" look the same to the app.
 6. The await is tied to the hook's context, so an aborted turn or a dropped phone blocks the call instead of
    hanging the run. `canRequestPermissions` is `true`; `canRequestUserInput` is `false`.
+
+## Read-only search tools (`ls`, `find`, `grep`)
+
+`agent-setup.ts` installs `connectors/pi-durable/tools/` next to `CodingTools`: `ls` and `find` are pi's own
+`createLsTool`/`createFindTool` from `@earendil-works/pi-coding-agent`, so names, schemas, output format and their
+entry/result caps and 50 KB byte limit are the CLI's. `grep` is reimplemented on the same `.gitignore`-aware
+walker, because pi's grep has no searcher hook — it spawns `rg` through `ensureTool()`, whose only fallback is a
+GitHub download inside the tool call.
+
+- `find` runs on our own `FindOperations.glob`, so it never needs `fd`; `grep` needs no external binary at all.
+- Output equals pi's: `path:line: text`, `path-line- text` for context lines, the same notices, 500-char lines,
+  100 matches, 1000 results, 50 KB, and `find`'s `*.ts` / `**/*.json` glob semantics (`minimatch`).
+- Paths resolve against the call's environment `cwd`; the walker skips `.git` and honours `.gitignore` in the
+  search root's ancestors up to the repository root, like ripgrep. `grep` skips binary files and files over 8 MB.
+- All three are `replay: "safe"` and already named in `READ_ONLY_TOOLS`, so they never reach the phone.
+
+Nothing in the registry is stored per session: a conversation stores extension names, and an unset
+`pi.agent.extensions` selects every installed extension, so sessions created earlier pick the tools up at their
+next open.
 
 ## Event mapping gotchas
 

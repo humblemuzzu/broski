@@ -7,6 +7,7 @@ import 'package:broski/models/project.dart';
 import 'package:broski/models/runtime/runtime.dart';
 import 'package:broski/models/session.dart';
 import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/pi_durable/pi_durable_sessions_refresh.dart';
 import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/providers/session_archive_filter_provider.dart';
@@ -61,6 +62,8 @@ class GlobalSessionStatusNotifier
   StreamSubscription<RuntimeState>? _runtimeStateSubscription;
   StreamSubscription<List<RuntimeSessionSummary>>? _runtimeSessionsSubscription;
   final Set<AgentType> _runtimeSnapshotBackends = <AgentType>{};
+  late final PiDurableSessionsRefresher _piDurableSessionsRefresher =
+      piDurableSessionsRefresher(_ref);
 
   void _init() {
     final bridge = _ref.read(bridgeServiceProvider);
@@ -88,6 +91,8 @@ class GlobalSessionStatusNotifier
   }
 
   void _handleRuntimeEvent(RuntimeEvent event) {
+    _piDurableSessionsRefresher.schedule(event);
+
     final sessionId = runtimeSessionIdFromEvent(event);
     if (sessionId == null || sessionId.isEmpty) return;
 
@@ -311,6 +316,7 @@ class GlobalSessionStatusNotifier
     _runtimeEventSubscription?.cancel();
     _runtimeStateSubscription?.cancel();
     _runtimeSessionsSubscription?.cancel();
+    _piDurableSessionsRefresher.dispose();
     super.dispose();
   }
 }

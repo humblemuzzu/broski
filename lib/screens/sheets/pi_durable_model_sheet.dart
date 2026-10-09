@@ -6,6 +6,8 @@ import 'package:broski/screens/chat/pi_durable_thinking.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
+import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -88,7 +90,7 @@ class _PiDurableModelSheetState extends ConsumerState<_PiDurableModelSheet> {
               child: Center(child: CircularProgressIndicator()),
             ),
             error: (error, _) => Text(
-              'Could not load models: $error',
+              'Could not load models: ${humanizeError(error)}',
               style: TextStyle(color: theme.error, fontSize: 13),
             ),
             data: (list) => Column(
@@ -124,7 +126,11 @@ class _PiDurableModelSheetState extends ConsumerState<_PiDurableModelSheet> {
     );
     if (!mounted) return;
     setState(() => _busy = false);
-    if (ok) Navigator.of(context).pop();
+    if (ok) {
+      Navigator.of(context).pop();
+      return;
+    }
+    showError(context, 'Could not change the model');
   }
 }
 

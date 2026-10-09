@@ -170,6 +170,10 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       return;
     }
 
+    // Pi Durable has no user-input surface: never answer its question over the
+    // OpenCode question tool.
+    if (state.isPiDurable) return;
+
     // OpenCode Question tool flow.
     try {
       final ok = await _bridge.ocReplyToQuestion(
@@ -231,6 +235,10 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       );
       return;
     }
+
+    // Pi Durable has no user-input surface: never reject its question over the
+    // OpenCode question tool.
+    if (state.isPiDurable) return;
 
     try {
       final ok = await _bridge.ocRejectQuestion(

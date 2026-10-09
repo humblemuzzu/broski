@@ -1978,6 +1978,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     isClaudeCode: widget.isClaudeCode,
     isCodex: widget.isCodex,
     isPi: widget.isPi,
+    isPiDurable: widget.isPiDurable,
     projectName: widget.projectName,
     effectivePath: widget.effectivePath,
     project: widget.project,

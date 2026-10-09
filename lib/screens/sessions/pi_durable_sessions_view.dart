@@ -12,6 +12,7 @@ import 'package:broski/screens/sheets/pi_durable_new_session_sheet.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/error_utils.dart';
 import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:broski/widgets/pi_branding.dart';
 import 'package:broski/widgets/sessions/sessions_search_bar.dart';
@@ -195,14 +196,18 @@ class _PiDurableSessionsViewState extends ConsumerState<PiDurableSessionsView> {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, _) => _Message(
                 icon: AppIcons.error,
-                text: 'Could not load sessions: $error',
+                text: 'Could not load sessions: ${humanizeError(error)}',
               ),
               data: (all) {
                 final sessions = _visible(all);
                 if (sessions.isEmpty) {
-                  return const _Message(
-                    icon: AppIcons.science,
-                    text: 'No durable sessions yet',
+                  return _Message(
+                    icon: _searchQuery.isEmpty
+                        ? AppIcons.science
+                        : AppIcons.search,
+                    text: _searchQuery.isEmpty
+                        ? 'No durable sessions yet'
+                        : 'No sessions matching "$_searchQuery"',
                   );
                 }
                 return ListView.builder(

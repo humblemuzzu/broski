@@ -36,11 +36,17 @@ class PiDurableStatusBanner extends ConsumerWidget {
                 style: TextStyle(color: theme.text, fontSize: 13),
               ),
             ),
-            GestureDetector(
-              onTap: () => ref
-                  .read(chatSessionProvider.notifier)
-                  .setPiDurableResumeNotice(null),
-              child: Icon(AppIcons.close, size: 16, color: theme.textMuted),
+            SizedBox(
+              width: 28,
+              height: 28,
+              child: IconButton(
+                onPressed: () => ref
+                    .read(chatSessionProvider.notifier)
+                    .setPiDurableResumeNotice(null),
+                icon: Icon(AppIcons.close, size: 16, color: theme.textMuted),
+                padding: EdgeInsets.zero,
+                tooltip: 'Dismiss',
+              ),
             ),
           ],
         ),
