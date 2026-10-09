@@ -2,6 +2,7 @@ import * as claudeCode from "./connectors/claude-code";
 import { checkCodexAvailable } from "./connectors/codex";
 import type { OpenCodeConnector } from "./connectors/opencode";
 import * as pi from "./connectors/pi";
+import { piDurableAvailability } from "./handlers/pi_durable";
 import type { AgentStatusInfo, AgentType, FileAttachment } from "./types";
 
 export type QueryOptions = {
@@ -26,6 +27,7 @@ export async function getAgentStatus(): Promise<Record<AgentType, AgentStatusInf
 	const claudeCodeAvailable = await claudeCode.checkClaudeCodeAvailable();
 	const codexAvailable = await checkCodexAvailable();
 	const piStatus = await pi.isPiAvailable();
+	const piDurableStatus = await piDurableAvailability();
 
 	return {
 		opencode: {
@@ -44,6 +46,10 @@ export async function getAgentStatus(): Promise<Record<AgentType, AgentStatusInf
 			available: piStatus.available,
 			authMethod: piStatus.authenticated ? "configured" : "none",
 			version: piStatus.version,
+		},
+		"pi-durable": {
+			available: piDurableStatus.available,
+			authMethod: piDurableStatus.authenticated ? "configured" : "none",
 		},
 	};
 }

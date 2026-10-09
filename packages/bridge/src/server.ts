@@ -37,6 +37,7 @@ import * as devicesHandler from "./handlers/devices";
 import { handleGitFeature } from "./handlers/git";
 import * as miscHandler from "./handlers/misc";
 import * as ocRouting from "./handlers/oc_routing";
+import * as piDurable from "./handlers/pi_durable";
 import * as piFeatures from "./handlers/pi_features";
 import * as piSubagentMessages from "./handlers/pi_subagent_messages";
 import * as sessionViewHandler from "./handlers/session_view";
@@ -441,6 +442,10 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 					available: piStatus.available,
 					authMethod: piStatus.authenticated ? "configured" : "not-configured",
 					version: "version" in piStatus ? piStatus.version : undefined,
+				},
+				"pi-durable": {
+					available: piStatus.authenticated,
+					authMethod: piStatus.authenticated ? "configured" : "not-configured",
 				},
 			};
 
@@ -2141,6 +2146,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			const disconnectedDeviceName = ctx?.deviceName;
 			const prevKey = makeSessionKey(ctx?.viewAgent, ctx?.sessionId);
 			updateSessionWatchers(ws, prevKey, null);
+			piDurable.detach(ws);
 
 			// If this socket owned any CC/Codex/OpenCode sessions, release ownership so watchers
 			// can fall back to external tailing (or another owner) correctly.
@@ -2487,6 +2493,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			return;
 
 		// Session view (set_view)
+		if (await piDurable.handle(ws, message as Record<string, unknown>, reply)) return;
 		if (
 			await sessionViewHandler.handle(ws, message as Record<string, unknown>, reply, {
 				contexts,
@@ -2777,6 +2784,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			void uninstallCxHook(logInfo).catch(() => {});
 			pi.disposeAll();
 			piFeatures.stopAllPiExternalTails();
+			void piDurable.shutdown();
 			try {
 				secureServer.stop(force);
 			} catch {

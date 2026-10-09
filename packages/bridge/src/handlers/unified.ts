@@ -10,6 +10,7 @@
  */
 
 import type { BroskiBackend } from "../types/runtime";
+import { handleUnified as handlePiDurableUnified } from "./pi_durable";
 
 type Reply = (msg: any) => void;
 
@@ -37,6 +38,7 @@ export type UnifiedContext = {
 };
 
 export async function handle(message: any, reply: Reply, ctx: UnifiedContext): Promise<boolean> {
+	if (message.backend === "pi-durable") return handlePiDurableUnified(message, reply);
 	switch (message.type) {
 		// ── unified_list_sessions ─────────────────────────────────────────
 		case "unified_list_sessions": {

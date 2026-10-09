@@ -17,6 +17,7 @@ import type {
 	PiThinkingCapabilities,
 	PiToolInfo,
 } from "./types/pi";
+import type { PiDurableClientMessage, PiDurableServerMessage } from "./types/pi-durable";
 import type {
 	BroskiBackend,
 	BroskiModelSummary,
@@ -86,7 +87,7 @@ export type Agent = {
 };
 
 // Agent type for multi-agent support
-export type AgentType = "opencode" | "claude-code" | "codex" | "pi";
+export type AgentType = "opencode" | "claude-code" | "codex" | "pi" | "pi-durable";
 
 // Device information for multi-device support
 export type DeviceInfo = {
@@ -1141,7 +1142,17 @@ export type ClientMessage =
 	| { type: "unified_list_sessions"; backend: BroskiBackend; cwd?: string; requestId?: string }
 	| { type: "unified_abort"; backend: BroskiBackend; sessionId?: string; cwd?: string; requestId?: string }
 	| { type: "unified_list_models"; backend: BroskiBackend; cwd?: string; requestId?: string }
-	| { type: "unified_set_model"; backend: BroskiBackend; model: string; cwd?: string; requestId?: string }
+	| {
+			type: "unified_set_model";
+			backend: BroskiBackend;
+			model?: string;
+			provider?: string;
+			modelId?: string;
+			thinkingLevel?: string;
+			sessionId?: string;
+			cwd?: string;
+			requestId?: string;
+	  }
 	| { type: "unified_delete_session"; backend: BroskiBackend; sessionId: string; cwd?: string; requestId?: string }
 	| { type: "unified_list_skills"; backend: BroskiBackend; cwd?: string; requestId?: string }
 	| { type: "unified_list_projects"; backend: BroskiBackend; requestId?: string }
@@ -1151,7 +1162,8 @@ export type ClientMessage =
 			sessionId: string;
 			cwd?: string;
 			requestId?: string;
-	  };
+	  }
+	| PiDurableClientMessage;
 
 export type ProjectSummary = {
 	id: string;
@@ -2272,10 +2284,10 @@ export type ServerMessage =
 	| { type: "pi_instance_disposed"; data: boolean; requestId?: string }
 	| { type: "pi_extension_ui_responded"; data: boolean; requestId?: string }
 	| { type: "pi_stream"; data: PiStreamMessage; sessionId: string }
-	| { type: "runtime_event"; backend: "opencode" | "claude-code" | "codex" | "pi"; data: BroskiRuntimeEvent }
-	| { type: "runtime_models"; backend: "opencode" | "claude-code" | "codex" | "pi"; data: BroskiModelSummary[] }
-	| { type: "runtime_sessions"; backend: "opencode" | "claude-code" | "codex" | "pi"; data: BroskiSessionSummary[] }
-	| { type: "runtime_state"; backend: "opencode" | "claude-code" | "codex" | "pi"; data: BroskiRuntimeState }
+	| { type: "runtime_event"; backend: BroskiBackend; data: BroskiRuntimeEvent }
+	| { type: "runtime_models"; backend: BroskiBackend; data: BroskiModelSummary[] }
+	| { type: "runtime_sessions"; backend: BroskiBackend; data: BroskiSessionSummary[] }
+	| { type: "runtime_state"; backend: BroskiBackend; data: BroskiRuntimeState }
 	// Pi Tool Management (responses)
 	| { type: "pi_tools"; data: (PiToolInfo & { active: boolean })[]; requestId?: string }
 	| { type: "pi_active_tools"; data: string[]; requestId?: string }
@@ -2347,7 +2359,8 @@ export type ServerMessage =
 	| {
 			type: "network_endpoints_updated";
 			data: { localIP: string | null; tailscaleIP: string | null; hotspotIP: string | null; port: number };
-	  };
+	  }
+	| PiDurableServerMessage;
 
 // Feature 11: File Content
 export type FileContent = {
