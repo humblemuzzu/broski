@@ -18,7 +18,8 @@ import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/codex_settings_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/file_search_provider.dart';
-import 'package:broski/providers/pi_provider.dart';
+import 'package:broski/providers/pi/pi_live_queue_provider.dart';
+import 'package:broski/providers/pi/pi_live_session_name_provider.dart';
 import 'package:broski/providers/selection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/screens/chat/actions_sheet_opener.dart';
@@ -1605,9 +1606,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       final cwd = ref.watch(
                         chatSessionProvider.select((s) => s.piCwd),
                       );
-                      final stateAsync = ref.watch(piStateProvider(cwd));
-                      final pending =
-                          stateAsync.valueOrNull?.pendingMessageCount ?? 0;
+                      final sessionId = ref.watch(
+                        chatSessionProvider.select((s) => s.piSessionId),
+                      );
+                      final pending = ref.watch(
+                        piQueuePendingCountProvider(sessionId),
+                      );
                       if (pending <= 0) return const SizedBox.shrink();
                       return PiQueueIndicator(
                         projectPath: cwd,
@@ -1707,7 +1711,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                   // Session title
                   Expanded(
                     child: Text(
-                      widget.effectiveTitle,
+                      ref.watch(
+                            piLiveSessionTitleProvider(
+                              widget.effectiveSessionId,
+                            ),
+                          ) ??
+                          widget.effectiveTitle,
                       style: TextStyle(
                         color: theme.text,
                         fontSize: 13,

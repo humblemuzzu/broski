@@ -1,6 +1,7 @@
 import 'package:broski/providers/chat/runtime_shadow_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/onboarding_provider.dart';
+import 'package:broski/providers/pi/pi_backend_event_listener.dart';
 import 'package:broski/screens/bridge_setup_screen.dart';
 import 'package:broski/screens/connection_lost_screen.dart';
 import 'package:broski/screens/main_shell.dart';
@@ -22,6 +23,7 @@ class RootScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(runtimeShadowBootstrapProvider);
+    ref.watch(piBackendEventListenerProvider);
     final connectionState = ref.watch(connectionProvider);
     final onboardingState = ref.watch(onboardingProvider);
     if (onboardingState.isLoading) {

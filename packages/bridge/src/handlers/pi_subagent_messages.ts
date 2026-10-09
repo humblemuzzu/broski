@@ -185,7 +185,7 @@ function normalizeContentBlocks(content: unknown): Array<{ type: string; text?: 
 				if (typeof block === "string") out.push({ type: "text", text: block });
 				continue;
 			}
-			const b = block as any;
+			const b: Record<string, unknown> = block;
 			const type = typeof b.type === "string" ? b.type : "unknown";
 			if (type === "text" && typeof b.text === "string") {
 				out.push({ type: "text", text: b.text });

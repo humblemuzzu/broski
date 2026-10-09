@@ -230,7 +230,7 @@ function extractShortResult(content: unknown): string | undefined {
 	if (!Array.isArray(content)) return undefined;
 	for (const block of content) {
 		if (!block || typeof block !== "object") continue;
-		const b = block as any;
+		const b: Record<string, unknown> = block;
 		if (b.type === "text" && typeof b.text === "string") {
 			return b.text.length > 300 ? `${b.text.slice(0, 300)}…` : b.text;
 		}

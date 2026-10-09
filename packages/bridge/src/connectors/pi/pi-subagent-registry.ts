@@ -20,7 +20,7 @@
  * agent files registered via getAgentsFiles() are also added.
  */
 
-import { getInstance, getOrCreateInstance } from "../pi";
+import { getInstance, getOrCreateInstance } from "./pi-instance";
 
 /**
  * Pi built-in tools. These are provided by pi-agent-core itself and are
