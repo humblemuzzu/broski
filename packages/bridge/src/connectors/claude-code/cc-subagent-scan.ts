@@ -39,15 +39,23 @@ export async function scanSubagentDir(
 		const agentJsonlFiles = agentFiles.filter((f) => f.endsWith(".jsonl") && f.startsWith("agent-"));
 
 		for (const agentFile of agentJsonlFiles) {
-			const agentId = basename(agentFile, ".jsonl");
+			// The Claude Code SDK stores subagents as "agent-<id>.jsonl" but
+			// its internal lookup uses the <id> portion only — see
+			// `getSubagentMessages()` in @anthropic-ai/claude-agent-sdk
+			// where it does `name.slice(6, -6)` to strip both "agent-" prefix
+			// and ".jsonl" suffix before matching. We MUST store the stripped
+			// id here so `ccGetSubagentMessages(sessionId, id)` can find it.
+			const fullName = basename(agentFile, ".jsonl"); // "agent-abc123"
+			const agentId = fullName.startsWith("agent-") ? fullName.slice(6) : fullName;
+			// Guard against pathological filenames like "agent-.jsonl" that
+			// would produce an empty agentId (the SDK lookup wouldn't match
+			// either). Skip them entirely.
+			if (!agentId) continue;
 			const agentPath = join(subagentsDir, agentFile);
 			try {
 				const agentStat = await stat(agentPath);
 				const agentPreview = await readSessionPreview(agentPath);
-				const agentTitle =
-					agentPreview.title ||
-					agentPreview.slug ||
-					`${agentId.slice(0, 12)}`;
+				const agentTitle = agentPreview.title || agentPreview.slug || `${agentId.slice(0, 12)}`;
 
 				sessions.push({
 					id: agentId,

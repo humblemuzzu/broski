@@ -50,9 +50,8 @@ extension BridgeUnifiedChildren on BridgeService {
       final data = response['data'] as List<dynamic>? ?? [];
       return data
           .map(
-            (item) => RuntimeSessionSummary.fromJson(
-              item as Map<String, dynamic>,
-            ),
+            (item) =>
+                RuntimeSessionSummary.fromJson(item as Map<String, dynamic>),
           )
           .toList();
     });

@@ -82,6 +82,25 @@ export type PiForkMessagePayload = {
 	text: string;
 };
 
+/**
+ * Structured payload for a Pi subagent invocation (Task, oracle, finder, etc.).
+ * Extracted from the parent session's JSONL by pi_get_subagent_invocation.
+ * All fields are untruncated — the Flutter side renders them with markdown.
+ */
+export type PiSubagentInvocationPayload = {
+	toolCallId: string;
+	toolName: string;
+	fullArguments: Record<string, unknown>;
+	contentBlocks: Array<{ type: string; text?: string; data?: unknown }>;
+	isError: boolean;
+	startedAtMs: number;
+	finishedAtMs?: number;
+	durationMs?: number;
+	parentMessageId?: string;
+	parentAssistantThinking?: string;
+	parentAssistantText?: string;
+};
+
 export type PiStreamMessage =
 	| { type: "agent-start" }
 	| { type: "agent-end"; messages: any[] }

@@ -19,31 +19,33 @@ import {
 	readFileDirectly as _readFileDirectly,
 } from "./file-ops";
 import * as fileSearch from "./file-search";
+import { maybeSynthesizeAskUserQuestion } from "./handlers/cc_ask_user_question";
 import { handleCcChat } from "./handlers/cc_chat";
 import type { ClaudeElicitationReply } from "./handlers/cc_elicitation";
 import * as ccElicitation from "./handlers/cc_elicitation";
-import * as ccRouting from "./handlers/cc_routing";
-import { handleCcPermissionHook, type CcPermissionHookContext } from "./handlers/cc_permission_hook";
 import { installCcHook, uninstallCcHook } from "./handlers/cc_hook_installer";
-import { maybeSynthesizeAskUserQuestion } from "./handlers/cc_ask_user_question";
-import { handleCxPermissionHook, type CxPermissionHookContext } from "./handlers/cx_permission_hook";
-import { installCxHook, uninstallCxHook } from "./handlers/cx_hook_installer";
+import { type CcPermissionHookContext, handleCcPermissionHook } from "./handlers/cc_permission_hook";
+import * as ccRouting from "./handlers/cc_routing";
 import { buildCodexApprovalDecision } from "./handlers/codex/approval-decision";
 import { extractCodexErrorDetails } from "./handlers/codex/cx_error_extract";
 import { mapCodexThreadFromSdk } from "./handlers/codex/map-thread";
 import { handleCodexRuntimeNotification } from "./handlers/codex/runtime-notifications";
+import { installCxHook, uninstallCxHook } from "./handlers/cx_hook_installer";
+import { type CxPermissionHookContext, handleCxPermissionHook } from "./handlers/cx_permission_hook";
 import * as cxRouting from "./handlers/cx_routing";
 import * as devicesHandler from "./handlers/devices";
 import { handleGitFeature } from "./handlers/git";
 import * as miscHandler from "./handlers/misc";
 import * as ocRouting from "./handlers/oc_routing";
 import * as piFeatures from "./handlers/pi_features";
+import * as piSubagentMessages from "./handlers/pi_subagent_messages";
 import * as sessionViewHandler from "./handlers/session_view";
 import * as unified from "./handlers/unified";
 import * as unifiedChildren from "./handlers/unified_session_children";
 import { createFetchHandler, type FetchHandlerDeps, type HandleHttpDeps } from "./http-handler";
 import { buildProxyPortAllowlist, toErrorMessage, toPublicErrorMessage } from "./http-utils";
 import type { BridgeLogger } from "./logging/logger";
+import { getHotspotIP, getLocalIP, getTailscaleIPAsync } from "./network";
 import { startOpenCodeExternalTail as _startOpenCodeExternalTail } from "./oc-external-tail";
 import { isCompiledBinary } from "./platform";
 import { PtyManager } from "./pty/manager";
@@ -74,7 +76,6 @@ import {
 	isTailscaleAddress,
 	resolveClaudeCommandFilePath,
 } from "./security";
-import { getHotspotIP, getLocalIP, getTailscaleIPAsync } from "./network";
 import { ensureTlsMaterial, isTlsEnabledByEnv, type TlsMaterial } from "./tls";
 import type {
 	AgentStatusInfo,
@@ -88,8 +89,8 @@ import type {
 	ServerMessage,
 } from "./types";
 import { resetUnsupportedParams } from "./utils/codex-compat-retry";
-import { RuntimeSendQueue } from "./utils/runtime-send-queue";
 import { recordRuntimeEvent, replayRuntimeEventsSince } from "./utils/runtime-replay-buffer";
+import { RuntimeSendQueue } from "./utils/runtime-send-queue";
 
 // Re-export for backward compatibility (external consumers import from './server')
 export { type AuthTokenState, loadOrCreateAuthState, loadOrCreateAuthToken } from "./auth-token";
@@ -1944,11 +1945,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			const hotspotIP = getHotspotIP();
 			const tailscaleIP = await getTailscaleIPAsync();
 
-			if (
-				localIP === _lastLocalIP &&
-				tailscaleIP === _lastTailscaleIP &&
-				hotspotIP === _lastHotspotIP
-			) {
+			if (localIP === _lastLocalIP && tailscaleIP === _lastTailscaleIP && hotspotIP === _lastHotspotIP) {
 				return; // Nothing changed
 			}
 
@@ -1956,9 +1953,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			_lastTailscaleIP = tailscaleIP;
 			_lastHotspotIP = hotspotIP;
 
-			logInfo(
-				`[Network] Endpoints changed — local=${localIP}, tailscale=${tailscaleIP}, hotspot=${hotspotIP}`,
-			);
+			logInfo(`[Network] Endpoints changed — local=${localIP}, tailscale=${tailscaleIP}, hotspot=${hotspotIP}`);
 
 			broadcast({
 				type: "network_endpoints_updated",
@@ -2141,9 +2136,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 				return;
 			}
 			const ctx = contexts.get(ws);
-			logInfo(
-				`[WS] Disconnect context - deviceId=${ctx?.deviceId}`,
-			);
+			logInfo(`[WS] Disconnect context - deviceId=${ctx?.deviceId}`);
 			const disconnectedDeviceId = ctx?.deviceId;
 			const disconnectedDeviceName = ctx?.deviceName;
 			const prevKey = makeSessionKey(ctx?.viewAgent, ctx?.sessionId);
@@ -2348,7 +2341,26 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			(message as unknown as Record<string, unknown>).projectPath = secureProjectPath;
 		}
 
+		// pi_get_subagent_invocation carries a raw `parentSessionPath` pointing
+		// at a JSONL file under the Pi sessions directory. Canonicalize it the
+		// same way as cwd/projectPath to prevent path traversal attacks.
+		const rawParentSessionPath = (message as unknown as Record<string, unknown>).parentSessionPath;
+		if (typeof rawParentSessionPath === "string" && rawParentSessionPath.trim()) {
+			const secureParent = await getSecurePath(rawParentSessionPath.trim());
+			if (!secureParent) {
+				reply({
+					type: "error",
+					message: "Access denied",
+					requestId: message.requestId,
+				});
+				return;
+			}
+			(message as unknown as Record<string, unknown>).parentSessionPath = secureParent;
+		}
+
 		if (message.type.startsWith("pi_")) {
+			// Subagent invocation reader is a pure filesystem read — no instance needed.
+			if (await piSubagentMessages.handle(message as any, reply)) return;
 			const handled = await piFeatures.handle(message, reply, broadcast);
 			if (!handled) {
 				reply({
@@ -2382,8 +2394,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			const childrenHandled = await unifiedChildren.handle(message, reply, {
 				requireOpenCode: unifiedOcCtx,
 				claudeCode: {
-					listSubagents: (sessionId: string, cwd?: string) =>
-						listSubagents(sessionId, { dir: cwd }),
+					listSubagents: (sessionId: string, cwd?: string) => listSubagents(sessionId, { dir: cwd }),
 					getSubagentMessages: (sessionId: string, agentId: string, cwd?: string) =>
 						getSubagentMessages(sessionId, agentId, { dir: cwd }),
 				},

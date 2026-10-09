@@ -160,6 +160,33 @@ Future<bool> hydrateSession({
     final sessionPath = widget.piSession?.path;
     final hasSessionPath = sessionPath != null && sessionPath.isNotEmpty;
 
+    // Read-only mode: view a finished subagent transcript without touching
+    // live bridge state. Read from JSONL only — do NOT switchSession,
+    // newSession, or getState (those all mutate the Pi instance).
+    if (widget.readOnly) {
+      chat.setPiSession(
+        sessionId: widgetSessionId,
+        cwd: cwd,
+        model: widget.piSession?.name,
+      );
+      if (hasSessionPath &&
+          widgetSessionId.isNotEmpty &&
+          !connection.isOfflineMode) {
+        try {
+          final items = await piBridge.readSessionMessages(
+            sessionPath: sessionPath,
+            sessionId: widgetSessionId,
+          );
+          chat.hydratePiTranscript(items);
+        } catch (_) {
+          // Best effort — read-only view survives without messages
+        }
+      }
+      scrollToBottom(animate: false);
+      setPaginationState(loadingMore: false, loadedAll: true);
+      return false; // No need to call _loadSessionContext in read-only
+    }
+
     // On reconnect, the session is already alive in the bridge — don't
     // create a new one or switch sessions. Just re-sync state and hydrate.
     if (resyncingAfterReconnect) {

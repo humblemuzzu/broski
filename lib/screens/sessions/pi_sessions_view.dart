@@ -3,13 +3,12 @@ import 'dart:async';
 import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/pi.dart';
 import 'package:broski/models/project.dart';
-import 'package:broski/models/runtime/runtime_session_summary.dart';
 import 'package:broski/providers/highlights_provider.dart';
 import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/providers/selection_provider.dart';
-import 'package:broski/providers/service_providers.dart';
 import 'package:broski/providers/sessions_provider.dart';
 import 'package:broski/screens/chat_screen.dart';
+import 'package:broski/screens/sessions/pi/pi_tool_subagents_section.dart';
 import 'package:broski/screens/sessions/pi_active_sessions_section.dart';
 import 'package:broski/screens/sessions/pi_highlighted_sessions_section.dart';
 import 'package:broski/screens/sessions/pi_new_session.dart';
@@ -260,7 +259,12 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
     return 'Session ${session.id}';
   }
 
-  Widget _buildChildExpandRow(String parentPath, int count, bool isExpanded, {int toolCount = 0}) {
+  Widget _buildChildExpandRow(
+    String parentPath,
+    int count,
+    bool isExpanded, {
+    int toolCount = 0,
+  }) {
     final totalCount = count + toolCount;
     return GestureDetector(
       onTap: () => setState(() {
@@ -319,7 +323,9 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
         .length;
     final allPiSessions = sessionsAsync.valueOrNull ?? [];
     final handoffChildCount = allPiSessions
-        .where((s) => s.parentSessionPath != null && s.parentSessionPath!.isNotEmpty)
+        .where(
+          (s) => s.parentSessionPath != null && s.parentSessionPath!.isNotEmpty,
+        )
         .length;
     final toolSubagentCount = allPiSessions.fold<int>(
       0,
@@ -466,6 +472,14 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
                                           _expandedParents.clear();
                                         }
                                       }),
+                                      onLongPress: () =>
+                                          ref
+                                                  .read(
+                                                    showTasksTabProvider
+                                                        .notifier,
+                                                  )
+                                                  .state =
+                                              true,
                                     ),
                                   ],
                                 ],
@@ -670,7 +684,8 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
                       final children = childMap[session.path] ?? [];
                       final toolCount = session.subagentToolCount ?? 0;
                       final hasAnyChildren =
-                          _showChildSessions && (children.isNotEmpty || toolCount > 0);
+                          _showChildSessions &&
+                          (children.isNotEmpty || toolCount > 0);
                       final isExpanded = _expandedParents.contains(
                         session.path,
                       );
@@ -714,7 +729,7 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
                           // Lazy-load tool subagents (Task, oracle, finder, etc.)
                           if (toolCount > 0) {
                             piGroupedItems.add(
-                              _PiToolSubagentsSection(
+                              PiToolSubagentsSection(
                                 sessionId: session.id,
                                 cwd: session.cwd,
                               ),
@@ -777,7 +792,8 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
                         final children = childMap[session.path] ?? [];
                         final toolCount = session.subagentToolCount ?? 0;
                         final hasAnyChildren =
-                            _showChildSessions && (children.isNotEmpty || toolCount > 0);
+                            _showChildSessions &&
+                            (children.isNotEmpty || toolCount > 0);
                         final isChildExpanded = _expandedParents.contains(
                           session.path,
                         );
@@ -821,7 +837,7 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
                             // Lazy-load tool subagents
                             if (toolCount > 0) {
                               piGroupedItems.add(
-                                _PiToolSubagentsSection(
+                                PiToolSubagentsSection(
                                   sessionId: session.id,
                                   cwd: session.cwd,
                                 ),
@@ -1039,147 +1055,5 @@ class _PiChildSessionCard extends StatelessWidget {
   }
 }
 
-/// Lazy-loads tool subagent invocations (Task, oracle, finder, etc.) for a Pi session.
-/// Uses unified_list_session_children to fetch on-demand.
-final _piToolSubagentsProvider =
-    FutureProvider.family<List<RuntimeSessionSummary>, String>((ref, sessionId) async {
-  final bridge = ref.watch(bridgeServiceProvider);
-  final children = await bridge.listSessionChildren(
-    backend: 'pi',
-    sessionId: sessionId,
-  );
-  // Filter to only tool subagents (not handoff sessions which are already shown)
-  return children.where((c) => c.sessionKind == 'subagent').toList();
-});
-
-/// Section that loads and displays tool subagent invocations for a Pi parent session.
-class _PiToolSubagentsSection extends ConsumerWidget {
-  const _PiToolSubagentsSection({required this.sessionId, required this.cwd});
-  final String sessionId;
-  final String cwd;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final ocTheme = OpenCodeTheme.of(context);
-    final toolsAsync = ref.watch(_piToolSubagentsProvider(sessionId));
-
-    return toolsAsync.when(
-      loading: () => Padding(
-        padding: const EdgeInsets.only(left: 24, bottom: 8),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: ocTheme.textMuted,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'Loading subagents…',
-              style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
-            ),
-          ],
-        ),
-      ),
-      error: (_, __) => const SizedBox.shrink(),
-      data: (tools) {
-        if (tools.isEmpty) return const SizedBox.shrink();
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: tools.map((tool) {
-            final typeLabel = tool.subagentType ?? 'subagent';
-            final resultPreview =
-                tool.backendData?['resultPreview'] as String?;
-            return Padding(
-              padding: const EdgeInsets.only(left: 24, bottom: 8),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: ocTheme.backgroundElement.withValues(alpha: 0.4),
-                  borderRadius: Radii.brSm,
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: Row(
-                  children: [
-                    Container(
-                      width: 2,
-                      decoration: BoxDecoration(
-                        color: ocTheme.primary.withValues(alpha: 0.4),
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(8),
-                          bottomLeft: Radius.circular(8),
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.all(10),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 5,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: ocTheme.primary
-                                        .withValues(alpha: 0.12),
-                                    borderRadius: Radii.brXs,
-                                  ),
-                                  child: Text(
-                                    typeLabel,
-                                    style: TextStyle(
-                                      color: ocTheme.primary,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    tool.title,
-                                    style: TextStyle(
-                                      color:
-                                          ocTheme.text.withValues(alpha: 0.85),
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (resultPreview != null &&
-                                resultPreview.isNotEmpty) ...[
-                              const SizedBox(height: Spacing.xs),
-                              Text(
-                                resultPreview,
-                                style: TextStyle(
-                                  color: ocTheme.textMuted,
-                                  fontSize: 11,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }).toList(),
-        );
-      },
-    );
-  }
-}
+// _PiToolSubagentsSection extracted to pi/pi_tool_subagents_section.dart
+// (touch-it-move-it: this file was > 1000 lines and had to shrink).

@@ -188,6 +188,9 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                         // Task 8: Session search
                         searchController: _searchController,
                         onSearchChanged: _onSearchChanged,
+                        onShowTasksTab: () =>
+                            ref.read(showTasksTabProvider.notifier).state =
+                                true,
                       );
                     },
                   ),
@@ -861,6 +864,7 @@ class _ModernHeader extends StatelessWidget {
     required this.backgroundTaskCount,
     this.searchController,
     this.onSearchChanged,
+    this.onShowTasksTab,
   });
   final BridgeConnectionState connection;
   final String? filterProjectPath;
@@ -877,6 +881,9 @@ class _ModernHeader extends StatelessWidget {
   // Task 8: Session search
   final TextEditingController? searchController;
   final ValueChanged<String>? onSearchChanged;
+
+  /// Long-press on BackgroundTasksChip opens unified Tasks tab.
+  final VoidCallback? onShowTasksTab;
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -979,6 +986,7 @@ class _ModernHeader extends StatelessWidget {
                   count: backgroundTaskCount,
                   isExpanded: showBackgroundTasks,
                   onTap: onToggleBackgroundTasks,
+                  onLongPress: onShowTasksTab,
                 ),
               const ArchiveFilterChip(),
             ],

@@ -62,7 +62,13 @@ export async function handle(message: any, reply: Reply, ctx: UnifiedContext): P
 				case "opencode": {
 					try {
 						const oc = ctx.requireOpenCode();
-						data = oc ? await oc.listSessions(message.cwd, { roots: message.roots }) : [];
+						// Default `roots: true` so the main sessions list does NOT include
+						// subagent child sessions at the top level. Children are surfaced
+						// separately via unified_list_session_children when the user
+						// expands a parent row. Callers can still override with
+						// explicit `roots: false` to get the flat listing.
+						const rootsFilter = message.roots ?? true;
+						data = oc ? await oc.listSessions(message.cwd, { roots: rootsFilter }) : [];
 					} catch {
 						data = [];
 					}

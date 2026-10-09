@@ -25,6 +25,7 @@ import 'package:broski/providers/service_providers.dart';
 import 'package:broski/screens/chat/auto_send_cc.dart' as ascc;
 import 'package:broski/screens/chat/cc_elicitation_form_dialog.dart';
 import 'package:broski/screens/chat/chat_init.dart' as ci;
+import 'package:broski/screens/chat/chat_read_only_footer.dart';
 import 'package:broski/screens/chat/clear_instance_dialog.dart' as cid;
 import 'package:broski/screens/chat/codex_actions.dart' as ca;
 import 'package:broski/screens/chat/command_handler.dart';
@@ -120,6 +121,7 @@ class ChatScreen extends ConsumerStatefulWidget {
     required this.project,
     required this.session,
     this.initialPrompt,
+    this.readOnly = false,
   }) : ccSession = null,
        ccDraftCwd = null,
        ccDraftTitle = null,
@@ -140,6 +142,7 @@ class ChatScreen extends ConsumerStatefulWidget {
     super.key,
     required this.ccSession,
     this.initialPrompt,
+    this.readOnly = false,
   }) : project = const ProjectSummary(id: '', name: '', path: ''),
        session = const SessionSummary(
          id: '',
@@ -169,7 +172,8 @@ class ChatScreen extends ConsumerStatefulWidget {
     String? title,
     String? model,
     this.initialPrompt,
-  }) : project = const ProjectSummary(id: '', name: '', path: ''),
+  }) : readOnly = false,
+       project = const ProjectSummary(id: '', name: '', path: ''),
        session = const SessionSummary(
          id: '',
          title: '',
@@ -197,6 +201,7 @@ class ChatScreen extends ConsumerStatefulWidget {
     super.key,
     required this.cxThread,
     this.initialPrompt,
+    this.readOnly = false,
   }) : project = const ProjectSummary(id: '', name: '', path: ''),
        session = const SessionSummary(
          id: '',
@@ -226,7 +231,8 @@ class ChatScreen extends ConsumerStatefulWidget {
     String? title,
     String? model,
     this.initialPrompt,
-  }) : project = const ProjectSummary(id: '', name: '', path: ''),
+  }) : readOnly = false,
+       project = const ProjectSummary(id: '', name: '', path: ''),
        session = const SessionSummary(
          id: '',
          title: '',
@@ -250,28 +256,32 @@ class ChatScreen extends ConsumerStatefulWidget {
        piDraftTitle = null;
 
   /// Named constructor for Pi sessions
-  const ChatScreen.pi({super.key, required this.piSession, this.initialPrompt})
-    : project = const ProjectSummary(id: '', name: '', path: ''),
-      session = const SessionSummary(
-        id: '',
-        title: '',
-        projectID: '',
-        directory: '',
-        time: SessionTime(created: 0, updated: 0),
-      ),
-      ccSession = null,
-      ccDraftCwd = null,
-      ccDraftTitle = null,
-      ccDraftModel = null,
-      cxThread = null,
-      cxDraftCwd = null,
-      cxDraftTitle = null,
-      cxDraftModel = null,
-      isClaudeCode = false,
-      isCodex = false,
-      isPi = true,
-      piDraftCwd = null,
-      piDraftTitle = null;
+  const ChatScreen.pi({
+    super.key,
+    required this.piSession,
+    this.initialPrompt,
+    this.readOnly = false,
+  }) : project = const ProjectSummary(id: '', name: '', path: ''),
+       session = const SessionSummary(
+         id: '',
+         title: '',
+         projectID: '',
+         directory: '',
+         time: SessionTime(created: 0, updated: 0),
+       ),
+       ccSession = null,
+       ccDraftCwd = null,
+       ccDraftTitle = null,
+       ccDraftModel = null,
+       cxThread = null,
+       cxDraftCwd = null,
+       cxDraftTitle = null,
+       cxDraftModel = null,
+       isClaudeCode = false,
+       isCodex = false,
+       isPi = true,
+       piDraftCwd = null,
+       piDraftTitle = null;
 
   /// Named constructor for a new Pi chat (draft, no session yet)
   const ChatScreen.piDraft({
@@ -279,7 +289,8 @@ class ChatScreen extends ConsumerStatefulWidget {
     required String cwd,
     String? title,
     this.initialPrompt,
-  }) : project = const ProjectSummary(id: '', name: '', path: ''),
+  }) : readOnly = false,
+       project = const ProjectSummary(id: '', name: '', path: ''),
        session = const SessionSummary(
          id: '',
          title: '',
@@ -318,6 +329,11 @@ class ChatScreen extends ConsumerStatefulWidget {
   final String? piDraftCwd;
   final String? piDraftTitle;
   final String? initialPrompt;
+
+  /// When true, hides the input bar and skips side-effectful live-state
+  /// operations (e.g. Pi switchSession). Used to view finished subagent
+  /// transcripts without accidentally mutating live bridge state.
+  final bool readOnly;
   bool get isOpenCode => !isClaudeCode && !isCodex && !isPi;
 
   /// Get the effective session ID
@@ -1123,10 +1139,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     isMounted: () => mounted,
   );
 
-  bool _hasStreamingMessage(List<ChatMessage> messages) {
-    return messages.any((msg) => msg.isStreaming);
-  }
-
   // Feature 2: Get filtered commands based on current input
   List<SlashCommand> get _filteredCommands {
     if (_commandFilter.isEmpty) return _commands;
@@ -1384,12 +1396,28 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                                     tree: collabTree,
                                     compact: true,
                                     onAgentTap: (threadId) {
-                                      // TODO: Switch to view that thread's messages
-                                      if (kDebugMode) {
-                                        debugPrint(
-                                          'Tapped on agent thread: $threadId',
-                                        );
-                                      }
+                                      // Navigate to child thread as read-only transcript.
+                                      // Get the current session's cwd from chat state.
+                                      final chatState = ref.read(
+                                        chatSessionProvider,
+                                      );
+                                      final cwd = chatState.effectivePath ?? '';
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => ChatScreen.codex(
+                                            cxThread: CodexThread(
+                                              id: threadId,
+                                              preview: 'Agent Thread',
+                                              cwd: cwd,
+                                              createdAt: DateTime.now()
+                                                  .millisecondsSinceEpoch,
+                                              updatedAt: DateTime.now()
+                                                  .millisecondsSinceEpoch,
+                                            ),
+                                          ),
+                                        ),
+                                      );
                                     },
                                   ),
                                 );
@@ -1617,13 +1645,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       );
                     },
                   ),
-                _buildInputBarWithParams(
-                  connection: connection,
-                  messages: messages,
-                  ccIsStreaming: ccIsStreaming,
-                  ccInit: ccInit,
-                  ccModel: ccModel,
-                ),
+                if (!widget.readOnly)
+                  _buildInputBarWithParams(
+                    connection: connection,
+                    messages: messages,
+                    ccIsStreaming: ccIsStreaming,
+                    ccInit: ccInit,
+                    ccModel: ccModel,
+                  ),
+                if (widget.readOnly) const ChatReadOnlyFooter(),
               ],
             ),
           ),

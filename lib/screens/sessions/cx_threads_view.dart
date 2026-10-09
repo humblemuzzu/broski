@@ -551,8 +551,7 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
                                   context: context,
                                   theme: theme,
                                   selectedPath: filterCwd,
-                                  projectsProvider:
-                                      codexFilterProjectsProvider,
+                                  projectsProvider: codexFilterProjectsProvider,
                                   onSelected: (path) {
                                     ref
                                             .read(
@@ -607,6 +606,14 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
                                           _expandedParents.clear();
                                         }
                                       }),
+                                      onLongPress: () =>
+                                          ref
+                                                  .read(
+                                                    showTasksTabProvider
+                                                        .notifier,
+                                                  )
+                                                  .state =
+                                              true,
                                     ),
                                   );
                                 },
@@ -714,17 +721,22 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
                     // Build fork children map (keyed by forkedFromId)
                     final forkChildMap = <String, List<CodexThread>>{};
                     for (final t in filtered.where(
-                      (t) => t.forkedFromId != null && t.forkedFromId!.isNotEmpty,
+                      (t) =>
+                          t.forkedFromId != null && t.forkedFromId!.isNotEmpty,
                     )) {
-                      forkChildMap.putIfAbsent(t.forkedFromId!, () => []).add(t);
+                      forkChildMap
+                          .putIfAbsent(t.forkedFromId!, () => [])
+                          .add(t);
                     }
 
                     // Collab children (no forkedFromId, just agentNickname/agentRole)
                     final collabChildren = filtered
                         .where(
                           (t) =>
-                              (t.agentNickname != null || t.agentRole != null) &&
-                              (t.forkedFromId == null || t.forkedFromId!.isEmpty),
+                              (t.agentNickname != null ||
+                                  t.agentRole != null) &&
+                              (t.forkedFromId == null ||
+                                  t.forkedFromId!.isEmpty),
                         )
                         .toList();
 
@@ -1106,11 +1118,7 @@ class _CxChildExpandRow extends StatelessWidget {
             AnimatedRotation(
               turns: isExpanded ? 0.25 : 0,
               duration: const Duration(milliseconds: 200),
-              child: Icon(
-                AppIcons.chevronRight,
-                size: 14,
-                color: ocTheme.info,
-              ),
+              child: Icon(AppIcons.chevronRight, size: 14, color: ocTheme.info),
             ),
           ],
         ),

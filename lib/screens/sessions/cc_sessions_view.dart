@@ -424,10 +424,17 @@ class ClaudeCodeSessionsViewState
       );
       ref.read(selectionProvider.notifier).selectProject(project);
     }
+    // Claude Code subagents are finished transcripts — the CC SDK exposes
+    // listSubagents()/getSubagentMessages() for reading but has no API to
+    // continue a subagent. Open them in read-only mode so the input bar
+    // hides and nothing tries to mutate live state.
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ChatScreen.claudeCode(ccSession: session),
+        builder: (_) => ChatScreen.claudeCode(
+          ccSession: session,
+          readOnly: session.isSubagentSession,
+        ),
       ),
     );
   }
@@ -749,7 +756,8 @@ class ClaudeCodeSessionsViewState
                               // Subagent sessions filter
                               Builder(
                                 builder: (context) {
-                                  final allSessions = ref
+                                  final allSessions =
+                                      ref
                                           .watch(ccSessionsProvider)
                                           .valueOrNull ??
                                       const <ClaudeCodeSession>[];
@@ -773,6 +781,14 @@ class ClaudeCodeSessionsViewState
                                           _expandedParents.clear();
                                         }
                                       }),
+                                      onLongPress: () =>
+                                          ref
+                                                  .read(
+                                                    showTasksTabProvider
+                                                        .notifier,
+                                                  )
+                                                  .state =
+                                              true,
                                     ),
                                   );
                                 },
@@ -873,9 +889,13 @@ class ClaudeCodeSessionsViewState
                         .where((s) => !s.isSubagentSession)
                         .toList();
                     final childMap = <String, List<ClaudeCodeSession>>{};
-                    for (final s in filtered.where((s) => s.isSubagentSession)) {
+                    for (final s in filtered.where(
+                      (s) => s.isSubagentSession,
+                    )) {
                       if (s.parentSessionId != null) {
-                        childMap.putIfAbsent(s.parentSessionId!, () => []).add(s);
+                        childMap
+                            .putIfAbsent(s.parentSessionId!, () => [])
+                            .add(s);
                       }
                     }
 
@@ -927,7 +947,9 @@ class ClaudeCodeSessionsViewState
                       );
                       final children = childMap[session.id] ?? [];
                       if (_showSubagentSessions && children.isNotEmpty) {
-                        final isExpanded = _expandedParents.contains(session.id);
+                        final isExpanded = _expandedParents.contains(
+                          session.id,
+                        );
                         items.add(
                           _CCChildExpandRow(
                             count: children.length,
@@ -1004,7 +1026,12 @@ class ClaudeCodeSessionsViewState
                             final name = parts.isEmpty ? 'Global' : parts.last;
                             ccItems.add(
                               Padding(
-                                padding: const EdgeInsets.fromLTRB(4, 14, 4, 10),
+                                padding: const EdgeInsets.fromLTRB(
+                                  4,
+                                  14,
+                                  4,
+                                  10,
+                                ),
                                 child: Builder(
                                   builder: (context) {
                                     final ocT = OpenCodeTheme.of(context);

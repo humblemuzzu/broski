@@ -751,7 +751,15 @@ export type ClientMessage =
 	| { type: "cc_tag_session"; sessionId: string; tag?: string | null; cwd?: string; requestId?: string }
 	// SDK 0.2.92: Subagent inspection
 	| { type: "cc_list_subagents"; sessionId: string; cwd?: string; requestId?: string }
-	| { type: "cc_get_subagent_messages"; sessionId: string; agentId: string; cwd?: string; limit?: number; offset?: number; requestId?: string }
+	| {
+			type: "cc_get_subagent_messages";
+			sessionId: string;
+			agentId: string;
+			cwd?: string;
+			limit?: number;
+			offset?: number;
+			requestId?: string;
+	  }
 	// Codex (OpenAI Codex app-server) messages
 	| { type: "cx_list_projects"; refresh?: boolean }
 	| {
@@ -1055,6 +1063,7 @@ export type ClientMessage =
 	| { type: "pi_get_modified_files"; projectPath?: string }
 	| { type: "pi_get_messages"; projectPath?: string }
 	| { type: "pi_read_session_messages"; sessionPath?: string; sessionId?: string; limit?: number }
+	| { type: "pi_get_subagent_invocation"; parentSessionPath: string; toolCallId: string; requestId?: string }
 	| { type: "pi_set_session_name"; name: string; projectPath?: string }
 	| { type: "pi_fork"; entryId: string; projectPath?: string }
 	| { type: "pi_get_fork_messages"; projectPath?: string }
@@ -1135,7 +1144,14 @@ export type ClientMessage =
 	| { type: "unified_set_model"; backend: BroskiBackend; model: string; cwd?: string; requestId?: string }
 	| { type: "unified_delete_session"; backend: BroskiBackend; sessionId: string; cwd?: string; requestId?: string }
 	| { type: "unified_list_skills"; backend: BroskiBackend; cwd?: string; requestId?: string }
-	| { type: "unified_list_projects"; backend: BroskiBackend; requestId?: string };
+	| { type: "unified_list_projects"; backend: BroskiBackend; requestId?: string }
+	| {
+			type: "unified_list_session_children";
+			backend: BroskiBackend;
+			sessionId: string;
+			cwd?: string;
+			requestId?: string;
+	  };
 
 export type ProjectSummary = {
 	id: string;
@@ -2217,9 +2233,18 @@ export type ServerMessage =
 	| { type: "pi_session_switched"; data: boolean; requestId?: string }
 	| { type: "pi_session_deleted"; data: boolean; requestId?: string }
 	| { type: "pi_session_stats"; data: any; requestId?: string }
-	| { type: "pi_modified_files"; data: Array<{ file: string; additions: number; deletions: number }>; requestId?: string }
+	| {
+			type: "pi_modified_files";
+			data: Array<{ file: string; additions: number; deletions: number }>;
+			requestId?: string;
+	  }
 	| { type: "pi_messages"; data: any[]; requestId?: string }
 	| { type: "pi_session_messages"; data: any[]; requestId?: string }
+	| {
+			type: "pi_subagent_invocation";
+			data: import("./types/pi").PiSubagentInvocationPayload | null;
+			requestId?: string;
+	  }
 	| { type: "pi_session_name_set"; data: boolean; requestId?: string }
 	| {
 			type: "pi_fork_result";
@@ -2317,8 +2342,12 @@ export type ServerMessage =
 	| { type: "unified_session_deleted"; backend: BroskiBackend; data: boolean; requestId?: string }
 	| { type: "unified_model_set"; backend: BroskiBackend; data: boolean; requestId?: string }
 	| { type: "unified_aborted"; backend: BroskiBackend; data: boolean; requestId?: string }
+	| { type: "unified_session_children"; backend: BroskiBackend; data: BroskiSessionSummary[]; requestId?: string }
 	// Network endpoint live updates (bridge re-discovers IPs periodically)
-	| { type: "network_endpoints_updated"; data: { localIP: string | null; tailscaleIP: string | null; hotspotIP: string | null; port: number } };
+	| {
+			type: "network_endpoints_updated";
+			data: { localIP: string | null; tailscaleIP: string | null; hotspotIP: string | null; port: number };
+	  };
 
 // Feature 11: File Content
 export type FileContent = {

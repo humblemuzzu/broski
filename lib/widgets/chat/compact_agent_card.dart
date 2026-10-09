@@ -8,6 +8,7 @@ import 'package:broski/models/project.dart';
 import 'package:broski/models/session.dart';
 import 'package:broski/models/session_context.dart';
 import 'package:broski/providers/agent_type_provider.dart';
+import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/card_style_provider.dart';
 import 'package:broski/screens/chat_screen.dart';
 import 'package:broski/theme/app_icons.dart';
@@ -693,6 +694,9 @@ class _TokenChip extends StatelessWidget {
 
 /// Backend-aware "View Full Session" button for subagent detail sheets.
 /// Navigates to the appropriate ChatScreen constructor based on the active backend.
+///
+/// Uses the current chat session's ID as the parent session ID (for CC subagents)
+/// and passes `readOnly: true` for subagent transcripts that can't be resumed.
 class _ViewFullSessionButton extends ConsumerWidget {
   const _ViewFullSessionButton({
     required this.sessionId,
@@ -710,7 +714,6 @@ class _ViewFullSessionButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = OpenCodeTheme.of(context);
-    final backend = ref.watch(agentTypeProvider);
 
     return Padding(
       padding: const EdgeInsets.only(top: Spacing.md),
@@ -719,7 +722,7 @@ class _ViewFullSessionButton extends ConsumerWidget {
         child: OutlinedButton.icon(
           onPressed: () {
             Navigator.pop(context); // close detail sheet
-            _navigateToSession(context, ref, backend);
+            _navigateToSession(context, ref);
           },
           icon: Icon(AppIcons.openExternal, size: 16, color: theme.info),
           label: Text(
@@ -740,16 +743,17 @@ class _ViewFullSessionButton extends ConsumerWidget {
     );
   }
 
-  void _navigateToSession(
-    BuildContext context,
-    WidgetRef ref,
-    AgentType backend,
-  ) {
+  void _navigateToSession(BuildContext context, WidgetRef ref) {
+    final backend = ref.read(agentTypeProvider);
+    final chatState = ref.read(chatSessionProvider);
+    final parentSessionId = chatState.effectiveSessionId ?? '';
     final title = _capitalize(agentType);
     Widget screen;
 
     switch (backend) {
       case AgentType.claudeCode:
+        // CC subagent: sessionId is the agent ID (e.g. "agent-abc123").
+        // The parent session ID comes from the active chat session.
         screen = ChatScreen.claudeCode(
           ccSession: ClaudeCodeSession(
             id: sessionId,
@@ -759,9 +763,12 @@ class _ViewFullSessionButton extends ConsumerWidget {
             title: title,
             isBackground: true,
             subagentName: agentType,
+            parentSessionId: parentSessionId,
           ),
+          readOnly: true,
         );
       case AgentType.opencode:
+        // OC subagents are real sessions — they can be opened directly.
         final session = SessionSummary(
           id: sessionId,
           title: title,
@@ -772,12 +779,13 @@ class _ViewFullSessionButton extends ConsumerWidget {
         );
         final project = ProjectSummary(
           id: '',
-          name: cwd.split('/').where((p) => p.isNotEmpty).lastOrNull ??
-              'Project',
+          name:
+              cwd.split('/').where((p) => p.isNotEmpty).lastOrNull ?? 'Project',
           path: cwd,
         );
         screen = ChatScreen(project: project, session: session);
       case AgentType.codex:
+        // Codex child threads can be opened as read-only transcripts.
         screen = ChatScreen.codex(
           cxThread: CodexThread(
             id: sessionId,
@@ -789,9 +797,13 @@ class _ViewFullSessionButton extends ConsumerWidget {
           ),
         );
       case AgentType.pi:
+        // Pi subagents from compact agent card are tool invocations (Task,
+        // oracle, finder, etc.). They don't have their own session file.
+        // Open as read-only Pi session — the hydrator will use the session
+        // path to read messages from JSONL.
         screen = ChatScreen.pi(
           piSession: PiSessionInfo(
-            path: '',
+            path: sessionId, // Pi hydrator checks hasSessionPath
             id: sessionId,
             cwd: cwd,
             created: DateTime.now(),
@@ -799,6 +811,7 @@ class _ViewFullSessionButton extends ConsumerWidget {
             messageCount: 0,
             firstMessage: title,
           ),
+          readOnly: true,
         );
     }
 

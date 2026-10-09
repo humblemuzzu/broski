@@ -7,12 +7,12 @@
  *   { backend, data: BroskiSessionSummary[], requestId? }
  */
 
-import type { BroskiBackend, BroskiSessionSummary } from "../types/runtime";
 import { getCollabChildren } from "../connectors/codex/cx-collab-cache";
-import { mapOpenCodeSessionToRuntimeSession } from "../runtime/opencode-runtime-read-models";
 import { mapClaudeCodeSessionToRuntimeSession } from "../runtime/claude-code-runtime-read-models";
-import { mapPiSessionToRuntimeSession } from "../runtime/pi-runtime-read-models";
 import { mapCodexThreadToRuntimeSession } from "../runtime/codex-runtime-read-models";
+import { mapOpenCodeSessionToRuntimeSession } from "../runtime/opencode-runtime-read-models";
+import { mapPiSessionToRuntimeSession } from "../runtime/pi-runtime-read-models";
+import type { BroskiBackend, BroskiSessionSummary } from "../types/runtime";
 
 type Reply = (msg: any) => void;
 
@@ -67,11 +67,12 @@ export async function handle(message: any, reply: Reply, ctx: SessionChildrenCon
 									if (m.type === "user") {
 										const msg = m.message;
 										// message can be string or { content: [...] }
-										const text = typeof msg === "string"
-											? msg
-											: Array.isArray((msg as any)?.content)
-												? (msg as any).content.find((b: any) => b?.type === "text")?.text ?? ""
-												: "";
+										const text =
+											typeof msg === "string"
+												? msg
+												: Array.isArray((msg as any)?.content)
+													? ((msg as any).content.find((b: any) => b?.type === "text")?.text ?? "")
+													: "";
 										if (text.trim()) {
 											title = text.trim().slice(0, 80);
 											break;
@@ -128,21 +129,13 @@ export async function handle(message: any, reply: Reply, ctx: SessionChildrenCon
 						const threads: any[] = result?.data ?? [];
 
 						// Forks: explicit parent link in DB
-						const forkChildren = threads.filter(
-							(t: any) => t.forkedFromId === sessionId,
-						);
+						const forkChildren = threads.filter((t: any) => t.forkedFromId === sessionId);
 
 						// Collab children: look up from persisted cache
-						const collabChildIds = new Set(
-							getCollabChildren(sessionId).map((r) => r.childThreadId),
-						);
-						const collabChildren = threads.filter(
-							(t: any) => collabChildIds.has(t.id) && t.forkedFromId !== sessionId,
-						);
+						const collabChildIds = new Set(getCollabChildren(sessionId).map((r) => r.childThreadId));
+						const collabChildren = threads.filter((t: any) => collabChildIds.has(t.id) && t.forkedFromId !== sessionId);
 
-						data = [...forkChildren, ...collabChildren].map((t: any) =>
-							mapCodexThreadToRuntimeSession(t),
-						);
+						data = [...forkChildren, ...collabChildren].map((t: any) => mapCodexThreadToRuntimeSession(t));
 					} catch (e) {
 						ctx.log("[unified_session_children] CX error:", e);
 						data = [];
@@ -165,10 +158,13 @@ export async function handle(message: any, reply: Reply, ctx: SessionChildrenCon
 								.map((s: any) => mapPiSessionToRuntimeSession(s, allSessions));
 
 							// Tool-based subagent invocations (Task, oracle, finder, etc.)
-							const invocations = await extractSubagentInvocations(parentSession.path);
+							// Pass cwd so the dynamic subagent registry can discover
+							// user-configured extension tools (not just the hardcoded list).
+							const invocations = await extractSubagentInvocations(parentSession.path, parentSession.cwd);
 							const toolChildren = mapInvocationsToSummaries(
 								invocations,
 								sessionId,
+								parentSession.path,
 								parentSession.cwd,
 							);
 

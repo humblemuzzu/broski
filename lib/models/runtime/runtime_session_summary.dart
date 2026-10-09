@@ -67,15 +67,13 @@ class RuntimeSessionSummary {
   bool get isHandoffSession => sessionKind == 'handoff';
 
   /// Whether this is a root session (user-created, top-level)
-  bool get isRootSession =>
-      sessionKind == 'root' || sessionKind == null;
+  bool get isRootSession => sessionKind == 'root' || sessionKind == null;
 
   /// Whether this session has children (subagents, forks, or handoffs)
   bool get hasChildren => (childSessionCount ?? 0) > 0;
 
   /// Whether this session has a parent
-  bool get hasParent =>
-      parentSessionId != null && parentSessionId!.isNotEmpty;
+  bool get hasParent => parentSessionId != null && parentSessionId!.isNotEmpty;
 
   factory RuntimeSessionSummary.fromJson(Map<String, dynamic> json) {
     final summaryJson = _asMap(json['summary']);
