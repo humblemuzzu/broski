@@ -1,5 +1,5 @@
 import { rm } from "node:fs/promises";
-import { basename, resolve, sep } from "node:path";
+import { resolve, sep } from "node:path";
 import { getAgentDir, SessionManager, VERSION } from "@earendil-works/pi-coding-agent";
 import type { PiSessionInfo, ProjectSummary } from "../../types";
 import { normalizeCwd } from "./pi-cwd";
@@ -8,45 +8,27 @@ import type { PiAvailability } from "./pi-instance-types";
 import { ensurePiModelRuntime, logPiModelRuntimeErrors } from "./pi-model-runtime";
 import { enrichSessionsWithStats, mapSessionInfo } from "./pi-session-info";
 import { createNewSession } from "./pi-session-lifecycle";
+import { listAllSessionInfos, listProjectSummaries, listSessionInfosForCwd } from "./pi-session-list-cache";
+import { singleFlight } from "./pi-single-flight";
 
 const getSessionsRoot = (): string => resolve(getAgentDir(), "sessions");
 
-export async function listSessions(cwd?: string): Promise<PiSessionInfo[]> {
-	const sessions = cwd ? await SessionManager.list(normalizeCwd(cwd)) : await SessionManager.listAll();
-	const mapped = sessions.map(mapSessionInfo);
-	await enrichSessionsWithStats(mapped);
-	return mapped;
+const listSessionsInFlight = new Map<string, Promise<PiSessionInfo[]>>();
+const listProjectsInFlight = new Map<string, Promise<ProjectSummary[]>>();
+
+export function listSessions(cwd?: string): Promise<PiSessionInfo[]> {
+	const resolvedCwd = cwd ? normalizeCwd(cwd) : undefined;
+
+	return singleFlight(listSessionsInFlight, resolvedCwd ?? "", async () => {
+		const sessions = resolvedCwd ? await listSessionInfosForCwd(resolvedCwd) : await listAllSessionInfos();
+		const mapped = sessions.map(mapSessionInfo);
+		await enrichSessionsWithStats(mapped);
+		return mapped;
+	});
 }
 
-export async function listProjects(): Promise<ProjectSummary[]> {
-	const sessions = await SessionManager.listAll();
-	const byPath = new Map<string, { path: string; name: string; lastOpened: number }>();
-
-	for (const session of sessions) {
-		const cwd = session.cwd;
-		if (!cwd) continue;
-
-		const path = resolve(cwd);
-		const lastOpened = session.modified.getTime();
-		const existing = byPath.get(path);
-
-		if (!existing || lastOpened > existing.lastOpened) {
-			byPath.set(path, {
-				path,
-				name: basename(path) || path,
-				lastOpened,
-			});
-		}
-	}
-
-	return Array.from(byPath.values())
-		.sort((a, b) => b.lastOpened - a.lastOpened)
-		.map((p) => ({
-			id: p.path,
-			name: p.name,
-			path: p.path,
-			lastOpened: p.lastOpened,
-		}));
+export function listProjects(): Promise<ProjectSummary[]> {
+	return singleFlight(listProjectsInFlight, "pi", () => listProjectSummaries());
 }
 
 export async function isPiAvailable(): Promise<PiAvailability> {
