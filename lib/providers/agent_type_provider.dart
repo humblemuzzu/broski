@@ -1,4 +1,5 @@
 import 'package:broski/models/agent_type.dart';
+import 'package:broski/providers/agent_type_restore.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/services/storage_service.dart';
@@ -41,12 +42,17 @@ class AgentTypeNotifier extends StateNotifier<AgentType> {
 
   bool _didAutoSelectForConnection = false;
   bool _loaded = false;
+  bool _piDurableEnabled = false;
   AgentsStatus? _latestBackends;
 
   Future<void> _load() async {
-    final saved = await _storage.getSelectedAgentType();
-    if (saved != null) {
-      state = AgentType.fromWireValue(saved);
+    _piDurableEnabled = await _storage.getPiDurableEnabled();
+    final restored = restoredAgentType(
+      await _storage.getSelectedAgentType(),
+      piDurableEnabled: _piDurableEnabled,
+    );
+    if (restored != null) {
+      state = restored;
     }
     _loaded = true;
     if (_latestBackends != null) {
@@ -67,7 +73,8 @@ class AgentTypeNotifier extends StateNotifier<AgentType> {
     if (!conn.isConnected) return;
     if (_didAutoSelectForConnection) return;
 
-    if (backends.forType(state).available) {
+    if (isSelectableAgent(state, piDurableEnabled: _piDurableEnabled) &&
+        backends.forType(state).available) {
       _didAutoSelectForConnection = true;
       return;
     }

@@ -1,9 +1,8 @@
-import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/pi.dart';
 import 'package:broski/models/runtime/runtime_model_summary.dart';
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/pi_durable/pi_durable_providers.dart';
-import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/chat/pi_durable_thinking.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
@@ -97,11 +96,11 @@ class _PiDurableModelSheetState extends ConsumerState<_PiDurableModelSheet> {
                 for (final model in list)
                   _ModelTile(
                     model: model,
-                    selected: _modelRefOf(model) == currentModel,
+                    selected: piDurableModelRef(model) == currentModel,
                     onTap: _busy
                         ? null
                         : () => _apply(
-                            model: _modelRefOf(model),
+                            model: piDurableModelRef(model),
                             thinkingLevel: thinkingLevel,
                           ),
                   ),
@@ -113,35 +112,19 @@ class _PiDurableModelSheetState extends ConsumerState<_PiDurableModelSheet> {
     );
   }
 
-  String _modelRefOf(RuntimeModelSummary model) {
-    final provider = model.providerId;
-    return provider == null || provider.isEmpty
-        ? model.id
-        : '$provider/${model.id}';
-  }
-
   Future<void> _apply({
     required String? model,
     required PiThinkingLevel thinkingLevel,
   }) async {
-    final sessionId = ref.read(chatSessionProvider).pdSessionId ?? '';
-    if (sessionId.isEmpty) return;
     setState(() => _busy = true);
-    final ok = await ref
-        .read(bridgeServiceProvider)
-        .unifiedSetModel(
-          backend: AgentType.piDurable,
-          model: model ?? '',
-          sessionId: sessionId,
-          thinkingLevel: thinkingLevel.wireValue,
-        );
+    final ok = await applyPiDurableModelChange(
+      ref: ref,
+      model: model,
+      thinkingLevel: thinkingLevel,
+    );
     if (!mounted) return;
     setState(() => _busy = false);
-    if (!ok) return;
-    ref
-        .read(chatSessionProvider.notifier)
-        .setPiDurableModel(model, thinkingLevel: thinkingLevel);
-    Navigator.of(context).pop();
+    if (ok) Navigator.of(context).pop();
   }
 }
 

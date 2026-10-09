@@ -168,7 +168,8 @@ void sendMessage({
     }
   }
 
-  final isOpenCode = !isClaudeCode && !isCodex && !isPi;
+  final isOpenCode =
+      !isClaudeCode && !isCodex && !isPi && !chatState.isPiDurable;
   // OpenCode Plan Mode: Use plan agent when in plan mode (unless overridden)
   if (isOpenCode && messageAgent == null) {
     if (chatState.ocAgentMode == 'plan') messageAgent = 'plan';
@@ -319,6 +320,10 @@ void sendMessage({
   }
 
   // ── OpenCode ─────────────────────────────────────────────────────
+  // Every other backend returned above; what is left must not be turned into
+  // an OpenCode prompt just because it is not Claude Code, Codex or Pi.
+  if (!isOpenCode) return;
+
   // Check if this is a slash command (attachments not supported for commands)
   if (text.startsWith('/') && !hasAttachments) {
     final parts = text.substring(1).split(' ');

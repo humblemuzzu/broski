@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { appendFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, mkdtemp, rename, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type SessionInfo, SessionManager } from "@earendil-works/pi-coding-agent";
@@ -16,6 +16,7 @@ import { singleFlight } from "../connectors/pi/pi-single-flight";
 
 const CWD_A = "/tmp/broski-pi-cache-project-a";
 const CWD_B = "/tmp/broski-pi-cache-project-b";
+const STAMP_SECONDS = 1_700_000_000;
 
 let tmpDirs: string[] = [];
 let entrySeq = 0;
@@ -298,6 +299,37 @@ describe("pi session list cache", () => {
 		calls.length = 0;
 		await listAllSessionInfos({ root, lister, maxCacheBytes: 1 });
 		expect(calls).toHaveLength(1);
+	});
+
+	test("re-lists a directory whose file was replaced by rename", async () => {
+		const root = await makeRoot();
+		const dirA = await makeProjectDir(root, CWD_A);
+		const file = join(dirA, "a1.jsonl");
+		const content = sessionFile(CWD_A, "id-a1", [{ role: "user", text: "alpha", timestamp: 1_700_000_100_000 }]);
+		await writeFile(file, content);
+		await utimes(file, STAMP_SECONDS, STAMP_SECONDS);
+
+		const calls: string[] = [];
+		const lister = countingLister(calls);
+
+		clearPiSessionListCache();
+		const cold = await listSessionInfosForCwd(CWD_A, { root, lister });
+		expect(calls).toEqual([dirA]);
+		expect(cold[0]?.firstMessage).toBe("alpha");
+
+		const original = await stat(file);
+		const replacement = join(dirA, "a1.jsonl.tmp");
+		await writeFile(replacement, content.replace("alpha", "bravo"));
+		await utimes(replacement, STAMP_SECONDS, STAMP_SECONDS);
+		const replaced = await stat(replacement);
+		expect(replaced.size).toBe(original.size);
+		expect(replaced.mtimeMs).toBe(original.mtimeMs);
+		await rename(replacement, file);
+
+		calls.length = 0;
+		const warm = await listSessionInfosForCwd(CWD_A, { root, lister });
+		expect(calls).toEqual([dirA]);
+		expect(warm[0]?.firstMessage).toBe("bravo");
 	});
 });
 

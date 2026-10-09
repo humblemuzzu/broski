@@ -7,13 +7,25 @@ import 'package:broski/services/websocket_service.dart';
 
 export 'bridge/bridge_pi_tools.dart';
 
+/// Raised for Pi requests that were still in flight when the socket dropped.
+class PiBridgeDisconnectedException implements Exception {
+  PiBridgeDisconnectedException([this.message = 'Connection lost']);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 class PiBridgeService {
   PiBridgeService(this._socket) {
     _dispatcherSub = _socket.messages.listen(_dispatchMessage);
+    _statusSub = _socket.statusStream.listen(_handleStatus);
   }
 
   final WebSocketService _socket;
   late final StreamSubscription<Map<String, dynamic>> _dispatcherSub;
+  late final StreamSubscription<ConnectionStatus> _statusSub;
 
   int _requestCounter = 0;
   final Map<String, Completer<Map<String, dynamic>>> _pendingByRequestId = {};
@@ -32,8 +44,22 @@ class PiBridgeService {
     }
   }
 
+  /// The bridge does not re-send a reply after a reconnect, so every request
+  /// still waiting when the socket drops is unanswerable and has to fail now
+  /// instead of holding the caller (and the composer) until its timeout.
+  void _handleStatus(ConnectionStatus status) {
+    if (status == ConnectionStatus.connected) return;
+    final pending = _pendingByRequestId.values.toList();
+    _pendingByRequestId.clear();
+    for (final completer in pending) {
+      if (completer.isCompleted) continue;
+      completer.completeError(PiBridgeDisconnectedException());
+    }
+  }
+
   void dispose() {
     _dispatcherSub.cancel();
+    _statusSub.cancel();
     for (final entry in _pendingByRequestId.entries) {
       if (!entry.value.isCompleted) {
         entry.value.completeError(

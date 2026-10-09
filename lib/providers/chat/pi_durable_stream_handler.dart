@@ -99,6 +99,22 @@ extension PiDurableStreamHandler on ChatSessionNotifier {
     return messageId;
   }
 
+  /// Flips an optimistic durable prompt between `pending`, `failed` and
+  /// `confirmed`. [messageId] is the same id `pd_chat` used as its requestId.
+  void setPiDurableDeliveryState({
+    required String messageId,
+    required String deliveryState,
+  }) {
+    final existing = _messages[messageId];
+    if (existing == null) return;
+    _updateMessage(
+      messageId,
+      existing.copyWith(
+        metadata: {...existing.metadata, 'deliveryState': deliveryState},
+      ),
+    );
+  }
+
   /// Projects a runtime state/turn onto the durable chat state. Called from the
   /// shared ingest reducer, which stays backend-agnostic.
   void applyPiDurableRuntimeState({

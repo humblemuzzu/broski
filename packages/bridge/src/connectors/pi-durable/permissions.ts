@@ -28,11 +28,16 @@ export type PiDurablePermissionsOptions = {
 	onRequest?: (request: PiDurablePermissionRequest) => void;
 	onResolved?: (request: PiDurablePermissionRequest, outcome: "allowed" | "denied") => void;
 	policy?: PiDurablePermissionPolicy;
+	timeoutMs?: number;
 };
 
 const READ_ONLY_TOOLS = new Set(["read", "ls", "list", "grep", "find", "glob", "search", "tree", "webfetch"]);
 
 export const PI_DURABLE_DENY_REASON = "the user denied this tool call";
+
+export const PI_DURABLE_PERMISSION_TIMEOUT_MS = 600_000;
+
+export const PI_DURABLE_PERMISSION_TIMEOUT_REASON = "permission request timed out";
 
 export const defaultPiDurablePermissionPolicy: PiDurablePermissionPolicy = ({ toolName }) =>
 	READ_ONLY_TOOLS.has(toolName) ? "allow" : "ask";
@@ -75,10 +80,12 @@ export class PiDurablePermissions {
 	private readonly pending = new Map<string, PendingPermission>();
 	private readonly policy: PiDurablePermissionPolicy;
 	private readonly options: PiDurablePermissionsOptions;
+	private readonly timeoutMs: number;
 
 	constructor(options: PiDurablePermissionsOptions = {}) {
 		this.options = options;
 		this.policy = options.policy ?? defaultPiDurablePermissionPolicy;
+		this.timeoutMs = options.timeoutMs ?? PI_DURABLE_PERMISSION_TIMEOUT_MS;
 	}
 
 	extensionFor(sessionId: string): Extension {
@@ -139,11 +146,22 @@ export class PiDurablePermissions {
 		const promise = new Promise<PiDurablePermissionDecision>((resolve) => {
 			this.pending.set(request.requestId, { request, resolve });
 		});
+		const timer = setTimeout(() => this.expirePermission(request.requestId), this.timeoutMs);
+		timer.unref?.();
 		this.options.onRequest?.(request);
 		try {
 			return await awaitWithContext(promise, context);
 		} finally {
+			clearTimeout(timer);
 			this.pending.delete(request.requestId);
 		}
+	}
+
+	private expirePermission(requestId: string): void {
+		const pending = this.pending.get(requestId);
+		if (pending === undefined) return;
+		this.pending.delete(requestId);
+		pending.resolve({ allow: false, reason: PI_DURABLE_PERMISSION_TIMEOUT_REASON });
+		this.options.onResolved?.(pending.request, "denied");
 	}
 }

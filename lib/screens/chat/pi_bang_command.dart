@@ -60,7 +60,7 @@ PiBangCommandOutcome runPiBangCommand({
   );
 
   unawaited(
-    _execute(
+    executePiBangCommand(
       bridge: ref.read(piBridgeServiceProvider),
       notifier: notifier,
       messageId: messageId,
@@ -72,7 +72,8 @@ PiBangCommandOutcome runPiBangCommand({
   return PiBangCommandOutcome.dispatched;
 }
 
-Future<void> _execute({
+/// Runs a `!` command and writes the outcome back onto its card.
+Future<void> executePiBangCommand({
   required PiBridgeService bridge,
   required ChatSessionNotifier notifier,
   required String messageId,
@@ -87,6 +88,11 @@ Future<void> _execute({
       projectPath: cwd,
     );
     notifier.completePiBashCommand(messageId: messageId, result: result);
+  } on PiBridgeDisconnectedException {
+    notifier.failPiBashCommand(
+      messageId: messageId,
+      error: 'Connection lost — command may still be running on your Mac',
+    );
   } catch (error) {
     notifier.failPiBashCommand(messageId: messageId, error: error.toString());
   }

@@ -15,32 +15,38 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Creates a durable session: project cwd, model and thinking level, then
 /// `pd_create_session`. [onCreated] receives the project to select and the
-/// session to open.
+/// session to open. [initialProject] preselects the project the user opened
+/// from, so a tapped project does not have to be picked twice.
 Future<void> showPiDurableNewSessionSheet({
   required BuildContext context,
   required void Function(ProjectSummary project, SessionSummary session)
   onCreated,
+  ProjectSummary? initialProject,
 }) {
   return DetailSheet.show(
     context: context,
     title: 'New Pi Durable Session',
     initialSize: 0.7,
     maxSize: 0.95,
-    child: _NewSessionContent(onCreated: onCreated),
+    child: _NewSessionContent(
+      onCreated: onCreated,
+      initialProject: initialProject,
+    ),
   );
 }
 
 class _NewSessionContent extends ConsumerStatefulWidget {
-  const _NewSessionContent({required this.onCreated});
+  const _NewSessionContent({required this.onCreated, this.initialProject});
 
   final void Function(ProjectSummary project, SessionSummary session) onCreated;
+  final ProjectSummary? initialProject;
 
   @override
   ConsumerState<_NewSessionContent> createState() => _NewSessionContentState();
 }
 
 class _NewSessionContentState extends ConsumerState<_NewSessionContent> {
-  ProjectSummary? _project;
+  late ProjectSummary? _project = widget.initialProject;
   RuntimeModelSummary? _model;
   PiThinkingLevel _thinkingLevel = PiThinkingLevel.medium;
   bool _creating = false;

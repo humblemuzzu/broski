@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/file_attachment.dart';
+import 'package:broski/models/message.dart';
 import 'package:broski/models/pi_durable/pi_durable_payloads.dart';
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/pi_durable/pi_durable_providers.dart';
@@ -95,8 +96,51 @@ Future<void> _submit({
   } catch (_) {
     // The prompt never reached the Mac: stop pretending the turn is running so
     // the next send starts a turn instead of steering a dead one.
-    if (chat.mounted) chat.setPiDurableStreaming(false);
+    if (chat.mounted) {
+      chat.setPiDurableStreaming(false);
+      chat.setPiDurableDeliveryState(
+        messageId: requestId,
+        deliveryState: 'failed',
+      );
+    }
   }
+}
+
+/// Resends a failed durable prompt under its original message id, which is the
+/// exactly-once `pd_chat` requestId: a prompt the Mac already accepted is
+/// absorbed instead of appended twice. Image attachments are not resent — they
+/// are not part of the transcript.
+Future<void> retryPiDurableMessage({
+  required WidgetRef ref,
+  required String messageId,
+}) async {
+  final chatState = ref.read(chatSessionProvider);
+  if (!chatState.isPiDurable) return;
+  ChatMessage? message;
+  for (final candidate in chatState.messages) {
+    if (candidate.id == messageId) {
+      message = candidate;
+      break;
+    }
+  }
+  final content = message?.text ?? '';
+  final sessionId = chatState.pdSessionId ?? '';
+  if (content.isEmpty || sessionId.isEmpty) return;
+  final chat = ref.read(chatSessionProvider.notifier);
+  chat.setPiDurableDeliveryState(
+    messageId: messageId,
+    deliveryState: 'pending',
+  );
+  chat.setPiDurableStreaming(true);
+  await _submit(
+    chat: chat,
+    ref: ref,
+    sessionId: sessionId,
+    content: content,
+    requestId: messageId,
+    steer: chatState.pdIsStreaming,
+    images: const [],
+  );
 }
 
 /// `unified_abort` for the durable session. The streaming flag is cleared here

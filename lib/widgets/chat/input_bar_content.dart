@@ -19,6 +19,7 @@ import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/providers/prompt_accent_provider.dart';
 import 'package:broski/providers/selection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/chat/pi_durable_thinking.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/utils/snackbar_helpers.dart';
@@ -242,6 +243,7 @@ class ChatInputBarContent extends ConsumerWidget {
       // Fallback: standard Pi thinking levels (protocol-defined)
       return PiThinkingLevel.values.map((e) => e.wireValue).toList();
     }
+    if (isPiDurable) return piDurableThinkingVariantsOf(ref);
     return const [];
   }
 
@@ -262,6 +264,9 @@ class ChatInputBarContent extends ConsumerWidget {
     }
     if (isCodex) return onSetCodexReasoningEffort;
     if (isPi) return onSetPiThinkingLevel;
+    if (isPiDurable) {
+      return (v) => setPiDurableThinkingLevel(ref: ref, wireValue: v);
+    }
     return null;
   }
 

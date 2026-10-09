@@ -52,8 +52,8 @@ function toolResultOf(event: Extract<AgentEvent, { type: "tool_execution_end" }>
 
 /**
  * One durable agent event to the Broski runtime events it corresponds to. Pure: no state, no clock reads beyond
- * `context.timestampMs`. `assistant_text_delta`/`assistant_thinking_delta` for whole-block changes and for
- * `message_start` are emitted by `PiDurableEventBridge`, which owns the message diff.
+ * `context.timestampMs`. `message_update` maps to nothing here: `PiDurableEventBridge` owns every message text
+ * delta, because `message_update.changes` is message-relative, not a flat delta stream.
  */
 export function mapDurableEventToBroski(event: AgentEvent, context: PiDurableMapContext = {}): BroskiRuntimeEvent[] {
 	switch (event.type) {
@@ -73,20 +73,9 @@ export function mapDurableEventToBroski(event: AgentEvent, context: PiDurableMap
 			return [envelope("agent_finished", context, { backendData: { sourceType: "turn_end" } })];
 
 		case "message_start":
+		case "message_update":
 		case "message_end":
 			return [];
-
-		case "message_update": {
-			const mapped: BroskiRuntimeEvent[] = [];
-			for (const change of event.changes) {
-				if (change.type === "text_delta") {
-					mapped.push(envelope("assistant_text_delta", context, { delta: change.delta }));
-				} else if (change.type === "thinking_delta") {
-					mapped.push(envelope("assistant_thinking_delta", context, { delta: change.delta }));
-				}
-			}
-			return mapped;
-		}
 
 		case "tool_execution_start":
 			return [

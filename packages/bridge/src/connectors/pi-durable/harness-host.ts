@@ -15,6 +15,7 @@ import type {
 	UserInput,
 } from "@earendil-works/pi-durable";
 import { watchEvents } from "@earendil-works/pi-durable";
+import { singleFlight } from "../pi/pi-single-flight";
 import { PiDurablePermissions } from "./permissions";
 import {
 	closePiDurableSessionRuntime,
@@ -34,6 +35,13 @@ export type PiDurableInterruptedWork = {
 	tasks: PiDurableInterruptedTask[];
 	submissions: PiDurableInterruptedSubmission[];
 };
+
+export type PiDurableInterruptedWorkCollector = (
+	runtime: PiDurableSessionRuntime,
+	context: Context,
+) => Promise<PiDurableInterruptedWork>;
+
+export type PiDurableLiveWorkProbe = (runtime: PiDurableSessionRuntime) => Promise<boolean>;
 
 export type PiDurableOpenResult = {
 	sessionId: string;
@@ -76,6 +84,8 @@ export type PiDurableHarnessHostOptions = {
 	settings?: HarnessSettings;
 	idleTimeoutMs?: number;
 	context?: Context;
+	collectInterruptedWork?: PiDurableInterruptedWorkCollector;
+	hasLiveWork?: PiDurableLiveWorkProbe;
 };
 
 export class PiDurableModelRequiredError extends Error {
@@ -129,7 +139,10 @@ export class PiDurableHarnessHost {
 	private readonly settings: HarnessSettings | undefined;
 	private readonly idleTimeoutMs: number;
 	private readonly context: Context;
+	private readonly collectInterrupted: PiDurableInterruptedWorkCollector;
+	private readonly liveWorkProbe: PiDurableLiveWorkProbe | undefined;
 	private readonly sessions = new Map<string, PiDurableOpenSession>();
+	private readonly opening = new Map<string, Promise<PiDurableOpenResult>>();
 
 	constructor(options: PiDurableHarnessHostOptions) {
 		this.models = options.models;
@@ -142,6 +155,8 @@ export class PiDurableHarnessHost {
 		this.settings = options.settings;
 		this.idleTimeoutMs = options.idleTimeoutMs ?? PI_DURABLE_IDLE_TIMEOUT_MS;
 		this.context = options.context ?? BACKGROUND_CONTEXT;
+		this.collectInterrupted = options.collectInterruptedWork ?? collectInterruptedWork;
+		this.liveWorkProbe = options.hasLiveWork;
 	}
 
 	isOpen(sessionId: string): boolean {
@@ -157,7 +172,10 @@ export class PiDurableHarnessHost {
 		if (existing !== undefined) {
 			return this.describe(sessionId, existing, EMPTY_INTERRUPTED);
 		}
+		return singleFlight(this.opening, sessionId, () => this.openUnopened(sessionId));
+	}
 
+	private async openUnopened(sessionId: string): Promise<PiDurableOpenResult> {
 		const meta = await this.store.read(sessionId);
 		if (meta === undefined) throw new PiDurableSessionNotFoundError(sessionId);
 		const model = meta.model ?? this.defaultModel;
@@ -176,8 +194,14 @@ export class PiDurableHarnessHost {
 			context: this.context,
 		});
 
-		const interrupted = await collectInterruptedWork(runtime, this.context);
-		runtime.harness.resume();
+		let interrupted: PiDurableInterruptedWork;
+		try {
+			interrupted = await this.collectInterrupted(runtime, this.context);
+			runtime.harness.resume();
+		} catch (error) {
+			await closePiDurableSessionRuntime(runtime, this.context);
+			throw error;
+		}
 		const entry: PiDurableOpenSession = { runtime, cwd: meta.cwd, watchers: 0 };
 		this.sessions.set(sessionId, entry);
 		this.armIdleTimer(sessionId);
@@ -322,10 +346,12 @@ export class PiDurableHarnessHost {
 			this.armIdleTimer(sessionId);
 			return;
 		}
+		if (this.sessions.get(sessionId) !== entry || entry.watchers > 0) return;
 		await this.close(sessionId);
 	}
 
 	private async hasLiveWork(entry: PiDurableOpenSession): Promise<boolean> {
+		if (this.liveWorkProbe !== undefined) return this.liveWorkProbe(entry.runtime);
 		try {
 			const inspection = await entry.runtime.harness.inspect(this.context);
 			return inspection.tasks.length > 0 || inspection.submissions.length > 0;

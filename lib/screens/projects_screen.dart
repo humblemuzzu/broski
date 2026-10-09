@@ -9,11 +9,11 @@ import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/highlights_provider.dart';
 import 'package:broski/providers/permission_rules_provider.dart';
 import 'package:broski/providers/pi_provider.dart';
-import 'package:broski/providers/selection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/providers/tool_settings_provider.dart';
 import 'package:broski/screens/chat_screen.dart';
 import 'package:broski/screens/dialogs/project_context_menu.dart';
+import 'package:broski/screens/projects/open_project.dart';
 import 'package:broski/screens/sheets/add_project_sheet.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/design_tokens.dart';
@@ -704,118 +704,18 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     );
   }
 
-  Future<void> _openProject(
-    BuildContext context,
-    ProjectSummary project,
-  ) async {
-    final currentAgentType = ref.read(agentTypeProvider);
-    if (currentAgentType == AgentType.claudeCode) {
-      await _openClaudeProject(context, project);
-      return;
-    }
-    if (currentAgentType == AgentType.codex) {
-      await _openCodexProject(context, project);
-      return;
-    }
-    if (currentAgentType == AgentType.pi) {
-      await _openPiProject(context, project);
-      return;
-    }
-    final connection = ref.read(connectionProvider);
-    final selection = ref.read(selectionProvider.notifier);
-    final chat = ref.read(chatSessionProvider.notifier);
-    final storage = ref.read(storageServiceProvider);
-    selection.selectProject(project);
-    // In offline mode, try to find a cached session for this project
-    if (connection.isOfflineMode) {
-      final cachedSessions = await storage.getCachedSessions();
-      final projectSessions = cachedSessions
-          .where((s) => s.directory == project.path)
-          .toList();
-      if (projectSessions.isEmpty) {
-        if (!context.mounted) return;
-        showInfo(context, 'No cached sessions for this project');
-        return;
-      }
-      // Use the most recent session
-      projectSessions.sort((a, b) => b.time.updated - a.time.updated);
-      final session = projectSessions.first;
-      selection.selectSession(session);
-      chat.setSession(session, projectPath: project.path);
-      if (!context.mounted) return;
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => ChatScreen(project: project, session: session),
-        ),
-      );
-      return;
-    }
-    final bridge = ref.read(bridgeServiceProvider);
-    final baseRules = ref.read(permissionRulesProvider).effectiveRuleset;
-    final disabledTools = ref.read(toolSettingsProvider).disabledTools;
-    final permissionRules = applyDisabledToolsToRuleset(
-      baseRules,
-      disabledTools,
-    );
-    final session = await bridge.createSession(
-      projectPath: project.path,
-      permission: permissionRules,
-    );
-    selection.selectSession(session);
-    chat.setSession(session, projectPath: project.path);
-    if (!context.mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ChatScreen(project: project, session: session),
-      ),
+  Future<void> _openProject(BuildContext context, ProjectSummary project) {
+    return openProjectForSelectedAgent(
+      context: context,
+      ref: ref,
+      project: project,
     );
   }
 
-  Future<void> _openClaudeProject(
-    BuildContext context,
-    ProjectSummary project,
-  ) async {
-    ref.read(selectionProvider.notifier).selectProject(project);
-    if (!mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) =>
-            ChatScreen.claudeCodeDraft(cwd: project.path, title: project.name),
-      ),
-    );
-  }
-
-  Future<void> _openCodexProject(
-    BuildContext context,
-    ProjectSummary project,
-  ) async {
-    ref.read(selectionProvider.notifier).selectProject(project);
-    if (!mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) =>
-            ChatScreen.codexDraft(cwd: project.path, title: project.name),
-      ),
-    );
-  }
-
-  Future<void> _openPiProject(
-    BuildContext context,
-    ProjectSummary project,
-  ) async {
-    ref.read(selectionProvider.notifier).selectProject(project);
-    if (!mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) =>
-            ChatScreen.piDraft(cwd: project.path, title: project.name),
-      ),
-    );
+  Future<void> _showAddProject() async {
+    final project = await showAddProjectSheet(context);
+    if (project == null || !mounted) return;
+    await _openProject(context, project);
   }
 
   Future<void> _startOpenCode(BuildContext context) async {
@@ -828,12 +728,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     } else {
       showError(context, 'Failed to restart OpenCode');
     }
-  }
-
-  Future<void> _showAddProject() async {
-    final project = await showAddProjectSheet(context);
-    if (project == null || !mounted) return;
-    await _openProject(context, project);
   }
 }
 

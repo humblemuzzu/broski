@@ -396,7 +396,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		backendsInFlight = (async () => {
 			const envKey = !!process.env.ANTHROPIC_API_KEY;
 
-			const [ocOk, ccOk, cxOk, piStatus] = await Promise.all([
+			const [ocOk, ccOk, cxOk, piStatus, piDurableStatus] = await Promise.all([
 				(async () => {
 					try {
 						return opencode ? await opencode.isRunning() : false;
@@ -429,6 +429,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 						} as const;
 					}
 				})(),
+				piDurable.piDurableAvailability(),
 			]);
 
 			const data: Record<AgentType, AgentStatusInfo> = {
@@ -444,8 +445,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 					version: "version" in piStatus ? piStatus.version : undefined,
 				},
 				"pi-durable": {
-					available: piStatus.authenticated,
-					authMethod: piStatus.authenticated ? "configured" : "not-configured",
+					available: piDurableStatus.available,
+					authMethod: piDurableStatus.authenticated ? "configured" : "not-configured",
 				},
 			};
 

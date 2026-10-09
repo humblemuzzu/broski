@@ -15,6 +15,8 @@ export {
 	type PiDurableInterruptedSubmission,
 	type PiDurableInterruptedTask,
 	type PiDurableInterruptedWork,
+	type PiDurableInterruptedWorkCollector,
+	type PiDurableLiveWorkProbe,
 	PiDurableModelRequiredError,
 	type PiDurableOpenResult,
 	type PiDurableSendDraft,
@@ -31,6 +33,8 @@ export {
 export {
 	defaultPiDurablePermissionPolicy,
 	PI_DURABLE_DENY_REASON,
+	PI_DURABLE_PERMISSION_TIMEOUT_MS,
+	PI_DURABLE_PERMISSION_TIMEOUT_REASON,
 	type PiDurablePermissionDecision,
 	type PiDurablePermissionOutcome,
 	type PiDurablePermissionPolicy,

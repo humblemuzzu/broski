@@ -93,3 +93,26 @@ ChatMessage? piBashTranscriptCard({
     metadata: piBashTranscriptMetadata(item),
   );
 }
+
+/// Cards for `!` commands that are still running, in transcript order.
+///
+/// Pi records a `bashExecution` entry only once the command finished, so a
+/// running card is exactly what a re-hydrated transcript cannot contain and
+/// must survive instead of being wiped with the optimistic message.
+List<ChatMessage> runningPiBashCards({
+  required Iterable<String> order,
+  required Map<String, ChatMessage> messages,
+  required String sessionId,
+}) {
+  final cards = <ChatMessage>[];
+  for (final id in order) {
+    final message = messages[id];
+    if (message == null || message.sessionId != sessionId) continue;
+    if (!isPiBashCard(message.metadata)) continue;
+    if (message.metadata[PiBashCardKeys.status] != PiBashStatus.running) {
+      continue;
+    }
+    cards.add(message);
+  }
+  return cards;
+}

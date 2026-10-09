@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { appendFile, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { appendFile, mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { enrichPiSessionsWithStats, PI_STATS_SCAN_CONCURRENCY } from "../connectors/pi/pi-session-enrich";
-import { computePiSessionStats } from "../connectors/pi/pi-session-stats";
+import { clearPiStatsCache, computePiSessionStats, countSubagentTools } from "../connectors/pi/pi-session-stats";
 import type { PiSessionInfo } from "../types/pi";
 
 let tmpDirs: string[] = [];
@@ -117,5 +117,28 @@ describe("pi-session-scan cache", () => {
 		await appendFile(filePath, "");
 		const second = await computePiSessionStats(filePath);
 		expect(second).toEqual(first);
+	});
+
+	test("clearing the stats cache also drops cached subagent counts", async () => {
+		const stamp = 1_700_000_000;
+		const subagentLine = {
+			type: "message",
+			message: { role: "assistant", content: [{ type: "toolCall", id: "tc-1", name: "finder", arguments: {} }] },
+		};
+		const filePath = await makeSessionFile("subagent.jsonl", [subagentLine]);
+		await utimes(filePath, stamp, stamp);
+		expect(await countSubagentTools(filePath)).toBe(1);
+
+		await writeFile(filePath, `${JSON.stringify({ type: "message", message: { role: "assistant", content: [] } })}\n`);
+		await utimes(filePath, stamp, stamp);
+		expect(await countSubagentTools(filePath)).toBe(1);
+
+		clearPiStatsCache(filePath);
+		expect(await countSubagentTools(filePath)).toBe(0);
+
+		await writeFile(filePath, `${JSON.stringify(subagentLine)}\n`);
+		await utimes(filePath, stamp, stamp);
+		clearPiStatsCache();
+		expect(await countSubagentTools(filePath)).toBe(1);
 	});
 });

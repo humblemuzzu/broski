@@ -3,8 +3,9 @@
  *
  * The SDK's per-file `buildSessionInfo` is not exported, so the cheapest way to
  * reuse it is `SessionManager.listAll(dir)`, which is cached per project
- * directory and keyed by the `(name, mtimeMs, size)` fingerprint of the dir's
- * files. A warm call therefore only re-reads directories whose files changed.
+ * directory and keyed by the `(name, mtimeMs, size, ino, ctimeMs)` fingerprint
+ * of the dir's files. A warm call therefore only re-reads directories whose
+ * files changed — including a file replaced in place by rename.
  *
  * `allMessagesText` (the concatenated text of every message in the session) is
  * dropped before caching: no read model consumes it and it dwarfs the rest of
@@ -122,7 +123,7 @@ async function fingerprintDir(dir: string): Promise<string | null> {
 		async ({ name, index }) => {
 			try {
 				const fileStat = await stat(join(dir, name));
-				markers[index] = `${name}:${fileStat.mtimeMs}:${fileStat.size}`;
+				markers[index] = `${name}:${fileStat.mtimeMs}:${fileStat.size}:${fileStat.ino}:${fileStat.ctimeMs}`;
 			} catch {
 				markers[index] = undefined;
 			}

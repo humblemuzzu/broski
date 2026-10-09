@@ -62,6 +62,11 @@ extension PiStreamHandler on ChatSessionNotifier {
     List<Map<String, dynamic>> items, {
     String idPrefix = 'pi',
   }) {
+    final runningBash = runningPiBashCards(
+      order: _order,
+      messages: _messages,
+      sessionId: state.effectiveSessionId ?? '',
+    );
     _suppressEmit = true;
     _messages.clear();
     _order.clear();
@@ -217,6 +222,11 @@ extension PiStreamHandler on ChatSessionNotifier {
         _messages[msg.id] = msg;
         _order.add(msg.id);
       }
+    }
+
+    for (final card in runningBash) {
+      _messages[card.id] = card;
+      _order.add(card.id);
     }
 
     _suppressEmit = false;

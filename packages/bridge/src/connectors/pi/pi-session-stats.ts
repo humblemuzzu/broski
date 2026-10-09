@@ -237,7 +237,9 @@ export async function getPiModifiedFiles(filePath: string): Promise<ModifiedFile
 export function clearPiStatsCache(sessionPath?: string): void {
 	if (sessionPath) {
 		statsCache.delete(sessionPath);
+		subagentCountCache.delete(sessionPath);
 	} else {
 		statsCache.clear();
+		subagentCountCache.clear();
 	}
 }

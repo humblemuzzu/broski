@@ -155,14 +155,6 @@ extension MessageBuilder on ChatSessionNotifier {
       return id;
     }
 
-    // Pi Durable mode
-    if (state.isPiDurable) {
-      return appendPiDurableUserMessage(
-        content,
-        messageId: messageId ?? piDurableClientMessageId(),
-      );
-    }
-
     // OpenCode mode
     final session = state.session;
     if (session == null) return '';
@@ -203,8 +195,6 @@ extension MessageBuilder on ChatSessionNotifier {
         ? (state.cxThreadId ?? '')
         : state.isPi
         ? (state.piSessionId ?? '')
-        : state.isPiDurable
-        ? (state.pdSessionId ?? '')
         : (state.session?.id ?? '');
     if (sessionId.isEmpty) return;
     final message = ChatMessage(

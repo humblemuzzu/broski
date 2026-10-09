@@ -136,6 +136,20 @@ describe("pi-durable event mapping", () => {
 		expect(joinedDeltas([...first, ...repeated, ...grown], "assistant_text_delta")).toBe("DONE. And more.");
 	});
 
+	test("leaves message_update text to the event bridge", () => {
+		const context = contextOf("bridge-owned");
+		const update: AgentEvent = {
+			type: "message_update",
+			usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2, cost: ZERO_COST },
+			changes: [{ type: "text_delta", contentIndex: 0, delta: "DONE." }],
+		};
+
+		expect(mapDurableEventToBroski(update, context)).toEqual([]);
+
+		const bridge = new PiDurableEventBridge();
+		expect(joinedDeltas(bridge.absorb([update], context), "assistant_text_delta")).toBe("DONE.");
+	});
+
 	test("carries a snapshot as a state change", () => {
 		const mapped = mapDurableEventToBroski(
 			{

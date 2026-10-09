@@ -27,6 +27,7 @@ export class Collector implements PiDurableSocket {
 export type Harness = {
 	host: PiDurableHarnessHost;
 	deps: PiDurableDeps;
+	root: string;
 	projectDir: string;
 	socket: Collector;
 };
@@ -57,7 +58,7 @@ export function createHarness(options: { idleTimeoutMs?: number } = {}): Harness
 		resolveModel: async (provider, modelId) =>
 			provider === MODEL.provider && modelId === MODEL.modelId ? modelChoice() : undefined,
 	};
-	return { host, deps, projectDir, socket: new Collector() };
+	return { host, deps, root, projectDir, socket: new Collector() };
 }
 
 function collect(harness: Harness): (reply: ServerMessage) => void {

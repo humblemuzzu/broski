@@ -4,6 +4,7 @@ import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/claude_code_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/screens/chat/oc_message_delete_action.dart';
+import 'package:broski/screens/chat/pi_durable_chat_actions.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/widgets/chat/cc_undo_turn_bar.dart';
@@ -200,6 +201,12 @@ class MessageGroup extends ConsumerWidget {
                 onRollback: isCodex ? onCodexRollback : null,
                 onEditMessage: isCodex && message.role == MessageRole.user
                     ? onCodexEditMessage
+                    : null,
+                onRetryMessage:
+                    message.role == MessageRole.user &&
+                        ref.watch(chatSessionProvider).isPiDurable
+                    ? () =>
+                          retryPiDurableMessage(ref: ref, messageId: message.id)
                     : null,
               ),
             // Tool calls

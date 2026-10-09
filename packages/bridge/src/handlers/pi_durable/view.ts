@@ -23,22 +23,22 @@ export type PiDurableViewContext = {
 	isSubscription: (providerId: string) => boolean;
 };
 
-type Attachment = {
+type AttachRecord = {
 	sessionId: string;
-	stop: () => void;
+	stop?: () => void;
 };
 
-const attachments = new Map<PiDurableSocket, Attachment>();
+const attachments = new Map<PiDurableSocket, AttachRecord>();
 
 export function piDurableViewOf(socket: PiDurableSocket): string | undefined {
 	return attachments.get(socket)?.sessionId;
 }
 
 export function detachPiDurableView(socket: PiDurableSocket): void {
-	const attachment = attachments.get(socket);
-	if (attachment === undefined) return;
+	const record = attachments.get(socket);
+	if (record === undefined) return;
 	attachments.delete(socket);
-	attachment.stop();
+	record.stop?.();
 }
 
 export function closePiDurableViews(): void {
@@ -56,28 +56,48 @@ export async function attachPiDurableView(
 	deps: PiDurableDeps,
 ): Promise<void> {
 	detachPiDurableView(socket);
-	const host = await deps.host();
-	const opened = await host.open(sessionId);
-	const context: PiDurableViewContext = { sessionId, cwd: opened.cwd, isSubscription: host.isSubscription };
-	registerPiDurableWatcher(sessionId, socket);
+	const record: AttachRecord = { sessionId };
+	attachments.set(socket, record);
 
-	const bridge = new PiDurableEventBridge();
-	const stopWatch = await host.watch(sessionId, (batch) => {
-		streamBatch(socket, host, bridge, context, batch);
-	});
+	try {
+		const host = await deps.host();
+		if (attachments.get(socket) !== record) return;
+		const opened = await host.open(sessionId);
+		if (attachments.get(socket) !== record) return;
 
-	if (opened.interrupted.tasks.length > 0 || opened.interrupted.submissions.length > 0) {
-		sendPiDurableEvent(socket, piDurableResumedEvent(opened.interrupted, context));
-	}
-	replayPendingPermissions(socket, host, context);
+		const context: PiDurableViewContext = { sessionId, cwd: opened.cwd, isSubscription: host.isSubscription };
+		registerPiDurableWatcher(sessionId, socket);
 
-	attachments.set(socket, {
-		sessionId,
-		stop: () => {
+		const bridge = new PiDurableEventBridge();
+		let stopWatch: () => Promise<void>;
+		try {
+			stopWatch = await host.watch(sessionId, (batch) => {
+				streamBatch(socket, host, bridge, context, batch);
+			});
+		} catch (error) {
+			unregisterPiDurableWatcher(sessionId, socket);
+			throw error;
+		}
+
+		if (attachments.get(socket) !== record) {
+			unregisterPiDurableWatcher(sessionId, socket);
+			await stopWatch().catch(() => undefined);
+			return;
+		}
+
+		if (opened.interrupted.tasks.length > 0 || opened.interrupted.submissions.length > 0) {
+			sendPiDurableEvent(socket, piDurableResumedEvent(opened.interrupted, context));
+		}
+		replayPendingPermissions(socket, host, context);
+
+		record.stop = () => {
 			unregisterPiDurableWatcher(sessionId, socket);
 			void stopWatch().catch(() => undefined);
-		},
-	});
+		};
+	} catch (error) {
+		if (attachments.get(socket) === record) attachments.delete(socket);
+		throw error;
+	}
 }
 
 function replayPendingPermissions(

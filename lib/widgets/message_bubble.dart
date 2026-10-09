@@ -23,6 +23,7 @@ class MessageBubble extends StatelessWidget {
     this.onDeleteMessage,
     this.onRollback,
     this.onEditMessage,
+    this.onRetryMessage,
   });
   final ChatMessage message;
 
@@ -34,6 +35,9 @@ class MessageBubble extends StatelessWidget {
 
   /// Callback for editing a user message (Codex: rollback + prefill).
   final void Function(String messageId, String text)? onEditMessage;
+
+  /// Resends a user message whose delivery failed.
+  final VoidCallback? onRetryMessage;
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -159,6 +163,7 @@ class MessageBubble extends StatelessWidget {
     final isFailed = deliveryState == 'failed';
 
     return GestureDetector(
+      onTap: isFailed ? onRetryMessage : null,
       onLongPress: onEditMessage != null && message.id.isNotEmpty
           ? () => _showEditMenu(context, theme)
           : null,

@@ -62,12 +62,16 @@ async function assistantText(harness: Harness): Promise<string> {
 		.join("");
 }
 
-async function toolResults(harness: Harness) {
-	const page = await harness.host.transcript(harness.sessionId);
+async function toolResultsOf(host: PiDurableHarnessHost, sessionId: string) {
+	const page = await host.transcript(sessionId);
 	return page.entries
 		.filter((entry) => entry.kind === "pi.tool-result")
 		.flatMap((entry) => entry.model ?? [])
 		.filter((message) => message.role === "toolResult");
+}
+
+async function toolResults(harness: Harness) {
+	return toolResultsOf(harness.host, harness.sessionId);
 }
 
 function userEntryCount(entries: { kind: string }[]): number {
@@ -359,6 +363,118 @@ describe("pi-durable harness host", () => {
 			expect(harness.host.permissions.pendingFor(harness.sessionId)).toEqual([]);
 		} finally {
 			await harness.host.closeAll();
+		}
+	});
+
+	test("opens one runtime for concurrent open() calls on the same session", async () => {
+		const harness = await createHarness();
+		try {
+			const [first, second] = await Promise.all([
+				harness.host.open(harness.sessionId),
+				harness.host.open(harness.sessionId),
+			]);
+
+			expect(first.sessionId).toBe(harness.sessionId);
+			expect(second.sessionId).toBe(harness.sessionId);
+			expect(harness.host.isOpen(harness.sessionId)).toBe(true);
+			expect(existsSync(join(harness.root, harness.sessionId, PI_DURABLE_LOCK_FILE))).toBe(true);
+		} finally {
+			await harness.host.closeAll();
+		}
+	});
+
+	test("releases the lock when opening fails after the storage is open", async () => {
+		const root = mkdtempSync(join(tmpdir(), "pi-durable-host-"));
+		const projectDir = mkdtempSync(join(tmpdir(), "pi-durable-project-"));
+		let failing = true;
+		const host = new PiDurableHarnessHost({
+			models,
+			root,
+			defaultModel: DEFAULT_MODEL,
+			collectInterruptedWork: async () => {
+				if (failing) {
+					failing = false;
+					throw new Error("inspection failed");
+				}
+				return { tasks: [], submissions: [] };
+			},
+		});
+		const session = await host.store.create({ cwd: projectDir, model: DEFAULT_MODEL });
+		try {
+			await expect(host.open(session.id)).rejects.toThrow("inspection failed");
+			expect(host.isOpen(session.id)).toBe(false);
+			expect(existsSync(join(root, session.id, PI_DURABLE_LOCK_FILE))).toBe(false);
+
+			const reopened = await host.open(session.id);
+			expect(reopened.sessionId).toBe(session.id);
+		} finally {
+			await host.closeAll();
+		}
+	});
+
+	test("does not idle-close a session that gains a watcher during the idle check", async () => {
+		const root = mkdtempSync(join(tmpdir(), "pi-durable-host-"));
+		const projectDir = mkdtempSync(join(tmpdir(), "pi-durable-project-"));
+		let releaseInspection = () => {};
+		const gate = new Promise<void>((resolve) => {
+			releaseInspection = resolve;
+		});
+		let inspections = 0;
+		const host = new PiDurableHarnessHost({
+			models,
+			root,
+			defaultModel: DEFAULT_MODEL,
+			idleTimeoutMs: 30,
+			hasLiveWork: async () => {
+				inspections++;
+				await gate;
+				return false;
+			},
+		});
+		const session = await host.store.create({ cwd: projectDir, model: DEFAULT_MODEL });
+		try {
+			await host.open(session.id);
+			await waitFor(() => inspections > 0, "the idle check");
+			const unsubscribe = await host.watch(session.id, () => undefined);
+			releaseInspection();
+			await new Promise((resolve) => setTimeout(resolve, 50));
+
+			expect(host.isOpen(session.id)).toBe(true);
+			await unsubscribe();
+		} finally {
+			await host.closeAll();
+		}
+	});
+
+	test("denies a permission request that is never answered", async () => {
+		const root = mkdtempSync(join(tmpdir(), "pi-durable-host-"));
+		const projectDir = mkdtempSync(join(tmpdir(), "pi-durable-project-"));
+		const requests: PiDurablePermissionRequest[] = [];
+		const permissions = new PiDurablePermissions({
+			timeoutMs: 40,
+			onRequest: (request) => requests.push(request),
+		});
+		const host = new PiDurableHarnessHost({ models, root, permissions, defaultModel: DEFAULT_MODEL });
+		const session = await host.store.create({ cwd: projectDir, model: DEFAULT_MODEL });
+		try {
+			await host.open(session.id);
+			faux.setResponses([
+				fauxAssistantMessage([fauxToolCall("bash", { command: "echo hi" }, { id: "call-timeout" })], {
+					stopReason: "toolUse",
+				}),
+				fauxAssistantMessage("DONE.", { stopReason: "stop" }),
+			]);
+
+			await host.send(session.id, { content: "run it", requestId: "req-timeout" });
+			await waitFor(() => requests.length > 0, "the permission request");
+			await waitFor(() => permissions.pendingFor(session.id).length === 0, "the timed-out deny", 2_000);
+
+			await waitFor(async () => (await toolResultsOf(host, session.id)).length > 0, "the denied tool result", 5_000);
+			const results = await toolResultsOf(host, session.id);
+			expect(results.map((message) => message.isError)).toEqual([true]);
+			expect(JSON.stringify(results[0]?.content)).toContain("permission request timed out");
+		} finally {
+			await host.closeAll();
 		}
 	});
 });
