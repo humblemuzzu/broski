@@ -1,5 +1,5 @@
 import type { Usage } from "@earendil-works/pi-ai";
-import type { ModelRef, SnapshotEvent, UsageState } from "@earendil-works/pi-durable";
+import type { EntryRecord, ModelRef, SnapshotEvent, UsageState } from "@earendil-works/pi-durable";
 import type { BroskiModelSummary, BroskiRuntimeCapabilities, BroskiRuntimeState } from "../types/runtime";
 
 export const PI_DURABLE_BACKEND = "pi-durable" as const;
@@ -103,6 +103,7 @@ export function piDurableRuntimeState(snapshot: SnapshotEvent, context: PiDurabl
 		backendData: {
 			entryCount: snapshot.entries.length,
 			lastEntryId: snapshot.entries.at(-1)?.id,
+			contextTokens: piDurableContextTokens(snapshot.entries),
 			runInputs: snapshot.run?.inputs,
 			generationAttempt: snapshot.generation?.attempt,
 			deferredPollAt: snapshot.generation?.deferred?.pollAt,
@@ -122,4 +123,22 @@ export function piDurableRuntimeState(snapshot: SnapshotEvent, context: PiDurabl
 			usage: piDurableUsagePayload(snapshot.usage, context),
 		},
 	};
+}
+
+/**
+ * What the next provider request would send, approximated without a context read: the usage of the newest assistant
+ * entry, whose input + cache tokens are exactly that call's prompt. Absent until the first answer commits.
+ */
+export function piDurableContextTokens(entries: readonly EntryRecord[]): number | undefined {
+	for (let index = entries.length - 1; index >= 0; index -= 1) {
+		const messages = entries[index]?.model;
+		if (messages === undefined) continue;
+		for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+			const message = messages[messageIndex];
+			if (message === undefined || message.role !== "assistant") continue;
+			const usage = message.usage;
+			return usage.input + usage.cacheRead + usage.cacheWrite;
+		}
+	}
+	return undefined;
 }

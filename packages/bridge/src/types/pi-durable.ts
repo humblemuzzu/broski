@@ -18,12 +18,25 @@ export type PiDurableCreateSessionMessage = {
 	requestId?: string;
 };
 
+export type PiDurableImageInput = {
+	data: string;
+	mimeType: string;
+};
+
 export type PiDurableChatMessage = {
 	type: "pd_chat";
 	sessionId: string;
 	content: string;
+	images?: PiDurableImageInput[];
 	requestId?: string;
 	whenBusy?: PiDurableWhenBusy;
+};
+
+export type PiDurableCompactMessage = {
+	type: "pd_compact";
+	sessionId: string;
+	instructions?: string;
+	requestId?: string;
 };
 
 export type PiDurableGetTranscriptMessage = {
@@ -45,6 +58,7 @@ export type PiDurablePermissionResponseMessage = {
 export type PiDurableClientMessage =
 	| PiDurableCreateSessionMessage
 	| PiDurableChatMessage
+	| PiDurableCompactMessage
 	| PiDurableGetTranscriptMessage
 	| PiDurablePermissionResponseMessage;
 
@@ -67,6 +81,7 @@ export type PiDurableServerMessage =
 	| { type: "pd_session_created"; backend: "pi-durable"; data: BroskiSessionSummary; requestId?: string }
 	| { type: "pd_chat_accepted"; backend: "pi-durable"; data: { submissionId: number }; requestId?: string }
 	| { type: "pd_transcript"; backend: "pi-durable"; data: PiDurableTranscriptPage; requestId?: string }
+	| { type: "pd_compacted"; backend: "pi-durable"; data: boolean; requestId?: string }
 	| { type: "pd_permission_resolved"; backend: "pi-durable"; data: boolean; requestId?: string };
 
 /** The slice of a Bun socket this backend writes to, narrow enough for a bare collector to satisfy in tests. */

@@ -1,5 +1,5 @@
-import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
-import type { Cursor } from "@earendil-works/pi-durable";
+import type { ImageContent, ModelThinkingLevel } from "@earendil-works/pi-ai";
+import type { Cursor, UserInput } from "@earendil-works/pi-durable";
 import { mapAgentMessages } from "../../connectors/pi/pi-events";
 import { PI_DURABLE_TRANSCRIPT_LIMIT } from "../../connectors/pi-durable";
 import type { PiDurableModelRef, PiDurableTranscriptPage, PiDurableWhenBusy } from "../../types/pi-durable";
@@ -27,6 +27,7 @@ export type PiDurableCreateSessionInput = {
 export type PiDurableChatInput = {
 	sessionId: string;
 	content: string;
+	images?: ImageContent[];
 	requestId?: string;
 	whenBusy?: PiDurableWhenBusy;
 };
@@ -127,13 +128,35 @@ export async function createSession(
 
 /** A repeat of the same `requestId` returns the same submission: the durable conversation is exactly-once. */
 export async function chat(deps: PiDurableDeps, input: PiDurableChatInput): Promise<number> {
-	if (input.content.trim() === "") throw new Error("content is required");
+	const content = composeUserInput(input.content, input.images ?? []);
+	if (typeof content === "string" && content.trim() === "") throw new Error("content is required");
 	const host = await deps.host();
 	return host.send(input.sessionId, {
-		content: input.content,
+		content,
 		...(input.requestId !== undefined ? { requestId: input.requestId } : {}),
 		...(input.whenBusy !== undefined ? { whenBusy: input.whenBusy } : {}),
 	});
+}
+
+/** Text-only stays a plain string, so the common path keeps the wire shape the harness already stores. */
+function composeUserInput(content: string, images: readonly ImageContent[]): UserInput {
+	if (images.length === 0) return content;
+	return content === "" ? [...images] : [{ type: "text" as const, text: content }, ...images];
+}
+
+/** True only when the session is open here, so an idle session cannot be "compacted" by claiming success. */
+export async function compact(
+	deps: PiDurableDeps,
+	input: { sessionId: string; instructions?: string },
+): Promise<boolean> {
+	const host = await deps.host();
+	if (!host.isOpen(input.sessionId)) return false;
+	try {
+		await host.compact(input.sessionId, input.instructions);
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 export async function readTranscript(

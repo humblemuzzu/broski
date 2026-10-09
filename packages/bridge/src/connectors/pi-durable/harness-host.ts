@@ -203,6 +203,12 @@ export class PiDurableHarnessHost {
 		await entry.runtime.conversation.abort(this.context);
 	}
 
+	/** Admits a manual compaction: the summary is placed at the next boundary while the conversation keeps working. */
+	async compact(sessionId: string, instructions?: string): Promise<void> {
+		const entry = await this.ensureOpen(sessionId);
+		await entry.runtime.conversation.compact(instructions, this.context);
+	}
+
 	async configure(sessionId: string, change: PiDurableConfigureChange): Promise<void> {
 		const entry = await this.ensureOpen(sessionId);
 		await entry.runtime.conversation.configure(

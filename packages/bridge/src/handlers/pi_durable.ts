@@ -5,6 +5,7 @@ import { closePiDurableHost, type PiDurableDeps, piDurableAvailability, piDurabl
 import * as ops from "./pi_durable/ops";
 import { parsePiDurableModelRef, parsePiDurableThinkingLevel } from "./pi_durable/read-models";
 import { attachPiDurableView, closePiDurableViews, detachPiDurableView, piDurableViewOf } from "./pi_durable/view";
+import { parseImageInputs } from "./pi_message_helpers";
 import { listPiDurableSkills } from "./unified_pi";
 
 export { piDurableAvailability };
@@ -41,6 +42,9 @@ export async function handle(
 			return true;
 		case "pd_chat":
 			await handleChat(reply, message, deps);
+			return true;
+		case "pd_compact":
+			await handleCompact(reply, message, deps);
 			return true;
 		case "pd_get_transcript":
 			await handleGetTranscript(reply, message, deps);
@@ -202,15 +206,33 @@ async function handleChat(reply: Reply, message: Record<string, unknown>, deps: 
 		const sessionId = stringField(message, "sessionId");
 		if (sessionId === undefined) throw new Error("sessionId is required");
 		const content = typeof message.content === "string" ? message.content : "";
-		if (content.trim() === "") throw new Error("content is required");
+		const images = parseImageInputs(message.images);
+		if (content.trim() === "" && images.length === 0) throw new Error("content is required");
 		const whenBusy = parseWhenBusy(message.whenBusy);
 		const submissionId = await ops.chat(deps, {
 			sessionId,
 			content,
+			...(images.length > 0 ? { images } : {}),
 			...(requestId !== undefined ? { requestId } : {}),
 			...(whenBusy !== undefined ? { whenBusy } : {}),
 		});
 		reply({ type: "pd_chat_accepted", backend: "pi-durable", data: { submissionId }, requestId });
+	} catch (error) {
+		sendError(reply, toErrorMessage(error), requestId);
+	}
+}
+
+async function handleCompact(reply: Reply, message: Record<string, unknown>, deps: PiDurableDeps): Promise<void> {
+	const requestId = requestIdOf(message);
+	try {
+		const sessionId = stringField(message, "sessionId");
+		if (sessionId === undefined) throw new Error("sessionId is required");
+		const instructions = stringField(message, "instructions");
+		const data = await ops.compact(deps, {
+			sessionId,
+			...(instructions !== undefined ? { instructions } : {}),
+		});
+		reply({ type: "pd_compacted", backend: "pi-durable", data, requestId });
 	} catch (error) {
 		sendError(reply, toErrorMessage(error), requestId);
 	}
