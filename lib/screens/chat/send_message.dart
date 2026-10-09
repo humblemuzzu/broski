@@ -17,6 +17,7 @@ import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/providers/selection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/screens/chat/codex_slash_commands.dart';
+import 'package:broski/screens/chat/pi_bang_command.dart';
 import 'package:broski/utils/opencode_id.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -107,6 +108,13 @@ void sendMessage({
       return;
     }
   } else if (isPi) {
+    final piCwd = chatState.piCwd ?? piSession?.cwd ?? piDraftCwd;
+    if (runPiBangCommand(ref: ref, text: text, cwd: piCwd)) {
+      controller.clear();
+      clearAttachments();
+      scrollToBottom();
+      return;
+    }
     // Pi mid-turn: steer the agent
     if (chatState.piIsStreaming) {
       final piBridge = ref.read(piBridgeServiceProvider);

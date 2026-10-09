@@ -8,6 +8,12 @@ class PiLiveBashNotifier extends StateNotifier<Map<String, String>> {
 
   static const int maxCharsPerSession = 64 * 1024;
 
+  void clearSession(String sessionId) {
+    if (sessionId.isEmpty || !state.containsKey(sessionId)) return;
+    final next = Map<String, String>.of(state)..remove(sessionId);
+    state = next;
+  }
+
   void appendChunk(RuntimeBackendEvent event) {
     final sessionId = event.sessionId;
     final payload = event.payload;

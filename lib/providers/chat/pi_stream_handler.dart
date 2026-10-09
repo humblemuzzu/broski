@@ -189,6 +189,16 @@ extension PiStreamHandler on ChatSessionNotifier {
         }
         // Don't create a separate message for tool results —
         // they are shown inline in the tool card
+      } else if (role == 'bashExecution') {
+        final bashCard = piBashTranscriptCard(
+          item: item,
+          id: 'pi-${_messages.length}',
+          sessionId: state.piSessionId ?? '',
+        );
+        if (bashCard != null) {
+          _messages[bashCard.id] = bashCard;
+          _order.add(bashCard.id);
+        }
       } else if (role == 'compactionSummary' || role == 'branchSummary') {
         // Render as a compaction divider
         final msg = ChatMessage(
@@ -202,7 +212,6 @@ extension PiStreamHandler on ChatSessionNotifier {
         _messages[msg.id] = msg;
         _order.add(msg.id);
       }
-      // Skip bashExecution and custom roles — they don't need separate rendering
     }
 
     _suppressEmit = false;
