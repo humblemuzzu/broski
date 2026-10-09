@@ -5,10 +5,15 @@
  * agents, hooks, and prompts from the broski project's .claude/, .codex/, .opencode/ dirs.
  */
 import { describe, expect, it } from "bun:test";
+import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
 // The broski project root (two dirs up from packages/bridge/src/__tests__)
 const BROSKI_ROOT = resolve(__dirname, "..", "..", "..", "..");
+
+const HAS_CC_SKILLS = existsSync(resolve(BROSKI_ROOT, ".claude", "skills"));
+const HAS_CC_AGENTS = existsSync(resolve(BROSKI_ROOT, ".claude", "agents"));
+const HAS_CC_SETTINGS = existsSync(resolve(BROSKI_ROOT, ".claude", "settings.json"));
 
 describe("Claude Code Scanners", () => {
 	it("listCommands finds all .claude/commands/*.md files", async () => {
@@ -38,7 +43,7 @@ describe("Claude Code Scanners", () => {
 		expect(projectCommands.length).toBeGreaterThanOrEqual(5);
 	});
 
-	it("listSkills finds all .claude/skills/*/SKILL.md files with correct source", async () => {
+	it.skipIf(!HAS_CC_SKILLS)("listSkills finds all .claude/skills/*/SKILL.md files with correct source", async () => {
 		const { listSkills } = await import("../connectors/claude-code");
 		const skills = await listSkills(BROSKI_ROOT);
 
@@ -60,7 +65,7 @@ describe("Claude Code Scanners", () => {
 		expect(projectSkills.length).toBeGreaterThanOrEqual(3);
 	});
 
-	it("listAgents finds all .claude/agents/*.md files with correct source", async () => {
+	it.skipIf(!HAS_CC_AGENTS)("listAgents finds all .claude/agents/*.md files with correct source", async () => {
 		const { listAgents } = await import("../connectors/claude-code");
 		const agents = await listAgents(BROSKI_ROOT);
 
@@ -82,7 +87,7 @@ describe("Claude Code Scanners", () => {
 		expect(projectAgents.length).toBeGreaterThanOrEqual(3);
 	});
 
-	it("listHooks reads from settings.json AND hooks.json", async () => {
+	it.skipIf(!HAS_CC_SETTINGS)("listHooks reads from settings.json AND hooks.json", async () => {
 		const { listHooks } = await import("../connectors/claude-code");
 		const hooks = await listHooks(BROSKI_ROOT);
 

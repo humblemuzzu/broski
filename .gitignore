@@ -98,6 +98,8 @@ app.*.map.json
 **/node_modules/
 bun.lock
 bun.lockb
+# Committed so CI installs reproducibly (see .github/workflows/ci.yml)
+!packages/bridge/bun.lock
 package-lock.json
 yarn.lock
 pnpm-lock.yaml
