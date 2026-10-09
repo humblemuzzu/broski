@@ -14,11 +14,11 @@
 import { readFile } from "node:fs/promises";
 import {
 	buildSessionContext,
+	type FileEntry,
 	migrateSessionEntries,
 	parseSessionEntries,
-	SessionManager,
-	type FileEntry,
 	type SessionEntry,
+	SessionManager,
 } from "@mariozechner/pi-coding-agent";
 import { mapAgentMessage } from "../connectors/pi/pi-events";
 import type { ServerMessage } from "../types";
@@ -50,10 +50,7 @@ async function resolveSessionPath(sessionId: string): Promise<string | null> {
  * without needing a live AgentSession instance. Supports an optional
  * limit to return only the last N messages (for pagination).
  */
-async function readSessionMessages(
-	sessionPath: string,
-	limit?: number,
-): Promise<ReturnType<typeof mapAgentMessage>[]> {
+async function readSessionMessages(sessionPath: string, limit?: number): Promise<ReturnType<typeof mapAgentMessage>[]> {
 	const content = await readFile(sessionPath, "utf-8");
 	const fileEntries = parseSessionEntries(content);
 
@@ -83,14 +80,9 @@ export async function handle(message: any, reply: Reply): Promise<boolean> {
 	if (message.type !== "pi_read_session_messages") return false;
 
 	const sessionPath =
-		typeof message.sessionPath === "string" && message.sessionPath.trim()
-			? message.sessionPath.trim()
-			: null;
+		typeof message.sessionPath === "string" && message.sessionPath.trim() ? message.sessionPath.trim() : null;
 
-	const sessionId =
-		typeof message.sessionId === "string" && message.sessionId.trim()
-			? message.sessionId.trim()
-			: null;
+	const sessionId = typeof message.sessionId === "string" && message.sessionId.trim() ? message.sessionId.trim() : null;
 
 	const limit = typeof message.limit === "number" ? message.limit : undefined;
 

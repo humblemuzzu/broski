@@ -1,8 +1,13 @@
 import { join } from "node:path";
 import type { ServerWebSocket } from "bun";
 import type { AgentType, ServerMessage } from "../types";
-import { registerPiWatcher, replayPiRuntimeEvents, replayPendingExtensionUiRequests, unregisterPiWatcher } from "./pi_stream_delivery";
-import { syncPiExternalTail, stopPiExternalTail, getPendingExtensionUiRequests } from "./pi_features";
+import { getPendingExtensionUiRequests, stopPiExternalTail, syncPiExternalTail } from "./pi_features";
+import {
+	registerPiWatcher,
+	replayPendingExtensionUiRequests,
+	replayPiRuntimeEvents,
+	unregisterPiWatcher,
+} from "./pi_stream_delivery";
 
 type ReplyFn = (msg: ServerMessage) => void;
 
@@ -155,9 +160,7 @@ export async function handle(
 			// Bridge started this session — re-bind ownership on reconnect
 			if (prevOwner !== ws && isSocketStale(prevOwner)) {
 				ctx.ccSessionOwners.set(nextSessionId, ws);
-				ctx.logInfo(
-					`[RTS] set_view: Re-bound CC session ${nextSessionId} owner (stale socket)`,
-				);
+				ctx.logInfo(`[RTS] set_view: Re-bound CC session ${nextSessionId} owner (stale socket)`);
 			}
 			ctx.send(ws, {
 				type: "runtime_state",
@@ -173,7 +176,9 @@ export async function handle(
 			// Session is active but NOT bridge-owned — running in Mac terminal.
 			// Don't claim ownership; let external tail handle streaming.
 			if (ctx.DEBUG_RTS) {
-				ctx.logDebug(`[RTS] set_view: CC session ${nextSessionId} active but not bridge-owned, external tail will stream`);
+				ctx.logDebug(
+					`[RTS] set_view: CC session ${nextSessionId} active but not bridge-owned, external tail will stream`,
+				);
 			}
 		}
 	}
@@ -186,9 +191,7 @@ export async function handle(
 			// Bridge started this session — re-bind on reconnect
 			if (prevOwner !== ws && isSocketStale(prevOwner)) {
 				ctx.cxThreadOwners.set(nextSessionId, ws);
-				ctx.logInfo(
-					`[RTS] set_view: Re-bound CX thread ${nextSessionId} owner (stale socket)`,
-				);
+				ctx.logInfo(`[RTS] set_view: Re-bound CX thread ${nextSessionId} owner (stale socket)`);
 			}
 			ctx.send(ws, {
 				type: "runtime_state",
@@ -202,7 +205,9 @@ export async function handle(
 			ctx.replayBufferedEvents(ws, "codex", nextSessionId);
 		} else if (isActive && !hadBridgeOwner) {
 			if (ctx.DEBUG_RTS) {
-				ctx.logDebug(`[RTS] set_view: CX thread ${nextSessionId} active but not bridge-owned, external tail will stream`);
+				ctx.logDebug(
+					`[RTS] set_view: CX thread ${nextSessionId} active but not bridge-owned, external tail will stream`,
+				);
 			}
 		}
 	}
@@ -212,7 +217,9 @@ export async function handle(
 		// the external tail from starting (syncExternalTailForKey checks !owner).
 		if (ctx.DEBUG_RTS) {
 			const prevOwner = ctx.ocSessionOwners.get(nextSessionId);
-			ctx.logDebug(`[RTS] set_view: OC session ${nextSessionId}, owner=${prevOwner ? "bridge" : "none (external tail)"}` );
+			ctx.logDebug(
+				`[RTS] set_view: OC session ${nextSessionId}, owner=${prevOwner ? "bridge" : "none (external tail)"}`,
+			);
 		}
 	}
 	let replayedPiBufferedEvents = 0;

@@ -530,7 +530,9 @@ export function startClaudeCodeExternalTail(sessionId: string, ctx: CcExternalTa
 				if (!initialSyncDone) {
 					initialSyncDone = true;
 					if (ctx.DEBUG_RTS) {
-						ctx.logDebug(`[RTS] CC External: Initial sync done for session ${sessionId} (caught up at offset=${offset})`);
+						ctx.logDebug(
+							`[RTS] CC External: Initial sync done for session ${sessionId} (caught up at offset=${offset})`,
+						);
 					}
 				}
 				// Some Claude Code versions update transcripts in-place without appending bytes.
@@ -616,9 +618,7 @@ export function startClaudeCodeExternalTail(sessionId: string, ctx: CcExternalTa
 					// Emit user text so the phone shows the prompt typed on Mac
 					if (initialSyncDone && ctx.broadcastRaw) {
 						// CC user text can be a plain string at top level or in content blocks
-						const userText = typeof parsed?.content === "string"
-							? parsed.content
-							: extractText(content);
+						const userText = typeof parsed?.content === "string" ? parsed.content : extractText(content);
 						if (userText) {
 							ctx.broadcastRaw({
 								type: "runtime_event",

@@ -10,12 +10,12 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { deduplicateFileDiffs } from "../handlers/session-stats";
+import { join } from "node:path";
 import { getCCModifiedFiles } from "../connectors/claude-code/cc-session-stats";
 import { getCxModifiedFiles } from "../connectors/codex/cx-session-stats";
 import { getPiModifiedFiles } from "../connectors/pi/pi-session-stats";
+import { deduplicateFileDiffs } from "../handlers/session-stats";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -92,7 +92,15 @@ describe("getCCModifiedFiles", () => {
 							oldLines: 3,
 							newStart: 10,
 							newLines: 5,
-							lines: [" context line", "-old line 1", "-old line 2", "+new line 1", "+new line 2", "+new line 3", " context"],
+							lines: [
+								" context line",
+								"-old line 1",
+								"-old line 2",
+								"+new line 1",
+								"+new line 2",
+								"+new line 3",
+								" context",
+							],
 						},
 					],
 				},
@@ -100,9 +108,9 @@ describe("getCCModifiedFiles", () => {
 		]);
 		const files = await getCCModifiedFiles(fp);
 		expect(files).toHaveLength(1);
-		expect(files[0].file).toBe("lib/main.dart");
-		expect(files[0].additions).toBe(3);
-		expect(files[0].deletions).toBe(2);
+		expect(files[0]?.file).toBe("lib/main.dart");
+		expect(files[0]?.additions).toBe(3);
+		expect(files[0]?.deletions).toBe(2);
 	});
 
 	test("extracts from oldString/newString fallback", async () => {
@@ -117,9 +125,9 @@ describe("getCCModifiedFiles", () => {
 		]);
 		const files = await getCCModifiedFiles(fp);
 		expect(files).toHaveLength(1);
-		expect(files[0].file).toBe("src/utils.ts");
-		expect(files[0].additions).toBe(2); // 5 lines - 3 lines
-		expect(files[0].deletions).toBe(0);
+		expect(files[0]?.file).toBe("src/utils.ts");
+		expect(files[0]?.additions).toBe(2); // 5 lines - 3 lines
+		expect(files[0]?.deletions).toBe(0);
 	});
 
 	test("merges multiple edits to the same file", async () => {
@@ -139,9 +147,9 @@ describe("getCCModifiedFiles", () => {
 		]);
 		const files = await getCCModifiedFiles(fp);
 		expect(files).toHaveLength(1);
-		expect(files[0].file).toBe("lib/main.dart");
-		expect(files[0].additions).toBe(3); // 2 + 1
-		expect(files[0].deletions).toBe(2); // 1 + 1
+		expect(files[0]?.file).toBe("lib/main.dart");
+		expect(files[0]?.additions).toBe(3); // 2 + 1
+		expect(files[0]?.deletions).toBe(2); // 1 + 1
 	});
 
 	test("handles multiple different files", async () => {
@@ -179,7 +187,7 @@ describe("getCCModifiedFiles", () => {
 		]);
 		const files = await getCCModifiedFiles(fp);
 		expect(files).toHaveLength(1);
-		expect(files[0].file).toBe("real.dart");
+		expect(files[0]?.file).toBe("real.dart");
 	});
 
 	test("returns empty for file with no edits", async () => {
@@ -223,9 +231,9 @@ describe("getCxModifiedFiles", () => {
 		]);
 		const files = await getCxModifiedFiles(fp);
 		expect(files).toHaveLength(1);
-		expect(files[0].file).toBe("src/server.ts");
-		expect(files[0].additions).toBe(3);
-		expect(files[0].deletions).toBe(1);
+		expect(files[0]?.file).toBe("src/server.ts");
+		expect(files[0]?.additions).toBe(3);
+		expect(files[0]?.deletions).toBe(1);
 	});
 
 	test("extracts from function_call apply_patch", async () => {
@@ -244,8 +252,8 @@ describe("getCxModifiedFiles", () => {
 		]);
 		const files = await getCxModifiedFiles(fp);
 		expect(files).toHaveLength(1);
-		expect(files[0].file).toBe("src/new.ts");
-		expect(files[0].additions).toBe(2);
+		expect(files[0]?.file).toBe("src/new.ts");
+		expect(files[0]?.additions).toBe(2);
 	});
 
 	test("extracts from v2 fileChange items", async () => {
@@ -267,9 +275,9 @@ describe("getCxModifiedFiles", () => {
 		]);
 		const files = await getCxModifiedFiles(fp);
 		expect(files).toHaveLength(1);
-		expect(files[0].file).toBe("lib/widget.dart");
-		expect(files[0].additions).toBe(2);
-		expect(files[0].deletions).toBe(1);
+		expect(files[0]?.file).toBe("lib/widget.dart");
+		expect(files[0]?.additions).toBe(2);
+		expect(files[0]?.deletions).toBe(1);
 	});
 
 	test("merges same file from different events", async () => {
@@ -295,9 +303,9 @@ describe("getCxModifiedFiles", () => {
 		]);
 		const files = await getCxModifiedFiles(fp);
 		expect(files).toHaveLength(1);
-		expect(files[0].file).toBe("app.ts");
-		expect(files[0].additions).toBe(3); // 2 + 1
-		expect(files[0].deletions).toBe(1); // 0 + 1
+		expect(files[0]?.file).toBe("app.ts");
+		expect(files[0]?.additions).toBe(3); // 2 + 1
+		expect(files[0]?.deletions).toBe(1); // 0 + 1
 	});
 
 	test("returns empty for nonexistent file", async () => {
@@ -346,9 +354,9 @@ describe("getPiModifiedFiles", () => {
 		]);
 		const files = await getPiModifiedFiles(fp);
 		expect(files).toHaveLength(1);
-		expect(files[0].file).toBe("/Users/me/project/lib/widget.dart");
-		expect(files[0].additions).toBe(1);
-		expect(files[0].deletions).toBe(0);
+		expect(files[0]?.file).toBe("/Users/me/project/lib/widget.dart");
+		expect(files[0]?.additions).toBe(1);
+		expect(files[0]?.deletions).toBe(0);
 	});
 
 	test("edit tool: uses details.diff when available (older Pi format)", async () => {
@@ -366,9 +374,9 @@ describe("getPiModifiedFiles", () => {
 		]);
 		const files = await getPiModifiedFiles(fp);
 		expect(files).toHaveLength(1);
-		expect(files[0].file).toBe("lib/widget.dart");
-		expect(files[0].additions).toBe(2);
-		expect(files[0].deletions).toBe(1);
+		expect(files[0]?.file).toBe("lib/widget.dart");
+		expect(files[0]?.additions).toBe(2);
+		expect(files[0]?.deletions).toBe(1);
 	});
 
 	test("write tool: gets REAL line count from toolCall arguments.content", async () => {
@@ -405,9 +413,9 @@ describe("getPiModifiedFiles", () => {
 		]);
 		const files = await getPiModifiedFiles(fp);
 		expect(files).toHaveLength(1);
-		expect(files[0].file).toBe("src/new_file.py");
-		expect(files[0].additions).toBe(10); // exactly 10 lines, not an estimate
-		expect(files[0].deletions).toBe(0);
+		expect(files[0]?.file).toBe("src/new_file.py");
+		expect(files[0]?.additions).toBe(10); // exactly 10 lines, not an estimate
+		expect(files[0]?.deletions).toBe(0);
 	});
 
 	test("write tool: skipped when no toolCall arguments found", async () => {
@@ -436,7 +444,12 @@ describe("getPiModifiedFiles", () => {
 					role: "assistant",
 					content: [
 						{ type: "toolCall", id: "tc-1", name: "edit", arguments: { path: "a.py", old_str: "old", new_str: "new" } },
-						{ type: "toolCall", id: "tc-2", name: "write", arguments: { path: "b.py", content: "#!/usr/bin/env python\nprint('hello')\nprint('world')" } },
+						{
+							type: "toolCall",
+							id: "tc-2",
+							name: "write",
+							arguments: { path: "b.py", content: "#!/usr/bin/env python\nprint('hello')\nprint('world')" },
+						},
 					],
 				},
 			},
@@ -513,9 +526,9 @@ describe("getPiModifiedFiles", () => {
 		]);
 		const files = await getPiModifiedFiles(fp);
 		expect(files).toHaveLength(1);
-		expect(files[0].file).toBe("app.py");
-		expect(files[0].additions).toBe(3); // 2 + 1
-		expect(files[0].deletions).toBe(1); // 0 + 1
+		expect(files[0]?.file).toBe("app.py");
+		expect(files[0]?.additions).toBe(3); // 2 + 1
+		expect(files[0]?.deletions).toBe(1); // 0 + 1
 	});
 
 	test("skips non-edit non-write tool results", async () => {

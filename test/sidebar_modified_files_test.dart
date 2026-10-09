@@ -129,7 +129,7 @@ void main() {
   group('DiffEntry for sessionDiffs accumulation', () {
     test('can be constructed from CC filediff metadata shape', () {
       // This is the shape _accumulateCcSessionDiff receives
-      final entry = DiffEntry(
+      const entry = DiffEntry(
         file: 'lib/widget.dart',
         before: 'old content',
         after: 'new content',
@@ -148,7 +148,7 @@ void main() {
 
     test('can be constructed from Pi diff metadata shape', () {
       // This is the shape _accumulatePiSessionDiff creates
-      final entry = DiffEntry(
+      const entry = DiffEntry(
         file: 'src/main.py',
         before: '',
         after: '',

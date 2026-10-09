@@ -124,7 +124,9 @@ function formatToolArgs(name: string, args: Record<string, unknown> | undefined)
 			return String(args.query || "").slice(0, 60);
 		}
 		case "web_search": {
-			return String(args.query || args.queries?.[0] || "").slice(0, 60);
+			const queries = args.queries;
+			const firstQuery = Array.isArray(queries) ? queries[0] : undefined;
+			return String(args.query || firstQuery || "").slice(0, 60);
 		}
 		default: {
 			const s = JSON.stringify(args);
@@ -133,10 +135,7 @@ function formatToolArgs(name: string, args: Record<string, unknown> | undefined)
 	}
 }
 
-function serializeTree(
-	nodes: any[],
-	leafId: string | null,
-): SerializedTreeNode[] {
+function serializeTree(nodes: any[], leafId: string | null): SerializedTreeNode[] {
 	const result: SerializedTreeNode[] = [];
 	const activePathSet = buildActivePathSet(nodes, leafId);
 	const toolCallMap = buildToolCallMap(nodes);

@@ -1,6 +1,6 @@
 import type { ClaudeCodeSession, ClaudeCodeTranscriptMessage, ProjectSummary, ServerMessage } from "../types";
-import type { ModifiedFileEntry } from "./session-stats";
 import type { BroskiSessionSummary } from "../types/runtime";
+import type { ModifiedFileEntry } from "./session-stats";
 
 type ReplyFn = (msg: ServerMessage) => void;
 

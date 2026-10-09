@@ -12,8 +12,8 @@ import { execSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, resolve } from "node:path";
-import { isCompiledBinary } from "./platform";
 import { redactSensitiveText } from "./logging/redact";
+import { isCompiledBinary } from "./platform";
 
 /** Module-level log that applies redaction in production binaries. */
 function subLog(message: string, ...args: unknown[]): void {
@@ -21,9 +21,8 @@ function subLog(message: string, ...args: unknown[]): void {
 		console.log(message, ...args);
 		return;
 	}
-	const text = args.length > 0
-		? `${message} ${args.map((a) => (a instanceof Error ? a.message : String(a))).join(" ")}`
-		: message;
+	const text =
+		args.length > 0 ? `${message} ${args.map((a) => (a instanceof Error ? a.message : String(a))).join(" ")}` : message;
 	console.log(redactSensitiveText(text));
 }
 

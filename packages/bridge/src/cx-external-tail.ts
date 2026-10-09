@@ -266,8 +266,12 @@ export function startCodexExternalTail(threadId: string, ctx: CxExternalTailCont
 						}
 						// Emit user text so the phone shows the prompt typed on Mac
 						if (initialSyncDone && ctx.broadcastRaw) {
-							const userText = typeof payload?.message === "string" ? payload.message
-								: typeof payload?.text === "string" ? payload.text : "";
+							const userText =
+								typeof payload?.message === "string"
+									? payload.message
+									: typeof payload?.text === "string"
+										? payload.text
+										: "";
 							if (userText) {
 								ctx.broadcastRaw({
 									type: "runtime_event",
@@ -349,7 +353,11 @@ export function startCodexExternalTail(threadId: string, ctx: CxExternalTailCont
 						for (const block of content) {
 							if (!block || typeof block !== "object") continue;
 							const blockType = ctx.safeString(block.type);
-							if ((blockType === "output_text" || blockType === "text") && typeof block.text === "string" && block.text) {
+							if (
+								(blockType === "output_text" || blockType === "text") &&
+								typeof block.text === "string" &&
+								block.text
+							) {
 								emit("item/agentMessage/delta", {
 									itemId: itemId || `cx-ext-text-${Date.now()}`,
 									delta: block.text,

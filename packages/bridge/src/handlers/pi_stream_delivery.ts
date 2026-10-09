@@ -1,7 +1,7 @@
 import type { ServerWebSocket } from "bun";
+import { mapPiStreamToRuntimeEvent } from "../runtime/pi-runtime-event-mapper";
 import type { ServerMessage } from "../types";
 import type { PiStreamMessage } from "../types/pi";
-import { mapPiStreamToRuntimeEvent } from "../runtime/pi-runtime-event-mapper";
 import { recordRuntimeEvent } from "../utils/runtime-replay-buffer";
 
 const SESSION_EVENT_BUFFER_SIZE = 100;

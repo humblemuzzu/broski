@@ -1,5 +1,5 @@
-import type { CodexThread } from "../types";
 import { getCollabParent } from "../connectors/codex/cx-collab-cache";
+import type { CodexThread } from "../types";
 import type {
 	BroskiModelSummary,
 	BroskiRuntimeCapabilities,

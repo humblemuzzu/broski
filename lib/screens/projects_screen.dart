@@ -203,7 +203,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
         path: worktree.directory,
       );
       chat.setSession(session, projectPath: worktree.directory);
-      if (!mounted) return;
+      if (!context.mounted) return;
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -212,7 +212,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
         ),
       );
     } catch (e) {
-      if (!mounted) return;
+      if (!context.mounted) return;
       showError(context, 'Failed to create session: ${humanizeError(e)}');
     }
   }
@@ -728,7 +728,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
           .where((s) => s.directory == project.path)
           .toList();
       if (projectSessions.isEmpty) {
-        if (!mounted) return;
+        if (!context.mounted) return;
         showInfo(context, 'No cached sessions for this project');
         return;
       }
@@ -737,7 +737,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       final session = projectSessions.first;
       selection.selectSession(session);
       chat.setSession(session, projectPath: project.path);
-      if (!mounted) return;
+      if (!context.mounted) return;
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -759,7 +759,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     );
     selection.selectSession(session);
     chat.setSession(session, projectPath: project.path);
-    if (!mounted) return;
+    if (!context.mounted) return;
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -817,7 +817,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     final bridge = ref.read(bridgeServiceProvider);
     showInfo(context, 'Restarting OpenCode...');
     final ok = await bridge.restartOpenCode();
-    if (!mounted) return;
+    if (!context.mounted) return;
     if (ok) {
       showSuccess(context, 'OpenCode restarted');
     } else {

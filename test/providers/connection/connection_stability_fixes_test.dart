@@ -574,7 +574,7 @@ void main() {
       // Simulating the merge logic from _handleMessage:
       // data['localIP'] is null → falls back to conn.localIP
       final merged = ConnectionInfo(
-        localIP: null ?? original.localIP,
+        localIP: original.localIP,
         tailscaleIP: '100.64.0.5',
         port: original.port,
       );
@@ -616,7 +616,7 @@ void main() {
       );
 
       final updated = original.copyWith(
-        connection: ConnectionInfo(
+        connection: const ConnectionInfo(
           localIP: '10.0.0.42',
           tailscaleIP: '100.64.0.5',
           port: 3000,

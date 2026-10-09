@@ -11,7 +11,6 @@
  */
 
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
-import { dirExists, fileExists } from "./utils/fs-helpers";
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import type {
@@ -20,6 +19,7 @@ import type {
 	ClaudeCodePluginManifest,
 	ClaudeCodePluginStatus,
 } from "./types";
+import { dirExists, fileExists } from "./utils/fs-helpers";
 
 const GLOBAL_PLUGINS_DIR = join(homedir(), ".claude", "plugins");
 const BROSKI_CONFIG_DIR = join(homedir(), ".broski");
@@ -68,7 +68,6 @@ async function savePluginConfig(): Promise<void> {
 		console.error("[Plugins] Failed to save config:", error);
 	}
 }
-
 
 /**
  * Parse a plugin manifest from plugin.json

@@ -24,10 +24,7 @@ export type PiExternalTailContext = {
 	DEBUG_RTS: boolean;
 };
 
-export function startPiExternalTail(
-	sessionFile: string,
-	ctx: PiExternalTailContext,
-): { stop: () => void } {
+export function startPiExternalTail(sessionFile: string, ctx: PiExternalTailContext): { stop: () => void } {
 	let stopped = false;
 	let offset = 0;
 	let buffer = "";
@@ -143,11 +140,15 @@ export function startPiExternalTail(
 
 		if (role === "user") {
 			// User typed a prompt in the terminal — emit it so the phone shows it
-			const userText = typeof msg.content === "string"
-				? msg.content
-				: Array.isArray(msg.content)
-					? msg.content.filter((b: any) => b?.type === "text").map((b: any) => b.text ?? "").join("")
-					: "";
+			const userText =
+				typeof msg.content === "string"
+					? msg.content
+					: Array.isArray(msg.content)
+						? msg.content
+								.filter((b: any) => b?.type === "text")
+								.map((b: any) => b.text ?? "")
+								.join("")
+						: "";
 			if (userText) {
 				ctx.emitPiStream({
 					type: "external-user-message",
@@ -256,17 +257,23 @@ export function startPiExternalTail(
 	};
 
 	// Initial pump + start polling
-	pump().catch(() => {}).finally(schedulePoll);
+	pump()
+		.catch(() => {})
+		.finally(schedulePoll);
 
 	return {
 		stop: () => {
 			stopped = true;
 			if (pollTimer) clearTimeout(pollTimer);
 			if (watcher) {
-				try { watcher.close(); } catch {}
+				try {
+					watcher.close();
+				} catch {}
 			}
 			if (dirWatcher) {
-				try { dirWatcher.close(); } catch {}
+				try {
+					dirWatcher.close();
+				} catch {}
 			}
 			watcher = null;
 			dirWatcher = null;

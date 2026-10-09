@@ -22,7 +22,14 @@ export async function handle(
 
 	const oc = requireOpenCode();
 	const model = message.model && typeof message.model === "object" ? message.model : undefined;
-	const result = await oc.shellCommand(message.sessionId, message.command, message.projectPath, message.agent, model, message.messageId);
+	const result = await oc.shellCommand(
+		message.sessionId,
+		message.command,
+		message.projectPath,
+		message.agent,
+		model,
+		message.messageId,
+	);
 	reply({ type: "oc_session_shell_result", data: result });
 	return true;
 }

@@ -367,7 +367,6 @@ export async function handleCxChat(
 					message.requestId ?? "",
 					hookResponse,
 				);
-
 			}
 			break;
 		}

@@ -91,14 +91,10 @@ export function mapPiSessionToRuntimeSession(
 	allSessions?: PiSessionInfo[],
 ): BroskiSessionSummary {
 	const hasParent = !!session.parentSessionPath;
-	const parentId = hasParent && allSessions
-		? piPathToSessionId(allSessions, session.parentSessionPath!)
-		: undefined;
+	const parentId = hasParent && allSessions ? piPathToSessionId(allSessions, session.parentSessionPath!) : undefined;
 
 	// Count children: handoff sessions + tool-based subagent invocations
-	const handoffChildCount = allSessions
-		? allSessions.filter((s) => s.parentSessionPath === session.path).length
-		: 0;
+	const handoffChildCount = allSessions ? allSessions.filter((s) => s.parentSessionPath === session.path).length : 0;
 	const toolChildCount = session.subagentToolCount ?? 0;
 	const childCount = handoffChildCount + toolChildCount;
 

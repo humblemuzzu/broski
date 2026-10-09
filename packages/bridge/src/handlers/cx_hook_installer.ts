@@ -12,9 +12,9 @@
  * If the bridge is unreachable, the hook returns {} (no-op) so Codex shows
  * its normal terminal dialog — safe degradation.
  */
-import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
+import { join } from "node:path";
 
 const HOOK_MARKER = "broski-cx-permission-proxy";
 
@@ -23,11 +23,7 @@ const HOOK_MARKER = "broski-cx-permission-proxy";
  * If a hook with our marker already exists, it is updated in place.
  * Otherwise a new entry is prepended (runs first).
  */
-export async function installCxHook(
-	bridgePort: number,
-	authToken: string,
-	log?: (msg: string) => void,
-): Promise<void> {
+export async function installCxHook(bridgePort: number, authToken: string, log?: (msg: string) => void): Promise<void> {
 	const codexDir = join(homedir(), ".codex");
 	const hooksPath = join(codexDir, "hooks.json");
 	const configPath = join(codexDir, "config.toml");
@@ -109,8 +105,7 @@ export async function uninstallCxHook(log?: (msg: string) => void): Promise<void
 					const matcherHooks = matcher.hooks;
 					if (!Array.isArray(matcherHooks)) return true;
 					return !matcherHooks.some(
-						(h: Record<string, unknown>) =>
-							typeof h.command === "string" && h.command.includes(HOOK_MARKER),
+						(h: Record<string, unknown>) => typeof h.command === "string" && h.command.includes(HOOK_MARKER),
 					);
 				});
 				if ((hooks.PreToolUse as unknown[]).length === 0) {

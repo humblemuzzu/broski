@@ -1,10 +1,10 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFile, unlink } from "node:fs/promises";
-import { fileExists } from "./utils/fs-helpers";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { findBinary, generateSelfSignedCertificate } from "./platform";
+import { fileExists } from "./utils/fs-helpers";
 
 export type TlsMaterial = {
 	keyPath: string;
@@ -23,7 +23,6 @@ function pemToDer(pem: string): Buffer {
 		.replace(/\s+/g, "");
 	return Buffer.from(b64, "base64");
 }
-
 
 function isTruthyEnv(value: string | undefined, fallback: boolean): boolean {
 	if (value == null) return fallback;

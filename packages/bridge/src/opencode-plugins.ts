@@ -1,7 +1,7 @@
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
-import { fileExists } from "./utils/fs-helpers";
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
+import { fileExists } from "./utils/fs-helpers";
 
 export type OpenCodePluginSource = "project" | "user";
 
@@ -24,7 +24,6 @@ export function validatePluginFilename(name: string): boolean {
 	if (!hasAllowedExt(name)) return false;
 	return true;
 }
-
 
 function pluginDir(source: OpenCodePluginSource, cwd?: string): string {
 	if (source === "user") return join(homedir(), ".config", "opencode");

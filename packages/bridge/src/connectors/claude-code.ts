@@ -3,7 +3,6 @@ import { existsSync, readFileSync } from "node:fs";
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join, relative } from "node:path";
-import { scanSubagentDir } from "./claude-code/cc-subagent-scan";
 import type {
 	ElicitationRequest,
 	ElicitationResult,
@@ -37,6 +36,7 @@ import type {
 	ProjectSummary,
 } from "../types";
 import { computeCCSessionStats } from "./claude-code/cc-session-stats";
+import { scanSubagentDir } from "./claude-code/cc-subagent-scan";
 import { normalizeSupportedModels } from "./claude-code/model-normalization";
 import { emitClaudeCodeSupplementalStreamEvents } from "./claude-code/stream-supplemental-events";
 
@@ -951,13 +951,18 @@ export async function listSessions(cwd?: string): Promise<ClaudeCodeSession[]> {
 					} as ClaudeCodeSession & { _filePath: string });
 
 					// Scan subagents/ subdirectory for subagent session files
-					const subagentCount = await scanSubagentDir(projectDir, sessionId, sessionCwd, cwd, sessions, readSessionPreview);
+					const subagentCount = await scanSubagentDir(
+						projectDir,
+						sessionId,
+						sessionCwd,
+						cwd,
+						sessions,
+						readSessionPreview,
+					);
 
 					// Annotate parent session with subagent count
 					if (subagentCount > 0) {
-						const parentSession = sessions.find(
-							(s) => s.id === sessionId && (s as any)._filePath === filePath,
-						);
+						const parentSession = sessions.find((s) => s.id === sessionId && (s as any)._filePath === filePath);
 						if (parentSession) {
 							(parentSession as ClaudeCodeSession).subagentCount = subagentCount;
 						}
@@ -2985,7 +2990,9 @@ export async function queryClaudeCode(
 					...(typeof message.fast_mode_state === "string" ? { fastModeState: message.fast_mode_state } : {}),
 					// SDK 0.2.92: terminal reason + deferred tool use
 					...(typeof message.terminal_reason === "string" ? { terminalReason: message.terminal_reason } : {}),
-					...("deferred_tool_use" in message && message.deferred_tool_use ? { deferredToolUse: message.deferred_tool_use } : {}),
+					...("deferred_tool_use" in message && message.deferred_tool_use
+						? { deferredToolUse: message.deferred_tool_use }
+						: {}),
 				});
 
 				if ("structured_output" in message && message.structured_output !== undefined) {

@@ -1,6 +1,6 @@
+import { normalizeString } from "../runtime/shared";
 import type { ServerMessage } from "../types";
 import type { BroskiBackend } from "../types/runtime";
-import { normalizeString } from "../runtime/shared";
 
 const MAX_EVENTS_PER_STREAM = 500;
 const MAX_EVENT_AGE_MS = 5 * 60 * 1000;

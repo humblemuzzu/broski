@@ -129,7 +129,7 @@ class _CustomToolsScreenState extends ConsumerState<CustomToolsScreen> {
                   .read(ccCustomToolsProvider.notifier)
                   .deleteTool(tool.id);
               if (!success && mounted) {
-                showInfo(context, 'Failed to delete tool');
+                showInfo(this.context, 'Failed to delete tool');
               }
             },
             style: ElevatedButton.styleFrom(

@@ -1,7 +1,7 @@
 import type { BroskiRuntimeEvent } from "../types/runtime";
+import { mapOpenCodeStatusToRuntimeState } from "./opencode-runtime-read-models";
 import { extractToolCallId } from "./shared";
 import { enrichRuntimeEvent } from "./stream-contract";
-import { mapOpenCodeStatusToRuntimeState } from "./opencode-runtime-read-models";
 
 function extractSessionId(source: any): string | undefined {
 	const value = source?.sessionID ?? source?.sessionId;

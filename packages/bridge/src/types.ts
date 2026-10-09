@@ -2248,7 +2248,7 @@ export type ServerMessage =
 	| { type: "pi_session_name_set"; data: boolean; requestId?: string }
 	| {
 			type: "pi_fork_result";
-			data: { text: string; cancelled: boolean };
+			data: { text?: string; cancelled: boolean };
 			requestId?: string;
 	  }
 	| {

@@ -140,10 +140,10 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen> {
                   .addPluginPath(path);
               if (mounted) {
                 if (success) {
-                  showSuccess(context, 'Plugin added successfully');
+                  showSuccess(this.context, 'Plugin added successfully');
                 } else {
                   showError(
-                    context,
+                    this.context,
                     'Failed to add plugin. Make sure the path is valid.',
                   );
                 }
@@ -170,7 +170,7 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen> {
           final success = await ref
               .read(ccPluginsProvider.notifier)
               .removePluginPath(plugin.path);
-          if (mounted) {
+          if (context.mounted) {
             if (success) {
               showSuccess(context, 'Plugin path removed');
             } else {

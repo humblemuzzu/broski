@@ -861,7 +861,6 @@ export class OpenCodeConnector {
 		}
 	}
 
-
 	// Feature 10b: VCS Diff (working tree or vs default branch)
 	async getVcsDiff(mode: "git" | "branch", directory?: string): Promise<VcsDiffFile[]> {
 		try {

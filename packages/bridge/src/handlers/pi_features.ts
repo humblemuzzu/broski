@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import type { ThinkingLevel } from "@mariozechner/pi-agent-core";
 import type { Model } from "@mariozechner/pi-ai";
 import * as pi from "../connectors/pi";
+import { type PiExternalTailContext, startPiExternalTail } from "../connectors/pi/pi-external-tail";
 import { mapPiStreamToRuntimeEvent } from "../runtime/pi-runtime-event-mapper";
 import {
 	mapPiModelToSummary,
@@ -10,16 +11,15 @@ import {
 } from "../runtime/pi-runtime-read-models";
 import type { FileAttachment, ServerMessage } from "../types";
 import type { PiModelPayload, PiStatePayload, PiStreamMessage } from "../types/pi";
+import { recordRuntimeEvent } from "../utils/runtime-replay-buffer";
 import * as piAbort from "./pi_abort";
 import * as piBash from "./pi_bash";
 import * as piCustomMessage from "./pi_custom_message";
 import * as piLabels from "./pi_labels";
-import * as piTools from "./pi_tools";
-import * as piTree from "./pi_tree";
 import * as piSessionMessages from "./pi_session_messages";
 import { sendPiRuntimeEvent } from "./pi_stream_delivery";
-import { recordRuntimeEvent } from "../utils/runtime-replay-buffer";
-import { startPiExternalTail, type PiExternalTailContext } from "../connectors/pi/pi-external-tail";
+import * as piTools from "./pi_tools";
+import * as piTree from "./pi_tree";
 
 type Reply = (message: ServerMessage) => void;
 
@@ -119,7 +119,9 @@ function broadcastPiStreamMessage(
 		data: runtimeEvent,
 	};
 	recordRuntimeEvent(payload);
-	console.log(`[Pi RTS DEBUG] Broadcasting pi runtime_event: type=${runtimeEvent.type}, sessionId=${sessionId}, seq=${(runtimeEvent as any).seq}`);
+	console.log(
+		`[Pi RTS DEBUG] Broadcasting pi runtime_event: type=${runtimeEvent.type}, sessionId=${sessionId}, seq=${(runtimeEvent as any).seq}`,
+	);
 	broadcast(payload);
 }
 

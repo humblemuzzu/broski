@@ -148,6 +148,7 @@ class _ClaudeCodeMcpScreenState extends ConsumerState<ClaudeCodeMcpScreen> {
       ),
     );
     if (name == null || name.isEmpty) return;
+    if (!mounted) return;
     final config = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(

@@ -10,8 +10,8 @@
  * show its normal terminal approval prompt.
  */
 import { randomUUID } from "node:crypto";
-import type { ServerMessage } from "../types";
 import { jsonResponse } from "../http-utils";
+import type { ServerMessage } from "../types";
 
 const HOOK_PERMISSION_TIMEOUT_MS = 300_000; // 5 minutes
 
@@ -32,10 +32,7 @@ const hookPermissionWaiters = new Map<
  * The hook script sends the HookInput JSON (what Codex passes to the hook via stdin).
  * We relay to the phone, wait for response, return the decision.
  */
-export async function handleCxPermissionHook(
-	request: Request,
-	ctx: CxPermissionHookContext,
-): Promise<Response> {
+export async function handleCxPermissionHook(request: Request, ctx: CxPermissionHookContext): Promise<Response> {
 	if (request.method !== "POST") {
 		return jsonResponse({ error: "Method not allowed" }, 405);
 	}

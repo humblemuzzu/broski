@@ -14,11 +14,11 @@ import * as ccCustomTools from "./cc_custom_tools";
 import * as ccHooksMcp from "./cc_hooks_mcp";
 import * as ccLiveSession from "./cc_live_session";
 import * as ccMemory from "./cc_memory";
+import { getHookWaiterKeys, resolveHookPermissionByToolUse } from "./cc_permission_hook";
 import * as ccPlugins from "./cc_plugins";
 import * as ccSessions from "./cc_sessions";
 import * as ccSkills from "./cc_skills";
 import * as ccSubagents from "./cc_subagents";
-import { resolveHookPermissionByToolUse, getHookWaiterKeys } from "./cc_permission_hook";
 
 type ReplyFn = (msg: ServerMessage) => void;
 
@@ -209,7 +209,9 @@ export async function handle(
 	// cc_permission_response — resolves permission prompts
 	if (type === "cc_permission_response") {
 		const key = `${message.sessionId}:${message.toolUseId}`;
-		console.log(`[CC Routing] ◀ cc_permission_response: sessionId=${message.sessionId}, toolUseId=${message.toolUseId}, response=${message.response}, hasUpdatedInput=${!!message.updatedInput}`);
+		console.log(
+			`[CC Routing] ◀ cc_permission_response: sessionId=${message.sessionId}, toolUseId=${message.toolUseId}, response=${message.response}, hasUpdatedInput=${!!message.updatedInput}`,
+		);
 		console.log(`[CC Routing]   SDK waiters: [${[...ctx.ccPermissionWaiters.keys()].join(", ")}]`);
 		console.log(`[CC Routing]   Hook waiters: [${getHookWaiterKeys().join(", ")}]`);
 		const waiter = ctx.ccPermissionWaiters.get(key);

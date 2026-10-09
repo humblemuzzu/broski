@@ -1,3 +1,4 @@
+import 'package:broski/models/claude_code.dart';
 import 'package:broski/providers/claude_code_provider.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/app_typography.dart';
@@ -5,7 +6,6 @@ import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:broski/models/claude_code.dart';
 
 // ============================================================================
 // Claude Code Chat Screen

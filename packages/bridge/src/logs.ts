@@ -1,11 +1,11 @@
 import { mkdir, open, stat, writeFile } from "node:fs/promises";
-import { fileExists } from "./utils/fs-helpers";
 import { homedir, platform, release } from "node:os";
 import { basename, resolve } from "node:path";
 import packageMeta from "../package.json";
 import type { CliOptions } from "./cli";
 import { redactSensitiveText } from "./logging/redact";
 import { isCompiledBinary } from "./platform";
+import { fileExists } from "./utils/fs-helpers";
 
 export type LogsRunOptions = Pick<
 	CliOptions,
@@ -59,7 +59,6 @@ function mergeOptions(options?: Partial<LogsRunOptions>): LogsRunOptions {
 		logsIntervalMs: Math.max(100, Number(options?.logsIntervalMs ?? defaults.logsIntervalMs)),
 	};
 }
-
 
 async function getLogFiles(includeErrors: boolean): Promise<string[]> {
 	const files: string[] = [];

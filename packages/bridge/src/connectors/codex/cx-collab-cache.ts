@@ -66,9 +66,7 @@ export function recordCollabSpawn(
 ): void {
 	const relations = loadCache();
 	// Don't duplicate
-	const existing = relations.find(
-		(r) => r.parentThreadId === parentThreadId && r.childThreadId === childThreadId,
-	);
+	const existing = relations.find((r) => r.parentThreadId === parentThreadId && r.childThreadId === childThreadId);
 	if (existing) return;
 
 	relations.push({

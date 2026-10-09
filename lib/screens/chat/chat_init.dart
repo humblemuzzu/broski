@@ -1,22 +1,20 @@
 import 'dart:async';
 
 import 'package:broski/models/agent.dart';
+import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/claude_code.dart';
 import 'package:broski/models/pi.dart';
 import 'package:broski/models/project.dart';
-import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/runtime/runtime_event.dart';
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/claude_code_provider.dart';
+import 'package:broski/providers/codex/cx_error_listener.dart';
 import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/providers/selection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
-import 'package:broski/services/bridge/bridge_runtime.dart';
 import 'package:broski/screens/chat_screen.dart';
 import 'package:broski/screens/pi/pi_extension_ui_request_handler.dart';
-import 'package:broski/services/bridge_service.dart';
-// power_sheet.dart import removed — piPowerMenuCallback no longer needed
-import 'package:broski/providers/codex/cx_error_listener.dart';
+import 'package:broski/services/bridge/bridge_runtime.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -210,7 +208,7 @@ StreamSubscription<RuntimeEvent>? setupPiExtensionUiListener({
   return bridge.runtimeEvents.where((e) => e.backend == AgentType.pi).listen((
     event,
   ) {
-    if (!isMounted()) return;
+    if (!isMounted() || !context.mounted) return;
     if (event is RuntimeBackendEvent && event.kind == 'extension-ui-request') {
       // Reconstruct PiStreamMessage from the runtime payload
       final payload = event.payload;

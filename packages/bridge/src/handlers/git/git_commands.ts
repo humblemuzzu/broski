@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { ensureGitSuccess, runGit } from "./command";
 import { parseGitBranches, parseGitLog, parseGitStatus } from "./parse";
 import {
@@ -11,8 +13,6 @@ import {
 } from "./security";
 import type { GitHandlerContext, GitReply } from "./types";
 import { ensureSecureCwd, errorReply } from "./util";
-import { resolve } from "node:path";
-import { readFile } from "node:fs/promises";
 
 export async function handleGitCommand(message: any, reply: GitReply, ctx: GitHandlerContext): Promise<boolean> {
 	const requestId = typeof message?.requestId === "string" ? message.requestId : undefined;
@@ -491,9 +491,10 @@ export async function handleGitCommand(message: any, reply: GitReply, ctx: GitHa
 			}
 
 			// Get file list with stats
-			const diffArgs = mode === "git"
-				? ["diff", "--numstat", "--diff-filter=ACDMR", "-z"]
-				: ["diff", "--numstat", "--diff-filter=ACDMR", "-z", `${defaultBranch}...HEAD`];
+			const diffArgs =
+				mode === "git"
+					? ["diff", "--numstat", "--diff-filter=ACDMR", "-z"]
+					: ["diff", "--numstat", "--diff-filter=ACDMR", "-z", `${defaultBranch}...HEAD`];
 
 			let numstatResult = await runGit(diffArgs, secureCwd);
 			if (numstatResult.exitCode !== 0) {
@@ -512,20 +513,23 @@ export async function handleGitCommand(message: any, reply: GitReply, ctx: GitHa
 			}
 
 			// Also get the diff-filter status for each file
-			const statusArgs = mode === "git"
-				? ["diff", "--name-status", "--diff-filter=ACDMR"]
-				: ["diff", "--name-status", "--diff-filter=ACDMR", `${defaultBranch}...HEAD`];
+			const statusArgs =
+				mode === "git"
+					? ["diff", "--name-status", "--diff-filter=ACDMR"]
+					: ["diff", "--name-status", "--diff-filter=ACDMR", `${defaultBranch}...HEAD`];
 			const statusResult = await runGit(statusArgs, secureCwd);
 
 			// Parse name-status into a map: file → status
-			const statusMap = new Map<string, string>();
+			const statusMap = new Map<string, "added" | "deleted" | "modified">();
 			if (statusResult.exitCode === 0) {
 				for (const line of statusResult.stdout.trim().split("\n")) {
 					if (!line) continue;
 					const parts = line.split("\t");
 					if (parts.length >= 2) {
-						const s = parts[0].charAt(0); // A, D, M, R, C
+						const firstPart = parts[0];
 						const file = parts[parts.length - 1]; // last part (handles renames)
+						if (!firstPart || !file) continue;
+						const s = firstPart.charAt(0); // A, D, M, R, C
 						const status = s === "A" ? "added" : s === "D" ? "deleted" : "modified";
 						statusMap.set(file, status);
 					}
@@ -539,15 +543,17 @@ export async function handleGitCommand(message: any, reply: GitReply, ctx: GitHa
 				after: string;
 				additions: number;
 				deletions: number;
-				status?: string;
+				status?: "added" | "deleted" | "modified";
 			}> = [];
 
 			const numstatLines = numstatResult.stdout.split("\0").filter(Boolean);
 			for (const entry of numstatLines) {
 				const parts = entry.split("\t");
 				if (parts.length < 3) continue;
-				const additions = parts[0] === "-" ? 0 : parseInt(parts[0], 10) || 0;
-				const deletions = parts[1] === "-" ? 0 : parseInt(parts[1], 10) || 0;
+				const additionsPart = parts[0] ?? "";
+				const deletionsPart = parts[1] ?? "";
+				const additions = additionsPart === "-" ? 0 : parseInt(additionsPart, 10) || 0;
+				const deletions = deletionsPart === "-" ? 0 : parseInt(deletionsPart, 10) || 0;
 				const file = parts.slice(2).join("\t"); // rejoin in case filename has tabs
 				if (!file || !isSafePathSpec(file)) continue;
 

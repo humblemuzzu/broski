@@ -1,7 +1,7 @@
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
-import { fileExists } from "./utils/fs-helpers";
 import { homedir } from "node:os";
 import { join, relative, resolve } from "node:path";
+import { fileExists } from "./utils/fs-helpers";
 
 export type OpenCodeFileSource = "project" | "user";
 
@@ -27,7 +27,6 @@ export function validateName(name: string): boolean {
 	}
 	return true;
 }
-
 
 function parseFrontmatterDescription(content: string): string | undefined {
 	const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);

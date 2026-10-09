@@ -276,7 +276,7 @@ class _ClaudeCodePermissionContentState
                       sessionId: sessionId,
                       mode: mode.wireValue,
                     );
-                if (!mounted) return;
+                if (!context.mounted) return;
                 if (ok) {
                   showSuccess(
                     context,

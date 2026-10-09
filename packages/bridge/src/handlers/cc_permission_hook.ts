@@ -13,8 +13,8 @@
  *   6. CC skips its terminal dialog (allow/deny) based on the hook output
  */
 import { randomUUID } from "node:crypto";
-import type { ClaudeCodeStreamMessage } from "../types";
 import { jsonResponse } from "../http-utils";
+import type { ClaudeCodeStreamMessage } from "../types";
 
 const HOOK_PERMISSION_TIMEOUT_MS = 40_000; // 40 seconds (curl times out at 45s)
 
@@ -65,7 +65,9 @@ export async function handleCcPermissionHook(request: Request, ctx: CcPermission
 	const cwd = typeof body.cwd === "string" ? body.cwd : "";
 
 	// ALWAYS log hook requests (not just DEBUG_RTS) to trace the flow
-	ctx.logInfo(`[CC Hook] ▶ RECEIVED: tool=${toolName}, session=${sessionId}, toolUseId=${toolUseId}, hookEvent=${hookEventName}`);
+	ctx.logInfo(
+		`[CC Hook] ▶ RECEIVED: tool=${toolName}, session=${sessionId}, toolUseId=${toolUseId}, hookEvent=${hookEventName}`,
+	);
 
 	// Generate a unique hook request ID for this specific hook invocation
 	const hookRequestId = `hook:${sessionId}:${toolUseId}:${Date.now()}`;
@@ -99,7 +101,9 @@ export async function handleCcPermissionHook(request: Request, ctx: CcPermission
 		hookPermissionWaiters.set(hookRequestId, { resolve, timer });
 	});
 
-	ctx.logInfo(`[CC Hook] ✅ RESOLVED: ${decision.permissionDecision} for ${toolName}, hasUpdatedInput=${decision.updatedInput !== undefined}`);
+	ctx.logInfo(
+		`[CC Hook] ✅ RESOLVED: ${decision.permissionDecision} for ${toolName}, hasUpdatedInput=${decision.updatedInput !== undefined}`,
+	);
 
 	// Return the hook JSON output to CC.
 	// CC expects { hookSpecificOutput: { ... } } as the hook's stdout JSON.

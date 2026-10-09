@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { mapPiStreamToRuntimeEvent } from "../runtime/pi-runtime-event-mapper";
-import { recordRuntimeEvent, replayRuntimeEventsSince } from "../utils/runtime-replay-buffer";
 import type { ServerMessage } from "../types";
+import { recordRuntimeEvent, replayRuntimeEventsSince } from "../utils/runtime-replay-buffer";
 
 describe("Runtime replay buffer", () => {
 	test("replays sequenced runtime events after a given seq", () => {

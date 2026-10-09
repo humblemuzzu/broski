@@ -9,9 +9,9 @@
  * If the bridge is unreachable, the hook returns {} (no-op) so CC shows
  * its normal terminal dialog — safe degradation.
  */
-import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
+import { join } from "node:path";
 
 const HOOK_MARKER = "broski-permission-proxy";
 

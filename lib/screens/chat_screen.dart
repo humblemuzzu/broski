@@ -8,21 +8,22 @@ import 'package:broski/models/file_attachment.dart';
 import 'package:broski/models/message.dart';
 import 'package:broski/models/pi.dart';
 import 'package:broski/models/project.dart';
-import 'package:broski/models/runtime/runtime_event.dart';
 import 'package:broski/models/question.dart';
+import 'package:broski/models/runtime/runtime_event.dart';
 import 'package:broski/models/session.dart';
 import 'package:broski/models/session_context.dart';
 import 'package:broski/models/vcs.dart';
 import 'package:broski/providers/appearance_provider.dart';
 import 'package:broski/providers/chat_provider.dart';
-// claude_code_provider now used in actions_sheet_opener + input_bar_content
 import 'package:broski/providers/codex_settings_provider.dart';
-// cx_rate_limits_provider now used in actions_sheet_opener.dart
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/file_search_provider.dart';
+import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/providers/selection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/chat/actions_sheet_opener.dart';
 import 'package:broski/screens/chat/auto_send_cc.dart' as ascc;
+import 'package:broski/screens/chat/auto_send_cx.dart' as ascx;
 import 'package:broski/screens/chat/cc_elicitation_form_dialog.dart';
 import 'package:broski/screens/chat/chat_init.dart' as ci;
 import 'package:broski/screens/chat/chat_read_only_footer.dart';
@@ -72,9 +73,7 @@ import 'package:broski/screens/sheets/cx_apps_sheet.dart';
 import 'package:broski/screens/sheets/cx_model_sheet.dart';
 import 'package:broski/screens/sheets/cx_remote_skills_sheet.dart';
 import 'package:broski/screens/sheets/cx_rollback_sheet.dart';
-import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/screens/sheets/pi_model_sheet.dart';
-import 'package:broski/widgets/pi/pi_queue_indicator.dart';
 import 'package:broski/services/haptics_service.dart';
 import 'package:broski/services/image_picker_service.dart';
 import 'package:broski/services/websocket_service.dart';
@@ -90,21 +89,17 @@ import 'package:broski/widgets/chat/command_autocomplete.dart';
 import 'package:broski/widgets/chat/custom_tool_autocomplete.dart';
 import 'package:broski/widgets/chat/cx_queue_bar.dart';
 import 'package:broski/widgets/chat/cx_steer_bar.dart';
-import 'package:broski/screens/chat/auto_send_cx.dart' as ascx;
 import 'package:broski/widgets/chat/input_bar_content.dart';
-import 'package:broski/screens/chat/actions_sheet_opener.dart';
 import 'package:broski/widgets/chat/message_group.dart';
 import 'package:broski/widgets/chat/retry_status_banner.dart';
 import 'package:broski/widgets/chat/revert_state_banner.dart';
-// SubagentActivityIndicator removed — was shown under top bar, no longer needed
 import 'package:broski/widgets/chat/variant_card_builder.dart';
 import 'package:broski/widgets/file_tagging.dart';
 import 'package:broski/widgets/multi_agent_tree.dart';
 import 'package:broski/widgets/opencode_branding.dart';
+import 'package:broski/widgets/pi/pi_queue_indicator.dart';
 import 'package:broski/widgets/pi_branding.dart';
-// power_sheet.dart import removed — settings consolidated into actions sheets
 import 'package:broski/widgets/session_sidebar.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

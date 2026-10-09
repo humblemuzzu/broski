@@ -12,8 +12,8 @@ import {
 	getAgentDir,
 	ModelRegistry,
 	type SessionInfo,
-	type SessionStartEvent,
 	SessionManager,
+	type SessionStartEvent,
 	SettingsManager,
 	VERSION,
 } from "@mariozechner/pi-coding-agent";
@@ -268,10 +268,7 @@ export async function createNewSession(
  * Switch to an existing session.
  * Mirrors AgentSessionRuntime.switchSession().
  */
-export async function switchToSession(
-	instance: PiInstance,
-	sessionPath: string,
-): Promise<{ cancelled: boolean }> {
+export async function switchToSession(instance: PiInstance, sessionPath: string): Promise<{ cancelled: boolean }> {
 	const runner = instance.session.extensionRunner;
 	if (runner?.hasHandlers("session_before_switch")) {
 		const result = await runner.emit({
@@ -368,10 +365,7 @@ export async function forkSession(
  * Import a JSONL session file.
  * Mirrors AgentSessionRuntime.importFromJsonl().
  */
-export async function importFromJsonl(
-	instance: PiInstance,
-	inputPath: string,
-): Promise<{ cancelled: boolean }> {
+export async function importFromJsonl(instance: PiInstance, inputPath: string): Promise<{ cancelled: boolean }> {
 	const resolvedPath = resolve(inputPath);
 	if (!existsSync(resolvedPath)) throw new Error(`File not found: ${resolvedPath}`);
 

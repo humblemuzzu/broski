@@ -36,7 +36,11 @@ export async function countSubagentTools(filePath: string): Promise<number> {
 		for (const line of text.split("\n")) {
 			if (!line || !line.includes('"toolCall"')) continue;
 			let parsed: any;
-			try { parsed = JSON.parse(line); } catch { continue; }
+			try {
+				parsed = JSON.parse(line);
+			} catch {
+				continue;
+			}
 			if (parsed?.type !== "message") continue;
 			const content = parsed.message?.content;
 			if (!Array.isArray(content)) continue;
@@ -75,7 +79,10 @@ async function scanPiFileDiffs(
 
 	// Pass 1: Collect tool call arguments from assistant messages.
 	// Maps toolCallId → { name, path, content, old_str, new_str }
-	const toolCallArgs = new Map<string, { name: string; path: string; content?: string; oldStr?: string; newStr?: string }>();
+	const toolCallArgs = new Map<
+		string,
+		{ name: string; path: string; content?: string; oldStr?: string; newStr?: string }
+	>();
 
 	for (const line of lines) {
 		if (!line) continue;
@@ -173,7 +180,8 @@ async function scanPiFileDiffs(
 			if (!file) {
 				// Standard: "--- a/path" or Pi format: "--- filename\toriginal"
 				const headerMatch = diff.match(/^---\s+(?:a\/)?(\S+)/m);
-				if (headerMatch) file = headerMatch[1];
+				const headerFile = headerMatch?.[1];
+				if (headerFile) file = headerFile;
 			}
 			if (!file) file = "unknown";
 

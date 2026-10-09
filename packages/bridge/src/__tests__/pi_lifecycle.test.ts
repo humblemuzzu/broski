@@ -18,27 +18,32 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync, existsSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import * as pi from "../connectors/pi";
 import type { PiInstance } from "../connectors/pi";
+import * as pi from "../connectors/pi";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
 /** Temp directory used as cwd for all tests. Cleaned up after. */
 let testCwd: string;
 
-/** Pick the cheapest available model for testing. */
+/** Providers with credentials configured in ~/.pi/agent/auth.json. */
+const configuredProviders = pi.getAuthStorage().list();
+const hasConfiguredProvider = configuredProviders.length > 0;
+
+/** Pick the cheapest available model from a provider that has credentials configured. */
 function pickCheapModel(): { provider: string; modelId: string } | undefined {
-	const models = pi.listAvailableModels();
+	const models = pi.listAvailableModels().filter((m) => configuredProviders.includes(m.provider));
 	// Prefer haiku (cheapest), then any flash/lite model, then first available
 	const preferred = ["haiku", "flash-lite", "flash", "mini"];
 	for (const hint of preferred) {
 		const match = models.find((m) => m.id.includes(hint));
 		if (match) return { provider: match.provider, modelId: match.id };
 	}
-	return models.length > 0 ? { provider: models[0].provider, modelId: models[0].id } : undefined;
+	const fallback = models[0];
+	return fallback ? { provider: fallback.provider, modelId: fallback.id } : undefined;
 }
 
 /** Collect stream events from a Pi instance for a short window. */
@@ -73,7 +78,7 @@ afterAll(() => {
 
 // ── Tests ───────────────────────────────────────────────────────────
 
-describe("Pi Session Lifecycle", () => {
+describe.skipIf(!hasConfiguredProvider)("Pi Session Lifecycle", () => {
 	test("can create instance and verify initial state", async () => {
 		const model = pickCheapModel();
 		if (!model) {
@@ -214,6 +219,7 @@ describe("Pi Session Lifecycle", () => {
 		expect(forkMessages.length).toBeGreaterThan(0);
 
 		const firstUserMessage = forkMessages[0];
+		if (!firstUserMessage) throw new Error("Expected at least one forkable user message");
 		expect(firstUserMessage.entryId).toBeTruthy();
 
 		// Fork from the first user message

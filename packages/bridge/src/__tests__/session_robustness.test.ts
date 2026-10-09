@@ -200,7 +200,7 @@ describe("Source Invariants", () => {
 
 		test("emitCcStream buffers when no owner (resolvedOwner is null)", () => {
 			// The code does: bufferCcEvent(sessionId, streamMsg) inside emitCcStream
-			const fn = sliceAround(src, "const emitCcStream = (", 0, 1500);
+			const fn = sliceAround(src, "const emitCcStream = (", 0, 3000);
 			expect(fn).toContain("bufferCcEvent(sessionId, streamMsg)");
 		});
 
@@ -270,9 +270,9 @@ describe("Source Invariants", () => {
 	describe("Owner Rebinding on set_view", () => {
 		// set_view extracted to handlers/session_view.ts — search for the handler function
 		const setView =
-			sliceAround(src, 'case "set_view":', 0, 5000) ||
-			sliceAround(src, "case 'set_view':", 0, 5000) ||
-			sliceAround(src, '"set_view"', 0, 5000);
+			sliceAround(src, '"set_view"', 0, 12000) ||
+			sliceAround(src, "case 'set_view':", 0, 12000) ||
+			sliceAround(src, "'set_view'", 0, 12000);
 
 		test("CC active session check + rebind", () => {
 			expect(setView).toMatch(/claudeCode\.listActiveSessions\(\)/);
@@ -286,12 +286,15 @@ describe("Source Invariants", () => {
 			expect(setView).toMatch(/replayBufferedEvents\(ws,/);
 		});
 
-		test("OC rebind", () => {
-			expect(setView).toMatch(/ocSessionOwners\.set\(nextSessionId, ws\)/);
+		test("OC view does not claim ownership (external tail owns)", () => {
+			expect(setView).toMatch(/nextAgent === "opencode" && nextSessionId/);
+			expect(setView).toMatch(/ocSessionProjectPaths\.set\(nextSessionId/);
+			expect(setView).not.toMatch(/ocSessionOwners\.set\(/);
 		});
 
 		test("stale socket detection via sockets.has()", () => {
-			expect(setView).toMatch(/sockets\.has\(prevOwner\)/);
+			expect(setView).toMatch(/isSocketStale = \(sock/);
+			expect(setView).toMatch(/sockets\.has\(sock\)/);
 		});
 	});
 

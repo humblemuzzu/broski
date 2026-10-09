@@ -1,7 +1,7 @@
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
-import { fileExists } from "./utils/fs-helpers";
 import { homedir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
+import { fileExists } from "./utils/fs-helpers";
 
 export type SkillSource = "project" | "user" | "system" | "admin" | "plugin";
 
@@ -37,7 +37,6 @@ function parseDescriptionFromFrontmatter(content: string): string | undefined {
 	const descMatch = frontmatter.match(/(?:^|\n)description:\s*(.+)\s*$/m);
 	return descMatch?.[1]?.trim() || undefined;
 }
-
 
 async function listSkillsInRoot(rootDir: string, source: SkillSource): Promise<SkillListEntry[]> {
 	const out: SkillListEntry[] = [];
