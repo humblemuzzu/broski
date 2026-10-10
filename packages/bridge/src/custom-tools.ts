@@ -14,10 +14,11 @@ import { spawn } from "node:child_process";
 import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
-import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
+import type { createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 
 import { getDefaultAllowedPaths } from "./platform";
+import { loadClaudeAgentSdk } from "./sdk/claude-agent-sdk";
 
 // Storage path for custom tools
 const BROSKI_DIR = join(homedir(), ".broski");
@@ -589,11 +590,12 @@ export async function createCustomToolsServer(
 		return null;
 	}
 
+	const sdk = await loadClaudeAgentSdk();
 	const toolInstances = enabledTools.map((toolDef) =>
-		tool(toolDef.name, toolDef.description, buildZodSchema(toolDef.parameters), createToolHandler(toolDef)),
+		sdk.tool(toolDef.name, toolDef.description, buildZodSchema(toolDef.parameters), createToolHandler(toolDef)),
 	);
 
-	return createSdkMcpServer({
+	return sdk.createSdkMcpServer({
 		name: serverName,
 		version: "1.0.0",
 		tools: toolInstances,

@@ -121,6 +121,7 @@ build_target() {
   # This makes the binary truly self-contained: on first run it extracts the
   # dylib next to itself. No extra files needed.
   COMPILED_ENTRY="$ENTRY"
+  PTY_HASH_DEFINE=""
   case "$PLATFORM" in
     darwin-*) PTY_EMBED_LIB="${DIST}/libbroski_pty.dylib" ;;
     linux-*)  PTY_EMBED_LIB="${DIST}/libbroski_pty.so" ;;
@@ -129,10 +130,12 @@ build_target() {
 
   if [ -n "$PTY_EMBED_LIB" ] && [ -f "$PTY_EMBED_LIB" ]; then
     PTY_B64=$(base64 < "$PTY_EMBED_LIB" | tr -d '\n')
+    PTY_SHA=$(shasum -a 256 "$PTY_EMBED_LIB" | awk '{print $1}')
+    PTY_HASH_DEFINE="BROSKI_PTY_LIB_HASH=\"${PTY_SHA}\""
     # Keep temp file in src/ so relative imports (./index) resolve correctly
     COMPILED_ENTRY="./src/_bootstrap_embedded.ts"
     sed "s|%%EMBEDDED_PTY_LIB_BASE64_PLACEHOLDER%%|${PTY_B64}|" "$ENTRY" > "$COMPILED_ENTRY"
-    echo "    ✓ PTY library embedded ($(wc -c < "$PTY_EMBED_LIB" | tr -d ' ') bytes)"
+    echo "    ✓ PTY library embedded ($(wc -c < "$PTY_EMBED_LIB" | tr -d ' ') bytes), sha256 ${PTY_SHA}"
   else
     echo "    - No PTY library to embed"
   fi
@@ -141,8 +144,14 @@ build_target() {
   # --bytecode caches the whole module graph as bytecode (~3x faster startup,
   # +25MB); it flips the default output format to cjs, so --format=esm is
   # required for the entry's top-level await.
+  # --define bakes the PTY sidecar's sha256 into native-pty.ts, which then
+  # refuses to dlopen a library whose bytes do not match.
   echo "  Building ${OUTPUT_NAME} (${BUN_TARGET})..."
-  bun build --compile --bytecode --format=esm --target="$BUN_TARGET" "$COMPILED_ENTRY" --outfile "${DIST}/${OUTPUT_NAME}"
+  if [ -n "$PTY_HASH_DEFINE" ]; then
+    bun build --compile --bytecode --format=esm --target="$BUN_TARGET" --define "$PTY_HASH_DEFINE" "$COMPILED_ENTRY" --outfile "${DIST}/${OUTPUT_NAME}"
+  else
+    bun build --compile --bytecode --format=esm --target="$BUN_TARGET" "$COMPILED_ENTRY" --outfile "${DIST}/${OUTPUT_NAME}"
+  fi
   echo "    Done."
 
   # Clean up temp file

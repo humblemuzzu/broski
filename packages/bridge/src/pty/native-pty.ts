@@ -7,7 +7,9 @@ import { fileURLToPath } from "node:url";
 import { isCompiledBinary } from "../platform";
 import type { PtySession } from "../types";
 
-const EXPECTED_PTY_LIB_HASH = "%%_____PTY_LIB_HASH_PLACEHOLDER__________000000000000000000000%%";
+/** sha256 of the built PTY sidecar, injected by scripts/build.sh via `bun build --define`. Absent in dev. */
+declare const BROSKI_PTY_LIB_HASH: string | undefined;
+const EXPECTED_PTY_LIB_HASH = typeof BROSKI_PTY_LIB_HASH === "string" ? BROSKI_PTY_LIB_HASH : "";
 const MAX_NATIVE_PTY_SESSIONS = 20;
 
 const SIGWINCH = 28;
@@ -110,17 +112,31 @@ function findLibraryPath(): string | null {
 	return null;
 }
 
+const loggedPtyRejections = new Set<string>();
+
+function reportPtyRejection(libPath: string, detail: string): void {
+	if (loggedPtyRejections.has(libPath)) return;
+	loggedPtyRejections.add(libPath);
+	console.error(`[pty] Refusing to load ${libPath}: ${detail}. Terminal sessions are disabled.`);
+}
+
 function verifyLibraryHash(libPath: string): boolean {
 	if (!isCompiledBinary()) return true;
-	if (EXPECTED_PTY_LIB_HASH.includes("PLACEHOLDER")) return true;
 
 	try {
 		const bytes = readFileSync(libPath);
-		const hash = createHash("sha256").update(bytes).digest("hex");
-		return hash === EXPECTED_PTY_LIB_HASH;
-	} catch {
-		return false;
+		const actual = createHash("sha256").update(bytes).digest("hex");
+		if (actual === EXPECTED_PTY_LIB_HASH) return true;
+		reportPtyRejection(
+			libPath,
+			EXPECTED_PTY_LIB_HASH
+				? `sha256 ${actual} does not match the hash baked at build time (${EXPECTED_PTY_LIB_HASH})`
+				: "the binary has no baked PTY library hash",
+		);
+	} catch (error) {
+		reportPtyRejection(libPath, error instanceof Error ? error.message : String(error));
 	}
+	return false;
 }
 
 function shellEscape(input: string): string {

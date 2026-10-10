@@ -14,7 +14,24 @@ export interface ConnectionInfo {
 	certSha256?: string | null;
 }
 
-export function displayQRCode(info: ConnectionInfo): void {
+export type BannerSink = (line: string) => void;
+
+export type QrDisplayOptions = {
+	/**
+	 * Where the human-readable lines go. Defaults to the console.
+	 *
+	 * The daemon's stdout is `/dev/null`, so a daemon passes the logger here to keep the endpoints
+	 * in the log.
+	 */
+	write?: BannerSink;
+	/**
+	 * Whether to render the QR itself. The QR payload carries the auth token, so a log target must
+	 * pass `false`.
+	 */
+	includeQr?: boolean;
+};
+
+export function displayQRCode(info: ConnectionInfo, options: QrDisplayOptions = {}): void {
 	const data = JSON.stringify({
 		l: info.localIP,
 		t: info.tailscaleIP,
@@ -28,41 +45,44 @@ export function displayQRCode(info: ConnectionInfo): void {
 		c: info.certSha256 ?? null,
 	});
 
-	console.log("\n");
-	console.log("  Scan this QR code with the Broski app:");
-	console.log("");
+	const write: BannerSink = options.write ?? ((line) => console.log(line));
 
-	qrcode.generate(data, { small: true }, (qr: string) => {
-		const indented = qr
-			.split("\n")
-			.map((line: string) => `    ${line}`)
-			.join("\n");
-		console.log(indented);
-	});
+	if (options.includeQr ?? true) {
+		write("\n");
+		write("  Scan this QR code with the Broski app:");
+		write("");
 
-	console.log("");
-	console.log("  Or connect manually:");
+		qrcode.generate(data, { small: true }, (qr: string) => {
+			for (const line of qr.split("\n")) write(`    ${line}`);
+		});
+	} else {
+		write("");
+		write("  Pair the Broski app with one of these endpoints:");
+	}
+
+	write("");
+	write("  Or connect manually:");
 	const scheme = info.tlsEnabled ? "wss" : "ws";
 	if (info.localIP) {
-		console.log(`  - Local:     ${scheme}://${info.localIP}:${info.port}`);
+		write(`  - Local:     ${scheme}://${info.localIP}:${info.port}`);
 	}
 	if (info.hotspotIP) {
-		console.log(`  - Hotspot:   ${scheme}://${info.hotspotIP}:${info.port}`);
+		write(`  - Hotspot:   ${scheme}://${info.hotspotIP}:${info.port}`);
 	}
 	if (info.tailscaleIP) {
-		console.log(`  - Tailscale: ${scheme}://${info.tailscaleIP}:${info.port}`);
+		write(`  - Tailscale: ${scheme}://${info.tailscaleIP}:${info.port}`);
 	}
 	if (info.magicDNS) {
-		console.log(`  - MagicDNS:  ${scheme}://${info.magicDNS}:${info.port}`);
+		write(`  - MagicDNS:  ${scheme}://${info.magicDNS}:${info.port}`);
 	}
 	if (info.funnelURL) {
-		console.log(`  - Public:    ${info.funnelURL}`);
+		write(`  - Public:    ${info.funnelURL}`);
 	}
-	console.log("");
+	write("");
 }
 
-export function displayBanner(): void {
-	console.log(`
+export function displayBanner(write: BannerSink = (line) => console.log(line)): void {
+	write(`
   ╔══════════════════════════════════════════════════════════╗
   ║                                                          ║
   ║   ██████╗ ██████╗  ██████╗ ███████╗██╗  ██╗██╗           ║

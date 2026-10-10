@@ -7,9 +7,16 @@
  */
 
 import { createHash } from "node:crypto";
+import {
+	assistantTextFrom,
+	classifyRecord,
+	decodeToolInput,
+	parseRecord,
+	toolCallForFunction,
+} from "../connectors/codex/cx-transcript-records";
 import type { SessionDiffSummary } from "../handlers/session-stats";
 import { aggregateFileDiffs, countUnifiedDiffStats } from "../handlers/session-stats";
-import type { CodexTranscriptMessage } from "../types";
+import type { CodexTranscriptMessage, CodexTranscriptToolCall } from "../types";
 
 export function legacyExtractUserPrompt(message: string): string {
 	const marker = "## My request for Codex:";
@@ -213,151 +220,113 @@ function legacyHeadTailTruncate(text: string, headLines: number, tailLines: numb
 	return `${head}\n\n... (${omitted} lines omitted) ...\n\n${tail}`;
 }
 
+/**
+ * Whole-file reference for the streaming Codex builder: the same record classification, but the
+ * rollout is read as one string and the window is the whole transcript. Comparing the two is what
+ * the real-data parity test does.
+ */
 export function legacyBuildTranscript(text: string): CodexTranscriptMessage[] {
-	const safeStr = (v: unknown): string => (typeof v === "string" ? v : "");
-	const lines = text.split("\n").filter((l) => l.trim());
+	const lines = text.split("\n").filter((line) => line.trim());
 	const out: CodexTranscriptMessage[] = [];
+	const baseTime = Math.floor(Date.now() / 1000) - lines.length;
 	let seq = 0;
 	let currentAssistant: CodexTranscriptMessage | null = null;
-	const baseTime = Math.floor(Date.now() / 1000) - lines.length;
 
 	const pushUser = (userText: string) => {
+		currentAssistant = null;
 		out.push({ id: `user_${baseTime}_${seq}`, role: "user", createdAt: baseTime + seq, text: userText });
 		seq++;
-		currentAssistant = null;
 	};
 
-	const startNewAssistant = (thinking?: string): CodexTranscriptMessage => {
-		if (
-			currentAssistant &&
-			!currentAssistant.text &&
-			!currentAssistant.thinking &&
-			(!currentAssistant.toolCalls || currentAssistant.toolCalls.length === 0)
-		) {
-			if (thinking) currentAssistant.thinking = thinking;
-			return currentAssistant;
-		}
-		const msg: CodexTranscriptMessage = {
+	const assistant = (): CodexTranscriptMessage => {
+		if (currentAssistant) return currentAssistant;
+		const message: CodexTranscriptMessage = {
 			id: `assistant_${baseTime}_${seq}`,
 			role: "assistant",
 			createdAt: baseTime + seq,
 			text: "",
-			thinking: thinking || undefined,
 			toolCalls: [],
 			diffs: [],
 		};
-		out.push(msg);
+		out.push(message);
 		seq++;
-		currentAssistant = msg;
-		return msg;
+		currentAssistant = message;
+		return message;
 	};
 
-	const getOrCreateAssistant = (): CodexTranscriptMessage => currentAssistant ?? startNewAssistant();
+	const findToolCall = (callId: string): CodexTranscriptToolCall | undefined => {
+		if (!callId) return undefined;
+		for (let index = out.length - 1; index >= 0; index--) {
+			const found = out[index]?.toolCalls?.find((candidate) => candidate.itemId === callId);
+			if (found) return found;
+		}
+		return undefined;
+	};
+
+	const completeToolCall = (callId: string, output: string) => {
+		const toolCall = findToolCall(callId);
+		if (!toolCall) return;
+		toolCall.status = "completed";
+		if (output) toolCall.output = legacyHeadTailTruncate(output, 50, 30);
+	};
 
 	for (const line of lines) {
-		try {
-			const record = JSON.parse(line);
-			const type = safeStr(record?.type);
-			const payload = record?.payload ?? {};
-
-			if (type === "session_meta" || type === "turn_context") continue;
-			if (type === "event_msg" && payload?.type === "token_count") continue;
-
-			if (type === "event_msg" && payload?.type === "user_message") {
-				const userText = legacyExtractUserPrompt(safeStr(payload?.message));
-				if (userText) pushUser(userText);
-				continue;
+		const record = parseRecord(line);
+		const event = record ? classifyRecord(record) : null;
+		if (!event) continue;
+		switch (event.kind) {
+			case "turn-start":
+				currentAssistant = null;
+				break;
+			case "user":
+				pushUser(event.text);
+				break;
+			case "assistant-text": {
+				const value = assistantTextFrom(event.content);
+				if (value) assistant().text = value;
+				break;
 			}
-
-			if (type === "response_item" && payload?.type === "message" && payload?.role === "user") continue;
-
-			if (type === "event_msg" && payload?.type === "agent_reasoning") {
-				const thinking = safeStr(payload?.text);
-				if (thinking) startNewAssistant(thinking);
-				continue;
+			case "reasoning": {
+				const target = assistant();
+				target.thinking = `${target.thinking ?? ""}\n${event.text}`.trim();
+				break;
 			}
-
-			if (type === "response_item" && payload?.type === "reasoning") {
-				const summary = Array.isArray(payload?.summary)
-					? payload.summary.map((s: any) => safeStr(s?.text)).join("\n")
-					: "";
-				if (summary) {
-					const a = getOrCreateAssistant();
-					a.thinking = `${a.thinking ?? ""}\n${summary}`.trim();
-				}
-				continue;
+			case "tool-call": {
+				const target = assistant();
+				target.toolCalls = target.toolCalls ?? [];
+				target.toolCalls.push(toolCallForFunction(event.name, event.callId, decodeToolInput(event.args)));
+				break;
 			}
-
-			if (type === "response_item" && payload?.type === "message" && payload?.role === "assistant") {
-				const content = Array.isArray(payload?.content) ? payload.content : [];
-				const textParts: string[] = [];
-				for (const c of content) {
-					if (safeStr(c?.type) === "output_text") textParts.push(safeStr(c?.text));
-				}
-				const finalText = textParts.filter(Boolean).join("\n\n").trim();
-				if (finalText) getOrCreateAssistant().text = finalText;
-				continue;
+			case "tool-output":
+				completeToolCall(event.callId, event.output);
+				break;
+			case "custom-tool-call": {
+				if (event.name !== "apply_patch") break;
+				const target = assistant();
+				target.toolCalls = target.toolCalls ?? [];
+				target.diffs = target.diffs ?? [];
+				target.toolCalls.push({
+					itemId: event.callId,
+					type: "fileChange",
+					name: "ApplyPatch",
+					status: event.status === "completed" ? "completed" : "running",
+					input: { patch: event.input },
+					output: event.input,
+				});
+				const { adds, dels } = legacyCountDiffAddsDels(event.input);
+				target.diffs.push({
+					file: event.input.match(/\*\*\* Update File: ([^\n]+)/)?.[1] ?? "unknown",
+					diff: event.input,
+					additions: adds,
+					deletions: dels,
+					itemId: event.callId,
+				});
+				break;
 			}
-
-			if (type === "response_item" && payload?.type === "function_call") {
-				const a = getOrCreateAssistant();
-				a.toolCalls = a.toolCalls ?? [];
-				const name = safeStr(payload?.name);
-				const callId = safeStr(payload?.call_id);
-				let args: Record<string, unknown> = {};
-				try {
-					args = typeof payload?.arguments === "string" ? JSON.parse(payload.arguments) : (payload?.arguments ?? {});
-				} catch {}
-				if (name === "shell_command" || name === "shell") {
-					a.toolCalls.push({ itemId: callId, type: "commandExecution", name: "Bash", status: "running", input: args });
-				} else if (name === "apply_patch") {
-					a.toolCalls.push({ itemId: callId, type: "fileChange", name: "ApplyPatch", status: "running", input: args });
-				} else {
-					a.toolCalls.push({ itemId: callId, type: "mcpToolCall", name: name, status: "running", input: args });
-				}
-				continue;
-			}
-
-			if (type === "response_item" && payload?.type === "function_call_output") {
-				const callId = safeStr(payload?.call_id);
-				const output = safeStr(payload?.output);
-				const toolCalls = (currentAssistant as CodexTranscriptMessage | null)?.toolCalls;
-				if (Array.isArray(toolCalls)) {
-					for (const tc of toolCalls) {
-						if (tc.itemId === callId) {
-							tc.status = "completed";
-							tc.output = legacyHeadTailTruncate(output, 50, 30);
-							break;
-						}
-					}
-				}
-				continue;
-			}
-
-			if (type === "response_item" && payload?.type === "custom_tool_call") {
-				const a = getOrCreateAssistant();
-				a.toolCalls = a.toolCalls ?? [];
-				a.diffs = a.diffs ?? [];
-				const name = safeStr(payload?.name);
-				const status = safeStr(payload?.status);
-				const callId = safeStr(payload?.call_id);
-				const input = safeStr(payload?.input);
-				if (name === "apply_patch") {
-					const patchMatch = input.match(/\*\*\* Update File: ([^\n]+)/);
-					const file = patchMatch?.[1] ?? "unknown";
-					a.toolCalls.push({
-						itemId: callId,
-						type: "fileChange",
-						name: "ApplyPatch",
-						status: status === "completed" ? "completed" : "running",
-						input: { patch: input },
-						output: input,
-					});
-					const { adds, dels } = legacyCountDiffAddsDels(input);
-					a.diffs.push({ file, diff: input, additions: adds, deletions: dels, itemId: callId });
-				}
-			}
-		} catch {}
+			case "custom-tool-output":
+				completeToolCall(event.callId, event.output);
+				break;
+		}
 	}
 
 	return out;

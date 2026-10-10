@@ -26,12 +26,19 @@ export type CxWarmupSources = {
 async function warmLists(sources: CxWarmupSources): Promise<{ projects: ProjectSummary[]; threads: CodexThread[] }> {
 	const dbPath = sources.findDbPath();
 	if (dbPath) {
-		const projects = sources.listProjectsFromDb(dbPath);
-		const threads = sources.listThreadsFromDb(dbPath);
-		if (projects.length > 0 && threads.length > 0) return { projects, threads };
+		// A database locked by a running Codex, or one whose schema moved on, is a reason to read the
+		// rollout tree, not to abandon the warmup.
+		try {
+			const projects = sources.listProjectsFromDb(dbPath);
+			const threads = sources.listThreadsFromDb(dbPath);
+			if (projects.length > 0 && threads.length > 0) return { projects, threads };
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			sources.logInfo(`[cx_warmup] SQLite index unavailable: ${message}`);
+		}
 	}
 
-	sources.logInfo("[cx_warmup] SQLite index unavailable, reading rollout heads");
+	sources.logInfo("[cx_warmup] Reading rollout heads");
 	return {
 		projects: await sources.listProjectsFromFs(),
 		threads: await sources.listThreadsFromFs(),

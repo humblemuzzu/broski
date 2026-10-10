@@ -4,7 +4,7 @@
  *
  * These are Query-style (filesystem) operations — no live session needed.
  */
-import { getSubagentMessages, listSubagents } from "@anthropic-ai/claude-agent-sdk";
+import { claudeAgentSdk, loadClaudeAgentSdk } from "../sdk/claude-agent-sdk";
 import type { ServerMessage } from "../types";
 
 type TranscriptItem = {
@@ -22,7 +22,8 @@ export async function handle(message: Record<string, unknown>, reply: ReplyFn): 
 	switch (message.type) {
 		case "cc_list_subagents": {
 			try {
-				const agents = await listSubagents(message.sessionId as string, {
+				await loadClaudeAgentSdk();
+				const agents = await claudeAgentSdk().listSubagents(message.sessionId as string, {
 					dir: message.cwd as string | undefined,
 				});
 				reply({ type: "cc_subagents", data: agents, requestId: message.requestId as string });
@@ -34,11 +35,16 @@ export async function handle(message: Record<string, unknown>, reply: ReplyFn): 
 		}
 		case "cc_get_subagent_messages": {
 			try {
-				const messages = await getSubagentMessages(message.sessionId as string, message.agentId as string, {
-					dir: message.cwd as string | undefined,
-					limit: message.limit as number | undefined,
-					offset: message.offset as number | undefined,
-				});
+				await loadClaudeAgentSdk();
+				const messages = await claudeAgentSdk().getSubagentMessages(
+					message.sessionId as string,
+					message.agentId as string,
+					{
+						dir: message.cwd as string | undefined,
+						limit: message.limit as number | undefined,
+						offset: message.offset as number | undefined,
+					},
+				);
 				// Normalize to same format as cc_get_session_messages (ClaudeCodeTranscriptMessage)
 				// so the Flutter hydrator can use hydrateClaudeCodeTranscript() on both
 				const data = messages

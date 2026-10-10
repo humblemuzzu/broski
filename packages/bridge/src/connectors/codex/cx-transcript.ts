@@ -3,14 +3,25 @@
  *
  * Streams a rollout file and keeps only the last `limit` messages, so serving a transcript never
  * holds the whole file in memory. A rollout line only ever joins the message that is currently
- * open — the builder starts a new message on `event_msg/user_message` and closes it at the next
- * one — so the messages are read in file order and the window is taken at the end.
+ * open: a turn boundary — `task_started`, `turn_context`, or the user's next prompt — closes it, so
+ * one long agent run arrives as many messages rather than one the size of the file.
  */
 
-import type { CodexTranscriptDiff, CodexTranscriptMessage, CodexTranscriptToolCall } from "../../types";
+import type { CodexTranscriptMessage, CodexTranscriptToolCall } from "../../types";
 import type { TranscriptPage } from "../../types/transcript-page";
 import { readJsonlLines } from "../../utils/jsonl-lines";
-import { extractUserPrompt } from "./cx-rollout-meta";
+import {
+	assistantTextFrom,
+	type CustomToolCallEvent,
+	classifyRecord,
+	decodeToolInput,
+	diffFromPatch,
+	headTailTruncate,
+	parseRecord,
+	type RolloutEvent,
+	type ToolCallEvent,
+	toolCallForFunction,
+} from "./cx-transcript-records";
 
 export const DEFAULT_CX_TRANSCRIPT_LIMIT = 200;
 
@@ -19,64 +30,10 @@ export type ReadCxTranscriptOptions = {
 };
 
 type ToolCall = CodexTranscriptToolCall;
-type Diff = CodexTranscriptDiff;
-type TranscriptRecord = Record<string, unknown>;
 
-function isRecord(value: unknown): value is TranscriptRecord {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function asRecord(value: unknown): TranscriptRecord {
-	return isRecord(value) ? value : {};
-}
-
-function safeStr(value: unknown): string {
-	return typeof value === "string" ? value : "";
-}
-
-function parseRecord(line: string): TranscriptRecord | null {
-	try {
-		const parsed: unknown = JSON.parse(line);
-		return isRecord(parsed) ? parsed : null;
-	} catch {
-		return null;
-	}
-}
-
-/** Count `+` / `-` diff lines the same way the file-scanner does. */
-function countDiffAddsDels(diff: string): { adds: number; dels: number } {
-	let adds = 0;
-	let dels = 0;
-	for (const line of diff.split("\n")) {
-		if (line.startsWith("+++") || line.startsWith("---")) continue;
-		if (line.startsWith("+")) adds++;
-		else if (line.startsWith("-")) dels++;
-	}
-	return { adds, dels };
-}
-
-/**
- * Head/tail truncation of a tool output. Kept in the `split`/`join` form the file scanner uses: the
- * result is one flat string, whereas `slice` results keep the record they came from alive as a parent.
- */
-function headTailTruncate(text: string, headLines: number, tailLines: number): string {
-	const lines = text.split("\n");
-	if (lines.length <= headLines + tailLines + 5) return text;
-	const head = lines.slice(0, headLines).join("\n");
-	const tail = lines.slice(-tailLines).join("\n");
-	const omitted = lines.length - headLines - tailLines;
-	return `${head}\n\n... (${omitted} lines omitted) ...\n\n${tail}`;
-}
-
-function toolCallForFunction(name: string, callId: string, args: Record<string, unknown>): ToolCall {
-	if (name === "shell_command" || name === "shell") {
-		return { itemId: callId, type: "commandExecution", name: "Bash", status: "running", input: args };
-	}
-	if (name === "apply_patch") {
-		return { itemId: callId, type: "fileChange", name: "ApplyPatch", status: "running", input: args };
-	}
-	return { itemId: callId, type: "mcpToolCall", name, status: "running", input: args };
-}
+const GC_INTERVAL_LINES = 2_000;
+const TOOL_OUTPUT_HEAD_LINES = 50;
+const TOOL_OUTPUT_TAIL_LINES = 30;
 
 export class CxTranscriptBuilder {
 	private readonly window: CodexTranscriptMessage[] = [];
@@ -102,32 +59,41 @@ export class CxTranscriptBuilder {
 		if (!line.trim()) return;
 		const record = parseRecord(line);
 		if (!record) return;
-		const payload = asRecord(record.payload);
-		const type = safeStr(record.type);
-
-		if (type === "session_meta" || type === "turn_context") return;
-		if (type === "event_msg" && payload.type === "token_count") return;
-		if (type === "event_msg" && payload.type === "user_message") {
-			this.pushUser(extractUserPrompt(safeStr(payload.message)));
-			return;
-		}
-		if (type === "event_msg" && payload.type === "agent_reasoning") {
-			const thinking = safeStr(payload.text);
-			if (thinking) this.startNewAssistant(thinking);
-			return;
-		}
-		if (type !== "response_item") return;
-
-		if (payload.type === "message" && payload.role === "user") return;
-		if (payload.type === "reasoning") this.appendReasoningSummary(payload);
-		else if (payload.type === "message" && payload.role === "assistant") this.setAssistantText(payload);
-		else if (payload.type === "function_call") this.addFunctionCall(payload);
-		else if (payload.type === "function_call_output") this.completeToolCall(payload);
-		else if (payload.type === "custom_tool_call") this.addCustomToolCall(payload);
+		this.pushEvent(classifyRecord(record));
 	}
 
 	messages(): CodexTranscriptMessage[] {
 		return this.window;
+	}
+
+	private pushEvent(event: RolloutEvent | null): void {
+		if (!event) return;
+		switch (event.kind) {
+			case "turn-start":
+				this.currentAssistant = null;
+				return;
+			case "user":
+				this.pushUser(event.text);
+				return;
+			case "assistant-text":
+				this.setAssistantText(event.content);
+				return;
+			case "reasoning":
+				this.appendReasoning(event.text);
+				return;
+			case "tool-call":
+				this.addFunctionCall(event);
+				return;
+			case "tool-output":
+				this.completeToolCall(event.callId, event.output);
+				return;
+			case "custom-tool-call":
+				this.addCustomToolCall(event);
+				return;
+			case "custom-tool-output":
+				this.completeCustomToolCall(event.callId, event.output);
+				return;
+		}
 	}
 
 	private keep(message: CodexTranscriptMessage): void {
@@ -138,24 +104,18 @@ export class CxTranscriptBuilder {
 	}
 
 	private pushUser(text: string): void {
-		if (!text) return;
+		this.currentAssistant = null;
 		this.keep({ id: `user_${this.baseTime}_${this.seq}`, role: "user", createdAt: this.baseTime + this.seq, text });
 		this.seq++;
-		this.currentAssistant = null;
 	}
 
-	private startNewAssistant(thinking?: string): CodexTranscriptMessage {
-		const current = this.currentAssistant;
-		if (current && !current.text && !current.thinking && !(current.toolCalls ?? []).length) {
-			if (thinking) current.thinking = thinking;
-			return current;
-		}
+	private getOrCreateAssistant(): CodexTranscriptMessage {
+		if (this.currentAssistant) return this.currentAssistant;
 		const message: CodexTranscriptMessage = {
 			id: `assistant_${this.baseTime}_${this.seq}`,
 			role: "assistant",
 			createdAt: this.baseTime + this.seq,
 			text: "",
-			thinking: thinking || undefined,
 			toolCalls: [],
 			diffs: [],
 		};
@@ -165,85 +125,62 @@ export class CxTranscriptBuilder {
 		return message;
 	}
 
-	private getOrCreateAssistant(): CodexTranscriptMessage {
-		return this.currentAssistant ?? this.startNewAssistant();
-	}
-
-	private appendReasoningSummary(payload: TranscriptRecord): void {
-		const summary = Array.isArray(payload.summary)
-			? payload.summary.map((entry) => safeStr(asRecord(entry).text)).join("\n")
-			: "";
-		if (!summary) return;
+	private appendReasoning(text: string): void {
+		if (!text) return;
 		const assistant = this.getOrCreateAssistant();
-		assistant.thinking = `${assistant.thinking ?? ""}\n${summary}`.trim();
+		assistant.thinking = `${assistant.thinking ?? ""}\n${text}`.trim();
 	}
 
-	private setAssistantText(payload: TranscriptRecord): void {
-		const content = Array.isArray(payload.content) ? payload.content : [];
-		const parts: string[] = [];
-		for (const block of content) {
-			const entry = asRecord(block);
-			if (safeStr(entry.type) === "output_text") parts.push(safeStr(entry.text));
-		}
-		const text = parts.filter(Boolean).join("\n\n").trim();
+	private setAssistantText(content: unknown): void {
+		const text = assistantTextFrom(content);
 		if (text) this.getOrCreateAssistant().text = text;
 	}
 
-	private addFunctionCall(payload: TranscriptRecord): void {
+	private addFunctionCall(event: ToolCallEvent): void {
 		const assistant = this.getOrCreateAssistant();
 		assistant.toolCalls = assistant.toolCalls ?? [];
-		let args: Record<string, unknown> = {};
-		try {
-			const parsed: unknown = typeof payload.arguments === "string" ? JSON.parse(payload.arguments) : payload.arguments;
-			if (isRecord(parsed)) args = parsed;
-		} catch {
-			/* arguments are not JSON — keep them out of the input */
-		}
-		assistant.toolCalls.push(toolCallForFunction(safeStr(payload.name), safeStr(payload.call_id), args));
+		assistant.toolCalls.push(toolCallForFunction(event.name, event.callId, decodeToolInput(event.args)));
 	}
 
-	private completeToolCall(payload: TranscriptRecord): void {
-		const callId = safeStr(payload.call_id);
-		const output = safeStr(payload.output);
-		for (const toolCall of this.currentAssistant?.toolCalls ?? []) {
-			if (toolCall.itemId !== callId) continue;
-			toolCall.status = "completed";
-			toolCall.output = headTailTruncate(output, 50, 30);
-			return;
-		}
-	}
-
-	private addCustomToolCall(payload: TranscriptRecord): void {
-		const input = safeStr(payload.input);
-		const name = safeStr(payload.name);
-		const callId = safeStr(payload.call_id);
+	private addCustomToolCall(event: CustomToolCallEvent): void {
+		if (event.name !== "apply_patch") return;
 		const assistant = this.getOrCreateAssistant();
 		assistant.toolCalls = assistant.toolCalls ?? [];
 		assistant.diffs = assistant.diffs ?? [];
-		if (name !== "apply_patch") return;
-
 		assistant.toolCalls.push({
-			itemId: callId,
+			itemId: event.callId,
 			type: "fileChange",
 			name: "ApplyPatch",
-			status: safeStr(payload.status) === "completed" ? "completed" : "running",
-			input: { patch: input },
-			output: input,
+			status: event.status === "completed" ? "completed" : "running",
+			input: { patch: event.input },
+			output: event.input,
 		});
+		assistant.diffs.push(diffFromPatch(event.callId, event.input));
+	}
 
-		const { adds, dels } = countDiffAddsDels(input);
-		const diff: Diff = {
-			file: input.match(/\*\*\* Update File: ([^\n]+)/)?.[1] ?? "unknown",
-			diff: input,
-			additions: adds,
-			deletions: dels,
-			itemId: callId,
-		};
-		assistant.diffs.push(diff);
+	private completeToolCall(callId: string, output: string): void {
+		const toolCall = this.findToolCall(callId);
+		if (!toolCall) return;
+		toolCall.status = "completed";
+		toolCall.output = headTailTruncate(output, TOOL_OUTPUT_HEAD_LINES, TOOL_OUTPUT_TAIL_LINES);
+	}
+
+	private completeCustomToolCall(callId: string, output: string): void {
+		const toolCall = this.findToolCall(callId);
+		if (!toolCall) return;
+		toolCall.status = "completed";
+		if (output) toolCall.output = headTailTruncate(output, TOOL_OUTPUT_HEAD_LINES, TOOL_OUTPUT_TAIL_LINES);
+	}
+
+	private findToolCall(callId: string): ToolCall | undefined {
+		if (!callId) return undefined;
+		for (let index = this.window.length - 1; index >= 0; index--) {
+			const found = this.window[index]?.toolCalls?.find((candidate) => candidate.itemId === callId);
+			if (found) return found;
+		}
+		return undefined;
 	}
 }
-
-const GC_INTERVAL_LINES = 2_000;
 
 /** Map a rollout file into the transcript shape, keeping only the last `limit` messages. */
 export async function readCxTranscript(

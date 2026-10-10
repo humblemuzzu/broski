@@ -20,6 +20,7 @@ import {
 	isOpencodeCliAvailable,
 	type OpencodeBootstrap,
 } from "./serve/open-code";
+import { installProcessHandlers } from "./serve/process-handlers";
 import { restartManagedOpenCode, shutdown, startOpenCodeHealthMonitor } from "./serve/shutdown";
 import { serveState, subscribeOpenCodeStream } from "./serve/state";
 import { createBridgeServer, loadOrCreateAuthState } from "./server";
@@ -180,17 +181,7 @@ export async function runServe(cli: CliOptions, config: BroskiConfig): Promise<v
 	const argvHas = (flag: string): boolean => process.argv.includes(flag);
 	const argvHasPortFlag = argvHas("--port") || argvHas("--bridge-port");
 
-	process.on("SIGINT", () => void shutdown.request("SIGINT"));
-	process.on("SIGTERM", () => void shutdown.request("SIGTERM"));
-	if (!IS_WINDOWS) {
-		process.on("SIGTSTP", () => void shutdown.request("SIGTSTP"));
-	}
-	process.on("unhandledRejection", (reason) => {
-		void shutdown.fatal("Unhandled promise rejection", reason);
-	});
-	process.on("uncaughtException", (error) => {
-		void shutdown.fatal("Uncaught exception", error);
-	});
+	installProcessHandlers(shutdown, process, IS_WINDOWS);
 	serveState.verboseMode = cli.verbose;
 	serveState.managedHostname = cli.opencodeHostname;
 	serveState.managedPort = cli.opencodePort;
@@ -209,7 +200,8 @@ export async function runServe(cli: CliOptions, config: BroskiConfig): Promise<v
 
 	const version = packageMeta.version ?? "0.1.0";
 
-	displayBanner();
+	const qrSink = cli.daemon ? logDaemon : undefined;
+	displayBanner(qrSink);
 
 	const effectivePort =
 		!argvHasPortFlag && !process.env.BROSKI_PORT && config.network.port ? config.network.port : cli.bridgePort;
@@ -294,18 +286,21 @@ export async function runServe(cli: CliOptions, config: BroskiConfig): Promise<v
 	startOpenCodeHealthMonitor();
 
 	const tlsInfo = bridgeServer.tls();
-	displayQRCode({
-		localIP,
-		tailscaleIP,
-		magicDNS,
-		funnelURL,
-		hotspotIP,
-		port: bridgePort,
-		version,
-		authToken: bridgeServer.authToken(),
-		tlsEnabled: tlsInfo.enabled,
-		certSha256: tlsInfo.certSha256,
-	});
+	displayQRCode(
+		{
+			localIP,
+			tailscaleIP,
+			magicDNS,
+			funnelURL,
+			hotspotIP,
+			port: bridgePort,
+			version,
+			authToken: bridgeServer.authToken(),
+			tlsEnabled: tlsInfo.enabled,
+			certSha256: tlsInfo.certSha256,
+		},
+		{ write: qrSink, includeQr: !cli.daemon },
+	);
 
 	daemonLog(`[daemon] Bridge listening on port ${bridgePort}`);
 
