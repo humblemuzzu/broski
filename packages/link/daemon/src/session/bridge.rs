@@ -120,6 +120,12 @@ impl BridgePump {
     }
 
     pub(super) fn flush(&mut self) {
+        // `dial()` returns as soon as the link task is spawned, so a link the pump holds may
+        // still be dialling — and may fail. Anything handed to it then dies with it, so the
+        // queue only drains into a link that has reported Ready.
+        if self.since.is_none() {
+            return;
+        }
         while let Some(message) = self.pending.pop_front() {
             let len = message.len();
             let Some(link) = self.link.as_ref() else {

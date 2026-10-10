@@ -77,6 +77,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: packages/link
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.38.5"
@@ -92,6 +95,9 @@ jobs:
         run: flutter analyze
       - name: Test
         run: flutter test
+      - name: Install the bridge dependencies
+        working-directory: packages/bridge
+        run: bun install --frozen-lockfile
       - name: Link package tests
         working-directory: packages/link_dart
         run: dart test

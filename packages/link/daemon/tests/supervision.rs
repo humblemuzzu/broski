@@ -4,6 +4,7 @@ use std::collections::HashSet;
 use std::os::unix::fs::PermissionsExt;
 use std::time::{Duration, Instant};
 
+use common::bridge::FakeBridge;
 use common::daemon::{Options, TestDaemon};
 use common::phone::{fetch_bundle, Phone};
 
@@ -54,6 +55,81 @@ async fn a_crashing_bridge_is_restarted_and_reported() {
         format!("--link-socket {}", daemon.bridge_socket.display())
     );
 
+    daemon.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_listening_bridge_is_up_with_no_phone_attached() {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let script = dir.path().join("bridge.sh");
+    std::fs::write(&script, "#!/bin/sh\nsleep 30\n").expect("write the supervised bridge");
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+
+    let daemon = TestDaemon::start(Options {
+        bridge_cmd: Some(vec!["/bin/sh".to_owned(), script.display().to_string()]),
+        ..Options::default()
+    })
+    .await;
+    assert_eq!(daemon.bridge_state().await, "starting");
+
+    // The bridge starts listening while no device is paired: the daemon's own
+    // feed socket is a live websocket to it, so the bridge is up.
+    let bridge = FakeBridge::start(daemon.bridge_socket.clone()).await;
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        let state = daemon.bridge_state().await;
+        if state == "up" {
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "the daemon never reported a listening bridge up: {state}"
+        );
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+
+    bridge.stop().await;
+    daemon.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_message_queued_while_the_bridge_is_down_reaches_it() {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let script = dir.path().join("bridge.sh");
+    std::fs::write(&script, "#!/bin/sh\nsleep 30\n").expect("write the supervised bridge");
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+
+    let daemon = TestDaemon::start(Options {
+        bridge_cmd: Some(vec!["/bin/sh".to_owned(), script.display().to_string()]),
+        ..Options::default()
+    })
+    .await;
+    let addr = daemon.lan();
+    let bundle = fetch_bundle(addr).await;
+    let offer = daemon.offer().await;
+    let mut phone = Phone::new(bundle);
+    assert_eq!(phone.pair_lan(addr, &offer).await, Some(false));
+
+    // Nothing is listening, so the pump's redials keep failing. A request sent
+    // now must outlive them and reach the bridge once it finally answers.
+    phone.send(1, b"while the bridge is down").await;
+    tokio::time::sleep(Duration::from_millis(700)).await;
+
+    let bridge = FakeBridge::start(daemon.bridge_socket.clone()).await;
+    let deadline = Instant::now() + Duration::from_secs(15);
+    while bridge.received().is_empty() {
+        assert!(
+            Instant::now() < deadline,
+            "the request queued while the bridge was down never arrived"
+        );
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    assert_eq!(
+        bridge.received(),
+        vec!["while the bridge is down".to_owned()]
+    );
+
+    bridge.stop().await;
     daemon.stop().await;
 }
 

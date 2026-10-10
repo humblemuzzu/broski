@@ -52,7 +52,9 @@ async fn run(
     loop {
         if let Some(socket) = dial(&deps.socket).await {
             backoff.reset();
+            deps.monitor.opened();
             session(socket, &deps, &mut inbox, &mut shutdown, &mut debounce).await;
+            deps.monitor.closed();
         }
         tokio::select! {
             _ = tokio::time::sleep(backoff.next()) => {}

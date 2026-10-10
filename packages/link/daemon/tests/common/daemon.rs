@@ -99,6 +99,15 @@ impl TestDaemon {
         PairingOffer::parse(uri).expect("the daemon builds a valid offer")
     }
 
+    /// The state the daemon reports for the bridge.
+    pub async fn bridge_state(&self) -> String {
+        let reply = self.ask(json!({"cmd": "status"})).await;
+        reply["bridge"]["state"]
+            .as_str()
+            .unwrap_or_default()
+            .to_owned()
+    }
+
     pub async fn stop(mut self) {
         if let Some(handle) = self.handle.take() {
             handle.stop().await;

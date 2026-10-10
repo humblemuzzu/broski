@@ -116,6 +116,44 @@ final class LinkPhone {
     }
   }
 
+  /// The first status at or after [from] that is connected over [route].
+  Future<LinkStatus> awaitRoute(
+    LinkRoute route, {
+    int from = 0,
+    Duration timeout = const Duration(seconds: 45),
+  }) => awaitStatus(
+    (status) =>
+        status.state == LinkConnectionState.connected && status.route == route,
+    from: from,
+    timeout: timeout,
+    reason: 'the session moves onto the $route route',
+  );
+
+  /// Every `bridge` control state this phone has seen, in order.
+  List<String> get bridgeStates => <String>[
+    for (final message in control)
+      if (message['t'] == 'bridge') '${message['state']}',
+  ];
+
+  /// Waits until a `bridge` control message at or after [from] reports [state].
+  Future<void> awaitBridgeState(
+    String state, {
+    int from = 0,
+    Duration timeout = const Duration(seconds: 45),
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+    while (true) {
+      final states = bridgeStates;
+      if (states.length > from && states.sublist(from).contains(state)) {
+        return;
+      }
+      if (DateTime.now().isAfter(deadline)) {
+        fail('the phone never reported bridge state $state, saw $states');
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+  }
+
   /// One request and its echo, timed.
   Future<Duration> roundTrip(String text) async {
     final echo = nextBridge();

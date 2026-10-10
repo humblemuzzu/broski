@@ -116,8 +116,10 @@ reply, so the relay closes the pairing channel only once the phone holds its rea
 Without `--bridge-cmd` the daemon only dials the socket it is given. With it, the daemon spawns the
 command with `--link-socket <bridge-socket>`, forwards the child's stdout and stderr to the log,
 and restarts it 1 s to 30 s after it exits, resetting the backoff once a run lasted 60 s.
-`{"t":"bridge_restart"}` restarts it at once. State is `up` while a websocket is live, `starting`
-before a child runs, `crashed` with the reason after one dies, `down` when nobody is listening.
+`{"t":"bridge_restart"}` restarts it at once. State is `up` while a websocket to the bridge is live
+— the daemon's own feed socket counts, so a supervised bridge that is listening is `up` before any
+phone attaches — `starting` before a child runs, `crashed` with the reason after one dies, and `down`
+when nobody is listening.
 The bridge websocket carries `x-broski-device-id`, `x-broski-role: owner` and, once known,
 `x-broski-device-name`; a reader task and a writer task keep one slow direction from stalling the
 other.

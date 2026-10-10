@@ -198,6 +198,7 @@ async fn start_tasks(
             registry: parts.registry.clone(),
             relay: parts.commands.clone(),
             busy: parts.busy.clone(),
+            monitor: parts.monitor.clone(),
             durations: options.durations,
         },
         shutdown.clone(),

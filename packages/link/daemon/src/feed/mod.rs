@@ -6,6 +6,7 @@ use std::time::Duration;
 use serde_json::Value;
 use tokio::sync::{mpsc, oneshot};
 
+use crate::bridge_status::BridgeMonitor;
 use crate::durations::Durations;
 
 use client::Request;
@@ -40,6 +41,7 @@ pub struct Deps {
     pub registry: Arc<crate::registry::Registry>,
     pub relay: mpsc::Sender<crate::relay::RelayCommand>,
     pub busy: tokio::sync::watch::Sender<bool>,
+    pub monitor: Arc<BridgeMonitor>,
     pub durations: Durations,
 }
 

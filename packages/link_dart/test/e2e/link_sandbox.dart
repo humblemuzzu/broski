@@ -41,6 +41,10 @@ final class LinkSandbox {
   String get bridgeSocket => p.join(directory.path, 'bridge.sock');
   String get controlSocket => p.join(home, 'control.sock');
 
+  /// A throwaway `$HOME` for a supervised bridge, so it never reads or writes
+  /// the developer's real `~/.claude`, `~/.codex`, `~/.pi` or `~/.broski`.
+  String get bridgeHome => p.join(directory.path, 'bridge-home');
+
   /// The daemon's LAN listener as a phone would dial it.
   String get lanCandidate => '127.0.0.1:$_lanPort';
 
@@ -48,6 +52,7 @@ final class LinkSandbox {
   int? get lanPort => _lanPort;
 
   Uri? _relayUrl;
+  Process? _relay;
   Process? _lastDaemon;
 
   Uri? get relay => _relayUrl;
@@ -78,14 +83,21 @@ final class LinkSandbox {
     }
   }
 
-  Future<Uri> startRelay() async {
+  Future<Uri> startRelay({
+    Map<String, String> environment = const <String, String>{},
+  }) async {
     final port = await freePort();
-    await _spawn(_binaries.relay, <String>[
-      '--listen',
-      '127.0.0.1:$port',
-      '--db',
-      p.join(directory.path, 'relay.db'),
-    ], 'relay');
+    _relay = await _spawn(
+      _binaries.relay,
+      <String>[
+        '--listen',
+        '127.0.0.1:$port',
+        '--db',
+        p.join(directory.path, 'relay.db'),
+      ],
+      'relay',
+      environment: environment,
+    );
     final url = Uri.parse('ws://127.0.0.1:$port');
     await _waitForHealth('http://127.0.0.1:$port/healthz');
     _relayUrl = url;
@@ -93,23 +105,42 @@ final class LinkSandbox {
   }
 
   /// Starts the daemon. [lan] false means it never listens on the LAN, and
-  /// [relay] false that it never dials the relay.
-  Future<void> startDaemon({bool lan = true, bool relay = false}) async {
+  /// [relay] false that it never dials the relay. [bridgeCmd] makes the daemon
+  /// own a bridge process, appending `--link-socket <bridgeSocket>` to it.
+  Future<void> startDaemon({
+    bool lan = true,
+    bool relay = false,
+    List<String>? bridgeCmd,
+    Map<String, String> environment = const <String, String>{},
+  }) async {
     _lanPort = lan ? await freePort() : null;
-    await _spawn(_binaries.daemon, <String>[
-      'run',
-      '--home',
-      home,
-      '--bridge-socket',
-      bridgeSocket,
-      if (lan) '--lan-port',
-      if (lan) '$_lanPort',
-      if (!lan) '--no-lan',
-      if (relay) '--relay',
-      if (relay) '$_relayUrl',
-    ], 'daemon');
+    await _spawn(
+      _binaries.daemon,
+      <String>[
+        'run',
+        '--home',
+        home,
+        '--bridge-socket',
+        bridgeSocket,
+        if (lan) '--lan-port',
+        if (lan) '$_lanPort',
+        if (!lan) '--no-lan',
+        if (relay) '--relay',
+        if (relay) '$_relayUrl',
+        if (bridgeCmd != null) '--bridge-cmd',
+        ...?bridgeCmd,
+      ],
+      'daemon',
+      environment: environment,
+    );
     await _waitForControl();
   }
+
+  /// The daemon's process, or null while none runs.
+  int? get daemonPid => _exited.contains('daemon') ? null : _lastDaemon?.pid;
+
+  /// The relay's process, or null while none runs.
+  int? get relayPid => _exited.contains('relay') ? null : _relay?.pid;
 
   /// Kills the daemon the way a crash would, leaving its home behind.
   Future<void> killDaemon() async {
@@ -169,21 +200,28 @@ final class LinkSandbox {
     return PairingOffer.parse(reply['uri'] as String);
   }
 
-  Future<void> _spawn(
+  Future<Process> _spawn(
     String binary,
     List<String> arguments,
-    String name,
-  ) async {
+    String name, {
+    Map<String, String> environment = const <String, String>{},
+  }) async {
     final level = Platform.environment['BROSKI_E2E_RUST_LOG'];
     final process = await Process.start(
       binary,
       arguments,
-      environment: level == null ? null : <String, String>{'RUST_LOG': level},
+      environment: <String, String>{
+        ...environment,
+        if (level != null) 'RUST_LOG': level,
+      },
     );
     _processes.add(process);
     if (name == 'daemon') {
       _lastDaemon = process;
       _exited.remove('daemon');
+    }
+    if (name == 'relay') {
+      _exited.remove('relay');
     }
     void record(String line) {
       _log.add('$name: $line');
@@ -206,6 +244,7 @@ final class LinkSandbox {
         _exited.add(name);
       }),
     );
+    return process;
   }
 
   Future<void> _waitForControl() async {
