@@ -15,7 +15,7 @@ import type {
 	UserInput,
 } from "@earendil-works/pi-durable";
 import { watchEvents } from "@earendil-works/pi-durable";
-import { singleFlight } from "../pi/pi-single-flight";
+import { singleFlight } from "../../utils/single-flight";
 import { PiDurablePermissions } from "./permissions";
 import {
 	closePiDurableSessionRuntime,

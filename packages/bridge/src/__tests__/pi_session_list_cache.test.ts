@@ -12,7 +12,7 @@ import {
 	listSessionInfosForCwd,
 	type SessionInfoLister,
 } from "../connectors/pi/pi-session-list-cache";
-import { singleFlight } from "../connectors/pi/pi-single-flight";
+import { singleFlight } from "../utils/single-flight";
 
 const CWD_A = "/tmp/broski-pi-cache-project-a";
 const CWD_B = "/tmp/broski-pi-cache-project-b";

@@ -17,7 +17,7 @@ import { basename, join, resolve } from "node:path";
 import { getAgentDir, type SessionInfo, SessionManager } from "@earendil-works/pi-coding-agent";
 import type { ProjectSummary } from "../../types";
 import { runPool } from "../../utils/bounded-pool";
-import { singleFlight } from "./pi-single-flight";
+import { singleFlight } from "../../utils/single-flight";
 
 export type SessionInfoLister = (dir: string) => Promise<SessionInfo[]>;
 

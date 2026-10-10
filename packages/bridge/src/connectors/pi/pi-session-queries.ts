@@ -2,6 +2,7 @@ import { rm } from "node:fs/promises";
 import { resolve, sep } from "node:path";
 import { getAgentDir, VERSION } from "@earendil-works/pi-coding-agent";
 import type { PiSessionInfo, ProjectSummary } from "../../types";
+import { singleFlight } from "../../utils/single-flight";
 import { normalizeCwd } from "./pi-cwd";
 import { listInstances } from "./pi-instance";
 import type { PiAvailability } from "./pi-instance-types";
@@ -14,7 +15,6 @@ import {
 	listSessionInfosForCwd,
 	type SessionListOptions,
 } from "./pi-session-list-cache";
-import { singleFlight } from "./pi-single-flight";
 
 const getSessionsRoot = (): string => resolve(getAgentDir(), "sessions");
 
