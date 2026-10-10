@@ -15,24 +15,35 @@ import UserNotifications
     UNUserNotificationCenter.current().delegate = self
 
     GeneratedPluginRegistrant.register(with: self)
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    let started = super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    PushNotifications.shared.attach(to: window?.rootViewController as? FlutterViewController)
+    return started
   }
 
-  // Handle notification tap when app is in background
+  override func application(
+    _ application: UIApplication,
+    didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+  ) {
+    PushNotifications.shared.received(deviceToken: deviceToken)
+    super.application(
+      application,
+      didRegisterForRemoteNotificationsWithDeviceToken: deviceToken
+    )
+  }
+
   override func userNotificationCenter(
     _ center: UNUserNotificationCenter,
     didReceive response: UNNotificationResponse,
     withCompletionHandler completionHandler: @escaping () -> Void
   ) {
-    completionHandler()
+    PushNotifications.shared.decide(response, completionHandler: completionHandler)
   }
 
-  // Handle notification display while app is in foreground
   override func userNotificationCenter(
     _ center: UNUserNotificationCenter,
     willPresent notification: UNNotification,
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
-    completionHandler([.banner, .badge, .sound])
+    completionHandler(PushNotifications.shared.presentationOptions(for: notification))
   }
 }
