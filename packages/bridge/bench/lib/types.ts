@@ -40,11 +40,17 @@ export type ScenarioResult = {
 	stdoutTail: string;
 };
 
+export type SkippedScenario = {
+	name: string;
+	reason: string;
+};
+
 export type BenchRun = {
 	generatedAt: string;
 	machine: MachineInfo;
 	config: { rssCapBytes: number; timeCapMs: number; sampleIntervalMs: number };
 	datasets: DatasetInfo[];
+	skipped: SkippedScenario[];
 	results: ScenarioResult[];
 };
 

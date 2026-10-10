@@ -4,7 +4,7 @@ import { loadedAgentSdkPackages } from "../lib/loaded-sdks";
 import { runScenario } from "../lib/report";
 import { connectBenchClient, waitForMessage } from "../lib/ws-client";
 
-const IDLE_MS = 60_000;
+const IDLE_MS = Math.max(1000, Number(process.env.BENCH_SERVER_IDLE_MS ?? "60000") || 60_000);
 const SAMPLE_MS = 1000;
 
 type ProcessRow = { pid: number; ppid: number; comm: string };

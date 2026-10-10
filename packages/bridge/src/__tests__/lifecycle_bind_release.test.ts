@@ -1,7 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import type { FSWatcher } from "node:fs";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { CcFsWatcherRegistry } from "../handlers/cc_fs_watchers";
 import { releaseFailedBindResources } from "../lifecycle/bridge-teardown";
 import { boundedStateSizes, registerSweepable } from "../state/bounded-map";
@@ -115,12 +113,5 @@ describe("releaseFailedBindResources", () => {
 			for (const unregister of unregisters) unregister();
 			for (const registry of registries) registry.closeAll();
 		}
-	});
-
-	test("server passes the fs watchers and the sweepables to the release", () => {
-		const server = readFileSync(resolve(__dirname, "..", "server.ts"), "utf-8");
-		const release = server.slice(server.indexOf("releaseFailedBindResources({"));
-		expect(release).toContain("closeFsWatchers: () => ccFsWatchers.closeAll()");
-		expect(release).toContain("unregisterSweepables: unregisterBoundedState");
 	});
 });

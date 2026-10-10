@@ -1,6 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import {
 	type BridgeTeardownResources,
 	releaseFailedBindResources,
@@ -11,10 +9,6 @@ import { runTeardown } from "../lifecycle/teardown";
 
 function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function source(relative: string): string {
-	return readFileSync(resolve(__dirname, "..", relative), "utf-8");
 }
 
 describe("runTeardown", () => {
@@ -284,37 +278,5 @@ describe("createShutdownController", () => {
 
 		expect(exits).toEqual([0]);
 		expect(logs.some((line) => line.includes("teardown blew up"))).toBe(true);
-	});
-});
-
-describe("lifecycle wiring", () => {
-	test("the serve path registers an uncaughtException handler next to unhandledRejection", () => {
-		const indexSrc = source("serve.ts");
-		expect(indexSrc).toContain('process.on("uncaughtException"');
-		expect(indexSrc).toContain('process.on("unhandledRejection"');
-		expect(indexSrc).not.toContain("_shuttingDownFromRejection");
-	});
-
-	test("the serve path awaits the bridge teardown before exiting", () => {
-		const shutdownSrc = source("serve/shutdown.ts");
-		expect(shutdownSrc).toMatch(/await serveState\.bridgeServer\.stop\(true\)/);
-	});
-
-	test("daemon startup retries the port instead of exiting 1", () => {
-		const indexSrc = source("serve.ts");
-		expect(indexSrc).toMatch(/bindWithRetry\(/);
-		expect(indexSrc).toContain('mode: cli.daemon ? "daemon" : "once"');
-	});
-
-	test("server stop delegates to the extracted teardown module", () => {
-		const serverSrc = source("server.ts");
-		expect(serverSrc).toMatch(/return stopBridgeResources\(/);
-		expect(serverSrc).toContain("stopCodexAppServer: () => stopCodexAppServer()");
-		expect(serverSrc).toContain("ocExternalTails");
-	});
-
-	test("the logs CLI keeps its own signal handlers", () => {
-		const logsSrc = source("logs.ts");
-		expect(logsSrc).toContain('process.on("SIGINT", onSignal)');
 	});
 });

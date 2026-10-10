@@ -4,9 +4,9 @@ import { join, resolve } from "node:path";
 import { killProcessTree, runChild } from "./lib/child-runner";
 import { collectDatasets } from "./lib/datasets";
 import { renderMarkdown } from "./lib/markdown";
-import { SCENARIOS, SELFTEST } from "./lib/scenarios";
+import { SCENARIOS, type ScenarioSpec, SELFTEST } from "./lib/scenarios";
 import { collectMachineInfo } from "./lib/system-info";
-import type { BenchRun, ScenarioResult } from "./lib/types";
+import type { BenchRun, ScenarioResult, SkippedScenario } from "./lib/types";
 
 const BRIDGE_ROOT = resolve(import.meta.dir, "..");
 const RESULTS_DIR = resolve(import.meta.dir, "results");
@@ -21,6 +21,10 @@ type Options = {
 	timeCapMs: number;
 	filter: string[];
 	selftest: boolean;
+	/** Write the run JSON here instead of (or in addition to) the results dir. */
+	out: string | null;
+	/** Print the run JSON to stdout. */
+	json: boolean;
 };
 
 function argValue(flag: string): string | null {
@@ -40,6 +44,7 @@ function parseOptions(): Options {
 		rssCapBytes = HARD_RSS_CAP_BYTES;
 	}
 	const filterArg = argValue("--filter");
+	const out = argValue("--out");
 	return {
 		rssCapBytes,
 		timeCapMs: Number.isFinite(timeMs) ? Math.round(timeMs) : DEFAULT_TIME_CAP_MS,
@@ -50,6 +55,8 @@ function parseOptions(): Options {
 					.filter((entry) => entry.length > 0)
 			: [],
 		selftest: process.argv.includes("--selftest"),
+		out: out ? resolve(out) : null,
+		json: process.argv.includes("--json"),
 	};
 }
 
@@ -100,13 +107,27 @@ async function main(): Promise<void> {
 	);
 
 	const datasets = await collectDatasets();
+	const missingDatasets = new Set(datasets.filter((dataset) => !dataset.exists).map((dataset) => dataset.id));
 	const specs =
 		options.filter.length > 0
 			? SCENARIOS.filter((s) => options.filter.some((f) => s.name === f || s.name.startsWith(f)))
 			: SCENARIOS;
+	const skipped: SkippedScenario[] = [];
+	const runnable: ScenarioSpec[] = [];
+	for (const spec of specs) {
+		const missing = (spec.requiresDatasets ?? []).filter((id) => missingDatasets.has(id));
+		if (missing.length > 0) {
+			skipped.push({ name: spec.name, reason: `missing dataset: ${missing.join(", ")}` });
+			continue;
+		}
+		runnable.push(spec);
+	}
+	for (const entry of skipped) {
+		console.log(`[bench] ${entry.name} ... SKIP (${entry.reason})`);
+	}
 	const results: ScenarioResult[] = [];
 
-	for (const spec of specs) {
+	for (const spec of runnable) {
 		process.stdout.write(`[bench] ${spec.name} ... `);
 		const extraEnv: Record<string, string> = {};
 		let tempHome: string | null = null;
@@ -136,13 +157,19 @@ async function main(): Promise<void> {
 		machine,
 		config: { rssCapBytes: options.rssCapBytes, timeCapMs: options.timeCapMs, sampleIntervalMs: SAMPLE_INTERVAL_MS },
 		datasets,
+		skipped,
 		results,
 	};
 
 	await mkdir(RESULTS_DIR, { recursive: true });
 	const fileName = `${run.generatedAt.replace(/[:.]/g, "-")}-bun${machine.bunVersion}.json`;
-	const filePath = resolve(RESULTS_DIR, fileName);
+	const filePath = options.out ? resolve(options.out) : resolve(RESULTS_DIR, fileName);
 	await writeFile(filePath, `${JSON.stringify(run, null, 2)}\n`);
+
+	if (options.json) {
+		process.stdout.write(`${JSON.stringify(run)}\n`);
+		return;
+	}
 
 	console.log(`\n[bench] wrote ${filePath}\n`);
 	console.log(renderMarkdown(run));

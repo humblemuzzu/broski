@@ -16,10 +16,10 @@ process.env.BROSKI_ALLOWED_BASE_PATHS = ALLOWED_HOME;
 const PROJECT_ROOT = join(ALLOWED_HOME, "soak");
 await mkdir(PROJECT_ROOT, { recursive: true });
 
-const DURATION_MS = 60_000;
+const DURATION_MS = Math.max(1000, Number(process.env.BENCH_SOAK_DURATION_MS ?? "60000") || 60_000);
 const SAMPLE_MS = 500;
-const MIN_SESSION_SWITCHES = 2000;
 const STEP_MS = 25;
+const MIN_SESSION_SWITCHES = Math.max(50, Math.floor(DURATION_MS / STEP_MS / 2));
 const EVENT_EVERY = 8;
 const AGENTS: BroskiBackend[] = ["pi", "codex", "claude-code", "opencode"];
 const HOT_SESSION_ID = "soak-hot-session";

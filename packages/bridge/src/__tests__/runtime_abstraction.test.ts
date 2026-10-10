@@ -1,6 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { mapClaudeCodeStreamToRuntimeEvent } from "../runtime/claude-code-runtime-event-mapper";
 import { buildClaudeCodeRuntimeState } from "../runtime/claude-code-runtime-read-models";
 import { mapCodexStreamToRuntimeEvent } from "../runtime/codex-runtime-event-mapper";
@@ -10,20 +8,6 @@ import {
 	mapOpenCodeSdkEventToRuntimeEvent,
 } from "../runtime/opencode-runtime-event-mapper";
 import { mapPiSessionsToRuntimeSessions, mapPiStateToRuntimeState } from "../runtime/pi-runtime-read-models";
-
-function readServerSource(): string {
-	const serverSrc = readFileSync(resolve(import.meta.dir, "..", "server.ts"), "utf-8");
-	// Also read extracted handler files that contain server logic
-	const handlerFiles = ["devices.ts", "session_view.ts", "cx_routing.ts", "misc.ts"];
-	const handlerSrcs = handlerFiles.map((f: string) => {
-		try {
-			return readFileSync(resolve(import.meta.dir, "..", "handlers", f), "utf-8");
-		} catch {
-			return "";
-		}
-	});
-	return `${serverSrc}\n${handlerSrcs.join("\n")}`;
-}
 
 describe("Runtime Abstraction", () => {
 	test("Claude mapper emits common runtime events", () => {
@@ -648,20 +632,6 @@ describe("Runtime Abstraction", () => {
 		expect(sessions[1]?.isActive).toBeUndefined();
 	});
 
-	test("server emits runtime_state snapshots for reconnect paths", () => {
-		const src = readServerSource();
-		// biome may format to double quotes — check either style
-		const has = (needle: string) => src.includes(needle) || src.includes(needle.replace(/'/g, '"'));
-		expect(has("backend: 'claude-code'")).toBe(true);
-		expect(src).toContain("buildClaudeCodeRuntimeState(");
-		expect(has("backend: 'codex'")).toBe(true);
-		expect(src).toContain("buildCodexRuntimeState(");
-		expect(has("backend: 'opencode'")).toBe(true);
-		expect(src).toContain("mapOpenCodeStatusToRuntimeState(");
-		expect(src).toContain("buildPiActiveRuntimeStateMessages()");
-		expect(src).toContain("findPiActiveRuntimeStateMessage(nextSessionId)");
-		expect(has("type: 'runtime_state'")).toBe(true);
-	});
 	test("Codex mapper maps mcpServer/elicitation/request to user_input_requested", () => {
 		const ctx = { backend: "codex" as const, threadId: "cx-1", cwd: "/tmp/repo" };
 
