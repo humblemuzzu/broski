@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { type FSWatcher, watch as fsWatch } from "node:fs";
 import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve, sep } from "node:path";
@@ -23,6 +22,7 @@ import { maybeSynthesizeAskUserQuestion } from "./handlers/cc_ask_user_question"
 import { handleCcChat } from "./handlers/cc_chat";
 import type { ClaudeElicitationReply } from "./handlers/cc_elicitation";
 import * as ccElicitation from "./handlers/cc_elicitation";
+import { CcFsWatcherRegistry, type CcFsWatchKind } from "./handlers/cc_fs_watchers";
 import { installCcHook, uninstallCcHook } from "./handlers/cc_hook_installer";
 import { type CcPermissionHookContext, handleCcPermissionHook } from "./handlers/cc_permission_hook";
 import * as ccRouting from "./handlers/cc_routing";
@@ -45,8 +45,11 @@ import * as unified from "./handlers/unified";
 import * as unifiedChildren from "./handlers/unified_session_children";
 import { createFetchHandler, type FetchHandlerDeps, type HandleHttpDeps } from "./http-handler";
 import { buildProxyPortAllowlist, toErrorMessage, toPublicErrorMessage } from "./http-utils";
+import { releaseFailedBindResources, stopBridgeResources } from "./lifecycle/bridge-teardown";
+import { DEFAULT_TEARDOWN_TIMEOUT_MS, type TeardownResult } from "./lifecycle/teardown";
 import type { BridgeLogger } from "./logging/logger";
-import { getHotspotIP, getLocalIP, getTailscaleIPAsync } from "./network";
+import { getTailscaleIPViaCli, interfaceFingerprint, readLocalEndpoints } from "./network";
+import { EndpointWatcher } from "./network/endpoint-watcher";
 import { startOpenCodeExternalTail as _startOpenCodeExternalTail } from "./oc-external-tail";
 import { isCompiledBinary } from "./platform";
 import { PtyManager } from "./pty/manager";
@@ -153,7 +156,8 @@ export type BridgeServerOptions = {
 export type BridgeServer = {
 	broadcast: (message: ServerMessage) => void;
 	enqueueSdkEvent: (event: unknown) => void;
-	stop: (force?: boolean) => void;
+	/** Resolves once every async cleanup finished or the teardown budget elapsed. */
+	stop: (force?: boolean) => Promise<TeardownResult>;
 	connections: () => number;
 	port: () => number;
 	funnelBackendPort: () => number | null;
@@ -495,46 +499,13 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	let tlsMaterial: TlsMaterial | null = null;
 
 	// Claude Code filesystem watchers (skills/plugins/hook/command updates).
-	const ccFsWatchers = new Map<
-		string,
-		{
-			watcher: FSWatcher;
-			debounce: Timer | null;
-			kind: "skills" | "plugins" | "hooks" | "commands" | "mcp";
-			cwd?: string;
-		}
-	>();
-	const ensureClaudeWatchDir = (
-		dir: string,
-		kind: "skills" | "plugins" | "hooks" | "commands" | "mcp",
-		cwd?: string,
-		recursive = true,
-	) => {
-		if (!dir || ccFsWatchers.has(dir)) return;
-
-		try {
-			const watcher = fsWatch(dir, { persistent: false, recursive }, (_eventType, filename) => {
-				const existing = ccFsWatchers.get(dir);
-				if (!existing) return;
-				if (existing.debounce) clearTimeout(existing.debounce);
-				existing.debounce = setTimeout(() => {
-					existing.debounce = null;
-					broadcast({
-						type: "cc_fs_changed",
-						data: {
-							kind,
-							dir,
-							...(cwd ? { cwd } : {}),
-							...(filename ? { file: String(filename) } : {}),
-						},
-					});
-				}, 150);
-			});
-
-			ccFsWatchers.set(dir, { watcher, debounce: null, kind, cwd });
-		} catch {
-			// Ignore watch failures (dir missing or unsupported)
-		}
+	const ccFsWatchers = new CcFsWatcherRegistry({
+		onChange: (change) => {
+			broadcast({ type: "cc_fs_changed", data: change });
+		},
+	});
+	const ensureClaudeWatchDir = (dir: string, kind: CcFsWatchKind, cwd?: string, recursive = true): void => {
+		ccFsWatchers.ensure(dir, kind, cwd, recursive);
 	};
 	const runtimeSendQueue = new RuntimeSendQueue((ws) => {
 		const ctx = contexts.get(ws);
@@ -1241,6 +1212,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		return codexClient;
 	};
 
+	const stopCodexAppServer = async (): Promise<void> => {
+		const client = codexClient;
+		codexClient = null;
+		if (client) await client.stop();
+	};
+
 	const getDeviceInfo = (ws: ServerWebSocket<unknown>): DeviceInfo | null => {
 		const ctx = contexts.get(ws);
 		if (!ctx?.deviceId) return null;
@@ -1935,43 +1912,30 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	}, TICK_INTERVAL_MS);
 
 	// ── Network endpoint watcher ─────────────────────────────────────────
-	// Every 10s, re-discover IPs and broadcast changes to connected phones.
-	// getLocalIP/getHotspotIP use os.networkInterfaces() (microseconds, sync).
-	// getTailscaleIPAsync uses Bun.spawn (non-blocking, won't stall streaming).
-	let _lastLocalIP: string | null = getLocalIP();
-	let _lastTailscaleIP: string | null = null;
-	let _lastHotspotIP: string | null = getHotspotIP();
-	// Seed Tailscale IP asynchronously on first tick (don't block startup).
-	void getTailscaleIPAsync().then((ip) => {
-		_lastTailscaleIP = ip;
-	});
-	const networkWatchTimer = setInterval(() => {
-		void (async () => {
-			const localIP = getLocalIP();
-			const hotspotIP = getHotspotIP();
-			const tailscaleIP = await getTailscaleIPAsync();
-
-			if (localIP === _lastLocalIP && tailscaleIP === _lastTailscaleIP && hotspotIP === _lastHotspotIP) {
-				return; // Nothing changed
-			}
-
-			_lastLocalIP = localIP;
-			_lastTailscaleIP = tailscaleIP;
-			_lastHotspotIP = hotspotIP;
-
-			logInfo(`[Network] Endpoints changed — local=${localIP}, tailscale=${tailscaleIP}, hotspot=${hotspotIP}`);
+	// Every 10s, re-discover IPs from the interface list (no subprocesses) and
+	// broadcast changes to connected phones. The Tailscale CLI is consulted only
+	// when the interfaces expose no CGNAT address and they just changed.
+	const endpointWatcher = new EndpointWatcher({
+		readEndpoints: readLocalEndpoints,
+		interfacesFingerprint: interfaceFingerprint,
+		resolveTailscaleViaCli: getTailscaleIPViaCli,
+		onChange: (snapshot) => {
+			logInfo(
+				`[Network] Endpoints changed — local=${snapshot.localIP}, tailscale=${snapshot.tailscaleIP}, hotspot=${snapshot.hotspotIP}`,
+			);
 
 			broadcast({
 				type: "network_endpoints_updated",
 				data: {
-					localIP,
-					tailscaleIP,
-					hotspotIP,
+					localIP: snapshot.localIP,
+					tailscaleIP: snapshot.tailscaleIP,
+					hotspotIP: snapshot.hotspotIP,
 					port: securePort,
 				},
 			} as ServerMessage);
-		})().catch(() => {});
-	}, 10_000);
+		},
+	});
+	endpointWatcher.start();
 
 	const ALLOWED_PROXY_PORTS = buildProxyPortAllowlist();
 
@@ -2253,21 +2217,30 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
 	const makeFetch = (serverLabel: string) => createFetchHandler(serverLabel, fetchHandlerDeps);
 
-	const secureServer = Bun.serve({
-		// If TLS is disabled, only bind to loopback to avoid exposing plaintext traffic on LAN/WiFi.
-		...(tlsMaterial ? {} : { hostname: "127.0.0.1" }),
-		port: options.port,
-		...(tlsMaterial
-			? {
-					tls: {
-						key: Bun.file(tlsMaterial.keyPath),
-						cert: Bun.file(tlsMaterial.certPath),
-					},
-				}
-			: {}),
-		fetch: makeFetch("secure"),
-		websocket: websocketConfig,
-	});
+	let secureServer: ReturnType<typeof Bun.serve>;
+	try {
+		secureServer = Bun.serve({
+			// If TLS is disabled, only bind to loopback to avoid exposing plaintext traffic on LAN/WiFi.
+			...(tlsMaterial ? {} : { hostname: "127.0.0.1" }),
+			port: options.port,
+			...(tlsMaterial
+				? {
+						tls: {
+							key: Bun.file(tlsMaterial.keyPath),
+							cert: Bun.file(tlsMaterial.certPath),
+						},
+					}
+				: {}),
+			fetch: makeFetch("secure"),
+			websocket: websocketConfig,
+		});
+	} catch (error) {
+		releaseFailedBindResources({
+			intervals: [heartbeatTimer, tickTimer, eventBufferPruneTimer],
+			stopEndpointWatcher: () => endpointWatcher.stop(),
+		});
+		throw error;
+	}
 	const securePort = secureServer.port ?? options.port;
 
 	// Install CC permission hook in ~/.claude/settings.json (non-blocking)
@@ -2734,7 +2707,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		stop: (force = true) => {
 			clearInterval(heartbeatTimer);
 			clearInterval(tickTimer);
-			clearInterval(networkWatchTimer);
+			endpointWatcher.stop();
 			clearInterval(eventBufferPruneTimer);
 			for (const waiter of ccPermissionWaiters.values()) {
 				clearTimeout(waiter.timer);
@@ -2751,53 +2724,27 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 				waiter.resolve({ response: "reject" });
 			}
 			cxApprovalWaiters.clear();
-			for (const t of ccExternalTails.values()) {
-				try {
-					t.stop();
-				} catch {
-					// ignore
-				}
-			}
-			ccExternalTails.clear();
-			ccEventBuffers.clear();
-			for (const t of cxExternalTails.values()) {
-				try {
-					t.stop();
-				} catch {
-					// ignore
-				}
-			}
-			cxExternalTails.clear();
-			cxEventBuffers.clear();
-			for (const w of ccFsWatchers.values()) {
-				if (w.debounce) clearTimeout(w.debounce);
-				try {
-					w.watcher.close();
-				} catch {
-					// ignore
-				}
-			}
-			ccFsWatchers.clear();
-			void ptyRuntime.stop().catch((error) => {
-				logError(`[PTY] stop cleanup failed: ${toErrorMessage(error)}`);
-			});
-			void uninstallCcHook(logInfo).catch(() => {});
-			void uninstallCxHook(logInfo).catch(() => {});
-			pi.disposeAll();
-			piFeatures.stopAllPiExternalTails();
-			void piDurable.shutdown();
-			try {
-				secureServer.stop(force);
-			} catch {
-				// ignore
-			}
-			if (loopbackServer) {
-				try {
-					loopbackServer.stop(force);
-				} catch {
-					// ignore
-				}
-			}
+
+			return stopBridgeResources(
+				{
+					externalTails: [ccExternalTails, cxExternalTails, ocExternalTails],
+					eventBuffers: [ccEventBuffers, cxEventBuffers],
+					closeFsWatchers: () => ccFsWatchers.closeAll(),
+					stopPtyRuntime: () => ptyRuntime.stop(),
+					uninstallHooks: [() => uninstallCcHook(logInfo), () => uninstallCxHook(logInfo)],
+					stopCodexAppServer: () => stopCodexAppServer(),
+					disposeBackends: [
+						() => pi.disposeAll(),
+						() => piFeatures.stopAllPiExternalTails(),
+						() => piDurable.shutdown(),
+					],
+					stopServers: () => {
+						secureServer.stop(force);
+						loopbackServer?.stop(force);
+					},
+				},
+				{ timeoutMs: DEFAULT_TEARDOWN_TIMEOUT_MS, log: logError },
+			);
 		},
 		connections: () => sockets.size,
 		port: () => securePort,

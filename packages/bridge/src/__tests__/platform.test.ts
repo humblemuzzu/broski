@@ -132,11 +132,18 @@ describe("Daemon System", () => {
 				expect(result).toContain("<?xml");
 				expect(result).toContain("com.broski.bridge");
 				expect(result).toContain("/usr/local/bin/broski");
+				// The bridge logger owns bridge.log/bridge.error.log so it can rotate
+				// them; launchd must not append to the same files.
+				expect(result).toContain("<string>/dev/null</string>");
+				expect(result).not.toContain("bridge.log");
 			} else if (IS_LINUX) {
 				expect(result).toContain("[Unit]");
 				expect(result).toContain("[Service]");
 				expect(result).toContain("[Install]");
 				expect(result).toContain("ExecStart=/usr/local/bin/broski --daemon --hotspot");
+				expect(result).toContain("StandardOutput=null");
+				expect(result).toContain("StandardError=null");
+				expect(result).not.toContain("bridge.log");
 			}
 		}
 	});

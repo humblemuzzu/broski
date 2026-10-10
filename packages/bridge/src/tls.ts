@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFile, unlink } from "node:fs/promises";
+import { chmod, readFile, stat, unlink } from "node:fs/promises";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { findBinary, generateSelfSignedCertificate } from "./platform";
@@ -32,14 +32,26 @@ function isTruthyEnv(value: string | undefined, fallback: boolean): boolean {
 	return fallback;
 }
 
-async function generateSelfSignedCert(): Promise<void> {
+async function generateSelfSignedCert(keyPath: string, certPath: string): Promise<void> {
 	const validityDays = Number(process.env.BROSKI_TLS_CERT_DAYS ?? "365") || 365;
 	await generateSelfSignedCertificate({
 		commonName: "broski",
 		validityDays,
-		keyPath: TLS_KEY_PATH,
-		certPath: TLS_CERT_PATH,
+		keyPath,
+		certPath,
 	});
+}
+
+/** Restricts a private key to owner-only access; returns true when the mode changed. */
+export async function hardenKeyPermissions(keyPath: string): Promise<boolean> {
+	try {
+		const stats = await stat(keyPath);
+		if ((stats.mode & 0o777) === 0o600) return false;
+		await chmod(keyPath, 0o600);
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 export function isTlsEnabledByEnv(): boolean {
@@ -139,35 +151,48 @@ export function checkCertExpiry(certPath: string): CertExpiryInfo {
 	return fallback;
 }
 
-export async function ensureTlsMaterial(): Promise<TlsMaterial> {
-	const hasKey = await fileExists(TLS_KEY_PATH);
-	const hasCert = await fileExists(TLS_CERT_PATH);
+export type TlsMaterialPaths = {
+	keyPath: string;
+	certPath: string;
+};
+
+export function defaultTlsPaths(): TlsMaterialPaths {
+	return { keyPath: TLS_KEY_PATH, certPath: TLS_CERT_PATH };
+}
+
+export async function ensureTlsMaterial(paths?: Partial<TlsMaterialPaths>): Promise<TlsMaterial> {
+	const { keyPath, certPath } = { ...defaultTlsPaths(), ...paths };
+	const hasKey = await fileExists(keyPath);
+	const hasCert = await fileExists(certPath);
 
 	if (hasKey && hasCert) {
 		// Check if cert is expired or expiring within 7 days
-		const expiry = checkCertExpiry(TLS_CERT_PATH);
+		const expiry = checkCertExpiry(certPath);
 		if (!expiry.valid || expiry.daysRemaining < 7) {
 			const reason = !expiry.valid ? "expired" : `expiring in ${expiry.daysRemaining} day(s)`;
 			console.log(`TLS certificate ${reason} — regenerating...`);
 			try {
-				await unlink(TLS_KEY_PATH);
-				await unlink(TLS_CERT_PATH);
+				await unlink(keyPath);
+				await unlink(certPath);
 			} catch {
 				// Files may already be gone
 			}
-			await generateSelfSignedCert();
+			await generateSelfSignedCert(keyPath, certPath);
 		}
 	} else {
-		await generateSelfSignedCert();
+		await generateSelfSignedCert(keyPath, certPath);
 	}
 
-	const certPem = await readFile(TLS_CERT_PATH, "utf-8");
+	// Keys written by older versions kept the default 0644 umask.
+	await hardenKeyPermissions(keyPath);
+
+	const certPem = await readFile(certPath, "utf-8");
 	const der = pemToDer(certPem);
 	const certSha256 = createHash("sha256").update(der).digest("base64url");
 
 	return {
-		keyPath: TLS_KEY_PATH,
-		certPath: TLS_CERT_PATH,
+		keyPath,
+		certPath,
 		certSha256,
 	};
 }

@@ -31,16 +31,23 @@ function readServerSource(): string {
 	const fs = require("node:fs");
 	const path = require("node:path");
 	const serverSrc = fs.readFileSync(path.resolve(__dirname, "..", "server.ts"), "utf-8");
-	// Also read extracted handler files so source invariant tests cover them
-	const handlerFiles = ["cc_chat.ts", "devices.ts", "session_view.ts", "cx_routing.ts", "misc.ts"];
-	const handlerSrcs = handlerFiles.map((f: string) => {
+	// Also read extracted handler/lifecycle files so source invariant tests cover them
+	const extractedFiles = [
+		"handlers/cc_chat.ts",
+		"handlers/devices.ts",
+		"handlers/session_view.ts",
+		"handlers/cx_routing.ts",
+		"handlers/misc.ts",
+		"lifecycle/bridge-teardown.ts",
+	];
+	const extractedSrcs = extractedFiles.map((f: string) => {
 		try {
-			return fs.readFileSync(path.resolve(__dirname, "..", "handlers", f), "utf-8");
+			return fs.readFileSync(path.resolve(__dirname, "..", f), "utf-8");
 		} catch {
 			return "";
 		}
 	});
-	return `${serverSrc}\n${handlerSrcs.join("\n")}`;
+	return `${serverSrc}\n${extractedSrcs.join("\n")}`;
 }
 
 /** Slice a larger region around a needle to capture all relevant code */
@@ -336,9 +343,10 @@ describe("Source Invariants", () => {
 		});
 
 		test("bridge shutdown clears all event buffers", () => {
-			const section = sliceAround(src, "ccExternalTails.clear()", 0, 300);
-			expect(section).toContain("ccEventBuffers.clear()");
-			expect(section).toContain("cxEventBuffers.clear()");
+			const section = sliceAround(src, "const clearBuffers", 0, 200);
+			expect(section).toContain("buffer.clear()");
+			expect(src).toContain("eventBuffers: [ccEventBuffers, cxEventBuffers]");
+			expect(src).toContain("externalTails: [ccExternalTails, cxExternalTails, ocExternalTails]");
 		});
 	});
 });
@@ -366,7 +374,7 @@ describe("Live Integration", () => {
 		clients.length = 0;
 		if (server) {
 			try {
-				server.stop(true);
+				await server.stop(true);
 			} catch {}
 		}
 		await sleep(100);

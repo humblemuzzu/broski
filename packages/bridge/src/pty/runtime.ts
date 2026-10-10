@@ -1,5 +1,8 @@
 import type { ServerWebSocket } from "bun";
+import type { ManagedInterval } from "../timers";
+import { nodeInterval } from "../timers";
 import type { ServerMessage } from "../types";
+import { GatedInterval } from "./health-timer";
 import type { PtyManager } from "./manager";
 import type { NativePtyConnection } from "./native-pty";
 import { consumePtyOutput, createPtyBufferState, type PtyBufferState, pushPtyOutput } from "./output";
@@ -17,6 +20,8 @@ type RuntimeDeps = {
 	send: (ws: ServerWebSocket<unknown>, message: ServerMessage) => void;
 	log: (message: string) => void;
 	resolveSecurePath: (path: string) => Promise<string | null>;
+	healthIntervalMs?: number;
+	healthInterval?: ManagedInterval;
 };
 
 export class PtyRuntime {
@@ -31,7 +36,7 @@ export class PtyRuntime {
 	private readonly ptyListeners = new Map<string, Set<ServerWebSocket<unknown>>>();
 	private readonly ptyOutputBuffers = new Map<string, PtyBufferState>();
 	private readonly ptyHealth = new Map<string, PtyHealth>();
-	private readonly healthTimer: ReturnType<typeof setInterval>;
+	private readonly healthTimer: GatedInterval;
 
 	constructor(deps: RuntimeDeps) {
 		this.ptyManager = deps.ptyManager;
@@ -39,11 +44,15 @@ export class PtyRuntime {
 		this.log = deps.log;
 		this.resolveSecurePath = deps.resolveSecurePath;
 
-		this.healthTimer = setInterval(() => this.broadcastHealthSnapshots(), 1000);
+		this.healthTimer = new GatedInterval({
+			intervalMs: deps.healthIntervalMs ?? 1000,
+			onTick: () => this.broadcastHealthSnapshots(),
+			interval: deps.healthInterval ?? nodeInterval,
+		});
 	}
 
 	async stop(): Promise<void> {
-		clearInterval(this.healthTimer);
+		this.healthTimer.stop();
 
 		const ptyIds = new Set<string>([
 			...this.ptyConnections.keys(),
@@ -218,6 +227,7 @@ export class PtyRuntime {
 		if (existing) return existing;
 		const created = new Set<ServerWebSocket<unknown>>();
 		this.ptyListeners.set(ptyId, created);
+		this.healthTimer.ensureRunning();
 		return created;
 	}
 
@@ -240,6 +250,7 @@ export class PtyRuntime {
 			bytesOut: 0,
 		};
 		this.ptyHealth.set(ptyId, created);
+		this.healthTimer.ensureRunning();
 		return created;
 	}
 
@@ -374,12 +385,14 @@ export class PtyRuntime {
 		this.cleanupPtyState(ptyId, { clearListeners: true, closeUpstream: false });
 	}
 
-	private broadcastHealthSnapshots(): void {
+	private broadcastHealthSnapshots(): boolean {
 		const now = Date.now();
+		let sent = 0;
 
 		for (const [ptyId, health] of this.ptyHealth.entries()) {
 			const listeners = this.ptyListeners.get(ptyId);
 			if (!listeners || listeners.size === 0) continue;
+			sent++;
 
 			const isResponsive = now - health.lastOutputTime < 5000;
 			const deadClients: ServerWebSocket<unknown>[] = [];
@@ -402,6 +415,8 @@ export class PtyRuntime {
 				listeners.delete(client);
 			}
 		}
+
+		return sent > 0;
 	}
 
 	private async connectPty(

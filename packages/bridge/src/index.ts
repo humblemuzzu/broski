@@ -8,8 +8,11 @@ import { parseCli, printHelp, promptForChoice } from "./cli";
 import { OpenCodeConnector } from "./connectors/opencode";
 import { runDoctor } from "./doctor";
 import { disableFunnel, enableFunnel } from "./funnel";
+import { bindWithRetry, isAddressInUse } from "./lifecycle/port-retry";
+import { createShutdownController } from "./lifecycle/shutdown-guard";
 import { type BridgeLogger, createBridgeLogger } from "./logging/logger";
-import { getHotspotIP, getLocalIP, getTailscaleIP, getTailscaleMagicDNS, isTailscaleConnected } from "./network";
+import { getHotspotIP, getLocalIP, getTailscaleIP, getTailscaleMagicDNS } from "./network";
+import { getTailscaleStatus } from "./network/tailscale";
 import {
 	CURRENT_PLATFORM,
 	checkPortInUse,
@@ -582,7 +585,7 @@ async function subscribeOpenCodeStream(
 }
 
 // Graceful shutdown handler
-async function shutdown(signal: string, exitCode = 0) {
+async function runShutdown(signal: string, _exitCode = 0) {
 	console.log(`\n${signal} received. Shutting down...`);
 
 	stopPeriodicUpdateCheck();
@@ -611,7 +614,7 @@ async function shutdown(signal: string, exitCode = 0) {
 
 	if (bridgeServer) {
 		console.log("Stopping bridge server...");
-		bridgeServer.stop(true);
+		await bridgeServer.stop(true);
 		bridgeServer = null;
 	}
 
@@ -629,8 +632,13 @@ async function shutdown(signal: string, exitCode = 0) {
 	}
 
 	console.log("Shutdown complete. Goodbye!");
-	process.exit(exitCode);
 }
+
+const shutdown = createShutdownController({
+	run: runShutdown,
+	exit: (code) => process.exit(code),
+	log: (message) => console.error(message),
+});
 
 async function restartManagedOpenCode(): Promise<boolean> {
 	if (restartInFlight) return false;
@@ -987,21 +995,31 @@ async function main() {
 		return;
 	}
 
-	process.on("SIGINT", () => void shutdown("SIGINT"));
-	process.on("SIGTERM", () => void shutdown("SIGTERM"));
+	process.on("SIGINT", () => void shutdown.request("SIGINT"));
+	process.on("SIGTERM", () => void shutdown.request("SIGTERM"));
 	if (!IS_WINDOWS) {
-		process.on("SIGTSTP", () => void shutdown("SIGTSTP"));
+		process.on("SIGTSTP", () => void shutdown.request("SIGTSTP"));
 	}
-	let _shuttingDownFromRejection = false;
 	process.on("unhandledRejection", (reason) => {
-		if (_shuttingDownFromRejection) return;
-		_shuttingDownFromRejection = true;
-		console.error("[FATAL] Unhandled promise rejection:", reason instanceof Error ? reason.stack : reason);
-		void shutdown("UNHANDLED_REJECTION", 1);
+		void shutdown.fatal("Unhandled promise rejection", reason);
+	});
+	process.on("uncaughtException", (error) => {
+		void shutdown.fatal("Uncaught exception", error);
 	});
 	verboseMode = cli.verbose;
 	managedHostname = cli.opencodeHostname;
 	managedPort = cli.opencodePort;
+
+	// Create leveled logger — binary users see only important events;
+	// dev mode shows everything; all levels always go to the log file.
+	const bridgeLogger = createBridgeLogger({
+		verbose: cli.verbose,
+	});
+	activeBridgeLogger = bridgeLogger;
+
+	const daemonLog = (message: string): void => {
+		if (cli.daemon) bridgeLogger.user(message);
+	};
 
 	// First-run wizard trigger
 	if (!cli.skipWizard && !cli.daemon) {
@@ -1084,7 +1102,7 @@ async function main() {
 	// Load auth + create server FIRST so the port binds fast.
 	// Network detection (Tailscale CLI calls) can take 5-15s and is only
 	// needed for QR display / funnel — defer it until after the port is up.
-	if (cli.daemon) console.log("[daemon] Loading auth token...");
+	daemonLog("[daemon] Loading auth token...");
 	// Load persistent auth token (same token survives bridge restarts)
 	const auth = await loadOrCreateAuthState(cli.newToken, config.security.tokenTtlDays);
 	if (cli.newToken) {
@@ -1093,14 +1111,7 @@ async function main() {
 		console.log("✓ Auth token loaded (persistent across restarts)");
 	}
 
-	if (cli.daemon) console.log("[daemon] Creating bridge server...");
-
-	// Create leveled logger — binary users see only important events;
-	// dev mode shows everything; all levels always go to the log file.
-	const bridgeLogger = createBridgeLogger({
-		verbose: cli.verbose,
-	});
-	activeBridgeLogger = bridgeLogger;
+	daemonLog("[daemon] Creating bridge server...");
 
 	// Create bridge server
 	try {
@@ -1108,39 +1119,51 @@ async function main() {
 		// Tailscale connectivity is checked after binding (the loopback server
 		// on 127.0.0.1:0 is harmless if funnel turns out to be unavailable).
 		const willEnableFunnel = cli.enableFunnel;
-		bridgeServer = await createBridgeServer({
-			port: effectivePort,
-			opencode,
-			version,
-			auth,
-			tokenTtlDays: config.security.tokenTtlDays,
-			enableLoopbackInsecureServer: willEnableFunnel,
-			restartOpenCode: restartManagedOpenCode,
-			bridgeLogger,
-		});
-	} catch (error: any) {
-		if (error?.code === "EADDRINUSE") {
-			console.error(`\n❌ Bridge port ${effectivePort} is already in use.`);
-			console.error("This usually means another broski process is still running.");
-			console.error("If you stopped it with Ctrl+Z, it was suspended (not terminated) and will keep the port open.");
-			console.error("Fix options:");
-			console.error("  - If it is a suspended job: return to that terminal, run `fg`, then press Ctrl+C.");
-			console.error(`  - Or find and stop the process holding the port:`);
-			console.error(`      ${getKillPortHint(effectivePort)}`);
-			console.error(`  - Dev fallback: run the bridge on a different port: --port 0 (random free port)\n`);
+		bridgeServer = await bindWithRetry(
+			() =>
+				createBridgeServer({
+					port: effectivePort,
+					opencode,
+					version,
+					auth,
+					tokenTtlDays: config.security.tokenTtlDays,
+					enableLoopbackInsecureServer: willEnableFunnel,
+					restartOpenCode: restartManagedOpenCode,
+					bridgeLogger,
+				}),
+			{
+				mode: cli.daemon ? "daemon" : "once",
+				onRetry: (info) =>
+					daemonLog(
+						`[daemon] Port ${effectivePort} still in use (attempt ${info.attempt}) — retrying in ${Math.round(info.delayMs / 1000)}s`,
+					),
+			},
+		);
+	} catch (error: unknown) {
+		if (isAddressInUse(error)) {
+			bridgeLogger.error(`\n❌ Bridge port ${effectivePort} is already in use.`);
+			bridgeLogger.error("This usually means another broski process is still running.");
+			bridgeLogger.error(
+				"If you stopped it with Ctrl+Z, it was suspended (not terminated) and will keep the port open.",
+			);
+			bridgeLogger.error("Fix options:");
+			bridgeLogger.error("  - If it is a suspended job: return to that terminal, run `fg`, then press Ctrl+C.");
+			bridgeLogger.error(`  - Or find and stop the process holding the port:`);
+			bridgeLogger.error(`      ${getKillPortHint(effectivePort)}`);
+			bridgeLogger.error(`  - Dev fallback: run the bridge on a different port: --port 0 (random free port)\n`);
 
 			// Best-effort: print the owning PID to make this frictionless.
 			try {
 				const proc = await getProcessOnPort(effectivePort);
 				if (proc) {
-					console.error(`Port owner: ${proc.name} (PID ${proc.pid})`);
-					console.error("");
+					bridgeLogger.error(`Port owner: ${proc.name} (PID ${proc.pid})`);
+					bridgeLogger.error("");
 				}
 			} catch {
 				// ignore
 			}
 		} else {
-			console.error("\n❌ Failed to start bridge server:", error);
+			bridgeLogger.error(`\n❌ Failed to start bridge server: ${error}`);
 		}
 
 		// If we started OpenCode in managed mode, stop it to avoid orphan processes.
@@ -1156,18 +1179,19 @@ async function main() {
 	const bridgePort = bridgeServer.port();
 
 	// Port is now bound — health checks will pass.
-	// Now do the slow network detection (Tailscale CLI calls).
-	if (cli.daemon) console.log("[daemon] Detecting network...");
+	// Now do the slow network detection (single Tailscale CLI call, cached).
+	daemonLog("[daemon] Detecting network...");
 	const localIP = getLocalIP();
-	if (cli.daemon) console.log(`[daemon] localIP: ${localIP}`);
-	const tailscaleIP = await getTailscaleIP();
-	if (cli.daemon) console.log(`[daemon] tailscaleIP: ${tailscaleIP}`);
-	const magicDNS = await getTailscaleMagicDNS();
-	if (cli.daemon) console.log(`[daemon] magicDNS: ${magicDNS}`);
-	const tailscaleConnected = await isTailscaleConnected();
-	if (cli.daemon) console.log(`[daemon] tailscaleConnected: ${tailscaleConnected}`);
+	daemonLog(`[daemon] localIP: ${localIP}`);
+	const tailscale = await getTailscaleStatus();
+	const tailscaleIP = tailscale?.ipv4 ?? null;
+	daemonLog(`[daemon] tailscaleIP: ${tailscaleIP}`);
+	const magicDNS = tailscale?.magicDnsName ?? null;
+	daemonLog(`[daemon] magicDNS: ${magicDNS}`);
+	const tailscaleConnected = tailscale?.connected ?? false;
+	daemonLog(`[daemon] tailscaleConnected: ${tailscaleConnected}`);
 	const hotspotIP = cli.detectHotspot ? getHotspotIP() : null;
-	if (cli.daemon) console.log(`[daemon] hotspotIP: ${hotspotIP}`);
+	daemonLog(`[daemon] hotspotIP: ${hotspotIP}`);
 
 	if (cli.detectHotspot) {
 		if (hotspotIP) {
@@ -1279,14 +1303,17 @@ async function main() {
 		certSha256: tlsInfo.certSha256,
 	});
 
-	console.log(`\n✓ Bridge listening on port ${bridgePort}`);
-	console.log("  Press Ctrl+C to shutdown");
-	if (!opencodeServer) {
-		console.log("  (OpenCode not detected - OpenCode-only features are unavailable)");
-	} else if ("close" in opencodeServer) {
-		console.log("  (OpenCode is managed by the bridge and will stop on shutdown)");
-	} else {
-		console.log("  (OpenCode is external and will be left running)");
+	daemonLog(`[daemon] Bridge listening on port ${bridgePort}`);
+	if (!cli.daemon) {
+		console.log(`\n✓ Bridge listening on port ${bridgePort}`);
+		console.log("  Press Ctrl+C to shutdown");
+		if (!opencodeServer) {
+			console.log("  (OpenCode not detected - OpenCode-only features are unavailable)");
+		} else if ("close" in opencodeServer) {
+			console.log("  (OpenCode is managed by the bridge and will stop on shutdown)");
+		} else {
+			console.log("  (OpenCode is external and will be left running)");
+		}
 	}
 
 	// Non-blocking update check on startup

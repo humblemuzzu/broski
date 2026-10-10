@@ -460,9 +460,9 @@ ${programArgsXml}
     <key>ThrottleInterval</key>
     <integer>10</integer>
     <key>StandardOutPath</key>
-    <string>${escapeXml(config.logDir)}/bridge.log</string>
+    <string>/dev/null</string>
     <key>StandardErrorPath</key>
-    <string>${escapeXml(config.logDir)}/bridge.error.log</string>
+    <string>/dev/null</string>
     <key>WorkingDirectory</key>
     <string>${escapeXml(config.workDir)}</string>
     <key>EnvironmentVariables</key>
@@ -492,8 +492,8 @@ RestartSec=10
 Environment=HOME=%h
 Environment=PATH=/usr/local/bin:/usr/bin:/bin:%h/.local/bin:%h/.bun/bin:%h/.opencode/bin
 
-StandardOutput=append:%h/.broski/logs/bridge.log
-StandardError=append:%h/.broski/logs/bridge.error.log
+StandardOutput=null
+StandardError=null
 
 [Install]
 WantedBy=default.target`;

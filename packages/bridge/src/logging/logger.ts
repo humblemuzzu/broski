@@ -12,15 +12,16 @@
  * When that happens, we skip direct file writes to avoid double entries.
  */
 
-import { createWriteStream, mkdirSync, type WriteStream } from "node:fs";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { isCompiledBinary } from "../platform";
 import { redactSensitiveText } from "./redact";
+import { isFdRedirectedToFile } from "./redirect-detect";
+import { RotatingFileWriter } from "./rotating-file";
 
-const LOG_DIR = resolve(homedir(), ".broski", "logs");
-const PRIMARY_LOG = resolve(LOG_DIR, "bridge.log");
-const ERROR_LOG = resolve(LOG_DIR, "bridge.error.log");
+export const DEFAULT_LOG_DIR = resolve(homedir(), ".broski", "logs");
+const PRIMARY_LOG_NAME = "bridge.log";
+const ERROR_LOG_NAME = "bridge.error.log";
 
 export type LogLevel = "user" | "info" | "debug";
 
@@ -50,6 +51,12 @@ export type BridgeLoggerOptions = {
 	redact?: boolean;
 	/** Enable debug-level console output (like --verbose). */
 	verbose?: boolean;
+	/** Directory holding bridge.log and bridge.error.log. Default: ~/.broski/logs. */
+	logDir?: string;
+	/** Size-based rotation for the log files this logger owns. */
+	rotation?: { maxBytes?: number; keep?: number };
+	/** Redirect probe; defaults to comparing fstat(fd) with stat(path). */
+	redirectProbe?: (fd: number, path: string) => boolean;
 };
 
 export function createBridgeLogger(options?: BridgeLoggerOptions): BridgeLogger {
@@ -61,24 +68,23 @@ export function createBridgeLogger(options?: BridgeLoggerOptions): BridgeLogger 
 	const consoleLevel: LogLevel = options?.consoleLevel ?? (compiled ? "user" : verbose ? "debug" : "info");
 	const consolePriority = LEVEL_PRIORITY[consoleLevel];
 
-	// Detect if stdout is being captured by a daemon (not a TTY).
-	// In daemon mode, launchd already redirects stdout → bridge.log,
-	// so we skip our own file writes to avoid double entries.
-	const stdoutIsTTY = process.stdout.isTTY ?? false;
-	const skipFileWrite = !stdoutIsTTY && compiled;
+	const logDir = options?.logDir ?? DEFAULT_LOG_DIR;
+	const primaryLog = resolve(logDir, PRIMARY_LOG_NAME);
+	const errorLog = resolve(logDir, ERROR_LOG_NAME);
+	const redirectProbe = options?.redirectProbe ?? isFdRedirectedToFile;
 
-	// Ensure log directory exists (sync — runs once at startup)
-	let logStream: WriteStream | null = null;
-	let errorStream: WriteStream | null = null;
+	// A supervisor already writing into these exact files owns them.
+	const stdoutOwnsPrimary = redirectProbe(1, primaryLog);
+	const stderrOwnsError = redirectProbe(2, errorLog);
 
-	if (!skipFileWrite) {
-		try {
-			mkdirSync(LOG_DIR, { recursive: true });
-			logStream = createWriteStream(PRIMARY_LOG, { flags: "a" });
-			errorStream = createWriteStream(ERROR_LOG, { flags: "a" });
-		} catch {
-			// Can't write log files — continue without file logging
-		}
+	let logWriter: RotatingFileWriter | null = null;
+	let errorWriter: RotatingFileWriter | null = null;
+
+	try {
+		if (!stdoutOwnsPrimary) logWriter = new RotatingFileWriter({ path: primaryLog, ...options?.rotation });
+		if (!stderrOwnsError) errorWriter = new RotatingFileWriter({ path: errorLog, ...options?.rotation });
+	} catch {
+		// Can't write log files — continue without file logging
 	}
 
 	const redact = (msg: string): string => {
@@ -92,8 +98,8 @@ export function createBridgeLogger(options?: BridgeLoggerOptions): BridgeLogger 
 
 	const writeToFile = (level: string, message: string, isError = false): void => {
 		const formatted = formatFileLine(level, message);
-		logStream?.write(formatted);
-		if (isError) errorStream?.write(formatted);
+		logWriter?.write(formatted);
+		if (isError) errorWriter?.write(formatted);
 	};
 
 	const shouldPrintToConsole = (level: LogLevel): boolean => {
@@ -137,18 +143,7 @@ export function createBridgeLogger(options?: BridgeLoggerOptions): BridgeLogger 
 		},
 
 		async flush(): Promise<void> {
-			await Promise.all([
-				logStream
-					? new Promise<void>((res) => {
-							logStream!.end(() => res());
-						})
-					: Promise.resolve(),
-				errorStream
-					? new Promise<void>((res) => {
-							errorStream!.end(() => res());
-						})
-					: Promise.resolve(),
-			]);
+			await Promise.all([logWriter?.close() ?? Promise.resolve(), errorWriter?.close() ?? Promise.resolve()]);
 		},
 	};
 }
