@@ -1,11 +1,11 @@
 import * as pi from "../connectors/pi";
 import { sweepBoundedState } from "../state/bounded-map";
+import { heartbeatAction } from "./heartbeat";
 import type { LeveledLogger } from "./logger";
 import type { BridgeState, BufferedStreamEvent } from "./state";
 import type { Streams } from "./streams";
 
 const HEARTBEAT_INTERVAL_MS = 20000;
-const HEARTBEAT_DEAD_AFTER_MS = 90000;
 /** Clients expect a tick every 30s; twice that without one means the connection is dead. */
 const TICK_INTERVAL_MS = 30000;
 const EVENT_BUFFER_STALE_MS = 120_000;
@@ -22,7 +22,8 @@ export function startBridgeIntervals(deps: { state: BridgeState; streams: Stream
 			const ctx = state.contexts.get(ws);
 			if (!ctx) continue;
 
-			if (now - ctx.lastPongAt > HEARTBEAT_DEAD_AFTER_MS) {
+			const action = heartbeatAction(ws.data, ctx, now);
+			if (action === "close") {
 				try {
 					ws.close(4000, "Heartbeat timeout");
 				} catch {
@@ -30,18 +31,7 @@ export function startBridgeIntervals(deps: { state: BridgeState; streams: Stream
 				}
 				continue;
 			}
-
-			// Only keep one in-flight ping per client to make RTT meaningful.
-			// But expire stale pings — if the pong was lost (e.g. across a long
-			// network hiccup), we must not block all future pings forever.
-			// 30s is generous (normal RTT < 500ms).
-			if (ctx.pendingPing) {
-				if (now - ctx.pendingPing.sentAt > 30_000) {
-					ctx.pendingPing = undefined;
-				} else {
-					continue;
-				}
-			}
+			if (action !== "ping") continue;
 
 			const ping = {
 				id: `ping_${now}_${Math.floor(Math.random() * 1_000_000)}`,
