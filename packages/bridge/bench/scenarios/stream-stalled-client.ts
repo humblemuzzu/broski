@@ -1,3 +1,4 @@
+import "../lib/bench-home";
 import { connect } from "node:net";
 import type { ServerMessage } from "../../src/types";
 import type { BroskiAssistantTextDeltaEvent } from "../../src/types/runtime";

@@ -1,5 +1,6 @@
-import { spawnSync } from "node:child_process";
+import { killProcessTree } from "./process-table";
 import { RESULT_PREFIX } from "./report";
+import { readProcessRssBytes } from "./rss-sample";
 import type { ChildPayload, ScenarioMetrics, ScenarioResult } from "./types";
 
 export type ChildRunOptions = {
@@ -78,61 +79,11 @@ async function readBounded(stream: ReadableStream<Uint8Array>, cap: number): Pro
 	return new TextDecoder().decode(merged);
 }
 
-type ProcessRow = { pid: number; ppid: number };
-
-function listProcesses(): ProcessRow[] {
-	const result = spawnSync("ps", ["-axo", "pid=,ppid="], { encoding: "utf-8" });
-	const rows: ProcessRow[] = [];
-	for (const line of result.stdout.split("\n")) {
-		const parts = line.trim().split(/\s+/);
-		if (parts.length !== 2) continue;
-		const pid = Number.parseInt(parts[0] ?? "", 10);
-		const ppid = Number.parseInt(parts[1] ?? "", 10);
-		if (Number.isFinite(pid) && Number.isFinite(ppid)) rows.push({ pid, ppid });
-	}
-	return rows;
-}
-
-export function killProcessTree(rootPid: number): number[] {
-	const rows = listProcesses();
-	const childrenByParent = new Map<number, number[]>();
-	for (const row of rows) {
-		const siblings = childrenByParent.get(row.ppid);
-		if (siblings) siblings.push(row.pid);
-		else childrenByParent.set(row.ppid, [row.pid]);
-	}
-
-	const order: number[] = [];
-	const visit = (pid: number): void => {
-		for (const child of childrenByParent.get(pid) ?? []) visit(child);
-		order.push(pid);
-	};
-	visit(rootPid);
-	order.pop();
-
-	const killed: number[] = [];
-	for (const pid of order.reverse()) {
-		try {
-			process.kill(pid, "SIGKILL");
-			killed.push(pid);
-		} catch {}
-	}
-	return killed;
-}
-
 let activePid: number | null = null;
 
 process.on("exit", () => {
 	if (activePid !== null) killProcessTree(activePid);
 });
-
-async function readRss(pid: number): Promise<number | null> {
-	const proc = Bun.spawn({ cmd: ["ps", "-o", "rss=", "-p", String(pid)], stdout: "pipe", stderr: "ignore" });
-	const text = await new Response(proc.stdout).text();
-	await proc.exited;
-	const kb = Number.parseInt(text.trim(), 10);
-	return Number.isFinite(kb) ? kb * 1024 : null;
-}
 
 export async function runChild(options: ChildRunOptions): Promise<ScenarioResult> {
 	const startedAtMs = Date.now();
@@ -159,7 +110,7 @@ export async function runChild(options: ChildRunOptions): Promise<ScenarioResult
 	let killed: "rss" | "time" | null = null;
 
 	while (!exited) {
-		const rss = await readRss(proc.pid);
+		const rss = readProcessRssBytes(proc.pid);
 		if (rss !== null) {
 			samples += 1;
 			if (samples === 1) startRssBytes = rss;

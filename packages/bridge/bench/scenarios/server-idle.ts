@@ -1,31 +1,12 @@
-import { spawnSync } from "node:child_process";
+import "../lib/bench-home";
 import { startBenchServer } from "../lib/bench-server";
 import { loadedAgentSdkPackages } from "../lib/loaded-sdks";
+import { childProcessesOf } from "../lib/process-table";
 import { runScenario } from "../lib/report";
 import { connectBenchClient, waitForMessage } from "../lib/ws-client";
 
 const IDLE_MS = Math.max(1000, Number(process.env.BENCH_SERVER_IDLE_MS ?? "60000") || 60_000);
 const SAMPLE_MS = 1000;
-
-type ProcessRow = { pid: number; ppid: number; comm: string };
-
-function listProcesses(): ProcessRow[] {
-	const result = spawnSync("ps", ["-axo", "pid=,ppid=,comm="], { encoding: "utf-8" });
-	const rows: ProcessRow[] = [];
-	for (const line of result.stdout.split("\n")) {
-		const parts = line.trim().split(/\s+/);
-		if (parts.length < 3) continue;
-		const pid = Number.parseInt(parts[0] ?? "", 10);
-		const ppid = Number.parseInt(parts[1] ?? "", 10);
-		const comm = parts.slice(2).join(" ");
-		if (Number.isFinite(pid) && Number.isFinite(ppid)) rows.push({ pid, ppid, comm });
-	}
-	return rows;
-}
-
-function childPidsOf(parentPid: number): ProcessRow[] {
-	return listProcesses().filter((row) => row.ppid === parentPid && !/(^|\/)ps$/.test(row.comm));
-}
 
 await runScenario(async () => {
 	const sdkBeforeServer = loadedAgentSdkPackages();
@@ -51,7 +32,7 @@ await runScenario(async () => {
 		await Bun.sleep(SAMPLE_MS);
 		const rss = process.memoryUsage.rss();
 		if (rss > peakSelfRss) peakSelfRss = rss;
-		const pids = childPidsOf(process.pid);
+		const pids = childProcessesOf(process.pid);
 		for (const row of pids) children.set(row.pid, row.comm);
 		if (pids.length > maxChildren) maxChildren = pids.length;
 	}

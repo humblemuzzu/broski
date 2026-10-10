@@ -8,6 +8,7 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
+import { assertNotRealHome } from "./safety/real-home-guard";
 
 const TOKEN_FILE_LEGACY = resolve(homedir(), ".broski", "token");
 const TOKEN_FILE = resolve(homedir(), ".broski", "token.json");
@@ -40,6 +41,7 @@ export function isLikelyValidToken(token: string): boolean {
 }
 
 export async function persistAuthState(state: AuthTokenState): Promise<void> {
+	assertNotRealHome(TOKEN_FILE, "auth token persist");
 	await mkdir(dirname(TOKEN_FILE), { recursive: true });
 	await writeFile(TOKEN_FILE, JSON.stringify(state), { mode: 0o600 });
 }
@@ -57,6 +59,7 @@ export async function createNewAuthState(now = Date.now(), tokenTtlDays?: number
 	await persistAuthState(state);
 	// Best-effort: remove legacy token file to avoid confusion.
 	try {
+		assertNotRealHome(TOKEN_FILE_LEGACY, "auth token legacy cleanup");
 		await rm(TOKEN_FILE_LEGACY, { force: true });
 	} catch {
 		// ignore
@@ -112,6 +115,7 @@ export async function loadOrCreateAuthState(forceNew = false, tokenTtlDays?: num
 				};
 				await persistAuthState(state);
 				try {
+					assertNotRealHome(TOKEN_FILE_LEGACY, "auth token legacy cleanup");
 					await rm(TOKEN_FILE_LEGACY, { force: true });
 				} catch {
 					// ignore

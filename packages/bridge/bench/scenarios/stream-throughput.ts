@@ -1,3 +1,4 @@
+import "../lib/bench-home";
 import type { ServerMessage } from "../../src/types";
 import type { BroskiAssistantTextDeltaEvent } from "../../src/types/runtime";
 import { type BenchServerHandle, startBenchServer } from "../lib/bench-server";

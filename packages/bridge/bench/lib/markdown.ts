@@ -47,7 +47,7 @@ export function renderMarkdown(run: BenchRun): string {
 	lines.push(`# Bridge bench — ${run.generatedAt}`);
 	lines.push("");
 	lines.push(
-		`Machine: bun ${run.machine.bunVersion} · macOS ${run.machine.osVersion} · ${run.machine.cpu} · ${formatBytes(run.machine.totalRamBytes)} RAM · ${run.machine.arch}`,
+		`Machine: bun ${run.machine.bunVersion} · ${run.machine.platform} ${run.machine.osVersion} · ${run.machine.cpu} · ${formatBytes(run.machine.totalRamBytes)} RAM · ${run.machine.arch}`,
 	);
 	lines.push(
 		`Caps: rss ${(run.config.rssCapBytes / 1024 ** 2).toFixed(0)} MB · time ${run.config.timeCapMs} ms · sample ${run.config.sampleIntervalMs} ms`,

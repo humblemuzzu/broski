@@ -12,6 +12,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { assertNotRealHome } from "../../safety/real-home-guard";
 
 export type CollabRelation = {
 	parentThreadId: string;
@@ -77,6 +78,7 @@ function capRelations(relations: CollabRelation[]): CollabRelation[] {
 
 function saveCache(): void {
 	const path = collabCachePath();
+	assertNotRealHome(path, "codex collab cache write");
 	const tmpPath = `${path}.tmp`;
 	try {
 		mkdirSync(dirname(path), { recursive: true });

@@ -4,6 +4,7 @@ import { chmod, readFile, stat, unlink } from "node:fs/promises";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { findBinary, generateSelfSignedCertificate } from "./platform";
+import { assertNotRealHome } from "./safety/real-home-guard";
 import { fileExists } from "./utils/fs-helpers";
 
 export type TlsMaterial = {
@@ -44,6 +45,7 @@ async function generateSelfSignedCert(keyPath: string, certPath: string): Promis
 
 /** Restricts a private key to owner-only access; returns true when the mode changed. */
 export async function hardenKeyPermissions(keyPath: string): Promise<boolean> {
+	assertNotRealHome(keyPath, "tls key chmod");
 	try {
 		const stats = await stat(keyPath);
 		if ((stats.mode & 0o777) === 0o600) return false;
@@ -162,6 +164,8 @@ export function defaultTlsPaths(): TlsMaterialPaths {
 
 export async function ensureTlsMaterial(paths?: Partial<TlsMaterialPaths>): Promise<TlsMaterial> {
 	const { keyPath, certPath } = { ...defaultTlsPaths(), ...paths };
+	assertNotRealHome(keyPath, "tls key write");
+	assertNotRealHome(certPath, "tls cert write");
 	const hasKey = await fileExists(keyPath);
 	const hasCert = await fileExists(certPath);
 

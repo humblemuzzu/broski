@@ -1,6 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
+import { assertNotRealHome } from "../safety/real-home-guard";
 import { getDefaultConfig } from "./defaults";
 import { type BroskiConfig, BroskiConfigSchema } from "./schema";
 
@@ -36,6 +37,7 @@ export async function readConfig(path = getConfigPath()): Promise<BroskiConfig> 
  * Write the config atomically (write to .tmp, then rename).
  */
 export async function writeConfig(config: BroskiConfig, path = getConfigPath()): Promise<void> {
+	assertNotRealHome(path, "config write");
 	const dir = dirname(path);
 	await mkdir(dir, { recursive: true });
 

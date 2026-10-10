@@ -1,9 +1,11 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { killProcessTree, runChild } from "./lib/child-runner";
+import { BENCH_ISOLATION_ENV, captureRealHome, REAL_HOME_ENV } from "../src/safety/real-home-guard";
+import { runChild } from "./lib/child-runner";
 import { collectDatasets } from "./lib/datasets";
 import { renderMarkdown } from "./lib/markdown";
+import { killProcessTree } from "./lib/process-table";
 import { SCENARIOS, type ScenarioSpec, SELFTEST } from "./lib/scenarios";
 import { collectMachineInfo } from "./lib/system-info";
 import type { BenchRun, ScenarioResult, SkippedScenario } from "./lib/types";
@@ -100,13 +102,14 @@ async function main(): Promise<void> {
 
 	const machine = collectMachineInfo();
 	console.log(
-		`[bench] bun ${machine.bunVersion} · macOS ${machine.osVersion} · ${machine.cpu} · ${(machine.totalRamBytes / 1024 ** 3).toFixed(0)} GiB RAM`,
+		`[bench] bun ${machine.bunVersion} · ${machine.platform} ${machine.osVersion} · ${machine.cpu} · ${(machine.totalRamBytes / 1024 ** 3).toFixed(0)} GiB RAM`,
 	);
 	console.log(
 		`[bench] caps: rss ${(options.rssCapBytes / 1024 ** 2).toFixed(0)} MB, time ${options.timeCapMs} ms, sample ${SAMPLE_INTERVAL_MS} ms`,
 	);
 
 	const datasets = await collectDatasets();
+	const realHome = captureRealHome();
 	const missingDatasets = new Set(datasets.filter((dataset) => !dataset.exists).map((dataset) => dataset.id));
 	const specs =
 		options.filter.length > 0
@@ -135,6 +138,8 @@ async function main(): Promise<void> {
 			tempHome = await mkdtemp(join(tmpdir(), `broski-bench-${spec.name}-`));
 			extraEnv.HOME = tempHome;
 			extraEnv.BROSKI_TLS = "0";
+			extraEnv[REAL_HOME_ENV] = realHome;
+			extraEnv[BENCH_ISOLATION_ENV] = "1";
 		}
 		const result = await runChild({
 			name: spec.name,

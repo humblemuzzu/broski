@@ -1,3 +1,4 @@
+import "../lib/bench-home";
 import { readFile } from "node:fs/promises";
 import { createServer, connect as netConnect, type Socket } from "node:net";
 import { resolve } from "node:path";

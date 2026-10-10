@@ -38,7 +38,7 @@ jobs:
           BENCH_SOAK_DURATION_MS: "10000"
         run: |
           bun bench/run.ts --out=/tmp/broski-bench.json \
-            --filter=module-load,cc-synthetic-list-projects,cc-synthetic-list-sessions,stream-throughput,stream-stalled-client,server-idle,soak-sessions
+            --filter=startup-version,module-load,cc-synthetic-list-projects,cc-synthetic-list-sessions,stream-throughput,stream-stalled-client,server-idle,soak-sessions
           bun bench/check-budget.ts /tmp/broski-bench.json
 
   flutter:

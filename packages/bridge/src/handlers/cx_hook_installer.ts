@@ -15,6 +15,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { assertNotRealHome } from "../safety/real-home-guard";
 
 const HOOK_MARKER = "broski-cx-permission-proxy";
 
@@ -27,6 +28,7 @@ export async function installCxHook(bridgePort: number, authToken: string, log?:
 	const codexDir = join(homedir(), ".codex");
 	const hooksPath = join(codexDir, "hooks.json");
 	const configPath = join(codexDir, "config.toml");
+	assertNotRealHome(codexDir, "cx hook install");
 
 	await mkdir(codexDir, { recursive: true });
 
@@ -93,6 +95,7 @@ export async function installCxHook(bridgePort: number, authToken: string, log?:
  */
 export async function uninstallCxHook(log?: (msg: string) => void): Promise<void> {
 	const hooksPath = join(homedir(), ".codex", "hooks.json");
+	assertNotRealHome(hooksPath, "cx hook uninstall");
 
 	try {
 		const content = await readFile(hooksPath, "utf-8");

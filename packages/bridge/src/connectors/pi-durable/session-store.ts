@@ -4,6 +4,7 @@ import { homedir } from "node:os";
 import { join, sep } from "node:path";
 import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
 import type { ModelRef } from "@earendil-works/pi-durable";
+import { assertNotRealHome } from "../../safety/real-home-guard";
 import { isPiDurableProcessAlive, PiDurableStorageLockedError, readPiDurableLockHolder } from "./storage-lock";
 
 export const PI_DURABLE_ROOT = join(homedir(), ".broski", "pi-durable");
@@ -140,6 +141,7 @@ export class PiDurableSessionStore {
 	}
 
 	async create(input: PiDurableSessionCreate): Promise<PiDurableSessionMeta> {
+		assertNotRealHome(this.root, "pi-durable session create");
 		mkdirSync(this.root, { recursive: true });
 		const id = randomUUID();
 		const directory = join(this.root, id);
@@ -188,6 +190,7 @@ export class PiDurableSessionStore {
 
 	async delete(sessionId: string): Promise<void> {
 		const directory = this.sessionDir(sessionId);
+		assertNotRealHome(directory, "pi-durable session delete");
 		const holder = readPiDurableLockHolder(directory);
 		if (holder !== undefined) {
 			if (holder.pid === process.pid || isPiDurableProcessAlive(holder.pid)) {
@@ -208,6 +211,7 @@ export class PiDurableSessionStore {
 	}
 
 	private write(directory: string, meta: PiDurableSessionMeta): void {
+		assertNotRealHome(directory, "pi-durable session write");
 		writeFileSync(join(directory, PI_DURABLE_META_FILE), `${JSON.stringify(meta, null, 2)}\n`);
 	}
 }

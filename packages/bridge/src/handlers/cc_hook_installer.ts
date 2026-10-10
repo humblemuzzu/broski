@@ -12,6 +12,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { assertNotRealHome } from "../safety/real-home-guard";
 
 const HOOK_MARKER = "broski-permission-proxy";
 
@@ -22,6 +23,7 @@ const HOOK_MARKER = "broski-permission-proxy";
  */
 export async function installCcHook(bridgePort: number, authToken: string, log?: (msg: string) => void): Promise<void> {
 	const settingsPath = join(homedir(), ".claude", "settings.json");
+	assertNotRealHome(settingsPath, "cc hook install");
 
 	let settings: Record<string, unknown> = {};
 	try {
@@ -115,6 +117,7 @@ function removeHookFromEvent(hooks: Record<string, unknown>, eventName: string):
  */
 export async function uninstallCcHook(log?: (msg: string) => void): Promise<void> {
 	const settingsPath = join(homedir(), ".claude", "settings.json");
+	assertNotRealHome(settingsPath, "cc hook uninstall");
 
 	try {
 		const content = await readFile(settingsPath, "utf-8");

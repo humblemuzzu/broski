@@ -1,3 +1,4 @@
+import "../lib/bench-home";
 import { mkdir, realpath } from "node:fs/promises";
 import { join } from "node:path";
 import { enrichRuntimeEvent } from "../../src/runtime/stream-contract";

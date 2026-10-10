@@ -7,6 +7,7 @@
 
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
+import { assertNotRealHome } from "../safety/real-home-guard";
 
 export const INDEX_CACHE_DIR_ENV = "BROSKI_CACHE_DIR";
 
@@ -17,7 +18,9 @@ export function resolveIndexCacheRoot(explicit?: string): string {
 	const fromEnv = process.env[INDEX_CACHE_DIR_ENV]?.trim();
 	if (fromEnv) return resolve(fromEnv);
 
-	return resolve(homedir(), ".broski", "cache");
+	const defaultRoot = resolve(homedir(), ".broski", "cache");
+	assertNotRealHome(defaultRoot, "index cache root");
+	return defaultRoot;
 }
 
 export function indexCacheFilePath(name: string, root?: string): string {

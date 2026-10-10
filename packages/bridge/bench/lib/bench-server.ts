@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { AuthTokenState, BridgeServer, BridgeServerOptions } from "../../src/server";
+import { requireIsolatedBenchHome } from "./bench-home";
 
 export const BENCH_TOKEN = "bench-token-0000000000000000";
 
@@ -16,6 +17,7 @@ export type BenchServerHandle = {
 };
 
 export async function startBenchServer(): Promise<BenchServerHandle> {
+	requireIsolatedBenchHome();
 	process.env.BROSKI_TLS = "0";
 
 	const { createBridgeServer } = await import("../../src/server");

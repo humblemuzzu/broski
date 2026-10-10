@@ -15,6 +15,7 @@
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { isCompiledBinary } from "../platform";
+import { assertNotRealHome } from "../safety/real-home-guard";
 import { redactSensitiveText } from "./redact";
 import { isFdRedirectedToFile } from "./redirect-detect";
 import { RotatingFileWriter } from "./rotating-file";
@@ -71,6 +72,8 @@ export function createBridgeLogger(options?: BridgeLoggerOptions): BridgeLogger 
 	const logDir = options?.logDir ?? DEFAULT_LOG_DIR;
 	const primaryLog = resolve(logDir, PRIMARY_LOG_NAME);
 	const errorLog = resolve(logDir, ERROR_LOG_NAME);
+	assertNotRealHome(primaryLog, "bridge log write");
+	assertNotRealHome(errorLog, "bridge error log write");
 	const redirectProbe = options?.redirectProbe ?? isFdRedirectedToFile;
 
 	// A supervisor already writing into these exact files owns them.
