@@ -14,6 +14,7 @@ import { chmodSync, existsSync } from "node:fs";
 import { mkdir, stat, unlink, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
+import { isCompiledBinary } from "./compiled-binary";
 
 // ============================================================================
 // 1. Platform Detection Constants
@@ -107,19 +108,7 @@ export function findBinary(name: string): string | null {
 	return null;
 }
 
-/**
- * Whether we're running as a compiled binary (bun build --compile) vs dev mode.
- */
-export function isCompiledBinary(): boolean {
-	// When compiled via `bun build --compile`, process.argv[1] is the same as
-	// process.execPath (the binary itself). In dev mode, process.argv[1] is the
-	// script path. We also check for the absence of import.meta.main as a hint.
-	try {
-		return process.execPath === process.argv[1];
-	} catch {
-		return false;
-	}
-}
+export { isCompiledBinary };
 
 /**
  * Get the path to the Broski binary itself.
