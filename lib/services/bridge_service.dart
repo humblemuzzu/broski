@@ -32,6 +32,7 @@ import 'package:broski/models/tool.dart';
 import 'package:broski/models/vcs.dart';
 import 'package:broski/models/worktree.dart';
 import 'package:broski/services/bridge/runtime_replay_tracker.dart';
+import 'package:broski/services/bridge/skill_mapping.dart';
 import 'package:broski/services/websocket_service.dart';
 
 part 'bridge/bridge_cc_chat.dart';

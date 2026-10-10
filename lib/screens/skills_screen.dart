@@ -4,6 +4,7 @@ import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/skill.dart';
 import 'package:broski/providers/selection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/skills/skill_readonly_sheet.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/app_typography.dart';
 import 'package:broski/theme/design_tokens.dart';
@@ -30,6 +31,12 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
   bool _isLoading = true;
   String? _error;
   StreamSubscription<Map<String, dynamic>>? _fsSub;
+
+  /// Pi and Pi Durable skills are SKILL.md files the bridge only lists, so
+  /// create/delete stay hidden for them.
+  bool get _isReadOnlyBackend =>
+      widget.backend == AgentType.pi || widget.backend == AgentType.piDurable;
+
   @override
   void initState() {
     super.initState();
@@ -92,64 +99,10 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
   }
 
   Future<void> _openSkill(Skill summary) async {
-    // Pi and built-in OpenCode SDK skills are read-only.
-    if (widget.backend == AgentType.pi ||
-        summary.source == SkillSource.builtin) {
+    // Pi and Pi Durable expose no get-skill op, so their skills open read-only.
+    if (_isReadOnlyBackend || summary.source == SkillSource.builtin) {
       if (!mounted) return;
-      final oc = OpenCodeTheme.of(context);
-      final piSource = summary.extra?['piSource'] as String?;
-      final sourceLabel = summary.source == SkillSource.builtin
-          ? 'OpenCode SDK'
-          : (piSource ?? 'extension');
-      DetailSheet.show(
-        context: context,
-        title: summary.name,
-        initialSize: 0.5,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (summary.description != null &&
-                  summary.description!.trim().isNotEmpty)
-                Text(
-                  summary.description!,
-                  style: TextStyle(color: oc.text, fontSize: 14),
-                ),
-              if (summary.content != null &&
-                  summary.content!.trim().isNotEmpty) ...[
-                const SizedBox(height: Spacing.md),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: oc.backgroundElement,
-                    borderRadius: Radii.brMd,
-                    border: Border.all(color: oc.border),
-                  ),
-                  child: Text(
-                    summary.content!,
-                    style: AppTypography.codeSmall(color: oc.text),
-                  ),
-                ),
-              ],
-              const SizedBox(height: Spacing.md),
-              Text(
-                'Source: $sourceLabel',
-                style: TextStyle(color: oc.textMuted, fontSize: 13),
-              ),
-              if (summary.path.isNotEmpty) ...[
-                const SizedBox(height: Spacing.xs),
-                Text(
-                  'Path: ${summary.path}',
-                  style: TextStyle(color: oc.textMuted, fontSize: 13),
-                ),
-              ],
-            ],
-          ),
-        ),
-      );
+      await showSkillReadonlySheet(context: context, ref: ref, skill: summary);
       return;
     }
     final selection = ref.read(selectionProvider);
@@ -305,7 +258,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
                 _load(forceReload: widget.backend == AgentType.codex),
             tooltip: 'Refresh',
           ),
-          if (widget.backend != AgentType.pi)
+          if (!_isReadOnlyBackend)
             IconButton(
               icon: const Icon(AppIcons.add),
               onPressed: _createSkill,
@@ -360,11 +313,13 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
                       Text(
                         widget.backend == AgentType.pi
                             ? 'Pi commands come from extensions, skills, and prompt templates.'
+                            : widget.backend == AgentType.piDurable
+                            ? 'Pi Durable reads SKILL.md files from your project and user skill folders.'
                             : 'Create a SKILL.md to teach the agent repeatable workflows.',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: oc.textMuted),
                       ),
-                      if (widget.backend != AgentType.pi) ...[
+                      if (!_isReadOnlyBackend) ...[
                         const SizedBox(height: Spacing.lg),
                         ElevatedButton.icon(
                           onPressed: _createSkill,
@@ -385,7 +340,8 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
                     _SectionHeader(title: source.displayName),
                     const SizedBox(height: 6),
                     ...grouped[source]!.map((skill) {
-                      final editable = skill.source.isEditable;
+                      final editable =
+                          !_isReadOnlyBackend && skill.source.isEditable;
                       return Card(
                         color: oc.backgroundElement,
                         margin: const EdgeInsets.only(bottom: 10),

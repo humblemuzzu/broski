@@ -83,8 +83,10 @@ extension BridgeServiceSkillsUniversal on BridgeService {
           );
         }).toList();
       case AgentType.piDurable:
-        // No skills surface yet for the durable backend.
-        return const [];
+        return skillsFromUnifiedPayload(
+          await unifiedListSkills(backend: AgentType.piDurable, cwd: cwd),
+          backend: AgentType.piDurable,
+        );
     }
   }
 
