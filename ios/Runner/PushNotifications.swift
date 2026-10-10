@@ -27,14 +27,12 @@ final class PushNotifications: NSObject {
   private var channel: FlutterMethodChannel?
   private var token: String?
 
-  /// Wires up the Dart side and the categories. A push that arrives before the
-  /// engine is up is still shown; the channel only serves the token.
-  func attach(to controller: FlutterViewController?) {
-    registerCategories()
-    guard let controller else { return }
+  /// Wires up the Dart side. A push that arrives before the engine is up is
+  /// still shown; the channel only serves the token.
+  func attach(messenger: FlutterBinaryMessenger) {
     let channel = FlutterMethodChannel(
       name: Self.channelName,
-      binaryMessenger: controller.binaryMessenger
+      binaryMessenger: messenger
     )
     channel.setMethodCallHandler { [weak self] call, result in
       self?.handle(call, result: result)
@@ -154,7 +152,7 @@ final class PushNotifications: NSObject {
 
   /// Approve needs an unlocked device: the action is authentication-required
   /// and never foreground, so it works from the lock screen.
-  private func registerCategories() {
+  func registerCategories() {
     let approve = UNNotificationAction(
       identifier: Decision.allow.rawValue,
       title: "Approve",

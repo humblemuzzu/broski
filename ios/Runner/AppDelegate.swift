@@ -3,21 +3,21 @@ import UIKit
 import UserNotifications
 
 @main
-@objc class AppDelegate: FlutterAppDelegate {
+@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    // Set notification delegate for foreground display.
-    // NOTE: Do NOT request permissions here — Apple rejects apps that
-    // request notification permissions on first launch without context.
-    // Permissions are requested from Flutter when the user first needs them.
+    // Apple requires the notification delegate before launch finishes. Do NOT
+    // request permission here: Flutter asks when the user first needs it.
     UNUserNotificationCenter.current().delegate = self
+    PushNotifications.shared.registerCategories()
+    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
 
-    GeneratedPluginRegistrant.register(with: self)
-    let started = super.application(application, didFinishLaunchingWithOptions: launchOptions)
-    PushNotifications.shared.attach(to: window?.rootViewController as? FlutterViewController)
-    return started
+  func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
+    GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    PushNotifications.shared.attach(messenger: engineBridge.applicationRegistrar.messenger())
   }
 
   override func application(
