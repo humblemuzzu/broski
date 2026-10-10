@@ -59,6 +59,7 @@ export function createStop(deps: StopDeps): (force?: boolean) => Promise<Teardow
 				stopServers: () => {
 					state.secureServer?.stop(force);
 					state.loopbackServer?.stop(force);
+					state.linkIngress?.stop();
 				},
 			},
 			{ timeoutMs: DEFAULT_TEARDOWN_TIMEOUT_MS, log: deps.log.logError },

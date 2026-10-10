@@ -5,16 +5,26 @@
  * codebase can import clean, tested helpers instead of sprinkling
  * `process.platform` checks everywhere.
  *
+ * Service install/uninstall/status lives in `platform/service/` (launchd,
+ * systemd); this module only dispatches to it.
+ *
  * Supports: macOS (darwin), Linux (linux), Windows (win32).
- * Only imports from node: builtins and Bun globals.
+ * Only imports from node: builtins, Bun globals and the platform/ helpers.
  */
 
-import { type SpawnSyncReturns, spawnSync } from "node:child_process";
 import { chmodSync, existsSync } from "node:fs";
-import { mkdir, stat, unlink, writeFile } from "node:fs/promises";
+import { mkdir, stat } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { isCompiledBinary } from "./compiled-binary";
+import { COMMAND_TIMEOUT_MS, runCommand } from "./platform/command";
+import { defaultServiceHost } from "./platform/service/host";
+import * as launchd from "./platform/service/launchd";
+import { resolveLinkBinary } from "./platform/service/link-binary";
+import * as systemd from "./platform/service/systemd";
+import type { DaemonConfig, DaemonStatus, DaemonType } from "./platform/service/types";
+
+export type { DaemonConfig, DaemonStatus, DaemonType } from "./platform/service/types";
 
 // ============================================================================
 // 1. Platform Detection Constants
@@ -26,51 +36,6 @@ export const CURRENT_PLATFORM: Platform = process.platform as Platform;
 export const IS_MACOS: boolean = CURRENT_PLATFORM === "darwin";
 export const IS_LINUX: boolean = CURRENT_PLATFORM === "linux";
 export const IS_WINDOWS: boolean = CURRENT_PLATFORM === "win32";
-
-// ============================================================================
-// Internal: Shell command helper
-// ============================================================================
-
-const COMMAND_TIMEOUT_MS = 5000;
-
-interface RunResult {
-	ok: boolean;
-	stdout: string;
-	stderr: string;
-	status: number | null;
-}
-
-/**
- * Run a shell command with timeout and error handling.
- * Returns a RunResult; never throws.
- */
-function runCommand(
-	cmd: string,
-	args: string[],
-	opts?: {
-		timeout?: number;
-		input?: string;
-		shell?: boolean;
-	},
-): RunResult {
-	try {
-		const result: SpawnSyncReturns<string> = spawnSync(cmd, args, {
-			encoding: "utf-8",
-			timeout: opts?.timeout ?? COMMAND_TIMEOUT_MS,
-			stdio: ["pipe", "pipe", "pipe"],
-			input: opts?.input,
-			shell: opts?.shell ?? false,
-		});
-		return {
-			ok: result.status === 0,
-			stdout: (result.stdout ?? "").trim(),
-			stderr: (result.stderr ?? "").trim(),
-			status: result.status,
-		};
-	} catch {
-		return { ok: false, stdout: "", stderr: "", status: null };
-	}
-}
 
 // ============================================================================
 // 2. Binary/Command Discovery
@@ -338,34 +303,12 @@ export function openUrl(url: string): void {
 
 // ============================================================================
 // 4. Daemon/Service Management
+//
+// macOS and Linux run broski-link, which spawns and restarts the bridge itself.
+// Windows has no broski-link (unix sockets) and stays on the Task Scheduler.
 // ============================================================================
 
-export type DaemonType = "launchagent" | "systemd" | "task-scheduler" | "none";
-
-export interface DaemonConfig {
-	/** Path to the broski binary */
-	binaryPath: string;
-	/** Extra CLI args to pass (e.g. ['--daemon', '--hotspot']) */
-	args: string[];
-	/** Log directory */
-	logDir: string;
-	/** Working directory (typically homedir) */
-	workDir: string;
-}
-
-export interface DaemonStatus {
-	installed: boolean;
-	running: boolean;
-	type: DaemonType;
-	/** Path to the service config file */
-	configPath: string | null;
-	/** PID if running */
-	pid: number | null;
-}
-
 // Daemon identifiers
-const MACOS_LABEL = "com.broski.bridge";
-const LINUX_SERVICE = "broski-bridge";
 const WINDOWS_TASK = "BroskiBridge";
 
 /**
@@ -382,12 +325,8 @@ export function getDaemonType(): DaemonType {
  * Get the path where the daemon config file lives.
  */
 export function getDaemonConfigPath(): string {
-	if (IS_MACOS) {
-		return resolve(homedir(), "Library/LaunchAgents", `${MACOS_LABEL}.plist`);
-	}
-	if (IS_LINUX) {
-		return resolve(homedir(), ".config/systemd/user", `${LINUX_SERVICE}.service`);
-	}
+	if (IS_MACOS) return launchd.agentPlistPath(homedir());
+	if (IS_LINUX) return systemd.unitPath(homedir());
 	// Windows: no file, return a label
 	return WINDOWS_TASK;
 }
@@ -397,104 +336,14 @@ export function getDaemonConfigPath(): string {
  * macOS: plist XML, Linux: systemd unit, Windows: null (uses schtasks).
  */
 export function generateDaemonConfig(config: DaemonConfig): string | null {
-	if (IS_MACOS) {
-		return generateMacOsPlist(config);
-	}
-	if (IS_LINUX) {
-		return generateSystemdUnit(config);
-	}
+	if (IS_MACOS) return launchd.generatePlist(config, resolveLinkBinaryPath(config), homedir());
+	if (IS_LINUX) return systemd.generateUnit(config, resolveLinkBinaryPath(config));
 	// Windows uses schtasks commands, not a config file
 	return null;
 }
 
-function generateMacOsPlist(config: DaemonConfig): string {
-	const allArgs = [config.binaryPath, ...config.args];
-	const programArgsXml = allArgs.map((arg) => `        <string>${escapeXml(arg)}</string>`).join("\n");
-
-	const home = homedir();
-	const bunDir = dirname(config.binaryPath);
-
-	// Build a comprehensive PATH that covers common binary locations
-	const pathValue = [
-		"/usr/local/bin",
-		"/usr/bin",
-		"/bin",
-		"/opt/homebrew/bin",
-		bunDir,
-		`${home}/.opencode/bin`,
-		`${home}/.local/bin`,
-		`${home}/.npm-global/bin`,
-		`${home}/.bun/bin`,
-	].join(":");
-
-	return `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>${MACOS_LABEL}</string>
-    <key>ProgramArguments</key>
-    <array>
-${programArgsXml}
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <dict>
-        <key>SuccessfulExit</key>
-        <false/>
-        <key>NetworkState</key>
-        <true/>
-    </dict>
-    <key>ThrottleInterval</key>
-    <integer>10</integer>
-    <key>StandardOutPath</key>
-    <string>/dev/null</string>
-    <key>StandardErrorPath</key>
-    <string>/dev/null</string>
-    <key>WorkingDirectory</key>
-    <string>${escapeXml(config.workDir)}</string>
-    <key>EnvironmentVariables</key>
-    <dict>
-        <key>PATH</key>
-        <string>${escapeXml(pathValue)}</string>
-        <key>HOME</key>
-        <string>${escapeXml(home)}</string>
-    </dict>
-</dict>
-</plist>`;
-}
-
-function generateSystemdUnit(config: DaemonConfig): string {
-	const execStart = [config.binaryPath, ...config.args].join(" ");
-
-	return `[Unit]
-Description=Broski Bridge Server
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-ExecStart=${execStart}
-Restart=on-failure
-RestartSec=10
-Environment=HOME=%h
-Environment=PATH=/usr/local/bin:/usr/bin:/bin:%h/.local/bin:%h/.bun/bin:%h/.opencode/bin
-
-StandardOutput=null
-StandardError=null
-
-[Install]
-WantedBy=default.target`;
-}
-
-function escapeXml(str: string): string {
-	return str
-		.replace(/&/g, "&amp;")
-		.replace(/</g, "&lt;")
-		.replace(/>/g, "&gt;")
-		.replace(/"/g, "&quot;")
-		.replace(/'/g, "&apos;");
+function resolveLinkBinaryPath(config: DaemonConfig): string {
+	return resolveLinkBinary({ broskiBinaryPath: config.binaryPath, override: config.linkBinaryPath });
 }
 
 /**
@@ -504,58 +353,9 @@ export async function installDaemon(config: DaemonConfig): Promise<void> {
 	// Ensure log directory exists
 	await mkdir(config.logDir, { recursive: true });
 
-	if (IS_MACOS) {
-		await installMacOsDaemon(config);
-	} else if (IS_LINUX) {
-		await installLinuxDaemon(config);
-	} else if (IS_WINDOWS) {
-		await installWindowsDaemon(config);
-	}
-}
-
-async function installMacOsDaemon(config: DaemonConfig): Promise<void> {
-	const plistPath = getDaemonConfigPath();
-	const content = generateDaemonConfig(config);
-	if (!content) throw new Error("Failed to generate plist");
-
-	// Ensure parent directory
-	await mkdir(dirname(plistPath), { recursive: true });
-
-	// Write plist
-	await writeFile(plistPath, content, { mode: 0o644 });
-
-	// Load the LaunchAgent
-	const res = runCommand("launchctl", ["load", plistPath]);
-	if (!res.ok) {
-		throw new Error(`Failed to load LaunchAgent: ${res.stderr || res.stdout}`);
-	}
-}
-
-async function installLinuxDaemon(config: DaemonConfig): Promise<void> {
-	const unitPath = getDaemonConfigPath();
-	const content = generateDaemonConfig(config);
-	if (!content) throw new Error("Failed to generate systemd unit");
-
-	// Ensure parent directory
-	await mkdir(dirname(unitPath), { recursive: true });
-
-	// Write unit file
-	await writeFile(unitPath, content, { mode: 0o644 });
-
-	// Reload systemd user daemon
-	runCommand("systemctl", ["--user", "daemon-reload"]);
-
-	// Enable and start the service
-	const res = runCommand("systemctl", ["--user", "enable", "--now", LINUX_SERVICE]);
-	if (!res.ok) {
-		throw new Error(`Failed to enable systemd service: ${res.stderr || res.stdout}`);
-	}
-
-	// Check if loginctl enable-linger is needed (keeps user services running after logout)
-	const lingerCheck = runCommand("loginctl", ["show-user", process.env.USER ?? "", "-p", "Linger"]);
-	if (lingerCheck.ok && lingerCheck.stdout.includes("Linger=no")) {
-		console.log("Hint: Run `loginctl enable-linger` to keep the service running after logout");
-	}
+	if (IS_MACOS) return launchd.install(defaultServiceHost(), config);
+	if (IS_LINUX) return systemd.install(defaultServiceHost(), config);
+	if (IS_WINDOWS) await installWindowsDaemon(config);
 }
 
 async function installWindowsDaemon(config: DaemonConfig): Promise<void> {
@@ -586,44 +386,9 @@ async function installWindowsDaemon(config: DaemonConfig): Promise<void> {
  * Uninstall the daemon.
  */
 export async function uninstallDaemon(): Promise<void> {
-	if (IS_MACOS) {
-		await uninstallMacOsDaemon();
-	} else if (IS_LINUX) {
-		await uninstallLinuxDaemon();
-	} else if (IS_WINDOWS) {
-		await uninstallWindowsDaemon();
-	}
-}
-
-async function uninstallMacOsDaemon(): Promise<void> {
-	const plistPath = getDaemonConfigPath();
-
-	// Unload first (ignore errors — may not be loaded)
-	runCommand("launchctl", ["unload", plistPath]);
-
-	// Delete plist file
-	try {
-		await unlink(plistPath);
-	} catch {
-		// File may not exist
-	}
-}
-
-async function uninstallLinuxDaemon(): Promise<void> {
-	const unitPath = getDaemonConfigPath();
-
-	// Disable and stop
-	runCommand("systemctl", ["--user", "disable", "--now", LINUX_SERVICE]);
-
-	// Delete unit file
-	try {
-		await unlink(unitPath);
-	} catch {
-		// File may not exist
-	}
-
-	// Reload
-	runCommand("systemctl", ["--user", "daemon-reload"]);
+	if (IS_MACOS) return launchd.uninstall(defaultServiceHost());
+	if (IS_LINUX) return systemd.uninstall(defaultServiceHost());
+	if (IS_WINDOWS) await uninstallWindowsDaemon();
 }
 
 async function uninstallWindowsDaemon(): Promise<void> {
@@ -641,87 +406,22 @@ async function uninstallWindowsDaemon(): Promise<void> {
  * Get daemon status.
  */
 export async function getDaemonStatus(): Promise<DaemonStatus> {
-	const type = getDaemonType();
-	const configPath = getDaemonConfigPath();
-
-	if (IS_MACOS) return getMacOsDaemonStatus(type, configPath);
-	if (IS_LINUX) return getLinuxDaemonStatus(type, configPath);
-	if (IS_WINDOWS) return getWindowsDaemonStatus(type, configPath);
+	if (IS_MACOS) return launchd.status(defaultServiceHost());
+	if (IS_LINUX) return systemd.status(defaultServiceHost());
+	if (IS_WINDOWS) return getWindowsDaemonStatus();
 
 	return { installed: false, running: false, type: "none", configPath: null, pid: null };
 }
 
-async function getMacOsDaemonStatus(type: DaemonType, configPath: string): Promise<DaemonStatus> {
-	// Check if plist file exists
-	let installed = false;
-	try {
-		const s = await stat(configPath);
-		installed = s.isFile();
-	} catch {
-		// not installed
-	}
+async function getWindowsDaemonStatus(): Promise<DaemonStatus> {
+	const type: DaemonType = "task-scheduler";
+	const configPath = WINDOWS_TASK;
 
-	if (!installed) {
-		return { installed: false, running: false, type, configPath, pid: null };
-	}
-
-	// Check launchctl for running status
-	const res = runCommand("launchctl", ["list", MACOS_LABEL]);
-	const running = res.ok && res.stdout.includes(MACOS_LABEL);
-
-	let pid: number | null = null;
-	if (running && res.stdout) {
-		// launchctl list output first column is PID (or "-" if not running)
-		const match = res.stdout.match(/^(\d+)\s+/);
-		if (match) {
-			const p = Number(match[1]);
-			if (Number.isFinite(p) && p > 0) pid = p;
-		}
-	}
-
-	return { installed, running, type, configPath, pid };
-}
-
-async function getLinuxDaemonStatus(type: DaemonType, configPath: string): Promise<DaemonStatus> {
-	// Check if unit file exists
-	let installed = false;
-	try {
-		const s = await stat(configPath);
-		installed = s.isFile();
-	} catch {
-		// not installed
-	}
-
-	if (!installed) {
-		return { installed: false, running: false, type, configPath, pid: null };
-	}
-
-	// Check if service is active
-	const res = runCommand("systemctl", ["--user", "is-active", LINUX_SERVICE]);
-	const running = res.ok && res.stdout.trim() === "active";
-
-	let pid: number | null = null;
-	if (running) {
-		const showRes = runCommand("systemctl", ["--user", "show", LINUX_SERVICE, "-p", "MainPID"]);
-		if (showRes.ok) {
-			const match = showRes.stdout.match(/MainPID=(\d+)/);
-			if (match) {
-				const p = Number(match[1]);
-				if (Number.isFinite(p) && p > 0) pid = p;
-			}
-		}
-	}
-
-	return { installed, running, type, configPath, pid };
-}
-
-async function getWindowsDaemonStatus(type: DaemonType, configPath: string): Promise<DaemonStatus> {
 	const res = runCommand("schtasks", ["/query", "/tn", WINDOWS_TASK, "/fo", "csv", "/nh"]);
 	if (!res.ok || !res.stdout.trim()) {
 		return { installed: false, running: false, type, configPath, pid: null };
 	}
 
-	const installed = true;
 	const running = /Running/i.test(res.stdout);
 
 	// Windows Task Scheduler doesn't directly expose PID in query output.
@@ -732,40 +432,25 @@ async function getWindowsDaemonStatus(type: DaemonType, configPath: string): Pro
 		if (pids.length > 0) pid = pids[0] ?? null;
 	}
 
-	return { installed, running, type, configPath, pid };
+	return { installed: true, running, type, configPath, pid };
 }
 
 /**
  * Stop the daemon.
  */
 export async function stopDaemon(): Promise<void> {
-	if (IS_MACOS) {
-		runCommand("launchctl", ["stop", MACOS_LABEL]);
-	} else if (IS_LINUX) {
-		runCommand("systemctl", ["--user", "stop", LINUX_SERVICE]);
-	} else if (IS_WINDOWS) {
-		runCommand("schtasks", ["/end", "/tn", WINDOWS_TASK]);
-	}
+	if (IS_MACOS) return launchd.stop(defaultServiceHost());
+	if (IS_LINUX) return systemd.stop(defaultServiceHost());
+	if (IS_WINDOWS) runCommand("schtasks", ["/end", "/tn", WINDOWS_TASK]);
 }
 
 /**
  * Restart the daemon.
  */
 export async function restartDaemon(): Promise<void> {
-	if (IS_MACOS) {
-		const configPath = getDaemonConfigPath();
-		// Stop first (may already be stopped)
-		runCommand("launchctl", ["stop", MACOS_LABEL]);
-		await Bun.sleep(500);
-		// Unload then reload to force a clean restart.
-		// KeepAlive.SuccessfulExit=false means launchd won't auto-restart
-		// after a clean shutdown (exit 0), so we must explicitly reload.
-		runCommand("launchctl", ["unload", configPath]);
-		await Bun.sleep(500);
-		runCommand("launchctl", ["load", configPath]);
-	} else if (IS_LINUX) {
-		runCommand("systemctl", ["--user", "restart", LINUX_SERVICE]);
-	} else if (IS_WINDOWS) {
+	if (IS_MACOS) return launchd.restart(defaultServiceHost());
+	if (IS_LINUX) return systemd.restart(defaultServiceHost());
+	if (IS_WINDOWS) {
 		runCommand("schtasks", ["/end", "/tn", WINDOWS_TASK]);
 		await Bun.sleep(1000);
 		runCommand("schtasks", ["/run", "/tn", WINDOWS_TASK]);

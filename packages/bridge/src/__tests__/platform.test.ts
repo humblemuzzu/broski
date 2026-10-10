@@ -1,4 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
 	CURRENT_PLATFORM,
 	checkPortInUse,
@@ -111,41 +114,67 @@ describe("Daemon System", () => {
 	});
 
 	test("generateDaemonConfig produces correct output", () => {
+		const tmp = mkdtempSync(join(tmpdir(), "broski-platform-"));
+		try {
+			const linkBinaryPath = join(tmp, "broski-link");
+			writeFileSync(linkBinaryPath, "");
+
+			const config: DaemonConfig = {
+				binaryPath: "/usr/local/bin/broski",
+				args: ["--daemon", "--hotspot"],
+				logDir: "/home/user/.broski/logs",
+				workDir: "/home/user",
+				linkBinaryPath,
+			};
+
+			const result = generateDaemonConfig(config);
+
+			if (IS_WINDOWS) {
+				// Windows returns null (uses schtasks commands)
+				expect(result).toBe(null);
+			} else {
+				// macOS/Linux return config content
+				expect(typeof result).toBe("string");
+				expect(result!.length).toBeGreaterThan(0);
+
+				if (IS_MACOS) {
+					expect(result).toContain("<?xml");
+					expect(result).toContain("com.broski.link");
+					expect(result).toContain("<string>run</string>");
+					expect(result).toContain("<string>--bridge-cmd</string>");
+					expect(result).toContain(linkBinaryPath);
+					expect(result).toContain("<string>/usr/local/bin/broski</string>");
+					// Startup crashes have to be diagnosable, so launchd owns link.log.
+					expect(result).toContain("/home/user/.broski/logs/link.log");
+					expect(result).not.toContain("<string>/dev/null</string>");
+				} else if (IS_LINUX) {
+					expect(result).toContain("[Unit]");
+					expect(result).toContain("[Service]");
+					expect(result).toContain("[Install]");
+					expect(result).toContain(
+						`ExecStart=${linkBinaryPath} run --bridge-cmd /usr/local/bin/broski --daemon --hotspot`,
+					);
+					expect(result).toContain("StandardOutput=append:/home/user/.broski/logs/link.log");
+					expect(result).toContain("StandardError=append:/home/user/.broski/logs/link.log");
+				}
+			}
+		} finally {
+			rmSync(tmp, { recursive: true, force: true });
+		}
+	});
+
+	test("generateDaemonConfig reports a missing broski-link", () => {
+		if (IS_WINDOWS) return;
+
 		const config: DaemonConfig = {
 			binaryPath: "/usr/local/bin/broski",
-			args: ["--daemon", "--hotspot"],
+			args: ["--daemon"],
 			logDir: "/home/user/.broski/logs",
 			workDir: "/home/user",
+			linkBinaryPath: "/usr/local/bin/does-not-exist-broski-link",
 		};
 
-		const result = generateDaemonConfig(config);
-
-		if (IS_WINDOWS) {
-			// Windows returns null (uses schtasks commands)
-			expect(result).toBe(null);
-		} else {
-			// macOS/Linux return config content
-			expect(typeof result).toBe("string");
-			expect(result!.length).toBeGreaterThan(0);
-
-			if (IS_MACOS) {
-				expect(result).toContain("<?xml");
-				expect(result).toContain("com.broski.bridge");
-				expect(result).toContain("/usr/local/bin/broski");
-				// The bridge logger owns bridge.log/bridge.error.log so it can rotate
-				// them; launchd must not append to the same files.
-				expect(result).toContain("<string>/dev/null</string>");
-				expect(result).not.toContain("bridge.log");
-			} else if (IS_LINUX) {
-				expect(result).toContain("[Unit]");
-				expect(result).toContain("[Service]");
-				expect(result).toContain("[Install]");
-				expect(result).toContain("ExecStart=/usr/local/bin/broski --daemon --hotspot");
-				expect(result).toContain("StandardOutput=null");
-				expect(result).toContain("StandardError=null");
-				expect(result).not.toContain("bridge.log");
-			}
-		}
+		expect(() => generateDaemonConfig(config)).toThrow(/broski-link not found/);
 	});
 });
 

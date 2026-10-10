@@ -112,6 +112,7 @@ async function bindBridgeServer(
 					auth,
 					tokenTtlDays: config.security.tokenTtlDays,
 					enableLoopbackInsecureServer: cli.enableFunnel,
+					linkSocket: cli.linkSocket,
 					restartOpenCode: restartManagedOpenCode,
 					bridgeLogger: logger,
 				}),

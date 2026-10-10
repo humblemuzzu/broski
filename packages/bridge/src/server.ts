@@ -30,6 +30,8 @@ import { createFsWatchers } from "./server/fs-watchers";
 import { createHttpWiring } from "./server/http";
 import { startBridgeIntervals } from "./server/intervals";
 import { createLimits } from "./server/limits";
+import { attachLinkDecisionPath } from "./server/link-feed/feed";
+import { startLinkIngress } from "./server/link-ingress";
 import { createLeveledLogger } from "./server/logger";
 import { createMessageHandler } from "./server/messages";
 import { createOpenCodeEvents } from "./server/opencode-events";
@@ -85,6 +87,8 @@ export type BridgeServerOptions = {
 	 * Tailscale Funnel (which terminates TLS at the edge and proxies to localhost).
 	 */
 	enableLoopbackInsecureServer?: boolean;
+	/** Unix socket the broski-link daemon connects to; served without token auth. */
+	linkSocket?: string;
 	restartOpenCode?: () => Promise<boolean>;
 	/** @deprecated Use bridgeLogger instead. Kept for backward compat. */
 	logger?: (message: string) => void;
@@ -262,9 +266,13 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		maxBatchSize: limits.maxBatchSize,
 		getSecurePath,
 	});
+	attachLinkDecisionPath(messageRegistry, serverDeps);
 
 	let secureServer: ReturnType<typeof Bun.serve>;
 	try {
+		state.linkIngress = options.linkSocket
+			? await startLinkIngress({ socketPath: options.linkSocket, state, connections, limits, log })
+			: null;
 		secureServer = Bun.serve({
 			// If TLS is disabled, only bind to loopback to avoid exposing plaintext traffic on LAN/WiFi.
 			...(state.tlsMaterial ? {} : { hostname: "127.0.0.1" }),
@@ -281,6 +289,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			websocket: connections.websocketConfig,
 		});
 	} catch (error) {
+		state.linkIngress?.stop();
 		releaseFailedBindResources({
 			intervals: [state.heartbeatTimer, state.tickTimer, state.eventBufferPruneTimer],
 			stopEndpointWatcher: () => intervals.endpointWatcher.stop(),

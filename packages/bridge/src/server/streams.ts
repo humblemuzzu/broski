@@ -6,6 +6,7 @@ import { RuntimeEventCoalescer } from "../transport/runtime-event-coalescer";
 import { deliverRuntimeEvent } from "../transport/session-delivery";
 import type { AgentType, ClaudeCodeStreamMessage, CodexStreamMessage, ServerMessage } from "../types";
 import { recordRuntimeEvent, replayRuntimeEventsSince } from "../utils/runtime-replay-buffer";
+import { tapRuntimeEvent } from "./link-feed/feed";
 import type { LeveledLogger } from "./logger";
 import { makeSessionKey } from "./session-keys";
 import type { BridgeState } from "./state";
@@ -70,6 +71,7 @@ export function createStreams(deps: StreamsDeps): Streams {
 	// Delta bursts are merged before they are recorded, so the replay buffer holds exactly what
 	// the sockets received.
 	const runtimeCoalescer = new RuntimeEventCoalescer((message, owner) => {
+		if (message.type === "runtime_event") tapRuntimeEvent(message.data);
 		recordRuntimeEvent(message);
 		deliverRuntimeEventMessage(message, owner);
 	});

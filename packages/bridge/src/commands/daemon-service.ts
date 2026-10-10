@@ -5,6 +5,7 @@ import packageMeta from "../../package.json";
 import {
 	checkPortInUse,
 	type DaemonConfig,
+	type DaemonStatus,
 	findProcessByPattern,
 	getBroskiBinaryPath,
 	getDaemonStatus,
@@ -12,6 +13,7 @@ import {
 	getProcessOnPort,
 	getSleepPreventionTip,
 	getTailLogsHint,
+	IS_WINDOWS,
 	installDaemon,
 	isCompiledBinary,
 	killProcess,
@@ -24,8 +26,14 @@ import { getConfiguredPort } from "./config-port";
 
 const BROSKI_LOG_DIR = resolve(homedir(), ".broski", "logs");
 
-export async function runInstall(): Promise<void> {
+export async function runInstall(linkBin?: string): Promise<void> {
 	console.log("Installing Broski as background service...\n");
+
+	const serviceName = IS_WINDOWS ? "Broski bridge task" : "Broski Link";
+	if (IS_WINDOWS) {
+		console.log("   Broski Link is not supported on Windows yet.");
+		console.log("   Always On runs the bridge from Task Scheduler instead, without broski-link.\n");
+	}
 
 	const status = await getDaemonStatus();
 	if (status.installed) {
@@ -51,6 +59,7 @@ export async function runInstall(): Promise<void> {
 		args: ["--daemon", "--hotspot"],
 		logDir: BROSKI_LOG_DIR,
 		workDir: homedir(),
+		linkBinaryPath: linkBin,
 	};
 
 	try {
@@ -62,27 +71,32 @@ export async function runInstall(): Promise<void> {
 
 	await Bun.sleep(1000);
 
-	const newStatus = await getDaemonStatus();
-	if (newStatus.running) {
-		console.log("\n  Broski bridge installed and running!");
-		console.log("\n   The bridge will now:");
-		console.log("   - Start automatically when you log in");
-		console.log("   - Stay running in the background");
-		console.log("   - Restart automatically if it crashes");
-		console.log("\n   Commands:");
-		console.log("   - broski status    - Check if running");
-		console.log("   - broski stop      - Stop the service");
-		console.log("   - broski uninstall - Remove the service");
-		console.log(`\n   Logs: ${BROSKI_LOG_DIR}/bridge.log`);
+	await reportInstallResult(serviceName);
+}
 
-		const sleepTip = getSleepPreventionTip();
-		if (sleepTip) {
-			console.log(`\n   Tip: ${sleepTip}`);
-		}
-	} else {
+async function reportInstallResult(serviceName: string): Promise<void> {
+	const status = await getDaemonStatus();
+	if (!status.running) {
 		console.log("\n   Service installed but may not be running.");
 		console.log("   Check status with: broski status");
 		console.log(`   Check logs: ${getTailLogsHint()}`);
+		return;
+	}
+
+	console.log(`\n  ${serviceName} installed and running!`);
+	console.log("\n   The bridge will now:");
+	console.log("   - Start automatically when you log in");
+	console.log("   - Stay running in the background");
+	console.log("   - Restart automatically if it crashes");
+	console.log("\n   Commands:");
+	console.log("   - broski status    - Check if running");
+	console.log("   - broski stop      - Stop the service");
+	console.log("   - broski uninstall - Remove the service");
+	console.log(`\n   Logs: ${BROSKI_LOG_DIR}/ (${IS_WINDOWS ? "bridge.log" : "link.log, bridge.log"})`);
+
+	const sleepTip = getSleepPreventionTip();
+	if (sleepTip) {
+		console.log(`\n   Tip: ${sleepTip}`);
 	}
 }
 
@@ -112,48 +126,70 @@ export async function runStatus(): Promise<void> {
 	console.log("Broski Bridge Status\n");
 
 	const status = await getDaemonStatus();
-	console.log(`Background service: ${status.installed ? "  Installed" : "  Not installed"}`);
-
-	if (status.installed) {
-		console.log(`Service status:     ${status.running ? "  Running" : "  Not running"}`);
-		if (status.pid) {
-			console.log(`Process ID:         ${status.pid}`);
-		}
-	}
-
-	const pids = findProcessByPattern("broski");
-	if (pids.length > 0) {
-		console.log(`\nActive processes:   ${pids.length} found`);
-		for (const p of pids) {
-			console.log(`  PID ${p}`);
-		}
-	}
+	printServiceState(status);
+	printActiveProcesses();
 
 	const configuredPort = await getConfiguredPort();
 	const portInUse = await checkPortInUse(configuredPort);
 	console.log(`\nPort ${configuredPort}: ${portInUse ? "  In use (bridge is listening)" : "  Not in use"}`);
 
-	console.log(`\nLog files:          ${BROSKI_LOG_DIR}/`);
-	console.log(`  - bridge.log       - Standard output`);
-	console.log(`  - bridge.error.log - Error output`);
+	printLogFiles();
 
 	const ver = packageMeta.version ?? "0.1.0";
 	console.log(`\nVersion:            v${ver}`);
-
-	const { getLastUpdateCheck } = await import("../updater");
-	const lastCheck = await getLastUpdateCheck();
-	if (lastCheck) {
-		console.log(`Last update check:  ${lastCheck.checkedAt}`);
-		if (lastCheck.updateAvailable) {
-			console.log(`  Update available: v${lastCheck.latestVersion}`);
-			console.log(`  Run \`broski update\` to install`);
-		} else {
-			console.log(`  Up to date`);
-		}
-	}
+	await printUpdateState();
 
 	if (!status.installed) {
 		console.log("\n   Tip: Run `broski install` to enable Always On mode");
+	}
+}
+
+function printServiceState(status: DaemonStatus): void {
+	console.log(`Broski Link service: ${status.installed ? "  Installed" : "  Not installed"}`);
+	if (IS_WINDOWS) {
+		console.log("                       Broski Link is not supported on Windows yet.");
+	}
+	if (!status.installed) return;
+
+	console.log(`Service status:      ${status.running ? "  Running" : "  Not running"}`);
+	if (status.pid) {
+		console.log(`Process ID:          ${status.pid}`);
+	}
+	if (status.configPath) {
+		console.log(`Service config:      ${status.configPath}`);
+	}
+}
+
+function printActiveProcesses(): void {
+	const pids = findProcessByPattern("broski");
+	if (pids.length === 0) return;
+
+	console.log(`\nActive processes:   ${pids.length} found`);
+	for (const pid of pids) {
+		console.log(`  PID ${pid}`);
+	}
+}
+
+function printLogFiles(): void {
+	console.log(`\nLog files:          ${BROSKI_LOG_DIR}/`);
+	if (!IS_WINDOWS) {
+		console.log(`  - link.log         - broski-link output`);
+	}
+	console.log(`  - bridge.log       - Standard output`);
+	console.log(`  - bridge.error.log - Error output`);
+}
+
+async function printUpdateState(): Promise<void> {
+	const { getLastUpdateCheck } = await import("../updater");
+	const lastCheck = await getLastUpdateCheck();
+	if (!lastCheck) return;
+
+	console.log(`Last update check:  ${lastCheck.checkedAt}`);
+	if (lastCheck.updateAvailable) {
+		console.log(`  Update available: v${lastCheck.latestVersion}`);
+		console.log(`  Run \`broski update\` to install`);
+	} else {
+		console.log(`  Up to date`);
 	}
 }
 

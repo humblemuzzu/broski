@@ -1,0 +1,93 @@
+import type { ServerWebSocket } from "bun";
+import type { RouteRegistry } from "../../routing/registry";
+import type { ServerDeps } from "../../routing/types";
+import type { BroskiRuntimeEvent } from "../../types/runtime";
+import { createLinkDecisionApplier, type LinkDecisionApplier, parseLinkDecision } from "./decision";
+import { busyMessage, LINK_FEED_PONG } from "./format";
+import { LinkFeedRequests } from "./requests";
+import { LinkFeedTracker } from "./tracker";
+
+/** A health check or a decision fits well inside this; anything longer is not a feed frame. */
+const MAX_FEED_MESSAGE_BYTES = 1024;
+
+let activeFeed: ServerWebSocket<unknown> | null = null;
+let applyDecision: LinkDecisionApplier | null = null;
+
+function sendToFeed(payload: unknown): void {
+	const feed = activeFeed;
+	if (!feed) return;
+	try {
+		feed.send(JSON.stringify(payload));
+	} catch {
+		// the socket died between this write and its close callback
+	}
+}
+
+const requests = new LinkFeedRequests();
+const tracker = new LinkFeedTracker(sendToFeed, requests);
+
+/** Forgets every tracked session, request and timer. */
+export function resetLinkFeed(): void {
+	tracker.reset();
+}
+
+/** Routes the daemon's decisions through the registry the phone's own messages are dispatched to. */
+export function attachLinkDecisionPath(registry: RouteRegistry, serverDeps: ServerDeps): void {
+	applyDecision = createLinkDecisionApplier({ registry, serverDeps, requests });
+}
+
+/** The daemon's feed, the one connection that sees runtime activity instead of a device's view. */
+export function attachLinkFeed(ws: ServerWebSocket<unknown>): void {
+	const previous = activeFeed;
+	if (previous && previous !== ws) {
+		try {
+			previous.close(4001, "Replaced by a newer daemon feed");
+		} catch {
+			// already closed
+		}
+	}
+	activeFeed = ws;
+	sendToFeed(busyMessage(tracker.currentBusy()));
+}
+
+export function detachLinkFeed(ws: ServerWebSocket<unknown>): void {
+	if (activeFeed === ws) activeFeed = null;
+}
+
+export function handleLinkFeedMessage(ws: ServerWebSocket<unknown>, raw: string | Uint8Array): void {
+	if (ws !== activeFeed || typeof raw !== "string" || raw.length > MAX_FEED_MESSAGE_BYTES) return;
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(raw);
+	} catch {
+		return;
+	}
+	if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return;
+	const frame = parsed as Record<string, unknown>;
+	if (frame.type === "link_feed_ping") {
+		sendToFeed(LINK_FEED_PONG);
+		return;
+	}
+	if (frame.type === "link_decision" && applyDecision) void applyDecisionFrame(applyDecision, ws, frame);
+}
+
+/** The one entry point every backend's runtime events reach the feed through. */
+export function tapRuntimeEvent(event: BroskiRuntimeEvent): void {
+	tracker.handle(event);
+}
+
+async function applyDecisionFrame(
+	apply: LinkDecisionApplier,
+	ws: ServerWebSocket<unknown>,
+	frame: Record<string, unknown>,
+): Promise<void> {
+	const decision = parseLinkDecision(frame);
+	if (!decision) return;
+	const outcome = await apply(decision, ws);
+	sendToFeed({
+		type: "link_decision_result",
+		request: decision.request,
+		ok: outcome.ok,
+		error: outcome.error,
+	});
+}

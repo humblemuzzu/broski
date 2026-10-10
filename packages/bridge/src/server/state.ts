@@ -11,6 +11,7 @@ import { isTlsEnabledByEnv, type TlsMaterial } from "../tls";
 import { PiDurableSocketPool } from "../transport/pi-durable-socket";
 import type { AgentType, PermissionResponse } from "../types";
 import { RuntimeSendQueue } from "../utils/runtime-send-queue";
+import type { LinkIngress } from "./link-ingress";
 import type { PermissionWaiter } from "./permission-waiter";
 
 export type ClaudePermissionReply = {
@@ -81,6 +82,7 @@ export type BridgeState = {
 	securePort: number;
 	loopbackServer: ReturnType<typeof Bun.serve> | null;
 	loopbackPort: number | null;
+	linkIngress: LinkIngress | null;
 };
 
 export type CreateBridgeStateParams = {
@@ -221,5 +223,6 @@ export function createBridgeState(params: CreateBridgeStateParams): BridgeState 
 		securePort: 0,
 		loopbackServer: null,
 		loopbackPort: null,
+		linkIngress: null,
 	};
 }

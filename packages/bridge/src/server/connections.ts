@@ -5,6 +5,8 @@ import * as piFeatures from "../handlers/pi_features";
 import type { PtyRuntime } from "../pty/runtime";
 import type { AgentType, DeviceInfo } from "../types";
 import type { BridgeLimits } from "./limits";
+import { attachLinkFeed, detachLinkFeed, handleLinkFeedMessage } from "./link-feed/feed";
+import { isLinkDaemonSocketData, linkContextFields } from "./link-identity";
 import type { LeveledLogger } from "./logger";
 import { makeSessionKey } from "./session-keys";
 import type { Sessions } from "./sessions";
@@ -105,6 +107,10 @@ export function createConnections(deps: ConnectionsDeps): Connections {
 		// `BROSKI_WS_DEFLATE=0` turns it off for a client whose compression is broken.
 		perMessageDeflate: process.env.BROSKI_WS_DEFLATE !== "0",
 		open(ws: ServerWebSocket<unknown>) {
+			if (isLinkDaemonSocketData(ws.data)) {
+				attachLinkFeed(ws);
+				return;
+			}
 			const proxy = (ws.data as { kind?: string })?.kind === "proxy";
 			if (proxy) {
 				const d = ws.data as { port?: string | number; path?: string; search?: string };
@@ -160,12 +166,17 @@ export function createConnections(deps: ConnectionsDeps): Connections {
 				lastRttMs: 0,
 				connectionType: "unknown",
 				connectedAt: Date.now(),
+				...linkContextFields(ws.data),
 			});
 			deps.log.logUser(`Client connected (${state.sockets.size} active)`);
 			deps.log.logInfo(`[WS] Client CONNECTED (${state.sockets.size} total)`);
 			void deps.sendStatus(ws);
 		},
 		close(ws: ServerWebSocket<unknown>, code?: number, reason?: string) {
+			if (isLinkDaemonSocketData(ws.data)) {
+				detachLinkFeed(ws);
+				return;
+			}
 			deps.log.logUser(`Client disconnected`);
 			deps.log.logInfo(`[WS] Client DISCONNECTED - code=${code}, reason=${reason}`);
 			const proxy = (ws.data as { kind?: string })?.kind === "proxy";
@@ -239,6 +250,10 @@ export function createConnections(deps: ConnectionsDeps): Connections {
 			}
 		},
 		message(ws: ServerWebSocket<unknown>, raw: string | Uint8Array) {
+			if (isLinkDaemonSocketData(ws.data)) {
+				handleLinkFeedMessage(ws, raw);
+				return;
+			}
 			const proxy = (ws.data as { kind?: string })?.kind === "proxy";
 			if (proxy) {
 				const upstream = (ws as unknown as { __proxyUpstream?: WebSocket }).__proxyUpstream;

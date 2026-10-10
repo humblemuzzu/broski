@@ -10,6 +10,8 @@ set -e
 
 ENTRY="./src/bootstrap.ts"
 DIST="./dist"
+SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+LINK_DIR="${SCRIPT_DIR}/../../link"
 
 # Read version from package.json
 VERSION=$(grep '"version"' package.json | head -1 | sed 's/.*"version": *"\([^"]*\)".*/\1/')
@@ -189,6 +191,74 @@ if [ "$BUILT" -eq 0 ]; then
 fi
 
 # ──────────────────────────────────────────────
+# broski-link (Rust daemon that supervises the bridge)
+# ──────────────────────────────────────────────
+# Built for the host target always, and for the other unix targets when their
+# Rust target is already installed. Toolchains are never installed from here.
+
+LINK_TARGETS="
+darwin-arm64:aarch64-apple-darwin
+darwin-x64:x86_64-apple-darwin
+linux-x64:x86_64-unknown-linux-gnu
+linux-arm64:aarch64-unknown-linux-gnu
+"
+
+rustup_has_target() {
+  command -v rustup >/dev/null 2>&1 || return 1
+  rustup target list --installed 2>/dev/null | grep -qx "$1"
+}
+
+build_link_target() {
+  LINK_PLATFORM="$1"
+  TRIPLE="$2"
+  OUTPUT="${DIST}/broski-link-${LINK_PLATFORM}"
+
+  if [ "$LINK_PLATFORM" = "$HOST_PLATFORM" ]; then
+    echo "  Building broski-link-${LINK_PLATFORM} (native)..."
+    ( cd "$LINK_DIR" && cargo build --release -p broski-link-daemon --bin broski-link )
+    cp "${LINK_DIR}/target/release/broski-link" "$OUTPUT"
+    echo "    ✓ Built broski-link-${LINK_PLATFORM}"
+    return 0
+  fi
+
+  if ! rustup_has_target "$TRIPLE"; then
+    echo "  Skipping broski-link-${LINK_PLATFORM}: Rust target ${TRIPLE} is not installed"
+    echo "    Add it with: rustup target add ${TRIPLE}"
+    return 0
+  fi
+
+  echo "  Building broski-link-${LINK_PLATFORM} (${TRIPLE})..."
+  if ( cd "$LINK_DIR" && cargo build --release -p broski-link-daemon --bin broski-link --target "$TRIPLE" ) &&
+    [ -f "${LINK_DIR}/target/${TRIPLE}/release/broski-link" ]; then
+    cp "${LINK_DIR}/target/${TRIPLE}/release/broski-link" "$OUTPUT"
+    echo "    ✓ Built broski-link-${LINK_PLATFORM}"
+  else
+    echo "    ⚠ Skipping broski-link-${LINK_PLATFORM}: build failed (a ${TRIPLE} linker is missing?)"
+  fi
+}
+
+if [ ! -f "${LINK_DIR}/Cargo.toml" ]; then
+  echo ""
+  echo "  broski-link source not found at ${LINK_DIR}; skipping"
+elif ! command -v cargo >/dev/null 2>&1; then
+  echo ""
+  echo "  cargo not found; skipping broski-link (install Rust: https://rustup.rs)"
+else
+  echo ""
+  echo "  broski-link (host: ${HOST_PLATFORM}):"
+  for pair in $LINK_TARGETS; do
+    LINK_PLATFORM=$(echo "$pair" | cut -d: -f1)
+    TRIPLE=$(echo "$pair" | cut -d: -f2)
+
+    if [ -n "$TARGET_FILTER" ] && [ "$LINK_PLATFORM" != "$TARGET_FILTER" ]; then
+      continue
+    fi
+
+    build_link_target "$LINK_PLATFORM" "$TRIPLE"
+  done
+fi
+
+# ──────────────────────────────────────────────
 # PTY library hashes (informational)
 # ──────────────────────────────────────────────
 
@@ -237,6 +307,35 @@ for binary in "$DIST"/broski-*darwin*; do
     echo "    ⚠ $(basename "$binary"): codesign not available (not on macOS?)"
   fi
 done
+
+# ──────────────────────────────────────────────
+# SHA256SUMS (release artifact verification)
+# ──────────────────────────────────────────────
+# Generated after signing: codesign rewrites the binary, so hashes taken
+# before it would not match the published files.
+
+echo ""
+if command -v sha256sum >/dev/null 2>&1; then
+  HASH_TOOL="sha256sum"
+elif command -v shasum >/dev/null 2>&1; then
+  HASH_TOOL="shasum -a 256"
+else
+  HASH_TOOL=""
+fi
+
+if [ -z "$HASH_TOOL" ]; then
+  echo "  ⚠ Neither sha256sum nor shasum found; skipping SHA256SUMS"
+else
+  : > "${DIST}/SHA256SUMS"
+  for artifact in "$DIST"/broski-* "$DIST"/libbroski_pty.*; do
+    [ -f "$artifact" ] || continue
+    ( cd "$DIST" && $HASH_TOOL "$(basename "$artifact")" ) >> "${DIST}/SHA256SUMS"
+  done
+  echo "  Checksums (${DIST}/SHA256SUMS):"
+  while read -r sums_line; do
+    echo "    $sums_line"
+  done < "${DIST}/SHA256SUMS"
+fi
 
 # Print file sizes
 echo ""

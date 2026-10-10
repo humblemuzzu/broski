@@ -1,4 +1,5 @@
 import type { PiDurablePermissionRequest } from "../../connectors/pi-durable";
+import { tapRuntimeEvent } from "../../server/link-feed/feed";
 import type { ServerMessage } from "../../types";
 import type { PiDurableSocket } from "../../types/pi-durable";
 import type { BroskiRuntimeEvent } from "../../types/runtime";
@@ -34,5 +35,6 @@ export function sendPiDurableEvent(socket: PiDurableSocket, event: BroskiRuntime
 
 export function broadcastPiDurablePermission(request: PiDurablePermissionRequest, replayed = false): void {
 	const event = piDurablePermissionRequestEvent(request, { sessionId: request.sessionId }, replayed);
+	tapRuntimeEvent(event);
 	for (const socket of watchersBySession.get(request.sessionId) ?? []) sendPiDurableEvent(socket, event);
 }

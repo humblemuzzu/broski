@@ -114,7 +114,7 @@ async function main(): Promise<void> {
 		const commands = await import("./commands/daemon-service");
 		switch (cli.subCommand) {
 			case "install":
-				await commands.runInstall();
+				await commands.runInstall(cli.linkBin);
 				return;
 			case "uninstall":
 				await commands.runUninstall();

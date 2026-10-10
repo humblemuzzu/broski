@@ -9,6 +9,8 @@ export type BridgeLimits = {
 	wsIdleTimeoutSeconds: number;
 	rate: { perSecond: number; burst: number; blockMs: number };
 	maxClients: number;
+	/** Separate cap for the broski-link unix socket, so link clients never take a network slot. */
+	linkMaxClients: number;
 	allowedDeviceIds: Set<string>;
 	maxBatchSize: number;
 };
@@ -33,6 +35,7 @@ export function createLimits(): BridgeLimits {
 	};
 
 	const maxClients = Math.max(1, Math.min(Number(process.env.BROSKI_MAX_CLIENTS ?? "8"), 100));
+	const linkMaxClients = Math.max(1, Math.min(Number(process.env.BROSKI_LINK_MAX_CLIENTS ?? "32"), 64));
 	const allowedDeviceIdsRaw = (process.env.BROSKI_ALLOWED_DEVICE_IDS ?? "").trim();
 	const allowedDeviceIds = new Set(
 		allowedDeviceIdsRaw
@@ -49,6 +52,7 @@ export function createLimits(): BridgeLimits {
 		wsIdleTimeoutSeconds,
 		rate,
 		maxClients,
+		linkMaxClients,
 		allowedDeviceIds,
 		maxBatchSize: 50,
 	};

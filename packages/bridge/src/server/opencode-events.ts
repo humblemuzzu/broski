@@ -7,6 +7,7 @@ import {
 } from "../runtime/opencode-runtime-event-mapper";
 import type { ServerMessage } from "../types";
 import { recordRuntimeEvent } from "../utils/runtime-replay-buffer";
+import { tapRuntimeEvent } from "./link-feed/feed";
 import type { LeveledLogger } from "./logger";
 import { makeSessionKey } from "./session-keys";
 import type { BridgeState } from "./state";
@@ -163,6 +164,7 @@ export function createOpenCodeEvents(deps: OpenCodeEventsDeps): OpenCodeEvents {
 					data: runtimeEvent,
 				} as ServerMessage)
 			: null;
+		if (runtimeEvent) tapRuntimeEvent(runtimeEvent);
 		if (runtimePayload) {
 			recordRuntimeEvent(runtimePayload);
 		}

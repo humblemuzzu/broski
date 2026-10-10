@@ -33,6 +33,10 @@ export type CliOptions = {
 	verbose: boolean;
 	help: boolean;
 	enableFunnel: boolean;
+	/** Unix socket path for the broski-link ingress; unset means the ingress is off. */
+	linkSocket?: string;
+	/** Path to broski-link, overriding discovery for `broski install`. */
+	linkBin?: string;
 	newToken: boolean;
 	detectHotspot: boolean;
 	daemon: boolean;
@@ -79,6 +83,8 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
 	let verbose = false; // Set below after arg parsing; gated by isCompiledBinary
 	let help = false;
 	let enableFunnel = env.BROSKI_ENABLE_FUNNEL === "1";
+	let linkSocket: string | undefined = env.BROSKI_LINK_SOCKET?.trim() || undefined;
+	let linkBin: string | undefined;
 	let newToken = false;
 	let detectHotspot = false;
 	let daemon = false;
@@ -211,6 +217,16 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
 		}
 		if (arg === "--funnel") {
 			enableFunnel = true;
+			continue;
+		}
+		if (arg === "--link-socket") {
+			linkSocket = args[i + 1] ?? linkSocket;
+			i++;
+			continue;
+		}
+		if (arg === "--link-bin") {
+			linkBin = args[i + 1] ?? linkBin;
+			i++;
 			continue;
 		}
 		if (arg === "--new-token") {
@@ -347,6 +363,8 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
 		verbose,
 		help,
 		enableFunnel,
+		linkSocket,
+		linkBin,
 		newToken,
 		detectHotspot,
 		daemon,
@@ -388,7 +406,7 @@ Commands:
   configure         Reconfigure existing setup
   troubleshoot      Interactive troubleshooter
   logs              Tail bridge logs
-  install           Install as background service (runs on login)
+  install           Install as background service (broski-link on macOS/Linux, starts on login)
   uninstall         Remove background service
   status            Show if bridge is running
   stop              Stop the background service
@@ -406,6 +424,8 @@ Options:
   --verbose, -v             Verbose logging (SDK events + debug)
   --port, --bridge-port N   Bridge WebSocket port (default: 18274; use 0 for random free port)
   --funnel                  Enable Tailscale Funnel for public HTTPS access (no VPN needed on phone)
+  --link-socket PATH        Also serve broski-link on this Unix socket (filesystem-permission auth)
+  --link-bin PATH           broski-link binary to run as the background service (default: auto-detect)
   --new-token               Generate a new auth token (invalidates existing QR codes)
   --hotspot, --detect-hotspot Detect and prioritize hotspot IP for remote access via mobile hotspot
   --skip-wizard             Skip interactive wizard prompts (for daemon/CI mode)
