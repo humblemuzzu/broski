@@ -146,6 +146,7 @@ analysis.log
 # Node.js build artifacts
 **/dist/
 packages/bridge/dist/
+packages/bridge/bench/results/
 
 # Rust build artifacts
 **/target/

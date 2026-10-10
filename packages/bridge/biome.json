@@ -22,6 +22,6 @@
     "lineWidth": 120
   },
   "files": {
-    "includes": ["src/**/*.ts"]
+    "includes": ["src/**/*.ts", "bench/**/*.ts"]
   }
 }
