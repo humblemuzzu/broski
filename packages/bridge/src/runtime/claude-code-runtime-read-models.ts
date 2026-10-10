@@ -42,7 +42,6 @@ export function mapClaudeCodeModelToSummary(model: ClaudeCodeSupportedModel): Br
 			...(model.supportsAdaptiveThinking !== undefined
 				? { supportsAdaptiveThinking: model.supportsAdaptiveThinking }
 				: {}),
-			capabilities: claudeCodeRuntimeCapabilities,
 		},
 	};
 }
@@ -73,7 +72,6 @@ export function mapClaudeCodeSessionToRuntimeSession(session: ClaudeCodeSession)
 			...(session.isBackground !== undefined ? { isBackground: session.isBackground } : {}),
 			...(session.hasSubagentActivity !== undefined ? { hasSubagentActivity: session.hasSubagentActivity } : {}),
 			...(session.subagentName ? { subagentName: session.subagentName } : {}),
-			capabilities: claudeCodeRuntimeCapabilities,
 		},
 	};
 }

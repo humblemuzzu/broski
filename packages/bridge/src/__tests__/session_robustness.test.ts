@@ -172,48 +172,29 @@ describe("Source Invariants", () => {
 
 	describe("Event Buffers", () => {
 		test("buffer constants declared", () => {
-			expect(src).toContain("const SESSION_EVENT_BUFFER_SIZE = 100");
 			expect(src).toContain("const ccEventBuffers = new Map");
 			expect(src).toContain("const cxEventBuffers = new Map");
 		});
 
-		test("buffer helper functions exist", () => {
-			expect(src).toContain("const bufferCcEvent = (sessionId: string, event: any)");
-			expect(src).toContain("const bufferCxEvent = (threadId: string, event: any)");
-			expect(src).toContain("const replayBufferedEvents = (ws: ServerWebSocket<unknown>");
+		test("the sequenced runtime replay is the only replay path", () => {
+			// Re-mapping the raw stream messages re-ran them through the mapper, which assigns
+			// fresh seqs, so the app applied the same text twice and saw a seq gap.
+			expect(src).not.toContain("replayBufferedEvents");
+			expect(src).not.toContain("bufferCcEvent");
+			expect(src).not.toContain("bufferCxEvent");
+			expect(src).toContain("replayRuntimeEventsSince: replayRuntimeEventsForSocket");
 		});
 
-		test("buffers enforce size cap via splice", () => {
-			const ccBuf = sliceAround(src, "const bufferCcEvent", 0, 300);
-			expect(ccBuf).toContain("SESSION_EVENT_BUFFER_SIZE");
-			expect(ccBuf).toContain("buf.splice(0");
-
-			const cxBuf = sliceAround(src, "const bufferCxEvent", 0, 300);
-			expect(cxBuf).toContain("SESSION_EVENT_BUFFER_SIZE");
-			expect(cxBuf).toContain("buf.splice(0");
-		});
-
-		test("replay filters by 60s TTL", () => {
-			const replay = sliceAround(src, "const replayBufferedEvents", 0, 800);
-			expect(replay).toContain("60_000");
-			expect(replay).toContain("e.ts >= cutoff");
-		});
-
-		test("replay clears buffer after send", () => {
-			// After replaying, the buffer for that session is deleted
-			const replay = sliceAround(src, "const replayBufferedEvents", 0, 1200);
-			expect(replay).toContain("bufferMap.delete(sessionId)");
-		});
-
-		test("emitCcStream buffers when no owner (resolvedOwner is null)", () => {
-			// The code does: bufferCcEvent(sessionId, streamMsg) inside emitCcStream
+		test("emitCcStream maps to a runtime event and hands it to the delivery path", () => {
 			const fn = sliceAround(src, "const emitCcStream = (", 0, 3000);
-			expect(fn).toContain("bufferCcEvent(sessionId, streamMsg)");
+			expect(fn).toContain("mapClaudeCodeStreamToRuntimeEvent");
+			expect(fn).toContain("runtimeCoalescer.push");
 		});
 
-		test("emitCxStream buffers when no owner", () => {
-			const fn = sliceAround(src, "const emitCxStream = (", 0, 1200);
-			expect(fn).toContain("bufferCxEvent(threadId, streamMsg)");
+		test("emitCxStream maps to a runtime event and hands it to the delivery path", () => {
+			const fn = sliceAround(src, "const emitCxStream = (", 0, 1600);
+			expect(fn).toContain("mapCodexStreamToRuntimeEvent");
+			expect(fn).toContain("runtimeCoalescer.push");
 		});
 	});
 
@@ -284,13 +265,13 @@ describe("Source Invariants", () => {
 		test("CC active session check + rebind", () => {
 			expect(setView).toMatch(/claudeCode\.listActiveSessions\(\)/);
 			expect(setView).toMatch(/ccSessionOwners\.set\(nextSessionId, ws\)/);
-			expect(setView).toMatch(/replayBufferedEvents\(ws,/);
+			expect(setView).toMatch(/replayRuntimeEventsSince\(\{/);
 		});
 
 		test("CX active turn check + rebind", () => {
 			expect(setView).toMatch(/cxActiveTurns\.has\(nextSessionId\)/);
 			expect(setView).toMatch(/cxThreadOwners\.set\(nextSessionId, ws\)/);
-			expect(setView).toMatch(/replayBufferedEvents\(ws,/);
+			expect(setView).not.toMatch(/replayBufferedEvents/);
 		});
 
 		test("OC view does not claim ownership (external tail owns)", () => {

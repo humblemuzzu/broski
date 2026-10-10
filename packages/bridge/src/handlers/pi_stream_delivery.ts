@@ -7,13 +7,9 @@ import { recordRuntimeEvent } from "../utils/runtime-replay-buffer";
 const piWatchersBySessionId = new Map<string, Set<ServerWebSocket<unknown>>>();
 const piSessionIdBySocket = new Map<ServerWebSocket<unknown>, string>();
 
-function send(ws: ServerWebSocket<unknown>, message: ServerMessage): boolean {
-	try {
-		ws.send(JSON.stringify(message));
-		return true;
-	} catch {
-		return false;
-	}
+/** Sockets currently viewing a Pi session — the only ones that need its deltas. */
+export function piWatchersFor(sessionId: string): Set<ServerWebSocket<unknown>> | undefined {
+	return piWatchersBySessionId.get(sessionId.trim());
 }
 
 export function registerPiWatcher(ws: ServerWebSocket<unknown>, sessionId: string): void {
@@ -75,6 +71,7 @@ export function replayPendingExtensionUiRequests(
 	sessionId: string,
 	pendingRequests: PiStreamMessage[],
 	cwd: string,
+	send: (ws: ServerWebSocket<unknown>, message: ServerMessage) => void,
 ): number {
 	if (pendingRequests.length === 0) return 0;
 

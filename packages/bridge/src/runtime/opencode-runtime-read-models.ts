@@ -60,7 +60,6 @@ export function mapOpenCodeSessionToRuntimeSession(session: SessionSummary): Bro
 			...(session.parentID ? { parentID: session.parentID } : {}),
 			...(session.project ? { project: session.project } : {}),
 			...(session.permission ? { permission: session.permission } : {}),
-			capabilities: openCodeRuntimeCapabilities,
 		},
 	};
 }
@@ -89,7 +88,6 @@ export function mapOpenCodeProvidersToRuntimeModels(providers: ProviderInfo): Br
 					...(model.modalities ? { modalities: model.modalities } : {}),
 					...(model.pricing ? { pricing: model.pricing } : {}),
 					...(model.variants ? { variants: model.variants } : {}),
-					capabilities: openCodeRuntimeCapabilities,
 				},
 			});
 		}

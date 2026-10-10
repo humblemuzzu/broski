@@ -61,7 +61,6 @@ export function mapCodexThreadToRuntimeSession(thread: CodexThread & { threadNam
 			...(thread.agentNickname ? { agentNickname: thread.agentNickname } : {}),
 			...(thread.agentRole ? { agentRole: thread.agentRole } : {}),
 			...(thread.status ? { status: thread.status } : {}),
-			capabilities: codexRuntimeCapabilities,
 		},
 	};
 }
@@ -86,7 +85,6 @@ export function mapCodexModelToSummary(model: Record<string, unknown>): BroskiMo
 			...(model.supportsPersonality !== undefined ? { supportsPersonality: model.supportsPersonality } : {}),
 			...(reasoningEfforts.length > 0 ? { supportedReasoningEfforts: reasoningEfforts } : {}),
 			...(model.defaultReasoningEffort ? { defaultReasoningEffort: model.defaultReasoningEffort } : {}),
-			capabilities: codexRuntimeCapabilities,
 		},
 	};
 }

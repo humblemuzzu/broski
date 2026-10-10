@@ -7,9 +7,7 @@ import {
 	mapPiStateToRuntimeState,
 } from "../runtime/pi-runtime-read-models";
 import { registerSweepable } from "../state/bounded-map";
-import type { ServerMessage } from "../types";
 import type { PiModelPayload, PiStatePayload, PiStreamMessage } from "../types/pi";
-import { recordRuntimeEvent } from "../utils/runtime-replay-buffer";
 import type { Broadcast, Reply } from "./pi_message_helpers";
 import { isPiStateChangingEvent } from "./pi_state_events";
 
@@ -64,16 +62,11 @@ export function broadcastPiStreamMessage(
 	});
 	if (!runtimeEvent) return;
 
-	const payload: ServerMessage = {
+	broadcast({
 		type: "runtime_event",
 		backend: "pi",
 		data: runtimeEvent,
-	};
-	recordRuntimeEvent(payload);
-	console.log(
-		`[Pi RTS DEBUG] Broadcasting pi runtime_event: type=${runtimeEvent.type}, sessionId=${sessionId}, seq=${runtimeEvent.seq}`,
-	);
-	broadcast(payload);
+	});
 }
 
 export function emitPiRuntimeState(reply: Reply, cwd: string, state: PiStatePayload): void {

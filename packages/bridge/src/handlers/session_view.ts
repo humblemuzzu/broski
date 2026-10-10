@@ -53,7 +53,6 @@ export type SessionViewHandlerContext = {
 		cwd?: string;
 		isStreaming: boolean;
 	}) => Record<string, unknown>;
-	replayBufferedEvents: (ws: ServerWebSocket<unknown>, agent: "claude-code" | "codex", sessionId: string) => void;
 	// Codex
 	cxActiveTurns: Map<string, string>;
 	cxThreadOwners: Map<string, ServerWebSocket<unknown>>;
@@ -179,7 +178,6 @@ export async function handle(
 					isStreaming: true,
 				}),
 			} as ServerMessage);
-			ctx.replayBufferedEvents(ws, "claude-code", nextSessionId);
 		} else if (isActive && !hadBridgeOwner) {
 			// Session is active but NOT bridge-owned — running in Mac terminal.
 			// Don't claim ownership; let external tail handle streaming.
@@ -210,7 +208,6 @@ export async function handle(
 					isStreaming: true,
 				}),
 			} as ServerMessage);
-			ctx.replayBufferedEvents(ws, "codex", nextSessionId);
 		} else if (isActive && !hadBridgeOwner) {
 			if (ctx.DEBUG_RTS) {
 				ctx.logDebug(
@@ -239,7 +236,7 @@ export async function handle(
 		const projectPath = (message.projectPath as string) || undefined;
 		if (projectPath) {
 			const pendingUi = getPendingExtensionUiRequests(projectPath);
-			const replayedUi = replayPendingExtensionUiRequests(ws, nextSessionId, pendingUi, projectPath);
+			const replayedUi = replayPendingExtensionUiRequests(ws, nextSessionId, pendingUi, projectPath, ctx.send);
 			if (replayedUi > 0) {
 				ctx.logInfo(`[RTS] Replayed ${replayedUi} pending Pi extension UI requests for ${nextSessionId}`);
 			}
@@ -262,7 +259,7 @@ export async function handle(
 	}
 
 	const nextKey = ctx.makeSessionKey(nextAgent, nextSessionId);
-	ctx.updateSessionWatchers(ws, prevKey, nextKey);
+	if (prevKey !== nextKey) ctx.updateSessionWatchers(ws, prevKey, nextKey);
 
 	if (ctx.DEBUG_RTS) {
 		const watchers = ctx.sessionWatchers.get(nextKey ?? "");

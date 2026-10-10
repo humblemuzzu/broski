@@ -81,6 +81,9 @@ import {
 } from "./security";
 import { BoundedMap, registerSweepable, sweepBoundedState } from "./state/bounded-map";
 import { ensureTlsMaterial, isTlsEnabledByEnv, type TlsMaterial } from "./tls";
+import { PiDurableSocketPool } from "./transport/pi-durable-socket";
+import { RuntimeEventCoalescer } from "./transport/runtime-event-coalescer";
+import { deliverRuntimeEvent } from "./transport/session-delivery";
 import type {
 	AgentStatusInfo,
 	AgentType,
@@ -242,10 +245,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	const CX_ITEM_CACHE_PRUNE = 1000; // Evict oldest 20% on overflow
 	const MAX_BATCH_SIZE = 50; // DoS guard: reject oversized batch envelopes
 
-	// Recent event buffer: keeps last N stream events per session for instant replay
-	// on reconnect. When the app disconnects and reconnects, the external tail syncs
-	// from disk, but there's a gap window. This buffer bridges that gap.
-	const SESSION_EVENT_BUFFER_SIZE = 100;
 	const ccEventBuffers = new Map<string, Array<{ event: any; ts: number }>>();
 	const cxEventBuffers = new Map<string, Array<{ event: any; ts: number }>>();
 
@@ -490,20 +489,62 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	const ensureClaudeWatchDir = (dir: string, kind: CcFsWatchKind, cwd?: string, recursive = true): void => {
 		ccFsWatchers.ensure(dir, kind, cwd, recursive);
 	};
-	const runtimeSendQueue = new RuntimeSendQueue((ws) => {
-		const ctx = contexts.get(ws);
-		if (!ctx) return undefined;
-		return {
-			lastRttMs: ctx.lastRttMs,
-			connectionType: ctx.connectionType,
-		};
-	});
+	const runtimeSendQueue = new RuntimeSendQueue(
+		(ws) => {
+			const ctx = contexts.get(ws);
+			if (!ctx) return undefined;
+			return {
+				lastRttMs: ctx.lastRttMs,
+				connectionType: ctx.connectionType,
+			};
+		},
+		{
+			// A socket that dropped a frame or fell too far behind is not reading: close it so the
+			// app reconnects and resyncs through set_view + lastRuntimeSeq.
+			onDeadSocket: (ws, reason) => {
+				logInfo(`[WS] Shedding socket (${reason})`);
+				try {
+					ws.close(1013, "backpressure");
+				} catch {
+					// already gone
+				}
+			},
+		},
+	);
+
+	const piDurableSockets = new PiDurableSocketPool(runtimeSendQueue);
 
 	const send = (ws: ServerWebSocket<unknown>, message: ServerMessage) => {
 		runtimeSendQueue.send(ws, message);
 	};
 
+	const deliverRuntimeEventMessage = (message: ServerMessage, owner?: ServerWebSocket<unknown> | null): void => {
+		if (message.type !== "runtime_event") return;
+		const sessionId = message.data.sessionId;
+		const key = makeSessionKey(message.backend, sessionId);
+		const ownerMap =
+			message.backend === "claude-code" ? ccSessionOwners : message.backend === "codex" ? cxThreadOwners : null;
+		deliverRuntimeEvent({
+			message,
+			owner: owner ?? (ownerMap && sessionId ? ownerMap.get(sessionId) : null),
+			viewers: key ? sessionWatchers.get(key) : undefined,
+			sockets,
+			send,
+		});
+	};
+
+	// Delta bursts are merged before they are recorded, so the replay buffer holds exactly what
+	// the sockets received.
+	const runtimeCoalescer = new RuntimeEventCoalescer((message, owner) => {
+		recordRuntimeEvent(message);
+		deliverRuntimeEventMessage(message, owner);
+	});
+
 	const broadcast = (message: ServerMessage) => {
+		if (message.type === "runtime_event") {
+			runtimeCoalescer.push(message);
+			return;
+		}
 		runtimeSendQueue.broadcast(sockets, message);
 	};
 
@@ -1413,13 +1454,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		streamMsg: ClaudeCodeStreamMessage,
 		owner?: ServerWebSocket<unknown> | null,
 	) => {
-		// Always look up the CURRENT owner from the map, not a stale captured reference.
-		// This is critical: when the app disconnects and reconnects, the old `ws` is dead
-		// but `ccSessionOwners` gets updated to the new socket via `set_view`.
-		const resolvedOwner = owner ?? ccSessionOwners.get(sessionId) ?? null;
-
 		if (DEBUG_RTS) {
 			const msgType = "type" in streamMsg ? String((streamMsg as Record<string, unknown>).type) : "unknown";
+			const resolvedOwner = owner ?? ccSessionOwners.get(sessionId) ?? null;
 			logDebug(`[RTS] emitCcStream: session=${sessionId}, msgType=${msgType}, owner=${!!resolvedOwner}`);
 		}
 
@@ -1441,31 +1478,20 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		});
 		if (!runtimeEvent) return;
 
-		const runtimePayload: ServerMessage = {
-			type: "runtime_event",
-			backend: "claude-code",
-			data: runtimeEvent,
-		};
-		recordRuntimeEvent(runtimePayload);
-		if (resolvedOwner) {
-			send(resolvedOwner, runtimePayload);
-		} else {
-			bufferCcEvent(sessionId, streamMsg);
-		}
-		// Broadcast to ALL connected sockets so events aren't lost when
-		// ownership is stale after reconnect.  Flutter deduplicates via
-		// fingerprinting so double-delivery to the owner is harmless.
-		for (const ws of sockets) {
-			if (ws === resolvedOwner) continue; // already sent above
-			send(ws, runtimePayload);
-		}
+		runtimeCoalescer.push(
+			{
+				type: "runtime_event",
+				backend: "claude-code",
+				data: runtimeEvent,
+			},
+			owner,
+		);
 	};
 
 	const emitCxStream = (threadId: string, streamMsg: CodexStreamMessage, owner?: ServerWebSocket<unknown> | null) => {
-		const resolvedOwner = owner ?? cxThreadOwners.get(threadId) ?? null;
-
 		if (DEBUG_RTS) {
 			const msgType = "type" in streamMsg ? String((streamMsg as Record<string, unknown>).type) : "unknown";
+			const resolvedOwner = owner ?? cxThreadOwners.get(threadId) ?? null;
 			logDebug(`[RTS] emitCxStream: thread=${threadId}, msgType=${msgType}, owner=${!!resolvedOwner}`);
 		}
 
@@ -1478,73 +1504,14 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		});
 		if (!runtimeEvent) return;
 
-		const runtimePayload: ServerMessage = {
-			type: "runtime_event",
-			backend: "codex",
-			data: runtimeEvent,
-		};
-		recordRuntimeEvent(runtimePayload);
-		if (resolvedOwner) {
-			send(resolvedOwner, runtimePayload);
-		} else {
-			bufferCxEvent(threadId, streamMsg);
-		}
-		for (const ws of sockets) {
-			if (ws === resolvedOwner) continue;
-			send(ws, runtimePayload);
-		}
-	};
-
-	// ── Event buffer for reconnect replay ──────────────────────────────
-	// When a CC/CX session is streaming and the app disconnects, events go
-	// to a dead socket. The external tail will eventually sync from disk,
-	// but there's a gap. This ring buffer keeps the most recent events so
-	// on reconnect we can replay them immediately.
-	const bufferCcEvent = (sessionId: string, event: any) => {
-		let buf = ccEventBuffers.get(sessionId);
-		if (!buf) {
-			buf = [];
-			ccEventBuffers.set(sessionId, buf);
-		}
-		buf.push({ event, ts: Date.now() });
-		if (buf.length > SESSION_EVENT_BUFFER_SIZE) {
-			buf.splice(0, buf.length - SESSION_EVENT_BUFFER_SIZE);
-		}
-	};
-
-	const bufferCxEvent = (threadId: string, event: any) => {
-		let buf = cxEventBuffers.get(threadId);
-		if (!buf) {
-			buf = [];
-			cxEventBuffers.set(threadId, buf);
-		}
-		buf.push({ event, ts: Date.now() });
-		if (buf.length > SESSION_EVENT_BUFFER_SIZE) {
-			buf.splice(0, buf.length - SESSION_EVENT_BUFFER_SIZE);
-		}
-	};
-
-	const replayBufferedEvents = (ws: ServerWebSocket<unknown>, agent: "claude-code" | "codex", sessionId: string) => {
-		const bufferMap = agent === "claude-code" ? ccEventBuffers : cxEventBuffers;
-		const buf = bufferMap.get(sessionId);
-		if (!buf || buf.length === 0) return;
-
-		// Only replay events from the last 60 seconds (stale events would confuse the UI)
-		const cutoff = Date.now() - 60_000;
-		const recent = buf.filter((e) => e.ts >= cutoff);
-		if (recent.length === 0) return;
-
-		logInfo(`[RTS] Replaying ${recent.length} buffered events for ${agent}:${sessionId}`);
-		for (const { event } of recent) {
-			if (agent === "claude-code") {
-				emitCcStream(sessionId, event, ws);
-			} else {
-				emitCxStream(sessionId, event, ws);
-			}
-		}
-
-		// Clear buffer after replay (external tail will take over)
-		bufferMap.delete(sessionId);
+		runtimeCoalescer.push(
+			{
+				type: "runtime_event",
+				backend: "codex",
+				data: runtimeEvent,
+			},
+			owner,
+		);
 	};
 
 	// Context for the OC runtime event mapper — tracks reasoning partIDs so that
@@ -1807,17 +1774,13 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	// without a tick, the client should consider the connection dead and reconnect.
 	const tickTimer = setInterval(() => {
 		const now = Date.now();
-		const tickPayload = {
+		const tickPayload = JSON.stringify({
 			type: "tick",
 			timestamp: now,
 			interval: TICK_INTERVAL_MS,
-		};
+		});
 		for (const ws of sockets) {
-			try {
-				ws.send(JSON.stringify(tickPayload));
-			} catch {
-				// Client might have disconnected, ignore
-			}
+			runtimeSendQueue.sendRaw(ws, tickPayload);
 		}
 
 		// Evict stale chat dedup entries (older than 5 minutes)
@@ -1876,6 +1839,17 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	const MAX_WS_MESSAGE_BYTES = Math.max(
 		1024 * 1024, // 1MB minimum
 		Math.min(Number(process.env.BROSKI_MAX_WS_MESSAGE_MB ?? "15") * 1024 * 1024, 200 * 1024 * 1024), // cap at 200MB
+	);
+
+	/** Buffered bytes allowed for one socket before it is shed. Bun's default is 16 MiB. */
+	const WS_BACKPRESSURE_LIMIT_BYTES = Math.max(
+		128 * 1024,
+		Math.min(Number(process.env.BROSKI_WS_BACKPRESSURE_MB ?? "4") * 1024 * 1024, 64 * 1024 * 1024),
+	);
+	/** Bun's default is 120 s; the app pings every 15 s. */
+	const WS_IDLE_TIMEOUT_SECONDS = Math.max(
+		30,
+		Math.min(Number(process.env.BROSKI_WS_IDLE_TIMEOUT_SECONDS ?? "120"), 600),
 	);
 
 	const RATE = {
@@ -1948,6 +1922,16 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	};
 
 	const websocketConfig = {
+		// A phone that stops reading (backgrounded, dead radio, DERP relay gone) must not grow
+		// the bridge: past 4 MiB buffered it is closed and the app reconnects + resyncs.
+		backpressureLimit: WS_BACKPRESSURE_LIMIT_BYTES,
+		closeOnBackpressureLimit: true,
+		maxPayloadLength: MAX_WS_MESSAGE_BYTES,
+		idleTimeout: WS_IDLE_TIMEOUT_SECONDS,
+		// On by default: 4.5× fewer bytes for streamed text and 16× for a session list on the
+		// payloads bench/scenarios/ws-deflate.ts measures, for a few ms of CPU per megabyte.
+		// `BROSKI_WS_DEFLATE=0` turns it off for a client whose compression is broken.
+		perMessageDeflate: process.env.BROSKI_WS_DEFLATE !== "0",
 		open(ws: ServerWebSocket<unknown>) {
 			const proxy = (ws.data as { kind?: string })?.kind === "proxy";
 			if (proxy) {
@@ -1961,10 +1945,13 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 					const upstream = new WebSocket(upstreamUrl);
 					(ws as unknown as { __proxyUpstream?: WebSocket }).__proxyUpstream = upstream;
 					upstream.onmessage = (evt) => {
-						try {
-							ws.send(typeof evt.data === "string" ? evt.data : new Uint8Array(evt.data as ArrayBuffer));
-						} catch {
-							// ignore
+						const frame = typeof evt.data === "string" ? evt.data : new Uint8Array(evt.data as ArrayBuffer);
+						if (runtimeSendQueue.sendRaw(ws, frame) === "dropped") {
+							try {
+								upstream.close();
+							} catch {
+								// ignore
+							}
 						}
 					};
 					upstream.onclose = () => {
@@ -2027,7 +2014,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			const disconnectedDeviceName = ctx?.deviceName;
 			const prevKey = makeSessionKey(ctx?.viewAgent, ctx?.sessionId);
 			updateSessionWatchers(ws, prevKey, null);
-			piDurable.detach(ws);
+			piDurable.detach(piDurableSockets.for(ws));
+			cxRouting.detachCxFsWatches(ws, codexClient);
 
 			// If this socket owned any CC/Codex/OpenCode sessions, release ownership so watchers
 			// can fall back to external tailing (or another owner) correctly.
@@ -2111,6 +2099,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 				return;
 			}
 			void handleMessage(ws, raw);
+		},
+		drain(ws: ServerWebSocket<unknown>) {
+			runtimeSendQueue.onDrain(ws);
 		},
 	} satisfies Bun.WebSocketHandler<unknown>;
 
@@ -2382,7 +2373,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			return;
 
 		// Session view (set_view)
-		if (await piDurable.handle(ws, message as Record<string, unknown>, reply)) return;
+		if (await piDurable.handle(piDurableSockets.for(ws), message as Record<string, unknown>, reply)) return;
 		if (
 			await sessionViewHandler.handle(ws, message as Record<string, unknown>, reply, {
 				contexts,
@@ -2401,7 +2392,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 				ccSessionOwners,
 				ccSessionCwds,
 				buildClaudeCodeRuntimeState,
-				replayBufferedEvents,
 				cxActiveTurns,
 				cxThreadOwners,
 				cxThreadCwds,

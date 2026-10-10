@@ -69,7 +69,59 @@ OpenCode is not installed here, so `oc_*` paths are not benchmarked.
 | `server-idle` | ok | 60862 | 245.8 MiB | 1389 | 60 s idle: CPU 1.18 %, RSS +1.5 MiB, 4 messages, **0 child processes**, 1 client |
 | `stream-throughput` | ok | 531 | 336.0 MiB | 876 | 1 client: p50 16 ms / p99 18 ms, 6.20 MB, 476k ev/s · 4 clients: p50 57 ms / p99 79 ms, 24.8 MB, 513k ev/s, 20000/20000 delivered to each |
 
+## Run 2 — backpressure, per-session delivery, coalescing, permessage-deflate (2026-10-10)
+
+Same machine, **Bun 1.4.2**. "before" is a pristine `git archive HEAD packages/bridge` copy in
+`/tmp/broski-base` with the current `bench/` copied over it, so both sides ran byte-identical
+scenarios, each in its own child process, with a temp `HOME`, TLS off and port 0.
+
+| scenario | before (HEAD) | after |
+| --- | --- | --- |
+| `stream-throughput`, 1 client | 20 002 frames, **6 200 754 B** payload, p50 15 / p99 18 ms, wall 46 ms, cpu 55 ms | 73 events in 4 frames, **2 414 484 B**, p50 7–8 / p99 10–13 ms, wall 30–32 ms, cpu 28 ms |
+| `stream-throughput`, 4 clients | 20 002 frames each, **6 200 757 B** each, p50 49 / p99 73 ms, wall 139 ms, cpu 123 ms | 73 events in 4 frames, **2 414 487 B** each, p50 13–16 / p99 16–23 ms, wall 29–31 ms, cpu 29 ms |
+| `stream-stalled-client` | never shed (`connectionsAfterShed` 2), RSS 122 → 194 MiB (**+72**) | shed at **56–59 ms** (4 MiB socket limit), `connectionsAfterShed` 1, healthy client received all 24 M chars, RSS 121 → 187 MiB (**+65**) |
+
+`stream-throughput` sends 20 000 deltas of 120 chars in one burst, so its byte numbers are the
+payload the client can measure (a batch envelope is counted once). The burst merges 273 deltas per
+event (the 32 KiB cap in `src/transport/runtime-event-coalescer.ts`), which is the best case for
+coalescing; a paced stream merges far less and lands much closer to yesterday's numbers.
+
+| `ws-deflate` (counting TCP proxy, real source text as the payload) | before | after |
+| --- | --- | --- |
+| 20 000-delta burst, 2.4 MB of text | 6 504 109 B (deflate not offered) | 2 715 773 B plain → **604 346 B** deflated (4.5×) |
+| session list, 300 Claude Code rows | 215 102 B (`capabilities` repeated per row) | 103 492 B plain → **6 316 B** deflated (16.4×) |
+| single delta per frame (200 frames) | 65 939 B | 65 372 B plain → **41 694 B** deflated (1.57×) |
+| CPU, burst / list / single delta | 50 / 8 / 39 ms | 34 / 3 / 105 ms plain, 55 / 17 / 83 ms deflated |
+
+The 4.5× on the burst is *text-dependent*: the payload is real source (`src/server.ts`,
+`src/types.ts`, `bench/run.ts`, …), not `"x".repeat(120)` — the repeated-character version measures
+221× and means nothing. The session-list number is high because a session list repeats its shape
+per row, which is exactly the traffic that costs the most on a metered relay.
+
+`permessage-deflate` is therefore **on by default** (`BROSKI_WS_DEFLATE=0` disables it), and every
+frame is sent with `compress: true` — Bun only honours that flag when the client negotiated the
+extension. Verified against a real `dart:io` WebSocket client (what the app uses, through
+`web_socket_channel`): 300 paced deltas of real text arrived as **32 290 chars in 302 events with
+zero binary frames and no error**, identical with the extension on and off, so the Dart side
+decompresses correctly. A Bun client reports
+`permessage-deflate; server_no_context_takeover; client_no_context_takeover`.
+
+Two consequences of the fixes that the numbers alone do not show:
+
+* **A stalled phone is shed once, not written to forever.** `backpressureLimit` 4 MiB with
+  `closeOnBackpressureLimit` closes it, the send queue holds coalescable deltas instead of growing
+  the socket buffer, and 4 MiB of unsent frames sheds it too. Before, `send()`'s `-1`/`0` was
+  ignored at every site, so the bridge buffered up to Bun's 16 MiB default per socket and dropped
+  frames silently.
+* **A stream costs one copy per viewer, not one per connected socket.** Before, one Claude Code
+  delta was handed to every socket (`emitCcStream`), so 8 phones cost 8× the bytes. Now only the
+  owner and the sockets viewing that session get the deltas; every other socket gets just the
+  busy/idle/retry/error/tool-started activity it needs for the sessions list, with `seq` removed so
+  the app's lost-event detector (`seq > last + 1` → it switches its view) cannot fire for a session
+  the phone is not looking at.
+
 ## Top 5 worst numbers
+*** End Patch
 
 1. **`codex-enrich-stats` cannot finish on this data set — killed at 3.01–3.08 GiB in both runs.**
    `enrichThreadsWithStats` (`src/connectors/codex-fs.ts:602`) enriches every thread through
@@ -125,6 +177,59 @@ Two full runs of the suite, same caps, same data set:
 Treat RSS as ±40 % and wall time as ±10–20 %; `cc-list-projects` varied 3.4× because it scans
 directories that other work is writing at the same time. Only compare a scenario against the same
 scenario, with the same caps and the same data set.
+
+## Pi session index — after the listing rework
+
+Measured on the same machine and data set as above (3 153 files, 6.81 GiB), with the scenarios as they
+are now. `pi-list-sessions-cold-sdk` is the old code path (an injected `lister` forces
+`SessionManager.listAll`), kept so the comparison is against a number rather than a memory.
+
+| scenario | before | after |
+| --- | --- | --- |
+| `pi-list-sessions-cold` (empty index) | 18.6 s / 1.55 GiB (`*-cold-sdk`: 11.6 s list + 7.0 s enrich) | **9.4 s** / 1.24 GiB, index 18.5 MB |
+| `pi-list-sessions-warm` (second call) | 27 ms | **14 ms** (first call 9.4 s) |
+| `pi-list-sessions-restart` | n/a — every start paid the cold cost | **40 ms** in-process, **323 ms** process wall, peak 245 MB |
+| `pi-list-projects` | 12.5 s / 1.51 GiB | **9.8 s** with an empty index; 12 ms with the index warm |
+| `pi-index-parity` | n/a | 3 153 files, **0** mismatches per file and **0** through the index |
+
+Raw results: `bench/results/2026-10-10T03-27-34-371Z-bun1.4.2.json`.
+
+### The mechanism
+
+* `src/index-cache/` — a versioned JSON-lines index at `~/.broski/cache/pi-session-index.jsonl`
+  (injectable root, `BROSKI_CACHE_DIR`). One record per session file holds the fields the bridge sends
+  plus the diff stats, keyed by `(path, mtimeMs, size, ino)`. **JSONL over `bun:sqlite`:** for 3 220
+  records a load is 2.08 ms median against 2.70 ms, and a whole-file rewrite 0.54 ms against 6.74 ms,
+  and JSONL has no `-wal`/`-shm` sidecars to chmod. Writes go through a 0600 temp file and a rename
+  inside a 0700 directory; a corrupt line is dropped, a corrupt or version-mismatched file is
+  discarded, and a file larger than the 128 MB budget is ignored rather than loaded.
+* `pi-session-info-fast.ts` — the per-file `SessionInfo` is computed from the first 4 KiB of each line
+  (`jsonl-line-spans` plus a small JSON scanner) instead of `JSON.parse` on every line: 419 977 lines,
+  9.1 % of them needing a full read. The 3 153 headers and ~35 k long user/assistant messages are parsed
+  in full, because `message.timestamp` sits after the content and reading it from the tail of a line is
+  unsound — Pi's `diagnostics` object carries `timestamp` keys of its own.
+* **Parity.** `pi-index-parity` compares every field `mapSessionInfo` sends against the SDK's own
+  `SessionManager.listAll` for all 3 153 files, and reports **0 mismatches** — per file, and again
+  through a freshly built index (`indexMismatches: 0`), which is the path the phone actually reads. 11
+  files contain a raw `\u2028`/`\u2029`, which Node's readline (and so the SDK) breaks lines on and
+  `readJsonlLines` does not; the stats scan flags those files and the listing reads them with the SDK's
+  own reader (`pi-session-info-readline.ts`), which also matches on all 3 153 files. Before the
+  `completesLine` fix — comparing a line's byte length against the head's character length — every
+  non-ASCII line was misjudged and the fallback fired on 65 k extra lines.
+* **Warm.** `index.ts` starts `warmPiSessionIndex()` once the listener is up: bounded concurrency, an
+  event-loop yield every 16 files, and a single-flight refresh shared with any request that arrives
+  while it runs.
+
+### Still open
+
+* `codex-list-projects` (4.1 s / 1.8 GiB) is still `listProjectsFromFs` reading every rollout whole for
+  its first line. The same index would fix it, but the files it lives in belong to the transcript work
+  this round; a head-only read (`readJsonlHead`) is the smaller change.
+* Claude Code needs nothing: 15 ms for 12 sessions and 229 ms for 38 projects.
+* The stats scan is now the cold path's own bottleneck: 8.4 s of the 9.4 s, and it decodes every line.
+  Prefiltering on the line head does not work — a tool call can follow a long thinking block.
+* `pi-index-parity` peaks at 2.8 GiB because it holds the SDK's `allMessagesText` for a directory while
+  comparing; lowering it would mean comparing per file instead of per directory.
 
 ## Re-running
 
