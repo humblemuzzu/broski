@@ -1,5 +1,12 @@
+import { readCcTranscriptPage } from "../connectors/claude-code/cc-transcript";
 import type { ClaudeCodeSession, ClaudeCodeTranscriptMessage, ProjectSummary, ServerMessage } from "../types";
 import type { BroskiSessionSummary } from "../types/runtime";
+import {
+	DEFAULT_TRANSCRIPT_PAGE_LIMIT,
+	transcriptCursor,
+	transcriptPageFields,
+	transcriptPageLimit,
+} from "../types/transcript-page";
 import type { ModifiedFileEntry } from "./session-stats";
 
 type ReplyFn = (msg: ServerMessage) => void;
@@ -49,11 +56,27 @@ export async function handle(message: Record<string, unknown>, reply: ReplyFn, c
 		}
 		case "cc_get_session_messages": {
 			const sessionId = message.sessionId as string;
-			const items = await ctx.claudeCode.getSessionMessages(
-				sessionId,
-				message.cwd as string | undefined,
-				message.limit as number | undefined,
-			);
+			const cwd = message.cwd as string | undefined;
+			const limit = typeof message.limit === "number" ? message.limit : undefined;
+			const pageLimit = transcriptPageLimit(message.limit);
+			const before = transcriptCursor(message.before);
+
+			if (pageLimit !== undefined || before !== undefined) {
+				const end = before === undefined ? undefined : Number.parseInt(before, 10);
+				const filePath =
+					end !== undefined && !Number.isFinite(end)
+						? null
+						: await ctx.claudeCode.resolveSessionFilePath(sessionId, cwd);
+				const page = filePath
+					? await readCcTranscriptPage(filePath, { limit: pageLimit ?? DEFAULT_TRANSCRIPT_PAGE_LIMIT, end })
+					: null;
+				if (page) {
+					reply({ type: "cc_session_messages", data: page.messages, sessionId, ...transcriptPageFields(page) });
+					return true;
+				}
+			}
+
+			const items = await ctx.claudeCode.getSessionMessages(sessionId, cwd, limit);
 			reply({
 				type: "cc_session_messages",
 				data: items,

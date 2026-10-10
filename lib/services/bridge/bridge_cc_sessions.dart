@@ -73,6 +73,33 @@ extension BridgeServiceCcSessions on BridgeService {
     return data.whereType<Map<String, dynamic>>().toList(growable: false);
   }
 
+  /// One page of the Claude Code transcript, plus the cursor the page before it ends at.
+  Future<TranscriptPage<Map<String, dynamic>>> ccGetSessionMessagesPage(
+    String sessionId, {
+    String? cwd,
+    int? limit,
+    String? before,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cc_get_session_messages',
+      'sessionId': sessionId,
+      'requestId': requestId,
+      if (cwd != null) 'cwd': cwd,
+      if (limit != null) 'limit': limit,
+      if (before != null) 'before': before,
+    });
+    final response = await _waitFor(
+      'cc_session_messages',
+      requestId: requestId,
+    );
+    final data = response['data'] as List<dynamic>? ?? const [];
+    return TranscriptPage.fromResponse(
+      response,
+      data.whereType<Map<String, dynamic>>().toList(growable: false),
+    );
+  }
+
   Future<List<Map<String, dynamic>>> ccGetModifiedFiles(
     String sessionId, {
     String? cwd,

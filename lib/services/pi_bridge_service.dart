@@ -6,6 +6,7 @@ import 'package:broski/models/project.dart';
 import 'package:broski/services/websocket_service.dart';
 
 export 'bridge/bridge_pi_tools.dart';
+export 'bridge/bridge_pi_transcript.dart';
 
 /// Raised for Pi requests that were still in flight when the socket dropped.
 class PiBridgeDisconnectedException implements Exception {

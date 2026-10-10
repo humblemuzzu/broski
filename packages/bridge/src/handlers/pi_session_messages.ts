@@ -2,12 +2,20 @@
  * Handler for `pi_read_session_messages`: the Pi chat-open path.
  *
  * The transcript itself is built by `readPiSessionTranscript`; this file only resolves the session
- * file and shapes the reply.
+ * file and shapes the reply. With a `limit` or `before` the bounded page reader answers instead,
+ * and falls back to the whole transcript when it cannot page.
  */
 
+import { readPiSessionTranscriptPage } from "../connectors/pi/pi-session-page";
 import { resolveSessionFilePath } from "../connectors/pi/pi-session-queries";
 import { readPiSessionTranscript } from "../connectors/pi/pi-session-transcript";
 import type { ServerMessage } from "../types";
+import {
+	DEFAULT_TRANSCRIPT_PAGE_LIMIT,
+	transcriptCursor,
+	transcriptPageFields,
+	transcriptPageLimit,
+} from "../types/transcript-page";
 
 type Reply = (message: ServerMessage) => void;
 
@@ -22,6 +30,8 @@ export async function handle(message: Record<string, unknown>, reply: Reply): Pr
 	const requestId = nonEmpty(message.requestId) ?? undefined;
 	const sessionId = nonEmpty(message.sessionId);
 	const limit = typeof message.limit === "number" ? message.limit : undefined;
+	const pageLimit = transcriptPageLimit(message.limit);
+	const before = transcriptCursor(message.before);
 
 	const resolvedPath = nonEmpty(message.sessionPath) ?? (sessionId ? await resolveSessionFilePath(sessionId) : null);
 
@@ -31,6 +41,22 @@ export async function handle(message: Record<string, unknown>, reply: Reply): Pr
 	}
 
 	try {
+		if (pageLimit !== undefined || before !== undefined) {
+			const page = await readPiSessionTranscriptPage(resolvedPath, {
+				limit: pageLimit ?? DEFAULT_TRANSCRIPT_PAGE_LIMIT,
+				before,
+			});
+			if (page) {
+				reply({
+					type: "pi_session_messages",
+					data: page.messages,
+					requestId,
+					...transcriptPageFields(page),
+				});
+				return true;
+			}
+		}
+
 		const messages = await readPiSessionTranscript(resolvedPath, limit);
 		reply({ type: "pi_session_messages", data: messages, requestId });
 	} catch (error) {

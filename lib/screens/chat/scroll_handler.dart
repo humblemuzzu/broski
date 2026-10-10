@@ -1,7 +1,9 @@
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/chat/load_earlier.dart';
 import 'package:broski/screens/chat/mcp_oauth_snackbar.dart';
+import 'package:broski/screens/chat_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -63,6 +65,9 @@ void handleAutoScroll({
 
 /// Load more messages when user scrolls to top.
 /// Extracted from `_ChatScreenState._loadMoreMessages`.
+///
+/// OpenCode re-fetches the session, the other backends ask the bridge for the page before the
+/// loaded window.
 Future<void> loadMoreMessages({
   required WidgetRef ref,
   required bool loadingMoreMessages,
@@ -73,7 +78,18 @@ Future<void> loadMoreMessages({
   required void Function({required bool loadingMore, required bool loadedAll})
   setPaginationState,
   required bool Function() isMounted,
+  ChatScreen? widget,
 }) async {
+  if (widget != null && !widget.isOpenCode) {
+    return loadEarlierTranscript(
+      ref: ref,
+      widget: widget,
+      loadingMoreMessages: loadingMoreMessages,
+      hasLoadedAllMessages: hasLoadedAllMessages,
+      scrollController: scrollController,
+      setPaginationState: setPaginationState,
+    );
+  }
   if (loadingMoreMessages || hasLoadedAllMessages) return;
   final connection = ref.read(connectionProvider);
   if (connection.isOfflineMode) {

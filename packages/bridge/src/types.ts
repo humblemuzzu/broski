@@ -592,6 +592,7 @@ export type ClientMessage =
 			sessionId: string;
 			cwd?: string;
 			limit?: number;
+			before?: string;
 	  }
 	| { type: "cc_delete_session"; sessionId: string; cwd?: string }
 	| { type: "cc_get_modified_files"; sessionId: string; cwd?: string }
@@ -790,7 +791,7 @@ export type ClientMessage =
 			personality?: "none" | "friendly" | "pragmatic";
 	  }
 	| { type: "cx_archive_thread"; threadId: string }
-	| { type: "cx_get_thread_messages"; threadId: string }
+	| { type: "cx_get_thread_messages"; threadId: string; limit?: number; before?: string }
 	| {
 			type: "cx_chat";
 			threadId?: string;
@@ -1061,7 +1062,7 @@ export type ClientMessage =
 	| { type: "pi_get_session_stats"; projectPath?: string }
 	| { type: "pi_get_modified_files"; projectPath?: string }
 	| { type: "pi_get_messages"; projectPath?: string }
-	| { type: "pi_read_session_messages"; sessionPath?: string; sessionId?: string; limit?: number }
+	| { type: "pi_read_session_messages"; sessionPath?: string; sessionId?: string; limit?: number; before?: string }
 	| { type: "pi_get_subagent_invocation"; parentSessionPath: string; toolCallId: string; requestId?: string }
 	| { type: "pi_set_session_name"; name: string; projectPath?: string }
 	| { type: "pi_fork"; entryId: string; projectPath?: string }
@@ -1802,6 +1803,8 @@ export type ServerMessage =
 			data: ClaudeCodeTranscriptMessage[];
 			sessionId: string;
 			requestId?: string;
+			hasMore?: boolean;
+			nextCursor?: string;
 	  }
 	| { type: "cc_skills"; data: ClaudeCodeSkill[]; requestId?: string }
 	| {
@@ -2033,6 +2036,8 @@ export type ServerMessage =
 			data: CodexTranscriptMessage[];
 			threadId: string;
 			requestId?: string;
+			hasMore?: boolean;
+			nextCursor?: string;
 	  }
 	| { type: "cx_skills"; data: any; requestId?: string }
 	| {
@@ -2245,7 +2250,7 @@ export type ServerMessage =
 			requestId?: string;
 	  }
 	| { type: "pi_messages"; data: any[]; requestId?: string }
-	| { type: "pi_session_messages"; data: any[]; requestId?: string }
+	| { type: "pi_session_messages"; data: any[]; requestId?: string; hasMore?: boolean; nextCursor?: string }
 	| {
 			type: "pi_subagent_invocation";
 			data: import("./types/pi").PiSubagentInvocationPayload | null;

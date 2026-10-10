@@ -8,6 +8,7 @@
  */
 
 import type { CodexTranscriptDiff, CodexTranscriptMessage, CodexTranscriptToolCall } from "../../types";
+import type { TranscriptPage } from "../../types/transcript-page";
 import { readJsonlLines } from "../../utils/jsonl-lines";
 import { extractUserPrompt } from "./cx-rollout-meta";
 
@@ -80,13 +81,21 @@ function toolCallForFunction(name: string, callId: string, args: Record<string, 
 export class CxTranscriptBuilder {
 	private readonly window: CodexTranscriptMessage[] = [];
 	private readonly limit: number;
+	private readonly keepTo: number | undefined;
 	private readonly baseTime: number;
 	private currentAssistant: CodexTranscriptMessage | null = null;
 	private seq = 0;
+	private created = 0;
 
-	constructor(limit: number = DEFAULT_CX_TRANSCRIPT_LIMIT) {
+	constructor(limit: number = DEFAULT_CX_TRANSCRIPT_LIMIT, keepTo?: number) {
 		this.limit = Math.max(1, Math.floor(limit));
+		this.keepTo = keepTo;
 		this.baseTime = Math.floor(Date.now() / 1000);
+	}
+
+	/** Messages seen so far, retained or not. */
+	total(): number {
+		return this.created;
 	}
 
 	pushLine(line: string): void {
@@ -122,6 +131,8 @@ export class CxTranscriptBuilder {
 	}
 
 	private keep(message: CodexTranscriptMessage): void {
+		const index = this.created++;
+		if (this.keepTo !== undefined && index >= this.keepTo) return;
 		this.window.push(message);
 		if (this.window.length > this.limit) this.window.shift();
 	}
@@ -240,6 +251,49 @@ export async function readCxTranscript(
 	options: ReadCxTranscriptOptions = {},
 ): Promise<CodexTranscriptMessage[]> {
 	const builder = new CxTranscriptBuilder(options.limit ?? DEFAULT_CX_TRANSCRIPT_LIMIT);
+	await streamRollout(filePath, builder);
+	return builder.messages();
+}
+
+/**
+ * The page of transcript ending at message index `end` (the tail of the file when omitted).
+ *
+ * The index counts from the start of the file, so a page keeps its meaning when the rollout grows
+ * at the end. The file is streamed whole but only the page's window is retained.
+ */
+export async function readCxTranscriptPage(
+	filePath: string,
+	options: { limit: number; end?: number },
+): Promise<TranscriptPage<CodexTranscriptMessage> | null> {
+	const limit = Math.max(1, Math.floor(options.limit));
+	const builder = new CxTranscriptBuilder(limit, options.end);
+	if (!(await streamRollout(filePath, builder))) return null;
+
+	const total = Math.min(options.end ?? builder.total(), builder.total());
+	const hasMore = total > limit;
+	return {
+		messages: builder.messages(),
+		hasMore,
+		...(hasMore ? { nextCursor: String(total - limit) } : {}),
+	};
+}
+
+/** Same window over an already-built transcript, e.g. the one the app-server hands back. */
+export function sliceCxTranscriptPage(
+	messages: CodexTranscriptMessage[],
+	options: { limit: number; end?: number },
+): TranscriptPage<CodexTranscriptMessage> {
+	const limit = Math.max(1, Math.floor(options.limit));
+	const total = Math.min(options.end ?? messages.length, messages.length);
+	const hasMore = total > limit;
+	return {
+		messages: messages.slice(Math.max(0, total - limit), total),
+		hasMore,
+		...(hasMore ? { nextCursor: String(total - limit) } : {}),
+	};
+}
+
+async function streamRollout(filePath: string, builder: CxTranscriptBuilder): Promise<boolean> {
 	try {
 		let lines = 0;
 		for await (const line of readJsonlLines(filePath)) {
@@ -250,7 +304,7 @@ export async function readCxTranscript(
 			if (lines % GC_INTERVAL_LINES === 0) Bun.gc(true);
 		}
 	} catch {
-		return [];
+		return false;
 	}
-	return builder.messages();
+	return true;
 }

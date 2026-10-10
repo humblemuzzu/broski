@@ -42,6 +42,9 @@ part 'chat/runtime_oc_message_handler.dart';
 part 'chat/runtime_oc_part_handler.dart';
 part 'chat/runtime_permission_handler.dart';
 part 'chat/runtime_system_messages.dart';
+part 'chat/transcript_message_mappers.dart';
+part 'chat/transcript_paging.dart';
+part 'chat/transcript_prepend.dart';
 
 class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
   ChatSessionNotifier(this._bridge) : super(const OpenCodeChatState()) {
@@ -66,6 +69,12 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
 
   bool _suppressEmit = false;
   bool _pendingEmitMessages = false;
+
+  /// Bridge-opaque cursor for the next older transcript page of the open chat.
+  String? _transcriptCursor;
+
+  /// Counts the transcript pages prepended to the open chat, so their generated ids stay unique.
+  int _transcriptPageSeq = 0;
 
   Timer? _textDebounceTimer;
   final Map<String, StringBuffer> _pendingTextBuffers = {};

@@ -136,6 +136,35 @@ extension BridgeServiceCodexThreads on BridgeService {
         .toList();
   }
 
+  /// One page of the Codex thread transcript, plus the cursor the page before it ends at.
+  Future<TranscriptPage<CodexTranscriptMessage>> cxGetThreadMessagesPage(
+    String threadId, {
+    int? limit,
+    String? before,
+  }) async {
+    final requestId = _generateRequestId();
+    _socket.send({
+      'type': 'cx_get_thread_messages',
+      'requestId': requestId,
+      'threadId': threadId,
+      if (limit != null) 'limit': limit,
+      if (before != null) 'before': before,
+    });
+    final response = await _waitFor(
+      'cx_thread_messages',
+      requestId: requestId,
+      timeoutSeconds: _codexTimeoutSeconds,
+    );
+    final data = response['data'] as List<dynamic>? ?? [];
+    return TranscriptPage.fromResponse(
+      response,
+      data
+          .whereType<Map<String, dynamic>>()
+          .map(CodexTranscriptMessage.fromJson)
+          .toList(),
+    );
+  }
+
   Future<List<Map<String, dynamic>>> cxGetModifiedFiles(String threadId) async {
     final requestId = _generateRequestId();
     _socket.send({

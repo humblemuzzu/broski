@@ -29,6 +29,7 @@ import 'package:broski/models/skill.dart';
 import 'package:broski/models/subscription_usage.dart';
 import 'package:broski/models/todo.dart';
 import 'package:broski/models/tool.dart';
+import 'package:broski/models/transcript_page.dart';
 import 'package:broski/models/vcs.dart';
 import 'package:broski/models/worktree.dart';
 import 'package:broski/services/bridge/runtime_replay_tracker.dart';

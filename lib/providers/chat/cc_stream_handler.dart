@@ -35,6 +35,8 @@ extension CcStreamHandler on ChatSessionNotifier {
   }) {
     _messages.clear();
     _order.clear();
+    _transcriptCursor = null;
+    _transcriptPageSeq = 0;
     _rolesByMessageId.clear();
     _pendingLocalUserTextByMessageId.clear();
     _localAuthoredUserMessageIds.clear();
@@ -146,98 +148,8 @@ extension CcStreamHandler on ChatSessionNotifier {
 
     try {
       for (final item in items) {
-        final id = item['id'] as String? ?? '';
-        final role = item['role'] as String? ?? 'assistant';
-        final createdAtMs = item['createdAt'] as int? ?? 0;
-        final text = item['text'] as String? ?? '';
-        if (id.isEmpty) continue;
-
-        final thinking = item['thinking'] as String?;
-        final toolCallsRaw = item['toolCalls'];
-        final diffsRaw = item['diffs'];
-
-        final reasoningParts = <ReasoningPart>[];
-        if (thinking != null && thinking.trim().isNotEmpty) {
-          reasoningParts.add(
-            ReasoningPart(
-              id: 'cc-thinking-$id',
-              messageId: id,
-              text: thinking,
-              isStreaming: false,
-            ),
-          );
-        }
-
-        final tools = <ToolCall>[];
-        if (toolCallsRaw is List) {
-          for (final t in toolCallsRaw) {
-            if (t is! Map<String, dynamic>) continue;
-            final toolUseId = t['toolUseId'] as String? ?? '';
-            if (toolUseId.isEmpty) continue;
-            final toolName = t['tool'] as String? ?? 'tool';
-            final input = t['input'];
-            final status = t['status'] as String? ?? 'completed';
-            final output = t['output'] as String?;
-            final metaRaw = t['metadata'];
-            final metadata = metaRaw is Map<String, dynamic>
-                ? metaRaw
-                : const <String, dynamic>{};
-
-            tools.add(
-              ToolCall(
-                callId: toolUseId,
-                partId: toolUseId,
-                name: toolName,
-                status: status,
-                title: toolName,
-                input: input is Map<String, dynamic>
-                    ? input
-                    : {'input': input?.toString() ?? ''},
-                output: output,
-                metadata: metadata,
-              ),
-            );
-          }
-        }
-
-        final diffs = <DiffEntry>[];
-        if (diffsRaw is List) {
-          for (final d in diffsRaw) {
-            if (d is! Map<String, dynamic>) continue;
-            final file = d['file'] as String? ?? '';
-            if (file.isEmpty) continue;
-            diffs.add(
-              DiffEntry(
-                file: file,
-                before: d['before'] as String? ?? '',
-                after: d['after'] as String? ?? '',
-                additions: d['additions'] as int? ?? 0,
-                deletions: d['deletions'] as int? ?? 0,
-                diff: d['diff'] as String?,
-                partId: d['partId'] as String?,
-                status: d['status'] as String?,
-              ),
-            );
-          }
-        }
-
-        final message = ChatMessage(
-          id: id,
-          sessionId: state.ccSessionId ?? '',
-          role: switch (role) {
-            'user' => MessageRole.user,
-            'assistant' => MessageRole.assistant,
-            _ => MessageRole.system,
-          },
-          createdAt: DateTime.fromMillisecondsSinceEpoch(createdAtMs),
-          text: text,
-          toolCalls: tools,
-          diffs: diffs,
-          reasoningParts: reasoningParts,
-          isStreaming: false,
-        );
-
-        _addMessage(message);
+        final message = ccTranscriptMessage(item, state.ccSessionId ?? '');
+        if (message != null) _addMessage(message);
       }
     } finally {
       _suppressEmit = false;

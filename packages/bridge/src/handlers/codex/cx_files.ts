@@ -4,7 +4,11 @@
  */
 
 import type { CodexAppServerClient } from "../../connectors/codex";
+import { cxPageFields, parseCxPageCursor } from "../../connectors/codex/cx-page";
+import { readCxTranscriptPage, sliceCxTranscriptPage } from "../../connectors/codex/cx-transcript";
+import { findThreadFilePath } from "../../connectors/codex-fs";
 import type { ModifiedFileEntry } from "../../handlers/session-stats";
+import { DEFAULT_TRANSCRIPT_PAGE_LIMIT, transcriptCursor, transcriptPageLimit } from "../../types/transcript-page";
 
 export type CxFilesHandlerContext = {
 	safeString: (v: unknown) => string;
@@ -119,75 +123,11 @@ export async function handleCxFiles(
 	reply: (msg: any) => void,
 	ctx: CxFilesHandlerContext,
 ): Promise<boolean> {
-	const { safeString, logInfo, logError, codexFs, ensureUndoStack, applyCodexUndo } = ctx;
+	const { safeString, logError, codexFs, ensureUndoStack, applyCodexUndo } = ctx;
 
 	switch (message.type) {
-		case "cx_get_thread_messages": {
-			// Priority order:
-			// 1. RPC (when app-server is running — authoritative, instant, avoids SQLite lock contention)
-			// 2. Filesystem (when app-server is NOT running — reads JSONL rollout files)
-			//
-			// Previous approach tried filesystem first, but when the app-server is running
-			// it often holds an exclusive lock on state_5.sqlite. The SQLite rollout_path
-			// lookup fails, triggering a slow scan of ALL ~1000+ session files. With
-			// concurrent prefetch requests this caused multi-minute hangs.
-
-			const threadId = message.threadId as string;
-
-			// ── Tier 1: RPC (preferred when app-server is live) ──
-			if (ctx.codexClient?.isRunning) {
-				try {
-					logInfo(`[cx_get_thread_messages] Fetching thread ${threadId} via thread/read RPC...`);
-					const result: any = await ctx.codexClient.request("thread/read", {
-						threadId,
-						includeTurns: true,
-					});
-					const turns: any[] = result?.thread?.turns ?? [];
-					if (turns.length > 0) {
-						const rpcTranscript = turnsToTranscript(turns);
-						logInfo(`[cx_get_thread_messages] Got ${rpcTranscript.length} messages via RPC`);
-						reply({
-							type: "cx_thread_messages",
-							data: rpcTranscript,
-							threadId,
-							requestId: message.requestId,
-						});
-						return true;
-					}
-					logInfo(`[cx_get_thread_messages] RPC returned 0 turns, trying filesystem...`);
-				} catch (rpcErr: any) {
-					logError(`[cx_get_thread_messages] RPC failed, falling back to filesystem:`, rpcErr?.message ?? rpcErr);
-				}
-			}
-
-			// ── Tier 2: Filesystem (offline or RPC returned nothing) ──
-			try {
-				logInfo(`[cx_get_thread_messages] Reading thread ${threadId} from filesystem...`);
-				const transcript = await codexFs.getThreadMessagesFromFs(threadId);
-				if (transcript.length > 0) {
-					logInfo(`[cx_get_thread_messages] Found ${transcript.length} messages from filesystem`);
-					reply({
-						type: "cx_thread_messages",
-						data: transcript,
-						threadId,
-						requestId: message.requestId,
-					});
-					return true;
-				}
-			} catch (fsErr: any) {
-				logError(`[cx_get_thread_messages] Filesystem read failed:`, fsErr?.message ?? fsErr);
-			}
-
-			// No messages from either source
-			logInfo(`[cx_get_thread_messages] No messages found for thread ${threadId}`);
-			reply({
-				type: "cx_thread_messages",
-				data: [],
-				threadId,
-				requestId: message.requestId,
-			});
-			return true;
-		}
+		case "cx_get_thread_messages":
+			return handleThreadMessages(message, reply, ctx);
 		case "cx_undo_files": {
 			const threadId = safeString(message.threadId);
 			if (!threadId) {
@@ -266,4 +206,89 @@ export async function handleCxFiles(
 		default:
 			return false;
 	}
+}
+
+async function handleThreadMessages(
+	message: any,
+	reply: (msg: any) => void,
+	ctx: CxFilesHandlerContext,
+): Promise<boolean> {
+	const { safeString, logInfo, logError, codexFs } = ctx;
+	const threadId = safeString(message.threadId);
+	const pageLimit = transcriptPageLimit(message.limit);
+	const cursor = parseCxPageCursor(transcriptCursor(message.before));
+	const paged = pageLimit !== undefined || cursor !== null;
+	const limit = pageLimit ?? DEFAULT_TRANSCRIPT_PAGE_LIMIT;
+
+	// Priority order:
+	// 1. RPC (when app-server is running — authoritative, instant, avoids SQLite lock contention)
+	// 2. Filesystem (when app-server is NOT running — reads JSONL rollout files)
+	//
+	// A page also stays in the source its cursor came from: the app-server's turn list and the
+	// rollout file build their messages independently, so mixing them would shift the boundary.
+	const useRpc = ctx.codexClient?.isRunning === true && (!paged || cursor === null || cursor.source === "rpc");
+	if (useRpc) {
+		try {
+			logInfo(`[cx_get_thread_messages] Fetching thread ${threadId} via thread/read RPC...`);
+			const result: any = await ctx.codexClient?.request("thread/read", { threadId, includeTurns: true });
+			const turns: any[] = result?.thread?.turns ?? [];
+			if (turns.length > 0) {
+				const transcript = turnsToTranscript(turns);
+				logInfo(`[cx_get_thread_messages] Got ${transcript.length} messages via RPC`);
+				if (!paged) {
+					reply({ type: "cx_thread_messages", data: transcript, threadId, requestId: message.requestId });
+					return true;
+				}
+				const page = sliceCxTranscriptPage(transcript, { limit, end: cursor?.index });
+				reply({
+					type: "cx_thread_messages",
+					data: page.messages,
+					threadId,
+					requestId: message.requestId,
+					...cxPageFields("rpc", page),
+				});
+				return true;
+			}
+			logInfo(`[cx_get_thread_messages] RPC returned 0 turns, trying filesystem...`);
+		} catch (rpcErr: any) {
+			logError(`[cx_get_thread_messages] RPC failed, falling back to filesystem:`, rpcErr?.message ?? rpcErr);
+		}
+	}
+
+	if (paged) {
+		try {
+			const filePath = await findThreadFilePath(threadId);
+			const page = filePath ? await readCxTranscriptPage(filePath, { limit, end: cursor?.index }) : null;
+			if (page) {
+				reply({
+					type: "cx_thread_messages",
+					data: page.messages,
+					threadId,
+					requestId: message.requestId,
+					...cxPageFields("file", page),
+				});
+				return true;
+			}
+		} catch (pageErr: any) {
+			logError(`[cx_get_thread_messages] Paged read failed, retrying whole transcript:`, pageErr?.message ?? pageErr);
+		}
+	}
+
+	// ── Tier 2: Filesystem (offline or RPC returned nothing) ──
+	try {
+		logInfo(`[cx_get_thread_messages] Reading thread ${threadId} from filesystem...`);
+		const transcript = await codexFs.getThreadMessagesFromFs(threadId);
+		if (transcript.length > 0) {
+			logInfo(`[cx_get_thread_messages] Found ${transcript.length} messages from filesystem`);
+			reply({ type: "cx_thread_messages", data: transcript, threadId, requestId: message.requestId });
+			return true;
+		}
+	} catch (fsErr: any) {
+		logError(`[cx_get_thread_messages] Filesystem read failed:`, fsErr?.message ?? fsErr);
+	}
+
+	// No messages from either source
+	logInfo(`[cx_get_thread_messages] No messages found for thread ${threadId}`);
+	reply({ type: "cx_thread_messages", data: [], threadId, requestId: message.requestId });
+	return true;
 }

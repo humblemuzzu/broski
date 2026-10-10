@@ -13,6 +13,7 @@
 
 import { stat } from "node:fs/promises";
 import type { ClaudeCodeTranscriptMessage } from "../../types";
+import type { TranscriptPage } from "../../types/transcript-page";
 import { readJsonlLines } from "../../utils/jsonl-lines";
 import { readJsonlTail } from "../../utils/jsonl-tail";
 import {
@@ -54,7 +55,38 @@ type TranscriptToolCall = NonNullable<ClaudeCodeTranscriptMessage["toolCalls"]>[
 type TranscriptState = {
 	messages: ClaudeCodeTranscriptMessage[];
 	toolIndexById: Map<string, { messageIndex: number; toolIndex: number }>;
+	/** Absolute index of `messages[0]`. */
+	base: number;
+	/** Messages created so far, retained or not. */
+	seen: number;
+	/** Absolute index at which retention stops; messages at or past it are built but not kept. */
+	keepTo: number | undefined;
+	/** Longest retained window, rolling; 0 keeps everything below `keepTo`. */
+	window: number;
 };
+
+function createState(options: { keepTo?: number; window?: number } = {}): TranscriptState {
+	return {
+		messages: [],
+		toolIndexById: new Map(),
+		base: 0,
+		seen: 0,
+		keepTo: options.keepTo,
+		window: options.window ?? 0,
+	};
+}
+
+/** Files a message under its absolute index, keeping only the window the caller asked for. */
+function retain(state: TranscriptState, message: ClaudeCodeTranscriptMessage): number | null {
+	const index = state.seen++;
+	if (state.keepTo !== undefined && index >= state.keepTo) return null;
+	state.messages.push(message);
+	if (state.window > 0 && state.messages.length > state.window) {
+		state.messages.shift();
+		state.base++;
+	}
+	return index;
+}
 
 type ToolResultBlock = { toolUseId: string; output: string; toolUseResult: unknown };
 
@@ -117,11 +149,11 @@ function attachToolResults(state: TranscriptState, parsed: ClaudeTranscriptLine)
 	for (const block of toolResultBlocks(parsed)) {
 		const index = state.toolIndexById.get(block.toolUseId);
 		if (!index) continue;
-		const message = state.messages[index.messageIndex];
+		const message = state.messages[index.messageIndex - state.base];
 		if (!message) continue;
 		const tool = message.toolCalls?.[index.toolIndex];
 		if (!tool) continue;
-		state.messages[index.messageIndex] = withToolResult(message, tool, index.toolIndex, block);
+		state.messages[index.messageIndex - state.base] = withToolResult(message, tool, index.toolIndex, block);
 	}
 }
 
@@ -129,7 +161,7 @@ function pushUserRecord(state: TranscriptState, parsed: ClaudeTranscriptLine, id
 	const maybeText = extractFirstTextContent(parsed.message?.content);
 	if (maybeText) {
 		if (isLikelyCommandEcho(maybeText)) return;
-		state.messages.push({ id, role: "user", createdAt, text: maybeText });
+		retain(state, { id, role: "user", createdAt, text: maybeText });
 		return;
 	}
 	attachToolResults(state, parsed);
@@ -161,10 +193,9 @@ function pushAssistantRecord(
 	createdAt: number,
 ): void {
 	const { thinking, text, toolCalls } = assistantBlocks(parsed.message?.content);
-	const messageIndex = state.messages.length;
 	const built = toolCalls.length > 0 ? toolCalls : undefined;
 
-	state.messages.push({
+	const messageIndex = retain(state, {
 		id,
 		role: "assistant",
 		createdAt,
@@ -174,7 +205,7 @@ function pushAssistantRecord(
 		diffs: [],
 	});
 
-	if (!built) return;
+	if (!built || messageIndex === null) return;
 	for (let i = 0; i < built.length; i++) {
 		const call = built[i];
 		if (call) state.toolIndexById.set(call.toolUseId, { messageIndex, toolIndex: i });
@@ -197,9 +228,38 @@ function appendRecord(state: TranscriptState, line: string): void {
 }
 
 async function buildMessages(lines: AsyncGenerator<string, void, undefined>): Promise<ClaudeCodeTranscriptMessage[]> {
-	const state: TranscriptState = { messages: [], toolIndexById: new Map() };
+	const state = createState();
 	for await (const line of lines) appendRecord(state, line);
 	return state.messages;
+}
+
+/**
+ * The page of transcript ending at the message index `end` (the whole transcript when omitted).
+ *
+ * The index counts from the start of the file, so a page keeps its meaning when the session grows
+ * at the end. The file is streamed whole but only the page's window is retained: a tool result can
+ * attach to a message well before it in the file, so dropping that message would change what the
+ * page shows.
+ */
+export async function readCcTranscriptPage(
+	filePath: string,
+	options: { limit: number; end?: number },
+): Promise<TranscriptPage<ClaudeCodeTranscriptMessage> | null> {
+	const limit = Math.max(1, Math.floor(options.limit));
+	const state = createState({ keepTo: options.end, window: limit });
+	try {
+		for await (const line of readJsonlLines(filePath)) appendRecord(state, line);
+	} catch {
+		return null;
+	}
+
+	const total = Math.min(options.end ?? state.seen, state.seen);
+	const hasMore = total > limit;
+	return {
+		messages: state.messages,
+		hasMore,
+		...(hasMore ? { nextCursor: String(total - limit) } : {}),
+	};
 }
 
 async function fileSize(filePath: string): Promise<number | null> {

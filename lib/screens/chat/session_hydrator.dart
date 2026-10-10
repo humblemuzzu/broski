@@ -5,8 +5,10 @@ import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/chat/load_earlier.dart';
 import 'package:broski/screens/chat/pi_durable_chat_actions.dart';
 import 'package:broski/screens/chat_screen.dart';
+import 'package:broski/services/bridge/bridge_pi_transcript.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Convert ChatMessage to raw format for hydrate.
@@ -81,6 +83,7 @@ Future<bool> hydrateSession({
     final sessionId = widget.ccSession?.id;
     final parentSessionId = widget.ccSession?.parentSessionId;
     final isSubagent = widget.ccSession?.isSubagentSession == true;
+    var ccHasOlder = false;
     if (sessionId != null && sessionId.isNotEmpty) {
       if (connection.isOfflineMode) {
         final cachedMessages = await storage.getCachedCCMessages(sessionId);
@@ -90,18 +93,24 @@ Future<bool> hydrateSession({
       } else {
         try {
           final bridge = ref.read(bridgeServiceProvider);
-          List<Map<String, dynamic>> items;
           if (isSubagent) {
             // Load subagent messages using parent session ID + agent ID
-            items = await bridge.ccGetSubagentMessages(
+            final items = await bridge.ccGetSubagentMessages(
               sessionId: parentSessionId!,
               agentId: sessionId,
               cwd: cwd,
             );
+            chat.hydrateClaudeCodeTranscript(items);
           } else {
-            items = await bridge.ccGetSessionMessages(sessionId, cwd: cwd);
+            final page = await bridge.ccGetSessionMessagesPage(
+              sessionId,
+              cwd: cwd,
+              limit: kTranscriptPageLimit,
+            );
+            chat.hydrateClaudeCodeTranscript(page.items);
+            chat.setTranscriptCursor(page.nextCursor);
+            ccHasOlder = page.hasOlder;
           }
-          chat.hydrateClaudeCodeTranscript(items);
           final chatState = ref.read(chatSessionProvider);
           if (chatState.messages.isNotEmpty) {
             await storage.cacheCCSessionMessages(sessionId, chatState.messages);
@@ -115,7 +124,7 @@ Future<bool> hydrateSession({
       }
     }
     scrollToBottom(animate: false);
-    setPaginationState(loadingMore: false, loadedAll: true);
+    setPaginationState(loadingMore: false, loadedAll: !ccHasOlder);
     return false; // No need to call _loadSessionContext for CC initial hydrate
   }
 
@@ -123,6 +132,7 @@ Future<bool> hydrateSession({
   if (widget.isCodex) {
     final cwd = widget.cxThread?.cwd ?? widget.cxDraftCwd ?? '';
     final threadId = widget.cxThread?.id ?? '';
+    var cxHasOlder = false;
     chat.setCodexThread(
       threadId: threadId,
       cwd: cwd,
@@ -136,10 +146,12 @@ Future<bool> hydrateSession({
         }
       } else {
         try {
-          final items = await ref
+          final page = await ref
               .read(bridgeServiceProvider)
-              .cxGetThreadMessages(threadId);
-          chat.hydrateCodexTranscript(items);
+              .cxGetThreadMessagesPage(threadId, limit: kTranscriptPageLimit);
+          chat.hydrateCodexTranscript(page.items);
+          chat.setTranscriptCursor(page.nextCursor);
+          cxHasOlder = page.hasOlder;
           final chatState = ref.read(chatSessionProvider);
           if (chatState.messages.isNotEmpty) {
             await storage.cacheCodexThreadMessages(
@@ -156,7 +168,7 @@ Future<bool> hydrateSession({
       }
     }
     scrollToBottom(animate: false);
-    setPaginationState(loadingMore: false, loadedAll: true);
+    setPaginationState(loadingMore: false, loadedAll: !cxHasOlder);
     return false;
   }
 
@@ -230,6 +242,8 @@ Future<bool> hydrateSession({
       model: widget.piSession?.name,
     );
 
+    var piHasOlder = false;
+
     if (isDraft && !connection.isOfflineMode) {
       // New session — create it on the bridge
       try {
@@ -246,12 +260,15 @@ Future<bool> hydrateSession({
       // messages in ~100ms instead of 2-4 seconds.
       var fastPathWorked = false;
       try {
-        final items = await piBridge.readSessionMessages(
+        final page = await piBridge.readSessionMessagesPage(
           sessionPath: sessionPath,
           sessionId: widgetSessionId,
+          limit: kTranscriptPageLimit,
         );
-        if (items.isNotEmpty) {
-          chat.hydratePiTranscript(items);
+        if (page.items.isNotEmpty) {
+          chat.hydratePiTranscript(page.items);
+          chat.setTranscriptCursor(page.nextCursor);
+          piHasOlder = page.hasOlder;
           scrollToBottom(animate: false);
           fastPathWorked = true;
         }
@@ -332,7 +349,7 @@ Future<bool> hydrateSession({
       }
     }
     scrollToBottom(animate: false);
-    setPaginationState(loadingMore: false, loadedAll: true);
+    setPaginationState(loadingMore: false, loadedAll: !piHasOlder);
     return true; // Call _loadSessionContext
   }
 

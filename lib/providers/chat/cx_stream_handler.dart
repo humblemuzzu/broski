@@ -55,6 +55,8 @@ extension CxStreamHandler on ChatSessionNotifier {
   }) {
     _messages.clear();
     _order.clear();
+    _transcriptCursor = null;
+    _transcriptPageSeq = 0;
     _rolesByMessageId.clear();
     _pendingLocalUserTextByMessageId.clear();
     _localAuthoredUserMessageIds.clear();
@@ -103,71 +105,8 @@ extension CxStreamHandler on ChatSessionNotifier {
 
     try {
       for (final item in items) {
-        final id = item.id;
-        if (id.isEmpty) continue;
-
-        final role = switch (item.role) {
-          'user' => MessageRole.user,
-          'system' => MessageRole.system,
-          _ => MessageRole.assistant,
-        };
-
-        final createdAt = DateTime.fromMillisecondsSinceEpoch(
-          item.createdAt * 1000,
-        );
-
-        final reasoningParts = <ReasoningPart>[];
-        if ((item.thinking ?? '').trim().isNotEmpty) {
-          reasoningParts.add(
-            ReasoningPart(
-              id: 'cx-thinking-$id',
-              messageId: id,
-              text: item.thinking ?? '',
-              isStreaming: false,
-            ),
-          );
-        }
-
-        final tools = <ToolCall>[
-          for (final t in item.toolCalls)
-            ToolCall(
-              callId: t.itemId,
-              partId: t.itemId,
-              name: t.name,
-              status: t.status,
-              title: t.name,
-              input: t.input ?? const <String, dynamic>{},
-              output: t.output,
-              metadata: t.metadata ?? const <String, dynamic>{},
-            ),
-        ];
-
-        final diffs = <DiffEntry>[
-          for (final d in item.diffs)
-            DiffEntry(
-              file: d.file,
-              before: '',
-              after: '',
-              additions: d.additions,
-              deletions: d.deletions,
-              diff: d.diff,
-              partId: d.itemId,
-            ),
-        ];
-
-        final message = ChatMessage(
-          id: id,
-          sessionId: state.cxThreadId ?? '',
-          role: role,
-          createdAt: createdAt,
-          text: item.text,
-          toolCalls: tools,
-          diffs: diffs,
-          reasoningParts: reasoningParts,
-          isStreaming: false,
-        );
-
-        _addMessage(message);
+        if (item.id.isEmpty) continue;
+        _addMessage(cxTranscriptMessage(item, state.cxThreadId ?? ''));
       }
     } finally {
       _suppressEmit = false;

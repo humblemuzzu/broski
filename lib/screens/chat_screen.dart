@@ -1159,6 +1159,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   Future<void> _loadMoreMessages() => sh.loadMoreMessages(
     ref: ref,
+    widget: widget,
     loadingMoreMessages: _loadingMoreMessages,
     hasLoadedAllMessages: _hasLoadedAllMessages,
     sessionId: widget.session.id,
