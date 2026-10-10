@@ -62,9 +62,16 @@ export class BoundedMap<K, V> extends Map<K, V> {
 
 	override has(key: K): boolean {
 		if (!super.has(key)) return false;
-		if (this.isExpired(key, this.clock())) {
+		const now = this.clock();
+		if (this.isExpired(key, now)) {
 			this.evict(key, "ttl");
 			return false;
+		}
+		const value = super.get(key) as V;
+		this.stamps.set(key, now);
+		if (this.touchOnGet) {
+			super.delete(key);
+			super.set(key, value);
 		}
 		return true;
 	}

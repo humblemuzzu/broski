@@ -42,13 +42,14 @@ function keyFor(backend: BroskiBackend, sessionId?: string, cwd?: string): strin
 
 function getState(key: string): RuntimeStreamState {
 	const existing = streamStates.get(key);
-	if (existing) return existing;
-	const created: RuntimeStreamState = {
+	const state = existing ?? {
 		nextSeq: 0,
 		streamCounter: 0,
 	};
-	streamStates.set(key, created);
-	return created;
+	// Re-setting on every event keeps a live session at the most-recent end of the map, so the
+	// capacity cap only ever drops sessions that have gone quiet.
+	streamStates.set(key, state);
+	return state;
 }
 
 function nextStreamId(key: string, state: RuntimeStreamState): string {

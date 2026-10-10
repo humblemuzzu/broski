@@ -39,8 +39,8 @@ describe("BoundedMap", () => {
 		map.set("a", 1);
 		map.set("b", 2);
 		expect(map.size).toBe(2);
-		expect(map.get("a")).toBe(1);
 		expect(map.has("b")).toBe(true);
+		expect(map.get("a")).toBe(1);
 		expect([...map.keys()]).toEqual(["b", "a"]);
 		expect([...map.values()]).toEqual([2, 1]);
 		expect([...map.entries()]).toEqual([

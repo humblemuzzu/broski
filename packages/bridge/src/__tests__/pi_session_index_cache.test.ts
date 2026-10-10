@@ -88,7 +88,7 @@ function normalize(session: PiSessionInfo): Record<string, unknown> {
 
 async function fileStamp(path: string) {
 	const info = await stat(path);
-	return { path, size: info.size, mtime: info.mtime, mtimeMs: info.mtimeMs, ino: info.ino };
+	return { path, size: info.size, mtime: info.mtime, mtimeMs: info.mtimeMs, ino: info.ino, ctimeMs: info.ctimeMs };
 }
 
 /** Node's readline, and so the SDK, breaks lines on these as well as on `\n`. */

@@ -103,6 +103,8 @@ type BroskiRuntimeEventEnvelope<TType extends string> = {
 	streamId?: string;
 	turnId?: string;
 	seq?: number;
+	/** Present on a coalesced delta only: the seq of the first delta merged into it. */
+	seqStart?: number;
 	replayed?: boolean;
 	backendData?: BroskiBackendData;
 };

@@ -60,14 +60,23 @@ export function buildTeardownTasks(resources: BridgeTeardownResources): Teardown
 export type FailedBindResources = {
 	intervals: Array<ReturnType<typeof setInterval> | null>;
 	stopEndpointWatcher?: () => void;
+	/** Directory watchers a server instance created before its bind failed. */
+	closeFsWatchers?: () => void;
+	/** Unregisters the bounded-state collections a server instance registered for the sweep. */
+	unregisterSweepables?: Array<() => void>;
 };
 
-/** Cancels the timers a server instance started before its port bind failed, so a retry does not stack them. */
+/**
+ * Cancels the timers, watchers and registered state a server instance started before its port bind
+ * failed, so a retry does not stack them.
+ */
 export function releaseFailedBindResources(resources: FailedBindResources): void {
 	for (const interval of resources.intervals) {
 		if (interval) clearInterval(interval);
 	}
 	resources.stopEndpointWatcher?.();
+	resources.closeFsWatchers?.();
+	for (const unregister of resources.unregisterSweepables ?? []) unregister();
 }
 
 export async function stopBridgeResources(

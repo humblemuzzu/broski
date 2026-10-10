@@ -11,6 +11,7 @@ import { runDoctor } from "./doctor";
 import { disableFunnel, enableFunnel } from "./funnel";
 import { bindWithRetry, isAddressInUse } from "./lifecycle/port-retry";
 import { createShutdownController } from "./lifecycle/shutdown-guard";
+import { logDaemon, logDaemonError, setDaemonLogger } from "./logging/daemon-log";
 import { type BridgeLogger, createBridgeLogger } from "./logging/logger";
 import { getHotspotIP, getLocalIP, getTailscaleIP, getTailscaleMagicDNS } from "./network";
 import { getTailscaleStatus } from "./network/tailscale";
@@ -575,19 +576,19 @@ async function subscribeOpenCodeStream(
 ): Promise<AbortController> {
 	const controller = await opencode.startEventStream((event) => {
 		if (verbose) {
-			console.log("[SDK Event]", JSON.stringify(event));
+			logDaemon(`[SDK Event] ${JSON.stringify(event)}`);
 		}
 		bridgeServer?.enqueueSdkEvent(event);
 	});
 	if (verbose) {
-		console.log(`✓ Subscribed to OpenCode events (${label}): ${opencode.url}`);
+		logDaemon(`✓ Subscribed to OpenCode events (${label}): ${opencode.url}`);
 	}
 	return controller;
 }
 
 // Graceful shutdown handler
 async function runShutdown(signal: string, _exitCode = 0) {
-	console.log(`\n${signal} received. Shutting down...`);
+	logDaemon(`\n${signal} received. Shutting down...`);
 
 	stopPeriodicUpdateCheck();
 
@@ -597,7 +598,7 @@ async function runShutdown(signal: string, _exitCode = 0) {
 	}
 
 	if (primaryEventStreamController || extraEventStreamControllers.length > 0) {
-		console.log("Stopping OpenCode event streams...");
+		logDaemon("Stopping OpenCode event streams...");
 		if (primaryEventStreamController) {
 			primaryEventStreamController.abort();
 			primaryEventStreamController = null;
@@ -608,23 +609,23 @@ async function runShutdown(signal: string, _exitCode = 0) {
 	}
 
 	if (funnelPort !== null) {
-		console.log("Disabling Tailscale Funnel...");
+		logDaemon("Disabling Tailscale Funnel...");
 		await disableFunnel(funnelPort);
 		funnelPort = null;
 	}
 
 	if (bridgeServer) {
-		console.log("Stopping bridge server...");
+		logDaemon("Stopping bridge server...");
 		await bridgeServer.stop(true);
 		bridgeServer = null;
 	}
 
 	if (opencodeServer && "close" in opencodeServer) {
-		console.log("Stopping managed OpenCode server...");
+		logDaemon("Stopping managed OpenCode server...");
 		await opencodeServer.close();
 		opencodeServer = null;
 	} else if (opencodeServer) {
-		console.log("OpenCode server is external - leaving it running");
+		logDaemon("OpenCode server is external - leaving it running");
 	}
 
 	// Flush log file streams before exiting
@@ -632,13 +633,12 @@ async function runShutdown(signal: string, _exitCode = 0) {
 		await activeBridgeLogger.flush().catch(() => {});
 	}
 
-	console.log("Shutdown complete. Goodbye!");
+	logDaemon("Shutdown complete. Goodbye!");
 }
 
 const shutdown = createShutdownController({
 	run: runShutdown,
 	exit: (code) => process.exit(code),
-	log: (message) => console.error(message),
 });
 
 async function restartManagedOpenCode(): Promise<boolean> {
@@ -648,7 +648,7 @@ async function restartManagedOpenCode(): Promise<boolean> {
 
 	restartInFlight = true;
 	try {
-		console.log("Restarting managed OpenCode...");
+		logDaemon("Restarting managed OpenCode...");
 
 		if (primaryEventStreamController) {
 			primaryEventStreamController.abort();
@@ -670,10 +670,10 @@ async function restartManagedOpenCode(): Promise<boolean> {
 
 		bridgeServer?.broadcast({ type: "status", data: { opencodeRunning: true } });
 		consecutiveHealthFailures = 0;
-		console.log("✓ OpenCode restarted");
+		logDaemon("✓ OpenCode restarted");
 		return true;
 	} catch (error) {
-		console.error("Failed to restart OpenCode:", error);
+		logDaemonError(`Failed to restart OpenCode: ${String(error)}`);
 		bridgeServer?.broadcast({ type: "status", data: { opencodeRunning: false } });
 		return false;
 	} finally {
@@ -686,7 +686,7 @@ async function bootstrapManagedOpenCode(hostname: string, port: number, verbose:
 	const RETRY_DELAY_MS = 3000;
 
 	for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-		console.log(`Starting OpenCode (managed)...${attempt > 1 ? ` (attempt ${attempt}/${MAX_RETRIES})` : ""}`);
+		logDaemon(`Starting OpenCode (managed)...${attempt > 1 ? ` (attempt ${attempt}/${MAX_RETRIES})` : ""}`);
 		try {
 			const { client, server } = await createOpencode({
 				hostname,
@@ -705,9 +705,9 @@ async function bootstrapManagedOpenCode(hostname: string, port: number, verbose:
 			}
 
 			if (verbose) {
-				console.log(`✓ OpenCode ready at ${server.url}`);
+				logDaemon(`✓ OpenCode ready at ${server.url}`);
 			} else {
-				console.log("✓ OpenCode ready");
+				logDaemon("✓ OpenCode ready");
 			}
 
 			return {
@@ -717,21 +717,21 @@ async function bootstrapManagedOpenCode(hostname: string, port: number, verbose:
 					close: async () => {
 						try {
 							server.close();
-							console.log("  Managed OpenCode server stopped");
+							logDaemon("  Managed OpenCode server stopped");
 						} catch (error) {
-							console.error("  Error stopping managed OpenCode server:", error);
+							logDaemonError(`  Error stopping managed OpenCode server: ${String(error)}`);
 						}
 					},
 				},
 			};
 		} catch (error) {
 			if (attempt < MAX_RETRIES) {
-				console.log(`  OpenCode not ready, retrying in ${RETRY_DELAY_MS / 1000}s...`);
+				logDaemon(`  OpenCode not ready, retrying in ${RETRY_DELAY_MS / 1000}s...`);
 				await Bun.sleep(RETRY_DELAY_MS);
 				continue;
 			}
-			console.error("Failed to start managed OpenCode server after all retries:", error);
-			console.log(
+			logDaemonError(`Failed to start managed OpenCode server after all retries: ${String(error)}`);
+			logDaemon(
 				"  Ensure OpenCode is installed and on PATH (install: curl -fsSL https://opencode.ai/install | bash  or  bun add -g opencode-ai)",
 			);
 			throw error;
@@ -743,12 +743,12 @@ async function bootstrapManagedOpenCode(hostname: string, port: number, verbose:
 }
 
 async function bootstrapManualOpenCode(url: string): Promise<OpencodeBootstrap> {
-	console.log(`Attaching to OpenCode (manual): ${url}`);
+	logDaemon(`Attaching to OpenCode (manual): ${url}`);
 	const ready = await waitForOpencodeReady(url, 5000);
 	if (!ready) {
-		console.log("⚠️  OpenCode is not responding at the provided URL.");
+		logDaemon("⚠️  OpenCode is not responding at the provided URL.");
 	} else {
-		console.log("✓ OpenCode is responding");
+		logDaemon("✓ OpenCode is responding");
 	}
 	return {
 		server: { url, managed: false },
@@ -796,7 +796,7 @@ function discoverListeningPortsFromLsof(verbose: boolean): number[] {
 		return Array.from(ports);
 	} catch (err) {
 		if (verbose) {
-			console.warn("Port scan failed (continuing without it):", err);
+			logDaemon(`Port scan failed (continuing without it): ${String(err)}`);
 		}
 		return [];
 	}
@@ -808,14 +808,14 @@ function isOpencodeCliAvailable(verbose: boolean): boolean {
 		const res = spawnSync("opencode", ["--version"], { encoding: "utf8", timeout: 1500 });
 		if (res.error) {
 			if (verbose) {
-				console.warn("OpenCode CLI check failed:", res.error);
+				logDaemon(`OpenCode CLI check failed: ${String(res.error)}`);
 			}
 			return false;
 		}
 		return res.status === 0;
 	} catch (err) {
 		if (verbose) {
-			console.warn("OpenCode CLI check threw:", err);
+			logDaemon(`OpenCode CLI check threw: ${String(err)}`);
 		}
 		return false;
 	}
@@ -826,15 +826,15 @@ async function bootstrapAttachOpenCode(verbose: boolean): Promise<OpencodeBootst
 	const ports = Array.from(new Set([...defaultAttachPorts(), ...lsofPorts]));
 	const instances = await discoverRunningOpencodeInstances(ports, verbose);
 	if (instances.length === 0) {
-		console.log("No running OpenCode servers found.");
-		console.log("  Start one: `opencode serve`");
-		console.log("  Or attach explicitly: `broski --opencode-url http://127.0.0.1:4096`");
+		logDaemon("No running OpenCode servers found.");
+		logDaemon("  Start one: `opencode serve`");
+		logDaemon("  Or attach explicitly: `broski --opencode-url http://127.0.0.1:4096`");
 		throw new Error("No running OpenCode servers found");
 	}
 
 	if (instances.length === 1) {
 		const inst = instances[0]!;
-		console.log(`✓ Found OpenCode at ${inst.url}`);
+		logDaemon(`✓ Found OpenCode at ${inst.url}`);
 		return { server: { url: inst.url, managed: false } };
 	}
 
@@ -848,7 +848,7 @@ async function bootstrapAttachOpenCode(verbose: boolean): Promise<OpencodeBootst
 		throw new Error("Attach cancelled");
 	}
 	const inst = instances[selected]!;
-	console.log(`✓ Using OpenCode at ${inst.url}`);
+	logDaemon(`✓ Using OpenCode at ${inst.url}`);
 	return { server: { url: inst.url, managed: false } };
 }
 
@@ -1017,6 +1017,7 @@ async function main() {
 		verbose: cli.verbose,
 	});
 	activeBridgeLogger = bridgeLogger;
+	setDaemonLogger(bridgeLogger);
 
 	const daemonLog = (message: string): void => {
 		if (cli.daemon) bridgeLogger.user(message);
@@ -1032,7 +1033,7 @@ async function main() {
 			const configPath = getConfigPath();
 			// Only trigger if config file doesn't exist (true first run)
 			if (!existsSync(configPath)) {
-				console.log("\nFirst time? Let's get you set up!\n");
+				logDaemon("\nFirst time? Let's get you set up!\n");
 				try {
 					const { ClackPrompter } = await import("./wizard");
 					const { runOnboardingWizard } = await import("./wizard/onboarding");
@@ -1066,8 +1067,8 @@ async function main() {
 	try {
 		if (cli.opencodeMode === "manual") {
 			if (!cli.opencodeUrl) {
-				console.log("Manual OpenCode mode requested but no --opencode-url/OPENCODE_BASE_URL provided.");
-				console.log("Continuing without OpenCode (Claude Code / Codex still work).");
+				logDaemon("Manual OpenCode mode requested but no --opencode-url/OPENCODE_BASE_URL provided.");
+				logDaemon("Continuing without OpenCode (Claude Code / Codex still work).");
 			} else {
 				bootstrap = await bootstrapManualOpenCode(cli.opencodeUrl);
 			}
@@ -1075,15 +1076,15 @@ async function main() {
 			bootstrap = await bootstrapAttachOpenCode(cli.verbose);
 		} else {
 			if (!isOpencodeCliAvailable(cli.verbose)) {
-				console.log("OpenCode CLI not found in PATH; skipping OpenCode bootstrap.");
+				logDaemon("OpenCode CLI not found in PATH; skipping OpenCode bootstrap.");
 			} else {
 				bootstrap = await bootstrapManagedOpenCode(cli.opencodeHostname, cli.opencodePort, cli.verbose);
 			}
 		}
 	} catch (err) {
-		console.log("⚠️  OpenCode not available; continuing without it.");
+		logDaemon("⚠️  OpenCode not available; continuing without it.");
 		if (cli.verbose) {
-			console.warn(err);
+			logDaemonError(String(err));
 		}
 		bootstrap = null;
 	}
@@ -1107,9 +1108,9 @@ async function main() {
 	// Load persistent auth token (same token survives bridge restarts)
 	const auth = await loadOrCreateAuthState(cli.newToken, config.security.tokenTtlDays);
 	if (cli.newToken) {
-		console.log("✓ New auth token generated (old QR codes are now invalid)");
+		logDaemon("✓ New auth token generated (old QR codes are now invalid)");
 	} else {
-		console.log("✓ Auth token loaded (persistent across restarts)");
+		logDaemon("✓ Auth token loaded (persistent across restarts)");
 	}
 
 	daemonLog("[daemon] Creating bridge server...");
@@ -1196,31 +1197,31 @@ async function main() {
 
 	if (cli.detectHotspot) {
 		if (hotspotIP) {
-			console.log(`✓ Hotspot IP detected: ${hotspotIP}`);
+			logDaemon(`✓ Hotspot IP detected: ${hotspotIP}`);
 		} else {
-			console.log("ℹ️  Hotspot detection enabled but no hotspot IP found");
-			console.log("   Ensure your device is connected to a mobile hotspot");
+			logDaemon("ℹ️  Hotspot detection enabled but no hotspot IP found");
+			logDaemon("   Ensure your device is connected to a mobile hotspot");
 		}
 	}
 
 	if (!tailscaleConnected) {
-		console.log("ℹ️  Tailscale not connected. Local network access only.");
+		logDaemon("ℹ️  Tailscale not connected. Local network access only.");
 		if (cli.enableFunnel) {
-			console.log("⚠️  --funnel requires Tailscale. Skipping Funnel setup.");
+			logDaemon("⚠️  --funnel requires Tailscale. Skipping Funnel setup.");
 		}
 	}
 
 	let funnelURL: string | null = null;
 	if (cli.enableFunnel && tailscaleConnected) {
-		console.log("Enabling Tailscale Funnel...");
+		logDaemon("Enabling Tailscale Funnel...");
 		const funnelBackendPort = bridgeServer.funnelBackendPort() ?? bridgePort;
 		const result = await enableFunnel(funnelBackendPort);
 		if (result.success && result.url) {
 			funnelURL = result.url;
 			funnelPort = funnelBackendPort;
-			console.log(`✓ Funnel enabled: ${funnelURL}`);
+			logDaemon(`✓ Funnel enabled: ${funnelURL}`);
 		} else {
-			console.log(`⚠️  Funnel setup failed: ${result.error ?? "unknown error"}`);
+			logDaemon(`⚠️  Funnel setup failed: ${result.error ?? "unknown error"}`);
 		}
 	}
 
@@ -1246,7 +1247,7 @@ async function main() {
 			}
 		} catch (err) {
 			if (cli.verbose) {
-				console.warn("⚠️  Failed to subscribe to extra local OpenCode servers:", err);
+				logDaemon(`⚠️  Failed to subscribe to extra local OpenCode servers: ${String(err)}`);
 			}
 		}
 	}
@@ -1268,13 +1269,13 @@ async function main() {
 
 				consecutiveHealthFailures++;
 				if (consecutiveHealthFailures < FAILURES_TO_TRIGGER_RESTART) {
-					console.log(`[health] OpenCode not responding (${consecutiveHealthFailures}/${FAILURES_TO_TRIGGER_RESTART})`);
+					logDaemon(`[health] OpenCode not responding (${consecutiveHealthFailures}/${FAILURES_TO_TRIGGER_RESTART})`);
 					return;
 				}
 				consecutiveHealthFailures = 0;
 
 				if (restartCount >= MAX_RESTARTS) {
-					console.error(`[health] OpenCode has restarted ${MAX_RESTARTS} times — automatic restarts disabled`);
+					logDaemonError(`[health] OpenCode has restarted ${MAX_RESTARTS} times — automatic restarts disabled`);
 					if (healthTimer) {
 						clearInterval(healthTimer);
 						healthTimer = null;
@@ -1310,19 +1311,19 @@ async function main() {
 	// from disk instead of scanning every session file.
 	void warmPiSessionIndex();
 	if (!cli.daemon) {
-		console.log(`\n✓ Bridge listening on port ${bridgePort}`);
-		console.log("  Press Ctrl+C to shutdown");
+		logDaemon(`\n✓ Bridge listening on port ${bridgePort}`);
+		logDaemon("  Press Ctrl+C to shutdown");
 		if (!opencodeServer) {
-			console.log("  (OpenCode not detected - OpenCode-only features are unavailable)");
+			logDaemon("  (OpenCode not detected - OpenCode-only features are unavailable)");
 		} else if ("close" in opencodeServer) {
-			console.log("  (OpenCode is managed by the bridge and will stop on shutdown)");
+			logDaemon("  (OpenCode is managed by the bridge and will stop on shutdown)");
 		} else {
-			console.log("  (OpenCode is external and will be left running)");
+			logDaemon("  (OpenCode is external and will be left running)");
 		}
 	}
 
 	// Non-blocking update check on startup
-	startupUpdateCheck(version, (msg) => console.log(msg))
+	startupUpdateCheck(version, (msg) => logDaemon(msg))
 		.then(async (result) => {
 			if (!result?.updateAvailable) return;
 			const ocRunning = opencodeConnector ? await opencodeConnector.isRunning().catch(() => false) : false;
@@ -1345,7 +1346,7 @@ async function main() {
 		startPeriodicUpdateCheck(
 			version,
 			(result) => {
-				console.log(`[update] Bridge v${result.latestVersion} available (current: v${result.currentVersion})`);
+				logDaemon(`[update] Bridge v${result.latestVersion} available (current: v${result.currentVersion})`);
 				void (async () => {
 					const ocRunning = opencodeConnector ? await opencodeConnector.isRunning().catch(() => false) : false;
 					bridgeServer?.broadcast({
@@ -1359,7 +1360,7 @@ async function main() {
 					});
 				})();
 			},
-			(msg) => console.log(msg),
+			(msg) => logDaemon(msg),
 		);
 	}
 }

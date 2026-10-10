@@ -6,6 +6,8 @@ export type RotatingFileOptions = {
 	maxBytes?: number;
 	/** Number of rotated files kept alongside the live one. */
 	keep?: number;
+	/** Size probe for an open descriptor; defaults to `fstatSync(fd).size`. */
+	sizeOf?: (fd: number) => number;
 };
 
 export const DEFAULT_MAX_LOG_BYTES = 10 * 1024 * 1024;
@@ -23,6 +25,7 @@ export class RotatingFileWriter {
 			path: options.path,
 			maxBytes: options.maxBytes ?? DEFAULT_MAX_LOG_BYTES,
 			keep: options.keep ?? DEFAULT_KEEP_ROTATED,
+			sizeOf: options.sizeOf ?? ((fd) => fstatSync(fd).size),
 		};
 		this.open();
 	}
@@ -58,12 +61,20 @@ export class RotatingFileWriter {
 		const now = Date.now();
 		if (now < this.retryAfter) return;
 
+		let fd = -1;
 		try {
 			mkdirSync(dirname(this.options.path), { recursive: true });
-			const fd = openSync(this.options.path, "a");
+			fd = openSync(this.options.path, "a");
+			this.bytes = this.options.sizeOf(fd);
 			this.fd = fd;
-			this.bytes = fstatSync(fd).size;
 		} catch {
+			if (fd >= 0) {
+				try {
+					closeSync(fd);
+				} catch {
+					// Already closed.
+				}
+			}
 			this.fd = -1;
 			this.retryAfter = now + REOPEN_BACKOFF_MS;
 		}

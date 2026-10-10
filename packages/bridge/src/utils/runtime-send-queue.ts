@@ -73,14 +73,22 @@ export class RuntimeSendQueue {
 		});
 	}
 
+	/**
+	 * Ordered outbound path for a single message. Deltas wait for company; every other runtime
+	 * event joins the same queue and is written at once, so a tool or permission event can never
+	 * overtake the text streamed before it.
+	 */
 	send(ws: ServerWebSocket<unknown>, message: ServerMessage): void {
 		if (this.shed.has(ws)) return;
-		if (!isBatchableRuntimeMessage(message)) {
-			this.sender.send(ws, JSON.stringify(message));
+		const payload = JSON.stringify(message);
+		if (message.type !== "runtime_event") {
+			this.flush(ws);
+			this.sender.send(ws, payload);
 			return;
 		}
 		const state = this.stateFor(ws);
-		this.enqueue(ws, state, JSON.stringify(message));
+		this.enqueue(ws, state, payload);
+		if (!isBatchableRuntimeMessage(message)) this.flush(ws);
 	}
 
 	/**

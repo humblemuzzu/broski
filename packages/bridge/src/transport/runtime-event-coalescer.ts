@@ -28,6 +28,8 @@ type PendingEntry = {
  *
  * The merged event *is* the one recorded for replay, and it carries the newest `seq`, so a
  * reconnect replays the merged event and the app's fingerprint (which is the seq) dedupes it.
+ * `seqStart` records the oldest merged seq so the app's `seq > previous + 1` gap check does not
+ * read a merge as lost events.
  */
 export class RuntimeEventCoalescer {
 	private readonly pending = new Map<string, Map<string, PendingEntry>>();
@@ -114,11 +116,14 @@ function mergeDelta(base: ServerMessage, next: ServerMessage): ServerMessage {
 	if (base.type !== "runtime_event" || next.type !== "runtime_event") return next;
 	const baseData = base.data;
 	const nextData = next.data;
+	const seqStart = baseData.seqStart ?? baseData.seq;
 	if (baseData.type === "assistant_text_delta" && nextData.type === "assistant_text_delta") {
-		return { ...next, data: { ...nextData, delta: baseData.delta + nextData.delta } };
+		const merged = { ...nextData, delta: baseData.delta + nextData.delta };
+		return { ...next, data: seqStart === undefined ? merged : { ...merged, seqStart } };
 	}
 	if (baseData.type === "assistant_thinking_delta" && nextData.type === "assistant_thinking_delta") {
-		return { ...next, data: { ...nextData, delta: baseData.delta + nextData.delta } };
+		const merged = { ...nextData, delta: baseData.delta + nextData.delta };
+		return { ...next, data: seqStart === undefined ? merged : { ...merged, seqStart } };
 	}
 	return next;
 }

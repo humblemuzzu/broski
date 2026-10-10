@@ -2146,6 +2146,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		releaseFailedBindResources({
 			intervals: [heartbeatTimer, tickTimer, eventBufferPruneTimer],
 			stopEndpointWatcher: () => endpointWatcher.stop(),
+			closeFsWatchers: () => ccFsWatchers.closeAll(),
+			unregisterSweepables: unregisterBoundedState,
 		});
 		throw error;
 	}

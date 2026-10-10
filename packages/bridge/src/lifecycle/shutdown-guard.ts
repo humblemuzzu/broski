@@ -1,3 +1,5 @@
+import { logDaemonError } from "../logging/daemon-log";
+
 export type ShutdownController = {
 	/** Runs the shutdown once; later calls join the in-flight run. */
 	request: (signal: string, exitCode?: number) => Promise<void>;
@@ -8,10 +10,12 @@ export type ShutdownController = {
 export type ShutdownControllerOptions = {
 	run: (signal: string, exitCode: number) => Promise<void>;
 	exit: (code: number) => void;
-	log: (message: string) => void;
+	/** Defaults to the bridge logger, so a fatal on the daemon path is not lost to /dev/null. */
+	log?: (message: string) => void;
 };
 
 export function createShutdownController(options: ShutdownControllerOptions): ShutdownController {
+	const log = options.log ?? logDaemonError;
 	let inFlight: Promise<void> | null = null;
 	let fatalLogged = false;
 
@@ -21,7 +25,7 @@ export function createShutdownController(options: ShutdownControllerOptions): Sh
 			try {
 				await options.run(signal, exitCode);
 			} catch (error) {
-				options.log(`[FATAL] Shutdown failed: ${describe(error)}`);
+				log(`[FATAL] Shutdown failed: ${describe(error)}`);
 			} finally {
 				options.exit(exitCode);
 			}
@@ -34,7 +38,7 @@ export function createShutdownController(options: ShutdownControllerOptions): Sh
 		fatal: (label, error, exitCode = 1) => {
 			if (!fatalLogged) {
 				fatalLogged = true;
-				options.log(`[FATAL] ${label}: ${describe(error)}`);
+				log(`[FATAL] ${label}: ${describe(error)}`);
 			}
 			return request(label, exitCode);
 		},

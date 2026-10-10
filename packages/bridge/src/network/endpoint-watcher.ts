@@ -17,24 +17,32 @@ export type EndpointWatcherDeps = {
 	onCliFallback?: (ip: string | null) => void;
 	intervalMs?: number;
 	interval?: ManagedInterval;
+	/** Injectable clock, for tests. */
+	now?: () => number;
 };
 
 const DEFAULT_INTERVAL_MS = 10_000;
+const CLI_RETRY_INITIAL_MS = 10_000;
+const CLI_RETRY_MAX_MS = 10 * 60 * 1000;
 
 export class EndpointWatcher {
 	private readonly deps: EndpointWatcherDeps;
 	private readonly intervalMs: number;
 	private readonly interval: ManagedInterval;
+	private readonly now: () => number;
 	private stopTimer: (() => void) | null = null;
 	private current: EndpointSnapshot;
 	private fingerprint: string;
 	private lastCliFingerprint: string | null = null;
 	private cliInFlight = false;
+	private cliBackoffMs = 0;
+	private nextCliAttemptAt = 0;
 
 	constructor(deps: EndpointWatcherDeps) {
 		this.deps = deps;
 		this.intervalMs = deps.intervalMs ?? DEFAULT_INTERVAL_MS;
 		this.interval = deps.interval ?? nodeInterval;
+		this.now = deps.now ?? Date.now;
 		this.current = deps.readEndpoints();
 		this.fingerprint = deps.interfacesFingerprint();
 	}
@@ -59,7 +67,12 @@ export class EndpointWatcher {
 		const next = this.deps.readEndpoints();
 		const fingerprint = this.deps.interfacesFingerprint();
 		const interfacesChanged = fingerprint !== this.fingerprint;
-		const needsCliFallback = next.tailscaleIP === null && (interfacesChanged || this.lastCliFingerprint === null);
+		if (interfacesChanged) {
+			this.cliBackoffMs = 0;
+			this.nextCliAttemptAt = 0;
+		}
+		const needsCliFallback =
+			next.tailscaleIP === null && (interfacesChanged || this.lastCliFingerprint !== fingerprint);
 		this.fingerprint = fingerprint;
 
 		if (needsCliFallback) void this.resolveViaCli();
@@ -69,18 +82,32 @@ export class EndpointWatcher {
 	private async resolveViaCli(): Promise<void> {
 		const resolve = this.deps.resolveTailscaleViaCli;
 		if (!resolve || this.cliInFlight) return;
+		if (this.now() < this.nextCliAttemptAt) return;
 
 		this.cliInFlight = true;
-		this.lastCliFingerprint = this.fingerprint;
 		try {
 			const ip = await resolve();
 			this.deps.onCliFallback?.(ip);
+			if (ip === null) {
+				this.scheduleCliRetry();
+				return;
+			}
+			this.lastCliFingerprint = this.fingerprint;
+			this.cliBackoffMs = 0;
+			this.nextCliAttemptAt = 0;
 			this.publish({ ...this.current, tailscaleIP: ip });
 		} catch {
 			// CLI unavailable; the interface-derived view stays authoritative.
+			this.scheduleCliRetry();
 		} finally {
 			this.cliInFlight = false;
 		}
+	}
+
+	private scheduleCliRetry(): void {
+		this.cliBackoffMs =
+			this.cliBackoffMs === 0 ? CLI_RETRY_INITIAL_MS : Math.min(this.cliBackoffMs * 2, CLI_RETRY_MAX_MS);
+		this.nextCliAttemptAt = this.now() + this.cliBackoffMs;
 	}
 
 	private publish(next: EndpointSnapshot): void {
