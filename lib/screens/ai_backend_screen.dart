@@ -285,7 +285,7 @@ class _BackendLogo extends StatelessWidget {
           ),
           padding: Insets.cardXs,
           child: SvgPicture.asset(
-            'docs/assets/pi/pi-logo-dark.svg',
+            'assets/logos/pi/pi-logo-dark.svg',
             fit: BoxFit.contain,
           ),
         );

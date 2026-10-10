@@ -32,8 +32,8 @@ class PiBranding extends StatelessWidget {
 
     // Use appropriate logo for the theme
     final logoPath = isLightTheme
-        ? 'docs/assets/pi/pi-logo-light.svg'
-        : 'docs/assets/pi/pi-logo-dark.svg';
+        ? 'assets/logos/pi/pi-logo-light.svg'
+        : 'assets/logos/pi/pi-logo-dark.svg';
 
     final logo = Opacity(
       opacity: opacity,
