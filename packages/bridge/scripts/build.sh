@@ -138,8 +138,11 @@ build_target() {
   fi
 
   # ── Step 3: Compile the binary ──
+  # --bytecode caches the whole module graph as bytecode (~3x faster startup,
+  # +25MB); it flips the default output format to cjs, so --format=esm is
+  # required for the entry's top-level await.
   echo "  Building ${OUTPUT_NAME} (${BUN_TARGET})..."
-  bun build --compile --target="$BUN_TARGET" "$COMPILED_ENTRY" --outfile "${DIST}/${OUTPUT_NAME}"
+  bun build --compile --bytecode --format=esm --target="$BUN_TARGET" "$COMPILED_ENTRY" --outfile "${DIST}/${OUTPUT_NAME}"
   echo "    Done."
 
   # Clean up temp file

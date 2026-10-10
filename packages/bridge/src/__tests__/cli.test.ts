@@ -231,6 +231,18 @@ describe("CLI Parser", () => {
 		expect(result.bridgePort).toBe(18274); // default
 	});
 
+	test("coerces out-of-range ports to the default", () => {
+		expect(parseCli(["node", "broski", "--port", "70000"], {}).bridgePort).toBe(18274);
+		expect(parseCli(["node", "broski", "--port", "-1"], {}).bridgePort).toBe(18274);
+		expect(parseCli(["node", "broski", "--port", "1.5"], {}).bridgePort).toBe(18274);
+		expect(parseCli(["node", "broski"], { BROSKI_PORT: "65536" }).bridgePort).toBe(18274);
+	});
+
+	test("accepts boundary ports", () => {
+		expect(parseCli(["node", "broski", "--port", "0"], {}).bridgePort).toBe(0);
+		expect(parseCli(["node", "broski", "--port", "65535"], {}).bridgePort).toBe(65535);
+	});
+
 	test("handles missing profile argument", () => {
 		const result = parseCli(["node", "broski", "doctor", "--profile"], {});
 		expect(result.doctorProfile).toBe("all"); // default

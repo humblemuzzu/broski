@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DEFAULT_PORT, PORT_MAX, PORT_MIN } from "./port";
 
 // Zod v4: .default() requires the full output type — provide explicit defaults
 export const BroskiConfigSchema = z.object({
@@ -12,11 +13,11 @@ export const BroskiConfigSchema = z.object({
 		.default({ completedSetup: false }),
 	network: z
 		.object({
-			port: z.number().default(18274),
+			port: z.number().int().min(PORT_MIN).max(PORT_MAX).catch(DEFAULT_PORT).default(DEFAULT_PORT),
 			mode: z.enum(["local", "tailscale", "hotspot-iphone", "hotspot-android"]).default("local"),
 			enableFunnel: z.boolean().default(false),
 		})
-		.default({ port: 18274, mode: "local" as const, enableFunnel: false }),
+		.default({ port: DEFAULT_PORT, mode: "local" as const, enableFunnel: false }),
 	security: z
 		.object({
 			tls: z.boolean().default(true),

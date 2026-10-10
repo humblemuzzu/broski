@@ -113,6 +113,21 @@ describe("Config Schema", () => {
 		expect(result.success).toBe(false);
 	});
 
+	test("BroskiConfigSchema coerces an out-of-range port without discarding the rest of the config", () => {
+		const config = {
+			...getDefaultConfig(),
+			agents: { ...getDefaultConfig().agents, claudeCode: true },
+			network: { ...getDefaultConfig().network, port: 70000 },
+		};
+
+		const result = BroskiConfigSchema.safeParse(config);
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.network.port).toBe(18274);
+			expect(result.data.agents.claudeCode).toBe(true);
+		}
+	});
+
 	test("BroskiConfigSchema rejects invalid daemon type", () => {
 		const invalidConfig = {
 			version: 1,

@@ -1,5 +1,6 @@
 import { stdin as input, stdout as output } from "node:process";
 import readline from "node:readline/promises";
+import { DEFAULT_PORT, parsePort } from "./config/port";
 import { isCompiledBinary } from "./platform";
 
 export type OpencodeMode = "managed" | "manual" | "attach";
@@ -60,8 +61,6 @@ export type CliOptions = {
 	logsRedact: boolean;
 };
 
-const DEFAULT_BRIDGE_PORT = 18274;
-
 function parseNumber(value: string | undefined, fallback: number): number {
 	if (!value) return fallback;
 	const parsed = Number(value);
@@ -72,7 +71,7 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
 	const args = argv.slice(2);
 
 	let subCommand: SubCommand = null;
-	let bridgePort = parseNumber(env.BROSKI_PORT, DEFAULT_BRIDGE_PORT);
+	let bridgePort = parsePort(env.BROSKI_PORT, DEFAULT_PORT);
 	let opencodeMode: OpencodeMode = "managed";
 	let opencodeUrl: string | undefined = env.OPENCODE_BASE_URL;
 	let opencodeHostname = env.BROSKI_OPENCODE_HOSTNAME ?? "127.0.0.1";
@@ -179,7 +178,7 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
 			continue;
 		}
 		if (arg === "--port" || arg === "--bridge-port") {
-			bridgePort = parseNumber(args[i + 1], bridgePort);
+			bridgePort = parsePort(args[i + 1], bridgePort);
 			i++;
 			continue;
 		}
