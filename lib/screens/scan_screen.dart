@@ -4,6 +4,9 @@ import 'package:broski/models/connection.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/onboarding_provider.dart'
     show onboardingProvider, kDevBypassOnboarding;
+import 'package:broski/screens/scan/link_pairing_dialog.dart';
+import 'package:broski/screens/scan/paste_pairing_link.dart';
+import 'package:broski/screens/scan/scan_overlay.dart';
 import 'package:broski/services/websocket_service.dart' show ConnectionStatus;
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/design_tokens.dart';
@@ -79,6 +82,11 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
 
   void _handleScan(String raw) {
     if (_handledScan) return;
+    if (startLinkPairing(context, raw, onDismiss: _onLinkPairingDismissed)) {
+      _handledScan = true;
+      HapticFeedback.mediumImpact();
+      return;
+    }
     final info = ConnectionInfo.parseQrPayload(raw);
     if (info == null) return;
     _handledScan = true;
@@ -88,6 +96,17 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
     final notifier = ref.read(connectionProvider.notifier);
     notifier.cancelPendingReconnect();
     notifier.connect(info);
+  }
+
+  /// A finished Link pairing closes a scanner that was only opened for it, and
+  /// leaves the onboarding scanner ready for the next QR.
+  void _onLinkPairingDismissed() {
+    if (!mounted) return;
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+      return;
+    }
+    setState(() => _handledScan = false);
   }
 
   void _toggleFlash() {
@@ -177,7 +196,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
           ),
           // Dark overlay with cutout for scan area
           Positioned.fill(
-            child: _ScanOverlay(
+            child: ScanOverlay(
               scanLineAnimation: _scanLineController,
               cornerPulseAnimation: _cornerPulseController,
             ),
@@ -340,6 +359,10 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                               size: 22,
                             ),
                           ),
+                        ),
+                        const SizedBox(width: Spacing.md),
+                        PastePairingLinkButton(
+                          onDismiss: _onLinkPairingDismissed,
                         ),
                       ],
                     ),
@@ -660,193 +683,6 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
       ],
     );
   }
-}
-
-// =============================================================================
-// SCAN OVERLAY WITH ANIMATED LINE AND CORNER BRACKETS
-// =============================================================================
-class _ScanOverlay extends StatelessWidget {
-  const _ScanOverlay({
-    required this.scanLineAnimation,
-    required this.cornerPulseAnimation,
-  });
-  final AnimationController scanLineAnimation;
-  final AnimationController cornerPulseAnimation;
-  @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    // Scan window centered, about 65% of screen width
-    final scanSize = size.width * 0.65;
-    final scanLeft = (size.width - scanSize) / 2;
-    final scanTop = (size.height - scanSize) / 2 - 20;
-    return Stack(
-      children: [
-        // Dark overlay with cutout
-        CustomPaint(
-          size: size,
-          painter: _OverlayPainter(
-            scanRect: Rect.fromLTWH(scanLeft, scanTop, scanSize, scanSize),
-          ),
-        ),
-        // Corner brackets
-        AnimatedBuilder(
-          animation: cornerPulseAnimation,
-          builder: (context, _) {
-            final opacity = 0.6 + 0.4 * cornerPulseAnimation.value;
-            return Stack(
-              children: [
-                // Top-left
-                Positioned(
-                  left: scanLeft - 2,
-                  top: scanTop - 2,
-                  child: _CornerBracket(opacity: opacity, rotation: 0),
-                ),
-                // Top-right
-                Positioned(
-                  right: scanLeft - 2,
-                  top: scanTop - 2,
-                  child: _CornerBracket(opacity: opacity, rotation: 1),
-                ),
-                // Bottom-left
-                Positioned(
-                  left: scanLeft - 2,
-                  bottom: size.height - scanTop - scanSize - 2,
-                  child: _CornerBracket(opacity: opacity, rotation: 3),
-                ),
-                // Bottom-right
-                Positioned(
-                  right: scanLeft - 2,
-                  bottom: size.height - scanTop - scanSize - 2,
-                  child: _CornerBracket(opacity: opacity, rotation: 2),
-                ),
-              ],
-            );
-          },
-        ),
-        // Animated scan line
-        AnimatedBuilder(
-          animation: scanLineAnimation,
-          builder: (context, _) {
-            final lineY = scanTop + (scanSize * scanLineAnimation.value);
-            return Positioned(
-              left: scanLeft + 16,
-              right: size.width - scanLeft - scanSize + 16,
-              top: lineY,
-              child: Container(
-                height: 2,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.transparent,
-                      const Color(0xFF2ECB71).withValues(alpha: 0.8),
-                      const Color(0xFF2ECB71),
-                      const Color(0xFF2ECB71).withValues(alpha: 0.8),
-                      Colors.transparent,
-                    ],
-                    stops: const [0.0, 0.2, 0.5, 0.8, 1.0],
-                  ),
-                  borderRadius: Radii.brXs,
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF2ECB71).withValues(alpha: 0.4),
-                      blurRadius: 12,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-}
-
-class _OverlayPainter extends CustomPainter {
-  _OverlayPainter({required this.scanRect});
-  final Rect scanRect;
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = Colors.black.withValues(alpha: 0.6);
-    // Draw full overlay
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), paint);
-    // Cut out the scan area with rounded corners
-    final clearPaint = Paint()..blendMode = BlendMode.clear;
-    canvas.saveLayer(Rect.fromLTWH(0, 0, size.width, size.height), Paint());
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), paint);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(scanRect, const Radius.circular(20)),
-      clearPaint,
-    );
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(covariant _OverlayPainter oldDelegate) =>
-      oldDelegate.scanRect != scanRect;
-}
-
-class _CornerBracket extends StatelessWidget {
-  const _CornerBracket({required this.opacity, required this.rotation});
-  final double opacity;
-  final int rotation; // 0=top-left, 1=top-right, 2=bottom-right, 3=bottom-left
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 36,
-      height: 36,
-      child: CustomPaint(
-        painter: _CornerBracketPainter(
-          color: Colors.white.withValues(alpha: opacity),
-          rotation: rotation,
-        ),
-      ),
-    );
-  }
-}
-
-class _CornerBracketPainter extends CustomPainter {
-  _CornerBracketPainter({required this.color, required this.rotation});
-  final Color color;
-  final int rotation;
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-    final path = Path();
-    const len = 28.0;
-    switch (rotation) {
-      case 0: // top-left
-        path.moveTo(0, len);
-        path.lineTo(0, 0);
-        path.lineTo(len, 0);
-        break;
-      case 1: // top-right
-        path.moveTo(size.width - len, 0);
-        path.lineTo(size.width, 0);
-        path.lineTo(size.width, len);
-        break;
-      case 2: // bottom-right
-        path.moveTo(size.width, size.height - len);
-        path.lineTo(size.width, size.height);
-        path.lineTo(size.width - len, size.height);
-        break;
-      case 3: // bottom-left
-        path.moveTo(len, size.height);
-        path.lineTo(0, size.height);
-        path.lineTo(0, size.height - len);
-        break;
-    }
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _CornerBracketPainter old) =>
-      old.color != color || old.rotation != rotation;
 }
 
 class _ControlButton extends StatelessWidget {

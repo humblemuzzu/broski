@@ -1,0 +1,60 @@
+[package]
+name = "broski-relay"
+version = "0.1.0"
+edition.workspace = true
+description = "Broski Link relay: forwards opaque end-to-end encrypted bytes between a device and its machine"
+license.workspace = true
+publish = false
+
+[lib]
+name = "broski_relay"
+path = "src/lib.rs"
+
+[[bin]]
+name = "broski-relay"
+path = "src/main.rs"
+
+[dependencies]
+# async runtime (multi-thread, tcp, signals, timers, bounded channels)
+tokio = { version = "1.53", features = ["rt-multi-thread", "macros", "net", "sync", "time", "signal"] }
+# http routing + WebSocket upgrade handling
+axum = { version = "0.8", features = ["ws"] }
+# listener with built-in TLS termination and graceful shutdown
+axum-server = { version = "0.8", features = ["tls-rustls"] }
+# persistence for machine secrets, allowed devices and last_seen; bundled sqlite
+rusqlite = { version = "0.40", features = ["bundled"] }
+# structured logging without payload bytes
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+# sha256 for secret/token hashing and machine identity
+sha2 = "0.10"
+# constant-time comparison of stored hashes
+subtle = "2.6"
+# base64url (no pad) for the public identity bundle
+base64 = "0.22"
+# control message (de)serialization; never used on the binary forwarding path
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# cli arguments
+clap = { version = "4", features = ["derive"] }
+# zero-copy byte slices for frames forwarded between sockets
+bytes = "1"
+# classify the WebSocket read error axum's ws backend reports for oversize frames;
+# pinned to axum's own tungstenite minor so the downcast matches
+tungstenite = "0.29"
+# split a WebSocket into concurrent sink/stream halves
+futures-util = "0.3"
+# outbound HTTP/2 to APNs and HTTP/1.1 to FCM/the push upstream, rustls only
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "http2"] }
+# ES256 (APNs) and RS256 (FCM service account) provider assertions
+jsonwebtoken = "9.3"
+
+[dev-dependencies]
+# websocket client used to drive the relay over real sockets in tests
+tokio-tungstenite = "0.29"
+# spawning the relay binary from the cli test
+tokio = { version = "1.53", features = ["process"] }
+# temporary database directories per test
+tempfile = "3"
+# mock APNs/FCM providers over real http, including http2 prior knowledge
+axum = { version = "0.8", features = ["http2"] }

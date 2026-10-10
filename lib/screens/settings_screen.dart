@@ -3,6 +3,7 @@ import 'package:broski/models/project.dart';
 import 'package:broski/providers/agent_type_provider.dart';
 import 'package:broski/providers/app_info_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/link/machines_provider.dart';
 import 'package:broski/providers/onboarding_provider.dart';
 import 'package:broski/providers/selection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
@@ -42,6 +43,7 @@ import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:broski/widgets/adaptive_container.dart';
 import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:broski/widgets/connection_quality_indicator.dart';
+import 'package:broski/widgets/link/machines_connection_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -57,6 +59,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final connection = ref.watch(connectionProvider);
+    final linkMachine = ref.watch(
+      machinesProvider.select((machines) => machines.selectedId != null),
+    );
     final currentThemeInfo = ref.watch(currentThemeInfoProvider);
     final currentAgent = ref.watch(agentTypeProvider);
     final appVersion = ref.watch(appVersionProvider);
@@ -95,7 +100,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     child: _ActiveConnectionCard(connection: connection),
                   ),
                 ),
-              ] else
+              ] else if (!linkMachine)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: Insets.screenH,
@@ -116,6 +121,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                   ),
                 ),
+              const SliverToBoxAdapter(child: MachinesConnectionCard()),
               const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
               const SliverToBoxAdapter(child: _SectionHeader(title: 'AI')),
               const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),

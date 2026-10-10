@@ -1,0 +1,21 @@
+[package]
+name = "broski-link-ffi"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+name = "broski_link_ffi"
+crate-type = ["staticlib", "cdylib", "rlib"]
+doctest = false
+
+[dependencies]
+broski-link-core = { path = "../core" }
+# base64 0.22.1 — the same pin crypto uses, to render the pairing offer as b64url.
+base64 = "0.22.1"
+# sha2 0.10.9 — RustCrypto's SHA-256 implementation, needed by bl_sha256.
+sha2 = "0.10.9"
+# zeroize 1.8.2 — the same pin crypto uses; every secret argument is copied into
+# a Zeroizing buffer before it is parsed.
+zeroize = "1.8.2"

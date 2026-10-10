@@ -1,8 +1,10 @@
 import 'package:broski/models/connection_quality.dart';
 import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/link/link_status_provider.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/widgets/link/link_status_indicator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -11,6 +13,10 @@ class ConnectionQualityIndicator extends ConsumerWidget {
   final bool compact;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // A Link machine reports its own state, which this legacy chip cannot.
+    if (ref.watch(linkStatusProvider) != null) {
+      return const LinkStatusIndicator();
+    }
     final state = ref.watch(connectionProvider);
     final theme = Theme.of(context).extension<OpenCodeTheme>()!;
     if (!state.isConnected) {

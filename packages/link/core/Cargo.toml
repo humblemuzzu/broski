@@ -1,0 +1,15 @@
+[package]
+name = "broski-link-core"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+doctest = false
+
+[dependencies]
+broski-link-crypto = { path = "../crypto" }
+broski-link-proto = { path = "../proto" }
+# thiserror 2.0.21 — derives Error/Display for the single error enum; same version proto pins.
+thiserror = "2.0.21"

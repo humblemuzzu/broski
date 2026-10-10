@@ -1,0 +1,12 @@
+[workspace]
+resolver = "2"
+members = ["crypto", "proto", "core", "ffi", "relay", "power", "daemon"]
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+
+# crypto keeps debug symbols in release builds for its benchmarks; a workspace has
+# one profile table, so it lives at the root.
+[profile.release]
+debug = true

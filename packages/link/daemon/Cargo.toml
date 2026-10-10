@@ -1,0 +1,82 @@
+[package]
+name = "broski-link-daemon"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Broski Link machine daemon: LAN and relay ingress, per-device sessions, bridge piping"
+
+[lib]
+name = "broski_link_daemon"
+doctest = false
+
+[[bin]]
+name = "broski-link"
+path = "src/main.rs"
+
+[dependencies]
+broski-link-core = { path = "../core" }
+# the proto frame/config types the fresh-session path names directly
+broski-link-proto = { path = "../proto" }
+# tokio 1.53.2 — multi-thread executor, tcp/unix sockets, signals, timers,
+# bounded channels; io-util splits the unix websocket and process supervises --bridge-cmd.
+tokio = { version = "1.53.2", features = [
+  "rt-multi-thread",
+  "macros",
+  "net",
+  "signal",
+  "sync",
+  "time",
+  "io-util",
+  "process",
+] }
+# clap 4.6.7 — subcommands plus the trailing --bridge-cmd argument list.
+clap = { version = "4.6.7", features = ["derive"] }
+# tracing 0.1.44 — structured logs that never carry secrets or payload bytes.
+tracing = "0.1.44"
+# tracing-subscriber 0.3.23 — RUST_LOG filtering and the fmt layer.
+tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
+# serde 1.0.229 — state files and the control stream shapes.
+serde = { version = "1.0.229", features = ["derive"] }
+# serde_json 1.0.151 — the same shapes on the wire.
+serde_json = "1.0.151"
+# tokio-tungstenite 0.29.0 — websocket client for the bridge unix socket and for wss:// at the relay.
+tokio-tungstenite = { version = "0.29.0", features = ["rustls-tls-webpki-roots"] }
+# futures-util 0.3.34 — splitting websockets into concurrent sink/stream halves.
+futures-util = "0.3.34"
+# axum 0.8 — the LAN listener, /v1/identity and the /v1/link upgrade.
+axum = { version = "0.8", features = ["ws"] }
+# qrcode 0.14.1 — renders the pairing uri as a terminal QR (unicode half blocks).
+qrcode = { version = "0.14.1", default-features = false }
+# if-addrs 0.14.0 — the non-loopback IPv4 addresses published in routes and in the offer.
+if-addrs = "0.14.0"
+# getrandom 0.3.4 — session ids, pairing secrets and device relay tokens.
+getrandom = "0.3.4"
+# sha2 0.10.9 — sha256 of the public bundle (machine/device id) and of relay tokens.
+sha2 = "0.10.9"
+# base64 0.22.1 — b64url without padding for bundles, tokens and the relay secret.
+base64 = "0.22.1"
+# zeroize 1.8.2 — the relay secret and device tokens are wiped on drop.
+zeroize = "1.8.2"
+# thiserror 2.0.21 — one error enum for startup and the control socket; the pin core uses.
+thiserror = "2.0.21"
+# libc 0.2 — gethostname for the default machine name.
+libc = "0.2.190"
+# chacha20poly1305 0.10.1 — ChaCha20-Poly1305-IETF seal/open for push and letter payloads.
+chacha20poly1305 = "0.10.1"
+# hmac 0.12.1 — HMAC-SHA256 of the notify and letter KDF labels.
+hmac = "0.12.1"
+# broski-link-power — the sleep monitor and the idle-sleep assertion the daemon holds.
+broski-link-power = { path = "../power" }
+
+[dev-dependencies]
+# tokio 1.53.2 — spawning the real binary for the cli test.
+tokio = { version = "1.53.2", features = ["process"] }
+# tempfile 3 — one private home per test.
+tempfile = "3.27.0"
+# tokio-tungstenite 0.29.0 — the reference phone client and the fake bridge use real websockets.
+tokio-tungstenite = { version = "0.29.0", features = ["rustls-tls-webpki-roots"] }
+# broski-relay 0.1.0 — the e2e test runs the real relay in-process on a local port.
+broski-relay = { path = "../relay" }
+# futures-util 0.3.34 — driving the test phone's websocket halves.
+futures-util = "0.3.34"

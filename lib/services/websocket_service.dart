@@ -1,10 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:broski/services/websocket/bridge_transport.dart';
 import 'package:broski/services/websocket/json_message_decoder.dart';
-import 'package:broski/services/websocket/websocket_connector.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
-import 'package:web_socket_channel/web_socket_channel.dart';
 
 enum ConnectionStatus { disconnected, connecting, connected }
 
@@ -25,7 +24,7 @@ class BatchThresholds {
 }
 
 class WebSocketService {
-  WebSocketChannel? _channel;
+  BridgeTransport? _channel;
   StreamSubscription<dynamic>? _channelSubscription; // FIX: Track subscription
   ConnectionStatus _status = ConnectionStatus.disconnected;
   int _connectionId =
@@ -163,8 +162,9 @@ class WebSocketService {
     Uri uri, {
     String? authToken,
     String? pinnedCertSha256,
+    BridgeTransport? transport,
   }) async {
-    if (uri.toString().isEmpty) {
+    if (transport == null && uri.toString().isEmpty) {
       throw StateError('Invalid connection URI');
     }
 
@@ -176,7 +176,7 @@ class WebSocketService {
     _channelSubscription = null;
 
     // Close existing channel without triggering disconnected status
-    await _channel?.sink.close();
+    await _channel?.close();
     _channel = null;
 
     // Clear any pending batches on new connection
@@ -184,34 +184,40 @@ class WebSocketService {
     _pendingBatch.clear();
 
     _setStatus(ConnectionStatus.connecting);
-    _isReconnecting = true;
-    _channel = createWebSocketChannel(
-      uri,
-      authToken: authToken,
-      pinnedCertSha256: pinnedCertSha256,
-    );
+    // A transport that owns its connection queues and retries by itself.
+    final managed = transport?.managesConnection ?? false;
+    _isReconnecting = !managed;
+    _channel =
+        transport ??
+        WebSocketTransport.connect(
+          uri,
+          authToken: authToken,
+          pinnedCertSha256: pinnedCertSha256,
+        );
 
     // Wait for the connection to be ready
     try {
-      debugPrint('[WebSocket] Waiting for connection ready...');
-      await _channel!.ready;
+      if (!managed) {
+        debugPrint('[WebSocket] Waiting for connection ready...');
+        await _channel!.ready;
 
-      // FIX: Check if this connection attempt is still valid
-      if (_connectionId != thisConnectionId) {
-        // A newer connection attempt superseded us, abort
-        debugPrint('[WebSocket] Connection superseded, aborting');
-        _channel?.sink.close();
-        return;
-      }
+        // FIX: Check if this connection attempt is still valid
+        if (_connectionId != thisConnectionId) {
+          // A newer connection attempt superseded us, abort
+          debugPrint('[WebSocket] Connection superseded, aborting');
+          _channel?.close();
+          return;
+        }
 
-      debugPrint('[WebSocket] Connection ready, status: connected');
-      _setStatus(ConnectionStatus.connected);
-      _isReconnecting = false;
-      _startHeartbeat();
+        debugPrint('[WebSocket] Connection ready, status: connected');
+        _setStatus(ConnectionStatus.connected);
+        _isReconnecting = false;
+        _startHeartbeat();
 
-      // FIX: Flush any queued messages from during reconnection
-      if (!_isHandshaking) {
-        _flushReconnectQueue();
+        // FIX: Flush any queued messages from during reconnection
+        if (!_isHandshaking) {
+          _flushReconnectQueue();
+        }
       }
     } catch (e) {
       debugPrint('[WebSocket] Connection failed: $e');
@@ -402,6 +408,10 @@ class WebSocketService {
     _pendingBatch.clear();
   }
 
+  /// Publish a connection state the transport itself decided, so the app sees
+  /// the same status stream it sees for a WebSocket.
+  void applyTransportStatus(ConnectionStatus status) => _setStatus(status);
+
   Future<void> disconnect() async {
     _connectionId++; // Invalidate any in-flight operations
     _stopHeartbeat();
@@ -410,7 +420,7 @@ class WebSocketService {
     _reconnectQueue.clear(); // Clear queue on intentional disconnect
     await _channelSubscription?.cancel();
     _channelSubscription = null;
-    await _channel?.sink.close();
+    await _channel?.close();
     _channel = null;
     _isReconnecting = false;
     _isHandshaking = false;
@@ -427,7 +437,7 @@ class WebSocketService {
     // Keep reconnect queue - we might want these after foregrounding
     _channelSubscription?.cancel();
     _channelSubscription = null;
-    _channel?.sink.close();
+    _channel?.close();
     _channel = null;
     _isReconnecting = false;
     _isHandshaking = false;
@@ -442,7 +452,7 @@ class WebSocketService {
     _reconnectQueue.clear();
     _channelSubscription?.cancel();
     _channelSubscription = null;
-    _channel?.sink.close(); // FIX: Close the channel on dispose
+    _channel?.close(); // FIX: Close the channel on dispose
     _channel = null;
     _jsonDecoder.dispose();
     _messageController.close();
@@ -517,7 +527,7 @@ class WebSocketService {
     debugPrint('[WebSocket] Pong timeout - forcing disconnect');
     // Connection is dead, force disconnect
     _stopHeartbeat();
-    _channel?.sink.close();
+    _channel?.close();
     _channel = null;
     _setStatus(ConnectionStatus.disconnected);
   }
@@ -528,7 +538,7 @@ class WebSocketService {
     );
     // Server stopped sending ticks - bridge probably restarted or Mac woke up
     _stopHeartbeat();
-    _channel?.sink.close();
+    _channel?.close();
     _channel = null;
     _setStatus(ConnectionStatus.disconnected);
   }

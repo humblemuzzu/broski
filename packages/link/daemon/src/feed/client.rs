@@ -1,0 +1,226 @@
+use std::collections::HashMap;
+use std::path::Path;
+use std::sync::Arc;
+use std::time::Duration;
+
+use futures_util::stream::SplitSink;
+use futures_util::{SinkExt, StreamExt};
+use serde_json::{json, Value};
+use tokio::net::UnixStream;
+use tokio::sync::{mpsc, oneshot, watch};
+use tokio::task::JoinHandle;
+use tokio::time::Instant;
+use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+use tokio_tungstenite::tungstenite::http::HeaderValue;
+use tokio_tungstenite::tungstenite::Message;
+use tokio_tungstenite::WebSocketStream;
+use tracing::{debug, warn};
+
+use crate::backoff::Backoff;
+use crate::device::short;
+use crate::push::{self, keys, policy, seal};
+use crate::relay::{PushRequest, RelayCommand};
+
+use super::Deps;
+
+const REQUEST: &str = "ws://localhost/v1/link";
+const IDLE: Duration = Duration::from_secs(86_400);
+
+type Socket = WebSocketStream<UnixStream>;
+type Sink = SplitSink<Socket, Message>;
+
+pub struct Request {
+    pub message: Value,
+    pub reply: oneshot::Sender<Option<Value>>,
+}
+
+pub fn spawn(
+    deps: Arc<Deps>,
+    inbox: mpsc::Receiver<Request>,
+    shutdown: watch::Receiver<bool>,
+) -> JoinHandle<()> {
+    tokio::spawn(run(deps, inbox, shutdown))
+}
+
+async fn run(
+    deps: Arc<Deps>,
+    mut inbox: mpsc::Receiver<Request>,
+    mut shutdown: watch::Receiver<bool>,
+) {
+    let mut backoff = Backoff::new(deps.durations.feed_retry_min, deps.durations.feed_retry_max);
+    let mut debounce = policy::Debounce::new(deps.durations.push_debounce);
+    loop {
+        if let Some(socket) = dial(&deps.socket).await {
+            backoff.reset();
+            session(socket, &deps, &mut inbox, &mut shutdown, &mut debounce).await;
+        }
+        tokio::select! {
+            _ = tokio::time::sleep(backoff.next()) => {}
+            _ = shutdown.wait_for(|stopped| *stopped) => return,
+        }
+    }
+}
+
+async fn session(
+    socket: Socket,
+    deps: &Deps,
+    inbox: &mut mpsc::Receiver<Request>,
+    shutdown: &mut watch::Receiver<bool>,
+    debounce: &mut policy::Debounce,
+) {
+    let (mut sink, mut source) = socket.split();
+    let mut pending: HashMap<String, oneshot::Sender<Option<Value>>> = HashMap::new();
+    let mut pong_by: Option<Instant> = None;
+    let mut ticker = tokio::time::interval(deps.durations.feed_ping);
+    ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    ticker.tick().await;
+    // Nothing left to ask the feed for is not a reason to drop the socket the bridge reports on.
+    let mut askers = true;
+    loop {
+        let deadline = pong_by.unwrap_or_else(|| Instant::now() + IDLE);
+        tokio::select! {
+            incoming = source.next() => match incoming {
+                Some(Ok(Message::Text(text))) => {
+                    handle(&text, deps, &mut pending, debounce, &mut pong_by).await;
+                }
+                Some(Ok(Message::Close(_))) | Some(Err(_)) | None => break,
+                Some(Ok(_)) => {}
+            },
+            request = inbox.recv(), if askers => match request {
+                Some(request) => {
+                    if !forward(&mut sink, request, &mut pending).await {
+                        break;
+                    }
+                }
+                None => askers = false,
+            },
+            _ = ticker.tick() => {
+                let ping = json!({"type": "link_feed_ping"}).to_string();
+                if sink.send(Message::Text(ping.into())).await.is_err() {
+                    break;
+                }
+                pong_by = Some(Instant::now() + deps.durations.feed_pong);
+            }
+            _ = tokio::time::sleep_until(deadline), if pong_by.is_some() => break,
+            _ = crate::stop::stopped(shutdown) => break,
+        }
+    }
+}
+
+async fn forward(
+    sink: &mut Sink,
+    request: Request,
+    pending: &mut HashMap<String, oneshot::Sender<Option<Value>>>,
+) -> bool {
+    if sink
+        .send(Message::Text(request.message.to_string().into()))
+        .await
+        .is_err()
+    {
+        let _ = request.reply.send(None);
+        return false;
+    }
+    match request.message.get("request") {
+        Some(group) => {
+            pending.insert(group.to_string(), request.reply);
+        }
+        None => {
+            let _ = request.reply.send(None);
+        }
+    }
+    true
+}
+
+async fn handle(
+    text: &str,
+    deps: &Deps,
+    pending: &mut HashMap<String, oneshot::Sender<Option<Value>>>,
+    debounce: &mut policy::Debounce,
+    pong_by: &mut Option<Instant>,
+) {
+    let Ok(value) = serde_json::from_str::<Value>(text) else {
+        return;
+    };
+    match value.get("type").and_then(Value::as_str) {
+        Some("link_feed_pong") => *pong_by = None,
+        Some("link_busy") => {
+            let busy = value.get("busy").and_then(Value::as_bool).unwrap_or(false);
+            deps.busy.send_if_modified(|current| {
+                if *current == busy {
+                    false
+                } else {
+                    *current = busy;
+                    true
+                }
+            });
+        }
+        Some("link_event") => alert(deps, &value, debounce).await,
+        Some("link_decision_result") => {
+            if let Some(group) = value.get("request") {
+                if let Some(reply) = pending.remove(&group.to_string()) {
+                    let _ = reply.send(Some(value));
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+async fn alert(deps: &Deps, value: &Value, debounce: &mut policy::Debounce) {
+    let Some(event) = push::event(value) else {
+        return;
+    };
+    let devices = deps.store.devices().await;
+    let targets = policy::targets(devices, |id| deps.registry.is_connected(id));
+    if targets.is_empty() || !debounce.allow(event.debounce(), Instant::now()) {
+        return;
+    }
+    let machine = deps.store.name().to_owned();
+    let Some(plaintext) = seal::encode(&event.notification(&machine)) else {
+        warn!(kind = event.kind.as_str(), "push payload does not fit");
+        return;
+    };
+    let collapse = event.collapse();
+    for device in targets {
+        let Some(registration) = device.push.as_ref() else {
+            continue;
+        };
+        let Some(secret) = keys::decode(&registration.key) else {
+            warn!(device = short(&device.id), "push key is malformed");
+            continue;
+        };
+        let notify = keys::notify(&secret);
+        let Some(data) = seal::seal(&notify, deps.machine_id.as_bytes(), &plaintext) else {
+            continue;
+        };
+        let request = RelayCommand::Push(PushRequest {
+            platform: registration.platform.clone(),
+            token: registration.token.clone(),
+            kind: event.kind.as_str(),
+            data: crate::codec::b64url(&data),
+            collapse: Some(collapse.clone()),
+            priority: event.kind.priority(),
+        });
+        if deps.relay.try_send(request).is_err() {
+            warn!(device = short(&device.id), "push not queued");
+        }
+    }
+}
+
+async fn dial(socket: &Path) -> Option<Socket> {
+    let mut request = REQUEST.into_client_request().ok()?;
+    request
+        .headers_mut()
+        .insert("x-broski-role", HeaderValue::from_static("link-daemon"));
+    let Ok(stream) = UnixStream::connect(socket).await else {
+        debug!(socket = %socket.display(), "bridge feed: nothing is listening");
+        return None;
+    };
+    match tokio_tungstenite::client_async(request, stream).await {
+        Ok((socket, _)) => Some(socket),
+        Err(error) => {
+            debug!(error = %error, "bridge feed: upgrade refused");
+            None
+        }
+    }
+}

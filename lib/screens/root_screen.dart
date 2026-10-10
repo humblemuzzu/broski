@@ -1,5 +1,7 @@
 import 'package:broski/providers/chat/runtime_shadow_provider.dart';
+import 'package:broski/providers/connection/link_connection_controller.dart';
 import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/link/machines_provider.dart';
 import 'package:broski/providers/onboarding_provider.dart';
 import 'package:broski/providers/pi/pi_backend_event_listener.dart';
 import 'package:broski/screens/bridge_setup_screen.dart';
@@ -24,6 +26,7 @@ class RootScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(runtimeShadowBootstrapProvider);
     ref.watch(piBackendEventListenerProvider);
+    ref.watch(linkConnectionBootstrapProvider);
     final connectionState = ref.watch(connectionProvider);
     final onboardingState = ref.watch(onboardingProvider);
     if (onboardingState.isLoading) {
@@ -48,6 +51,13 @@ class RootScreen extends ConsumerWidget {
       return const MainShell();
     }
     if (connectionState.isConnected) {
+      return const MainShell();
+    }
+    // A paired Link machine is the connection; everything below is the legacy
+    // WebSocket path, which must not run while one is selected.
+    if (ref.watch(
+      machinesProvider.select((machines) => machines.selectedId != null),
+    )) {
       return const MainShell();
     }
     // Initial connect (fresh scan) -> show connecting screen.
