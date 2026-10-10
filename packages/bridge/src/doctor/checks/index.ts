@@ -24,7 +24,7 @@ export async function runAllChecks(
 	const results: CheckResult[] = [
 		...(await runSystemChecks(ctx)),
 		...(await runDependencyChecks()),
-		...(await runNetworkChecks(ctx, { deep: opts.deep })),
+		...(await runNetworkChecks(ctx)),
 		...(await runSecurityChecks(ctx)),
 		...(await runDaemonChecks(ctx, { deep: opts.deep })),
 		...(await runAgentChecks()),

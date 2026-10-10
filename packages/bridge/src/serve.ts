@@ -3,14 +3,10 @@ import type { CliOptions } from "./cli";
 import type { BroskiConfig } from "./config";
 import { OpenCodeConnector } from "./connectors/opencode";
 import { warmPiSessionIndex } from "./connectors/pi/pi-session-list-indexed";
-import { enableFunnel } from "./funnel";
 import { bindWithRetry, isAddressInUse } from "./lifecycle/port-retry";
 import { logDaemon, logDaemonError, setDaemonLogger } from "./logging/daemon-log";
 import { createBridgeLogger } from "./logging/logger";
-import { getHotspotIP, getLocalIP } from "./network";
-import { getTailscaleStatus } from "./network/tailscale";
 import { getKillPortHint, getProcessOnPort, IS_WINDOWS } from "./platform";
-import { displayBanner, displayQRCode } from "./qr";
 import { loadOpenCodeSdk } from "./sdk/opencode-sdk";
 import {
 	bootstrapAttachOpenCode,
@@ -89,15 +85,14 @@ async function bootstrapOpenCode(cli: CliOptions): Promise<OpencodeBootstrap | n
 
 async function bindBridgeServer(
 	cli: CliOptions,
-	config: BroskiConfig,
 	effectivePort: number,
 	opencode: OpenCodeConnector | null,
 	logger: ReturnType<typeof createBridgeLogger>,
 	daemonLog: (message: string) => void,
 ): Promise<void> {
-	const auth = await loadOrCreateAuthState(cli.newToken, config.security.tokenTtlDays);
+	const auth = await loadOrCreateAuthState(cli.newToken);
 	if (cli.newToken) {
-		logDaemon("✓ New auth token generated (old QR codes are now invalid)");
+		logDaemon("✓ New auth token generated");
 	} else {
 		logDaemon("✓ Auth token loaded (persistent across restarts)");
 	}
@@ -110,8 +105,6 @@ async function bindBridgeServer(
 					opencode,
 					version: packageMeta.version ?? "0.1.0",
 					auth,
-					tokenTtlDays: config.security.tokenTtlDays,
-					enableLoopbackInsecureServer: cli.enableFunnel,
 					linkSocket: cli.linkSocket,
 					restartOpenCode: restartManagedOpenCode,
 					bridgeLogger: logger,
@@ -201,9 +194,6 @@ export async function runServe(cli: CliOptions, config: BroskiConfig): Promise<v
 
 	const version = packageMeta.version ?? "0.1.0";
 
-	const qrSink = cli.daemon ? logDaemon : undefined;
-	displayBanner(qrSink);
-
 	const effectivePort =
 		!argvHasPortFlag && !process.env.BROSKI_PORT && config.network.port ? config.network.port : cli.bridgePort;
 
@@ -223,58 +213,12 @@ export async function runServe(cli: CliOptions, config: BroskiConfig): Promise<v
 		serveState.opencodeConnector = null;
 	}
 
-	// Load auth + create server FIRST so the port binds fast.
-	// Network detection (Tailscale CLI calls) can take 5-15s and is only
-	// needed for QR display / funnel — defer it until after the port is up.
 	daemonLog("[daemon] Loading auth token...");
 	daemonLog("[daemon] Creating bridge server...");
-	await bindBridgeServer(cli, config, effectivePort, opencode, bridgeLogger, daemonLog);
+	await bindBridgeServer(cli, effectivePort, opencode, bridgeLogger, daemonLog);
 	const bridgeServer = serveState.bridgeServer;
 	if (!bridgeServer) return;
 	const bridgePort = bridgeServer.port();
-
-	daemonLog("[daemon] Detecting network...");
-	const localIP = getLocalIP();
-	daemonLog(`[daemon] localIP: ${localIP}`);
-	const tailscale = await getTailscaleStatus();
-	const tailscaleIP = tailscale?.ipv4 ?? null;
-	daemonLog(`[daemon] tailscaleIP: ${tailscaleIP}`);
-	const magicDNS = tailscale?.magicDnsName ?? null;
-	daemonLog(`[daemon] magicDNS: ${magicDNS}`);
-	const tailscaleConnected = tailscale?.connected ?? false;
-	daemonLog(`[daemon] tailscaleConnected: ${tailscaleConnected}`);
-	const hotspotIP = cli.detectHotspot ? getHotspotIP() : null;
-	daemonLog(`[daemon] hotspotIP: ${hotspotIP}`);
-
-	if (cli.detectHotspot) {
-		if (hotspotIP) {
-			logDaemon(`✓ Hotspot IP detected: ${hotspotIP}`);
-		} else {
-			logDaemon("ℹ️  Hotspot detection enabled but no hotspot IP found");
-			logDaemon("   Ensure your device is connected to a mobile hotspot");
-		}
-	}
-
-	if (!tailscaleConnected) {
-		logDaemon("ℹ️  Tailscale not connected. Local network access only.");
-		if (cli.enableFunnel) {
-			logDaemon("⚠️  --funnel requires Tailscale. Skipping Funnel setup.");
-		}
-	}
-
-	let funnelURL: string | null = null;
-	if (cli.enableFunnel && tailscaleConnected) {
-		logDaemon("Enabling Tailscale Funnel...");
-		const funnelBackendPort = bridgeServer.funnelBackendPort() ?? bridgePort;
-		const result = await enableFunnel(funnelBackendPort);
-		if (result.success && result.url) {
-			funnelURL = result.url;
-			serveState.funnelPort = funnelBackendPort;
-			logDaemon(`✓ Funnel enabled: ${funnelURL}`);
-		} else {
-			logDaemon(`⚠️  Funnel setup failed: ${result.error ?? "unknown error"}`);
-		}
-	}
 
 	if (opencode) {
 		// Subscribe to the primary OpenCode event stream and to any other local
@@ -286,23 +230,6 @@ export async function runServe(cli: CliOptions, config: BroskiConfig): Promise<v
 
 	startOpenCodeHealthMonitor();
 
-	const tlsInfo = bridgeServer.tls();
-	displayQRCode(
-		{
-			localIP,
-			tailscaleIP,
-			magicDNS,
-			funnelURL,
-			hotspotIP,
-			port: bridgePort,
-			version,
-			authToken: bridgeServer.authToken(),
-			tlsEnabled: tlsInfo.enabled,
-			certSha256: tlsInfo.certSha256,
-		},
-		{ write: qrSink, includeQr: !cli.daemon },
-	);
-
 	daemonLog(`[daemon] Bridge listening on port ${bridgePort}`);
 
 	// Warm the Pi session index in the background, so the first listing a phone asks for is served
@@ -310,6 +237,7 @@ export async function runServe(cli: CliOptions, config: BroskiConfig): Promise<v
 	void warmPiSessionIndex();
 	if (!cli.daemon) {
 		logDaemon(`\n✓ Bridge listening on port ${bridgePort}`);
+		logDaemon("  Pair your phone: broski-link pair");
 		logDaemon("  Press Ctrl+C to shutdown");
 		if (!serveState.opencodeServer) {
 			logDaemon("  (OpenCode not detected - OpenCode-only features are unavailable)");

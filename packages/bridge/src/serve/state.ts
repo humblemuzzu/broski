@@ -34,7 +34,6 @@ export const serveState = {
 	managedHostname: "127.0.0.1",
 	managedPort: 0,
 	verboseMode: false,
-	funnelPort: null as number | null,
 };
 
 export async function subscribeOpenCodeStream(

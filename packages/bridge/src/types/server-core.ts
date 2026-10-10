@@ -71,9 +71,4 @@ export type CoreServerMessage =
 					codex: string[];
 				};
 			};
-	  }
-	// Network endpoint live updates (bridge re-discovers IPs periodically)
-	| {
-			type: "network_endpoints_updated";
-			data: { localIP: string | null; tailscaleIP: string | null; hotspotIP: string | null; port: number };
 	  };

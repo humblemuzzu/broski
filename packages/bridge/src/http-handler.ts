@@ -191,13 +191,10 @@ export interface FetchHandlerDeps {
 	allowTokenInUrl: boolean;
 	validateAuthToken: (provided: string, expected: string) => boolean;
 	getAuthToken: () => string;
-	getAuthExpiresAt: () => number;
-	rotateExpiredAuthToken: () => Promise<void>;
 	sockets: Set<ServerWebSocket<unknown>>;
 	maxClients: number;
 	tlsEnabled: boolean;
 	isLoopbackAddress: (addr: string | undefined) => boolean;
-	isTailscaleAddress: (addr: string | undefined) => boolean;
 	allowedProxyPorts: Set<number>;
 	log: (msg: string) => void;
 	logUser: (msg: string) => void;
@@ -206,23 +203,14 @@ export interface FetchHandlerDeps {
 /**
  * Creates a `fetch` handler for Bun.serve with auth, origin checking,
  * TLS enforcement, and WebSocket upgrade logic.
- * Extracted from `makeFetch` in server.ts.
  */
-export function createFetchHandler(serverLabel: string, deps: FetchHandlerDeps) {
+export function createFetchHandler(deps: FetchHandlerDeps) {
 	return async (request: Request, serverInstance: any): Promise<Response | undefined> => {
 		const url = new URL(request.url);
-
-		const isLoopbackHostHeader = (() => {
-			const host = deps.safeString(request.headers.get("host")).toLowerCase().trim();
-			if (!host) return false;
-			return host.startsWith("127.0.0.1") || host.startsWith("localhost") || host.startsWith("[::1]");
-		})();
 
 		if (!deps.allowTokenInUrl && url.searchParams.has("token")) {
 			return publicJson({ error: "Token in URL not allowed" }, 400);
 		}
-
-		await deps.rotateExpiredAuthToken();
 
 		const isWebSocketUpgrade = request.headers.get("upgrade")?.toLowerCase() === "websocket";
 		if (isWebSocketUpgrade) {
@@ -249,16 +237,14 @@ export function createFetchHandler(serverLabel: string, deps: FetchHandlerDeps) 
 			}
 		})();
 		const isLoopback = deps.isLoopbackAddress(requestIp);
-		const isTailscale = deps.isTailscaleAddress(requestIp);
 
-		if (!deps.tlsEnabled && !isLoopback && !isTailscale) {
+		if (!deps.tlsEnabled && !isLoopback) {
 			return new Response("TLS required for non-local connections", { status: 403 });
 		}
 
 		// WebSocket proxy (loopback-only, no auth token).
 		if (isWebSocketUpgrade && url.pathname.startsWith("/proxy-ws/")) {
 			if (!isLoopback) return new Response("Forbidden", { status: 403 });
-			if (serverLabel === "loopback" && !isLoopbackHostHeader) return new Response("Forbidden", { status: 403 });
 			if (!isAllowedBrowserRequest(request, deps.safeString)) return new Response("Forbidden", { status: 403 });
 			const rest = url.pathname.slice("/proxy-ws/".length);
 			const slashIdx = rest.indexOf("/");
@@ -282,7 +268,6 @@ export function createFetchHandler(serverLabel: string, deps: FetchHandlerDeps) 
 		// HTTP preview proxy — loopback-only, no auth required.
 		if (!isWebSocketUpgrade && url.pathname.startsWith("/proxy/")) {
 			if (!isLoopback) return new Response("Forbidden", { status: 403 });
-			if (serverLabel === "loopback" && !isLoopbackHostHeader) return new Response("Forbidden", { status: 403 });
 			if (!isAllowedBrowserRequest(request, deps.safeString)) return new Response("Forbidden", { status: 403 });
 			try {
 				return await handleHttpRequest(request, deps.httpDeps);
@@ -293,15 +278,11 @@ export function createFetchHandler(serverLabel: string, deps: FetchHandlerDeps) 
 		}
 
 		const providedToken = extractTokenFromRequest(url, request);
-		const isValidToken = !!(
-			providedToken &&
-			deps.validateAuthToken(providedToken, deps.getAuthToken()) &&
-			Date.now() <= deps.getAuthExpiresAt()
-		);
+		const isValidToken = !!(providedToken && deps.validateAuthToken(providedToken, deps.getAuthToken()));
 
 		if (isWebSocketUpgrade) {
 			if (!isValidToken) {
-				deps.logUser(`[Security] WS rejected (auth) via ${serverLabel}`);
+				deps.logUser("[Security] WS rejected (auth)");
 				return new Response("Unauthorized", { status: 401 });
 			}
 			if (serverInstance.upgrade(request)) return;
@@ -319,9 +300,6 @@ export function createFetchHandler(serverLabel: string, deps: FetchHandlerDeps) 
 				url.pathname === "/manifest.json" ||
 				url.pathname === "/robots.txt";
 			if (request.method === "GET" && looksLikeDashboardAsset) {
-				if (serverLabel === "loopback" && !isLoopbackHostHeader) {
-					return publicJson({ error: "Unauthorized" }, 401);
-				}
 				try {
 					return await handleHttpRequest(request, deps.httpDeps);
 				} catch (error) {

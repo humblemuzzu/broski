@@ -1,11 +1,14 @@
-import 'package:broski/models/connection_quality.dart';
 import 'package:broski/models/project.dart';
 import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/link/link_status_provider.dart';
+import 'package:broski/providers/link/machines_provider.dart';
 import 'package:broski/providers/onboarding_provider.dart';
 import 'package:broski/providers/service_providers.dart';
+import 'package:broski/services/link/link_endpoint.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/utils/responsive.dart';
+import 'package:broski_link/broski_link.dart' show LinkRoute;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -146,11 +149,16 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
       parent: _checkController,
       curve: Curves.elasticOut,
     );
-    final ipAddress =
-        connectionState.connectedHost ??
-        connectionState.connection?.localIP ??
-        '—';
     final latency = connectionState.rttMs;
+    final machines = ref.watch(machinesProvider);
+    final machineName =
+        machineWithId(machines.machines, machines.selectedId ?? '')?.name ??
+        'your machine';
+    final route = switch (ref.watch(linkStatusProvider)?.route) {
+      LinkRoute.lan => 'Local network',
+      LinkRoute.relay => 'Remote',
+      null => '—',
+    };
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
@@ -227,7 +235,7 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
                         text: 'Secure connection established with\n',
                       ),
                       TextSpan(
-                        text: _getDeviceName(connectionState),
+                        text: machineName,
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.85),
                           fontWeight: FontWeight.w600,
@@ -267,7 +275,7 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
                         value: latency != null ? '${latency}ms' : '—',
                       ),
                       _divider(),
-                      _StatRow(label: 'IP ADDRESS', value: ipAddress),
+                      _StatRow(label: 'ROUTE', value: route),
                       if (_loaded && _projectCount > 0) ...[
                         _divider(),
                         _StatRow(
@@ -326,14 +334,6 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
         ),
       ),
     );
-  }
-
-  String _getDeviceName(BridgeConnectionState state) {
-    if (state.connectionType == ConnectionType.tailscale ||
-        state.connectionType == ConnectionType.magicDNS) {
-      return 'Remote Mac (Tailscale)';
-    }
-    return 'MacBook Pro';
   }
 
   Widget _divider() {

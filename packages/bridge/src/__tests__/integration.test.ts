@@ -18,9 +18,7 @@ describe("Setup Wizard Integration", () => {
 		// Validate all required fields are present
 		expect(typeof config.wizard.completedSetup).toBe("boolean");
 		expect(typeof config.network.port).toBe("number");
-		expect(typeof config.network.mode).toBe("string");
 		expect(typeof config.security.tls).toBe("boolean");
-		expect(typeof config.security.tokenTtlDays).toBe("number");
 		expect(typeof config.agents.opencode).toBe("boolean");
 		expect(typeof config.agents.claudeCode).toBe("boolean");
 		expect(typeof config.agents.codex).toBe("boolean");
@@ -34,11 +32,6 @@ describe("Setup Wizard Integration", () => {
 		// Network settings
 		expect(config.network.port).toBeGreaterThan(1024); // Non-privileged port
 		expect(config.network.port).toBeLessThan(65536); // Valid port range
-		expect(["local", "tailscale", "hotspot-iphone", "hotspot-android"].includes(config.network.mode)).toBe(true);
-
-		// Security settings
-		expect(config.security.tokenTtlDays).toBeGreaterThan(0);
-		expect(config.security.tokenTtlDays).toBeLessThanOrEqual(90); // Reasonable maximum
 
 		// Daemon settings
 		expect(["launchagent", "systemd", "taskscheduler", "none"].includes(config.daemon.type)).toBe(true);
@@ -105,7 +98,6 @@ describe("Troubleshooter Integration", () => {
 			| "sessions-not-showing"
 			| "bridge-crashing"
 			| "agent-not-responding"
-			| "qr-not-working"
 			| "something-else";
 		type DoctorProfile = "network" | "agents" | "daemon" | "pairing" | "all";
 
@@ -119,8 +111,6 @@ describe("Troubleshooter Integration", () => {
 					return "daemon";
 				case "agent-not-responding":
 					return "agents";
-				case "qr-not-working":
-					return "pairing";
 				case "something-else":
 					return "all";
 			}
@@ -131,7 +121,6 @@ describe("Troubleshooter Integration", () => {
 			"sessions-not-showing",
 			"bridge-crashing",
 			"agent-not-responding",
-			"qr-not-working",
 			"something-else",
 		];
 		const allProfiles: DoctorProfile[] = ["network", "agents", "daemon", "pairing", "all"];
@@ -142,9 +131,8 @@ describe("Troubleshooter Integration", () => {
 			expect(allProfiles.includes(profile)).toBe(true);
 		});
 
-		// Network and pairing should handle connectivity issues
+		// Network profile should handle connectivity issues
 		expect(profileForProblem("phone-cant-connect")).toBe("network");
-		expect(profileForProblem("qr-not-working")).toBe("pairing");
 
 		// Agents profile should handle backend issues
 		expect(profileForProblem("sessions-not-showing")).toBe("agents");
@@ -163,8 +151,8 @@ describe("End-to-End Configuration Flow", () => {
 		// Simulate results from each wizard step
 		const mockWelcomeResult = { action: "continue" as const };
 		const mockAgentsResult = { opencode: true, claudeCode: false, codex: true };
-		const mockNetworkResult = { port: 8080, mode: "tailscale" as const, enableFunnel: false };
-		const mockSecurityResult = { tls: true, tokenTtlDays: 14 };
+		const mockNetworkResult = { port: 8080 };
+		const mockSecurityResult = { tls: true };
 		const mockDaemonResult = { installed: true, type: "systemd" as const };
 
 		// Verify each result type is valid
@@ -175,11 +163,8 @@ describe("End-to-End Configuration Flow", () => {
 		expect(typeof mockAgentsResult.codex).toBe("boolean");
 
 		expect(typeof mockNetworkResult.port).toBe("number");
-		expect(["local", "tailscale", "hotspot-iphone", "hotspot-android"].includes(mockNetworkResult.mode)).toBe(true);
-		expect(typeof mockNetworkResult.enableFunnel).toBe("boolean");
 
 		expect(typeof mockSecurityResult.tls).toBe("boolean");
-		expect(typeof mockSecurityResult.tokenTtlDays).toBe("number");
 
 		expect(typeof mockDaemonResult.installed).toBe("boolean");
 		expect(["launchagent", "systemd", "taskscheduler", "none"].includes(mockDaemonResult.type)).toBe(true);
@@ -194,12 +179,9 @@ describe("End-to-End Configuration Flow", () => {
 			},
 			network: {
 				port: mockNetworkResult.port,
-				mode: mockNetworkResult.mode,
-				enableFunnel: mockNetworkResult.enableFunnel,
 			},
 			security: {
 				tls: mockSecurityResult.tls,
-				tokenTtlDays: mockSecurityResult.tokenTtlDays,
 				verifyCodeSignature: true,
 			},
 			agents: {
@@ -217,7 +199,6 @@ describe("End-to-End Configuration Flow", () => {
 		expect(finalConfig.version).toBe(1);
 		expect(finalConfig.wizard.completedSetup).toBe(true);
 		expect(finalConfig.network.port).toBe(8080);
-		expect(finalConfig.network.mode).toBe("tailscale");
 		expect(finalConfig.security.tls).toBe(true);
 		expect(finalConfig.agents.opencode).toBe(true);
 		expect(finalConfig.agents.codex).toBe(true);

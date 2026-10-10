@@ -9,7 +9,6 @@ describe("Troubleshooter Problem Categories", () => {
 		| "sessions-not-showing"
 		| "bridge-crashing"
 		| "agent-not-responding"
-		| "qr-not-working"
 		| "something-else";
 
 	type DoctorProfile = "network" | "agents" | "daemon" | "pairing" | "all";
@@ -25,8 +24,6 @@ describe("Troubleshooter Problem Categories", () => {
 				return "daemon";
 			case "agent-not-responding":
 				return "agents";
-			case "qr-not-working":
-				return "pairing";
 			case "something-else":
 				return "all";
 		}
@@ -37,7 +34,6 @@ describe("Troubleshooter Problem Categories", () => {
 		expect(profileForProblem("sessions-not-showing")).toBe("agents");
 		expect(profileForProblem("bridge-crashing")).toBe("daemon");
 		expect(profileForProblem("agent-not-responding")).toBe("agents");
-		expect(profileForProblem("qr-not-working")).toBe("pairing");
 		expect(profileForProblem("something-else")).toBe("all");
 	});
 
@@ -47,7 +43,6 @@ describe("Troubleshooter Problem Categories", () => {
 			"sessions-not-showing",
 			"bridge-crashing",
 			"agent-not-responding",
-			"qr-not-working",
 			"something-else",
 		];
 
@@ -64,7 +59,6 @@ describe("Troubleshooter Problem Categories", () => {
 
 	test("connectivity problems map to appropriate profiles", () => {
 		expect(profileForProblem("phone-cant-connect")).toBe("network");
-		expect(profileForProblem("qr-not-working")).toBe("pairing");
 	});
 });
 
@@ -73,12 +67,7 @@ describe("Problem Descriptions", () => {
 
 	test("phone connection problem includes network troubleshooting steps", () => {
 		// These would be the diagnosis messages shown in the actual troubleshooter
-		const phoneConnectionSteps = [
-			"Bridge is not running",
-			"Phone and computer are on different networks",
-			"Firewall blocks bridge port",
-			"Token/cert mismatch",
-		];
+		const phoneConnectionSteps = ["Bridge is not running", "Broski Link is not running", "Phone is not paired"];
 
 		phoneConnectionSteps.forEach((step) => {
 			expect(typeof step).toBe("string");
@@ -116,15 +105,6 @@ describe("Problem Descriptions", () => {
 				expect(command).toContain("curl");
 				expect(command).toContain("https://");
 			}
-		});
-	});
-
-	test("QR code problem includes token and TLS troubleshooting", () => {
-		const qrSteps = ["Old/expired token", "Bridge not running", "TLS fingerprint mismatch"];
-
-		qrSteps.forEach((step) => {
-			expect(typeof step).toBe("string");
-			expect(step.length).toBeGreaterThan(5);
 		});
 	});
 });
@@ -174,7 +154,6 @@ describe("Troubleshooter Flow Validation", () => {
 			{ value: "sessions-not-showing", label: "Sessions not showing up", hint: "backend/session discovery path" },
 			{ value: "bridge-crashing", label: "Bridge keeps crashing", hint: "daemon/runtime path" },
 			{ value: "agent-not-responding", label: "Agent not responding", hint: "backend path" },
-			{ value: "qr-not-working", label: "QR code not working", hint: "token / tls / scan path" },
 			{ value: "something-else", label: "Something else", hint: "full diagnostic path" },
 		];
 
@@ -194,16 +173,13 @@ describe("Troubleshooter Flow Validation", () => {
 			"sessions-not-showing": "backend/session discovery path",
 			"bridge-crashing": "daemon/runtime path",
 			"agent-not-responding": "backend path",
-			"qr-not-working": "token / tls / scan path",
 			"something-else": "full diagnostic path",
 		};
 
 		Object.entries(problemHints).forEach(([problem, hint]) => {
 			expect(hint).toContain("path");
-			if (problem.includes("phone") || problem.includes("qr")) {
-				expect(
-					hint.includes("network") || hint.includes("pairing") || hint.includes("token") || hint.includes("tls"),
-				).toBe(true);
+			if (problem.includes("phone")) {
+				expect(hint.includes("network") || hint.includes("pairing")).toBe(true);
 			}
 			if (problem.includes("session") || problem.includes("agent")) {
 				expect(hint.includes("backend") || hint.includes("agent")).toBe(true);
@@ -218,10 +194,10 @@ describe("Troubleshooter Flow Validation", () => {
 describe("Doctor Profile Mapping", () => {
 	test("each doctor profile maps to specific diagnostic areas", () => {
 		const profileAreas = {
-			network: ["connectivity", "ports", "firewall", "wifi", "tailscale"],
+			network: ["connectivity", "ports", "firewall", "wifi"],
 			agents: ["binary", "process", "installation", "backend"],
 			daemon: ["service", "startup", "background", "crash"],
-			pairing: ["token", "tls", "qr", "auth", "cert"],
+			pairing: ["token", "tls", "auth", "cert"],
 			all: ["comprehensive", "full", "everything"],
 		};
 

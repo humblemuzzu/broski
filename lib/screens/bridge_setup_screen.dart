@@ -26,8 +26,8 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
   late AnimationController _entryController;
   int _copiedIndex = -1;
   static const _installCmd = 'curl -fsSL https://broskiapp.com/install | sh';
-  static const _wizardCmd = 'broski';
   static const _daemonCmd = 'broski install';
+  static const _pairCmd = 'broski-link pair';
   @override
   void initState() {
     super.initState();
@@ -155,13 +155,13 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                           // ── Step 2: Run
                           FadeTransition(
                             opacity: entry,
-                            child: _stepHeader('2', 'Run the Bridge'),
+                            child: _stepHeader('2', 'Keep it running'),
                           ),
                           const SizedBox(height: 14),
                           FadeTransition(
                             opacity: entry,
                             child: Text(
-                              'Choose how you want to start.',
+                              'Start Broski in the background, then show the pairing code.',
                               style: TextStyle(
                                 color: Colors.white.withValues(alpha: 0.45),
                                 fontSize: 15,
@@ -170,29 +170,28 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                             ),
                           ),
                           const SizedBox(height: Spacing.xl),
-                          // Option A: Wizard
                           FadeTransition(
                             opacity: entry,
                             child: _optionCard(
                               index: 1,
-                              label: 'Setup Wizard',
-                              description: 'Interactive guided setup',
+                              label: 'Always on',
+                              description:
+                                  'Starts with your Mac and restarts itself',
                               prefix: 'broski',
-                              rest: '',
-                              command: _wizardCmd,
+                              rest: ' install',
+                              command: _daemonCmd,
                             ),
                           ),
                           const SizedBox(height: Spacing.md),
-                          // Option B: Daemon
                           FadeTransition(
                             opacity: entry,
                             child: _optionCard(
                               index: 2,
-                              label: 'Always-On Daemon',
-                              description: 'Runs in the background on boot',
-                              prefix: 'broski',
-                              rest: ' install',
-                              command: _daemonCmd,
+                              label: 'Pair this phone',
+                              description: 'Shows a QR code to scan next',
+                              prefix: 'broski-link',
+                              rest: ' pair',
+                              command: _pairCmd,
                             ),
                           ),
                           const SizedBox(height: Spacing.xxl),
@@ -221,7 +220,7 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                                   const SizedBox(width: Spacing.md),
                                   Expanded(
                                     child: Text(
-                                      'Ensure your Mac and iPhone are on the same Wi-Fi network for the lowest latency.',
+                                      'Pair once. Your phone remembers this machine and reconnects on its own.',
                                       style: TextStyle(
                                         color: Colors.white.withValues(
                                           alpha: 0.4,

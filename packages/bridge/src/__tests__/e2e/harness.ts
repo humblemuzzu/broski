@@ -83,7 +83,6 @@ export async function startBridge(overrides: Partial<BridgeServerOptions> = {}):
 		version: 1 as const,
 		token: E2E_TOKEN,
 		createdAt: Date.now(),
-		expiresAt: Date.now() + 60 * 60 * 1000,
 	};
 	const server = await createBridgeServer({
 		port: 0,

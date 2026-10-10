@@ -53,19 +53,14 @@ describe("releaseFailedBindResources", () => {
 		const interval = setInterval(() => {
 			ticks++;
 		}, 5);
-		let watcherStopped = false;
 
 		try {
 			releaseFailedBindResources({
 				intervals: [interval, null],
-				stopEndpointWatcher: () => {
-					watcherStopped = true;
-				},
 				closeFsWatchers: () => registry.closeAll(),
 				unregisterSweepables: [unregister],
 			});
 
-			expect(watcherStopped).toBe(true);
 			expect(registry.size).toBe(0);
 			expect(timers.stops).toBeGreaterThanOrEqual(1);
 			expect(boundedStateSizes().some((state) => state.name === "tests-failed-bind-release")).toBe(false);

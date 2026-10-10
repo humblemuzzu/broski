@@ -25,12 +25,6 @@ final class LinkTransport implements BridgeTransport {
   Stream<dynamic> get stream => _outgoing.stream;
 
   @override
-  Future<void> get ready => Future<void>.value();
-
-  @override
-  bool get managesConnection => true;
-
-  @override
   Future<void> close() async {
     await _incoming.cancel();
     if (!_outgoing.isClosed) {

@@ -23,7 +23,7 @@ import 'package:broski/utils/responsive.dart';
 import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:broski/widgets/adaptive_container.dart';
 import 'package:broski/widgets/chat/detail_sheet.dart';
-import 'package:broski/widgets/connection_quality_indicator.dart';
+import 'package:broski/widgets/link/link_status_indicator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -798,7 +798,7 @@ class _ModernHeader extends StatelessWidget {
           ),
           const SizedBox(height: Spacing.xl),
           // Connection quality indicator with signal bars
-          const ConnectionQualityIndicator(),
+          const LinkStatusIndicator(),
         ],
       ),
     );

@@ -207,8 +207,6 @@ class _DeviceCard extends StatelessWidget {
     switch (device.connectionType.toLowerCase()) {
       case 'local':
         return ocTheme.success;
-      case 'tailscale':
-        return ocTheme.info;
       default:
         return ocTheme.textMuted;
     }

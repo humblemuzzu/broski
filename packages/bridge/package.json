@@ -28,8 +28,7 @@
     "bridge",
     "websocket",
     "bun",
-    "claude",
-    "tailscale"
+    "claude"
   ],
   "type": "module",
   "main": "./src/index.ts",
@@ -70,7 +69,6 @@
     "ignore": "^7.0.5",
     "minimatch": "^10.2.6",
     "picocolors": "^1.1.1",
-    "qrcode-terminal": "^0.12.0",
     "zod": "^4.0.0"
   },
   "devDependencies": {

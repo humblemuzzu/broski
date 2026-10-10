@@ -5,7 +5,6 @@ import packageMeta from "../../package.json";
 import { getConfigPath, readConfig, writeConfig } from "../config";
 import { getDefaultConfig } from "../config/defaults";
 import type { BroskiConfig } from "../config/schema";
-import { getLocalIP, getTailscaleIP } from "../network";
 import {
 	type DaemonConfig,
 	findBinary,
@@ -20,10 +19,8 @@ import { WizardCancelledError } from "./errors";
 import { brand, muted, warning } from "./palette";
 import type { WizardPrompter } from "./prompter";
 import { runAgentsStep } from "./steps/agents";
-import { runConnectivityStep } from "./steps/connectivity";
 import { runDaemonStep } from "./steps/daemon";
 import { runFinalizeStep } from "./steps/finalize";
-import { runNetworkStep } from "./steps/network";
 import { runSecurityStep } from "./steps/security";
 import { runWelcomeStep } from "./steps/welcome";
 
@@ -33,9 +30,7 @@ export interface OnboardingOptions {
 	nonInteractive?: boolean;
 	// Non-interactive flag overrides
 	agents?: string[];
-	networkMode?: string;
 	tls?: boolean;
-	tokenTtl?: number;
 	daemon?: boolean;
 	port?: number;
 }
@@ -105,28 +100,13 @@ async function runNonInteractiveSetup(options: OnboardingOptions): Promise<void>
 	if (agents.pi) agentNames.push("Pi");
 	log(`Agents: ${agentNames.length > 0 ? agentNames.join(", ") : "none detected"}`);
 
-	// 2. Network mode
-	const networkMode = (options.networkMode || "local") as "local" | "tailscale" | "hotspot-iphone" | "hotspot-android";
+	// 2. Port
 	const port = options.port ?? 18274;
-
-	let ipDisplay = "127.0.0.1";
-	try {
-		if (networkMode === "tailscale") {
-			const tsIp = await getTailscaleIP();
-			if (tsIp) ipDisplay = tsIp;
-		} else {
-			const localIp = getLocalIP();
-			if (localIp) ipDisplay = localIp;
-		}
-	} catch {
-		// best effort
-	}
-	log(`Network: ${networkMode} (${ipDisplay}:${port})`);
+	log(`Port: ${port}`);
 
 	// 3. Security
 	const tlsEnabled = options.tls !== undefined ? options.tls : true;
-	const tokenTtlDays = options.tokenTtl ?? 7;
-	log(`Security: TLS ${tlsEnabled ? "enabled" : "disabled"}, token TTL ${tokenTtlDays} days`);
+	log(`Security: TLS ${tlsEnabled ? "enabled" : "disabled"}`);
 
 	// 4. TLS cert (best-effort, silent failure)
 	if (tlsEnabled) {
@@ -151,7 +131,7 @@ async function runNonInteractiveSetup(options: OnboardingOptions): Promise<void>
 
 			const daemonConfig: DaemonConfig = {
 				binaryPath: getBroskiBinaryPath(),
-				args: ["--daemon", "--hotspot"],
+				args: ["--daemon"],
 				logDir,
 				workDir: homedir(),
 			};
@@ -179,12 +159,9 @@ async function runNonInteractiveSetup(options: OnboardingOptions): Promise<void>
 		},
 		network: {
 			port,
-			mode: networkMode,
-			enableFunnel: false,
 		},
 		security: {
 			tls: tlsEnabled,
-			tokenTtlDays,
 			verifyCodeSignature: defaults.security.verifyCodeSignature,
 		},
 		agents: {
@@ -253,19 +230,13 @@ export async function runOnboardingWizard(prompter: WizardPrompter | null, optio
 		// 4. Agents step
 		const agents = await runAgentsStep(prompter, { isQuick });
 
-		// 5. Network step
-		const network = await runNetworkStep(prompter, {
-			isQuick,
-			currentPort: config.network.port,
-		});
-
-		// 6. Security step
+		// 5. Security step
 		const security = await runSecurityStep(prompter, { isQuick });
 
-		// 7. Daemon step
+		// 6. Daemon step
 		const daemon = await runDaemonStep(prompter);
 
-		// 8. Assemble final config (spread defaults for sections not configured by wizard)
+		// 7. Assemble final config (spread defaults for sections not configured by wizard)
 		const wizardDefaults = getDefaultConfig();
 		const finalConfig: BroskiConfig = {
 			...wizardDefaults,
@@ -276,13 +247,10 @@ export async function runOnboardingWizard(prompter: WizardPrompter | null, optio
 				lastRunVersion: packageMeta.version ?? "0.1.0",
 			},
 			network: {
-				port: network.port,
-				mode: network.mode,
-				enableFunnel: network.enableFunnel,
+				port: config.network.port,
 			},
 			security: {
 				tls: security.tls,
-				tokenTtlDays: security.tokenTtlDays,
 				verifyCodeSignature: wizardDefaults.security.verifyCodeSignature,
 			},
 			agents: {
@@ -297,13 +265,10 @@ export async function runOnboardingWizard(prompter: WizardPrompter | null, optio
 			},
 		};
 
-		// 9. Write config
+		// 8. Write config
 		await writeConfig(finalConfig);
 
-		// 10. Connectivity step (pair-ready QR + guidance)
-		await runConnectivityStep(prompter, finalConfig);
-
-		// 11. Validate setup
+		// 9. Validate setup
 		const runValidation = await prompter.confirm({
 			message: "Run post-setup validation now? (recommended)",
 			initialValue: true,
@@ -322,7 +287,7 @@ export async function runOnboardingWizard(prompter: WizardPrompter | null, optio
 			}
 		}
 
-		// 12. Finalize
+		// 10. Finalize
 		await runFinalizeStep(prompter, finalConfig);
 	} catch (err) {
 		if (err instanceof WizardCancelledError) {

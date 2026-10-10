@@ -1,8 +1,5 @@
 import * as pi from "../connectors/pi";
-import { getTailscaleIPViaCli, interfaceFingerprint, readLocalEndpoints } from "../network";
-import { EndpointWatcher } from "../network/endpoint-watcher";
 import { sweepBoundedState } from "../state/bounded-map";
-import type { ServerMessage } from "../types";
 import type { LeveledLogger } from "./logger";
 import type { BridgeState, BufferedStreamEvent } from "./state";
 import type { Streams } from "./streams";
@@ -15,17 +12,8 @@ const EVENT_BUFFER_STALE_MS = 120_000;
 const EVENT_BUFFER_PRUNE_INTERVAL_MS = 300_000;
 const CHAT_DEDUP_TTL_MS = 5 * 60 * 1000;
 
-export type BridgeIntervals = {
-	endpointWatcher: EndpointWatcher;
-};
-
-/** Periodic work: heartbeat, client tick, buffer/state pruning, and network-endpoint discovery. */
-export function startBridgeIntervals(deps: {
-	state: BridgeState;
-	streams: Streams;
-	log: LeveledLogger;
-	getSecurePort: () => number;
-}): BridgeIntervals {
+/** Periodic work: heartbeat, client tick, and buffer/state pruning. */
+export function startBridgeIntervals(deps: { state: BridgeState; streams: Streams; log: LeveledLogger }): void {
 	const { state } = deps;
 
 	state.heartbeatTimer = setInterval(() => {
@@ -44,9 +32,9 @@ export function startBridgeIntervals(deps: {
 			}
 
 			// Only keep one in-flight ping per client to make RTT meaningful.
-			// But expire stale pings — if the pong was lost (e.g. during a
-			// Tailscale DERP-to-direct path migration), we must not block
-			// all future pings forever.  30s is generous (normal RTT < 500ms).
+			// But expire stale pings — if the pong was lost (e.g. across a long
+			// network hiccup), we must not block all future pings forever.
+			// 30s is generous (normal RTT < 500ms).
 			if (ctx.pendingPing) {
 				if (now - ctx.pendingPing.sentAt > 30_000) {
 					ctx.pendingPing = undefined;
@@ -100,32 +88,4 @@ export function startBridgeIntervals(deps: {
 			if (now - tsMs > CHAT_DEDUP_TTL_MS) state.recentChatMessageIds.delete(key);
 		}
 	}, TICK_INTERVAL_MS);
-
-	// ── Network endpoint watcher ─────────────────────────────────────────
-	// Every 10s, re-discover IPs from the interface list (no subprocesses) and
-	// broadcast changes to connected phones. The Tailscale CLI is consulted only
-	// when the interfaces expose no CGNAT address and they just changed.
-	const endpointWatcher = new EndpointWatcher({
-		readEndpoints: readLocalEndpoints,
-		interfacesFingerprint: interfaceFingerprint,
-		resolveTailscaleViaCli: getTailscaleIPViaCli,
-		onChange: (snapshot) => {
-			deps.log.logInfo(
-				`[Network] Endpoints changed — local=${snapshot.localIP}, tailscale=${snapshot.tailscaleIP}, hotspot=${snapshot.hotspotIP}`,
-			);
-
-			deps.streams.broadcast({
-				type: "network_endpoints_updated",
-				data: {
-					localIP: snapshot.localIP,
-					tailscaleIP: snapshot.tailscaleIP,
-					hotspotIP: snapshot.hotspotIP,
-					port: deps.getSecurePort(),
-				},
-			} as ServerMessage);
-		},
-	});
-	endpointWatcher.start();
-
-	return { endpointWatcher };
 }

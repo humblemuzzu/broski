@@ -6,10 +6,9 @@ import { brand, header, muted, success, warning } from "./palette";
 import type { WizardPrompter } from "./prompter";
 import { runAgentsStep } from "./steps/agents";
 import { runDaemonStep } from "./steps/daemon";
-import { runNetworkStep } from "./steps/network";
 import { runSecurityStep } from "./steps/security";
 
-type ConfigSection = "network" | "security" | "agents" | "daemon" | "reset";
+type ConfigSection = "security" | "agents" | "daemon" | "reset";
 
 export async function runConfigure(prompter: WizardPrompter): Promise<void> {
 	try {
@@ -20,8 +19,7 @@ export async function runConfigure(prompter: WizardPrompter): Promise<void> {
 		const section = await prompter.select<ConfigSection>({
 			message: "What would you like to configure?",
 			options: [
-				{ value: "network", label: "Network settings", hint: "port, connection mode, Funnel" },
-				{ value: "security", label: "Security settings", hint: "TLS, token TTL" },
+				{ value: "security", label: "Security settings", hint: "TLS" },
 				{ value: "agents", label: "Agent settings", hint: "enable/disable agents" },
 				{ value: "daemon", label: "Daemon settings", hint: "background service" },
 				{ value: "reset", label: "Reset everything", hint: "restore defaults" },
@@ -31,29 +29,12 @@ export async function runConfigure(prompter: WizardPrompter): Promise<void> {
 		let updatedConfig: BroskiConfig = { ...config };
 
 		switch (section) {
-			case "network": {
-				const result = await runNetworkStep(prompter, {
-					isQuick: false,
-					currentPort: config.network.port,
-				});
-				updatedConfig = {
-					...updatedConfig,
-					network: {
-						port: result.port,
-						mode: result.mode,
-						enableFunnel: result.enableFunnel,
-					},
-				};
-				break;
-			}
-
 			case "security": {
 				const result = await runSecurityStep(prompter, { isQuick: false });
 				updatedConfig = {
 					...updatedConfig,
 					security: {
 						tls: result.tls,
-						tokenTtlDays: result.tokenTtlDays,
 						verifyCodeSignature: updatedConfig.security.verifyCodeSignature,
 					},
 				};

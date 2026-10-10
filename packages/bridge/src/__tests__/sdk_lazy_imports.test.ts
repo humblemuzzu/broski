@@ -32,7 +32,7 @@ describe("lazy agent SDK imports", () => {
 	});
 
 	test("an index.ts subcommand path evaluates no agent SDK", async () => {
-		const { output } = await runProbe(resolve(FIXTURES, "cli-import-probe.ts"), { PROBE_ARGV: "show-token" });
+		const { output } = await runProbe(resolve(FIXTURES, "cli-import-probe.ts"), { PROBE_ARGV: "version" });
 		expect(output).toContain("PROBE_SDK_MODULES=0");
 	});
 

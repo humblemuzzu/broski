@@ -1,8 +1,6 @@
-import { readFile } from "node:fs/promises";
 import { checkPortInUse } from "../../platform";
 import type { DoctorContext } from "../context";
 import type { CheckResult } from "../types";
-import { fileExists } from "../utils";
 
 export async function runConnectivityChecks(ctx: DoctorContext, opts: { deep?: boolean } = {}): Promise<CheckResult[]> {
 	const results: CheckResult[] = [];
@@ -53,46 +51,6 @@ export async function runConnectivityChecks(ctx: DoctorContext, opts: { deep?: b
 			message: `Bridge not listening on configured port ${ctx.port}`,
 			fix: "Run `broski restart` or start manually with `broski`",
 		});
-	}
-
-	const tokenExists = await fileExists(ctx.paths.tokenFile);
-	if (!tokenExists) {
-		results.push({
-			id: "qr_data",
-			category: "connectivity",
-			status: "warning",
-			message: "Token file missing — QR pairing unavailable until token is created",
-			fix: "Run `broski` once, then `broski qr`",
-		});
-	} else {
-		try {
-			const raw = await readFile(ctx.paths.tokenFile, "utf-8");
-			const parsed = JSON.parse(raw) as { token?: string };
-			if (typeof parsed.token === "string" && parsed.token.length >= 16) {
-				results.push({
-					id: "qr_data",
-					category: "connectivity",
-					status: "ok",
-					message: "QR data valid (token present)",
-				});
-			} else {
-				results.push({
-					id: "qr_data",
-					category: "connectivity",
-					status: "warning",
-					message: "Token file exists but token looks invalid",
-					fix: "Run `broski --new-token`",
-				});
-			}
-		} catch {
-			results.push({
-				id: "qr_data",
-				category: "connectivity",
-				status: "warning",
-				message: "Could not parse token.json",
-				fix: "Run `broski --new-token`",
-			});
-		}
 	}
 
 	if (opts.deep && listening) {

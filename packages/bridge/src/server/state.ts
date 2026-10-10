@@ -43,9 +43,7 @@ export type BridgeState = {
 	tlsEnabled: boolean;
 	allowTokenInUrl: boolean;
 	tlsMaterial: TlsMaterial | null;
-	authState: AuthTokenState;
 	authToken: string;
-	authExpiresAt: number;
 	currentAgent: AgentType;
 	codexClient: CodexAppServerClient | null;
 	ptyManager: PtyManager;
@@ -80,8 +78,6 @@ export type BridgeState = {
 	eventBufferPruneTimer: ReturnType<typeof setInterval> | null;
 	secureServer: ReturnType<typeof Bun.serve> | null;
 	securePort: number;
-	loopbackServer: ReturnType<typeof Bun.serve> | null;
-	loopbackPort: number | null;
 	linkIngress: LinkIngress | null;
 };
 
@@ -184,9 +180,7 @@ export function createBridgeState(params: CreateBridgeStateParams): BridgeState 
 		tlsEnabled: compiled ? true : isTlsEnabledByEnv(),
 		allowTokenInUrl: !compiled && process.env.BROSKI_ALLOW_TOKEN_IN_URL === "1",
 		tlsMaterial: null,
-		authState: params.auth,
 		authToken: params.auth.token,
-		authExpiresAt: params.auth.expiresAt,
 		currentAgent: params.defaultAgent,
 		codexClient: null,
 		ptyManager: new PtyManager(params.opencode),
@@ -221,8 +215,6 @@ export function createBridgeState(params: CreateBridgeStateParams): BridgeState 
 		eventBufferPruneTimer: null,
 		secureServer: null,
 		securePort: 0,
-		loopbackServer: null,
-		loopbackPort: null,
 		linkIngress: null,
 	};
 }

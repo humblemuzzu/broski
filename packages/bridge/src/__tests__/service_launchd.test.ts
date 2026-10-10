@@ -8,7 +8,7 @@ import { commandLines, recordCommands } from "./service_test_helpers";
 
 const CONFIG: DaemonConfig = {
 	binaryPath: "/opt/broski/bin/broski",
-	args: ["--daemon", "--hotspot"],
+	args: ["--daemon"],
 	logDir: "/home/tester/.broski/logs",
 	workDir: "/home/tester",
 };
@@ -25,7 +25,6 @@ describe("launchd plist generation", () => {
 				"        <string>--bridge-cmd</string>",
 				"        <string>/opt/broski/bin/broski</string>",
 				"        <string>--daemon</string>",
-				"        <string>--hotspot</string>",
 				"    </array>",
 			].join("\n"),
 		);

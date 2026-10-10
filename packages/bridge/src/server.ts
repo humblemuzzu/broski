@@ -17,7 +17,6 @@ import { isCompiledBinary } from "./platform";
 import { PtyRuntime } from "./pty/runtime";
 import { createMessageRegistry } from "./routing/routes";
 import { getSecurePath } from "./security";
-import { createAuth } from "./server/auth";
 import { createBackends } from "./server/backends";
 import { createCodexCaches } from "./server/codex-caches";
 import { createCodexClient } from "./server/codex-client";
@@ -79,14 +78,8 @@ export type BridgeServerOptions = {
 	currentAgent?: AgentType;
 	version: string;
 	auth: AuthTokenState;
-	tokenTtlDays?: number;
 	/** How long an unanswered CC/CX approval waits before it is auto-rejected. Defaults to 10 min. */
 	permissionTimeoutMs?: number;
-	/**
-	 * When true, also starts a loopback-only plaintext WS/HTTP server used for
-	 * Tailscale Funnel (which terminates TLS at the edge and proxies to localhost).
-	 */
-	enableLoopbackInsecureServer?: boolean;
 	/** Unix socket the broski-link daemon connects to; served without token auth. */
 	linkSocket?: string;
 	restartOpenCode?: () => Promise<boolean>;
@@ -103,7 +96,6 @@ export type BridgeServer = {
 	stop: (force?: boolean) => Promise<TeardownResult>;
 	connections: () => number;
 	port: () => number;
-	funnelBackendPort: () => number | null;
 	authToken: () => string;
 	tls: () => { enabled: boolean; certSha256: string | null };
 };
@@ -183,8 +175,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		log,
 	});
 
-	const auth = createAuth({ state, tokenTtlDays: options.tokenTtlDays, logUser: log.logUser });
-
 	const sendStatus = async (ws: ServerWebSocket<unknown>): Promise<void> => {
 		const ctx = state.contexts.get(ws);
 		const activeAgent: AgentType = ctx?.viewAgent ?? state.currentAgent;
@@ -199,14 +189,13 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		});
 	};
 
-	const intervals = startBridgeIntervals({ state, streams, log, getSecurePort: () => state.securePort });
+	startBridgeIntervals({ state, streams, log });
 
 	const http = createHttpWiring({
 		state,
 		streams,
 		log,
 		limits,
-		auth,
 		version: options.version,
 		opencode: options.opencode,
 		listFilesDirectly,
@@ -274,8 +263,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			? await startLinkIngress({ socketPath: options.linkSocket, state, connections, limits, log })
 			: null;
 		secureServer = Bun.serve({
-			// If TLS is disabled, only bind to loopback to avoid exposing plaintext traffic on LAN/WiFi.
-			...(state.tlsMaterial ? {} : { hostname: "127.0.0.1" }),
+			// Phones reach the bridge only through broski-link's socket; this listener serves the
+			// agent permission hooks and the dashboard on this machine.
+			hostname: "127.0.0.1",
 			port: options.port,
 			...(state.tlsMaterial
 				? {
@@ -285,14 +275,13 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 						},
 					}
 				: {}),
-			fetch: http.makeFetch("secure"),
+			fetch: http.makeFetch(),
 			websocket: connections.websocketConfig,
 		});
 	} catch (error) {
 		state.linkIngress?.stop();
 		releaseFailedBindResources({
 			intervals: [state.heartbeatTimer, state.tickTimer, state.eventBufferPruneTimer],
-			stopEndpointWatcher: () => intervals.endpointWatcher.stop(),
 			closeFsWatchers: () => fsWatchers.closeAll(),
 			unregisterSweepables: state.unregisterBoundedState,
 		});
@@ -311,26 +300,12 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		log.logInfo(`[CX Hook] Install failed (non-fatal): ${toErrorMessage(err)}`);
 	});
 
-	if (options.enableLoopbackInsecureServer) {
-		state.loopbackServer = Bun.serve({
-			hostname: "127.0.0.1",
-			port: 0,
-			fetch: http.makeFetch("loopback"),
-			websocket: connections.websocketConfig,
-		});
-		state.loopbackPort = state.loopbackServer.port ?? null;
-		if (state.loopbackPort) {
-			log.log(`[Funnel] Loopback backend listening on 127.0.0.1:${state.loopbackPort}`);
-		}
-	}
-
 	const stop = createStop({
 		state,
 		log,
 		fsWatchers,
 		ptyRuntime,
 		codexClient,
-		endpointWatcher: intervals.endpointWatcher,
 	});
 
 	return {
@@ -339,7 +314,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		stop,
 		connections: () => state.sockets.size,
 		port: () => state.securePort,
-		funnelBackendPort: () => state.loopbackPort,
 		authToken: () => state.authToken,
 		tls: () => ({
 			enabled: !!state.tlsMaterial,

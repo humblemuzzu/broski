@@ -280,27 +280,6 @@ export function findProcessByPattern(pattern: string): number[] {
 		.filter((n) => Number.isFinite(n) && n > 0 && n !== process.pid);
 }
 
-/**
- * Open a URL in the default browser.
- */
-export function openUrl(url: string): void {
-	if (IS_MACOS) {
-		runCommand("open", [url]);
-	} else if (IS_LINUX) {
-		// Try xdg-open, then sensible-browser, then fallback to printing
-		const xdg = runCommand("xdg-open", [url]);
-		if (!xdg.ok) {
-			const sb = runCommand("sensible-browser", [url]);
-			if (!sb.ok) {
-				console.log(`Open this URL in your browser: ${url}`);
-			}
-		}
-	} else {
-		// Windows: start needs empty title string when URL contains special chars
-		runCommand("cmd", ["/c", "start", '""', url], { shell: true });
-	}
-}
-
 // ============================================================================
 // 4. Daemon/Service Management
 //
@@ -581,74 +560,7 @@ async function generateCertPowerShell(cn: string, days: number, keyPath: string,
 }
 
 // ============================================================================
-// 6. Network Helpers
-// ============================================================================
-
-/**
- * Get preferred network interface names for the current platform.
- */
-export function getPreferredInterfaceNames(): string[] {
-	if (IS_MACOS) return ["en0"];
-	if (IS_LINUX) return ["eth0", "enp0s3", "enp0s25", "ens33", "ens160", "wlan0", "wlp2s0"];
-	// Windows
-	return ["Ethernet", "Wi-Fi", "vEthernet"];
-}
-
-/**
- * Get hotspot interface patterns for the current platform.
- */
-export function getHotspotInterfacePatterns(): string[] {
-	if (IS_MACOS) return ["en1", "en2", "bridge100", "bridge", "utun", "apd"];
-	if (IS_LINUX) return ["usb0", "rndis0", "wlan0", "wlp", "enp0s20u"];
-	// Windows
-	return ["Mobile Hotspot", "Local Area Connection", "Ethernet 2"];
-}
-
-/**
- * Get the Tailscale CLI binary path.
- */
-export function getTailscaleBinaryPath(): string {
-	if (IS_MACOS) return "/Applications/Tailscale.app/Contents/MacOS/Tailscale";
-	if (IS_WINDOWS) {
-		// Try PATH first
-		const found = findBinary("tailscale");
-		if (found) return found;
-		// Common install location
-		return "C:\\Program Files\\Tailscale\\tailscale.exe";
-	}
-	// Linux: on PATH
-	return "tailscale";
-}
-
-/**
- * Check if Tailscale is installed.
- */
-export async function isTailscaleInstalled(): Promise<boolean> {
-	if (IS_MACOS) {
-		try {
-			const s = await stat("/Applications/Tailscale.app");
-			return s.isDirectory();
-		} catch {
-			return false;
-		}
-	}
-
-	if (IS_LINUX) {
-		return findBinary("tailscale") !== null;
-	}
-
-	// Windows
-	if (findBinary("tailscale") !== null) return true;
-	try {
-		const s = await stat("C:\\Program Files\\Tailscale\\tailscale.exe");
-		return s.isFile();
-	} catch {
-		return false;
-	}
-}
-
-// ============================================================================
-// 7. Shell & Path Helpers
+// 6. Shell & Path Helpers
 // ============================================================================
 
 /**
@@ -676,7 +588,7 @@ export function getDefaultAllowedPaths(): string[] {
 }
 
 // ============================================================================
-// 8. User-Facing Messages (Platform-Appropriate)
+// 7. User-Facing Messages (Platform-Appropriate)
 // ============================================================================
 
 /**
@@ -716,32 +628,4 @@ export function getSleepPreventionTip(): string {
 	}
 	// Windows
 	return "Adjust power settings: powercfg /change standby-timeout-ac 0";
-}
-
-/**
- * Get Tailscale install instructions for the current platform.
- */
-export function getTailscaleInstallHint(): string {
-	if (IS_MACOS) {
-		return "Install from App Store or run: brew install tailscale";
-	}
-	if (IS_LINUX) {
-		return "curl -fsSL https://tailscale.com/install.sh | sh";
-	}
-	// Windows
-	return "winget install tailscale  # or download from https://tailscale.com/download/windows";
-}
-
-/**
- * Get the Tailscale App Store/download URL for the current platform.
- */
-export function getTailscaleDownloadUrl(): string {
-	if (IS_MACOS) {
-		return "macappstore://apps.apple.com/app/tailscale/id1475387142";
-	}
-	if (IS_LINUX) {
-		return "https://tailscale.com/download/linux";
-	}
-	// Windows
-	return "https://tailscale.com/download/windows";
 }

@@ -4,8 +4,7 @@ import { type CcPermissionHookContext, handleCcPermissionHook } from "../handler
 import { type CxPermissionHookContext, handleCxPermissionHook } from "../handlers/cx_permission_hook";
 import { createFetchHandler, type FetchHandlerDeps, type HandleHttpDeps } from "../http-handler";
 import { buildProxyPortAllowlist } from "../http-utils";
-import { isLoopbackAddress, isTailscaleAddress } from "../security";
-import type { AuthAccess } from "./auth";
+import { isLoopbackAddress } from "../security";
 import type { BridgeLimits } from "./limits";
 import type { LeveledLogger } from "./logger";
 import type { BridgeState } from "./state";
@@ -14,7 +13,7 @@ import { safeString } from "./util";
 
 export type HttpWiring = {
 	allowedProxyPorts: Set<number>;
-	makeFetch: (serverLabel: string) => ReturnType<typeof createFetchHandler>;
+	makeFetch: () => ReturnType<typeof createFetchHandler>;
 };
 
 export type HttpWiringDeps = {
@@ -22,7 +21,6 @@ export type HttpWiringDeps = {
 	streams: Streams;
 	log: LeveledLogger;
 	limits: BridgeLimits;
-	auth: AuthAccess;
 	version: string;
 	opencode: OpenCodeConnector | null;
 	listFilesDirectly: (path: string) => Promise<unknown>;
@@ -68,19 +66,16 @@ export function createHttpWiring(deps: HttpWiringDeps): HttpWiring {
 		allowTokenInUrl: state.allowTokenInUrl,
 		validateAuthToken,
 		getAuthToken: () => state.authToken,
-		getAuthExpiresAt: () => state.authExpiresAt,
-		rotateExpiredAuthToken: deps.auth.rotateExpiredAuthToken,
 		sockets: state.sockets,
 		maxClients: deps.limits.maxClients,
 		tlsEnabled: state.tlsEnabled,
 		isLoopbackAddress,
-		isTailscaleAddress,
 		allowedProxyPorts,
 		log: deps.log.log,
 		logUser: deps.log.logUser,
 	};
 
-	const makeFetch = (serverLabel: string) => createFetchHandler(serverLabel, fetchHandlerDeps);
+	const makeFetch = () => createFetchHandler(fetchHandlerDeps);
 
 	return { allowedProxyPorts, makeFetch };
 }

@@ -42,12 +42,9 @@ describe("Config Schema", () => {
 			},
 			network: {
 				port: 18274,
-				mode: "local" as const,
-				enableFunnel: false,
 			},
 			security: {
 				tls: true,
-				tokenTtlDays: 7,
 				verifyCodeSignature: true,
 			},
 			agents: {
@@ -95,22 +92,8 @@ describe("Config Schema", () => {
 		if (result.success) {
 			expect(result.data.wizard.completedSetup).toBe(false);
 			expect(result.data.network.port).toBe(18274);
-			expect(result.data.network.mode).toBe("local");
 			expect(result.data.security.tls).toBe(true);
-			expect(result.data.security.tokenTtlDays).toBe(7);
 		}
-	});
-
-	test("BroskiConfigSchema rejects invalid network mode", () => {
-		const invalidConfig = {
-			version: 1,
-			network: {
-				mode: "invalid-mode",
-			},
-		};
-
-		const result = BroskiConfigSchema.safeParse(invalidConfig);
-		expect(result.success).toBe(false);
 	});
 
 	test("BroskiConfigSchema coerces an out-of-range port without discarding the rest of the config", () => {
@@ -153,9 +136,7 @@ describe("Default Config", () => {
 		expect(defaults.version).toBe(1);
 		expect(defaults.wizard.completedSetup).toBe(false);
 		expect(defaults.network.port).toBe(18274);
-		expect(defaults.network.mode).toBe("local");
 		expect(defaults.security.tls).toBe(true);
-		expect(defaults.security.tokenTtlDays).toBe(7);
 		expect(defaults.agents.opencode).toBe(true);
 		expect(defaults.agents.claudeCode).toBe(false);
 		expect(defaults.agents.codex).toBe(false);
@@ -219,35 +200,14 @@ describe("Config Update", () => {
 		const partial: Partial<BroskiConfig> = {
 			network: {
 				port: 9090,
-				mode: "tailscale",
-				enableFunnel: true,
 			},
 		};
 
 		const updated = await updateConfig(partial, path);
 		expect(updated.network.port).toBe(9090);
-		expect(updated.network.mode).toBe("tailscale");
-		expect(updated.network.enableFunnel).toBe(true);
 		expect(updated.security.tls).toBe(true);
 
 		expect(readPersistedConfig(path)).toEqual(updated);
-	});
-
-	test("config validation with all network modes", () => {
-		const modes = ["local", "tailscale", "hotspot-iphone", "hotspot-android"] as const;
-
-		modes.forEach((mode) => {
-			const config = {
-				...getDefaultConfig(),
-				network: {
-					...getDefaultConfig().network,
-					mode,
-				},
-			};
-
-			const result = BroskiConfigSchema.safeParse(config);
-			expect(result.success).toBe(true);
-		});
 	});
 
 	test("config validation with all daemon types", () => {

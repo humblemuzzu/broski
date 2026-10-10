@@ -110,12 +110,9 @@ describe("Non-Interactive Config Assembly", () => {
 			},
 			network: {
 				port: 18274,
-				mode: "local" as const,
-				enableFunnel: false,
 			},
 			security: {
 				tls: true,
-				tokenTtlDays: 7,
 				verifyCodeSignature: true,
 			},
 			agents: {
@@ -136,11 +133,8 @@ describe("Non-Interactive Config Assembly", () => {
 
 		expect(typeof mockConfig.network.port).toBe("number");
 		expect(mockConfig.network.port).toBeGreaterThan(0);
-		expect(["local", "tailscale", "hotspot-iphone", "hotspot-android"].includes(mockConfig.network.mode)).toBe(true);
 
 		expect(typeof mockConfig.security.tls).toBe("boolean");
-		expect(typeof mockConfig.security.tokenTtlDays).toBe("number");
-		expect(mockConfig.security.tokenTtlDays).toBeGreaterThan(0);
 
 		expect(typeof mockConfig.agents.opencode).toBe("boolean");
 		expect(typeof mockConfig.agents.claudeCode).toBe("boolean");
@@ -157,9 +151,7 @@ describe("Onboarding Options Processing", () => {
 		advanced?: boolean;
 		nonInteractive?: boolean;
 		agents?: string[];
-		networkMode?: string;
 		tls?: boolean;
-		tokenTtl?: number;
 		daemon?: boolean;
 		port?: number;
 	}
@@ -190,19 +182,11 @@ describe("Onboarding Options Processing", () => {
 		const options: OnboardingOptions = {};
 
 		const port = options.port ?? 18274;
-		const networkMode = (options.networkMode || "local") as
-			| "local"
-			| "tailscale"
-			| "hotspot-iphone"
-			| "hotspot-android";
 		const tls = options.tls !== undefined ? options.tls : true;
-		const tokenTtl = options.tokenTtl ?? 7;
 		const daemon = options.daemon !== undefined ? options.daemon : true;
 
 		expect(port).toBe(18274);
-		expect(networkMode).toBe("local");
 		expect(tls).toBe(true);
-		expect(tokenTtl).toBe(7);
 		expect(daemon).toBe(true);
 	});
 
@@ -227,15 +211,6 @@ describe("Wizard Step Result Types", () => {
 
 		validActions.forEach((action) => {
 			expect(["continue", "modify", "reset", "keep"].includes(action)).toBe(true);
-		});
-	});
-
-	test("network mode types", () => {
-		type NetworkMode = "local" | "tailscale" | "hotspot-iphone" | "hotspot-android";
-		const validModes: NetworkMode[] = ["local", "tailscale", "hotspot-iphone", "hotspot-android"];
-
-		validModes.forEach((mode) => {
-			expect(["local", "tailscale", "hotspot-iphone", "hotspot-android"].includes(mode)).toBe(true);
 		});
 	});
 

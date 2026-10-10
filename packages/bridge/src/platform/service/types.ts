@@ -5,7 +5,7 @@ export type DaemonType = "launchagent" | "systemd" | "task-scheduler" | "none";
 export interface DaemonConfig {
 	/** Path to the broski binary */
 	binaryPath: string;
-	/** Extra CLI args to pass (e.g. ['--daemon', '--hotspot']) */
+	/** Extra CLI args to pass (e.g. ['--daemon']) */
 	args: string[];
 	/** Log directory */
 	logDir: string;

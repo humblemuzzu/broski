@@ -5,7 +5,6 @@ import 'package:broski/models/link/link_control_exception.dart';
 import 'package:broski/models/link/machine.dart';
 import 'package:broski/providers/app_info_provider.dart';
 import 'package:broski/providers/connection/link_status_mapping.dart';
-import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/link/link_status_provider.dart';
 import 'package:broski/providers/link/machines_provider.dart';
 import 'package:broski/providers/link/push_providers.dart';
@@ -98,12 +97,8 @@ class LinkConnectionController with WidgetsBindingObserver {
     _machine = machine;
     _statusSub = connection.status.listen(_onStatus);
     _controlSub = connection.control.listen(_onControl);
-    // The Link machine is the connection now, so the legacy QR's saved
-    // connection goes: it must not race this link for the socket.
-    await _ref.read(connectionProvider.notifier).clearConnection();
     await _socket.connect(
-      Uri(),
-      transport: LinkTransport(
+      LinkTransport(
         messages: connection.bridgeMessages,
         send: connection.sendBridge,
       ),
@@ -121,7 +116,10 @@ class LinkConnectionController with WidgetsBindingObserver {
     if (_pairing) return;
     final id = state.selectedId;
     if (id == null) {
-      _detach();
+      if (_connection != null) {
+        _detach();
+        unawaited(_socket.disconnect());
+      }
       return;
     }
     if (_connection != null) return;

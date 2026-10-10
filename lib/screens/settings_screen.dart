@@ -16,7 +16,6 @@ import 'package:broski/screens/codex_agents_screen.dart';
 import 'package:broski/screens/codex_mcp_screen.dart';
 import 'package:broski/screens/custom_tools_screen.dart';
 import 'package:broski/screens/customization_screen.dart';
-import 'package:broski/screens/device_manager_screen.dart';
 import 'package:broski/screens/hooks_screen.dart';
 import 'package:broski/screens/mcp_servers_screen.dart';
 import 'package:broski/screens/opencode_agents_screen.dart';
@@ -42,7 +41,6 @@ import 'package:broski/utils/responsive.dart';
 import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:broski/widgets/adaptive_container.dart';
 import 'package:broski/widgets/chat/detail_sheet.dart';
-import 'package:broski/widgets/connection_quality_indicator.dart';
 import 'package:broski/widgets/link/machines_connection_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -58,7 +56,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _powerFeaturesExpanded = false;
   @override
   Widget build(BuildContext context) {
-    final connection = ref.watch(connectionProvider);
     final linkMachine = ref.watch(
       machinesProvider.select((machines) => machines.selectedId != null),
     );
@@ -93,14 +90,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 child: _SectionHeader(title: 'Connection'),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: Spacing.md)),
-              if (connection.connection != null && connection.isConnected) ...[
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: Insets.screenH,
-                    child: _ActiveConnectionCard(connection: connection),
-                  ),
-                ),
-              ] else if (!linkMachine)
+              if (!linkMachine)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: Insets.screenH,
@@ -1165,281 +1155,6 @@ class _ProjectPickerContentState extends ConsumerState<_ProjectPickerContent> {
               onTap: () => widget.onSelect(p),
             ),
           ),
-      ],
-    );
-  }
-}
-
-class _ActiveConnectionCard extends ConsumerStatefulWidget {
-  const _ActiveConnectionCard({required this.connection});
-  final BridgeConnectionState connection;
-  @override
-  ConsumerState<_ActiveConnectionCard> createState() =>
-      _ActiveConnectionCardState();
-}
-
-class _ActiveConnectionCardState extends ConsumerState<_ActiveConnectionCard> {
-  bool _isExpanded = false;
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final ocTheme = OpenCodeTheme.of(context);
-    final connection = widget.connection;
-    final isConnected = connection.isConnected;
-    return GestureDetector(
-      onTap: () => setState(() => _isExpanded = !_isExpanded),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: Insets.screenAll,
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface.withValues(alpha: 0.5),
-          borderRadius: Radii.brXl,
-          border: Border.all(color: ocTheme.borderSubtle),
-        ),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: Insets.card,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    AppIcons.laptop,
-                    color: theme.colorScheme.primary,
-                    size: 28,
-                  ),
-                ),
-                const SizedBox(width: Spacing.lg),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Broski',
-                        style: TextStyle(
-                          color: theme.colorScheme.onSurface,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: Spacing.xs),
-                      const ConnectionQualityIndicator(),
-                    ],
-                  ),
-                ),
-                AnimatedRotation(
-                  turns: _isExpanded ? 0.5 : 0,
-                  duration: const Duration(milliseconds: 200),
-                  child: Icon(
-                    AppIcons.chevronDown,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                    size: 24,
-                  ),
-                ),
-              ],
-            ),
-            if (_isExpanded &&
-                isConnected &&
-                connection.connection != null) ...[
-              const SizedBox(height: Spacing.xl),
-              // Connection details
-              Container(
-                padding: Insets.card,
-                decoration: BoxDecoration(
-                  color: ocTheme.backgroundElement,
-                  borderRadius: Radii.brLg,
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _ConnectionStat(
-                            label: 'Local IP',
-                            value: connection.connection!.localIP ?? 'N/A',
-                            icon: AppIcons.wifi,
-                          ),
-                        ),
-                        Container(
-                          width: 1,
-                          height: 40,
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.1,
-                          ),
-                        ),
-                        Expanded(
-                          child: _ConnectionStat(
-                            label: 'Port',
-                            value: '${connection.connection!.port}',
-                            icon: AppIcons.settings,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (connection.connection!.tailscaleIP != null ||
-                        connection.rttMs != null) ...[
-                      const SizedBox(height: Spacing.lg),
-                      Divider(
-                        height: 1,
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.1,
-                        ),
-                      ),
-                      const SizedBox(height: Spacing.lg),
-                      Row(
-                        children: [
-                          if (connection.connection!.tailscaleIP != null)
-                            Expanded(
-                              child: _ConnectionStat(
-                                label: 'Tailscale IP',
-                                value: connection.connection!.tailscaleIP!,
-                                icon: AppIcons.vpn,
-                              ),
-                            ),
-                          if (connection.connection!.tailscaleIP != null &&
-                              connection.rttMs != null)
-                            Container(
-                              width: 1,
-                              height: 40,
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.1,
-                              ),
-                            ),
-                          if (connection.rttMs != null)
-                            Expanded(
-                              child: _ConnectionStat(
-                                label: 'Latency',
-                                value: '${connection.rttMs}ms',
-                                icon: AppIcons.speed,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              // Connection actions
-              const SizedBox(height: Spacing.md),
-              Row(
-                children: [
-                  Expanded(
-                    child: _ConnectionActionButton(
-                      icon: AppIcons.devices,
-                      label: 'Device Manager',
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const DeviceManagerScreen(),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _ConnectionActionButton(
-                      icon: AppIcons.unlink,
-                      label: 'Disconnect',
-                      isDestructive: true,
-                      onTap: () =>
-                          ref.read(connectionProvider.notifier).disconnect(),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Compact action button for connection card expanded section
-class _ConnectionActionButton extends StatelessWidget {
-  const _ConnectionActionButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.isDestructive = false,
-  });
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final bool isDestructive;
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = isDestructive
-        ? theme.colorScheme.error
-        : theme.colorScheme.primary;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: Insets.cardV,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: Radii.brMd,
-          border: Border.all(color: color.withValues(alpha: 0.2)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(width: Spacing.sm),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ConnectionStat extends StatelessWidget {
-  const _ConnectionStat({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-  final String label;
-  final String value;
-  final IconData icon;
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      children: [
-        Icon(icon, color: theme.colorScheme.primary, size: 18),
-        const SizedBox(height: Spacing.sm),
-        Text(
-          label,
-          style: TextStyle(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: Spacing.xs),
-        Text(
-          value,
-          style: TextStyle(
-            color: theme.colorScheme.onSurface,
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-          ),
-          overflow: TextOverflow.ellipsis,
-        ),
       ],
     );
   }

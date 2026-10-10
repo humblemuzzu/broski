@@ -5,8 +5,8 @@ type CoalescerTarget = ServerWebSocket<unknown> | null | undefined;
 type CoalescerEmit = (message: ServerMessage, target: CoalescerTarget) => void;
 
 /**
- * How long a text delta waits for company. The phone already sees 50–300 ms of network on
- * Tailscale, so a few milliseconds of extra delay is invisible next to the repeated envelope
+ * How long a text delta waits for company. The phone already sees 50–300 ms of network
+ * latency, so a few milliseconds of extra delay is invisible next to the repeated envelope
  * (`type`, `backend`, `sessionId`, `streamId`, `seq`, …) that merging removes per delta.
  */
 const DEFAULT_FLUSH_DELAY_MS = 4;

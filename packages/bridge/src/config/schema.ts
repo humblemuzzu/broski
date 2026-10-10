@@ -14,17 +14,14 @@ export const BroskiConfigSchema = z.object({
 	network: z
 		.object({
 			port: z.number().int().min(PORT_MIN).max(PORT_MAX).catch(DEFAULT_PORT).default(DEFAULT_PORT),
-			mode: z.enum(["local", "tailscale", "hotspot-iphone", "hotspot-android"]).default("local"),
-			enableFunnel: z.boolean().default(false),
 		})
-		.default({ port: DEFAULT_PORT, mode: "local" as const, enableFunnel: false }),
+		.default({ port: DEFAULT_PORT }),
 	security: z
 		.object({
 			tls: z.boolean().default(true),
-			tokenTtlDays: z.number().default(7),
 			verifyCodeSignature: z.boolean().default(false),
 		})
-		.default({ tls: true, tokenTtlDays: 7, verifyCodeSignature: false }),
+		.default({ tls: true, verifyCodeSignature: false }),
 	agents: z
 		.object({
 			opencode: z.boolean().default(true),

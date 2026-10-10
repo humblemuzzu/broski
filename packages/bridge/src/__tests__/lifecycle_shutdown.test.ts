@@ -207,16 +207,11 @@ describe("releaseFailedBindResources", () => {
 	test("stops the timers a failed bind already started", async () => {
 		let ticks = 0;
 		const interval = setInterval(() => ticks++, 5);
-		let watcherStopped = false;
 
 		releaseFailedBindResources({
 			intervals: [interval, null],
-			stopEndpointWatcher: () => {
-				watcherStopped = true;
-			},
 		});
 
-		expect(watcherStopped).toBe(true);
 		await sleep(30);
 		expect(ticks).toBe(0);
 	});

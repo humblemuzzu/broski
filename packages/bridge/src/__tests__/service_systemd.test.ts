@@ -8,7 +8,7 @@ import { commandLines, recordCommands } from "./service_test_helpers";
 
 const CONFIG: DaemonConfig = {
 	binaryPath: "/opt/broski/bin/broski",
-	args: ["--daemon", "--hotspot"],
+	args: ["--daemon"],
 	logDir: "/home/tester/.broski/logs",
 	workDir: "/home/tester",
 };
@@ -29,9 +29,7 @@ describe("systemd unit generation", () => {
 	const unit = systemd.generateUnit(CONFIG, "/opt/broski/bin/broski-link");
 
 	test("ExecStart runs broski-link with the bridge command", () => {
-		expect(unit).toContain(
-			"ExecStart=/opt/broski/bin/broski-link run --bridge-cmd /opt/broski/bin/broski --daemon --hotspot",
-		);
+		expect(unit).toContain("ExecStart=/opt/broski/bin/broski-link run --bridge-cmd /opt/broski/bin/broski --daemon");
 	});
 
 	test("restarts on failure after 5s", () => {

@@ -7,20 +7,17 @@ export type OpencodeMode = "managed" | "manual" | "attach";
 export type SubCommand =
 	| "serve"
 	| "doctor"
-	| "setup-tailscale"
 	| "install"
 	| "uninstall"
 	| "status"
 	| "stop"
 	| "restart"
-	| "qr"
 	| "version"
 	| "update"
 	| "setup"
 	| "configure"
 	| "troubleshoot"
 	| "logs"
-	| "show-token"
 	| null;
 
 export type CliOptions = {
@@ -32,23 +29,19 @@ export type CliOptions = {
 	opencodePort: number;
 	verbose: boolean;
 	help: boolean;
-	enableFunnel: boolean;
 	/** Unix socket path for the broski-link ingress; unset means the ingress is off. */
 	linkSocket?: string;
 	/** Path to broski-link, overriding discovery for `broski install`. */
 	linkBin?: string;
 	newToken: boolean;
-	detectHotspot: boolean;
 	daemon: boolean;
 	skipWizard: boolean;
 	setupQuick: boolean;
 	setupAdvanced: boolean;
 	nonInteractive: boolean;
 	setupAgents: string[];
-	setupNetworkMode: string;
 	setupTls: boolean | null;
 	setupNoTls: boolean;
-	setupTokenTtl: number | null;
 	setupNoDaemon: boolean;
 	doctorJson: boolean;
 	doctorFix: boolean;
@@ -82,21 +75,17 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
 	let opencodePort = parseNumber(env.BROSKI_OPENCODE_PORT, 0);
 	let verbose = false; // Set below after arg parsing; gated by isCompiledBinary
 	let help = false;
-	let enableFunnel = env.BROSKI_ENABLE_FUNNEL === "1";
 	let linkSocket: string | undefined = env.BROSKI_LINK_SOCKET?.trim() || undefined;
 	let linkBin: string | undefined;
 	let newToken = false;
-	let detectHotspot = false;
 	let daemon = false;
 	let skipWizard = false;
 	let setupQuick = false;
 	let setupAdvanced = false;
 	let nonInteractive = false;
 	let setupAgents: string[] = [];
-	let setupNetworkMode = "";
 	let setupTls: boolean | null = null;
 	let setupNoTls = false;
-	let setupTokenTtl: number | null = null;
 	let setupNoDaemon = false;
 	let doctorJson = false;
 	let doctorFix = false;
@@ -115,8 +104,6 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
 	const firstArg = args[0];
 	if (firstArg === "doctor") {
 		subCommand = "doctor";
-	} else if (firstArg === "setup-tailscale") {
-		subCommand = "setup-tailscale";
 	} else if (firstArg === "install") {
 		subCommand = "install";
 	} else if (firstArg === "uninstall") {
@@ -127,8 +114,6 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
 		subCommand = "stop";
 	} else if (firstArg === "restart") {
 		subCommand = "restart";
-	} else if (firstArg === "qr") {
-		subCommand = "qr";
 	} else if (firstArg === "version") {
 		subCommand = "version";
 	} else if (firstArg === "update") {
@@ -141,8 +126,6 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
 		subCommand = "troubleshoot";
 	} else if (firstArg === "logs") {
 		subCommand = "logs";
-	} else if (firstArg === "show-token") {
-		subCommand = "show-token";
 	} else if (firstArg === "serve" || !firstArg?.startsWith("-")) {
 		subCommand = "serve";
 	}
@@ -151,21 +134,18 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
 		const arg = args[i];
 		if (
 			arg === "doctor" ||
-			arg === "setup-tailscale" ||
 			arg === "serve" ||
 			arg === "install" ||
 			arg === "uninstall" ||
 			arg === "status" ||
 			arg === "stop" ||
 			arg === "restart" ||
-			arg === "qr" ||
 			arg === "version" ||
 			arg === "update" ||
 			arg === "setup" ||
 			arg === "configure" ||
 			arg === "troubleshoot" ||
-			arg === "logs" ||
-			arg === "show-token"
+			arg === "logs"
 		) {
 			continue;
 		}
@@ -215,10 +195,6 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
 			opencodeMode = "managed";
 			continue;
 		}
-		if (arg === "--funnel") {
-			enableFunnel = true;
-			continue;
-		}
 		if (arg === "--link-socket") {
 			linkSocket = args[i + 1] ?? linkSocket;
 			i++;
@@ -231,10 +207,6 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
 		}
 		if (arg === "--new-token") {
 			newToken = true;
-			continue;
-		}
-		if (arg === "--hotspot" || arg === "--detect-hotspot") {
-			detectHotspot = true;
 			continue;
 		}
 		if (arg === "--daemon") {
@@ -268,22 +240,12 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
 			}
 			continue;
 		}
-		if (arg === "--network-mode") {
-			setupNetworkMode = args[i + 1] ?? "";
-			i++;
-			continue;
-		}
 		if (arg === "--tls") {
 			setupTls = true;
 			continue;
 		}
 		if (arg === "--no-tls") {
 			setupNoTls = true;
-			continue;
-		}
-		if (arg === "--token-ttl") {
-			setupTokenTtl = parseNumber(args[i + 1], 7);
-			i++;
 			continue;
 		}
 		if (arg === "--no-daemon") {
@@ -362,21 +324,17 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
 		opencodePort,
 		verbose,
 		help,
-		enableFunnel,
 		linkSocket,
 		linkBin,
 		newToken,
-		detectHotspot,
 		daemon,
 		skipWizard,
 		setupQuick,
 		setupAdvanced,
 		nonInteractive,
 		setupAgents,
-		setupNetworkMode,
 		setupTls,
 		setupNoTls,
-		setupTokenTtl,
 		setupNoDaemon,
 		doctorJson,
 		doctorFix,
@@ -411,23 +369,18 @@ Commands:
   status            Show if bridge is running
   stop              Stop the background service
   restart           Restart the background service (picks up code changes)
-  qr                Show QR code to connect your phone
-  show-token        Show auth token for manual connection
   update            Check for and install bridge updates
   version           Show version and platform info
   doctor            Check system requirements and diagnose issues
-  setup-tailscale   Install and configure Tailscale for remote access
 
 Options:
   --help, -h                Show help
   --version, -V             Show version and platform info
   --verbose, -v             Verbose logging (SDK events + debug)
   --port, --bridge-port N   Bridge WebSocket port (default: 18274; use 0 for random free port)
-  --funnel                  Enable Tailscale Funnel for public HTTPS access (no VPN needed on phone)
   --link-socket PATH        Also serve broski-link on this Unix socket (filesystem-permission auth)
   --link-bin PATH           broski-link binary to run as the background service (default: auto-detect)
-  --new-token               Generate a new auth token (invalidates existing QR codes)
-  --hotspot, --detect-hotspot Detect and prioritize hotspot IP for remote access via mobile hotspot
+  --new-token               Generate a new local auth token (invalidates the current one used by the agent hooks)
   --skip-wizard             Skip interactive wizard prompts (for daemon/CI mode)
   --quick                   QuickStart mode for setup wizard (auto-detect everything)
   --advanced                Advanced mode for setup wizard (customize each setting)
@@ -435,9 +388,7 @@ Options:
 Setup (non-interactive):
   --non-interactive           Run setup without prompts (uses defaults + flags)
   --agents LIST               Comma-separated agents: opencode,claude,codex
-  --network-mode MODE         Network mode: local, tailscale, hotspot-iphone, hotspot-android
   --tls / --no-tls            Enable/disable TLS (default: enabled)
-  --token-ttl DAYS            Auth token TTL in days (default: 7)
   --no-daemon                 Don't install background service
 
 Doctor:
@@ -468,8 +419,6 @@ OpenCode:
 Examples:
   broski                         Start the bridge
   broski install                 Install as background service
-  broski qr                      Show QR code to pair your phone
-  broski qr --hotspot            Show QR code with hotspot IP
   broski status                  Check if bridge is running
   broski stop                    Stop the background service
   broski restart                 Restart the background service
@@ -478,13 +427,11 @@ Examples:
   broski doctor --fix            Apply safe automatic fixes
   broski doctor --profile network Diagnose connection/network issues only
   broski doctor --export         Export diagnostics bundle
-  broski setup-tailscale         Set up Tailscale for remote access
   broski update                  Update to the latest version
   broski logs                    Show recent bridge logs
   broski logs --follow           Follow logs in real-time
   broski logs --export           Export redacted diagnostics bundle
   broski --verbose               Start with debug logging
-  broski --hotspot               Prioritize hotspot IP (for mobile tethering)
 `.trim(),
 	);
 }

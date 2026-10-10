@@ -43,9 +43,6 @@ class DeviceInfo {
     };
   }
 
-  bool get isLocal => connectionType == 'local';
-  bool get isTailscale => connectionType == 'tailscale';
-
   String get platformIcon {
     switch (platform.toLowerCase()) {
       case 'ios':

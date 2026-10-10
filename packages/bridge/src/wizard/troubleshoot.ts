@@ -8,7 +8,6 @@ type Problem =
 	| "sessions-not-showing"
 	| "bridge-crashing"
 	| "agent-not-responding"
-	| "qr-not-working"
 	| "something-else";
 
 function profileForProblem(problem: Problem): DoctorProfile {
@@ -21,8 +20,6 @@ function profileForProblem(problem: Problem): DoctorProfile {
 			return "daemon";
 		case "agent-not-responding":
 			return "agents";
-		case "qr-not-working":
-			return "pairing";
 		case "something-else":
 			return "all";
 	}
@@ -39,7 +36,6 @@ export async function runTroubleshootWizard(prompter: WizardPrompter): Promise<v
 				{ value: "sessions-not-showing", label: "Sessions not showing up", hint: "backend/session discovery path" },
 				{ value: "bridge-crashing", label: "Bridge keeps crashing", hint: "daemon/runtime path" },
 				{ value: "agent-not-responding", label: "Agent not responding", hint: "backend path" },
-				{ value: "qr-not-working", label: "QR code not working", hint: "token / tls / scan path" },
 				{ value: "something-else", label: "Something else", hint: "full diagnostic path" },
 			],
 		});
@@ -109,12 +105,10 @@ async function showDiagnosis(prompter: WizardPrompter, problem: Problem): Promis
 				`${bold("Most likely causes:")}\n\n` +
 					`  ${bold("1.")} Bridge is not running\n` +
 					`     ${muted("Run:")} ${brand("broski")}\n\n` +
-					`  ${bold("2.")} Phone and computer are on different networks\n` +
-					`     ${muted("Use same Wi-Fi or Tailscale")}\n\n` +
-					`  ${bold("3.")} Firewall blocks bridge port\n` +
-					`     ${muted("Allow configured bridge port in firewall")}\n\n` +
-					`  ${bold("4.")} Token/cert mismatch\n` +
-					`     ${muted("Run:")} ${brand("broski qr --new-token")}`,
+					`  ${bold("2.")} Broski Link is not running\n` +
+					`     ${muted("Check:")} ${brand("broski status")} ${muted("and")} ${brand("broski-link status")}\n\n` +
+					`  ${bold("3.")} Phone is not paired\n` +
+					`     ${muted("Run:")} ${brand("broski-link pair")}`,
 				"Phone Connection Issues",
 			);
 			break;
@@ -148,20 +142,6 @@ async function showDiagnosis(prompter: WizardPrompter, problem: Problem): Promis
 					`  ${muted("Codex:")}       ${brand("npm i -g @openai/codex")}\n\n` +
 					`${muted("Then run:")} ${brand("broski doctor --profile agents")}`,
 				"Agent Issues",
-			);
-			break;
-
-		case "qr-not-working":
-			await prompter.note(
-				`${bold("Most likely causes:")}\n\n` +
-					`  ${bold("1.")} Old/expired token\n` +
-					`     ${muted("Run:")} ${brand("broski qr --new-token")}\n\n` +
-					`  ${bold("2.")} Bridge not running\n` +
-					`     ${muted("Run:")} ${brand("broski")}\n\n` +
-					`  ${bold("3.")} TLS fingerprint mismatch after cert rotation\n` +
-					`     ${muted("Re-scan fresh QR from same machine")}\n\n` +
-					`${muted("Run:")} ${brand("broski doctor --profile pairing")}`,
-				"QR Code Issues",
 			);
 			break;
 

@@ -141,11 +141,6 @@ describe("CLI Parser", () => {
 		expect(result.subCommand).toBe("restart");
 	});
 
-	test("parses qr command", () => {
-		const result = parseCli(["node", "broski", "qr"], {});
-		expect(result.subCommand).toBe("qr");
-	});
-
 	test("parses update command", () => {
 		const result = parseCli(["node", "broski", "update"], {});
 		expect(result.subCommand).toBe("update");
@@ -166,24 +161,9 @@ describe("CLI Parser", () => {
 		expect(result.bridgePort).toBe(8080);
 	});
 
-	test("parses --funnel flag", () => {
-		const result = parseCli(["node", "broski", "--funnel"], {});
-		expect(result.enableFunnel).toBe(true);
-	});
-
 	test("parses --new-token flag", () => {
 		const result = parseCli(["node", "broski", "--new-token"], {});
 		expect(result.newToken).toBe(true);
-	});
-
-	test("parses --hotspot flag", () => {
-		const result = parseCli(["node", "broski", "--hotspot"], {});
-		expect(result.detectHotspot).toBe(true);
-	});
-
-	test("parses --detect-hotspot flag (alias)", () => {
-		const result = parseCli(["node", "broski", "--detect-hotspot"], {});
-		expect(result.detectHotspot).toBe(true);
 	});
 
 	test("parses --verbose flag", () => {
@@ -214,10 +194,9 @@ describe("CLI Parser", () => {
 	});
 
 	test("parses environment variables", () => {
-		const env = { BROSKI_PORT: "9000", BROSKI_ENABLE_FUNNEL: "1" };
+		const env = { BROSKI_PORT: "9000" };
 		const result = parseCli(["node", "broski"], env);
 		expect(result.bridgePort).toBe(9000);
-		expect(result.enableFunnel).toBe(true);
 	});
 
 	test("command line args override environment", () => {

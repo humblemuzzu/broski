@@ -104,7 +104,7 @@ export async function runSecurityChecks(ctx: DoctorContext): Promise<CheckResult
 			autoFix: async () => {
 				try {
 					const { loadOrCreateAuthState } = await import("../../server");
-					await loadOrCreateAuthState(true, ctx.config.security.tokenTtlDays);
+					await loadOrCreateAuthState(true);
 					return await fileExists(ctx.paths.tokenFile);
 				} catch {
 					return false;
@@ -121,7 +121,7 @@ export async function runSecurityChecks(ctx: DoctorContext): Promise<CheckResult
 		results.push({ id: "auth_token", category: "security", status: "ok", message: "Auth token exists" });
 		try {
 			const raw = await readFile(ctx.paths.tokenFile, "utf-8");
-			const parsed = JSON.parse(raw) as { version?: number; token?: string; expiresAt?: number };
+			const parsed = JSON.parse(raw) as { version?: number; token?: string };
 			const token = typeof parsed.token === "string" ? parsed.token : "";
 			if (parsed.version !== 1 || token.length < 16) {
 				results.push({
@@ -129,14 +129,6 @@ export async function runSecurityChecks(ctx: DoctorContext): Promise<CheckResult
 					category: "security",
 					status: "warning",
 					message: "Token format malformed",
-					fix: "Run `broski --new-token`",
-				});
-			} else if (parsed.expiresAt && Date.now() > parsed.expiresAt) {
-				results.push({
-					id: "auth_token_valid",
-					category: "security",
-					status: "warning",
-					message: "Token expired",
 					fix: "Run `broski --new-token`",
 				});
 			} else {

@@ -10,20 +10,8 @@ function formatAgents(config: BroskiConfig): string {
 	return agents.length > 0 ? agents.join(", ") : muted("none configured");
 }
 
-function formatNetwork(config: BroskiConfig): string {
-	const modeLabels: Record<string, string> = {
-		local: "Same Wi-Fi",
-		tailscale: "Tailscale",
-		"hotspot-iphone": "iPhone Hotspot",
-		"hotspot-android": "Android Hotspot",
-	};
-	const label = modeLabels[config.network.mode] ?? config.network.mode;
-	return `${label} (port ${config.network.port})`;
-}
-
 function formatSecurity(config: BroskiConfig): string {
-	const tls = config.security.tls ? success("TLS enabled") : "TLS disabled";
-	return `${tls}, token expires in ${config.security.tokenTtlDays}d`;
+	return config.security.tls ? success("TLS enabled") : "TLS disabled";
 }
 
 function formatDaemon(config: BroskiConfig): string {
@@ -40,7 +28,7 @@ export async function runFinalizeStep(prompter: WizardPrompter, config: BroskiCo
 	// Summary card
 	await prompter.note(
 		`  ${bold("Agents:")}    ${formatAgents(config)}\n` +
-			`  ${bold("Network:")}   ${formatNetwork(config)}\n` +
+			`  ${bold("Port:")}      ${config.network.port}\n` +
 			`  ${bold("Security:")}  ${formatSecurity(config)}\n` +
 			`  ${bold("Daemon:")}    ${formatDaemon(config)}`,
 		"Configuration Summary",
@@ -48,13 +36,12 @@ export async function runFinalizeStep(prompter: WizardPrompter, config: BroskiCo
 
 	// Next steps
 	await prompter.note(
-		`  ${brand("broski")}              ${muted("— Start the bridge")}\n` +
-			`  ${brand("broski qr")}           ${muted("— Show QR code to pair your phone")}\n` +
-			`  ${brand("broski doctor")}       ${muted("— Run diagnostics")}\n` +
-			`  ${brand("broski doctor --fix")} ${muted("— Apply safe fixes")}\n` +
-			`  ${brand("broski logs --export")} ${muted("— Export support bundle")}\n` +
-			`  ${brand("broski configure")}    ${muted("— Change settings")}\n` +
-			`  ${brand("broski troubleshoot")} ${muted("— Guided troubleshooting")}`,
+		`  ${brand("broski install")}      ${muted("— Set up Always On (runs the bridge via broski-link)")}\n` +
+			`  ${brand("broski-link pair")}     ${muted("— Show the pairing QR for your phone")}\n` +
+			`  ${brand("broski doctor")}        ${muted("— Run diagnostics")}\n` +
+			`  ${brand("broski logs --export")}  ${muted("— Export support bundle")}\n` +
+			`  ${brand("broski configure")}     ${muted("— Change settings")}\n` +
+			`  ${brand("broski troubleshoot")}  ${muted("— Guided troubleshooting")}`,
 		"Next Steps",
 	);
 

@@ -51,7 +51,7 @@ export async function startDecisionHarness(): Promise<DecisionHarness> {
 	const log = createLeveledLogger({});
 	const state = createBridgeState({
 		opencode: null,
-		auth: { version: 1, token: "decision-test-token", createdAt: Date.now(), expiresAt: Date.now() + 60_000 },
+		auth: { version: 1, token: "decision-test-token", createdAt: Date.now() },
 		webDistDir: "/tmp",
 		defaultAgent: "claude-code",
 		logInfo: () => {},

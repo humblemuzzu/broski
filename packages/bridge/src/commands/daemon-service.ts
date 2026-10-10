@@ -56,7 +56,7 @@ export async function runInstall(linkBin?: string): Promise<void> {
 
 	const config: DaemonConfig = {
 		binaryPath,
-		args: ["--daemon", "--hotspot"],
+		args: ["--daemon"],
 		logDir: BROSKI_LOG_DIR,
 		workDir: homedir(),
 		linkBinaryPath: linkBin,

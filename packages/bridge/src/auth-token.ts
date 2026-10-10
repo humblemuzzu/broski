@@ -1,5 +1,8 @@
 /**
- * Auth token lifecycle: generation, persistence, validation, rotation.
+ * Auth token lifecycle: generation, persistence, validation.
+ *
+ * The token is a persisted local secret (0600) that the bridge writes once and
+ * the agent permission hooks read back. It never expires.
  *
  * Extracted from server.ts — these are pure functions with no closure dependencies.
  */
@@ -17,20 +20,11 @@ export type AuthTokenState = {
 	version: 1;
 	token: string;
 	createdAt: number;
-	expiresAt: number;
 	lastUsedAt?: number;
 };
 
 export function generateAuthToken(): string {
 	return randomBytes(24).toString("base64url");
-}
-
-export function getTokenTtlMs(tokenTtlDays?: number): number {
-	const envDays = Number(process.env.BROSKI_TOKEN_TTL_DAYS ?? "7");
-	const days = tokenTtlDays ?? (Number.isFinite(envDays) ? envDays : 7);
-	const ttlMs = Math.floor((Number.isFinite(days) ? days : 7) * 24 * 60 * 60 * 1000);
-	// Minimum: 1 hour, Maximum: 90 days (defense-in-depth against misconfig)
-	return Math.min(Math.max(ttlMs, 60 * 60 * 1000), 90 * 24 * 60 * 60 * 1000);
 }
 
 export function isLikelyValidToken(token: string): boolean {
@@ -46,14 +40,12 @@ export async function persistAuthState(state: AuthTokenState): Promise<void> {
 	await writeFile(TOKEN_FILE, JSON.stringify(state), { mode: 0o600 });
 }
 
-export async function createNewAuthState(now = Date.now(), tokenTtlDays?: number): Promise<AuthTokenState> {
+export async function createNewAuthState(now = Date.now()): Promise<AuthTokenState> {
 	const token = generateAuthToken();
-	const ttlMs = getTokenTtlMs(tokenTtlDays);
 	const state: AuthTokenState = {
 		version: 1,
 		token,
 		createdAt: now,
-		expiresAt: now + ttlMs,
 		lastUsedAt: now,
 	};
 	await persistAuthState(state);
@@ -67,7 +59,7 @@ export async function createNewAuthState(now = Date.now(), tokenTtlDays?: number
 	return state;
 }
 
-export async function loadOrCreateAuthState(forceNew = false, tokenTtlDays?: number): Promise<AuthTokenState> {
+export async function loadOrCreateAuthState(forceNew = false): Promise<AuthTokenState> {
 	const now = Date.now();
 
 	if (!forceNew) {
@@ -77,19 +69,13 @@ export async function loadOrCreateAuthState(forceNew = false, tokenTtlDays?: num
 			const parsed = JSON.parse(raw) as Partial<AuthTokenState>;
 			const token = typeof parsed.token === "string" ? parsed.token.trim() : "";
 			const createdAt = Number(parsed.createdAt ?? 0) || now;
-			const expiresAt = Number(parsed.expiresAt ?? 0) || createdAt + getTokenTtlMs(tokenTtlDays);
 			const lastUsedAt = Number(parsed.lastUsedAt ?? 0) || undefined;
 
 			if (parsed.version === 1 && isLikelyValidToken(token)) {
-				if (now > expiresAt) {
-					// Rotate on read if expired.
-					return await createNewAuthState(now, tokenTtlDays);
-				}
 				const state: AuthTokenState = {
 					version: 1,
 					token,
 					createdAt,
-					expiresAt,
 					...(lastUsedAt ? { lastUsedAt } : {}),
 				};
 				// Touch last-used (best-effort).
@@ -105,12 +91,10 @@ export async function loadOrCreateAuthState(forceNew = false, tokenTtlDays?: num
 			const existing = await readFile(TOKEN_FILE_LEGACY, "utf-8");
 			const token = existing.trim();
 			if (isLikelyValidToken(token)) {
-				const ttlMs = getTokenTtlMs(tokenTtlDays);
 				const state: AuthTokenState = {
 					version: 1,
 					token,
 					createdAt: now,
-					expiresAt: now + ttlMs,
 					lastUsedAt: now,
 				};
 				await persistAuthState(state);
@@ -127,12 +111,12 @@ export async function loadOrCreateAuthState(forceNew = false, tokenTtlDays?: num
 		}
 	}
 
-	return await createNewAuthState(now, tokenTtlDays);
+	return await createNewAuthState(now);
 }
 
 // Load or create persistent auth token (compat API for older callers)
-export async function loadOrCreateAuthToken(forceNew = false, tokenTtlDays?: number): Promise<string> {
-	const state = await loadOrCreateAuthState(forceNew, tokenTtlDays);
+export async function loadOrCreateAuthToken(forceNew = false): Promise<string> {
+	const state = await loadOrCreateAuthState(forceNew);
 	return state.token;
 }
 

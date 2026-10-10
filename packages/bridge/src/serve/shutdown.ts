@@ -1,4 +1,3 @@
-import { disableFunnel } from "../funnel";
 import { createShutdownController } from "../lifecycle/shutdown-guard";
 import { logDaemon, logDaemonError } from "../logging/daemon-log";
 import { stopPeriodicUpdateCheck } from "../updater";
@@ -30,12 +29,6 @@ async function runShutdown(signal: string, _exitCode = 0): Promise<void> {
 		while (serveState.extraEventStreamControllers.length > 0) {
 			serveState.extraEventStreamControllers.pop()?.abort();
 		}
-	}
-
-	if (serveState.funnelPort !== null) {
-		logDaemon("Disabling Tailscale Funnel...");
-		await disableFunnel(serveState.funnelPort);
-		serveState.funnelPort = null;
 	}
 
 	if (serveState.bridgeServer) {

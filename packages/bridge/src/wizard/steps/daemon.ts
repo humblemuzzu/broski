@@ -72,7 +72,7 @@ export async function runDaemonStep(prompter: WizardPrompter): Promise<DaemonRes
 
 	const daemonConfig: DaemonConfig = {
 		binaryPath: getBroskiBinaryPath(),
-		args: ["--daemon", "--hotspot"],
+		args: ["--daemon"],
 		logDir,
 		workDir: homedir(),
 	};

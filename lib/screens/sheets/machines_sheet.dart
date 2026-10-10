@@ -1,4 +1,6 @@
+import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/link/machines_provider.dart';
+import 'package:broski/screens/device_manager_screen.dart';
 import 'package:broski/screens/scan_screen.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/app_typography.dart';
@@ -42,6 +44,16 @@ class MachinesSheet extends ConsumerWidget {
                 selected: machine.id == state.selectedId,
               ),
           const SizedBox(height: Spacing.lg),
+          if (ref.watch(connectionProvider.select((c) => c.isConnected))) ...[
+            OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const DeviceManagerScreen()),
+              ),
+              icon: const Icon(AppIcons.devices, size: 18),
+              label: const Text('Devices on this machine'),
+            ),
+            const SizedBox(height: Spacing.sm),
+          ],
           OutlinedButton.icon(
             onPressed: () => Navigator.of(
               context,

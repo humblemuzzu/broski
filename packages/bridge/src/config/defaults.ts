@@ -14,12 +14,9 @@ export function getDefaultConfig(): BroskiConfig {
 		},
 		network: {
 			port: 18274,
-			mode: "local",
-			enableFunnel: false,
 		},
 		security: {
 			tls: true,
-			tokenTtlDays: 7,
 			verifyCodeSignature: true, // Legacy field; integrity checks are always-on in compiled binaries regardless of this value.
 		},
 		agents: {

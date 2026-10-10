@@ -109,31 +109,6 @@ describe("Daemon Type Mapping (from daemon step)", () => {
 	});
 });
 
-describe("Network Mode Detection", () => {
-	// Test network detection logic
-	test("network mode enum values are valid", () => {
-		const validModes = ["local", "tailscale", "hotspot-iphone", "hotspot-android"];
-
-		validModes.forEach((mode) => {
-			// Each mode should be a non-empty string
-			expect(typeof mode).toBe("string");
-			expect(mode.length).toBeGreaterThan(0);
-		});
-	});
-});
-
-describe("Security Configuration", () => {
-	test("token TTL values are reasonable", () => {
-		const validTtlDays = [7, 14, 30, 90];
-
-		validTtlDays.forEach((days) => {
-			expect(typeof days).toBe("number");
-			expect(days).toBeGreaterThan(0);
-			expect(days).toBeLessThanOrEqual(90);
-		});
-	});
-});
-
 describe("Configuration Result Types", () => {
 	test("AgentsResult structure", () => {
 		type AgentsResult = {
@@ -151,41 +126,6 @@ describe("Configuration Result Types", () => {
 		expect(typeof mockResult.opencode).toBe("boolean");
 		expect(typeof mockResult.claudeCode).toBe("boolean");
 		expect(typeof mockResult.codex).toBe("boolean");
-	});
-
-	test("NetworkResult structure", () => {
-		type NetworkResult = {
-			port: number;
-			mode: "local" | "tailscale" | "hotspot-iphone" | "hotspot-android";
-			enableFunnel: boolean;
-		};
-
-		const mockResult: NetworkResult = {
-			port: 18274,
-			mode: "local",
-			enableFunnel: false,
-		};
-
-		expect(typeof mockResult.port).toBe("number");
-		expect(mockResult.port).toBeGreaterThan(0);
-		expect(["local", "tailscale", "hotspot-iphone", "hotspot-android"].includes(mockResult.mode)).toBe(true);
-		expect(typeof mockResult.enableFunnel).toBe("boolean");
-	});
-
-	test("SecurityResult structure", () => {
-		type SecurityResult = {
-			tls: boolean;
-			tokenTtlDays: number;
-		};
-
-		const mockResult: SecurityResult = {
-			tls: true,
-			tokenTtlDays: 7,
-		};
-
-		expect(typeof mockResult.tls).toBe("boolean");
-		expect(typeof mockResult.tokenTtlDays).toBe("number");
-		expect(mockResult.tokenTtlDays).toBeGreaterThan(0);
 	});
 
 	test("DaemonResult structure", () => {

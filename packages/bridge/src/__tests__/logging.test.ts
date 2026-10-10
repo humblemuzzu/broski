@@ -141,17 +141,6 @@ actual key content here
 			expect(text.includes("port") && text.includes("already")).toBe(true);
 		});
 
-		test("detects tailscale connectivity issues", () => {
-			const logs = [
-				"Checking Tailscale status",
-				"tailscale not connected - funnel unavailable",
-				"Falling back to local network",
-			];
-
-			const text = logs.join("\n").toLowerCase();
-			expect(text.includes("tailscale not connected")).toBe(true);
-		});
-
 		test("detects WebSocket rejection", () => {
 			const logs = [
 				"WebSocket connection attempt from 192.168.1.100",
@@ -190,7 +179,6 @@ actual key content here
 
 			const text = logs.join("\n").toLowerCase();
 			expect(text.includes("eaddrinuse")).toBe(false);
-			expect(text.includes("tailscale not connected")).toBe(false);
 			expect(text.includes("ws rejected")).toBe(false);
 			expect(text.includes("opencode not available")).toBe(false);
 		});
@@ -198,7 +186,6 @@ actual key content here
 		test("issue detection is case insensitive", () => {
 			const testCases = [
 				"EADDRINUSE error occurred",
-				"Tailscale Not Connected to network",
 				"WS Rejected due to auth failure",
 				"OpenCode Not Available currently",
 			];
@@ -206,10 +193,7 @@ actual key content here
 			for (const testCase of testCases) {
 				const text = testCase.toLowerCase();
 				const hasKnownIssue =
-					text.includes("eaddrinuse") ||
-					text.includes("tailscale not connected") ||
-					text.includes("ws rejected") ||
-					text.includes("opencode not available");
+					text.includes("eaddrinuse") || text.includes("ws rejected") || text.includes("opencode not available");
 
 				expect(hasKnownIssue).toBe(true);
 			}

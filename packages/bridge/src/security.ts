@@ -19,26 +19,6 @@ export function isLoopbackAddress(address: string | undefined): boolean {
 	return false;
 }
 
-export function isTailscaleAddress(address: string | undefined): boolean {
-	if (!address) return false;
-	const a = address.trim().toLowerCase();
-	// IPv6-mapped IPv4
-	const v4 = a.startsWith("::ffff:") ? a.slice("::ffff:".length) : a;
-
-	// IPv4: 100.64.0.0/10
-	const m = v4.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-	if (m) {
-		const o1 = Number(m[1]);
-		const o2 = Number(m[2]);
-		if (o1 === 100 && o2 >= 64 && o2 <= 127) return true;
-		return false;
-	}
-
-	// IPv6 (Tailscale ULA range)
-	if (a.startsWith("fd7a:115c:a1e0:")) return true;
-	return false;
-}
-
 // ── Input validation ────────────────────────────────────────────────
 
 export function hasPrototypePoisonKeys(value: unknown, depth = 0): boolean {

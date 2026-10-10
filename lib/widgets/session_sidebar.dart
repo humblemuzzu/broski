@@ -9,7 +9,7 @@ import 'package:broski/theme/app_typography.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/widgets/chat/section_header.dart';
-import 'package:broski/widgets/connection_quality_indicator.dart';
+import 'package:broski/widgets/link/link_status_indicator.dart';
 import 'package:broski/widgets/sidebar/cc_context_details.dart';
 import 'package:broski/widgets/status_indicator.dart';
 import 'package:flutter/material.dart';
@@ -200,7 +200,7 @@ class SessionSidebar extends StatelessWidget {
           // Connection quality indicator
           const Padding(
             padding: EdgeInsets.only(top: 12),
-            child: ConnectionQualityIndicator(),
+            child: LinkStatusIndicator(),
           ),
         ],
       ),

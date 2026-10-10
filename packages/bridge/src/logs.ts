@@ -128,9 +128,6 @@ function detectLikelyIssues(lines: string[]): string[] {
 	if (text.includes("eaddrinuse") || (text.includes("port") && text.includes("already in use"))) {
 		issues.push("Port conflict detected: another process may already be using the bridge port.");
 	}
-	if (text.includes("tailscale not connected") || text.includes("funnel requires tailscale")) {
-		issues.push("Tailscale appears disconnected: remote access/Funnel may not work until reconnect.");
-	}
 	if (text.includes("ws rejected")) {
 		issues.push("WebSocket connection rejected events found (auth/origin/client-limit).");
 	}

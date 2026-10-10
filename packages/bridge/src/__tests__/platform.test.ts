@@ -13,16 +13,11 @@ import {
 	getDaemonConfigPath,
 	getDaemonType,
 	getDefaultAllowedPaths,
-	getHotspotInterfacePatterns,
 	getKillPortHint,
 	getNullDevice,
-	getPreferredInterfaceNames,
 	getProcessOnPort,
 	getSleepPreventionTip,
 	getTailLogsHint,
-	getTailscaleBinaryPath,
-	getTailscaleDownloadUrl,
-	getTailscaleInstallHint,
 	getTmpDir,
 	IS_LINUX,
 	IS_MACOS,
@@ -121,7 +116,7 @@ describe("Daemon System", () => {
 
 			const config: DaemonConfig = {
 				binaryPath: "/usr/local/bin/broski",
-				args: ["--daemon", "--hotspot"],
+				args: ["--daemon"],
 				logDir: "/home/user/.broski/logs",
 				workDir: "/home/user",
 				linkBinaryPath,
@@ -151,9 +146,7 @@ describe("Daemon System", () => {
 					expect(result).toContain("[Unit]");
 					expect(result).toContain("[Service]");
 					expect(result).toContain("[Install]");
-					expect(result).toContain(
-						`ExecStart=${linkBinaryPath} run --bridge-cmd /usr/local/bin/broski --daemon --hotspot`,
-					);
+					expect(result).toContain(`ExecStart=${linkBinaryPath} run --bridge-cmd /usr/local/bin/broski --daemon`);
 					expect(result).toContain("StandardOutput=append:/home/user/.broski/logs/link.log");
 					expect(result).toContain("StandardError=append:/home/user/.broski/logs/link.log");
 				}
@@ -241,48 +234,6 @@ describe("User-Facing Messages", () => {
 		} else if (IS_WINDOWS) {
 			expect(tip).toContain("powercfg");
 		}
-	});
-
-	test("getTailscaleInstallHint returns platform-specific instructions", () => {
-		const hint = getTailscaleInstallHint();
-		expect(typeof hint).toBe("string");
-		expect(hint.length).toBeGreaterThan(10);
-
-		if (IS_MACOS) {
-			expect(hint).toContain("brew");
-		} else if (IS_LINUX) {
-			expect(hint).toContain("curl");
-		} else if (IS_WINDOWS) {
-			expect(hint).toContain("winget");
-		}
-	});
-
-	test("getTailscaleDownloadUrl returns valid URL", () => {
-		const url = getTailscaleDownloadUrl();
-		expect(typeof url).toBe("string");
-		expect(url.startsWith("http") || url.startsWith("macappstore://")).toBe(true);
-	});
-});
-
-describe("Network Interface Detection", () => {
-	test("getPreferredInterfaceNames returns array", () => {
-		const interfaces = getPreferredInterfaceNames();
-		expect(Array.isArray(interfaces)).toBe(true);
-		expect(interfaces.length).toBeGreaterThan(0);
-		expect(interfaces.every((name) => typeof name === "string")).toBe(true);
-	});
-
-	test("getHotspotInterfacePatterns returns array", () => {
-		const patterns = getHotspotInterfacePatterns();
-		expect(Array.isArray(patterns)).toBe(true);
-		expect(patterns.length).toBeGreaterThan(0);
-		expect(patterns.every((pattern) => typeof pattern === "string")).toBe(true);
-	});
-
-	test("getTailscaleBinaryPath returns string", () => {
-		const path = getTailscaleBinaryPath();
-		expect(typeof path).toBe("string");
-		expect(path.length).toBeGreaterThan(0);
 	});
 });
 

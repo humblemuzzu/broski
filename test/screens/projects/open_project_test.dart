@@ -6,7 +6,6 @@ import 'package:broski/providers/agent_type_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/screens/projects/open_project.dart';
-import 'package:broski/services/network_monitor_service.dart';
 import 'package:broski/theme/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,9 +33,7 @@ Future<(WidgetRef, BuildContext)> pumpProjectHost(
         connectionProvider.overrideWith(
           (ref) => ConnectionNotifier(
             ref,
-            ref.read(storageServiceProvider),
             ref.read(webSocketServiceProvider),
-            NetworkMonitorService(),
             ref.read(bridgeServiceProvider),
           ),
         ),

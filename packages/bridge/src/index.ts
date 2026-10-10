@@ -13,16 +13,13 @@ async function runVersion(): Promise<void> {
 async function main(): Promise<void> {
 	const cli = parseCli(process.argv, process.env);
 
-	// Load persisted config early so ALL subcommands (including `qr`) behave consistently.
+	// Load persisted config early so ALL subcommands behave consistently.
 	const { readConfig } = await import("./config");
 	const config = await readConfig();
 
 	// Apply config defaults only when user didn't explicitly override via env/CLI.
 	if (!process.env.BROSKI_TLS) {
 		process.env.BROSKI_TLS = config.security.tls ? "1" : "0";
-	}
-	if (!process.env.BROSKI_TOKEN_TTL_DAYS) {
-		process.env.BROSKI_TOKEN_TTL_DAYS = String(config.security.tokenTtlDays);
 	}
 
 	if (cli.help) {
@@ -59,9 +56,7 @@ async function main(): Promise<void> {
 			await runOnboardingWizard(null, {
 				nonInteractive: true,
 				agents: cli.setupAgents.length > 0 ? cli.setupAgents : undefined,
-				networkMode: cli.setupNetworkMode || undefined,
 				tls: cli.setupNoTls ? false : (cli.setupTls ?? undefined),
-				tokenTtl: cli.setupTokenTtl ?? undefined,
 				daemon: cli.setupNoDaemon ? false : cli.daemon ? true : undefined,
 				port: cli.bridgePort !== 18274 ? cli.bridgePort : undefined,
 			});
@@ -98,12 +93,6 @@ async function main(): Promise<void> {
 		return;
 	}
 
-	if (cli.subCommand === "setup-tailscale") {
-		const { runSetupTailscale } = await import("./setup-tailscale");
-		await runSetupTailscale();
-		return;
-	}
-
 	if (
 		cli.subCommand === "install" ||
 		cli.subCommand === "uninstall" ||
@@ -129,23 +118,6 @@ async function main(): Promise<void> {
 				await commands.runRestart();
 				return;
 		}
-	}
-
-	if (cli.subCommand === "qr") {
-		const { runQR } = await import("./commands/pairing");
-		await runQR(cli.detectHotspot);
-		return;
-	}
-
-	if (cli.subCommand === "show-token") {
-		if (isCompiledBinary()) {
-			console.log("This command is not available in production builds.");
-			console.log("Use `broski qr` to display the QR code for pairing instead.");
-			return;
-		}
-		const { runShowToken } = await import("./commands/pairing");
-		await runShowToken();
-		return;
 	}
 
 	const { runServe } = await import("./serve");

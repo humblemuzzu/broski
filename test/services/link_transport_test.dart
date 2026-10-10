@@ -21,10 +21,8 @@ void main() {
     await incoming.close();
   });
 
-  Future<void> connect() => service.connect(
-    Uri(),
-    transport: LinkTransport(messages: incoming.stream, send: sent.add),
-  );
+  Future<void> connect() =>
+      service.connect(LinkTransport(messages: incoming.stream, send: sent.add));
 
   test('bridge messages reach WebSocketService consumers', () async {
     final received = <Map<String, dynamic>>[];
@@ -74,6 +72,17 @@ void main() {
     ]);
   });
 
+  test('sends made before a link attaches go out once it does', () async {
+    service.send({'type': 'cc_abort', 'sessionId': 's1'});
+    expect(sent, isEmpty);
+
+    await connect();
+
+    expect(sent, [
+      jsonEncode({'type': 'cc_abort', 'sessionId': 's1'}),
+    ]);
+  });
+
   test('a batched send flushes instead of waiting for a reconnect', () async {
     await connect();
 
@@ -99,7 +108,7 @@ void main() {
 
   test('closing the transport disconnects the service', () async {
     final transport = LinkTransport(messages: incoming.stream, send: sent.add);
-    await service.connect(Uri(), transport: transport);
+    await service.connect(transport);
     service.applyTransportStatus(ConnectionStatus.connected);
 
     await transport.close();

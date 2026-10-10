@@ -44,7 +44,6 @@ class RuntimeShadowNotifier extends StateNotifier<RuntimeShadowState> {
           case ConnectionEvent.connected:
           case ConnectionEvent.reconnected:
           case ConnectionEvent.disconnected:
-          case ConnectionEvent.failed:
             _reset('connection_${next!.name}');
             break;
           case null:

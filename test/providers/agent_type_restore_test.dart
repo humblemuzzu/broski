@@ -3,7 +3,6 @@ import 'package:broski/providers/agent_type_provider.dart';
 import 'package:broski/providers/agent_type_restore.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
-import 'package:broski/services/network_monitor_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -15,9 +14,7 @@ ProviderContainer containerWith(Map<String, String> stored) {
       connectionProvider.overrideWith(
         (ref) => ConnectionNotifier(
           ref,
-          ref.read(storageServiceProvider),
           ref.read(webSocketServiceProvider),
-          NetworkMonitorService(),
           ref.read(bridgeServiceProvider),
         ),
       ),

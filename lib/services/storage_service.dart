@@ -5,7 +5,6 @@ import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/claude_code.dart';
 import 'package:broski/models/codex.dart';
 import 'package:broski/models/command.dart';
-import 'package:broski/models/connection.dart';
 import 'package:broski/models/highlight_color.dart';
 import 'package:broski/models/mcp.dart';
 import 'package:broski/models/message.dart';
@@ -21,18 +20,14 @@ import 'package:broski/models/todo.dart';
 import 'package:broski/models/tool.dart';
 import 'package:broski/models/vcs.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:uuid/uuid.dart';
 
 part 'storage/storage_codex.dart';
 part 'storage/storage_pi_durable.dart';
 
 class StorageService {
-  static const _connectionKey = 'broski_connection';
-  static const _connectionAuthTokenKey = 'broski_connection_auth_token';
   static const _disabledToolsKey = 'broski_disabled_tools';
   static const _lastBrowsePathKey = 'broski_last_browse_path';
   static const _notificationsEnabledKey = 'broski_notifications_enabled';
-  static const _deviceIdKey = 'broski_device_id';
   static const _selectedAgentTypeKey = 'broski_selected_agent_type';
   static const _sessionsTitleExcludeFiltersKey =
       'broski_sessions_title_exclude_filters';
@@ -62,8 +57,6 @@ class StorageService {
   static const _sttSettingsKey = 'broski_stt_settings';
   static const _sttGroqApiKeyKey = 'broski_stt_groq_api_key';
   static const _sttOpenaiApiKeyKey = 'broski_stt_openai_api_key';
-
-  static const _uuid = Uuid();
 
   // Cache keys for offline mode
   static const _cachedProjectsKey = 'broski_cached_projects';
@@ -258,18 +251,6 @@ class StorageService {
   /// Check if projects cache is fresh (can skip network)
   bool isProjectsCacheFresh() => isCacheFresh(_cachedProjectsKey);
 
-  Future<void> saveConnection(ConnectionInfo info) async {
-    final json = info.toJson();
-    final authToken = json['authToken'] as String?;
-    json.remove('authToken');
-    await _storage.write(key: _connectionKey, value: jsonEncode(json));
-    if (authToken != null && authToken.isNotEmpty) {
-      await _storage.write(key: _connectionAuthTokenKey, value: authToken);
-    } else {
-      await _storage.delete(key: _connectionAuthTokenKey);
-    }
-  }
-
   // ============================================================
   // Phase 4: Session Permission Presets (OpenCode)
   // ============================================================
@@ -463,51 +444,6 @@ class StorageService {
         ? _sttGroqApiKeyKey
         : _sttOpenaiApiKeyKey;
     await _storage.delete(key: key);
-  }
-
-  Future<ConnectionInfo?> loadConnection() async {
-    final raw = await _storage.read(key: _connectionKey);
-    if (raw == null) return null;
-    final data = jsonDecode(raw) as Map<String, dynamic>;
-    final token = await _storage.read(key: _connectionAuthTokenKey);
-    // Back-compat: older versions stored authToken inside the JSON blob.
-    final legacyToken = data['authToken'] as String?;
-    final effectiveToken = (token != null && token.isNotEmpty)
-        ? token
-        : (legacyToken != null && legacyToken.isNotEmpty ? legacyToken : null);
-    if (effectiveToken != null) {
-      data['authToken'] = effectiveToken;
-      // Best-effort migration to separate key.
-      if (token == null || token.isEmpty) {
-        await _storage.write(
-          key: _connectionAuthTokenKey,
-          value: effectiveToken,
-        );
-        data.remove('authToken');
-        await _storage.write(key: _connectionKey, value: jsonEncode(data));
-        data['authToken'] = effectiveToken;
-      }
-    }
-    return ConnectionInfo.fromJson(data);
-  }
-
-  Future<void> clearConnection() async {
-    await _storage.delete(key: _connectionKey);
-    await _storage.delete(key: _connectionAuthTokenKey);
-  }
-
-  Future<String> getOrCreateDeviceId() async {
-    final existing = await _storage.read(key: _deviceIdKey);
-    if (existing != null && existing.isNotEmpty) {
-      return existing;
-    }
-    final newId = _uuid.v4();
-    await _storage.write(key: _deviceIdKey, value: newId);
-    return newId;
-  }
-
-  Future<String?> getDeviceId() async {
-    return _storage.read(key: _deviceIdKey);
   }
 
   // Generic string storage methods

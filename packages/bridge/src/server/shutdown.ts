@@ -5,7 +5,6 @@ import * as piDurable from "../handlers/pi_durable";
 import * as piFeatures from "../handlers/pi_features";
 import { stopBridgeResources } from "../lifecycle/bridge-teardown";
 import { DEFAULT_TEARDOWN_TIMEOUT_MS, type TeardownResult } from "../lifecycle/teardown";
-import type { EndpointWatcher } from "../network/endpoint-watcher";
 import type { PtyRuntime } from "../pty/runtime";
 import type { CodexClient } from "./codex-client";
 import type { FsWatchers } from "./fs-watchers";
@@ -18,7 +17,6 @@ export type StopDeps = {
 	fsWatchers: FsWatchers;
 	ptyRuntime: PtyRuntime;
 	codexClient: CodexClient;
-	endpointWatcher: EndpointWatcher;
 };
 
 /** Cancels the timers, drains the waiters, and runs the resource teardown behind `server.stop()`. */
@@ -28,7 +26,6 @@ export function createStop(deps: StopDeps): (force?: boolean) => Promise<Teardow
 	return (force = true) => {
 		if (state.heartbeatTimer) clearInterval(state.heartbeatTimer);
 		if (state.tickTimer) clearInterval(state.tickTimer);
-		deps.endpointWatcher.stop();
 		if (state.eventBufferPruneTimer) clearInterval(state.eventBufferPruneTimer);
 		for (const waiter of state.ccPermissionWaiters.values()) {
 			clearTimeout(waiter.timer);
@@ -58,7 +55,6 @@ export function createStop(deps: StopDeps): (force?: boolean) => Promise<Teardow
 				disposeBackends: [() => pi.disposeAll(), () => piFeatures.stopAllPiExternalTails(), () => piDurable.shutdown()],
 				stopServers: () => {
 					state.secureServer?.stop(force);
-					state.loopbackServer?.stop(force);
 					state.linkIngress?.stop();
 				},
 			},

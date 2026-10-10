@@ -4,7 +4,6 @@ import type { WizardPrompter } from "../prompter";
 
 export type SecurityResult = {
 	tls: boolean;
-	tokenTtlDays: number;
 };
 
 export async function runSecurityStep(
@@ -23,7 +22,6 @@ export async function runSecurityStep(
 
 			await prompter.note(
 				`  ${bold("TLS:")}        ${success("Enabled")}\n` +
-					`  ${bold("Token TTL:")}  7 days\n` +
 					`  ${bold("Cert SHA:")}   ${brand(fingerprint)}${muted("...")}`,
 				"Security",
 			);
@@ -37,7 +35,7 @@ export async function runSecurityStep(
 			);
 		}
 
-		return { tls: true, tokenTtlDays: 7 };
+		return { tls: true };
 	}
 
 	// Advanced mode
@@ -65,16 +63,5 @@ export async function runSecurityStep(
 		}
 	}
 
-	const ttl = await prompter.select<number>({
-		message: "Auth token expiration:",
-		options: [
-			{ value: 7, label: "7 days", hint: "recommended" },
-			{ value: 14, label: "14 days" },
-			{ value: 30, label: "30 days" },
-			{ value: 90, label: "90 days", hint: "less secure" },
-		],
-		initialValue: 7,
-	});
-
-	return { tls: enableTls, tokenTtlDays: ttl };
+	return { tls: enableTls };
 }
