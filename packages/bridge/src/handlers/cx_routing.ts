@@ -27,6 +27,9 @@ import { handleCodexFeature } from "./codex_features";
 
 type ReplyFn = (msg: ServerMessage) => void;
 
+/** Socket teardown for `cx_fs_watch` subscriptions, which the router owns the socket for. */
+export { detach as detachCxFsWatches } from "./codex/cx_fs_watch";
+
 type CxProjectCacheEntry = { fetchedAt: number; data: unknown[] };
 type CxThreadCacheEntry = { fetchedAt: number; data: CodexThread[]; nextCursor: string | null };
 
@@ -332,6 +335,7 @@ export async function handle(
 
 	if (FS_WATCH_OPS.has(type)) {
 		const handled = await cxFsWatch.handle(message, reply, {
+			ws: ctx.ws,
 			ensureCodexClient: ctx.ensureCodexClient,
 			safeString: ctx.safeString,
 		});

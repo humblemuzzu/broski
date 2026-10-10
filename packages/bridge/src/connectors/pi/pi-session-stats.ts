@@ -17,12 +17,22 @@ export type PiSessionStatsScan = {
 	summary: SessionDiffSummary;
 	toolCount: number;
 	modified: ModifiedFileEntry[];
+	/**
+	 * A raw `\r` between characters, or a `\u2028` / `\u2029`, which Node's readline breaks on and the
+	 * head scanner's reader does not. The listing computes such a file with the SDK's own reader.
+	 */
+	lineSeparatorInLine: boolean;
 };
 
 /** Cache budget for scanned session stats; each entry is a few hundred bytes. */
 export const PI_STATS_CACHE_BYTES = 32 * 1024 * 1024;
 
 const SUBAGENT_TOOL_NAMES = new Set(["task", "Task", "oracle", "finder", "code_review", "look_at", "librarian"]);
+
+/** Readline-only line breaks, which a decoded line keeps inside itself. */
+function hasRawLineSeparator(line: string): boolean {
+	return line.includes("\u2028") || line.includes("\u2029") || line.includes("\r");
+}
 
 type FileDiffs = Array<{ file: string; additions: number; deletions: number }>;
 type ToolCallArgs = { path: string; writeLineCount?: number };
@@ -134,8 +144,10 @@ export async function scanPiSessionFile(filePath: string): Promise<PiSessionStat
 	const toolCallArgs = new Map<string, ToolCallArgs>();
 	const fileDiffs: FileDiffs = [];
 	let toolCount = 0;
+	let lineSeparatorInLine = false;
 
 	for await (const line of readJsonlLines(filePath)) {
+		if (!lineSeparatorInLine && hasRawLineSeparator(line)) lineSeparatorInLine = true;
 		if (
 			!line.includes('"toolCall"') &&
 			!(line.includes('"toolResult"') && (line.includes('"edit"') || line.includes('"write"')))
@@ -162,6 +174,7 @@ export async function scanPiSessionFile(filePath: string): Promise<PiSessionStat
 		summary: aggregateFileDiffs(fileDiffs),
 		toolCount,
 		modified: deduplicateFileDiffs(fileDiffs),
+		lineSeparatorInLine,
 	};
 }
 

@@ -6,6 +6,7 @@ import { createOpencode, type OpencodeClient } from "@opencode-ai/sdk/v2";
 import packageMeta from "../package.json";
 import { parseCli, printHelp, promptForChoice } from "./cli";
 import { OpenCodeConnector } from "./connectors/opencode";
+import { warmPiSessionIndex } from "./connectors/pi/pi-session-list-indexed";
 import { runDoctor } from "./doctor";
 import { disableFunnel, enableFunnel } from "./funnel";
 import { bindWithRetry, isAddressInUse } from "./lifecycle/port-retry";
@@ -1304,6 +1305,10 @@ async function main() {
 	});
 
 	daemonLog(`[daemon] Bridge listening on port ${bridgePort}`);
+
+	// Warm the Pi session index in the background, so the first listing a phone asks for is served
+	// from disk instead of scanning every session file.
+	void warmPiSessionIndex();
 	if (!cli.daemon) {
 		console.log(`\n✓ Bridge listening on port ${bridgePort}`);
 		console.log("  Press Ctrl+C to shutdown");

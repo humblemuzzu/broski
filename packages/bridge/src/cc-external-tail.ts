@@ -10,6 +10,7 @@ import { type FSWatcher, watch as fsWatch } from "node:fs";
 import { open, stat } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { ClaudeCodeStreamMessage } from "./types";
+import { digestSuffix, digestText, extendsDigest, isSameText, type TextDigest } from "./utils/text-digest";
 
 export type CcExternalTailContext = {
 	claudeCode: {
@@ -37,8 +38,8 @@ export function startClaudeCodeExternalTail(sessionId: string, ctx: CcExternalTa
 	let lastIno = 0;
 	let initialSyncDone = false; // Skip emitting events until first pump completes (builds baseline)
 	let lastEmittedAssistantMsgId: string | null = null; // Track current assistant turn for turn boundaries
-	const lastTextByMessageId = new Map<string, string>();
-	const lastThinkingByMessageId = new Map<string, string>();
+	const lastTextByMessageId = new Map<string, TextDigest>();
+	const lastThinkingByMessageId = new Map<string, TextDigest>();
 	const emittedToolCalls = new Set<string>(); // Track emitted tool calls to avoid duplicates
 
 	// Type for content blocks parsed from CC session JSONL files
@@ -177,13 +178,13 @@ export function startClaudeCodeExternalTail(sessionId: string, ctx: CcExternalTa
 						// Track text baseline
 						const text = extractText(content);
 						if (text) {
-							lastTextByMessageId.set(msgId, text);
+							lastTextByMessageId.set(msgId, digestText(text));
 						}
 
 						// Track thinking baseline
 						const thinking = extractThinking(content);
 						if (thinking) {
-							lastThinkingByMessageId.set(msgId, thinking);
+							lastThinkingByMessageId.set(msgId, digestText(thinking));
 						}
 
 						// Track emitted tool calls baseline
@@ -257,11 +258,12 @@ export function startClaudeCodeExternalTail(sessionId: string, ctx: CcExternalTa
 
 	const applyAssistantTextUpdate = (msgId: string, text: string, parsed?: any) => {
 		if (!msgId) return;
-		const prev = lastTextByMessageId.get(msgId) ?? "";
+		const prev = lastTextByMessageId.get(msgId);
+		const unchanged = prev ? isSameText(prev, text) : text.length === 0;
 
 		// Always update baseline state, even before initialSyncDone
-		if (text && text !== prev) {
-			lastTextByMessageId.set(msgId, text);
+		if (text && !unchanged) {
+			lastTextByMessageId.set(msgId, digestText(text));
 		}
 
 		// Only emit events AFTER initial sync is done
@@ -277,7 +279,7 @@ export function startClaudeCodeExternalTail(sessionId: string, ctx: CcExternalTa
 		}
 		lastEmittedAssistantMsgId = msgId;
 
-		if (!text || text === prev) {
+		if (!text || unchanged) {
 			// Still send completion if we learned this record is complete (e.g., usage filled later).
 			if (parsed && isCompletedAssistantRecord(parsed)) {
 				ctx.emitCcStream(sessionId, {
@@ -289,8 +291,8 @@ export function startClaudeCodeExternalTail(sessionId: string, ctx: CcExternalTa
 			return;
 		}
 
-		if (prev && text.startsWith(prev)) {
-			const delta = text.slice(prev.length);
+		if (prev && prev.length > 0 && extendsDigest(prev, text)) {
+			const delta = digestSuffix(prev, text);
 			if (delta) {
 				ctx.emitCcStream(sessionId, {
 					type: "assistant-message-delta",
@@ -318,19 +320,20 @@ export function startClaudeCodeExternalTail(sessionId: string, ctx: CcExternalTa
 
 	const applyThinkingUpdate = (msgId: string, thinking: string) => {
 		if (!msgId || !thinking) return;
-		const prev = lastThinkingByMessageId.get(msgId) ?? "";
+		const prev = lastThinkingByMessageId.get(msgId);
+		const unchanged = prev ? isSameText(prev, thinking) : thinking.length === 0;
 
 		// Always update baseline state, even before initialSyncDone
-		if (thinking !== prev) {
-			lastThinkingByMessageId.set(msgId, thinking);
+		if (!unchanged) {
+			lastThinkingByMessageId.set(msgId, digestText(thinking));
 		}
 
 		// Only emit events AFTER initial sync is done
 		if (!initialSyncDone) return;
-		if (thinking === prev) return;
+		if (unchanged) return;
 
-		if (prev && thinking.startsWith(prev)) {
-			const delta = thinking.slice(prev.length);
+		if (prev && prev.length > 0 && extendsDigest(prev, thinking)) {
+			const delta = digestSuffix(prev, thinking);
 			if (delta) {
 				ctx.emitCcStream(sessionId, {
 					type: "thinking-delta",

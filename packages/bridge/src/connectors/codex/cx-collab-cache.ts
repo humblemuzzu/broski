@@ -5,12 +5,13 @@
  * This survives reconnects — the bridge can look up parent threads for collab agents
  * even after the in-memory collab tree is gone.
  *
- * Storage: JSON file at ~/.codex/broski-collab-cache.json
+ * Storage: JSON file at ~/.codex/broski-collab-cache.json, newest relations only, written through a
+ * 0600 temp file and a rename.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 export type CollabRelation = {
 	parentThreadId: string;
@@ -21,23 +22,34 @@ export type CollabRelation = {
 	createdAt: number;
 };
 
-const CACHE_DIR = join(homedir(), ".codex");
-const CACHE_FILE = join(CACHE_DIR, "broski-collab-cache.json");
+/** Relations kept on disk; a machine that spawns collab agents for months would otherwise grow forever. */
+export const COLLAB_CACHE_MAX_ENTRIES = 512;
 
+const CACHE_FILE_MODE = 0o600;
+
+let cachePathOverride: string | null = null;
 let cache: CollabRelation[] | null = null;
 
-function ensureDir(): void {
-	if (!existsSync(CACHE_DIR)) {
-		mkdirSync(CACHE_DIR, { recursive: true });
-	}
+export function collabCachePath(): string {
+	if (cachePathOverride) return cachePathOverride;
+	const fromEnv = process.env.BROSKI_COLLAB_CACHE_PATH?.trim();
+	if (fromEnv) return fromEnv;
+	return join(homedir(), ".codex", "broski-collab-cache.json");
+}
+
+/** Points the cache at another file, for tests and tools; drops whatever was loaded. */
+export function setCollabCachePath(path: string | null): void {
+	cachePathOverride = path;
+	cache = null;
 }
 
 function loadCache(): CollabRelation[] {
 	if (cache !== null) return cache;
+	const path = collabCachePath();
 	try {
-		if (existsSync(CACHE_FILE)) {
-			const raw = readFileSync(CACHE_FILE, "utf-8");
-			cache = JSON.parse(raw) as CollabRelation[];
+		if (existsSync(path)) {
+			const parsed: unknown = JSON.parse(readFileSync(path, "utf-8"));
+			cache = Array.isArray(parsed) ? parsed.filter(isRelation) : [];
 			return cache;
 		}
 	} catch {
@@ -47,12 +59,36 @@ function loadCache(): CollabRelation[] {
 	return cache;
 }
 
+function isRelation(value: unknown): value is CollabRelation {
+	if (typeof value !== "object" || value === null) return false;
+	const record = value as Record<string, unknown>;
+	return typeof record.parentThreadId === "string" && typeof record.childThreadId === "string";
+}
+
+function sortableCreatedAt(relation: CollabRelation): number {
+	return typeof relation.createdAt === "number" ? relation.createdAt : 0;
+}
+
+/** Keeps the newest `COLLAB_CACHE_MAX_ENTRIES` relations, oldest dropped first. */
+function capRelations(relations: CollabRelation[]): CollabRelation[] {
+	if (relations.length <= COLLAB_CACHE_MAX_ENTRIES) return relations;
+	return [...relations].sort((a, b) => sortableCreatedAt(b) - sortableCreatedAt(a)).slice(0, COLLAB_CACHE_MAX_ENTRIES);
+}
+
 function saveCache(): void {
-	ensureDir();
+	const path = collabCachePath();
+	const tmpPath = `${path}.tmp`;
 	try {
-		writeFileSync(CACHE_FILE, JSON.stringify(cache, null, 2), "utf-8");
+		mkdirSync(dirname(path), { recursive: true });
+		cache = capRelations(cache ?? []);
+		writeFileSync(tmpPath, JSON.stringify(cache, null, 2), { encoding: "utf-8", mode: CACHE_FILE_MODE });
+		renameSync(tmpPath, path);
 	} catch {
-		// Best-effort persistence
+		try {
+			unlinkSync(tmpPath);
+		} catch {
+			// Best-effort persistence
+		}
 	}
 }
 

@@ -1,12 +1,29 @@
+import type { ServerWebSocket } from "bun";
 import type { CodexAppServerClient } from "../../connectors/codex";
 
 type CxFsWatchContext = {
+	ws: ServerWebSocket<unknown>;
 	ensureCodexClient: () => Promise<CodexAppServerClient>;
 	safeString: (v: unknown) => string;
 };
 
-// Active watch subscriptions
-const activeWatches = new Map<string, { paths: string[]; threadId?: string }>();
+type ActiveWatch = { paths: string[]; threadId?: string; socket: ServerWebSocket<unknown> };
+
+// Active watch subscriptions, each owned by the socket that asked for it.
+const activeWatches = new Map<string, ActiveWatch>();
+
+export function activeWatchCount(): number {
+	return activeWatches.size;
+}
+
+/** Drops the watches a closed socket owned, so a reconnect cannot leak subscriptions. */
+export function detach(ws: ServerWebSocket<unknown>, client: CodexAppServerClient | null): void {
+	for (const [subscriptionId, watch] of activeWatches) {
+		if (watch.socket !== ws) continue;
+		activeWatches.delete(subscriptionId);
+		void client?.request("fs/unwatch", { subscriptionId }).catch(() => {});
+	}
+}
 
 export async function handle(message: any, reply: (msg: any) => void, ctx: CxFsWatchContext): Promise<boolean> {
 	const { ensureCodexClient, safeString } = ctx;
@@ -29,7 +46,7 @@ export async function handle(message: any, reply: (msg: any) => void, ctx: CxFsW
 			try {
 				const result: any = await client.request("fs/watch", { paths });
 				const subscriptionId = result?.subscriptionId ?? `watch_${Date.now()}`;
-				activeWatches.set(subscriptionId, { paths, threadId });
+				activeWatches.set(subscriptionId, { paths, threadId, socket: ctx.ws });
 				reply({
 					type: "cx_fs_watched",
 					requestId: message.requestId,
@@ -71,7 +88,7 @@ export async function handle(message: any, reply: (msg: any) => void, ctx: CxFsW
 					requestId: message.requestId,
 					data: { ok: true },
 				});
-			} catch (error: unknown) {
+			} catch {
 				activeWatches.delete(subscriptionId);
 				reply({
 					type: "cx_fs_unwatched",

@@ -16,6 +16,14 @@ export type OcExternalTailContext = {
 	DEBUG_RTS: boolean;
 };
 
+/**
+ * Messages fetched per poll. The OpenCode SDK has no `since` cursor, only a `limit` that returns the
+ * newest page, and a busy session polls every 150 ms: re-fetching a whole long transcript that often
+ * was the cost this avoids. Anything older than the newest page has already been seen or is a message
+ * the tail was never going to emit.
+ */
+export const OC_TAIL_MESSAGE_LIMIT = 50;
+
 export function startOpenCodeExternalTail(
 	sessionId: string,
 	projectPath: string,
@@ -84,8 +92,8 @@ export function startOpenCodeExternalTail(
 				});
 			}
 
-			// Get session messages
-			const messages = await ctx.oc.getSessionMessages(sessionId, projectPath).catch(() => null);
+			// Get the newest page of session messages
+			const messages = await ctx.oc.getSessionMessages(sessionId, projectPath, OC_TAIL_MESSAGE_LIMIT).catch(() => null);
 			if (!messages || !Array.isArray(messages)) return;
 
 			let hadChanges = false;

@@ -1,18 +1,19 @@
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import * as pi from "../../src/connectors/pi";
-import { getPiSessionListCacheStats } from "../../src/connectors/pi/pi-session-list-cache";
 import { runScenario } from "../lib/report";
+
+process.env.BROSKI_CACHE_DIR = await mkdtemp(join(tmpdir(), "broski-pi-projects-"));
 
 await runScenario(async () => {
 	const startedAt = Date.now();
 	const projects = await pi.listProjects();
 	const wallMs = Date.now() - startedAt;
-	const cache = getPiSessionListCacheStats();
 	return {
 		wallMs,
 		projects: projects.length,
 		withLastOpened: projects.filter((project) => (project.lastOpened ?? 0) > 0).length,
-		cacheDirs: cache.dirs,
-		cacheBytes: cache.bytes,
 		rssBytes: process.memoryUsage.rss(),
 	};
 });

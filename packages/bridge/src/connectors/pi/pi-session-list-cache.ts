@@ -1,23 +1,31 @@
 /**
  * Directory-level cache of Pi `SessionInfo` listings.
  *
- * The SDK's per-file `buildSessionInfo` is not exported, so the cheapest way to
- * reuse it is `SessionManager.listAll(dir)`, which is cached per project
- * directory and keyed by the `(name, mtimeMs, size, ino, ctimeMs)` fingerprint
- * of the dir's files. A warm call therefore only re-reads directories whose
- * files changed — including a file replaced in place by rename.
+ * The default path is the index-backed listing in `pi-session-list-indexed.ts`, which serves unchanged
+ * files from the on-disk index across restarts. The directory cache here is the fallback for a caller
+ * that injects its own `lister`: `SessionManager.listAll(dir)` per directory, keyed by the
+ * `(name, mtimeMs, size, ino, ctimeMs)` fingerprint of that directory's files. A warm call therefore
+ * only re-reads directories whose files changed — including a file replaced in place by rename.
  *
- * `allMessagesText` (the concatenated text of every message in the session) is
- * dropped before caching: no read model consumes it and it dwarfs the rest of
- * the listing.
+ * `allMessagesText` (the concatenated text of every message in the session) is dropped before caching:
+ * no read model consumes it and it dwarfs the rest of the listing.
  */
 
 import { readdir, stat } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
-import { getAgentDir, type SessionInfo, SessionManager } from "@earendil-works/pi-coding-agent";
+import type { SessionInfo } from "@earendil-works/pi-coding-agent";
 import type { ProjectSummary } from "../../types";
 import { runPool } from "../../utils/bounded-pool";
 import { singleFlight } from "../../utils/single-flight";
+import { listIndexedSdkSessionInfos } from "./pi-session-list-indexed";
+import {
+	defaultSessionDirForCwd,
+	getPiSessionsRoot,
+	listProjectDirs,
+	PI_SESSION_FINGERPRINT_CONCURRENCY,
+} from "./pi-session-paths";
+
+export { defaultSessionDirForCwd };
 
 export type SessionInfoLister = (dir: string) => Promise<SessionInfo[]>;
 
@@ -26,28 +34,17 @@ export type SessionListOptions = {
 	lister?: SessionInfoLister;
 	concurrency?: number;
 	maxCacheBytes?: number;
+	cacheRoot?: string;
+	maxIndexBytes?: number;
 };
 
 /** Directories listed in parallel. Each listing then reads files with the SDK's own pool of 10. */
 export const PI_SESSION_LIST_CONCURRENCY = 4;
 
-/** Concurrent `stat` calls while fingerprinting one directory. */
-export const PI_SESSION_FINGERPRINT_CONCURRENCY = 16;
-
 /** Evict least-recently-used directories above this many bytes of cached `SessionInfo`. */
 export const PI_SESSION_LIST_CACHE_MAX_BYTES = 512 * 1024 * 1024;
 
-const defaultLister: SessionInfoLister = (dir) => SessionManager.listAll(dir);
-
-const getSessionsRoot = (): string => resolve(getAgentDir(), "sessions");
-
-const encodeCwdDir = (cwd: string): string =>
-	`--${resolve(cwd)
-		.replace(/^[/\\]/, "")
-		.replace(/[/\\:]/g, "-")}--`;
-
-export const defaultSessionDirForCwd = (cwd: string, root: string = getSessionsRoot()): string =>
-	join(root, encodeCwdDir(cwd));
+const getSessionsRoot = getPiSessionsRoot;
 
 type DirEntry = { signature: string; infos: SessionInfo[]; bytes: number };
 
@@ -157,28 +154,21 @@ function sortByModifiedDesc(infos: SessionInfo[]): SessionInfo[] {
 	return [...infos].sort((a, b) => b.modified.getTime() - a.modified.getTime());
 }
 
-async function listProjectDirs(root: string): Promise<string[]> {
-	try {
-		const entries = await readdir(root, { withFileTypes: true });
-		return entries
-			.filter((entry) => entry.isDirectory() || entry.isSymbolicLink())
-			.map((entry) => join(root, entry.name));
-	} catch {
-		return [];
-	}
-}
-
 export async function listSessionInfosForCwd(cwd: string, options: SessionListOptions = {}): Promise<SessionInfo[]> {
+	if (!options.lister) return listIndexedSdkSessionInfos(indexedOptions(options, cwd));
+
 	const root = options.root ?? getSessionsRoot();
-	const lister = options.lister ?? defaultLister;
+	const lister = options.lister;
 	const maxBytes = options.maxCacheBytes ?? PI_SESSION_LIST_CACHE_MAX_BYTES;
 	const dir = defaultSessionDirForCwd(cwd, root);
 	return sortByModifiedDesc(await loadDirSingleFlight(dir, lister, maxBytes));
 }
 
 export async function listAllSessionInfos(options: SessionListOptions = {}): Promise<SessionInfo[]> {
+	if (!options.lister) return listIndexedSdkSessionInfos(indexedOptions(options));
+
 	const root = options.root ?? getSessionsRoot();
-	const lister = options.lister ?? defaultLister;
+	const lister = options.lister;
 	const concurrency = options.concurrency ?? PI_SESSION_LIST_CONCURRENCY;
 	const maxBytes = options.maxCacheBytes ?? PI_SESSION_LIST_CACHE_MAX_BYTES;
 
@@ -194,6 +184,16 @@ export async function listAllSessionInfos(options: SessionListOptions = {}): Pro
 	);
 
 	return sortByModifiedDesc(perDir.flat());
+}
+
+function indexedOptions(options: SessionListOptions, cwd?: string) {
+	return {
+		root: options.root,
+		cwd,
+		cacheRoot: options.cacheRoot,
+		maxIndexBytes: options.maxIndexBytes,
+		concurrency: options.concurrency,
+	};
 }
 
 export async function listProjectSummaries(options: SessionListOptions = {}): Promise<ProjectSummary[]> {

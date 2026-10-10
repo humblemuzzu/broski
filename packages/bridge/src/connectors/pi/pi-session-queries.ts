@@ -15,6 +15,7 @@ import {
 	listSessionInfosForCwd,
 	type SessionListOptions,
 } from "./pi-session-list-cache";
+import { listIndexedPiSessions } from "./pi-session-list-indexed";
 
 const getSessionsRoot = (): string => resolve(getAgentDir(), "sessions");
 
@@ -25,6 +26,16 @@ export function listSessions(cwd?: string, options: SessionListOptions = {}): Pr
 	const resolvedCwd = cwd ? normalizeCwd(cwd) : undefined;
 
 	return singleFlight(listSessionsInFlight, resolvedCwd ?? "", async () => {
+		if (!options.lister) {
+			return listIndexedPiSessions({
+				root: options.root,
+				cwd: resolvedCwd,
+				cacheRoot: options.cacheRoot,
+				maxIndexBytes: options.maxIndexBytes,
+				concurrency: options.concurrency,
+			});
+		}
+
 		const sessions = resolvedCwd
 			? await listSessionInfosForCwd(resolvedCwd, options)
 			: await listAllSessionInfos(options);
