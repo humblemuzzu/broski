@@ -95,6 +95,12 @@ function frames(sent: string[]): ServerMessage[] {
 	return out;
 }
 
+/** Coalescer flushes and queue drains are timer-driven; wait for the frame instead of assuming a delay. */
+async function waitFor(condition: () => boolean, timeoutMs = 5_000): Promise<void> {
+	const deadline = Date.now() + timeoutMs;
+	while (!condition() && Date.now() < deadline) await Bun.sleep(5);
+}
+
 describe("merged delta seq range", () => {
 	test("a merged frame records the seq of its first delta", async () => {
 		const emitted: ServerMessage[] = [];
@@ -103,7 +109,7 @@ describe("merged delta seq range", () => {
 		coalescer.push(delta("Hel", 1));
 		coalescer.push(delta("lo ", 2));
 		coalescer.push(delta("world", 3));
-		await Bun.sleep(30);
+		await waitFor(() => emitted.length >= 1);
 
 		expect(emitted).toHaveLength(1);
 		const event = deltaEvent(emitted[0]!);
@@ -118,7 +124,7 @@ describe("merged delta seq range", () => {
 
 		coalescer.push(thinking("a", 7));
 		coalescer.push(thinking("b", 8));
-		await Bun.sleep(30);
+		await waitFor(() => emitted.length >= 1);
 
 		const event = deltaEvent(emitted[0]!);
 		expect(event.seq).toBe(8);
@@ -130,7 +136,7 @@ describe("merged delta seq range", () => {
 		const coalescer = new RuntimeEventCoalescer((message) => emitted.push(message), 5);
 
 		coalescer.push(delta("only", 4));
-		await Bun.sleep(30);
+		await waitFor(() => emitted.length >= 1);
 
 		expect(deltaEvent(emitted[0]!)).not.toHaveProperty("seqStart");
 	});
@@ -141,10 +147,10 @@ describe("merged delta seq range", () => {
 
 		coalescer.push(delta("a", 10));
 		coalescer.push(delta("b", 11));
-		await Bun.sleep(30);
+		await waitFor(() => emitted.length >= 1);
 		coalescer.push(delta("c", 12));
 		coalescer.push(delta("d", 13));
-		await Bun.sleep(30);
+		await waitFor(() => emitted.length >= 2);
 
 		expect(emitted).toHaveLength(2);
 		const first = deltaEvent(emitted[0]!);
@@ -164,7 +170,7 @@ describe("send queue ordering", () => {
 		queue.send(socket, delta("b", 2));
 		queue.send(socket, toolStarted(3));
 		queue.send(socket, delta("c", 4));
-		await Bun.sleep(40);
+		await waitFor(() => frames(socket.sent).length >= 4);
 
 		const events = frames(socket.sent).map(eventOf);
 		expect(events.map((event) => event.type)).toEqual([
@@ -204,7 +210,7 @@ describe("send queue ordering", () => {
 
 		queue.send(socket, delta("a", 1));
 		queue.send(socket, { type: "device_disconnected", data: {} } as unknown as ServerMessage);
-		await Bun.sleep(40);
+		await waitFor(() => frames(socket.sent).length >= 2);
 
 		expect(socket.sent).toHaveLength(2);
 		expect(eventOf(frames(socket.sent)[0]!).type).toBe("assistant_text_delta");

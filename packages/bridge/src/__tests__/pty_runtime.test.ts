@@ -14,6 +14,16 @@ function makeSession(id: string): PtySession {
 	};
 }
 
+/** Flushes and health frames are timer-driven; wait for the frame instead of guessing how long it takes. */
+async function waitFor(condition: () => boolean, timeoutMs = 10_000): Promise<boolean> {
+	const deadline = Date.now() + timeoutMs;
+	while (!condition() && Date.now() < deadline) await Bun.sleep(10);
+	return condition();
+}
+
+const findOutput = (sent: Array<{ message: ServerMessage }>, ptyId: string) =>
+	sent.find((m) => m.message.type === "pty_output" && (m.message as any).ptyId === ptyId);
+
 class FakeUpstreamWebSocket {
 	static CONNECTING = 0;
 	static OPEN = 1;
@@ -119,7 +129,7 @@ describe("PtyRuntime", () => {
 		// Fast consecutive chunks should be coalesced into one output frame (~16ms flush).
 		upstream.emitMessage("hel");
 		upstream.emitMessage("lo");
-		await Bun.sleep(30);
+		expect(await waitFor(() => findOutput(sentMessages, "p1") !== undefined)).toBe(true);
 
 		const outputs = sentMessages.filter((m) => m.message.type === "pty_output" && (m.message as any).ptyId === "p1");
 		expect(outputs.length).toBe(1);
@@ -127,11 +137,13 @@ describe("PtyRuntime", () => {
 
 		const hugeBurst = "x".repeat(600 * 1024);
 		upstream.emitMessage(hugeBurst);
-		await Bun.sleep(40);
-		const truncationProtected = sentMessages
-			.filter((m) => m.message.type === "pty_output" && (m.message as any).ptyId === "p1")
-			.some((m) => String((m.message as any).data).includes("[broski] terminal output truncated"));
-		expect(truncationProtected).toBe(true);
+		expect(
+			await waitFor(() =>
+				sentMessages
+					.filter((m) => m.message.type === "pty_output" && (m.message as any).ptyId === "p1")
+					.some((m) => String((m.message as any).data).includes("[broski] terminal output truncated")),
+			),
+		).toBe(true);
 
 		await runtime.handleMessage(wsA, { type: "pty_input", ptyId: "p1", data: "ls\n" } as any, (m) => replies.push(m));
 		expect(upstream.sent.includes("ls\n")).toBe(true);
@@ -197,7 +209,7 @@ describe("PtyRuntime", () => {
 
 		onData!("foo");
 		onData!("bar");
-		await Bun.sleep(30);
+		expect(await waitFor(() => sentMessages.some((m) => m.message.type === "pty_output"))).toBe(true);
 		const output = sentMessages.find((m) => m.message.type === "pty_output");
 		expect(output).toBeTruthy();
 		expect((output!.message as any).data).toBe("foobar");
@@ -218,14 +230,14 @@ describe("PtyRuntime", () => {
 		expect(resizeCall!).toEqual(["n1", 45, 160, undefined]);
 
 		// Health snapshot cadence and stats
-		await Bun.sleep(1100);
+		expect(await waitFor(() => sentMessages.some((m) => m.message.type === "pty_health"))).toBe(true);
 		const health = sentMessages.find((m) => m.message.type === "pty_health");
 		expect(health).toBeTruthy();
 		expect((health!.message as any).bytesIn).toBeGreaterThan(0);
 		expect((health!.message as any).bytesOut).toBeGreaterThan(0);
 
 		onExit!(0);
-		await Bun.sleep(10);
+		expect(await waitFor(() => sentMessages.some((m) => m.message.type === "pty_exit"))).toBe(true);
 		const exit = sentMessages.find((m) => m.message.type === "pty_exit");
 		expect(exit).toBeTruthy();
 		expect((exit!.message as any).exitCode).toBe(0);

@@ -34,10 +34,13 @@ function makeFakeOc(honourLimit: boolean, limits: number[]): FakeOc {
 	};
 }
 
+type TailOutcome = { events: unknown[]; broadcasts: unknown[]; limits: number[] };
+
 async function runTail(
 	honourLimit: boolean,
 	script: () => Promise<void>,
-): Promise<{ events: unknown[]; broadcasts: unknown[]; limits: number[] }> {
+	settled: (seen: TailOutcome) => boolean,
+): Promise<TailOutcome> {
 	const events: unknown[] = [];
 	const broadcasts: unknown[] = [];
 	const limits: number[] = [];
@@ -54,16 +57,19 @@ async function runTail(
 		DEBUG_RTS: false,
 	});
 
+	const seen: TailOutcome = { events, broadcasts, limits };
+
 	try {
 		await Bun.sleep(250);
 		events.length = 0;
 		broadcasts.length = 0;
 		await script();
-		await Bun.sleep(400);
+		const deadline = Date.now() + 10_000;
+		while (!settled(seen) && Date.now() < deadline) await Bun.sleep(25);
 	} finally {
 		tail.stop();
 	}
-	return { events, broadcasts, limits };
+	return seen;
 }
 
 function appendAssistant(text: string): void {
@@ -85,7 +91,11 @@ afterEach(() => {
 describe("opencode external tail", () => {
 	test("asks for the newest page instead of the whole session", async () => {
 		allMessages = makeMessages(400);
-		const { limits } = await runTail(true, async () => {});
+		const { limits } = await runTail(
+			true,
+			async () => {},
+			(seen) => seen.limits.length > 0,
+		);
 
 		expect(limits.length).toBeGreaterThan(0);
 		expect(new Set(limits)).toEqual(new Set([OC_TAIL_MESSAGE_LIMIT]));
@@ -99,9 +109,9 @@ describe("opencode external tail", () => {
 			await Bun.sleep(50);
 		};
 
-		const limited = await runTail(true, script);
+		const limited = await runTail(true, script, (seen) => seen.events.length > 0);
 		allMessages = makeMessages(200);
-		const full = await runTail(false, script);
+		const full = await runTail(false, script, (seen) => seen.events.length > 0);
 
 		expect(limited.events.length).toBeGreaterThan(0);
 		expect(JSON.stringify(limited.events)).toBe(JSON.stringify(full.events));
@@ -110,18 +120,24 @@ describe("opencode external tail", () => {
 	test("still reports a user message that arrives while busy", async () => {
 		allMessages = makeMessages(200);
 
-		const { broadcasts, events } = await runTail(true, async () => {
-			const index = allMessages.length;
-			allMessages = [
-				...allMessages,
-				{
-					info: { id: `m${index}`, role: "user" },
-					parts: [{ id: `p${index}`, type: "text", text: "typed on the mac" }],
-					text: "typed on the mac",
-				},
-			];
-			await Bun.sleep(50);
-		});
+		const { broadcasts, events } = await runTail(
+			true,
+			async () => {
+				const index = allMessages.length;
+				allMessages = [
+					...allMessages,
+					{
+						info: { id: `m${index}`, role: "user" },
+						parts: [{ id: `p${index}`, type: "text", text: "typed on the mac" }],
+						text: "typed on the mac",
+					},
+				];
+				await Bun.sleep(50);
+			},
+			(seen) =>
+				seen.events.length > 0 &&
+				seen.broadcasts.some((message) => JSON.stringify(message).includes("typed on the mac")),
+		);
 
 		const updated = events.filter(
 			(event) => (event as { payload?: { type?: string } }).payload?.type === "message.updated",

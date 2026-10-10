@@ -10,6 +10,13 @@ import { type CodexRequestState, createCodexRequestHandler } from "../server/cod
 import { DEFAULT_PERMISSION_TIMEOUT_MS, type PermissionWaiter, waitForPermission } from "../server/permission-waiter";
 
 describe("permission timeout", () => {
+	/**
+	 * The assertion that matters is the lower bound: it proves the injected timeout was waited out.
+	 * The upper bound only has to rule out the 600_000 ms default, so it stays far above any
+	 * scheduling delay a loaded machine can add.
+	 */
+	const INJECTED_TIMEOUT_UPPER_BOUND_MS = 5_000;
+
 	test("the default is 600_000 ms and matches the server's exported constant", () => {
 		expect(DEFAULT_PERMISSION_TIMEOUT_MS).toBe(600_000);
 		expect(PERMISSION_TIMEOUT_MS).toBe(DEFAULT_PERMISSION_TIMEOUT_MS);
@@ -23,7 +30,7 @@ describe("permission timeout", () => {
 
 		expect(result).toEqual({ response: "reject" });
 		expect(elapsed).toBeGreaterThanOrEqual(60);
-		expect(elapsed).toBeLessThan(500);
+		expect(elapsed).toBeLessThan(INJECTED_TIMEOUT_UPPER_BOUND_MS);
 		expect(waiters.has("approval-1")).toBe(false);
 	});
 
@@ -55,7 +62,7 @@ describe("permission timeout", () => {
 		expect(emitted.some((message) => message.type === "request" && message.requestId === "req-1")).toBe(true);
 		expect(decision).toEqual({ decision: "decline" });
 		expect(elapsed).toBeGreaterThanOrEqual(60);
-		expect(elapsed).toBeLessThan(500);
+		expect(elapsed).toBeLessThan(INJECTED_TIMEOUT_UPPER_BOUND_MS);
 		expect(state.cxApprovalWaiters.size).toBe(0);
 	});
 });

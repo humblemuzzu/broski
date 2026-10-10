@@ -88,19 +88,32 @@ describe("validation and dispatch cost", () => {
 		}
 		const reply = (_message: ServerMessage) => {};
 
-		const newStart = performance.now();
-		for (let i = 0; i < iterations; i++) {
-			const type = HOT_TYPES[i % HOT_TYPES.length] as string;
-			const ctx = { ...deps, ws: {} as RequestContext["ws"], reply } as RequestContext;
-			await registry.dispatch({ type } as unknown as ClientMessage, ctx);
-		}
-		const newUs = ((performance.now() - newStart) / iterations) * 1000;
+		const newRun = async () => {
+			for (let i = 0; i < iterations; i++) {
+				const type = HOT_TYPES[i % HOT_TYPES.length] as string;
+				const ctx = { ...deps, ws: {} as RequestContext["ws"], reply } as RequestContext;
+				await registry.dispatch({ type } as unknown as ClientMessage, ctx);
+			}
+		};
+		const oldRun = async () => {
+			for (let i = 0; i < iterations; i++) {
+				await simulateOldChain(HOT_TYPES[i % HOT_TYPES.length] as string);
+			}
+		};
 
-		const oldStart = performance.now();
-		for (let i = 0; i < iterations; i++) {
-			await simulateOldChain(HOT_TYPES[i % HOT_TYPES.length] as string);
+		// One sample can lose to a single scheduling stall on a loaded machine, so alternate the two
+		// loops and compare the best of each: a stall can only ever make one round look slower.
+		let newUs = Number.POSITIVE_INFINITY;
+		let oldUs = Number.POSITIVE_INFINITY;
+		for (let round = 0; round < 5; round++) {
+			const newStart = performance.now();
+			await newRun();
+			newUs = Math.min(newUs, ((performance.now() - newStart) / iterations) * 1000);
+
+			const oldStart = performance.now();
+			await oldRun();
+			oldUs = Math.min(oldUs, ((performance.now() - oldStart) / iterations) * 1000);
 		}
-		const oldUs = ((performance.now() - oldStart) / iterations) * 1000;
 
 		console.log(`[bench] dispatch: old chain=${oldUs.toFixed(3)}us/msg new registry=${newUs.toFixed(3)}us/msg`);
 		expect(newUs).toBeLessThan(oldUs);

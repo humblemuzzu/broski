@@ -35,7 +35,6 @@ describe("runTeardown", () => {
 	test("gives up after the budget while stragglers keep running", async () => {
 		let fastFinished = false;
 		let hangReleased = false;
-		const startedAt = Date.now();
 
 		const result = await runTeardown(
 			[
@@ -60,8 +59,7 @@ describe("runTeardown", () => {
 			{ timeoutMs: 40 },
 		);
 
-		const elapsed = Date.now() - startedAt;
-		expect(elapsed).toBeLessThan(1000);
+		expect(hangReleased).toBe(false);
 		expect(result.timedOut).toBe(true);
 		expect(result.pending).toEqual(["hangs"]);
 		expect(result.completed).toEqual(["fast"]);

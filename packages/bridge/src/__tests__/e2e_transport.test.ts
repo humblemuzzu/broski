@@ -4,11 +4,13 @@
  * limiting, batching, device registration and graceful shutdown.
  */
 
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 import {
 	type BridgeHandle,
 	connect,
 	connectWs,
+	E2E_TEST_TIMEOUT_MS,
+	E2E_WAIT_MS,
 	send,
 	setupTestEnv,
 	stalledClient,
@@ -18,12 +20,17 @@ import {
 	viewSession,
 } from "./e2e/harness";
 
+setDefaultTimeout(E2E_TEST_TIMEOUT_MS);
+
 const env = setupTestEnv();
 let bridge: BridgeHandle;
 
-beforeAll(async () => {
-	bridge = await startBridge();
-});
+beforeAll(
+	async () => {
+		bridge = await startBridge();
+	},
+	{ timeout: E2E_TEST_TIMEOUT_MS },
+);
 
 afterAll(async () => {
 	await bridge.stop();
@@ -300,7 +307,7 @@ describe("e2e stalled client", () => {
 			await viewSession(healthy.ws, healthy.messages, "pi", "shed-session");
 
 			stalledClient(disposable.port, disposable.token, "shed-session");
-			const deadline = Date.now() + 5000;
+			const deadline = Date.now() + E2E_WAIT_MS;
 			while (disposable.server.connections() < 2 && Date.now() < deadline) await Bun.sleep(20);
 			expect(disposable.server.connections()).toBe(2);
 			await Bun.sleep(100);
@@ -348,7 +355,7 @@ describe("e2e stalled client", () => {
 			// so the observable signal is the connection count dropping.
 			expect(disposable.server.connections()).toBe(1);
 
-			const drainDeadline = Date.now() + 10_000;
+			const drainDeadline = Date.now() + E2E_WAIT_MS;
 			while (Date.now() < drainDeadline && healthyChars < sent * delta.length) await Bun.sleep(25);
 			expect(healthyChars).toBe(sent * delta.length);
 		} finally {

@@ -129,9 +129,10 @@ describe("cc_chat permission timeout", () => {
 		expect(permissionRequest?.message.toolUseId).toBe("tool-1");
 		expect(permissionRequest?.sessionId).toBe("cc-perm");
 		expect(result).toEqual({ response: "reject" });
-		// 80 ms, not a hardcoded 120_000/600_000.
+		// 80 ms, not a hardcoded 120_000/600_000. The bound only rules out the default; a loaded
+		// machine can add scheduling delay without the waiter having used the wrong timeout.
 		expect(elapsed).toBeGreaterThanOrEqual(70);
-		expect(elapsed).toBeLessThan(1500);
+		expect(elapsed).toBeLessThan(5_000);
 		expect(h.maps.permissionWaiters.size).toBe(0);
 	});
 

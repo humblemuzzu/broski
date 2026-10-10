@@ -54,6 +54,12 @@ function updatedMessageIds(events: unknown[]): string[] {
 		.map((event) => (event as Payload).payload.properties?.info?.id ?? "");
 }
 
+/** The tail polls on an interval; wait for the emitted page instead of assuming a delay. */
+async function waitFor(condition: () => boolean, timeoutMs = 10_000): Promise<void> {
+	const deadline = Date.now() + timeoutMs;
+	while (!condition() && Date.now() < deadline) await Bun.sleep(25);
+}
+
 describe("opencode external tail page gaps", () => {
 	test("emits every message when more than a page arrives between two polls", async () => {
 		allMessages = Array.from({ length: 10 }, (_, index) => message(index));
@@ -64,7 +70,7 @@ describe("opencode external tail page gaps", () => {
 		await Bun.sleep(250);
 		events.length = 0;
 		allMessages = [...allMessages, ...Array.from({ length: 120 }, (_, index) => message(10 + index))];
-		await Bun.sleep(400);
+		await waitFor(() => updatedMessageIds(events).length >= 120);
 
 		expect(updatedMessageIds(events)).toEqual(Array.from({ length: 120 }, (_, index) => `m${10 + index}`));
 	});
@@ -78,7 +84,7 @@ describe("opencode external tail page gaps", () => {
 		await Bun.sleep(250);
 		events.length = 0;
 		allMessages = [...allMessages, message(200)];
-		await Bun.sleep(400);
+		await waitFor(() => updatedMessageIds(events).length >= 1);
 
 		expect(updatedMessageIds(events)).toEqual(["m200"]);
 		expect(new Set(limits)).toEqual(new Set([OC_TAIL_MESSAGE_LIMIT]));

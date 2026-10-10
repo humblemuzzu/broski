@@ -291,14 +291,26 @@ describe("pi session list cache", () => {
 
 		const calls: string[] = [];
 		const lister = countingLister(calls);
+		const listA = () => listSessionInfosForCwd(CWD_A, { root, lister, maxCacheBytes: 1 });
+		const listB = () => listSessionInfosForCwd(CWD_B, { root, lister, maxCacheBytes: 1 });
 
 		clearPiSessionListCache();
-		await listAllSessionInfos({ root, lister, maxCacheBytes: 1 });
+		await listA();
+		expect(calls).toEqual([dirA]);
 		expect(getPiSessionListCacheStats().dirs).toBe(1);
 
 		calls.length = 0;
-		await listAllSessionInfos({ root, lister, maxCacheBytes: 1 });
-		expect(calls).toHaveLength(1);
+		await listA();
+		expect(calls).toEqual([]);
+
+		calls.length = 0;
+		await listB();
+		expect(calls).toEqual([dirB]);
+		expect(getPiSessionListCacheStats().dirs).toBe(1);
+
+		calls.length = 0;
+		await listA();
+		expect(calls).toEqual([dirA]);
 	});
 
 	test("re-lists a directory whose file was replaced by rename", async () => {

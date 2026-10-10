@@ -60,6 +60,15 @@ export function setupTestEnv(): TestEnv {
 
 export const E2E_TOKEN = "e2e-token-0123456789abcdef";
 
+/**
+ * Frames these tests await come from real backend probes and SDK loads, which a busy machine can
+ * stretch well past a second. A genuine hang still fails the caller's test timeout.
+ */
+export const E2E_WAIT_MS = 20_000;
+
+/** Child processes and agent probes are inherent to an e2e file, so its tests get headroom. */
+export const E2E_TEST_TIMEOUT_MS = 30_000;
+
 export type BridgeHandle = {
 	server: BridgeServer;
 	port: number;
@@ -139,7 +148,11 @@ export function collect(ws: WebSocket): MessageCollector {
 		}
 	});
 
-	const waitForWhere = (predicate: (message: Record<string, unknown>) => boolean, label: string, timeoutMs = 5000) =>
+	const waitForWhere = (
+		predicate: (message: Record<string, unknown>) => boolean,
+		label: string,
+		timeoutMs = E2E_WAIT_MS,
+	) =>
 		new Promise<Record<string, unknown>>((resolve, reject) => {
 			const existing = messages.find(predicate);
 			if (existing) return resolve(existing);
@@ -157,12 +170,13 @@ export function collect(ws: WebSocket): MessageCollector {
 			messages.length = 0;
 		},
 		ofType: (type: string) => messages.filter((message) => message.type === type),
-		waitFor: (type: string, timeoutMs = 5000) => waitForWhere((message) => message.type === type, type, timeoutMs),
+		waitFor: (type: string, timeoutMs = E2E_WAIT_MS) =>
+			waitForWhere((message) => message.type === type, type, timeoutMs),
 		waitForWhere,
 	};
 }
 
-export async function connectWs(port: number, token: string, timeoutMs = 5000): Promise<WebSocket> {
+export async function connectWs(port: number, token: string, timeoutMs = E2E_WAIT_MS): Promise<WebSocket> {
 	return (await connect(port, token, timeoutMs)).ws;
 }
 
@@ -173,7 +187,7 @@ export async function connectWs(port: number, token: string, timeoutMs = 5000): 
 export async function connect(
 	port: number,
 	token: string,
-	timeoutMs = 5000,
+	timeoutMs = E2E_WAIT_MS,
 ): Promise<{ ws: WebSocket; messages: MessageCollector }> {
 	return new Promise((resolve, reject) => {
 		const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, [`broski-auth.${token}`]);

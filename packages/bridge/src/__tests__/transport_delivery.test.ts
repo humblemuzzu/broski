@@ -47,6 +47,12 @@ function textOf(message: ServerMessage): string {
 	return "";
 }
 
+/** The coalescer flushes on a timer; wait for the frame instead of assuming a delay. */
+async function waitFor(condition: () => boolean, timeoutMs = 5_000): Promise<void> {
+	const deadline = Date.now() + timeoutMs;
+	while (!condition() && Date.now() < deadline) await Bun.sleep(5);
+}
+
 describe("RuntimeEventCoalescer", () => {
 	test("merges consecutive deltas of one stream and keeps the newest seq", async () => {
 		const emitted: ServerMessage[] = [];
@@ -57,7 +63,7 @@ describe("RuntimeEventCoalescer", () => {
 		coalescer.push(delta("world", 3));
 		expect(emitted).toHaveLength(0);
 
-		await Bun.sleep(30);
+		await waitFor(() => emitted.length >= 1);
 		expect(emitted).toHaveLength(1);
 		expect(textOf(emitted[0]!)).toBe("Hello world");
 		expect(emitted[0]).toMatchObject({ type: "runtime_event", data: { seq: 3, streamId: "s1" } });
@@ -71,7 +77,7 @@ describe("RuntimeEventCoalescer", () => {
 		coalescer.push(delta("b", 2, "s2"));
 		coalescer.push(delta("c", 3, "s1", "sess-2"));
 
-		await Bun.sleep(30);
+		await waitFor(() => emitted.length >= 3);
 		expect(emitted).toHaveLength(3);
 		expect(emitted.map(textOf).sort()).toEqual(["a", "b", "c"]);
 	});
@@ -105,7 +111,7 @@ describe("RuntimeEventCoalescer", () => {
 		const coalescer = new RuntimeEventCoalescer((_message, target) => targets.push(target), 5);
 
 		coalescer.push(delta("x", 1), wsB);
-		await Bun.sleep(30);
+		await waitFor(() => targets.length >= 1);
 		expect(targets).toEqual([wsB]);
 	});
 });

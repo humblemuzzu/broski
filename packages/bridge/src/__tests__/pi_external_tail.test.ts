@@ -46,6 +46,16 @@ function startTail(filePath: string): { emitted: PiStreamMessage[]; stop: () => 
 	return { emitted, stop: tail.stop };
 }
 
+/** The tail polls every 150ms; a delayed poll must not fail the test, only a missing event must. */
+async function waitForEmission(emitted: PiStreamMessage[]): Promise<PiStreamMessage[]> {
+	const deadline = Date.now() + 10_000;
+	while (emitted.length === 0 && Date.now() < deadline) await Bun.sleep(25);
+	return emitted;
+}
+
+/** A quiet window long enough for several poll cycles, to catch a duplicate emission. */
+const QUIET_WINDOW_MS = 500;
+
 afterEach(async () => {
 	for (const dir of tmpDirs) {
 		await rm(dir, { recursive: true, force: true }).catch(() => {});
@@ -58,11 +68,12 @@ describe("startPiExternalTail", () => {
 		const filePath = await makeSessionFile();
 		const tail = startTail(filePath);
 
-		await Bun.sleep(500);
+		await Bun.sleep(QUIET_WINDOW_MS);
 		expect(tail.emitted).toHaveLength(0);
 
 		await appendFile(filePath, `${JSON.stringify(messageEntry("live-user", "user", "hello from tail"))}\n`);
-		await Bun.sleep(1000);
+		expect(await waitForEmission(tail.emitted)).toHaveLength(2);
+		await Bun.sleep(QUIET_WINDOW_MS);
 
 		expect(tail.emitted.map((message) => message.type)).toEqual(["external-user-message", "agent-start"]);
 		tail.stop();
@@ -72,7 +83,7 @@ describe("startPiExternalTail", () => {
 		const filePath = await makeSessionFile();
 		const tail = startTail(filePath);
 
-		await Bun.sleep(500);
+		await Bun.sleep(QUIET_WINDOW_MS);
 		await appendFile(
 			filePath,
 			`${[
@@ -104,7 +115,7 @@ describe("startPiExternalTail", () => {
 		expect(tail.emitted).toHaveLength(0);
 
 		await appendFile(filePath, `${JSON.stringify(messageEntry("live-user", "user", "hello"))}\n`);
-		await Bun.sleep(900);
+		expect(await waitForEmission(tail.emitted)).toHaveLength(2);
 		expect(tail.emitted.map((message) => message.type)).toEqual(["external-user-message", "agent-start"]);
 		tail.stop();
 	});
@@ -113,10 +124,9 @@ describe("startPiExternalTail", () => {
 		const filePath = await makeSessionFile();
 		const tail = startTail(filePath);
 
-		await Bun.sleep(500);
+		await Bun.sleep(QUIET_WINDOW_MS);
 		await appendFile(filePath, `${JSON.stringify(messageEntry("live-user", "user", "hello"))}\n`);
-		await Bun.sleep(700);
-		const emittedBeforeStop = tail.emitted.length;
+		const emittedBeforeStop = (await waitForEmission(tail.emitted)).length;
 		expect(emittedBeforeStop).toBeGreaterThan(0);
 
 		tail.stop();

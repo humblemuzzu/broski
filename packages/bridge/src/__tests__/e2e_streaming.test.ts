@@ -3,7 +3,7 @@
  * delta seq ranges, reconnect replay, and Pi transcript paging against a synthetic session file.
  */
 
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { join } from "node:path";
 import { chain, header } from "../../bench/lib/pi-synthetic-sessions";
 import { enrichRuntimeEvent } from "../runtime/stream-contract";
@@ -11,6 +11,8 @@ import type { BroskiRuntimeEvent } from "../types/runtime";
 import {
 	type BridgeHandle,
 	connect,
+	E2E_TEST_TIMEOUT_MS,
+	E2E_WAIT_MS,
 	type MessageCollector,
 	send,
 	setupTestEnv,
@@ -20,12 +22,17 @@ import {
 	writeJsonlSession,
 } from "./e2e/harness";
 
+setDefaultTimeout(E2E_TEST_TIMEOUT_MS);
+
 const env = setupTestEnv();
 let bridge: BridgeHandle;
 
-beforeAll(async () => {
-	bridge = await startBridge();
-});
+beforeAll(
+	async () => {
+		bridge = await startBridge();
+	},
+	{ timeout: E2E_TEST_TIMEOUT_MS },
+);
 
 afterAll(async () => {
 	await bridge.stop();
@@ -67,7 +74,7 @@ function deltasOf(messages: MessageCollector): Array<{ delta: string; seq?: numb
 	return out;
 }
 
-async function waitForChars(messages: MessageCollector, target: number, timeoutMs = 5000): Promise<void> {
+async function waitForChars(messages: MessageCollector, target: number, timeoutMs = E2E_WAIT_MS): Promise<void> {
 	const deadline = Date.now() + timeoutMs;
 	while (Date.now() < deadline) {
 		if (deltasOf(messages).reduce((sum, d) => sum + d.delta.length, 0) >= target) return;
