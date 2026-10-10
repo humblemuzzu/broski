@@ -1,8 +1,8 @@
 import type { Context } from "@earendil-works/chord";
-import { awaitWithContext } from "@earendil-works/chord/context";
 import type { JsonObject, ToolCall } from "@earendil-works/pi-ai";
 import type { Extension, ToolHooks } from "@earendil-works/pi-durable";
-import { defineExtension, hook, ToolTask } from "@earendil-works/pi-durable";
+import { chordContextModule } from "../../sdk/chord";
+import { piDurableModule } from "../../sdk/pi-durable";
 
 export type PiDurablePermissionOutcome = "allow" | "ask" | "deny";
 
@@ -116,6 +116,7 @@ export class PiDurablePermissions {
 			await api.memo(memoKey, verdict, context);
 			return hookResult(verdict);
 		};
+		const { defineExtension, hook, ToolTask } = piDurableModule();
 		return defineExtension({
 			name: "broski-approval",
 			hooks: [hook(ToolTask, { beforeTool })],
@@ -150,7 +151,7 @@ export class PiDurablePermissions {
 		timer.unref?.();
 		this.options.onRequest?.(request);
 		try {
-			return await awaitWithContext(promise, context);
+			return await chordContextModule().awaitWithContext(promise, context);
 		} finally {
 			clearTimeout(timer);
 			this.pending.delete(request.requestId);

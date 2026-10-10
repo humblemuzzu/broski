@@ -4,12 +4,12 @@ import type {
 	AgentChange,
 	Conversation,
 	Extension,
+	Harness,
 	HarnessInspection,
 	HarnessSettings,
 } from "@earendil-works/pi-durable";
-import { Harness } from "@earendil-works/pi-durable";
 import type { JsonlStorage } from "@earendil-works/pi-durable/storage/jsonl";
-import { openNodeJsonlStorage } from "@earendil-works/pi-durable/storage/jsonl/node";
+import { loadPiDurableBackend, piDurableModule, piDurableNodeStorageModule } from "../../sdk/pi-durable";
 import { createPiDurableAgentSetup, piDurableExecutionEnv } from "./agent-setup";
 import { acquirePiDurableStorageLock, type PiDurableStorageLock } from "./storage-lock";
 
@@ -35,17 +35,20 @@ export type PiDurableSessionOpenOptions = {
 export async function openPiDurableSessionRuntime(
 	options: PiDurableSessionOpenOptions,
 ): Promise<PiDurableSessionRuntime> {
+	await loadPiDurableBackend();
+	const { Harness } = piDurableModule();
+	const { openNodeJsonlStorage } = piDurableNodeStorageModule();
 	const lock = acquirePiDurableStorageLock(options.directory);
 	let storage: JsonlStorage | undefined;
 	try {
 		storage = await openNodeJsonlStorage(options.directory, options.context, { fsync: true });
-		const setup = createPiDurableAgentSetup({ cwd: options.cwd, extensions: options.extensions });
+		const setup = await createPiDurableAgentSetup({ cwd: options.cwd, extensions: options.extensions });
 		const harness = await Harness.open(
 			storage,
 			{
 				models: options.models,
 				registry: setup.registry,
-				env: piDurableExecutionEnv(options.cwd),
+				env: await piDurableExecutionEnv(options.cwd),
 				...(options.settings !== undefined ? { settings: options.settings } : {}),
 			},
 			options.context,

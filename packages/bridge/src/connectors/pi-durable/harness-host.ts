@@ -1,5 +1,4 @@
 import type { Context } from "@earendil-works/chord";
-import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import type { Models, ModelThinkingLevel } from "@earendil-works/pi-ai";
 import type {
 	AgentChange,
@@ -14,7 +13,8 @@ import type {
 	SubmissionId,
 	UserInput,
 } from "@earendil-works/pi-durable";
-import { watchEvents } from "@earendil-works/pi-durable";
+import { chordContextModule, loadChordContext } from "../../sdk/chord";
+import { loadPiDurableBackend, piDurableModule } from "../../sdk/pi-durable";
 import { singleFlight } from "../../utils/single-flight";
 import { PiDurablePermissions } from "./permissions";
 import {
@@ -138,7 +138,8 @@ export class PiDurableHarnessHost {
 	private readonly extensions: readonly Extension[];
 	private readonly settings: HarnessSettings | undefined;
 	private readonly idleTimeoutMs: number;
-	private readonly context: Context;
+	private readonly fallbackContext: Context | undefined;
+	private boundContext: Context | undefined;
 	private readonly collectInterrupted: PiDurableInterruptedWorkCollector;
 	private readonly liveWorkProbe: PiDurableLiveWorkProbe | undefined;
 	private readonly sessions = new Map<string, PiDurableOpenSession>();
@@ -154,9 +155,20 @@ export class PiDurableHarnessHost {
 		this.extensions = options.extensions ?? [];
 		this.settings = options.settings;
 		this.idleTimeoutMs = options.idleTimeoutMs ?? PI_DURABLE_IDLE_TIMEOUT_MS;
-		this.context = options.context ?? BACKGROUND_CONTEXT;
+		this.fallbackContext = options.context;
 		this.collectInterrupted = options.collectInterruptedWork ?? collectInterruptedWork;
 		this.liveWorkProbe = options.hasLiveWork;
+	}
+
+	private async resolveContext(): Promise<Context> {
+		if (this.boundContext !== undefined) return this.boundContext;
+		if (this.fallbackContext !== undefined) {
+			this.boundContext = this.fallbackContext;
+			return this.boundContext;
+		}
+		await loadChordContext();
+		this.boundContext = chordContextModule().BACKGROUND_CONTEXT;
+		return this.boundContext;
 	}
 
 	isOpen(sessionId: string): boolean {
@@ -176,6 +188,7 @@ export class PiDurableHarnessHost {
 	}
 
 	private async openUnopened(sessionId: string): Promise<PiDurableOpenResult> {
+		await loadPiDurableBackend();
 		const meta = await this.store.read(sessionId);
 		if (meta === undefined) throw new PiDurableSessionNotFoundError(sessionId);
 		const model = meta.model ?? this.defaultModel;
@@ -191,15 +204,15 @@ export class PiDurableHarnessHost {
 			agent,
 			extensions: [...this.extensions, this.permissions.extensionFor(sessionId)],
 			...(this.settings !== undefined ? { settings: this.settings } : {}),
-			context: this.context,
+			context: await this.resolveContext(),
 		});
 
 		let interrupted: PiDurableInterruptedWork;
 		try {
-			interrupted = await this.collectInterrupted(runtime, this.context);
+			interrupted = await this.collectInterrupted(runtime, await this.resolveContext());
 			runtime.harness.resume();
 		} catch (error) {
-			await closePiDurableSessionRuntime(runtime, this.context);
+			await closePiDurableSessionRuntime(runtime, await this.resolveContext());
 			throw error;
 		}
 		const entry: PiDurableOpenSession = { runtime, cwd: meta.cwd, watchers: 0 };
@@ -217,20 +230,20 @@ export class PiDurableHarnessHost {
 				...(draft.requestId !== undefined ? { requestId: draft.requestId } : {}),
 				...(draft.whenBusy !== undefined ? { whenBusy: draft.whenBusy } : {}),
 			},
-			this.context,
+			await this.resolveContext(),
 		);
 		return submission.id;
 	}
 
 	async abort(sessionId: string): Promise<void> {
 		const entry = await this.ensureOpen(sessionId);
-		await entry.runtime.conversation.abort(this.context);
+		await entry.runtime.conversation.abort(await this.resolveContext());
 	}
 
 	/** Admits a manual compaction: the summary is placed at the next boundary while the conversation keeps working. */
 	async compact(sessionId: string, instructions?: string): Promise<void> {
 		const entry = await this.ensureOpen(sessionId);
-		await entry.runtime.conversation.compact(instructions, this.context);
+		await entry.runtime.conversation.compact(instructions, await this.resolveContext());
 	}
 
 	async configure(sessionId: string, change: PiDurableConfigureChange): Promise<void> {
@@ -240,7 +253,7 @@ export class PiDurableHarnessHost {
 				...(change.model !== undefined ? { model: change.model } : {}),
 				...(change.thinkingLevel !== undefined ? { thinkingLevel: change.thinkingLevel } : {}),
 			},
-			this.context,
+			await this.resolveContext(),
 		);
 		await this.store.update(sessionId, change);
 	}
@@ -248,7 +261,11 @@ export class PiDurableHarnessHost {
 	/** The first callback carries the attachment snapshot; later ones carry committed batches. */
 	async watch(sessionId: string, listener: (events: readonly AgentEvent[]) => void): Promise<() => Promise<void>> {
 		const entry = await this.ensureOpen(sessionId);
-		const stream = await watchEvents(entry.runtime.harness, entry.runtime.conversation.id, this.context);
+		const stream = await piDurableModule().watchEvents(
+			entry.runtime.harness,
+			entry.runtime.conversation.id,
+			await this.resolveContext(),
+		);
 		entry.watchers += 1;
 		this.clearIdleTimer(entry);
 		listener([stream.snapshot]);
@@ -271,14 +288,14 @@ export class PiDurableHarnessHost {
 			{ order: options.order ?? "ascending" },
 			options.limit ?? PI_DURABLE_TRANSCRIPT_LIMIT,
 			options.cursor,
-			this.context,
+			await this.resolveContext(),
 		);
 		return { entries: [...page.items], ...(page.next !== undefined ? { nextCursor: page.next } : {}) };
 	}
 
 	async inspect(sessionId: string): Promise<HarnessInspection> {
 		const entry = await this.ensureOpen(sessionId);
-		return inspectPiDurableSession(entry.runtime, this.context);
+		return inspectPiDurableSession(entry.runtime, await this.resolveContext());
 	}
 
 	async close(sessionId: string): Promise<void> {
@@ -286,7 +303,7 @@ export class PiDurableHarnessHost {
 		if (entry === undefined) return;
 		this.sessions.delete(sessionId);
 		this.clearIdleTimer(entry);
-		await closePiDurableSessionRuntime(entry.runtime, this.context);
+		await closePiDurableSessionRuntime(entry.runtime, await this.resolveContext());
 	}
 
 	async closeAll(): Promise<void> {
@@ -298,7 +315,7 @@ export class PiDurableHarnessHost {
 		entry: PiDurableOpenSession,
 		interrupted: PiDurableInterruptedWork,
 	): Promise<PiDurableOpenResult> {
-		const agent = await entry.runtime.conversation.agent(this.context);
+		const agent = await entry.runtime.conversation.agent(await this.resolveContext());
 		return {
 			sessionId,
 			cwd: entry.cwd,
@@ -353,7 +370,7 @@ export class PiDurableHarnessHost {
 	private async hasLiveWork(entry: PiDurableOpenSession): Promise<boolean> {
 		if (this.liveWorkProbe !== undefined) return this.liveWorkProbe(entry.runtime);
 		try {
-			const inspection = await entry.runtime.harness.inspect(this.context);
+			const inspection = await entry.runtime.harness.inspect(await this.resolveContext());
 			return inspection.tasks.length > 0 || inspection.submissions.length > 0;
 		} catch {
 			return true;

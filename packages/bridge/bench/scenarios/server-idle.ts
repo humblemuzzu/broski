@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { startBenchServer } from "../lib/bench-server";
+import { loadedAgentSdkPackages } from "../lib/loaded-sdks";
 import { runScenario } from "../lib/report";
 import { connectBenchClient, waitForMessage } from "../lib/ws-client";
 
@@ -27,9 +28,12 @@ function childPidsOf(parentPid: number): ProcessRow[] {
 }
 
 await runScenario(async () => {
+	const sdkBeforeServer = loadedAgentSdkPackages();
 	const handle = await startBenchServer();
+	const sdkAfterServer = loadedAgentSdkPackages();
 	const ws = await connectBenchClient(handle.port, handle.token);
 	await waitForMessage(ws, "status", 10_000);
+	const sdkAfterClient = loadedAgentSdkPackages();
 
 	let messagesReceived = 0;
 	ws.addEventListener("message", () => {
@@ -78,5 +82,8 @@ await runScenario(async () => {
 		configPath: handle.configPath,
 		configPathUnderHome: handle.configPath.startsWith(handle.homedirObserved),
 		broskiDirCreated: handle.broskiDirCreated(),
+		loadedSdkPackagesAfterImport: sdkBeforeServer.join(",") || "(none)",
+		loadedSdkPackagesAfterServer: sdkAfterServer.join(",") || "(none)",
+		loadedSdkPackagesAfterClient: sdkAfterClient.join(",") || "(none)",
 	};
 });

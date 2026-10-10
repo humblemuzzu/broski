@@ -20,6 +20,7 @@ import {
 	toPiSessionInfo,
 	toSdkSessionInfo,
 } from "../../index-cache/pi-session-index-record";
+import { loadPiCodingAgent } from "../../sdk/pi-coding-agent";
 import type { PiSessionInfo } from "../../types/pi";
 import { runPool } from "../../utils/bounded-pool";
 import { singleFlight } from "../../utils/single-flight";
@@ -86,6 +87,7 @@ function sortByModifiedDesc(records: PiSessionIndexRecord[]): PiSessionIndexReco
 }
 
 async function refresh(options: IndexedSessionListOptions): Promise<Map<string, PiSessionIndexRecord>> {
+	await loadPiCodingAgent();
 	const root = options.root ?? getPiSessionsRoot();
 	const files = await collectSessionFiles(root, options.cwd);
 	const sessionIndex = await openPiSessionIndex(options);

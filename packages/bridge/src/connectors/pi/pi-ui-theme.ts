@@ -1,4 +1,5 @@
-import { Theme } from "@earendil-works/pi-coding-agent";
+import type { Theme } from "@earendil-works/pi-coding-agent";
+import { piCodingAgent } from "../../sdk/pi-coding-agent";
 
 /**
  * Bridge extensions render on a phone, not in a terminal, so every token keeps
@@ -65,6 +66,6 @@ const defaultBackgrounds = {
 let uiTheme: Theme | null = null;
 
 export function getPiUiTheme(): Theme {
-	uiTheme ??= new Theme(defaultForegrounds, defaultBackgrounds, "truecolor");
+	uiTheme ??= new (piCodingAgent().Theme)(defaultForegrounds, defaultBackgrounds, "truecolor");
 	return uiTheme;
 }

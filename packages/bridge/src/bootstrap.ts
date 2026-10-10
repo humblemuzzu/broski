@@ -13,7 +13,7 @@
  * unless deleted.
  */
 
-import { chmodSync, existsSync, writeFileSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 const binDir = dirname(process.execPath);

@@ -7,9 +7,9 @@
  */
 
 import type { AssistantMessage, JsonObject, ToolResultMessage } from "@earendil-works/pi-ai";
-import { parseSessionEntries } from "@earendil-works/pi-coding-agent";
 import type { ModifiedFileEntry, SessionDiffSummary } from "../../handlers/session-stats";
 import { aggregateFileDiffs, countUnifiedDiffStats, deduplicateFileDiffs } from "../../handlers/session-stats";
+import { loadPiCodingAgent } from "../../sdk/pi-coding-agent";
 import { FileFingerprintCache } from "../../utils/file-fingerprint-cache";
 import { readJsonlLines } from "../../utils/jsonl-lines";
 
@@ -141,6 +141,7 @@ function resultToDiffs(message: ToolResultMessage, toolCallArgs: Map<string, Too
  *             to count real lines, since the toolResult only has a byte count.
  */
 export async function scanPiSessionFile(filePath: string): Promise<PiSessionStatsScan> {
+	const { parseSessionEntries } = await loadPiCodingAgent();
 	const toolCallArgs = new Map<string, ToolCallArgs>();
 	const fileDiffs: FileDiffs = [];
 	let toolCount = 0;

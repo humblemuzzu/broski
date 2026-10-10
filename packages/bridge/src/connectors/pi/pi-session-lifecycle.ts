@@ -1,11 +1,11 @@
 import { copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
-import {
-	createAgentSession,
-	type ExtensionCommandContextActions,
-	type SessionBeforeSwitchEvent,
+import type {
+	ExtensionCommandContextActions,
+	SessionBeforeSwitchEvent,
 	SessionManager,
 } from "@earendil-works/pi-coding-agent";
+import { loadPiCodingAgent } from "../../sdk/pi-coding-agent";
 import { bindExtensionsOnSession, makeEmitter, makeExtensionUiBridge } from "./pi-extension-binding";
 import type { PiInstance, PiSessionRebuildEvent } from "./pi-instance-types";
 import { ensurePiModelRuntime } from "./pi-model-runtime";
@@ -80,6 +80,7 @@ async function rebuildInstanceSession(
 	sessionManager: SessionManager,
 	sessionStartEvent: PiSessionRebuildEvent,
 ): Promise<void> {
+	const { createAgentSession } = await loadPiCodingAgent();
 	try {
 		await instance.session.extensionRunner.emit({ type: "session_shutdown", reason: sessionStartEvent.reason });
 	} catch {
@@ -125,6 +126,7 @@ export async function createNewSession(
 
 	const previousSessionFile = instance.session.sessionFile ?? undefined;
 	const sessionDir = instance.session.sessionManager.getSessionDir();
+	const { SessionManager } = await loadPiCodingAgent();
 	const newManager = SessionManager.create(instance.cwd, sessionDir);
 	if (setupOptions?.parentSession) {
 		newManager.newSession({ parentSession: setupOptions.parentSession });
@@ -157,6 +159,7 @@ export async function switchToSession(instance: PiInstance, sessionPath: string)
 	if (cancelled) return { cancelled: true };
 
 	const previousSessionFile = instance.session.sessionFile ?? undefined;
+	const { SessionManager } = await loadPiCodingAgent();
 	const sm = SessionManager.open(sessionPath);
 
 	await rebuildInstanceSession(instance, sm, {
@@ -206,6 +209,7 @@ async function rebuildPersistedFork(
 	const currentSessionFile = instance.session.sessionFile;
 	if (!currentSessionFile) throw new Error("Persisted session is missing a session file");
 
+	const { SessionManager } = await loadPiCodingAgent();
 	if (!parentId) {
 		const newManager = SessionManager.create(instance.cwd, sessionDir);
 		newManager.newSession({ parentSession: currentSessionFile });
@@ -274,7 +278,7 @@ export async function importFromJsonl(instance: PiInstance, inputPath: string): 
 		copyFileSync(resolvedPath, destinationPath);
 	}
 
-	const sm = SessionManager.open(destinationPath, sessionDir);
+	const sm = (await loadPiCodingAgent()).SessionManager.open(destinationPath, sessionDir);
 	await rebuildInstanceSession(instance, sm, {
 		type: "session_start",
 		reason: "resume",

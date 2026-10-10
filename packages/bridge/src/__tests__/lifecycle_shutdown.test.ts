@@ -288,20 +288,20 @@ describe("createShutdownController", () => {
 });
 
 describe("lifecycle wiring", () => {
-	test("index registers an uncaughtException handler next to unhandledRejection", () => {
-		const indexSrc = source("index.ts");
+	test("the serve path registers an uncaughtException handler next to unhandledRejection", () => {
+		const indexSrc = source("serve.ts");
 		expect(indexSrc).toContain('process.on("uncaughtException"');
 		expect(indexSrc).toContain('process.on("unhandledRejection"');
 		expect(indexSrc).not.toContain("_shuttingDownFromRejection");
 	});
 
-	test("index awaits the bridge teardown before exiting", () => {
-		const indexSrc = source("index.ts");
-		expect(indexSrc).toMatch(/await bridgeServer\.stop\(true\)/);
+	test("the serve path awaits the bridge teardown before exiting", () => {
+		const shutdownSrc = source("serve/shutdown.ts");
+		expect(shutdownSrc).toMatch(/await serveState\.bridgeServer\.stop\(true\)/);
 	});
 
 	test("daemon startup retries the port instead of exiting 1", () => {
-		const indexSrc = source("index.ts");
+		const indexSrc = source("serve.ts");
 		expect(indexSrc).toMatch(/bindWithRetry\(/);
 		expect(indexSrc).toContain('mode: cli.daemon ? "daemon" : "once"');
 	});

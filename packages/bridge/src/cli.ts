@@ -1,7 +1,7 @@
 import { stdin as input, stdout as output } from "node:process";
 import readline from "node:readline/promises";
+import { isCompiledBinary } from "./compiled-binary";
 import { DEFAULT_PORT, parsePort } from "./config/port";
-import { isCompiledBinary } from "./platform";
 
 export type OpencodeMode = "managed" | "manual" | "attach";
 export type SubCommand =

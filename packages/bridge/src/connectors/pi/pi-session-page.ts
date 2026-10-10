@@ -10,11 +10,8 @@
  * bounded window cannot reproduce — and the caller falls back to the whole-file read.
  */
 
-import {
-	type CompactionEntry,
-	type SessionEntry,
-	sessionEntryToContextMessages,
-} from "@earendil-works/pi-coding-agent";
+import type { CompactionEntry, SessionEntry } from "@earendil-works/pi-coding-agent";
+import { loadPiCodingAgent } from "../../sdk/pi-coding-agent";
 import type { TranscriptPage } from "../../types/transcript-page";
 import { mapAgentMessages } from "./pi-events";
 import {
@@ -49,9 +46,9 @@ type PreparedSession = {
 	compaction: CompactionInfo | null;
 };
 
-/** Messages one context entry contributes; a superseded compaction contributes none. */
-function entryMessages(entry: SessionEntry, primaryCompactionId: string | null): PiSessionTranscript {
+async function entryMessages(entry: SessionEntry, primaryCompactionId: string | null): Promise<PiSessionTranscript> {
 	if (entry.type === "compaction" && entry.id !== primaryCompactionId) return [];
+	const { sessionEntryToContextMessages } = await loadPiCodingAgent();
 	return mapAgentMessages(sessionEntryToContextMessages(entry));
 }
 
@@ -77,7 +74,11 @@ async function prepare(sessionPath: string): Promise<PreparedSession | null> {
 	const keptAt = kept === undefined ? -1 : path.indexOf(kept);
 	if (keptAt < 0) return null;
 
-	return { index, path, compaction: { entry, messages: entryMessages(entry, entry.id), position, keptStart: keptAt } };
+	return {
+		index,
+		path,
+		compaction: { entry, messages: await entryMessages(entry, entry.id), position, keptStart: keptAt },
+	};
 }
 
 async function loadWindow(
@@ -133,7 +134,7 @@ export async function readPiSessionTranscriptPage(
 			const entry = entries[i] as SessionEntry;
 			// The compaction's summary is carried at the front of the context, never in path order.
 			const inPathOrder = compaction === null || start + i !== compaction.position;
-			const messages = inPathOrder ? entryMessages(entry, compaction?.entry.id ?? null) : [];
+			const messages = inPathOrder ? await entryMessages(entry, compaction?.entry.id ?? null) : [];
 			if (messages.length > 1) return null;
 			produced.push(messages.length);
 			tail.push(...messages);

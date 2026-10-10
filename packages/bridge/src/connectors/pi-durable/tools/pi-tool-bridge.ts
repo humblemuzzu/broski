@@ -1,7 +1,7 @@
 import type { JsonValue } from "@earendil-works/chord";
 import type { ImageContent, Static, TextContent, TSchema } from "@earendil-works/pi-ai";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
-import { defineTool } from "@earendil-works/pi-durable";
+import { loadPiDurable } from "../../../sdk/pi-durable";
 import { toJsonValue } from "./json-value";
 
 export type PiToolOutcome = {
@@ -27,10 +27,11 @@ export type PiTool<Parameters extends TSchema> = {
  * Registers a pi coding-agent tool as a durable tool. The pi tool is built again per call from the call's environment
  * cwd, so a changed conversation directory reaches calls the model already made.
  */
-export function piDurableReadOnlyTool<Parameters extends TSchema>(
+export async function piDurableReadOnlyTool<Parameters extends TSchema>(
 	build: (cwd: string) => PiTool<Parameters>,
 	fallbackCwd: string,
-): ToolRegistration<Parameters, JsonValue> {
+): Promise<ToolRegistration<Parameters, JsonValue>> {
+	const { defineTool } = await loadPiDurable();
 	const registered = build(fallbackCwd);
 	return defineTool({
 		name: registered.name,

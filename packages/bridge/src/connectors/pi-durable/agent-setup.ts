@@ -1,14 +1,7 @@
 import { join } from "node:path";
-import {
-	formatSkillsForPrompt,
-	getAgentDir,
-	loadProjectContextFiles,
-	loadSkills,
-} from "@earendil-works/pi-coding-agent";
 import type { EnvTarget, Extension, HarnessOptions, PromptSection, Registry } from "@earendil-works/pi-durable";
-import { createRegistry, defineExtension, section } from "@earendil-works/pi-durable";
-import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
-import { CodingTools } from "@earendil-works/pi-durable/tools";
+import { loadPiCodingAgent } from "../../sdk/pi-coding-agent";
+import { loadPiDurable, loadPiDurableBackend, loadPiDurableNodeEnv, loadPiDurableTools } from "../../sdk/pi-durable";
 import { createPiDurableSearchExtension } from "./tools";
 
 export const PI_DURABLE_PROJECT_EXTENSION = "broski-project";
@@ -27,7 +20,8 @@ export type PiDurableProjectContext = {
 	diagnostics: string[];
 };
 
-function projectSections(context: PiDurableProjectContext): PromptSection[] {
+async function projectSections(context: PiDurableProjectContext): Promise<PromptSection[]> {
+	const { section } = await loadPiDurable();
 	return [
 		section("preamble", () => PI_DURABLE_PREAMBLE, { tag: false }),
 		section("project-context", () => context.contextText || undefined, { tag: false }),
@@ -35,7 +29,11 @@ function projectSections(context: PiDurableProjectContext): PromptSection[] {
 	];
 }
 
-export function loadPiDurableProjectContext(projectDir: string, agentDir: string): PiDurableProjectContext {
+export async function loadPiDurableProjectContext(
+	projectDir: string,
+	agentDir: string,
+): Promise<PiDurableProjectContext> {
+	const { formatSkillsForPrompt, loadProjectContextFiles, loadSkills } = await loadPiCodingAgent();
 	const files = loadProjectContextFiles({ cwd: projectDir, agentDir });
 	const loaded = loadSkills({
 		cwd: projectDir,
@@ -52,8 +50,9 @@ export function loadPiDurableProjectContext(projectDir: string, agentDir: string
 	};
 }
 
-export function createPiDurableProjectExtension(context: PiDurableProjectContext): Extension {
-	return defineExtension({ name: PI_DURABLE_PROJECT_EXTENSION, sections: projectSections(context) });
+export async function createPiDurableProjectExtension(context: PiDurableProjectContext): Promise<Extension> {
+	const { defineExtension } = await loadPiDurable();
+	return defineExtension({ name: PI_DURABLE_PROJECT_EXTENSION, sections: await projectSections(context) });
 }
 
 export type PiDurableAgentSetupOptions = {
@@ -67,17 +66,22 @@ export type PiDurableAgentSetup = {
 	project: PiDurableProjectContext;
 };
 
-export function createPiDurableAgentSetup(options: PiDurableAgentSetupOptions): PiDurableAgentSetup {
+export async function createPiDurableAgentSetup(options: PiDurableAgentSetupOptions): Promise<PiDurableAgentSetup> {
+	await loadPiDurableBackend();
+	const { getAgentDir } = await loadPiCodingAgent();
+	const { createRegistry } = await loadPiDurable();
+	const { CodingTools } = await loadPiDurableTools();
 	const agentDir = options.agentDir ?? getAgentDir();
-	const project = loadPiDurableProjectContext(options.cwd, agentDir);
+	const project = await loadPiDurableProjectContext(options.cwd, agentDir);
 	const registry = createRegistry();
 	registry.install(CodingTools);
-	registry.install(createPiDurableSearchExtension(options.cwd));
-	registry.install(createPiDurableProjectExtension(project));
+	registry.install(await createPiDurableSearchExtension(options.cwd));
+	registry.install(await createPiDurableProjectExtension(project));
 	for (const extension of options.extensions ?? []) registry.install(extension);
 	return { registry, project };
 }
 
-export function piDurableExecutionEnv(cwd: string): HarnessOptions["env"] {
+export async function piDurableExecutionEnv(cwd: string): Promise<HarnessOptions["env"]> {
+	const { NodeExecutionEnv } = await loadPiDurableNodeEnv();
 	return (target: EnvTarget) => new NodeExecutionEnv({ cwd: target.cwd ?? cwd });
 }

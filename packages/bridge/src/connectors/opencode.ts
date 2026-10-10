@@ -1,27 +1,27 @@
 import { basename, isAbsolute, join } from "node:path";
 import { pathToFileURL } from "node:url";
-import {
-	type Auth,
-	createOpencodeClient,
-	type FilePartInput,
-	type FilePartSource,
-	type GlobalEvent,
-	type GlobalSession,
-	type McpLocalConfig,
-	type McpRemoteConfig,
-	type Config as OpenCodeConfig,
-	type PermissionRequest as OpenCodePermissionRequest,
-	type QuestionRequest as OpenCodeQuestionRequest,
-	type Workspace as OpenCodeWorkspace,
-	type OpencodeClient,
-	type OutputFormat,
-	type Part,
-	type Project,
-	type Session,
-	type SessionMessageResponse,
-	type TextPartInput,
+import type {
+	Auth,
+	FilePartInput,
+	FilePartSource,
+	GlobalEvent,
+	GlobalSession,
+	McpLocalConfig,
+	McpRemoteConfig,
+	Config as OpenCodeConfig,
+	PermissionRequest as OpenCodePermissionRequest,
+	QuestionRequest as OpenCodeQuestionRequest,
+	Workspace as OpenCodeWorkspace,
+	OpencodeClient,
+	OutputFormat,
+	Part,
+	Project,
+	Session,
+	SessionMessageResponse,
+	TextPartInput,
 } from "@opencode-ai/sdk/v2";
 import { homedir } from "os";
+import { openCodeSdk } from "../sdk/opencode-sdk";
 import type {
 	Agent,
 	Command,
@@ -117,7 +117,7 @@ export class OpenCodeConnector {
 		this.baseUrl = options.baseUrl ?? DEFAULT_BASE_URL;
 		this.client =
 			options.client ??
-			createOpencodeClient({
+			openCodeSdk().createOpencodeClient({
 				baseUrl: this.baseUrl,
 			});
 	}
@@ -125,7 +125,7 @@ export class OpenCodeConnector {
 	// Update the base URL (useful for dynamic port discovery)
 	updateBaseUrl(newBaseUrl: string) {
 		this.baseUrl = newBaseUrl;
-		this.client = createOpencodeClient({
+		this.client = openCodeSdk().createOpencodeClient({
 			baseUrl: newBaseUrl,
 		});
 	}

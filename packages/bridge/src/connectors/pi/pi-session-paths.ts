@@ -8,7 +8,7 @@
 
 import { readdir, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import { piCodingAgent } from "../../sdk/pi-coding-agent";
 import { runPool } from "../../utils/bounded-pool";
 
 /** Concurrent `stat` calls while fingerprinting one directory. */
@@ -23,7 +23,7 @@ export type PiSessionFile = {
 	ctimeMs: number;
 };
 
-export const getPiSessionsRoot = (): string => resolve(getAgentDir(), "sessions");
+export const getPiSessionsRoot = (): string => resolve(piCodingAgent().getAgentDir(), "sessions");
 
 const encodeCwdDir = (cwd: string): string =>
 	`--${resolve(cwd)

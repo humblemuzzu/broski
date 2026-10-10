@@ -72,8 +72,8 @@ async function toolResultTexts(host: PiDurableHarnessHost, sessionId: string): P
 }
 
 describe("pi-durable read-only search tools", () => {
-	test("are replay-safe and auto-allowed by the permission policy", () => {
-		const tools = createPiDurableSearchTools(createProjectDir());
+	test("are replay-safe and auto-allowed by the permission policy", async () => {
+		const tools = await createPiDurableSearchTools(createProjectDir());
 		expect(tools.map((tool) => [tool.name, tool.replay])).toEqual([
 			["ls", "safe"],
 			["find", "safe"],

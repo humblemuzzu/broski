@@ -1,10 +1,4 @@
-import {
-	createAgentSession,
-	DefaultResourceLoader,
-	getAgentDir,
-	SessionManager,
-	SettingsManager,
-} from "@earendil-works/pi-coding-agent";
+import { loadPiCodingAgent } from "../../sdk/pi-coding-agent";
 import type { PiExtensionUiResponseInput } from "../pi_extension_ui";
 import { normalizeCwd } from "./pi-cwd";
 import { bindExtensionsOnSession, createExtensionUiBridge, makeEmitter } from "./pi-extension-binding";
@@ -17,6 +11,8 @@ import { mapStatePayload } from "./pi-session-state";
 const instances = new Map<string, PiInstance>();
 
 async function buildInstance(cwd: string, options?: GetOrCreatePiOptions): Promise<PiInstance> {
+	const { createAgentSession, DefaultResourceLoader, getAgentDir, SessionManager, SettingsManager } =
+		await loadPiCodingAgent();
 	const settingsManager = SettingsManager.create(cwd);
 	const resourceLoader = new DefaultResourceLoader({
 		cwd,

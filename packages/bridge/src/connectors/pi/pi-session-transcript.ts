@@ -10,13 +10,8 @@
  */
 
 import { readFile } from "node:fs/promises";
-import {
-	buildSessionContext,
-	type FileEntry,
-	migrateSessionEntries,
-	parseSessionEntries,
-	type SessionEntry,
-} from "@earendil-works/pi-coding-agent";
+import type { FileEntry, SessionEntry } from "@earendil-works/pi-coding-agent";
+import { loadPiCodingAgent } from "../../sdk/pi-coding-agent";
 import { mapAgentMessages } from "./pi-events";
 import { indexPiSessionFile, readPiEntryAt } from "./pi-session-index";
 import { PiSessionCycleError, piSessionPath, planPiSessionWindow, readPiSessionWindow } from "./pi-session-window";
@@ -33,7 +28,8 @@ function sliceTail(messages: PiSessionTranscript, limit?: number): PiSessionTran
 	return messages;
 }
 
-function projectWindow(entries: SessionEntry[], leafId: string): PiSessionTranscript {
+async function projectWindow(entries: SessionEntry[], leafId: string): Promise<PiSessionTranscript> {
+	const { buildSessionContext } = await loadPiCodingAgent();
 	const byId = new Map<string, SessionEntry>();
 	for (const entry of entries) byId.set(entry.id, entry);
 	return mapAgentMessages(buildSessionContext(entries, leafId, byId).messages);
@@ -73,7 +69,7 @@ async function readWindowedSessionMessages(
 		const window = await readPiSessionWindow(sessionPath, index, plan, path);
 		if (!window) return null;
 
-		const messages = projectWindow(window.entries, window.leafId);
+		const messages = await projectWindow(window.entries, window.leafId);
 		if (!wantsTail || messages.length >= limit || plan.start === 0) return sliceTail(messages, limit);
 		start = nextStart(plan.start, path.length, limit);
 	}
@@ -82,6 +78,7 @@ async function readWindowedSessionMessages(
 }
 
 export async function readFullSessionMessages(sessionPath: string, limit?: number): Promise<PiSessionTranscript> {
+	const { buildSessionContext, migrateSessionEntries, parseSessionEntries } = await loadPiCodingAgent();
 	const content = await readFile(sessionPath, "utf-8");
 	const fileEntries = parseSessionEntries(content);
 

@@ -1,6 +1,6 @@
 import { rm } from "node:fs/promises";
 import { resolve, sep } from "node:path";
-import { getAgentDir, VERSION } from "@earendil-works/pi-coding-agent";
+import { loadPiCodingAgent, piCodingAgent } from "../../sdk/pi-coding-agent";
 import type { PiSessionInfo, ProjectSummary } from "../../types";
 import { singleFlight } from "../../utils/single-flight";
 import { normalizeCwd } from "./pi-cwd";
@@ -17,7 +17,7 @@ import {
 } from "./pi-session-list-cache";
 import { listIndexedPiSessions } from "./pi-session-list-indexed";
 
-const getSessionsRoot = (): string => resolve(getAgentDir(), "sessions");
+const getSessionsRoot = (): string => resolve(piCodingAgent().getAgentDir(), "sessions");
 
 const listSessionsInFlight = new Map<string, Promise<PiSessionInfo[]>>();
 const listProjectsInFlight = new Map<string, Promise<ProjectSummary[]>>();
@@ -26,6 +26,7 @@ export function listSessions(cwd?: string, options: SessionListOptions = {}): Pr
 	const resolvedCwd = cwd ? normalizeCwd(cwd) : undefined;
 
 	return singleFlight(listSessionsInFlight, resolvedCwd ?? "", async () => {
+		await loadPiCodingAgent();
 		if (!options.lister) {
 			return listIndexedPiSessions({
 				root: options.root,
@@ -46,10 +47,14 @@ export function listSessions(cwd?: string, options: SessionListOptions = {}): Pr
 }
 
 export function listProjects(): Promise<ProjectSummary[]> {
-	return singleFlight(listProjectsInFlight, "pi", () => listProjectSummaries());
+	return singleFlight(listProjectsInFlight, "pi", async () => {
+		await loadPiCodingAgent();
+		return listProjectSummaries();
+	});
 }
 
 export async function isPiAvailable(): Promise<PiAvailability> {
+	await loadPiCodingAgent();
 	try {
 		const runtime = await ensurePiModelRuntime();
 		logPiModelRuntimeErrors(runtime);
@@ -58,7 +63,7 @@ export async function isPiAvailable(): Promise<PiAvailability> {
 			available: true,
 			authenticated: models.length > 0,
 			modelCount: models.length,
-			version: VERSION,
+			version: piCodingAgent().VERSION,
 		};
 	} catch {
 		return {
@@ -70,6 +75,7 @@ export async function isPiAvailable(): Promise<PiAvailability> {
 }
 
 export async function deleteSession(sessionPath: string, options: SessionListOptions = {}): Promise<boolean> {
+	await loadPiCodingAgent();
 	const resolvedPath = resolve((sessionPath || "").trim());
 	const sessionsRoot = options.root ? resolve(options.root) : getSessionsRoot();
 
@@ -100,6 +106,7 @@ export async function resolveSessionFilePath(
 	sessionId: string,
 	options: SessionListOptions = {},
 ): Promise<string | null> {
+	await loadPiCodingAgent();
 	for (const instance of listInstances()) {
 		if (instance.session.sessionId === sessionId && instance.session.sessionFile) {
 			return resolve(instance.session.sessionFile);

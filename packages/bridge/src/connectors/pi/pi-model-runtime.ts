@@ -1,20 +1,23 @@
-import { registerBunOAuthFlows } from "@earendil-works/pi-ai/bun-oauth";
 import type { Model } from "@earendil-works/pi-ai/compat";
-import { ModelRuntime } from "@earendil-works/pi-coding-agent";
+import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
+import { loadPiAiBunOAuth } from "../../sdk/pi-ai";
+import { loadPiCodingAgent } from "../../sdk/pi-coding-agent";
 import type { PiModelPayload } from "../../types/pi";
 
 let modelRuntime: ModelRuntime | null = null;
 let creating: Promise<ModelRuntime> | null = null;
 let oauthFlowsRegistered = false;
 
-function registerOAuthFlowsOnce(): void {
+async function registerOAuthFlowsOnce(): Promise<void> {
 	if (oauthFlowsRegistered) return;
 	oauthFlowsRegistered = true;
+	const { registerBunOAuthFlows } = await loadPiAiBunOAuth();
 	registerBunOAuthFlows();
 }
 
 async function createModelRuntime(): Promise<ModelRuntime> {
-	registerOAuthFlowsOnce();
+	await registerOAuthFlowsOnce();
+	const { ModelRuntime } = await loadPiCodingAgent();
 	try {
 		modelRuntime = await ModelRuntime.create();
 		return modelRuntime;

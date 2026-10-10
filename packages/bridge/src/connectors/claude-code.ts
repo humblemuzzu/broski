@@ -11,7 +11,7 @@ import type {
 	Query as SDKQuery,
 	SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
-import { query } from "@anthropic-ai/claude-agent-sdk";
+import { loadClaudeAgentSdk } from "../sdk/claude-agent-sdk";
 import type {
 	ClaudeCodeAccountInfo,
 	ClaudeCodeBeta,
@@ -1811,6 +1811,7 @@ export async function queryClaudeCode(
 			}
 		}
 
+		const { query } = await loadClaudeAgentSdk();
 		const q = query({ prompt: finalPrompt, options: sdkOptions });
 
 		for await (const message of q) {
@@ -2273,6 +2274,7 @@ export async function rewindToCheckpoint(
 			},
 		};
 
+		const { query } = await loadClaudeAgentSdk();
 		const q = query({ prompt: "", options: resumeOptions });
 
 		if (typeof q.rewindFiles !== "function") {

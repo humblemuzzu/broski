@@ -14,6 +14,7 @@
 import { readdir, stat } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import type { SessionInfo } from "@earendil-works/pi-coding-agent";
+import { loadPiCodingAgent } from "../../sdk/pi-coding-agent";
 import type { ProjectSummary } from "../../types";
 import { runPool } from "../../utils/bounded-pool";
 import { singleFlight } from "../../utils/single-flight";
@@ -157,6 +158,7 @@ function sortByModifiedDesc(infos: SessionInfo[]): SessionInfo[] {
 export async function listSessionInfosForCwd(cwd: string, options: SessionListOptions = {}): Promise<SessionInfo[]> {
 	if (!options.lister) return listIndexedSdkSessionInfos(indexedOptions(options, cwd));
 
+	await loadPiCodingAgent();
 	const root = options.root ?? getSessionsRoot();
 	const lister = options.lister;
 	const maxBytes = options.maxCacheBytes ?? PI_SESSION_LIST_CACHE_MAX_BYTES;
@@ -167,6 +169,7 @@ export async function listSessionInfosForCwd(cwd: string, options: SessionListOp
 export async function listAllSessionInfos(options: SessionListOptions = {}): Promise<SessionInfo[]> {
 	if (!options.lister) return listIndexedSdkSessionInfos(indexedOptions(options));
 
+	await loadPiCodingAgent();
 	const root = options.root ?? getSessionsRoot();
 	const lister = options.lister;
 	const concurrency = options.concurrency ?? PI_SESSION_LIST_CONCURRENCY;

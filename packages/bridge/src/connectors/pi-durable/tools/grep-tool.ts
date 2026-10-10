@@ -2,10 +2,10 @@ import { readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join, relative, resolve } from "node:path";
 import type { JsonValue } from "@earendil-works/chord";
-import { Type } from "@earendil-works/pi-ai";
-import { DEFAULT_MAX_BYTES, formatSize, truncateHead, truncateLine } from "@earendil-works/pi-coding-agent";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
-import { defineTool } from "@earendil-works/pi-durable";
+import { loadPiAi } from "../../../sdk/pi-ai";
+import { loadPiCodingAgent } from "../../../sdk/pi-coding-agent";
+import { loadPiDurable } from "../../../sdk/pi-durable";
 import { toPosixPath, walkFiles } from "./fs-walk";
 import { matchesGlob } from "./glob-match";
 import { toJsonValue } from "./json-value";
@@ -14,19 +14,27 @@ const GREP_MAX_LINE_LENGTH = 500;
 const GREP_DEFAULT_LIMIT = 100;
 const GREP_MAX_FILE_BYTES = 8 * 1024 * 1024;
 
-const grepSchema = Type.Object({
-	pattern: Type.String({ description: "Search pattern (regex or literal string)" }),
-	path: Type.Optional(Type.String({ description: "Directory or file to search (default: current directory)" })),
-	glob: Type.Optional(Type.String({ description: "Filter files by glob pattern, e.g. '*.ts' or '**/*.spec.ts'" })),
-	ignoreCase: Type.Optional(Type.Boolean({ description: "Case-insensitive search (default: false)" })),
-	literal: Type.Optional(
-		Type.Boolean({ description: "Treat pattern as literal string instead of regex (default: false)" }),
-	),
-	context: Type.Optional(
-		Type.Number({ description: "Number of lines to show before and after each match (default: 0)" }),
-	),
-	limit: Type.Optional(Type.Number({ description: "Maximum number of matches to return (default: 100)" })),
-});
+type PiAiSdk = typeof import("@earendil-works/pi-ai");
+type PiCodingSdk = typeof import("@earendil-works/pi-coding-agent");
+
+function buildGrepSchema(piAi: PiAiSdk) {
+	const { Type } = piAi;
+	return Type.Object({
+		pattern: Type.String({ description: "Search pattern (regex or literal string)" }),
+		path: Type.Optional(Type.String({ description: "Directory or file to search (default: current directory)" })),
+		glob: Type.Optional(Type.String({ description: "Filter files by glob pattern, e.g. '*.ts' or '**/*.spec.ts'" })),
+		ignoreCase: Type.Optional(Type.Boolean({ description: "Case-insensitive search (default: false)" })),
+		literal: Type.Optional(
+			Type.Boolean({ description: "Treat pattern as literal string instead of regex (default: false)" }),
+		),
+		context: Type.Optional(
+			Type.Number({ description: "Number of lines to show before and after each match (default: 0)" }),
+		),
+		limit: Type.Optional(Type.Number({ description: "Maximum number of matches to return (default: 100)" })),
+	});
+}
+
+type GrepSchema = ReturnType<typeof buildGrepSchema>;
 
 export type GrepSearchOptions = {
 	cwd: string;
@@ -66,6 +74,7 @@ async function readSearchableLines(filePath: string): Promise<string[] | undefin
 }
 
 function formatMatch(
+	truncateLine: PiCodingSdk["truncateLine"],
 	displayPath: string,
 	lineNumber: number,
 	lines: readonly string[],
@@ -90,6 +99,7 @@ function formatMatch(
 }
 
 export async function runGrepSearch(options: GrepSearchOptions): Promise<GrepSearchOutcome> {
+	const { DEFAULT_MAX_BYTES, formatSize, truncateHead, truncateLine } = await loadPiCodingAgent();
 	const searchPath = resolveSearchPath(options.path ?? ".", options.cwd);
 	const target = await stat(searchPath).catch(() => undefined);
 	if (target === undefined) throw new Error(`Path not found: ${searchPath}`);
@@ -118,7 +128,7 @@ export async function runGrepSearch(options: GrepSearchOptions): Promise<GrepSea
 		for (let index = 0; index < lines.length; index += 1) {
 			if (!matcher.test(lines[index] ?? "")) continue;
 			matchCount += 1;
-			const formatted = formatMatch(displayPath, index + 1, lines, contextValue);
+			const formatted = formatMatch(truncateLine, displayPath, index + 1, lines, contextValue);
 			outputLines.push(...formatted.lines);
 			if (formatted.truncated) linesTruncated = true;
 			if (matchCount >= effectiveLimit) {
@@ -165,12 +175,13 @@ export async function runGrepSearch(options: GrepSearchOptions): Promise<GrepSea
 	return Object.keys(details).length > 0 ? { text, details } : { text };
 }
 
-export function createPiDurableGrepTool(cwd: string): ToolRegistration<typeof grepSchema> {
-	return defineTool({
+export async function createPiDurableGrepTool(cwd: string): Promise<ToolRegistration<GrepSchema>> {
+	const [piAi, piCoding, piDurable] = await Promise.all([loadPiAi(), loadPiCodingAgent(), loadPiDurable()]);
+	return piDurable.defineTool({
 		name: "grep",
 		replay: "safe",
-		description: `Search file contents for a pattern. Returns matching lines with file paths and line numbers. Respects .gitignore. Output is truncated to ${GREP_DEFAULT_LIMIT} matches or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first). Long lines are truncated to ${GREP_MAX_LINE_LENGTH} chars.`,
-		parameters: grepSchema,
+		description: `Search file contents for a pattern. Returns matching lines with file paths and line numbers. Respects .gitignore. Output is truncated to ${GREP_DEFAULT_LIMIT} matches or ${piCoding.DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first). Long lines are truncated to ${GREP_MAX_LINE_LENGTH} chars.`,
+		parameters: buildGrepSchema(piAi),
 		execute: async (args, api) => {
 			const outcome = await runGrepSearch({
 				cwd: api.env?.cwd ?? cwd,

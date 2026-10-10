@@ -1,5 +1,5 @@
 import { resolve, sep } from "node:path";
-import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import { piCodingAgent } from "../../sdk/pi-coding-agent";
 import type { PiCommandPayload, PiStatePayload } from "../../types";
 import { normalizeCwd } from "./pi-cwd";
 import type { PiInstance } from "./pi-instance-types";
@@ -74,7 +74,7 @@ const inferLocation = (filePath: string | undefined, cwd: string): "user" | "pro
 
 	const normalized = resolve(filePath);
 	const normalizedCwd = normalizeCwd(cwd);
-	const normalizedAgentDir = resolve(getAgentDir());
+	const normalizedAgentDir = resolve(piCodingAgent().getAgentDir());
 
 	if (normalized === normalizedCwd || normalized.startsWith(`${normalizedCwd}${sep}`)) {
 		return "project";
