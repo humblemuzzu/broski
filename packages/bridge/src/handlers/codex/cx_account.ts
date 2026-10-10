@@ -5,13 +5,14 @@
  */
 
 import type { CodexAppServerClient } from "../../connectors/codex";
+import type { CxMessage } from "../../routing/messages";
 
 export type CxAccountHandlerContext = {
 	ensureCodexClient: () => Promise<CodexAppServerClient>;
 };
 
 export async function handleCxAccount(
-	message: any,
+	message: CxMessage,
 	reply: (msg: any) => void,
 	ctx: CxAccountHandlerContext,
 ): Promise<boolean> {

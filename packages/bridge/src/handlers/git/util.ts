@@ -1,6 +1,7 @@
+import type { GitMessage } from "../../routing/messages";
 import type { GitHandlerContext, GitReply } from "./types";
 
-export async function ensureSecureCwd(message: any, ctx: GitHandlerContext): Promise<string | null> {
+export async function ensureSecureCwd(message: GitMessage, ctx: GitHandlerContext): Promise<string | null> {
 	const projectPath = ctx.safeString(message.projectPath).trim();
 	if (!projectPath) return null;
 	return await ctx.getSecurePath(projectPath);

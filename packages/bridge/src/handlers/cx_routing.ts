@@ -1,14 +1,12 @@
 /**
- * Codex (cx_*) message routing.
+ * Codex (cx_*) message registrations.
  *
- * All cx_ messages were already delegated to modular handler functions
- * (cx_threads, cx_chat, cx_config, etc.) but the routing boilerplate
- * lived inline in server.ts. This file consolidates the routing.
+ * Every `cx_*` type is bound to exactly one sub-handler. The previous boolean
+ * chain's `if (!handled) reply(...)` fallbacks were unreachable — each group's
+ * type set matched its sub-handler's cases exactly — so they are gone.
  */
-import type { ServerWebSocket } from "bun";
-import type { CodexAppServerClient } from "../connectors/codex";
-import type { AgentType, CodexStreamMessage, CodexThread, PermissionResponse, ServerMessage } from "../types";
-import type { BroskiSessionSummary } from "../types/runtime";
+import { registerLegacy } from "../routing/registry";
+import type { MessageRouter, ServerDeps } from "../routing/types";
 import { handleCxAccount } from "./codex/cx_account";
 import { handleCxAgents } from "./codex/cx_agents";
 import { handleCxChat } from "./codex/cx_chat";
@@ -25,67 +23,10 @@ import { handleCxThreads } from "./codex/cx_threads";
 import * as cxWorkspace from "./codex/cx_workspace";
 import { handleCodexFeature } from "./codex_features";
 
-type ReplyFn = (msg: ServerMessage) => void;
-
 /** Socket teardown for `cx_fs_watch` subscriptions, which the router owns the socket for. */
 export { detach as detachCxFsWatches } from "./codex/cx_fs_watch";
 
-type CxProjectCacheEntry = { fetchedAt: number; data: unknown[] };
-type CxThreadCacheEntry = { fetchedAt: number; data: CodexThread[]; nextCursor: string | null };
-
-export type CxRoutingContext = {
-	ws: ServerWebSocket<unknown>;
-	ensureCodexClient: () => Promise<CodexAppServerClient>;
-	codexClient: CodexAppServerClient | null;
-	codexFs: typeof import("../connectors/codex-fs");
-	safeString: (v: unknown) => string;
-	getSecurePath: (p: string) => Promise<string | null>;
-	logInfo: (msg: string) => void;
-	logError: (msg: string, ...args: unknown[]) => void;
-	logDebug: (msg: string) => void;
-	DEBUG_CX_GLOBAL: boolean;
-	send: (ws: ServerWebSocket<unknown>, msg: ServerMessage) => void;
-	broadcastToSessionWatchers: (
-		agent: AgentType,
-		sessionId: string,
-		msg: ServerMessage,
-		excludeWs?: ServerWebSocket<unknown>,
-	) => void;
-	// Thread state
-	cxProjectCache: CxProjectCacheEntry | null;
-	setProjectCache: (cache: CxProjectCacheEntry | null) => void;
-	cxThreadCache: Map<string, CxThreadCacheEntry>;
-	CODEX_PROJECT_CACHE_TTL_MS: number;
-	CODEX_THREAD_CACHE_TTL_MS: number;
-	cxThreadNames: Map<string, string>;
-	cxThreadOwners: Map<string, ServerWebSocket<unknown>>;
-	cxThreadCwds: Map<string, string>;
-	cxActiveTurns: Map<string, string>;
-	cxApprovalWaiters: Map<
-		string,
-		{
-			resolve: (response: {
-				response?: PermissionResponse;
-				execpolicyAmendment?: unknown;
-				networkPolicyAmendment?: { host: string; action: "allow" | "deny" };
-				answers?: Record<string, { answers: string[] }>;
-			}) => void;
-			timer: Timer;
-		}
-	>;
-	mapCodexThread: (thread: unknown, nameOverride?: string) => CodexThread & { threadName?: string };
-	mapCodexThreadToRuntimeSession: (thread: CodexThread) => BroskiSessionSummary;
-	invalidateCodexCaches: (cwd?: string) => void;
-	buildCodexRuntimeState: (params: { threadId: string; cwd?: string; isStreaming: boolean }) => Record<string, unknown>;
-	emitCxStream: (threadId: string, streamMsg: CodexStreamMessage, owner?: ServerWebSocket<unknown> | null) => void;
-	// File undo
-	ensureUndoStack: (threadId: string) => string[];
-	applyCodexUndo: (threadId: string, key: string) => Promise<string[]>;
-	// Fuzzy file search
-	cxSearchSessions: Map<string, string>;
-};
-
-const THREAD_OPS = new Set([
+const THREAD_OPS = [
 	"cx_list_projects",
 	"cx_list_threads",
 	"cx_warmup",
@@ -95,46 +36,33 @@ const THREAD_OPS = new Set([
 	"cx_thread_fork",
 	"cx_thread_rollback",
 	"cx_thread_unsubscribe",
-]);
-
-const FILE_OPS = new Set(["cx_get_thread_messages", "cx_undo_files", "cx_get_modified_files"]);
-
-const CONFIG_OPS = new Set(["cx_model_list", "cx_config_read", "cx_config_value_write"]);
-
-const EXT_CONFIG_OPS = new Set(["cx_external_config_detect", "cx_external_config_import"]);
-
-const SKILL_OPS = new Set(["cx_skills_list", "cx_get_skill", "cx_save_skill", "cx_delete_skill", "cx_list_prompts"]);
-
-const MCP_OPS = new Set(["cx_mcp_status_list", "cx_mcp_reload", "cx_review_start"]);
-
-const ACCOUNT_OPS = new Set([
+] as const;
+const FILE_OPS = ["cx_get_thread_messages", "cx_undo_files", "cx_get_modified_files"] as const;
+const CONFIG_OPS = ["cx_model_list", "cx_config_read", "cx_config_value_write"] as const;
+const EXT_CONFIG_OPS = ["cx_external_config_detect", "cx_external_config_import"] as const;
+const SKILL_OPS = ["cx_skills_list", "cx_get_skill", "cx_save_skill", "cx_delete_skill", "cx_list_prompts"] as const;
+const MCP_OPS = ["cx_mcp_status_list", "cx_mcp_reload", "cx_review_start"] as const;
+const ACCOUNT_OPS = [
 	"cx_account_read",
 	"cx_login_start",
 	"cx_login_cancel",
 	"cx_logout",
 	"cx_rate_limits_read",
 	"cx_feedback_upload",
-]);
-
-const AGENT_OPS = new Set(["cx_agents_read", "cx_agents_write"]);
-
-const CHAT_OPS = new Set(["cx_chat", "cx_abort", "cx_permission_response", "cx_user_input_response"]);
-
-const PLUGIN_OPS = new Set(["cx_plugin_list", "cx_plugin_install", "cx_plugin_uninstall", "cx_plugin_read"]);
-
-const CMD_PTY_OPS = new Set([
+] as const;
+const AGENT_OPS = ["cx_agents_read", "cx_agents_write"] as const;
+const CHAT_OPS = ["cx_chat", "cx_abort", "cx_permission_response", "cx_user_input_response"] as const;
+const PLUGIN_OPS = ["cx_plugin_list", "cx_plugin_install", "cx_plugin_uninstall", "cx_plugin_read"] as const;
+const CMD_PTY_OPS = [
 	"cx_command_write",
 	"cx_command_resize",
 	"cx_command_terminate",
 	"cx_thread_metadata_update",
-]);
-
-const WORKSPACE_OPS = new Set(["cx_revert_changes", "cx_get_turn_diff"]);
-
-const FUZZY_SEARCH_OPS = new Set(["cx_fuzzy_search_start", "cx_fuzzy_search_update", "cx_fuzzy_search_end"]);
-
-const FS_WATCH_OPS = new Set(["cx_fs_watch", "cx_fs_unwatch"]);
-const FEATURE_OPS = new Set([
+] as const;
+const WORKSPACE_OPS = ["cx_revert_changes", "cx_get_turn_diff"] as const;
+const FUZZY_SEARCH_OPS = ["cx_fuzzy_search_start", "cx_fuzzy_search_update", "cx_fuzzy_search_end"] as const;
+const FS_WATCH_OPS = ["cx_fs_watch", "cx_fs_unwatch"] as const;
+const FEATURE_OPS = [
 	"cx_steer",
 	"cx_thread_rename",
 	"cx_thread_unarchive",
@@ -153,194 +81,128 @@ const FEATURE_OPS = new Set([
 	"cx_collaboration_modes",
 	"cx_background_terminals_clean",
 	"cx_shell_command",
-]);
+] as const;
 
-export async function handle(
-	message: Record<string, unknown>,
-	reply: ReplyFn,
-	ctx: CxRoutingContext,
-): Promise<boolean> {
-	const type = message.type as string;
-	if (!type.startsWith("cx_")) return false;
+export const MODULE_TYPES = [
+	...THREAD_OPS,
+	...FILE_OPS,
+	...CONFIG_OPS,
+	...EXT_CONFIG_OPS,
+	...SKILL_OPS,
+	...MCP_OPS,
+	...ACCOUNT_OPS,
+	...AGENT_OPS,
+	...CHAT_OPS,
+	...PLUGIN_OPS,
+	...CMD_PTY_OPS,
+	...WORKSPACE_OPS,
+	...FUZZY_SEARCH_OPS,
+	...FS_WATCH_OPS,
+	...FEATURE_OPS,
+] as const;
 
-	if (THREAD_OPS.has(type)) {
-		const handled = await handleCxThreads(message, reply, {
-			ensureCodexClient: ctx.ensureCodexClient,
-			codexClient: ctx.codexClient,
-			codexFs: ctx.codexFs,
-			safeString: ctx.safeString,
-			getSecurePath: ctx.getSecurePath,
-			logInfo: ctx.logInfo,
-			logError: ctx.logError,
-			cxProjectCache: ctx.cxProjectCache,
-			setProjectCache: ctx.setProjectCache,
-			cxThreadCache: ctx.cxThreadCache,
-			CODEX_PROJECT_CACHE_TTL_MS: ctx.CODEX_PROJECT_CACHE_TTL_MS,
-			CODEX_THREAD_CACHE_TTL_MS: ctx.CODEX_THREAD_CACHE_TTL_MS,
-			cxThreadNames: ctx.cxThreadNames,
-			cxThreadOwners: ctx.cxThreadOwners,
-			cxThreadCwds: ctx.cxThreadCwds,
-			mapCodexThread: ctx.mapCodexThread,
-			mapCodexThreadToRuntimeSession: ctx.mapCodexThreadToRuntimeSession,
-			invalidateCodexCaches: ctx.invalidateCodexCaches,
-			ws: ctx.ws,
-		});
-		if (!handled) reply({ type: "error", message: `Unhandled thread feature: ${type}` });
-		return true;
-	}
-
-	if (FILE_OPS.has(type)) {
-		const handled = await handleCxFiles(message, reply, {
-			safeString: ctx.safeString,
-			logInfo: ctx.logInfo,
-			logError: ctx.logError,
-			codexFs: ctx.codexFs,
-			codexClient: ctx.codexClient,
-			ensureUndoStack: ctx.ensureUndoStack,
-			applyCodexUndo: ctx.applyCodexUndo,
-		});
-		if (!handled) reply({ type: "error", message: `Unhandled files feature: ${type}` });
-		return true;
-	}
-
-	if (CONFIG_OPS.has(type)) {
-		const handled = await handleCxConfig(message, reply, {
-			ensureCodexClient: ctx.ensureCodexClient,
-			safeString: ctx.safeString,
-		});
-		if (!handled) reply({ type: "error", message: `Unhandled config feature: ${type}` });
-		return true;
-	}
-
-	if (EXT_CONFIG_OPS.has(type)) {
-		const handled = await handleCxExternalConfig(message, reply, {
-			ensureCodexClient: ctx.ensureCodexClient,
-			safeString: ctx.safeString,
-		});
-		if (!handled) reply({ type: "error", message: `Unhandled external config feature: ${type}` });
-		return true;
-	}
-
-	if (SKILL_OPS.has(type)) {
-		const handled = await handleCxSkills(message, reply, {
-			ensureCodexClient: ctx.ensureCodexClient,
-			safeString: ctx.safeString,
-		});
-		if (!handled) reply({ type: "error", message: `Unhandled skills feature: ${type}` });
-		return true;
-	}
-
-	if (MCP_OPS.has(type)) {
-		const handled = await handleCxMcp(message, reply, {
-			ensureCodexClient: ctx.ensureCodexClient,
-			safeString: ctx.safeString,
-			cxThreadOwners: ctx.cxThreadOwners,
-			cxThreadCwds: ctx.cxThreadCwds,
-			cxActiveTurns: ctx.cxActiveTurns,
-			mapCodexThread: ctx.mapCodexThread,
-			ws: ctx.ws,
-		});
-		if (!handled) reply({ type: "error", message: `Unhandled MCP feature: ${type}` });
-		return true;
-	}
-
-	if (ACCOUNT_OPS.has(type)) {
-		const handled = await handleCxAccount(message, reply, {
-			ensureCodexClient: ctx.ensureCodexClient,
-		});
-		if (!handled) reply({ type: "error", message: `Unhandled account feature: ${type}` });
-		return true;
-	}
-
-	if (AGENT_OPS.has(type)) {
-		const handled = await handleCxAgents(message, reply, {
-			safeString: ctx.safeString,
-			getSecurePath: ctx.getSecurePath,
-		});
-		if (!handled) reply({ type: "error", message: `Unhandled agents feature: ${type}` });
-		return true;
-	}
-
-	if (CHAT_OPS.has(type)) {
-		const handled = await handleCxChat(message, reply, {
-			ensureCodexClient: ctx.ensureCodexClient,
-			safeString: ctx.safeString,
-			logInfo: ctx.logInfo,
-			logError: ctx.logError,
-			logDebug: ctx.logDebug,
-			DEBUG_CX_GLOBAL: ctx.DEBUG_CX_GLOBAL,
-			cxThreadOwners: ctx.cxThreadOwners,
-			cxThreadCwds: ctx.cxThreadCwds,
-			cxActiveTurns: ctx.cxActiveTurns,
-			cxApprovalWaiters: ctx.cxApprovalWaiters,
-			mapCodexThread: ctx.mapCodexThread,
-			emitCxStream: ctx.emitCxStream,
-			send: ctx.send,
-			broadcastToSessionWatchers: ctx.broadcastToSessionWatchers,
-			buildCodexRuntimeState: ctx.buildCodexRuntimeState,
-			ws: ctx.ws,
-		});
-		if (!handled) reply({ type: "error", message: `Unhandled chat feature: ${type}` });
-		return true;
-	}
-
-	if (PLUGIN_OPS.has(type)) {
-		const handled = await handleCxPlugins(message, reply, {
-			ensureCodexClient: ctx.ensureCodexClient,
-			safeString: ctx.safeString,
-		});
-		if (!handled) reply({ type: "error", message: `Unhandled plugin feature: ${type}` });
-		return true;
-	}
-
-	if (FEATURE_OPS.has(type)) {
-		const handled = await handleCodexFeature(message, reply, {
-			ensureCodexClient: ctx.ensureCodexClient,
-			cxActiveTurns: ctx.cxActiveTurns,
-			cxThreadNames: ctx.cxThreadNames,
-			safeString: ctx.safeString,
-		});
-		if (!handled) reply({ type: "error", message: `Unhandled Codex feature: ${type}` });
-		return true;
-	}
-
-	if (WORKSPACE_OPS.has(type)) {
-		const handled = await cxWorkspace.handle(message, reply, {
-			safeString: ctx.safeString,
-			cxThreadCwds: ctx.cxThreadCwds,
-		});
-		if (!handled) reply({ type: "error", message: `Unhandled workspace feature: ${type}` });
-		return true;
-	}
-
-	if (CMD_PTY_OPS.has(type)) {
-		const handled = await handleCxCommandPty(message, reply, {
-			ensureCodexClient: ctx.ensureCodexClient,
-			safeString: ctx.safeString,
-		});
-		if (!handled) reply({ type: "error", message: `Unhandled command: ${type}` });
-		return true;
-	}
-
-	if (FUZZY_SEARCH_OPS.has(type)) {
-		const handled = await cxFuzzySearch.handle(message, reply, {
-			ensureCodexClient: ctx.ensureCodexClient,
-			safeString: ctx.safeString,
-			cxThreadCwds: ctx.cxThreadCwds,
-			cxSearchSessions: ctx.cxSearchSessions,
-		});
-		if (!handled) reply({ type: "error", message: `Unhandled fuzzy search: ${type}` });
-		return true;
-	}
-
-	if (FS_WATCH_OPS.has(type)) {
-		const handled = await cxFsWatch.handle(message, reply, {
-			ws: ctx.ws,
-			ensureCodexClient: ctx.ensureCodexClient,
-			safeString: ctx.safeString,
-		});
-		if (!handled) reply({ type: "error", message: `Unhandled fs watch: ${type}` });
-		return true;
-	}
-	return false;
+export function register(router: MessageRouter, deps: ServerDeps): void {
+	registerLegacy(router, THREAD_OPS, handleCxThreads, (ctx) => ({
+		ensureCodexClient: deps.ensureCodexClient,
+		codexClient: deps.codexClient,
+		codexFs: deps.codexFs,
+		safeString: deps.safeString,
+		getSecurePath: deps.getSecurePath,
+		logInfo: deps.logInfo,
+		logError: deps.logError,
+		cxProjectCache: deps.cxProjectCache,
+		setProjectCache: deps.setProjectCache,
+		cxThreadCache: deps.cxThreadCache,
+		CODEX_PROJECT_CACHE_TTL_MS: deps.CODEX_PROJECT_CACHE_TTL_MS,
+		CODEX_THREAD_CACHE_TTL_MS: deps.CODEX_THREAD_CACHE_TTL_MS,
+		cxThreadNames: deps.cxThreadNames,
+		cxThreadOwners: deps.cxThreadOwners,
+		cxThreadCwds: deps.cxThreadCwds,
+		mapCodexThread: deps.mapCodexThread,
+		mapCodexThreadToRuntimeSession: deps.mapCodexThreadToRuntimeSession,
+		invalidateCodexCaches: deps.invalidateCodexCaches,
+		ws: ctx.ws,
+	}));
+	registerLegacy(router, FILE_OPS, handleCxFiles, () => ({
+		safeString: deps.safeString,
+		logInfo: deps.logInfo,
+		logError: deps.logError,
+		codexFs: deps.codexFs,
+		codexClient: deps.codexClient,
+		ensureUndoStack: deps.ensureUndoStack,
+		applyCodexUndo: deps.applyCodexUndo,
+	}));
+	registerLegacy(router, CONFIG_OPS, handleCxConfig, () => ({
+		ensureCodexClient: deps.ensureCodexClient,
+		safeString: deps.safeString,
+	}));
+	registerLegacy(router, EXT_CONFIG_OPS, handleCxExternalConfig, () => ({
+		ensureCodexClient: deps.ensureCodexClient,
+		safeString: deps.safeString,
+	}));
+	registerLegacy(router, SKILL_OPS, handleCxSkills, () => ({
+		ensureCodexClient: deps.ensureCodexClient,
+		safeString: deps.safeString,
+	}));
+	registerLegacy(router, MCP_OPS, handleCxMcp, (ctx) => ({
+		ensureCodexClient: deps.ensureCodexClient,
+		safeString: deps.safeString,
+		cxThreadOwners: deps.cxThreadOwners,
+		cxThreadCwds: deps.cxThreadCwds,
+		cxActiveTurns: deps.cxActiveTurns,
+		mapCodexThread: deps.mapCodexThread,
+		ws: ctx.ws,
+	}));
+	registerLegacy(router, ACCOUNT_OPS, handleCxAccount, () => ({ ensureCodexClient: deps.ensureCodexClient }));
+	registerLegacy(router, AGENT_OPS, handleCxAgents, () => ({
+		safeString: deps.safeString,
+		getSecurePath: deps.getSecurePath,
+	}));
+	registerLegacy(router, CHAT_OPS, handleCxChat, (ctx) => ({
+		ensureCodexClient: deps.ensureCodexClient,
+		safeString: deps.safeString,
+		logInfo: deps.logInfo,
+		logError: deps.logError,
+		logDebug: deps.logDebug,
+		DEBUG_CX_GLOBAL: deps.DEBUG_CX_GLOBAL,
+		cxThreadOwners: deps.cxThreadOwners,
+		cxThreadCwds: deps.cxThreadCwds,
+		cxActiveTurns: deps.cxActiveTurns,
+		cxApprovalWaiters: deps.cxApprovalWaiters,
+		mapCodexThread: deps.mapCodexThread,
+		emitCxStream: deps.emitCxStream,
+		send: deps.send,
+		broadcastToSessionWatchers: deps.broadcastToSessionWatchers,
+		buildCodexRuntimeState: deps.buildCodexRuntimeState,
+		ws: ctx.ws,
+	}));
+	registerLegacy(router, PLUGIN_OPS, handleCxPlugins, () => ({
+		ensureCodexClient: deps.ensureCodexClient,
+		safeString: deps.safeString,
+	}));
+	registerLegacy(router, FEATURE_OPS, handleCodexFeature, () => ({
+		ensureCodexClient: deps.ensureCodexClient,
+		cxActiveTurns: deps.cxActiveTurns,
+		cxThreadNames: deps.cxThreadNames,
+		safeString: deps.safeString,
+	}));
+	registerLegacy(router, WORKSPACE_OPS, cxWorkspace.handle, () => ({
+		safeString: deps.safeString,
+		cxThreadCwds: deps.cxThreadCwds,
+	}));
+	registerLegacy(router, CMD_PTY_OPS, handleCxCommandPty, () => ({
+		ensureCodexClient: deps.ensureCodexClient,
+		safeString: deps.safeString,
+	}));
+	registerLegacy(router, FUZZY_SEARCH_OPS, cxFuzzySearch.handle, () => ({
+		ensureCodexClient: deps.ensureCodexClient,
+		safeString: deps.safeString,
+		cxThreadCwds: deps.cxThreadCwds,
+		cxSearchSessions: deps.cxSearchSessions,
+	}));
+	registerLegacy(router, FS_WATCH_OPS, cxFsWatch.handle, (ctx) => ({
+		ws: ctx.ws,
+		ensureCodexClient: deps.ensureCodexClient,
+		safeString: deps.safeString,
+	}));
 }

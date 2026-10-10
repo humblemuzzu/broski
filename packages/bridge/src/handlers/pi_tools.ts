@@ -1,10 +1,11 @@
 import * as pi from "../connectors/pi";
+import type { PiMessage } from "../routing/messages";
 import type { ServerMessage } from "../types";
 import type { PiQueueState, PiThinkingCapabilities, PiToolInfo } from "../types/pi";
 
 type Reply = (message: ServerMessage) => void;
 
-export async function handle(message: any, reply: Reply): Promise<boolean> {
+export async function handle(message: PiMessage, reply: Reply): Promise<boolean> {
 	const cwd =
 		typeof message?.projectPath === "string" && message.projectPath.trim()
 			? message.projectPath.trim()

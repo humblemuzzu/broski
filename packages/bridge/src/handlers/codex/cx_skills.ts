@@ -5,6 +5,7 @@
  */
 
 import type { CodexAppServerClient } from "../../connectors/codex";
+import type { CxMessage } from "../../routing/messages";
 
 export type CxSkillsHandlerContext = {
 	ensureCodexClient: () => Promise<CodexAppServerClient>;
@@ -12,7 +13,7 @@ export type CxSkillsHandlerContext = {
 };
 
 export async function handleCxSkills(
-	message: any,
+	message: CxMessage,
 	reply: (msg: any) => void,
 	ctx: CxSkillsHandlerContext,
 ): Promise<boolean> {

@@ -8,6 +8,7 @@ import { randomBytes } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { CodexAppServerClient } from "../../connectors/codex";
+import type { CxMessage } from "../../routing/messages";
 import type { AgentType, CodexStreamMessage, CodexThread, ServerMessage } from "../../types";
 import { codexInterruptWithRetry, codexRequestWithRetry } from "../../utils/codex-compat-retry";
 import { resolveCxHookPermissionByToolUse } from "../cx_permission_hook";
@@ -40,7 +41,7 @@ export type CxChatHandlerContext = {
 };
 
 export async function handleCxChat(
-	message: any,
+	message: CxMessage,
 	reply: (msg: any) => void,
 	ctx: CxChatHandlerContext,
 ): Promise<boolean> {

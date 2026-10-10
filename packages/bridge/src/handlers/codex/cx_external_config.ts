@@ -4,6 +4,7 @@
  */
 
 import type { CodexAppServerClient } from "../../connectors/codex";
+import type { CxMessage } from "../../routing/messages";
 
 export type CxExternalConfigContext = {
 	ensureCodexClient: () => Promise<CodexAppServerClient>;
@@ -11,7 +12,7 @@ export type CxExternalConfigContext = {
 };
 
 export async function handleCxExternalConfig(
-	message: any,
+	message: CxMessage,
 	reply: (msg: any) => void,
 	ctx: CxExternalConfigContext,
 ): Promise<boolean> {

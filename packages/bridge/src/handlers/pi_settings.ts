@@ -1,7 +1,12 @@
 import * as pi from "../connectors/pi";
+import type { Msg, PiMessage } from "../routing/messages";
 import { type PiHandlerContext, parseQueueMode } from "./pi_message_helpers";
 
-async function handleSetQueueMode(message: any, ctx: PiHandlerContext, type: "steering" | "followUp"): Promise<void> {
+async function handleSetQueueMode(
+	message: Msg<"pi_set_steering_mode" | "pi_set_follow_up_mode">,
+	ctx: PiHandlerContext,
+	type: "steering" | "followUp",
+): Promise<void> {
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
 	const mode = parseQueueMode(message.mode);
 
@@ -23,19 +28,19 @@ async function handleSetQueueMode(message: any, ctx: PiHandlerContext, type: "st
 	});
 }
 
-async function handleSetAutoRetry(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleSetAutoRetry(message: Msg<"pi_set_auto_retry">, ctx: PiHandlerContext): Promise<void> {
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
 	instance.session.setAutoRetryEnabled(message.enabled === true);
 	ctx.reply({ type: "pi_auto_retry_set", data: instance.session.autoRetryEnabled, requestId: message.requestId });
 }
 
-async function handleAbortRetry(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleAbortRetry(message: Msg<"pi_abort_retry">, ctx: PiHandlerContext): Promise<void> {
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
 	instance.session.abortRetry();
 	ctx.reply({ type: "pi_retry_aborted", data: true, requestId: message.requestId });
 }
 
-async function handleSetAutoCompaction(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleSetAutoCompaction(message: Msg<"pi_set_auto_compaction">, ctx: PiHandlerContext): Promise<void> {
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
 	instance.session.setAutoCompactionEnabled(message.enabled === true);
 	ctx.reply({
@@ -45,12 +50,12 @@ async function handleSetAutoCompaction(message: any, ctx: PiHandlerContext): Pro
 	});
 }
 
-async function handleGetSettings(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleGetSettings(message: Msg<"pi_get_settings">, ctx: PiHandlerContext): Promise<void> {
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
 	ctx.reply({ type: "pi_settings", data: pi.getSettings(instance), requestId: message.requestId });
 }
 
-async function handleSetSettings(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleSetSettings(message: Msg<"pi_set_settings">, ctx: PiHandlerContext): Promise<void> {
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
 	await pi.applySettings(
 		instance,
@@ -59,7 +64,7 @@ async function handleSetSettings(message: any, ctx: PiHandlerContext): Promise<v
 	ctx.reply({ type: "pi_settings_updated", data: true, requestId: message.requestId });
 }
 
-export async function handle(message: any, ctx: PiHandlerContext): Promise<boolean> {
+export async function handle(message: PiMessage, ctx: PiHandlerContext): Promise<boolean> {
 	switch (message.type) {
 		case "pi_set_steering_mode": {
 			await handleSetQueueMode(message, ctx, "steering");

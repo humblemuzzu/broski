@@ -14,6 +14,7 @@
  */
 
 import type { CodexAppServerClient } from "../connectors/codex";
+import type { CxMessage } from "../routing/messages";
 
 // Minimal context the handler needs from the outer server.
 export type CodexHandlerContext = {
@@ -28,7 +29,7 @@ export type CodexHandlerContext = {
  * Caller should check the return value and fall through to the next handler if false.
  */
 export async function handleCodexFeature(
-	message: any,
+	message: CxMessage,
 	reply: (msg: any) => void,
 	ctx: CodexHandlerContext,
 ): Promise<boolean> {

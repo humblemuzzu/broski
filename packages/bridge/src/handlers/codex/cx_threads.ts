@@ -13,6 +13,7 @@ import {
 	findCodexStateDbPath,
 } from "../../connectors/codex/cx-sqlite";
 import { DEFAULT_CX_ENRICH_LIMIT } from "../../connectors/codex-fs";
+import type { CxMessage } from "../../routing/messages";
 import type { CodexThread } from "../../types";
 import { resolveCxProjects } from "./cx_projects";
 import { CX_WARMUP_PAGE_LIMIT, warmCxCaches } from "./cx_warmup";
@@ -55,7 +56,7 @@ export type CxThreadsHandlerContext = {
 };
 
 export async function handleCxThreads(
-	message: any,
+	message: CxMessage,
 	reply: (msg: any) => void,
 	ctx: CxThreadsHandlerContext,
 ): Promise<boolean> {

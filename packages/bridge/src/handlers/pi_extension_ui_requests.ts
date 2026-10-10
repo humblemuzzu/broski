@@ -1,4 +1,5 @@
 import * as pi from "../connectors/pi";
+import type { PiMessage } from "../routing/messages";
 import type { PiStreamMessage } from "../types/pi";
 import type { PiHandlerContext } from "./pi_message_helpers";
 
@@ -12,7 +13,7 @@ export function getPendingExtensionUiRequests(cwd: string): PiStreamMessage[] {
 	return instance.extensionUiBridge.getPendingRequests();
 }
 
-export async function handle(message: any, ctx: PiHandlerContext): Promise<boolean> {
+export async function handle(message: PiMessage, ctx: PiHandlerContext): Promise<boolean> {
 	switch (message.type) {
 		case "pi_extension_ui_response": {
 			const handled = pi.respondToExtensionUi(ctx.cwd, {

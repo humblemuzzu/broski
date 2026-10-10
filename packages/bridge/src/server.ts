@@ -18,13 +18,10 @@ import {
 } from "./file-ops";
 import * as fileSearch from "./file-search";
 import { maybeSynthesizeAskUserQuestion } from "./handlers/cc_ask_user_question";
-import { handleCcChat } from "./handlers/cc_chat";
 import type { ClaudeElicitationReply } from "./handlers/cc_elicitation";
-import * as ccElicitation from "./handlers/cc_elicitation";
 import { CcFsWatcherRegistry, type CcFsWatchKind } from "./handlers/cc_fs_watchers";
 import { installCcHook, uninstallCcHook } from "./handlers/cc_hook_installer";
 import { type CcPermissionHookContext, handleCcPermissionHook } from "./handlers/cc_permission_hook";
-import * as ccRouting from "./handlers/cc_routing";
 import { buildCodexApprovalDecision } from "./handlers/codex/approval-decision";
 import { extractCodexErrorDetails } from "./handlers/codex/cx_error_extract";
 import { mapCodexThreadFromSdk } from "./handlers/codex/map-thread";
@@ -32,16 +29,8 @@ import { handleCodexRuntimeNotification } from "./handlers/codex/runtime-notific
 import { installCxHook, uninstallCxHook } from "./handlers/cx_hook_installer";
 import { type CxPermissionHookContext, handleCxPermissionHook } from "./handlers/cx_permission_hook";
 import * as cxRouting from "./handlers/cx_routing";
-import * as devicesHandler from "./handlers/devices";
-import { handleGitFeature } from "./handlers/git";
-import * as miscHandler from "./handlers/misc";
-import * as ocRouting from "./handlers/oc_routing";
 import * as piDurable from "./handlers/pi_durable";
 import * as piFeatures from "./handlers/pi_features";
-import * as piSubagentMessages from "./handlers/pi_subagent_messages";
-import * as sessionViewHandler from "./handlers/session_view";
-import * as unified from "./handlers/unified";
-import * as unifiedChildren from "./handlers/unified_session_children";
 import { createFetchHandler, type FetchHandlerDeps, type HandleHttpDeps } from "./http-handler";
 import { buildProxyPortAllowlist, toErrorMessage, toPublicErrorMessage } from "./http-utils";
 import { releaseFailedBindResources, stopBridgeResources } from "./lifecycle/bridge-teardown";
@@ -53,6 +42,9 @@ import { startOpenCodeExternalTail as _startOpenCodeExternalTail } from "./oc-ex
 import { isCompiledBinary } from "./platform";
 import { PtyManager } from "./pty/manager";
 import { PtyRuntime } from "./pty/runtime";
+import { createMessageRegistry } from "./routing/routes";
+import type { ServerDeps } from "./routing/types";
+import { invalidPayloadError, validateMessageShape } from "./routing/validate";
 import { mapClaudeCodeStreamToRuntimeEvent } from "./runtime/claude-code-runtime-event-mapper";
 import {
 	buildClaudeCodeRuntimeState,
@@ -2192,11 +2184,133 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		});
 	}
 
+	const getCurrentAgent = (): AgentType => currentAgent;
+	const setCurrentAgent = (agent: AgentType): void => {
+		currentAgent = agent;
+	};
+	const requireOpenCodeOrNull = (): OpenCodeConnector | null => {
+		try {
+			return requireOpenCode();
+		} catch {
+			return null;
+		}
+	};
+
+	const serverDeps: ServerDeps = {
+		contexts,
+		sockets,
+		send,
+		sendStatus,
+		broadcast,
+		broadcastToSessionWatchers,
+		log,
+		logUser,
+		logInfo,
+		logDebug,
+		logError,
+		DEBUG_RTS,
+		DEBUG_CX_GLOBAL,
+		BRIDGE_PROTOCOL_VERSION,
+		ALLOWED_DEVICE_IDS,
+		getDeviceInfo,
+		getAllDevices,
+		findSocketByDeviceId,
+		getClaudeCodeChildren: async () => {
+			const { listSubagents, getSubagentMessages } = await import("@anthropic-ai/claude-agent-sdk");
+			return {
+				listSubagents: (sessionId: string, cwd?: string) => listSubagents(sessionId, { dir: cwd }),
+				getSubagentMessages: (sessionId: string, agentId: string, cwd?: string) =>
+					getSubagentMessages(sessionId, agentId, { dir: cwd }),
+			};
+		},
+		claudeCode,
+		opencode,
+		codexFs,
+		ensureCodexClient,
+		get codexClient() {
+			return codexClient;
+		},
+		requireOpenCode,
+		requireOpenCodeOrNull,
+		checkCodexAvailable,
+		getBackendsStatus,
+		restartOpenCode: options.restartOpenCode,
+		safeString,
+		getSecurePath,
+		isSafeClaudeCommandName,
+		resolveClaudeCommandFilePath,
+		readFileDirectly,
+		readFileBinaryDirectly,
+		listFilesDirectly,
+		fileSearch,
+		recentChatMessageIds,
+		ccSessionOwners,
+		ccSessionCwds,
+		ccEventBuffers,
+		ccPermissionWaiters,
+		ccElicitationWaiters,
+		cxApprovalWaiters,
+		cxActiveTurns,
+		cxThreadOwners,
+		cxThreadCwds,
+		cxThreadNames,
+		cxThreadCache,
+		get cxProjectCache() {
+			return cxProjectCache;
+		},
+		setProjectCache: (cache) => {
+			cxProjectCache = cache;
+		},
+		cxSearchSessions,
+		CODEX_PROJECT_CACHE_TTL_MS,
+		CODEX_THREAD_CACHE_TTL_MS,
+		invalidateCodexCaches,
+		ensureUndoStack,
+		applyCodexUndo,
+		mapCodexThread,
+		mapCodexThreadToRuntimeSession,
+		mapClaudeCodeSessionToRuntimeSession,
+		mapClaudeCodeModelToSummary,
+		ocSessionOwners,
+		ocSessionProjectPaths,
+		sessionWatchers,
+		updateSessionWatchers,
+		makeSessionKey,
+		syncExternalTailForKey,
+		ensureClaudeWatchDir,
+		get currentAgent() {
+			return currentAgent;
+		},
+		getCurrentAgent,
+		setCurrentAgent,
+		buildClaudeCodeRuntimeState,
+		buildCodexRuntimeState,
+		mapOpenCodeStatusToRuntimeState,
+		listPiActiveSessionSnapshots,
+		buildPiActiveRuntimeStateMessages,
+		findPiActiveRuntimeStateMessage,
+		replayRuntimeEventsSince: replayRuntimeEventsForSocket,
+		emitCcStream,
+		emitCxStream,
+		enqueueSdkEvent,
+		PERMISSION_TIMEOUT_MS,
+		ptyRuntime,
+		piDurableSockets,
+	};
+
+	const messageRegistry = createMessageRegistry(serverDeps);
+
 	const processSingleMessage = async (
 		ws: ServerWebSocket<unknown>,
 		message: ClientMessage & { requestId?: string },
 		reply: (response: ServerMessage) => void,
 	) => {
+		const shapeError = validateMessageShape(message as unknown as Record<string, unknown>);
+		if (shapeError) {
+			reply(invalidPayloadError(shapeError));
+			return;
+		}
+
 		// Security: never trust client-supplied filesystem roots.
 		// Many message types accept `cwd` / `projectPath` and downstream SDKs
 		// (Codex/OpenCode/Claude Code) will happily use whatever we pass.
@@ -2246,292 +2360,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			(message as unknown as Record<string, unknown>).parentSessionPath = secureParent;
 		}
 
-		if (message.type.startsWith("pi_")) {
-			// Subagent invocation reader is a pure filesystem read — no instance needed.
-			if (await piSubagentMessages.handle(message as any, reply)) return;
-			const handled = await piFeatures.handle(message, reply, broadcast);
-			if (!handled) {
-				reply({
-					type: "error",
-					message: `Unhandled Pi feature: ${message.type}`,
-					requestId: message.requestId,
-				});
-			}
-			return;
-		}
-
-		// ── Phase 4: Unified request messages ────────────────────────────────
-		if (message.type.startsWith("unified_")) {
-			const unifiedOcCtx = () => {
-				try {
-					return requireOpenCode();
-				} catch {
-					return null;
-				}
-			};
-			const handled = await unified.handle(message, reply, {
-				claudeCode,
-				ensureCodexClient,
-				requireOpenCode: unifiedOcCtx,
-				log: logInfo,
-			});
-			if (handled) return;
-
-			// Try unified session children handler
-			const { listSubagents, getSubagentMessages } = await import("@anthropic-ai/claude-agent-sdk");
-			const childrenHandled = await unifiedChildren.handle(message, reply, {
-				requireOpenCode: unifiedOcCtx,
-				claudeCode: {
-					listSubagents: (sessionId: string, cwd?: string) => listSubagents(sessionId, { dir: cwd }),
-					getSubagentMessages: (sessionId: string, agentId: string, cwd?: string) =>
-						getSubagentMessages(sessionId, agentId, { dir: cwd }),
-				},
-				ensureCodexClient,
-				log: logInfo,
-			});
-			if (childrenHandled) return;
-
-			reply({
-				type: "error",
-				message: `Unhandled unified message: ${message.type}`,
-				requestId: message.requestId,
-			});
-			return;
-		}
-
-		if (
-			await ocRouting.handle(message, reply, {
-				requireOpenCode,
-				safeString,
-				getSecurePath,
-				readFileDirectly,
-				readFileBinaryDirectly,
-				listFilesDirectly,
-				fileSearch,
-				recentChatMessageIds,
-				ocSessionOwners,
-				ws,
-				syncExternalTailForKey,
-				makeSessionKey,
-			})
-		)
-			return;
-		if (ccElicitation.handle(message, ccElicitationWaiters)) return;
-
-		if (
-			await handleCcChat(message, reply, {
-				claudeCode,
-				safeString,
-				log,
-				ws,
-				send,
-				ccSessionOwners,
-				ccSessionCwds,
-				ccPermissionWaiters,
-				ccElicitationWaiters,
-				ccEventBuffers,
-				PERMISSION_TIMEOUT_MS,
-				buildClaudeCodeRuntimeState,
-				broadcastToSessionWatchers,
-				emitCcStream,
-				enqueueSdkEvent,
-				syncExternalTailForKey,
-				makeSessionKey,
-			})
-		)
-			return;
-		// ── Extracted handler routing ──────────────────────────────────────
-		// Device management (register_device, list_devices, disconnect_device)
-		if (
-			await devicesHandler.handle(ws, message as Record<string, unknown>, reply, {
-				sockets,
-				contexts,
-				ALLOWED_DEVICE_IDS,
-				BRIDGE_PROTOCOL_VERSION,
-				getDeviceInfo,
-				getAllDevices,
-				findSocketByDeviceId,
-				send,
-				broadcast,
-				sendStatus,
-				logUser,
-				logError,
-				safeString,
-				claudeCode,
-				opencode,
-				ccPermissionWaiters,
-				ccElicitationWaiters,
-				cxApprovalWaiters,
-				cxActiveTurns,
-				cxThreadCwds,
-				ocSessionProjectPaths,
-				buildClaudeCodeRuntimeState,
-				buildCodexRuntimeState,
-				mapOpenCodeStatusToRuntimeState,
-				listPiActiveSessionSnapshots,
-				buildPiActiveRuntimeStateMessages,
-			})
-		)
-			return;
-
-		// Session view (set_view)
-		if (await piDurable.handle(piDurableSockets.for(ws), message as Record<string, unknown>, reply)) return;
-		if (
-			await sessionViewHandler.handle(ws, message as Record<string, unknown>, reply, {
-				contexts,
-				sockets,
-				send,
-				sendStatus,
-				logInfo,
-				logDebug,
-				DEBUG_RTS,
-				currentAgent,
-				ensureClaudeWatchDir,
-				makeSessionKey,
-				updateSessionWatchers,
-				sessionWatchers,
-				claudeCode,
-				ccSessionOwners,
-				ccSessionCwds,
-				buildClaudeCodeRuntimeState,
-				cxActiveTurns,
-				cxThreadOwners,
-				cxThreadCwds,
-				buildCodexRuntimeState,
-				ocSessionOwners,
-				ocSessionProjectPaths,
-				broadcast,
-				findPiActiveRuntimeStateMessage,
-				replayRuntimeEventsSince: replayRuntimeEventsForSocket,
-			})
-		)
-			return;
-
-		// Codex (cx_*) routing
-		if (
-			await cxRouting.handle(message as Record<string, unknown>, reply, {
-				ws,
-				ensureCodexClient,
-				codexClient,
-				codexFs,
-				safeString,
-				getSecurePath,
-				logInfo,
-				logError,
-				logDebug,
-				DEBUG_CX_GLOBAL,
-				send,
-				broadcastToSessionWatchers,
-				cxProjectCache,
-				setProjectCache: (cache) => {
-					cxProjectCache = cache;
-				},
-				cxThreadCache,
-				CODEX_PROJECT_CACHE_TTL_MS,
-				CODEX_THREAD_CACHE_TTL_MS,
-				cxThreadNames,
-				cxThreadOwners,
-				cxThreadCwds,
-				cxActiveTurns,
-				cxApprovalWaiters,
-				mapCodexThread,
-				mapCodexThreadToRuntimeSession,
-				invalidateCodexCaches,
-				buildCodexRuntimeState,
-				emitCxStream,
-				ensureUndoStack,
-				applyCodexUndo,
-				cxSearchSessions,
-			})
-		)
-			return;
-
-		// Misc (pong, client_ping, restart_opencode, set_agent, get_agents_status, usage)
-		if (
-			await miscHandler.handle(ws, message as Record<string, unknown>, reply, {
-				contexts,
-				send,
-				log,
-				getCurrentAgent: () => currentAgent,
-				setCurrentAgent: (agent) => {
-					currentAgent = agent;
-				},
-				ensureClaudeWatchDir,
-				claudeCode,
-				checkCodexAvailable,
-				getBackendsStatus,
-				restartOpenCode: options.restartOpenCode,
-			})
-		)
-			return;
-
-		// ── Remaining inline cases (small, deep closure coupling) ─────────
-		switch (message.type) {
-			// PTY Terminal Sessions
-			case "list_pty":
-			case "create_pty":
-			case "get_pty":
-			case "update_pty":
-			case "delete_pty":
-			case "pty_connect":
-			case "pty_input":
-			case "pty_disconnect":
-			case "pty_resize": {
-				await ptyRuntime.handleMessage(ws, message, reply);
-				break;
-			}
-			// Git operations
-			case "git_diff":
-			case "git_status":
-			case "git_log":
-			case "git_branches":
-			case "git_stage":
-			case "git_unstage":
-			case "git_revert_file":
-			case "git_commit":
-			case "git_push":
-			case "git_pull":
-			case "git_fetch":
-			case "git_checkout":
-			case "git_create_branch":
-			case "git_stash":
-			case "git_stash_pop":
-			case "git_commit_diff":
-			case "git_review_diff":
-			case "github_remote":
-			case "github_issues":
-			case "github_prs":
-			case "github_pr_diff":
-			case "github_pr_comments": {
-				const handled = await handleGitFeature(message, reply, {
-					getSecurePath,
-					safeString,
-				});
-				if (!handled) {
-					reply({
-						type: "error",
-						message: `Unhandled Git feature: ${message.type}`,
-					});
-				}
-				break;
-			}
-			// CC message routing (delegated to handlers/cc_routing.ts)
-			default: {
-				const ccHandled = await ccRouting.handle(message as Record<string, unknown>, reply, {
-					claudeCode,
-					mapClaudeCodeSessionToRuntimeSession,
-					mapClaudeCodeModelToSummary,
-					safeString,
-					getSecurePath,
-					isSafeClaudeCommandName,
-					resolveClaudeCommandFilePath,
-					ccPermissionWaiters,
-				});
-				if (!ccHandled) {
-					reply({ type: "error", message: "Unknown message type" });
-				}
-			}
-		}
+		await messageRegistry.dispatch(message, { ...serverDeps, ws, reply });
 	};
 
 	const handleMessage = async (ws: ServerWebSocket<unknown>, raw: string | Uint8Array) => {

@@ -5,7 +5,9 @@
 
 import { randomBytes } from "node:crypto";
 import type { ServerWebSocket } from "bun";
-import type { ClaudeCodeStreamMessage, ServerMessage } from "../types";
+import { registerLegacy } from "../routing/registry";
+import type { MessageRouter, ServerDeps } from "../routing/types";
+import type { ClaudeCodeStreamMessage, ClientMessage, ServerMessage } from "../types";
 import type { ClaudeElicitationReply } from "./cc_elicitation";
 
 type ClaudePermissionReply = {
@@ -48,8 +50,34 @@ export type CcChatHandlerContext = {
 	makeSessionKey: (agent: any, sessionId: any) => string | null;
 };
 
+const CC_CHAT_OPS = ["cc_chat"] as const;
+
+export const MODULE_TYPES = CC_CHAT_OPS;
+
+export function register(router: MessageRouter, deps: ServerDeps): void {
+	registerLegacy(router, CC_CHAT_OPS, handleCcChat, (ctx) => ({
+		claudeCode: deps.claudeCode,
+		safeString: deps.safeString,
+		log: deps.log,
+		ws: ctx.ws,
+		send: deps.send,
+		ccSessionOwners: deps.ccSessionOwners,
+		ccSessionCwds: deps.ccSessionCwds,
+		ccPermissionWaiters: deps.ccPermissionWaiters,
+		ccElicitationWaiters: deps.ccElicitationWaiters,
+		ccEventBuffers: deps.ccEventBuffers,
+		PERMISSION_TIMEOUT_MS: deps.PERMISSION_TIMEOUT_MS,
+		buildClaudeCodeRuntimeState: deps.buildClaudeCodeRuntimeState,
+		broadcastToSessionWatchers: deps.broadcastToSessionWatchers,
+		emitCcStream: deps.emitCcStream,
+		enqueueSdkEvent: deps.enqueueSdkEvent,
+		syncExternalTailForKey: deps.syncExternalTailForKey,
+		makeSessionKey: deps.makeSessionKey,
+	}));
+}
+
 export async function handleCcChat(
-	message: any,
+	message: Extract<ClientMessage, { type: "cc_chat" }>,
 	reply: (msg: any) => void,
 	ctx: CcChatHandlerContext,
 ): Promise<boolean> {

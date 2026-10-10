@@ -8,6 +8,9 @@
  */
 
 import { getCollabChildren } from "../connectors/codex/cx-collab-cache";
+import type { UnifiedMessage } from "../routing/messages";
+import { registerAll } from "../routing/registry";
+import type { MessageRouter, ServerDeps } from "../routing/types";
 import { mapClaudeCodeSessionToRuntimeSession } from "../runtime/claude-code-runtime-read-models";
 import { mapCodexThreadToRuntimeSession } from "../runtime/codex-runtime-read-models";
 import { mapOpenCodeSessionToRuntimeSession } from "../runtime/opencode-runtime-read-models";
@@ -30,7 +33,28 @@ export type SessionChildrenContext = {
 	log: (...args: any[]) => void;
 };
 
-export async function handle(message: any, reply: Reply, ctx: SessionChildrenContext): Promise<boolean> {
+const CHILDREN_OPS = ["unified_list_session_children"] as const;
+
+export const MODULE_TYPES = CHILDREN_OPS;
+
+export function register(router: MessageRouter, deps: ServerDeps): void {
+	registerAll(router, CHILDREN_OPS, async (message, c) => {
+		// `unified.handle` ran first and short-circuited every pi-durable unified request.
+		if (message.backend === "pi-durable") {
+			c.reply({ type: "error", message: `Unhandled unified message: ${message.type}` });
+			return;
+		}
+		const children = await deps.getClaudeCodeChildren();
+		await handle(message, c.reply, {
+			requireOpenCode: deps.requireOpenCodeOrNull,
+			claudeCode: children,
+			ensureCodexClient: deps.ensureCodexClient,
+			log: deps.logInfo,
+		});
+	});
+}
+
+export async function handle(message: UnifiedMessage, reply: Reply, ctx: SessionChildrenContext): Promise<boolean> {
 	switch (message.type) {
 		case "unified_list_session_children": {
 			const backend: BroskiBackend = message.backend;

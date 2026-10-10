@@ -1,13 +1,12 @@
 /**
- * Claude Code (cc_*) message routing.
+ * Claude Code (cc_*) message registrations.
  *
- * All cc_ messages were already delegated to modular handler functions
- * (cc_sessions, cc_config, cc_skills, etc.) but the routing boilerplate
- * lived inline in server.ts. This file consolidates the routing,
- * following the same pattern as cx_routing.ts.
+ * Owns every `cc_*` message type except `cc_chat` (handlers/cc_chat.ts) and
+ * `cc_elicitation_response` (handlers/cc_elicitation.ts). Each type is bound
+ * to exactly one sub-handler; there is no boolean chain to walk.
  */
-import type { ClaudeCodeSupportedModel, ServerMessage } from "../types";
-import type { BroskiModelSummary, BroskiSessionSummary } from "../types/runtime";
+import { registerAll, registerLegacy } from "../routing/registry";
+import type { MessageRouter, ServerDeps } from "../routing/types";
 import * as ccCommands from "./cc_commands";
 import * as ccConfig from "./cc_config";
 import * as ccCustomTools from "./cc_custom_tools";
@@ -20,31 +19,7 @@ import * as ccSessions from "./cc_sessions";
 import * as ccSkills from "./cc_skills";
 import * as ccSubagents from "./cc_subagents";
 
-type ReplyFn = (msg: ServerMessage) => void;
-
-export type CcRoutingContext = {
-	claudeCode: typeof import("../connectors/claude-code");
-	mapClaudeCodeSessionToRuntimeSession: (session: any) => BroskiSessionSummary;
-	mapClaudeCodeModelToSummary: (model: ClaudeCodeSupportedModel) => BroskiModelSummary;
-	safeString: (value: unknown) => string;
-	getSecurePath: (path: string) => Promise<string | null>;
-	isSafeClaudeCommandName: (name: string) => boolean;
-	resolveClaudeCommandFilePath: (params: { cwd: string; source: "project" | "user"; name: string }) => string | null;
-	ccPermissionWaiters: Map<
-		string,
-		{
-			resolve: (response: {
-				response: "once" | "always" | "reject";
-				updatedInput?: Record<string, unknown>;
-				updatedPermissions?: unknown[];
-				decisionClassification?: string;
-			}) => void;
-			timer: Timer;
-		}
-	>;
-};
-
-const SESSION_OPS = new Set([
+const SESSION_OPS = [
 	"cc_list_projects",
 	"cc_list_sessions",
 	"cc_get_session",
@@ -55,32 +30,32 @@ const SESSION_OPS = new Set([
 	"cc_background_session",
 	"cc_get_active_sessions",
 	"cc_get_modified_files",
-]);
+] as const;
 
-const SKILL_OPS = new Set(["cc_list_skills", "cc_get_skill", "cc_save_skill", "cc_delete_skill"]);
+const SKILL_OPS = ["cc_list_skills", "cc_get_skill", "cc_save_skill", "cc_delete_skill"] as const;
 
-const COMMAND_OPS = new Set(["cc_list_commands", "cc_get_command", "cc_save_command", "cc_delete_command"]);
+const COMMAND_OPS = ["cc_list_commands", "cc_get_command", "cc_save_command", "cc_delete_command"] as const;
 
-const MEMORY_OPS = new Set(["cc_list_memories", "cc_delete_memory", "cc_list_agents"]);
+const MEMORY_OPS = ["cc_list_memories", "cc_delete_memory", "cc_list_agents"] as const;
 
-const CONFIG_OPS = new Set([
+const CONFIG_OPS = [
 	"cc_get_config",
 	"cc_set_config",
 	"cc_get_supported_models",
 	"cc_get_account_info",
 	"cc_get_mcp_server_status",
 	"cc_rewind_checkpoint",
-]);
+] as const;
 
-const HOOKS_MCP_OPS = new Set([
+const HOOKS_MCP_OPS = [
 	"cc_list_hooks",
 	"cc_hooks_file_read",
 	"cc_hooks_file_write",
 	"cc_mcp_file_read",
 	"cc_mcp_file_write",
-]);
+] as const;
 
-const LIVE_SESSION_OPS = new Set([
+const LIVE_SESSION_OPS = [
 	"cc_stop_task",
 	"cc_reconnect_mcp_server",
 	"cc_toggle_mcp_server",
@@ -88,22 +63,20 @@ const LIVE_SESSION_OPS = new Set([
 	"cc_set_model",
 	"cc_initialization_result",
 	"cc_set_mcp_servers",
-	// SDK 0.2.87
 	"cc_get_context_usage",
 	"cc_apply_settings",
 	"cc_tag_session",
-	"cc_reload_plugins_live",
-]);
+] as const;
 
-const CUSTOM_TOOL_OPS = new Set([
+const CUSTOM_TOOL_OPS = [
 	"cc_list_custom_tools",
 	"cc_get_custom_tool",
 	"cc_save_custom_tool",
 	"cc_delete_custom_tool",
 	"cc_test_custom_tool",
-]);
+] as const;
 
-const PLUGIN_OPS = new Set([
+const PLUGIN_OPS = [
 	"cc_list_plugins",
 	"cc_get_plugin",
 	"cc_toggle_plugin",
@@ -111,119 +84,77 @@ const PLUGIN_OPS = new Set([
 	"cc_remove_plugin_path",
 	"cc_get_plugin_config",
 	"cc_reload_plugins",
-]);
+] as const;
 
-const SUBAGENT_OPS = new Set(["cc_list_subagents", "cc_get_subagent_messages"]);
+const SUBAGENT_OPS = ["cc_list_subagents", "cc_get_subagent_messages"] as const;
 
-export async function handle(
-	message: Record<string, unknown>,
-	reply: ReplyFn,
-	ctx: CcRoutingContext,
-): Promise<boolean> {
-	const type = message.type as string;
-	if (!type.startsWith("cc_")) return false;
+export const MODULE_TYPES = [
+	...SESSION_OPS,
+	...SKILL_OPS,
+	...COMMAND_OPS,
+	...MEMORY_OPS,
+	...CONFIG_OPS,
+	...HOOKS_MCP_OPS,
+	...LIVE_SESSION_OPS,
+	...CUSTOM_TOOL_OPS,
+	...PLUGIN_OPS,
+	...SUBAGENT_OPS,
+	"cc_abort",
+	"cc_permission_response",
+] as const;
 
-	if (SESSION_OPS.has(type)) {
-		const ccSessionCtx = {
-			claudeCode: ctx.claudeCode,
-			mapClaudeCodeSessionToRuntimeSession: ctx.mapClaudeCodeSessionToRuntimeSession,
-		};
-		if (await ccSessions.handle(message, reply, ccSessionCtx)) return true;
-		reply({ type: "error", message: "Unhandled CC session message" });
-		return true;
-	}
+export function register(router: MessageRouter, deps: ServerDeps): void {
+	registerLegacy(router, SESSION_OPS, ccSessions.handle, () => ({
+		claudeCode: deps.claudeCode,
+		mapClaudeCodeSessionToRuntimeSession: deps.mapClaudeCodeSessionToRuntimeSession,
+	}));
+	registerLegacy(router, SKILL_OPS, ccSkills.handle, () => ({
+		claudeCode: deps.claudeCode,
+		safeString: deps.safeString,
+	}));
+	registerLegacy(router, COMMAND_OPS, ccCommands.handle, () => ({
+		claudeCode: deps.claudeCode,
+		safeString: deps.safeString,
+		getSecurePath: deps.getSecurePath,
+		isSafeClaudeCommandName: deps.isSafeClaudeCommandName,
+		resolveClaudeCommandFilePath: deps.resolveClaudeCommandFilePath,
+	}));
+	registerLegacy(router, MEMORY_OPS, ccMemory.handle, () => ({ claudeCode: deps.claudeCode }));
+	registerLegacy(router, CONFIG_OPS, ccConfig.handle, () => ({
+		claudeCode: deps.claudeCode,
+		mapClaudeCodeModelToSummary: deps.mapClaudeCodeModelToSummary,
+	}));
+	registerLegacy(router, HOOKS_MCP_OPS, ccHooksMcp.handle, () => ({
+		claudeCode: deps.claudeCode,
+		safeString: deps.safeString,
+		getSecurePath: deps.getSecurePath,
+	}));
+	registerLegacy(router, LIVE_SESSION_OPS, ccLiveSession.handle, () => ({ claudeCode: deps.claudeCode }));
+	registerLegacy(router, CUSTOM_TOOL_OPS, ccCustomTools.handle, () => undefined);
+	registerLegacy(router, PLUGIN_OPS, ccPlugins.handle, () => undefined);
+	registerLegacy(router, SUBAGENT_OPS, ccSubagents.handle, () => undefined);
 
-	if (SKILL_OPS.has(type)) {
-		const ccSkillCtx = { claudeCode: ctx.claudeCode, safeString: ctx.safeString };
-		if (await ccSkills.handle(message, reply, ccSkillCtx)) return true;
-		reply({ type: "error", message: "Unhandled CC skill message" });
-		return true;
-	}
+	registerAll(router, ["cc_abort"], async (message, _ctx) => {
+		await deps.claudeCode.abortClaudeCode(message.sessionId);
+	});
 
-	if (COMMAND_OPS.has(type)) {
-		const ccCmdCtx = {
-			claudeCode: ctx.claudeCode,
-			safeString: ctx.safeString,
-			getSecurePath: ctx.getSecurePath,
-			isSafeClaudeCommandName: ctx.isSafeClaudeCommandName,
-			resolveClaudeCommandFilePath: ctx.resolveClaudeCommandFilePath,
-		};
-		if (await ccCommands.handle(message, reply, ccCmdCtx)) return true;
-		reply({ type: "error", message: "Unhandled CC command message" });
-		return true;
-	}
-
-	if (MEMORY_OPS.has(type)) {
-		const ccMemCtx = { claudeCode: ctx.claudeCode };
-		if (await ccMemory.handle(message, reply, ccMemCtx)) return true;
-		reply({ type: "error", message: "Unhandled CC memory/agent message" });
-		return true;
-	}
-
-	if (CONFIG_OPS.has(type)) {
-		const ccCfgCtx = { claudeCode: ctx.claudeCode, mapClaudeCodeModelToSummary: ctx.mapClaudeCodeModelToSummary };
-		if (await ccConfig.handle(message, reply, ccCfgCtx)) return true;
-		reply({ type: "error", message: "Unhandled CC config message" });
-		return true;
-	}
-
-	if (HOOKS_MCP_OPS.has(type)) {
-		const ccHooksCtx = { claudeCode: ctx.claudeCode, safeString: ctx.safeString, getSecurePath: ctx.getSecurePath };
-		if (await ccHooksMcp.handle(message, reply, ccHooksCtx)) return true;
-		reply({ type: "error", message: "Unhandled CC hooks/MCP message" });
-		return true;
-	}
-
-	if (LIVE_SESSION_OPS.has(type)) {
-		const ccLiveCtx = { claudeCode: ctx.claudeCode };
-		if (await ccLiveSession.handle(message, reply, ccLiveCtx)) return true;
-		reply({ type: "error", message: "Unhandled CC live session message" });
-		return true;
-	}
-
-	if (CUSTOM_TOOL_OPS.has(type)) {
-		if (await ccCustomTools.handle(message, reply)) return true;
-		reply({ type: "error", message: "Unhandled CC custom tools message" });
-		return true;
-	}
-
-	if (PLUGIN_OPS.has(type)) {
-		if (await ccPlugins.handle(message, reply)) return true;
-		reply({ type: "error", message: "Unhandled CC plugins message" });
-		return true;
-	}
-
-	// SDK 0.2.92: Subagent inspection (filesystem queries, no live session needed)
-	if (SUBAGENT_OPS.has(type)) {
-		if (await ccSubagents.handle(message, reply)) return true;
-		reply({ type: "error", message: "Unhandled CC subagent message" });
-		return true;
-	}
-
-	// cc_abort — direct inline handler (too small to justify its own handler file)
-	if (type === "cc_abort") {
-		await ctx.claudeCode.abortClaudeCode(message.sessionId as string);
-		return true;
-	}
-
-	// cc_permission_response — resolves permission prompts
-	if (type === "cc_permission_response") {
+	registerAll(router, ["cc_permission_response"], async (message, ctx) => {
 		const key = `${message.sessionId}:${message.toolUseId}`;
 		console.log(
 			`[CC Routing] ◀ cc_permission_response: sessionId=${message.sessionId}, toolUseId=${message.toolUseId}, response=${message.response}, hasUpdatedInput=${!!message.updatedInput}`,
 		);
-		console.log(`[CC Routing]   SDK waiters: [${[...ctx.ccPermissionWaiters.keys()].join(", ")}]`);
+		console.log(`[CC Routing]   SDK waiters: [${[...deps.ccPermissionWaiters.keys()].join(", ")}]`);
 		console.log(`[CC Routing]   Hook waiters: [${getHookWaiterKeys().join(", ")}]`);
-		const waiter = ctx.ccPermissionWaiters.get(key);
+		const waiter = deps.ccPermissionWaiters.get(key);
 		if (waiter) {
 			clearTimeout(waiter.timer);
-			ctx.ccPermissionWaiters.delete(key);
+			deps.ccPermissionWaiters.delete(key);
 			const raw = message.response;
 			const normalized: "once" | "always" | "reject" =
 				raw === "once" || raw === "always" || raw === "reject" ? raw : "reject";
 			const updatedInput =
 				message.updatedInput && typeof message.updatedInput === "object" && !Array.isArray(message.updatedInput)
-					? (message.updatedInput as Record<string, unknown>)
+					? message.updatedInput
 					: undefined;
 			// SDK 0.2.87: Forward updatedPermissions for "Always Allow" rule persistence
 			const updatedPermissions = Array.isArray(message.updatedPermissions) ? message.updatedPermissions : undefined;
@@ -243,19 +174,17 @@ export async function handle(
 			const hookResponse = message.response === "reject" ? "deny" : "allow";
 			const hookUpdatedInput =
 				message.updatedInput && typeof message.updatedInput === "object" && !Array.isArray(message.updatedInput)
-					? (message.updatedInput as Record<string, unknown>)
+					? message.updatedInput
 					: undefined;
 			const hookResolved = resolveHookPermissionByToolUse(
-				message.sessionId as string,
-				message.toolUseId as string,
+				message.sessionId,
+				message.toolUseId,
 				hookResponse,
 				typeof message.reason === "string" ? message.reason : undefined,
 				hookUpdatedInput,
 			);
 			console.log(`[CC Routing]   Hook fallback result: ${hookResolved ? "✅ RESOLVED" : "❌ NO MATCHING WAITER"}`);
 		}
-		return true;
-	}
-
-	return false;
+		void ctx;
+	});
 }

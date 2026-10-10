@@ -1,4 +1,6 @@
 import { toErrorMessage } from "../http-utils";
+import { registerAll } from "../routing/registry";
+import type { MessageRouter, ServerDeps } from "../routing/types";
 import type { ServerMessage } from "../types";
 import type { PiDurableSocket, PiDurableWhenBusy } from "../types/pi-durable";
 import { closePiDurableHost, type PiDurableDeps, piDurableAvailability, piDurableDeps } from "./pi_durable/host";
@@ -11,6 +13,16 @@ import { listPiDurableSkills } from "./unified_pi";
 export { piDurableAvailability };
 
 type Reply = (message: ServerMessage) => void;
+
+const PD_OPS = ["pd_create_session", "pd_chat", "pd_compact", "pd_get_transcript", "pd_permission_response"] as const;
+
+export const MODULE_TYPES = PD_OPS;
+
+export function register(router: MessageRouter, deps: ServerDeps): void {
+	registerAll(router, PD_OPS, async (message, ctx) => {
+		await handle(deps.piDurableSockets.for(ctx.ws), message, ctx.reply);
+	});
+}
 
 export function detach(ws: PiDurableSocket): void {
 	detachPiDurableView(ws);

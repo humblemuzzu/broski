@@ -1,8 +1,11 @@
+import type { ServerWebSocket } from "bun";
+import type { ServerMessage } from "../../types";
+
 type RuntimeNotificationParams = {
 	method: string;
 	params: any;
 	sockets: Iterable<any>;
-	send: (ws: any, message: any) => void;
+	send: (ws: ServerWebSocket<unknown>, message: ServerMessage) => void;
 	safeString: (value: unknown) => string;
 	cxThreadOwners?: Map<string, any>;
 	cxThreadCwds?: Map<string, any>;

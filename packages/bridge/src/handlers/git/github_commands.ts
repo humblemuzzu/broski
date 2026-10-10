@@ -1,9 +1,14 @@
+import type { GitMessage } from "../../routing/messages";
 import { getGithubPrDiff, listGithubIssues, listGithubPrComments, listGithubPrs, resolveRepoRef } from "./github";
 import { normalizeGithubState } from "./parse";
 import type { GitHandlerContext, GitReply } from "./types";
 import { ensureSecureCwd, errorReply } from "./util";
 
-export async function handleGithubCommand(message: any, reply: GitReply, ctx: GitHandlerContext): Promise<boolean> {
+export async function handleGithubCommand(
+	message: GitMessage,
+	reply: GitReply,
+	ctx: GitHandlerContext,
+): Promise<boolean> {
 	const requestId = typeof message?.requestId === "string" ? message.requestId : undefined;
 
 	switch (message.type) {

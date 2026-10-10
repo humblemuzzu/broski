@@ -5,6 +5,7 @@
 
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import type { CxMessage } from "../../routing/messages";
 
 export type CxAgentsHandlerContext = {
 	safeString: (v: unknown) => string;
@@ -12,7 +13,7 @@ export type CxAgentsHandlerContext = {
 };
 
 export async function handleCxAgents(
-	message: any,
+	message: CxMessage,
 	reply: (msg: any) => void,
 	ctx: CxAgentsHandlerContext,
 ): Promise<boolean> {

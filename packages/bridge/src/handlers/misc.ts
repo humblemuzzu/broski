@@ -8,9 +8,41 @@
 import { join } from "node:path";
 import type { ServerWebSocket } from "bun";
 import * as pi from "../connectors/pi";
+import { registerAll } from "../routing/registry";
+import type { MessageRouter, ServerDeps } from "../routing/types";
 import type { AgentStatusInfo, AgentType, ServerMessage } from "../types";
 
 type ReplyFn = (msg: ServerMessage) => void;
+
+const MISC_OPS = [
+	"pong",
+	"client_ping",
+	"restart_opencode",
+	"set_agent",
+	"get_agents_status",
+	"get_subscription_usage",
+	"get_provider_usage",
+] as const;
+
+export const MODULE_TYPES = MISC_OPS;
+
+export function register(router: MessageRouter, deps: ServerDeps): void {
+	const ctx: MiscHandlerContext = {
+		contexts: deps.contexts,
+		send: deps.send,
+		log: deps.log,
+		getCurrentAgent: deps.getCurrentAgent,
+		setCurrentAgent: deps.setCurrentAgent,
+		ensureClaudeWatchDir: deps.ensureClaudeWatchDir,
+		claudeCode: deps.claudeCode,
+		checkCodexAvailable: deps.checkCodexAvailable,
+		getBackendsStatus: deps.getBackendsStatus,
+		restartOpenCode: deps.restartOpenCode,
+	};
+	registerAll(router, MISC_OPS, async (message, c) => {
+		await handle(c.ws, message, c.reply, ctx);
+	});
+}
 
 export type MiscHandlerContext = {
 	contexts: Map<

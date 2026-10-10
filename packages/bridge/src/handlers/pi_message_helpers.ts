@@ -1,6 +1,7 @@
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import type { ImageContent } from "@earendil-works/pi-ai";
 import { normalizeCwd } from "../connectors/pi/pi-cwd";
+import type { PiMessage } from "../routing/messages";
 import type { FileAttachment, ServerMessage } from "../types";
 
 export type Reply = (message: ServerMessage) => void;
@@ -14,7 +15,7 @@ export type PiHandlerContext = {
 	broadcast: Broadcast;
 };
 
-export const resolveOptionalCwd = (message: any): string | undefined => {
+export const resolveOptionalCwd = (message: PiMessage): string | undefined => {
 	const projectPath = typeof message?.projectPath === "string" ? message.projectPath : undefined;
 	if (projectPath && projectPath.trim().length > 0) {
 		return normalizeCwd(projectPath);

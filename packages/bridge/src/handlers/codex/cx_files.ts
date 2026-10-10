@@ -8,6 +8,7 @@ import { cxPageFields, parseCxPageCursor } from "../../connectors/codex/cx-page"
 import { readCxTranscriptPage, sliceCxTranscriptPage } from "../../connectors/codex/cx-transcript";
 import { findThreadFilePath } from "../../connectors/codex-fs";
 import type { ModifiedFileEntry } from "../../handlers/session-stats";
+import type { CxMessage, Msg } from "../../routing/messages";
 import { DEFAULT_TRANSCRIPT_PAGE_LIMIT, transcriptCursor, transcriptPageLimit } from "../../types/transcript-page";
 
 export type CxFilesHandlerContext = {
@@ -119,7 +120,7 @@ function turnsToTranscript(turns: any[]): any[] {
 }
 
 export async function handleCxFiles(
-	message: any,
+	message: CxMessage,
 	reply: (msg: any) => void,
 	ctx: CxFilesHandlerContext,
 ): Promise<boolean> {
@@ -209,7 +210,7 @@ export async function handleCxFiles(
 }
 
 async function handleThreadMessages(
-	message: any,
+	message: Msg<"cx_get_thread_messages">,
 	reply: (msg: any) => void,
 	ctx: CxFilesHandlerContext,
 ): Promise<boolean> {

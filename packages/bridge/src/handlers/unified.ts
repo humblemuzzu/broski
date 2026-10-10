@@ -9,6 +9,9 @@
  * shape so the Flutter side receives a consistent `{ type, backend, data }`.
  */
 
+import type { UnifiedMessage } from "../routing/messages";
+import { registerLegacy } from "../routing/registry";
+import type { MessageRouter, ServerDeps } from "../routing/types";
 import type { BroskiBackend } from "../types/runtime";
 import { handleUnified as handlePiDurableUnified } from "./pi_durable";
 import { listPiSkills, setPiModel } from "./unified_pi";
@@ -38,7 +41,28 @@ export type UnifiedContext = {
 	log: (...args: any[]) => void;
 };
 
-export async function handle(message: any, reply: Reply, ctx: UnifiedContext): Promise<boolean> {
+const UNIFIED_OPS = [
+	"unified_list_sessions",
+	"unified_list_projects",
+	"unified_list_models",
+	"unified_list_skills",
+	"unified_set_model",
+	"unified_abort",
+	"unified_delete_session",
+] as const;
+
+export const MODULE_TYPES = UNIFIED_OPS;
+
+export function register(router: MessageRouter, deps: ServerDeps): void {
+	registerLegacy(router, UNIFIED_OPS, handle, () => ({
+		claudeCode: deps.claudeCode,
+		ensureCodexClient: deps.ensureCodexClient,
+		requireOpenCode: deps.requireOpenCodeOrNull,
+		log: deps.logInfo,
+	}));
+}
+
+export async function handle(message: UnifiedMessage, reply: Reply, ctx: UnifiedContext): Promise<boolean> {
 	if (message.backend === "pi-durable") return handlePiDurableUnified(message, reply);
 	switch (message.type) {
 		// ── unified_list_sessions ─────────────────────────────────────────
@@ -213,7 +237,7 @@ export async function handle(message: any, reply: Reply, ctx: UnifiedContext): P
 					try {
 						const oc = ctx.requireOpenCode();
 						if (oc) {
-							await oc.updateModel(message.model, message.cwd);
+							await oc.updateModel(message.model as string, message.cwd);
 							success = true;
 						}
 					} catch {

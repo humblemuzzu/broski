@@ -1,8 +1,9 @@
 import * as pi from "../connectors/pi";
+import type { Msg, PiMessage } from "../routing/messages";
 import type { PiHandlerContext } from "./pi_message_helpers";
 import { emitPiRuntimeState, ensureStreamBridge } from "./pi_stream_bridge";
 
-async function handleGetState(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleGetState(message: Msg<"pi_get_state">, ctx: PiHandlerContext): Promise<void> {
 	await ensureStreamBridge(ctx.cwd, ctx.broadcast);
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
 	const state = pi.mapStatePayload(instance);
@@ -10,7 +11,7 @@ async function handleGetState(message: any, ctx: PiHandlerContext): Promise<void
 	emitPiRuntimeState(ctx.reply, ctx.cwd, state);
 }
 
-async function handleListSessions(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleListSessions(message: Msg<"pi_list_sessions">, ctx: PiHandlerContext): Promise<void> {
 	// Ensure stream bridges exist for all bridge-owned Pi instances.
 	// Force re-registration to pick up fresh broadcast function after reconnect.
 	for (const { cwd: existingCwd } of pi.listActiveRuntimeStates()) {
@@ -25,12 +26,12 @@ async function handleListSessions(message: any, ctx: PiHandlerContext): Promise<
 	// state changes (agent-end, new session, etc.).
 }
 
-async function handleListProjects(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleListProjects(message: Msg<"pi_list_projects">, ctx: PiHandlerContext): Promise<void> {
 	const projects = await pi.listProjects();
 	ctx.reply({ type: "pi_projects", data: projects, requestId: message.requestId });
 }
 
-async function handleGetSessionStats(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleGetSessionStats(message: Msg<"pi_get_session_stats">, ctx: PiHandlerContext): Promise<void> {
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
 	const stats = instance.session.getSessionStats();
 	const contextUsage = instance.session.getContextUsage();
@@ -44,7 +45,7 @@ async function handleGetSessionStats(message: any, ctx: PiHandlerContext): Promi
 	});
 }
 
-async function handleGetModifiedFiles(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleGetModifiedFiles(message: Msg<"pi_get_modified_files">, ctx: PiHandlerContext): Promise<void> {
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
 	const sessionPath = instance.session.sessionFile;
 	let files: Array<{ file: string; additions: number; deletions: number }> = [];
@@ -59,7 +60,7 @@ async function handleGetModifiedFiles(message: any, ctx: PiHandlerContext): Prom
 	});
 }
 
-async function handleGetMessages(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleGetMessages(message: Msg<"pi_get_messages">, ctx: PiHandlerContext): Promise<void> {
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
 	ctx.reply({
 		type: "pi_messages",
@@ -68,7 +69,7 @@ async function handleGetMessages(message: any, ctx: PiHandlerContext): Promise<v
 	});
 }
 
-async function handleGetSystemPrompt(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleGetSystemPrompt(message: Msg<"pi_get_system_prompt">, ctx: PiHandlerContext): Promise<void> {
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
 	ctx.reply({
 		type: "pi_system_prompt",
@@ -77,12 +78,12 @@ async function handleGetSystemPrompt(message: any, ctx: PiHandlerContext): Promi
 	});
 }
 
-async function handleListCommands(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleListCommands(message: Msg<"pi_list_commands">, ctx: PiHandlerContext): Promise<void> {
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
 	ctx.reply({ type: "pi_commands", data: pi.listCommands(instance), requestId: message.requestId });
 }
 
-export async function handle(message: any, ctx: PiHandlerContext): Promise<boolean> {
+export async function handle(message: PiMessage, ctx: PiHandlerContext): Promise<boolean> {
 	switch (message.type) {
 		case "pi_get_state": {
 			await handleGetState(message, ctx);

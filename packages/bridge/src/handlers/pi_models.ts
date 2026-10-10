@@ -1,8 +1,9 @@
 import * as pi from "../connectors/pi";
+import type { Msg, PiMessage } from "../routing/messages";
 import { type PiHandlerContext, parseThinkingLevel } from "./pi_message_helpers";
 import { emitPiRuntimeModels } from "./pi_stream_bridge";
 
-async function handleListModels(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleListModels(message: Msg<"pi_list_models">, ctx: PiHandlerContext): Promise<void> {
 	const models = await pi.listAvailableModels();
 	ctx.reply({ type: "pi_models", data: models, requestId: message.requestId });
 	// Use broadcast (not reply) for runtime_models so the message doesn't
@@ -11,7 +12,7 @@ async function handleListModels(message: any, ctx: PiHandlerContext): Promise<vo
 	emitPiRuntimeModels(ctx.broadcast, models);
 }
 
-async function handleSetModel(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleSetModel(message: Msg<"pi_set_model">, ctx: PiHandlerContext): Promise<void> {
 	const provider = String(message.provider ?? "");
 	const modelId = String(message.modelId ?? "");
 	const model = await pi.findModel(provider, modelId);
@@ -24,7 +25,7 @@ async function handleSetModel(message: any, ctx: PiHandlerContext): Promise<void
 	ctx.reply({ type: "pi_model_set", data: pi.mapModel(model), requestId: message.requestId });
 }
 
-async function handleSetThinkingLevel(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleSetThinkingLevel(message: Msg<"pi_set_thinking_level">, ctx: PiHandlerContext): Promise<void> {
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
 	instance.session.setThinkingLevel(parseThinkingLevel(message.level));
 	ctx.reply({
@@ -34,7 +35,7 @@ async function handleSetThinkingLevel(message: any, ctx: PiHandlerContext): Prom
 	});
 }
 
-async function handleCycleThinkingLevel(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleCycleThinkingLevel(message: Msg<"pi_cycle_thinking_level">, ctx: PiHandlerContext): Promise<void> {
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
 	const level = instance.session.cycleThinkingLevel();
 	ctx.reply({
@@ -44,7 +45,7 @@ async function handleCycleThinkingLevel(message: any, ctx: PiHandlerContext): Pr
 	});
 }
 
-async function handleCycleModel(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleCycleModel(message: Msg<"pi_cycle_model">, ctx: PiHandlerContext): Promise<void> {
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
 	const direction = message.direction === "backward" ? "backward" : "forward";
 	const result = await instance.session.cycleModel(direction);
@@ -56,7 +57,7 @@ async function handleCycleModel(message: any, ctx: PiHandlerContext): Promise<vo
 	});
 }
 
-export async function handle(message: any, ctx: PiHandlerContext): Promise<boolean> {
+export async function handle(message: PiMessage, ctx: PiHandlerContext): Promise<boolean> {
 	switch (message.type) {
 		case "pi_list_models": {
 			await handleListModels(message, ctx);

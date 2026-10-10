@@ -4,6 +4,7 @@
  */
 
 import type { CodexAppServerClient } from "../../connectors/codex";
+import type { CxMessage } from "../../routing/messages";
 import type { CodexThread } from "../../types";
 
 export type CxMcpHandlerContext = {
@@ -16,7 +17,11 @@ export type CxMcpHandlerContext = {
 	ws: any;
 };
 
-export async function handleCxMcp(message: any, reply: (msg: any) => void, ctx: CxMcpHandlerContext): Promise<boolean> {
+export async function handleCxMcp(
+	message: CxMessage,
+	reply: (msg: any) => void,
+	ctx: CxMcpHandlerContext,
+): Promise<boolean> {
 	const { ensureCodexClient, safeString, cxThreadOwners, cxThreadCwds, cxActiveTurns, mapCodexThread, ws } = ctx;
 
 	switch (message.type) {

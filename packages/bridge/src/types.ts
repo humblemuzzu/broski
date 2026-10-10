@@ -635,6 +635,8 @@ export type ClientMessage =
 			additionalDirectories?: string[];
 			// SDK 0.2.74: enable AI-generated progress summaries for subagents
 			agentProgressSummaries?: boolean;
+			continueSession?: boolean;
+			forkOnResume?: boolean;
 	  }
 	| { type: "cc_abort"; sessionId: string }
 	| { type: "cc_stop_task"; sessionId: string; taskId: string }
@@ -668,6 +670,9 @@ export type ClientMessage =
 			response: PermissionResponse;
 			// For AskUserQuestion: pass user-selected answers back to SDK via updatedInput
 			updatedInput?: Record<string, unknown>;
+			updatedPermissions?: unknown[];
+			decisionClassification?: string;
+			reason?: string;
 	  }
 	| {
 			type: "cc_elicitation_response";
@@ -776,7 +781,7 @@ export type ClientMessage =
 			archived?: boolean;
 			searchTerm?: string;
 	  }
-	| { type: "cx_warmup" }
+	| { type: "cx_warmup"; limit?: number }
 	| {
 			type: "cx_start_thread";
 			cwd?: string;
@@ -807,6 +812,10 @@ export type ClientMessage =
 			baseInstructions?: string;
 			developerInstructions?: string;
 			fileAttachments?: FileAttachment[];
+			skillMentions?: Array<{ name?: string; path?: string }>;
+			fileMentions?: Array<{ name?: string; path?: string }>;
+			serviceTier?: string | null;
+			outputSchema?: Record<string, unknown>;
 			// SDK ModeKind: "plan" | "default". Legacy values accepted for backward compat and mapped to "default".
 			collaborationMode?:
 				| "plan"
@@ -824,6 +833,7 @@ export type ClientMessage =
 	| {
 			type: "cx_permission_response";
 			requestId: string;
+			threadId?: string;
 			response: PermissionResponse;
 			execpolicyAmendment?: any;
 			networkPolicyAmendment?: { host: string; action: "allow" | "deny" };
@@ -877,6 +887,7 @@ export type ClientMessage =
 			threadId?: string;
 			cwd?: string;
 			delivery?: "inline" | "detached";
+			personality?: "none" | "friendly" | "pragmatic";
 			target?: any;
 			model?: string;
 			approvalPolicy?: string;
@@ -885,7 +896,7 @@ export type ClientMessage =
 			config?: Record<string, any>;
 	  }
 	| { type: "cx_account_read"; refreshToken?: boolean }
-	| { type: "cx_login_start"; loginType: "chatgpt" | "apiKey"; apiKey?: string }
+	| { type: "cx_login_start"; loginType: "chatgpt" | "chatgptDeviceCode" | "apiKey"; apiKey?: string }
 	| { type: "cx_login_cancel"; loginId: string }
 	| { type: "cx_logout" }
 	| { type: "cx_rate_limits_read" }
@@ -954,8 +965,8 @@ export type ClientMessage =
 			timeoutSecs?: number;
 	  }
 	// Codex external config detection/import
-	| { type: "cx_external_config_detect" }
-	| { type: "cx_external_config_import"; source: string }
+	| { type: "cx_external_config_detect"; cwds?: string[]; includeHome?: boolean }
+	| { type: "cx_external_config_import"; source: string; configPath?: string; importOptions?: Record<string, unknown> }
 	// Codex plugin marketplace
 	| { type: "cx_plugin_list"; cwd?: string }
 	| { type: "cx_plugin_install"; marketplacePath: string; pluginName: string }
@@ -963,8 +974,9 @@ export type ClientMessage =
 	| { type: "cx_plugin_read"; marketplacePath: string; pluginName: string; requestId?: string }
 	// Codex thread lifecycle
 	| { type: "cx_thread_unsubscribe"; threadId: string }
-	| { type: "cx_collaboration_modes" }
-	| { type: "cx_background_terminals_clean" }
+	| { type: "cx_collaboration_modes"; threadId?: string }
+	| { type: "cx_background_terminals_clean"; threadId?: string }
+	| { type: "cx_shell_command"; threadId: string; command: string; requestId?: string }
 	// Codex workspace / changeset revert
 	| { type: "cx_revert_changes"; threadId: string; diff: string; cwd?: string; requestId?: string }
 	| { type: "cx_get_turn_diff"; threadId: string; turnId?: string; cwd?: string; requestId?: string }
@@ -1138,7 +1150,7 @@ export type ClientMessage =
 	| { type: "get_provider_usage"; providerId: "claude" | "openai" }
 	// ── Phase 4: Unified request messages ──────────────────────────────────────
 	// These replace per-agent duplicates. Old messages still work for backward compat.
-	| { type: "unified_list_sessions"; backend: BroskiBackend; cwd?: string; requestId?: string }
+	| { type: "unified_list_sessions"; backend: BroskiBackend; cwd?: string; roots?: boolean; requestId?: string }
 	| { type: "unified_abort"; backend: BroskiBackend; sessionId?: string; cwd?: string; requestId?: string }
 	| { type: "unified_list_models"; backend: BroskiBackend; cwd?: string; requestId?: string }
 	| {

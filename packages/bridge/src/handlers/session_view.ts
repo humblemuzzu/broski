@@ -1,6 +1,9 @@
 import { join } from "node:path";
 import type { ServerWebSocket } from "bun";
+import { registerAll } from "../routing/registry";
+import type { MessageRouter, ServerDeps } from "../routing/types";
 import type { AgentType, ServerMessage } from "../types";
+import * as piDurable from "./pi_durable";
 import { getPendingExtensionUiRequests, stopPiExternalTail, syncPiExternalTail } from "./pi_features";
 import {
 	countPiWatchers,
@@ -72,6 +75,45 @@ export type SessionViewHandlerContext = {
 		lastSeq?: number;
 	}) => number;
 };
+
+const SESSION_VIEW_OPS = ["set_view"] as const;
+
+export const MODULE_TYPES = SESSION_VIEW_OPS;
+
+export function register(router: MessageRouter, deps: ServerDeps): void {
+	registerAll(router, SESSION_VIEW_OPS, async (message, c) => {
+		// Pi Durable's attach/detach runs first and returns false so the shared
+		// session-view bookkeeping below still executes (matches the old chain).
+		await piDurable.handle(deps.piDurableSockets.for(c.ws), message, c.reply);
+		await handle(c.ws, message, c.reply, {
+			contexts: deps.contexts,
+			sockets: deps.sockets,
+			send: deps.send,
+			sendStatus: deps.sendStatus,
+			logInfo: deps.logInfo,
+			logDebug: deps.logDebug,
+			DEBUG_RTS: deps.DEBUG_RTS,
+			currentAgent: deps.currentAgent,
+			ensureClaudeWatchDir: deps.ensureClaudeWatchDir,
+			makeSessionKey: deps.makeSessionKey,
+			updateSessionWatchers: deps.updateSessionWatchers,
+			sessionWatchers: deps.sessionWatchers,
+			claudeCode: deps.claudeCode,
+			ccSessionOwners: deps.ccSessionOwners,
+			ccSessionCwds: deps.ccSessionCwds,
+			buildClaudeCodeRuntimeState: deps.buildClaudeCodeRuntimeState,
+			cxActiveTurns: deps.cxActiveTurns,
+			cxThreadOwners: deps.cxThreadOwners,
+			cxThreadCwds: deps.cxThreadCwds,
+			buildCodexRuntimeState: deps.buildCodexRuntimeState,
+			ocSessionOwners: deps.ocSessionOwners,
+			ocSessionProjectPaths: deps.ocSessionProjectPaths,
+			broadcast: deps.broadcast,
+			findPiActiveRuntimeStateMessage: deps.findPiActiveRuntimeStateMessage,
+			replayRuntimeEventsSince: deps.replayRuntimeEventsSince,
+		});
+	});
+}
 
 export async function handle(
 	ws: ServerWebSocket<unknown>,

@@ -1,5 +1,6 @@
 import type { ServerWebSocket } from "bun";
 import type { CodexAppServerClient } from "../../connectors/codex";
+import type { CxMessage } from "../../routing/messages";
 
 type CxFsWatchContext = {
 	ws: ServerWebSocket<unknown>;
@@ -25,7 +26,7 @@ export function detach(ws: ServerWebSocket<unknown>, client: CodexAppServerClien
 	}
 }
 
-export async function handle(message: any, reply: (msg: any) => void, ctx: CxFsWatchContext): Promise<boolean> {
+export async function handle(message: CxMessage, reply: (msg: any) => void, ctx: CxFsWatchContext): Promise<boolean> {
 	const { ensureCodexClient, safeString } = ctx;
 
 	switch (message.type) {

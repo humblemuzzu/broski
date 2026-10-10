@@ -11,6 +11,7 @@ import {
 	parsePiModelRef,
 	setPiModel,
 } from "../handlers/unified_pi";
+import type { UnifiedMessage } from "../routing/messages";
 import type { ServerMessage } from "../types";
 import type { PiCommandPayload } from "../types/pi";
 
@@ -69,7 +70,7 @@ const unifiedContext: UnifiedContext = {
 	log: () => {},
 };
 
-async function callUnified(message: Record<string, unknown>): Promise<ServerMessage[]> {
+async function callUnified(message: UnifiedMessage): Promise<ServerMessage[]> {
 	const replies: ServerMessage[] = [];
 	await handleUnified(message, (reply: ServerMessage) => replies.push(reply), unifiedContext);
 	return replies;

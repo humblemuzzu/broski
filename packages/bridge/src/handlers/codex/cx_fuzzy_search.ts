@@ -1,4 +1,5 @@
 import type { CodexAppServerClient } from "../../connectors/codex";
+import type { CxMessage } from "../../routing/messages";
 
 type CxFuzzySearchContext = {
 	ensureCodexClient: () => Promise<CodexAppServerClient>;
@@ -8,7 +9,11 @@ type CxFuzzySearchContext = {
 	cxSearchSessions: Map<string, string>;
 };
 
-export async function handle(message: any, reply: (msg: any) => void, ctx: CxFuzzySearchContext): Promise<boolean> {
+export async function handle(
+	message: CxMessage,
+	reply: (msg: any) => void,
+	ctx: CxFuzzySearchContext,
+): Promise<boolean> {
 	const { ensureCodexClient, safeString, cxThreadCwds, cxSearchSessions } = ctx;
 
 	switch (message.type) {

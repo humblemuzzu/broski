@@ -4,6 +4,7 @@
  */
 
 import type { CodexAppServerClient } from "../../connectors/codex";
+import type { CxMessage } from "../../routing/messages";
 import { mapCodexModelToSummary } from "../../runtime/codex-runtime-read-models";
 
 export type CxConfigHandlerContext = {
@@ -12,7 +13,7 @@ export type CxConfigHandlerContext = {
 };
 
 export async function handleCxConfig(
-	message: any,
+	message: CxMessage,
 	reply: (msg: any) => void,
 	ctx: CxConfigHandlerContext,
 ): Promise<boolean> {

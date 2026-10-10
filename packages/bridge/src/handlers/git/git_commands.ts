@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import type { GitMessage } from "../../routing/messages";
 import { ensureGitSuccess, runGit } from "./command";
 import { parseGitBranches, parseGitLog, parseGitStatus } from "./parse";
 import {
@@ -14,7 +15,7 @@ import {
 import type { GitHandlerContext, GitReply } from "./types";
 import { ensureSecureCwd, errorReply } from "./util";
 
-export async function handleGitCommand(message: any, reply: GitReply, ctx: GitHandlerContext): Promise<boolean> {
+export async function handleGitCommand(message: GitMessage, reply: GitReply, ctx: GitHandlerContext): Promise<boolean> {
 	const requestId = typeof message?.requestId === "string" ? message.requestId : undefined;
 
 	switch (message.type) {

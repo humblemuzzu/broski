@@ -1,8 +1,48 @@
 import type { ServerWebSocket } from "bun";
+import { registerAll } from "../routing/registry";
+import type { MessageRouter, ServerDeps } from "../routing/types";
 import type { AgentType, DeviceInfo, ServerMessage } from "../types";
 import type { ClaudeElicitationReply } from "./cc_elicitation";
 
 type ReplyFn = (msg: ServerMessage) => void;
+
+const DEVICE_OPS = ["register_device", "list_devices", "disconnect_device"] as const;
+
+export const MODULE_TYPES = DEVICE_OPS;
+
+export function register(router: MessageRouter, deps: ServerDeps): void {
+	const ctx: DevicesHandlerContext = {
+		sockets: deps.sockets,
+		contexts: deps.contexts,
+		ALLOWED_DEVICE_IDS: deps.ALLOWED_DEVICE_IDS,
+		BRIDGE_PROTOCOL_VERSION: deps.BRIDGE_PROTOCOL_VERSION,
+		getDeviceInfo: deps.getDeviceInfo,
+		getAllDevices: deps.getAllDevices,
+		findSocketByDeviceId: deps.findSocketByDeviceId,
+		send: deps.send,
+		broadcast: deps.broadcast,
+		sendStatus: deps.sendStatus,
+		logUser: deps.logUser,
+		logError: deps.logError,
+		safeString: deps.safeString,
+		claudeCode: deps.claudeCode,
+		opencode: deps.opencode,
+		ccPermissionWaiters: deps.ccPermissionWaiters,
+		ccElicitationWaiters: deps.ccElicitationWaiters,
+		cxApprovalWaiters: deps.cxApprovalWaiters,
+		cxActiveTurns: deps.cxActiveTurns,
+		cxThreadCwds: deps.cxThreadCwds,
+		ocSessionProjectPaths: deps.ocSessionProjectPaths,
+		buildClaudeCodeRuntimeState: deps.buildClaudeCodeRuntimeState,
+		buildCodexRuntimeState: deps.buildCodexRuntimeState,
+		mapOpenCodeStatusToRuntimeState: deps.mapOpenCodeStatusToRuntimeState,
+		listPiActiveSessionSnapshots: deps.listPiActiveSessionSnapshots,
+		buildPiActiveRuntimeStateMessages: deps.buildPiActiveRuntimeStateMessages,
+	};
+	registerAll(router, DEVICE_OPS, async (message, c) => {
+		await handle(c.ws, message, c.reply, ctx);
+	});
+}
 
 type ConnectionContext = {
 	lastPongAt: number;

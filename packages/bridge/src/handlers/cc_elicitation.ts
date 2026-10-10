@@ -1,3 +1,5 @@
+import { registerAll } from "../routing/registry";
+import type { MessageRouter, ServerDeps } from "../routing/types";
 import type { ClientMessage } from "../types";
 
 export type ClaudeElicitationReply = {
@@ -15,6 +17,16 @@ type WaiterEntry = {
  *
  * This keeps new CC interaction handling out of server.ts's giant switch.
  */
+const ELICITATION_OPS = ["cc_elicitation_response"] as const;
+
+export const MODULE_TYPES = ELICITATION_OPS;
+
+export function register(router: MessageRouter, deps: ServerDeps): void {
+	registerAll(router, ELICITATION_OPS, async (message) => {
+		handle(message, deps.ccElicitationWaiters);
+	});
+}
+
 export function handle(message: ClientMessage, waiters: Map<string, WaiterEntry>): boolean {
 	if (message.type !== "cc_elicitation_response") {
 		return false;

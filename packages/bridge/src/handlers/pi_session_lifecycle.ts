@@ -1,9 +1,10 @@
 import type { Model } from "@earendil-works/pi-ai/compat";
 import * as pi from "../connectors/pi";
+import type { Msg, PiMessage } from "../routing/messages";
 import { type PiHandlerContext, parseThinkingLevel } from "./pi_message_helpers";
 import { broadcastPiRuntimeSessions, ensureStreamBridge, removeStreamBridge } from "./pi_stream_bridge";
 
-async function handleNewSession(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleNewSession(message: Msg<"pi_new_session">, ctx: PiHandlerContext): Promise<void> {
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
 
 	// Collect desired overrides before creating the session
@@ -32,26 +33,26 @@ async function handleNewSession(message: any, ctx: PiHandlerContext): Promise<vo
 	void broadcastPiRuntimeSessions(ctx.broadcast);
 }
 
-async function handleSwitchSession(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleSwitchSession(message: Msg<"pi_switch_session">, ctx: PiHandlerContext): Promise<void> {
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
 	const result = await pi.switchToSession(instance, String(message.sessionPath ?? ""));
 	ctx.reply({ type: "pi_session_switched", data: !result.cancelled, requestId: message.requestId });
 	void broadcastPiRuntimeSessions(ctx.broadcast);
 }
 
-async function handleDeleteSession(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleDeleteSession(message: Msg<"pi_delete_session">, ctx: PiHandlerContext): Promise<void> {
 	const deleted = await pi.deleteSession(String(message.sessionPath ?? ""));
 	ctx.reply({ type: "pi_session_deleted", data: deleted, requestId: message.requestId });
 	void broadcastPiRuntimeSessions(ctx.broadcast);
 }
 
-async function handleSetSessionName(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleSetSessionName(message: Msg<"pi_set_session_name">, ctx: PiHandlerContext): Promise<void> {
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
 	instance.session.setSessionName(String(message.name ?? "").trim());
 	ctx.reply({ type: "pi_session_name_set", data: true, requestId: message.requestId });
 }
 
-async function handleFork(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleFork(message: Msg<"pi_fork">, ctx: PiHandlerContext): Promise<void> {
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
 	const result = await pi.forkSession(instance, String(message.entryId ?? ""));
 	ctx.reply({
@@ -61,7 +62,7 @@ async function handleFork(message: any, ctx: PiHandlerContext): Promise<void> {
 	});
 }
 
-async function handleGetForkMessages(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleGetForkMessages(message: Msg<"pi_get_fork_messages">, ctx: PiHandlerContext): Promise<void> {
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
 	ctx.reply({
 		type: "pi_fork_messages",
@@ -70,7 +71,7 @@ async function handleGetForkMessages(message: any, ctx: PiHandlerContext): Promi
 	});
 }
 
-async function handleNavigateTree(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleNavigateTree(message: Msg<"pi_navigate_tree">, ctx: PiHandlerContext): Promise<void> {
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
 	const result = await instance.session.navigateTree(String(message.targetId ?? ""), {
 		summarize: message.summarize === true,
@@ -89,7 +90,7 @@ async function handleNavigateTree(message: any, ctx: PiHandlerContext): Promise<
 	});
 }
 
-async function handleCompact(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleCompact(message: Msg<"pi_compact">, ctx: PiHandlerContext): Promise<void> {
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
 	const result = await instance.session.compact(
 		typeof message.customInstructions === "string" ? message.customInstructions : undefined,
@@ -97,7 +98,7 @@ async function handleCompact(message: any, ctx: PiHandlerContext): Promise<void>
 	ctx.reply({ type: "pi_compacted", data: result, requestId: message.requestId });
 }
 
-async function handleExportHtml(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleExportHtml(message: Msg<"pi_export_html">, ctx: PiHandlerContext): Promise<void> {
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
 	const outputPath = await instance.session.exportToHtml(
 		typeof message.outputPath === "string" ? message.outputPath : undefined,
@@ -105,7 +106,7 @@ async function handleExportHtml(message: any, ctx: PiHandlerContext): Promise<vo
 	ctx.reply({ type: "pi_export_result", data: { path: outputPath, format: "html" }, requestId: message.requestId });
 }
 
-async function handleExportJsonl(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleExportJsonl(message: Msg<"pi_export_jsonl">, ctx: PiHandlerContext): Promise<void> {
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
 	const outputPath = instance.session.exportToJsonl(
 		typeof message.outputPath === "string" ? message.outputPath : undefined,
@@ -113,7 +114,7 @@ async function handleExportJsonl(message: any, ctx: PiHandlerContext): Promise<v
 	ctx.reply({ type: "pi_export_result", data: { path: outputPath, format: "jsonl" }, requestId: message.requestId });
 }
 
-async function handleImportJsonl(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleImportJsonl(message: Msg<"pi_import_jsonl">, ctx: PiHandlerContext): Promise<void> {
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
 	const inputPath = String(message.inputPath ?? "");
 	if (!inputPath) {
@@ -123,13 +124,13 @@ async function handleImportJsonl(message: any, ctx: PiHandlerContext): Promise<v
 	ctx.reply({ type: "pi_jsonl_imported", data: { success: !result.cancelled }, requestId: message.requestId });
 }
 
-async function handleDisposeInstance(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleDisposeInstance(message: Msg<"pi_dispose_instance">, ctx: PiHandlerContext): Promise<void> {
 	removeStreamBridge(ctx.cwd);
 	pi.disposeInstance(ctx.cwd);
 	ctx.reply({ type: "pi_instance_disposed", data: true, requestId: message.requestId });
 }
 
-export async function handle(message: any, ctx: PiHandlerContext): Promise<boolean> {
+export async function handle(message: PiMessage, ctx: PiHandlerContext): Promise<boolean> {
 	switch (message.type) {
 		case "pi_new_session":
 			await handleNewSession(message, ctx);

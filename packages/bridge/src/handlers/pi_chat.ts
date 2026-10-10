@@ -1,4 +1,5 @@
 import * as pi from "../connectors/pi";
+import type { Msg, PiMessage } from "../routing/messages";
 import type { FileAttachment } from "../types";
 import {
 	composePromptWithTaggedPaths,
@@ -8,7 +9,7 @@ import {
 } from "./pi_message_helpers";
 import { broadcastPiRuntimeState, broadcastPiStreamMessage, ensureStreamBridge } from "./pi_stream_bridge";
 
-async function handleChat(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleChat(message: Msg<"pi_chat">, ctx: PiHandlerContext): Promise<void> {
 	await ensureStreamBridge(ctx.cwd, ctx.broadcast);
 	// Also ensure any other active Pi sessions have stream bridges
 	for (const { cwd: existingCwd } of pi.listActiveRuntimeStates()) {
@@ -45,7 +46,11 @@ async function handleChat(message: any, ctx: PiHandlerContext): Promise<void> {
 	ctx.reply({ type: "pi_chat_started", data: true, requestId: message.requestId });
 }
 
-async function handleQueueMessage(message: any, ctx: PiHandlerContext, type: "steer" | "followUp"): Promise<void> {
+async function handleQueueMessage(
+	message: Msg<"pi_steer" | "pi_follow_up">,
+	ctx: PiHandlerContext,
+	type: "steer" | "followUp",
+): Promise<void> {
 	await ensureStreamBridge(ctx.cwd, ctx.broadcast);
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
 	const attachments = message.fileAttachments as FileAttachment[] | undefined;
@@ -64,13 +69,13 @@ async function handleQueueMessage(message: any, ctx: PiHandlerContext, type: "st
 	ctx.reply({ type: "pi_followed_up", data: true, requestId: message.requestId });
 }
 
-async function handleAbort(message: any, ctx: PiHandlerContext): Promise<void> {
+async function handleAbort(message: Msg<"pi_abort">, ctx: PiHandlerContext): Promise<void> {
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
 	await instance.session.abort();
 	ctx.reply({ type: "pi_aborted", data: true, requestId: message.requestId });
 }
 
-export async function handle(message: any, ctx: PiHandlerContext): Promise<boolean> {
+export async function handle(message: PiMessage, ctx: PiHandlerContext): Promise<boolean> {
 	switch (message.type) {
 		case "pi_chat": {
 			await handleChat(message, ctx);
