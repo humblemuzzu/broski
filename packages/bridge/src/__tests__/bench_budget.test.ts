@@ -5,7 +5,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { BUDGETS } from "../../bench/budgets";
-import { checkBudget } from "../../bench/check-budget";
+import { checkBudget, median } from "../../bench/check-budget";
 import type { BenchRun, ScenarioResult } from "../../bench/lib/types";
 
 function result(name: string, metrics: Record<string, number | string | boolean>): ScenarioResult {
@@ -110,5 +110,74 @@ describe("checkBudget", () => {
 		if (target) target.status = "error";
 		const verdict = checkBudget(runWith(results));
 		expect(verdict.failures.some((line) => line.includes("stream-stalled-client"))).toBe(true);
+	});
+});
+
+function withMetric(run: BenchRun, scenario: string, metric: string, value: number | string | boolean): BenchRun {
+	const target = run.results.find((entry) => entry.name === scenario);
+	if (target) target.metrics[metric] = value;
+	return run;
+}
+
+function passingRuns(count: number): BenchRun[] {
+	return Array.from({ length: count }, () => runWith(passingResults()));
+}
+
+describe("checkBudget across runs", () => {
+	// stream-throughput.c1_p99Ms is a `median` gate; c1_eventsMax is a `worst` gate.
+	const noisyP99 = 5000;
+	const coalescingBroken = 20_000;
+
+	test("a median gate ignores one noisy run", () => {
+		const runs = passingRuns(3);
+		withMetric(runs[1]!, "stream-throughput", "c1_p99Ms", noisyP99);
+		const verdict = checkBudget(runs);
+		expect(verdict.failures).toEqual([]);
+		const line = verdict.lines.find((entry) => entry.includes("c1_p99Ms"));
+		expect(line).toContain("median of 3");
+	});
+
+	test("a median gate fails when the middle sample breaks the bound", () => {
+		const runs = passingRuns(3);
+		withMetric(runs[0]!, "stream-throughput", "c1_p99Ms", noisyP99);
+		withMetric(runs[1]!, "stream-throughput", "c1_p99Ms", noisyP99);
+		const verdict = checkBudget(runs);
+		expect(verdict.failures.some((line) => line.includes("stream-throughput.c1_p99Ms"))).toBe(true);
+	});
+
+	test("a capacity gate fails on a single bad run", () => {
+		const runs = passingRuns(3);
+		withMetric(runs[2]!, "stream-throughput", "c1_eventsMax", coalescingBroken);
+		const verdict = checkBudget(runs);
+		expect(verdict.failures.some((line) => line.includes("stream-throughput.c1_eventsMax"))).toBe(true);
+	});
+
+	test("an equals gate must hold in every run", () => {
+		const runs = passingRuns(3);
+		withMetric(runs[2]!, "module-load", "loadedSdkPackages", "@anthropic-ai/claude-agent-sdk");
+		const verdict = checkBudget(runs);
+		expect(verdict.failures.some((line) => line.includes("module-load.loadedSdkPackages"))).toBe(true);
+	});
+
+	test("a scenario that errored in one run fails", () => {
+		const runs = passingRuns(3);
+		const target = runs[1]!.results.find((entry) => entry.name === "stream-throughput");
+		if (target) target.status = "error";
+		const verdict = checkBudget(runs);
+		expect(verdict.failures.some((line) => line.includes("run 2: scenario error"))).toBe(true);
+	});
+
+	test("a scenario present in only some runs is judged on the samples it has", () => {
+		const runs = passingRuns(3);
+		const absent = runs[2]!.results.find((entry) => entry.name === "stream-throughput");
+		if (absent) runs[2]!.results = runs[2]!.results.filter((entry) => entry !== absent);
+		withMetric(runs[1]!, "stream-throughput", "c1_eventsMax", coalescingBroken);
+		const verdict = checkBudget(runs);
+		expect(verdict.failures.some((line) => line.includes("stream-throughput.c1_eventsMax"))).toBe(true);
+	});
+
+	test("the median of an even sample count is the lower-middle value", () => {
+		expect(median([3, 1, 2, 4])).toBe(2);
+		expect(median([9])).toBe(9);
 	});
 });

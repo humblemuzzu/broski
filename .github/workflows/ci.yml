@@ -32,14 +32,16 @@ jobs:
         run: bunx biome check src/ --diagnostic-level=error
       - name: Test
         run: bun test
-      - name: Perf budget (synthetic)
+      - name: Perf budget (synthetic, 3 runs)
         env:
           BENCH_SERVER_IDLE_MS: "8000"
           BENCH_SOAK_DURATION_MS: "10000"
         run: |
-          bun bench/run.ts --out=/tmp/broski-bench.json \
-            --filter=startup-version,module-load,cc-synthetic-list-projects,cc-synthetic-list-sessions,stream-throughput,stream-stalled-client,server-idle,soak-sessions
-          bun bench/check-budget.ts /tmp/broski-bench.json
+          for i in 1 2 3; do
+            bun bench/run.ts --out=/tmp/broski-bench-$i.json \
+              --filter=startup-version,module-load,cc-synthetic-list-projects,cc-synthetic-list-sessions,stream-throughput,stream-stalled-client,server-idle,soak-sessions
+          done
+          bun bench/check-budget.ts /tmp/broski-bench-1.json /tmp/broski-bench-2.json /tmp/broski-bench-3.json
 
   flutter:
     name: Flutter checks

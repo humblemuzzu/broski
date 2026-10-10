@@ -30,8 +30,11 @@ type Phase = {
 	charsMin: number;
 	mergedFramesMin: number;
 	framesMin: number;
+	framesMax: number;
 	wireBytesMin: number;
+	wireBytesMax: number;
 	wireBytesAvg: number;
+	charsPerEventMin: number;
 	eventsPerSec: number;
 	p50Ms: number;
 	p99Ms: number;
@@ -142,6 +145,9 @@ async function runPhase(handle: BenchServerHandle, clientCount: number): Promise
 	const wire = stats.map((stat) => stat.wireBytes);
 	const totalWire = wire.reduce((sum, value) => sum + value, 0);
 	const totalEvents = events.reduce((sum, value) => sum + value, 0);
+	// Chars per delivered event: how many source deltas the coalescer folded into one. Timing
+	// independent — a merged event stops at the 32 KiB cap, not at a flush tick.
+	const charsPerEvent = stats.map((stat) => (stat.received > 0 ? Math.floor(stat.chars / stat.received) : 0));
 
 	return {
 		wallMs,
@@ -152,8 +158,11 @@ async function runPhase(handle: BenchServerHandle, clientCount: number): Promise
 		charsMin: Math.min(...chars),
 		mergedFramesMin: Math.min(...merged),
 		framesMin: Math.min(...frames),
+		framesMax: Math.max(...frames),
 		wireBytesMin: Math.min(...wire),
+		wireBytesMax: Math.max(...wire),
 		wireBytesAvg: Math.round(totalWire / Math.max(clientCount, 1)),
+		charsPerEventMin: Math.min(...charsPerEvent),
 		eventsPerSec: Number(((totalEvents / Math.max(wallMs, 1)) * 1000).toFixed(0)),
 		p50Ms: percentile(latencies, 50),
 		p99Ms: percentile(latencies, 99),
@@ -183,8 +192,11 @@ await runScenario(async () => {
 			metrics[`${prefix}_charsMin`] = phase.charsMin;
 			metrics[`${prefix}_mergedFramesMin`] = phase.mergedFramesMin;
 			metrics[`${prefix}_framesMin`] = phase.framesMin;
+			metrics[`${prefix}_framesMax`] = phase.framesMax;
 			metrics[`${prefix}_wireBytesMin`] = phase.wireBytesMin;
+			metrics[`${prefix}_wireBytesMax`] = phase.wireBytesMax;
 			metrics[`${prefix}_wireBytesAvg`] = phase.wireBytesAvg;
+			metrics[`${prefix}_charsPerEventMin`] = phase.charsPerEventMin;
 			metrics[`${prefix}_eventsPerSec`] = phase.eventsPerSec;
 			metrics[`${prefix}_p50Ms`] = phase.p50Ms;
 			metrics[`${prefix}_p99Ms`] = phase.p99Ms;

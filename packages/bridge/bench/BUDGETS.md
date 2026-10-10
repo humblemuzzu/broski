@@ -1,62 +1,100 @@
 # Perf budgets (synthetic subset)
 
-`bench/budgets.ts` holds the bounds; `bench/check-budget.ts` applies them to a `bench/run.ts`
-JSON run and exits 1 on any failure. CI runs only scenarios that need no developer data:
+`bench/budgets.ts` holds the bounds; `bench/check-budget.ts` applies them to one or more
+`bench/run.ts` JSON runs and exits 1 on any failure. CI runs the subset **three times** and feeds all
+three runs to the checker, because a single wall-clock sample on a GitHub runner swings 2-5x:
 
 ```bash
-BENCH_SERVER_IDLE_MS=8000 BENCH_SOAK_DURATION_MS=10000 \
-  bun bench/run.ts --out=/tmp/broski-bench.json \
+BENCH_SERVER_IDLE_MS=8000 BENCH_SOAK_DURATION_MS=10000
+for i in 1 2 3; do
+  bun bench/run.ts --out=/tmp/broski-bench-$i.json \
     --filter=startup-version,module-load,cc-synthetic-list-projects,cc-synthetic-list-sessions,stream-throughput,stream-stalled-client,server-idle,soak-sessions
-bun bench/check-budget.ts /tmp/broski-bench.json
+done
+bun bench/check-budget.ts /tmp/broski-bench-1.json /tmp/broski-bench-2.json /tmp/broski-bench-3.json
 ```
 
 Scenarios that read `~/.pi`, `~/.codex` or `~/.claude` carry `requiresDatasets` in
 `bench/lib/scenarios.ts` and are skipped automatically when the dataset is missing (a bare CI
 runner has none).
 
-## How the bounds were set
+## Two kinds of gate
 
-Capacity bounds (bytes, counts of memory) are ~2× the worst value measured across both columns, so a
-reintroduced leak or unbounded scan still fails. Wall-time, CPU and latency bounds are ~4×, because a
-shared runner swings those most. Correctness checks (`equals`, minimum counts, delivered characters,
-events/s floors) are not scaled — they fail on behaviour, not on speed.
+**Capacity and behaviour** checks (bytes, frame/event counts, coalescing ratio, flags, `equals`) are
+judged on the **worst of the three runs** and sit ~2x the worst measured value. A leak, an unbounded
+queue, a dropped message or a lost merge fails in whichever run shows it. Nothing here is timing
+derived, so repeating the run costs nothing in flakiness.
 
-Linux column measured inside `oven/bun:1.4.2` on Docker Desktop, `--cpus=2 --memory=6g` (a GitHub
-`ubuntu-latest` box is comparable), 4 runs of the CI subset, worst value shown. macOS column: Apple
-M4 Pro, 48 GiB RAM, macOS 27.0.1, bun 1.4.2, shortened CI knobs.
+**Time** checks (wall ms, CPU ms/%, latency, rate) carry `gate: "median"`: the bound applies to the
+**median** of the three runs (lower-middle sample for an even count — never an interpolated value),
+and sits ~10x the measured median. They exist to catch an order-of-magnitude regression (a stream
+that takes seconds instead of tens of ms), not a 3x one. Every time gate is marked, so adding a
+scenario to the CI filter does not create a single-sample gate.
+
+Why the median and not a looser single-sample bound: on 2026-10 CI run 38030900020 failed on
+`stream-throughput.c1_p99Ms = 353 (max 250)` and passed on the re-run — the same code, the same gate.
+A median over three runs absorbs exactly that, while the deterministic gates below keep the
+regression coverage. Tightening or loosening a single-sample bound cannot do either.
+
+## What catches which regression
+
+Measured under the same `--cpus=2` container with a `yes > /dev/null` stressor, with the regression
+applied temporarily to `src/` and reverted afterwards:
+
+| reintroduced regression | gate that fires | measured → bound | latency gates |
+| --- | --- | --- | --- |
+| coalescing disabled (`RuntimeEventCoalescer.push` emits every delta) | `c*_charsMin` 0, `c*_charsPerEventMin` 0, `c*_eventsPerSec` 0, `stream-stalled-client.healthyComplete` false and `connectionsAfterShed` 0 — 20 000 unflushed parts trip the send queue's overflow guard (4 096 frames / 4 MiB) and both sockets are shed | 8 checks fail | p99 never measured (nothing delivered) |
+| per-delta immediate sends (send-queue bypassed **and** coalescing off) | `c*_eventsMax` 20 000 → 400, `c*_framesMax` 20 002 → 48, `c*_charsPerEventMin` 120 → 4000, `c*_wireBytesMax` 6.20 MB → 3.2 MB | 8 checks fail | p50 161/383 ms, p99 209/598 ms — **pass**, so latency is not the guard here |
+| send-queue batching off only (coalescing intact) | `c*_framesMax` 75 → 48; every other stream gate passed | 2 checks fail | p99 10/22 ms — again no latency signal |
+
+The lesson from the third row: immediate delivery is *faster* per message, so a latency gate can
+never see the missing batching. `framesMax` is what sees it, and it is deterministic (2-4 frames
+idle, 4 contended, 75 with batching off).
 
 ## Measured values and the bounds
 
-| check | macOS measured | Linux CI measured | bound |
-| --- | --- | --- | --- |
-| `startup-version.directExitCode` | 0 | 0 | must stay 0 |
-| `startup-version.directWallMs` | 268 ms | 26 ms | ≤ 2000 ms |
-| `module-load.loadedSdkPackages` | `(none)` | `(none)` | must stay `(none)` |
-| `module-load.peakRssBytes` | 37.5 MiB | 41.3 MiB | ≤ 96 MiB |
-| `module-load.wallMs` | 130 ms | 105 ms | ≤ 2000 ms |
-| `cc-synthetic-list-projects.peakRssBytes` | 35.5 MiB | 41.6 MiB | ≤ 96 MiB |
-| `cc-synthetic-list-projects.coldMs` | 107 ms | 287 ms | ≤ 2000 ms |
-| `cc-synthetic-list-sessions.peakRssBytes` | 847.9 MiB | 763.0 MiB | ≤ 1600 MiB |
-| `cc-synthetic-list-sessions.coldMs` | 450 ms | 745 ms | ≤ 8000 ms |
-| `cc-synthetic-list-sessions.warmMs` | 43 ms | 37 ms | ≤ 500 ms |
-| `cc-synthetic-list-sessions.coldCount` | 4020 | 4020 | ≥ 4000 |
-| `cc-synthetic-list-sessions.transcriptMatch` | true | true | must stay true |
-| `stream-throughput.c1_charsMin` / `c4_charsMin` | 2 400 000 | 2 400 000 | ≥ 2 400 000 (all 20 000×120 chars) |
-| `stream-throughput.c1_p99Ms` / `c4_p99Ms` | 58 / 26 ms | 44 / 29 ms | ≤ 250 / 300 ms |
-| `stream-throughput.c1_eventsPerSec` / `c4_eventsPerSec` | 768 / 5309 | 1973 / 4710 | ≥ 150 / 400 |
-| `stream-throughput.peakRssBytes` | 199.0 MiB | 166.0 MiB | ≤ 448 MiB |
-| `stream-stalled-client.stalledShedAtMs` | 59 ms | 77 ms | ≤ 1000 ms |
-| `stream-stalled-client.rssGrowthMb` | +131 MiB | +126 MiB | ≤ 320 MiB |
-| `stream-stalled-client.peakRssBytes` | 192.1 MiB | 177.0 MiB | ≤ 384 MiB |
-| `server-idle.peakSelfRssBytes` | 126.4 MiB | 114.7 MiB | ≤ 256 MiB |
-| `server-idle.rssDeltaBytes` | +0.5 MiB | +0.0 MiB | ≤ 32 MiB |
-| `server-idle.cpuPercent` | 0.36 % | 0.53 % | ≤ 5 % |
-| `soak-sessions.peakRssBytes` | 122.9 MiB | 114.3 MiB | ≤ 256 MiB |
-| `soak-sessions.rssDeltaBytes` | +2.6 MiB | −2.6 MiB | ≤ 32 MiB |
-| `soak-sessions.cpuMs` | 329 ms | 638 ms | ≤ 4000 ms |
-| `soak-sessions.views` | 375 | 359 | ≥ 50 |
+macOS column: Apple M4 Pro, 48 GiB RAM, macOS 27.0.1, bun 1.4.2, shortened CI knobs. Linux idle
+column: `oven/bun:1.4.2`, `--cpus=2 --memory=6g`, 4 runs of the CI subset. Linux contended column:
+same container plus one `yes > /dev/null`, 3 runs; `[a, b, c]` is the three samples.
 
-The two `rssDeltaBytes` bounds are leak gates rather than 2×-of-measured: the 8 s window's own
+| check | macOS | Linux idle | Linux contended | bound |
+| --- | --- | --- | --- | --- |
+| `startup-version.directExitCode` | 0 | 0 | 0 | must stay 0 |
+| `startup-version.directWallMs` | 268 ms | 26 ms | 26 ms | ≤ 2000 ms *(median)* |
+| `module-load.loadedSdkPackages` | `(none)` | `(none)` | `(none)` | must stay `(none)` |
+| `module-load.peakRssBytes` | 42.1 MiB | 40.8 MiB | 40.6 MiB | ≤ 96 MiB |
+| `module-load.wallMs` | 130 ms | 106 ms | 109 ms | ≤ 2000 ms *(median)* |
+| `cc-synthetic-list-projects.peakRssBytes` | 35.7 MiB | 41.6 MiB | 41.3 MiB | ≤ 96 MiB |
+| `cc-synthetic-list-projects.coldMs` | 107 ms | 287 ms | [152, 147, 473] | ≤ 2000 ms *(median)* |
+| `cc-synthetic-list-sessions.peakRssBytes` | 847.9 MiB | 800.0 MiB | 756.3 MiB | ≤ 1600 MiB |
+| `cc-synthetic-list-sessions.coldMs` | 450 ms | 745 ms | [1061, 1526, 5176] | ≤ 8000 ms *(median)* |
+| `cc-synthetic-list-sessions.warmMs` | 43 ms | 37 ms | [206, 71, 634] | ≤ 500 ms *(median)* |
+| `cc-synthetic-list-sessions.coldCount` | 4020 | 4020 | 4020 | ≥ 4000 |
+| `cc-synthetic-list-sessions.transcriptMatch` | true | true | true | must stay true |
+| `stream-throughput.c*_charsMin` | 2 400 000 | 2 400 000 | 2 400 000 | ≥ 2 400 000 (all 20 000×120 chars) |
+| `stream-throughput.c*_eventsMax` | 73 | 73 | 73 | ≤ 400 |
+| `stream-throughput.c*_framesMax` | 4 | 4 | 4 | ≤ 48 |
+| `stream-throughput.c*_charsPerEventMin` | 32 876 | 32 876 | 32 876 | ≥ 4000 |
+| `stream-throughput.c*_wireBytesMax` | 2 414 430 | 2 414 412 | 2 414 412 | ≤ 3 200 000 |
+| `stream-throughput.peakRssBytes` | 203.4 MiB | 174.0 MiB | 176.9 MiB | ≤ 448 MiB |
+| `stream-throughput.c*_p50Ms` | 26 / 57 ms | 22 / 29 ms | 11 / 21 ms | ≤ 500 ms *(median)* |
+| `stream-throughput.c*_p99Ms` | 58 / 79 ms | 44 / 29 ms | 14 / 28 ms | ≤ 1000 ms *(median)* |
+| `stream-throughput.c1_eventsPerSec` / `c4_` | 768 / 5309 | 1973 / 4710 | 1973 / 4710 | ≥ 150 / 400 *(median)* |
+| `stream-stalled-client.stalledShedAtMs` | 59 ms | 77 ms | [74, 78, 76] | ≤ 2000 ms *(median)* |
+| `stream-stalled-client.rssGrowthMb` | +131 MiB | +126 MiB | +125 MiB | ≤ 320 MiB |
+| `stream-stalled-client.peakRssBytes` | 192.1 MiB | 177.0 MiB | 176.3 MiB | ≤ 384 MiB |
+| `server-idle.peakSelfRssBytes` | 126.4 MiB | 114.7 MiB | 113.9 MiB | ≤ 256 MiB |
+| `server-idle.rssDeltaBytes` | +0.5 MiB | +0.0 MiB | −5.0 MiB | ≤ 32 MiB |
+| `server-idle.cpuPercent` | 0.36 % | 0.53 % | 0.20 % | ≤ 5 % *(median)* |
+| `soak-sessions.peakRssBytes` | 122.9 MiB | 114.3 MiB | 114.2 MiB | ≤ 256 MiB |
+| `soak-sessions.rssDeltaBytes` | +2.6 MiB | −2.6 MiB | −2.5 MiB | ≤ 32 MiB |
+| `soak-sessions.cpuMs` | 329 ms | 638 ms | [282, 385, 266] | ≤ 4000 ms *(median)* |
+| `soak-sessions.views` | 375 | 359 | 360 | ≥ 50 |
+
+The contended `warmMs` sample of 634 ms is the point of the median: on an idle container the same
+measurement is 37-43 ms, so a single contended sample would have failed a 500 ms bound on nothing but
+CPU neighbours.
+
+The two `rssDeltaBytes` bounds are leak gates rather than 2x-of-measured: the 8 s window's own
 sampling noise already reaches ±8 MiB, and the 60 s runs in `BASELINE.md` drift +1.5–2.0 MiB. A real
 leak in a bounded map shows up as tens of MiB per minute, which 32 MiB still catches.
 
