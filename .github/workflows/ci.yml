@@ -43,21 +43,55 @@ jobs:
           done
           bun bench/check-budget.ts /tmp/broski-bench-1.json /tmp/broski-bench-2.json /tmp/broski-bench-3.json
 
+  link:
+    name: Broski Link (Rust)
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: packages/link
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: packages/link
+      - name: Format
+        run: cargo fmt --all --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --workspace
+
   flutter:
     name: Flutter checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: packages/link
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.38.5"
           channel: stable
           cache: true
       - name: Install dependencies
-        run: flutter pub get
+        run: |
+          flutter pub get
+          (cd packages/link_dart && dart pub get)
       - name: Format
         run: dart format --output=none --set-exit-if-changed lib test
       - name: Analyze
         run: flutter analyze
       - name: Test
         run: flutter test
+      - name: Link package tests
+        working-directory: packages/link_dart
+        run: dart test
