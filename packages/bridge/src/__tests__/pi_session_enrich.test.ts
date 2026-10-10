@@ -3,7 +3,13 @@ import { appendFile, mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { enrichPiSessionsWithStats, PI_STATS_SCAN_CONCURRENCY } from "../connectors/pi/pi-session-enrich";
-import { clearPiStatsCache, computePiSessionStats, countSubagentTools } from "../connectors/pi/pi-session-stats";
+import {
+	clearPiStatsCache,
+	computePiSessionStats,
+	countSubagentTools,
+	getPiStatsCacheStats,
+	PI_STATS_CACHE_BYTES,
+} from "../connectors/pi/pi-session-stats";
 import type { PiSessionInfo } from "../types/pi";
 
 let tmpDirs: string[] = [];
@@ -119,26 +125,46 @@ describe("pi-session-scan cache", () => {
 		expect(second).toEqual(first);
 	});
 
-	test("clearing the stats cache also drops cached subagent counts", async () => {
-		const stamp = 1_700_000_000;
+	test("clearing the stats cache forces a re-scan of an unchanged file", async () => {
 		const subagentLine = {
 			type: "message",
 			message: { role: "assistant", content: [{ type: "toolCall", id: "tc-1", name: "finder", arguments: {} }] },
 		};
 		const filePath = await makeSessionFile("subagent.jsonl", [subagentLine]);
+		expect(await countSubagentTools(filePath)).toBe(1);
+
+		clearPiStatsCache(filePath);
+		expect(await countSubagentTools(filePath)).toBe(1);
+
+		clearPiStatsCache();
+		expect(await countSubagentTools(filePath)).toBe(1);
+	});
+
+	test("re-scans a file whose content changed even when its mtime did not", async () => {
+		const stamp = 1_700_000_000;
+		const subagentLine = {
+			type: "message",
+			message: { role: "assistant", content: [{ type: "toolCall", id: "tc-1", name: "finder", arguments: {} }] },
+		};
+		const filePath = await makeSessionFile("subagent-rewritten.jsonl", [subagentLine]);
 		await utimes(filePath, stamp, stamp);
 		expect(await countSubagentTools(filePath)).toBe(1);
 
 		await writeFile(filePath, `${JSON.stringify({ type: "message", message: { role: "assistant", content: [] } })}\n`);
 		await utimes(filePath, stamp, stamp);
-		expect(await countSubagentTools(filePath)).toBe(1);
-
-		clearPiStatsCache(filePath);
 		expect(await countSubagentTools(filePath)).toBe(0);
+	});
 
-		await writeFile(filePath, `${JSON.stringify(subagentLine)}\n`);
-		await utimes(filePath, stamp, stamp);
-		clearPiStatsCache();
-		expect(await countSubagentTools(filePath)).toBe(1);
+	test("serves a repeated scan of the same file from cache", async () => {
+		const filePath = await makeSessionFile("repeat-scan.jsonl", writePair(0, 3));
+		await computePiSessionStats(filePath);
+
+		const before = getPiStatsCacheStats();
+		const again = await computePiSessionStats(filePath);
+		const after = getPiStatsCacheStats();
+
+		expect(again).toEqual({ additions: 3, deletions: 0, files: 1 });
+		expect(after.hits).toBe(before.hits + 1);
+		expect(after.bytes).toBeLessThanOrEqual(PI_STATS_CACHE_BYTES);
 	});
 });

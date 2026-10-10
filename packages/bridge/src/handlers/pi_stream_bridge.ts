@@ -6,13 +6,50 @@ import {
 	mapPiSessionsToRuntimeSessions,
 	mapPiStateToRuntimeState,
 } from "../runtime/pi-runtime-read-models";
+import { registerSweepable } from "../state/bounded-map";
 import type { ServerMessage } from "../types";
 import type { PiModelPayload, PiStatePayload, PiStreamMessage } from "../types/pi";
 import { recordRuntimeEvent } from "../utils/runtime-replay-buffer";
 import type { Broadcast, Reply } from "./pi_message_helpers";
 import { isPiStateChangingEvent } from "./pi_state_events";
 
-const streamUnsubscribers = new Map<string, () => void>();
+/** One event listener per project directory; a cwd nobody uses any more must not keep one. */
+const MAX_STREAM_BRIDGES = 200;
+
+const streamUnsubscribers = new Map<string, { cwd: string; unsubscribe: () => void; touchedAt: number }>();
+
+registerSweepable({
+	name: "pi-stream-bridges",
+	// A listener is only useful while its directory still has a live Pi instance.
+	sweep: () => {
+		let dropped = 0;
+		for (const [key, entry] of [...streamUnsubscribers]) {
+			if (pi.getInstance(entry.cwd)) continue;
+			streamUnsubscribers.delete(key);
+			try {
+				entry.unsubscribe();
+			} catch {
+				// ignore
+			}
+			dropped++;
+		}
+		if (streamUnsubscribers.size > MAX_STREAM_BRIDGES) {
+			const byAge = [...streamUnsubscribers].sort((a, b) => a[1].touchedAt - b[1].touchedAt);
+			for (const [key, entry] of byAge.slice(0, streamUnsubscribers.size - MAX_STREAM_BRIDGES)) {
+				streamUnsubscribers.delete(key);
+				try {
+					entry.unsubscribe();
+				} catch {
+					// ignore
+				}
+				dropped++;
+			}
+		}
+		return dropped;
+	},
+	size: () => streamUnsubscribers.size,
+	limit: () => MAX_STREAM_BRIDGES,
+});
 
 export function broadcastPiStreamMessage(
 	broadcast: Broadcast,
@@ -84,12 +121,15 @@ export async function broadcastPiRuntimeSessions(broadcast: Broadcast): Promise<
 }
 
 export async function ensureStreamBridge(cwd: string, broadcast: Broadcast, force = false): Promise<void> {
-	if (streamUnsubscribers.has(cwd) && !force) return;
-	// If forcing, remove the stale bridge first
-	if (force && streamUnsubscribers.has(cwd)) {
-		const oldUnsub = streamUnsubscribers.get(cwd)!;
-		streamUnsubscribers.delete(cwd);
-		oldUnsub();
+	const key = normalizeCwd(cwd);
+	const existing = streamUnsubscribers.get(key);
+	if (existing && !force) {
+		existing.touchedAt = Date.now();
+		return;
+	}
+	if (force && existing) {
+		streamUnsubscribers.delete(key);
+		existing.unsubscribe();
 	}
 
 	// Create/get the instance to register with, but use dynamic lookup in the
@@ -116,14 +156,14 @@ export async function ensureStreamBridge(cwd: string, broadcast: Broadcast, forc
 		}
 	});
 
-	streamUnsubscribers.set(cwd, unsubscribe);
+	streamUnsubscribers.set(key, { cwd: key, unsubscribe, touchedAt: Date.now() });
 }
 
 export function removeStreamBridge(cwd: string): void {
 	const key = normalizeCwd(cwd);
-	const unsubscribe = streamUnsubscribers.get(key);
-	if (!unsubscribe) return;
+	const entry = streamUnsubscribers.get(key);
+	if (!entry) return;
 
 	streamUnsubscribers.delete(key);
-	unsubscribe();
+	entry.unsubscribe();
 }

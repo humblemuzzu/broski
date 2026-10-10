@@ -100,7 +100,10 @@ async function main(): Promise<void> {
 	);
 
 	const datasets = await collectDatasets();
-	const specs = options.filter.length > 0 ? SCENARIOS.filter((s) => options.filter.includes(s.name)) : SCENARIOS;
+	const specs =
+		options.filter.length > 0
+			? SCENARIOS.filter((s) => options.filter.some((f) => s.name === f || s.name.startsWith(f)))
+			: SCENARIOS;
 	const results: ScenarioResult[] = [];
 
 	for (const spec of specs) {

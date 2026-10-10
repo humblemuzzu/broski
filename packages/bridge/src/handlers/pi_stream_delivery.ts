@@ -4,12 +4,8 @@ import type { ServerMessage } from "../types";
 import type { PiStreamMessage } from "../types/pi";
 import { recordRuntimeEvent } from "../utils/runtime-replay-buffer";
 
-const SESSION_EVENT_BUFFER_SIZE = 100;
-const EVENT_TTL_MS = 60_000;
-
 const piWatchersBySessionId = new Map<string, Set<ServerWebSocket<unknown>>>();
 const piSessionIdBySocket = new Map<ServerWebSocket<unknown>, string>();
-const piEventBuffers = new Map<string, Array<{ message: ServerMessage; ts: number }>>();
 
 function send(ws: ServerWebSocket<unknown>, message: ServerMessage): boolean {
 	try {
@@ -18,21 +14,6 @@ function send(ws: ServerWebSocket<unknown>, message: ServerMessage): boolean {
 	} catch {
 		return false;
 	}
-}
-
-function trimBuffer(sessionId: string): void {
-	const existing = piEventBuffers.get(sessionId);
-	if (!existing || existing.length === 0) return;
-	const cutoff = Date.now() - EVENT_TTL_MS;
-	const recent = existing.filter((entry) => entry.ts >= cutoff);
-	if (recent.length === 0) {
-		piEventBuffers.delete(sessionId);
-		return;
-	}
-	if (recent.length > SESSION_EVENT_BUFFER_SIZE) {
-		recent.splice(0, recent.length - SESSION_EVENT_BUFFER_SIZE);
-	}
-	piEventBuffers.set(sessionId, recent);
 }
 
 export function registerPiWatcher(ws: ServerWebSocket<unknown>, sessionId: string): void {
@@ -83,27 +64,6 @@ export function prunePiWatchers(isLive: (ws: ServerWebSocket<unknown>) => boolea
 		}
 	}
 	return orphaned;
-}
-
-export function replayPiRuntimeEvents(ws: ServerWebSocket<unknown>, sessionId: string): number {
-	trimBuffer(sessionId);
-	const buffered = piEventBuffers.get(sessionId) ?? [];
-	if (buffered.length === 0) return 0;
-	for (const entry of buffered) {
-		const payload =
-			entry.message.type === "runtime_event" && typeof entry.message.data === "object" && entry.message.data != null
-				? ({
-						...entry.message,
-						data: {
-							...(entry.message.data as Record<string, unknown>),
-							replayed: true,
-						},
-					} as ServerMessage)
-				: entry.message;
-		send(ws, payload);
-	}
-	piEventBuffers.delete(sessionId);
-	return buffered.length;
 }
 
 /**

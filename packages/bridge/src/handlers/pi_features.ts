@@ -17,6 +17,7 @@ import * as piTree from "./pi_tree";
 
 export { getPendingExtensionUiRequests } from "./pi_extension_ui_requests";
 export { stopAllPiExternalTails, stopPiExternalTail, syncPiExternalTail } from "./pi_external_tail_sync";
+export { prunePiWatchers } from "./pi_stream_delivery";
 
 export async function handle(message: any, reply: Reply, broadcast: Broadcast): Promise<boolean> {
 	if (typeof message?.type !== "string" || !message.type.startsWith("pi_")) {

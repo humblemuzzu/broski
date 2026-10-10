@@ -1,7 +1,7 @@
 import type { SessionDiffSummary } from "../../handlers/session-stats";
 import type { PiSessionInfo } from "../../types/pi";
 import { runPool } from "../../utils/bounded-pool";
-import { computePiSessionStats, countSubagentTools } from "./pi-session-stats";
+import { scanPiSessionStats } from "./pi-session-stats";
 
 export type PiSessionStatsScan = (filePath: string) => Promise<{
 	summary: SessionDiffSummary | null;
@@ -12,8 +12,7 @@ export type PiSessionStatsScan = (filePath: string) => Promise<{
 export const PI_STATS_SCAN_CONCURRENCY = 4;
 
 async function scanSessionStats(filePath: string): Promise<{ summary: SessionDiffSummary | null; toolCount: number }> {
-	const [summary, toolCount] = await Promise.all([computePiSessionStats(filePath), countSubagentTools(filePath)]);
-	return { summary, toolCount };
+	return scanPiSessionStats(filePath);
 }
 
 /** Enrich a list of Pi sessions with diff stats and subagent tool counts (cached by mtime). */

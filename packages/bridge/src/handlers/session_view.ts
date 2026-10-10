@@ -7,7 +7,6 @@ import {
 	prunePiWatchers,
 	registerPiWatcher,
 	replayPendingExtensionUiRequests,
-	replayPiRuntimeEvents,
 	unregisterPiWatcher,
 } from "./pi_stream_delivery";
 
@@ -231,15 +230,10 @@ export async function handle(
 			);
 		}
 	}
-	let replayedPiBufferedEvents = 0;
 	if (nextAgent === "pi" && nextSessionId) {
 		const runtimeStateMessage = ctx.findPiActiveRuntimeStateMessage(nextSessionId);
 		if (runtimeStateMessage) {
 			ctx.send(ws, runtimeStateMessage);
-		}
-		replayedPiBufferedEvents = replayPiRuntimeEvents(ws, nextSessionId);
-		if (replayedPiBufferedEvents > 0) {
-			ctx.logInfo(`[RTS] Replayed ${replayedPiBufferedEvents} buffered Pi events for ${nextSessionId}`);
 		}
 		// Replay pending extension UI requests (select/confirm/input dialogs)
 		const projectPath = (message.projectPath as string) || undefined;
@@ -252,12 +246,7 @@ export async function handle(
 		}
 	}
 
-	if (
-		nextAgent &&
-		(nextSessionId || message.projectPath) &&
-		lastRuntimeSeq != null &&
-		!(nextAgent === "pi" && replayedPiBufferedEvents > 0)
-	) {
+	if (nextAgent && (nextSessionId || message.projectPath) && lastRuntimeSeq != null) {
 		const replayed = ctx.replayRuntimeEventsSince({
 			ws,
 			backend: nextAgent,

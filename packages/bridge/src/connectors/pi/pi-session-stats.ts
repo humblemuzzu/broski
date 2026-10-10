@@ -1,48 +1,36 @@
 /**
  * Pi session diff statistics.
- * Scans Pi .jsonl session files to compute per-session code change summaries.
- * Pi stores messages as JSONL entries. The edit tool produces `details.diff` (unified diff).
- * The write tool creates new files (counted as all-additions).
- * Cached by sessionId:mtime to avoid re-scanning unchanged files.
+ *
+ * One streaming pass per session file computes both the diff summary and the subagent tool count,
+ * cached by file fingerprint with a byte budget. Pi stores messages as JSONL entries: the edit tool
+ * produces `details.diff` (unified diff), the write tool creates new files (counted as additions).
  */
 
-import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
-import { createInterface } from "node:readline";
 import type { AssistantMessage, JsonObject, ToolResultMessage } from "@earendil-works/pi-ai";
-import { type FileEntry, parseSessionEntries } from "@earendil-works/pi-coding-agent";
+import { parseSessionEntries } from "@earendil-works/pi-coding-agent";
 import type { ModifiedFileEntry, SessionDiffSummary } from "../../handlers/session-stats";
 import { aggregateFileDiffs, countUnifiedDiffStats, deduplicateFileDiffs } from "../../handlers/session-stats";
+import { FileFingerprintCache } from "../../utils/file-fingerprint-cache";
+import { readJsonlLines } from "../../utils/jsonl-lines";
 
-// Cache: sessionPath → { mtime, summary }
-const statsCache = new Map<string, { mtime: number; summary: SessionDiffSummary }>();
+export type PiSessionStatsScan = {
+	summary: SessionDiffSummary;
+	toolCount: number;
+	modified: ModifiedFileEntry[];
+};
 
-// Cache: sessionPath → { mtime, count }
-const subagentCountCache = new Map<string, { mtime: number; count: number }>();
+/** Cache budget for scanned session stats; each entry is a few hundred bytes. */
+export const PI_STATS_CACHE_BYTES = 32 * 1024 * 1024;
 
 const SUBAGENT_TOOL_NAMES = new Set(["task", "Task", "oracle", "finder", "code_review", "look_at", "librarian"]);
 
 type FileDiffs = Array<{ file: string; additions: number; deletions: number }>;
 type ToolCallArgs = { path: string; writeLineCount?: number };
 
-/** Session files reach many MB — stream them line by line so a scan never holds a whole file in memory. */
-async function forEachEntry(
-	filePath: string,
-	matches: (line: string) => boolean,
-	visit: (entry: FileEntry) => void,
-): Promise<void> {
-	const stream = createReadStream(filePath, { encoding: "utf8" });
-	const lines = createInterface({ input: stream, crlfDelay: Number.POSITIVE_INFINITY });
-	try {
-		for await (const line of lines) {
-			if (!matches(line)) continue;
-			for (const entry of parseSessionEntries(line)) visit(entry);
-		}
-	} finally {
-		lines.close();
-		stream.destroy();
-	}
-}
+const entryCache = new FileFingerprintCache<PiSessionStatsScan>({
+	byteBudget: PI_STATS_CACHE_BYTES,
+	estimateBytes: (value) => 256 + value.modified.length * 160,
+});
 
 function isJsonObject(value: unknown): value is JsonObject {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -54,41 +42,6 @@ function countLines(text: string): number {
 		if (text.charCodeAt(i) === 10) lines++;
 	}
 	return lines;
-}
-
-/**
- * Count subagent tool invocations in a Pi session JSONL.
- * Fast: only checks for toolCall entries with known subagent tool names.
- */
-export async function countSubagentTools(filePath: string): Promise<number> {
-	try {
-		const fileStat = await stat(filePath);
-		const mtime = fileStat.mtime.getTime();
-
-		const cached = subagentCountCache.get(filePath);
-		if (cached && cached.mtime === mtime) return cached.count;
-
-		let count = 0;
-		await forEachEntry(
-			filePath,
-			(line) => line.includes('"toolCall"'),
-			(entry) => {
-				if (entry.type !== "message") return;
-				const message = entry.message;
-				if (message.role !== "assistant") return;
-				for (const block of message.content) {
-					if (block.type === "toolCall" && SUBAGENT_TOOL_NAMES.has(block.name)) {
-						count++;
-					}
-				}
-			},
-		);
-
-		subagentCountCache.set(filePath, { mtime, count });
-		return count;
-	} catch {
-		return 0;
-	}
 }
 
 function collectToolCallArgs(message: AssistantMessage, toolCallArgs: Map<string, ToolCallArgs>): void {
@@ -104,6 +57,14 @@ function collectToolCallArgs(message: AssistantMessage, toolCallArgs: Map<string
 			...(content !== undefined ? { writeLineCount: countLines(content) } : {}),
 		});
 	}
+}
+
+function countSubagentCalls(message: AssistantMessage): number {
+	let count = 0;
+	for (const block of message.content) {
+		if (block.type === "toolCall" && SUBAGENT_TOOL_NAMES.has(block.name)) count++;
+	}
+	return count;
 }
 
 function resultToDiffs(message: ToolResultMessage, toolCallArgs: Map<string, ToolCallArgs>): FileDiffs {
@@ -149,7 +110,6 @@ function resultToDiffs(message: ToolResultMessage, toolCallArgs: Map<string, Too
 	}
 
 	if (message.toolName === "write") {
-		// Real line count from the actual file content in toolCall arguments
 		const file = callArgs?.path ?? "";
 		const writeLineCount = callArgs?.writeLineCount;
 		if (!file || writeLineCount === undefined) return [];
@@ -160,7 +120,7 @@ function resultToDiffs(message: ToolResultMessage, toolCallArgs: Map<string, Too
 }
 
 /**
- * Scan a Pi .jsonl session file and extract per-file diff entries.
+ * Scan a Pi .jsonl session file once for per-file diffs and subagent tool calls.
  *
  * Pi JSONL contains two relevant message types:
  *   1. assistant messages with toolCall entries (has arguments.path + arguments.content)
@@ -170,76 +130,81 @@ function resultToDiffs(message: ToolResultMessage, toolCallArgs: Map<string, Too
  * For writes: we use arguments.content from the preceding assistant toolCall
  *             to count real lines, since the toolResult only has a byte count.
  */
-async function scanPiFileDiffs(filePath: string): Promise<FileDiffs> {
+export async function scanPiSessionFile(filePath: string): Promise<PiSessionStatsScan> {
 	const toolCallArgs = new Map<string, ToolCallArgs>();
 	const fileDiffs: FileDiffs = [];
+	let toolCount = 0;
 
-	await forEachEntry(
-		filePath,
-		(line) =>
-			line.includes('"toolCall"') ||
-			(line.includes('"toolResult"') && (line.includes('"edit"') || line.includes('"write"'))),
-		(entry) => {
-			if (entry.type !== "message") return;
+	for await (const line of readJsonlLines(filePath)) {
+		if (
+			!line.includes('"toolCall"') &&
+			!(line.includes('"toolResult"') && (line.includes('"edit"') || line.includes('"write"')))
+		) {
+			continue;
+		}
+		for (const entry of parseSessionEntries(line)) {
+			if (entry.type !== "message") continue;
 			const message = entry.message;
 
 			if (message.role === "assistant") {
+				toolCount += countSubagentCalls(message);
 				collectToolCallArgs(message, toolCallArgs);
-				return;
+				continue;
 			}
 
 			if (message.role === "toolResult") {
 				fileDiffs.push(...resultToDiffs(message, toolCallArgs));
 			}
-		},
-	);
+		}
+	}
 
-	return fileDiffs;
+	return {
+		summary: aggregateFileDiffs(fileDiffs),
+		toolCount,
+		modified: deduplicateFileDiffs(fileDiffs),
+	};
 }
 
-/**
- * Compute diff stats for a Pi session by scanning its .jsonl file.
- * Extracts data from toolResult messages where toolName is "edit" or "write".
- */
+/** Diff summary, subagent tool count and modified files for one session file, cached by fingerprint. */
+export async function scanPiSessionStats(filePath: string): Promise<PiSessionStatsScan> {
+	return entryCache.get(filePath, () => scanPiSessionFile(filePath));
+}
+
+/** Compute diff stats for a Pi session by scanning its .jsonl file. */
 export async function computePiSessionStats(filePath: string): Promise<SessionDiffSummary | null> {
 	try {
-		const fileStat = await stat(filePath);
-		const mtime = fileStat.mtime.getTime();
-
-		const cached = statsCache.get(filePath);
-		if (cached && cached.mtime === mtime) {
-			return cached.summary;
-		}
-
-		const fileDiffs = await scanPiFileDiffs(filePath);
-		const summary = aggregateFileDiffs(fileDiffs);
-		statsCache.set(filePath, { mtime, summary });
-		return summary;
+		return (await scanPiSessionStats(filePath)).summary;
 	} catch {
 		return null;
 	}
 }
 
-/**
- * Get per-file modified files for a Pi session (for sidebar display).
- * Returns deduplicated array of {file, additions, deletions}.
- */
+/** Count subagent tool invocations in a Pi session JSONL. */
+export async function countSubagentTools(filePath: string): Promise<number> {
+	try {
+		return (await scanPiSessionStats(filePath)).toolCount;
+	} catch {
+		return 0;
+	}
+}
+
+/** Get per-file modified files for a Pi session (for sidebar display). */
 export async function getPiModifiedFiles(filePath: string): Promise<ModifiedFileEntry[]> {
 	try {
-		const fileDiffs = await scanPiFileDiffs(filePath);
-		return deduplicateFileDiffs(fileDiffs);
+		return (await scanPiSessionStats(filePath)).modified;
 	} catch {
 		return [];
 	}
 }
 
-/** Clear the stats cache. */
 export function clearPiStatsCache(sessionPath?: string): void {
 	if (sessionPath) {
-		statsCache.delete(sessionPath);
-		subagentCountCache.delete(sessionPath);
-	} else {
-		statsCache.clear();
-		subagentCountCache.clear();
+		entryCache.delete(sessionPath);
+		return;
 	}
+	entryCache.clear();
+}
+
+export function getPiStatsCacheStats(): { entries: number; bytes: number; hits: number; misses: number } {
+	return entryCache.stats();
 }

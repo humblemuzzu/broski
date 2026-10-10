@@ -10,6 +10,10 @@ export const SCENARIOS: ScenarioSpec[] = [
 		name: "pi-read-largest-transcript",
 		description: "pi_read_session_messages path on the largest session, limit 200",
 	},
+	{
+		name: "pi-transcript-parity",
+		description: "bounded Pi transcript read vs the whole-file read on real sessions",
+	},
 	{ name: "codex-list-projects", description: "cx_list_projects path: listProjectsFromFs + sqlite fallback" },
 	{ name: "codex-list-threads", description: "cx_list_threads sqlite path" },
 	{ name: "codex-enrich-stats", description: "enrichThreadsWithStats over the 200 newest threads" },
@@ -18,6 +22,18 @@ export const SCENARIOS: ScenarioSpec[] = [
 	{ name: "cc-list-projects", description: "claude-code listProjects()" },
 	{ name: "cc-read-largest-transcript", description: "getSessionMessages on the largest CC session, limit 200" },
 	{
+		name: "cc-parity-real",
+		description: "new vs whole-file read paths on real ~/.claude data (read-only), mismatch counts",
+	},
+	{
+		name: "cc-synthetic-list-sessions",
+		description: "2000 synthetic sessions + one 300 MB transcript: cold/warm vs whole-file listing",
+	},
+	{
+		name: "cc-synthetic-list-projects",
+		description: "synthetic home tree: cached walk cold/warm vs uncached walk",
+	},
+	{
 		name: "server-idle",
 		description: "createBridgeServer on a random port (TLS off, temp HOME), 1 client, 60 s idle",
 		needsTempHome: true,
@@ -25,6 +41,11 @@ export const SCENARIOS: ScenarioSpec[] = [
 	{
 		name: "stream-throughput",
 		description: "20k synthetic runtime text deltas to 1 and 4 clients",
+		needsTempHome: true,
+	},
+	{
+		name: "soak-sessions",
+		description: "2k session views/switches + runtime events over 60 s, reports state sizes",
 		needsTempHome: true,
 	},
 ];

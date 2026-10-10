@@ -1,3 +1,4 @@
+import { BoundedMap, registerSweepable } from "../state/bounded-map";
 import type { BroskiBackend, BroskiRuntimeEvent } from "../types/runtime";
 import { normalizeString } from "./shared";
 
@@ -18,7 +19,22 @@ type RuntimeStreamState = {
 	currentTurnId?: string;
 };
 
-const streamStates = new Map<string, RuntimeStreamState>();
+/** Six hours idle is far past any reconnect that still asks for a replay. */
+export const RUNTIME_STREAM_STATE_TTL_MS = 6 * 60 * 60 * 1000;
+export const RUNTIME_STREAM_STATE_MAX_KEYS = 4000;
+
+const streamStates = new BoundedMap<string, RuntimeStreamState>({
+	maxEntries: RUNTIME_STREAM_STATE_MAX_KEYS,
+	ttlMs: RUNTIME_STREAM_STATE_TTL_MS,
+	touchOnGet: false,
+});
+
+registerSweepable({
+	name: "runtime-stream-states",
+	sweep: (now) => streamStates.sweep(now),
+	size: () => streamStates.size,
+	limit: () => RUNTIME_STREAM_STATE_MAX_KEYS,
+});
 
 function keyFor(backend: BroskiBackend, sessionId?: string, cwd?: string): string {
 	return `${backend}::${normalizeString(sessionId) ?? `cwd:${normalizeString(cwd) ?? "unknown"}`}`;

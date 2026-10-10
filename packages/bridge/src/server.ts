@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve, sep } from "node:path";
@@ -80,6 +79,7 @@ import {
 	isTailscaleAddress,
 	resolveClaudeCommandFilePath,
 } from "./security";
+import { BoundedMap, registerSweepable, sweepBoundedState } from "./state/bounded-map";
 import { ensureTlsMaterial, isTlsEnabledByEnv, type TlsMaterial } from "./tls";
 import type {
 	AgentStatusInfo,
@@ -109,14 +109,6 @@ const BRIDGE_PROTOCOL_VERSION = "1.0.0";
 
 function safeString(value: unknown): string {
 	return typeof value === "string" ? value : "";
-}
-
-function isTruthyEnv(value: string | undefined, fallback: boolean): boolean {
-	if (value == null) return fallback;
-	const v = value.trim().toLowerCase();
-	if (v === "1" || v === "true" || v === "yes" || v === "on") return true;
-	if (v === "0" || v === "false" || v === "no" || v === "off") return false;
-	return fallback;
 }
 
 function mapCodexThread(thread: any, nameOverride?: string): CodexThread & { threadName?: string } {
@@ -180,62 +172,6 @@ type ConnectionContext = {
 	connectedAt: number;
 };
 
-type ClientQueue = {
-	queue: unknown[];
-	timer: Timer | null;
-};
-
-const BATCH_THRESHOLDS = {
-	local: { low: 16, high: 8, burst: 4 },
-	tailscale: { low: 32, high: 16, burst: 8 },
-	highLatency: { low: 50, high: 25, burst: 12 },
-};
-
-const MESSAGE_PRIORITIES: Record<string, "immediate" | "high" | "normal" | "low"> = {
-	// Immediate — user-blocking interactions
-	"permission.updated": "immediate",
-	"permission.asked": "immediate",
-	"permission.replied": "immediate",
-	"question.asked": "immediate",
-	"question.replied": "immediate",
-	"question.rejected": "immediate",
-	"session.error": "immediate",
-	"message.part.delta": "immediate",
-	// High — visible state changes
-	"session.idle": "high",
-	"session.status": "high",
-	"message.part.updated": "high",
-	"message.part.removed": "high",
-	"message.removed": "high",
-	"command.executed": "high",
-	// Normal — list/state updates
-	"message.updated": "normal",
-	"session.diff": "normal",
-	"todo.updated": "normal",
-	"session.compacted": "normal",
-	"session.created": "normal",
-	"session.deleted": "normal",
-	"pty.created": "normal",
-	"pty.updated": "normal",
-	"pty.exited": "normal",
-	"pty.deleted": "normal",
-	"worktree.ready": "normal",
-	"worktree.failed": "normal",
-	"workspace.ready": "normal",
-	"workspace.failed": "normal",
-	"mcp.tools.changed": "normal",
-	"file.edited": "normal",
-	"project.updated": "normal",
-	"vcs.branch.updated": "normal",
-	// Low — background / infrequent
-	"session.updated": "low",
-	"file.watcher.updated": "low",
-	"lsp.updated": "low",
-	"installation.updated": "low",
-	"installation.update-available": "low",
-	"mcp.browser.open.failed": "low",
-};
-
 export async function createBridgeServer(options: BridgeServerOptions): Promise<BridgeServer> {
 	const { opencode, version, logger } = options;
 
@@ -287,7 +223,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
 	const sockets = new Set<ServerWebSocket<unknown>>();
 	const contexts = new Map<ServerWebSocket<unknown>, ConnectionContext>();
-	const clientQueues = new Map<ServerWebSocket<unknown>, ClientQueue>();
 	const compiled = isCompiledBinary();
 
 	// Web dashboard dist directory (served by bridge HTTP when present).
@@ -321,7 +256,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	const ccExternalTails = new Map<string, { stop: () => void }>(); // sessionId -> tailer
 	const cxExternalTails = new Map<string, { stop: () => void }>(); // threadId -> tailer
 	const ocExternalTails = new Map<string, { stop: () => void }>(); // sessionId -> tailer (OpenCode)
-	const ocSessionProjectPaths = new Map<string, string>(); // sessionId -> projectPath (for external tail)
 	type ClaudePermissionReply = {
 		response: "once" | "always" | "reject";
 		updatedInput?: Record<string, unknown>;
@@ -336,16 +270,65 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	};
 	const cxApprovalWaiters = new Map<string, { resolve: (response: CodexApprovalReply) => void; timer: Timer }>();
 	const ccSessionOwners = new Map<string, ServerWebSocket<unknown>>();
-	const ccSessionCwds = new Map<string, string>();
 	const cxThreadOwners = new Map<string, ServerWebSocket<unknown>>();
 	const ocSessionOwners = new Map<string, ServerWebSocket<unknown>>();
-	const cxActiveTurns = new Map<string, string>();
 	const cxItemCache = new Map<string, any>(); // key: `${threadId}:${turnId}:${itemId}` -> item
-	const cxThreadCwds = new Map<string, string>(); // threadId -> absolute cwd
-	const cxThreadNames = new Map<string, string>(); // threadId -> custom name (from thread/name/updated)
-	const cxFileChangeSnapshots = new Map<string, string>(); // `${threadId}:${turnId}:${itemId}` -> manifestPath
-	const cxUndoStackByThread = new Map<string, string[]>(); // threadId -> snapshot keys (LIFO)
-	const cxSearchSessions = new Map<string, string>(); // sessionId -> threadId for fuzzy search cleanup
+
+	// Per-session bookkeeping a daemon accumulates over weeks. Every entry is looked up whenever its
+	// session is used, so a cap plus a sweep only ever drops sessions nobody touched in a long time.
+	const SESSION_STATE_MAX_ENTRIES = 2000;
+	const UNDO_STATE_TTL_MS = 24 * 60 * 60 * 1000;
+	const ocSessionProjectPaths = new BoundedMap<string, string>({
+		maxEntries: SESSION_STATE_MAX_ENTRIES,
+		ttlMs: UNDO_STATE_TTL_MS,
+	});
+	const ccSessionCwds = new BoundedMap<string, string>({
+		maxEntries: SESSION_STATE_MAX_ENTRIES,
+		ttlMs: UNDO_STATE_TTL_MS,
+	});
+	const cxActiveTurns = new BoundedMap<string, string>({
+		maxEntries: SESSION_STATE_MAX_ENTRIES,
+		ttlMs: UNDO_STATE_TTL_MS,
+	});
+	const cxThreadCwds = new BoundedMap<string, string>({
+		maxEntries: SESSION_STATE_MAX_ENTRIES,
+		ttlMs: UNDO_STATE_TTL_MS,
+	});
+	const cxThreadNames = new BoundedMap<string, string>({
+		maxEntries: SESSION_STATE_MAX_ENTRIES,
+		ttlMs: UNDO_STATE_TTL_MS,
+	});
+	const cxSearchSessions = new BoundedMap<string, string>({
+		maxEntries: SESSION_STATE_MAX_ENTRIES,
+		ttlMs: UNDO_STATE_TTL_MS,
+	});
+	const cxFileChangeSnapshots = new BoundedMap<string, string>({
+		maxEntries: 5000,
+		ttlMs: UNDO_STATE_TTL_MS,
+	});
+	const cxUndoStackByThread = new BoundedMap<string, string[]>({
+		maxEntries: 500,
+		ttlMs: UNDO_STATE_TTL_MS,
+	});
+
+	const registerState = <K, V>(name: string, map: BoundedMap<K, V>): (() => void) =>
+		registerSweepable({
+			name,
+			sweep: (now) => map.sweep(now),
+			size: () => map.size,
+			limit: () => map.stats().maxEntries,
+		});
+
+	const unregisterBoundedState = [
+		registerState("oc-session-project-paths", ocSessionProjectPaths),
+		registerState("cc-session-cwds", ccSessionCwds),
+		registerState("cx-active-turns", cxActiveTurns),
+		registerState("cx-thread-cwds", cxThreadCwds),
+		registerState("cx-thread-names", cxThreadNames),
+		registerState("cx-search-sessions", cxSearchSessions),
+		registerState("cx-file-change-snapshots", cxFileChangeSnapshots),
+		registerState("cx-undo-stacks", cxUndoStackByThread),
+	];
 
 	// Codex caching for fast session/project loading (mirrors OpenCode's 5s TTL pattern)
 	// Project cache has longer TTL since projects rarely change
@@ -1564,9 +1547,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		bufferMap.delete(sessionId);
 	};
 
-	let eventCount = 0;
-	let eventCountResetTimer: Timer | null = null;
-
 	// Context for the OC runtime event mapper — tracks reasoning partIDs so that
 	// message.part.delta events for reasoning parts are routed as thinking deltas
 	// instead of leaking into the visible response text.
@@ -1600,26 +1580,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	const getEventType = (event: any): string => {
 		const payload = event?.payload ?? null;
 		return typeof payload?.type === "string" ? payload.type : "";
-	};
-
-	const getEventPriority = (event: unknown): "immediate" | "high" | "normal" | "low" => {
-		const eventType = getEventType(event);
-		return MESSAGE_PRIORITIES[eventType] ?? "normal";
-	};
-
-	const getBatchInterval = (ctx: ConnectionContext): number => {
-		const rtt = ctx.lastRttMs;
-
-		let thresholds = BATCH_THRESHOLDS.local;
-		if (rtt > 100) {
-			thresholds = BATCH_THRESHOLDS.highLatency;
-		} else if (rtt > 30 || ctx.connectionType === "tailscale") {
-			thresholds = BATCH_THRESHOLDS.tailscale;
-		}
-
-		if (eventCount > 50) return thresholds.burst;
-		if (eventCount > 20) return thresholds.high;
-		return thresholds.low;
 	};
 
 	const filterEventForSocket = (ws: ServerWebSocket<unknown>, event: unknown): boolean => {
@@ -1688,52 +1648,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		return true;
 	};
 
-	const flushClientQueue = (ws: ServerWebSocket<unknown>) => {
-		const clientQ = clientQueues.get(ws);
-		if (!clientQ || clientQ.queue.length === 0) return;
-
-		clientQ.timer = null;
-		const events = clientQ.queue.splice(0, clientQ.queue.length);
-
-		const filtered = events.filter((event) => filterEventForSocket(ws, event));
-		if (filtered.length > 0) {
-			send(ws, { type: "sdk_event_batch", data: filtered });
-		}
-	};
-
-	const enqueueForClient = (ws: ServerWebSocket<unknown>, event: unknown) => {
-		let clientQ = clientQueues.get(ws);
-		if (!clientQ) {
-			clientQ = { queue: [], timer: null };
-			clientQueues.set(ws, clientQ);
-		}
-
-		clientQ.queue.push(event);
-
-		if (clientQ.timer) return;
-
-		const ctx = contexts.get(ws) ?? {
-			lastPongAt: Date.now(),
-			lastRttMs: 0,
-			connectionType: "unknown" as const,
-			connectedAt: Date.now(),
-		};
-		const batchMs = getBatchInterval(ctx);
-
-		clientQ.timer = setTimeout(() => flushClientQueue(ws), batchMs);
-	};
-
 	const enqueueSdkEvent = (event: unknown) => {
-		eventCount++;
-
-		if (!eventCountResetTimer) {
-			eventCountResetTimer = setTimeout(() => {
-				eventCount = 0;
-				eventCountResetTimer = null;
-			}, 1000);
-		}
-
-		const priority = getEventPriority(event);
 		const runtimeEvent = mapOpenCodeSdkEventToRuntimeEvent(event, ocMapperCtx);
 
 		if (DEBUG_RTS) {
@@ -1747,7 +1662,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			};
 			const directory = typeof e?.directory === "string" ? e.directory : "global";
 			logDebug(
-				`[RTS] enqueueSdkEvent: type=${eventType}, sessionId=${sid || "none"}, dir=${directory}, priority=${priority}, sockets=${sockets.size}`,
+				`[RTS] enqueueSdkEvent: type=${eventType}, sessionId=${sid || "none"}, dir=${directory}, sockets=${sockets.size}`,
 			);
 		}
 
@@ -1884,6 +1799,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		pruneEventBuffers(ccEventBuffers);
 		pruneEventBuffers(cxEventBuffers);
 		pi.pruneIdleInstances();
+		sweepBoundedState();
 	}, EVENT_BUFFER_PRUNE_INTERVAL_MS);
 
 	// Tick timer: Simple liveness signal to all connected clients.
@@ -2141,12 +2057,13 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			sockets.delete(ws);
 			contexts.delete(ws);
 			rateLimiters.delete(ws);
-			const clientQ = clientQueues.get(ws);
-			if (clientQ?.timer) {
-				clearTimeout(clientQ.timer);
-			}
-			clientQueues.delete(ws);
 			runtimeSendQueue.disposeSocket(ws);
+
+			// Pi watchers are registered per socket; a socket that goes away without another
+			// set_view would otherwise keep its external tail polling for the session forever.
+			for (const orphanedSessionId of piFeatures.prunePiWatchers((sock) => sockets.has(sock))) {
+				piFeatures.stopPiExternalTail(orphanedSessionId);
+			}
 
 			// Remove client from active PTY subscriptions.
 			ptyRuntime.onClientDisconnected(ws);
@@ -2287,8 +2204,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		message: ClientMessage & { requestId?: string },
 		reply: (response: ServerMessage) => void,
 	) => {
-		const ctx = contexts.get(ws);
-
 		// Security: never trust client-supplied filesystem roots.
 		// Many message types accept `cwd` / `projectPath` and downstream SDKs
 		// (Codex/OpenCode/Claude Code) will happily use whatever we pass.
@@ -2724,6 +2639,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 				waiter.resolve({ response: "reject" });
 			}
 			cxApprovalWaiters.clear();
+			for (const unregister of unregisterBoundedState) unregister();
 
 			return stopBridgeResources(
 				{

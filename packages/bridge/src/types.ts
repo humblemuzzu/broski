@@ -987,8 +987,6 @@ export type ClientMessage =
 	| { type: "cx_command_terminate"; processId: string }
 	// Codex thread metadata update
 	| { type: "cx_thread_metadata_update"; threadId: string; gitInfo?: Record<string, unknown> }
-	// Message replay on reconnect
-	| { type: "cx_replay_request"; lastSeq?: number; requestId?: string }
 	// Claude Code File Checkpointing (Undo/Revert)
 	| {
 			type: "cc_rewind_checkpoint";
@@ -1299,8 +1297,6 @@ export type ServerMessage =
 			data: { path: string; items: unknown[] };
 			requestId?: string;
 	  }
-	| { type: "sdk_event"; data: unknown }
-	| { type: "sdk_event_batch"; data: unknown[] }
 	| { type: "batch"; messages: unknown[]; count: number; timestamp: number }
 	| { type: "ping"; data: { id: string; sentAt: number } }
 	| { type: "client_pong"; id: string; sentAt: number; receivedAt: number }
@@ -2157,8 +2153,6 @@ export type ServerMessage =
 	// Codex filesystem watch responses
 	| { type: "cx_fs_watched"; data: { subscriptionId: string; ok: boolean; error?: string }; requestId?: string }
 	| { type: "cx_fs_unwatched"; data: { ok: boolean; error?: string }; requestId?: string }
-	// Message replay on reconnect
-	| { type: "cx_replay"; data: any[]; currentSeq: number; requestId?: string }
 	// Claude Code Custom Tools
 	| {
 			type: "cc_custom_tools";

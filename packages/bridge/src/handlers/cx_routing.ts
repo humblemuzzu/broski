@@ -9,7 +9,6 @@ import type { ServerWebSocket } from "bun";
 import type { CodexAppServerClient } from "../connectors/codex";
 import type { AgentType, CodexStreamMessage, CodexThread, PermissionResponse, ServerMessage } from "../types";
 import type { BroskiSessionSummary } from "../types/runtime";
-import { getCurrentSeq, getMessagesSince } from "../utils/message-buffer";
 import { handleCxAccount } from "./codex/cx_account";
 import { handleCxAgents } from "./codex/cx_agents";
 import { handleCxChat } from "./codex/cx_chat";
@@ -160,22 +159,6 @@ export async function handle(
 ): Promise<boolean> {
 	const type = message.type as string;
 	if (!type.startsWith("cx_")) return false;
-
-	// Message replay on reconnect — lightweight, no Codex client needed.
-	// TODO: Use per-client buffers keyed by a stable client ID (e.g. auth token)
-	// instead of "global" once recordMessage() is wired into send().
-	if (type === "cx_replay_request") {
-		const lastSeq = typeof message.lastSeq === "number" ? message.lastSeq : 0;
-		const clientId = ctx.safeString(message.clientId).trim() || "global";
-		const missed = getMessagesSince(clientId, lastSeq);
-		reply({
-			type: "cx_replay",
-			data: missed,
-			currentSeq: getCurrentSeq(clientId),
-			requestId: message.requestId as string | undefined,
-		});
-		return true;
-	}
 
 	if (THREAD_OPS.has(type)) {
 		const handled = await handleCxThreads(message, reply, {

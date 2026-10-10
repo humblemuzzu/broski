@@ -1,9 +1,12 @@
 import { normalizeString } from "../runtime/shared";
+import { BoundedMap, registerSweepable } from "../state/bounded-map";
 import type { ServerMessage } from "../types";
 import type { BroskiBackend } from "../types/runtime";
 
 const MAX_EVENTS_PER_STREAM = 500;
 const MAX_EVENT_AGE_MS = 5 * 60 * 1000;
+/** Streams kept for reconnect replay; the least recently used ones go first. */
+const MAX_BUFFERED_STREAMS = 64;
 
 type BufferedRuntimeEvent = {
 	seq: number;
@@ -11,7 +14,30 @@ type BufferedRuntimeEvent = {
 	timestamp: number;
 };
 
-const runtimeEventBuffers = new Map<string, BufferedRuntimeEvent[]>();
+const runtimeEventBuffers = new BoundedMap<string, BufferedRuntimeEvent[]>({
+	maxEntries: MAX_BUFFERED_STREAMS,
+	touchOnGet: false,
+});
+
+registerSweepable({
+	name: "runtime-replay-buffers",
+	sweep: () => {
+		let dropped = 0;
+		const cutoff = Date.now() - MAX_EVENT_AGE_MS;
+		for (const [key, buffer] of [...runtimeEventBuffers]) {
+			const kept = buffer.filter((entry) => entry.timestamp >= cutoff);
+			if (kept.length === 0) {
+				runtimeEventBuffers.delete(key);
+				dropped++;
+				continue;
+			}
+			if (kept.length !== buffer.length) runtimeEventBuffers.set(key, kept);
+		}
+		return dropped;
+	},
+	size: () => runtimeEventBuffers.size,
+	limit: () => MAX_BUFFERED_STREAMS,
+});
 
 function streamKey(backend: BroskiBackend, sessionId?: string, cwd?: string): string {
 	const normalizedSessionId = normalizeString(sessionId);
