@@ -1,0 +1,22 @@
+name: broski_link
+description: >-
+  dart:ffi bindings to the Rust Broski Link core (Noise encryption and framing).
+  The native library is compiled by a native-assets build hook.
+version: 0.1.0
+publish_to: 'none'
+
+environment:
+  sdk: ^3.10.0
+
+dependencies:
+  # Build-hook protocol and the CodeAsset description used to bundle the Rust library.
+  # Pinned to the versions the Flutter 3.38.5 tool itself is built against.
+  code_assets: ^0.19.7
+  hooks: ^0.20.1
+  # malloc/calloc for the buffers handed to the native side.
+  ffi: ^2.1.4
+  # Locating the cargo artifact inside the hook's target directory.
+  path: ^1.9.1
+
+dev_dependencies:
+  test: ^1.25.15

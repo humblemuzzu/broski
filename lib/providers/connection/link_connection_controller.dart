@@ -1,0 +1,280 @@
+import 'dart:async';
+import 'dart:developer' as developer;
+
+import 'package:broski/models/link/link_control_exception.dart';
+import 'package:broski/models/link/machine.dart';
+import 'package:broski/providers/app_info_provider.dart';
+import 'package:broski/providers/connection/link_status_mapping.dart';
+import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/link/link_status_provider.dart';
+import 'package:broski/providers/link/machines_provider.dart';
+import 'package:broski/providers/link/push_providers.dart';
+import 'package:broski/providers/service_providers.dart';
+import 'package:broski/services/link/device_profile.dart';
+import 'package:broski/services/link/link_endpoint.dart';
+import 'package:broski/services/link/push_registration.dart';
+import 'package:broski/services/network_monitor_service.dart';
+import 'package:broski/services/websocket/link_transport.dart';
+import 'package:broski/services/websocket_service.dart';
+import 'package:broski_link/broski_link.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+/// The app's single Broski Link connection.
+final linkConnectionControllerProvider = Provider<LinkConnectionController>((
+  ref,
+) {
+  final controller = LinkConnectionController(ref);
+  ref.onDispose(controller.dispose);
+  return controller;
+});
+
+/// Brings the controller up at app start.
+final linkConnectionBootstrapProvider = Provider<void>((ref) {
+  ref.watch(linkConnectionControllerProvider);
+  ref.watch(pushKeyPruneProvider);
+});
+
+/// Keeps one [LinkConnection] live for the selected machine and republishes it
+/// as the connection the rest of the app sees.
+///
+/// The link owns route selection, resume and backoff, so nothing here retries
+/// or pings: this maps link status onto the app's status stream, answers route
+/// changes, and announces this phone on every connection.
+class LinkConnectionController with WidgetsBindingObserver {
+  LinkConnectionController(this._ref) {
+    WidgetsBinding.instance.addObserver(this);
+    _statusSink = _ref.read(linkStatusSinkProvider.notifier);
+    _socket = _ref.read(webSocketServiceProvider);
+    _networkSub = _ref
+        .read(networkMonitorServiceProvider)
+        .stateStream
+        .listen(_onNetworkChange);
+    _machinesSub = _ref.listen<MachinesState>(
+      machinesProvider,
+      (_, next) => _maybeConnect(next),
+      fireImmediately: true,
+    );
+  }
+
+  static const _logName = 'LinkConnection';
+
+  final Ref _ref;
+  late final LinkStatusSink _statusSink;
+  late final WebSocketService _socket;
+  late final LinkStatusPublisher _publisher = LinkStatusPublisher(
+    publish: _socket.applyTransportStatus,
+    onConnected: () => unawaited(_announce()),
+  );
+
+  ProviderSubscription<MachinesState>? _machinesSub;
+  StreamSubscription<NetworkState>? _networkSub;
+  StreamSubscription<LinkStatus>? _statusSub;
+  StreamSubscription<Map<String, Object?>>? _controlSub;
+  LinkConnection? _connection;
+  Machine? _machine;
+  LinkStatus? _lastStatus;
+  PushRegistration? _push;
+  var _attached = false;
+  var _pairing = false;
+
+  /// Marks a pairing as owning the connection, so the auto-connect does not
+  /// start a second link for the machine the QR is about to store.
+  void beginPairing() => _pairing = true;
+
+  void endPairing() => _pairing = false;
+
+  /// Takes over a connection that is already up.
+  ///
+  /// [connected] says whether the link has already reached the machine, which
+  /// is the case when a pairing hands its live connection over.
+  Future<void> adopt(
+    LinkConnection connection,
+    Machine machine, {
+    required bool connected,
+  }) async {
+    _detach();
+    _connection = connection;
+    _machine = machine;
+    _statusSub = connection.status.listen(_onStatus);
+    _controlSub = connection.control.listen(_onControl);
+    // The Link machine is the connection now, so the legacy QR's saved
+    // connection goes: it must not race this link for the socket.
+    await _ref.read(connectionProvider.notifier).clearConnection();
+    await _socket.connect(
+      Uri(),
+      transport: LinkTransport(
+        messages: connection.bridgeMessages,
+        send: connection.sendBridge,
+      ),
+    );
+    _attached = true;
+    final status = _lastStatus;
+    if (status != null) {
+      _publisher.add(status);
+    } else if (connected) {
+      _publisher.add(const LinkStatus(state: LinkConnectionState.connected));
+    }
+  }
+
+  void _maybeConnect(MachinesState state) {
+    if (_pairing) return;
+    final id = state.selectedId;
+    if (id == null) {
+      _detach();
+      return;
+    }
+    if (_connection != null) return;
+    final machine = machineWithId(state.machines, id);
+    if (machine == null) return;
+    unawaited(_connect(machine));
+  }
+
+  /// Moves the app's single link onto [machine], closing the link it replaces
+  /// first so two machines are never connected at once.
+  Future<void> switchTo(Machine machine) async {
+    if (_connection != null && _machine?.id == machine.id) return;
+    _detach();
+    await _connect(machine);
+  }
+
+  Future<void> _connect(Machine machine) async {
+    try {
+      final identity = await _ref.read(deviceIdentityProvider.future);
+      final connection = await LinkConnection.start(
+        identitySecret: identity.secret,
+        endpoint: linkEndpoint(machine, deviceId: identity.id),
+      );
+      await adopt(connection, machine, connected: false);
+    } on Object catch (error, stackTrace) {
+      developer.log(
+        'link connect failed',
+        name: _logName,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  void _onStatus(LinkStatus status) {
+    _lastStatus = status;
+    final machine = _machine;
+    if (machine != null) {
+      _statusSink.publish(machine.id, status);
+    }
+    if (_attached) {
+      _publisher.add(status);
+    }
+    // A closed link must not hold the slot: the next resume or network change
+    // has to be able to start a fresh one.
+    if (status.state == LinkConnectionState.closed) {
+      _detach();
+    }
+  }
+
+  Future<void> _announce() async {
+    final connection = _connection;
+    final machine = _machine;
+    if (connection == null || machine == null) return;
+    connection.sendControl(helloControl(app: _ref.read(appVersionProvider)));
+    final identity = await _ref.read(deviceIdentityProvider.future);
+    unawaited(
+      _pushRegistration.onConnected(
+        machine,
+        identity.id,
+        connection.sendControl,
+      ),
+    );
+    await _ref
+        .read(machinesProvider.notifier)
+        .touchConnected(machine.id, DateTime.now());
+  }
+
+  void _onControl(Map<String, Object?> message) {
+    if (message['t'] != 'routes') return;
+    final machine = _machine;
+    if (machine == null) return;
+    unawaited(_applyRoutes(machine.id, message));
+  }
+
+  /// Built on first use, so a controller that never connects never opens the
+  /// keychain-backed store.
+  PushRegistration get _pushRegistration {
+    final existing = _push;
+    if (existing != null) return existing;
+    final created = _ref.read(pushRegistrationProvider);
+    _push = created;
+    return created;
+  }
+
+  Future<void> _applyRoutes(
+    String machineId,
+    Map<String, Object?> routes,
+  ) async {
+    try {
+      await _ref.read(machinesProvider.notifier).applyRoutes(machineId, routes);
+    } on LinkControlException catch (error) {
+      developer.log('link routes refused: ${error.message}', name: _logName);
+      return;
+    }
+    final machine = machineWithId(
+      _ref.read(machinesProvider).machines,
+      machineId,
+    );
+    if (machine == null) return;
+    _machine = machine;
+    final identity = await _ref.read(deviceIdentityProvider.future);
+    _connection?.updateEndpoint(linkEndpoint(machine, deviceId: identity.id));
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.detached:
+        _connection?.appPaused();
+      case AppLifecycleState.resumed:
+        _connection?.appResumed();
+        // A link that never came up — the isolate died, the machine was stored
+        // by a pairing this controller never saw — gets another start.
+        _maybeConnect(_ref.read(machinesProvider));
+      case AppLifecycleState.inactive:
+        break;
+    }
+  }
+
+  void _onNetworkChange(NetworkState state) {
+    if (state == NetworkState.none || state == NetworkState.unknown) return;
+    final connection = _connection;
+    if (connection == null) {
+      _maybeConnect(_ref.read(machinesProvider));
+      return;
+    }
+    connection.networkChanged();
+  }
+
+  void _detach() {
+    _attached = false;
+    _lastStatus = null;
+    _push?.detach();
+    _statusSink.clear();
+    _statusSub?.cancel();
+    _controlSub?.cancel();
+    _statusSub = null;
+    _controlSub = null;
+    _machine = null;
+    final connection = _connection;
+    _connection = null;
+    if (connection != null) {
+      unawaited(connection.close());
+    }
+  }
+
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _machinesSub?.close();
+    _networkSub?.cancel();
+    _detach();
+  }
+}

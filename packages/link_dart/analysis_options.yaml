@@ -1,0 +1,32 @@
+analyzer:
+  errors:
+    deprecated_member_use: info
+    unused_import: error
+    unused_local_variable: warning
+    unused_element: warning
+    dead_code: warning
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+
+linter:
+  rules:
+    # Existing rules
+    - avoid_print
+    - curly_braces_in_flow_control_structures
+    - prefer_is_empty
+    - prefer_is_not_empty
+    - unnecessary_string_interpolations
+    - unnecessary_brace_in_string_interps
+    - unnecessary_const
+    - unnecessary_new
+    - prefer_collection_literals
+    # Import hygiene — already followed, prevents regression
+    - always_use_package_imports
+    - directives_ordering
+    # Clean code
+    - unnecessary_this
+    - annotate_overrides
+    - prefer_const_constructors
+    - prefer_const_declarations
+    - prefer_final_fields

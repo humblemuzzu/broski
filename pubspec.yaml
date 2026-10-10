@@ -65,6 +65,9 @@ dependencies:
   record: ^5.2.0
   permission_handler: ^11.3.1
 
+  broski_link:
+    path: packages/link_dart
+
 dependency_overrides:
   # Force newer record_linux that implements startStream
   record_linux: ^1.2.0
