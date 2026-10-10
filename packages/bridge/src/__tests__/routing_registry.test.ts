@@ -97,6 +97,17 @@ describe("message routing registry", () => {
 		]);
 	});
 
+	test("cc_reload_plugins_live is registered and reaches the live-session handler", async () => {
+		const registry = createMessageRegistry(deps);
+		expect(ALL_MESSAGE_TYPES).toContain("cc_reload_plugins_live");
+		const { ctx, replies } = testContext();
+		const message: ClientMessage = { type: "cc_reload_plugins_live", sessionId: "s1" };
+		await registry.dispatch(message, ctx);
+		expect(replies).toHaveLength(1);
+		expect(replies[0]?.type).toBe("cc_plugins_reloaded_live");
+		expect(errorText(replies[0]!)).toBeUndefined();
+	});
+
 	test("a registered type reaches its handler through one map lookup", async () => {
 		const registry = new RouteRegistry();
 		let seen = "";

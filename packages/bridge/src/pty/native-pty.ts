@@ -4,6 +4,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { logDaemonError } from "../logging/daemon-log";
 import { isCompiledBinary } from "../platform";
 import type { PtySession } from "../types";
 
@@ -117,7 +118,7 @@ const loggedPtyRejections = new Set<string>();
 function reportPtyRejection(libPath: string, detail: string): void {
 	if (loggedPtyRejections.has(libPath)) return;
 	loggedPtyRejections.add(libPath);
-	console.error(`[pty] Refusing to load ${libPath}: ${detail}. Terminal sessions are disabled.`);
+	logDaemonError(`[pty] Refusing to load ${libPath}: ${detail}. Terminal sessions are disabled.`);
 }
 
 function verifyLibraryHash(libPath: string): boolean {

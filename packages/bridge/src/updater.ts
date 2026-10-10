@@ -114,6 +114,18 @@ async function tryUpdatePtySidecar(binaryUrl: string, binaryDir: string, logger:
 		const bytes = Buffer.from(await res.arrayBuffer());
 		if (bytes.length < 1024) return;
 
+		const digest = createHash("sha256").update(bytes).digest("hex");
+		if (existsSync(finalPath)) {
+			try {
+				const current = createHash("sha256")
+					.update(await readFile(finalPath))
+					.digest("hex");
+				if (current === digest) return;
+			} catch {
+				// Unreadable sidecar: fall through and replace it.
+			}
+		}
+
 		await writeFile(tmpPath, bytes);
 		await chmod(tmpPath, 0o755);
 		await rename(tmpPath, finalPath);

@@ -14,6 +14,7 @@ import { join, resolve } from "node:path";
 
 const BRIDGE_ROOT = resolve(__dirname, "..", "..");
 const PROBE_SOURCE = resolve(__dirname, "fixtures", "pty-hash-probe.ts");
+const BOOTSTRAP_PROBE_SOURCE = resolve(__dirname, "fixtures", "pty-bootstrap-probe.ts");
 const PTY_SOURCE = resolve(BRIDGE_ROOT, "native", "pty", "pty_helper.c");
 
 const HOST_TARGET =
@@ -38,25 +39,15 @@ function sha256(path: string): string {
 	return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
-function compileProbe(outPath: string, bakedHash: string): { ok: boolean; detail: string } {
-	const result = Bun.spawnSync({
-		cmd: [
-			"bun",
-			"build",
-			"--compile",
-			"--bytecode",
-			"--format=esm",
-			`--target=${HOST_TARGET}`,
-			"--define",
-			`BROSKI_PTY_LIB_HASH="${bakedHash}"`,
-			"--outfile",
-			outPath,
-			PROBE_SOURCE,
-		],
-		cwd: BRIDGE_ROOT,
-		stdout: "pipe",
-		stderr: "pipe",
-	});
+function compileProbe(
+	outPath: string,
+	source: string,
+	defines: Record<string, string>,
+): { ok: boolean; detail: string } {
+	const cmd = ["bun", "build", "--compile", "--bytecode", "--format=esm", `--target=${HOST_TARGET}`];
+	for (const [name, value] of Object.entries(defines)) cmd.push("--define", `${name}=${JSON.stringify(value)}`);
+	cmd.push("--outfile", outPath, source);
+	const result = Bun.spawnSync({ cmd, cwd: BRIDGE_ROOT, stdout: "pipe", stderr: "pipe" });
 	if (result.exitCode !== 0) return { ok: false, detail: new TextDecoder().decode(result.stderr) };
 	return { ok: true, detail: "" };
 }
@@ -85,7 +76,7 @@ describe.skipIf(!SUPPORTED)("compiled binary PTY library integrity", () => {
 			writeFileSync(tampered, Buffer.from("\n/* tampered */\n"), { flag: "a" });
 
 			const matching = join(root, "probe-matching");
-			const compiled = compileProbe(matching, pristineHash);
+			const compiled = compileProbe(matching, PROBE_SOURCE, { BROSKI_PTY_LIB_HASH: pristineHash });
 			expect(compiled.ok, compiled.detail).toBe(true);
 			chmodSync(matching, 0o755);
 
@@ -111,4 +102,61 @@ describe.skipIf(!SUPPORTED)("compiled binary PTY library integrity", () => {
 			await rm(root, { recursive: true, force: true });
 		}
 	}, 120_000);
+});
+
+/**
+ * The bootstrap must replace a sidecar left by a previous release, not just fill in a missing one:
+ * an in-place upgrade keeps the old file, and the compiled loader rejects it by hash.
+ */
+describe.skipIf(!SUPPORTED)("compiled binary PTY sidecar bootstrap", () => {
+	it("writes an absent sidecar, replaces a stale one, and leaves a matching one", async () => {
+		const root = await mkdtemp(join(tmpdir(), "broski-pty-boot-"));
+		try {
+			const pristine = join(root, LIB_NAME);
+			const built = buildDylib(pristine);
+			if (!built.ok) {
+				console.warn(`[pty-boot] cc could not build the PTY helper, skipped: ${built.detail}`);
+				return;
+			}
+			const pristineHash = sha256(pristine);
+			const embeddedB64 = readFileSync(pristine).toString("base64");
+
+			const compiled = join(root, "bootstrap-probe");
+			const probe = compileProbe(compiled, BOOTSTRAP_PROBE_SOURCE, {
+				BROSKI_PTY_LIB_B64: embeddedB64,
+				BROSKI_PTY_LIB_HASH: pristineHash,
+			});
+			expect(probe.ok, probe.detail).toBe(true);
+			chmodSync(compiled, 0o755);
+
+			const absentDir = join(root, "absent");
+			const staleDir = join(root, "stale");
+			const matchDir = join(root, "match");
+			mkdirSync(absentDir, { recursive: true });
+			mkdirSync(staleDir, { recursive: true });
+			mkdirSync(matchDir, { recursive: true });
+			copyFileSync(compiled, join(absentDir, "probe"));
+			copyFileSync(compiled, join(staleDir, "probe"));
+			copyFileSync(compiled, join(matchDir, "probe"));
+
+			const staleBytes = Buffer.concat([readFileSync(pristine), Buffer.from("\n/* previous release */\n")]);
+			writeFileSync(join(staleDir, LIB_NAME), staleBytes);
+			copyFileSync(pristine, join(matchDir, LIB_NAME));
+
+			const absent = runProbe(join(absentDir, "probe"), absentDir);
+			expect(absent.output).toContain("EXTRACT=written");
+			expect(absent.output).toContain("PTY_AVAILABLE=1");
+
+			const stale = runProbe(join(staleDir, "probe"), staleDir);
+			expect(stale.output).toContain("EXTRACT=written");
+			expect(stale.output).toContain("PTY_AVAILABLE=1");
+			expect(sha256(join(staleDir, LIB_NAME))).toBe(pristineHash);
+
+			const matching = runProbe(join(matchDir, "probe"), matchDir);
+			expect(matching.output).toContain("EXTRACT=unchanged");
+			expect(matching.output).toContain("PTY_AVAILABLE=1");
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	}, 180_000);
 });

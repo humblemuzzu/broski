@@ -8,6 +8,7 @@
 
 import { FileFingerprintCache } from "../../utils/file-fingerprint-cache";
 import { readJsonlHead } from "../../utils/jsonl-lines";
+import { isInjectedUserContent } from "./cx-injected-user-content";
 
 export type RolloutHead = {
 	id: string;
@@ -23,14 +24,6 @@ export const PREVIEW_HEAD_WINDOW_BYTES = 1024 * 1024;
 const PREVIEW_MAX_LINES = 40;
 const CACHE_BYTE_BUDGET = 8 * 1024 * 1024;
 const ESTIMATED_ENTRY_BYTES = 256;
-
-const SKIPPED_PREVIEW_PREFIXES = [
-	"<user_instructions>",
-	"<environment_context>",
-	"# AGENTS.md",
-	"# Repository Guidelines",
-	"# Continuity Ledger",
-];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -93,7 +86,7 @@ function promptFromContent(content: unknown): string | undefined {
 		if (!isRecord(block) || block.type !== "input_text") continue;
 		const text = typeof block.text === "string" ? block.text : "";
 		if (!text) continue;
-		if (SKIPPED_PREVIEW_PREFIXES.some((prefix) => text.startsWith(prefix))) continue;
+		if (isInjectedUserContent(text)) continue;
 		const prompt = extractUserPrompt(text);
 		if (prompt) return prompt.slice(0, 300);
 	}
@@ -104,6 +97,7 @@ function previewFromRecord(record: Record<string, unknown> | null): string | und
 	if (!record) return undefined;
 	const payload = isRecord(record.payload) ? record.payload : {};
 	if (record.type === "event_msg" && payload.type === "user_message" && typeof payload.message === "string") {
+		if (isInjectedUserContent(payload.message)) return undefined;
 		const prompt = extractUserPrompt(payload.message);
 		return prompt ? prompt.slice(0, 300) : undefined;
 	}

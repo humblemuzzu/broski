@@ -10,6 +10,7 @@
  */
 
 import type { CodexTranscriptDiff, CodexTranscriptToolCall } from "../../types";
+import { isInjectedUserContent } from "./cx-injected-user-content";
 import { extractUserPrompt } from "./cx-rollout-meta";
 
 export type TranscriptRecord = Record<string, unknown>;
@@ -34,16 +35,6 @@ export function parseRecord(line: string): TranscriptRecord | null {
 		return null;
 	}
 }
-
-/** Bodies Codex injects in the user's role around the prompt the user actually typed. */
-const INJECTED_USER_PREFIXES = [
-	"<user_instructions>",
-	"<environment_context>",
-	"<goal_context>",
-	"# AGENTS.md",
-	"# Repository Guidelines",
-	"# Continuity Ledger",
-];
 
 export type RolloutEvent =
 	| { kind: "turn-start" }
@@ -76,7 +67,9 @@ function classifyEventMsg(payload: TranscriptRecord): RolloutEvent | null {
 		case "task_started":
 			return { kind: "turn-start" };
 		case "user_message": {
-			const text = extractUserPrompt(safeStr(payload.message));
+			const raw = safeStr(payload.message);
+			if (isInjectedUserContent(raw)) return null;
+			const text = extractUserPrompt(raw);
 			return text ? { kind: "user", text } : null;
 		}
 		case "agent_reasoning": {
@@ -138,7 +131,7 @@ export function userPromptFromContent(content: unknown): string {
 		if (safeStr(entry.type) !== "input_text") continue;
 		const text = safeStr(entry.text);
 		if (!text) continue;
-		if (INJECTED_USER_PREFIXES.some((prefix) => text.startsWith(prefix))) continue;
+		if (isInjectedUserContent(text)) continue;
 		const prompt = extractUserPrompt(text);
 		if (prompt) return prompt;
 	}

@@ -185,6 +185,7 @@ export type CcClientMessage =
 	| { type: "cc_get_context_usage"; sessionId: string; requestId?: string }
 	| { type: "cc_apply_settings"; sessionId: string; settings: Record<string, unknown>; requestId?: string }
 	| { type: "cc_tag_session"; sessionId: string; tag?: string | null; cwd?: string; requestId?: string }
+	| { type: "cc_reload_plugins_live"; sessionId: string; requestId?: string }
 	// SDK 0.2.92: Subagent inspection
 	| { type: "cc_list_subagents"; sessionId: string; cwd?: string; requestId?: string }
 	| {

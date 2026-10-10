@@ -79,7 +79,6 @@ part 'bridge/bridge_pi_subagent.dart';
 part 'bridge/bridge_pi_durable.dart';
 part 'bridge/bridge_unified.dart';
 part 'bridge/bridge_unified_children.dart';
-part 'bridge/bridge_message_replay.dart';
 
 class BridgeService {
   static const protocolVersion = '1.0.0';

@@ -9,12 +9,14 @@
  * 1. package.json — Pi SDK reads this at import time via readFileSync()
  * 2. libbroski_pty.dylib/.so — Native PTY library for terminal sessions
  *
- * After first run these files exist next to the binary and won't be recreated
- * unless deleted.
+ * The package.json sidecar is created once; the PTY library is rewritten whenever the bytes on
+ * disk differ from the embedded ones, because an in-place upgrade leaves the previous release's
+ * library behind and the compiled loader refuses a sidecar whose sha256 does not match.
  */
 
 import { existsSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { extractPtySidecar } from "./pty/sidecar-embed";
 
 const binDir = dirname(process.execPath);
 
@@ -34,16 +36,7 @@ if (!existsSync(pkgJsonPath)) {
 const EMBEDDED_PTY_LIB_B64 = "%%EMBEDDED_PTY_LIB_BASE64_PLACEHOLDER%%";
 
 if (!EMBEDDED_PTY_LIB_B64.includes("PLACEHOLDER")) {
-	const libName = process.platform === "darwin" ? "libbroski_pty.dylib" : "libbroski_pty.so";
-	const libPath = join(binDir, libName);
-	if (!existsSync(libPath)) {
-		try {
-			const buf = Buffer.from(EMBEDDED_PTY_LIB_B64, "base64");
-			writeFileSync(libPath, buf, { mode: 0o755 });
-		} catch {
-			// Non-fatal: PTY falls back to OpenCode-based terminal
-		}
-	}
+	extractPtySidecar({ binDir, embeddedBase64: EMBEDDED_PTY_LIB_B64 });
 }
 
 // Now safe to load the real entry point

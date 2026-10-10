@@ -66,6 +66,7 @@ const LIVE_SESSION_OPS = [
 	"cc_get_context_usage",
 	"cc_apply_settings",
 	"cc_tag_session",
+	"cc_reload_plugins_live",
 ] as const;
 
 const CUSTOM_TOOL_OPS = [
