@@ -39,7 +39,7 @@ jobs:
         run: |
           for i in 1 2 3; do
             bun bench/run.ts --out=/tmp/broski-bench-$i.json \
-              --filter=startup-version,module-load,cc-synthetic-list-projects,cc-synthetic-list-sessions,stream-throughput,stream-stalled-client,server-idle,soak-sessions
+              --filter=startup-version,module-load,cc-synthetic-list-projects,cc-synthetic-list-sessions,stream-throughput,stream-stalled-client,server-idle,soak-sessions,pty-main-thread-stall
           done
           bun bench/check-budget.ts /tmp/broski-bench-1.json /tmp/broski-bench-2.json /tmp/broski-bench-3.json
 

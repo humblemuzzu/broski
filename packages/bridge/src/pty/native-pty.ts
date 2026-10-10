@@ -7,6 +7,8 @@ import { fileURLToPath } from "node:url";
 import { logDaemonError } from "../logging/daemon-log";
 import { isCompiledBinary } from "../platform";
 import type { PtySession } from "../types";
+import { createPtyReader } from "./native-pty-reader";
+import { createPtyWriter } from "./native-pty-writer";
 
 /** sha256 of the built PTY sidecar, injected by scripts/build.sh via `bun build --define`. Absent in dev. */
 declare const BROSKI_PTY_LIB_HASH: string | undefined;
@@ -16,10 +18,6 @@ const MAX_NATIVE_PTY_SESSIONS = 20;
 const SIGWINCH = 28;
 const SIGTERM = 15;
 const SIGKILL = 9;
-const EAGAIN = process.platform === "darwin" ? 35 : 11;
-const EWOULDBLOCK = process.platform === "darwin" ? 35 : 11;
-const EINTR = 4;
-const READ_POLL_TIMEOUT_MS = 120;
 
 const SYMBOLS = {
 	pty_create: {
@@ -37,8 +35,6 @@ const SYMBOLS = {
 		],
 	},
 	pty_resize: { returns: FFIType.int, args: [FFIType.int, FFIType.u16, FFIType.u16] },
-	pty_wait_readable: { returns: FFIType.int, args: [FFIType.int, FFIType.int] },
-	pty_read: { returns: FFIType.int, args: [FFIType.int, FFIType.ptr, FFIType.int] },
 	pty_write: { returns: FFIType.int, args: [FFIType.int, FFIType.ptr, FFIType.int] },
 	pty_close: { returns: FFIType.int, args: [FFIType.int] },
 	pty_kill: { returns: FFIType.int, args: [FFIType.int, FFIType.int] },
@@ -66,6 +62,7 @@ export type NativePtyConnection = {
 };
 
 const sessions = new Map<string, NativePtySession>();
+const sessionReaders = new Map<string, () => Promise<void>>();
 let libHandle: NativeLib | null = null;
 
 function clampDimension(value: number | undefined, fallback: number): number {
@@ -152,6 +149,17 @@ function buildCommandString(command?: string, args?: string[]): string | null {
 	return escaped.join(" ");
 }
 
+async function stopReader(id: string): Promise<void> {
+	const stop = sessionReaders.get(id);
+	sessionReaders.delete(id);
+	if (!stop) return;
+	try {
+		await stop();
+	} catch {
+		// A reader that already finished has nothing left to cancel.
+	}
+}
+
 function closeMasterFd(session: NativePtySession, lib: NativeLib): void {
 	if (session.closed) return;
 	try {
@@ -162,7 +170,7 @@ function closeMasterFd(session: NativePtySession, lib: NativeLib): void {
 	session.closed = true;
 }
 
-function refreshExitState(session: NativePtySession, lib: NativeLib): void {
+async function refreshExitState(session: NativePtySession, lib: NativeLib): Promise<void> {
 	if (session.status === "exited") return;
 
 	const result = lib.symbols.pty_waitpid(session.pid);
@@ -172,6 +180,7 @@ function refreshExitState(session: NativePtySession, lib: NativeLib): void {
 	if (result >= 0) {
 		session.exitCode = result;
 	}
+	await stopReader(session.id);
 	closeMasterFd(session, lib);
 }
 
@@ -207,7 +216,7 @@ export async function nativeListPty(projectPath?: string): Promise<NativePtySess
 	const out: NativePtySession[] = [];
 
 	for (const session of sessions.values()) {
-		refreshExitState(session, lib);
+		await refreshExitState(session, lib);
 
 		if (project) {
 			const cwd = resolve(session.cwd);
@@ -292,7 +301,7 @@ export async function nativeGetPty(id: string): Promise<NativePtySession | null>
 	if (!session) return null;
 
 	const lib = getLib();
-	refreshExitState(session, lib);
+	await refreshExitState(session, lib);
 	return { ...session };
 }
 
@@ -354,6 +363,7 @@ export async function nativeDeletePty(id: string): Promise<boolean> {
 		}
 	}
 
+	await stopReader(session.id);
 	closeMasterFd(session, lib);
 	sessions.delete(id);
 	return true;
@@ -385,87 +395,28 @@ export function nativeConnectPty(id: string): NativePtyConnection | null {
 	if (!session || session.status !== "running" || session.closed) return null;
 
 	const lib = getLib();
-	let running = true;
 	let onData: ((data: string) => void) | null = null;
 	let onExit: ((exitCode?: number) => void) | null = null;
-	const readBuffer = Buffer.alloc(16 * 1024);
+	let connected = true;
 
-	const poll = async () => {
-		while (running) {
-			const ready = lib.symbols.pty_wait_readable(session.masterFd, READ_POLL_TIMEOUT_MS);
-			if (ready === 0) {
-				await Bun.sleep(0);
-				continue;
-			}
-			if (ready < 0) {
-				const waitErr = lib.symbols.pty_errno();
-				if (waitErr === EINTR) {
-					await Bun.sleep(0);
-					continue;
-				}
-				break;
-			}
+	const isActive = () => connected && session.status === "running" && !session.closed;
 
-			for (;;) {
-				const n = lib.symbols.pty_read(session.masterFd, ptr(readBuffer), readBuffer.length);
-				if (n > 0) {
-					const text = readBuffer.subarray(0, n).toString("utf8");
-					onData?.(text);
-					continue;
-				}
+	const reader = createPtyReader({
+		fd: session.masterFd,
+		onData: (text) => {
+			onData?.(text);
+		},
+		onEnd: () => {
+			sessionReaders.delete(id);
+			void (async () => {
+				await refreshExitState(session, lib);
+				onExit?.(session.exitCode);
+			})();
+		},
+	});
+	sessionReaders.set(id, reader.stop);
 
-				if (n === 0) {
-					running = false;
-					break;
-				}
-
-				const err = lib.symbols.pty_errno();
-				if (err === EAGAIN || err === EWOULDBLOCK) {
-					break;
-				}
-				if (err === EINTR) {
-					continue;
-				}
-
-				running = false;
-				break;
-			}
-
-			await Bun.sleep(0);
-		}
-
-		running = false;
-		refreshExitState(session, lib);
-		onExit?.(session.exitCode);
-	};
-
-	void poll();
-
-	const writeAll = async (data: string) => {
-		if (!running || !data) return;
-
-		const buffer = Buffer.from(data, "utf8");
-		let offset = 0;
-
-		while (running && offset < buffer.length) {
-			const chunk = buffer.subarray(offset);
-			const n = lib.symbols.pty_write(session.masterFd, ptr(chunk), chunk.length);
-
-			if (n > 0) {
-				offset += n;
-				continue;
-			}
-
-			if (n < 0) {
-				const err = lib.symbols.pty_errno();
-				if (err === EAGAIN || err === EWOULDBLOCK || err === EINTR) {
-					await Bun.sleep(4);
-					continue;
-				}
-			}
-			break;
-		}
-	};
+	const writer = createPtyWriter({ fd: session.masterFd, symbols: lib.symbols, isActive });
 
 	return {
 		onData: (cb) => {
@@ -475,13 +426,14 @@ export function nativeConnectPty(id: string): NativePtyConnection | null {
 			onExit = cb;
 		},
 		write: (data) => {
-			void writeAll(data);
+			writer.write(data);
 		},
 		resize: (rows, cols) => {
 			nativeResizePty(id, rows, cols);
 		},
 		disconnect: () => {
-			running = false;
+			connected = false;
+			void reader.stop();
 		},
 	};
 }

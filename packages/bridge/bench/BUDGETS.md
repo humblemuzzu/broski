@@ -8,7 +8,7 @@ three runs to the checker, because a single wall-clock sample on a GitHub runner
 BENCH_SERVER_IDLE_MS=8000 BENCH_SOAK_DURATION_MS=10000
 for i in 1 2 3; do
   bun bench/run.ts --out=/tmp/broski-bench-$i.json \
-    --filter=startup-version,module-load,cc-synthetic-list-projects,cc-synthetic-list-sessions,stream-throughput,stream-stalled-client,server-idle,soak-sessions
+    --filter=startup-version,module-load,cc-synthetic-list-projects,cc-synthetic-list-sessions,stream-throughput,stream-stalled-client,server-idle,soak-sessions,pty-main-thread-stall
 done
 bun bench/check-budget.ts /tmp/broski-bench-1.json /tmp/broski-bench-2.json /tmp/broski-bench-3.json
 ```
@@ -42,6 +42,7 @@ applied temporarily to `src/` and reverted afterwards:
 
 | reintroduced regression | gate that fires | measured → bound | latency gates |
 | --- | --- | --- | --- |
+| native PTY reader waits in `poll(fd, 120)` on the JS thread (the pre-fix reader) | `pty-main-thread-stall.idleStallP99Ms` 366.75 → 10, `pty-main-thread-stall.echoP50Ms` 122.36 → 30 | 2 checks fail | 3 idle PTYs, JS-thread yield p99: 366 ms → 0.02 ms |
 | coalescing disabled (`RuntimeEventCoalescer.push` emits every delta) | `c*_charsMin` 0, `c*_charsPerEventMin` 0, `c*_eventsPerSec` 0, `stream-stalled-client.healthyComplete` false and `connectionsAfterShed` 0 — 20 000 unflushed parts trip the send queue's overflow guard (4 096 frames / 4 MiB) and both sockets are shed | 8 checks fail | p99 never measured (nothing delivered) |
 | per-delta immediate sends (send-queue bypassed **and** coalescing off) | `c*_eventsMax` 20 000 → 400, `c*_framesMax` 20 002 → 48, `c*_charsPerEventMin` 120 → 4000, `c*_wireBytesMax` 6.20 MB → 3.2 MB | 8 checks fail | p50 161/383 ms, p99 209/598 ms — **pass**, so latency is not the guard here |
 | send-queue batching off only (coalescing intact) | `c*_framesMax` 75 → 48; every other stream gate passed | 2 checks fail | p99 10/22 ms — again no latency signal |
@@ -89,10 +90,35 @@ same container plus one `yes > /dev/null`, 3 runs; `[a, b, c]` is the three samp
 | `soak-sessions.rssDeltaBytes` | +2.6 MiB | −2.6 MiB | −2.5 MiB | ≤ 32 MiB |
 | `soak-sessions.cpuMs` | 329 ms | 638 ms | [282, 385, 266] | ≤ 4000 ms *(median)* |
 | `soak-sessions.views` | 375 | 359 | 360 | ≥ 50 |
+| `pty-main-thread-stall.idleStallP99Ms` | [0.02, 0.01, 0.03] | [0.02, 0.02, 0.01] | [0.01, 0.02, 0.01] | ≤ 10 ms *(median)* |
+| `pty-main-thread-stall.idleStallMaxMs` | [0.02, 0.01, 0.03] | [0.02, 0.02, 0.01] | [0.01, 0.02, 0.01] | *(reported only)* |
+| `pty-main-thread-stall.echoP50Ms` | [0.07, 0.09, 0.20] | [0.26, 0.29, 0.29] | [0.16, 0.15, 0.13] | ≤ 30 ms *(median)* |
+| `pty-main-thread-stall.peakRssBytes` | 27.7–28.1 MiB | 33.4–33.7 MiB | 33.1–33.6 MiB | ≤ 256 MiB |
+| `pty-main-thread-stall.idleSessionsRunning` | 3 | 3 | 3 | ≥ 3 |
+| `pty-main-thread-stall.echoSamples` | 15 | 15 | 15 | ≥ 5 |
+| `pty-main-thread-stall.yieldSamples` | 60 | 60 | 60 | ≥ 25 |
 
 The contended `warmMs` sample of 634 ms is the point of the median: on an idle container the same
 measurement is 37-43 ms, so a single contended sample would have failed a 500 ms bound on nothing but
 CPU neighbours.
+
+`pty-main-thread-stall` opens three idle native PTY sessions (a `sleep 60` child each) and times
+`await Bun.sleep(0)` on the JS thread, then the echo round trip of a fourth live session. Before the
+fix each reader waited in `poll(fd, 120)` on that thread, so one idle session resolved every await in
+the process 121 ms late, three of them 363 ms late, and the same scenario read `idleStallP99Ms` 366.75
+/ `echoP50Ms` 122.36 over 39 s. The reader now leaves the wait to the event loop (0.01-0.03 ms p99 on
+both platforms, contended or not), so the bound on it sits between the two rather than under both: the
+old reader fails it 36x over, the new one passes it with room to spare.
+
+The three counters around it are the deterministic half of the gate: a scenario that never created a
+session, or whose reader silently returned nothing, would otherwise report a perfectly quiet thread.
+`idleSessionsRunning` and `echoSamples` fail that case, and the two timing bounds above it are the
+only things here measured on a shared runner's clock.
+
+The gate needs the native helper, which is not built on a bare runner: the scenario compiles
+`native/pty/pty_helper.c` into `dist/` when it is missing and fails the job if `cc` cannot, rather
+than passing on metrics it never took. Its Linux columns come from the same `oven/bun:1.4.2` proxy
+(idle and with one `yes > /dev/null`), 3 samples per column.
 
 The two `rssDeltaBytes` bounds are leak gates rather than 2x-of-measured: the 8 s window's own
 sampling noise already reaches ±8 MiB, and the 60 s runs in `BASELINE.md` drift +1.5–2.0 MiB. A real

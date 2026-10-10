@@ -81,4 +81,16 @@ export const BUDGETS: BudgetCheck[] = [
 	{ scenario: "soak-sessions", metric: "views", min: 50 },
 	{ scenario: "soak-sessions", metric: "statusReplies", min: 1 },
 	{ scenario: "soak-sessions", metric: "cpuMs", max: 4000, gate: "median" },
+
+	// One idle PTY used to block the JS thread for 121 ms per reader iteration, 605 ms with five
+	// sessions; this runs three and bounds the yield p99 at 10 ms, well under a single stall. The
+	// counters are the deterministic half: sessions must be alive and the echo must come back, so a
+	// quiet thread with a dead reader cannot pass on timing alone.
+	{ scenario: "pty-main-thread-stall", metric: "idleSessions", min: 3 },
+	{ scenario: "pty-main-thread-stall", metric: "idleSessionsRunning", min: 3 },
+	{ scenario: "pty-main-thread-stall", metric: "yieldSamples", min: 25 },
+	{ scenario: "pty-main-thread-stall", metric: "echoSamples", min: 5 },
+	{ scenario: "pty-main-thread-stall", metric: "idleStallP99Ms", max: 10, gate: "median" },
+	{ scenario: "pty-main-thread-stall", metric: "echoP50Ms", max: 30, gate: "median" },
+	{ scenario: "pty-main-thread-stall", metric: "peakRssBytes", max: 256 * MIB },
 ];

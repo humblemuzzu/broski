@@ -122,6 +122,11 @@ export const SCENARIOS: ScenarioSpec[] = [
 		description: "2k session views/switches + runtime events over 60 s (BENCH_SOAK_DURATION_MS), reports state sizes",
 		needsTempHome: true,
 	},
+	{
+		name: "pty-main-thread-stall",
+		description: "3 idle native PTY sessions (BENCH_PTY_SESSIONS): JS-thread yield p99 plus an echo round trip",
+		needsTempHome: true,
+	},
 ];
 
 /** Scenarios that need nothing from the developer's machine; safe on a bare CI runner. */
@@ -133,6 +138,7 @@ export const SYNTHETIC_SCENARIOS = [
 	"stream-throughput",
 	"stream-stalled-client",
 	"soak-sessions",
+	"pty-main-thread-stall",
 ];
 
 export const SELFTEST: ScenarioSpec = {
