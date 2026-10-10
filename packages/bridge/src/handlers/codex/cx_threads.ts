@@ -5,14 +5,17 @@
  * cx_thread_fork, cx_thread_rollback
  */
 
-import { basename, resolve } from "node:path";
+import { resolve } from "node:path";
 import type { CodexAppServerClient } from "../../connectors/codex";
 import {
 	listProjectsFromDb as cxListProjectsFromDb,
 	listThreadsFromDb as cxListThreadsFromDb,
 	findCodexStateDbPath,
 } from "../../connectors/codex/cx-sqlite";
+import { DEFAULT_CX_ENRICH_LIMIT } from "../../connectors/codex-fs";
 import type { CodexThread } from "../../types";
+import { resolveCxProjects } from "./cx_projects";
+import { CX_WARMUP_PAGE_LIMIT, warmCxCaches } from "./cx_warmup";
 
 // Cache entry types (mirrored from server.ts scope)
 type CxThreadCacheEntry = {
@@ -59,8 +62,6 @@ export async function handleCxThreads(
 	switch (message.type) {
 		// ── cx_list_projects ─────────────────────────────────────────────
 		case "cx_list_projects": {
-			// FAST PATH: Read directly from filesystem (no app-server needed!)
-			// Same pattern as Claude Code - instant file I/O instead of subprocess
 			const now = Date.now();
 			const forceRefresh = message.refresh === true;
 
@@ -71,47 +72,15 @@ export async function handleCxThreads(
 				return true;
 			}
 
-			ctx.logInfo(
-				`[cx_list_projects] ${forceRefresh ? "Refresh requested" : "Cache miss"}, reading from filesystem...`,
-			);
-			let projects = await ctx.codexFs.listProjectsFromFs();
+			const { projects, source } = await resolveCxProjects({
+				listProjectsFromFs: () => ctx.codexFs.listProjectsFromFs(),
+				ensureCodexClient: ctx.ensureCodexClient,
+				safeString: ctx.safeString,
+				logInfo: ctx.logInfo,
+			});
 
-			// Tier 2: SQLite fallback — much faster than cold-starting app-server.
-			if (projects.length === 0) {
-				const dbPath = findCodexStateDbPath();
-				if (dbPath) {
-					projects = cxListProjectsFromDb(dbPath);
-					if (projects.length > 0) {
-						ctx.logInfo(`[cx_list_projects] Filesystem empty, recovered ${projects.length} projects via SQLite`);
-					}
-				}
-			}
-
-			// Tier 3: Cold-start app-server — last resort.
-			if (projects.length === 0) {
-				try {
-					const client = await ctx.ensureCodexClient();
-					const rpcResult: any = await client.request("thread/list", {
-						limit: 200,
-					});
-					const threads: any[] = rpcResult?.data ?? [];
-					const byPath = new Map<string, { id: string; name: string; path: string }>();
-					for (const thread of threads) {
-						const path = ctx.safeString(thread?.cwd).trim();
-						if (!path) continue;
-						const name = basename(path);
-						byPath.set(path, { id: path, name: name || path, path });
-					}
-					projects = Array.from(byPath.values());
-					ctx.logInfo(`[cx_list_projects] Recovered ${projects.length} projects via cold thread/list`);
-				} catch (err: any) {
-					ctx.logInfo(`[cx_list_projects] Cold thread/list fallback unavailable: ${err?.message ?? err}`);
-				}
-			}
-
-			// Update cache
 			ctx.setProjectCache({ data: projects, fetchedAt: Date.now() });
-			ctx.logInfo(`[cx_list_projects] Done, cached ${projects.length} projects`);
+			ctx.logInfo(`[cx_list_projects] Done, cached ${projects.length} projects (${source})`);
 			reply({ type: "cx_projects", data: projects, requestId: message.requestId });
 			return true;
 		}
@@ -234,7 +203,10 @@ export async function handleCxThreads(
 			// Enrich threads with diff stats from filesystem (cached by mtime).
 			// Fire-and-forget: don't block the thread list response — stats enrichment
 			// can trigger slow filesystem scans when SQLite is locked by the app-server.
-			ctx.codexFs.enrichThreadsWithStats(threadsWithNames).catch((e: any) => {
+			// Only the page the phone asked for is enriched, never the whole rollout tree.
+			const enrichLimit =
+				typeof message.limit === "number" && message.limit > 0 ? message.limit : DEFAULT_CX_ENRICH_LIMIT;
+			ctx.codexFs.enrichThreadsWithStats(threadsWithNames.slice(0, enrichLimit)).catch((e: any) => {
 				ctx.logError("[cx_list_threads] Stats enrichment failed (non-fatal):", e?.message ?? e);
 			});
 
@@ -256,33 +228,30 @@ export async function handleCxThreads(
 			return true;
 		}
 
-		// ── cx_warmup ────────────────────────────────────────────────────
+		// ── cx_warmup ──
 		case "cx_warmup": {
-			// Pre-populate caches from filesystem for instant loading
-			// No app-server spawn needed for listing - just file I/O
-			ctx.logInfo("[cx_warmup] Starting Codex warmup (filesystem)...");
+			// Pre-populate the caches the phone reads first: the SQLite-backed project and thread
+			// lists, then the diff stats of that first page. No whole-tree filesystem scan.
+			ctx.logInfo("[cx_warmup] Starting Codex warmup (SQLite index)...");
 			reply({ type: "cx_warmup_started", requestId: message.requestId });
 
-			// Fire-and-forget: pre-warm caches from filesystem
-			(async () => {
-				try {
-					// Pre-fetch projects from filesystem
-					const projects = await ctx.codexFs.listProjectsFromFs();
-					ctx.setProjectCache({ data: projects, fetchedAt: Date.now() });
-					ctx.logInfo(`[cx_warmup] Pre-cached ${projects.length} projects from filesystem`);
-
-					// Pre-fetch all threads from filesystem
-					const threads = await ctx.codexFs.listThreadsFromFs();
-					ctx.cxThreadCache.set("__all__", {
-						data: threads,
-						fetchedAt: Date.now(),
-						nextCursor: null,
-					});
-					ctx.logInfo(`[cx_warmup] Pre-cached ${threads.length} threads from filesystem`);
-				} catch (e) {
-					ctx.logError("[cx_warmup] Error:", e);
-				}
-			})();
+			const pageLimit = typeof message.limit === "number" && message.limit > 0 ? message.limit : CX_WARMUP_PAGE_LIMIT;
+			warmCxCaches(
+				{
+					findDbPath: findCodexStateDbPath,
+					listProjectsFromDb: (dbPath) => cxListProjectsFromDb(dbPath),
+					listThreadsFromDb: (dbPath) => cxListThreadsFromDb({ limit: pageLimit, sortKey: "updated_at" }, dbPath),
+					listProjectsFromFs: () => ctx.codexFs.listProjectsFromFs(),
+					listThreadsFromFs: (cwd) => ctx.codexFs.listThreadsFromFs(cwd),
+					enrichThreadsWithStats: (threads) => ctx.codexFs.enrichThreadsWithStats(threads),
+					setProjectCache: (projects) => ctx.setProjectCache({ data: projects, fetchedAt: Date.now() }),
+					setThreadCache: (key, threads) =>
+						ctx.cxThreadCache.set(key, { data: threads, fetchedAt: Date.now(), nextCursor: null }),
+					logInfo: ctx.logInfo,
+					logError: ctx.logError,
+				},
+				pageLimit,
+			).catch((e: any) => ctx.logError("[cx_warmup] Error:", e?.message ?? e));
 			return true;
 		}
 

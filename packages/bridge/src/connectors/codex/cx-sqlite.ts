@@ -187,12 +187,13 @@ export function listProjectsFromDb(dbPath?: string): ProjectSummary[] {
 	if (!db) return [];
 
 	try {
-		// Get unique cwds with the most recent updated_at for each
+		// Get unique cwds with the most recent updated_at for each. An untitled thread counts too:
+		// its rollout file belongs to the same project as the titled ones.
 		const rows = db
 			.query(`
         SELECT cwd, MAX(updated_at) as last_updated
         FROM threads
-        WHERE cwd != '' AND title != ''
+        WHERE cwd != ''
         GROUP BY cwd
         ORDER BY last_updated DESC
       `)
@@ -211,6 +212,37 @@ export function listProjectsFromDb(dbPath?: string): ProjectSummary[] {
 	} finally {
 		db.close();
 	}
+}
+
+/** Batch form of `findRolloutPathById`: one database open for a whole page of threads. */
+export function findRolloutPathsByIds(threadIds: string[], dbPath?: string): Map<string, string> {
+	const resolved = new Map<string, string>();
+	if (threadIds.length === 0) return resolved;
+
+	const resolvedPath = dbPath ?? findCodexStateDbPath();
+	if (!resolvedPath) return resolved;
+
+	const db = openDb(resolvedPath);
+	if (!db) return resolved;
+
+	try {
+		const chunkSize = 400;
+		for (let start = 0; start < threadIds.length; start += chunkSize) {
+			const chunk = threadIds.slice(start, start + chunkSize);
+			const placeholders = chunk.map(() => "?").join(", ");
+			const rows = db
+				.query(`SELECT id, rollout_path FROM threads WHERE id IN (${placeholders})`)
+				.all(...chunk) as DbRow[];
+			for (const row of rows) {
+				const id = str(row.id);
+				const rolloutPath = str(row.rollout_path);
+				if (id && rolloutPath && existsSync(rolloutPath)) resolved.set(id, rolloutPath);
+			}
+		}
+	} finally {
+		db.close();
+	}
+	return resolved;
 }
 
 /**
