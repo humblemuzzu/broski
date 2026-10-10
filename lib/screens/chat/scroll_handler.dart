@@ -3,6 +3,7 @@ import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/screens/chat/load_earlier.dart';
 import 'package:broski/screens/chat/mcp_oauth_snackbar.dart';
+import 'package:broski/screens/chat/transcript_scroll_anchor.dart';
 import 'package:broski/screens/chat_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -75,6 +76,7 @@ Future<void> loadMoreMessages({
   required String sessionId,
   required String projectPath,
   required ScrollController scrollController,
+  required TranscriptAnchorKeys anchorKeys,
   required void Function({required bool loadingMore, required bool loadedAll})
   setPaginationState,
   required bool Function() isMounted,
@@ -87,6 +89,7 @@ Future<void> loadMoreMessages({
       loadingMoreMessages: loadingMoreMessages,
       hasLoadedAllMessages: hasLoadedAllMessages,
       scrollController: scrollController,
+      anchorKeys: anchorKeys,
       setPaginationState: setPaginationState,
     );
   }

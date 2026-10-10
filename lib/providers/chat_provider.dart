@@ -14,6 +14,7 @@ import 'package:broski/models/question.dart';
 import 'package:broski/models/runtime/runtime.dart';
 import 'package:broski/models/session.dart';
 import 'package:broski/models/todo.dart';
+import 'package:broski/models/transcript_page.dart';
 import 'package:broski/models/vcs.dart';
 import 'package:broski/providers/chat/codex_permission_helpers.dart';
 import 'package:broski/providers/chat/runtime_common_models.dart';
@@ -72,6 +73,9 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
 
   /// Bridge-opaque cursor for the next older transcript page of the open chat.
   String? _transcriptCursor;
+
+  /// The session that owns [_transcriptCursor]; a page fetched for another session is dropped.
+  String? _transcriptSessionId;
 
   /// Counts the transcript pages prepended to the open chat, so their generated ids stay unique.
   int _transcriptPageSeq = 0;

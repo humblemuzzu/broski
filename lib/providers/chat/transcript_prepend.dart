@@ -9,7 +9,7 @@ extension TranscriptPrepend on ChatSessionNotifier {
     List<Map<String, dynamic>> items, {
     required String sessionId,
   }) {
-    if (items.isEmpty) return;
+    if (!ownsTranscript(sessionId) || items.isEmpty) return;
     final additions = <ChatMessage>[];
     for (final item in items) {
       final message = ccTranscriptMessage(item, sessionId);
@@ -23,7 +23,7 @@ extension TranscriptPrepend on ChatSessionNotifier {
     List<CodexTranscriptMessage> items, {
     required String threadId,
   }) {
-    if (items.isEmpty) return;
+    if (!ownsTranscript(threadId) || items.isEmpty) return;
     final additions = <ChatMessage>[];
     for (final item in items) {
       if (item.id.isEmpty || _messages.containsKey(item.id)) continue;
@@ -37,8 +37,9 @@ extension TranscriptPrepend on ChatSessionNotifier {
   void prependPiTranscript(
     List<Map<String, dynamic>> items, {
     String idPrefix = 'pi',
+    required String sessionId,
   }) {
-    if (items.isEmpty) return;
+    if (!ownsTranscript(sessionId) || items.isEmpty) return;
     final savedMessages = Map<String, ChatMessage>.from(_messages);
     final savedOrder = [..._order];
     final savedRoles = Map<String, MessageRole>.from(_rolesByMessageId);
@@ -85,13 +86,23 @@ extension TranscriptPrepend on ChatSessionNotifier {
   String _piMessageKey(ChatMessage message) =>
       '${message.role.name}|${message.createdAt.millisecondsSinceEpoch}|${message.text}';
 
+  /// Inserts [messages] in front of the loaded window, dropping any whose id the window already
+  /// holds or that repeats inside the page. A duplicated id would render one key twice.
   void _prependMessages(List<ChatMessage> messages) {
     if (messages.isEmpty) return;
+    final window = _order
+        .map((id) => _messages[id])
+        .whereType<ChatMessage>()
+        .toList(growable: false);
+    final merged = prependUnique(messages, window, (message) => message.id);
+    if (identical(merged, window)) return;
     _suppressEmit = true;
-    for (final message in messages) {
-      _messages[message.id] = message;
-    }
-    _order.insertAll(0, messages.map((message) => message.id));
+    _messages
+      ..clear()
+      ..addEntries(merged.map((message) => MapEntry(message.id, message)));
+    _order
+      ..clear()
+      ..addAll(merged.map((message) => message.id));
     _suppressEmit = false;
     _emitMessages();
   }

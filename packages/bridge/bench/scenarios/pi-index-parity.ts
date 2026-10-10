@@ -53,9 +53,11 @@ function toPlainSession(session: PiSessionInfo): Record<string, unknown> {
 	};
 }
 
-async function fileStamp(path: string): Promise<{ size: number; mtime: Date; mtimeMs: number; ino: number }> {
+async function fileStamp(
+	path: string,
+): Promise<{ size: number; mtime: Date; mtimeMs: number; ino: number; ctimeMs: number }> {
 	const info = await stat(path);
-	return { size: info.size, mtime: info.mtime, mtimeMs: info.mtimeMs, ino: info.ino };
+	return { size: info.size, mtime: info.mtime, mtimeMs: info.mtimeMs, ino: info.ino, ctimeMs: info.ctimeMs };
 }
 
 await runScenario(async () => {

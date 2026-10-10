@@ -1,13 +1,14 @@
 /**
  * One persisted Pi session summary: the fields the bridge sends for a session plus the enrichment the
- * directory listing would otherwise recompute, keyed by the file's `(mtimeMs, size, ino)` stamp.
+ * directory listing would otherwise recompute, keyed by the file's `(mtimeMs, size, ino, ctimeMs)`
+ * stamp, as `FileFingerprintCache` does.
  */
 
 import type { SessionInfo } from "@earendil-works/pi-coding-agent";
 import type { SessionDiffSummary } from "../handlers/session-stats";
 import type { PiSessionInfo } from "../types/pi";
 
-export const PI_SESSION_INDEX_SCHEMA = 1;
+export const PI_SESSION_INDEX_SCHEMA = 2;
 
 /** Cache budget for the Pi session index; one record is a few hundred bytes to a few kilobytes. */
 export const PI_SESSION_INDEX_MAX_BYTES = 128 * 1024 * 1024;
@@ -18,6 +19,7 @@ export type PiSessionFileStamp = {
 	mtimeMs: number;
 	size: number;
 	ino: number;
+	ctimeMs: number;
 };
 
 export type PiSessionIndexRecord = {
@@ -25,6 +27,7 @@ export type PiSessionIndexRecord = {
 	mtimeMs: number;
 	size: number;
 	ino: number;
+	ctimeMs: number;
 	id: string;
 	cwd: string;
 	name?: string;
@@ -78,8 +81,9 @@ function readStamp(source: RawRecord): PiSessionFileStamp | null {
 	const mtimeMs = readNumber(source, "mtimeMs");
 	const size = readNumber(source, "size");
 	const ino = readNumber(source, "ino");
-	if (mtimeMs === null || size === null || ino === null) return null;
-	return { mtimeMs, size, ino };
+	const ctimeMs = readNumber(source, "ctimeMs");
+	if (mtimeMs === null || size === null || ino === null || ctimeMs === null) return null;
+	return { mtimeMs, size, ino, ctimeMs };
 }
 
 export function encodePiSessionIndexRecord(record: PiSessionIndexRecord): string {
@@ -114,6 +118,7 @@ export function parsePiSessionIndexRecord(line: string): PiSessionIndexRecord | 
 		mtimeMs: stamp.mtimeMs,
 		size: stamp.size,
 		ino: stamp.ino,
+		ctimeMs: stamp.ctimeMs,
 		id,
 		cwd,
 		name: readOptionalString(source, "name"),
@@ -129,7 +134,19 @@ export function parsePiSessionIndexRecord(line: string): PiSessionIndexRecord | 
 }
 
 export function sessionFileStampMatches(record: PiSessionIndexRecord, stamp: PiSessionFileStamp): boolean {
-	return record.mtimeMs === stamp.mtimeMs && record.size === stamp.size && record.ino === stamp.ino;
+	return (
+		record.mtimeMs === stamp.mtimeMs &&
+		record.size === stamp.size &&
+		record.ino === stamp.ino &&
+		record.ctimeMs === stamp.ctimeMs
+	);
+}
+
+/** True when `candidate` describes a later version of a file than `current` does. */
+export function isNewerSessionFileStamp(candidate: PiSessionFileStamp, current: PiSessionFileStamp): boolean {
+	if (candidate.mtimeMs !== current.mtimeMs) return candidate.mtimeMs > current.mtimeMs;
+	if (candidate.size !== current.size) return candidate.size > current.size;
+	return candidate.ino > current.ino;
 }
 
 export function toPiSessionInfo(record: PiSessionIndexRecord): PiSessionInfo {
@@ -188,6 +205,7 @@ export function recordFromSessionInfo(
 		mtimeMs: stamp.mtimeMs,
 		size: stamp.size,
 		ino: stamp.ino,
+		ctimeMs: stamp.ctimeMs,
 		id: info.id,
 		cwd: info.cwd,
 		name: info.name,

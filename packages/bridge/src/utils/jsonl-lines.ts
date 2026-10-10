@@ -60,8 +60,9 @@ export async function* readJsonlLines(
 	} = options;
 	if (chunkBytes <= 0 || maxBytes <= 0) return;
 
-	const handle = await open(path, "r");
+	// A chunk larger than the runtime can allocate throws here; allocating after `open` would leak the fd.
 	const buffer = Buffer.allocUnsafe(chunkBytes);
+	const handle = await open(path, "r");
 	const decoder = new TextDecoder("utf-8");
 	const completed: string[] = [];
 	let pieces: string[] = [];

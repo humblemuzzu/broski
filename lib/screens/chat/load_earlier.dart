@@ -1,8 +1,8 @@
-import 'package:broski/models/transcript_page.dart';
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/chat/transcript_scroll_anchor.dart';
 import 'package:broski/screens/chat_screen.dart';
 import 'package:broski/services/bridge/bridge_pi_transcript.dart';
 import 'package:flutter/material.dart';
@@ -26,6 +26,7 @@ Future<void> loadEarlierTranscript({
   required bool loadingMoreMessages,
   required bool hasLoadedAllMessages,
   required ScrollController scrollController,
+  required TranscriptAnchorKeys anchorKeys,
   required void Function({required bool loadingMore, required bool loadedAll})
   setPaginationState,
 }) async {
@@ -34,78 +35,100 @@ Future<void> loadEarlierTranscript({
 
   final chat = ref.read(chatSessionProvider.notifier);
   final cursor = chat.transcriptCursor;
+  final sessionId = chat.transcriptSessionId;
   if (cursor == null) {
     setPaginationState(loadingMore: false, loadedAll: true);
     return;
   }
   if (ref.read(connectionProvider).isOfflineMode) {
-    setPaginationState(loadingMore: false, loadedAll: false);
+    setPaginationState(loadingMore: false, loadedAll: true);
     return;
   }
 
   setPaginationState(loadingMore: true, loadedAll: false);
-  final offsetBefore = scrollController.hasClients
-      ? scrollController.position.pixels
-      : 0.0;
-  final extentBefore = scrollController.hasClients
-      ? scrollController.position.maxScrollExtent
-      : 0.0;
+  final anchor = captureTranscriptAnchor(
+    messageIds: ref
+        .read(chatSessionProvider)
+        .messages
+        .map((message) => message.id)
+        .toList(growable: false),
+    keys: anchorKeys,
+  );
 
   try {
-    final hasOlder = await _fetchAndPrepend(ref, widget, cursor);
+    final page = await _fetchAndPrepend(
+      ref,
+      widget,
+      cursor,
+      sessionId,
+      scrollController,
+    );
+    if (page == null) return;
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!scrollController.hasClients) return;
-      scrollController.jumpTo(
-        preservedScrollOffset(
-          currentOffset: offsetBefore,
-          maxExtentBefore: extentBefore,
-          maxExtentAfter: scrollController.position.maxScrollExtent,
-        ),
+    if (scrollController.hasClients) {
+      await restoreTranscriptScroll(
+        controller: scrollController,
+        keys: anchorKeys,
+        anchor: anchor,
+        offsetBefore: page.offsetAtPrepend,
+        extentBefore: page.extentAtPrepend,
       );
-    });
+    }
 
-    setPaginationState(loadingMore: false, loadedAll: !hasOlder);
+    setPaginationState(loadingMore: false, loadedAll: !page.hasOlder);
   } catch (_) {
     setPaginationState(loadingMore: false, loadedAll: false);
   }
 }
 
-Future<bool> _fetchAndPrepend(
+/// Fetches and prepends one page, or null when the transcript moved to another session while the
+/// page was in flight and the reply no longer belongs to the open chat.
+Future<({bool hasOlder, double offsetAtPrepend, double extentAtPrepend})?>
+_fetchAndPrepend(
   WidgetRef ref,
   ChatScreen widget,
   String cursor,
+  String? sessionId,
+  ScrollController scrollController,
 ) async {
   final chat = ref.read(chatSessionProvider.notifier);
   final bridge = ref.read(bridgeServiceProvider);
 
   if (widget.isClaudeCode) {
+    final id = widget.ccSession?.id ?? '';
     final page = await bridge.ccGetSessionMessagesPage(
-      widget.ccSession?.id ?? '',
+      id,
       cwd: widget.ccSession?.cwd ?? widget.ccDraftCwd ?? '',
       limit: kTranscriptPageLimit,
       before: cursor,
     );
-    chat.prependClaudeCodeTranscript(
-      page.items,
-      sessionId: widget.ccSession?.id ?? '',
-    );
+    if (!chat.ownsTranscript(sessionId)) return null;
+    final extent = _extentOf(scrollController);
+    chat.prependClaudeCodeTranscript(page.items, sessionId: id);
     chat.setTranscriptCursor(page.nextCursor);
-    return page.hasOlder;
+    return (
+      hasOlder: page.hasOlder,
+      offsetAtPrepend: extent.offset,
+      extentAtPrepend: extent.extent,
+    );
   }
 
   if (widget.isCodex) {
+    final id = widget.cxThread?.id ?? '';
     final page = await bridge.cxGetThreadMessagesPage(
-      widget.cxThread?.id ?? '',
+      id,
       limit: kTranscriptPageLimit,
       before: cursor,
     );
-    chat.prependCodexTranscript(
-      page.items,
-      threadId: widget.cxThread?.id ?? '',
-    );
+    if (!chat.ownsTranscript(sessionId)) return null;
+    final extent = _extentOf(scrollController);
+    chat.prependCodexTranscript(page.items, threadId: id);
     chat.setTranscriptCursor(page.nextCursor);
-    return page.hasOlder;
+    return (
+      hasOlder: page.hasOlder,
+      offsetAtPrepend: extent.offset,
+      extentAtPrepend: extent.extent,
+    );
   }
 
   final page = await ref
@@ -116,10 +139,27 @@ Future<bool> _fetchAndPrepend(
         limit: kTranscriptPageLimit,
         before: cursor,
       );
+  if (!chat.ownsTranscript(sessionId)) return null;
+  final extent = _extentOf(scrollController);
   chat.prependPiTranscript(
     page.items,
     idPrefix: widget.isPiDurable ? 'pd' : 'pi',
+    sessionId: widget.piSession?.id ?? '',
   );
   chat.setTranscriptCursor(page.nextCursor);
-  return page.hasOlder;
+  return (
+    hasOlder: page.hasOlder,
+    offsetAtPrepend: extent.offset,
+    extentAtPrepend: extent.extent,
+  );
+}
+
+/// Offset and maximum scroll extent at the moment the page is inserted, so the scroll shift counts
+/// only what the page itself added.
+({double offset, double extent}) _extentOf(ScrollController controller) {
+  if (!controller.hasClients) return (offset: 0, extent: 0);
+  return (
+    offset: controller.position.pixels,
+    extent: controller.position.maxScrollExtent,
+  );
 }

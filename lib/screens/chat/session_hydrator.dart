@@ -7,6 +7,7 @@ import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/screens/chat/load_earlier.dart';
 import 'package:broski/screens/chat/pi_durable_chat_actions.dart';
+import 'package:broski/screens/chat/pi_reconnect_hydrate.dart';
 import 'package:broski/screens/chat_screen.dart';
 import 'package:broski/services/bridge/bridge_pi_transcript.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -211,6 +212,7 @@ Future<bool> hydrateSession({
     // On reconnect, the session is already alive in the bridge — don't
     // create a new one or switch sessions. Just re-sync state and hydrate.
     if (resyncingAfterReconnect) {
+      var piHasOlder = false;
       if (!connection.isOfflineMode) {
         try {
           final piState = await piBridge.getState(projectPath: cwd);
@@ -224,15 +226,23 @@ Future<bool> hydrateSession({
         } catch (_) {
           // Best effort
         }
+        // Drop the pre-disconnect cursor before the paged read, so a scroll to
+        // the top cannot ask for a page from the old boundary.
+        chat.setTranscriptCursor(null);
         try {
-          final items = await piBridge.getMessages(projectPath: cwd);
-          chat.hydratePiTranscript(items);
+          piHasOlder = await hydratePiAfterReconnect(
+            piBridge: piBridge,
+            chat: chat,
+            sessionPath: sessionPath,
+            sessionId: widgetSessionId,
+            projectPath: cwd,
+          );
         } catch (_) {
           // Best effort
         }
       }
       scrollToBottom(animate: false);
-      setPaginationState(loadingMore: false, loadedAll: true);
+      setPaginationState(loadingMore: false, loadedAll: !piHasOlder);
       return true; // Call _loadSessionContext
     }
 
@@ -280,36 +290,14 @@ Future<bool> hydrateSession({
       // sends a message. If the fast path failed, also load messages here.
       unawaited(
         Future(() async {
-          try {
-            await piBridge.switchSession(
-              sessionPath: sessionPath,
-              projectPath: cwd,
-            );
-          } catch (_) {
-            // Best effort
-          }
-          // If fast path didn't load messages, fall back to the instance-based
-          // getMessages (slower but always works).
-          if (!fastPathWorked) {
-            try {
-              final items = await piBridge.getMessages(projectPath: cwd);
-              chat.hydratePiTranscript(items);
-            } catch (_) {
-              // Best effort
-            }
-          }
-          try {
-            final piState = await piBridge.getState(projectPath: cwd);
-            chat.setPiModel(
-              piState.model != null
-                  ? '${piState.model!.provider}/${piState.model!.id}'
-                  : null,
-              modelData: piState.model,
-            );
-            chat.setPiThinkingLevel(piState.thinkingLevel);
-          } catch (_) {
-            // Best effort
-          }
+          await startPiLiveInstance(
+            piBridge: piBridge,
+            chat: chat,
+            sessionId: widgetSessionId,
+            sessionPath: sessionPath,
+            projectPath: cwd,
+            loadMessages: !fastPathWorked,
+          );
         }),
       );
     } else if (hasSessionPath) {

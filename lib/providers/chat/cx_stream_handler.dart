@@ -56,6 +56,7 @@ extension CxStreamHandler on ChatSessionNotifier {
     _messages.clear();
     _order.clear();
     _transcriptCursor = null;
+    _transcriptSessionId = threadId;
     _transcriptPageSeq = 0;
     _rolesByMessageId.clear();
     _pendingLocalUserTextByMessageId.clear();

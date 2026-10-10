@@ -248,7 +248,9 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
 
   bool _runtimeEventHasGap(RuntimeChatTurnState? current, RuntimeEvent event) {
     if (event.replayed) return false;
-    final seq = event.seq;
+    // A coalesced delta spans `seqStart..seq`, so the first delta it carries is the one that has to
+    // follow the previous event, not the newest.
+    final seq = event.seqStart ?? event.seq;
     final previous = current?.lastEventSeq;
     if (seq == null || seq <= 0 || previous == null || previous <= 0) {
       return false;

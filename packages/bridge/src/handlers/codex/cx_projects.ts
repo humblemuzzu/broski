@@ -45,10 +45,17 @@ async function listProjectsFromAppServer(ctx: CxProjectsContext): Promise<Projec
 export async function resolveCxProjects(ctx: CxProjectsContext): Promise<CxProjectsResult> {
 	const dbPath = findCodexStateDbPath();
 	if (dbPath) {
-		const fromIndex = listProjectsFromDb(dbPath);
-		if (fromIndex.length > 0) {
-			ctx.logInfo(`[cx_list_projects] ${fromIndex.length} projects from the SQLite index`);
-			return { projects: fromIndex, source: "sqlite" };
+		// A database locked by a running Codex, or one whose schema moved on, is a reason to read the
+		// rollout tree, not to fail the listing.
+		try {
+			const fromIndex = listProjectsFromDb(dbPath);
+			if (fromIndex.length > 0) {
+				ctx.logInfo(`[cx_list_projects] ${fromIndex.length} projects from the SQLite index`);
+				return { projects: fromIndex, source: "sqlite" };
+			}
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			ctx.logInfo(`[cx_list_projects] SQLite index unavailable: ${message}`);
 		}
 	}
 

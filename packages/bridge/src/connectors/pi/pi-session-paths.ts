@@ -20,6 +20,7 @@ export type PiSessionFile = {
 	mtime: Date;
 	size: number;
 	ino: number;
+	ctimeMs: number;
 };
 
 export const getPiSessionsRoot = (): string => resolve(getAgentDir(), "sessions");
@@ -56,7 +57,7 @@ export async function listSessionFileNames(dir: string): Promise<string[]> {
 export async function statSessionFile(path: string): Promise<PiSessionFile | null> {
 	try {
 		const info = await stat(path);
-		return { path, mtimeMs: info.mtimeMs, mtime: info.mtime, size: info.size, ino: info.ino };
+		return { path, mtimeMs: info.mtimeMs, mtime: info.mtime, size: info.size, ino: info.ino, ctimeMs: info.ctimeMs };
 	} catch {
 		return null;
 	}

@@ -18,6 +18,7 @@ extension PiStreamHandler on ChatSessionNotifier {
     _messages.clear();
     _order.clear();
     _transcriptCursor = null;
+    _transcriptSessionId = sessionId;
     _transcriptPageSeq = 0;
     _rolesByMessageId.clear();
     _pendingLocalUserTextByMessageId.clear();
@@ -82,9 +83,9 @@ extension PiStreamHandler on ChatSessionNotifier {
     for (final item in items) {
       final role = item['role'] as String? ?? 'system';
       final timestamp = item['timestamp'] as int?;
-      final createdAt = timestamp != null
-          ? DateTime.fromMillisecondsSinceEpoch(timestamp)
-          : DateTime.now();
+      // A missing timestamp gets a fixed stand-in, not the wall clock: the same item read again
+      // (an overlapping page) must produce the same dedupe key.
+      final createdAt = DateTime.fromMillisecondsSinceEpoch(timestamp ?? 0);
 
       if (role == 'user') {
         lastAssistantMsgId = null;

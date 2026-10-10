@@ -59,6 +59,7 @@ import 'package:broski/screens/chat/text_change_handler.dart' as tch;
 import 'package:broski/screens/chat/tool_card_builder.dart' as tcb;
 import 'package:broski/screens/chat/transcript_clipboard.dart' as tc;
 import 'package:broski/screens/chat/transcript_exporter.dart';
+import 'package:broski/screens/chat/transcript_scroll_anchor.dart';
 import 'package:broski/screens/dialogs/agents_dialog.dart';
 import 'package:broski/screens/dialogs/fork_dialog.dart';
 import 'package:broski/screens/dialogs/help_dialog.dart';
@@ -389,6 +390,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     with SingleTickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final TranscriptAnchorKeys _transcriptAnchorKeys = TranscriptAnchorKeys();
   final HapticsService _haptics = HapticsService();
   String? _activePermissionId;
   String? _activeQuestionId;
@@ -1165,6 +1167,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     sessionId: widget.session.id,
     projectPath: widget.project.path,
     scrollController: _scrollController,
+    anchorKeys: _transcriptAnchorKeys,
     setPaginationState: ({required bool loadingMore, required bool loadedAll}) {
       if (mounted) {
         setState(() {
@@ -1544,9 +1547,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                                     return const SizedBox.shrink();
                                   }
                                   final message = messages[messageIndex];
-                                  // PERF: ValueKey helps Flutter track widget identity across rebuilds
                                   return KeyedSubtree(
-                                    key: ValueKey(message.id),
+                                    key: _transcriptAnchorKeys.keyFor(
+                                      message.id,
+                                    ),
                                     child: _buildMessageGroup(message),
                                   );
                                 },

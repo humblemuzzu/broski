@@ -33,9 +33,10 @@ export async function* readJsonlLineSpans(
 	const headBytes = options.headBytes ?? DEFAULT_SPAN_HEAD_BYTES;
 	if (chunkBytes <= 0 || headBytes <= 0) return;
 
-	const handle = await open(path, "r");
+	// Oversized buffers throw here; allocating after `open` would leak the fd.
 	const buffer = Buffer.allocUnsafe(chunkBytes);
 	const head = Buffer.allocUnsafe(headBytes);
+	const handle = await open(path, "r");
 	const decoder = new TextDecoder("utf-8");
 
 	let headFilled = 0;

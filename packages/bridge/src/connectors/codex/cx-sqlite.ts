@@ -40,10 +40,20 @@ export function findCodexStateDbPath(): string | null {
 
 type DbRow = Record<string, unknown>;
 
+/**
+ * How long a read waits for the writer that holds the database (Codex itself) to release it. Without
+ * this SQLite returns `SQLITE_BUSY` at once, which the callers see as a broken index.
+ */
+const DB_BUSY_TIMEOUT_MS = 250;
+
 function openDb(dbPath: string): Database | null {
+	let db: Database | null = null;
 	try {
-		return new Database(dbPath, { readonly: true });
+		db = new Database(dbPath, { readonly: true });
+		db.exec(`PRAGMA busy_timeout = ${DB_BUSY_TIMEOUT_MS}`);
+		return db;
 	} catch {
+		db?.close();
 		return null;
 	}
 }

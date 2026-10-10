@@ -21,6 +21,14 @@ export type IndexCacheOptions = {
 export const INDEX_CACHE_FILE_MODE = 0o600;
 export const INDEX_CACHE_DIR_MODE = 0o700;
 
+let tmpSequence = 0;
+
+/** A name no other write in this process can be using, so two writes never share one temp file. */
+function tmpPathFor(path: string): string {
+	tmpSequence += 1;
+	return `${path}.${process.pid}.${tmpSequence}.tmp`;
+}
+
 type SchemaHeader = { schema: number };
 
 function readSchemaHeader(line: string | undefined): SchemaHeader | null {
@@ -81,7 +89,7 @@ export async function writeIndexCacheLines(options: IndexCacheOptions, lines: st
 		kept.push(line);
 	}
 
-	const tmpPath = `${options.path}.${process.pid}.tmp`;
+	const tmpPath = tmpPathFor(options.path);
 	try {
 		await mkdir(dirname(options.path), { recursive: true, mode: INDEX_CACHE_DIR_MODE });
 		const body = kept.length > 0 ? `${headerLine}\n${kept.join("\n")}\n` : `${headerLine}\n`;

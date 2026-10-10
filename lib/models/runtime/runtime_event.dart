@@ -11,7 +11,11 @@ sealed class RuntimeEvent {
   final String? toolCallId;
   final String? streamId;
   final String? turnId;
+
+  /// Newest sequence number of this event. A coalesced delta carries the seq of its last merged
+  /// delta, so [seqStart] names the first one.
   final int? seq;
+  final int? seqStart;
   final bool replayed;
   final Map<String, dynamic>? backendData;
 
@@ -26,6 +30,7 @@ sealed class RuntimeEvent {
     this.streamId,
     this.turnId,
     this.seq,
+    this.seqStart,
     this.replayed = false,
     this.backendData,
   });
@@ -86,6 +91,7 @@ sealed class RuntimeEvent {
     if (streamId != null) 'streamId': streamId,
     if (turnId != null) 'turnId': turnId,
     if (seq != null) 'seq': seq,
+    if (seqStart != null) 'seqStart': seqStart,
     if (replayed) 'replayed': replayed,
     if (backendData != null) 'backendData': backendData,
   };
@@ -104,6 +110,7 @@ class RuntimeAgentStartedEvent extends RuntimeEvent {
         streamId: _stringField(json, 'streamId'),
         turnId: _stringField(json, 'turnId'),
         seq: (json['seq'] as num?)?.toInt(),
+        seqStart: (json['seqStart'] as num?)?.toInt(),
         replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
@@ -128,6 +135,7 @@ class RuntimeAgentFinishedEvent extends RuntimeEvent {
         streamId: _stringField(json, 'streamId'),
         turnId: _stringField(json, 'turnId'),
         seq: (json['seq'] as num?)?.toInt(),
+        seqStart: (json['seqStart'] as num?)?.toInt(),
         replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
@@ -155,6 +163,7 @@ class RuntimeAssistantTextDeltaEvent extends RuntimeEvent {
         streamId: _stringField(json, 'streamId'),
         turnId: _stringField(json, 'turnId'),
         seq: (json['seq'] as num?)?.toInt(),
+        seqStart: (json['seqStart'] as num?)?.toInt(),
         replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
@@ -179,6 +188,7 @@ class RuntimeAssistantThinkingDeltaEvent extends RuntimeEvent {
         streamId: _stringField(json, 'streamId'),
         turnId: _stringField(json, 'turnId'),
         seq: (json['seq'] as num?)?.toInt(),
+        seqStart: (json['seqStart'] as num?)?.toInt(),
         replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
@@ -205,6 +215,7 @@ class RuntimeToolStartedEvent extends RuntimeEvent {
         streamId: _stringField(json, 'streamId'),
         turnId: _stringField(json, 'turnId'),
         seq: (json['seq'] as num?)?.toInt(),
+        seqStart: (json['seqStart'] as num?)?.toInt(),
         replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
@@ -237,6 +248,7 @@ class RuntimeToolUpdatedEvent extends RuntimeEvent {
         streamId: _stringField(json, 'streamId'),
         turnId: _stringField(json, 'turnId'),
         seq: (json['seq'] as num?)?.toInt(),
+        seqStart: (json['seqStart'] as num?)?.toInt(),
         replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
@@ -272,6 +284,7 @@ class RuntimeToolFinishedEvent extends RuntimeEvent {
         streamId: _stringField(json, 'streamId'),
         turnId: _stringField(json, 'turnId'),
         seq: (json['seq'] as num?)?.toInt(),
+        seqStart: (json['seqStart'] as num?)?.toInt(),
         replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
@@ -304,6 +317,7 @@ class RuntimePermissionRequestedEvent extends RuntimeEvent {
         streamId: _stringField(json, 'streamId'),
         turnId: _stringField(json, 'turnId'),
         seq: (json['seq'] as num?)?.toInt(),
+        seqStart: (json['seqStart'] as num?)?.toInt(),
         replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
@@ -333,6 +347,7 @@ class RuntimeUserInputRequestedEvent extends RuntimeEvent {
         streamId: _stringField(json, 'streamId'),
         turnId: _stringField(json, 'turnId'),
         seq: (json['seq'] as num?)?.toInt(),
+        seqStart: (json['seqStart'] as num?)?.toInt(),
         replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
@@ -362,6 +377,7 @@ class RuntimeSessionStateChangedEvent extends RuntimeEvent {
         streamId: _stringField(json, 'streamId'),
         turnId: _stringField(json, 'turnId'),
         seq: (json['seq'] as num?)?.toInt(),
+        seqStart: (json['seqStart'] as num?)?.toInt(),
         replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
@@ -389,6 +405,7 @@ class RuntimeCompactionStartedEvent extends RuntimeEvent {
         streamId: _stringField(json, 'streamId'),
         turnId: _stringField(json, 'turnId'),
         seq: (json['seq'] as num?)?.toInt(),
+        seqStart: (json['seqStart'] as num?)?.toInt(),
         replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
@@ -420,6 +437,7 @@ class RuntimeCompactionFinishedEvent extends RuntimeEvent {
         streamId: _stringField(json, 'streamId'),
         turnId: _stringField(json, 'turnId'),
         seq: (json['seq'] as num?)?.toInt(),
+        seqStart: (json['seqStart'] as num?)?.toInt(),
         replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
@@ -455,6 +473,7 @@ class RuntimeRetryStartedEvent extends RuntimeEvent {
         streamId: _stringField(json, 'streamId'),
         turnId: _stringField(json, 'turnId'),
         seq: (json['seq'] as num?)?.toInt(),
+        seqStart: (json['seqStart'] as num?)?.toInt(),
         replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
@@ -489,6 +508,7 @@ class RuntimeRetryFinishedEvent extends RuntimeEvent {
         streamId: _stringField(json, 'streamId'),
         turnId: _stringField(json, 'turnId'),
         seq: (json['seq'] as num?)?.toInt(),
+        seqStart: (json['seqStart'] as num?)?.toInt(),
         replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
@@ -522,6 +542,7 @@ class RuntimeErrorEvent extends RuntimeEvent {
         streamId: _stringField(json, 'streamId'),
         turnId: _stringField(json, 'turnId'),
         seq: (json['seq'] as num?)?.toInt(),
+        seqStart: (json['seqStart'] as num?)?.toInt(),
         replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );
@@ -553,6 +574,7 @@ class RuntimeBackendEvent extends RuntimeEvent {
         streamId: _stringField(json, 'streamId'),
         turnId: _stringField(json, 'turnId'),
         seq: (json['seq'] as num?)?.toInt(),
+        seqStart: (json['seqStart'] as num?)?.toInt(),
         replayed: json['replayed'] as bool? ?? false,
         backendData: _asMap(json['backendData']),
       );

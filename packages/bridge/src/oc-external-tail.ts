@@ -19,10 +19,15 @@ export type OcExternalTailContext = {
 /**
  * Messages fetched per poll. The OpenCode SDK has no `since` cursor, only a `limit` that returns the
  * newest page, and a busy session polls every 150 ms: re-fetching a whole long transcript that often
- * was the cost this avoids. Anything older than the newest page has already been seen or is a message
- * the tail was never going to emit.
+ * was the cost this avoids. A saturated page that no longer holds the previous poll's last message
+ * means more than a page arrived in one interval, and that poll reads the whole transcript instead.
  */
 export const OC_TAIL_MESSAGE_LIMIT = 50;
+
+function messageIdOf(message: unknown): string | null {
+	const info = (message as { info?: { id?: unknown } } | null | undefined)?.info;
+	return typeof info?.id === "string" ? info.id : null;
+}
 
 export function startOpenCodeExternalTail(
 	sessionId: string,
@@ -44,6 +49,7 @@ export function startOpenCodeExternalTail(
 	let idleCount = 0; // Track consecutive idle polls for adaptive polling
 	let lastChangeTime = Date.now(); // Track when we last detected content changes
 	let wasEverBusy = false; // Track if we've ever seen activity (to avoid false idle on startup)
+	let lastPageTailId: string | null = null; // Newest message of the previous poll, for gap detection
 
 	const poll = async () => {
 		if (stopped) return;
@@ -92,9 +98,22 @@ export function startOpenCodeExternalTail(
 				});
 			}
 
-			// Get the newest page of session messages
-			const messages = await ctx.oc.getSessionMessages(sessionId, projectPath, OC_TAIL_MESSAGE_LIMIT).catch(() => null);
-			if (!messages || !Array.isArray(messages)) return;
+			// Get the newest page of session messages, widening it to the whole transcript when the page
+			// is saturated and the previous poll's last message has already fallen off it.
+			const newestPage = await ctx.oc
+				.getSessionMessages(sessionId, projectPath, OC_TAIL_MESSAGE_LIMIT)
+				.catch(() => null);
+			if (!newestPage || !Array.isArray(newestPage)) return;
+			const pageLostTheTail =
+				initialSyncDone &&
+				newestPage.length >= OC_TAIL_MESSAGE_LIMIT &&
+				lastPageTailId !== null &&
+				!newestPage.some((message: unknown) => messageIdOf(message) === lastPageTailId);
+			const widened = pageLostTheTail
+				? await ctx.oc.getSessionMessages(sessionId, projectPath).catch(() => null)
+				: null;
+			const messages = Array.isArray(widened) ? widened : newestPage;
+			lastPageTailId = messages.length > 0 ? messageIdOf(messages[messages.length - 1]) : lastPageTailId;
 
 			let hadChanges = false;
 
