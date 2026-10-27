@@ -6,6 +6,7 @@ import { runDaemonChecks } from "./daemon";
 import { runDependencyChecks } from "./dependencies";
 import { runNetworkChecks } from "./network";
 import { runSecurityChecks } from "./security";
+import { runShellEnvChecks } from "./shell-env";
 import { runSystemChecks } from "./system";
 
 const PROFILE_CATEGORIES: Record<DoctorProfile, Set<CheckResult["category"]>> = {
@@ -28,6 +29,7 @@ export async function runAllChecks(
 		...(await runSecurityChecks(ctx)),
 		...(await runDaemonChecks(ctx, { deep: opts.deep })),
 		...(await runAgentChecks()),
+		...(await runShellEnvChecks()),
 		...(await runConnectivityChecks(ctx, { deep: opts.deep })),
 	];
 

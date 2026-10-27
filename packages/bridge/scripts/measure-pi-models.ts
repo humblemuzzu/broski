@@ -3,8 +3,12 @@
  *
  * Read-only: it never writes to `~/.pi`. Compare the count with `pi --list-models`: the two must list the same
  * models, because both come from the same SDK call. Run it with `bun scripts/measure-pi-models.ts`.
+ *
+ * `--service-env` imports the login-shell environment first, the way the bridge does when launchd starts it, so
+ * the output shows what the phone sees rather than what this terminal sees.
  */
 
+import { applyServiceShellEnv } from "../src/platform/shell-env";
 import { readPiModelCatalogue } from "../src/connectors/pi/pi-model-catalogue";
 import { refreshPiModelRuntime } from "../src/connectors/pi/pi-model-runtime";
 
@@ -17,6 +21,13 @@ function timed<T>(label: string, run: () => Promise<T>): Promise<T> {
 }
 
 async function main(): Promise<void> {
+	if (process.argv.includes("--service-env")) {
+		await applyServiceShellEnv(
+			{ info: (message) => console.log(message), warn: (message) => console.warn(message) },
+			{ daemon: true },
+		);
+	}
+
 	const catalogue = await timed("lists the catalogue", () => readPiModelCatalogue(process.cwd()));
 
 	const byProvider = new Map<string, number>();
@@ -41,6 +52,14 @@ async function main(): Promise<void> {
 	console.log(
 		fallback === null ? "\nno default model" : `\ndefault: ${fallback.provider}/${fallback.modelId} (${fallback.thinkingLevel})`,
 	);
+
+	console.log(
+		`\nhidden by missing credentials: ${catalogue.hidden.count} models on ${catalogue.hidden.providers.join(", ") || "no provider"}`,
+	);
+	for (const entry of catalogue.selected) {
+		if (entry.unavailableReason === null) continue;
+		console.log(`  ${entry.pattern}: ${entry.name ?? "unknown"} — ${entry.unavailableReason}`);
+	}
 
 	await timed("re-reads Pi's files without the network", () => refreshPiModelRuntime());
 	console.log(`rss ${(process.memoryUsage().rss / 1024 / 1024).toFixed(1)} MiB`);
