@@ -5,8 +5,8 @@ use std::time::Duration;
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
 use tokio::net::UnixStream;
-use tokio::sync::mpsc;
-use tokio::task::JoinHandle;
+use tokio::sync::{mpsc, oneshot};
+use tokio::task::JoinError;
 use tokio::time::timeout;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::http::HeaderValue;
@@ -26,8 +26,6 @@ const INBOUND_QUEUE: usize = 4;
 pub(crate) const LINK_MAX_MESSAGE_BYTES: usize = 8 * 1024 * 1024;
 /// The whole dial: the unix connect plus the websocket upgrade.
 pub(crate) const DIAL_TIMEOUT: Duration = Duration::from_secs(5);
-/// How long the writer gets to give back what it did not write once the read side has ended.
-const WRITER_DRAIN: Duration = Duration::from_secs(5);
 
 const REQUEST: &str = "ws://localhost/v1/link";
 
@@ -77,12 +75,7 @@ async fn run(
     monitor: Arc<BridgeMonitor>,
 ) {
     let unsent = match dial(&socket, &device_id, &device_name).await {
-        Some(socket) => {
-            monitor.opened();
-            let unsent = serve(socket, outbound, &inbound).await;
-            monitor.closed();
-            unsent
-        }
+        Some(socket) => serve(socket, outbound, &inbound, &monitor).await,
         None => Vec::new(),
     };
     if inbound.send(BridgeIn::Closed { unsent }).await.is_err() {
@@ -91,42 +84,43 @@ async fn run(
 }
 
 /// One live socket: reports it ready, then pumps both directions until one of them ends.
+///
+/// The monitor stops counting the socket as soon as its read side ends: a socket that is already
+/// dead must not hold the process state at `up`, or a crashed bridge keeps reading as one that is
+/// still there. Only the writer's queue can outlive that, so it is stopped and drained next.
 async fn serve(
     socket: WebSocketStream<UnixStream>,
     outbound: mpsc::Receiver<Vec<u8>>,
     inbound: &mpsc::Sender<BridgeIn>,
+    monitor: &BridgeMonitor,
 ) -> Vec<Vec<u8>> {
+    monitor.opened();
     if inbound.send(BridgeIn::Ready).await.is_err() {
+        monitor.closed();
         return Vec::new();
     }
     let (sink, source) = socket.split();
-    let mut writer = tokio::spawn(write_loop(sink, outbound));
+    let (stop, stopped) = oneshot::channel();
+    let mut writer = tokio::spawn(write_loop(sink, outbound, stopped));
     let finished = tokio::select! {
         _ = read_loop(source, inbound) => None,
         finished = &mut writer => Some(finished),
     };
+    monitor.closed();
     match finished {
-        Some(Ok(unsent)) => unsent,
-        Some(Err(error)) => {
-            warn!(error = %error, "bridge writer ended early");
-            Vec::new()
+        Some(finished) => ended(finished),
+        None => {
+            let _ = stop.send(());
+            ended(writer.await)
         }
-        None => drain_writer(&mut writer).await,
     }
 }
 
-/// The read side is gone, so the writer's next send fails on the dead socket. Waiting for that is
-/// what gives back the messages it holds; a socket that never fails must not hold the session.
-async fn drain_writer(writer: &mut JoinHandle<Vec<Vec<u8>>>) -> Vec<Vec<u8>> {
-    match timeout(WRITER_DRAIN, &mut *writer).await {
-        Ok(Ok(unsent)) => unsent,
-        Ok(Err(error)) => {
+fn ended(finished: Result<Vec<Vec<u8>>, JoinError>) -> Vec<Vec<u8>> {
+    match finished {
+        Ok(unsent) => unsent,
+        Err(error) => {
             warn!(error = %error, "bridge writer ended early");
-            Vec::new()
-        }
-        Err(_) => {
-            writer.abort();
-            warn!("bridge writer did not stop in time; its queued messages are lost");
             Vec::new()
         }
     }
@@ -177,12 +171,27 @@ async fn connect(
 
 /// Reads and writes in separate tasks, so a slow peer cannot stall the other direction. On the way
 /// out it returns every message it did not write, the one that failed included.
-async fn write_loop(mut sink: Sink, mut outbound: mpsc::Receiver<Vec<u8>>) -> Vec<Vec<u8>> {
+///
+/// `stop` is how the read side ends it: waiting for the write to fail would hold the session for as
+/// long as the bridge leaves its write half open. A send already on the wire dies with the socket.
+async fn write_loop(
+    mut sink: Sink,
+    mut outbound: mpsc::Receiver<Vec<u8>>,
+    mut stop: oneshot::Receiver<()>,
+) -> Vec<Vec<u8>> {
     let mut unsent = Vec::new();
-    while let Some(bytes) = outbound.recv().await {
+    while let Some(bytes) = next_message(&mut outbound, &mut stop).await {
         // The payload is kept so a write that fails can hand the message back.
-        if let Err(error) = sink.send(to_message(bytes.clone())).await {
-            warn!(error = %error, len = bytes.len(), "bridge refused a message");
+        let mut written = false;
+        tokio::select! {
+            biased;
+            _ = &mut stop => {}
+            result = sink.send(to_message(bytes.clone())) => match result {
+                Ok(()) => written = true,
+                Err(error) => warn!(error = %error, len = bytes.len(), "bridge refused a message"),
+            },
+        }
+        if !written {
             unsent.push(bytes);
             break;
         }
@@ -191,6 +200,17 @@ async fn write_loop(mut sink: Sink, mut outbound: mpsc::Receiver<Vec<u8>>) -> Ve
         unsent.push(bytes);
     }
     unsent
+}
+
+async fn next_message(
+    outbound: &mut mpsc::Receiver<Vec<u8>>,
+    stop: &mut oneshot::Receiver<()>,
+) -> Option<Vec<u8>> {
+    tokio::select! {
+        biased;
+        _ = &mut *stop => None,
+        message = outbound.recv() => message,
+    }
 }
 
 async fn read_loop(mut source: Source, inbound: &mpsc::Sender<BridgeIn>) {

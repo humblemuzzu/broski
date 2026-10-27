@@ -169,7 +169,9 @@ listening. `broski-link status` reports it as it is; each session reports its ow
 The bridge websocket carries `x-broski-device-id`, `x-broski-role: owner` and, once known,
 `x-broski-device-name`, and accepts one message of at most 8 MiB. A reader task and a writer task
 keep one slow direction from stalling the other; a close from the bridge is logged with its code and
-reason.
+reason. The socket stops counting towards `up` the moment its read side ends, and the writer is
+stopped and drained right after, so a bridge that dies is reported as crashed instead of as a
+bridge that is still there, and nothing it never wrote is lost.
 
 ## Ports and CLI
 
