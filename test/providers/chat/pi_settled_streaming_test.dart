@@ -18,9 +18,8 @@ RuntimeEvent pi(
   });
 }
 
-/// The bridge maps Pi `agent-end`, `turn-end`, and `agent-settled` onto
-/// `agent_finished`; only the settled one ends the run, and every state
-/// snapshot the bridge publishes stays authoritative.
+/// The bridge ends a Pi run with `agent-end` and follows it with a state snapshot at `agent-settled`;
+/// every state snapshot stays authoritative for whether the session is streaming.
 void main() {
   group('Pi turn settling', () {
     test('an intermediate agent-end is overridden by the run snapshot', () {

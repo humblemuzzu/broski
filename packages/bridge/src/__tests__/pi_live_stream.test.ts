@@ -9,8 +9,9 @@ import { appendFile } from "node:fs/promises";
 import { resolveSessionFilePath } from "../connectors/pi/pi-session-queries";
 import type { BroskiRuntimeEvent } from "../types/runtime";
 import { E2E_TEST_TIMEOUT_MS } from "./e2e/harness";
-import { type PiLiveRig, runtimeEventsOf, startPiLiveRig, waitForEvent } from "./helpers/pi-live-rig";
+import { framesOf, type PiLiveRig, runtimeEventsOf, startPiLiveRig, waitForEvent } from "./helpers/pi-live-rig";
 import type { ScriptedTurn } from "./helpers/scripted-openai-server";
+import type { LinkFrame } from "./link/unix-ws";
 
 setDefaultTimeout(E2E_TEST_TIMEOUT_MS);
 
@@ -98,6 +99,27 @@ describe("a Pi turn reaches a phone that only sent the prompt", () => {
 		expect(types.filter((type) => type === "agent_finished")).toHaveLength(1);
 		expect(types.at(-1)).toBe("agent_finished");
 		expect(types.indexOf("tool_finished")).toBeLessThan(types.lastIndexOf("agent_finished"));
+	});
+
+	test("no runtime state claims the session is still streaming after the agent finished", async () => {
+		rig = await startPiLiveRig({ turns: COMMITS_TURNS });
+		await rig.newSession();
+		rig.client.clear();
+
+		await rig.chat("how many commits?");
+		await waitForEvent(rig.client, "agent_finished");
+		await rig.client.waitForWhere(
+			(frame) => runtimeStates(frame).some((state) => state.isStreaming === false),
+			"the settled runtime_state",
+		);
+		const frames = framesOf(rig.client);
+		const finishedAt = frames.findIndex(
+			(frame) => frame.type === "runtime_event" && eventType(frame) === "agent_finished",
+		);
+		const statesAfter = frames.slice(finishedAt).filter((frame) => frame.type === "runtime_state");
+
+		expect(statesAfter.length).toBeGreaterThan(0);
+		for (const state of statesAfter) expect((state.data as { isStreaming: boolean }).isStreaming).toBe(false);
 	});
 
 	test("a tool result is finished before the next model turn's events", async () => {
@@ -200,6 +222,17 @@ async function runningCommandPid(live: PiLiveRig): Promise<number> {
 function framesWithPid(frame: Record<string, unknown>): unknown[] {
 	const inner = frame.type === "batch" ? (frame.messages as Record<string, unknown>[]) : [frame];
 	return inner.filter((message) => /pid=\d+/.test(JSON.stringify(message)) && message.type === "runtime_event");
+}
+
+function eventType(frame: LinkFrame): string {
+	return (frame.data as BroskiRuntimeEvent).type;
+}
+
+function runtimeStates(frame: LinkFrame): Array<{ isStreaming: boolean }> {
+	const inner = frame.type === "batch" ? (frame.messages as LinkFrame[]) : [frame];
+	return inner
+		.filter((message) => message.type === "runtime_state")
+		.map((message) => message.data as { isStreaming: boolean });
 }
 
 function terminalUserEntry(content: string): object {
