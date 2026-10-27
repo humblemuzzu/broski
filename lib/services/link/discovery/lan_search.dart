@@ -10,7 +10,8 @@ const lanAbsentVerdictDelay = Duration(seconds: 8);
 /// A route reported again inside this window is not a reason to dial again.
 const lanRouteRedialInterval = Duration(seconds: 2);
 
-/// How many LAN routes a machine record keeps: what is advertising now first.
+/// How many routes a machine record keeps beyond the ones the machine reports
+/// now, so one that moves back to an address it used before is still dialled.
 const lanRouteHistoryMax = 4;
 
 /// What a browse knows that the link status cannot say for itself.
@@ -67,14 +68,21 @@ bool lanSearchWanted({required bool foreground, required LinkStatus? status}) =>
     status?.state != LinkConnectionState.connected &&
     status?.state != LinkConnectionState.closed;
 
-/// The record's LAN routes: what is advertising now, then what worked before,
-/// newest first and at most [lanRouteHistoryMax] of them.
-List<String> mergeLanRoutes(List<String> discovered, List<String> stored) {
+/// The record's LAN routes: every route the machine reports or advertises now,
+/// in its order, then up to [lanRouteHistoryMax] of the routes it had before,
+/// newest first.
+List<String> mergeLanRoutes(List<String> current, List<String> stored) {
   final merged = <String>[];
-  for (final route in <String>[...discovered, ...stored]) {
+  for (final route in current) {
     if (route.isEmpty || merged.contains(route)) continue;
-    if (merged.length == lanRouteHistoryMax) break;
     merged.add(route);
+  }
+  var kept = 0;
+  for (final route in stored) {
+    if (kept == lanRouteHistoryMax) break;
+    if (route.isEmpty || merged.contains(route)) continue;
+    merged.add(route);
+    kept++;
   }
   return merged;
 }

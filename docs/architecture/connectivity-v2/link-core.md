@@ -80,8 +80,10 @@ permission prompt, not the background, so it does not stop the browse.
 
 An advert is a hint and nothing more. The Noise handshake authenticates the machine on the socket,
 so a spoofed advert costs a dial that fails in `msg2`, never a session with something else. What
-answers is written into the record — newest first, at most `lanRouteHistoryMax`, never dropping an
-entry that already worked — so the next connect tries it first. A route reported again inside
+answers is written into the record so the next connect tries it first. The record keeps every route
+the machine advertises or reports in `routes` now, then up to `lanRouteHistoryMax` routes it had
+before, newest first: a machine that moves back to an address it used earlier is dialled there
+without waiting for an advert. A route reported again inside
 `lanRouteRedialInterval` is not a reason to dial again, so a chatty responder cannot spin the link.
 A `lost` event never tears a connection down: a machine that stopped advertising may still answer.
 

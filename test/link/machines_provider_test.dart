@@ -211,12 +211,41 @@ void main() {
 
     expect(after.id, before.id);
     expect(after.relay, Uri.parse('ws://10.0.0.9:7777'));
-    expect(after.lan, ['10.0.0.9:7777', '10.0.0.3:8765']);
+    expect(after.lan.take(2), ['10.0.0.9:7777', '10.0.0.3:8765']);
     expect(after.relayToken, before.relayToken);
     expect(after.fingerprint, before.fingerprint);
     final stored = (await MachineStore(StorageService()).load()).single;
     expect(stored.relay, Uri.parse('ws://10.0.0.9:7777'));
-    expect(stored.lan, ['10.0.0.9:7777', '10.0.0.3:8765']);
+    expect(stored.lan, after.lan);
+  });
+
+  test('applyRoutes keeps the address a machine moved away from', () async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final pairing = generatedPairing();
+    await pair(container, pairing.pending, pairing.publicBundle);
+    final notifier = container.read(machinesProvider.notifier);
+    final id = container.read(machinesProvider).machines.single.id;
+
+    await notifier.applyRoutes(id, {
+      'lan': ['192.168.1.16:18275'],
+    });
+    await notifier.applyRoutes(id, {
+      'lan': ['192.168.1.16:18299'],
+    });
+    expect(
+      container.read(machinesProvider).machines.single.lan.take(2),
+      ['192.168.1.16:18299', '192.168.1.16:18275'],
+      reason: 'the port it left is still dialled if it comes back',
+    );
+
+    await notifier.applyRoutes(id, {
+      'lan': ['192.168.1.16:18275'],
+    });
+    expect(container.read(machinesProvider).machines.single.lan.take(2), [
+      '192.168.1.16:18275',
+      '192.168.1.16:18299',
+    ]);
   });
 
   test('applyRoutes clears a relay the daemon dropped', () async {
@@ -224,15 +253,20 @@ void main() {
     addTearDown(container.dispose);
     final pairing = generatedPairing();
     await pair(container, pairing.pending, pairing.publicBundle);
+    final before = container.read(machinesProvider).machines.single;
 
-    await container.read(machinesProvider.notifier).applyRoutes(
-      container.read(machinesProvider).machines.single.id,
-      {'relay': null, 'lan': <String>[]},
-    );
+    await container.read(machinesProvider.notifier).applyRoutes(before.id, {
+      'relay': null,
+      'lan': <String>[],
+    });
 
     final machine = container.read(machinesProvider).machines.single;
     expect(machine.relay, isNull);
-    expect(machine.lan, isEmpty);
+    expect(
+      machine.lan,
+      before.lan,
+      reason: 'an empty report keeps the routes that worked before',
+    );
   });
 
   test('applyRoutes for an unknown machine changes nothing', () async {

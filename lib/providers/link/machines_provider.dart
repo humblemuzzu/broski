@@ -117,7 +117,9 @@ class MachinesNotifier extends StateNotifier<MachinesState> {
     );
   }
 
-  /// Applies a `routes` push. One for a machine this phone no longer knows is
+  /// Applies a `routes` push: the reported LAN routes go in front of the ones
+  /// the record already had, so a machine that returns to an earlier address is
+  /// still dialled there. One for a machine this phone no longer knows is
   /// dropped: there is nothing left to route to.
   Future<void> applyRoutes(
     String machineId,
@@ -131,7 +133,7 @@ class MachinesNotifier extends StateNotifier<MachinesState> {
       machine.copyWith(
         relay: relay,
         clearRelay: relay == null,
-        lan: _parseLan(routes['lan']),
+        lan: mergeLanRoutes(_parseLan(routes['lan']), machine.lan),
       ),
     );
   }

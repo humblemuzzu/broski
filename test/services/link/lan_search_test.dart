@@ -253,14 +253,20 @@ void main() {
       ]);
     });
 
-    test('keep one entry per address and stay bounded', () {
+    test('keep one entry per address and a bounded history', () {
       final merged = mergeLanRoutes(
         ['a:1', 'b:1', 'a:1'],
-        ['c:1', 'd:1', 'e:1', 'b:1', 'f:1'],
+        ['c:1', 'd:1', 'e:1', 'b:1', 'f:1', 'g:1'],
       );
 
-      expect(merged, ['a:1', 'b:1', 'c:1', 'd:1']);
-      expect(merged, hasLength(lanRouteHistoryMax));
+      expect(merged, ['a:1', 'b:1', 'c:1', 'd:1', 'e:1', 'f:1']);
+      expect(merged.skip(2), hasLength(lanRouteHistoryMax));
+    });
+
+    test('never drop a route the machine reports now', () {
+      final current = [for (var port = 1; port <= 8; port++) 'h:$port'];
+
+      expect(mergeLanRoutes(current, ['old:1']), [...current, 'old:1']);
     });
   });
 }
