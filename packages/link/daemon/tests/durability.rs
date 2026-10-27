@@ -17,6 +17,7 @@ fn options(home: &Path, bridge_socket: PathBuf) -> RunOptions {
         lan: true,
         bridge_socket,
         bridge_cmd: None,
+        advertise: false,
         durations: broski_link_daemon::durations::Durations::default(),
     }
 }

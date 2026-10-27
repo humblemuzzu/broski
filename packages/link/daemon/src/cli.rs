@@ -66,6 +66,9 @@ pub struct RunArgs {
     /// Do not listen on the LAN
     #[arg(long)]
     pub no_lan: bool,
+    /// Do not announce the machine over mDNS
+    #[arg(long)]
+    pub no_advertise: bool,
     /// Bridge unix socket path; defaults to <home>/bridge.sock
     #[arg(long, value_name = "PATH")]
     pub bridge_socket: Option<PathBuf>,
@@ -88,6 +91,7 @@ impl RunArgs {
                 .or(config.lan_port)
                 .unwrap_or(DEFAULT_LAN_PORT),
             lan: !self.no_lan && config.lan.unwrap_or(true),
+            advertise: !self.no_advertise,
             bridge_cmd: self.bridge_cmd,
             home,
             durations: Durations::default(),

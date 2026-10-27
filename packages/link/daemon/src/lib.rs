@@ -64,6 +64,8 @@ pub struct RunOptions {
     pub lan: bool,
     pub bridge_socket: PathBuf,
     pub bridge_cmd: Option<Vec<String>>,
+    /// Announce the machine over mDNS. Off for daemons that must not show up on a real network.
+    pub advertise: bool,
     pub durations: Durations,
 }
 
@@ -82,6 +84,12 @@ impl Handle {
     }
 
     pub async fn stop(mut self) {
+        if let Some(advertisement) = self.advertisement.take() {
+            if let Err(error) = tokio::task::spawn_blocking(move || advertisement.withdraw()).await
+            {
+                debug!(error = %error, "the advertisement withdrawal did not finish");
+            }
+        }
         let _ = self.stop.send(true);
         let tasks = &mut self.tasks;
         let drained = timeout(SHUTDOWN_DRAIN, async {
@@ -90,9 +98,6 @@ impl Handle {
         .await;
         if drained.is_err() {
             self.tasks.shutdown().await;
-        }
-        if let Some(advertisement) = self.advertisement.take() {
-            advertisement.withdraw();
         }
     }
 }
@@ -139,8 +144,11 @@ async fn parts(
     let (busy, busy_signal) = watch::channel(false);
     let (commands, command_rx) = mpsc::channel(RELAY_COMMANDS);
     let seen = letters::replay::Seen::open(&options.home, options.durations.letter_ttl).await?;
-    let advertisement =
-        discovery::Advertisement::start(store.name(), &identity.public().id(), lan_port);
+    let advertisement = if options.advertise {
+        discovery::Advertisement::start(store.name(), &identity.public().id(), lan_port)
+    } else {
+        None
+    };
     let parts = Parts {
         identity,
         link_key,

@@ -14,6 +14,9 @@ pub struct Options {
     pub bridge_socket: Option<PathBuf>,
     pub bridge_cmd: Option<Vec<String>>,
     pub seed: Option<Vec<u8>>,
+    /// Off by default: a test daemon announcing itself on the developer's real network shows up in
+    /// real phones' browsers under the developer's machine name.
+    pub advertise: bool,
     pub durations: broski_link_daemon::durations::Durations,
 }
 
@@ -25,6 +28,7 @@ impl Default for Options {
             bridge_socket: None,
             bridge_cmd: None,
             seed: None,
+            advertise: false,
             durations: broski_link_daemon::durations::Durations::default(),
         }
     }
@@ -54,6 +58,7 @@ impl TestDaemon {
             lan: options.lan,
             bridge_socket: bridge_socket.clone(),
             bridge_cmd: options.bridge_cmd,
+            advertise: options.advertise,
             durations: options.durations,
         })
         .await

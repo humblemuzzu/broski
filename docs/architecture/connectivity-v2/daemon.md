@@ -263,13 +263,22 @@ The daemon advertises itself with mDNS/DNS-SD so the phone can find the machine 
 | Record | Value |
 |---|---|
 | service type | `_broski-link._tcp` in `local.` |
-| instance | the machine's display name, sanitised to a DNS-SD label (printable, no `.`, at most 63 bytes) |
+| instance | `<display name> (<first 8 of the machine id>)`, sanitised to a DNS-SD label (printable, no `.`, at most 63 bytes, the id part always kept) |
+| host | `<display name as a host label>-<first 8 of the machine id>.local.` |
 | port | the port the LAN listener actually bound |
 | TXT | `id=<machine id, 32 lowercase hex>`, `v=1` |
 
-The advertisement covers every non-loopback address the LAN listener serves: the responder follows
-the machine's interfaces itself, and the routes scan re-announces when the address set changes. On
-the way out the daemon withdraws the service with goodbye records.
+The advertisement covers every non-loopback address the LAN listener serves (loopback is disabled
+on the responder): it follows the machine's interfaces itself, and the routes scan re-announces when
+the address set changes. SRV and address records carry a 120 s TTL and the cache-flush bit, so a
+new announcement replaces what a cache still holds.
+
+The names carry the start of the machine id, so no other machine can own them, and probing is off:
+a restarted daemon must never take the records its previous run left in caches for a rival and
+rename itself (`… (2)`) away from the name phones already know. On the way out the advertisement
+is withdrawn first, before any task stops: the daemon waits for the responder to confirm the
+goodbye and for its 120 ms repeat to go out, so caches drop the old port at once. Daemons started
+with `--no-advertise` (and every test daemon except the discovery tests) announce nothing.
 
 The responder is the pure-Rust `mdns-sd` crate, used on macOS and Linux alike. It shares UDP 5353
 with the system responder (`SO_REUSEADDR` + `SO_REUSEPORT`) and joins the mDNS group on each
