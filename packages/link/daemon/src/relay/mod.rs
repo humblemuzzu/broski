@@ -11,7 +11,7 @@ use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, info, warn};
 use zeroize::Zeroizing;
 
-use crate::backoff::Backoff;
+use crate::backoff::{self, Backoff};
 use crate::clock;
 use crate::letters;
 use crate::pairing::Pairing;
@@ -31,6 +31,10 @@ const CLOSE_REPLACED: u16 = 4001;
 const BACKOFF_MIN: Duration = Duration::from_millis(500);
 const BACKOFF_MAX: Duration = Duration::from_secs(30);
 const IDLE_WAKE: Duration = Duration::from_secs(3600);
+/// A socket that stayed up this long proved the relay worth trusting, so the next reconnect starts
+/// from the shortest wait. Anything shorter — a peer that accepts and immediately closes — leaves
+/// the backoff where it was instead of turning it into a permanent retry loop.
+const HEALTHY: Duration = Duration::from_secs(30);
 
 struct Inner {
     sync: Notify,
@@ -116,7 +120,7 @@ async fn run(mut config: Config, handle: RelayHandle) {
                 continue;
             }
         };
-        backoff.reset();
+        let opened = Instant::now();
         handle.set_connected(true);
         info!(relay = %config.url, "relay connected");
 
@@ -133,6 +137,9 @@ async fn run(mut config: Config, handle: RelayHandle) {
         .await;
         session.teardown().await;
         handle.set_connected(false);
+        if backoff::healthy(opened, HEALTHY) {
+            backoff.reset();
+        }
         if let Outcome::Stop = outcome {
             return;
         }
@@ -206,7 +213,7 @@ async fn act(
             None
         }
         Event::Message(Message::Binary(bytes)) => {
-            session.forward(&bytes);
+            session.forward(&bytes).await;
             None
         }
         Event::Message(Message::Close(frame)) => {

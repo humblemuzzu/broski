@@ -41,6 +41,15 @@ async fn a_disconnected_phone_is_woken_and_a_connected_one_is_not() {
 
 /// The registration is stored on the device and reaches the relay as an alert target.
 async fn assert_registration(scenario: &Scenario) {
+    // The registration travels over the link, so the file it lands in is behind the phone's send.
+    let deadline = tokio::time::Instant::now() + WAIT;
+    while scenario.push_registration()["push"].is_null() {
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "the push registration never reached the device"
+        );
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
     assert_eq!(
         scenario.push_registration()["push"],
         json!({"platform": "apns", "token": APNS_TOKEN, "key": KEY_B64}),

@@ -55,7 +55,7 @@ impl Actor {
         self.state.detached();
     }
 
-    async fn drain_events(&mut self) {
+    pub(super) async fn drain_events(&mut self) {
         while let Some(event) = self.link.poll_event() {
             match event {
                 LinkEvent::Connected { resumed } => {
@@ -84,20 +84,22 @@ impl Actor {
         }
     }
 
-    fn transmit(&mut self) {
+    /// Hands the connection everything the link has encoded. True when nothing is left: no frame
+    /// waits for a full out queue and the link itself has nothing more to encode.
+    pub(super) fn transmit(&mut self) -> bool {
         loop {
             if self.sender.is_none() {
-                return;
+                return false;
             }
             let frame = match self.pending_out.take() {
                 Some(frame) => frame,
                 None => match self.link.poll_transmit() {
                     Ok(Some(frame)) => frame,
-                    Ok(None) => return,
+                    Ok(None) => return true,
                     Err(error) => {
                         warn!(error = %error, device = short(&self.device.id), "link seal failed");
                         self.fail(close_codes::SESSION_ERROR);
-                        return;
+                        return false;
                     }
                 },
             };
@@ -105,11 +107,11 @@ impl Actor {
                 Some(Ok(())) => {}
                 Some(Err(SendError::Full(frame))) => {
                     self.pending_out = Some(frame);
-                    return;
+                    return false;
                 }
                 Some(Err(SendError::Closed)) | None => {
                     self.lose_connection();
-                    return;
+                    return false;
                 }
             }
         }

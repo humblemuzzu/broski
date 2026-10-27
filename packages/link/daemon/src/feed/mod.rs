@@ -1,4 +1,5 @@
 pub mod client;
+mod pending;
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -36,6 +37,7 @@ impl Handle {
 
 pub struct Deps {
     pub socket: std::path::PathBuf,
+    pub link_key: std::sync::Arc<crate::link_key::LinkKey>,
     pub machine_id: String,
     pub store: Arc<crate::store::Store>,
     pub registry: Arc<crate::registry::Registry>,

@@ -29,6 +29,10 @@ const OUTBOX: usize = 256;
 const PATH: &str = "/v1/machine";
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const SEND_TIMEOUT: Duration = Duration::from_secs(10);
+/// How long one frame waits for room in a channel's queue before the channel is closed. A phone
+/// that is slow keeps its channel; a phone that has stopped reading loses it, and the relay is
+/// told so it can close the device's side too.
+const FORWARD_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub(super) type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
@@ -160,16 +164,19 @@ impl Session {
         tokio::spawn(async move { responder.run(parts.conn).await });
     }
 
-    pub(super) fn forward(&mut self, frame: &[u8]) {
-        let Some((header, payload)) = frame.split_at_checked(4) else {
+    /// One frame from the relay for one of its channels. Waits for room in the channel's queue
+    /// instead of dropping the channel on the first full one: only a channel that has taken
+    /// nothing for `FORWARD_TIMEOUT` is closed, and the relay is told to close it too.
+    pub(super) async fn forward(&mut self, frame: &[u8]) {
+        let Some((channel, payload)) = split(frame) else {
             return;
         };
-        let channel = u32::from_be_bytes([header[0], header[1], header[2], header[3]]);
-        let Some(inbound) = self.channels.get(&channel) else {
-            return;
-        };
-        if inbound.try_send(payload.to_vec()).is_err() {
-            self.channels.remove(&channel);
+        match forward(&mut self.channels, channel, payload, FORWARD_TIMEOUT).await {
+            Arrived::Delivered | Arrived::Gone => {}
+            Arrived::Stuck => {
+                warn!(channel, "the device channel is not draining; closing it");
+                self.send(json!({ "t": "close", "ch": channel })).await;
+            }
         }
     }
 
@@ -215,6 +222,44 @@ pub(super) async fn connect(config: &Config) -> Result<Session, Fail> {
         return Err(Fail::Closed);
     }
     Ok(session)
+}
+
+/// What became of one frame the relay handed over for a channel.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Arrived {
+    Delivered,
+    /// The channel was already gone.
+    Gone,
+    /// The channel took nothing for the whole window and has been closed.
+    Stuck,
+}
+
+fn split(frame: &[u8]) -> Option<(u32, &[u8])> {
+    let (header, payload) = frame.split_at_checked(4)?;
+    let channel = u32::from_be_bytes([header[0], header[1], header[2], header[3]]);
+    Some((channel, payload))
+}
+
+async fn forward(
+    channels: &mut HashMap<u32, mpsc::Sender<Vec<u8>>>,
+    channel: u32,
+    payload: &[u8],
+    window: Duration,
+) -> Arrived {
+    let Some(inbound) = channels.get(&channel).cloned() else {
+        return Arrived::Gone;
+    };
+    match timeout(window, inbound.send(payload.to_vec())).await {
+        Ok(Ok(())) => Arrived::Delivered,
+        Ok(Err(_)) => {
+            channels.remove(&channel);
+            Arrived::Gone
+        }
+        Err(_) => {
+            channels.remove(&channel);
+            Arrived::Stuck
+        }
+    }
 }
 
 pub(super) enum Fail {
@@ -270,5 +315,65 @@ fn endpoint(base: &str) -> String {
         base.to_owned()
     } else {
         format!("{base}{PATH}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A channel with room is served at once, the next frame is waited on instead of being
+    /// dropped with the channel, and only a channel that stays full for the whole window is
+    /// closed — which is what makes the caller tell the relay.
+    #[tokio::test]
+    async fn a_full_channel_is_waited_on_and_closed_only_when_the_window_runs_out() {
+        let (tx, mut rx) = mpsc::channel(2);
+        let mut channels: HashMap<u32, mpsc::Sender<Vec<u8>>> = HashMap::new();
+        channels.insert(7, tx);
+        for held in [b"held".to_vec(), b"held".to_vec()] {
+            channels
+                .get(&7)
+                .expect("a channel")
+                .try_send(held)
+                .expect("room for the queue");
+        }
+        assert_eq!(
+            forward(&mut channels, 7, b"third", Duration::from_millis(50)).await,
+            Arrived::Stuck,
+            "a channel that never drains is closed"
+        );
+        assert!(!channels.contains_key(&7));
+        assert_eq!(rx.recv().await.expect("the first frame"), b"held".to_vec());
+    }
+
+    #[tokio::test]
+    async fn a_channel_with_room_takes_the_frame() {
+        let (tx, mut rx) = mpsc::channel(2);
+        let mut channels: HashMap<u32, mpsc::Sender<Vec<u8>>> = HashMap::new();
+        channels.insert(7, tx);
+        assert_eq!(
+            forward(&mut channels, 7, b"frame", Duration::from_millis(50)).await,
+            Arrived::Delivered
+        );
+        assert!(channels.contains_key(&7), "the channel is still open");
+        assert_eq!(rx.recv().await.expect("the frame"), b"frame".to_vec());
+    }
+
+    #[tokio::test]
+    async fn a_frame_for_a_channel_that_is_gone_is_dropped_quietly() {
+        let mut channels: HashMap<u32, mpsc::Sender<Vec<u8>>> = HashMap::new();
+        assert_eq!(
+            forward(&mut channels, 9, b"x", Duration::from_millis(10)).await,
+            Arrived::Gone
+        );
+    }
+
+    #[tokio::test]
+    async fn a_frame_too_short_to_name_a_channel_is_ignored() {
+        assert!(split(&[0, 1]).is_none());
+        assert_eq!(
+            split(&[0, 0, 0, 7, 9]).map(|(channel, payload)| (channel, payload.to_vec())),
+            Some((7, vec![9]))
+        );
     }
 }

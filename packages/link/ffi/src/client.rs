@@ -80,7 +80,8 @@ pub unsafe extern "C" fn bl_client_free(client: *mut BlClient) {
 pub unsafe extern "C" fn bl_client_connect(
     client: *mut BlClient,
     pairing_secret32: *const u8,
-    now_ms: u64,
+    // kept in the ABI for the phone's clock; the handshake itself is clock-free
+    _now_ms: u64,
     out_msg1: *mut BlBuf,
 ) -> i32 {
     caught(PANIC, || {
@@ -98,10 +99,7 @@ pub unsafe extern "C" fn bl_client_connect(
                 secret: unsafe { *(pairing_secret32 as *const [u8; 32]) },
             }
         };
-        match client
-            .link
-            .connect(&client.identity, &client.server, mode, now_ms)
-        {
+        match client.link.connect(&client.identity, &client.server, mode) {
             Ok(msg1) => {
                 // SAFETY: `out_msg1` is non-null and the caller guarantees a writable BlBuf.
                 unsafe { out_msg1.write(into_blob(msg1)) };

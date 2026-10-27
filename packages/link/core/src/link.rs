@@ -66,7 +66,6 @@ impl Link {
         identity: &StaticIdentity,
         server: &PublicBundle,
         mode: HandshakeMode,
-        _now_ms: u64,
     ) -> Result<Vec<u8>> {
         self.disconnect();
         self.closed = false;
@@ -74,6 +73,7 @@ impl Link {
             session_id: session.session_id(),
             next_expected: session.next_expected(),
         });
+        // `caps` is reserved: both sides send 0 until a capability is negotiated.
         let hello = Hello { resume, caps: 0 };
         let (initiator, msg1) = Initiator::start(identity, server, mode, &hello.encode())?;
         self.initiator = Some(initiator);

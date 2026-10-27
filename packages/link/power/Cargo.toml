@@ -11,6 +11,8 @@ doctest = false
 [dependencies]
 # one-line error enum for the platform failure modes
 thiserror = "2.0.21"
+# tracing 0.1.44 — a monitor thread that would not stop is reported in the daemon's log.
+tracing = "0.1.44"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # CFRunLoop / CFString / CFArray / CFDictionary / CFNumber, which the IOKit bindings build on

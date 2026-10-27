@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -14,14 +13,18 @@ use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::WebSocketStream;
 use tracing::warn;
 
-use crate::backoff::Backoff;
+use crate::backoff::{self, Backoff};
 use crate::device::short;
 use crate::push::{self, keys, policy, seal};
 use crate::relay::{PushRequest, RelayCommand};
 
+use super::pending::{Pending, UNGROUPED};
 use super::Deps;
 
 const IDLE: Duration = Duration::from_secs(86_400);
+/// A socket that stayed up this long resets the redial backoff; one a bridge accepts and closes at
+/// once leaves it where it was.
+const HEALTHY: Duration = Duration::from_secs(30);
 
 type Socket = WebSocketStream<UnixStream>;
 type Sink = SplitSink<Socket, Message>;
@@ -48,10 +51,13 @@ async fn run(
     let mut debounce = policy::Debounce::new(deps.durations.push_debounce);
     loop {
         if let Some(socket) = dial(&deps).await {
-            backoff.reset();
+            let opened = Instant::now();
             deps.monitor.opened();
             session(socket, &deps, &mut inbox, &mut shutdown, &mut debounce).await;
             deps.monitor.closed();
+            if backoff::healthy(opened, HEALTHY) {
+                backoff.reset();
+            }
         }
         tokio::select! {
             _ = tokio::time::sleep(backoff.next()) => {}
@@ -68,7 +74,7 @@ async fn session(
     debounce: &mut policy::Debounce,
 ) {
     let (mut sink, mut source) = socket.split();
-    let mut pending: HashMap<String, oneshot::Sender<Option<Value>>> = HashMap::new();
+    let mut pending = Pending::new();
     let mut pong_by: Option<Instant> = None;
     let mut ticker = tokio::time::interval(deps.durations.feed_ping);
     ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -106,11 +112,12 @@ async fn session(
     }
 }
 
-async fn forward(
-    sink: &mut Sink,
-    request: Request,
-    pending: &mut HashMap<String, oneshot::Sender<Option<Value>>>,
-) -> bool {
+async fn forward(sink: &mut Sink, request: Request, pending: &mut Pending) -> bool {
+    pending.sweep(Instant::now());
+    let group = match request.message.get("request") {
+        Some(group) if !group.is_null() => group.to_string(),
+        _ => UNGROUPED.to_owned(),
+    };
     if sink
         .send(Message::Text(request.message.to_string().into()))
         .await
@@ -119,21 +126,14 @@ async fn forward(
         let _ = request.reply.send(None);
         return false;
     }
-    match request.message.get("request") {
-        Some(group) => {
-            pending.insert(group.to_string(), request.reply);
-        }
-        None => {
-            let _ = request.reply.send(None);
-        }
-    }
+    pending.wait(group, request.reply);
     true
 }
 
 async fn handle(
     text: &str,
     deps: &Deps,
-    pending: &mut HashMap<String, oneshot::Sender<Option<Value>>>,
+    pending: &mut Pending,
     debounce: &mut policy::Debounce,
     pong_by: &mut Option<Instant>,
 ) {
@@ -155,10 +155,12 @@ async fn handle(
         }
         Some("link_event") => alert(deps, &value, debounce).await,
         Some("link_decision_result") => {
-            if let Some(group) = value.get("request") {
-                if let Some(reply) = pending.remove(&group.to_string()) {
-                    let _ = reply.send(Some(value));
-                }
+            let group = match value.get("request") {
+                Some(group) if !group.is_null() => group.to_string(),
+                _ => UNGROUPED.to_owned(),
+            };
+            if let Some(reply) = pending.take(&group) {
+                let _ = reply.send(Some(value));
             }
         }
         _ => {}
@@ -210,6 +212,7 @@ async fn dial(deps: &Deps) -> Option<Socket> {
     let headers = [("x-broski-role", "link-daemon".to_owned())];
     crate::dial::upgrade(
         &deps.socket,
+        &deps.link_key,
         &headers,
         WebSocketConfig::default(),
         deps.durations.dial_timeout,

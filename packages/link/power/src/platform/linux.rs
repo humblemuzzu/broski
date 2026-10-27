@@ -4,6 +4,7 @@ use std::sync::mpsc;
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
+use tracing::warn;
 use zbus::blocking::proxy::SignalIterator;
 use zbus::blocking::{Connection, Proxy};
 use zbus::zvariant::OwnedFd;
@@ -22,12 +23,26 @@ const WHAT_IDLE: &str = "idle";
 const DELAY: &str = "delay";
 const BLOCK: &str = "block";
 const POWER_SUPPLY_DIR: &str = "/sys/class/power_supply";
+/// How long a stop waits for the signal thread to end before leaving it behind. The thread blocks
+/// on a D-Bus signal, so closing the connection is what should end it; this is the bound that makes
+/// that a promise rather than a hope.
+const MONITOR_JOIN: Duration = Duration::from_secs(2);
 
 pub(crate) struct MonitorInner {
     connection: Option<Connection>,
     notify: Option<mpsc::Sender<Notification>>,
     monitor: Option<JoinHandle<()>>,
+    finished: Option<mpsc::Receiver<()>>,
     worker: Option<JoinHandle<()>>,
+}
+
+/// Signals the waiting `stop` on the way out of the monitor thread, a panic included.
+struct Finished(mpsc::SyncSender<()>);
+
+impl Drop for Finished {
+    fn drop(&mut self) {
+        let _ = self.0.try_send(());
+    }
 }
 
 pub(crate) fn start(grace: Duration, on_event: EventHandler) -> Result<MonitorInner, Error> {
@@ -41,11 +56,15 @@ pub(crate) fn start(grace: Duration, on_event: EventHandler) -> Result<MonitorIn
     let (notify, worker) = event_worker::spawn(on_event)
         .map_err(|err| Error::Os(format!("cannot spawn the power event thread: {err}")))?;
 
+    let (finished, done) = mpsc::sync_channel::<()>(1);
     let monitor = thread::Builder::new()
         .name("broski-power-monitor".to_owned())
         .spawn({
             let notify = notify.clone();
-            move || watch(manager, signals, delay_lock, grace, notify)
+            move || {
+                let _finished = Finished(finished);
+                watch(manager, signals, delay_lock, grace, notify)
+            }
         })
         .map_err(|err| Error::Os(format!("cannot spawn the power monitor thread: {err}")))?;
 
@@ -53,6 +72,7 @@ pub(crate) fn start(grace: Duration, on_event: EventHandler) -> Result<MonitorIn
         connection: Some(connection),
         notify: Some(notify),
         monitor: Some(monitor),
+        finished: Some(done),
         worker: Some(worker),
     })
 }
@@ -62,6 +82,27 @@ pub(crate) fn stop(inner: &mut MonitorInner) {
         let _ = connection.close();
     }
     drop(inner.notify.take());
+    let stopped = match inner.finished.take() {
+        Some(done) => match done.recv_timeout(MONITOR_JOIN) {
+            Ok(()) => true,
+            Err(error) => {
+                warn!(
+                    error = %error,
+                    window = ?MONITOR_JOIN,
+                    "the power monitor did not stop in time; leaving its thread behind"
+                );
+                false
+            }
+        },
+        None => true,
+    };
+    // The event thread only ends once nothing can report to it, which is the monitor thread's
+    // sender: joining it after a monitor that would not stop would hang shutdown all the same.
+    if !stopped {
+        inner.monitor = None;
+        inner.worker = None;
+        return;
+    }
     if let Some(monitor) = inner.monitor.take() {
         let _ = monitor.join();
     }

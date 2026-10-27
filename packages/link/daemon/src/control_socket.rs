@@ -6,7 +6,7 @@ use std::time::Duration;
 use broski_link_core::crypto::StaticIdentity;
 use serde::Deserialize;
 use serde_json::{json, Value};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
@@ -104,7 +104,8 @@ async fn run(
 
 async fn serve(stream: UnixStream, control: Arc<Control>) {
     let (reader, mut writer) = stream.into_split();
-    let mut lines = BufReader::new(reader).lines();
+    let reader = BufReader::new(reader).take((MAX_REQUEST_BYTES + 1) as u64);
+    let mut lines = reader.lines();
     let Ok(Ok(Some(line))) = timeout(REQUEST_TIMEOUT, lines.next_line()).await else {
         return;
     };

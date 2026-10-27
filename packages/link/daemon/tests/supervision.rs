@@ -52,7 +52,12 @@ async fn a_crashing_bridge_is_restarted_and_reported() {
     assert!(runs.len() >= 2, "the bridge was not restarted: {runs:?}");
     assert_eq!(
         runs[0],
-        format!("--link-socket {}", daemon.bridge_socket.display())
+        format!(
+            "--link-socket {} --link-key-file {}",
+            daemon.bridge_socket.display(),
+            daemon.home.join("bridge.key").display()
+        ),
+        "the bridge is told where its socket and the link key are"
     );
 
     daemon.stop().await;

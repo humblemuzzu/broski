@@ -43,9 +43,14 @@ Hello is 6 bytes, 30 when resuming:
 
 Welcome is 30 bytes: version = 1, flags with bit0 = resumed, session id (16), `next_expected` (BE
 u64), caps (BE u32). Both are strict — wrong version, reserved bits, short buffer, trailing bytes all
-fail. `caps` is opaque to this crate.
+fail. `caps` is reserved and opaque: both sides send 0 until a capability is negotiated, and the
+field is carried so that negotiation needs no wire change.
 
 ## Ordering and fragmentation
+
+The control half of the out queue is bounded at 32 frames. A peer that floods PING while the data
+queue is backed up cannot make the queue grow without bound: past the cap a control frame is
+dropped, except CLOSE, which always gets in.
 
 All streams share one seq space per session, and one message's fragments are never interleaved with
 another's. `send` assigns consecutive seqs, sets `MORE` on every fragment but the last, compresses

@@ -12,6 +12,7 @@ use crate::bridge::{BridgeIn, BridgeLink};
 use crate::bridge_status::BridgeMonitor;
 use crate::device::short;
 use crate::limits;
+use crate::link_key::LinkKey;
 
 use super::Input;
 
@@ -23,6 +24,7 @@ const HEALTHY: Duration = Duration::from_secs(30);
 /// the redial schedule when it is down.
 pub(super) struct BridgePump {
     socket: PathBuf,
+    key: Arc<LinkKey>,
     device_id: String,
     monitor: Arc<BridgeMonitor>,
     name: String,
@@ -43,6 +45,7 @@ pub(super) struct BridgePump {
 impl BridgePump {
     pub(super) fn new(
         socket: PathBuf,
+        key: Arc<LinkKey>,
         device_id: String,
         monitor: Arc<BridgeMonitor>,
         name: String,
@@ -50,6 +53,7 @@ impl BridgePump {
     ) -> BridgePump {
         BridgePump {
             socket,
+            key,
             device_id,
             monitor,
             name,
@@ -208,6 +212,7 @@ impl BridgePump {
         debug!(device = short(&self.device_id), "dialling the bridge");
         self.link = Some(crate::bridge::spawn(
             self.socket.clone(),
+            self.key.clone(),
             self.device_id.clone(),
             self.name.clone(),
             self.monitor.clone(),

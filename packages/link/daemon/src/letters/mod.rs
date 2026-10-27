@@ -1,4 +1,3 @@
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use tokio::sync::{mpsc, watch};
@@ -17,6 +16,7 @@ use crate::store::Store;
 
 pub mod apply;
 pub mod open;
+pub mod pipe;
 pub mod replay;
 
 pub use open::Decision;
@@ -33,11 +33,12 @@ pub struct Incoming {
 
 pub struct Deps {
     pub store: Arc<Store>,
+    pub link_key: Arc<crate::link_key::LinkKey>,
     pub registry: Arc<Registry>,
     pub seen: Arc<replay::Seen>,
     pub feed: Handle,
+    pub pipes: Arc<pipe::Pipes>,
     pub relay: mpsc::Sender<RelayCommand>,
-    pub bridge_socket: PathBuf,
     pub machine_id: String,
     pub durations: Durations,
 }
@@ -62,25 +63,48 @@ pub fn spawn(
 }
 
 async fn handle(deps: &Deps, incoming: &Incoming) {
-    if let Err(reason) = apply(deps, incoming).await {
-        debug!(
+    match apply(deps, incoming).await {
+        Outcome::Accepted => ack(deps, incoming.id),
+        Outcome::Rejected(reason) => {
+            debug!(
+                letter = incoming.id,
+                device = crate::device::short(&incoming.device),
+                reason,
+                "letter rejected"
+            );
+            ack(deps, incoming.id);
+        }
+        // The bridge could not be reached, so nothing has happened yet: leaving the letter
+        // unacknowledged is what lets the relay hand it over again later.
+        Outcome::Deferred(reason) => warn!(
             letter = incoming.id,
             device = crate::device::short(&incoming.device),
             reason,
-            "letter rejected"
-        );
-    }
-    if deps
-        .relay
-        .try_send(RelayCommand::LetterAck(incoming.id))
-        .is_err()
-    {
-        warn!(letter = incoming.id, "letter ack not queued");
+            "letter left for the relay to redeliver"
+        ),
     }
 }
 
-async fn apply(deps: &Deps, incoming: &Incoming) -> Result<(), &'static str> {
-    let (device, opened) = read(deps, incoming).await?;
+fn ack(deps: &Deps, id: u64) {
+    if deps.relay.try_send(RelayCommand::LetterAck(id)).is_err() {
+        warn!(letter = id, "letter ack not queued");
+    }
+}
+
+/// What became of one letter: accepted means acted on or delivered, rejected means it will never
+/// be acted on (so it is acked and forgotten), deferred means nothing happened and it must come
+/// back.
+enum Outcome {
+    Accepted,
+    Rejected(&'static str),
+    Deferred(&'static str),
+}
+
+async fn apply(deps: &Deps, incoming: &Incoming) -> Outcome {
+    let (device, opened) = match read(deps, incoming).await {
+        Ok(read) => read,
+        Err(reason) => return Outcome::Rejected(reason),
+    };
     match &opened.body {
         open::Body::Decision {
             backend,
@@ -100,20 +124,20 @@ async fn apply(deps: &Deps, incoming: &Incoming) -> Result<(), &'static str> {
                 ),
                 None => warn!(letter = incoming.id, "decision went unanswered"),
             }
+            Outcome::Accepted
         }
-        open::Body::Bridge { message } => {
-            let delivery = apply::bridge(deps, &device, message).await;
-            if delivery == apply::Delivery::Failed {
-                return Err("bridge unreachable");
+        open::Body::Bridge { message } => match apply::bridge(deps, &device, message).await {
+            apply::Delivery::Failed => Outcome::Deferred("bridge unreachable"),
+            delivery => {
+                debug!(
+                    letter = incoming.id,
+                    delivery = delivery.as_str(),
+                    "bridge message delivered"
+                );
+                Outcome::Accepted
             }
-            debug!(
-                letter = incoming.id,
-                delivery = delivery.as_str(),
-                "bridge message delivered"
-            );
-        }
+        },
     }
-    Ok(())
 }
 
 /// Decrypts and vets one letter: device, key, window, replay.

@@ -1,5 +1,7 @@
 use std::time::Duration;
 
+use tokio::time::Instant;
+
 pub struct Backoff {
     min: Duration,
     max: Duration,
@@ -28,6 +30,12 @@ impl Backoff {
     }
 }
 
+/// True once whatever just ended held for `window`. A peer that accepts a socket and closes it at
+/// once never counts, so it cannot turn the redial backoff into a permanent retry loop.
+pub fn healthy(opened: Instant, window: Duration) -> bool {
+    opened.elapsed() >= window
+}
+
 fn jitter(base: Duration) -> Duration {
     let mut sample = [0u8; 8];
     let factor = match getrandom::fill(&mut sample) {
@@ -35,4 +43,25 @@ fn jitter(base: Duration) -> Duration {
         Err(_) => 1.0,
     };
     Duration::from_secs_f64(base.as_secs_f64() * factor)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test(start_paused = true)]
+    async fn a_connection_that_ends_at_once_is_not_healthy() {
+        let opened = Instant::now();
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert!(!healthy(opened, HEALTHY));
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_connection_that_held_for_the_window_is_healthy() {
+        let opened = Instant::now();
+        tokio::time::sleep(HEALTHY + Duration::from_millis(1)).await;
+        assert!(healthy(opened, HEALTHY));
+    }
+
+    const HEALTHY: Duration = Duration::from_secs(30);
 }

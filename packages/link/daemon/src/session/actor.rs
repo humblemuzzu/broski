@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use broski_link_core::{Accepted, Link, CONFIG};
 use tokio::sync::mpsc;
-use tokio::time::Instant;
+use tokio::time::{timeout, Instant};
 use tracing::debug;
 use zeroize::Zeroizing;
 
@@ -18,6 +18,15 @@ use crate::registry::SessionState;
 use super::bridge::BridgePump;
 use super::{close_codes, machine_info, wire, Actor, Input, SessionCommand, SessionDeps};
 
+/// How long the session keeps trying to hand its CLOSE frame to a connection whose out queue is
+/// full, and how long it then waits for the phone to acknowledge it.
+const CLOSE_FLUSH: Duration = Duration::from_secs(1);
+const CLOSE_ACK: Duration = Duration::from_secs(1);
+/// A frame parked on a full out queue is retried this often, and one pass of the close waits this
+/// long for an ack to arrive.
+const OUT_RETRY: Duration = Duration::from_millis(5);
+const CLOSE_FLUSH_STEP: Duration = Duration::from_millis(5);
+
 impl Actor {
     pub(super) fn new(
         device: DeviceRecord,
@@ -30,6 +39,7 @@ impl Actor {
         let shutdown = deps.shutdown.clone();
         let bridge = BridgePump::new(
             deps.bridge_socket.clone(),
+            deps.link_key.clone(),
             device.id.clone(),
             deps.monitor.clone(),
             device.name.clone(),
@@ -62,7 +72,8 @@ impl Actor {
     pub(super) async fn run(mut self) {
         loop {
             self.pump().await;
-            if self.close.is_some() || self.idle_expired() {
+            if self.close.is_some() || self.idle_expired() || self.state.is_revoked() {
+                self.revoked();
                 break;
             }
             match self.next().await {
@@ -76,6 +87,10 @@ impl Actor {
                 Input::Bridge(BridgeIn::Closed { unsent }) => self.bridge_closed(unsent),
                 Input::BridgeStatus => self.send_bridge_status(false),
                 Input::Routes => self.send_routes(),
+                Input::Revoked => {
+                    self.revoked();
+                    break;
+                }
                 Input::Timer => {
                     self.link.handle_timeout(clock::now_ms());
                     self.bridge.retry();
@@ -89,11 +104,19 @@ impl Actor {
         self.finish().await;
     }
 
+    fn revoked(&mut self) {
+        if self.state.is_revoked() {
+            self.fail(close_codes::REVOKED);
+        }
+    }
+
     async fn finish(mut self) {
         let code = self.close.unwrap_or(close_codes::IDLE_EXPIRED);
         if self.sender.is_some() {
             self.link.close(code);
-            self.pump().await;
+            if self.flush_close().await {
+                self.await_ack().await;
+            }
         }
         if let Some(sender) = &self.sender {
             sender.close();
@@ -102,12 +125,76 @@ impl Actor {
         debug!(device = short(&self.device.id), code, "session closed");
     }
 
+    /// Sends what the session still holds, the CLOSE frame included, and gives up on a connection
+    /// that cannot take it in `CLOSE_FLUSH`: the phone must be told why the session ended even
+    /// when its out queue is full.
+    async fn flush_close(&mut self) -> bool {
+        let deadline = Instant::now() + CLOSE_FLUSH;
+        loop {
+            self.drain_events().await;
+            if self.transmit() {
+                return true;
+            }
+            if self.sender.is_none() || Instant::now() >= deadline {
+                debug!(
+                    device = short(&self.device.id),
+                    "the close frame never went out"
+                );
+                return false;
+            }
+            self.take_acks().await;
+        }
+    }
+
+    /// Waits for the phone to acknowledge everything, the CLOSE included, before the connection is
+    /// torn down: a socket closed over data the phone has not read yet is reset, and the phone
+    /// would lose the very frame that says why the session ended.
+    async fn await_ack(&mut self) {
+        let deadline = Instant::now() + CLOSE_ACK;
+        while self.link.unacked_bytes() > 0 && self.sender.is_some() {
+            if Instant::now() >= deadline {
+                debug!(
+                    device = short(&self.device.id),
+                    "the phone never acknowledged the close"
+                );
+                return;
+            }
+            self.take_acks().await;
+        }
+    }
+
+    /// Only acks still reach the link while the close is on its way out: the window they free is
+    /// what lets the connection take the frames queued in front of it.
+    async fn take_acks(&mut self) {
+        let Ok(Some(SessionCommand::Wire { conn, bytes })) =
+            timeout(CLOSE_FLUSH_STEP, self.commands.recv()).await
+        else {
+            return;
+        };
+        if self.sender.as_ref().map(ConnSender::id) != Some(conn) {
+            return;
+        }
+        if let Err(error) = self.link.handle_wire(&bytes, clock::now_ms()) {
+            debug!(error = %error, device = short(&self.device.id), "wire unit rejected while closing");
+            self.sender = None;
+        }
+    }
+
     async fn next(&mut self) -> Input {
         let deadline = self.deadline();
         let read_open = self.gate_open();
+        // Shutdown is the one arm that keeps its priority; the rest are polled in a random order,
+        // so a phone that never stops sending cannot starve the bridge's direction.
+        let mut shutdown = self.shutdown.clone();
         tokio::select! {
             biased;
-            _ = self.shutdown.wait_for(|stopped| *stopped) => Input::Shutdown,
+            _ = shutdown.wait_for(|stopped| *stopped) => Input::Shutdown,
+            input = self.wait(deadline, read_open) => input,
+        }
+    }
+
+    async fn wait(&mut self, deadline: Instant, read_open: bool) -> Input {
+        tokio::select! {
             command = self.commands.recv() => match command {
                 Some(command) => Input::Command(command),
                 None => Input::Shutdown,
@@ -115,12 +202,18 @@ impl Actor {
             incoming = super::bridge::input(&mut self.bridge, read_open) => incoming,
             _ = self.status_rx.changed() => Input::BridgeStatus,
             _ = self.routes_rx.changed() => Input::Routes,
+            _ = self.state.revoked() => Input::Revoked,
             _ = tokio::time::sleep_until(deadline) => Input::Timer,
         }
     }
 
     fn deadline(&self) -> Instant {
         let mut at = Instant::now() + Duration::from_secs(3600);
+        // A frame parked because the connection's out queue was full is retried on its own, so a
+        // quiet phone cannot leave the session holding data until the next thing it sends.
+        if self.pending_out.is_some() {
+            at = at.min(Instant::now() + OUT_RETRY);
+        }
         if let Some(deadline) = self.link.poll_timeout() {
             at = at.min(clock::instant(deadline));
         }
@@ -202,13 +295,8 @@ impl Actor {
                 }
                 true
             }
-            SessionCommand::Revoke => {
-                self.fail(close_codes::REVOKED);
-                false
-            }
         }
     }
-
     /// msg2 for a resume the link accepts, or `None` when the caller must start a fresh session.
     fn resume(&mut self, accepted: &mut Accepted, now: u64) -> Option<Vec<u8>> {
         let matches = accepted
