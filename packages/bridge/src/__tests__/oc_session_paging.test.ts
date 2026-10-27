@@ -100,6 +100,13 @@ describe("OpenCode get_session_messages paging", () => {
 		expect(reply.messages.at(-1)?.info.id).toBe(transcriptIds[119]);
 	});
 
+	test("a cursor at the first message answers an empty page, not the whole transcript", async () => {
+		const reply = await fetchPage({ limit: PAGE_LIMIT, before: transcriptIds[0] });
+		expect(reply.messages).toEqual([]);
+		expect(reply.hasMore).toBe(false);
+		expect(reply.nextCursor).toBeUndefined();
+	});
+
 	test("a cursor that names no message of the session falls back to the whole transcript", async () => {
 		const reply = await fetchPage({ limit: PAGE_LIMIT, before: "msg_missing" });
 		expect(reply.messages.map((message) => message.info.id)).toEqual(transcriptIds);

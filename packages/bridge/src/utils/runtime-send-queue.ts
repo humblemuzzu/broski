@@ -162,9 +162,8 @@ export class RuntimeSendQueue {
 
 		const parts = state.parts.splice(0, state.parts.length);
 		const payloads = state.payloads.splice(0, state.payloads.length);
-		const mergedBytes = state.bytes;
 		state.bytes = 0;
-		if (parts.length > 0 && !this.writeParts(ws, parts, mergedBytes)) return;
+		if (parts.length > 0 && !this.writeParts(ws, parts)) return;
 		for (let i = 0; i < payloads.length; i += 1) {
 			if (this.sender.isCongested(ws)) {
 				const held = payloads.slice(i);
@@ -231,19 +230,21 @@ export class RuntimeSendQueue {
 	}
 
 	/** One frame for the whole burst, unless merging it would build a frame the link cannot take. */
-	private writeParts(ws: ServerWebSocket<unknown>, parts: string[], mergedBytes: number): boolean {
+	private writeParts(ws: ServerWebSocket<unknown>, parts: string[]): boolean {
+		if (parts.length === 1) {
+			this.write(ws, parts[0]!);
+			return !this.shed.has(ws);
+		}
+		const batch = `{"type":"batch","messages":[${parts.join(",")}],"count":${parts.length},"timestamp":${Date.now()}}`;
 		const limits = this.limitsFor(ws);
-		if (parts.length === 1 || (limits.kind === "link" && mergedBytes > limits.maxMessageBytes)) {
+		if (limits.kind === "link" && frameBytes(batch) > limits.maxMessageBytes) {
 			for (const part of parts) {
 				this.write(ws, part);
 				if (this.shed.has(ws)) return false;
 			}
 			return true;
 		}
-		this.write(
-			ws,
-			`{"type":"batch","messages":[${parts.join(",")}],"count":${parts.length},"timestamp":${Date.now()}}`,
-		);
+		this.write(ws, batch);
 		return !this.shed.has(ws);
 	}
 

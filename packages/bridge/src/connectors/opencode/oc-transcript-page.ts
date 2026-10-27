@@ -18,9 +18,8 @@ export function pageSessionMessages(
 	const start = Math.max(0, end - options.limit);
 	const page = messages.slice(start, end);
 	const first = page[0];
-	if (!first) return null;
-	const hasMore = start > 0;
-	return hasMore ? { messages: page, hasMore, nextCursor: first.info.id } : { messages: page, hasMore };
+	if (start === 0 || !first) return { messages: page, hasMore: false };
+	return { messages: page, hasMore: true, nextCursor: first.info.id };
 }
 
 function indexOfMessage(messages: OcSessionMessage[], id: string): number | null {
