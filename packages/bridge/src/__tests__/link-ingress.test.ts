@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { parseCli } from "../cli";
 import { createLimits } from "../server/limits";
+import { linkSendLimits } from "../server/link-send-policy";
 import { type BridgeHandle, E2E_TEST_TIMEOUT_MS, setupTestEnv, startBridge } from "./e2e/harness";
 import { connectUnixWs, unixUpgradeStatus } from "./link/unix-ws";
 
@@ -131,6 +132,25 @@ describe("link socket message pipeline", () => {
 describe("link socket cap", () => {
 	test("the default link cap is 32", () => {
 		expect(createLimits().linkMaxClients).toBe(32);
+	});
+	test("the link send window and message cap default to 32 MiB and 8 MiB", () => {
+		const limits = createLimits();
+		expect(limits.linkBackpressureLimitBytes).toBe(32 * 1024 * 1024);
+		expect(limits.linkMessageLimitBytes).toBe(8 * 1024 * 1024);
+		expect(linkSendLimits(limits)).toMatchObject({ kind: "link", maxPendingFrames: 32_768 });
+	});
+
+	test("both are clamped: 8..256 MiB for the window, 1..16 MiB for one message", () => {
+		process.env.BROSKI_LINK_BACKPRESSURE_MB = "1";
+		process.env.BROSKI_LINK_MESSAGE_MB = "64";
+		try {
+			const limits = createLimits();
+			expect(limits.linkBackpressureLimitBytes).toBe(8 * 1024 * 1024);
+			expect(limits.linkMessageLimitBytes).toBe(16 * 1024 * 1024);
+		} finally {
+			delete process.env.BROSKI_LINK_BACKPRESSURE_MB;
+			delete process.env.BROSKI_LINK_MESSAGE_MB;
+		}
 	});
 
 	test("link clients use the link cap, not the network client cap", async () => {

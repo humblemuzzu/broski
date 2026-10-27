@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import type { ServerWebSocket } from "bun";
+import { createLimits } from "../server/limits";
+import { isLinkTransportSocket, linkSendLimits } from "../server/link-send-policy";
+import { NETWORK_SEND_LIMITS, RESPONSE_TOO_LARGE_CODE, RESPONSE_TOO_LARGE_MESSAGE } from "../transport/send-limits";
 import type { ServerMessage } from "../types";
 import { RuntimeSendQueue } from "../utils/runtime-send-queue";
 
@@ -40,6 +43,17 @@ function delta(seq: number): ServerMessage {
 
 function newQueue(onDeadSocket: (ws: ServerWebSocket<unknown>, reason: "dropped" | "overflow") => void) {
 	return new RuntimeSendQueue(() => ({ lastRttMs: 0, connectionType: "local" }), { onDeadSocket });
+}
+
+function linkSocket(): ServerWebSocket<unknown> & FakeSocket {
+	const socket = fakeSocket();
+	(socket as unknown as { data: unknown }).data = { kind: "link", deviceId: "0123456789abcdef0123456789abcdef" };
+	(socket as unknown as { getBufferedAmount: () => number }).getBufferedAmount = () => 0;
+	return socket;
+}
+
+function transcriptReply(text: string, requestId: string): ServerMessage {
+	return { type: "pi_session_messages", data: [{ role: "assistant", text }], requestId } as ServerMessage;
 }
 
 describe("RuntimeSendQueue backpressure", () => {
@@ -119,5 +133,64 @@ describe("RuntimeSendQueue backpressure", () => {
 		socket.status = 1;
 		queue.onDrain(socket);
 		expect(socket.sent).toEqual(['{"type":"pd_thing"}']);
+	});
+});
+
+describe("RuntimeSendQueue broadcast", () => {
+	test("a shed socket is not written to, and the healthy ones in the same fan-out still are", () => {
+		const shed = fakeSocket();
+		const healthy = fakeSocket();
+		const queue = newQueue(() => {});
+		shed.status = 0;
+		queue.sendRaw(shed, "{}");
+		shed.sent.length = 0;
+
+		const message = { type: "device_disconnected", data: {} } as unknown as ServerMessage;
+		queue.broadcast(new Set([shed, healthy]), message);
+
+		expect(shed.sent).toEqual([]);
+		expect(healthy.sent).toEqual([JSON.stringify(message)]);
+	});
+});
+
+describe("RuntimeSendQueue link limits", () => {
+	const limits = createLimits();
+	const linkLimits = linkSendLimits(limits);
+	const queue = new RuntimeSendQueue(() => ({ lastRttMs: 0, connectionType: "local" }), {
+		limitsFor: (ws) => (isLinkTransportSocket(ws.data) ? linkLimits : NETWORK_SEND_LIMITS),
+	});
+	const overLimit = "x".repeat(limits.linkMessageLimitBytes);
+
+	test("a reply the link cannot take is refused with the caller's requestId and never written", () => {
+		const socket = linkSocket();
+		const message = transcriptReply(overLimit, "big-1");
+
+		queue.send(socket, message);
+
+		expect(socket.sent).toHaveLength(1);
+		const refusal = JSON.parse(socket.sent[0]!) as Record<string, unknown>;
+		expect(refusal).toMatchObject({
+			type: "error",
+			code: RESPONSE_TOO_LARGE_CODE,
+			requestId: "big-1",
+			limit: limits.linkMessageLimitBytes,
+			message: RESPONSE_TOO_LARGE_MESSAGE,
+		});
+		expect(refusal.bytes).toBeGreaterThan(limits.linkMessageLimitBytes);
+		expect(socket.sent[0]).not.toContain(overLimit);
+	});
+
+	test("a reply under the limit is written untouched", () => {
+		const socket = linkSocket();
+		queue.send(socket, transcriptReply("small", "small-1"));
+		expect(socket.sent).toHaveLength(1);
+		expect(JSON.parse(socket.sent[0]!)).toMatchObject({ type: "pi_session_messages", requestId: "small-1" });
+	});
+
+	test("a network socket has no frame cap", () => {
+		const socket = fakeSocket();
+		const message = transcriptReply(overLimit, "net-1");
+		queue.send(socket, message);
+		expect(socket.sent).toEqual([JSON.stringify(message)]);
 	});
 });

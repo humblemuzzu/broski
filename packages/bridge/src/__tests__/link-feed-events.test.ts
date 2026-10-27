@@ -11,6 +11,7 @@ import type { PiDurablePermissionRequest } from "../connectors/pi-durable";
 import { broadcastPiDurablePermission } from "../handlers/pi_durable/transport";
 import type { Broadcast } from "../handlers/pi_message_helpers";
 import { broadcastPiStreamMessage } from "../handlers/pi_stream_bridge";
+import { createLimits } from "../server/limits";
 import { resetLinkFeed } from "../server/link-feed/feed";
 import { createLeveledLogger } from "../server/logger";
 import { createOpenCodeEvents } from "../server/opencode-events";
@@ -36,6 +37,7 @@ const state = createBridgeState({
 	auth: { version: 1, token: "feed-test-token", createdAt: Date.now() },
 	webDistDir: "/tmp",
 	defaultAgent: "claude-code",
+	limits: createLimits(),
 	logInfo: () => {},
 });
 const streams = createStreams({ state, log, debugRts: false });
