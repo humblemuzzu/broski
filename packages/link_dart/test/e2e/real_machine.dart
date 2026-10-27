@@ -15,7 +15,6 @@ typedef Machine = ({
   LinkPhone phone,
   BridgeSession session,
   String deviceId,
-  LinkStatus connected,
   LanForwarder? forwarder,
 });
 
@@ -61,7 +60,6 @@ Future<Machine> startMachine({
     phone: paired.phone,
     session: session,
     deviceId: identity.id,
-    connected: paired.connected,
     forwarder: forwarder,
   );
 }

@@ -8,7 +8,7 @@ import 'link_sandbox.dart';
 /// How the bridge encodes a Claude Code project path
 /// (`connectors/claude-code/cc-paths.ts`): every separator and space becomes a
 /// dash, so `/Users/me/repo` is `-Users-me-repo`.
-String encodeProjectPath(String path) =>
+String _encodeProjectPath(String path) =>
     path.replaceAll(r'\', '/').replaceAll('/', '-').replaceAll(' ', '-');
 
 /// The session id the fixture is filed under.
@@ -26,7 +26,6 @@ typedef FixtureMessage = ({String id, String role});
 final class CcTranscriptFixture {
   CcTranscriptFixture._({
     required this.cwd,
-    required this.path,
     required this.bytes,
     required this.messages,
     required this.toolOutputs,
@@ -34,7 +33,6 @@ final class CcTranscriptFixture {
 
   /// The project path the phone names in `cwd`.
   final String cwd;
-  final String path;
 
   /// The file's size on disk.
   final int bytes;
@@ -71,7 +69,7 @@ final class CcTranscriptFixture {
       sandbox.bridgeHome,
       '.claude',
       'projects',
-      encodeProjectPath(cwd),
+      _encodeProjectPath(cwd),
     );
     await Directory(cwd).create(recursive: true);
     await Directory(directory).create(recursive: true);
@@ -80,12 +78,9 @@ final class CcTranscriptFixture {
     final messages = <FixtureMessage>[];
     final toolOutputs = <String, int>{};
     final sink = File(path).openWrite();
+    final base = DateTime.utc(2025, 1, 1);
     var seconds = 0;
-    String stamp() => DateTime.utc(
-      2025,
-      1,
-      1,
-    ).add(Duration(seconds: seconds++)).toIso8601String();
+    String stamp() => base.add(Duration(seconds: seconds++)).toIso8601String();
 
     void write(String type, String uuid, Object content) {
       sink.writeln(
@@ -165,7 +160,6 @@ final class CcTranscriptFixture {
     await sink.close();
     return CcTranscriptFixture._(
       cwd: cwd,
-      path: path,
       bytes: await File(path).length(),
       messages: messages,
       toolOutputs: toolOutputs,

@@ -109,6 +109,7 @@ void main() {
       );
 
       final outputs = <String, int>{};
+      final roles = <String>[];
       final pages = <List<String>>[];
       final clock = Stopwatch()..start();
       String? before;
@@ -117,7 +118,9 @@ void main() {
         expect(reply['type'], 'cc_session_messages');
         pages.add(idsOf(reply));
         for (final message in reply['data']! as List<Object?>) {
-          final calls = (message! as Map)['toolCalls'];
+          final data = message! as Map;
+          roles.add(data['role'] as String);
+          final calls = data['toolCalls'];
           for (final call in (calls as List<Object?>?) ?? const <Object?>[]) {
             final tool = call! as Map;
             outputs[tool['toolUseId'] as String] =
@@ -147,6 +150,9 @@ void main() {
         hasLength(ordered.length),
         reason: 'nothing twice',
       );
+      expect(roles, <String>[
+        for (final message in fixture.messages) message.role,
+      ], reason: 'every message arrived with its role');
       expect(
         outputs,
         fixture.toolOutputs,
