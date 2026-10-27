@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:isolate';
 import 'dart:typed_data';
 
@@ -79,8 +78,6 @@ final class LinkEngine {
 
   Duration get _now => Duration(milliseconds: _clock.elapsedMilliseconds);
 
-  static const int _controlStream = 0;
-
   /// Starts the first attempt.
   void run() => _connect();
 
@@ -91,8 +88,6 @@ final class LinkEngine {
     switch (command) {
       case LinkSendBridge(:final stream, :final bytes, :final tag):
         _io.send(stream, bytes, tag: tag);
-      case LinkSendControl(:final message):
-        _io.send(_controlStream, utf8.encode(jsonEncode(message)), tag: null);
       case LinkSetEndpoint(:final endpoint):
         _setEndpoint(endpoint);
       case LinkNetworkChanged():

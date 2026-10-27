@@ -33,12 +33,6 @@ final class LinkSendBridge extends LinkCommand {
   final String? tag;
 }
 
-final class LinkSendControl extends LinkCommand {
-  const LinkSendControl(this.message);
-
-  final Map<String, Object?> message;
-}
-
 final class LinkSetEndpoint extends LinkCommand {
   const LinkSetEndpoint(this.endpoint);
 
