@@ -4,7 +4,9 @@ import 'package:broski/providers/link/link_status_provider.dart';
 import 'package:broski/providers/link/machines_provider.dart';
 import 'package:broski/providers/onboarding_provider.dart';
 import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/system_linked/connection_stats_card.dart';
 import 'package:broski/services/link/link_endpoint.dart';
+import 'package:broski/services/onboarding/linked_machine_counts.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/utils/responsive.dart';
@@ -26,10 +28,7 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
   late AnimationController _entryController;
   late AnimationController _checkController;
   late AnimationController _pulseController;
-  // Detected counts
-  int _projectCount = 0;
-  int _sessionCount = 0;
-  int _agentCount = 0;
+  LinkedMachineCounts _counts = LinkedMachineCounts.empty;
   bool _loaded = false;
   @override
   void initState() {
@@ -55,74 +54,100 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
   }
 
   Future<void> _loadStats() async {
+    final bridge = ref.read(bridgeServiceProvider);
+    final reads = <BackendRead>[
+      await _readOpenCode(bridge),
+      await _readBackend(
+        name: 'Claude Code',
+        projects: () => bridge.ccListProjects(),
+        sessions: (path) async =>
+            (await bridge.ccListSessions(cwd: path)).length,
+      ),
+      await _readBackend(
+        name: 'Codex',
+        projects: () => bridge.cxListProjects(),
+        sessions: (path) async =>
+            (await bridge.cxListThreads(cwd: path)).length,
+      ),
+    ];
+    if (!mounted) return;
+    setState(() {
+      _counts = LinkedMachineCounts.combine(reads);
+      _loaded = true;
+    });
+  }
+
+  /// OpenCode is the one backend with subagents, so its read is the one that
+  /// counts them.
+  Future<BackendRead> _readOpenCode(BridgeService bridge) async {
     try {
-      final bridge = ref.read(bridgeServiceProvider);
-      // Load projects from all backends
-      var ocProjects = <ProjectSummary>[];
-      var ccProjects = <ProjectSummary>[];
-      var cxProjects = <ProjectSummary>[];
+      final projects = await bridge.listProjects();
+      var sessions = 0;
+      for (final project in projects) {
+        try {
+          sessions += (await bridge.listSessions(
+            projectPath: project.path,
+          )).length;
+        } on Object catch (error) {
+          return BackendRead(
+            name: 'OpenCode',
+            projectPaths: [for (final project in projects) project.path],
+            sessions: sessions,
+            failure: 'sessions: $error',
+          );
+        }
+      }
+      final agents = projects.isEmpty
+          ? 0
+          : await _agentCount(bridge, projects.first.path);
+      return BackendRead(
+        name: 'OpenCode',
+        projectPaths: [for (final project in projects) project.path],
+        sessions: sessions,
+        agents: agents,
+      );
+    } on Object catch (error) {
+      return BackendRead(name: 'OpenCode', failure: '$error');
+    }
+  }
+
+  Future<int> _agentCount(BridgeService bridge, String projectPath) async {
+    try {
+      return (await bridge.listAgents(projectPath: projectPath)).length;
+    } on Object {
+      return 0;
+    }
+  }
+
+  Future<BackendRead> _readBackend({
+    required String name,
+    required Future<List<ProjectSummary>> Function() projects,
+    required Future<int> Function(String path) sessions,
+  }) async {
+    final List<ProjectSummary> found;
+    try {
+      found = await projects();
+    } on Object catch (error) {
+      return BackendRead(name: name, failure: '$error');
+    }
+    var total = 0;
+    for (final project in found) {
       try {
-        ocProjects = await bridge.listProjects();
-      } catch (_) {}
-      try {
-        ccProjects = await bridge.ccListProjects();
-      } catch (_) {}
-      try {
-        cxProjects = await bridge.cxListProjects();
-      } catch (_) {}
-      // Deduplicate projects by path
-      final allProjectPaths = <String>{};
-      for (final p in ocProjects) {
-        allProjectPaths.add(p.path);
-      }
-      for (final p in ccProjects) {
-        allProjectPaths.add(p.path);
-      }
-      for (final p in cxProjects) {
-        allProjectPaths.add(p.path);
-      }
-      // Load sessions from all backends
-      int totalSessions = 0;
-      for (final p in ocProjects) {
-        try {
-          final sessions = await bridge.listSessions(projectPath: p.path);
-          totalSessions += sessions.length;
-        } catch (_) {}
-      }
-      for (final p in ccProjects) {
-        try {
-          final sessions = await bridge.ccListSessions(cwd: p.path);
-          totalSessions += sessions.length;
-        } catch (_) {}
-      }
-      for (final p in cxProjects) {
-        try {
-          final threads = await bridge.cxListThreads(cwd: p.path);
-          totalSessions += threads.length;
-        } catch (_) {}
-      }
-      // Load agents (OpenCode only)
-      int agentCount = 0;
-      for (final p in ocProjects) {
-        try {
-          final agents = await bridge.listAgents(projectPath: p.path);
-          agentCount += agents.length;
-          break; // Only need one project's agents
-        } catch (_) {}
-      }
-      if (mounted) {
-        setState(() {
-          _projectCount = allProjectPaths.length;
-          _sessionCount = totalSessions;
-          _agentCount = agentCount;
-          _loaded = true;
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _loaded = true);
+        total += await sessions(project.path);
+      } on Object catch (error) {
+        return BackendRead(
+          name: name,
+          projectPaths: [for (final project in found) project.path],
+          sessions: total,
+          failure: 'sessions: $error',
+        );
       }
     }
+    return BackendRead(
+      name: name,
+      projectPaths: [for (final project in found) project.path],
+      sessions: total,
+    );
   }
 
   @override
@@ -249,55 +274,11 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
               // Stats card
               FadeTransition(
                 opacity: entryAnim,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 20,
-                    horizontal: 24,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.04),
-                    borderRadius: Radii.brLg,
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.08),
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      const _StatRow(
-                        label: 'STATUS',
-                        value: 'CONNECTED',
-                        valueColor: Color(0xFF2ECB71),
-                      ),
-                      _divider(),
-                      _StatRow(
-                        label: 'LATENCY',
-                        value: latency != null ? '${latency}ms' : '—',
-                      ),
-                      _divider(),
-                      _StatRow(label: 'ROUTE', value: route),
-                      if (_loaded && _projectCount > 0) ...[
-                        _divider(),
-                        _StatRow(
-                          label: 'PROJECTS',
-                          value: '$_projectCount  Detected',
-                        ),
-                      ],
-                      if (_loaded && _sessionCount > 0) ...[
-                        _divider(),
-                        _StatRow(
-                          label: 'SESSIONS',
-                          value: '$_sessionCount  Detected',
-                        ),
-                      ],
-                      if (_loaded && _agentCount > 0) ...[
-                        _divider(),
-                        _StatRow(
-                          label: 'SUBAGENTS',
-                          value: '$_agentCount  Detected',
-                        ),
-                      ],
-                    ],
+                child: ConnectionStatsCard(
+                  stats: (
+                    latencyMs: latency,
+                    route: route,
+                    counts: _loaded ? _counts : null,
                   ),
                 ),
               ),
@@ -333,45 +314,6 @@ class _SystemLinkedScreenState extends ConsumerState<SystemLinkedScreen>
           ),
         ),
       ),
-    );
-  }
-
-  Widget _divider() {
-    return Padding(
-      padding: Insets.cardV,
-      child: Container(height: 1, color: Colors.white.withValues(alpha: 0.06)),
-    );
-  }
-}
-
-class _StatRow extends StatelessWidget {
-  const _StatRow({required this.label, required this.value, this.valueColor});
-  final String label;
-  final String value;
-  final Color? valueColor;
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.4),
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            letterSpacing: 1.2,
-          ),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            color: valueColor ?? Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
     );
   }
 }

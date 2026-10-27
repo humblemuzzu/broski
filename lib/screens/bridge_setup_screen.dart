@@ -3,8 +3,8 @@ import 'dart:io';
 
 import 'package:broski/providers/onboarding_provider.dart'
     show onboardingProvider, kDevBypassOnboarding;
+import 'package:broski/screens/onboarding/bridge_setup_widgets.dart';
 import 'package:broski/theme/app_icons.dart';
-import 'package:broski/theme/app_typography.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/utils/responsive.dart';
 import 'package:flutter/foundation.dart';
@@ -127,7 +127,10 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                           // ── Step 1: Install
                           FadeTransition(
                             opacity: entry,
-                            child: _stepHeader('1', 'Install Broski'),
+                            child: const BridgeStepHeader(
+                              number: '1',
+                              title: 'Install Broski',
+                            ),
                           ),
                           const SizedBox(height: 14),
                           FadeTransition(
@@ -144,18 +147,23 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                           const SizedBox(height: Spacing.xl),
                           FadeTransition(
                             opacity: entry,
-                            child: _terminalCard(
-                              index: 0,
+                            child: TerminalCommandCard(
+                              copied: _copiedIndex == 0,
+                              cursor: _cursorController,
                               prefix: 'curl',
                               rest: ' -fsSL https://broskiapp.com/install | sh',
                               command: _installCmd,
+                              onCopy: () => _copyCommand(0, _installCmd),
                             ),
                           ),
                           const SizedBox(height: Spacing.xxxl),
                           // ── Step 2: Run
                           FadeTransition(
                             opacity: entry,
-                            child: _stepHeader('2', 'Keep it running'),
+                            child: const BridgeStepHeader(
+                              number: '2',
+                              title: 'Keep it running',
+                            ),
                           ),
                           const SizedBox(height: 14),
                           FadeTransition(
@@ -172,26 +180,28 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
                           const SizedBox(height: Spacing.xl),
                           FadeTransition(
                             opacity: entry,
-                            child: _optionCard(
-                              index: 1,
+                            child: BridgeOptionCard(
+                              copied: _copiedIndex == 1,
                               label: 'Always on',
                               description:
                                   'Starts with your Mac and restarts itself',
                               prefix: 'broski',
                               rest: ' install',
                               command: _daemonCmd,
+                              onCopy: () => _copyCommand(1, _daemonCmd),
                             ),
                           ),
                           const SizedBox(height: Spacing.md),
                           FadeTransition(
                             opacity: entry,
-                            child: _optionCard(
-                              index: 2,
+                            child: BridgeOptionCard(
+                              copied: _copiedIndex == 2,
                               label: 'Pair this phone',
                               description: 'Shows a QR code to scan next',
                               prefix: 'broski-link',
                               rest: ' pair',
                               command: _pairCmd,
+                              onCopy: () => _copyCommand(2, _pairCmd),
                             ),
                           ),
                           const SizedBox(height: Spacing.xxl),
@@ -301,279 +311,4 @@ class _BridgeSetupScreenState extends ConsumerState<BridgeSetupScreen>
   // ---------------------------------------------------------------------------
   // Widgets
   // ---------------------------------------------------------------------------
-  /// Step number circle + title row.
-  Widget _stepHeader(String number, String title) {
-    return Row(
-      children: [
-        Container(
-          width: 32,
-          height: 32,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-          ),
-          child: Center(
-            child: Text(
-              number,
-              style: const TextStyle(
-                color: Colors.black,
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 14),
-        Text(
-          title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.3,
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Full terminal card with traffic lights, prompt, command, and cursor.
-  Widget _terminalCard({
-    required int index,
-    required String prefix,
-    required String rest,
-    required String command,
-  }) {
-    final isCopied = _copiedIndex == index;
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
-        borderRadius: Radii.brLg,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Title bar
-          Container(
-            padding: Insets.section,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.04),
-            ),
-            child: Row(
-              children: [
-                _dot(const Color(0xFFFF5F57)),
-                const SizedBox(width: Spacing.sm),
-                _dot(const Color(0xFFFFBD2E)),
-                const SizedBox(width: Spacing.sm),
-                _dot(const Color(0xFF28C840)),
-                const Spacer(),
-              ],
-            ),
-          ),
-          // Body
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // $ + copy
-                Row(
-                  children: [
-                    Text(
-                      '\$',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.3),
-                        fontSize: 14,
-                        fontFamily: AppTypography.codeFontFamily,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: () => _copyCommand(index, command),
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 200),
-                        child: Icon(
-                          isCopied ? AppIcons.check : AppIcons.copy,
-                          key: ValueKey('c_${index}_$isCopied'),
-                          color: isCopied
-                              ? const Color(0xFF2ECB71)
-                              : Colors.white.withValues(alpha: 0.35),
-                          size: 18,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: Spacing.md),
-                // Command
-                Text.rich(
-                  TextSpan(
-                    children: [
-                      TextSpan(
-                        text: prefix,
-                        style: TextStyle(
-                          color: const Color(0xFF2ECB71),
-                          fontSize: 15,
-                          fontFamily: AppTypography.codeFontFamily,
-                          fontWeight: FontWeight.w600,
-                          height: 1.5,
-                        ),
-                      ),
-                      if (rest.isNotEmpty)
-                        TextSpan(
-                          text: rest,
-                          style: TextStyle(
-                            color: const Color(
-                              0xFF2ECB71,
-                            ).withValues(alpha: 0.75),
-                            fontSize: 15,
-                            fontFamily: AppTypography.codeFontFamily,
-                            fontWeight: FontWeight.w500,
-                            height: 1.5,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 6),
-                // Cursor
-                FadeTransition(
-                  opacity: _cursorController,
-                  child: Container(
-                    width: 8,
-                    height: 18,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.5),
-                      borderRadius: Radii.brXs,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Compact option card for step 2 choices (wizard vs daemon).
-  Widget _optionCard({
-    required int index,
-    required String label,
-    required String description,
-    required String prefix,
-    required String rest,
-    required String command,
-  }) {
-    final isCopied = _copiedIndex == index;
-    return Container(
-      padding: Insets.card,
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
-        borderRadius: Radii.brLg,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: Spacing.xs),
-                    Text(
-                      description,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.4),
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              GestureDetector(
-                onTap: () => _copyCommand(index, command),
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  child: Icon(
-                    isCopied ? AppIcons.check : AppIcons.copy,
-                    key: ValueKey('c_${index}_$isCopied'),
-                    color: isCopied
-                        ? const Color(0xFF2ECB71)
-                        : Colors.white.withValues(alpha: 0.35),
-                    size: 18,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: Spacing.md),
-          // Inline command pill
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.4),
-              borderRadius: Radii.brSm,
-            ),
-            child: Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: '\$ ',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.3),
-                      fontSize: 14,
-                      fontFamily: AppTypography.codeFontFamily,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  TextSpan(
-                    text: prefix,
-                    style: TextStyle(
-                      color: const Color(0xFF2ECB71),
-                      fontSize: 14,
-                      fontFamily: AppTypography.codeFontFamily,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  if (rest.isNotEmpty)
-                    TextSpan(
-                      text: rest,
-                      style: TextStyle(
-                        color: const Color(0xFF2ECB71).withValues(alpha: 0.75),
-                        fontSize: 14,
-                        fontFamily: AppTypography.codeFontFamily,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _dot(Color color) {
-    return Container(
-      width: 12,
-      height: 12,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-    );
-  }
 }
