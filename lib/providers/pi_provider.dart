@@ -189,18 +189,3 @@ final piSessionTreeProvider = FutureProvider.family<PiSessionTree, String?>((
   final bridge = ref.watch(piBridgeServiceProvider);
   return bridge.getSessionTree(projectPath: projectPath);
 });
-
-/// Prefetch messages for the top N Pi sessions to speed up opening.
-void prefetchTopPiSessions(
-  WidgetRef ref,
-  List<PiSessionInfo> sessions, {
-  int count = 3,
-}) {
-  final bridge = ref.read(piBridgeServiceProvider);
-  for (final session in sessions.take(count)) {
-    // Fire and forget — just warm the cache
-    bridge
-        .getMessages(projectPath: session.cwd)
-        .catchError((_) => <Map<String, dynamic>>[]);
-  }
-}

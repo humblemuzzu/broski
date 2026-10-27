@@ -567,11 +567,6 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
                           }
                           return b.created.compareTo(a.created);
                         });
-                    // Predictive prefetching: preload messages for top 3 Pi sessions
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      prefetchTopPiSessions(ref, filtered);
-                    });
-
                     if (filtered.isEmpty) {
                       if (_searchQuery.isNotEmpty) {
                         return [
