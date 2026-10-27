@@ -37,7 +37,7 @@ class _FakeLinkController
 
   @override
   Future<void> adopt(
-    LinkConnection connection,
+    LinkSession connection,
     Machine machine, {
     required bool connected,
   }) async {}

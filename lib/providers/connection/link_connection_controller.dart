@@ -13,6 +13,7 @@ import 'package:broski/providers/connection/link_frame_error_notice.dart';
 import 'package:broski/providers/connection/link_send_failure_notice.dart';
 import 'package:broski/providers/connection/link_status_mapping.dart';
 import 'package:broski/providers/link/discovery_provider.dart';
+import 'package:broski/providers/link/link_session_start_provider.dart';
 import 'package:broski/providers/link/link_status_provider.dart';
 import 'package:broski/providers/link/machines_provider.dart';
 import 'package:broski/providers/link/push_providers.dart';
@@ -105,7 +106,7 @@ class LinkConnectionController with WidgetsBindingObserver {
   StreamSubscription<Map<String, Object?>>? _controlSub;
   StreamSubscription<BridgeLinkStatus>? _bridgeSub;
   StreamSubscription<LinkSendFailure>? _sendFailureSub;
-  LinkConnection? _connection;
+  LinkSession? _connection;
   Machine? _machine;
   LinkStatus? _lastStatus;
   PushRegistration? _push;
@@ -146,7 +147,7 @@ class LinkConnectionController with WidgetsBindingObserver {
   /// [connected] says whether the link has already reached the machine, which
   /// is the case when a pairing hands its live connection over.
   Future<void> adopt(
-    LinkConnection connection,
+    LinkSession connection,
     Machine machine, {
     required bool connected,
   }) async {
@@ -208,7 +209,7 @@ class LinkConnectionController with WidgetsBindingObserver {
     try {
       final identity = await _ref.read(deviceIdentityProvider.future);
       if (epoch != _epoch) return;
-      final connection = await LinkConnection.start(
+      final connection = await _ref.read(linkSessionStarterProvider)(
         identitySecret: identity.secret,
         endpoint: linkEndpoint(machine, deviceId: identity.id),
       );

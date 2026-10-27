@@ -11,6 +11,7 @@ import 'package:broski_link/src/connection/isolate_protocol.dart';
 import 'package:broski_link/src/connection/link_outbound_queue.dart'
     show linkOutboundQueueMax;
 import 'package:broski_link/src/connection/link_send_failure.dart';
+import 'package:broski_link/src/connection/link_session.dart';
 import 'package:broski_link/src/connection/link_status.dart';
 import 'package:broski_link/src/connection/machine_endpoint.dart';
 
@@ -21,7 +22,7 @@ import 'package:broski_link/src/connection/machine_endpoint.dart';
 /// the senders below, and must subscribe as soon as [start] returns: they are
 /// broadcast streams, so anything sent before a listener attaches is dropped.
 /// Sending is fire and forget; what the link refused arrives on [sendFailures].
-final class LinkConnection {
+final class LinkConnection implements LinkSession {
   LinkConnection._() {
     _events.listen(_onEvent);
     _errors.listen(_onFatal);
@@ -105,29 +106,36 @@ final class LinkConnection {
   }
 
   /// Bridge messages, stream 1, still sealed until they leave the machine.
+  @override
   Stream<String> get bridgeMessages => _bridge.stream;
 
   /// Control JSON, stream 0.
+  @override
   Stream<Map<String, Object?>> get control => _control.stream;
 
   /// Every status change, including the ones that arrive before the first
   /// handshake finishes.
+  @override
   Stream<LinkStatus> get status => _status.stream;
 
   /// The machine's bridge process, from the control stream.
+  @override
   Stream<BridgeLinkStatus> get bridgeStatus => _bridgeStatus.stream;
 
   /// Messages the link refused, so a caller can tell the user instead of
   /// waiting for a reply that will never come.
+  @override
   Stream<LinkSendFailure> get sendFailures => _sendFailures.stream;
 
   /// Queued in the session even while disconnected; the machine's session
   /// resends it after a resume. A send that cannot be made, now or later, is
   /// reported on [sendFailures] with [tag], and one that could never fit is
   /// refused here without waking the isolate.
+  @override
   void sendBridge(String text, {String? tag}) =>
       _sendBytes(_bridgeStream, utf8.encode(text), tag);
 
+  @override
   void sendControl(Map<String, Object?> message) =>
       _sendBytes(_controlStream, utf8.encode(jsonEncode(message)), null);
 
@@ -149,18 +157,23 @@ final class LinkConnection {
   }
 
   /// Replaces the routes, for example after control reported new ones.
+  @override
   void updateEndpoint(MachineEndpoint endpoint) {
     endpoint.relayDevice();
     _send(LinkSetEndpoint(endpoint));
   }
 
+  @override
   void networkChanged() => _send(const LinkNetworkChanged());
 
+  @override
   void appResumed() => _send(const LinkAppResumed());
 
+  @override
   void appPaused() => _send(const LinkAppPaused());
 
   /// Closes the sockets and the isolate.
+  @override
   Future<void> close() => _closing ??= _shutdown();
 
   Future<void> _shutdown() async {
