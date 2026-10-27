@@ -94,6 +94,71 @@ void main() {
     });
   });
 
+  test('a link the machine revoked says to pair again', () {
+    final view = presentLinkStatus(
+      status: const LinkStatus(
+        state: LinkConnectionState.closed,
+        closeCode: LinkCloseCode.revoked,
+      ),
+      machineName: 'Studio Mac',
+      now: _now,
+    );
+
+    expect(view.label, 'Removed from this machine · pair again');
+    expect(view.tone, LinkStatusTone.down);
+  });
+
+  group('the bridge process', () {
+    LinkStatusView withBridge(BridgeStatusState state) => presentLinkStatus(
+      status: const LinkStatus(
+        state: LinkConnectionState.connected,
+        route: LinkRoute.lan,
+      ),
+      machineName: 'Studio Mac',
+      now: _now,
+      bridge: BridgeLinkStatus(state: state, conn: 1),
+    );
+
+    test('an up bridge leaves the link status alone', () {
+      final view = withBridge(BridgeStatusState.up);
+      expect(view.label, 'Studio Mac · Local network');
+      expect(view.tone, LinkStatusTone.ok);
+    });
+
+    test('a starting bridge says so, and is not an error', () {
+      final view = withBridge(BridgeStatusState.starting);
+      expect(view.label, "Studio Mac's bridge is starting…");
+      expect(view.state, 'Bridge starting…');
+      expect(view.tone, LinkStatusTone.pending);
+    });
+
+    test('a bridge that is down or crashed reads as a problem', () {
+      final down = withBridge(BridgeStatusState.down);
+      expect(down.label, "Studio Mac's bridge is down");
+      expect(down.tone, LinkStatusTone.down);
+
+      final crashed = withBridge(BridgeStatusState.crashed);
+      expect(crashed.label, "Studio Mac's bridge crashed");
+      expect(crashed.tone, LinkStatusTone.down);
+      expect(crashed.icon, AppIcons.warning);
+    });
+
+    test('the machine-less label names the bridge', () {
+      expect(
+        bridgeStatusLabel(
+          const BridgeLinkStatus(state: BridgeStatusState.crashed, conn: 1),
+        ),
+        'Bridge crashed',
+      );
+      expect(
+        bridgeStatusLabel(
+          const BridgeLinkStatus(state: BridgeStatusState.up, conn: 1),
+        ),
+        isNull,
+      );
+    });
+  });
+
   group('formatLinkTime', () {
     String ago(Duration age) => formatLinkTime(_now.subtract(age), _now);
 

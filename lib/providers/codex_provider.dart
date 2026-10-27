@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:broski/models/codex.dart';
 import 'package:broski/models/project.dart';
+import 'package:broski/models/transcript_page.dart';
 import 'package:broski/providers/codex/cx_error_listener.dart';
 import 'package:broski/providers/codex/cx_rate_limits_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
@@ -452,6 +453,10 @@ class CodexModelsNotifier extends StateNotifier<AsyncValue<List<CodexModel>>> {
   Future<void> refresh() => load();
 }
 
+/// How much of a thread the prefetch asks for: enough to paint the newest
+/// screenful, not the whole thread.
+const int _cxPrefetchMessages = 20;
+
 /// Prefetch messages for the top N Codex threads to speed up opening.
 void prefetchTopCxThreads(
   WidgetRef ref,
@@ -460,9 +465,9 @@ void prefetchTopCxThreads(
 }) {
   final bridge = ref.read(bridgeServiceProvider);
   for (final thread in threads.take(count)) {
-    // Fire and forget — just warm the cache
+    // Fire and forget — just warm the cache, one page of it
     bridge
-        .cxGetThreadMessages(thread.id)
-        .catchError((_) => <CodexTranscriptMessage>[]);
+        .cxGetThreadMessagesPage(thread.id, limit: _cxPrefetchMessages)
+        .catchError((_) => TranscriptPage<CodexTranscriptMessage>.complete([]));
   }
 }

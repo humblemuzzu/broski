@@ -6,6 +6,7 @@ import 'package:broski/models/file_content.dart';
 import 'package:broski/models/search_result.dart';
 import 'package:broski/models/vcs.dart';
 import 'package:broski/providers/agent_type_provider.dart';
+import 'package:broski/providers/connection/bridge_status_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/selection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
@@ -540,6 +541,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
                 agentAvailable: agentAvailable,
                 isReconnecting: connection.isReconnecting,
                 rttMs: connection.rttMs,
+                bridge: ref.watch(bridgeLinkStatusProvider),
                 compact: true,
               ),
             ),

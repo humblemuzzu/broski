@@ -5,6 +5,7 @@ import 'package:broski/providers/service_providers.dart';
 import 'package:broski/screens/chat/transcript_scroll_anchor.dart';
 import 'package:broski/screens/chat_screen.dart';
 import 'package:broski/services/bridge/bridge_pi_transcript.dart';
+import 'package:broski/services/bridge/transcript_page_fetch.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -16,7 +17,7 @@ const int kTranscriptPageLimit = 60;
 
 /// Whether the open chat loads older messages a page at a time.
 bool supportsTranscriptPaging(ChatScreen widget) =>
-    widget.isPi || widget.isClaudeCode || widget.isCodex;
+    widget.isOpenCode || widget.isPi || widget.isClaudeCode || widget.isCodex;
 
 /// Fetches the page of messages older than the loaded window and prepends it, keeping the message
 /// under the viewport in place.
@@ -94,13 +95,35 @@ _fetchAndPrepend(
   final chat = ref.read(chatSessionProvider.notifier);
   final bridge = ref.read(bridgeServiceProvider);
 
-  if (widget.isClaudeCode) {
-    final id = widget.ccSession?.id ?? '';
-    final page = await bridge.ccGetSessionMessagesPage(
+  if (widget.isOpenCode) {
+    final id = widget.session.id;
+    final page = await bridge.pageSessionMessages(
       id,
-      cwd: widget.ccSession?.cwd ?? widget.ccDraftCwd ?? '',
+      projectPath: widget.project.path,
       limit: kTranscriptPageLimit,
       before: cursor,
+    );
+    if (!chat.ownsTranscript(sessionId)) return null;
+    final extent = _extentOf(scrollController);
+    chat.setTranscriptCursor(page.nextCursor);
+    chat.prependOpenCodeTranscript(page.items, sessionId: id);
+    return (
+      hasOlder: page.hasOlder,
+      offsetAtPrepend: extent.offset,
+      extentAtPrepend: extent.extent,
+    );
+  }
+
+  if (widget.isClaudeCode) {
+    final id = widget.ccSession?.id ?? '';
+    final page = await fetchTranscriptPage(
+      (limit) => bridge.ccGetSessionMessagesPage(
+        id,
+        cwd: widget.ccSession?.cwd ?? widget.ccDraftCwd ?? '',
+        limit: limit,
+        before: cursor,
+      ),
+      limit: kTranscriptPageLimit,
     );
     if (!chat.ownsTranscript(sessionId)) return null;
     final extent = _extentOf(scrollController);
@@ -115,10 +138,10 @@ _fetchAndPrepend(
 
   if (widget.isCodex) {
     final id = widget.cxThread?.id ?? '';
-    final page = await bridge.cxGetThreadMessagesPage(
-      id,
+    final page = await fetchTranscriptPage(
+      (limit) =>
+          bridge.cxGetThreadMessagesPage(id, limit: limit, before: cursor),
       limit: kTranscriptPageLimit,
-      before: cursor,
     );
     if (!chat.ownsTranscript(sessionId)) return null;
     final extent = _extentOf(scrollController);
@@ -131,14 +154,16 @@ _fetchAndPrepend(
     );
   }
 
-  final page = await ref
-      .read(piBridgeServiceProvider)
-      .readSessionMessagesPage(
-        sessionPath: widget.piSession?.path,
-        sessionId: widget.piSession?.id,
-        limit: kTranscriptPageLimit,
-        before: cursor,
-      );
+  final piBridge = ref.read(piBridgeServiceProvider);
+  final page = await fetchTranscriptPage(
+    (limit) => piBridge.readSessionMessagesPage(
+      sessionPath: widget.piSession?.path,
+      sessionId: widget.piSession?.id,
+      limit: limit,
+      before: cursor,
+    ),
+    limit: kTranscriptPageLimit,
+  );
   if (!chat.ownsTranscript(sessionId)) return null;
   final extent = _extentOf(scrollController);
   chat.prependPiTranscript(

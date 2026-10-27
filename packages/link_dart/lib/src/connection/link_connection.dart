@@ -4,18 +4,20 @@ import 'dart:typed_data';
 
 import 'package:broski_link/src/bindings.dart'
     show identitySecretLength, publicBundleLength;
+import 'package:broski_link/src/connection/bridge_link_status.dart';
 import 'package:broski_link/src/connection/isolate_entry.dart';
 import 'package:broski_link/src/connection/isolate_protocol.dart';
+import 'package:broski_link/src/connection/link_send_failure.dart';
 import 'package:broski_link/src/connection/link_status.dart';
 import 'package:broski_link/src/connection/machine_endpoint.dart';
 
 /// The phone side of one link.
 ///
 /// A background isolate owns the Rust session and every socket, so FFI and
-/// crypto stay off the UI thread. The app talks to it through the three streams
-/// and the senders below, and must subscribe as soon as [start] returns: they
-/// are broadcast streams, so anything sent before a listener attaches is
-/// dropped.
+/// crypto stay off the UI thread. The app talks to it through the streams and
+/// the senders below, and must subscribe as soon as [start] returns: they are
+/// broadcast streams, so anything sent before a listener attaches is dropped.
+/// Sending is fire and forget; what the link refused arrives on [sendFailures].
 final class LinkConnection {
   LinkConnection._() {
     _events.listen(_onEvent);
@@ -31,6 +33,10 @@ final class LinkConnection {
       StreamController<Map<String, Object?>>.broadcast();
   final StreamController<LinkStatus> _status =
       StreamController<LinkStatus>.broadcast();
+  final StreamController<BridgeLinkStatus> _bridgeStatus =
+      StreamController<BridgeLinkStatus>.broadcast();
+  final StreamController<LinkSendFailure> _sendFailures =
+      StreamController<LinkSendFailure>.broadcast();
   final Completer<SendPort> _ready = Completer<SendPort>();
   final Completer<void> _stopped = Completer<void>();
   Isolate? _isolate;
@@ -102,8 +108,16 @@ final class LinkConnection {
   /// handshake finishes.
   Stream<LinkStatus> get status => _status.stream;
 
+  /// The machine's bridge process, from the control stream.
+  Stream<BridgeLinkStatus> get bridgeStatus => _bridgeStatus.stream;
+
+  /// Messages the link refused, so a caller can tell the user instead of
+  /// waiting for a reply that will never come.
+  Stream<LinkSendFailure> get sendFailures => _sendFailures.stream;
+
   /// Queued in the session even while disconnected; the machine's session
-  /// resends it after a resume.
+  /// resends it after a resume. A send that cannot be made, now or later, is
+  /// reported on [sendFailures].
   void sendBridge(String text) => _send(LinkSendBridge(text));
 
   void sendControl(Map<String, Object?> message) =>
@@ -142,6 +156,8 @@ final class LinkConnection {
     await _bridge.close();
     await _control.close();
     await _status.close();
+    await _bridgeStatus.close();
+    await _sendFailures.close();
   }
 
   void _send(LinkCommand command) {
@@ -168,6 +184,14 @@ final class LinkConnection {
       case LinkIsolateControl(message: final control):
         if (!_control.isClosed) {
           _control.add(control);
+        }
+        final bridge = BridgeLinkStatus.tryParse(control);
+        if (bridge != null && !_bridgeStatus.isClosed) {
+          _bridgeStatus.add(bridge);
+        }
+      case LinkIsolateSendFailure(failure: final failure):
+        if (!_sendFailures.isClosed) {
+          _sendFailures.add(failure);
         }
       case LinkIsolateStopped():
         if (!_stopped.isCompleted) {
@@ -210,6 +234,8 @@ final class LinkConnection {
     unawaited(_bridge.close());
     unawaited(_control.close());
     unawaited(_status.close());
+    unawaited(_bridgeStatus.close());
+    unawaited(_sendFailures.close());
   }
 
   void _closePorts() {

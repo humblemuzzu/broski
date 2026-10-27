@@ -25,6 +25,7 @@ final class LinkStatus {
     this.lastSeen,
     this.resumed,
     this.sessionReset = false,
+    this.closeCode,
   });
 
   final LinkConnectionState state;
@@ -39,12 +40,15 @@ final class LinkStatus {
   final DateTime? lastSeen;
 
   /// Whether the last handshake resumed the previous session; null before the
-  /// first one finishes.
+  /// first one finishes, and while no session is up.
   final bool? resumed;
 
   /// True only on the status that reports a fresh session replacing an older
   /// one, the signal that the app must resync.
   final bool sessionReset;
+
+  /// The code the machine closed the session with, from `LinkCloseCode`.
+  final int? closeCode;
 
   @override
   bool operator ==(Object other) =>
@@ -54,14 +58,23 @@ final class LinkStatus {
       other.routeDetail == routeDetail &&
       other.lastSeen == lastSeen &&
       other.resumed == resumed &&
-      other.sessionReset == sessionReset;
+      other.sessionReset == sessionReset &&
+      other.closeCode == closeCode;
 
   @override
-  int get hashCode =>
-      Object.hash(state, route, routeDetail, lastSeen, resumed, sessionReset);
+  int get hashCode => Object.hash(
+    state,
+    route,
+    routeDetail,
+    lastSeen,
+    resumed,
+    sessionReset,
+    closeCode,
+  );
 
   @override
   String toString() =>
       'LinkStatus($state, route=$route, detail=$routeDetail, '
-      'lastSeen=$lastSeen, resumed=$resumed, sessionReset=$sessionReset)';
+      'lastSeen=$lastSeen, resumed=$resumed, sessionReset=$sessionReset, '
+      'closeCode=$closeCode)';
 }

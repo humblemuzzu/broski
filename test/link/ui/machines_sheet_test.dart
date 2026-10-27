@@ -14,9 +14,17 @@ class _FakeLinkController
     with WidgetsBindingObserver
     implements LinkConnectionController {
   final switched = <Machine>[];
+  final controls = <Map<String, Object?>>[];
 
   @override
   Future<void> switchTo(Machine machine) async => switched.add(machine);
+
+  @override
+  Stream<LinkSendFailure> get sendFailures =>
+      const Stream<LinkSendFailure>.empty();
+
+  @override
+  void sendControl(Map<String, Object?> message) => controls.add(message);
 
   @override
   void beginPairing() {}

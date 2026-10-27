@@ -124,104 +124,11 @@ extension OcStreamHandler on ChatSessionNotifier {
     );
 
     for (final item in rawMessages) {
-      final map = item as Map<String, dynamic>;
-      final info = map['info'] as Map<String, dynamic>? ?? const {};
-      final parts = map['parts'] as List<dynamic>? ?? const [];
-      final messageId = info['id'] as String? ?? '';
-      final sessionId =
-          info['sessionID'] as String? ?? info['sessionId'] as String? ?? '';
-      final role = info['role'] as String? ?? 'assistant';
-      final created =
-          info['time']?['created'] as int? ??
-          DateTime.now().millisecondsSinceEpoch;
-
-      if (messageId.isEmpty) continue;
-
-      var textBuffer = StringBuffer();
-      final tools = <ToolCall>[];
-      final diffs = <DiffEntry>[];
-      final subtasks = <SubtaskNotification>[];
-      final reasoningParts = <ReasoningPart>[];
-
-      for (final partItem in parts) {
-        final part = partItem as Map<String, dynamic>;
-        final partType = part['type'] as String? ?? '';
-        if (partType == 'text') {
-          // Skip synthetic and ignored text parts (system-injected content)
-          // OpenCode TUI does the same filtering
-          final isSynthetic = part['synthetic'] as bool? ?? false;
-          final isIgnored = part['ignored'] as bool? ?? false;
-          if (!isSynthetic && !isIgnored) {
-            textBuffer.write(part['text'] as String? ?? '');
-          }
-        }
-        if (partType == 'tool') {
-          final partId = part['id'] as String? ?? '';
-          final callId =
-              part['callID'] as String? ??
-              part['callId'] as String? ??
-              part['call_id'] as String? ??
-              '';
-          final toolName = part['tool'] as String? ?? 'tool';
-          final stateInfo = part['state'] as Map<String, dynamic>? ?? const {};
-          final status = stateInfo['status'] as String? ?? 'completed';
-          final title = stateInfo['title'] as String?;
-          final input = stateInfo['input'] as Map<String, dynamic>? ?? const {};
-          final output = stateInfo['output'] as String?;
-          final metadataRaw = stateInfo['metadata'];
-          final metadata = metadataRaw is Map<String, dynamic>
-              ? metadataRaw
-              : const <String, dynamic>{};
-          if (callId.isNotEmpty) {
-            final tool = ToolCall(
-              callId: callId,
-              partId: partId.isNotEmpty ? partId : callId,
-              name: toolName,
-              status: status,
-              title: title,
-              input: input,
-              output: output,
-              metadata: metadata,
-            );
-            tools.add(tool);
-
-            final diff = _extractDiffFromTool(tool);
-            if (diff != null) {
-              diffs.add(diff);
-            }
-          }
-        }
-        // Parse subtask notifications (background task completions)
-        if (partType == 'subtask') {
-          subtasks.add(SubtaskNotification.fromJson(part));
-        }
-        // Parse reasoning parts (model thinking content)
-        if (partType == 'reasoning') {
-          reasoningParts.add(ReasoningPart.fromJson(part));
-        }
+      if (item is! Map<String, dynamic>) continue;
+      final message = openCodeTranscriptMessage(item);
+      if (message != null) {
+        _addMessage(message);
       }
-
-      final textContent = textBuffer.toString();
-
-      // Skip user messages that have no visible content after filtering synthetic parts
-      // (these are system-injected context messages, not real user input)
-      if (role == 'user' && textContent.isEmpty && tools.isEmpty) {
-        continue;
-      }
-
-      final message = ChatMessage(
-        id: messageId,
-        sessionId: sessionId,
-        role: role == 'user' ? MessageRole.user : MessageRole.assistant,
-        createdAt: DateTime.fromMillisecondsSinceEpoch(created),
-        text: textContent,
-        toolCalls: tools,
-        diffs: diffs,
-        subtaskNotifications: subtasks,
-        reasoningParts: reasoningParts,
-      );
-
-      _addMessage(message);
     }
   }
 }
