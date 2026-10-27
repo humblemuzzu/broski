@@ -13,6 +13,7 @@ use crate::bridge_status::{BridgeMonitor, BridgeStatus};
 use crate::conn::ConnSender;
 use crate::control::MachineInfo;
 use crate::device::DeviceRecord;
+use crate::link_key::LinkKey;
 use crate::offers::Offers;
 use crate::registry::{Registry, SessionState};
 use crate::relay::RelayHandle;
@@ -35,6 +36,7 @@ pub struct SessionDeps {
     pub machine_id: String,
     pub machine_name: String,
     pub bridge_socket: PathBuf,
+    pub link_key: Arc<LinkKey>,
     pub monitor: Arc<BridgeMonitor>,
     pub supervisor: Option<Supervisor>,
     pub store: Arc<Store>,
@@ -46,6 +48,8 @@ pub struct SessionDeps {
     pub idle_limit: Duration,
     /// The unix connect plus the websocket upgrade, for both bridge sockets.
     pub dial_timeout: Duration,
+    /// How long a new connection may take to finish the Noise handshake.
+    pub handshake_timeout: Duration,
 }
 
 pub enum SessionCommand {
@@ -67,7 +71,6 @@ pub enum SessionCommand {
     Lost {
         conn: u64,
     },
-    Revoke,
 }
 
 pub fn spawn(
@@ -91,6 +94,7 @@ enum Input {
     Bridge(BridgeIn),
     BridgeStatus,
     Routes,
+    Revoked,
     Timer,
     Shutdown,
 }
