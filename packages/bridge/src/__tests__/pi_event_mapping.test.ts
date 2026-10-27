@@ -83,9 +83,18 @@ describe("pi runtime event mapping", () => {
 		expect(event && "kind" in event ? event.kind : null).toBe("bash-output");
 	});
 
-	test("agent-settled finishes the agent turn", () => {
-		const event = mapPiStreamToRuntimeEvent({ type: "agent-settled", aborted: false }, ctx);
+	test("agent-end finishes the agent", () => {
+		const event = mapPiStreamToRuntimeEvent({ type: "agent-end", messages: [] }, ctx);
 		expect(event?.type).toBe("agent_finished");
 		expect(event?.sessionId).toBe("session-1");
+	});
+
+	test("a model round trip inside one agent run does not start or finish the agent", () => {
+		expect(mapPiStreamToRuntimeEvent({ type: "turn-start" }, ctx)).toBeNull();
+		expect(mapPiStreamToRuntimeEvent({ type: "turn-end", message: {}, toolResults: [] }, ctx)).toBeNull();
+	});
+
+	test("agent-settled repeats agent-end, so it adds no second finish", () => {
+		expect(mapPiStreamToRuntimeEvent({ type: "agent-settled", aborted: false }, ctx)).toBeNull();
 	});
 });

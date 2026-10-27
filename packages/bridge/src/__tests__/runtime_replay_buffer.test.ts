@@ -48,9 +48,9 @@ describe("Runtime replay buffer", () => {
 		});
 	});
 
-	test("pi mapper exposes turn lifecycle as runtime lifecycle", () => {
+	test("pi mapper exposes the agent run as runtime lifecycle", () => {
 		const started = mapPiStreamToRuntimeEvent(
-			{ type: "turn-start" },
+			{ type: "agent-start" },
 			{ backend: "pi", sessionId: "pi-1", cwd: "/tmp/repo" },
 		);
 		expect(started?.type).toBe("agent_started");
@@ -58,11 +58,7 @@ describe("Runtime replay buffer", () => {
 		expect(started?.seq).toBeDefined();
 
 		const finished = mapPiStreamToRuntimeEvent(
-			{
-				type: "turn-end",
-				message: { role: "assistant", content: "done" },
-				toolResults: [],
-			},
+			{ type: "agent-end", messages: [{ role: "assistant", text: "done" }] },
 			{ backend: "pi", sessionId: "pi-1", cwd: "/tmp/repo" },
 		);
 		expect(finished?.type).toBe("agent_finished");

@@ -10,7 +10,7 @@ import { join } from "node:path";
 import type { PiDurablePermissionRequest } from "../connectors/pi-durable";
 import { broadcastPiDurablePermission } from "../handlers/pi_durable/transport";
 import type { Broadcast } from "../handlers/pi_message_helpers";
-import { broadcastPiStreamMessage } from "../handlers/pi_stream_bridge";
+import { broadcastPiStreamMessage } from "../handlers/pi_stream_delivery";
 import { createLimits } from "../server/limits";
 import { resetLinkFeed } from "../server/link-feed/feed";
 import { createLeveledLogger } from "../server/logger";
@@ -219,9 +219,9 @@ describe("link feed alerts", () => {
 		const restore = shortTiming();
 		const feed = await openFeed(socketPath);
 		try {
-			piStream({ type: "turn-start" }, "pi-done");
+			piStream({ type: "agent-start" }, "pi-done");
 			piStream({ type: "text-delta", content: "Fixed the bug.\nThen I ran the tests." }, "pi-done");
-			piStream({ type: "turn-end", message: {}, toolResults: [] }, "pi-done");
+			piStream({ type: "agent-end", messages: [] }, "pi-done");
 
 			const alerts = await alertsOf(feed, 1);
 			expect(alerts[0]).toMatchObject({
@@ -241,16 +241,31 @@ describe("link feed alerts", () => {
 		const restore = shortTiming();
 		const feed = await openFeed(socketPath);
 		try {
-			piStream({ type: "turn-start" }, "pi-flap");
-			piStream({ type: "turn-end", message: {}, toolResults: [] }, "pi-flap");
+			piStream({ type: "agent-start" }, "pi-flap");
+			piStream({ type: "agent-end", messages: [] }, "pi-flap");
 			await Bun.sleep(30);
-			piStream({ type: "turn-start" }, "pi-flap");
+			piStream({ type: "agent-start" }, "pi-flap");
 			await expect(
 				feed.waitForWhere((frame) => frame.type === "link_event" && frame.session === "pi-flap", "done", 200),
 			).rejects.toThrow("timeout waiting for done");
 
-			piStream({ type: "turn-end", message: {}, toolResults: [] }, "pi-flap");
+			piStream({ type: "agent-end", messages: [] }, "pi-flap");
 			expect((await alertsOf(feed, 1))[0]).toMatchObject({ kind: "done", session: "pi-flap" });
+		} finally {
+			await finishFeed(feed, restore);
+		}
+	});
+
+	test("a slow Pi model round trip between tool calls is not a finished turn", async () => {
+		const restore = shortTiming();
+		const feed = await openFeed(socketPath);
+		try {
+			piStream({ type: "agent-start" }, "pi-slow-model");
+			piStream({ type: "turn-end", message: {}, toolResults: [] }, "pi-slow-model");
+
+			await expect(
+				feed.waitForWhere((frame) => frame.type === "link_event" && frame.session === "pi-slow-model", "done", 300),
+			).rejects.toThrow("timeout waiting for done");
 		} finally {
 			await finishFeed(feed, restore);
 		}

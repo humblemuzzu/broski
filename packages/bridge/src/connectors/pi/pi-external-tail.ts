@@ -190,12 +190,11 @@ export function startPiExternalTail(sessionFile: string, ctx: PiExternalTailCont
 				}
 			}
 
-			// If the message has usage/stopReason, this is a terminal message
+			// A message that stopped for its tool calls is followed by their results and another message.
 			const hasUsage = msg.usage && typeof msg.usage === "object";
 			const hasStopReason = typeof msg.stopReason === "string";
-			if (hasUsage || hasStopReason) {
-				// Agent finished this turn — emit agent-end with the messages
-				// We map this as a complete agent-end to update the phone's session view
+			const waitsForTools = msg.stopReason === "toolUse";
+			if ((hasUsage || hasStopReason) && !waitsForTools) {
 				ctx.emitPiStream({
 					type: "agent-end",
 					messages: [msg],

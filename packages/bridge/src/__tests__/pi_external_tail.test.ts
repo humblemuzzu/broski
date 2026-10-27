@@ -19,6 +19,20 @@ function messageEntry(id: string, role: string, content: string): object {
 	};
 }
 
+function assistantEntry(id: string, stopReason: "toolUse" | "stop"): object {
+	const content =
+		stopReason === "toolUse"
+			? [{ type: "toolCall", id: "call-1", name: "bash", arguments: { command: "ls" } }]
+			: [{ type: "text", text: "done" }];
+	return {
+		id,
+		parentId: null,
+		timestamp: "2026-01-01T00:00:02.000Z",
+		type: "message",
+		message: { role: "assistant", content, stopReason, usage: { input: 1, output: 1 }, timestamp: 2 },
+	};
+}
+
 async function makeSessionFile(): Promise<string> {
 	const dir = await mkdtemp(join(tmpdir(), "broski-pi-tail-"));
 	tmpDirs.push(dir);
@@ -134,5 +148,22 @@ describe("startPiExternalTail", () => {
 		await Bun.sleep(700);
 
 		expect(tail.emitted).toHaveLength(emittedBeforeStop);
+	});
+
+	test("an assistant message that stopped for its tools does not end the agent", async () => {
+		const filePath = await makeSessionFile();
+		const tail = startTail(filePath);
+
+		await Bun.sleep(QUIET_WINDOW_MS);
+		await appendFile(filePath, `${JSON.stringify(assistantEntry("calls-tool", "toolUse"))}\n`);
+		await appendFile(filePath, `${JSON.stringify(assistantEntry("answers", "stop"))}\n`);
+		const deadline = Date.now() + 10_000;
+		while (!tail.emitted.some((message) => message.type === "agent-end") && Date.now() < deadline) await Bun.sleep(25);
+		tail.stop();
+
+		const types = tail.emitted.map((message) => message.type);
+		expect(types.filter((type) => type === "agent-start")).toHaveLength(1);
+		expect(types.filter((type) => type === "agent-end")).toHaveLength(1);
+		expect(types.indexOf("agent-end")).toBeGreaterThan(types.indexOf("tool-exec-start"));
 	});
 });

@@ -38,12 +38,6 @@ export function mapPiStreamToRuntimeEvent(
 				}),
 			};
 
-		case "agent-settled":
-			return baseEvent("agent_finished", ctx, {
-				sourceType: piEvent.type,
-				aborted: piEvent.aborted,
-			});
-
 		case "text-delta":
 			return {
 				...baseEvent("assistant_text_delta", ctx, { sourceType: piEvent.type }),
@@ -163,18 +157,6 @@ export function mapPiStreamToRuntimeEvent(
 				payload: piEvent,
 			};
 
-		case "turn-start":
-			return baseEvent("agent_started", ctx, { sourceType: piEvent.type });
-
-		case "turn-end":
-			return {
-				...baseEvent("agent_finished", ctx, {
-					sourceType: piEvent.type,
-					message: piEvent.message,
-					toolResults: piEvent.toolResults,
-				}),
-			};
-
 		case "external-user-message":
 			return {
 				...baseEvent("backend_event", ctx),
@@ -192,6 +174,9 @@ export function mapPiStreamToRuntimeEvent(
 				payload: { content: piEvent.content },
 			};
 
+		case "agent-settled":
+		case "turn-start":
+		case "turn-end":
 		case "tool-call-start":
 		case "tool-call-args-done":
 		case "message-start":
