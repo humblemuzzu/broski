@@ -156,6 +156,7 @@ describe("pi-durable event mapping", () => {
 				type: "snapshot",
 				entries: [],
 				tools: [{ callId: "call-1", name: "bash", status: "running", droppedBytes: 0, droppedLines: 2 }],
+				nestedTools: [],
 				compactions: [],
 				inbox: [{ id: 42 as SubmissionId, mode: "steer" }],
 				agent: {
@@ -186,6 +187,7 @@ describe("pi-durable event mapping", () => {
 				run: { inputs: [8 as SubmissionId] },
 				generation: { attempt: 2, retry: { at: 1, error: "boom" } },
 				tools: [],
+				nestedTools: [],
 				compactions: [{ taskId: 3 as TaskId<CompactionResult>, reason: "threshold", blocking: true, attempt: 1 }],
 				inbox: [],
 				agent: {},
