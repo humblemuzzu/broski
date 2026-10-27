@@ -171,7 +171,9 @@ The bridge websocket carries `x-broski-device-id`, `x-broski-role: owner` and, o
 keep one slow direction from stalling the other; a close from the bridge is logged with its code and
 reason. The socket stops counting towards `up` the moment its read side ends, and the writer is
 stopped and drained right after, so a bridge that dies is reported as crashed instead of as a
-bridge that is still there, and nothing it never wrote is lost.
+bridge that is still there, and nothing it never wrote is lost. A supervised child counts as
+`starting` for as long as it runs, so the last socket dying can report one `starting` before the
+supervisor sees the exit and reports `crashed`.
 
 ## Ports and CLI
 
