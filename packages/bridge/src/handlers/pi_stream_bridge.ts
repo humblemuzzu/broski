@@ -8,7 +8,7 @@ import {
 	type PiModelSelectionMark,
 } from "../runtime/pi-runtime-read-models";
 import { registerSweepable } from "../state/bounded-map";
-import type { PiStatePayload, PiStreamMessage } from "../types/pi";
+import type { PiStatePayload } from "../types/pi";
 import { onBridgeTurnBoundary } from "./pi_external_tail_sync";
 import type { Broadcast, Reply } from "./pi_message_helpers";
 import { isPiStateChangingEvent } from "./pi_state_events";
