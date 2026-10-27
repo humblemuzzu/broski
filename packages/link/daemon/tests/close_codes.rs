@@ -55,10 +55,10 @@ async fn a_phone_that_overruns_the_bridge_queue_is_closed_with_4002() {
     bridge.stop_reading();
     let chunk = vec![b'x'; 256 * 1024];
     let mut sent = 0;
-    while sent < 400 && phone.closed.is_empty() {
+    'sending: while sent < 400 && phone.closed.is_empty() {
         for _ in 0..4 {
             if phone.link.send(1, &chunk, now_ms()).is_err() {
-                break;
+                break 'sending;
             }
             phone.flush().await;
             sent += 1;

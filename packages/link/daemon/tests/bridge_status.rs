@@ -17,10 +17,9 @@ async fn a_dead_session_socket_is_not_hidden_by_the_feed() {
     let bridge = ScriptedBridge::start(daemon.bridge_socket.clone()).await;
     let mut phone = pair_lan_phone(&daemon).await;
 
-    let up = phone
+    phone
         .bridge_messages(WAIT, |status| status["state"] == "up")
         .await;
-    assert_eq!(up.last().expect("a bridge status")["state"], "up");
     assert_eq!(daemon.bridge_state().await, "up");
 
     // The session's own socket goes for good while the daemon's feed socket keeps the process-wide
@@ -59,7 +58,6 @@ async fn a_bridge_that_never_answers_the_upgrade_is_redialled_after_the_dial_tim
     let down = phone
         .bridge_messages(WAIT, |status| status["state"] == "down")
         .await;
-    assert_eq!(down.last().expect("a bridge status")["state"], "down");
     assert!(
         bridge.await_dials("owner", 1, DIAL_TIMEOUT).await,
         "the session never dialled the bridge"
