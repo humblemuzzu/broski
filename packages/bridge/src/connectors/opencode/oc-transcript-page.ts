@@ -1,5 +1,7 @@
 import type { SessionMessagesResponse } from "@opencode-ai/sdk/v2";
 import type { TranscriptPage } from "../../types/transcript-page";
+import { fitTranscriptPage } from "../../utils/transcript-page-fit";
+import { cutAtTurnStart } from "../../utils/turn-aligned-page";
 
 export type OcSessionMessage = SessionMessagesResponse[number];
 
@@ -18,12 +20,18 @@ export function pageSessionMessages(
 ): TranscriptPage<OcSessionMessage> {
 	const end = options.before === undefined ? messages.length : indexOfMessage(messages, options.before);
 	const unknown = end === null;
-	const at = unknown ? messages.length : end;
-	const start = Math.max(0, at - options.limit);
-	const page = messages.slice(start, at);
-	const first = page[0];
+	const at = end ?? messages.length;
+	const cut = cutAtTurnStart(messages, Math.max(0, at - options.limit), {
+		isUser: (message) => message.info.role === "user",
+	});
+
+	const fitted = fitTranscriptPage(messages.slice(cut.start, at));
+	const start = cut.start + fitted.dropped;
+	const first = fitted.messages[0];
 	const fields = start > 0 && first ? { hasMore: true, nextCursor: first.info.id } : { hasMore: false };
-	return unknown ? { messages: page, ...fields, cursorUnknown: true } : { messages: page, ...fields };
+	return unknown
+		? { messages: fitted.messages, ...fields, cursorUnknown: true }
+		: { messages: fitted.messages, ...fields };
 }
 
 function indexOfMessage(messages: OcSessionMessage[], id: string): number | null {

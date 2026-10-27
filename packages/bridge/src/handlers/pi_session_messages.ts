@@ -1,9 +1,8 @@
 /**
  * Handler for `pi_read_session_messages`: the Pi chat-open path.
  *
- * The transcript itself is built by `readPiSessionTranscript`; this file only resolves the session
- * file and shapes the reply. With a `limit` or `before` the bounded page reader answers instead,
- * and falls back to the whole transcript when it cannot page.
+ * A paged request is always answered with a page, never widened to the whole transcript: a
+ * transcript too large for one reply is exactly what the page is for.
  */
 
 import { readPiSessionTranscriptPage } from "../connectors/pi/pi-session-page";
@@ -42,19 +41,17 @@ export async function handle(message: Record<string, unknown>, reply: Reply): Pr
 
 	try {
 		if (pageLimit !== undefined || before !== undefined) {
-			const page = await readPiSessionTranscriptPage(resolvedPath, {
+			const page = (await readPiSessionTranscriptPage(resolvedPath, {
 				limit: pageLimit ?? DEFAULT_TRANSCRIPT_PAGE_LIMIT,
 				before,
+			})) ?? { messages: [], hasMore: false };
+			reply({
+				type: "pi_session_messages",
+				data: page.messages,
+				requestId,
+				...transcriptPageFields(page),
 			});
-			if (page) {
-				reply({
-					type: "pi_session_messages",
-					data: page.messages,
-					requestId,
-					...transcriptPageFields(page),
-				});
-				return true;
-			}
+			return true;
 		}
 
 		const messages = await readPiSessionTranscript(resolvedPath, limit);

@@ -16,6 +16,8 @@ import type { ClaudeCodeTranscriptMessage } from "../../types";
 import type { TranscriptPage } from "../../types/transcript-page";
 import { readJsonlLines } from "../../utils/jsonl-lines";
 import { readJsonlTail } from "../../utils/jsonl-tail";
+import { fitTranscriptPage } from "../../utils/transcript-page-fit";
+import { cutAtTurnStart, TURN_EXTENSION_MAX } from "../../utils/turn-aligned-page";
 import {
 	type ClaudeTranscriptLine,
 	extractFirstTextContent,
@@ -246,7 +248,7 @@ export async function readCcTranscriptPage(
 	options: { limit: number; end?: number },
 ): Promise<TranscriptPage<ClaudeCodeTranscriptMessage> | null> {
 	const limit = Math.max(1, Math.floor(options.limit));
-	const state = createState({ keepTo: options.end, window: limit });
+	const state = createState({ keepTo: options.end, window: limit + TURN_EXTENSION_MAX });
 	try {
 		for await (const line of readJsonlLines(filePath)) appendRecord(state, line);
 	} catch {
@@ -254,11 +256,16 @@ export async function readCcTranscriptPage(
 	}
 
 	const total = Math.min(options.end ?? state.seen, state.seen);
-	const hasMore = total > limit;
+	const cut = cutAtTurnStart(state.messages, Math.max(0, total - limit - state.base), {
+		isUser: (message) => message.role === "user",
+	});
+	const fitted = fitTranscriptPage(state.messages.slice(cut.start));
+	const start = state.base + cut.start + fitted.dropped;
+	const hasMore = start > 0;
 	return {
-		messages: state.messages,
+		messages: fitted.messages,
 		hasMore,
-		...(hasMore ? { nextCursor: String(total - limit) } : {}),
+		...(hasMore ? { nextCursor: String(start) } : {}),
 	};
 }
 

@@ -144,9 +144,12 @@ export function mapAgentMessage(message: AgentMessage): MappedMessage | null {
 
 	// Fallback for custom message types (bashExecution, custom, branchSummary, compactionSummary)
 	const record = message as unknown as Record<string, unknown>;
+	const summary = typeof record.summary === "string" ? record.summary : undefined;
 	return {
 		role: String(record.role ?? "unknown"),
 		...record,
+		// A summary marker carries its text in `summary`; the transcript renders `content`.
+		...(summary === undefined ? {} : { content: summary }),
 	};
 }
 

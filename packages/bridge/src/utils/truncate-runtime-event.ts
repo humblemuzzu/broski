@@ -5,11 +5,10 @@
 
 import { frameBytes } from "../transport/send-limits";
 import type { ServerMessage } from "../types";
+import { cutLargestString } from "./json-string-slots";
 
 type RuntimeEventMessage = Extract<ServerMessage, { type: "runtime_event" }>;
 
-/** Nesting after this is not where a huge payload lives, and walking it costs more than it saves. */
-const MAX_DEPTH = 8;
 /** Truncating the largest string a few times is enough; a deeper hunt means the shape is odd. */
 const MAX_PASSES = 6;
 /** What stays on a minimal event even when nothing else fits. */
@@ -28,42 +27,8 @@ const IDENTITY_FIELDS = [
 	"isError",
 ] as const;
 
-const marker = (removed: number) => `…[truncated by the bridge: ${removed} bytes]`;
-
 /** Room for the marker a pass adds, so one cut lands under the limit instead of trading bytes with it. */
 const MARKER_RESERVE = 64;
-
-type Slot = { path: Array<string | number>; length: number };
-
-function largestString(value: unknown, path: Array<string | number> = [], depth = 0): Slot | null {
-	if (typeof value === "string") return { path, length: value.length };
-	if (depth >= MAX_DEPTH || value === null || typeof value !== "object") return null;
-	const entries: Array<[string | number, unknown]> = Array.isArray(value)
-		? value.map((item, index) => [index, item])
-		: Object.entries(value);
-	let best: Slot | null = null;
-	for (const [key, item] of entries) {
-		const found = largestString(item, [...path, key], depth + 1);
-		if (found && (best === null || found.length > best.length)) best = found;
-	}
-	return best;
-}
-
-function readAt(root: unknown, path: Array<string | number>): unknown {
-	let current = root;
-	for (const key of path) {
-		if (current === null || typeof current !== "object") return undefined;
-		current = (current as Record<string | number, unknown>)[key];
-	}
-	return current;
-}
-
-function writeAt(root: unknown, path: Array<string | number>, value: string): void {
-	if (path.length === 0) return;
-	const parent = readAt(root, path.slice(0, -1));
-	if (parent === null || typeof parent !== "object") return;
-	(parent as Record<string | number, unknown>)[path[path.length - 1]!] = value;
-}
 
 function truncatedCopy(message: RuntimeEventMessage): RuntimeEventMessage {
 	const data = message.data as Record<string, unknown> | undefined;
@@ -88,13 +53,7 @@ function minimalEvent(message: RuntimeEventMessage): RuntimeEventMessage {
 function truncateLongest(event: RuntimeEventMessage, excess: number): boolean {
 	const data = event.data as Record<string, unknown> | undefined;
 	if (data === undefined) return false;
-	const slot = largestString(data);
-	if (!slot) return false;
-	const text = readAt(data, slot.path);
-	if (typeof text !== "string") return false;
-	const removed = Math.max(1, Math.min(text.length, excess + MARKER_RESERVE));
-	writeAt(data, slot.path, `${text.slice(0, text.length - removed)}${marker(removed)}`);
-	return true;
+	return cutLargestString(data, excess + MARKER_RESERVE);
 }
 
 /** `message` marked truncated, as a frame no larger than `limit` where that is possible. */

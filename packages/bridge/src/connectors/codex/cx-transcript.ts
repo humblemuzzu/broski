@@ -10,6 +10,8 @@
 import type { CodexTranscriptMessage, CodexTranscriptToolCall } from "../../types";
 import type { TranscriptPage } from "../../types/transcript-page";
 import { readJsonlLines } from "../../utils/jsonl-lines";
+import { fitTranscriptPage } from "../../utils/transcript-page-fit";
+import { cutAtTurnStart, TURN_EXTENSION_MAX } from "../../utils/turn-aligned-page";
 import {
 	assistantTextFrom,
 	type CustomToolCallEvent,
@@ -203,16 +205,11 @@ export async function readCxTranscriptPage(
 	options: { limit: number; end?: number },
 ): Promise<TranscriptPage<CodexTranscriptMessage> | null> {
 	const limit = Math.max(1, Math.floor(options.limit));
-	const builder = new CxTranscriptBuilder(limit, options.end);
+	const builder = new CxTranscriptBuilder(limit + TURN_EXTENSION_MAX, options.end);
 	if (!(await streamRollout(filePath, builder))) return null;
 
 	const total = Math.min(options.end ?? builder.total(), builder.total());
-	const hasMore = total > limit;
-	return {
-		messages: builder.messages(),
-		hasMore,
-		...(hasMore ? { nextCursor: String(total - limit) } : {}),
-	};
+	return turnAlignedCxPage(builder.messages(), total, limit);
 }
 
 /** Same window over an already-built transcript, e.g. the one the app-server hands back. */
@@ -222,11 +219,25 @@ export function sliceCxTranscriptPage(
 ): TranscriptPage<CodexTranscriptMessage> {
 	const limit = Math.max(1, Math.floor(options.limit));
 	const total = Math.min(options.end ?? messages.length, messages.length);
-	const hasMore = total > limit;
+	return turnAlignedCxPage(messages, total, limit);
+}
+
+function turnAlignedCxPage(
+	messages: CodexTranscriptMessage[],
+	total: number,
+	limit: number,
+): TranscriptPage<CodexTranscriptMessage> {
+	const base = Math.max(0, total - messages.length);
+	const cut = cutAtTurnStart(messages, Math.max(0, total - limit - base), {
+		isUser: (message) => message.role === "user",
+	});
+	const fitted = fitTranscriptPage(messages.slice(cut.start));
+	const start = base + cut.start + fitted.dropped;
+	const hasMore = start > 0;
 	return {
-		messages: messages.slice(Math.max(0, total - limit), total),
+		messages: fitted.messages,
 		hasMore,
-		...(hasMore ? { nextCursor: String(total - limit) } : {}),
+		...(hasMore ? { nextCursor: String(start) } : {}),
 	};
 }
 

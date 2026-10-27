@@ -1,28 +1,24 @@
 /**
  * Paged reads of a Pi session transcript.
  *
- * A page is the newest messages of the context that end at a boundary entry: the context is the
- * SDK's leaf-to-root path cut by a compaction, and `before` names the entry a page stops before.
- * Pages therefore concatenate to the whole-file read, and a cursor names an entry rather than a
- * distance from the tail, so it stays valid when the session grows at the end.
+ * A page is the newest messages of the session's whole history that end at a boundary entry, and
+ * `before` names the entry a page stops before, so pages concatenate to the whole transcript.
  *
- * `null` means the read could not be paged — an unindexable file, an unknown cursor, a shape the
- * bounded window cannot reproduce — and the caller falls back to the whole-file read.
+ * The history is the leaf-to-root path, not the agent's compaction-cut context: a compaction is a
+ * summary marker at its own position and the entries it summarised stay above it. When the tree
+ * cannot be trusted — a non-string id, a looping parent chain — the file is paged in written order.
+ *
+ * `null` means the file itself could not be read.
  */
 
-import type { CompactionEntry, SessionEntry } from "@earendil-works/pi-coding-agent";
-import { loadPiCodingAgent } from "../../sdk/pi-coding-agent";
+import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 import type { TranscriptPage } from "../../types/transcript-page";
-import { mapAgentMessages } from "./pi-events";
-import {
-	indexPiSessionFile,
-	type PiSessionEntryRef,
-	type PiSessionFileIndex,
-	readPiEntryAt,
-	readPiEntryLines,
-} from "./pi-session-index";
+import { type FittedPage, fitTranscriptPage } from "../../utils/transcript-page-fit";
+import { cutAtTurnStart, TURN_EXTENSION_MAX, type TurnCut } from "../../utils/turn-aligned-page";
+import { indexPiSessionFile, type PiSessionFileIndex, readPiEntryLines } from "./pi-session-index";
+import { type ContextEditReplacement, entryMessages } from "./pi-session-page-entries";
 import type { PiSessionTranscript } from "./pi-session-transcript";
-import { newestCompactionPosition, piSessionPath } from "./pi-session-window";
+import { piSessionPath } from "./pi-session-window";
 
 /** Entries guessed per requested message before the window is widened. */
 const ENTRY_GUESS_FACTOR = 2;
@@ -31,74 +27,140 @@ const MAX_WINDOW_ATTEMPTS = 24;
 
 export type PiTranscriptPage = TranscriptPage<PiSessionTranscript[number]>;
 
-type CompactionInfo = {
-	entry: CompactionEntry;
-	messages: PiSessionTranscript;
-	/** Position of the compaction on the leaf path. */
-	position: number;
-	/** Path position the context starts at, i.e. `firstKeptEntryId` when it is on the path. */
-	keptStart: number;
+type PiMessage = PiSessionTranscript[number];
+
+type CutRules = {
+	isUser: (message: PiMessage) => boolean;
+	joinsPrevious: (message: PiMessage) => boolean;
 };
 
 type PreparedSession = {
 	index: PiSessionFileIndex;
-	path: number[] | null;
-	compaction: CompactionInfo | null;
+	/** Positions of `index.entries` in transcript order. */
+	order: number[];
+	edits: Map<string, ContextEditReplacement>;
 };
 
-async function entryMessages(entry: SessionEntry, primaryCompactionId: string | null): Promise<PiSessionTranscript> {
-	if (entry.type === "compaction" && entry.id !== primaryCompactionId) return [];
-	const { sessionEntryToContextMessages } = await loadPiCodingAgent();
-	return mapAgentMessages(sessionEntryToContextMessages(entry));
+type Window = {
+	messages: PiSessionTranscript;
+	/** The entry id that produced `messages[i]`: the cursor that puts a page boundary there. */
+	owners: string[];
+};
+
+async function readEdits(
+	sessionPath: string,
+	index: PiSessionFileIndex,
+	order: number[],
+): Promise<Map<string, ContextEditReplacement>> {
+	const refs = order
+		.map((position) => index.entries[position])
+		.filter((ref) => ref !== undefined && ref.type === "context_edit");
+	if (refs.length === 0) return new Map();
+
+	const edits = new Map<string, ContextEditReplacement>();
+	for (const entry of await readPiEntryLines(sessionPath, refs)) {
+		const edit = entry as { type?: string; targetId?: unknown; replacement?: unknown } | null;
+		if (edit?.type !== "context_edit" || typeof edit.targetId !== "string") continue;
+		edits.set(edit.targetId, (edit.replacement ?? null) as ContextEditReplacement);
+	}
+	return edits;
 }
 
-async function prepare(sessionPath: string): Promise<PreparedSession | null> {
+async function prepare(sessionPath: string): Promise<PreparedSession> {
 	const index = await indexPiSessionFile(sessionPath);
-	if (index.headerVersion < 3 || index.unreliable) return null;
-
-	const path = piSessionPath(index, sessionPath);
-	if (!path) return { index, path: null, compaction: null };
-
-	// An edit rewrites an earlier entry from a line that can sit on either side of a page boundary,
-	// and the whole-file read applies it from anywhere, so a windowed page cannot reproduce it.
-	if (path.some((position) => index.entries[position]?.type === "context_edit")) return null;
-
-	const position = newestCompactionPosition(index, path);
-	if (position < 0) return { index, path, compaction: null };
-
-	const compactionPathPosition = path[position];
-	const ref = compactionPathPosition === undefined ? undefined : index.entries[compactionPathPosition];
-	const entry = ref ? ((await readPiEntryAt(sessionPath, ref)) as CompactionEntry | null) : null;
-	if (!entry) return null;
-	const kept = typeof entry.firstKeptEntryId === "string" ? index.byId.get(entry.firstKeptEntryId) : undefined;
-	const keptAt = kept === undefined ? -1 : path.indexOf(kept);
-	if (keptAt < 0) return null;
-
-	return {
-		index,
-		path,
-		compaction: { entry, messages: await entryMessages(entry, entry.id), position, keptStart: keptAt },
-	};
+	let path: number[] | null = null;
+	if (!index.unreliable) {
+		try {
+			path = piSessionPath(index, sessionPath);
+		} catch {
+			path = null;
+		}
+	}
+	const order = path ?? index.entries.map((_, position) => position);
+	return { index, order, edits: await readEdits(sessionPath, index, order) };
 }
 
 async function loadWindow(
 	sessionPath: string,
-	index: PiSessionFileIndex,
-	path: number[],
+	prepared: PreparedSession,
 	start: number,
 	end: number,
-): Promise<SessionEntry[] | null> {
-	const positions = path.slice(start, end);
-	const refs = positions.map((position) => index.entries[position]);
-	const loaded = await readPiEntryLines(sessionPath, refs as PiSessionEntryRef[]);
+): Promise<Window | null> {
+	const positions = prepared.order.slice(start, end);
+	const loaded = await readPiEntryLines(
+		sessionPath,
+		positions.map((position) => prepared.index.entries[position]),
+	);
 	if (loaded.some((entry) => entry === null)) return null;
 
-	const entries = loaded as SessionEntry[];
-	for (let i = 1; i < entries.length; i++) {
-		const expected = index.entries[positions[i - 1] as number]?.id;
-		if (entries[i]?.parentId !== expected) return null;
+	const messages: PiSessionTranscript = [];
+	const owners: string[] = [];
+	for (let i = 0; i < loaded.length; i++) {
+		const entry = loaded[i] as SessionEntry;
+		const id = prepared.index.entries[positions[i] as number]?.id ?? "";
+		for (const message of await entryMessages(entry, prepared.edits.get(entry.id))) {
+			messages.push(message);
+			owners.push(id);
+		}
 	}
-	return entries;
+	return { messages, owners };
+}
+
+function boundaryOf(prepared: PreparedSession, before: string | undefined): number | null {
+	if (before === undefined) return prepared.order.length;
+	const position = prepared.index.byId.get(before);
+	if (position === undefined) return null;
+	const at = prepared.order.indexOf(position);
+	return at < 0 ? null : at;
+}
+
+function widen(start: number, boundary: number, limit: number): number {
+	return Math.max(0, start - Math.max(limit, boundary - start));
+}
+
+function cutRules(): CutRules {
+	return {
+		isUser: (message) => message.role === "user",
+		joinsPrevious: (message) => message.role === "toolResult",
+	};
+}
+
+function pageOf(window: Window, cut: TurnCut, start: number): PiTranscriptPage | null {
+	const fitted: FittedPage<PiMessage> = fitTranscriptPage(window.messages.slice(cut.start), {
+		canOpen: (message) => message.role !== "toolResult",
+	});
+	const offset = cut.start + fitted.dropped;
+	if (start === 0 && offset === 0) return { messages: fitted.messages, hasMore: false };
+
+	const nextCursor = window.owners[offset];
+	if (nextCursor === undefined) return null;
+	return { messages: fitted.messages, hasMore: true, nextCursor };
+}
+
+async function buildPage(
+	sessionPath: string,
+	prepared: PreparedSession,
+	boundary: number,
+	limit: number,
+): Promise<PiTranscriptPage | null> {
+	let start = Math.max(0, boundary - (limit * ENTRY_GUESS_FACTOR + ENTRY_GUESS_MARGIN));
+	const rules = cutRules();
+
+	for (let attempt = 0; attempt < MAX_WINDOW_ATTEMPTS; attempt++) {
+		const window = await loadWindow(sessionPath, prepared, start, boundary);
+		if (!window) return null;
+
+		const candidate = Math.max(0, window.messages.length - limit);
+		const cut = cutAtTurnStart(window.messages, candidate, rules);
+		const tooShort = start > 0 && window.messages.length < limit;
+		// The turn opened before the window did, so the page would begin mid-turn: read further back.
+		const cutShort = start > 0 && !cut.atTurnStart && cut.start === 0 && candidate < TURN_EXTENSION_MAX;
+		if (!tooShort && !cutShort) return pageOf(window, cut, start);
+
+		start = widen(start, boundary, limit);
+	}
+
+	return null;
 }
 
 export async function readPiSessionTranscriptPage(
@@ -106,73 +168,17 @@ export async function readPiSessionTranscriptPage(
 	options: { limit: number; before?: string },
 ): Promise<PiTranscriptPage | null> {
 	const limit = Math.max(1, Math.floor(options.limit));
-	const prepared = await prepare(sessionPath);
-	if (!prepared) return null;
-
-	const { index, path, compaction } = prepared;
-	if (!path) return { messages: [], hasMore: false };
-
-	const wall = compaction ? compaction.keptStart : 0;
-	const summary = compaction ? compaction.messages : [];
-	let boundary = path.length;
-	if (options.before !== undefined) {
-		const entryPosition = index.byId.get(options.before);
-		const at = entryPosition === undefined ? -1 : path.indexOf(entryPosition);
-		if (at < 0 || at < wall) return null;
-		boundary = at;
-	}
-
-	let start = Math.max(wall, boundary - (limit * ENTRY_GUESS_FACTOR + ENTRY_GUESS_MARGIN));
-
-	for (let attempt = 0; attempt < MAX_WINDOW_ATTEMPTS; attempt++) {
-		const entries = await loadWindow(sessionPath, index, path, start, boundary);
-		if (!entries) return null;
-
-		const tail: PiSessionTranscript = [];
-		const produced: number[] = [];
-		for (let i = 0; i < entries.length; i++) {
-			const entry = entries[i] as SessionEntry;
-			// The compaction's summary is carried at the front of the context, never in path order.
-			const inPathOrder = compaction === null || start + i !== compaction.position;
-			const messages = inPathOrder ? await entryMessages(entry, compaction?.entry.id ?? null) : [];
-			if (messages.length > 1) return null;
-			produced.push(messages.length);
-			tail.push(...messages);
-		}
-
-		const leading = start === wall ? summary : [];
-		const total = leading.length + tail.length;
-		if (start > wall && total < limit) {
-			const next = Math.max(wall, start - Math.max(limit, boundary - start));
-			if (next >= start) return null;
-			start = next;
-			continue;
-		}
-
-		const all = [...leading, ...tail];
-		// A tool result joins the assistant message before it, so a page that opens with one would
-		// lose it when the app prepends the page above messages it has not loaded yet.
-		let offset = Math.max(0, total - limit);
-		while (offset > 0 && all[offset]?.role === "toolResult") offset--;
-		const messages = offset === 0 ? all : all.slice(offset);
-		if (!(start > wall || total > limit)) return { messages, hasMore: false };
-
-		if (offset < leading.length) {
-			return compaction ? { messages, hasMore: true, nextCursor: compaction.entry.id } : { messages, hasMore: true };
-		}
-
-		let seen = leading.length;
-		for (let i = 0; i < entries.length; i++) {
-			const count = produced[i] as number;
-			if (count === 0) continue;
-			if (seen >= offset) {
-				const id = index.entries[path[start + i] as number]?.id;
-				return id ? { messages, hasMore: true, nextCursor: id } : null;
-			}
-			seen += count;
-		}
+	let prepared: PreparedSession;
+	try {
+		prepared = await prepare(sessionPath);
+	} catch {
 		return null;
 	}
+	if (prepared.order.length === 0) return { messages: [], hasMore: false };
 
-	return null;
+	const boundary = boundaryOf(prepared, options.before);
+	if (boundary !== null) return buildPage(sessionPath, prepared, boundary, limit);
+
+	const newest = await buildPage(sessionPath, prepared, prepared.order.length, limit);
+	return newest === null ? null : { ...newest, cursorUnknown: true };
 }
