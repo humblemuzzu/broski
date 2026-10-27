@@ -605,6 +605,7 @@ broski-bridge doctor                         # Diagnose environment
 ## Test Hygiene
 
 - **Never let a test touch real user data.** Tests must not read or write `~/.pi`, `~/.broski`, `~/.claude`, or `~/.codex`. Inject temp roots instead: config read/write take an explicit path, and the Pi connector accepts a `sessionRoot`. Real user dirs belong to the running bridge, never to a test.
+- **Drive a real agent with a scripted model, not a mock of it.** `packages/bridge/src/__tests__/helpers/` has a scripted OpenAI-compatible endpoint (`scripted-openai-server.ts`) and a rig (`pi-live-rig.ts`) that runs a real Pi AgentSession behind a link socket; `packages/link_dart/test/e2e/pi_chat_e2e_test.dart` does the same through the real daemon. Both use a throwaway agent dir.
 - **Bound long-running / real-data scripts** (session scans, index rebuilds) with a memory watchdog. A Pi session-stats scan over 3,217 real sessions once reached **38 GB RSS** before it was rewritten to stream JSONL through a bounded pool (`utils/bounded-pool.ts`).
 
 ## Coding Conventions
@@ -622,4 +623,7 @@ broski-bridge doctor                         # Diagnose environment
 - **Stale-while-revalidate:** Show cached data immediately, refresh in background. Providers check `isOfflineMode` → cache fallback on error.
 - **Extension pattern:** `bridge_service.dart` is 295 lines of core. All agent methods live in 41 extension files in `services/bridge/`.
 - **Handler delegation:** `server.ts` routes to 101 handler files. New cases get a new handler file + 1-line route in server.ts.
+- **A run, not a turn:** `agent_started`/`agent_finished` are the agent *run* only. Pi's and Pi Durable's `turn_start`/`turn_end` bracket every model call inside a run and map to nothing (`docs/architecture/notifications.md`); the app's Stop control, completion notification and queue draining all key on the run.
+- **Viewers get the deltas:** thinking, text, tool output and `tool_finished` reach only the sockets viewing the session. The socket that creates, switches to, prompts or steers a Pi session becomes a viewer (`handlers/pi_view_binding.ts`), because a draft chat has no session id to `set_view` with.
+- **Stop is always on screen and always local:** `RunningStopBar` shows while `chatIsRunning`; `stopGeneration` sends the backend abort and `cancelRunLocally()` ends the run on the phone without waiting for the bridge.
 - **Snapshot-first attach (Pi Durable):** a reconnecting client gets the harness snapshot, not a replay buffer — the WS `set_view` attach streams `runtime_state` + `runtime_event` and every later commit batch follows.
