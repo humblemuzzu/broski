@@ -183,7 +183,11 @@ response crosses the real path — link, daemon, relay if that is the route — 
 link: `connection_metrics` reaches the app, `connection_provider` hands it to
 `WebSocketService.updateRtt`, the phone's `BatchThresholds` and the bridge's
 `utils/runtime-send-queue.ts` batching both follow it, and a relay link stops batching like a LAN
-one.
+one. Deltas take the same treatment before they reach the queue: the first delta of a stream goes
+out at once and the rest of that stream merge into one frame per 45 ms cadence
+(`transport/runtime-event-coalescer.ts`), so a reply that trickles a token every 23 ms costs about
+half the frames it used to. `seq` and `seqStart` keep the range a merged frame stands for, so the
+app's gap check and replay dedupe are unaffected.
 
 The window is the one every socket has: a ping is in flight at a time, and a socket that has not
 answered for `HEARTBEAT_DEAD_AFTER_MS` (90 s) is closed (`4000 Heartbeat timeout`). For a link
