@@ -10,52 +10,97 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/fake_websocket.dart';
 
+typedef _Harness = ({
+  FakeWebSocket socket,
+  ChatSessionNotifier chat,
+  WidgetRef ref,
+});
+
+/// A chat provider over a [FakeWebSocket] that never answers, behind a widget tree that hands out its [WidgetRef].
+Future<_Harness> _pump(WidgetTester tester) async {
+  final socket = FakeWebSocket();
+  final chat = ChatSessionNotifier(BridgeService(socket));
+  addTearDown(socket.close);
+  late WidgetRef ref;
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        chatSessionProvider.overrideWith((ref) => chat),
+        bridgeServiceProvider.overrideWithValue(BridgeService(socket)),
+        piBridgeServiceProvider.overrideWithValue(PiBridgeService(socket)),
+      ],
+      child: Consumer(
+        builder: (context, widgetRef, _) {
+          ref = widgetRef;
+          return const SizedBox();
+        },
+      ),
+    ),
+  );
+  return (socket: socket, chat: chat, ref: ref);
+}
+
+void _stop(
+  _Harness harness, {
+  bool isClaudeCode = false,
+  bool isCodex = false,
+  bool isPi = false,
+}) => stopGeneration(
+  ref: harness.ref,
+  isClaudeCode: isClaudeCode,
+  isCodex: isCodex,
+  isPi: isPi,
+  sessionId: 'session-1',
+  projectPath: '/work/repo',
+);
+
+Iterable<Map<String, dynamic>> _sent(_Harness harness, String type) =>
+    harness.socket.sent.where((message) => message['type'] == type);
+
 void main() {
   testWidgets('Stop on a Pi chat sends pi_abort and leaves the running state '
       'before the bridge answers', (tester) async {
-    final socket = FakeWebSocket();
-    final chat = ChatSessionNotifier(BridgeService(socket));
-    chat.setPiSession(sessionId: 'pi-1', cwd: '/work/repo');
-    chat.setPiStreaming(true);
-    addTearDown(socket.close);
-    late WidgetRef widgetRef;
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          chatSessionProvider.overrideWith((ref) => chat),
-          bridgeServiceProvider.overrideWithValue(BridgeService(socket)),
-          piBridgeServiceProvider.overrideWithValue(PiBridgeService(socket)),
-        ],
-        child: Consumer(
-          builder: (context, ref, _) {
-            widgetRef = ref;
-            return const SizedBox();
-          },
-        ),
-      ),
-    );
-    expect(chatIsRunning(chat.state), isTrue);
+    final harness = await _pump(tester);
+    harness.chat.setPiSession(sessionId: 'pi-1', cwd: '/work/repo');
+    harness.chat.setPiStreaming(true);
+    expect(chatIsRunning(harness.chat.state), isTrue);
 
-    stopGeneration(
-      ref: widgetRef,
-      isClaudeCode: false,
-      isCodex: false,
-      isPi: true,
-      sessionId: 'pi-1',
-      projectPath: '/work/repo',
-    );
+    _stop(harness, isPi: true);
 
-    expect(
-      socket.sent.where((message) => message['type'] == 'pi_abort'),
-      hasLength(1),
-    );
-    expect(chatIsRunning(chat.state), isFalse);
+    expect(_sent(harness, 'pi_abort'), hasLength(1));
+    expect(chatIsRunning(harness.chat.state), isFalse);
 
-    socket.deliver({
+    harness.socket.deliver({
       'type': 'pi_aborted',
       'data': true,
-      'requestId': socket.lastRequestId,
+      'requestId': harness.socket.lastRequestId,
     });
     await tester.pump();
+  });
+
+  testWidgets('Stop on a Claude Code chat sends cc_abort and leaves the '
+      'running state', (tester) async {
+    final harness = await _pump(tester);
+    harness.chat.setCCSession(sessionId: 'cc-1', cwd: '/work/repo');
+    harness.chat.setCCStreaming(true);
+    expect(chatIsRunning(harness.chat.state), isTrue);
+
+    _stop(harness, isClaudeCode: true);
+
+    expect(_sent(harness, 'cc_abort').single['sessionId'], 'cc-1');
+    expect(chatIsRunning(harness.chat.state), isFalse);
+  });
+
+  testWidgets('Stop on a Codex chat sends cx_abort and leaves the running '
+      'state', (tester) async {
+    final harness = await _pump(tester);
+    harness.chat.setCodexThread(threadId: 'cx-1', cwd: '/work/repo');
+    harness.chat.setCodexStreaming(true);
+    expect(chatIsRunning(harness.chat.state), isTrue);
+
+    _stop(harness, isCodex: true);
+
+    expect(_sent(harness, 'cx_abort').single['threadId'], 'cx-1');
+    expect(chatIsRunning(harness.chat.state), isFalse);
   });
 }
