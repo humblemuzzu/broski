@@ -10,6 +10,9 @@ class PiModelSelection {
   /// The model's name, or [pattern] when no model the backend can run matches it.
   final String label;
 
+  /// The model's name from Pi's full catalogue, even when its provider is not signed in here.
+  final String? name;
+
   final String? provider;
   final String? modelId;
 
@@ -19,13 +22,18 @@ class PiModelSelection {
   /// False when no model Pi can run here matches the entry: a missing credential, or a stale entry.
   final bool available;
 
+  /// Why Pi cannot run it here — a missing provider or the environment variable it reads. Null when runnable.
+  final String? unavailableReason;
+
   const PiModelSelection({
     required this.pattern,
     required this.label,
+    this.name,
     this.provider,
     this.modelId,
     this.thinkingLevel,
     this.available = false,
+    this.unavailableReason,
   });
 
   factory PiModelSelection.fromJson(Map<String, dynamic> json) {
@@ -33,23 +41,34 @@ class PiModelSelection {
     return PiModelSelection(
       pattern: json['pattern'] as String? ?? '',
       label: json['label'] as String? ?? '',
+      name: json['name'] as String?,
       provider: json['provider'] as String?,
       modelId: json['modelId'] as String?,
       thinkingLevel: level == null
           ? null
           : PiThinkingLevel.fromWireValue(level),
       available: json['available'] as bool? ?? false,
+      unavailableReason: json['unavailableReason'] as String?,
     );
+  }
+
+  /// The name to show on a row: the model's own name, then the resolved label, then the saved pattern.
+  String get displayName {
+    final resolved = name;
+    if (resolved != null && resolved.isNotEmpty) return resolved;
+    return label.isEmpty ? pattern : label;
   }
 
   Map<String, dynamic> toJson() {
     return {
       'pattern': pattern,
       'label': label,
+      'name': name,
       'provider': provider,
       'modelId': modelId,
       'thinkingLevel': thinkingLevel?.wireValue,
       'available': available,
+      'unavailableReason': unavailableReason,
     };
   }
 
@@ -102,10 +121,14 @@ class PiModelCatalogue {
 
   final PiDefaultModel? defaultModel;
 
+  /// Models of the providers the user's list names that Pi cannot run here, because they are not signed in.
+  final PiHiddenModels hidden;
+
   const PiModelCatalogue({
     this.models = const [],
     this.selected = const [],
     this.defaultModel,
+    this.hidden = PiHiddenModels.none,
   });
 
   static const PiModelCatalogue empty = PiModelCatalogue();
@@ -114,6 +137,7 @@ class PiModelCatalogue {
     final rawModels = json['data'];
     final rawSelected = json['selected'];
     final rawDefault = json['defaultModel'];
+    final rawHidden = json['hidden'];
     return PiModelCatalogue(
       models: rawModels is List
           ? rawModels
@@ -130,6 +154,9 @@ class PiModelCatalogue {
       defaultModel: rawDefault is Map<String, dynamic>
           ? PiDefaultModel.fromJson(rawDefault)
           : null,
+      hidden: rawHidden is Map<String, dynamic>
+          ? PiHiddenModels.fromJson(rawHidden)
+          : PiHiddenModels.none,
     );
   }
 
@@ -138,6 +165,7 @@ class PiModelCatalogue {
       'data': models.map((model) => model.toJson()).toList(),
       'selected': selected.map((entry) => entry.toJson()).toList(),
       'defaultModel': defaultModel?.toJson(),
+      'hidden': hidden.toJson(),
     };
   }
 
@@ -154,4 +182,31 @@ class PiModelCatalogue {
     }
     return grouped;
   }
+}
+
+/// Models of providers the user's list names that Pi cannot run here, because those providers are not signed in.
+class PiHiddenModels {
+  /// How many models of those providers `pi --list-models` leaves out.
+  final int count;
+
+  /// Provider ids, names only.
+  final List<String> providers;
+
+  const PiHiddenModels({this.count = 0, this.providers = const []});
+
+  static const PiHiddenModels none = PiHiddenModels();
+
+  factory PiHiddenModels.fromJson(Map<String, dynamic> json) {
+    final rawProviders = json['providers'];
+    return PiHiddenModels(
+      count: json['count'] as int? ?? 0,
+      providers: rawProviders is List
+          ? rawProviders.whereType<String>().toList()
+          : const [],
+    );
+  }
+
+  Map<String, dynamic> toJson() => {'count': count, 'providers': providers};
+
+  bool get isEmpty => count == 0 || providers.isEmpty;
 }

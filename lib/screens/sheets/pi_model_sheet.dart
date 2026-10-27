@@ -256,6 +256,8 @@ class _CatalogueBody extends StatelessWidget {
                   onTap: () => onSelect(model),
                 ),
             ],
+          if (!catalogue.hidden.isEmpty && query.isEmpty)
+            _HiddenModelsFooter(hidden: catalogue.hidden, theme: theme),
         ],
       ),
     );
@@ -279,5 +281,34 @@ class _CatalogueBody extends StatelessWidget {
       if (matches.isNotEmpty) filtered[entry.key] = matches;
     }
     return filtered;
+  }
+}
+
+/// Why some models the user's own list names are not under ALL MODELS: their provider is not signed in.
+class _HiddenModelsFooter extends StatelessWidget {
+  const _HiddenModelsFooter({required this.hidden, required this.theme});
+
+  final PiHiddenModels hidden;
+  final OpenCodeTheme theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final providers = hidden.providers.join(', ');
+    return Padding(
+      padding: const EdgeInsets.only(top: Spacing.lg),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(AppIcons.info, size: 14, color: theme.textMuted),
+          const SizedBox(width: Spacing.xs),
+          Expanded(
+            child: Text(
+              '${hidden.count} ${hidden.count == 1 ? 'model' : 'models'} hidden — not signed in for $providers',
+              style: TextStyle(color: theme.textMuted, fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

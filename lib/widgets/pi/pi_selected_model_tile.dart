@@ -9,8 +9,9 @@ import 'package:flutter/material.dart';
 
 /// One row of the user's own Pi model list (`enabledModels`), in the order they saved it.
 ///
-/// A model Pi can run is tappable; an entry nothing matches — a provider whose credential is gone, or a stale
-/// entry — stays muted and inert, so the list still shows what the user picked.
+/// A model Pi can run is tappable. An entry Pi cannot run — a provider nobody signed in for, or a stale
+/// entry — stays muted and inert, with its real name and the reason it is missing (the environment variable
+/// the provider reads, or that it needs a `pi` sign-in), so the row never turns into a bare pattern.
 class PiSelectedModelTile extends StatelessWidget {
   const PiSelectedModelTile({
     super.key,
@@ -53,7 +54,9 @@ class PiSelectedModelTile extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              model?.name.isNotEmpty == true ? model!.name : selection.label,
+              model?.name.isNotEmpty == true
+                  ? model!.name
+                  : selection.displayName,
               style: AppTypography.bodySmall(
                 color: available ? theme.text : theme.textMuted,
               ).copyWith(fontWeight: selected ? FontWeight.w600 : null),
@@ -75,12 +78,20 @@ class PiSelectedModelTile extends StatelessWidget {
         ],
       ),
       subtitle: Text(
-        model == null
-            ? 'not available on this machine'
-            : '${model.provider} • ${piModelDetailLine(model)}',
+        available
+            ? '${model.provider} • ${piModelDetailLine(model)}'
+            : _unavailableLine(),
         style: AppTypography.label(color: theme.textMuted),
       ),
     );
+  }
+
+  /// The reason Pi gave for the row, prefixed with the provider when the name came from the full catalogue.
+  String _unavailableLine() {
+    final reason =
+        selection.unavailableReason ?? 'not available on this machine';
+    final provider = selection.provider;
+    return provider == null ? reason : '$provider • $reason';
   }
 }
 

@@ -49,13 +49,20 @@ Map<String, dynamic> _catalogueReply() => <String, dynamic>{
     },
     <String, dynamic>{
       'pattern': 'river/deepseek-ai/DeepSeek-V4.1-Flash',
-      'label': 'river/deepseek-ai/DeepSeek-V4.1-Flash',
-      'provider': null,
-      'modelId': null,
+      'label': 'DeepSeek V4.1 Flash — River',
+      'name': 'DeepSeek V4.1 Flash — River',
+      'provider': 'river',
+      'modelId': 'deepseek-ai/DeepSeek-V4.1-Flash',
       'thinkingLevel': null,
       'available': false,
+      'unavailableReason':
+          'No API key — set RIVER_API_KEY, or sign in with `pi`',
     },
   ],
+  'hidden': <String, dynamic>{
+    'count': 1,
+    'providers': <String>['river'],
+  },
   'defaultModel': <String, dynamic>{
     'provider': 'anthropic',
     'modelId': 'claude-opus-5-5',
@@ -118,8 +125,15 @@ void main() {
       expect(find.text('YOUR MODELS'), findsOneWidget);
       expect(find.text('ALL MODELS'), findsOneWidget);
       expect(find.text('Opus 5.5'), findsOneWidget);
+      expect(find.text('DeepSeek V4.1 Flash — River'), findsOneWidget);
       expect(
-        find.text('river/deepseek-ai/DeepSeek-V4.1-Flash'),
+        find.text(
+          'river • No API key — set RIVER_API_KEY, or sign in with `pi`',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text('1 model hidden — not signed in for river'),
         findsOneWidget,
       );
       expect(find.text('unavailable'), findsOneWidget);
@@ -147,6 +161,7 @@ void main() {
     expect(find.text('Sonnet 5.5'), findsOneWidget);
     expect(find.text('Opus 5.5'), findsOneWidget);
     expect(find.text('DeepSeek Flash'), findsNothing);
+    expect(find.text('1 model hidden — not signed in for river'), findsNothing);
   });
 
   testWidgets('tapping a catalogue model sets it on the bridge', (
