@@ -11,7 +11,8 @@ One tokio multi-thread runtime. Long-lived tasks:
 
 | Task | One per | Job |
 |---|---|---|
-| routes scan | process | re-scans LAN addresses every 10 s |
+| routes scan | process | re-scans LAN addresses every 10 s, and re-announces after a change |
+| mDNS advertisement | process | publishes `_broski-link._tcp` for the phone to browse |
 | bridge supervisor | `--bridge-cmd` | owns the bridge child process |
 | control socket | process | line-delimited JSON on `<home>/control.sock` |
 | LAN listener | process | `/v1/identity` and the `/v1/link` upgrade |
@@ -36,8 +37,16 @@ resumes the device's session or starts a fresh one. Sessions are not shared.
 | `devices.json` | paired devices: `id`, `name`, `platform`, `pub`, `role`, `relay_token_hash`, `paired_at`, and `push` — the device's `platform`, `token` and `key` once it registers for alerts |
 | `letters_seen.json` | the ids of letters already handled (24 h, 10 000 entries) |
 | `config.json` | optional, read only: `{"relay":<url\|null>,"lan_port":<n\|null>,"lan":<bool\|null>}` |
+| `bridge.key` | 64 hex characters: this start's key for the bridge socket |
 | `control.sock` | the control socket |
 | `bridge.sock` | default bridge unix socket, created by the bridge |
+
+Every state file is written the same way: a temporary file in the same directory, flushed to disk,
+renamed over the target, and the directory flushed after it. A crash at any instant leaves one or
+the other file whole, never half of both. A `devices.json`, `state.json` or `letters_seen.json`
+that cannot be read is renamed `<name>.corrupt-<unix secs>` with a warning and the daemon starts
+without it; `identity` is the exception — regenerating it would unpair every device, so the daemon
+refuses to start and names the file to restore.
 
 `relay_token_hash` is `sha256(token)` as 64 hex characters. The plaintext token is minted on
 pairing, sent to the phone once in `paired`, and never stored. No log line carries a secret, a
@@ -106,6 +115,11 @@ The session ends with a code that says why, and the code decides what the phone 
 | 4004 | no phone attached for the whole idle limit |
 | 4005 | the session's own crypto state could not carry on |
 
+Before the connection is dropped, the session hands over everything it still holds and waits, for a
+second at most, for the phone to acknowledge it — the CLOSE included. A socket closed with the
+phone's own bytes still unread is reset by the kernel, and the phone would lose the very frame that
+says why the session ended.
+
 Only 1000 and 4003 end the link quietly. A 4002 or a 4005 makes the phone's next connect report
 `sessionReset` and the app resyncs; a 4001, a 4004, a lost connection or a dead peer make it redial
 and resync nothing more than the link's own reconnect does.
@@ -169,20 +183,36 @@ reply, so the relay closes the pairing channel only once the phone holds its rea
 ## Bridge supervision
 
 Without `--bridge-cmd` the daemon only dials the socket it is given. With it, the daemon spawns the
-command with `--link-socket <bridge-socket>`, forwards the child's stdout and stderr to the log,
-and restarts it 1 s to 30 s after it exits, resetting the backoff once a run lasted 60 s.
-`{"t":"bridge_restart"}` restarts it at once. A dial is the unix connect plus the websocket upgrade
+command with `--link-socket <bridge-socket> --link-key-file <home>/bridge.key`, forwards the child's
+stdout and stderr to the log, and restarts it 1 s to 30 s after it exits, resetting the backoff once
+a run lasted 60 s. `{"t":"bridge_restart"}` asks for a restart, at most once a second, and the
+restart it gets counts against that backoff like any other early exit — a paired phone cannot
+respawn the bridge faster than the supervisor itself would. A dial is the unix connect plus the websocket upgrade
 and gives up after 5 s (`Durations::dial_timeout`, shrunk in tests), which counts as a failed dial:
 the socket is dropped and the bridge backoff runs again.
 
 The process-wide state is `up` while any websocket to the bridge is live — the daemon's own feed
 socket counts, so a supervised bridge that is listening is `up` before any phone attaches —
 `starting` before a child runs, `crashed` with the reason after one dies, and `down` when nobody is
-listening. `broski-link status` reports it as it is; each session reports its own socket against it
+listening. Without `--bridge-cmd` a `down` is only reported once it has lasted 750 ms: the feed
+socket redials within a few hundred milliseconds, and a bridge that never went away must not flicker
+through `down` while it does. `broski-link status` reports it as it is; each session reports its own socket against it
 (see the control stream above), so a live feed never hides a session with no socket.
 
-The bridge websocket carries `x-broski-device-id`, `x-broski-role: owner` and, once known,
-`x-broski-device-name`, and accepts one message of at most 8 MiB. A reader task and a writer task
+## The bridge link key
+
+`bridge.sock` is a file any process on the machine can connect to, so the daemon proves which
+client it is. On every start it mints 32 random bytes, writes them hex-encoded to `<home>/bridge.key`
+(`0600`, inside the `0700` home, with the atomic write above) *before* it spawns or dials anything,
+and sends them in the `x-broski-link-key` header of every websocket upgrade it makes: each session's
+socket, the feed socket, and the letter pipe. A supervised bridge is told where the file is with
+`--link-key-file` and refuses an upgrade that cannot present the current key. The key is regenerated
+on every start, so a bridge still holding yesterday's key refuses this daemon until it is restarted
+with it — which the supervisor does on its own.
+
+The bridge websocket carries `x-broski-device-id`, `x-broski-role: owner`,
+`x-broski-link-key` and, once known, `x-broski-device-name`, and accepts one message of at most
+8 MiB. A reader task and a writer task
 keep one slow direction from stalling the other; a close from the bridge is logged with its code and
 reason. The socket stops counting towards `up` the moment its read side ends, and the writer is
 stopped and drained right after, so a bridge that dies is reported as crashed instead of as a
@@ -207,26 +237,56 @@ broski-link pair|status|devices|revoke     # pair prints the QR uri; status and 
 | Queue | Bound | On breach |
 |---|---|---|
 | connection frames out, wire in | 64 each, per connection | the session detaches; a full out queue retries the one frame it holds |
-| session commands | 64 | the responder stops forwarding and reports the connection lost |
+| session commands | 64 | the responder waits for room, and ends the connection only if the session takes nothing for 10 s |
 | bridge messages out, in | 64 / 4 | waits: the writer blocks, the reader stops reading |
 | bridge message | 8 MiB | the bridge socket is dropped and redialled (a warning carries the size) |
 | bridge queue while the bridge is down | 16 MiB | the session is closed with 4002 |
 | control backlog | 64 | a control message is dropped with a warning |
 | relay machine-socket outbox | 256 | the relay client logs and drops the connection |
+| relay channel inbound | 64 | the daemon waits, then closes the channel and tells the relay |
+| letters in flight per device | 4, one socket | the letter is left for the relay to redeliver |
 | link unacked bytes / message / frame | 16 MiB / 32 MiB / 65519 | the bridge read gate shuts at 8 MiB and opens at 4 MiB / decode error |
-| LAN connections, upgrades | 64 live, 20/s burst 40 per IP | 429 before the upgrade |
+| LAN connections, upgrades | 64 live in all, 8 live per address, 20/s burst 40 per IP | 429 before the upgrade |
+| LAN handshake | 10 s from the upgrade to msg1 | the socket is closed and its slot goes back |
 | LAN websocket message | 128 KiB | the connection is dropped |
-| control request | 8 KiB, 10 s | the request is refused |
+| control request | 8 KiB, 10 s | the line is cut at the limit and the request refused |
 | paired devices | 32 | pairing is refused |
 | pairing offer | 600 s, one at a time | the newer offer replaces it |
 | backoff: bridge / relay / supervisor | 0.25–5 s / 0.5–30 s jittered / 1–30 s | — |
 | bridge dial | 5 s | counted as a failed dial, retried on the bridge backoff |
 | link timers | ping 15 s, dead 45 s, ack 25 ms | the session detaches |
 
-## Not done yet
+## Discovery
 
-- **mDNS** — no discovery. LAN candidates come from an interface scan, so a phone that cannot
-  reach a candidate falls back to the relay.
+The daemon advertises itself with mDNS/DNS-SD so the phone can find the machine without scanning:
+
+| Record | Value |
+|---|---|
+| service type | `_broski-link._tcp` in `local.` |
+| instance | the machine's display name, sanitised to a DNS-SD label (printable, no `.`, at most 63 bytes) |
+| port | the port the LAN listener actually bound |
+| TXT | `id=<machine id, 32 lowercase hex>`, `v=1` |
+
+The advertisement covers every non-loopback address the LAN listener serves: the responder follows
+the machine's interfaces itself, and the routes scan re-announces when the address set changes. On
+the way out the daemon withdraws the service with goodbye records.
+
+The responder is the pure-Rust `mdns-sd` crate, used on macOS and Linux alike. It shares UDP 5353
+with the system responder (`SO_REUSEADDR` + `SO_REUSEPORT`) and joins the mDNS group on each
+interface, so macOS's own mDNSResponder keeps working and both answer queries; `daemon/tests/discovery.rs`
+proves it by browsing for the daemon's own advertisement on the machine it runs on. Using the
+Bonjour C API instead would have worked only on macOS and needed a second implementation for Linux.
+A host with no multicast interface still reaches the daemon through the LAN candidates in `routes`
+or through the relay; the advertisement is an addition, never a requirement.
+
+## Letters
+
+A letter from the relay is acknowledged only when it was acted on or refused for good (unknown
+device, a key that does not decrypt, a replay, outside the time window). One the bridge could not
+be reached for is left unacknowledged so the relay hands it over again. A bridge-kind letter goes on
+the device's own session socket when it has one; otherwise the daemon keeps one short-lived bridge
+socket per device (`letters/pipe.rs`), which serves every letter for that device and is closed after
+30 s with nothing to send, and reads what the bridge writes back while it is held.
 
 Alerts, letters, the bridge feed and keep-awake are done: [push.md](push.md) has the wire formats,
 the pinned vectors and what each test covers.

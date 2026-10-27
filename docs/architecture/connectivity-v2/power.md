@@ -47,6 +47,9 @@ per-thread, and clears it on drop.
   `start` and `acquire`, which the daemon reads as "no power integration".
 - **No policy.** Battery floors, timers and how long to keep a working agent awake belong to the
   daemon; this crate never inspects the agent.
+- **Stop is bounded.** On Linux the monitor thread blocks on a D-Bus signal, so `stop` closes the
+  connection and waits at most 2 s for the thread to say it ended. A thread that would not stop is
+  logged and left behind rather than held over the daemon's shutdown.
 - **`power_status` is best effort.** macOS reads the internal battery's own description, so a
   desktop Mac reports all `None`. Linux maps `Mains`/`online` to `on_ac` and `Battery`/`capacity`
   to `battery_percent`, and misses an AC adapter typed `USB`. Windows maps
@@ -75,5 +78,6 @@ none; `power_status().on_ac` is `Some`.
 
 The Linux and Windows modules were type-checked by pointing the macOS `#[path]` at each in turn and
 running `cargo clippy --lib -- -D warnings` (their dependencies build on this host, but neither
-target toolchain is installed, so `cargo check --target x86_64-unknown-linux-gnu` cannot run).
+target toolchain is installed, so `cargo check --target x86_64-unknown-linux-gnu` cannot run). The
+bounded `stop` added since then has not been compiled here.
 Neither module has ever been executed, and no sleep or wake event has reached this crate.
