@@ -1,3 +1,4 @@
+import 'package:broski/app/app_messenger.dart';
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/screens/chat/load_earlier.dart';
 import 'package:broski/screens/chat/mcp_oauth_snackbar.dart';
@@ -64,12 +65,12 @@ void handleAutoScroll({
 
 /// Loads the page of messages older than the loaded window when the user
 /// scrolls to the top. Every backend pages, OpenCode included: one frame is all
-/// a long chat's whole transcript would ever be.
+/// a long chat's whole transcript would ever be, and a page that fails is
+/// offered again instead of ending the history there.
 Future<void> loadMoreMessages({
   required WidgetRef ref,
   required bool loadingMoreMessages,
   required bool hasLoadedAllMessages,
-  required String sessionId,
   required String projectPath,
   required ScrollController scrollController,
   required TranscriptAnchorKeys anchorKeys,
@@ -86,21 +87,46 @@ Future<void> loadMoreMessages({
   final chat = ref.read(chatSessionProvider.notifier);
   // The user can leave a chat while a page is still loading: a page for the
   // session or project they left would land in the wrong window.
-  if (sessionId != chat.transcriptSessionId ||
+  if (transcriptOwnerId(screen) != chat.transcriptSessionId ||
       projectPath != screen.project.path) {
     setPaginationState(loadingMore: false, loadedAll: true);
     return;
   }
-  await loadEarlierTranscript(
-    ref: ref,
-    widget: screen,
-    loadingMoreMessages: loadingMoreMessages,
-    hasLoadedAllMessages: hasLoadedAllMessages,
-    scrollController: scrollController,
-    anchorKeys: anchorKeys,
-    setPaginationState: ({required bool loadingMore, required bool loadedAll}) {
-      if (!isMounted()) return;
-      setPaginationState(loadingMore: loadingMore, loadedAll: loadedAll);
-    },
-  );
+  try {
+    await loadEarlierTranscript(
+      ref: ref,
+      widget: screen,
+      loadingMoreMessages: loadingMoreMessages,
+      hasLoadedAllMessages: hasLoadedAllMessages,
+      scrollController: scrollController,
+      anchorKeys: anchorKeys,
+      setPaginationState:
+          ({required bool loadingMore, required bool loadedAll}) {
+            if (!isMounted()) return;
+            setPaginationState(loadingMore: loadingMore, loadedAll: loadedAll);
+          },
+    );
+  } catch (_) {
+    if (!isMounted()) return;
+    // A page that failed leaves the chat where it was, with "load earlier" still
+    // available and a way to ask again rather than a wall at the top.
+    setPaginationState(loadingMore: false, loadedAll: false);
+    showAppNotice(
+      'Could not load earlier messages',
+      onRetry: () {
+        if (!isMounted()) return;
+        loadMoreMessages(
+          ref: ref,
+          loadingMoreMessages: false,
+          hasLoadedAllMessages: false,
+          projectPath: projectPath,
+          scrollController: scrollController,
+          anchorKeys: anchorKeys,
+          setPaginationState: setPaginationState,
+          isMounted: isMounted,
+          widget: widget,
+        );
+      },
+    );
+  }
 }

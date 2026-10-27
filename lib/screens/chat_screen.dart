@@ -1175,7 +1175,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     widget: widget,
     loadingMoreMessages: _loadingMoreMessages,
     hasLoadedAllMessages: _hasLoadedAllMessages,
-    sessionId: widget.session.id,
     projectPath: widget.project.path,
     scrollController: _scrollController,
     anchorKeys: _transcriptAnchorKeys,

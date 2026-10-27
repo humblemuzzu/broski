@@ -8,10 +8,25 @@ final GlobalKey<ScaffoldMessengerState> appMessengerKey =
 const Duration _noticeDuration = Duration(seconds: 4);
 
 /// Shows [message] on whatever screen is up; nothing when none is.
-void showAppNotice(String message) {
+///
+/// [onRetry] turns the notice into an offer to try the failed read again, instead of a report that
+/// leaves the user with nothing to do about it.
+void showAppNotice(
+  String message, {
+  VoidCallback? onRetry,
+  String retryLabel = 'Retry',
+}) {
   final messenger = appMessengerKey.currentState;
   if (messenger == null) return;
   messenger
     ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(message), duration: _noticeDuration));
+    ..showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: _noticeDuration,
+        action: onRetry == null
+            ? null
+            : SnackBarAction(label: retryLabel, onPressed: onRetry),
+      ),
+    );
 }

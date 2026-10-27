@@ -12,12 +12,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// Messages the app asks for when a chat opens, and for each "load earlier" page.
 ///
 /// A phone shows a handful of message cards at once, so 60 covers several screens of history plus
-/// the buffer the user reads back through; deeper history is one page away.
+/// the buffer the user reads back through; deeper history is one page away. The bridge may answer
+/// more than asked for — a page reaches back to the prompt that opened its oldest turn.
 const int kTranscriptPageLimit = 60;
 
 /// Whether the open chat loads older messages a page at a time.
 bool supportsTranscriptPaging(ChatScreen widget) =>
     widget.isOpenCode || widget.isPi || widget.isClaudeCode || widget.isCodex;
+
+/// The session id the loaded window belongs to, matching
+/// [ChatSessionNotifier.transcriptSessionId] for this backend. A page fetched for one session must
+/// never be applied to another.
+String? transcriptOwnerId(ChatScreen widget) {
+  if (widget.isClaudeCode) return widget.ccSession?.id;
+  if (widget.isCodex) return widget.cxThread?.id;
+  if (widget.isPi) return widget.piSession?.id;
+  return widget.session.id;
+}
 
 /// Fetches the page of messages older than the loaded window and prepends it, keeping the message
 /// under the viewport in place.
@@ -56,30 +67,26 @@ Future<void> loadEarlierTranscript({
     keys: anchorKeys,
   );
 
-  try {
-    final page = await _fetchAndPrepend(
-      ref,
-      widget,
-      cursor,
-      sessionId,
-      scrollController,
+  final page = await _fetchAndPrepend(
+    ref,
+    widget,
+    cursor,
+    sessionId,
+    scrollController,
+  );
+  if (page == null) return;
+
+  if (scrollController.hasClients) {
+    await restoreTranscriptScroll(
+      controller: scrollController,
+      keys: anchorKeys,
+      anchor: anchor,
+      offsetBefore: page.offsetAtPrepend,
+      extentBefore: page.extentAtPrepend,
     );
-    if (page == null) return;
-
-    if (scrollController.hasClients) {
-      await restoreTranscriptScroll(
-        controller: scrollController,
-        keys: anchorKeys,
-        anchor: anchor,
-        offsetBefore: page.offsetAtPrepend,
-        extentBefore: page.extentAtPrepend,
-      );
-    }
-
-    setPaginationState(loadingMore: false, loadedAll: !page.hasOlder);
-  } catch (_) {
-    setPaginationState(loadingMore: false, loadedAll: false);
   }
+
+  setPaginationState(loadingMore: false, loadedAll: !page.hasOlder);
 }
 
 /// Fetches and prepends one page, or null when the transcript moved to another session while the
@@ -177,9 +184,21 @@ _fetchAndPrepend(
   );
   if (!chat.ownsTranscript(sessionId)) return null;
   final extent = _extentOf(scrollController);
+  final idPrefix = widget.isPiDurable ? 'pd' : 'pi';
+  if (page.cursorUnknown) {
+    // The cursor named an entry the session no longer has: the reply is the newest page, so the
+    // transcript is replaced rather than prepended to.
+    chat.hydratePiTranscript(page.items, idPrefix: idPrefix);
+    chat.setTranscriptCursor(page.nextCursor);
+    return (
+      hasOlder: page.hasOlder,
+      offsetAtPrepend: extent.extent,
+      extentAtPrepend: extent.extent,
+    );
+  }
   chat.prependPiTranscript(
     page.items,
-    idPrefix: widget.isPiDurable ? 'pd' : 'pi',
+    idPrefix: idPrefix,
     sessionId: widget.piSession?.id ?? '',
   );
   chat.setTranscriptCursor(page.nextCursor);
