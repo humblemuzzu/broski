@@ -1,5 +1,6 @@
 import 'package:broski/theme/app_typography.dart';
 import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/ansi_escape.dart';
 import 'package:flutter/material.dart';
 
 /// Lightweight inline markdown parser for streaming text.
@@ -15,7 +16,8 @@ import 'package:flutter/material.dart';
 ///
 /// Regex runs are O(n) and take <1ms even on 10K+ character strings.
 /// [TextSpan] objects are data, not widgets — no build/layout overhead.
-TextSpan buildInlineMarkdown(String text, OpenCodeTheme theme) {
+TextSpan buildInlineMarkdown(String source, OpenCodeTheme theme) {
+  final text = stripAnsi(source);
   final baseStyle = TextStyle(
     fontFamily: AppTypography.uiFontFamily,
     fontSize: 15,

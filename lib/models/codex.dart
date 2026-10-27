@@ -1,4 +1,5 @@
 import 'package:broski/models/session.dart' show SessionSummaryStats;
+import 'package:broski/utils/ansi_escape.dart';
 
 /// A custom prompt from `.codex/prompts/` (project) or `$CODEX_HOME/prompts/` (user).
 ///
@@ -476,7 +477,7 @@ class CodexThread {
     return CodexThread(
       id: json['id'] as String? ?? '',
       forkedFromId: json['forkedFromId'] as String?,
-      preview: json['preview'] as String? ?? '',
+      preview: stripAnsi(json['preview'] as String? ?? ''),
       cwd: json['cwd'] as String? ?? '',
       createdAt: createdAt,
       updatedAt: json['updatedAt'] as int? ?? createdAt,
@@ -484,7 +485,7 @@ class CodexThread {
       cliVersion: json['cliVersion'] as String?,
       source: json['source'] as String?,
       gitBranch: gitInfo?['branch'] as String?,
-      threadName: (json['threadName'] ?? json['name']) as String?,
+      threadName: _rowText((json['threadName'] ?? json['name']) as String?),
       status: json['status'] != null
           ? CodexThreadStatus.fromJson(json['status'])
           : null,
@@ -516,6 +517,10 @@ class CodexThread {
       if (agentRole != null) 'agentRole': agentRole,
     };
   }
+
+  /// A row's title and preview are display text: a provider's colour codes are not shown.
+  static String? _rowText(String? value) =>
+      value == null ? null : stripAnsi(value);
 
   /// Display title: prefer threadName, then preview, then truncated ID.
   String get displayTitle => (threadName ?? '').trim().isNotEmpty

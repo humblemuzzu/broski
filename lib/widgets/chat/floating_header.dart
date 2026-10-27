@@ -6,6 +6,7 @@ import 'package:broski/providers/selection_provider.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/ansi_escape.dart';
 import 'package:broski/widgets/chat/cc_actions_content.dart';
 import 'package:broski/widgets/chat/codex_actions_content.dart';
 import 'package:broski/widgets/chat/cx_rate_limit_badge.dart';
@@ -122,7 +123,7 @@ class FloatingHeader extends StatelessWidget {
                     // Project name (compact)
                     Flexible(
                       child: Text(
-                        projectName,
+                        stripAnsi(projectName),
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 13,

@@ -9,6 +9,7 @@ import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/markdown_styles.dart';
 import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/theme/tool_style.dart';
+import 'package:broski/utils/ansi_escape.dart';
 import 'package:broski/widgets/chat/adaptive_markdown_body.dart';
 import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
@@ -34,7 +35,7 @@ class CompactToolCard extends ConsumerWidget {
 
   /// Get display name: strip mcp_ prefix and capitalize first letter
   String _getDisplayName() {
-    var name = tool.name;
+    var name = stripAnsi(tool.name);
     // Strip mcp_ prefix if present
     if (name.toLowerCase().startsWith('mcp_')) {
       name = name.substring(4);
@@ -158,7 +159,8 @@ class CompactToolCard extends ConsumerWidget {
   }
 
   /// Builds a horizontally scrollable code block with proper styling.
-  Widget _codeBlock(String content, OpenCodeTheme theme) {
+  Widget _codeBlock(String output, OpenCodeTheme theme) {
+    final content = stripAnsi(output);
     return Container(
       decoration: BoxDecoration(
         color: theme.backgroundElement,
@@ -228,7 +230,7 @@ class CompactToolCard extends ConsumerWidget {
           DetailSection(
             label: 'Result',
             child: SelectableText(
-              tool.output!,
+              stripAnsi(tool.output!),
               style: AppTypography.bodySmall(color: theme.text),
             ),
           ),
@@ -496,7 +498,7 @@ class CompactToolCard extends ConsumerWidget {
               // Preview text (muted, truncated, flexible)
               Expanded(
                 child: Text(
-                  _getPreview(),
+                  stripAnsi(_getPreview()),
                   style: AppTypography.label(color: theme.textMuted),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

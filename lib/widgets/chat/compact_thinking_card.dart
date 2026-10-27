@@ -5,6 +5,7 @@ import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/app_typography.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/ansi_escape.dart';
 import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,7 +27,7 @@ class CompactThinkingCard extends ConsumerWidget {
 
   void _showDetailSheet(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-    final reasoningText = message.reasoningText;
+    final reasoningText = stripAnsi(message.reasoningText);
     DetailSheet.show(
       context: context,
       title: 'Thinking',
@@ -85,7 +86,7 @@ class CompactThinkingCard extends ConsumerWidget {
     final durationMs = message.reasoningDurationMs;
     final thinkingColor = theme.toolThinking;
     // Get preview text (first 60 chars of thinking)
-    final reasoningText = message.reasoningText;
+    final reasoningText = stripAnsi(message.reasoningText);
     String preview = '';
     if (reasoningText.isNotEmpty) {
       // Clean up whitespace and get first bit

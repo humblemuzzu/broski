@@ -1,4 +1,5 @@
 import 'package:broski/models/session.dart' show SessionSummaryStats;
+import 'package:broski/utils/ansi_escape.dart';
 
 class ClaudeCodeSession {
   final String id;
@@ -44,7 +45,7 @@ class ClaudeCodeSession {
   factory ClaudeCodeSession.fromJson(Map<String, dynamic> json) {
     return ClaudeCodeSession(
       id: json['id'] as String? ?? '',
-      title: json['title'] as String?,
+      title: _text(json['title']),
       cwd: json['cwd'] as String? ?? '',
       model: json['model'] as String?,
       createdAt: json['createdAt'] as int? ?? 0,
@@ -61,8 +62,8 @@ class ClaudeCodeSession {
               json['summary'] as Map<String, dynamic>,
             ),
       gitBranch: json['gitBranch'] as String?,
-      customTitle: json['customTitle'] as String?,
-      firstPrompt: json['firstPrompt'] as String?,
+      customTitle: _text(json['customTitle']),
+      firstPrompt: _text(json['firstPrompt']),
       tag: json['tag'] as String?,
       fileSize: (json['fileSize'] as num?)?.toInt(),
     );
@@ -89,6 +90,10 @@ class ClaudeCodeSession {
       if (fileSize != null) 'fileSize': fileSize,
     };
   }
+
+  /// A row's title and preview are display text: a provider's colour codes are not shown.
+  static String? _text(Object? value) =>
+      value is String && value.isNotEmpty ? stripAnsi(value) : value as String?;
 
   /// Display title: prefer user-set customTitle, then auto-generated title, then fallback.
   String get displayTitle =>

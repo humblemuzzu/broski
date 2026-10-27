@@ -1,4 +1,5 @@
 import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/ansi_escape.dart';
 import 'package:broski/widgets/chat/adaptive_table.dart';
 import 'package:broski/widgets/chat/mermaid_block.dart';
 import 'package:flutter/material.dart';
@@ -42,12 +43,13 @@ class AdaptiveMarkdownBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
-    final segments = _splitSegments(data);
+    final clean = stripAnsi(data);
+    final segments = _splitSegments(clean);
 
     // Fast path: single text segment — use standard MarkdownBody as-is.
     if (segments.length == 1 && segments.first.type == _SegmentType.text) {
       return MarkdownBody(
-        data: data,
+        data: clean,
         selectable: selectable,
         styleSheet: styleSheet,
         onTapLink: onTapLink,

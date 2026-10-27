@@ -4,6 +4,7 @@ import 'package:broski/theme/app_typography.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/markdown_styles.dart';
 import 'package:broski/theme/opencode_theme.dart';
+import 'package:broski/utils/ansi_escape.dart';
 import 'package:broski/utils/error_utils.dart';
 import 'package:broski/widgets/chat/adaptive_markdown_body.dart';
 import 'package:broski/widgets/chat/detail_sheet.dart';
@@ -90,7 +91,7 @@ class MessageBubble extends StatelessWidget {
             const SizedBox(width: Spacing.sm),
             Flexible(
               child: Text(
-                message.text.isNotEmpty ? message.text : label,
+                message.text.isNotEmpty ? stripAnsi(message.text) : label,
                 style: TextStyle(
                   color: theme.textMuted,
                   fontSize: 14,
@@ -147,7 +148,7 @@ class MessageBubble extends StatelessWidget {
             if (message.text.isNotEmpty) ...[
               const SizedBox(height: Spacing.sm),
               Text(
-                message.text,
+                stripAnsi(message.text),
                 style: TextStyle(color: theme.text, fontSize: 15, height: 1.5),
               ),
             ],
@@ -201,7 +202,7 @@ class MessageBubble extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  message.text,
+                  stripAnsi(message.text),
                   style: TextStyle(
                     fontFamily: AppTypography.uiFontFamily,
                     color: theme.text,

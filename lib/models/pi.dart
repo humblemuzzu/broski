@@ -1,4 +1,5 @@
 import 'package:broski/models/session.dart' show SessionSummaryStats;
+import 'package:broski/utils/ansi_escape.dart';
 import 'package:broski/utils/format_utils.dart';
 
 class PiModelCost {
@@ -263,11 +264,12 @@ class PiSessionInfo {
   });
 
   factory PiSessionInfo.fromJson(Map<String, dynamic> json) {
+    final name = json['name'] as String?;
     return PiSessionInfo(
       path: json['path'] as String? ?? '',
       id: json['id'] as String? ?? '',
       cwd: json['cwd'] as String? ?? '',
-      name: json['name'] as String?,
+      name: name == null ? null : stripAnsi(name),
       parentSessionPath: json['parentSessionPath'] as String?,
       created: DateTime.fromMillisecondsSinceEpoch(
         json['created'] as int? ?? 0,
@@ -276,7 +278,7 @@ class PiSessionInfo {
         json['modified'] as int? ?? 0,
       ),
       messageCount: json['messageCount'] as int? ?? 0,
-      firstMessage: json['firstMessage'] as String? ?? '',
+      firstMessage: stripAnsi(json['firstMessage'] as String? ?? ''),
       summary: json['summary'] == null
           ? null
           : SessionSummaryStats.fromJson(

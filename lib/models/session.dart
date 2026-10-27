@@ -1,4 +1,5 @@
 import 'package:broski/models/session_project.dart';
+import 'package:broski/utils/ansi_escape.dart';
 
 class SessionSummary {
   const SessionSummary({
@@ -65,7 +66,7 @@ class SessionSummary {
   factory SessionSummary.fromJson(Map<String, dynamic> json) {
     return SessionSummary(
       id: json['id'] as String? ?? '',
-      title: json['title'] as String? ?? 'Untitled',
+      title: stripAnsi(json['title'] as String? ?? 'Untitled'),
       projectID: json['projectID'] as String? ?? '',
       directory: json['directory'] as String? ?? '',
       workspaceID: json['workspaceID'] as String?,
