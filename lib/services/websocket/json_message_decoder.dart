@@ -16,10 +16,6 @@ class WebSocketJsonMessageDecoder {
     }
     return _decodeJsonMap(raw);
   }
-
-  void dispose() {
-    // No persistent resources to clean up with compute().
-  }
 }
 
 Map<String, dynamic> _decodeJsonMap(String raw) {

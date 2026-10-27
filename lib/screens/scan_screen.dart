@@ -5,6 +5,7 @@ import 'package:broski/providers/onboarding_provider.dart'
 import 'package:broski/screens/scan/link_pairing_dialog.dart';
 import 'package:broski/screens/scan/paste_pairing_link.dart';
 import 'package:broski/screens/scan/scan_overlay.dart';
+import 'package:broski/screens/scan/scan_rejection.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/utils/error_utils.dart';
@@ -28,6 +29,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
   bool _handledScan = false;
   bool _flashOn = false;
   bool _processingImage = false;
+  final ScanRejectionGate _rejections = ScanRejectionGate();
   late AnimationController _scanLineController;
   late AnimationController _cornerPulseController;
   @override
@@ -55,10 +57,21 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
 
   void _handleScan(String raw) {
     if (_handledScan) return;
-    if (startLinkPairing(context, raw, onDismiss: _onLinkPairingDismissed)) {
+    final started = startLinkPairing(
+      context,
+      raw,
+      onDismiss: _onLinkPairingDismissed,
+      onRejected: (message) => _reportRejection(raw, message),
+    );
+    if (started) {
       _handledScan = true;
       HapticFeedback.mediumImpact();
     }
+  }
+
+  void _reportRejection(String raw, String message) {
+    if (!_rejections.admit(raw)) return;
+    showError(context, message);
   }
 
   /// A finished Link pairing closes a scanner that was only opened for it, and

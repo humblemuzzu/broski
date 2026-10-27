@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:broski/providers/font_provider.dart';
 import 'package:broski/providers/theme_provider.dart';
 import 'package:broski/screens/root_screen.dart';
 import 'package:broski/services/notification_service.dart';
+import 'package:broski/services/storage/legacy_connection_purge.dart';
 import 'package:broski/services/storage_service.dart';
 import 'package:broski/theme/theme.dart';
 import 'package:flutter/material.dart';
@@ -35,6 +37,7 @@ void main() {
 
   // Pre-warm caches in the background for instant perceived load
   _prewarmCaches();
+  unawaited(purgeLegacyConnectionSecrets());
 
   runApp(const ProviderScope(child: BroskiApp()));
 }

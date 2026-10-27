@@ -13,7 +13,7 @@ enum NetworkState {
   /// Connected via ethernet
   ethernet,
 
-  /// Connected via VPN (may indicate Tailscale)
+  /// Connected through a VPN
   vpn,
 
   /// No network connection
@@ -51,9 +51,6 @@ class NetworkMonitorService {
 
   /// Whether we're on mobile data (higher latency expected)
   bool get isMobileNetwork => _currentState == NetworkState.mobile;
-
-  /// Whether VPN is active (may indicate Tailscale)
-  bool get isVpnActive => _currentState == NetworkState.vpn;
 
   /// Start monitoring network changes
   Future<void> startMonitoring() async {

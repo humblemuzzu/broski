@@ -109,7 +109,7 @@ class StorageService {
   }
 
   /// Clear all cached data (sessions, messages, projects, etc.)
-  /// Preserves connection credentials and user preferences.
+  /// Preserves paired computers and user preferences.
   Future<void> clearCache() async {
     // Clear in-memory cache first
     clearMemoryCache();

@@ -2,7 +2,6 @@ class DeviceInfo {
   final String deviceId;
   final String deviceName;
   final String platform;
-  final String connectionType;
   final int rttMs;
   final int connectedAt;
   final DeviceView? currentView;
@@ -11,7 +10,6 @@ class DeviceInfo {
     required this.deviceId,
     required this.deviceName,
     required this.platform,
-    required this.connectionType,
     required this.rttMs,
     required this.connectedAt,
     this.currentView,
@@ -22,7 +20,6 @@ class DeviceInfo {
       deviceId: json['deviceId'] as String? ?? '',
       deviceName: json['deviceName'] as String? ?? 'Unknown Device',
       platform: json['platform'] as String? ?? 'unknown',
-      connectionType: json['connectionType'] as String? ?? 'unknown',
       rttMs: json['rttMs'] as int? ?? 0,
       connectedAt: json['connectedAt'] as int? ?? 0,
       currentView: json['currentView'] != null
@@ -36,7 +33,6 @@ class DeviceInfo {
       'deviceId': deviceId,
       'deviceName': deviceName,
       'platform': platform,
-      'connectionType': connectionType,
       'rttMs': rttMs,
       'connectedAt': connectedAt,
       if (currentView != null) 'currentView': currentView!.toJson(),
@@ -60,13 +56,6 @@ class DeviceInfo {
       default:
         return 'devices';
     }
-  }
-
-  String get connectionDescription {
-    if (rttMs > 0) {
-      return '$connectionType (${rttMs}ms)';
-    }
-    return connectionType;
   }
 
   Duration get connectedDuration {

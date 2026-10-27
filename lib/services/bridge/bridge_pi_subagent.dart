@@ -16,7 +16,7 @@ extension BridgeServicePiSubagent on BridgeService {
   /// or toolCallId no longer present).
   ///
   /// Uses a 30 second timeout instead of the 10 second default because
-  /// reading a large parent JSONL over Tailscale/low-bandwidth links can
+  /// reading a large parent JSONL over a relay or other low-bandwidth link can
   /// take longer than a normal RPC round-trip.
   Future<PiSubagentInvocation?> piGetSubagentInvocation({
     required String parentSessionPath,

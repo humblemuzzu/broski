@@ -203,15 +203,6 @@ class _DeviceCard extends StatelessWidget {
     }
   }
 
-  Color _getConnectionColor() {
-    switch (device.connectionType.toLowerCase()) {
-      case 'local':
-        return ocTheme.success;
-      default:
-        return ocTheme.textMuted;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -285,28 +276,18 @@ class _DeviceCard extends StatelessWidget {
                         width: 8,
                         height: 8,
                         decoration: BoxDecoration(
-                          color: _getConnectionColor(),
+                          color: ocTheme.success,
                           shape: BoxShape.circle,
                         ),
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        device.connectionType,
+                        device.rttMs > 0 ? '${device.rttMs}ms' : 'Connected',
                         style: TextStyle(
                           color: ocTheme.textMuted,
                           fontSize: 13,
                         ),
                       ),
-                      if (device.rttMs > 0) ...[
-                        const SizedBox(width: Spacing.sm),
-                        Text(
-                          '${device.rttMs}ms',
-                          style: TextStyle(
-                            color: ocTheme.textMuted,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                   const SizedBox(height: Spacing.xxs),

@@ -2,32 +2,37 @@ import 'dart:async';
 
 import 'package:broski/models/link/pairing_failure.dart';
 import 'package:broski/models/link/pending_pairing.dart';
+import 'package:broski/screens/scan/scan_rejection.dart';
 import 'package:broski/services/link/pairing_input.dart';
 import 'package:broski/services/link/pairing_service.dart';
 import 'package:broski/services/link/scanned_link_offer.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/utils/error_utils.dart';
-import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Pairs a scanned Link offer, or reports why the QR is unusable.
+/// Pairs a scanned Link offer, or hands [onRejected] the reason the QR is
+/// unusable.
 ///
-/// Returns true when the payload belonged to the Link flow, so the legacy QR
-/// parser is never handed a v2 offer. [onDismiss] runs when the pairing panel
+/// Returns true when a pairing started. [onDismiss] runs when the pairing panel
 /// closes, whether it paired or failed.
 bool startLinkPairing(
   BuildContext context,
   String raw, {
   required VoidCallback onDismiss,
+  required void Function(String message) onRejected,
 }) {
+  String? offerError;
   final pending = scannedLinkOffer(
     raw,
     now: DateTime.now(),
-    onError: (message) => showError(context, message),
+    onError: (message) => offerError = message,
   );
-  if (pending == null) return false;
+  if (pending == null) {
+    onRejected(offerError ?? unsupportedQrMessage(raw));
+    return false;
+  }
   unawaited(showLinkPairing(context, pending, onDismiss: onDismiss));
   return true;
 }

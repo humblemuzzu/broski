@@ -26,8 +26,7 @@ final class ExpiredPairingException extends PairingInputException {
 
 /// Reads a scanned QR as a Link v2 pairing offer.
 ///
-/// Returns null for anything that is not a `broski://pair` URI, so a legacy QR
-/// payload still reaches the parser that owns it.
+/// Returns null for anything that is not a `broski://pair` URI.
 PendingPairing? parsePairingInput(String scanned, DateTime now) {
   final text = scanned.trim();
   final uri = Uri.tryParse(text);

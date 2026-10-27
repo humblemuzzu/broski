@@ -139,7 +139,7 @@ class WebSocketService {
 
   bool _queueDetached(Map<String, dynamic> message) {
     final type = message['type'] as String? ?? '';
-    if (type == 'client_ping' || type == 'pong') return false;
+    if (type == 'pong') return false;
     if (_detachedQueue.length >= _maxQueueSize) _detachedQueue.removeAt(0);
     _detachedQueue.add(message);
     return true;
@@ -217,7 +217,6 @@ class WebSocketService {
     _channelSubscription = null;
     _channel?.close();
     _channel = null;
-    _jsonDecoder.dispose();
     _messageController.close();
     _statusController.close();
   }
