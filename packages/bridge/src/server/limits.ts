@@ -19,57 +19,54 @@ export type BridgeLimits = {
 	maxBatchSize: number;
 };
 
-export function createLimits(): BridgeLimits {
-	const maxWsMessageBytes = Math.max(
-		1024 * 1024,
-		Math.min(Number(process.env.BROSKI_MAX_WS_MESSAGE_MB ?? "15") * 1024 * 1024, 200 * 1024 * 1024),
-	);
+const MB = 1024 * 1024;
 
-	const wsBackpressureLimitBytes = Math.max(
-		128 * 1024,
-		Math.min(Number(process.env.BROSKI_WS_BACKPRESSURE_MB ?? "4") * 1024 * 1024, 64 * 1024 * 1024),
-	);
+/**
+ * The daemon's own per-message bound (`LINK_MAX_MESSAGE_BYTES` in
+ * `packages/link/daemon/src/limits.rs`, half the link's unacked window). A frame past it drops the
+ * daemon's bridge socket and redials, so this side never offers one.
+ */
+const LINK_MAX_MESSAGE_BYTES = 8 * MB;
 
-	const linkBackpressureLimitBytes = Math.max(
-		8 * 1024 * 1024,
-		Math.min(Number(process.env.BROSKI_LINK_BACKPRESSURE_MB ?? "32") * 1024 * 1024, 256 * 1024 * 1024),
-	);
+/** An env knob in megabytes, clamped to a band the bridge can actually work in. */
+function megabytesFromEnv(name: string, fallbackMb: string, minBytes: number, maxBytes: number): number {
+	return Math.max(minBytes, Math.min(Number(process.env[name] ?? fallbackMb) * MB, maxBytes));
+}
 
-	const linkMessageLimitBytes = Math.max(
-		1024 * 1024,
-		Math.min(Number(process.env.BROSKI_LINK_MESSAGE_MB ?? "8") * 1024 * 1024, 16 * 1024 * 1024),
-	);
+/** An env knob that is already a count, clamped to its band. */
+function countFromEnv(name: string, fallback: string, min: number, max: number): number {
+	return Math.max(min, Math.min(Number(process.env[name] ?? fallback), max));
+}
 
-	const wsIdleTimeoutSeconds = Math.max(30, Math.min(Number(process.env.BROSKI_WS_IDLE_TIMEOUT_SECONDS ?? "120"), 600));
-
-	const rate = {
-		perSecond: Math.max(10, Math.min(Number(process.env.BROSKI_RATE_LIMIT_PER_SEC ?? "60"), 5000)),
-		burst: Math.max(10, Math.min(Number(process.env.BROSKI_RATE_LIMIT_BURST ?? "150"), 20000)),
-		blockMs: Math.max(1000, Math.min(Number(process.env.BROSKI_RATE_LIMIT_BLOCK_MS ?? "10000"), 60_000)),
-	};
-
-	const maxClients = Math.max(1, Math.min(Number(process.env.BROSKI_MAX_CLIENTS ?? "8"), 100));
-	const linkMaxClients = Math.max(1, Math.min(Number(process.env.BROSKI_LINK_MAX_CLIENTS ?? "32"), 64));
-	const allowedDeviceIdsRaw = (process.env.BROSKI_ALLOWED_DEVICE_IDS ?? "").trim();
-	const allowedDeviceIds = new Set(
-		allowedDeviceIdsRaw
-			? allowedDeviceIdsRaw
+function allowedDevices(): Set<string> {
+	const raw = (process.env.BROSKI_ALLOWED_DEVICE_IDS ?? "").trim();
+	return new Set(
+		raw
+			? raw
 					.split(",")
-					.map((s) => s.trim())
+					.map((entry) => entry.trim())
 					.filter(Boolean)
 			: [],
 	);
+}
+
+export function createLimits(): BridgeLimits {
+	const rate = {
+		perSecond: countFromEnv("BROSKI_RATE_LIMIT_PER_SEC", "60", 10, 5000),
+		burst: countFromEnv("BROSKI_RATE_LIMIT_BURST", "150", 10, 20_000),
+		blockMs: countFromEnv("BROSKI_RATE_LIMIT_BLOCK_MS", "10000", 1000, 60_000),
+	};
 
 	return {
-		maxWsMessageBytes,
-		wsBackpressureLimitBytes,
-		linkBackpressureLimitBytes,
-		linkMessageLimitBytes,
-		wsIdleTimeoutSeconds,
+		maxWsMessageBytes: megabytesFromEnv("BROSKI_MAX_WS_MESSAGE_MB", "15", MB, 200 * MB),
+		wsBackpressureLimitBytes: megabytesFromEnv("BROSKI_WS_BACKPRESSURE_MB", "4", 128 * 1024, 64 * MB),
+		linkBackpressureLimitBytes: megabytesFromEnv("BROSKI_LINK_BACKPRESSURE_MB", "32", 8 * MB, 256 * MB),
+		linkMessageLimitBytes: megabytesFromEnv("BROSKI_LINK_MESSAGE_MB", "8", MB, LINK_MAX_MESSAGE_BYTES),
+		wsIdleTimeoutSeconds: countFromEnv("BROSKI_WS_IDLE_TIMEOUT_SECONDS", "120", 30, 600),
 		rate,
-		maxClients,
-		linkMaxClients,
-		allowedDeviceIds,
+		maxClients: countFromEnv("BROSKI_MAX_CLIENTS", "8", 1, 100),
+		linkMaxClients: countFromEnv("BROSKI_LINK_MAX_CLIENTS", "32", 1, 64),
+		allowedDeviceIds: allowedDevices(),
 		maxBatchSize: 50,
 	};
 }

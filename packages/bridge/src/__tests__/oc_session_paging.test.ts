@@ -25,6 +25,7 @@ type SessionMessagesReply = {
 	messages: FixtureMessage[];
 	hasMore?: boolean;
 	nextCursor?: string;
+	cursorUnknown?: boolean;
 };
 
 const sdkCalls: Array<Record<string, unknown>> = [];
@@ -44,6 +45,7 @@ function sessionMessages(reply: ServerMessage): SessionMessagesReply {
 		messages: reply.data as FixtureMessage[],
 		hasMore: reply.hasMore,
 		nextCursor: reply.nextCursor,
+		cursorUnknown: reply.cursorUnknown,
 	};
 }
 
@@ -107,10 +109,20 @@ describe("OpenCode get_session_messages paging", () => {
 		expect(reply.nextCursor).toBeUndefined();
 	});
 
-	test("a cursor that names no message of the session falls back to the whole transcript", async () => {
+	test("a cursor that names no message answers the newest page and says so", async () => {
+		sdkCalls.length = 0;
 		const reply = await fetchPage({ limit: PAGE_LIMIT, before: "msg_missing" });
-		expect(reply.messages.map((message) => message.info.id)).toEqual(transcriptIds);
-		expect(reply.hasMore).toBeUndefined();
+		expect(sdkCalls).toHaveLength(1);
+		expect(reply.messages).toHaveLength(PAGE_LIMIT);
+		expect(reply.messages.at(-1)?.info.id).toBe(transcriptIds.at(-1)!);
+		expect(reply.hasMore).toBe(true);
+		expect(reply.nextCursor).toBe(reply.messages[0]!.info.id);
+		expect(reply.cursorUnknown).toBe(true);
+	});
+
+	test("a known cursor is not reported as unknown", async () => {
+		const reply = await fetchPage({ limit: PAGE_LIMIT, before: transcriptIds[100]! });
+		expect(reply.cursorUnknown).toBeUndefined();
 	});
 
 	test("paging is windowed here, so the OpenCode server is never asked for a page", async () => {

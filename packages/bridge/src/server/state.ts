@@ -93,71 +93,60 @@ export type CreateBridgeStateParams = {
 	logInfo: (message: string) => void;
 };
 
-export function createBridgeState(params: CreateBridgeStateParams): BridgeState {
-	const compiled = isCompiledBinary();
+type RegisterSweepable = <K, V>(name: string, map: BoundedMap<K, V>) => () => void;
 
-	const registerState = <K, V>(name: string, map: BoundedMap<K, V>): (() => void) =>
-		registerSweepable({
-			name,
-			sweep: (now) => map.sweep(now),
-			size: () => map.size,
-			limit: () => map.stats().maxEntries,
-		});
+/** Per-session bookkeeping a daemon accumulates over weeks; a cap plus a sweep only drops the idle. */
+const SESSION_STATE_MAX_ENTRIES = 2000;
+const UNDO_STATE_TTL_MS = 24 * 60 * 60 * 1000;
 
-	// Per-session bookkeeping a daemon accumulates over weeks. Every entry is looked up whenever its
-	// session is used, so a cap plus a sweep only ever drops sessions nobody touched in a long time.
-	const SESSION_STATE_MAX_ENTRIES = 2000;
-	const UNDO_STATE_TTL_MS = 24 * 60 * 60 * 1000;
+type BoundedSessionState = {
+	ocSessionProjectPaths: BoundedMap<string, string>;
+	ccSessionCwds: BoundedMap<string, string>;
+	cxActiveTurns: BoundedMap<string, string>;
+	cxThreadCwds: BoundedMap<string, string>;
+	cxThreadNames: BoundedMap<string, string>;
+	cxSearchSessions: BoundedMap<string, string>;
+	cxFileChangeSnapshots: BoundedMap<string, string>;
+	cxUndoStackByThread: BoundedMap<string, string[]>;
+	unregisterBoundedState: Array<() => void>;
+};
 
-	const ocSessionProjectPaths = new BoundedMap<string, string>({
-		maxEntries: SESSION_STATE_MAX_ENTRIES,
-		ttlMs: UNDO_STATE_TTL_MS,
-	});
-	const ccSessionCwds = new BoundedMap<string, string>({
-		maxEntries: SESSION_STATE_MAX_ENTRIES,
-		ttlMs: UNDO_STATE_TTL_MS,
-	});
-	const cxActiveTurns = new BoundedMap<string, string>({
-		maxEntries: SESSION_STATE_MAX_ENTRIES,
-		ttlMs: UNDO_STATE_TTL_MS,
-	});
-	const cxThreadCwds = new BoundedMap<string, string>({
-		maxEntries: SESSION_STATE_MAX_ENTRIES,
-		ttlMs: UNDO_STATE_TTL_MS,
-	});
-	const cxThreadNames = new BoundedMap<string, string>({
-		maxEntries: SESSION_STATE_MAX_ENTRIES,
-		ttlMs: UNDO_STATE_TTL_MS,
-	});
-	const cxSearchSessions = new BoundedMap<string, string>({
-		maxEntries: SESSION_STATE_MAX_ENTRIES,
-		ttlMs: UNDO_STATE_TTL_MS,
-	});
-	const cxFileChangeSnapshots = new BoundedMap<string, string>({
-		maxEntries: 5000,
-		ttlMs: UNDO_STATE_TTL_MS,
-	});
-	const cxUndoStackByThread = new BoundedMap<string, string[]>({
-		maxEntries: 500,
-		ttlMs: UNDO_STATE_TTL_MS,
-	});
-
-	const unregisterBoundedState = [
-		registerState("oc-session-project-paths", ocSessionProjectPaths),
-		registerState("cc-session-cwds", ccSessionCwds),
-		registerState("cx-active-turns", cxActiveTurns),
-		registerState("cx-thread-cwds", cxThreadCwds),
-		registerState("cx-thread-names", cxThreadNames),
-		registerState("cx-search-sessions", cxSearchSessions),
-		registerState("cx-file-change-snapshots", cxFileChangeSnapshots),
-		registerState("cx-undo-stacks", cxUndoStackByThread),
+function createBoundedSessionState(registerState: RegisterSweepable): BoundedSessionState {
+	const text = (maxEntries: number) => new BoundedMap<string, string>({ maxEntries, ttlMs: UNDO_STATE_TTL_MS });
+	const state: BoundedSessionState = {
+		ocSessionProjectPaths: text(SESSION_STATE_MAX_ENTRIES),
+		ccSessionCwds: text(SESSION_STATE_MAX_ENTRIES),
+		cxActiveTurns: text(SESSION_STATE_MAX_ENTRIES),
+		cxThreadCwds: text(SESSION_STATE_MAX_ENTRIES),
+		cxThreadNames: text(SESSION_STATE_MAX_ENTRIES),
+		cxSearchSessions: text(SESSION_STATE_MAX_ENTRIES),
+		cxFileChangeSnapshots: text(5000),
+		cxUndoStackByThread: new BoundedMap<string, string[]>({
+			maxEntries: 500,
+			ttlMs: UNDO_STATE_TTL_MS,
+		}),
+		unregisterBoundedState: [],
+	};
+	state.unregisterBoundedState = [
+		registerState("oc-session-project-paths", state.ocSessionProjectPaths),
+		registerState("cc-session-cwds", state.ccSessionCwds),
+		registerState("cx-active-turns", state.cxActiveTurns),
+		registerState("cx-thread-cwds", state.cxThreadCwds),
+		registerState("cx-thread-names", state.cxThreadNames),
+		registerState("cx-search-sessions", state.cxSearchSessions),
+		registerState("cx-file-change-snapshots", state.cxFileChangeSnapshots),
+		registerState("cx-undo-stacks", state.cxUndoStackByThread),
 	];
+	return state;
+}
 
-	const sockets = new Set<ServerWebSocket<unknown>>();
-	const contexts = new Map<ServerWebSocket<unknown>, ConnectionContext>();
-
+/** The one scheduler every reply the phone sees goes through. */
+function createRuntimeSendQueue(
+	params: CreateBridgeStateParams,
+	contexts: Map<ServerWebSocket<unknown>, ConnectionContext>,
+): RuntimeSendQueue {
 	const linkLimits = linkSendLimits(params.limits);
-	const runtimeSendQueue = new RuntimeSendQueue(
+	return new RuntimeSendQueue(
 		(ws) => {
 			const ctx = contexts.get(ws);
 			if (!ctx) return undefined;
@@ -182,6 +171,43 @@ export function createBridgeState(params: CreateBridgeStateParams): BridgeState 
 			},
 		},
 	);
+}
+
+/** Per-session maps and waiters: who owns a session, and what is waiting on it. */
+function createSessionMaps() {
+	return {
+		sessionWatchers: new Map<string, Set<ServerWebSocket<unknown>>>(),
+		ccExternalTails: new Map<string, { stop: () => void }>(),
+		cxExternalTails: new Map<string, { stop: () => void }>(),
+		ocExternalTails: new Map<string, { stop: () => void }>(),
+		ccPermissionWaiters: new Map<string, PermissionWaiter<ClaudePermissionReply>>(),
+		ccElicitationWaiters: new Map<string, ElicitationWaiter>(),
+		cxApprovalWaiters: new Map<string, PermissionWaiter<CodexApprovalReply>>(),
+		ccSessionOwners: new Map<string, ServerWebSocket<unknown>>(),
+		cxThreadOwners: new Map<string, ServerWebSocket<unknown>>(),
+		ocSessionOwners: new Map<string, ServerWebSocket<unknown>>(),
+		cxItemCache: new Map<string, any>(),
+		ccEventBuffers: new Map<string, BufferedStreamEvent[]>(),
+		cxEventBuffers: new Map<string, BufferedStreamEvent[]>(),
+		recentChatMessageIds: new Map<string, number>(),
+		lastGitBranchByProject: new Map<string, string>(),
+	};
+}
+
+export function createBridgeState(params: CreateBridgeStateParams): BridgeState {
+	const compiled = isCompiledBinary();
+
+	const registerState: RegisterSweepable = (name, map) =>
+		registerSweepable({
+			name,
+			sweep: (now) => map.sweep(now),
+			size: () => map.size,
+			limit: () => map.stats().maxEntries,
+		});
+
+	const sockets = new Set<ServerWebSocket<unknown>>();
+	const contexts = new Map<ServerWebSocket<unknown>, ConnectionContext>();
+	const runtimeSendQueue = createRuntimeSendQueue(params, contexts);
 
 	return {
 		sockets,
@@ -197,30 +223,8 @@ export function createBridgeState(params: CreateBridgeStateParams): BridgeState 
 		ptyManager: new PtyManager(params.opencode),
 		runtimeSendQueue,
 		piDurableSockets: new PiDurableSocketPool(runtimeSendQueue),
-		sessionWatchers: new Map(),
-		ccExternalTails: new Map(),
-		cxExternalTails: new Map(),
-		ocExternalTails: new Map(),
-		ccPermissionWaiters: new Map(),
-		ccElicitationWaiters: new Map(),
-		cxApprovalWaiters: new Map(),
-		ccSessionOwners: new Map(),
-		cxThreadOwners: new Map(),
-		ocSessionOwners: new Map(),
-		cxItemCache: new Map(),
-		ccEventBuffers: new Map(),
-		cxEventBuffers: new Map(),
-		recentChatMessageIds: new Map(),
-		lastGitBranchByProject: new Map(),
-		ocSessionProjectPaths,
-		ccSessionCwds,
-		cxActiveTurns,
-		cxThreadCwds,
-		cxThreadNames,
-		cxSearchSessions,
-		cxFileChangeSnapshots,
-		cxUndoStackByThread,
-		unregisterBoundedState,
+		...createSessionMaps(),
+		...createBoundedSessionState(registerState),
 		heartbeatTimer: null,
 		tickTimer: null,
 		eventBufferPruneTimer: null,

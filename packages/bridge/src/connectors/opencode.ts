@@ -39,7 +39,6 @@ import type {
 	VcsInfo,
 	Worktree,
 } from "../types";
-import type { TranscriptPage } from "../types/transcript-page";
 import * as agentsDomain from "./opencode/agents";
 import * as configDomain from "./opencode/config";
 import { createOpenCodeClient, createOpenCodeContext, type OpenCodeContext } from "./opencode/context";
@@ -49,7 +48,6 @@ import * as instanceDomain from "./opencode/instance";
 import * as lspDomain from "./opencode/lsp";
 import * as mcpDomain from "./opencode/mcp";
 import * as messagesDomain from "./opencode/messages";
-import type { OcSessionMessage } from "./opencode/oc-transcript-page";
 import * as permissionsDomain from "./opencode/permissions";
 import * as projectsDomain from "./opencode/projects";
 import * as ptyDomain from "./opencode/pty";
@@ -116,16 +114,8 @@ export class OpenCodeConnector {
 		return sessionsDomain.getSession(this.ctx, sessionId, directory);
 	}
 
-	async getSessionMessages(sessionId: string, directory?: string, limit?: number, before?: string) {
-		return messagesDomain.getSessionMessages(this.ctx, sessionId, directory, limit, before);
-	}
-
-	async readSessionMessagesPage(
-		sessionId: string,
-		directory: string | undefined,
-		options: { limit: number; before?: string },
-	): Promise<TranscriptPage<OcSessionMessage> | null> {
-		return messagesDomain.readSessionMessagesPage(this.ctx, sessionId, directory, options);
+	async getSessionMessages(sessionId: string, directory?: string) {
+		return messagesDomain.getSessionMessages(this.ctx, sessionId, directory);
 	}
 
 	async sendPrompt(

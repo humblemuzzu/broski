@@ -140,13 +140,13 @@ describe("link socket cap", () => {
 		expect(linkSendLimits(limits)).toMatchObject({ kind: "link", maxPendingFrames: 32_768 });
 	});
 
-	test("both are clamped: 8..256 MiB for the window, 1..16 MiB for one message", () => {
+	test("both are clamped: 8..256 MiB for the window, 1..8 MiB for one message", () => {
 		process.env.BROSKI_LINK_BACKPRESSURE_MB = "1";
 		process.env.BROSKI_LINK_MESSAGE_MB = "64";
 		try {
 			const limits = createLimits();
 			expect(limits.linkBackpressureLimitBytes).toBe(8 * 1024 * 1024);
-			expect(limits.linkMessageLimitBytes).toBe(16 * 1024 * 1024);
+			expect(limits.linkMessageLimitBytes).toBe(8 * 1024 * 1024);
 		} finally {
 			delete process.env.BROSKI_LINK_BACKPRESSURE_MB;
 			delete process.env.BROSKI_LINK_MESSAGE_MB;

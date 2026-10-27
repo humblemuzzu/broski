@@ -118,7 +118,7 @@ describe("OpenCodeConnector sessions", () => {
 		expect<unknown>(await connector.getSessionDiff("ses_1", "/repo", "m1")).toEqual([
 			{ file: "a.ts", additions: 1, deletions: 2 },
 		]);
-		expect<unknown>(await connector.getSessionMessages("ses_1", "/repo", 5, "m0")).toEqual([
+		expect<unknown>(await connector.getSessionMessages("ses_1", "/repo")).toEqual([
 			{ info: { role: "user", id: "m1" } },
 		]);
 	});
