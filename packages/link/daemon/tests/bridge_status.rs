@@ -13,8 +13,15 @@ const DIAL_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_dead_session_socket_is_not_hidden_by_the_feed() {
-    let daemon = TestDaemon::start(Options::default()).await;
-    let bridge = ScriptedBridge::start(daemon.bridge_socket.clone()).await;
+    let home = tempfile::tempdir().expect("temp dir");
+    let socket = home.path().join("bridge.sock");
+    // Listening before the daemon starts, so its own feed socket is counted from the first dial.
+    let bridge = ScriptedBridge::start(socket.clone()).await;
+    let daemon = TestDaemon::start(Options {
+        bridge_socket: Some(socket),
+        ..Options::default()
+    })
+    .await;
     let mut phone = pair_lan_phone(&daemon).await;
 
     phone
