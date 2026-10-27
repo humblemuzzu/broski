@@ -1,9 +1,8 @@
+import 'package:broski/services/storage/broski_secure_storage.dart';
 import 'package:broski/services/storage_service.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-const _secureStorage = FlutterSecureStorage();
-
-/// Storage keys the Broski Link data layer owns.
+/// Storage keys the Broski Link data layer owns, in the same secure store the
+/// rest of the app's secrets use.
 extension StorageLink on StorageService {
   static const _legacyMachinesKey = 'broski_link_machines';
   static const _machineIdsKey = 'broski_link_machine_ids';
@@ -22,13 +21,13 @@ extension StorageLink on StorageService {
       setString('$_machineKeyPrefix$id', json);
 
   Future<void> deleteLinkMachine(String id) =>
-      _secureStorage.delete(key: '$_machineKeyPrefix$id');
+      broskiSecureStorage.delete(key: '$_machineKeyPrefix$id');
 
   /// The pre-per-machine single blob, read only to migrate it away.
   Future<String?> getLegacyLinkMachines() => getString(_legacyMachinesKey);
 
   Future<void> deleteLegacyLinkMachines() =>
-      _secureStorage.delete(key: _legacyMachinesKey);
+      broskiSecureStorage.delete(key: _legacyMachinesKey);
 
   Future<String?> getSelectedMachineId() async {
     final id = await getString(_selectedMachineKey);

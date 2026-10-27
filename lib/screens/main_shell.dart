@@ -2,6 +2,7 @@ import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/nav_bar_style.dart';
 import 'package:broski/providers/agent_type_provider.dart';
 import 'package:broski/providers/appearance_provider.dart';
+import 'package:broski/providers/connection/connection_banner_rules.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/nav_bar_style_provider.dart';
 import 'package:broski/providers/service_providers.dart';
@@ -134,7 +135,7 @@ class _MainShellState extends ConsumerState<MainShell> {
               ),
             ),
           // Reconnecting banner - shows during auto-reconnect attempts
-          if (connection.isReconnecting && !connection.isOfflineMode)
+          if (showReconnectingBanner(connection))
             Positioned(
               left: 0,
               right: 0,
