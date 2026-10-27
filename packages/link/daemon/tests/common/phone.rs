@@ -162,7 +162,7 @@ impl Phone {
         let seen = self.resumed.len();
         let msg1 = self
             .link
-            .connect(&self.identity, &self.server, mode, now_ms())
+            .connect(&self.identity, &self.server, mode)
             .expect("msg1");
         self.send_raw(msg1).await;
         let wait = wait?;
