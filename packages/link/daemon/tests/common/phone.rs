@@ -242,6 +242,50 @@ impl Phone {
         }
     }
 
+    /// Every bridge status up to and including the first one `matches` accepts.
+    pub async fn bridge_messages(
+        &mut self,
+        budget: Duration,
+        matches: impl Fn(&Value) -> bool,
+    ) -> Vec<Value> {
+        let deadline = Instant::now() + budget;
+        let mut seen = Vec::new();
+        loop {
+            if let Some(index) = self
+                .control
+                .iter()
+                .position(|message| message["t"] == "bridge")
+            {
+                let message = self.control.remove(index);
+                let done = matches(&message);
+                seen.push(message);
+                if done {
+                    return seen;
+                }
+                continue;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "no matching bridge status arrived; saw {seen:?}"
+            );
+            self.step().await;
+        }
+    }
+
+    /// Steps until the daemon closes the session, and reports the code it used.
+    pub async fn close_code(&mut self, budget: Duration) -> Option<u16> {
+        let deadline = Instant::now() + budget;
+        loop {
+            if let Some(code) = self.closed.first() {
+                return Some(*code);
+            }
+            if Instant::now() >= deadline {
+                return None;
+            }
+            self.step().await;
+        }
+    }
+
     pub async fn step(&mut self) {
         let Some(socket) = self.socket.as_mut() else {
             tokio::time::sleep(Duration::from_millis(10)).await;
