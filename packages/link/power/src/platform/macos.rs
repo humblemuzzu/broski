@@ -109,7 +109,6 @@ fn watch(
         notify,
         grace,
     });
-    let refcon = ptr::from_ref(&*shared).cast_mut().cast::<c_void>();
 
     let Some(current) = CFRunLoop::current() else {
         let _ = setup.send(Err(Error::Os(
@@ -117,26 +116,13 @@ fn watch(
         )));
         return;
     };
-    // SAFETY: `refcon` points at `shared`, which outlives this function.
-    let registration = match unsafe { Registration::take(refcon) } {
+    let registration = match register(&shared, &current) {
         Ok(registration) => registration,
         Err(err) => {
             let _ = setup.send(Err(err));
             return;
         }
     };
-    // The callback cannot run before the source below joins a running run loop, so it always sees a
-    // stored connection.
-    shared
-        .connection
-        .store(registration.connection, Ordering::Release);
-
-    if let Err(err) = add_notification_source(&registration, &current) {
-        // SAFETY: released here and nowhere else.
-        unsafe { registration.release() };
-        let _ = setup.send(Err(err));
-        return;
-    }
     run_loop.store(CFRetained::as_ptr(&current).as_ptr(), Ordering::Release);
     let _ = setup.send(Ok(()));
 
@@ -150,6 +136,24 @@ fn watch(
 
     // SAFETY: released here and nowhere else.
     unsafe { registration.release() };
+}
+
+/// Joins IOKit's system-power notifications to `run_loop`, with `shared` as the callback's refcon.
+fn register(shared: &Shared, run_loop: &CFRunLoop) -> Result<Registration, Error> {
+    let refcon = ptr::from_ref(shared).cast_mut().cast::<c_void>();
+    // SAFETY: `refcon` points at `shared`, which outlives this function.
+    let registration = unsafe { Registration::take(refcon) }?;
+    // The callback cannot run before the source below joins a running run loop, so it always sees a
+    // stored connection.
+    shared
+        .connection
+        .store(registration.connection, Ordering::Release);
+    if let Err(err) = add_notification_source(&registration, run_loop) {
+        // SAFETY: released here and nowhere else.
+        unsafe { registration.release() };
+        return Err(err);
+    }
+    Ok(registration)
 }
 
 fn add_notification_source(registration: &Registration, run_loop: &CFRunLoop) -> Result<(), Error> {
