@@ -10,14 +10,19 @@ export async function runSecurityChecks(ctx: DoctorContext): Promise<CheckResult
 
 	const tlsEnabled = isTlsEnabledByEnv();
 	if (tlsEnabled) {
-		results.push({ id: "tls_enabled", category: "security", status: "ok", message: "Loopback TLS enabled" });
+		results.push({
+			id: "tls_enabled",
+			category: "security",
+			status: "ok",
+			message: "Loopback TLS enabled (this covers the local hooks and dashboard, not the phone)",
+		});
 	} else {
 		results.push({
 			id: "tls_enabled",
 			category: "security",
 			status: "warning",
-			message: "Loopback TLS disabled (BROSKI_TLS=0)",
-			fix: "Remove BROSKI_TLS=0 so agent hooks reach the bridge over TLS. The phone is unaffected: Broski Link encrypts end to end.",
+			message: "Loopback TLS disabled (BROSKI_TLS=0): the agent hooks call this machine in cleartext",
+			fix: "Remove BROSKI_TLS=0 so the hooks reach the bridge over TLS. This is not the phone's security: the phone only ever reaches the machine through Broski Link, which is Noise end to end and needs no TLS here.",
 		});
 	}
 

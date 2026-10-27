@@ -1,6 +1,7 @@
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { type BroskiConfig, readConfig } from "../config";
+import { type LinkPaths, linkPaths } from "./link-paths";
 
 export interface DoctorContext {
 	config: BroskiConfig;
@@ -15,6 +16,8 @@ export interface DoctorContext {
 		errorLogFile: string;
 		configFile: string;
 	};
+	/** The broski-link daemon's own files: the path the phone actually goes through. */
+	link: LinkPaths;
 }
 
 function parsePort(value: string | undefined): number | null {
@@ -44,5 +47,6 @@ export async function createDoctorContext(): Promise<DoctorContext> {
 			errorLogFile: resolve(home, "logs", "bridge.error.log"),
 			configFile: resolve(home, "config.json"),
 		},
+		link: linkPaths(),
 	};
 }
