@@ -49,22 +49,101 @@ void main() {
     );
   });
 
+  test('a pending elicitation is restored with the prompt the bridge kept', () {
+    final payloads = pendingPromptPayloads(
+      _sessionsActive({
+        'claudeCodeElicitations': [
+          {
+            'sessionId': 'cc-2',
+            'requestId': 'elic-1',
+            'mcpServerName': 'linear',
+            'message': 'Authorise Linear',
+            'url': 'https://linear.example/authorize',
+            'mode': 'url',
+          },
+        ],
+      }),
+      nowMs: 1700000000000,
+    );
+
+    final event = RuntimeEvent.fromJson(payloads.single);
+    final backend = event as RuntimeBackendEvent;
+    expect(backend.kind, 'elicitation-request');
+    expect(backend.payload, {
+      'requestId': 'elic-1',
+      'mcpServerName': 'linear',
+      'message': 'Authorise Linear',
+      'url': 'https://linear.example/authorize',
+      'mode': 'url',
+    });
+  });
+
+  test('a pending OpenCode approval keeps the request the backend asked', () {
+    final payloads = pendingPromptPayloads(
+      _sessionsActive({
+        'opencode': [
+          {
+            'sessionId': 'oc-1',
+            'requestId': 'per_1',
+            'request': {
+              'requestId': 'per_1',
+              'kind': 'bash',
+              'title': 'Run bash',
+              'metadata': {
+                'permission': 'bash',
+                'patterns': ['src/**'],
+              },
+            },
+          },
+        ],
+      }),
+      nowMs: 1700000000000,
+    );
+
+    final event = RuntimeEvent.fromJson(payloads.single);
+    expect(event.backend, AgentType.opencode);
+    expect(event.sessionId, 'oc-1');
+    final request = (event as RuntimePermissionRequestedEvent).request;
+    expect(request.requestId, 'per_1');
+    expect(request.kind, 'bash');
+    expect(request.metadata?['patterns'], ['src/**']);
+  });
+
   test(
-    'a pending elicitation is restored as the backend event that shows it',
+    'a pending Pi dialog is restored as the extension-ui request it was',
     () {
       final payloads = pendingPromptPayloads(
         _sessionsActive({
-          'claudeCodeElicitations': [
-            {'sessionId': 'cc-2', 'requestId': 'elic-1'},
+          'pi': [
+            {
+              'sessionId': 'pi-1',
+              'messages': [
+                {
+                  'type': 'extension-ui-request',
+                  'id': 'ui-1',
+                  'method': 'confirm',
+                  'title': 'Continue?',
+                },
+                {
+                  'type': 'extension-ui-request',
+                  'id': 'ui-2',
+                  'method': 'select',
+                  'title': 'Pick',
+                },
+              ],
+            },
           ],
         }),
         nowMs: 1700000000000,
       );
 
-      final event = RuntimeEvent.fromJson(payloads.single);
-      expect(event, isA<RuntimeBackendEvent>());
-      expect((event as RuntimeBackendEvent).kind, 'elicitation-request');
-      expect((event.payload as Map<String, dynamic>)['requestId'], 'elic-1');
+      expect(payloads, hasLength(2));
+      final first =
+          RuntimeEvent.fromJson(payloads.first) as RuntimeBackendEvent;
+      expect(first.backend, AgentType.pi);
+      expect(first.kind, 'extension-ui-request');
+      expect(first.sessionId, 'pi-1');
+      expect((first.payload as Map<String, dynamic>)['method'], 'confirm');
     },
   );
 

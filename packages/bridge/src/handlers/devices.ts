@@ -1,6 +1,9 @@
 import type { ServerWebSocket } from "bun";
 import { registerAll } from "../routing/registry";
 import type { MessageRouter, ServerDeps } from "../routing/types";
+import { pendingElicitations } from "../server/pending-elicitation";
+import { pendingPermissions } from "../server/pending-permissions";
+import { piPendingPrompts } from "../server/pi-pending-prompts";
 import type { AgentType, DeviceInfo, ServerMessage } from "../types";
 import type { ClaudeElicitationReply } from "./cc_elicitation";
 
@@ -232,11 +235,9 @@ async function pushActiveSessionsOnConnect(ws: ServerWebSocket<unknown>, ctx: De
 			const parts = key.split(":");
 			return { sessionId: parts[0], toolUseId: parts[1] };
 		});
-		const pendingCCElicitations = Array.from(ctx.ccElicitationWaiters.keys()).map((key) => {
-			const parts = key.split(":");
-			return { sessionId: parts[0], requestId: parts[1] };
-		});
+		const pendingCCElicitations = pendingElicitations.pending();
 		const pendingCXPerms = Array.from(ctx.cxApprovalWaiters.keys());
+		const pendingOCPerms = pendingPermissions.pending("opencode");
 
 		for (const active of activeCC) {
 			ctx.send(ws, {
@@ -290,6 +291,8 @@ async function pushActiveSessionsOnConnect(ws: ServerWebSocket<unknown>, ctx: De
 					claudeCode: pendingCCPerms,
 					claudeCodeElicitations: pendingCCElicitations,
 					codex: pendingCXPerms,
+					opencode: pendingOCPerms,
+					pi: piPendingPrompts(),
 				},
 			},
 		} as ServerMessage);

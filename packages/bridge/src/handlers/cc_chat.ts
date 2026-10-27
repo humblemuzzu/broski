@@ -7,6 +7,7 @@ import { randomBytes } from "node:crypto";
 import type { ServerWebSocket } from "bun";
 import { registerLegacy } from "../routing/registry";
 import type { MessageRouter, ServerDeps } from "../routing/types";
+import { pendingElicitations } from "../server/pending-elicitation";
 import type { ClaudeCodeStreamMessage, ClientMessage, ServerMessage } from "../types";
 import type { ClaudeElicitationReply } from "./cc_elicitation";
 
@@ -372,9 +373,22 @@ export async function handleCcChat(
 				return { action: "cancel" } as const;
 			}
 
+			pendingElicitations.remember({
+				sessionId: sid,
+				requestId,
+				mcpServerName: req.mcpServerName,
+				message: req.message,
+				mode: req.mode,
+				url: req.url,
+				elicitationId: req.elicitationId,
+				requestedSchema: req.requestedSchema,
+				at: Date.now(),
+			});
+
 			return await new Promise<ClaudeElicitationReply>((resolve) => {
 				const timer = setTimeout(() => {
 					ccElicitationWaiters.delete(elicitKey);
+					pendingElicitations.forget(sid, requestId);
 					resolve({ action: "cancel" });
 				}, PERMISSION_TIMEOUT_MS);
 				ccElicitationWaiters.set(elicitKey, { resolve, timer });

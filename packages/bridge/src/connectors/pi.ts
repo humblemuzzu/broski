@@ -6,6 +6,7 @@ export {
 	getInstance,
 	getOrCreateInstance,
 	listActiveRuntimeStates,
+	listInstances,
 	pruneIdleInstances,
 	respondToExtensionUi,
 } from "./pi/pi-instance";

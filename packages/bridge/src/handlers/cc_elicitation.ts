@@ -1,5 +1,6 @@
 import { registerAll } from "../routing/registry";
 import type { MessageRouter, ServerDeps } from "../routing/types";
+import { pendingElicitations } from "../server/pending-elicitation";
 import type { ClientMessage } from "../types";
 
 export type ClaudeElicitationReply = {
@@ -40,6 +41,7 @@ export function handle(message: ClientMessage, waiters: Map<string, WaiterEntry>
 
 	clearTimeout(waiter.timer);
 	waiters.delete(key);
+	pendingElicitations.forget(message.sessionId, message.requestId);
 
 	const rawAction = message.action;
 	const action: "accept" | "decline" | "cancel" =
