@@ -1,5 +1,6 @@
 import 'package:broski/providers/connection/bridge_status_provider.dart';
 import 'package:broski/providers/connection/link_control_provider.dart';
+import 'package:broski/providers/link/lan_search_provider.dart';
 import 'package:broski/providers/link/link_status_provider.dart';
 import 'package:broski/providers/link/machines_provider.dart';
 import 'package:broski/services/link/link_endpoint.dart';
@@ -39,6 +40,7 @@ class LinkStatusIndicator extends ConsumerWidget {
       machineName: machineName,
       now: DateTime.now(),
       bridge: bridge,
+      lanSearch: ref.watch(lanSearchProvider),
     );
     final color = view.tone.color(theme);
     final chip = _chip(theme, view, color);

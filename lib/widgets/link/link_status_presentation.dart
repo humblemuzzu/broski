@@ -1,3 +1,4 @@
+import 'package:broski/services/link/discovery/lan_search.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski_link/broski_link.dart';
@@ -30,6 +31,7 @@ LinkStatusView presentLinkStatus({
   required String machineName,
   required DateTime now,
   BridgeLinkStatus? bridge,
+  LanSearchState lanSearch = LanSearchState.quiet,
 }) {
   final bridgeView = connectionHoldsBridge(status)
       ? bridgeStatusView(bridge: bridge, machineName: machineName)
@@ -42,7 +44,11 @@ LinkStatusView presentLinkStatus({
       return _connected(status.route, machineName);
     case LinkConnectionState.connecting:
     case LinkConnectionState.waiting:
-      return _connecting(machineName, status.closeCode);
+      return switch (lanSearch) {
+        LanSearchState.looking => _looking(machineName),
+        LanSearchState.absent => _absent(machineName),
+        LanSearchState.quiet => _connecting(machineName, status.closeCode),
+      };
     case LinkConnectionState.machineAsleep:
       return _asleep(seen, machineName);
     case LinkConnectionState.machineOffline:
@@ -165,6 +171,20 @@ LinkStatusView _connecting(String machineName, int? closeCode) {
     tone: LinkStatusTone.pending,
   );
 }
+
+LinkStatusView _looking(String machineName) => (
+  label: 'Looking for $machineName on this network…',
+  state: 'Looking on this network…',
+  icon: AppIcons.search,
+  tone: LinkStatusTone.pending,
+);
+
+LinkStatusView _absent(String machineName) => (
+  label: '$machineName is offline',
+  state: 'Offline',
+  icon: AppIcons.wifiOff,
+  tone: LinkStatusTone.down,
+);
 
 LinkStatusView _asleep(String? seen, String machineName) => (
   label: seen == null

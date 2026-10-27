@@ -1,10 +1,12 @@
 import 'package:broski/models/link/machine.dart';
+import 'package:broski/providers/link/lan_search_provider.dart';
 import 'package:broski/theme/themes/all_themes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../fake_lan_browse.dart';
 import '../link_fixtures.dart';
 
 /// A paired machine with the fields the machine UI reads.
@@ -29,9 +31,17 @@ Machine testMachine({
 );
 
 /// A container whose machine storage is empty, for a test to seed.
+///
+/// The LAN browse runs on a clock a test moves by hand: a real one leaves an
+/// 8 s timer pending when the widget tree goes away, which fails the test.
 ProviderContainer linkUiContainer({List<Override> overrides = const []}) {
   FlutterSecureStorage.setMockInitialValues(<String, String>{});
-  final container = ProviderContainer(overrides: overrides);
+  final container = ProviderContainer(
+    overrides: <Override>[
+      lanSearchTimingProvider.overrideWithValue(FakeLanTiming()),
+      ...overrides,
+    ],
+  );
   addTearDown(container.dispose);
   return container;
 }

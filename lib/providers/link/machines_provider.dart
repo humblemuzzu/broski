@@ -2,6 +2,7 @@ import 'package:broski/models/link/link_control_exception.dart';
 import 'package:broski/models/link/machine.dart';
 import 'package:broski/models/link/pending_pairing.dart';
 import 'package:broski/providers/link/link_providers.dart';
+import 'package:broski/services/link/discovery/lan_search.dart';
 import 'package:broski/services/link/machine_store.dart';
 import 'package:broski_link/broski_link.dart';
 import 'package:flutter/foundation.dart';
@@ -133,6 +134,19 @@ class MachinesNotifier extends StateNotifier<MachinesState> {
         lan: _parseLan(routes['lan']),
       ),
     );
+  }
+
+  /// Puts [routes] at the front of [id]'s LAN candidates, keeping the ones that
+  /// already work, and returns the machine as it now stands.
+  Future<Machine?> mergeLan(String id, List<String> routes) async {
+    await _ready;
+    final machine = _machineOrNull(id);
+    if (machine == null) return null;
+    final merged = mergeLanRoutes(routes, machine.lan);
+    if (listEquals(merged, machine.lan)) return machine;
+    final updated = machine.copyWith(lan: merged);
+    await update(updated);
+    return updated;
   }
 
   Machine? _machineOrNull(String id) {

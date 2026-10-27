@@ -10,9 +10,11 @@ import 'package:broski/providers/connection/connect_retry_schedule.dart';
 import 'package:broski/providers/connection/link_bridge_wiring.dart';
 import 'package:broski/providers/connection/link_connect_failure_notice.dart';
 import 'package:broski/providers/connection/link_frame_error_notice.dart';
+import 'package:broski/providers/connection/link_lan_discovery.dart';
+import 'package:broski/providers/connection/link_lan_failure_notice.dart';
 import 'package:broski/providers/connection/link_send_failure_notice.dart';
 import 'package:broski/providers/connection/link_status_mapping.dart';
-import 'package:broski/providers/link/discovery_provider.dart';
+import 'package:broski/providers/link/lan_search_provider.dart';
 import 'package:broski/providers/link/link_session_start_provider.dart';
 import 'package:broski/providers/link/link_status_provider.dart';
 import 'package:broski/providers/link/machines_provider.dart';
@@ -20,8 +22,6 @@ import 'package:broski/providers/link/push_providers.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/services/bridge/bridge_reset_exception.dart';
 import 'package:broski/services/link/device_profile.dart';
-import 'package:broski/services/link/discovery/discovery_scheduler.dart';
-import 'package:broski/services/link/discovery/link_discovery.dart';
 import 'package:broski/services/link/link_endpoint.dart';
 import 'package:broski/services/link/push_registration.dart';
 import 'package:broski/services/network_monitor_service.dart';
@@ -46,6 +46,7 @@ final linkConnectionBootstrapProvider = Provider<void>((ref) {
   ref.watch(linkConnectFailureNoticeProvider);
   ref.watch(linkFrameErrorNoticeProvider);
   ref.watch(linkSendFailureNoticeProvider);
+  ref.watch(lanBrowseFailureNoticeProvider);
   ref.watch(pushKeyPruneProvider);
 });
 
@@ -65,11 +66,10 @@ class LinkConnectionController with WidgetsBindingObserver {
         .read(networkMonitorServiceProvider)
         .stateStream
         .listen(_onNetworkChange);
-    _machinesSub = _ref.listen<MachinesState>(
-      machinesProvider,
-      (_, next) => _maybeConnect(next),
-      fireImmediately: true,
-    );
+    _machinesSub = _ref.listen<MachinesState>(machinesProvider, (_, next) {
+      _maybeConnect(next);
+      _syncLanSearch();
+    }, fireImmediately: true);
   }
 
   static const _logName = 'LinkConnection';
@@ -95,9 +95,10 @@ class LinkConnectionController with WidgetsBindingObserver {
   final StreamController<Object> _connectFailures =
       StreamController<Object>.broadcast();
   final ConnectRetrySchedule _retry = ConnectRetrySchedule();
-  final Stopwatch _clock = Stopwatch()..start();
-  late final DiscoveryScheduler _discovery = DiscoveryScheduler(
-    clock: () => _clock.elapsed,
+  late final LinkLanDiscovery _lan = LinkLanDiscovery(
+    ref: _ref,
+    pushEndpoint: _pushEndpoint,
+    timing: _ref.read(lanSearchTimingProvider),
   );
 
   ProviderSubscription<MachinesState>? _machinesSub;
@@ -111,6 +112,10 @@ class LinkConnectionController with WidgetsBindingObserver {
   LinkStatus? _lastStatus;
   PushRegistration? _push;
   var _attached = false;
+
+  /// A browse costs the radio, so it runs only while the app can act on what it
+  /// finds. `inactive` is a call or a permission prompt: still in front.
+  var _foreground = true;
 
   /// Bumped whenever the current connection is released, so a connect still
   /// dialling when that happens closes what it opened instead of adopting it.
@@ -134,13 +139,23 @@ class LinkConnectionController with WidgetsBindingObserver {
   /// Connects that never reached the link at all, with the reason.
   Stream<Object> get connectFailures => _connectFailures.stream;
 
+  /// A browse that could not run, once. The app tells the user, because nothing
+  /// else will find their machine on the LAN until they allow it.
+  Stream<Object> get discoveryFailures => _lan.failures;
+
   /// One control message to the daemon, for example a bridge restart.
   void sendControl(Map<String, Object?> message) =>
       _connection?.sendControl(message);
 
-  void beginPairing() => _pairing = true;
+  void beginPairing() {
+    _pairing = true;
+    _syncLanSearch();
+  }
 
-  void endPairing() => _pairing = false;
+  void endPairing() {
+    _pairing = false;
+    _syncLanSearch();
+  }
 
   /// Takes over a connection that is already up.
   ///
@@ -175,6 +190,7 @@ class LinkConnectionController with WidgetsBindingObserver {
       _publisher.add(reset);
       _wiring.onLinkStatus(reset);
     }
+    _syncLanSearch();
   }
 
   void _maybeConnect(MachinesState state) {
@@ -238,6 +254,7 @@ class LinkConnectionController with WidgetsBindingObserver {
     _socket.applyTransportStatus(ConnectionStatus.disconnected);
     _statusSink.clear();
     if (!_connectFailures.isClosed) _connectFailures.add(error);
+    _syncLanSearch();
     _retryTimer?.cancel();
     _retryTimer = Timer(_retry.next(), () {
       _retryTimer = null;
@@ -255,7 +272,7 @@ class LinkConnectionController with WidgetsBindingObserver {
       _publisher.add(status);
       _wiring.onLinkStatus(status);
     }
-    _discoverIfNeeded();
+    _lanSearchFor(status);
     // A closed link must not hold the slot: the next resume or network change
     // has to be able to start a fresh one.
     if (status.state == LinkConnectionState.closed) {
@@ -338,16 +355,18 @@ class LinkConnectionController with WidgetsBindingObserver {
       case AppLifecycleState.paused:
       case AppLifecycleState.hidden:
       case AppLifecycleState.detached:
+        _foreground = false;
         _connection?.appPaused();
       case AppLifecycleState.resumed:
+        _foreground = true;
         _connection?.appResumed();
-        _discoverIfNeeded();
         // A link that never came up — the isolate died, the machine was stored
         // by a pairing this controller never saw — gets another start.
         _maybeConnect(_ref.read(machinesProvider));
       case AppLifecycleState.inactive:
         break;
     }
+    _syncLanSearch();
   }
 
   void _onNetworkChange(NetworkState state) {
@@ -355,58 +374,44 @@ class LinkConnectionController with WidgetsBindingObserver {
     final connection = _connection;
     if (connection == null) {
       _maybeConnect(_ref.read(machinesProvider));
+      _syncLanSearch();
       return;
     }
     connection.networkChanged();
-    _discoverIfNeeded();
+    _syncLanSearch();
   }
 
-  /// Looks for the machine on the LAN when the routes its record holds are not
-  /// answering, and hands what it finds back as routes for the next attempt.
+  /// Runs one browse for as long as it can help, and none when it cannot.
   ///
   /// The advert is only a hint: the Noise handshake authenticates the machine on
   /// the socket itself, so a wrong or spoofed advert costs a dial and nothing
   /// else. What answers is written to the record, so the next connect tries it
-  /// first.
-  void _discoverIfNeeded() {
-    if (_pairing) return;
+  /// first. The sync lands on a microtask because the browse state is a provider,
+  /// and this runs from inside this provider's own initialisation.
+  void _syncLanSearch() => _lanSearchFor(_lastStatus);
+
+  /// [status] is read now, not when the microtask runs: releasing a connection
+  /// clears the last status, and a closed link must not come back as "no status
+  /// yet, look for the machine".
+  void _lanSearchFor(LinkStatus? status) =>
+      scheduleMicrotask(() => _applyLanSearch(status));
+
+  void _applyLanSearch(LinkStatus? status) {
     final machines = _ref.read(machinesProvider);
-    final machine = machineWithId(machines.machines, machines.selectedId ?? '');
-    if (machine == null) return;
-    final status = _lastStatus;
-    final connected = status?.state == LinkConnectionState.connected;
-    if (!browseHelps(connected: connected, route: status?.route)) return;
-    if (!_discovery.due()) return;
-    _discovery.record();
-    unawaited(_discover(machine));
-  }
-
-  Future<void> _discover(Machine machine) async {
-    final discovery = LinkDiscovery(
-      browser: _ref.read(linkServiceBrowserProvider),
-      machineId: machine.id,
-      persist: (routes) => _applyDiscoveredRoutes(machine, routes),
+    _lan.update(
+      machine: machineWithId(machines.machines, machines.selectedId ?? ''),
+      status: status,
+      foreground: _foreground && !_pairing,
     );
-    final routes = await discovery.run();
-    if (routes.isEmpty) return;
-    await _applyDiscoveredRoutes(machine, routes);
   }
 
-  Future<void> _applyDiscoveredRoutes(
-    Machine machine,
-    List<String> routes,
-  ) async {
-    final merged = [
-      ...routes,
-      for (final route in machine.lan)
-        if (!routes.contains(route)) route,
-    ];
-    final updated = machine.copyWith(lan: merged);
-    await _ref.read(machinesProvider.notifier).update(updated);
+  /// Dials [machine]'s routes as they now stand, which is what makes a freshly
+  /// discovered address reach the link without waiting out its backoff.
+  Future<void> _pushEndpoint(Machine machine) async {
     if (_machine?.id != machine.id) return;
-    _machine = updated;
+    _machine = machine;
     final identity = await _ref.read(deviceIdentityProvider.future);
-    _connection?.updateEndpoint(linkEndpoint(updated, deviceId: identity.id));
+    _connection?.updateEndpoint(linkEndpoint(machine, deviceId: identity.id));
   }
 
   /// Drops the connection in use and supersedes anything still dialling.
@@ -448,6 +453,7 @@ class LinkConnectionController with WidgetsBindingObserver {
     _machinesSub?.close();
     _networkSub?.cancel();
     _detach();
+    _lan.dispose();
     unawaited(_sendFailures.close());
     unawaited(_connectFailures.close());
   }

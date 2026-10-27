@@ -33,9 +33,13 @@ final class Harness {
 }
 
 /// Starts a connection towards [machine] and registers its cleanup.
+///
+/// [relay] is off for the phone that has no relay to fall back to, which is the
+/// only case where the LAN candidates are the whole route list.
 Future<Harness> startHarness(
   FakeMachine machine, {
   List<String> lan = const <String>[],
+  bool relay = true,
 }) async {
   final connection = await LinkConnection.start(
     identitySecret: LinkIdentity.generate().secret,
@@ -44,8 +48,8 @@ Future<Harness> startHarness(
       serverPublicBundle: fakeBundle(),
       deviceId: 'device-1',
       lan: lan,
-      relay: machine.relayUri,
-      relayToken: 'token',
+      relay: relay ? machine.relayUri : null,
+      relayToken: relay ? 'token' : null,
     ),
   );
   final harness = Harness._(machine, connection);

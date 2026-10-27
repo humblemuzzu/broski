@@ -132,20 +132,44 @@ final class LinkEngine {
   );
 
   void _setEndpoint(MachineEndpoint endpoint) {
-    final rebind = !endpoint.isSameMachine(_endpoint);
+    final sameMachine = endpoint.isSameMachine(_endpoint);
+    final routesChanged = !_sameRoutes(_endpoint, endpoint);
     _endpoint = endpoint;
-    if (!rebind) {
-      if (_status.state == LinkConnectionState.waiting) {
-        _reconnectNow();
-      } else {
-        _syncProbe();
-      }
+    if (!sameMachine) {
+      // A different machine or bundle pins a different key, so the session goes.
+      _io.stop();
+      _io = _newIo(null);
+      _reconnectNow();
       return;
     }
-    // A different machine or bundle pins a different key, so the session goes.
-    _io.stop();
-    _io = _newIo(null);
-    _reconnectNow();
+    if (_status.state == LinkConnectionState.connected) {
+      _syncProbe();
+      return;
+    }
+    if (routesChanged || _status.state == LinkConnectionState.waiting) {
+      _reconnectNow();
+      return;
+    }
+    _syncProbe();
+  }
+
+  /// Whether [next] dials the same candidates as [previous]: an endpoint the
+  /// record re-reports unchanged is not a reason to abandon an attempt.
+  static bool _sameRoutes(MachineEndpoint previous, MachineEndpoint next) =>
+      _sameList(previous.lan, next.lan) &&
+      previous.relayDevice()?.toString() == next.relayDevice()?.toString() &&
+      previous.relayToken == next.relayToken;
+
+  static bool _sameList(List<String> left, List<String> right) {
+    if (left.length != right.length) {
+      return false;
+    }
+    for (var index = 0; index < left.length; index++) {
+      if (left[index] != right[index]) {
+        return false;
+      }
+    }
+    return true;
   }
 
   void _connect({LinkRoute? only}) {

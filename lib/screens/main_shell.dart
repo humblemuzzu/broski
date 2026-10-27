@@ -18,6 +18,7 @@ import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/utils/responsive.dart';
 import 'package:broski/widgets/app_background.dart';
 import 'package:broski/widgets/glassmorphic_nav_bar.dart';
+import 'package:broski/widgets/link/link_reconnecting_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -140,7 +141,7 @@ class _MainShellState extends ConsumerState<MainShell> {
               left: 0,
               right: 0,
               top: 0,
-              child: _ReconnectingBanner(
+              child: LinkReconnectingBanner(
                 onCancel: () =>
                     ref.read(connectionProvider.notifier).clearConnection(),
               ),
@@ -265,61 +266,6 @@ class _ProtocolBanner extends StatelessWidget {
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               splashRadius: 16,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ReconnectingBanner extends StatelessWidget {
-  const _ReconnectingBanner({required this.onCancel});
-  final VoidCallback onCancel;
-  @override
-  Widget build(BuildContext context) {
-    final ocTheme = OpenCodeTheme.of(context);
-    return SafeArea(
-      bottom: false,
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: ocTheme.primary.withValues(alpha: 0.12),
-          borderRadius: Radii.brLg,
-          border: Border.all(color: ocTheme.primary.withValues(alpha: 0.25)),
-        ),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: ocTheme.primary,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Reconnecting...',
-                style: TextStyle(
-                  color: ocTheme.text,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            GestureDetector(
-              onTap: onCancel,
-              child: Text(
-                'Cancel',
-                style: TextStyle(
-                  color: ocTheme.textMuted,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
             ),
           ],
         ),

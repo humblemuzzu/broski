@@ -1,7 +1,5 @@
-/// The DNS-SD service a `broski-link` daemon advertises on the LAN, and the
-/// window one browse is given.
+/// The DNS-SD service a `broski-link` daemon advertises on the LAN.
 const linkDiscoveryServiceType = '_broski-link._tcp';
-const linkDiscoveryWindow = Duration(seconds: 3);
 
 /// The TXT record keys the daemon writes, and the only ones read here.
 const linkDiscoveryIdKey = 'id';
@@ -44,12 +42,4 @@ final class DiscoveredLink {
 
   @override
   String toString() => 'DiscoveredLink($machineId, $route)';
-}
-
-/// Browses the LAN for what a machine advertises.
-///
-/// An implementation is the platform's own Bonjour (a platform channel, so it
-/// runs on the main isolate) and gives the browse its own bounded window.
-abstract interface class LinkServiceBrowser {
-  Future<List<DiscoveredLink>> browse({required Duration window});
 }

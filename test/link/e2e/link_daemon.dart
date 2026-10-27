@@ -17,46 +17,42 @@ Future<int> freePort() async {
 /// One throwaway machine: a temp home, the real `broski-link` process, and the
 /// control socket that opens pairing offers on it.
 final class LinkDaemon {
-  LinkDaemon._(this.directory, this._process, this.lanPort);
+  LinkDaemon._(this.directory, this._lanPort);
 
   static Future<LinkDaemon> start() async {
-    final binaries = await linkBinaries();
     final directory = await Directory.systemTemp.createTemp('broski-app-e2e-');
-    final home = p.join(directory.path, 'home');
-    final bridgeSocket = p.join(directory.path, 'bridge.sock');
-    final lanPort = await freePort();
-    final process = await Process.start(binaries.daemon, <String>[
-      'run',
-      '--home',
-      home,
-      '--bridge-socket',
-      bridgeSocket,
-      '--lan-port',
-      '$lanPort',
-    ]);
-    final daemon = LinkDaemon._(directory, process, lanPort);
+    final daemon = LinkDaemon._(directory, await freePort());
     addTearDown(daemon.dispose);
-    for (final output in <Stream<List<int>>>[process.stdout, process.stderr]) {
-      output
-          .transform(utf8.decoder)
-          .transform(const LineSplitter())
-          .listen(daemon._record);
-    }
-    await daemon._waitForControl();
+    await daemon._launch();
     return daemon;
   }
 
   final Directory directory;
-  final Process _process;
-  final int lanPort;
+  int _lanPort;
+  Process? _process;
   final List<String> _log = <String>[];
 
   String get home => p.join(directory.path, 'home');
   String get bridgeSocket => p.join(directory.path, 'bridge.sock');
   String get controlSocket => p.join(home, 'control.sock');
 
+  int get lanPort => _lanPort;
+
   /// The daemon's LAN listener as a phone would dial it.
   String get lanCandidate => '127.0.0.1:$lanPort';
+
+  /// Stops the daemon and starts it again on a port it was not serving, keeping
+  /// its home: a machine that came back somewhere else on the same network.
+  Future<void> restartOnNewPort() async {
+    await _stop();
+    final previous = _lanPort;
+    var port = await freePort();
+    while (port == previous) {
+      port = await freePort();
+    }
+    _lanPort = port;
+    await _launch();
+  }
 
   /// The raw pairing uri the daemon opened, as the QR would carry it.
   Future<String> pairingUri() async {
@@ -93,18 +89,7 @@ final class LinkDaemon {
   }
 
   Future<void> dispose() async {
-    if (_exited) {
-      return;
-    }
-    _process.kill(ProcessSignal.sigterm);
-    await _process.exitCode.timeout(
-      const Duration(seconds: 3),
-      onTimeout: () {
-        _process.kill(ProcessSignal.sigkill);
-        return -1;
-      },
-    );
-    _exited = true;
+    await _stop();
     try {
       await directory.delete(recursive: true);
     } on FileSystemException {
@@ -112,7 +97,40 @@ final class LinkDaemon {
     }
   }
 
-  var _exited = false;
+  Future<void> _launch() async {
+    final binaries = await linkBinaries();
+    final process = await Process.start(binaries.daemon, <String>[
+      'run',
+      '--home',
+      home,
+      '--bridge-socket',
+      bridgeSocket,
+      '--lan-port',
+      '$_lanPort',
+    ]);
+    _process = process;
+    for (final output in <Stream<List<int>>>[process.stdout, process.stderr]) {
+      output
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .listen(_record);
+    }
+    await _waitForControl();
+  }
+
+  Future<void> _stop() async {
+    final process = _process;
+    if (process == null) return;
+    _process = null;
+    process.kill(ProcessSignal.sigterm);
+    await process.exitCode.timeout(
+      const Duration(seconds: 3),
+      onTimeout: () {
+        process.kill(ProcessSignal.sigkill);
+        return -1;
+      },
+    );
+  }
 
   Future<Map<String, Object?>> _ask(Map<String, Object?> request) async {
     final reply = await _request(request);

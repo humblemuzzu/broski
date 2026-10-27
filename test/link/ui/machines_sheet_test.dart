@@ -27,6 +27,9 @@ class _FakeLinkController
   Stream<Object> get connectFailures => const Stream<Object>.empty();
 
   @override
+  Stream<Object> get discoveryFailures => const Stream<Object>.empty();
+
+  @override
   void sendControl(Map<String, Object?> message) => controls.add(message);
 
   @override

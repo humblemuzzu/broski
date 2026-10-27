@@ -3,6 +3,7 @@ library;
 
 import 'dart:io';
 
+import 'package:broski/models/link/machine.dart';
 import 'package:broski/providers/connection/link_connection_controller.dart';
 import 'package:broski/providers/link/discovery_provider.dart';
 import 'package:broski/providers/link/link_status_provider.dart';
@@ -19,6 +20,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'e2e/fake_bridge.dart';
 import 'e2e/link_daemon.dart';
+import 'fake_lan_browse.dart';
 
 /// Connectivity plugins have no method channel in a test binding.
 final class _SilentNetworkMonitor extends NetworkMonitorService {
@@ -26,18 +28,62 @@ final class _SilentNetworkMonitor extends NetworkMonitorService {
   Future<void> startMonitoring() async {}
 }
 
-/// Answers every browse with what the daemon really advertises, and nothing else.
-final class _FakeBrowser implements LinkServiceBrowser {
-  _FakeBrowser(this.answer);
+/// The phone, with the platform's browse replaced by one the test drives.
+final class _Phone {
+  _Phone(this.container, this.browser, this.machineId);
 
-  DiscoveredLink answer;
-  final List<Duration> windows = [];
+  final ProviderContainer container;
+  final FakeLanBrowser browser;
+  final String machineId;
 
-  @override
-  Future<List<DiscoveredLink>> browse({required Duration window}) async {
-    windows.add(window);
-    return [answer];
-  }
+  LinkStatus? get status => container.read(linkStatusProvider);
+
+  Machine get machine => container
+      .read(machinesProvider)
+      .machines
+      .firstWhere((entry) => entry.id == machineId);
+
+  bool get connectedOverLan =>
+      status?.state == LinkConnectionState.connected &&
+      status?.route == LinkRoute.lan;
+
+  DiscoveredLink advert(int port) =>
+      DiscoveredLink(machineId: machineId, host: '127.0.0.1', port: port);
+}
+
+Future<_Phone> _pairedPhone(LinkDaemon daemon) async {
+  final uri = await daemon.pairingUri();
+  final pending = parsePairingInput(
+    LinkDaemon.pointAt(uri, daemon.lanCandidate),
+    DateTime.now().toUtc(),
+  );
+  expect(pending, isNotNull, reason: 'the daemon opens a v2 offer');
+
+  final pairing = ProviderContainer(
+    overrides: <Override>[
+      networkMonitorServiceProvider.overrideWithValue(_SilentNetworkMonitor()),
+    ],
+  );
+  addTearDown(pairing.dispose);
+  final paired = await pairing.read(pairingServiceProvider).pair(pending!);
+  // The adopted link finishes announcing itself on a microtask, and a container
+  // disposed under it reads from a container that is gone.
+  await pumpEventQueue();
+  pairing.dispose();
+
+  final browser = FakeLanBrowser();
+  final container = ProviderContainer(
+    overrides: <Override>[
+      networkMonitorServiceProvider.overrideWithValue(_SilentNetworkMonitor()),
+      linkServiceBrowserProvider.overrideWithValue(browser),
+    ],
+  );
+  addTearDown(container.dispose);
+  await _waitFor(
+    () => container.read(machinesProvider).machines.isNotEmpty,
+    'the paired machine to load from the store',
+  );
+  return _Phone(container, browser, paired.id);
 }
 
 Future<void> _waitFor(bool Function() ready, String what) async {
@@ -62,76 +108,91 @@ void main() {
       final daemon = await LinkDaemon.start();
       final bridge = await FakeBridge.start(daemon.bridgeSocket);
       addTearDown(bridge.close);
+      final phone = await _pairedPhone(daemon);
 
-      final uri = await daemon.pairingUri();
-      final pending = parsePairingInput(
-        LinkDaemon.pointAt(uri, daemon.lanCandidate),
-        DateTime.now().toUtc(),
-      );
-      expect(pending, isNotNull, reason: 'the daemon opens a v2 offer');
-
-      // Pair once, then leave the record pointing at a port nothing serves.
-      final pairing = ProviderContainer(
-        overrides: <Override>[
-          networkMonitorServiceProvider.overrideWithValue(
-            _SilentNetworkMonitor(),
-          ),
-        ],
-      );
-      addTearDown(pairing.dispose);
-      final paired = await pairing.read(pairingServiceProvider).pair(pending!);
+      // The record points at a port nothing serves.
       final deadPort = await freePort();
-      final stale = paired.copyWith(lan: <String>['127.0.0.1:$deadPort']);
-      await pairing.read(machinesProvider.notifier).update(stale);
-      pairing.dispose();
-
-      final browser = _FakeBrowser(
-        DiscoveredLink(
-          machineId: paired.id,
-          host: '127.0.0.1',
-          port: daemon.lanPort,
-        ),
+      final stored = phone.machine.copyWith(
+        lan: <String>['127.0.0.1:$deadPort'],
       );
-      final container = ProviderContainer(
-        overrides: <Override>[
-          networkMonitorServiceProvider.overrideWithValue(
-            _SilentNetworkMonitor(),
-          ),
-          linkServiceBrowserProvider.overrideWith((ref) => browser),
-        ],
-      );
-      addTearDown(container.dispose);
+      await phone.container.read(machinesProvider.notifier).update(stored);
 
-      // Every list the record wears, so the discovery's own write can be seen
-      // even after the daemon pushes its advert over it.
       final storedLan = <List<String>>[];
-      container.listen<MachinesState>(machinesProvider, (_, next) {
+      phone.container.listen<MachinesState>(machinesProvider, (_, next) {
         final machine = next.machines
-            .where((entry) => entry.id == paired.id)
+            .where((entry) => entry.id == phone.machineId)
             .firstOrNull;
         if (machine != null) storedLan.add(machine.lan);
       }, fireImmediately: true);
 
-      // Brings the controller up on the stored, wrong address.
-      container.read(linkConnectionControllerProvider);
+      phone.container.read(linkConnectionControllerProvider);
 
       await _waitFor(
-        () => browser.windows.isNotEmpty,
-        'discovery to run for the stale address',
+        () => phone.browser.listening > 0,
+        'the browse to start for a stored address that does not answer',
       );
-      await _waitFor(() {
-        final status = container.read(linkStatusProvider);
-        return status?.state == LinkConnectionState.connected &&
-            status?.route == LinkRoute.lan;
-      }, 'the link to come up over the discovered LAN route');
+      phone.browser.advertised(phone.advert(daemon.lanPort));
 
+      await _waitFor(() => phone.connectedOverLan, 'the link to come up');
       final discovered = '127.0.0.1:${daemon.lanPort}';
       expect(
         storedLan.any((lan) => lan.isNotEmpty && lan.first == discovered),
         isTrue,
         reason: 'discovery writes what answered to the front of the record',
       );
-      expect(browser.windows.single, linkDiscoveryWindow);
+    },
+    timeout: const Timeout(Duration(seconds: 300)),
+  );
+
+  test(
+    'a daemon restarted on another port is dialled without the app being nudged',
+    () async {
+      final daemon = await LinkDaemon.start();
+      final bridge = await FakeBridge.start(daemon.bridgeSocket);
+      addTearDown(bridge.close);
+      final phone = await _pairedPhone(daemon);
+
+      final storedLan = <List<String>>[];
+      phone.container.listen<MachinesState>(machinesProvider, (_, next) {
+        final machine = next.machines
+            .where((entry) => entry.id == phone.machineId)
+            .firstOrNull;
+        if (machine != null) storedLan.add(machine.lan);
+      }, fireImmediately: true);
+
+      phone.container.read(linkConnectionControllerProvider);
+      await _waitFor(() => phone.connectedOverLan, 'the first LAN connection');
+      expect(
+        phone.browser.listening,
+        0,
+        reason: 'a link on the LAN browses not',
+      );
+
+      final firstPort = daemon.lanPort;
+      await daemon.restartOnNewPort();
+
+      await _waitFor(
+        () => phone.browser.listening > 0,
+        'the browse to come back while nothing answers',
+      );
+      phone.browser.advertised(phone.advert(daemon.lanPort));
+
+      await _waitFor(
+        () => phone.connectedOverLan,
+        'the phone to find the daemon on its new port',
+      );
+      final discovered = '127.0.0.1:${daemon.lanPort}';
+      expect(
+        storedLan.any((lan) => lan.isNotEmpty && lan.first == discovered),
+        isTrue,
+        reason: 'the route discovery found is what the record leads with',
+      );
+      expect(
+        phone.machine.lan.any((route) => route.endsWith(':${daemon.lanPort}')),
+        isTrue,
+        reason: 'the record holds the port the daemon came back on',
+      );
+      expect(firstPort, isNot(daemon.lanPort), reason: 'the daemon moved');
     },
     timeout: const Timeout(Duration(seconds: 300)),
   );
