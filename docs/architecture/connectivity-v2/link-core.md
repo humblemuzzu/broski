@@ -50,17 +50,17 @@ stops reading its source instead of dropping the session. The daemon reads its b
 ## Finding the machine on the LAN
 
 The daemon advertises DNS-SD service `_broski-link._tcp` in `local.` on its LAN listener port, with
-TXT `id=<32-hex machine id>` and `v=1`. That is what the phone browses when the routes its machine
-record holds do not answer.
+TXT `id=<32-hex machine id>` and `v=1`. That is what the phone browses while the link it holds does
+not answer.
 
 ```
-link status: not connected, or connected over the relay
-  -> LinkDiscovery (lib/services/link/discovery/)
-       browse 3 s (linkDiscoveryWindow) with the platform's own Bonjour
+link status: not connected, app in front
+  -> LanSearch (lib/services/link/discovery/lan_search.dart)
+       one continuous browse, open until the link is up again or the app goes back
        keep only adverts whose TXT id is the machine's, and whose v is 1
-       routes = "<host>:<port>" for what is left
-  -> machine record grows those routes (machine_store), and the isolate gets them
-     through LinkConnection.updateEndpoint as LinkSetEndpoint
+       routes = "<host>:<port>" for what is left, newest first
+  -> machine record grows those routes (mergeLan, machine_store), and the isolate
+     gets them through LinkConnection.updateEndpoint as LinkSetEndpoint
 ```
 
 Browsing is the platform's, not a socket: `NWBrowser` on Apple platforms and `NsdManager` on
@@ -69,14 +69,28 @@ isolate, so the main isolate browses and the isolate is told about the result. i
 `_broski-link._tcp` in `NSBonjourServices`; Android needs nothing beyond the plugin's own manifest
 (`CHANGE_WIFI_MULTICAST_STATE`).
 
+A browse is **not** a one-shot. A machine that is restarted comes back on another LAN port, and the
+phone redialling the address in its record never learns that. So the browse runs for as long as the
+link is down and the app is in front, and every advert that resolves to an address not being dialled
+is handed to the link at once: `LinkSetEndpoint` cancels the pending backoff and races the new
+candidates immediately, so a moved machine is reached in a second instead of after the app resumes.
+It stops when the link connects, when the app goes to the background, when no machine is selected,
+and when the link is closed (revoked: there is nothing left to look for). `inactive` is a call or
+permission prompt, not the background, so it does not stop the browse.
+
 An advert is a hint and nothing more. The Noise handshake authenticates the machine on the socket,
 so a spoofed advert costs a dial that fails in `msg2`, never a session with something else. What
-answers is written into the record, so the next connect tries it first, and discovery is rate
-limited (`linkDiscoveryInterval`) and skipped entirely while the link already carries LAN.
+answers is written into the record — newest first, at most `lanRouteHistoryMax`, never dropping an
+entry that already worked — so the next connect tries it first. A route reported again inside
+`lanRouteRedialInterval` is not a reason to dial again, so a chatty responder cannot spin the link.
+A `lost` event never tears a connection down: a machine that stopped advertising may still answer.
 
-`browseHelps` and `DiscoveryScheduler` (`discovery_scheduler.dart`) are the decision, and
-`LinkDiscovery` (`link_discovery.dart`) is the browse: one at a time, filtered, persisted. A status
-change, a network change and a resume are the three things that ask it to look again.
+The status copy stays honest while this runs. `LanSearchState.looking` means a browse is open and
+nothing for this machine has been advertised yet — "Looking for <machine> on this network…". Nothing
+advertised for `lanAbsentVerdictDelay` makes it `absent` — "<machine> is offline". When an advert is
+live the app shows the link's own connecting copy instead. A browse that cannot run at all (no radio,
+or iOS local-network permission off) says so once and leaves the record's routes and the relay as the
+only way through.
 
 ## Resume vs fresh
 
