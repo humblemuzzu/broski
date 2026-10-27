@@ -137,6 +137,7 @@ final class LinkSandbox {
           if (lan) '--lan-port',
           if (lan) '$_lanPort',
           if (!lan) '--no-lan',
+          '--no-advertise',
           if (relay) '--relay',
           if (relay) '$_relayUrl',
           if (bridgeCmd != null) '--bridge-cmd',

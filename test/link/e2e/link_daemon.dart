@@ -107,6 +107,7 @@ final class LinkDaemon {
       bridgeSocket,
       '--lan-port',
       '$_lanPort',
+      '--no-advertise',
     ]);
     _process = process;
     for (final output in <Stream<List<int>>>[process.stdout, process.stderr]) {
