@@ -107,6 +107,7 @@ async function bindBridgeServer(
 					version: packageMeta.version ?? "0.1.0",
 					auth,
 					linkSocket: cli.linkSocket,
+					linkKeyFile: cli.linkKeyFile,
 					restartOpenCode: restartManagedOpenCode,
 					bridgeLogger: logger,
 				}),
