@@ -3,8 +3,9 @@ mod common;
 use std::path::PathBuf;
 use std::time::Duration;
 
+use common::bridge::FakeBridge;
 use common::daemon::{Options, TestDaemon};
-use common::scenario::{pair_lan_phone, quick_durations};
+use common::scenario::{pair_lan_phone, quick_durations, POLL};
 use common::scripted::ScriptedBridge;
 use common::silent::SilentBridge;
 
@@ -86,5 +87,50 @@ async fn a_bridge_that_never_answers_the_upgrade_is_redialled_after_the_dial_tim
     );
 
     bridge.stop();
+    daemon.stop().await;
+}
+
+/// An unsupervised bridge that goes away for less than a redial is not reported `down`: the feed
+/// sockets come back before anyone could have acted on it.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_bridge_that_comes_back_within_the_redial_never_reads_as_down() {
+    let home = tempfile::tempdir().expect("temp dir");
+    let socket = home.path().join("bridge.sock");
+    let bridge = FakeBridge::start(socket.clone()).await;
+    let daemon = TestDaemon::start(Options {
+        bridge_socket: Some(socket.clone()),
+        durations: quick_durations(),
+        ..Options::default()
+    })
+    .await;
+    let deadline = tokio::time::Instant::now() + WAIT;
+    while daemon.bridge_state().await != "up" {
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "the daemon never reported the bridge up"
+        );
+        tokio::time::sleep(POLL).await;
+    }
+
+    bridge.stop().await;
+    let seen = tokio::time::timeout(Duration::from_millis(300), async {
+        loop {
+            if daemon.bridge_state().await == "down" {
+                return true;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap_or(false);
+    assert!(
+        !seen,
+        "the bridge read as down while its feed socket was being redialled"
+    );
+
+    let again = FakeBridge::start(socket).await;
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert_eq!(daemon.bridge_state().await, "up");
+    again.stop().await;
     daemon.stop().await;
 }
