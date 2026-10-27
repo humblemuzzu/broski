@@ -44,6 +44,8 @@ pub struct SessionDeps {
     pub shutdown: watch::Receiver<bool>,
     /// How long a session with no phone attached survives.
     pub idle_limit: Duration,
+    /// The unix connect plus the websocket upgrade, for both bridge sockets.
+    pub dial_timeout: Duration,
 }
 
 pub enum SessionCommand {

@@ -50,8 +50,9 @@ impl Actor {
             detail: next.detail.as_deref(),
         };
         if let Some(bytes) = encode(&message) {
-            self.push_control(bytes);
+            if self.push_control(bytes) {
+                self.last_bridge = Some(next);
+            }
         }
-        self.last_bridge = Some(next);
     }
 }

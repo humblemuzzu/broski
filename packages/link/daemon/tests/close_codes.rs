@@ -4,12 +4,37 @@ use std::time::Duration;
 
 use common::daemon::{Options, TestDaemon};
 use common::now_ms;
+use common::phone::Phone;
 use common::scenario::pair_lan_phone;
 use common::scripted::ScriptedBridge;
 use serde_json::json;
 
 const WAIT: Duration = Duration::from_secs(30);
 const IDLE: Duration = Duration::from_millis(300);
+
+/// Waits until the machine no longer lists this phone's session, instead of waiting out the idle
+/// limit: the expiry is the observable, the clock is not.
+async fn await_session_gone(daemon: &TestDaemon, phone: &Phone) {
+    let short = &phone.identity.public().id()[..8];
+    let deadline = tokio::time::Instant::now() + WAIT;
+    loop {
+        let status = daemon.ask(json!({"cmd": "status"})).await;
+        let present = status["sessions"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default()
+            .iter()
+            .any(|session| session["device"] == short);
+        if !present {
+            return;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "the idle session never expired: {status}"
+        );
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+}
 
 async fn start() -> (TestDaemon, ScriptedBridge) {
     let daemon = TestDaemon::start(Options::default()).await;
@@ -87,7 +112,7 @@ async fn a_session_with_no_phone_expires_and_the_next_phone_starts_a_new_one() {
     let session = phone.session_id().expect("a session exists");
 
     phone.disconnect().await;
-    tokio::time::sleep(IDLE * 4).await;
+    await_session_gone(&daemon, &phone).await;
 
     assert_eq!(
         phone.connect_lan(daemon.lan(), WAIT).await,

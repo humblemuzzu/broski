@@ -3,14 +3,10 @@ use tracing::{debug, warn};
 
 use crate::clock;
 use crate::device::short;
+use crate::limits::{BRIDGE_READ_HIGH, BRIDGE_READ_LOW};
 
 use super::{close_codes, Actor};
 
-/// The session stops reading its bridge socket at this much unacked, so the link keeps half its
-/// window free for control messages.
-const BRIDGE_READ_HIGH: usize = 8 * 1024 * 1024;
-/// ... and starts again once acks bring the window back down to here.
-const BRIDGE_READ_LOW: usize = 4 * 1024 * 1024;
 const CONTROL_BACKLOG: usize = 64;
 
 impl Actor {
@@ -35,63 +31,36 @@ impl Actor {
     }
 
     pub(super) fn queue_for_device(&mut self, bytes: Vec<u8>) {
-        match self.link.send(STREAM_BRIDGE, &bytes, clock::now_ms()) {
-            Ok(()) => {}
-            Err(error) if retriable(&error) => self.pending_device = Some(bytes),
-            Err(error) => debug!(
-                error = %error,
-                device = short(&self.device.id),
-                "bridge message dropped"
-            ),
+        if let Err(bytes) = self.try_send(STREAM_BRIDGE, bytes) {
+            self.pending_device = Some(bytes);
         }
     }
 
-    pub(super) fn push_control(&mut self, bytes: Vec<u8>) {
-        if self.pending_control.len() >= CONTROL_BACKLOG {
-            warn!(
-                device = short(&self.device.id),
-                "control backlog is full; a message is lost"
-            );
-            return;
+    /// Queues one control message behind everything already waiting, so control keeps its order.
+    /// False when it was dropped, which is the caller's sign not to record it as sent.
+    pub(super) fn push_control(&mut self, bytes: Vec<u8>) -> bool {
+        if !self.pending_control.is_empty() {
+            return self.park_control(bytes);
         }
-        match self.link.send(STREAM_CONTROL, &bytes, clock::now_ms()) {
-            Ok(()) => {}
-            Err(error) if retriable(&error) => self.pending_control.push_back(bytes),
-            Err(error) => debug!(
-                error = %error,
-                device = short(&self.device.id),
-                "control message dropped"
-            ),
+        match self.try_send(STREAM_CONTROL, bytes) {
+            Ok(()) => true,
+            Err(bytes) => self.park_control(bytes),
         }
     }
 
     /// Hands the link everything it would not take earlier, oldest first.
     pub(super) fn retry_pending(&mut self) {
         while let Some(bytes) = self.pending_control.pop_front() {
-            match self.link.send(STREAM_CONTROL, &bytes, clock::now_ms()) {
-                Ok(()) => {}
-                Err(error) if retriable(&error) => {
-                    self.pending_control.push_front(bytes);
-                    break;
-                }
-                Err(error) => debug!(
-                    error = %error,
-                    device = short(&self.device.id),
-                    "control message dropped"
-                ),
+            if let Err(bytes) = self.try_send(STREAM_CONTROL, bytes) {
+                self.pending_control.push_front(bytes);
+                break;
             }
         }
         let Some(bytes) = self.pending_device.take() else {
             return;
         };
-        match self.link.send(STREAM_BRIDGE, &bytes, clock::now_ms()) {
-            Ok(()) => {}
-            Err(error) if retriable(&error) => self.pending_device = Some(bytes),
-            Err(error) => debug!(
-                error = %error,
-                device = short(&self.device.id),
-                "bridge message dropped"
-            ),
+        if let Err(bytes) = self.try_send(STREAM_BRIDGE, bytes) {
+            self.pending_device = Some(bytes);
         }
     }
 
@@ -103,6 +72,38 @@ impl Actor {
             );
             self.fail(close_codes::BRIDGE_OVERFLOW);
         }
+    }
+
+    /// One message to the link. `Err` hands the bytes back: they fit later. A message that can
+    /// never go out on this session is dropped here, with its size.
+    fn try_send(&mut self, stream: u32, bytes: Vec<u8>) -> Result<(), Vec<u8>> {
+        match self.link.send(stream, &bytes, clock::now_ms()) {
+            Ok(()) => Ok(()),
+            Err(error) if retriable(&error) => Err(bytes),
+            Err(error) => {
+                warn!(
+                    error = %error,
+                    device = short(&self.device.id),
+                    len = bytes.len(),
+                    stream,
+                    "message dropped"
+                );
+                Ok(())
+            }
+        }
+    }
+
+    fn park_control(&mut self, bytes: Vec<u8>) -> bool {
+        if self.pending_control.len() >= CONTROL_BACKLOG {
+            warn!(
+                device = short(&self.device.id),
+                len = bytes.len(),
+                "control backlog is full; a message is lost"
+            );
+            return false;
+        }
+        self.pending_control.push_back(bytes);
+        true
     }
 }
 

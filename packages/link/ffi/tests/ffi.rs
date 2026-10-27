@@ -12,8 +12,8 @@ use broski_link_ffi::{
 use common::{empty, take};
 
 #[test]
-fn the_abi_is_version_two_and_sha256_still_hashes() {
-    assert_eq!(bl_abi_version(), 2);
+fn the_abi_is_version_three_and_sha256_still_hashes() {
+    assert_eq!(bl_abi_version(), 3);
     let mut digest = [0u8; 32];
     let data = b"abc";
     // SAFETY: `data` and `digest` are live for the call.

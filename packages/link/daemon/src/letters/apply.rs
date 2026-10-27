@@ -73,7 +73,13 @@ async fn live(deps: &Deps, device: &DeviceRecord, message: &str) -> bool {
 }
 
 async fn ephemeral(deps: &Deps, device: &DeviceRecord, message: &str) -> Delivery {
-    let socket = crate::bridge::dial(&deps.bridge_socket, &device.id, &device.name).await;
+    let socket = crate::bridge::dial(
+        &deps.bridge_socket,
+        &device.id,
+        &device.name,
+        deps.durations.dial_timeout,
+    )
+    .await;
     let Some(mut socket) = socket else {
         return Delivery::Failed;
     };

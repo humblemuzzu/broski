@@ -4,12 +4,12 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use common::daemon::{Options, TestDaemon};
-use common::scenario::pair_lan_phone;
+use common::scenario::{pair_lan_phone, quick_durations};
 use common::scripted::ScriptedBridge;
 use common::silent::SilentBridge;
 
 const WAIT: Duration = Duration::from_secs(30);
-const DIAL_TIMEOUT: Duration = Duration::from_secs(5);
+const DIAL_TIMEOUT: Duration = Duration::from_millis(300);
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_dead_session_socket_is_not_hidden_by_the_feed() {
@@ -57,6 +57,10 @@ async fn a_bridge_that_never_answers_the_upgrade_is_redialled_after_the_dial_tim
     let bridge = SilentBridge::start(socket.clone()).await;
     let daemon = TestDaemon::start(Options {
         bridge_socket: Some(socket),
+        durations: broski_link_daemon::durations::Durations {
+            dial_timeout: DIAL_TIMEOUT,
+            ..quick_durations()
+        },
         ..Options::default()
     })
     .await;
@@ -71,7 +75,7 @@ async fn a_bridge_that_never_answers_the_upgrade_is_redialled_after_the_dial_tim
     );
     assert!(
         bridge
-            .await_dials("owner", 2, DIAL_TIMEOUT + Duration::from_secs(4))
+            .await_dials("owner", 2, DIAL_TIMEOUT + Duration::from_secs(2))
             .await,
         "the dial never timed out, so the session never tried again"
     );

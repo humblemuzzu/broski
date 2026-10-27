@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -9,22 +8,19 @@ use serde_json::{json, Value};
 use tokio::net::UnixStream;
 use tokio::sync::{mpsc, oneshot, watch};
 use tokio::task::JoinHandle;
-use tokio::time::{timeout, Instant};
-use tokio_tungstenite::tungstenite::client::IntoClientRequest;
-use tokio_tungstenite::tungstenite::http::HeaderValue;
+use tokio::time::Instant;
+use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::WebSocketStream;
-use tracing::{debug, warn};
+use tracing::warn;
 
 use crate::backoff::Backoff;
-use crate::bridge::DIAL_TIMEOUT;
 use crate::device::short;
 use crate::push::{self, keys, policy, seal};
 use crate::relay::{PushRequest, RelayCommand};
 
 use super::Deps;
 
-const REQUEST: &str = "ws://localhost/v1/link";
 const IDLE: Duration = Duration::from_secs(86_400);
 
 type Socket = WebSocketStream<UnixStream>;
@@ -51,7 +47,7 @@ async fn run(
     let mut backoff = Backoff::new(deps.durations.feed_retry_min, deps.durations.feed_retry_max);
     let mut debounce = policy::Debounce::new(deps.durations.push_debounce);
     loop {
-        if let Some(socket) = dial(&deps.socket).await {
+        if let Some(socket) = dial(&deps).await {
             backoff.reset();
             deps.monitor.opened();
             session(socket, &deps, &mut inbox, &mut shutdown, &mut debounce).await;
@@ -210,30 +206,13 @@ async fn alert(deps: &Deps, value: &Value, debounce: &mut policy::Debounce) {
     }
 }
 
-async fn dial(socket: &Path) -> Option<Socket> {
-    match timeout(DIAL_TIMEOUT, connect(socket)).await {
-        Ok(socket) => socket,
-        Err(_) => {
-            debug!(socket = %socket.display(), "bridge feed: no answer in time");
-            None
-        }
-    }
-}
-
-async fn connect(socket: &Path) -> Option<Socket> {
-    let mut request = REQUEST.into_client_request().ok()?;
-    request
-        .headers_mut()
-        .insert("x-broski-role", HeaderValue::from_static("link-daemon"));
-    let Ok(stream) = UnixStream::connect(socket).await else {
-        debug!(socket = %socket.display(), "bridge feed: nothing is listening");
-        return None;
-    };
-    match tokio_tungstenite::client_async(request, stream).await {
-        Ok((socket, _)) => Some(socket),
-        Err(error) => {
-            debug!(error = %error, "bridge feed: upgrade refused");
-            None
-        }
-    }
+async fn dial(deps: &Deps) -> Option<Socket> {
+    let headers = [("x-broski-role", "link-daemon".to_owned())];
+    crate::dial::upgrade(
+        &deps.socket,
+        &headers,
+        WebSocketConfig::default(),
+        deps.durations.dial_timeout,
+    )
+    .await
 }

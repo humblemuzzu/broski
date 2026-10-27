@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -7,27 +7,19 @@ use futures_util::{SinkExt, StreamExt};
 use tokio::net::UnixStream;
 use tokio::sync::{mpsc, oneshot};
 use tokio::task::JoinError;
-use tokio::time::timeout;
-use tokio_tungstenite::tungstenite::client::IntoClientRequest;
-use tokio_tungstenite::tungstenite::http::HeaderValue;
 use tokio_tungstenite::tungstenite::protocol::{CloseFrame, WebSocketConfig};
 use tokio_tungstenite::tungstenite::{Bytes, Message};
 use tokio_tungstenite::WebSocketStream;
 use tracing::{debug, warn};
 
 use crate::bridge_status::BridgeMonitor;
+use crate::limits::LINK_MAX_MESSAGE_BYTES;
 
 /// Messages the session may write ahead to the bridge before it has to wait.
 const OUTBOUND_QUEUE: usize = 64;
 /// Messages read ahead of the session: with the session's read gate, this is all the daemon holds
 /// for a bridge that keeps writing.
 const INBOUND_QUEUE: usize = 4;
-/// A bridge message has to fit the link's unacked window on its own, so the socket refuses more.
-pub(crate) const LINK_MAX_MESSAGE_BYTES: usize = 8 * 1024 * 1024;
-/// The whole dial: the unix connect plus the websocket upgrade.
-pub(crate) const DIAL_TIMEOUT: Duration = Duration::from_secs(5);
-
-const REQUEST: &str = "ws://localhost/v1/link";
 
 type Sink = SplitSink<WebSocketStream<UnixStream>, Message>;
 type Source = SplitStream<WebSocketStream<UnixStream>>;
@@ -44,6 +36,17 @@ pub enum BridgeIn {
 pub struct BridgeLink {
     pub tx: mpsc::Sender<Vec<u8>>,
     pub rx: mpsc::Receiver<BridgeIn>,
+    stop: Option<oneshot::Sender<()>>,
+}
+
+impl BridgeLink {
+    /// Asks the writer to end and hand back what it never wrote; that arrives on `rx` as
+    /// `BridgeIn::Closed`, exactly like a socket death, so nothing queued here is dropped.
+    pub fn hand_back(&mut self) {
+        if let Some(stop) = self.stop.take() {
+            let _ = stop.send(());
+        }
+    }
 }
 
 /// Dials the bridge over its unix socket; the task exits when the socket dies.
@@ -52,9 +55,11 @@ pub fn spawn(
     device_id: String,
     device_name: String,
     monitor: Arc<BridgeMonitor>,
+    dial_timeout: Duration,
 ) -> BridgeLink {
     let (tx, outbound) = mpsc::channel(OUTBOUND_QUEUE);
     let (inbound_tx, rx) = mpsc::channel(INBOUND_QUEUE);
+    let (stop, stopped) = oneshot::channel();
     tokio::spawn(run(
         socket,
         device_id,
@@ -62,10 +67,20 @@ pub fn spawn(
         outbound,
         inbound_tx,
         monitor,
+        stopped,
+        dial_timeout,
     ));
-    BridgeLink { tx, rx }
+    BridgeLink {
+        tx,
+        rx,
+        stop: Some(stop),
+    }
 }
 
+#[allow(
+    clippy::too_many_arguments,
+    reason = "one dial, one set of owned parts: splitting it would only move the arguments"
+)]
 async fn run(
     socket: PathBuf,
     device_id: String,
@@ -73,9 +88,11 @@ async fn run(
     outbound: mpsc::Receiver<Vec<u8>>,
     inbound: mpsc::Sender<BridgeIn>,
     monitor: Arc<BridgeMonitor>,
+    stopped: oneshot::Receiver<()>,
+    dial_timeout: Duration,
 ) {
-    let unsent = match dial(&socket, &device_id, &device_name).await {
-        Some(socket) => serve(socket, outbound, &inbound, &monitor).await,
+    let unsent = match dial(&socket, &device_id, &device_name, dial_timeout).await {
+        Some(socket) => serve(socket, outbound, &inbound, &monitor, stopped).await,
         None => Vec::new(),
     };
     if inbound.send(BridgeIn::Closed { unsent }).await.is_err() {
@@ -93,6 +110,7 @@ async fn serve(
     outbound: mpsc::Receiver<Vec<u8>>,
     inbound: &mpsc::Sender<BridgeIn>,
     monitor: &BridgeMonitor,
+    stop: oneshot::Receiver<()>,
 ) -> Vec<Vec<u8>> {
     monitor.opened();
     if inbound.send(BridgeIn::Ready).await.is_err() {
@@ -100,17 +118,18 @@ async fn serve(
         return Vec::new();
     }
     let (sink, source) = socket.split();
-    let (stop, stopped) = oneshot::channel();
+    let (stopping, stopped) = oneshot::channel();
     let mut writer = tokio::spawn(write_loop(sink, outbound, stopped));
     let finished = tokio::select! {
         _ = read_loop(source, inbound) => None,
         finished = &mut writer => Some(finished),
+        _ = stop => None,
     };
     monitor.closed();
     match finished {
         Some(finished) => ended(finished),
         None => {
-            let _ = stop.send(());
+            let _ = stopping.send(());
             ended(writer.await)
         }
     }
@@ -128,45 +147,20 @@ fn ended(finished: Result<Vec<Vec<u8>>, JoinError>) -> Vec<Vec<u8>> {
 
 /// The websocket upgrade over the bridge's unix socket, or `None` with the reason logged.
 pub(crate) async fn dial(
-    socket: &Path,
+    socket: &std::path::Path,
     device_id: &str,
     device_name: &str,
+    dial_timeout: Duration,
 ) -> Option<WebSocketStream<UnixStream>> {
-    match timeout(DIAL_TIMEOUT, connect(socket, device_id, device_name)).await {
-        Ok(socket) => socket,
-        Err(_) => {
-            debug!(socket = %socket.display(), "the bridge did not answer the dial in time");
-            None
-        }
-    }
-}
-
-async fn connect(
-    socket: &Path,
-    device_id: &str,
-    device_name: &str,
-) -> Option<WebSocketStream<UnixStream>> {
-    let mut request = REQUEST.into_client_request().ok()?;
-    let headers = request.headers_mut();
-    headers.insert("x-broski-device-id", HeaderValue::from_str(device_id).ok()?);
-    headers.insert("x-broski-role", HeaderValue::from_static("owner"));
-    if let Ok(name) = HeaderValue::from_str(device_name) {
-        headers.insert("x-broski-device-name", name);
-    }
-    let Ok(stream) = UnixStream::connect(socket).await else {
-        debug!(socket = %socket.display(), "bridge socket is not accepting connections");
-        return None;
-    };
+    let headers = [
+        ("x-broski-device-id", device_id.to_owned()),
+        ("x-broski-role", "owner".to_owned()),
+        ("x-broski-device-name", device_name.to_owned()),
+    ];
     let config = WebSocketConfig::default()
         .max_message_size(Some(LINK_MAX_MESSAGE_BYTES))
         .max_frame_size(Some(LINK_MAX_MESSAGE_BYTES));
-    match tokio_tungstenite::client_async_with_config(request, stream, Some(config)).await {
-        Ok((socket, _)) => Some(socket),
-        Err(error) => {
-            debug!(socket = %socket.display(), error = %error, "bridge refused the websocket upgrade");
-            None
-        }
-    }
+    crate::dial::upgrade(socket, &headers, config, dial_timeout).await
 }
 
 /// Reads and writes in separate tasks, so a slow peer cannot stall the other direction. On the way

@@ -33,6 +33,7 @@ impl Actor {
             device.id.clone(),
             deps.monitor.clone(),
             device.name.clone(),
+            deps.dial_timeout,
         );
         Actor {
             device,
@@ -260,6 +261,11 @@ impl Actor {
             Ok(()) => {
                 if let Some(link) = fresh {
                     self.link = link;
+                    // A new session has seen none of this phone's session: nothing queued for the
+                    // old one may reach it, and the new one owes the phone a fresh bridge status.
+                    self.pending_device = None;
+                    self.pending_control.clear();
+                    self.last_bridge = None;
                 }
                 self.sender = Some(sender);
                 self.paired = paired;

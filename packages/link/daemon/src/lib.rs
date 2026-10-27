@@ -22,6 +22,7 @@ mod conn;
 mod control;
 mod control_socket;
 mod device;
+mod dial;
 pub mod durations;
 mod error;
 mod feed;
@@ -29,6 +30,7 @@ mod fsx;
 mod identity;
 mod lan;
 pub mod letters;
+mod limits;
 mod offers;
 pub mod pairing;
 mod power_policy;
@@ -267,6 +269,7 @@ fn session_deps(
         relay: parts.relay.clone(),
         shutdown,
         idle_limit: options.durations.session_idle,
+        dial_timeout: options.durations.dial_timeout,
     })
 }
 

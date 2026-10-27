@@ -11,13 +11,13 @@ use crate::backoff::Backoff;
 use crate::bridge::{BridgeIn, BridgeLink};
 use crate::bridge_status::BridgeMonitor;
 use crate::device::short;
+use crate::limits;
 
 use super::Input;
 
 const BACKOFF_MIN: Duration = Duration::from_millis(250);
 const BACKOFF_MAX: Duration = Duration::from_secs(5);
 const HEALTHY: Duration = Duration::from_secs(30);
-const MAX_PENDING_BYTES: usize = 16 * 1024 * 1024;
 
 /// The bridge side of a session: one websocket to the bridge, the messages waiting for it, and
 /// the redial schedule when it is down.
@@ -26,6 +26,7 @@ pub(super) struct BridgePump {
     device_id: String,
     monitor: Arc<BridgeMonitor>,
     name: String,
+    dial_timeout: Duration,
     link: Option<BridgeLink>,
     backoff: Backoff,
     retry_at: Option<Instant>,
@@ -34,6 +35,9 @@ pub(super) struct BridgePump {
     conn: u64,
     pending: VecDeque<Vec<u8>>,
     pending_bytes: usize,
+    /// A restart asked the live socket to hand its queue back; the dial waits for that queue so
+    /// nothing goes round the new socket before the messages it was queued behind.
+    handing_back: bool,
 }
 
 impl BridgePump {
@@ -42,12 +46,14 @@ impl BridgePump {
         device_id: String,
         monitor: Arc<BridgeMonitor>,
         name: String,
+        dial_timeout: Duration,
     ) -> BridgePump {
         BridgePump {
             socket,
             device_id,
             monitor,
             name,
+            dial_timeout,
             link: None,
             backoff: Backoff::new(BACKOFF_MIN, BACKOFF_MAX),
             retry_at: None,
@@ -55,6 +61,7 @@ impl BridgePump {
             conn: 0,
             pending: VecDeque::new(),
             pending_bytes: 0,
+            handing_back: false,
         }
     }
 
@@ -97,14 +104,24 @@ impl BridgePump {
     /// Takes the socket down and puts back everything it never wrote, oldest first. False when
     /// that overflows the queue bound, which ends the session.
     pub(super) fn closed(&mut self, unsent: Vec<Vec<u8>>) -> bool {
-        self.down();
+        let restarting = std::mem::take(&mut self.handing_back);
+        if restarting {
+            self.link = None;
+            self.since = None;
+            self.retry_at = None;
+        } else {
+            self.down();
+        }
         let total: usize = unsent.iter().map(Vec::len).sum();
-        if self.pending_bytes + total > MAX_PENDING_BYTES {
+        if self.pending_bytes + total > limits::BRIDGE_PENDING_BYTES {
             return false;
         }
         for bytes in unsent.into_iter().rev() {
             self.pending_bytes += bytes.len();
             self.pending.push_front(bytes);
+        }
+        if restarting {
+            self.dial();
         }
         true
     }
@@ -124,13 +141,21 @@ impl BridgePump {
         self.retry_at = Some(Instant::now() + self.backoff.next());
     }
 
+    /// Renames the socket for good, or drops it so the supervisor can spawn the bridge again:
+    /// whatever it never wrote comes back before the new socket takes anything.
     pub(super) fn restart(&mut self, name: String) {
-        self.link = None;
+        self.name = name;
         self.retry_at = None;
         self.backoff.reset();
         self.since = None;
-        self.name = name;
-        self.dial();
+        self.handing_back = true;
+        match self.link.as_mut() {
+            Some(link) => link.hand_back(),
+            None => {
+                self.handing_back = false;
+                self.dial();
+            }
+        }
     }
 
     pub(super) fn deadline(&self) -> Option<Instant> {
@@ -139,7 +164,7 @@ impl BridgePump {
 
     /// False when the queue is past its byte bound, which ends the session.
     pub(super) fn queue(&mut self, bytes: Vec<u8>) -> bool {
-        if self.pending_bytes + bytes.len() > MAX_PENDING_BYTES {
+        if self.pending_bytes + bytes.len() > limits::BRIDGE_PENDING_BYTES {
             return false;
         }
         self.pending_bytes += bytes.len();
@@ -166,10 +191,10 @@ impl BridgePump {
                     self.pending.push_front(message);
                     return;
                 }
-                // Never written: `closed()` puts the older handed-back messages in front of it.
+                // The socket is going: its `Closed` event puts back what it never wrote, this
+                // message included, and redials. Taking the socket down here would drop both.
                 Err(mpsc::error::TrySendError::Closed(message)) => {
                     self.pending.push_front(message);
-                    self.down();
                     return;
                 }
             }
@@ -186,6 +211,7 @@ impl BridgePump {
             self.device_id.clone(),
             self.name.clone(),
             self.monitor.clone(),
+            self.dial_timeout,
         ));
     }
 }

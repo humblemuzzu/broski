@@ -17,6 +17,8 @@ pub struct Durations {
     pub bridge_letter_hold: Duration,
     pub session_idle: Duration,
     pub sleep_grace: Duration,
+    /// The unix connect plus the websocket upgrade, for the session socket and the feed.
+    pub dial_timeout: Duration,
 }
 
 impl Default for Durations {
@@ -35,6 +37,7 @@ impl Default for Durations {
             bridge_letter_hold: Duration::from_secs(30),
             session_idle: Duration::from_secs(600),
             sleep_grace: Duration::from_secs(2),
+            dial_timeout: Duration::from_secs(5),
         }
     }
 }
