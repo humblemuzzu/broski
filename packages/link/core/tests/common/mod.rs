@@ -39,9 +39,8 @@ impl Phone {
         }
     }
 
-    pub fn connect(&mut self, mode: HandshakeMode, now_ms: u64) -> Result<Vec<u8>, Error> {
-        self.link
-            .connect(&self.identity, &self.server, mode, now_ms)
+    pub fn connect(&mut self, mode: HandshakeMode, _now_ms: u64) -> Result<Vec<u8>, Error> {
+        self.link.connect(&self.identity, &self.server, mode)
     }
 
     pub fn handle(&mut self, wire: &[u8], now_ms: u64) -> Result<(), Error> {
