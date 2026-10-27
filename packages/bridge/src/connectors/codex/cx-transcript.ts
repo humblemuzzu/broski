@@ -21,6 +21,7 @@ import {
 	headTailTruncate,
 	parseRecord,
 	type RolloutEvent,
+	recordIdentity,
 	type ToolCallEvent,
 	toolCallForFunction,
 } from "./cx-transcript-records";
@@ -45,6 +46,9 @@ export class CxTranscriptBuilder {
 	private currentAssistant: CodexTranscriptMessage | null = null;
 	private seq = 0;
 	private created = 0;
+	/** The record being read: what a message it creates is named after. */
+	private at: number | undefined;
+	private ordinal: number | undefined;
 
 	constructor(limit: number = DEFAULT_CX_TRANSCRIPT_LIMIT, keepTo?: number) {
 		this.limit = Math.max(1, Math.floor(limit));
@@ -61,7 +65,12 @@ export class CxTranscriptBuilder {
 		if (!line.trim()) return;
 		const record = parseRecord(line);
 		if (!record) return;
-		this.pushEvent(classifyRecord(record));
+		const identity = recordIdentity(record);
+		const event = classifyRecord(record);
+		if (!event) return;
+		this.at = identity.atSeconds;
+		this.ordinal = identity.ordinal;
+		this.pushEvent(event);
 	}
 
 	messages(): CodexTranscriptMessage[] {
@@ -107,16 +116,29 @@ export class CxTranscriptBuilder {
 
 	private pushUser(text: string): void {
 		this.currentAssistant = null;
-		this.keep({ id: `user_${this.baseTime}_${this.seq}`, role: "user", createdAt: this.baseTime + this.seq, text });
+		this.keep({
+			id: `user_${this.identityOf()}`,
+			role: "user",
+			createdAt: this.at ?? this.baseTime + this.seq,
+			text,
+		});
 		this.seq++;
+	}
+
+	/**
+	 * What the message this record creates is called: its own ordinal when the file has one, so the
+	 * same line names the same message in a window and in a whole-file read.
+	 */
+	private identityOf(): string {
+		return this.ordinal === undefined ? `${this.baseTime}_${this.seq}` : `${this.ordinal}`;
 	}
 
 	private getOrCreateAssistant(): CodexTranscriptMessage {
 		if (this.currentAssistant) return this.currentAssistant;
 		const message: CodexTranscriptMessage = {
-			id: `assistant_${this.baseTime}_${this.seq}`,
+			id: `assistant_${this.identityOf()}`,
 			role: "assistant",
-			createdAt: this.baseTime + this.seq,
+			createdAt: this.at ?? this.baseTime + this.seq,
 			text: "",
 			toolCalls: [],
 			diffs: [],
