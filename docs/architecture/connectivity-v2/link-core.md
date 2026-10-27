@@ -75,10 +75,10 @@ stops reading its source instead of dropping the session. The daemon reads its b
 - `BlClient` is opaque, owns one `Link` plus the device identity, is not thread-safe, and is freed
   once with `bl_client_free`. Dart wraps it in a `Finalizer`.
 - Return codes: 0 ok, -1 invalid argument, -2 protocol/crypto (`bl_last_error` has the message),
-  -3 backpressure, -99 panic. `bl_client_poll_transmit` and `bl_client_poll_event` use 1/0 for
-  produced/none.
+  -3 backpressure, -4 not ready (no handshake has completed), -99 panic.
+  `bl_client_poll_transmit` and `bl_client_poll_event` use 1/0 for produced/none.
 - `bl_client_handle` eats whole wire messages: msg2 first, then one sealed frame each.
-- `bl_abi_version` is 2; `bl_sha256` is unchanged.
+- `bl_abi_version` is 3; `bl_sha256` is unchanged.
 
 ## The phone's Dart API (`packages/link_dart`)
 
@@ -88,22 +88,29 @@ stops reading its source instead of dropping the session. The daemon reads its b
 |---|---|
 | `status` | `LinkStatus`: state, route, `lastSeen`, `resumed`, `sessionReset`, `closeCode` |
 | `bridgeStatus` | `BridgeLinkStatus { state, conn, detail }` from control `{"t":"bridge"}` |
-| `sendFailures` | `LinkSendFailure { reason, stream, bytes, count }` for every message the link did not send |
+| `sendFailures` | `LinkSendFailure { reason, stream, bytes, count, tag }` for every message the link did not send |
 | `control` | the raw control maps, including `t:"bridge"` and `t:"routes"` |
 | `sendBridge` / `sendControl` | fire and forget; a refusal arrives on `sendFailures` |
 
 `sendFailures.reason` is `queueFull`, `tooLarge`, `rejected` or `sessionReset`, so
-the app can tell a busy phone from a message the protocol cannot carry.
+the app can tell a busy phone from a message the protocol cannot carry. `tag` is
+the sender's own name for the message — the app passes the request id — so a
+refused request fails at once instead of waiting out its timeout. A message over
+the queue bound is refused before it reaches the isolate at all.
 `bridgeStatus` parsing is strict: a `t:"bridge"` without a non-negative integer
 `conn` is ignored and logged rather than given a default, so a malformed status
 never moves the resync state machine.
 
 `LinkStatus.closeCode` is the code the machine closed the session with
-(`LinkCloseCode`: 1000 normal, 4001 shutting down, 4002 `bridge_overflow`,
-4003 revoked, 4004 idle expired). A 4002 makes the next connect report
-`sessionReset`, because the bridge forgot this phone's view even when the link
-session itself resumes; a 4003 ends the link as `closed` and the phone stops
-dialling until it pairs again.
+(`LinkCloseCode`, the daemon's own numbers in
+`packages/link/daemon/src/session/close_codes.rs`): 1000 normal, 4001 the daemon
+is shutting down (the phone reconnects when it is back), 4002 `bridgeOverflow`,
+4003 revoked, 4004 idle expired, 4005 `sessionError` (the session could not carry
+on, so the phone starts a new one). A 4002 or a 4005 makes the next connect
+report `sessionReset`, because the bridge forgot this phone's view even when the
+link session itself resumes; a 4003 ends the link as `closed` and the phone stops
+dialling until it pairs again. While it reconnects, the app reads the code as its
+own detail line (`Mac is restarting`, `Session reset`, `Session timed out`).
 
 ## The outbound queue (`linkOutboundQueue`)
 
@@ -120,10 +127,15 @@ one message (`rejected`) and the queue keeps draining.
 - A new session clears the queue and reports `sessionReset` with the count it
 dropped, so the app resyncs instead of feeding stale frames to a live session.
 
-That bound stays inside the Rust ceiling (`Config.max_unacked_bytes` 16 MiB,
-`max_message` 32 MiB in `packages/link/proto/src/config.rs`) and matches the
-bridge's `response_too_large` limit, so a phone-side refusal is always the
-smaller of the two.
+That bound is the phone's own budget: it stays inside the Rust ceiling
+(`Config.max_unacked_bytes` 16 MiB, `max_message` 32 MiB in
+`packages/link/proto/src/config.rs`), but it is not the machine's reply cap. A
+message that fits here can still be refused on the far side — the daemon drops a
+bridge message over `LINK_MAX_MESSAGE_BYTES` (8 MiB) and the bridge answers
+`response_too_large` for a reply over its own limit — which is why a refusal is
+reported to the caller with its tag instead of being assumed impossible.
+`docs/architecture/connectivity-v2/link-transport.md` has the table of every
+limit and which ones must match.
 
 ## Measured
 

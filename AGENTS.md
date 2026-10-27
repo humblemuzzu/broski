@@ -170,8 +170,8 @@ Every edit must make the codebase more modular, not less. New code goes in new f
 |------|-------|-------------|-------------------|
 | `packages/bridge/src/types.ts` | 3,437 | All type definitions, ClientMessage/ServerMessage unions | `types/runtime.ts`, `types/codex.ts`, `types/pi.ts`, `types/pi-durable.ts` |
 | `packages/bridge/src/connectors/claude-code.ts` | 3,322 | All CC connector logic | `connectors/claude-code/` (stream-supplemental-events, model-normalization, cc-session-stats already extracted) |
-| `packages/bridge/src/server.ts` | 2,810 | Routing + remaining direct handlers | `handlers/{domain}.ts` (101 handler files already extracted) |
-| `packages/bridge/src/connectors/opencode.ts` | 1,845 | All OC connector logic | `connectors/opencode/` (oc-sqlite, session-list already extracted) |
+| `packages/bridge/src/server.ts` | 324 | Routing + remaining direct handlers | `handlers/{domain}.ts` (101 handler files already extracted) |
+| `packages/bridge/src/connectors/opencode.ts` | 633 | All OC connector logic | `connectors/opencode/` (oc-sqlite, session-list already extracted) |
 
 **Flutter (Dart):**
 

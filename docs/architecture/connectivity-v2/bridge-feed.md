@@ -20,6 +20,10 @@ feed closes the old with **4001**.
 {"type":"link_event","kind":"approval","backend":"claude-code","session":"<id>","cwd":"<basename>","title":"<≤80>","body":"<≤200>","at":<unix ms>,"request":"<id>"}
 ```
 
+A frame the feed cannot take is never held: Bun reports a dropped send (`0`) or one over the
+socket's `backpressureLimit` (`-1`), and the bridge closes the feed with **4013** instead, so the
+daemon redials a clean one rather than losing an alert in silence.
+
 `link_busy` goes out on connect with the current value, then on every change: `true` immediately,
 `false` after a 3 s debounce so a handover between sessions does not flap. `kind` is `approval`
 (pending permission request), `attention` (user input requested) or `done` (busy → idle for 5 s, body

@@ -67,7 +67,11 @@ process state — `starting`, `crashed` with the supervisor's detail, or `down` 
 listening. `conn` counts the sockets this session has had. A reset socket is a new client to the
 bridge and knows nothing of what the old one was shown, so the phone resyncs whenever `conn` moves;
 that is the one signal it must not miss, which is why the count is per session and not process-wide
-(the control socket's `status` keeps the process-wide view).
+(the control socket's `status` keeps the process-wide view). The status an attach produces is not a
+move: it is what that socket is at that moment (`connecting` while it dials, `crashed` if the bridge
+is down), and the phone's own connect already resynced. The app adopts the first `up` of a link
+silently and resyncs on every later change of `conn`; a `crashed` or `down` first status still
+reaches the chip, it just fails nothing.
 
 ## Flow control
 
@@ -83,13 +87,15 @@ behind it is read, and a small ordered queue for control — retried on every pa
 frees the window is what lets it go.
 
 A bridge socket that dies hands back everything it never wrote, the message that failed included, the
-session puts it at the front of its queue for the bridge and redials. A message larger than 8 MiB
+session puts it at the front of its queue for the bridge and redials. So does a socket a rename or a
+restart asks to retire: it is asked to hand its queue back first, and the new socket takes nothing
+until that queue is in the session's own. A message larger than 8 MiB
 (`LINK_MAX_MESSAGE_BYTES`, the whole unacked window has to fit one) drops the socket at once; the
 bridge never sends one.
 
 ## Close codes
 
-The session ends with a code that says why, and the phone resyncs unless it was a normal end.
+The session ends with a code that says why, and the code decides what the phone does next:
 
 | Code | Meaning |
 |---|---|
@@ -99,6 +105,10 @@ The session ends with a code that says why, and the phone resyncs unless it was 
 | 4003 | the device was revoked on this machine |
 | 4004 | no phone attached for the whole idle limit |
 | 4005 | the session's own crypto state could not carry on |
+
+Only 1000 and 4003 end the link quietly. A 4002 or a 4005 makes the phone's next connect report
+`sessionReset` and the app resyncs; a 4001, a 4004, a lost connection or a dead peer make it redial
+and resync nothing more than the link's own reconnect does.
 
 ## Control socket (unix, one JSON line per request)
 
@@ -150,6 +160,11 @@ reply, so the relay closes the pairing channel only once the phone holds its rea
   session lives 600 s (`session_idle`); a CLOSE from the phone, or a revoked device, ends it.
 - The bridge connection belongs to the session, not to the network route: a phone that moves from
   LAN to relay keeps the same bridge websocket.
+- A **fresh** session starts with nothing carried over: the control messages parked for the old
+  session, the one bridge message waiting for it, and the last bridge status it was told are all
+  dropped, so a phone that just reset is never handed data for the session it lost. What the phone
+  sent for the bridge is *not* dropped — those messages were acked to it, and the bridge still owes
+  them (the queue is the session's, not the link's).
 
 ## Bridge supervision
 
@@ -157,8 +172,8 @@ Without `--bridge-cmd` the daemon only dials the socket it is given. With it, th
 command with `--link-socket <bridge-socket>`, forwards the child's stdout and stderr to the log,
 and restarts it 1 s to 30 s after it exits, resetting the backoff once a run lasted 60 s.
 `{"t":"bridge_restart"}` restarts it at once. A dial is the unix connect plus the websocket upgrade
-and gives up after 5 s, which counts as a failed dial: the socket is dropped and the bridge backoff
-runs again.
+and gives up after 5 s (`Durations::dial_timeout`, shrunk in tests), which counts as a failed dial:
+the socket is dropped and the bridge backoff runs again.
 
 The process-wide state is `up` while any websocket to the bridge is live — the daemon's own feed
 socket counts, so a supervised bridge that is listening is `up` before any phone attaches —
