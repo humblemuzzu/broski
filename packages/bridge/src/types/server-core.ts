@@ -16,6 +16,9 @@ export type CoreServerMessage =
 			type: "session_messages";
 			data: unknown;
 			sessionId: string;
+			/** Paged reads only: the shared transcript-page contract names the older page's cursor. */
+			hasMore?: boolean;
+			nextCursor?: string;
 			requestId?: string;
 	  }
 	| { type: "session_created"; data: SessionSummary; requestId?: string }

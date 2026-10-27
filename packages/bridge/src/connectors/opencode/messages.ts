@@ -9,7 +9,9 @@ import type {
 	TextPartInput,
 } from "@opencode-ai/sdk/v2";
 import type { FileAttachment, Todo } from "../../types";
+import type { TranscriptPage } from "../../types/transcript-page";
 import type { OpenCodeContext } from "./context";
+import { type OcSessionMessage, pageSessionMessages } from "./oc-transcript-page";
 
 function buildPromptParts(
 	content: string,
@@ -58,6 +60,17 @@ export async function getSessionMessages(
 		...(before ? { before } : {}),
 	});
 	return data;
+}
+
+/** One page of the transcript, windowed from the whole list so the cursor is always a message id. */
+export async function readSessionMessagesPage(
+	ctx: OpenCodeContext,
+	sessionId: string,
+	directory: string | undefined,
+	options: { limit: number; before?: string },
+): Promise<TranscriptPage<OcSessionMessage> | null> {
+	const messages = (await getSessionMessages(ctx, sessionId, directory)) ?? [];
+	return pageSessionMessages(messages, options);
 }
 
 export async function sendPrompt(
