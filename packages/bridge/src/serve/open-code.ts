@@ -4,6 +4,7 @@ import { promptForChoice } from "../cli";
 import { logDaemon, logDaemonError } from "../logging/daemon-log";
 import { IS_WINDOWS } from "../platform";
 import { loadOpenCodeSdk } from "../sdk/opencode-sdk";
+import { describeOpenCodeProbe, probeOpenCode } from "./open-code-probe";
 import type { OpenCodeServer } from "./state";
 
 export type OpenCodeInstance = {
@@ -134,15 +135,19 @@ export async function bootstrapManagedOpenCode(
 				},
 			};
 		} catch (error) {
-			if (attempt < MAX_RETRIES) {
-				logDaemon(`  OpenCode not ready, retrying in ${RETRY_DELAY_MS / 1000}s...`);
+			const probe = await probeOpenCode();
+			const unsupported = probe.foreignBanner || probe.binary === null;
+			if (attempt < MAX_RETRIES && !unsupported) {
+				logDaemon(`  OpenCode not ready (${describeOpenCodeProbe(probe)}), retrying in ${RETRY_DELAY_MS / 1000}s...`);
 				await Bun.sleep(RETRY_DELAY_MS);
 				continue;
 			}
-			logDaemonError(`Failed to start managed OpenCode server after all retries: ${String(error)}`);
-			logDaemon(
-				"  Ensure OpenCode is installed and on PATH (install: curl -fsSL https://opencode.ai/install | bash  or  bun add -g opencode-ai)",
-			);
+			logDaemonError(`Failed to start managed OpenCode server: ${describeOpenCodeProbe(probe)} (${String(error)})`);
+			if (probe.binary === null) {
+				logDaemon(
+					"  Install OpenCode (curl -fsSL https://opencode.ai/install | bash  or  bun add -g opencode-ai) and restart the bridge",
+				);
+			}
 			throw error;
 		}
 	}
