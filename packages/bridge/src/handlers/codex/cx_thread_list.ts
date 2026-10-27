@@ -144,13 +144,12 @@ function enrichInBackground(threads: CodexThread[], limit: unknown, ctx: CxThrea
 }
 
 function replyPage(message: CxThreadMessage, reply: Reply, threads: CodexThread[], ctx: CxThreadListContext): void {
-	const named = withThreadNames(threads, ctx);
-	enrichInBackground(named, message.limit, ctx);
-	reply({
-		type: "cx_threads",
-		...sessionListReply(named, message, (thread: CodexThread) => ({ id: thread.id, modified: thread.updatedAt })),
-		requestId: message.requestId,
-	});
+	const page = sessionListReply(withThreadNames(threads, ctx), message, (thread: CodexThread) => ({
+		id: thread.id,
+		modified: thread.updatedAt,
+	}));
+	enrichInBackground(page.data, message.limit, ctx);
+	reply({ type: "cx_threads", ...page, requestId: message.requestId });
 }
 
 function replyCached(

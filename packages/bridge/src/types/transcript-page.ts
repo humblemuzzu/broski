@@ -22,9 +22,14 @@ export type TranscriptPage<T> = {
 export const DEFAULT_TRANSCRIPT_PAGE_LIMIT = 80;
 export const MAX_TRANSCRIPT_PAGE_LIMIT = 500;
 
-export function transcriptPageLimit(value: unknown): number | undefined {
+/** The one clamp every paged read uses, whatever its own default and maximum are. */
+export function pagedLimit(value: unknown, max: number): number | undefined {
 	if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
-	return Math.max(1, Math.min(Math.floor(value), MAX_TRANSCRIPT_PAGE_LIMIT));
+	return Math.max(1, Math.min(Math.floor(value), max));
+}
+
+export function transcriptPageLimit(value: unknown): number | undefined {
+	return pagedLimit(value, MAX_TRANSCRIPT_PAGE_LIMIT);
 }
 
 export function transcriptCursor(value: unknown): string | undefined {

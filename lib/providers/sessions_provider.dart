@@ -140,7 +140,8 @@ class GlobalSessionStatusNotifier
     }
   }
 
-  /// Seed Codex runtime status from thread/list payload (official v2 Thread.status).
+  /// Seed Codex runtime status from thread/list payload (official v2 Thread.status). A thread the
+  /// local index answered carries no status at all, and a row that says nothing claims nothing.
   void _handleCxThreadsSnapshot(List<dynamic> threads) {
     final updates = <String, SessionStatus>{};
     for (final item in threads) {
@@ -152,8 +153,9 @@ class GlobalSessionStatusNotifier
       if (map == null) continue;
       final id = map['id'] as String? ?? '';
       if (id.isEmpty) continue;
-      final status = map['status'] as Map<String, dynamic>?;
-      final statusType = status?['type'] as String? ?? 'idle';
+      final status = map['status'];
+      if (status is! Map) continue;
+      final statusType = status['type'] as String? ?? 'idle';
       updates[id] = statusType == 'active'
           ? const SessionStatus.busy()
           : const SessionStatus.idle();

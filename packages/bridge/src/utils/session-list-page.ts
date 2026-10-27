@@ -8,6 +8,8 @@
  * `hasMore`/`nextCursor`, which is what a client that sent neither saw before.
  */
 
+import { pagedLimit } from "../types/transcript-page";
+
 export const DEFAULT_SESSION_PAGE_LIMIT = 100;
 export const MAX_SESSION_PAGE_LIMIT = 500;
 
@@ -23,8 +25,7 @@ export type SessionListRow = { id: string; modified: number };
 export type SessionPageRequest = { limit?: number; before?: string };
 
 export function sessionPageLimit(value: unknown): number | undefined {
-	if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
-	return Math.max(1, Math.min(Math.floor(value), MAX_SESSION_PAGE_LIMIT));
+	return pagedLimit(value, MAX_SESSION_PAGE_LIMIT);
 }
 
 export function sessionPageRequest(message: { limit?: unknown; before?: unknown }): SessionPageRequest {
