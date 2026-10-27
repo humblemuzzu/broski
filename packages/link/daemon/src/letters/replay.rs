@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::Result;
 use crate::fsx;
+use tracing::warn;
 
 const FILE: &str = "letters_seen.json";
 const MAX_ENTRIES: usize = 10_000;
@@ -30,10 +31,8 @@ pub struct Seen {
 impl Seen {
     pub async fn open(home: &Path, ttl: Duration) -> Result<Arc<Seen>> {
         let path = home.join(FILE);
-        let entries: Vec<Entry> = match fsx::read(&path)? {
-            Some(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
-            None => Vec::new(),
-        };
+        let entries: Vec<Entry> =
+            fsx::read_json(&path, "the letters already handled")?.unwrap_or_else(Vec::new);
         Ok(Arc::new(Seen {
             path,
             ttl,
@@ -69,7 +68,15 @@ impl Seen {
         };
         if let Ok(bytes) = serde_json::to_vec(&seen) {
             let path = self.path.clone();
-            let _ = tokio::task::spawn_blocking(move || fsx::write_atomic(&path, &bytes)).await;
+            match tokio::task::spawn_blocking(move || fsx::write_atomic(&path, &bytes)).await {
+                Ok(Ok(())) => {}
+                Ok(Err(error)) => {
+                    warn!(error = %error, "the letters already handled were not written")
+                }
+                Err(error) => {
+                    warn!(error = %error, "the letters already handled were not written")
+                }
+            }
         }
         false
     }

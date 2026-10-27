@@ -1,10 +1,8 @@
 use std::time::Duration;
 
-use futures_util::SinkExt;
 use serde_json::Value;
 use tokio::sync::oneshot;
 use tokio::time::timeout;
-use tokio_tungstenite::tungstenite::Message;
 
 use crate::device::DeviceRecord;
 use crate::session::SessionCommand;
@@ -16,7 +14,7 @@ const POST: Duration = Duration::from_secs(1);
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Delivery {
     Live,
-    Ephemeral,
+    Pipe,
     Failed,
 }
 
@@ -24,7 +22,7 @@ impl Delivery {
     pub fn as_str(self) -> &'static str {
         match self {
             Delivery::Live => "live bridge",
-            Delivery::Ephemeral => "ephemeral bridge",
+            Delivery::Pipe => "letter pipe",
             Delivery::Failed => "no bridge",
         }
     }
@@ -49,12 +47,15 @@ pub async fn decision(
 }
 
 /// Delivers a bridge-kind letter on the device's bridge websocket: the session's own one when it
-/// is there, otherwise a short-lived one opened as that device.
+/// is there, otherwise the one pipe that device keeps for letters.
 pub async fn bridge(deps: &Deps, device: &DeviceRecord, message: &str) -> Delivery {
     if live(deps, device, message).await {
         return Delivery::Live;
     }
-    ephemeral(deps, device, message).await
+    if deps.pipes.send(device, message).await {
+        return Delivery::Pipe;
+    }
+    Delivery::Failed
 }
 
 async fn live(deps: &Deps, device: &DeviceRecord, message: &str) -> bool {
@@ -70,30 +71,4 @@ async fn live(deps: &Deps, device: &DeviceRecord, message: &str) -> bool {
         return false;
     }
     matches!(timeout(POST, answer).await, Ok(Ok(true)))
-}
-
-async fn ephemeral(deps: &Deps, device: &DeviceRecord, message: &str) -> Delivery {
-    let socket = crate::bridge::dial(
-        &deps.bridge_socket,
-        &device.id,
-        &device.name,
-        deps.durations.dial_timeout,
-    )
-    .await;
-    let Some(mut socket) = socket else {
-        return Delivery::Failed;
-    };
-    if socket
-        .send(Message::Text(message.to_owned().into()))
-        .await
-        .is_err()
-    {
-        return Delivery::Failed;
-    }
-    let hold = deps.durations.bridge_letter_hold;
-    tokio::spawn(async move {
-        tokio::time::sleep(hold).await;
-        let _ = socket.close(None).await;
-    });
-    Delivery::Ephemeral
 }
