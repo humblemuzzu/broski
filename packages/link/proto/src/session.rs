@@ -10,6 +10,11 @@ use crate::frame::{self, Frame, Kind, CLOSE_PAYLOAD_LEN, FLAG_DEFLATE, FLAG_MORE
 use crate::keepalive::{Action, Keepalive};
 use crate::reassembly::Reassembly;
 
+/// Control frames the session will queue behind its data. A peer that floods PING while the data
+/// queue is backed up must not grow `out` without bound; anything past this many control frames is
+/// dropped, except a CLOSE, which always gets in.
+const MAX_QUEUED_CONTROL: usize = 32;
+
 pub struct Session {
     session_id: [u8; 16],
     config: Config,
@@ -295,6 +300,16 @@ impl Session {
     }
 
     fn queue_control(&mut self, kind: Kind, payload: &[u8]) {
+        if kind != Kind::Close {
+            let queued = self
+                .out
+                .iter()
+                .filter(|out| matches!(out, Out::Ctrl(_)))
+                .count();
+            if queued >= MAX_QUEUED_CONTROL {
+                return;
+            }
+        }
         let frame = Frame::control(kind, self.next_expected, payload);
         self.out.push_back(Out::Ctrl(frame.encode()));
     }
