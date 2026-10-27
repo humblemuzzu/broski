@@ -76,15 +76,19 @@ and the plaintext is one of
 A letter is rejected — debug log, then ack, so the relay retires it — when the device is unknown or
 has no registration, the key or the b64url does not decode, the AEAD does not open, `at` is older
 than the TTL (24 h) or more than 5 min in the future, or its `id` was already handled. Handled ids
-live in `letters_seen.json` (`0600`), pruned past 24 h and capped at 10 000 entries. Every letter
-gets `{"t":"letter_ack","id":N}`, handled or not; one that could not be queued at all is left for
-the relay to redeliver, because at-least-once plus the seen list is what makes delivery safe.
+live in `letters_seen.json` (`0600`), pruned past 24 h and capped at 10 000 entries. A letter that was
+acted on, or rejected, gets `{"t":"letter_ack","id":N}`. A letter that opened but could not be acted
+on — the bridge was unreachable, or never answered a decision — is not acked and its id is taken back
+out of the seen list, so the relay's redelivery (on the machine socket's next attach) is handled like
+new. At-least-once delivery plus the seen list is what makes this safe: the bridge refuses a second
+decision for a request it has already settled.
 
 - `decision` becomes `{"type":"link_decision","backend","session","request","decision"}` on the
   bridge feed, and the daemon waits up to 10 s for the bridge's
   `{"type":"link_decision_result","request","ok","error"}`, correlated on the echoed `request`.
 - `bridge` is written verbatim on that device's bridge websocket: the one its session already holds
-  when there is one, otherwise an ephemeral socket opened as that device and held 30 s.
+  when there is one, otherwise the single letter pipe the daemon keeps per device (four letters in
+  flight, closed when idle).
 
 ## The bridge feed
 

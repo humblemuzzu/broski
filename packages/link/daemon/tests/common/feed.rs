@@ -166,11 +166,13 @@ async fn accept(
     received: Arc<Mutex<Vec<String>>>,
     feed: Arc<Mutex<Option<FeedSlot>>>,
 ) {
+    // Dropping the set when `stop` aborts this task closes every connection with it.
+    let mut connections = tokio::task::JoinSet::new();
     while let Ok((stream, _)) = listener.accept().await {
         let sessions = Arc::clone(&sessions);
         let received = Arc::clone(&received);
         let feed = Arc::clone(&feed);
-        tokio::spawn(async move { serve(stream, sessions, received, feed).await });
+        connections.spawn(async move { serve(stream, sessions, received, feed).await });
     }
 }
 
@@ -208,16 +210,17 @@ async fn serve(
     }
 
     let (mut sink, mut source) = socket.split();
-    let writer = tokio::spawn(async move {
+    let writer = async {
         while let Some(text) = rx.recv().await {
             if sink.send(Message::Text(text.into())).await.is_err() {
                 break;
             }
         }
-    });
-
-    drain(&mut source, &received, &tx).await;
-    writer.abort();
+    };
+    tokio::select! {
+        () = drain(&mut source, &received, &tx) => {}
+        () = writer => {}
+    }
     if is_feed {
         let mut guard = feed.lock().unwrap_or_else(|error| error.into_inner());
         if guard.as_ref().is_some_and(|slot| slot.id == id) {

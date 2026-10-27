@@ -66,19 +66,39 @@ impl Seen {
             }
             data.entries.clone()
         };
-        if let Ok(bytes) = serde_json::to_vec(&seen) {
-            let path = self.path.clone();
-            match tokio::task::spawn_blocking(move || fsx::write_atomic(&path, &bytes)).await {
-                Ok(Ok(())) => {}
-                Ok(Err(error)) => {
-                    warn!(error = %error, "the letters already handled were not written")
-                }
-                Err(error) => {
-                    warn!(error = %error, "the letters already handled were not written")
-                }
+        self.persist(seen).await;
+        false
+    }
+
+    /// Drops `id`, so a letter that was opened but could not be acted on is handled again when
+    /// the relay redelivers it.
+    pub async fn forget(&self, id: &str) {
+        let remaining = {
+            let mut data = self.lock();
+            let before = data.entries.len();
+            data.entries.retain(|entry| entry.id != id);
+            if data.entries.len() == before {
+                return;
+            }
+            data.entries.clone()
+        };
+        self.persist(remaining).await;
+    }
+
+    async fn persist(&self, entries: Vec<Entry>) {
+        let Ok(bytes) = serde_json::to_vec(&entries) else {
+            return;
+        };
+        let path = self.path.clone();
+        match tokio::task::spawn_blocking(move || fsx::write_atomic(&path, &bytes)).await {
+            Ok(Ok(())) => {}
+            Ok(Err(error)) => {
+                warn!(error = %error, "the letters already handled were not written")
+            }
+            Err(error) => {
+                warn!(error = %error, "the letters already handled were not written")
             }
         }
-        false
     }
 
     fn lock(&self) -> std::sync::MutexGuard<'_, Data> {

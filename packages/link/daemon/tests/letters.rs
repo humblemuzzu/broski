@@ -116,6 +116,80 @@ async fn a_bridge_letter_reaches_the_devices_own_bridge_socket() {
     scenario.stop().await;
 }
 
+/// A decision the bridge never answered is left for the relay, and the redelivery that follows
+/// the machine socket coming back is acted on rather than dismissed as a replay.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn an_unanswered_decision_comes_back_and_is_acted_on() {
+    let durations = broski_link_daemon::durations::Durations {
+        letter_wait: Duration::from_millis(300),
+        ..quick_durations()
+    };
+    let scenario = Scenario::start(TestRelay::start().await, durations).await;
+    let letter = decision(
+        &scenario,
+        "0123456789abcdef0123456789abcdef",
+        now_ms(),
+        "allow",
+    );
+    let Scenario {
+        relay,
+        daemon,
+        feed,
+        phone: _phone,
+        machine,
+        device,
+        token,
+    } = scenario;
+
+    feed.stop().await;
+    let (status, posted) =
+        common::relay_http::post_letter(relay.addr, &machine, &device, &token, &letter).await;
+    assert_eq!(status, 202, "{posted}");
+    assert_eq!(posted["delivered"], true, "the machine socket was attached");
+    let id = posted["id"].as_u64().expect("a letter id");
+
+    tokio::time::sleep(SILENCE).await;
+    assert!(
+        pending(&relay, &machine).await.contains(&id),
+        "a decision nobody answered was acknowledged"
+    );
+
+    let feed = common::feed::FakeFeed::start(daemon.bridge_socket.clone()).await;
+    feed.await_feed(WAIT).await;
+    relay
+        .hub
+        .room(&machine)
+        .expect("the machine has a room")
+        .close_all(1012, "restarting");
+
+    let asked = feed.await_of_type("link_decision", WAIT).await;
+    assert_eq!(asked["request"], REQUEST);
+    assert_eq!(asked["decision"], "allow");
+    let deadline = tokio::time::Instant::now() + WAIT;
+    while pending(&relay, &machine).await.contains(&id) {
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "the redelivered decision was never acknowledged"
+        );
+        tokio::time::sleep(common::scenario::POLL).await;
+    }
+    daemon.stop().await;
+    feed.stop().await;
+    relay.stop().await;
+}
+
+async fn pending(relay: &TestRelay, machine: &str) -> Vec<u64> {
+    relay
+        .hub
+        .db()
+        .pending_letters(machine, 0)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|letter| letter.id)
+        .collect()
+}
+
 fn decision(scenario: &Scenario, id: &str, at: u64, decision: &str) -> Vec<u8> {
     let body = json!({
         "v": 1,

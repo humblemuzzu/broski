@@ -74,14 +74,17 @@ async fn handle(deps: &Deps, incoming: &Incoming) {
             );
             ack(deps, incoming.id);
         }
-        // The bridge could not be reached, so nothing has happened yet: leaving the letter
-        // unacknowledged is what lets the relay hand it over again later.
-        Outcome::Deferred(reason) => warn!(
-            letter = incoming.id,
-            device = crate::device::short(&incoming.device),
-            reason,
-            "letter left for the relay to redeliver"
-        ),
+        // Nothing happened yet: leaving the letter unacknowledged is what lets the relay hand it
+        // over again later, and forgetting it is what lets that redelivery be acted on.
+        Outcome::Deferred { reason, letter } => {
+            deps.seen.forget(&letter).await;
+            warn!(
+                letter = incoming.id,
+                device = crate::device::short(&incoming.device),
+                reason,
+                "letter left for the relay to redeliver"
+            );
+        }
     }
 }
 
@@ -97,7 +100,10 @@ fn ack(deps: &Deps, id: u64) {
 enum Outcome {
     Accepted,
     Rejected(&'static str),
-    Deferred(&'static str),
+    Deferred {
+        reason: &'static str,
+        letter: String,
+    },
 }
 
 async fn apply(deps: &Deps, incoming: &Incoming) -> Outcome {
@@ -113,21 +119,27 @@ async fn apply(deps: &Deps, incoming: &Incoming) -> Outcome {
             decision,
         } => {
             let answer = apply::decision(deps, backend, session, request.as_ref(), *decision).await;
-            match answer {
-                Some(value) => debug!(
-                    letter = incoming.id,
-                    ok = value
-                        .get("ok")
-                        .and_then(serde_json::Value::as_bool)
-                        .unwrap_or(false),
-                    "decision answered"
-                ),
-                None => warn!(letter = incoming.id, "decision went unanswered"),
-            }
+            let Some(value) = answer else {
+                return Outcome::Deferred {
+                    reason: "the bridge did not answer the decision",
+                    letter: opened.id,
+                };
+            };
+            debug!(
+                letter = incoming.id,
+                ok = value
+                    .get("ok")
+                    .and_then(serde_json::Value::as_bool)
+                    .unwrap_or(false),
+                "decision answered"
+            );
             Outcome::Accepted
         }
         open::Body::Bridge { message } => match apply::bridge(deps, &device, message).await {
-            apply::Delivery::Failed => Outcome::Deferred("bridge unreachable"),
+            apply::Delivery::Failed => Outcome::Deferred {
+                reason: "bridge unreachable",
+                letter: opened.id,
+            },
             delivery => {
                 debug!(
                     letter = incoming.id,
