@@ -7,6 +7,7 @@ import { bindWithRetry, isAddressInUse } from "./lifecycle/port-retry";
 import { logDaemon, logDaemonError, setDaemonLogger } from "./logging/daemon-log";
 import { createBridgeLogger } from "./logging/logger";
 import { getKillPortHint, getProcessOnPort, IS_WINDOWS } from "./platform";
+import { applyServiceShellEnv } from "./platform/shell-env";
 import { loadOpenCodeSdk } from "./sdk/opencode-sdk";
 import {
 	bootstrapAttachOpenCode,
@@ -196,6 +197,11 @@ export async function runServe(cli: CliOptions, config: BroskiConfig): Promise<v
 
 	const effectivePort =
 		!argvHasPortFlag && !process.env.BROSKI_PORT && config.network.port ? config.network.port : cli.bridgePort;
+
+	await applyServiceShellEnv(
+		{ info: bridgeLogger.info, warn: bridgeLogger.user },
+		{ daemon: cli.daemon, linkSocket: cli.linkSocket },
+	);
 
 	const bootstrap = await bootstrapOpenCode(cli);
 	let opencode: OpenCodeConnector | null = null;
