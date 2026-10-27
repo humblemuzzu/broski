@@ -1,10 +1,10 @@
 import 'package:broski/providers/connection/bridge_status_provider.dart';
 import 'package:broski/providers/link/link_status_provider.dart';
+import 'package:broski/providers/link/machines_provider.dart';
+import 'package:broski/services/websocket_service.dart';
 import 'package:broski/widgets/connection_indicator.dart';
 import 'package:broski/widgets/link/bridge_restart_button.dart';
-import 'package:broski/providers/link/machines_provider.dart';
 import 'package:broski/widgets/link/link_status_indicator.dart';
-import 'package:broski/services/websocket_service.dart';
 import 'package:broski_link/broski_link.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
