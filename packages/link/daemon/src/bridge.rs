@@ -14,6 +14,7 @@ use tracing::{debug, warn};
 
 use crate::bridge_status::BridgeMonitor;
 use crate::limits::LINK_MAX_MESSAGE_BYTES;
+use crate::link_key::LinkKey;
 
 /// Messages the session may write ahead to the bridge before it has to wait.
 const OUTBOUND_QUEUE: usize = 64;
@@ -52,6 +53,7 @@ impl BridgeLink {
 /// Dials the bridge over its unix socket; the task exits when the socket dies.
 pub fn spawn(
     socket: PathBuf,
+    key: Arc<LinkKey>,
     device_id: String,
     device_name: String,
     monitor: Arc<BridgeMonitor>,
@@ -62,6 +64,7 @@ pub fn spawn(
     let (stop, stopped) = oneshot::channel();
     tokio::spawn(run(
         socket,
+        key,
         device_id,
         device_name,
         outbound,
@@ -83,6 +86,7 @@ pub fn spawn(
 )]
 async fn run(
     socket: PathBuf,
+    key: Arc<LinkKey>,
     device_id: String,
     device_name: String,
     outbound: mpsc::Receiver<Vec<u8>>,
@@ -91,7 +95,7 @@ async fn run(
     stopped: oneshot::Receiver<()>,
     dial_timeout: Duration,
 ) {
-    let unsent = match dial(&socket, &device_id, &device_name, dial_timeout).await {
+    let unsent = match dial(&socket, &key, &device_id, &device_name, dial_timeout).await {
         Some(socket) => serve(socket, outbound, &inbound, &monitor, stopped).await,
         None => Vec::new(),
     };
@@ -148,6 +152,7 @@ fn ended(finished: Result<Vec<Vec<u8>>, JoinError>) -> Vec<Vec<u8>> {
 /// The websocket upgrade over the bridge's unix socket, or `None` with the reason logged.
 pub(crate) async fn dial(
     socket: &std::path::Path,
+    key: &LinkKey,
     device_id: &str,
     device_name: &str,
     dial_timeout: Duration,
@@ -160,7 +165,7 @@ pub(crate) async fn dial(
     let config = WebSocketConfig::default()
         .max_message_size(Some(LINK_MAX_MESSAGE_BYTES))
         .max_frame_size(Some(LINK_MAX_MESSAGE_BYTES));
-    crate::dial::upgrade(socket, &headers, config, dial_timeout).await
+    crate::dial::upgrade(socket, key, &headers, config, dial_timeout).await
 }
 
 /// Reads and writes in separate tasks, so a slow peer cannot stall the other direction. On the way
