@@ -52,6 +52,13 @@ export function isPiDurableCursor(value: unknown): value is Cursor {
 }
 
 export function piDurableModelSummaryOf(choice: PiDurableModelChoice): BroskiModelSummary {
+	const backendData =
+		choice.selectedOrder === undefined && choice.isDefault !== true
+			? undefined
+			: {
+					...(choice.selectedOrder !== undefined ? { selectedOrder: choice.selectedOrder } : {}),
+					...(choice.isDefault === true ? { isDefault: true } : {}),
+				};
 	return {
 		id: choice.modelId,
 		backend: "pi-durable",
@@ -60,6 +67,7 @@ export function piDurableModelSummaryOf(choice: PiDurableModelChoice): BroskiMod
 		contextWindow: choice.contextWindow,
 		supportsReasoning: choice.supportsReasoning,
 		supportsTools: true,
+		...(backendData !== undefined ? { backendData } : {}),
 	};
 }
 
