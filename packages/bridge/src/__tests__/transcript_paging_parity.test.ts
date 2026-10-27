@@ -2,7 +2,9 @@
  * Parity of the paged transcript readers against the whole-file read.
  *
  * Pages must concatenate to exactly the transcript the unpaged reader returns, and a cursor must
- * keep naming the same older messages when the file grows at the end between pages.
+ * keep naming the same older messages when the file grows at the end between pages. A page also
+ * starts at the prompt that opened its oldest turn, so no page opens on an answer whose question
+ * is on a page the reader has not loaded.
  *
  * The real-session block is read-only and skips itself without ~/.pi, ~/.codex or ~/.claude data.
  * The largest files (a 400 MB Pi session costs 1.6 GB to read whole) need TRANSCRIPT_PARITY_REAL=1.
@@ -30,6 +32,7 @@ import { buildTranscriptMessages, readCcTranscriptPage } from "../connectors/cla
 import { readCxTranscript, readCxTranscriptPage } from "../connectors/codex/cx-transcript";
 import { readPiSessionTranscriptPage } from "../connectors/pi/pi-session-page";
 import { readPiSessionTranscript } from "../connectors/pi/pi-session-transcript";
+import { TURN_EXTENSION_MAX } from "../utils/turn-aligned-page";
 import { normalizeTranscript } from "./codex_legacy_reference";
 
 const REAL_ENABLED = process.env.TRANSCRIPT_PARITY_REAL === "1";
@@ -54,8 +57,7 @@ async function concatPages<T>(
 		const page = await fetch(cursor);
 		expect(page, "reader could not build a page").not.toBeNull();
 		if (!page) break;
-		// A page can run past `limit`: Pi extends a page backwards past a run of tool results so
-		// the app can attach them to the assistant message before them.
+		// A page can run past `limit`: it starts at the prompt that opened its oldest turn.
 		if (page.hasMore) expect(page.messages.length).toBeGreaterThan(0);
 		pages.unshift(page.messages);
 		if (!page.hasMore) {
@@ -68,8 +70,31 @@ async function concatPages<T>(
 	throw new Error("paging did not terminate");
 }
 
+/** Turns of `length` messages, each opened by a prompt, so a turn start is `index % length == 0`. */
+function piTurns(turns: number, length: number): Entry[] {
+	const entries: Entry[] = [];
+	let parent: string | null = null;
+	for (let turn = 0; turn < turns; turn++) {
+		for (let index = 0; index < length; index++) {
+			const id = `t${turn}-${index}`;
+			entries.push(
+				index === 0 ? piUser(id, parent, `prompt ${turn}`) : piAssistant(id, parent, `reply ${turn}.${index}`),
+			);
+			parent = id;
+		}
+	}
+	return entries;
+}
+
+const roles = <T extends { role: string }>(messages: T[]): string[] => messages.map((message) => message.role);
+
+const texts = (count: number, prefix: string): string[] =>
+	Array.from({ length: count }, (_, index) => `${prefix} ${index}`);
+
+const textOf = (message: Record<string, unknown>): unknown => message.content ?? message.text;
+
 describe("Pi transcript paging parity", () => {
-	it("concatenates to the whole-file read on every session shape", async () => {
+	it("concatenates to the whole-file read when no compaction cuts the path", async () => {
 		const dir = await tempRoot("pi-paging");
 
 		const linear: Entry[] = [header(), ...chain(24)];
@@ -77,16 +102,6 @@ describe("Pi transcript paging parity", () => {
 		appendChain(branched, 6, "side", "m8");
 		const branchedTip = appendChain(branched, 2, "tail", "m11");
 		branched.push(branchSummary("bs1", branchedTip, "side5"));
-
-		const cut = chain(30);
-		const compacted: Entry[] = [header(), ...cut, compaction("c1", cut[29]?.id as string, cut[24]?.id as string)];
-		appendChain(compacted, 6, "post", "c1");
-
-		const double: Entry[] = [header(), ...chain(28)];
-		double.push(compaction("c-early", "m10", "m6"));
-		const midTip = appendChain(double, 12, "mid", "c-early");
-		double.push(compaction("c-late", midTip, "mid8"));
-		appendChain(double, 4, "end", "c-late");
 
 		const mixed: Entry[] = [header()];
 		let parent: string | null = null;
@@ -103,8 +118,6 @@ describe("Pi transcript paging parity", () => {
 		const sessions: [string, Entry[]][] = [
 			["linear.jsonl", linear],
 			["branched.jsonl", branched],
-			["compacted.jsonl", compacted],
-			["double-compaction.jsonl", double],
 			["mixed.jsonl", mixed],
 		];
 
@@ -116,6 +129,72 @@ describe("Pi transcript paging parity", () => {
 				expect(messages, `${name} limit=${limit}`).toEqual(expected);
 			}
 		}
+	});
+
+	it("walks past every compaction to the first prompt", async () => {
+		const dir = await tempRoot("pi-paging-compacted");
+		const first = chain(30);
+		const entries: Entry[] = [header(), ...first, compaction("c1", first[29]?.id as string, first[24]?.id as string)];
+		const midTip = appendChain(entries, 12, "mid", "c1");
+		entries.push(compaction("c2", midTip, "mid8"));
+		appendChain(entries, 4, "end", "c2");
+
+		const path = await writeSession(dir, "two-compactions.jsonl", entries);
+		const expected = [
+			...texts(30, "m"),
+			"earlier turns summarised",
+			...texts(12, "mid"),
+			"earlier turns summarised",
+			...texts(4, "end"),
+		];
+
+		for (const limit of PAGE_LIMITS) {
+			const { messages } = await concatPages((before) => readPiSessionTranscriptPage(path, { limit, before }));
+			expect(messages.map(textOf), `limit=${limit}`).toEqual(expected);
+			expect(
+				roles(messages).filter((role) => role === "compactionSummary"),
+				`limit=${limit}`,
+			).toHaveLength(2);
+			expect(messages[0]?.role, `limit=${limit}`).toBe("user");
+		}
+	});
+
+	it("starts the newest page at the prompt that opened its turn", async () => {
+		const dir = await tempRoot("pi-paging-turn");
+		const path = await writeSession(dir, "turns.jsonl", [header(), ...piTurns(12, 4)]);
+
+		const page = await readPiSessionTranscriptPage(path, { limit: 6 });
+		expect(page?.messages[0]).toEqual({
+			role: "user",
+			content: "prompt 10",
+			timestamp: expect.any(Number),
+		});
+		expect(page?.messages).toHaveLength(8);
+		expect(page?.hasMore).toBe(true);
+
+		const { messages } = await concatPages((before) => readPiSessionTranscriptPage(path, { limit: 6, before }));
+		expect(messages).toEqual(await readPiSessionTranscript(path));
+	});
+
+	it("opens mid-turn when a turn is longer than the bound, and still walks exactly", async () => {
+		const dir = await tempRoot("pi-paging-long-turn");
+		const entries: Entry[] = [header(), ...piTurns(3, 5)];
+		let parent = entries[entries.length - 1]?.id as string;
+		entries.push(piUser("long-0", parent, "the long turn"));
+		parent = "long-0";
+		for (let step = 0; step <= TURN_EXTENSION_MAX + 20; step++) {
+			const id = `long-${step + 1}`;
+			entries.push(piAssistant(id, parent, `step ${step}`));
+			parent = id;
+		}
+		const path = await writeSession(dir, "long.jsonl", entries);
+
+		const { messages } = await concatPages((before) => readPiSessionTranscriptPage(path, { limit: 10, before }));
+		expect(messages).toEqual(await readPiSessionTranscript(path));
+
+		const page = await readPiSessionTranscriptPage(path, { limit: 10 });
+		expect(page?.messages[0]?.role).toBe("assistant");
+		expect(page?.messages).toHaveLength(10);
 	});
 
 	it("keeps older pages on the same messages when the session grows at the end", async () => {
@@ -136,20 +215,50 @@ describe("Pi transcript paging parity", () => {
 		expect(second?.messages).toEqual(original.slice(original.length - 20, original.length - 10));
 	});
 
-	it("falls back on a session it cannot page window-by-window", async () => {
-		const dir = await tempRoot("pi-paging-fallback");
+	it("pages a session with a context edit instead of handing it back whole", async () => {
+		const dir = await tempRoot("pi-paging-edited");
 		const base = chain(20);
 		const entries: Entry[] = [header(), ...base];
 		entries.push(contextEdit("e1", base[19]?.id as string, base[3]?.id as string, { content: "rewritten" }));
 		const path = await writeSession(dir, "edited.jsonl", entries);
-		expect(await readPiSessionTranscriptPage(path, { limit: 5 })).toBeNull();
 
-		expect(await readPiSessionTranscriptPage(path, { limit: 5, before: "no-such-entry" })).toBeNull();
+		const { messages } = await concatPages((before) => readPiSessionTranscriptPage(path, { limit: 5, before }));
+		expect(messages).toHaveLength(base.length);
+		const rewritten = messages.filter((message) => message.content === "rewritten");
+		expect(rewritten).toHaveLength(1);
+		expect(messages.map((message) => message.content)).not.toContain("m 3");
+	});
 
+	it("pages a session whose header this reader has no index for, and one with a looping chain", async () => {
+		const dir = await tempRoot("pi-paging-degenerate");
 		const v2 = await writeSession(dir, "v2.jsonl", [header(2), ...chain(8)]);
-		expect(await readPiSessionTranscriptPage(v2, { limit: 5 })).toBeNull();
+		const v2Page = await readPiSessionTranscriptPage(v2, { limit: 5 });
+		expect(v2Page?.messages).toHaveLength(5);
+		expect(v2Page?.hasMore).toBe(true);
+
+		const looping = await writeSession(dir, "looping.jsonl", [
+			header(),
+			...chain(3),
+			piUser("dup", "m2", "repeated id"),
+		]);
+		const loopingPage = await readPiSessionTranscriptPage(looping, { limit: 2 });
+		expect(loopingPage?.messages.at(-1)?.content).toBe("repeated id");
+	});
+
+	it("answers a cursor that names no entry of this session with the newest page", async () => {
+		const dir = await tempRoot("pi-paging-cursor");
+		const path = await writeSession(dir, "cursor.jsonl", [header(), ...piTurns(4, 4)]);
+
+		const page = await readPiSessionTranscriptPage(path, { limit: 4, before: "no-such-entry" });
+		expect(page?.cursorUnknown).toBe(true);
+		expect(page?.messages).toEqual(await lastPageMessages(path, 4));
 	});
 });
+
+async function lastPageMessages(path: string, limit: number) {
+	const page = await readPiSessionTranscriptPage(path, { limit });
+	return page?.messages ?? [];
+}
 
 describe("Claude Code transcript paging parity", () => {
 	it("concatenates to the whole-file read", async () => {
@@ -204,6 +313,32 @@ describe("Claude Code transcript paging parity", () => {
 			expect(messages, `limit=${limit}`).toEqual(expected);
 		}
 		expect(await legacyGetSessionMessages(path)).toEqual(expected);
+	});
+
+	it("starts the newest page at the prompt that opened its turn", async () => {
+		const dir = await tempRoot("cc-paging-turn");
+		const line = (uuid: string, role: "user" | "assistant", text: string) => ({
+			type: role,
+			uuid,
+			timestamp: "2026-03-09T12:00:00.000Z",
+			message: { role, content: [{ type: "text", text }] },
+		});
+		const records: unknown[] = [];
+		for (let turn = 0; turn < 8; turn++) {
+			records.push(line(`u${turn}`, "user", `prompt ${turn}`), line(`a${turn}`, "assistant", `reply ${turn}`));
+		}
+		const path = join(dir, "turns.jsonl");
+		await writeFile(path, `${records.map((record) => JSON.stringify(record)).join("\n")}\n`);
+
+		const page = await readCcTranscriptPage(path, { limit: 3 });
+		expect(page?.messages.map((message) => message.role)).toEqual(["user", "assistant", "user", "assistant"]);
+		expect(page?.messages[0]?.id).toBe("u6");
+		expect(page?.nextCursor).toBe("12");
+
+		const { messages } = await concatPages((before) =>
+			readCcTranscriptPage(path, { limit: 3, end: before === undefined ? undefined : Number.parseInt(before, 10) }),
+		);
+		expect(messages).toEqual(await buildTranscriptMessages(path));
 	});
 
 	it("keeps older pages on the same messages when the file grows at the end", async () => {
@@ -302,6 +437,24 @@ describe("Codex transcript paging parity", () => {
 		}
 	});
 
+	it("starts the newest page at the prompt that opened its turn", async () => {
+		const dir = await tempRoot("cx-paging-turn");
+		const path = join(dir, "turns.jsonl");
+		await writeFile(path, rollout(8));
+
+		const page = await readCxTranscriptPage(path, { limit: 3 });
+		expect(page?.messages[0]?.role).toBe("user");
+		expect(page?.messages).toHaveLength(4);
+		expect(page?.nextCursor).toBe("12");
+
+		const { messages } = await concatPages((before) =>
+			readCxTranscriptPage(path, { limit: 3, end: before === undefined ? undefined : Number.parseInt(before, 10) }),
+		);
+		expect(normalizeTranscript(messages)).toEqual(
+			normalizeTranscript(await readCxTranscript(path, { limit: 100_000 })),
+		);
+	});
+
 	it("keeps older pages on the same messages when the rollout grows at the end", async () => {
 		const dir = await tempRoot("cx-paging-append");
 		const path = join(dir, "growing.jsonl");
@@ -318,9 +471,9 @@ describe("Codex transcript paging parity", () => {
 			limit: 7,
 			end: first?.nextCursor === undefined ? undefined : Number.parseInt(first.nextCursor, 10),
 		});
-		expect(normalizeTranscript(second?.messages ?? [])).toEqual(
-			original.slice(original.length - 14, original.length - 7),
-		);
+		const walked = normalizeTranscript([...(second?.messages ?? []), ...(first?.messages ?? [])]);
+		expect(walked.length).toBeGreaterThan(second?.messages.length ?? 0);
+		expect(walked).toEqual(original.slice(original.length - walked.length));
 	});
 });
 
@@ -383,6 +536,27 @@ async function walkPages(
 	return collected;
 }
 
+/** A message the bridge had to cut down to fit a page matches the text it was cut from. */
+const CUT_AT = "…[truncated by the bridge: ";
+
+function sameTranscript(actual: unknown, expected: unknown): boolean {
+	if (typeof actual === "string" && typeof expected === "string") {
+		const cut = actual.lastIndexOf(CUT_AT);
+		return cut === -1 ? actual === expected : expected.startsWith(actual.slice(0, cut));
+	}
+	if (Array.isArray(actual) && Array.isArray(expected)) {
+		return actual.length === expected.length && actual.every((item, index) => sameTranscript(item, expected[index]));
+	}
+	if (actual && expected && typeof actual === "object" && typeof expected === "object") {
+		const left = actual as Record<string, unknown>;
+		const right = expected as Record<string, unknown>;
+		const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
+		for (const key of keys) if (!sameTranscript(left[key], right[key])) return false;
+		return true;
+	}
+	return actual === expected;
+}
+
 describe("paged transcript parity on real sessions", () => {
 	it("matches the whole-file read on this machine's Pi sessions", async () => {
 		const files = await collectFiles(join(homedir(), ".pi", "agent", "sessions"), (name) => name.endsWith(".jsonl"));
@@ -404,7 +578,8 @@ describe("paged transcript parity on real sessions", () => {
 					readPiSessionTranscriptPage(file.path, { limit, before }),
 				);
 				if (pages === 1) continue;
-				expect(messages, `${file.path} limit=${limit}`).toEqual(expected);
+				expect(messages.length, `${file.path} limit=${limit}`).toBeGreaterThanOrEqual(expected.length);
+				expect(sameTranscript(messages.slice(-expected.length), expected), `${file.path} limit=${limit}`).toBe(true);
 			}
 			paged++;
 		}

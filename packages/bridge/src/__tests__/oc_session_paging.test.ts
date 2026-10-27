@@ -13,10 +13,19 @@ import { makeClient } from "./fixtures/oc-connector-harness";
 const TRANSCRIPT_LENGTH = 200;
 const PAGE_LIMIT = 7;
 
-type FixtureMessage = { info: { id: string }; parts: Array<{ type: "text"; text: string }> };
+type FixtureMessage = {
+	info: { id: string; role: "user" | "assistant" };
+	parts: Array<{ type: "text"; text: string }>;
+};
+
+/** Turns of four messages, one prompt each, so a page that starts mid-turn has to move back. */
+const TURN_LENGTH = 4;
 
 const transcript: FixtureMessage[] = Array.from({ length: TRANSCRIPT_LENGTH }, (_, index) => ({
-	info: { id: `msg_${String(index).padStart(4, "0")}` },
+	info: {
+		id: `msg_${String(index).padStart(4, "0")}`,
+		role: index % TURN_LENGTH === 0 ? "user" : "assistant",
+	},
 	parts: [{ type: "text", text: `message ${index}` }],
 }));
 const transcriptIds = transcript.map((message) => message.info.id);
@@ -77,7 +86,7 @@ describe("OpenCode get_session_messages paging", () => {
 				expect(reply.nextCursor).toBeUndefined();
 				break;
 			}
-			expect(reply.messages).toHaveLength(PAGE_LIMIT);
+			expect(reply.messages.length).toBeGreaterThanOrEqual(PAGE_LIMIT);
 			expect(reply.nextCursor).toBe(reply.messages[0]!.info.id);
 			cursor = reply.nextCursor;
 		}
@@ -85,7 +94,13 @@ describe("OpenCode get_session_messages paging", () => {
 		const walked = [...pages].reverse().flat();
 		expect(walked).toEqual(transcriptIds);
 		expect(new Set(walked).size).toBe(TRANSCRIPT_LENGTH);
-		expect(pages[0]).toEqual(transcriptIds.slice(TRANSCRIPT_LENGTH - PAGE_LIMIT));
+	});
+
+	test("a page that would start mid-turn moves back to the prompt that opened it", async () => {
+		const reply = await fetchPage({ limit: PAGE_LIMIT });
+		expect(reply.messages[0]!.info.role).toBe("user");
+		expect(reply.messages).toHaveLength(PAGE_LIMIT + 1);
+		expect(reply.messages.at(-1)?.info.id).toBe(transcriptIds.at(-1)!);
 	});
 
 	test("a request without a limit answers the whole transcript as it always did", async () => {
@@ -98,7 +113,7 @@ describe("OpenCode get_session_messages paging", () => {
 	test("a cursor without a limit uses the shared default page size", async () => {
 		const reply = await fetchPage({ before: transcriptIds[120] });
 		expect(reply.hasMore).toBe(true);
-		expect(reply.messages).toHaveLength(DEFAULT_TRANSCRIPT_PAGE_LIMIT);
+		expect(reply.messages.length).toBeGreaterThanOrEqual(DEFAULT_TRANSCRIPT_PAGE_LIMIT);
 		expect(reply.messages.at(-1)?.info.id).toBe(transcriptIds[119]);
 	});
 
@@ -113,7 +128,7 @@ describe("OpenCode get_session_messages paging", () => {
 		sdkCalls.length = 0;
 		const reply = await fetchPage({ limit: PAGE_LIMIT, before: "msg_missing" });
 		expect(sdkCalls).toHaveLength(1);
-		expect(reply.messages).toHaveLength(PAGE_LIMIT);
+		expect(reply.messages.length).toBeGreaterThanOrEqual(PAGE_LIMIT);
 		expect(reply.messages.at(-1)?.info.id).toBe(transcriptIds.at(-1)!);
 		expect(reply.hasMore).toBe(true);
 		expect(reply.nextCursor).toBe(reply.messages[0]!.info.id);

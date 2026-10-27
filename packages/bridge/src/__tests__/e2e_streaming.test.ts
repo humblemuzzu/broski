@@ -212,7 +212,9 @@ describe("e2e Pi transcript paging", () => {
 			send(client.ws, { type: "pi_read_session_messages", sessionPath, limit: 2, requestId: "page-1" });
 			const page1 = await client.messages.waitFor("pi_session_messages");
 			const page1Messages = page1.data as Array<Record<string, unknown>>;
-			expect(page1Messages).toHaveLength(2);
+			// A page is at least `limit` and reaches back to the prompt that opened its oldest turn.
+			expect(page1Messages.length).toBeGreaterThanOrEqual(2);
+			expect(page1Messages[0]?.role).toBe("user");
 			expect(page1.hasMore).toBe(true);
 			expect(typeof page1.nextCursor).toBe("string");
 
@@ -228,7 +230,8 @@ describe("e2e Pi transcript paging", () => {
 			const page2Messages = page2.data as Array<Record<string, unknown>>;
 
 			const text = (m: Record<string, unknown>) => m.text ?? m.content;
-			expect([...page2Messages, ...page1Messages].map(text)).toEqual(wholeMessages.slice(-4).map(text));
+			const walked = [...page2Messages, ...page1Messages].map(text);
+			expect(walked).toEqual(wholeMessages.slice(-walked.length).map(text));
 		} finally {
 			client.ws.close();
 		}
