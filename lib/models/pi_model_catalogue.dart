@@ -141,15 +141,6 @@ class PiModelCatalogue {
     };
   }
 
-  List<PiModel> get availableSelected {
-    final byRef = {for (final model in models) model.modelRef: model};
-    return selected
-        .where((entry) => entry.available)
-        .map((entry) => byRef[entry.modelRef])
-        .whereType<PiModel>()
-        .toList();
-  }
-
   bool isSelected(String provider, String modelId) => selected.any(
     (entry) => entry.provider == provider && entry.modelId == modelId,
   );

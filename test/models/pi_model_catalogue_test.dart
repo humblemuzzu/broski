@@ -86,14 +86,11 @@ void main() {
     });
 
     test(
-      'lays the catalogue out as the sheet shows it: the user list first, the rest grouped',
+      'splits the catalogue into what the user picked and the rest, by provider',
       () {
         final catalogue = PiModelCatalogue.fromJson(_reply());
 
-        expect(catalogue.availableSelected.map((model) => model.id), [
-          'claude-opus-5-5',
-          'deepseek-flash',
-        ]);
+        expect(catalogue.isSelected('anthropic', 'claude-opus-5-5'), isTrue);
         expect(catalogue.isSelected('anthropic', 'claude-sonnet-5-5'), isFalse);
         expect(catalogue.unselectedByProvider.keys, ['anthropic']);
         expect(
