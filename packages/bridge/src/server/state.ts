@@ -150,7 +150,7 @@ function createRuntimeSendQueue(
 		(ws) => {
 			const ctx = contexts.get(ws);
 			if (!ctx) return undefined;
-			return { lastRttMs: ctx.lastRttMs, connectionType: ctx.connectionType };
+			return { lastRttMs: ctx.lastRttMs };
 		},
 		{
 			limitsFor: (ws) => (isLinkTransportSocket(ws.data) ? linkLimits : NETWORK_SEND_LIMITS),

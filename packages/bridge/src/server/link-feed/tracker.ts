@@ -6,7 +6,15 @@ import type {
 	BroskiRuntimeState,
 	BroskiUserInputRequestedEvent,
 } from "../../types/runtime";
-import { approvalMessage, attentionMessage, busyMessage, doneMessage, firstLine, type LinkFeedMessage } from "./format";
+import {
+	approvalMessage,
+	attentionMessage,
+	busyMessage,
+	doneMessage,
+	firstLine,
+	type LinkFeedEventMessage,
+	type LinkFeedMessage,
+} from "./format";
 import type { LinkFeedRequests } from "./requests";
 
 const MAX_TRACKED_SESSIONS = 512;
@@ -57,6 +65,14 @@ export class LinkFeedTracker {
 		return this.busyState;
 	}
 
+	/**
+	 * Re-sends every alert the daemon has not answered, byte for byte as it first went out, so a
+	 * feed that redialled still shows the approvals that are waiting on the phone.
+	 */
+	replayPending(): void {
+		for (const message of this.requests.pending()) this.deliver(message);
+	}
+
 	/** Forgets every tracked session and clears the debounce timers. */
 	reset(): void {
 		this.sessions.clear();
@@ -93,18 +109,25 @@ export class LinkFeedTracker {
 	private emitRequest(
 		event: BroskiPermissionRequestedEvent | BroskiUserInputRequestedEvent,
 		sessionId: string,
-		build: () => LinkFeedMessage,
+		build: () => LinkFeedEventMessage,
 	): void {
 		const requestId = event.request.requestId;
 		if (!requestId) {
 			this.deliver(build());
 			return;
 		}
-		const announced = this.requests.announce(event.backend, sessionId, requestId, {
-			kind: event.type === "permission_requested" ? "approval" : "attention",
-			...(event.request.kind ? { requestKind: event.request.kind } : {}),
-		});
-		if (announced) this.deliver(build());
+		const message = build();
+		const announced = this.requests.announce(
+			event.backend,
+			sessionId,
+			requestId,
+			{
+				kind: event.type === "permission_requested" ? "approval" : "attention",
+				...(event.request.kind ? { requestKind: event.request.kind } : {}),
+			},
+			message,
+		);
+		if (announced) this.deliver(message);
 	}
 
 	private track(event: BroskiRuntimeEvent, sessionId: string): void {

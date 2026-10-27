@@ -20,6 +20,7 @@ const env = setupTestEnv();
 const DEVICE_ID = "0123456789abcdef0123456789abcdef";
 const SECOND_DEVICE_ID = "fedcba9876543210fedcba9876543210";
 const PIPELINE_DEVICE_ID = "aaaabbbbccccddddaaaabbbbccccdddd";
+const RTT_DEVICE_ID = "11112222333344441111222233334444";
 const VALID_HEADERS = {
 	"x-broski-device-id": DEVICE_ID,
 	"x-broski-device-name": "Link Phone",
@@ -119,10 +120,27 @@ describe("link socket message pipeline", () => {
 				(device) => device.deviceId === PIPELINE_DEVICE_ID,
 			);
 			expect(self?.deviceName).toBe("Pipeline Phone");
-			expect(self?.connectionType).toBe("local");
 
 			client.send({ type: "client_ping", id: "ping-1", sentAt: Date.now() });
 			expect((await client.waitFor("client_pong")).id).toBe("ping-1");
+		} finally {
+			client.close();
+		}
+	});
+
+	test("a pong a link client sends answers the bridge's own ping, so rtt is measured over the link", async () => {
+		const client = await connectUnixWs(socketPath, { ...VALID_HEADERS, "x-broski-device-id": RTT_DEVICE_ID });
+		try {
+			const sentAt = Date.now() - 40;
+			client.send({ type: "pong", id: "hb-1", sentAt });
+			const metrics = await client.waitFor("connection_metrics");
+			const rttMs = (metrics.data as Record<string, unknown>).rttMs as number;
+			expect(rttMs).toBeGreaterThanOrEqual(40);
+
+			client.send({ type: "list_devices", requestId: "link-rtt" });
+			const reply = await client.waitFor("devices");
+			const self = (reply.data as Array<Record<string, unknown>>).find((device) => device.deviceId === RTT_DEVICE_ID);
+			expect(self?.rttMs).toBe(rttMs);
 		} finally {
 			client.close();
 		}

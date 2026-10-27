@@ -61,14 +61,11 @@ export type Agent = {
 // Agent type for multi-agent support
 export type AgentType = "opencode" | "claude-code" | "codex" | "pi" | "pi-durable";
 
-export type ConnectionType = "local" | "unknown";
-
 // Device information for multi-device support
 export type DeviceInfo = {
 	deviceId: string;
 	deviceName: string;
 	platform: string;
-	connectionType: ConnectionType;
 	rttMs: number;
 	connectedAt: number;
 	currentView?: { projectPath?: string; sessionId?: string };

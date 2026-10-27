@@ -21,9 +21,9 @@ import { GUARD_REPORT_PREFIX, type GuardProbeReport } from "./guard-probe-protoc
 type Probe = { name: string; work: () => Promise<unknown> };
 
 const probes: Probe[] = [
-	{ name: "installCcHook", work: () => installCcHook(1234, "guard-token") },
+	{ name: "installCcHook", work: () => installCcHook({ port: 1234, token: "guard-token", scheme: "https" }) },
 	{ name: "uninstallCcHook", work: () => uninstallCcHook() },
-	{ name: "installCxHook", work: () => installCxHook(1234, "guard-token") },
+	{ name: "installCxHook", work: () => installCxHook({ port: 1234, token: "guard-token", scheme: "https" }) },
 	{ name: "uninstallCxHook", work: () => uninstallCxHook() },
 	{ name: "writeConfig.defaultPath", work: () => writeConfig(getDefaultConfig()) },
 	{ name: "createNewAuthState", work: () => createNewAuthState() },

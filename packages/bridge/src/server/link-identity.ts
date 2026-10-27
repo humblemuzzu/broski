@@ -57,5 +57,5 @@ export function isLinkSocketData(data: unknown): data is LinkSocketData {
 /** The context fields a link socket adds on open, so it is registered like any other device. */
 export function linkContextFields(data: unknown): Partial<ConnectionContext> {
 	if (!isLinkSocketData(data)) return {};
-	return { deviceId: data.deviceId, deviceName: data.deviceName, connectionType: "local" };
+	return { deviceId: data.deviceId, deviceName: data.deviceName };
 }

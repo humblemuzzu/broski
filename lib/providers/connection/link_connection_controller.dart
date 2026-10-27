@@ -11,12 +11,15 @@ import 'package:broski/providers/connection/link_bridge_wiring.dart';
 import 'package:broski/providers/connection/link_connect_failure_notice.dart';
 import 'package:broski/providers/connection/link_send_failure_notice.dart';
 import 'package:broski/providers/connection/link_status_mapping.dart';
+import 'package:broski/providers/link/discovery_provider.dart';
 import 'package:broski/providers/link/link_status_provider.dart';
 import 'package:broski/providers/link/machines_provider.dart';
 import 'package:broski/providers/link/push_providers.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/services/bridge/bridge_reset_exception.dart';
 import 'package:broski/services/link/device_profile.dart';
+import 'package:broski/services/link/discovery/discovery_scheduler.dart';
+import 'package:broski/services/link/discovery/link_discovery.dart';
 import 'package:broski/services/link/link_endpoint.dart';
 import 'package:broski/services/link/push_registration.dart';
 import 'package:broski/services/network_monitor_service.dart';
@@ -89,6 +92,10 @@ class LinkConnectionController with WidgetsBindingObserver {
   final StreamController<Object> _connectFailures =
       StreamController<Object>.broadcast();
   final ConnectRetrySchedule _retry = ConnectRetrySchedule();
+  final Stopwatch _clock = Stopwatch()..start();
+  late final DiscoveryScheduler _discovery = DiscoveryScheduler(
+    clock: () => _clock.elapsed,
+  );
 
   ProviderSubscription<MachinesState>? _machinesSub;
   StreamSubscription<NetworkState>? _networkSub;
@@ -245,6 +252,7 @@ class LinkConnectionController with WidgetsBindingObserver {
       _publisher.add(status);
       _wiring.onLinkStatus(status);
     }
+    _discoverIfNeeded();
     // A closed link must not hold the slot: the next resume or network change
     // has to be able to start a fresh one.
     if (status.state == LinkConnectionState.closed) {
@@ -330,6 +338,7 @@ class LinkConnectionController with WidgetsBindingObserver {
         _connection?.appPaused();
       case AppLifecycleState.resumed:
         _connection?.appResumed();
+        _discoverIfNeeded();
         // A link that never came up — the isolate died, the machine was stored
         // by a pairing this controller never saw — gets another start.
         _maybeConnect(_ref.read(machinesProvider));
@@ -346,6 +355,55 @@ class LinkConnectionController with WidgetsBindingObserver {
       return;
     }
     connection.networkChanged();
+    _discoverIfNeeded();
+  }
+
+  /// Looks for the machine on the LAN when the routes its record holds are not
+  /// answering, and hands what it finds back as routes for the next attempt.
+  ///
+  /// The advert is only a hint: the Noise handshake authenticates the machine on
+  /// the socket itself, so a wrong or spoofed advert costs a dial and nothing
+  /// else. What answers is written to the record, so the next connect tries it
+  /// first.
+  void _discoverIfNeeded() {
+    if (_pairing) return;
+    final machines = _ref.read(machinesProvider);
+    final machine = machineWithId(machines.machines, machines.selectedId ?? '');
+    if (machine == null) return;
+    final status = _lastStatus;
+    final connected = status?.state == LinkConnectionState.connected;
+    if (!browseHelps(connected: connected, route: status?.route)) return;
+    if (!_discovery.due()) return;
+    _discovery.record();
+    unawaited(_discover(machine));
+  }
+
+  Future<void> _discover(Machine machine) async {
+    final discovery = LinkDiscovery(
+      browser: _ref.read(linkServiceBrowserProvider),
+      machineId: machine.id,
+      persist: (routes) => _applyDiscoveredRoutes(machine, routes),
+    );
+    final routes = await discovery.run();
+    if (routes.isEmpty) return;
+    await _applyDiscoveredRoutes(machine, routes);
+  }
+
+  Future<void> _applyDiscoveredRoutes(
+    Machine machine,
+    List<String> routes,
+  ) async {
+    final merged = [
+      ...routes,
+      for (final route in machine.lan)
+        if (!routes.contains(route)) route,
+    ];
+    final updated = machine.copyWith(lan: merged);
+    await _ref.read(machinesProvider.notifier).update(updated);
+    if (_machine?.id != machine.id) return;
+    _machine = updated;
+    final identity = await _ref.read(deviceIdentityProvider.future);
+    _connection?.updateEndpoint(linkEndpoint(updated, deviceId: identity.id));
   }
 
   /// Drops the connection in use and supersedes anything still dialling.

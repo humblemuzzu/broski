@@ -67,6 +67,7 @@ export function attachLinkFeed(ws: ServerWebSocket<unknown>, log?: (message: str
 	}
 	activeFeed = ws;
 	sendToFeed(busyMessage(tracker.currentBusy()));
+	tracker.replayPending();
 }
 
 export function detachLinkFeed(ws: ServerWebSocket<unknown>): void {

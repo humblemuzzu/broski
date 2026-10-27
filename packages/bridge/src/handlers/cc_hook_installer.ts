@@ -16,12 +16,21 @@ import { assertNotRealHome } from "../safety/real-home-guard";
 
 const HOOK_MARKER = "broski-permission-proxy";
 
+/** The loopback listener the hook calls: its real scheme, never an assumed one. */
+export type HookInstallTarget = {
+	port: number;
+	token: string;
+	scheme: "http" | "https";
+	log?: (message: string) => void;
+};
+
 /**
  * Install the Broski PreToolUse hook into ~/.claude/settings.json.
  * If a hook with our marker already exists, it is updated in place.
  * Otherwise a new entry is prepended (runs first).
  */
-export async function installCcHook(bridgePort: number, authToken: string, log?: (msg: string) => void): Promise<void> {
+export async function installCcHook(target: HookInstallTarget): Promise<void> {
+	const { log } = target;
 	const settingsPath = join(homedir(), ".claude", "settings.json");
 	assertNotRealHome(settingsPath, "cc hook install");
 
@@ -40,7 +49,7 @@ export async function installCcHook(bridgePort: number, authToken: string, log?:
 	const hooks = settings.hooks as Record<string, unknown>;
 
 	// Build the hook command — inline curl, no external script needed
-	const hookCommand = buildHookCommand(bridgePort, authToken);
+	const hookCommand = buildHookCommand(target);
 
 	const hookEntry: Record<string, unknown> = {
 		hooks: [
@@ -143,14 +152,15 @@ export async function uninstallCcHook(log?: (msg: string) => void): Promise<void
  * Build the inline bash command that reads CC's hook stdin and posts to the bridge.
  * The HOOK_MARKER is embedded in a comment so we can find/update our hook entry.
  */
-function buildHookCommand(port: number, token: string): string {
+function buildHookCommand(target: HookInstallTarget): string {
+	const { port, token, scheme } = target;
 	// Multi-line for readability in settings.json, but functionally a single command.
 	// Uses bash -c with a heredoc-style inline script.
 	return [
 		`bash -c '`,
 		`# ${HOOK_MARKER}`,
 		`INPUT=$(cat)`,
-		`RESP=$(curl -sk --max-time 45 -X POST "https://127.0.0.1:${port}/cc-hook"`,
+		`RESP=$(curl -sk --max-time 45 -X POST "${scheme}://127.0.0.1:${port}/cc-hook"`,
 		` -H "Content-Type: application/json"`,
 		` -H "Authorization: Bearer ${token}"`,
 		` -d "$INPUT" 2>/dev/null) || true`,

@@ -1,7 +1,7 @@
 import type { ServerWebSocket } from "bun";
 import { registerAll } from "../routing/registry";
 import type { MessageRouter, ServerDeps } from "../routing/types";
-import type { AgentType, ConnectionType, DeviceInfo, ServerMessage } from "../types";
+import type { AgentType, DeviceInfo, ServerMessage } from "../types";
 import type { ClaudeElicitationReply } from "./cc_elicitation";
 
 type ReplyFn = (msg: ServerMessage) => void;
@@ -47,7 +47,6 @@ export function register(router: MessageRouter, deps: ServerDeps): void {
 type ConnectionContext = {
 	lastPongAt: number;
 	lastRttMs: number;
-	connectionType: ConnectionType;
 	connectedAt: number;
 	deviceId?: string;
 	deviceName?: string;
@@ -145,7 +144,6 @@ export async function handle(
 			const existing = ctx.contexts.get(ws) ?? {
 				lastPongAt: Date.now(),
 				lastRttMs: 0,
-				connectionType: "unknown" as const,
 				connectedAt: Date.now(),
 			};
 			ctx.contexts.set(ws, {
