@@ -97,10 +97,33 @@ the session grows at the end. A cursor that names the oldest message answers an 
 `hasMore`/`nextCursor`, exactly what an app that sent no limit saw before, still subject to the 8 MiB
 frame cap above.
 
+A page is **turn-aligned**: it starts at the message that opened its oldest turn, not at the `limit`th
+message from the tail, so a page never opens on an answer whose prompt is still on the page before
+it. `utils/turn-aligned-page.ts` is the one cut every reader uses — Pi and Codex user turns, Claude
+Code prompts that are not tool-result carriers, OpenCode user messages. The step back is bounded by
+`TURN_EXTENSION_MAX` (200) messages, so a page is at most `limit + 200` messages, and a turn longer
+than that opens mid-turn: the rest of it is one page away.
+
+A page is also measured in bytes before it is answered (`utils/transcript-page-fit.ts`): the newest
+messages that fit `TRANSCRIPT_PAGE_MAX_BYTES` (6 MiB, leaving the 8 MiB frame room for the envelope)
+are kept, and a single message larger than a whole page is cut down with
+`…[truncated by the bridge: <n> bytes]` instead of being dropped or failing the page. Cutting the
+page by bytes happens after the turn cut, so a page whose turn does not fit the frame opens mid-turn
+rather than never arriving.
+
+A page's `nextCursor` names the boundary of what was **actually returned**, after the turn extension
+and any byte trimming, so the next page ends exactly where this one begins: no gap, no duplicate.
+
+A Pi transcript pages the session's whole leaf-to-root path, not the agent's compaction-cut context:
+a compaction is a `compactionSummary` marker at the point it happened and the entries it summarised
+stay above it, so the first prompt of a long compacted session is reachable. A `context_edit` is
+applied to the entry it rewrites rather than paging the session's edited and unedited text. When the
+tree cannot be trusted (a non-string id, a looping parent chain) the file is paged in written order.
+
 A cursor that names no message of that session (the session was rewound, compacted, or the app is
 looking at another one) answers the **newest** page with `cursorUnknown: true` from the same single
-fetch. The app replaces its transcript with that page instead of prepending a page that does not sit
-before what it holds.
+fetch, for every backend including Pi. The app replaces its transcript with that page instead of
+prepending a page that does not sit before what it holds.
 
 The bridge windows the fetched list itself instead of passing `limit`/`before` to the OpenCode
 server: a server that honoured neither would answer the whole transcript (the reply this page exists
