@@ -99,6 +99,7 @@ import 'package:broski/widgets/chat/message_group.dart';
 import 'package:broski/widgets/chat/pi_durable_status_banner.dart';
 import 'package:broski/widgets/chat/retry_status_banner.dart';
 import 'package:broski/widgets/chat/revert_state_banner.dart';
+import 'package:broski/widgets/chat/running_stop_bar.dart';
 import 'package:broski/widgets/chat/variant_card_builder.dart';
 import 'package:broski/widgets/file_tagging.dart';
 import 'package:broski/widgets/multi_agent_tree.dart';
@@ -1674,6 +1675,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       );
                     },
                   ),
+                RunningStopBar(onStop: _stopGeneration),
                 // Codex: show steer bar when streaming
                 if (widget.isCodex && cxIsStreaming) const CxSteerBar(),
                 // Pi Durable: banner when the Mac resumed interrupted work

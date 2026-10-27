@@ -28,6 +28,7 @@ part 'chat/cc_stream_handler.dart';
 // Split by concern — extracted from this file
 part 'chat/chat_session_state.dart';
 part 'chat/cx_stream_handler.dart';
+part 'chat/local_cancel.dart';
 part 'chat/message_builder.dart';
 part 'chat/oc_stream_handler.dart';
 part 'chat/oc_transcript_page.dart';
