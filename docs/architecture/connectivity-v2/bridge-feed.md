@@ -7,8 +7,17 @@ What the bridge may send on this socket, and how far behind it may let the daemo
 
 ## Connection
 
-Upgrade the link unix socket with `x-broski-role: link-daemon`; no device id is required and a
-present one is ignored. The feed is no device — out of `state.sockets`, no broadcasts, not counted
+Upgrade the link unix socket with `x-broski-role: link-daemon` and the key the daemon wrote to
+`~/.broski/link/bridge.key` in `x-broski-link-key`; no device id is required and a present one is
+ignored.
+
+The key is what a unix socket file cannot be: the socket is owner-only, but any process running as
+the same user can still reach it. The daemon rewrites 32 random bytes, hex, mode `0600`, at every
+start and passes `--link-key-file` to the bridge it supervises; the bridge re-reads that file on
+every upgrade (so a bridge that outlives a daemon restart follows the new key without one of its
+own) and answers **403** for a missing or wrong key, logging the rejection and never the key. A
+bridge started without a key file is the dev case: it keeps the old unkeyed behaviour and says so
+once. The feed is no device — out of `state.sockets`, no broadcasts, not counted
 against `linkMaxClients`, no bridge requests — and everything it writes is ignored except
 `{"type":"link_feed_ping"}` → `{"type":"link_feed_pong"}` and `link_decision`. One at a time: a new
 feed closes the old with **4001**.
@@ -23,6 +32,11 @@ feed closes the old with **4001**.
 A frame the feed cannot take is never held: Bun reports a dropped send (`0`) or one over the
 socket's `backpressureLimit` (`-1`), and the bridge closes the feed with **4013** instead, so the
 daemon redials a clean one rather than losing an alert in silence.
+
+A feed that attaches is told everything it missed that is still true: `link_busy` with the current
+value, then — byte for byte as they first went out — every `link_event` whose request is still
+outstanding. An approval the phone may not have seen before the socket dropped reaches the daemon
+again instead of being forgotten; one that was answered is not repeated.
 
 `link_busy` goes out on connect with the current value, then on every change: `true` immediately,
 `false` after a 3 s debounce so a handover between sessions does not flap. `kind` is `approval`
