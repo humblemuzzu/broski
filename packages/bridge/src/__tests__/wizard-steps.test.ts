@@ -79,26 +79,15 @@ describe("Agent Name Parsing (from onboarding)", () => {
 });
 
 describe("Daemon Type Mapping (from daemon step)", () => {
-	// Test the mapDaemonType function from daemon.ts
-	function mapDaemonTypeNonInteractive(): "launchagent" | "systemd" | "taskscheduler" | "none" {
+	test("getDaemonType returns valid type", () => {
 		const { getDaemonType } = require("../platform");
-		const t = getDaemonType();
-		if (t === "launchagent") return "launchagent";
-		if (t === "systemd") return "systemd";
-		if (t === "task-scheduler") return "taskscheduler";
-		return "none";
-	}
-
-	test("mapDaemonTypeNonInteractive returns valid type", () => {
-		const result = mapDaemonTypeNonInteractive();
-		expect(["launchagent", "systemd", "taskscheduler", "none"].includes(result)).toBe(true);
+		expect(["launchagent", "systemd", "none"].includes(getDaemonType())).toBe(true);
 	});
 
 	function daemonTypeLabel(): string {
-		const { IS_MACOS, IS_LINUX, IS_WINDOWS } = require("../platform");
+		const { IS_MACOS, IS_LINUX } = require("../platform");
 		if (IS_MACOS) return "LaunchAgent";
 		if (IS_LINUX) return "systemd service";
-		if (IS_WINDOWS) return "Task Scheduler";
 		return "background service";
 	}
 
@@ -131,7 +120,7 @@ describe("Configuration Result Types", () => {
 	test("DaemonResult structure", () => {
 		type DaemonResult = {
 			installed: boolean;
-			type: "launchagent" | "systemd" | "taskscheduler" | "none";
+			type: "launchagent" | "systemd" | "none";
 		};
 
 		const mockResult: DaemonResult = {
@@ -140,7 +129,7 @@ describe("Configuration Result Types", () => {
 		};
 
 		expect(typeof mockResult.installed).toBe("boolean");
-		expect(["launchagent", "systemd", "taskscheduler", "none"].includes(mockResult.type)).toBe(true);
+		expect(["launchagent", "systemd", "none"].includes(mockResult.type)).toBe(true);
 	});
 
 	test("WelcomeResult structure", () => {

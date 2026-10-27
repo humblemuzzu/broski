@@ -164,7 +164,7 @@ describe("merged delta seq range", () => {
 describe("send queue ordering", () => {
 	test("a tool event is written after the deltas that preceded it", async () => {
 		const socket = fakeSocket();
-		const queue = new RuntimeSendQueue(() => ({ lastRttMs: 0, connectionType: "local" }));
+		const queue = new RuntimeSendQueue(() => ({ lastRttMs: 0 }));
 
 		queue.send(socket, delta("a", 1));
 		queue.send(socket, delta("b", 2));
@@ -186,7 +186,7 @@ describe("send queue ordering", () => {
 
 	test("a congested socket keeps the tool event behind the held deltas", async () => {
 		const socket = fakeSocket();
-		const queue = new RuntimeSendQueue(() => ({ lastRttMs: 0, connectionType: "local" }));
+		const queue = new RuntimeSendQueue(() => ({ lastRttMs: 0 }));
 		socket.status = -1;
 		queue.sendRaw(socket, '{"warm":true}');
 		socket.sent.length = 0;
@@ -206,7 +206,7 @@ describe("send queue ordering", () => {
 
 	test("a non-runtime message is written after the deltas queued before it", async () => {
 		const socket = fakeSocket();
-		const queue = new RuntimeSendQueue(() => ({ lastRttMs: 0, connectionType: "local" }));
+		const queue = new RuntimeSendQueue(() => ({ lastRttMs: 0 }));
 
 		queue.send(socket, delta("a", 1));
 		queue.send(socket, { type: "device_disconnected", data: {} } as unknown as ServerMessage);

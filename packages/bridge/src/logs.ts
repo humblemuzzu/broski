@@ -190,7 +190,8 @@ async function exportDiagnostics(files: string[], opts: LogsRunOptions): Promise
 	sections.push("- Re-run checks: broski doctor");
 	sections.push("- Interactive troubleshooting: broski troubleshoot");
 	sections.push("- Live log tail: broski logs --follow");
-	sections.push("- Regenerate QR token: broski qr --new-token");
+	sections.push("- Show a new pairing QR: broski-link pair");
+	sections.push("- Link and relay status: broski-link status");
 	sections.push("");
 
 	await writeFile(outPath, sections.join("\n"), "utf8");

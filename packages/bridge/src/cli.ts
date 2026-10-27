@@ -377,7 +377,7 @@ Options:
   --help, -h                Show help
   --version, -V             Show version and platform info
   --verbose, -v             Verbose logging (SDK events + debug)
-  --port, --bridge-port N   Bridge WebSocket port (default: 18274; use 0 for random free port)
+  --port, --bridge-port N   Loopback listener port (default: 18274; use 0 for random free port)
   --link-socket PATH        Also serve broski-link on this Unix socket (filesystem-permission auth)
   --link-bin PATH           broski-link binary to run as the background service (default: auto-detect)
   --new-token               Generate a new local auth token (invalidates the current one used by the agent hooks)
@@ -388,7 +388,7 @@ Options:
 Setup (non-interactive):
   --non-interactive           Run setup without prompts (uses defaults + flags)
   --agents LIST               Comma-separated agents: opencode,claude,codex
-  --tls / --no-tls            Enable/disable TLS (default: enabled)
+  --tls / --no-tls            Enable/disable TLS on the loopback agent-hook listener (default: enabled)
   --no-daemon                 Don't install background service
 
 Doctor:

@@ -64,31 +64,27 @@ describe("Agent Flag Parsing", () => {
 });
 
 describe("Daemon Type Mapping", () => {
-	function mapDaemonTypeNonInteractive(): "launchagent" | "systemd" | "taskscheduler" | "none" {
+	function mapDaemonTypeNonInteractive(): "launchagent" | "systemd" | "none" {
 		// Simulate platform detection
 		const IS_MACOS = process.platform === "darwin";
 		const IS_LINUX = process.platform === "linux";
-		const IS_WINDOWS = process.platform === "win32";
 
 		if (IS_MACOS) return "launchagent";
 		if (IS_LINUX) return "systemd";
-		if (IS_WINDOWS) return "taskscheduler";
 		return "none";
 	}
 
 	test("returns valid daemon type for current platform", () => {
 		const result = mapDaemonTypeNonInteractive();
-		expect(["launchagent", "systemd", "taskscheduler", "none"].includes(result)).toBe(true);
+		expect(["launchagent", "systemd", "none"].includes(result)).toBe(true);
 	});
 
 	function daemonTypeLabel(): string {
 		const IS_MACOS = process.platform === "darwin";
 		const IS_LINUX = process.platform === "linux";
-		const IS_WINDOWS = process.platform === "win32";
 
 		if (IS_MACOS) return "LaunchAgent";
 		if (IS_LINUX) return "systemd";
-		if (IS_WINDOWS) return "TaskScheduler";
 		return "none";
 	}
 
@@ -141,7 +137,7 @@ describe("Non-Interactive Config Assembly", () => {
 		expect(typeof mockConfig.agents.codex).toBe("boolean");
 
 		expect(typeof mockConfig.daemon.installed).toBe("boolean");
-		expect(["launchagent", "systemd", "taskscheduler", "none"].includes(mockConfig.daemon.type)).toBe(true);
+		expect(["launchagent", "systemd", "none"].includes(mockConfig.daemon.type)).toBe(true);
 	});
 });
 
@@ -215,11 +211,11 @@ describe("Wizard Step Result Types", () => {
 	});
 
 	test("daemon type consistency", () => {
-		type DaemonType = "launchagent" | "systemd" | "taskscheduler" | "none";
-		const validTypes: DaemonType[] = ["launchagent", "systemd", "taskscheduler", "none"];
+		type DaemonType = "launchagent" | "systemd" | "none";
+		const validTypes: DaemonType[] = ["launchagent", "systemd", "none"];
 
 		validTypes.forEach((type) => {
-			expect(["launchagent", "systemd", "taskscheduler", "none"].includes(type)).toBe(true);
+			expect(["launchagent", "systemd", "none"].includes(type)).toBe(true);
 		});
 	});
 });

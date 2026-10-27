@@ -11,7 +11,7 @@ function formatAgents(config: BroskiConfig): string {
 }
 
 function formatSecurity(config: BroskiConfig): string {
-	return config.security.tls ? success("TLS enabled") : "TLS disabled";
+	return config.security.tls ? success("Loopback TLS enabled") : "Loopback TLS disabled";
 }
 
 function formatDaemon(config: BroskiConfig): string {
@@ -19,7 +19,6 @@ function formatDaemon(config: BroskiConfig): string {
 	const typeLabels: Record<string, string> = {
 		launchagent: "LaunchAgent",
 		systemd: "systemd",
-		taskscheduler: "Task Scheduler",
 	};
 	return success(`Installed (${typeLabels[config.daemon.type] ?? config.daemon.type})`);
 }

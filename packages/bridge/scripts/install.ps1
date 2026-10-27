@@ -35,7 +35,7 @@ $BinaryName = "broski-$Target.exe"
 $InstallDir = "$env:USERPROFILE\.broski\bin"
 
 Write-Host "  Platform: $Target"
-Write-Host "  Note: Broski Link is not supported on Windows yet; Always On runs the bridge via Task Scheduler."
+Write-Host "  Note: Broski Link is not supported on Windows yet, so the phone app cannot connect to this machine."
 Write-Host ""
 
 # ── Create install directory ─────────────────

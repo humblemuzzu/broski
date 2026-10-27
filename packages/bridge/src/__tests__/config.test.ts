@@ -211,7 +211,7 @@ describe("Config Update", () => {
 	});
 
 	test("config validation with all daemon types", () => {
-		const types = ["launchagent", "systemd", "taskscheduler", "none"] as const;
+		const types = ["launchagent", "systemd", "none"] as const;
 
 		types.forEach((type) => {
 			const config = {
@@ -225,5 +225,18 @@ describe("Config Update", () => {
 			const result = BroskiConfigSchema.safeParse(config);
 			expect(result.success).toBe(true);
 		});
+	});
+
+	test("an unknown daemon type from an older config falls back to none and keeps the rest", () => {
+		const config = {
+			...getDefaultConfig(),
+			network: { port: 9090 },
+			daemon: { installed: true, type: "taskscheduler" },
+		};
+
+		const result = BroskiConfigSchema.safeParse(config);
+		expect(result.success).toBe(true);
+		expect(result.data?.daemon).toEqual({ installed: true, type: "none" });
+		expect(result.data?.network.port).toBe(9090);
 	});
 });

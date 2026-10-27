@@ -10,7 +10,7 @@ import type { ServerWebSocket } from "bun";
 import * as pi from "../connectors/pi";
 import { registerAll } from "../routing/registry";
 import type { MessageRouter, ServerDeps } from "../routing/types";
-import type { AgentStatusInfo, AgentType, ServerMessage } from "../types";
+import type { AgentStatusInfo, AgentType, ConnectionType, ServerMessage } from "../types";
 
 type ReplyFn = (msg: ServerMessage) => void;
 
@@ -51,7 +51,7 @@ export type MiscHandlerContext = {
 			lastPongAt: number;
 			lastRttMs: number;
 			pendingPing?: { id: string; sentAt: number };
-			connectionType: "local" | "tailscale" | "unknown";
+			connectionType: ConnectionType;
 			connectedAt: number;
 			projectPath?: string;
 			[key: string]: unknown;
@@ -93,15 +93,11 @@ export async function handle(
 			// Always clear pendingPing — even a late/mismatched pong proves the
 			// client is alive and unblocks the next heartbeat ping cycle.
 			connCtx.pendingPing = undefined;
-			if (connCtx.connectionType === "unknown") {
-				connCtx.connectionType = connCtx.lastRttMs > 30 ? "tailscale" : "local";
-			}
 			ctx.send(ws, {
 				type: "connection_metrics",
 				data: {
 					rttMs: connCtx.lastRttMs,
 					lastPongAt: connCtx.lastPongAt,
-					connectionType: connCtx.connectionType,
 				},
 			} as ServerMessage);
 			return true;

@@ -10,14 +10,14 @@ export async function runSecurityChecks(ctx: DoctorContext): Promise<CheckResult
 
 	const tlsEnabled = isTlsEnabledByEnv();
 	if (tlsEnabled) {
-		results.push({ id: "tls_enabled", category: "security", status: "ok", message: "TLS enabled" });
+		results.push({ id: "tls_enabled", category: "security", status: "ok", message: "Loopback TLS enabled" });
 	} else {
 		results.push({
 			id: "tls_enabled",
 			category: "security",
 			status: "warning",
-			message: "TLS disabled (BROSKI_TLS=0)",
-			fix: "Remove BROSKI_TLS=0 from environment for secure transport",
+			message: "Loopback TLS disabled (BROSKI_TLS=0)",
+			fix: "Remove BROSKI_TLS=0 so agent hooks reach the bridge over TLS. The phone is unaffected: Broski Link encrypts end to end.",
 		});
 	}
 
@@ -99,8 +99,8 @@ export async function runSecurityChecks(ctx: DoctorContext): Promise<CheckResult
 			id: "auth_token",
 			category: "security",
 			status: "error",
-			message: "Auth token file missing (~/.broski/token.json)",
-			fix: "Start bridge with `broski` to generate token",
+			message: "Local hook token file missing (~/.broski/token.json)",
+			fix: "Start the bridge with `broski` to generate the token",
 			autoFix: async () => {
 				try {
 					const { loadOrCreateAuthState } = await import("../../server");
@@ -118,7 +118,7 @@ export async function runSecurityChecks(ctx: DoctorContext): Promise<CheckResult
 			message: "No token file to validate",
 		});
 	} else {
-		results.push({ id: "auth_token", category: "security", status: "ok", message: "Auth token exists" });
+		results.push({ id: "auth_token", category: "security", status: "ok", message: "Local hook token exists" });
 		try {
 			const raw = await readFile(ctx.paths.tokenFile, "utf-8");
 			const parsed = JSON.parse(raw) as { version?: number; token?: string };
@@ -132,7 +132,7 @@ export async function runSecurityChecks(ctx: DoctorContext): Promise<CheckResult
 					fix: "Run `broski --new-token`",
 				});
 			} else {
-				results.push({ id: "auth_token_valid", category: "security", status: "ok", message: "Auth token valid" });
+				results.push({ id: "auth_token_valid", category: "security", status: "ok", message: "Local hook token valid" });
 			}
 		} catch {
 			results.push({

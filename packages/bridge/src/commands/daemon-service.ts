@@ -29,10 +29,9 @@ const BROSKI_LOG_DIR = resolve(homedir(), ".broski", "logs");
 export async function runInstall(linkBin?: string): Promise<void> {
 	console.log("Installing Broski as background service...\n");
 
-	const serviceName = IS_WINDOWS ? "Broski bridge task" : "Broski Link";
 	if (IS_WINDOWS) {
 		console.log("   Broski Link is not supported on Windows yet.");
-		console.log("   Always On runs the bridge from Task Scheduler instead, without broski-link.\n");
+		return;
 	}
 
 	const status = await getDaemonStatus();
@@ -71,10 +70,10 @@ export async function runInstall(linkBin?: string): Promise<void> {
 
 	await Bun.sleep(1000);
 
-	await reportInstallResult(serviceName);
+	await reportInstallResult();
 }
 
-async function reportInstallResult(serviceName: string): Promise<void> {
+async function reportInstallResult(): Promise<void> {
 	const status = await getDaemonStatus();
 	if (!status.running) {
 		console.log("\n   Service installed but may not be running.");
@@ -83,7 +82,7 @@ async function reportInstallResult(serviceName: string): Promise<void> {
 		return;
 	}
 
-	console.log(`\n  ${serviceName} installed and running!`);
+	console.log("\n  Broski Link installed and running!");
 	console.log("\n   The bridge will now:");
 	console.log("   - Start automatically when you log in");
 	console.log("   - Stay running in the background");
@@ -92,7 +91,7 @@ async function reportInstallResult(serviceName: string): Promise<void> {
 	console.log("   - broski status    - Check if running");
 	console.log("   - broski stop      - Stop the service");
 	console.log("   - broski uninstall - Remove the service");
-	console.log(`\n   Logs: ${BROSKI_LOG_DIR}/ (${IS_WINDOWS ? "bridge.log" : "link.log, bridge.log"})`);
+	console.log(`\n   Logs: ${BROSKI_LOG_DIR}/ (link.log, bridge.log)`);
 
 	const sleepTip = getSleepPreventionTip();
 	if (sleepTip) {
@@ -172,9 +171,7 @@ function printActiveProcesses(): void {
 
 function printLogFiles(): void {
 	console.log(`\nLog files:          ${BROSKI_LOG_DIR}/`);
-	if (!IS_WINDOWS) {
-		console.log(`  - link.log         - broski-link output`);
-	}
+	console.log(`  - link.log         - broski-link output`);
 	console.log(`  - bridge.log       - Standard output`);
 	console.log(`  - bridge.error.log - Error output`);
 }

@@ -86,7 +86,7 @@ describe("Binary Detection", () => {
 describe("Daemon System", () => {
 	test("getDaemonType returns valid daemon type", () => {
 		const result = getDaemonType();
-		expect(["launchagent", "systemd", "task-scheduler", "none"].includes(result)).toBe(true);
+		expect(["launchagent", "systemd", "none"].includes(result)).toBe(true);
 	});
 
 	test("daemon type matches platform", () => {
@@ -95,17 +95,19 @@ describe("Daemon System", () => {
 			expect(type).toBe("launchagent");
 		} else if (IS_LINUX) {
 			expect(type).toBe("systemd");
-		} else if (IS_WINDOWS) {
-			expect(type).toBe("task-scheduler");
 		} else {
 			expect(type).toBe("none");
 		}
 	});
 
-	test("getDaemonConfigPath returns string", () => {
+	test("getDaemonConfigPath returns a path where a service exists", () => {
 		const result = getDaemonConfigPath();
-		expect(typeof result).toBe("string");
-		expect(result.length).toBeGreaterThan(0);
+		if (IS_WINDOWS) {
+			expect(result).toBeNull();
+		} else {
+			expect(typeof result).toBe("string");
+			expect(result?.length).toBeGreaterThan(0);
+		}
 	});
 
 	test("generateDaemonConfig produces correct output", () => {

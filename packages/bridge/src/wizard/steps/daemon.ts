@@ -3,12 +3,12 @@ import { homedir } from "node:os";
 import { resolve } from "node:path";
 import {
 	type DaemonConfig,
+	type DaemonType,
 	getBroskiBinaryPath,
 	getDaemonStatus,
 	getDaemonType,
 	IS_LINUX,
 	IS_MACOS,
-	IS_WINDOWS,
 	installDaemon,
 } from "../../platform";
 import { bold, muted, success, warning } from "../palette";
@@ -16,26 +16,24 @@ import type { WizardPrompter } from "../prompter";
 
 export type DaemonResult = {
 	installed: boolean;
-	type: "launchagent" | "systemd" | "taskscheduler" | "none";
+	type: DaemonType;
 };
-
-function mapDaemonType(): DaemonResult["type"] {
-	const t = getDaemonType();
-	if (t === "launchagent") return "launchagent";
-	if (t === "systemd") return "systemd";
-	if (t === "task-scheduler") return "taskscheduler";
-	return "none";
-}
 
 function daemonTypeLabel(): string {
 	if (IS_MACOS) return "LaunchAgent";
 	if (IS_LINUX) return "systemd service";
-	if (IS_WINDOWS) return "Task Scheduler";
 	return "background service";
 }
 
 export async function runDaemonStep(prompter: WizardPrompter): Promise<DaemonResult> {
-	// Check current status
+	if (getDaemonType() === "none") {
+		await prompter.note(
+			`  ${muted("Broski Link runs as a background service on macOS and Linux only.")}`,
+			"Background Service",
+		);
+		return { installed: false, type: "none" };
+	}
+
 	const status = await getDaemonStatus();
 
 	if (status.installed && status.running) {
@@ -44,7 +42,7 @@ export async function runDaemonStep(prompter: WizardPrompter): Promise<DaemonRes
 				`  ${muted(`PID: ${status.pid ?? "unknown"}`)}`,
 			"Background Service",
 		);
-		return { installed: true, type: mapDaemonType() };
+		return { installed: true, type: getDaemonType() };
 	}
 
 	if (status.installed && !status.running) {
@@ -53,7 +51,7 @@ export async function runDaemonStep(prompter: WizardPrompter): Promise<DaemonRes
 				`  ${muted("It will start automatically on next login.")}`,
 			"Background Service",
 		);
-		return { installed: true, type: mapDaemonType() };
+		return { installed: true, type: getDaemonType() };
 	}
 
 	// Not installed — ask
@@ -83,7 +81,7 @@ export async function runDaemonStep(prompter: WizardPrompter): Promise<DaemonRes
 	try {
 		await installDaemon(daemonConfig);
 		spin.stop(`${success("✓")} ${daemonTypeLabel()} installed ${muted("(starts on login)")}`);
-		return { installed: true, type: mapDaemonType() };
+		return { installed: true, type: getDaemonType() };
 	} catch (err) {
 		const msg = err instanceof Error ? err.message : String(err);
 		spin.stop(`${warning("⚠")} Failed to install: ${msg}`);

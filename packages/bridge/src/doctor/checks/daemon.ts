@@ -11,8 +11,6 @@ function daemonTypeLabel(type: string): string {
 			return "macOS LaunchAgent";
 		case "systemd":
 			return "Linux systemd";
-		case "task-scheduler":
-			return "Windows Task Scheduler";
 		default:
 			return "None";
 	}

@@ -11,18 +11,16 @@ export async function runSecurityStep(
 	options: { isQuick: boolean },
 ): Promise<SecurityResult> {
 	if (options.isQuick) {
-		// Auto-enable TLS, auto-generate cert
 		const spin = prompter.spinner();
-		spin.start("Setting up TLS encryption...");
+		spin.start("Setting up TLS for the local agent-hook listener...");
 
 		try {
-			const material = await ensureTlsMaterial();
-			const fingerprint = material.certSha256.substring(0, 16);
+			await ensureTlsMaterial();
 			spin.stop(success("TLS certificate ready"));
 
 			await prompter.note(
-				`  ${bold("TLS:")}        ${success("Enabled")}\n` +
-					`  ${bold("Cert SHA:")}   ${brand(fingerprint)}${muted("...")}`,
+				`  ${bold("Loopback TLS:")}  ${success("Enabled")}\n` +
+					`  ${muted("Your phone connects through Broski Link, which is end-to-end encrypted.")}`,
 				"Security",
 			);
 		} catch (err) {
@@ -41,7 +39,7 @@ export async function runSecurityStep(
 	// Advanced mode
 	const tlsDefault = isTlsEnabledByEnv();
 	const enableTls = await prompter.confirm({
-		message: "Enable TLS encryption? (strongly recommended)",
+		message: "Enable TLS on the local agent-hook listener? (recommended)",
 		initialValue: tlsDefault,
 	});
 
@@ -49,9 +47,8 @@ export async function runSecurityStep(
 		const spin = prompter.spinner();
 		spin.start("Generating TLS certificate...");
 		try {
-			const material = await ensureTlsMaterial();
-			const fingerprint = material.certSha256.substring(0, 16);
-			spin.stop(`${success("Certificate ready")} ${muted(`SHA: ${fingerprint}...`)}`);
+			await ensureTlsMaterial();
+			spin.stop(success("Certificate ready"));
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
 			spin.stop(`TLS setup failed: ${msg}`);

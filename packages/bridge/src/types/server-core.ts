@@ -30,7 +30,7 @@ export type CoreServerMessage =
 	| { type: "client_pong"; id: string; sentAt: number; receivedAt: number }
 	| {
 			type: "connection_metrics";
-			data: { rttMs: number; lastPongAt: number; connectionType?: string };
+			data: { rttMs: number; lastPongAt: number };
 	  }
 	| { type: "opencode_restarted"; data: boolean; requestId?: string }
 	| { type: "status"; data: StatusPayload }

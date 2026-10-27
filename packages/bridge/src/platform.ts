@@ -284,11 +284,8 @@ export function findProcessByPattern(pattern: string): number[] {
 // 4. Daemon/Service Management
 //
 // macOS and Linux run broski-link, which spawns and restarts the bridge itself.
-// Windows has no broski-link (unix sockets) and stays on the Task Scheduler.
+// Windows has no service: broski-link needs unix sockets.
 // ============================================================================
-
-// Daemon identifiers
-const WINDOWS_TASK = "BroskiBridge";
 
 /**
  * Get the daemon type for the current platform.
@@ -296,28 +293,25 @@ const WINDOWS_TASK = "BroskiBridge";
 export function getDaemonType(): DaemonType {
 	if (IS_MACOS) return "launchagent";
 	if (IS_LINUX) return "systemd";
-	if (IS_WINDOWS) return "task-scheduler";
 	return "none";
 }
 
 /**
  * Get the path where the daemon config file lives.
  */
-export function getDaemonConfigPath(): string {
+export function getDaemonConfigPath(): string | null {
 	if (IS_MACOS) return launchd.agentPlistPath(homedir());
 	if (IS_LINUX) return systemd.unitPath(homedir());
-	// Windows: no file, return a label
-	return WINDOWS_TASK;
+	return null;
 }
 
 /**
  * Generate the daemon config content.
- * macOS: plist XML, Linux: systemd unit, Windows: null (uses schtasks).
+ * macOS: plist XML, Linux: systemd unit, Windows: null.
  */
 export function generateDaemonConfig(config: DaemonConfig): string | null {
 	if (IS_MACOS) return launchd.generatePlist(config, resolveLinkBinaryPath(config), homedir());
 	if (IS_LINUX) return systemd.generateUnit(config, resolveLinkBinaryPath(config));
-	// Windows uses schtasks commands, not a config file
 	return null;
 }
 
@@ -329,36 +323,10 @@ function resolveLinkBinaryPath(config: DaemonConfig): string {
  * Install the daemon.
  */
 export async function installDaemon(config: DaemonConfig): Promise<void> {
-	// Ensure log directory exists
 	await mkdir(config.logDir, { recursive: true });
 
 	if (IS_MACOS) return launchd.install(defaultServiceHost(), config);
 	if (IS_LINUX) return systemd.install(defaultServiceHost(), config);
-	if (IS_WINDOWS) await installWindowsDaemon(config);
-}
-
-async function installWindowsDaemon(config: DaemonConfig): Promise<void> {
-	const execStr = [config.binaryPath, ...config.args].join(" ");
-
-	const res = runCommand("schtasks", [
-		"/create",
-		"/tn",
-		WINDOWS_TASK,
-		"/tr",
-		execStr,
-		"/sc",
-		"onlogon",
-		"/rl",
-		"LIMITED",
-		"/f",
-	]);
-
-	if (!res.ok) {
-		throw new Error(`Failed to create scheduled task: ${res.stderr || res.stdout}`);
-	}
-
-	// Start the task immediately too
-	runCommand("schtasks", ["/run", "/tn", WINDOWS_TASK]);
 }
 
 /**
@@ -367,18 +335,6 @@ async function installWindowsDaemon(config: DaemonConfig): Promise<void> {
 export async function uninstallDaemon(): Promise<void> {
 	if (IS_MACOS) return launchd.uninstall(defaultServiceHost());
 	if (IS_LINUX) return systemd.uninstall(defaultServiceHost());
-	if (IS_WINDOWS) await uninstallWindowsDaemon();
-}
-
-async function uninstallWindowsDaemon(): Promise<void> {
-	// End the running task first
-	runCommand("schtasks", ["/end", "/tn", WINDOWS_TASK]);
-
-	// Delete the task
-	const res = runCommand("schtasks", ["/delete", "/tn", WINDOWS_TASK, "/f"]);
-	if (!res.ok) {
-		// Not an error if it didn't exist
-	}
 }
 
 /**
@@ -387,31 +343,8 @@ async function uninstallWindowsDaemon(): Promise<void> {
 export async function getDaemonStatus(): Promise<DaemonStatus> {
 	if (IS_MACOS) return launchd.status(defaultServiceHost());
 	if (IS_LINUX) return systemd.status(defaultServiceHost());
-	if (IS_WINDOWS) return getWindowsDaemonStatus();
 
 	return { installed: false, running: false, type: "none", configPath: null, pid: null };
-}
-
-async function getWindowsDaemonStatus(): Promise<DaemonStatus> {
-	const type: DaemonType = "task-scheduler";
-	const configPath = WINDOWS_TASK;
-
-	const res = runCommand("schtasks", ["/query", "/tn", WINDOWS_TASK, "/fo", "csv", "/nh"]);
-	if (!res.ok || !res.stdout.trim()) {
-		return { installed: false, running: false, type, configPath, pid: null };
-	}
-
-	const running = /Running/i.test(res.stdout);
-
-	// Windows Task Scheduler doesn't directly expose PID in query output.
-	// Attempt to find the process via pattern match.
-	let pid: number | null = null;
-	if (running) {
-		const pids = findProcessByPattern("broski");
-		if (pids.length > 0) pid = pids[0] ?? null;
-	}
-
-	return { installed: true, running, type, configPath, pid };
 }
 
 /**
@@ -420,7 +353,6 @@ async function getWindowsDaemonStatus(): Promise<DaemonStatus> {
 export async function stopDaemon(): Promise<void> {
 	if (IS_MACOS) return launchd.stop(defaultServiceHost());
 	if (IS_LINUX) return systemd.stop(defaultServiceHost());
-	if (IS_WINDOWS) runCommand("schtasks", ["/end", "/tn", WINDOWS_TASK]);
 }
 
 /**
@@ -429,11 +361,6 @@ export async function stopDaemon(): Promise<void> {
 export async function restartDaemon(): Promise<void> {
 	if (IS_MACOS) return launchd.restart(defaultServiceHost());
 	if (IS_LINUX) return systemd.restart(defaultServiceHost());
-	if (IS_WINDOWS) {
-		runCommand("schtasks", ["/end", "/tn", WINDOWS_TASK]);
-		await Bun.sleep(1000);
-		runCommand("schtasks", ["/run", "/tn", WINDOWS_TASK]);
-	}
 }
 
 // ============================================================================

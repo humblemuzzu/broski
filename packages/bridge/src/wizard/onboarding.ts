@@ -7,12 +7,12 @@ import { getDefaultConfig } from "../config/defaults";
 import type { BroskiConfig } from "../config/schema";
 import {
 	type DaemonConfig,
+	type DaemonType,
 	findBinary,
 	getBroskiBinaryPath,
 	getDaemonType,
 	IS_LINUX,
 	IS_MACOS,
-	IS_WINDOWS,
 	installDaemon,
 } from "../platform";
 import { WizardCancelledError } from "./errors";
@@ -60,15 +60,6 @@ function agentNameFromFlag(flag: string): "opencode" | "claude" | "codex" | "pi"
 function daemonTypeLabel(): string {
 	if (IS_MACOS) return "LaunchAgent";
 	if (IS_LINUX) return "systemd";
-	if (IS_WINDOWS) return "TaskScheduler";
-	return "none";
-}
-
-function mapDaemonTypeNonInteractive(): "launchagent" | "systemd" | "taskscheduler" | "none" {
-	const t = getDaemonType();
-	if (t === "launchagent") return "launchagent";
-	if (t === "systemd") return "systemd";
-	if (t === "task-scheduler") return "taskscheduler";
 	return "none";
 }
 
@@ -122,9 +113,11 @@ async function runNonInteractiveSetup(options: OnboardingOptions): Promise<void>
 	// 5. Daemon
 	const shouldInstallDaemon = options.daemon !== undefined ? options.daemon : true;
 	let daemonInstalled = false;
-	let daemonType: "launchagent" | "systemd" | "taskscheduler" | "none" = "none";
+	let daemonType: DaemonType = "none";
 
-	if (shouldInstallDaemon) {
+	if (getDaemonType() === "none") {
+		log("Daemon: skipped (background service is available on macOS and Linux only)");
+	} else if (shouldInstallDaemon) {
 		try {
 			const logDir = resolve(homedir(), ".broski", "logs");
 			await mkdir(logDir, { recursive: true });
@@ -137,7 +130,7 @@ async function runNonInteractiveSetup(options: OnboardingOptions): Promise<void>
 			};
 			await installDaemon(daemonConfig);
 			daemonInstalled = true;
-			daemonType = mapDaemonTypeNonInteractive();
+			daemonType = getDaemonType();
 			log(`Daemon: installed (${daemonTypeLabel()})`);
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);

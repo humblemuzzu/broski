@@ -2,7 +2,7 @@ import { join } from "node:path";
 import type { ServerWebSocket } from "bun";
 import { registerAll } from "../routing/registry";
 import type { MessageRouter, ServerDeps } from "../routing/types";
-import type { AgentType, ServerMessage } from "../types";
+import type { AgentType, ConnectionType, ServerMessage } from "../types";
 import * as piDurable from "./pi_durable";
 import { getPendingExtensionUiRequests, stopPiExternalTail, syncPiExternalTail } from "./pi_features";
 import {
@@ -21,7 +21,7 @@ export type SessionViewHandlerContext = {
 		{
 			lastPongAt: number;
 			lastRttMs: number;
-			connectionType: "local" | "tailscale" | "unknown";
+			connectionType: ConnectionType;
 			connectedAt: number;
 			projectPath?: string;
 			sessionId?: string;

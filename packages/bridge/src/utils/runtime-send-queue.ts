@@ -2,11 +2,8 @@ import type { ServerWebSocket } from "bun";
 import { type SendStatus, SocketSender, type SocketSenderStats } from "../transport/socket-sender";
 import type { ServerMessage } from "../types";
 
-type ConnectionType = "local" | "tailscale" | "unknown";
-
 type ConnectionSnapshot = {
 	lastRttMs: number;
-	connectionType: ConnectionType;
 };
 
 type ClientQueueState = {
@@ -41,8 +38,8 @@ export type QueueHooks = {
 };
 
 const THRESHOLDS = {
-	local: { low: 6, high: 3, burst: 1 },
-	tailscale: { low: 10, high: 5, burst: 2 },
+	lowLatency: { low: 6, high: 3, burst: 1 },
+	mediumLatency: { low: 10, high: 5, burst: 2 },
 	highLatency: { low: 16, high: 8, burst: 4 },
 } satisfies Record<string, QueueThresholds>;
 
@@ -235,13 +232,12 @@ export class RuntimeSendQueue {
 
 	private batchDelay(ws: ServerWebSocket<unknown>, pendingCount: number): number {
 		const ctx = this.getContext(ws);
-		const connectionType = ctx?.connectionType ?? "unknown";
 		const rtt = ctx?.lastRttMs ?? 0;
-		let thresholds = THRESHOLDS.local;
+		let thresholds = THRESHOLDS.lowLatency;
 		if (rtt > 100) {
 			thresholds = THRESHOLDS.highLatency;
-		} else if (rtt > 30 || connectionType === "tailscale") {
-			thresholds = THRESHOLDS.tailscale;
+		} else if (rtt > 30) {
+			thresholds = THRESHOLDS.mediumLatency;
 		}
 		if (pendingCount > 32) return thresholds.burst;
 		if (pendingCount > 8) return thresholds.high;

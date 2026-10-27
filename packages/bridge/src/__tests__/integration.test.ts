@@ -34,7 +34,7 @@ describe("Setup Wizard Integration", () => {
 		expect(config.network.port).toBeLessThan(65536); // Valid port range
 
 		// Daemon settings
-		expect(["launchagent", "systemd", "taskscheduler", "none"].includes(config.daemon.type)).toBe(true);
+		expect(["launchagent", "systemd", "none"].includes(config.daemon.type)).toBe(true);
 	});
 
 	test("agent configuration allows at least one enabled", () => {
@@ -65,7 +65,7 @@ describe("Platform Integration", () => {
 		const daemonType = getDaemonType();
 		if (IS_MACOS) expect(daemonType).toBe("launchagent");
 		if (IS_LINUX) expect(daemonType).toBe("systemd");
-		if (IS_WINDOWS) expect(daemonType).toBe("task-scheduler");
+		if (IS_WINDOWS) expect(daemonType).toBe("none");
 	});
 
 	test("path helpers return valid paths", () => {
@@ -167,7 +167,7 @@ describe("End-to-End Configuration Flow", () => {
 		expect(typeof mockSecurityResult.tls).toBe("boolean");
 
 		expect(typeof mockDaemonResult.installed).toBe("boolean");
-		expect(["launchagent", "systemd", "taskscheduler", "none"].includes(mockDaemonResult.type)).toBe(true);
+		expect(["launchagent", "systemd", "none"].includes(mockDaemonResult.type)).toBe(true);
 
 		// Assemble a config (simplified version of what onboarding does)
 		const finalConfig = {

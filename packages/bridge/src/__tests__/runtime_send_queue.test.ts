@@ -39,7 +39,7 @@ function delta(seq: number): ServerMessage {
 }
 
 function newQueue(onDeadSocket: (ws: ServerWebSocket<unknown>, reason: "dropped" | "overflow") => void) {
-	return new RuntimeSendQueue(() => ({ lastRttMs: 0, connectionType: "local" }), { onDeadSocket });
+	return new RuntimeSendQueue(() => ({ lastRttMs: 0 }), { onDeadSocket });
 }
 
 describe("RuntimeSendQueue backpressure", () => {
