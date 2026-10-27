@@ -23,6 +23,7 @@ pub enum ToDevice<'a> {
     },
     Bridge {
         state: &'a str,
+        conn: u64,
         detail: Option<&'a str>,
     },
 }

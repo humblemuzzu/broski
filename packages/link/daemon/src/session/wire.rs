@@ -1,17 +1,18 @@
 use broski_link_core::{LinkEvent, STREAM_BRIDGE, STREAM_CONTROL};
 use serde::Serialize;
+use tokio::time::Instant;
 use tracing::{debug, warn};
 
-use crate::clock;
 use crate::conn::SendError;
 use crate::control::ToDevice;
 use crate::device::short;
 
-use super::Actor;
+use super::{close_codes, Actor};
 
 impl Actor {
     pub(super) async fn pump(&mut self) {
         self.drain_events().await;
+        self.retry_pending();
         self.transmit();
         self.revoke_pairing();
         self.bridge.flush();
@@ -28,38 +29,20 @@ impl Actor {
         }
     }
 
-    pub(super) fn send_bridge_status(&mut self) {
-        let status = self.deps.monitor.status();
-        if self.last_bridge.as_ref() == Some(&status) {
-            return;
-        }
-        self.last_bridge = Some(status.clone());
-        let message = ToDevice::Bridge {
-            state: status.state,
-            detail: status.detail.as_deref(),
-        };
-        if let Some(bytes) = encode(&message) {
-            self.push_control(bytes);
-        }
+    pub(super) fn bridge_ready(&mut self) {
+        self.bridge.ready();
+        self.send_bridge_status(false);
     }
 
-    pub(super) fn push_control(&mut self, bytes: Vec<u8>) {
-        match self.link.send(STREAM_CONTROL, &bytes, clock::now_ms()) {
-            Ok(()) => {}
-            Err(error) => {
-                debug!(error = %error, device = short(&self.device.id), "control message not queued");
-                if backpressure(&error) {
-                    self.fatal = true;
-                }
-            }
+    pub(super) fn bridge_closed(&mut self, unsent: Vec<Vec<u8>>) {
+        if !self.bridge.closed(unsent) {
+            warn!(
+                device = short(&self.device.id),
+                "what the bridge never read does not fit the queue; ending the session"
+            );
+            self.fail(close_codes::BRIDGE_OVERFLOW);
         }
-    }
-
-    pub(super) fn queue_for_device(&mut self, bytes: Vec<u8>) {
-        if let Err(error) = self.link.send(STREAM_BRIDGE, &bytes, clock::now_ms()) {
-            debug!(error = %error, device = short(&self.device.id), "bridge message not queued");
-            self.fatal = true;
-        }
+        self.send_bridge_status(false);
     }
 
     pub(super) fn lose_connection(&mut self) {
@@ -67,7 +50,7 @@ impl Actor {
         self.pending_out = None;
         self.link.disconnect();
         if self.detached_at.is_none() {
-            self.detached_at = Some(tokio::time::Instant::now());
+            self.detached_at = Some(Instant::now());
         }
         self.state.detached();
     }
@@ -94,7 +77,7 @@ impl Actor {
                         device = short(&self.device.id),
                         code, "device closed the session"
                     );
-                    self.fatal = true;
+                    self.fail(close_codes::NORMAL);
                 }
                 LinkEvent::Dead => self.lose_connection(),
             }
@@ -113,7 +96,7 @@ impl Actor {
                     Ok(None) => return,
                     Err(error) => {
                         warn!(error = %error, device = short(&self.device.id), "link seal failed");
-                        self.fatal = true;
+                        self.fail(close_codes::SESSION_ERROR);
                         return;
                     }
                 },
@@ -129,16 +112,6 @@ impl Actor {
                     return;
                 }
             }
-        }
-    }
-
-    fn queue_for_bridge(&mut self, bytes: Vec<u8>) {
-        if !self.bridge.queue(bytes) {
-            warn!(
-                device = short(&self.device.id),
-                "bridge is not draining; dropping the session"
-            );
-            self.fatal = true;
         }
     }
 
@@ -176,11 +149,4 @@ pub(super) fn encode<T: Serialize>(message: &T) -> Option<Vec<u8>> {
             None
         }
     }
-}
-
-fn backpressure(error: &broski_link_core::Error) -> bool {
-    matches!(
-        error,
-        broski_link_core::Error::Proto(broski_link_proto::Error::Backpressure { .. })
-    )
 }
