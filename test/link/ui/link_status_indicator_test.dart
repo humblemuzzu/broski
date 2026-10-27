@@ -1,6 +1,10 @@
+import 'package:broski/providers/connection/bridge_status_provider.dart';
 import 'package:broski/providers/link/link_status_provider.dart';
+import 'package:broski/widgets/connection_indicator.dart';
+import 'package:broski/widgets/link/bridge_restart_button.dart';
 import 'package:broski/providers/link/machines_provider.dart';
 import 'package:broski/widgets/link/link_status_indicator.dart';
+import 'package:broski/services/websocket_service.dart';
 import 'package:broski_link/broski_link.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -116,5 +120,77 @@ void main() {
     await pumpLinkUi(tester, container, const LinkStatusIndicator());
 
     expect(find.byType(Text), findsNothing);
+  });
+
+  testWidgets('a crashed bridge on a sleeping machine shows the link, not it', (
+    tester,
+  ) async {
+    final machine = testMachine();
+    final container = linkUiContainer(
+      overrides: [
+        seededStatus(
+          machine.id,
+          const LinkStatus(state: LinkConnectionState.machineAsleep),
+        ),
+        bridgeLinkStatusProvider.overrideWith(
+          (ref) => BridgeLinkStatusSink()
+            ..publish(
+              const BridgeLinkStatus(state: BridgeStatusState.crashed, conn: 3),
+            ),
+        ),
+      ],
+    );
+    await container.read(machinesProvider.notifier).add(machine);
+
+    await pumpLinkUi(
+      tester,
+      container,
+      const Column(
+        children: [
+          LinkStatusIndicator(),
+          ConnectionIndicator(
+            status: ConnectionStatus.connected,
+            agentAvailable: true,
+          ),
+        ],
+      ),
+    );
+
+    expect(find.text('Studio Mac is asleep'), findsOneWidget);
+    expect(find.byType(BridgeRestartButton), findsNothing);
+  });
+
+  testWidgets('a crashed bridge on a connected machine offers the restart', (
+    tester,
+  ) async {
+    final machine = testMachine();
+    final container = linkUiContainer(
+      overrides: [
+        seededStatus(
+          machine.id,
+          const LinkStatus(
+            state: LinkConnectionState.connected,
+            route: LinkRoute.lan,
+          ),
+        ),
+        bridgeLinkStatusProvider.overrideWith(
+          (ref) => BridgeLinkStatusSink()
+            ..publish(
+              const BridgeLinkStatus(
+                state: BridgeStatusState.crashed,
+                conn: 1,
+                detail: 'exit code 1',
+              ),
+            ),
+        ),
+      ],
+    );
+    await container.read(machinesProvider.notifier).add(machine);
+
+    await pumpLinkUi(tester, container, const LinkStatusIndicator());
+
+    expect(find.text("Studio Mac's bridge crashed"), findsOneWidget);
+    expect(find.byType(BridgeRestartButton), findsOneWidget);
+    expect(find.text('Restart · exit code 1'), findsOneWidget);
   });
 }

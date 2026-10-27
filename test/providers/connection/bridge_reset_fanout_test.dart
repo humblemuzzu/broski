@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:broski/providers/connection/bridge_reset_fanout.dart';
 import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/services/bridge/bridge_reset_exception.dart';
 import 'package:broski/services/pi_bridge_service.dart';
+import 'package:broski_link/broski_link.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -50,6 +53,41 @@ void main() {
         ),
       );
     }
+  });
+
+  test('a refused send fails only the request it named', () async {
+    final bridge = container.read(bridgeServiceProvider);
+    final pi = container.read(piBridgeServiceProvider);
+
+    final refused = bridge.listSessions();
+    final piState = pi.getState();
+    await pumpEventQueue();
+    final refusedId = socket.sent.first['requestId'] as String;
+
+    container
+        .read(bridgeResetFanoutProvider)
+        .refuse(refusedId, LinkSendFailureReason.tooLarge);
+
+    await expectLater(
+      refused,
+      throwsA(
+        isA<BridgeSendRefusedException>().having(
+          (error) => error.reason,
+          'reason',
+          LinkSendFailureReason.tooLarge,
+        ),
+      ),
+    );
+
+    // The Pi request is still waiting: a refusal names one message, not a backend.
+    var settled = false;
+    unawaited(
+      piState
+          .then((_) {}, onError: (Object _) {})
+          .whenComplete(() => settled = true),
+    );
+    await pumpEventQueue();
+    expect(settled, isFalse);
   });
 
   test('a reset reaches both halves even with nothing in flight', () async {
