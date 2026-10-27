@@ -1,4 +1,10 @@
 import type { ClientMessage, ServerMessage } from "../types";
+import {
+	DEFAULT_TRANSCRIPT_PAGE_LIMIT,
+	transcriptCursor,
+	transcriptPageFields,
+	transcriptPageLimit,
+} from "../types/transcript-page";
 
 type Reply = (message: ServerMessage) => void;
 
@@ -6,6 +12,11 @@ type OpenCodeSessionOpsLike = {
 	createSession: (dir?: string, title?: string, permission?: any, workspaceID?: string) => Promise<any>;
 	getSession: (id: string, dir?: string) => Promise<any>;
 	getSessionMessages: (id: string, dir?: string, limit?: number, before?: string) => Promise<any>;
+	readSessionMessagesPage: (
+		id: string,
+		dir: string | undefined,
+		options: { limit: number; before?: string },
+	) => Promise<{ messages: unknown[]; hasMore: boolean; nextCursor?: string } | null>;
 	deleteSession: (id: string, dir?: string) => Promise<boolean>;
 	updateSession: (id: string, title?: string, archived?: any, dir?: string) => Promise<any>;
 	forkSession: (id: string, msgId?: string, dir?: string) => Promise<any>;
@@ -45,12 +56,24 @@ export async function handle(
 		}
 		case "get_session_messages": {
 			const oc = requireOpenCode();
-			const messages = await oc.getSessionMessages(
-				message.sessionId,
-				message.projectPath,
-				message.limit,
-				message.before,
-			);
+			const limit = transcriptPageLimit(message.limit);
+			const before = transcriptCursor(message.before);
+			if (limit !== undefined || before !== undefined) {
+				const page = await oc.readSessionMessagesPage(message.sessionId, message.projectPath, {
+					limit: limit ?? DEFAULT_TRANSCRIPT_PAGE_LIMIT,
+					before,
+				});
+				if (page) {
+					reply({
+						type: "session_messages",
+						data: page.messages,
+						sessionId: message.sessionId,
+						...transcriptPageFields(page),
+					});
+					return true;
+				}
+			}
+			const messages = await oc.getSessionMessages(message.sessionId, message.projectPath);
 			reply({ type: "session_messages", data: messages, sessionId: message.sessionId });
 			return true;
 		}

@@ -2,6 +2,8 @@
 
 The Rust `broski-link` daemon must know what the machine's agents are doing while no phone is
 attached: to push when one needs approval or finishes, and to keep the machine awake (`watch`).
+What the bridge may send on this socket, and how far behind it may let the daemon fall, is in
+[link-transport.md](link-transport.md).
 
 ## Connection
 

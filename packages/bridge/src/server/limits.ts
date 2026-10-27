@@ -6,6 +6,10 @@
 export type BridgeLimits = {
 	maxWsMessageBytes: number;
 	wsBackpressureLimitBytes: number;
+	/** Backlog a broski-link socket may build before it is closed with 4013; its peer is the daemon. */
+	linkBackpressureLimitBytes: number;
+	/** Largest single frame a broski-link socket may be sent; the daemon refuses anything above 8 MiB. */
+	linkMessageLimitBytes: number;
 	wsIdleTimeoutSeconds: number;
 	rate: { perSecond: number; burst: number; blockMs: number };
 	maxClients: number;
@@ -24,6 +28,16 @@ export function createLimits(): BridgeLimits {
 	const wsBackpressureLimitBytes = Math.max(
 		128 * 1024,
 		Math.min(Number(process.env.BROSKI_WS_BACKPRESSURE_MB ?? "4") * 1024 * 1024, 64 * 1024 * 1024),
+	);
+
+	const linkBackpressureLimitBytes = Math.max(
+		8 * 1024 * 1024,
+		Math.min(Number(process.env.BROSKI_LINK_BACKPRESSURE_MB ?? "32") * 1024 * 1024, 256 * 1024 * 1024),
+	);
+
+	const linkMessageLimitBytes = Math.max(
+		1024 * 1024,
+		Math.min(Number(process.env.BROSKI_LINK_MESSAGE_MB ?? "8") * 1024 * 1024, 16 * 1024 * 1024),
 	);
 
 	const wsIdleTimeoutSeconds = Math.max(30, Math.min(Number(process.env.BROSKI_WS_IDLE_TIMEOUT_SECONDS ?? "120"), 600));
@@ -49,6 +63,8 @@ export function createLimits(): BridgeLimits {
 	return {
 		maxWsMessageBytes,
 		wsBackpressureLimitBytes,
+		linkBackpressureLimitBytes,
+		linkMessageLimitBytes,
 		wsIdleTimeoutSeconds,
 		rate,
 		maxClients,

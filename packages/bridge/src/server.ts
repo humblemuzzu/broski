@@ -118,6 +118,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		auth: options.auth,
 		webDistDir,
 		defaultAgent: options.currentAgent || "opencode",
+		limits,
 		logInfo: log.logInfo,
 	});
 

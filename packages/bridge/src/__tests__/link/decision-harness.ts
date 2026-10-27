@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { OpenCodeConnector } from "../../connectors/opencode";
 import type { PiDurablePermissionRequest } from "../../connectors/pi-durable";
 import { broadcastPiDurablePermission } from "../../handlers/pi_durable/transport";
+import { createLimits } from "../../server/limits";
 import { resetLinkFeed } from "../../server/link-feed/feed";
 import { createLeveledLogger } from "../../server/logger";
 import { createOpenCodeEvents } from "../../server/opencode-events";
@@ -54,6 +55,7 @@ export async function startDecisionHarness(): Promise<DecisionHarness> {
 		auth: { version: 1, token: "decision-test-token", createdAt: Date.now() },
 		webDistDir: "/tmp",
 		defaultAgent: "claude-code",
+		limits: createLimits(),
 		logInfo: () => {},
 	});
 	const streams = createStreams({ state, log, debugRts: false });

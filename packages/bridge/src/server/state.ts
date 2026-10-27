@@ -9,9 +9,12 @@ import type { ConnectionContext } from "../routing/types";
 import { BoundedMap, registerSweepable } from "../state/bounded-map";
 import { isTlsEnabledByEnv, type TlsMaterial } from "../tls";
 import { PiDurableSocketPool } from "../transport/pi-durable-socket";
+import { NETWORK_SEND_LIMITS } from "../transport/send-limits";
 import type { AgentType, PermissionResponse } from "../types";
 import { RuntimeSendQueue } from "../utils/runtime-send-queue";
+import type { BridgeLimits } from "./limits";
 import type { LinkIngress } from "./link-ingress";
+import { closeLinkOverflow, closeNetworkBackpressure, isLinkTransportSocket, linkSendLimits } from "./link-send-policy";
 import type { PermissionWaiter } from "./permission-waiter";
 
 export type ClaudePermissionReply = {
@@ -86,6 +89,7 @@ export type CreateBridgeStateParams = {
 	auth: AuthTokenState;
 	webDistDir: string;
 	defaultAgent: AgentType;
+	limits: BridgeLimits;
 	logInfo: (message: string) => void;
 };
 
@@ -152,6 +156,7 @@ export function createBridgeState(params: CreateBridgeStateParams): BridgeState 
 	const sockets = new Set<ServerWebSocket<unknown>>();
 	const contexts = new Map<ServerWebSocket<unknown>, ConnectionContext>();
 
+	const linkLimits = linkSendLimits(params.limits);
 	const runtimeSendQueue = new RuntimeSendQueue(
 		(ws) => {
 			const ctx = contexts.get(ws);
@@ -159,15 +164,21 @@ export function createBridgeState(params: CreateBridgeStateParams): BridgeState 
 			return { lastRttMs: ctx.lastRttMs, connectionType: ctx.connectionType };
 		},
 		{
-			// A socket that dropped a frame or fell too far behind is not reading: close it so the
-			// app reconnects and resyncs through set_view + lastRuntimeSeq.
+			limitsFor: (ws) => (isLinkTransportSocket(ws.data) ? linkLimits : NETWORK_SEND_LIMITS),
+			onResponseTooLarge: (_ws, detail) => {
+				params.logInfo(`[Link] response_too_large type=${detail.type} bytes=${detail.bytes} limit=${detail.limit}`);
+			},
+			// A socket that dropped a frame or fell too far behind is not reading. A phone on the
+			// network reconnects and resyncs through set_view + lastRuntimeSeq; a link socket's peer
+			// is the daemon, which redials and tells the phone to resync, so it gets its own code.
 			onDeadSocket: (ws, reason) => {
-				params.logInfo(`[WS] Shedding socket (${reason})`);
-				try {
-					ws.close(1013, "backpressure");
-				} catch {
-					// already gone
+				if (isLinkTransportSocket(ws.data)) {
+					params.logInfo(`[Link] Closing link socket (${reason})`);
+					closeLinkOverflow(ws);
+					return;
 				}
+				params.logInfo(`[WS] Shedding socket (${reason})`);
+				closeNetworkBackpressure(ws);
 			},
 		},
 	);

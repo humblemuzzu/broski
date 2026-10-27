@@ -20,6 +20,11 @@ export type UnixWsClient = {
 	closed: () => UnixWsClose | null;
 	/** Every frame received so far, for assertions on what did *not* arrive. */
 	frames: () => LinkFrame[];
+	/** Stops reading the socket, the way a daemon does while the phone's window is full. */
+	pause: () => void;
+	resume: () => void;
+	/** Resolves once the peer's close frame arrived, or rejects after `timeoutMs`. */
+	waitForClose: (timeoutMs?: number) => Promise<UnixWsClose>;
 	clear: () => void;
 	close: () => void;
 };
@@ -83,10 +88,14 @@ export async function connectUnixWs(path: string, headers: Record<string, string
 	};
 
 	let closed: UnixWsClose | null = null;
+	let closeWaiters: Array<() => void> = [];
 	let pending: Buffer = Buffer.alloc(0);
 	const feed = (chunk: Buffer): void => {
 		pending = parseFrames(Buffer.concat([pending, chunk]), push, (close) => {
 			closed = close;
+			const waiting = closeWaiters;
+			closeWaiters = [];
+			for (const resolve of waiting) resolve();
 		});
 	};
 	socket.on("data", feed);
@@ -116,6 +125,18 @@ export async function connectUnixWs(path: string, headers: Record<string, string
 		waitForWhere,
 		closed: () => closed,
 		frames: () => [...frames],
+		pause: () => socket.pause(),
+		resume: () => socket.resume(),
+		waitForClose: (timeoutMs = MESSAGE_TIMEOUT_MS): Promise<UnixWsClose> => {
+			if (closed) return Promise.resolve(closed);
+			return new Promise<UnixWsClose>((resolve, reject) => {
+				const timer = setTimeout(() => reject(new Error("timeout waiting for the close frame")), timeoutMs);
+				closeWaiters.push(() => {
+					clearTimeout(timer);
+					resolve(closed!);
+				});
+			});
+		},
 		clear: () => {
 			frames.length = 0;
 		},

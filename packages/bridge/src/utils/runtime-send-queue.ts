@@ -1,4 +1,5 @@
 import type { ServerWebSocket } from "bun";
+import { frameBytes, NETWORK_SEND_LIMITS, responseTooLargeFrame, type SendLimits } from "../transport/send-limits";
 import { type SendStatus, SocketSender, type SocketSenderStats } from "../transport/socket-sender";
 import type { ServerMessage } from "../types";
 
@@ -25,16 +26,16 @@ type QueueStats = SocketSenderStats & {
 	shed: number;
 };
 
-/** Per socket, this much unsent data means the phone is not reading any more. */
-const MAX_PENDING_BYTES = 4 * 1024 * 1024;
-/** Second guard, in case frames are tiny. */
-const MAX_PENDING_FRAMES = 4096;
 /** While congested, retry flushing this often in case `drain` never arrives. */
 const CONGESTED_RETRY_MS = 16;
 
 export type QueueHooks = {
+	/** Per-socket limits. Defaults to {@link NETWORK_SEND_LIMITS}. */
+	limitsFor?: (ws: ServerWebSocket<unknown>) => SendLimits;
 	/** The socket is unusable or hopelessly behind: close it so the client resyncs on reconnect. */
 	onDeadSocket?: (ws: ServerWebSocket<unknown>, reason: "dropped" | "overflow") => void;
+	/** A frame was refused because this peer could never take it whole. It was not written. */
+	onResponseTooLarge?: (ws: ServerWebSocket<unknown>, detail: { type: string; bytes: number; limit: number }) => void;
 };
 
 const THRESHOLDS = {
@@ -49,6 +50,10 @@ function isBatchableRuntimeMessage(message: ServerMessage): boolean {
 	return (
 		eventType === "assistant_text_delta" || eventType === "assistant_thinking_delta" || eventType === "tool_updated"
 	);
+}
+
+function requestIdOf(message: ServerMessage): string | undefined {
+	return "requestId" in message ? message.requestId : undefined;
 }
 
 export class RuntimeSendQueue {
@@ -76,16 +81,7 @@ export class RuntimeSendQueue {
 	 * overtake the text streamed before it.
 	 */
 	send(ws: ServerWebSocket<unknown>, message: ServerMessage): void {
-		if (this.shed.has(ws)) return;
-		const payload = JSON.stringify(message);
-		if (message.type !== "runtime_event") {
-			this.flush(ws);
-			this.sender.send(ws, payload);
-			return;
-		}
-		const state = this.stateFor(ws);
-		this.enqueue(ws, state, payload);
-		if (!isBatchableRuntimeMessage(message)) this.flush(ws);
+		this.deliver(ws, message, JSON.stringify(message));
 	}
 
 	/**
@@ -94,7 +90,8 @@ export class RuntimeSendQueue {
 	 */
 	sendRaw(ws: ServerWebSocket<unknown>, payload: string | Uint8Array): SendStatus {
 		if (this.shed.has(ws)) return "dropped";
-		return this.sender.send(ws, payload);
+		if (!this.admit(ws, "raw", payload, undefined)) return "dropped";
+		return this.write(ws, payload);
 	}
 
 	/**
@@ -103,28 +100,30 @@ export class RuntimeSendQueue {
 	 */
 	sendPayload(ws: ServerWebSocket<unknown>, payload: string): void {
 		if (this.shed.has(ws)) return;
+		if (!this.admit(ws, "payload", payload, undefined)) return;
 		if (!this.sender.isCongested(ws)) {
-			this.sender.send(ws, payload);
+			this.write(ws, payload);
 			return;
 		}
 		const state = this.stateFor(ws);
 		state.payloads.push(payload);
 		state.bytes += payload.length;
-		if (state.bytes > MAX_PENDING_BYTES) {
-			this.shedSocket(ws, state);
+		if (this.overPendingLimit(ws, state)) {
+			this.shedSocket(ws);
 			return;
 		}
 		this.armFlush(ws, state);
 	}
 
 	/**
-	 * Send a message to all sockets with per-socket error isolation.
-	 * A dead socket won't prevent other sockets from receiving the message.
+	 * Send a message to all sockets with per-socket error isolation, through the same shed set and
+	 * congestion accounting as `send()`: a socket declared dead takes nothing, and a byte the queue
+	 * held for one socket is never written to another.
 	 */
 	broadcast(sockets: Set<ServerWebSocket<unknown>>, message: ServerMessage): void {
 		const payload = JSON.stringify(message);
 		for (const ws of sockets) {
-			this.sender.send(ws, payload);
+			this.deliver(ws, message, payload);
 		}
 	}
 
@@ -161,14 +160,7 @@ export class RuntimeSendQueue {
 		const parts = state.parts.splice(0, state.parts.length);
 		const payloads = state.payloads.splice(0, state.payloads.length);
 		state.bytes = 0;
-		if (parts.length === 1) {
-			this.sender.send(ws, parts[0]!);
-		} else if (parts.length > 1) {
-			this.sender.send(
-				ws,
-				`{"type":"batch","messages":[${parts.join(",")}],"count":${parts.length},"timestamp":${Date.now()}}`,
-			);
-		}
+		if (parts.length > 0 && !this.writeParts(ws, parts)) return;
 		for (let i = 0; i < payloads.length; i += 1) {
 			if (this.sender.isCongested(ws)) {
 				const held = payloads.slice(i);
@@ -177,7 +169,8 @@ export class RuntimeSendQueue {
 				this.armFlush(ws, state, CONGESTED_RETRY_MS);
 				return;
 			}
-			this.sender.send(ws, payloads[i]!);
+			this.write(ws, payloads[i]!);
+			if (this.shed.has(ws)) return;
 		}
 	}
 
@@ -191,14 +184,84 @@ export class RuntimeSendQueue {
 		return { ...this.sender.stats(), pendingFrames, pendingBytes, shed: this.shedCount };
 	}
 
+	private deliver(ws: ServerWebSocket<unknown>, message: ServerMessage, payload: string): void {
+		if (this.shed.has(ws)) return;
+		if (!this.admit(ws, message.type, payload, requestIdOf(message))) return;
+		if (message.type !== "runtime_event") {
+			this.flush(ws);
+			this.write(ws, payload);
+			return;
+		}
+		const state = this.stateFor(ws);
+		this.enqueue(ws, state, payload);
+		if (!isBatchableRuntimeMessage(message)) this.flush(ws);
+	}
+
+	/** False when the frame can never reach this peer whole: it is answered instead of written. */
+	private admit(
+		ws: ServerWebSocket<unknown>,
+		type: string,
+		payload: string | Uint8Array,
+		requestId: string | undefined,
+	): boolean {
+		const limits = this.limitsFor(ws);
+		if (limits.kind !== "link") return true;
+		const bytes = frameBytes(payload);
+		if (bytes <= limits.maxMessageBytes) return true;
+		this.hooks.onResponseTooLarge?.(ws, { type, bytes, limit: limits.maxMessageBytes });
+		this.write(ws, JSON.stringify(responseTooLargeFrame(requestId, bytes, limits.maxMessageBytes)));
+		return false;
+	}
+
+	/**
+	 * The one write. A link socket is never handed a frame that would push it past its window:
+	 * that is the only case where the peer would drop it, because Bun's own guard is off for it.
+	 */
+	private write(ws: ServerWebSocket<unknown>, payload: string | Uint8Array): SendStatus {
+		const limits = this.limitsFor(ws);
+		if (limits.kind === "link" && ws.getBufferedAmount() + frameBytes(payload) > limits.maxPendingBytes) {
+			this.shedSocket(ws);
+			return "dropped";
+		}
+		return this.sender.send(ws, payload);
+	}
+
+	/** One frame for the whole burst, unless merging it would build a frame the link cannot take. */
+	private writeParts(ws: ServerWebSocket<unknown>, parts: string[]): boolean {
+		if (parts.length === 1) {
+			this.write(ws, parts[0]!);
+			return !this.shed.has(ws);
+		}
+		const batch = `{"type":"batch","messages":[${parts.join(",")}],"count":${parts.length},"timestamp":${Date.now()}}`;
+		const limits = this.limitsFor(ws);
+		if (limits.kind === "link" && frameBytes(batch) > limits.maxMessageBytes) {
+			for (const part of parts) {
+				this.write(ws, part);
+				if (this.shed.has(ws)) return false;
+			}
+			return true;
+		}
+		this.write(ws, batch);
+		return !this.shed.has(ws);
+	}
+
 	private enqueue(ws: ServerWebSocket<unknown>, state: ClientQueueState, part: string): void {
 		state.parts.push(part);
 		state.bytes += part.length;
-		if (state.bytes > MAX_PENDING_BYTES || state.parts.length > MAX_PENDING_FRAMES) {
-			this.shedSocket(ws, state);
+		if (this.overPendingLimit(ws, state)) {
+			this.shedSocket(ws);
 			return;
 		}
 		this.armFlush(ws, state);
+	}
+
+	private limitsFor(ws: ServerWebSocket<unknown>): SendLimits {
+		return this.hooks.limitsFor?.(ws) ?? NETWORK_SEND_LIMITS;
+	}
+
+	private overPendingLimit(ws: ServerWebSocket<unknown>, state: ClientQueueState): boolean {
+		const limits = this.limitsFor(ws);
+		return state.bytes > limits.maxPendingBytes || state.parts.length > limits.maxPendingFrames;
 	}
 
 	private stateFor(ws: ServerWebSocket<unknown>): ClientQueueState {
@@ -219,11 +282,8 @@ export class RuntimeSendQueue {
 		}, delay);
 	}
 
-	private shedSocket(ws: ServerWebSocket<unknown>, state: ClientQueueState): void {
+	private shedSocket(ws: ServerWebSocket<unknown>): void {
 		this.shedCount += 1;
-		state.parts.length = 0;
-		state.payloads.length = 0;
-		state.bytes = 0;
 		this.disposeSocket(ws);
 		// Nothing else is written to this socket until it is closed and disposed.
 		this.shed.add(ws);
