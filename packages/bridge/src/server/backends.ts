@@ -4,24 +4,22 @@ import type { OpenCodeConnector } from "../connectors/opencode";
 import * as pi from "../connectors/pi";
 import * as piDurable from "../handlers/pi_durable";
 import type { AgentStatusInfo, AgentType } from "../types";
+import { type OpenCodeSlot, OpenCodeUnavailableError } from "./opencode-slot";
 import type { BridgeState } from "./state";
 
 const BACKEND_STATUS_TTL_MS = 1500;
-
-const OPENCODE_UNAVAILABLE_MESSAGE =
-	"OpenCode backend is not available on this machine. Install OpenCode (or start it and attach), or switch to Claude Code / Codex in the app.";
 
 export type Backends = {
 	getBackendsStatus: () => Promise<Record<AgentType, AgentStatusInfo>>;
 	requireOpenCode: () => OpenCodeConnector;
 	requireOpenCodeOrNull: () => OpenCodeConnector | null;
+	/** Re-runs the "which backend is this machine's default" guess, after OpenCode lands. */
+	refreshDefaultAgent: () => Promise<void>;
+	/** Drops the cached availability, so the next read reports the backend that just arrived. */
+	invalidateStatus: () => void;
 };
 
-export function createBackends(deps: {
-	state: BridgeState;
-	opencode: OpenCodeConnector | null;
-	version: string;
-}): Backends {
+export function createBackends(deps: { state: BridgeState; opencode: OpenCodeSlot; version: string }): Backends {
 	const { state, opencode, version } = deps;
 	let backendsCache: { fetchedAt: number; data: Record<AgentType, AgentStatusInfo> } | null = null;
 	let backendsInFlight: Promise<Record<AgentType, AgentStatusInfo>> | null = null;
@@ -38,8 +36,9 @@ export function createBackends(deps: {
 
 			const [ocOk, ccOk, cxOk, piStatus, piDurableStatus] = await Promise.all([
 				(async () => {
+					const connector = opencode.current();
 					try {
-						return opencode ? await opencode.isRunning() : false;
+						return connector ? await connector.isRunning() : false;
 					} catch {
 						return false;
 					}
@@ -102,8 +101,9 @@ export function createBackends(deps: {
 	};
 
 	const requireOpenCode = (): OpenCodeConnector => {
-		if (!opencode) throw new Error(OPENCODE_UNAVAILABLE_MESSAGE);
-		return opencode;
+		const connector = opencode.current();
+		if (!connector) throw new OpenCodeUnavailableError(opencode.reason() ?? "it is not installed");
+		return connector;
 	};
 
 	const requireOpenCodeOrNull = (): OpenCodeConnector | null => {
@@ -117,7 +117,7 @@ export function createBackends(deps: {
 	// Default agent is detected from what's available, not hardcoded. The Flutter app also
 	// auto-selects on connect, so this is just the server-side default until the first client
 	// sets it explicitly.
-	void (async () => {
+	const refreshDefaultAgent = async (): Promise<void> => {
 		try {
 			const backends = await getBackendsStatus();
 			if (!backends[state.currentAgent]?.available) {
@@ -129,7 +129,17 @@ export function createBackends(deps: {
 		} catch {
 			// keep default
 		}
-	})();
+	};
 
-	return { getBackendsStatus, requireOpenCode, requireOpenCodeOrNull };
+	void refreshDefaultAgent();
+
+	return {
+		getBackendsStatus,
+		requireOpenCode,
+		requireOpenCodeOrNull,
+		refreshDefaultAgent,
+		invalidateStatus: () => {
+			backendsCache = null;
+		},
+	};
 }

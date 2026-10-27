@@ -29,7 +29,7 @@ export interface HandleHttpDeps {
 	webDistDir: string;
 	version: string;
 	allowedProxyPorts: Set<number>;
-	opencode: OpenCodeConnector | null;
+	getOpenCode: () => OpenCodeConnector | null;
 	listFilesDirectly: (path: string) => Promise<unknown>;
 	logUser: (msg: string) => void;
 	handleCcPermissionHook?: (request: Request) => Promise<Response>;
@@ -143,9 +143,10 @@ export async function handleHttpRequest(request: Request, deps: HandleHttpDeps):
 
 	// ── /projects ──────────────────────────────────────────────────────
 	if (url.pathname === "/projects") {
-		if (!deps.opencode) return jsonResponse({ error: "OpenCode not available" }, 503);
+		const opencode = deps.getOpenCode();
+		if (!opencode) return jsonResponse({ error: "OpenCode not available" }, 503);
 		try {
-			const data = await deps.opencode.listProjects();
+			const data = await opencode.listProjects();
 			return jsonResponse(data);
 		} catch {
 			return jsonResponse({ error: "Request failed" }, 500);

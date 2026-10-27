@@ -84,6 +84,12 @@ export type BridgeServerOptions = {
 	linkSocket?: string;
 	/** The daemon's key file, which every upgrade on that socket must quote. */
 	linkKeyFile?: string;
+	/** A managed OpenCode start is under way; requests that need it wait for `setOpenCode`. */
+	opencodePending?: boolean;
+	/** Why OpenCode is unavailable, for the error a request that needs it is given. */
+	opencodeReason?: string;
+	/** How long a request that needs OpenCode waits for a managed start. Defaults to 30 s. */
+	opencodeReadyTimeoutMs?: number;
 	restartOpenCode?: () => Promise<boolean>;
 	/** @deprecated Use bridgeLogger instead. Kept for backward compat. */
 	logger?: (message: string) => void;
@@ -93,6 +99,11 @@ export type BridgeServerOptions = {
 
 export type BridgeServer = {
 	broadcast: (message: ServerMessage) => void;
+	/**
+	 * The OpenCode backend, once a managed start has it — or the reason it never arrived. The
+	 * listeners are already up when this is called, so a slow start costs nobody else a wait.
+	 */
+	setOpenCode: (connector: OpenCodeConnector | null, reason?: string) => void;
 	enqueueSdkEvent: (event: unknown) => void;
 	/** Resolves once every async cleanup finished or the teardown budget elapsed. */
 	stop: (force?: boolean) => Promise<TeardownResult>;
@@ -117,6 +128,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
 	const state = createBridgeState({
 		opencode: options.opencode,
+		opencodePending: options.opencodePending,
+		opencodeReason: options.opencodeReason,
 		auth: options.auth,
 		webDistDir,
 		defaultAgent: options.currentAgent || "opencode",
@@ -124,7 +137,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		logInfo: log.logInfo,
 	});
 
-	const backends = createBackends({ state, opencode: options.opencode, version: options.version });
+	const backends = createBackends({ state, opencode: state.opencode, version: options.version });
 	const streams = createStreams({ state, log, debugRts: DEBUG_RTS });
 	const fsWatchers = createFsWatchers({ broadcast: streams.broadcast });
 	const ptyRuntime = new PtyRuntime({
@@ -148,7 +161,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		streams,
 		log,
 		debugRts: DEBUG_RTS,
-		opencode: options.opencode,
+		getOpenCode: () => state.opencode.current(),
 		startOpenCodeExternalTail: opencodeEvents.startOpenCodeExternalTail,
 	});
 
@@ -200,7 +213,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		log,
 		limits,
 		version: options.version,
-		opencode: options.opencode,
+		getOpenCode: () => state.opencode.current(),
 		listFilesDirectly,
 		debugRts: DEBUG_RTS,
 	});
@@ -257,6 +270,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		send: streams.send,
 		maxBatchSize: limits.maxBatchSize,
 		getSecurePath,
+		opencode: state.opencode,
+		opencodeReadyTimeoutMs: options.opencodeReadyTimeoutMs,
 	});
 	attachLinkDecisionPath(messageRegistry, serverDeps);
 
@@ -322,8 +337,30 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		codexClient,
 	});
 
+	const setOpenCode = (connector: OpenCodeConnector | null, reason?: string): void => {
+		state.opencode.settle(connector, reason);
+		state.ptyManager.updateOpenCode(connector);
+		void refreshOpenCodeArrival();
+	};
+
+	/** A client that connected during the start is told when the backend lands. */
+	const refreshOpenCodeArrival = async (): Promise<void> => {
+		backends.invalidateStatus();
+		await backends.refreshDefaultAgent();
+		const backendsStatus = await backends.getBackendsStatus();
+		streams.broadcast({
+			type: "status",
+			data: {
+				opencodeRunning: backendsStatus.opencode.available,
+				activeAgent: state.currentAgent,
+				backends: backendsStatus,
+			},
+		});
+	};
+
 	return {
 		broadcast: streams.broadcast,
+		setOpenCode,
 		enqueueSdkEvent: opencodeEvents.enqueueSdkEvent,
 		stop,
 		connections: () => state.sockets.size,

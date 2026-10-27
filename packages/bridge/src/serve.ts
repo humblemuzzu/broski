@@ -87,7 +87,7 @@ async function bootstrapOpenCode(cli: CliOptions): Promise<OpencodeBootstrap | n
 async function bindBridgeServer(
 	cli: CliOptions,
 	effectivePort: number,
-	opencode: OpenCodeConnector | null,
+	opencode: { pending: boolean; reason?: string },
 	logger: ReturnType<typeof createBridgeLogger>,
 	daemonLog: (message: string) => void,
 ): Promise<void> {
@@ -103,7 +103,9 @@ async function bindBridgeServer(
 			() =>
 				createBridgeServer({
 					port: effectivePort,
-					opencode,
+					opencode: null,
+					opencodePending: opencode.pending,
+					opencodeReason: opencode.reason,
 					version: packageMeta.version ?? "0.1.0",
 					auth,
 					linkSocket: cli.linkSocket,
@@ -204,28 +206,21 @@ export async function runServe(cli: CliOptions, config: BroskiConfig): Promise<v
 		{ daemon: cli.daemon, linkSocket: cli.linkSocket },
 	);
 
-	const bootstrap = await bootstrapOpenCode(cli);
-	let opencode: OpenCodeConnector | null = null;
-
-	if (bootstrap) {
-		await loadOpenCodeSdk();
-		serveState.opencodeServer = bootstrap.server;
-		opencode = new OpenCodeConnector({
-			baseUrl: bootstrap.server.url,
-			client: bootstrap.client,
-		});
-		serveState.opencodeConnector = opencode;
-	} else {
-		serveState.opencodeServer = null;
-		serveState.opencodeConnector = null;
-	}
+	// A managed OpenCode start takes about ten seconds. The listeners do not wait for it: the
+	// start runs beside them, and the requests that need the backend wait for `setOpenCode`.
+	const opencodeStart = startOpenCode(cli);
+	serveState.opencodeServer = null;
+	serveState.opencodeConnector = null;
 
 	daemonLog("[daemon] Loading auth token...");
 	daemonLog("[daemon] Creating bridge server...");
-	await bindBridgeServer(cli, effectivePort, opencode, bridgeLogger, daemonLog);
+	await bindBridgeServer(cli, effectivePort, { pending: true }, bridgeLogger, daemonLog);
 	const bridgeServer = serveState.bridgeServer;
 	if (!bridgeServer) return;
 	const bridgePort = bridgeServer.port();
+	daemonLog(`[daemon] Bridge listening on 127.0.0.1:${bridgePort}; OpenCode is coming up alongside it`);
+
+	const opencode = await settleOpenCode(opencodeStart, bridgeServer, daemonLog);
 
 	if (opencode) {
 		// Subscribe to the primary OpenCode event stream and to any other local
@@ -293,6 +288,49 @@ export async function runServe(cli: CliOptions, config: BroskiConfig): Promise<v
 			(msg) => logDaemon(msg),
 		);
 	}
+}
+
+type OpenCodeStart = { bootstrap: OpencodeBootstrap | null; reason?: string };
+
+/** Kicks off the OpenCode bootstrap without waiting for it. */
+function startOpenCode(cli: CliOptions): Promise<OpenCodeStart> {
+	return bootstrapOpenCode(cli).then(
+		(bootstrap) => ({ bootstrap }),
+		(error: unknown) => ({ bootstrap: null, reason: describeStartFailure(error) }),
+	);
+}
+
+/** Hands the backend to the bridge, or the reason it never arrived. */
+async function settleOpenCode(
+	start: Promise<OpenCodeStart>,
+	bridgeServer: NonNullable<typeof serveState.bridgeServer>,
+	daemonLog: (message: string) => void,
+): Promise<OpenCodeConnector | null> {
+	const { bootstrap, reason } = await start;
+	if (!bootstrap) {
+		bridgeServer.setOpenCode(null, reason);
+		daemonLog(`[daemon] OpenCode unavailable: ${reason ?? "it is not installed"}`);
+		return null;
+	}
+	try {
+		await loadOpenCodeSdk();
+	} catch (error) {
+		const failed = describeStartFailure(error);
+		bridgeServer.setOpenCode(null, failed);
+		daemonLog(`[daemon] OpenCode unavailable: ${failed}`);
+		return null;
+	}
+	serveState.opencodeServer = bootstrap.server;
+	const connector = new OpenCodeConnector({ baseUrl: bootstrap.server.url, client: bootstrap.client });
+	serveState.opencodeConnector = connector;
+	bridgeServer.setOpenCode(connector);
+	daemonLog("[daemon] OpenCode is up");
+	return connector;
+}
+
+function describeStartFailure(error: unknown): string {
+	const message = error instanceof Error ? error.message : String(error);
+	return message.trim() || "the start failed";
 }
 
 async function isOpenCodeRunning(): Promise<boolean> {

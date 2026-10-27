@@ -100,7 +100,9 @@ export function buildServerDeps(ctx: ServerDepsContext): ServerDeps {
 			};
 		},
 		claudeCode,
-		opencode: ctx.opencode,
+		get opencode() {
+			return state.opencode.current();
+		},
 		codexFs,
 		ensureCodexClient: ctx.codexClient.ensureCodexClient,
 		get codexClient() {
