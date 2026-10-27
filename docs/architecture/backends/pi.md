@@ -3,7 +3,7 @@
 > Last updated: 2026-03-31
 > Source of truth: `reference/pi-mono/`, `packages/bridge/src/connectors/pi.ts` + `connectors/pi/`, `packages/bridge/src/handlers/pi_features.ts` + `handlers/pi_*.ts`
 >
-> **SDK note (2026):** the Pi SDK moved from the `@mariozechner/*` scope to `@earendil-works/pi-coding-agent|pi-ai|pi-agent-core@1.1.0`, and the removed `AuthStorage` / `ModelRegistry` were replaced by `ModelRuntime`. Where a section below still names the old scope or `ModelRegistry`, read it as the historical API — the bridge uses `ModelRuntime` (`connectors/pi/pi-model-runtime.ts`). The connector and handler were also split: `connectors/pi.ts` is now a 36-line facade over `connectors/pi/` (18 modules), and `handlers/pi_features.ts` is a 48-line router over `handlers/pi_*.ts`. Sections 22 and 25 list the functions and messages, which still exist, spread across those modules.
+> **SDK note (2026):** the Pi SDK moved from the `@mariozechner/*` scope to `@earendil-works/pi-coding-agent|pi-ai|pi-agent-core`, pinned with `chord` and `pi-durable` at **1.4.0**, and the removed `AuthStorage` / `ModelRegistry` were replaced by `ModelRuntime`. Where a section below still names the old scope or `ModelRegistry`, read it as the historical API — the bridge uses `ModelRuntime` (`connectors/pi/pi-model-runtime.ts`). The connector and handler were also split: `connectors/pi.ts` is now a 41-line facade over `connectors/pi/` (32 modules), and `handlers/pi_features.ts` is a 48-line router over `handlers/pi_*.ts`. Sections 22 and 25 list the functions and messages, which still exist, spread across those modules.
 
 ---
 
@@ -913,13 +913,64 @@ class ModelRuntime {
 ```typescript
 // Connector (connectors/pi/pi-model-runtime.ts):
 function ensurePiModelRuntime(): Promise<ModelRuntime>;
+function refreshPiModelRuntime({ network? }): Promise<void>;   // re-reads auth.json, models.json, models-store.json
+function availableModels(): Promise<readonly Model<Api>[]>;     // refresh + getAvailable(): `pi --list-models`
+function allCatalogueModels(): Promise<readonly Model<Api>[]>;
 function listAvailableModels(): Promise<PiModelPayload[]>;
 function listAllModels(): Promise<PiModelPayload[]>;
 function listConfiguredProviders(): Promise<string[]>;
-function refreshModels(): Promise<void>;
+function refreshModels(): Promise<void>;                        // fetch newer catalogs, like `pi update --models`
 function findModel(provider, modelId): Promise<Model<any> | undefined>;
-function mapPiModel(model: Model<any>): PiModelPayload;
+function mapPiModel(model: Model<any>, authenticated?): PiModelPayload;
 ```
+
+### Freshness: the catalogue is read, never cached by us
+
+Pi's catalogue is four files that change under a long-running bridge: the catalog bundled with the
+SDK, `models-store.json` (the pi.dev overlay `pi update --models` writes), `models.json` (custom
+providers) and `auth.json` (what is usable). `ModelRuntime.create()` reads them once, so
+`refresh({ allowNetwork: false })` runs before every listing — measured at 4–13 ms on a machine with
+45 providers — and `refresh({ allowNetwork: true })` is reserved for `pi_refresh_models`, which is
+the CLI's own network refresh. Refreshes are serialised, so a listing during one cannot interleave
+with it.
+
+`getAvailable()` (awaited) is the listing API, not `getAvailableSnapshot()`: it is what
+`pi --list-models` prints, and it re-checks availability instead of serving the snapshot from the
+last pass. On this machine the bridge and the CLI list the identical 589 models.
+
+### Selection: `enabledModels` is resolved by the SDK
+
+`connectors/pi/pi-model-catalogue.ts` reads `SettingsManager.create(cwd).getEnabledModels()` — global
+`~/.pi/agent/settings.json` merged with the project's `.pi/settings.json`, exactly as the CLI does —
+and resolves each entry with the SDK's `resolveModelScopeWithDiagnostics(patterns, runtime)`, the
+`--models` / `/scoped-models` resolution, so `provider/id`, bare ids, globs and `:<thinking level>`
+suffixes behave identically. An entry that resolves to nothing is reported as one muted row carrying
+its pattern rather than dropped. The same module reports the default model with Pi's own priority:
+the saved default, then the first model in scope, then the first model Pi can run.
+
+### The `pi_models` reply
+
+```typescript
+{ type: "pi_models",
+  data: PiModelPayload[],            // every model Pi can run here (the CLI's list)
+  selected: PiSelectedModelPayload[], // enabledModels, in the user's order
+  defaultModel: PiDefaultModelPayload | null,
+  requestId?: string }
+
+type PiSelectedModelPayload = {
+  pattern: string;                   // the entry as saved
+  label: string;                     // the model's name, or the pattern when nothing matched
+  provider: string | null;           // null when nothing matched
+  modelId: string | null;
+  thinkingLevel: ThinkingLevel | null; // the level the entry pinned, if any
+  available: boolean;                // false: in the catalogue but no credential, or stale
+};
+
+type PiDefaultModelPayload = { provider: string; modelId: string; thinkingLevel: ThinkingLevel };
+```
+
+`pi_models_refreshed` carries the same four fields. The `runtime_models` broadcast adds
+`backendData.selectedOrder` / `backendData.selectedThinkingLevel` to the summaries of selected models.
 
 ### PiModelPayload (Wire Format)
 

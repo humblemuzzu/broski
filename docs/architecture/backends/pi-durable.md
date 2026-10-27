@@ -143,9 +143,19 @@ One `ModelRuntime` per bridge process (`connectors/pi-durable/model-runtime.ts`)
 no new auth flow. `pi.usage` reports **catalog list price** — a subscription-backed session shows a misleading
 cost unless the app labels it "included in plan".
 
+The durable model list is the Pi backend's own catalogue: `listPiDurableModels()` reads
+`readPiModelCatalogue()` (see [pi.md](pi.md#14-modelruntime--model-discovery-and-selection)), so it is
+refreshed from `auth.json` / `models.json` / `models-store.json` on every call and the user's `enabledModels`
+come first, in their order, each marked `backendData.selectedOrder` (and `isDefault` for the default model).
+`HarnessOptions.models` may be a function; we pass the runtime object itself, which every bridge refresh
+mutates in place, so an open harness sees the same catalogue without being reopened.
+
 ## Limitations
 
-- Experimental API; pin the four `@earendil-works/*` packages at `1.1.0`.
+- Experimental API; pin all five `@earendil-works/*` packages (`chord`, `pi-agent-core`, `pi-ai`, `pi-coding-agent`, `pi-durable`) at `1.4.0`.
+- **A tool result is `{ output, details, isError }`.** `output` is what the model reads; returning only `details` gives the model an empty result with no error (it was `content` before 1.2.0, and a spread hid the rename from the type checker — `connectors/pi-durable/tools/pi-tool-bridge.ts`).
+- **SQLite storage is one-way at 1.4.0**: opening one migrates it to schema version 2 and 1.3.0 or earlier cannot open it again. We use JSONL only, which needs no migration.
+- `settings.restartLimit` (default 5) parks a task that a crash cut off 5 times in a row without committing; `Harness.retryTask()` runs it again. A `sleeping` task state exists since 1.4.0; nothing in the connector switches on `TaskState`, so it needs no case.
 - **One process per storage** (our lock). Two harnesses on one JSONL directory is unsupported.
 - **No terminal-Pi interop.** Separate storage root (`~/.broski/pi-durable`); it does not read or write
   `~/.pi/.../sessions`, and a session cannot be shared between the two backends.
