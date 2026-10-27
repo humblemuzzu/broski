@@ -1,6 +1,7 @@
 import type { Connections } from "./connections";
 import type { BridgeLimits } from "./limits";
 import { isLinkSocketData, readLinkHeaders } from "./link-identity";
+import { linkBackpressureConfig } from "./link-send-policy";
 import { hardenLinkSocketFile, prepareLinkSocketPath, removeLinkSocketFile } from "./link-socket-path";
 import type { LeveledLogger } from "./logger";
 import type { BridgeState } from "./state";
@@ -20,13 +21,14 @@ export type LinkIngressDeps = {
 /**
  * A second ingress for the broski-link daemon: the same WebSocket handler object as the network
  * server, on a private unix socket where the upgrade carries a device identity instead of a token.
+ * Only the backpressure knobs differ: the peer of a link socket is the daemon, not the app.
  */
 export async function startLinkIngress(deps: LinkIngressDeps): Promise<LinkIngress> {
 	await prepareLinkSocketPath(deps.socketPath);
 	const server = Bun.serve({
 		unix: deps.socketPath,
 		fetch: (request, server) => handleLinkRequest(request, server, deps),
-		websocket: deps.connections.websocketConfig,
+		websocket: { ...deps.connections.websocketConfig, ...linkBackpressureConfig(deps.limits) },
 	});
 	const stop = (): void => {
 		server.stop(true);
