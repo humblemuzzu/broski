@@ -108,7 +108,7 @@ export function createConnections(deps: ConnectionsDeps): Connections {
 		perMessageDeflate: process.env.BROSKI_WS_DEFLATE !== "0",
 		open(ws: ServerWebSocket<unknown>) {
 			if (isLinkDaemonSocketData(ws.data)) {
-				attachLinkFeed(ws);
+				attachLinkFeed(ws, deps.log.logInfo);
 				return;
 			}
 			const proxy = (ws.data as { kind?: string })?.kind === "proxy";

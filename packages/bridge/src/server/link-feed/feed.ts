@@ -15,6 +15,7 @@ const LINK_FEED_OVERFLOW_CLOSE_REASON = "link feed frame dropped";
 
 let activeFeed: ServerWebSocket<unknown> | null = null;
 let applyDecision: LinkDecisionApplier | null = null;
+let logFeed: (message: string) => void = () => {};
 
 /**
  * A feed frame that does not fit is never held: Bun answers `0` (dropped) or `-1`
@@ -31,6 +32,7 @@ function sendToFeed(payload: unknown): void {
 		status = 0;
 	}
 	if (status > 0) return;
+	logFeed(`[Link] Closing the daemon feed: a frame was dropped (${LINK_FEED_OVERFLOW_CLOSE_REASON})`);
 	activeFeed = null;
 	try {
 		feed.close(LINK_OVERFLOW_CLOSE_CODE, LINK_FEED_OVERFLOW_CLOSE_REASON);
@@ -53,7 +55,8 @@ export function attachLinkDecisionPath(registry: RouteRegistry, serverDeps: Serv
 }
 
 /** The daemon's feed, the one connection that sees runtime activity instead of a device's view. */
-export function attachLinkFeed(ws: ServerWebSocket<unknown>): void {
+export function attachLinkFeed(ws: ServerWebSocket<unknown>, log?: (message: string) => void): void {
+	if (log) logFeed = log;
 	const previous = activeFeed;
 	if (previous && previous !== ws) {
 		try {
