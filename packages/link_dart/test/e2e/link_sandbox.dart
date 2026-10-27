@@ -43,6 +43,9 @@ final class LinkSandbox {
 
   int? _lanPort;
 
+  /// How often a daemon that could not have its port is started again.
+  static const int _portAttempts = 3;
+
   String get home => p.join(directory.path, 'home');
   String get bridgeSocket => p.join(directory.path, 'bridge.sock');
   String get controlSocket => p.join(home, 'control.sock');
@@ -121,27 +124,44 @@ final class LinkSandbox {
     List<String>? bridgeCmd,
     Map<String, String> environment = const <String, String>{},
   }) async {
-    _lanPort = lan ? await freePort() : null;
-    await _spawn(
-      _binaries.daemon,
-      <String>[
-        'run',
-        '--home',
-        home,
-        '--bridge-socket',
-        bridgeSocket,
-        if (lan) '--lan-port',
-        if (lan) '$_lanPort',
-        if (!lan) '--no-lan',
-        if (relay) '--relay',
-        if (relay) '$_relayUrl',
-        if (bridgeCmd != null) '--bridge-cmd',
-        ...?bridgeCmd,
-      ],
-      'daemon',
-      environment: environment,
-    );
-    await _waitForControl();
+    for (var attempt = 1; ; attempt++) {
+      _lanPort = lan ? await freePort() : null;
+      await _spawn(
+        _binaries.daemon,
+        <String>[
+          'run',
+          '--home',
+          home,
+          '--bridge-socket',
+          bridgeSocket,
+          if (lan) '--lan-port',
+          if (lan) '$_lanPort',
+          if (!lan) '--no-lan',
+          if (relay) '--relay',
+          if (relay) '$_relayUrl',
+          if (bridgeCmd != null) '--bridge-cmd',
+          ...?bridgeCmd,
+        ],
+        'daemon',
+        environment: environment,
+      );
+      try {
+        await _waitForControl();
+        return;
+      } on StateError {
+        if (attempt >= _portAttempts || !await _addressTaken()) {
+          rethrow;
+        }
+      }
+    }
+  }
+
+  /// `freePort` gave its port back before the daemon could bind it, and a suite
+  /// running alongside took it in between; the daemon is started again on
+  /// another one instead.
+  Future<bool> _addressTaken() async {
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    return _log.any((line) => line.contains('Address already in use'));
   }
 
   /// The daemon's process, or null while none runs.
