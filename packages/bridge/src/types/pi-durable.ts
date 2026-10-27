@@ -86,5 +86,6 @@ export type PiDurableServerMessage =
 
 /** The slice of a Bun socket this backend writes to, narrow enough for a bare collector to satisfy in tests. */
 export type PiDurableSocket = {
-	send(payload: string): unknown;
+	/** [requestId] is the reply's own, so a frame the link refuses reaches the caller waiting on it. */
+	send(payload: string, requestId?: string): unknown;
 };

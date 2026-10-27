@@ -4,7 +4,7 @@ import { createLimits } from "../server/limits";
 import { isLinkTransportSocket, linkSendLimits } from "../server/link-send-policy";
 import { NETWORK_SEND_LIMITS, RESPONSE_TOO_LARGE_CODE, RESPONSE_TOO_LARGE_MESSAGE } from "../transport/send-limits";
 import type { ServerMessage } from "../types";
-import { RuntimeSendQueue } from "../utils/runtime-send-queue";
+import { type QueueHooks, RuntimeSendQueue } from "../utils/runtime-send-queue";
 
 type FakeSocket = {
 	send: (payload: string | Uint8Array) => number;
@@ -57,7 +57,7 @@ function transcriptReply(text: string, requestId: string): ServerMessage {
 }
 
 describe("RuntimeSendQueue backpressure", () => {
-	test("a congested socket holds batchable deltas and delivers them on drain", async () => {
+	test("a congested socket holds batchable deltas and delivers them on drain", () => {
 		const socket = fakeSocket();
 		const queue = newQueue(() => {});
 		socket.status = -1;
@@ -65,8 +65,9 @@ describe("RuntimeSendQueue backpressure", () => {
 		socket.sent.length = 0;
 
 		for (let i = 1; i <= 3; i += 1) queue.send(socket, delta(i));
-		await Bun.sleep(40);
 
+		// The batch timer is armed but has not run: a congested socket takes nothing.
+		queue.flush(socket);
 		expect(socket.sent).toHaveLength(0);
 		expect(queue.stats().pendingFrames).toBe(3);
 		expect(queue.stats().congested).toBeGreaterThan(0);
@@ -118,7 +119,7 @@ describe("RuntimeSendQueue backpressure", () => {
 		expect(queue.stats().pendingFrames).toBe(0);
 	});
 
-	test("payloads held while congested are written on the next flush", async () => {
+	test("payloads held while congested are written on the next flush", () => {
 		const socket = fakeSocket();
 		const queue = newQueue(() => {});
 		socket.status = -1;
@@ -126,7 +127,7 @@ describe("RuntimeSendQueue backpressure", () => {
 		socket.sent.length = 0;
 
 		queue.sendPayload(socket, '{"type":"pd_thing"}');
-		await Bun.sleep(5);
+		queue.flush(socket);
 		expect(socket.sent).toHaveLength(0);
 		expect(queue.stats().pendingFrames).toBe(1);
 
@@ -192,5 +193,126 @@ describe("RuntimeSendQueue link limits", () => {
 		const message = transcriptReply(overLimit, "net-1");
 		queue.send(socket, message);
 		expect(socket.sent).toEqual([JSON.stringify(message)]);
+	});
+});
+
+describe("RuntimeSendQueue on a link socket", () => {
+	const limits = createLimits();
+	const linkLimits = linkSendLimits(limits);
+	function linkQueue(hooks: QueueHooks = {}) {
+		return new RuntimeSendQueue(() => ({ lastRttMs: 0, connectionType: "local" }), {
+			limitsFor: (ws) => (isLinkTransportSocket(ws.data) ? linkLimits : NETWORK_SEND_LIMITS),
+			...hooks,
+		});
+	}
+
+	function toolFinished(output: string): ServerMessage {
+		return {
+			type: "runtime_event",
+			backend: "pi",
+			data: {
+				type: "tool_finished",
+				backend: "pi",
+				timestampMs: 1,
+				sessionId: "sess-1",
+				toolCallId: "call-1",
+				toolName: "bash",
+				output,
+			},
+		} as ServerMessage;
+	}
+
+	test("a tool_finished too large for the link is shrunk, never dropped", () => {
+		const socket = linkSocket();
+		const queue = linkQueue({});
+
+		queue.send(socket, toolFinished("y".repeat(limits.linkMessageLimitBytes + 1024)));
+
+		expect(socket.sent).toHaveLength(1);
+		const frame = JSON.parse(socket.sent[0]!) as {
+			truncated?: boolean;
+			data: { type: string; toolCallId?: string; output: string; truncated?: boolean };
+		};
+		expect(frame.truncated).toBe(true);
+		expect(frame.data.type).toBe("tool_finished");
+		expect(frame.data.toolCallId).toBe("call-1");
+		expect(frame.data.truncated).toBe(true);
+		expect(frame.data.output).toContain("truncated by the bridge");
+		expect(Buffer.byteLength(socket.sent[0]!, "utf8")).toBeLessThanOrEqual(limits.linkMessageLimitBytes);
+	});
+
+	test("held deltas are written before the shrunk frame that follows them", () => {
+		const socket = linkSocket();
+		const queue = linkQueue({});
+
+		queue.send(socket, delta(1));
+		expect(socket.sent).toHaveLength(0);
+
+		queue.send(socket, toolFinished("z".repeat(limits.linkMessageLimitBytes + 1024)));
+
+		expect(socket.sent).toHaveLength(2);
+		const first = JSON.parse(socket.sent[0]!) as { type: string };
+		expect(first.type).toBe("runtime_event");
+		expect(JSON.parse(socket.sent[1]!).data.type).toBe("tool_finished");
+	});
+
+	test("a payload refused for size answers its own request id", () => {
+		const socket = linkSocket();
+		const queue = linkQueue({});
+		const refusals: string[] = [];
+
+		queue.sendPayload(
+			socket,
+			JSON.stringify({ type: "pd_transcript", requestId: "pd-7", data: "x".repeat(limits.linkMessageLimitBytes) }),
+			"pd-7",
+		);
+
+		expect(socket.sent).toHaveLength(1);
+		const refusal = JSON.parse(socket.sent[0]!) as { code: string; requestId?: string };
+		expect(refusal.code).toBe(RESPONSE_TOO_LARGE_CODE);
+		expect(refusal.requestId).toBe("pd-7");
+		expect(refusals).toEqual([]);
+	});
+
+	test("a raw frame refused for size answers without a request id", () => {
+		const socket = linkSocket();
+		const refusals: Array<{ type: string; bytes: number }> = [];
+		const queue = linkQueue({ onResponseTooLarge: (_ws, detail) => refusals.push(detail) });
+
+		expect(queue.sendRaw(socket, "x".repeat(limits.linkMessageLimitBytes + 1))).toBe("dropped");
+
+		expect(refusals).toHaveLength(1);
+		const refusal = JSON.parse(socket.sent[0]!) as { code: string; requestId?: string };
+		expect(refusal.code).toBe(RESPONSE_TOO_LARGE_CODE);
+		expect(refusal.requestId).toBeUndefined();
+	});
+
+	test("a merged batch too large for the link goes out as its parts", () => {
+		const socket = linkSocket();
+		const queue = linkQueue({});
+		const half = Math.floor(limits.linkMessageLimitBytes / 2);
+
+		// Two deltas that fit alone and cannot be merged inside one frame.
+		for (let i = 1; i <= 2; i += 1) {
+			queue.send(socket, {
+				type: "runtime_event",
+				backend: "pi",
+				data: {
+					type: "assistant_text_delta",
+					backend: "pi",
+					timestampMs: i,
+					sessionId: "sess-1",
+					seq: i,
+					delta: "d".repeat(half),
+				},
+			} as ServerMessage);
+		}
+		queue.flush(socket);
+
+		expect(socket.sent).toHaveLength(2);
+		for (const frame of socket.sent) {
+			expect(JSON.parse(frame).type).toBe("runtime_event");
+			expect(Buffer.byteLength(frame, "utf8")).toBeLessThanOrEqual(limits.linkMessageLimitBytes);
+		}
 	});
 });

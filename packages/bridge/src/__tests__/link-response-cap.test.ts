@@ -8,7 +8,6 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { BridgeLogger } from "../logging/logger";
-import { RESPONSE_TOO_LARGE_CODE, RESPONSE_TOO_LARGE_MESSAGE } from "../transport/send-limits";
 import type { ServerMessage } from "../types";
 import { type BridgeHandle, connect, E2E_TEST_TIMEOUT_MS, setupTestEnv, startBridge } from "./e2e/harness";
 import { connectUnixWs } from "./link/unix-ws";
@@ -69,22 +68,18 @@ function oversizedEvent(sessionId: string): ServerMessage {
 }
 
 describe("a frame over the link's message limit", () => {
-	test("nothing that large reaches a link socket: it is answered with response_too_large", async () => {
+	test("a runtime event that large arrives shrunk and marked, never dropped", async () => {
 		const client = await connectUnixWs(socketPath, DEVICE_HEADERS);
 		try {
 			bridge.server.broadcast(oversizedEvent("oversized-session"));
-			const refusal = await client.waitFor("error", E2E_TEST_TIMEOUT_MS);
+			const delivered = await client.waitFor("runtime_event", E2E_TEST_TIMEOUT_MS);
+			const data = delivered.data as { type: string; sessionId: string; truncated?: boolean };
 
-			expect(refusal).toMatchObject({
-				code: RESPONSE_TOO_LARGE_CODE,
-				limit: MESSAGE_LIMIT_BYTES,
-				message: RESPONSE_TOO_LARGE_MESSAGE,
-			});
-			expect(refusal.bytes).toBeGreaterThan(MESSAGE_LIMIT_BYTES);
-			expect(client.frames().filter((frame) => frame.type === "runtime_event")).toEqual([]);
-			expect(logLines.some((line) => line.includes("response_too_large") && line.includes("type=runtime_event"))).toBe(
-				true,
-			);
+			expect(delivered.truncated).toBe(true);
+			expect(data.type).toBe("tool_started");
+			expect(data.sessionId).toBe("oversized-session");
+			expect(data.truncated).toBe(true);
+			expect(Buffer.byteLength(JSON.stringify(delivered), "utf8")).toBeLessThanOrEqual(MESSAGE_LIMIT_BYTES);
 		} finally {
 			client.close();
 		}

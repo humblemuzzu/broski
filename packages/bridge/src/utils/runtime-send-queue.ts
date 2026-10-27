@@ -2,14 +2,18 @@ import type { ServerWebSocket } from "bun";
 import { frameBytes, NETWORK_SEND_LIMITS, responseTooLargeFrame, type SendLimits } from "../transport/send-limits";
 import { type SendStatus, SocketSender, type SocketSenderStats } from "../transport/socket-sender";
 import type { ServerMessage } from "../types";
+import { shrinkRuntimeEvent } from "./truncate-runtime-event";
 
 type ConnectionSnapshot = {
 	lastRttMs: number;
 };
 
+/** A serialised frame and its UTF-8 size, measured once where it was built. */
+type Frame = { payload: string | Uint8Array; bytes: number };
+
 type ClientQueueState = {
-	parts: string[];
-	payloads: string[];
+	parts: Frame[];
+	payloads: Frame[];
 	bytes: number;
 	timer: Timer | null;
 };
@@ -81,7 +85,8 @@ export class RuntimeSendQueue {
 	 * overtake the text streamed before it.
 	 */
 	send(ws: ServerWebSocket<unknown>, message: ServerMessage): void {
-		this.deliver(ws, message, JSON.stringify(message));
+		const payload = JSON.stringify(message);
+		this.deliver(ws, message, { payload, bytes: frameBytes(payload) });
 	}
 
 	/**
@@ -90,24 +95,32 @@ export class RuntimeSendQueue {
 	 */
 	sendRaw(ws: ServerWebSocket<unknown>, payload: string | Uint8Array): SendStatus {
 		if (this.shed.has(ws)) return "dropped";
-		if (!this.admit(ws, "raw", payload, undefined)) return "dropped";
-		return this.write(ws, payload);
+		const frame: Frame = { payload, bytes: frameBytes(payload) };
+		if (this.overMessageLimit(ws, frame.bytes)) {
+			this.refuse(ws, "raw", frame.bytes, undefined);
+			return "dropped";
+		}
+		return this.write(ws, frame);
 	}
 
 	/**
 	 * Serialised payload that must not be dropped: held while the socket is congested and written
-	 * when it drains.
+	 * when it drains. [requestId] is the reply's own, so a refusal reaches the caller waiting on it.
 	 */
-	sendPayload(ws: ServerWebSocket<unknown>, payload: string): void {
+	sendPayload(ws: ServerWebSocket<unknown>, payload: string, requestId?: string): void {
 		if (this.shed.has(ws)) return;
-		if (!this.admit(ws, "payload", payload, undefined)) return;
+		const frame: Frame = { payload, bytes: frameBytes(payload) };
+		if (this.overMessageLimit(ws, frame.bytes)) {
+			this.refuse(ws, "payload", frame.bytes, requestId);
+			return;
+		}
 		if (!this.sender.isCongested(ws)) {
-			this.write(ws, payload);
+			this.write(ws, frame);
 			return;
 		}
 		const state = this.stateFor(ws);
-		state.payloads.push(payload);
-		state.bytes += payload.length;
+		state.payloads.push(frame);
+		state.bytes += frame.bytes;
 		if (this.overPendingLimit(ws, state)) {
 			this.shedSocket(ws);
 			return;
@@ -122,8 +135,9 @@ export class RuntimeSendQueue {
 	 */
 	broadcast(sockets: Set<ServerWebSocket<unknown>>, message: ServerMessage): void {
 		const payload = JSON.stringify(message);
+		const frame: Frame = { payload, bytes: frameBytes(payload) };
 		for (const ws of sockets) {
-			this.deliver(ws, message, payload);
+			this.deliver(ws, message, frame);
 		}
 	}
 
@@ -165,7 +179,7 @@ export class RuntimeSendQueue {
 			if (this.sender.isCongested(ws)) {
 				const held = payloads.slice(i);
 				state.payloads.push(...held);
-				for (const payload of held) state.bytes += payload.length;
+				for (const payload of held) state.bytes += payload.bytes;
 				this.armFlush(ws, state, CONGESTED_RETRY_MS);
 				return;
 			}
@@ -184,70 +198,82 @@ export class RuntimeSendQueue {
 		return { ...this.sender.stats(), pendingFrames, pendingBytes, shed: this.shedCount };
 	}
 
-	private deliver(ws: ServerWebSocket<unknown>, message: ServerMessage, payload: string): void {
+	private deliver(ws: ServerWebSocket<unknown>, message: ServerMessage, frame: Frame): void {
 		if (this.shed.has(ws)) return;
-		if (!this.admit(ws, message.type, payload, requestIdOf(message))) return;
+		if (this.overMessageLimit(ws, frame.bytes)) {
+			this.replaceOversize(ws, message, frame.bytes);
+			return;
+		}
 		if (message.type !== "runtime_event") {
 			this.flush(ws);
-			this.write(ws, payload);
+			this.write(ws, frame);
 			return;
 		}
 		const state = this.stateFor(ws);
-		this.enqueue(ws, state, payload);
+		this.enqueue(ws, state, frame);
 		if (!isBatchableRuntimeMessage(message)) this.flush(ws);
 	}
 
-	/** False when the frame can never reach this peer whole: it is answered instead of written. */
-	private admit(
-		ws: ServerWebSocket<unknown>,
-		type: string,
-		payload: string | Uint8Array,
-		requestId: string | undefined,
-	): boolean {
-		const limits = this.limitsFor(ws);
-		if (limits.kind !== "link") return true;
-		const bytes = frameBytes(payload);
-		if (bytes <= limits.maxMessageBytes) return true;
-		this.hooks.onResponseTooLarge?.(ws, { type, bytes, limit: limits.maxMessageBytes });
-		this.write(ws, JSON.stringify(responseTooLargeFrame(requestId, bytes, limits.maxMessageBytes)));
-		return false;
+	/**
+	 * A frame this peer could never take whole. Held frames were produced before it, so they go
+	 * out first; then a runtime event is shrunk to fit, and anything else is answered in its place.
+	 */
+	private replaceOversize(ws: ServerWebSocket<unknown>, message: ServerMessage, bytes: number): void {
+		const limit = this.messageLimit(ws);
+		this.flush(ws);
+		if (this.shed.has(ws)) return;
+		if (message.type === "runtime_event") {
+			const payload = shrinkRuntimeEvent(message, limit);
+			this.write(ws, { payload, bytes: frameBytes(payload) });
+			return;
+		}
+		this.refuse(ws, message.type, bytes, requestIdOf(message));
+	}
+
+	/** The frame is never written: the caller gets `response_too_large` with its own request id. */
+	private refuse(ws: ServerWebSocket<unknown>, type: string, bytes: number, requestId: string | undefined): void {
+		const limit = this.messageLimit(ws);
+		this.flush(ws);
+		if (this.shed.has(ws)) return;
+		this.hooks.onResponseTooLarge?.(ws, { type, bytes, limit });
+		const payload = JSON.stringify(responseTooLargeFrame(requestId, bytes, limit));
+		this.write(ws, { payload, bytes: frameBytes(payload) });
 	}
 
 	/**
 	 * The one write. A link socket is never handed a frame that would push it past its window:
 	 * that is the only case where the peer would drop it, because Bun's own guard is off for it.
 	 */
-	private write(ws: ServerWebSocket<unknown>, payload: string | Uint8Array): SendStatus {
+	private write(ws: ServerWebSocket<unknown>, frame: Frame): SendStatus {
 		const limits = this.limitsFor(ws);
-		if (limits.kind === "link" && ws.getBufferedAmount() + frameBytes(payload) > limits.maxPendingBytes) {
+		if (limits.kind === "link" && ws.getBufferedAmount() + frame.bytes > limits.maxPendingBytes) {
 			this.shedSocket(ws);
 			return "dropped";
 		}
-		return this.sender.send(ws, payload);
+		return this.sender.send(ws, frame.payload);
 	}
 
 	/** One frame for the whole burst, unless merging it would build a frame the link cannot take. */
-	private writeParts(ws: ServerWebSocket<unknown>, parts: string[]): boolean {
+	private writeParts(ws: ServerWebSocket<unknown>, parts: Frame[]): boolean {
 		if (parts.length === 1) {
 			this.write(ws, parts[0]!);
 			return !this.shed.has(ws);
 		}
-		const batch = `{"type":"batch","messages":[${parts.join(",")}],"count":${parts.length},"timestamp":${Date.now()}}`;
-		const limits = this.limitsFor(ws);
-		if (limits.kind === "link" && frameBytes(batch) > limits.maxMessageBytes) {
+		const batch = `{"type":"batch","messages":[${parts.map((part) => String(part.payload)).join(",")}],"count":${parts.length},"timestamp":${Date.now()}}`;
+		if (this.overMessageLimit(ws, frameBytes(batch))) {
 			for (const part of parts) {
 				this.write(ws, part);
 				if (this.shed.has(ws)) return false;
 			}
 			return true;
 		}
-		this.write(ws, batch);
+		this.write(ws, { payload: batch, bytes: frameBytes(batch) });
 		return !this.shed.has(ws);
 	}
 
-	private enqueue(ws: ServerWebSocket<unknown>, state: ClientQueueState, part: string): void {
-		state.parts.push(part);
-		state.bytes += part.length;
+	private enqueue(ws: ServerWebSocket<unknown>, state: ClientQueueState, frame: Frame): void {
+		state.parts.push(frame);
+		state.bytes += frame.bytes;
 		if (this.overPendingLimit(ws, state)) {
 			this.shedSocket(ws);
 			return;
@@ -257,6 +283,16 @@ export class RuntimeSendQueue {
 
 	private limitsFor(ws: ServerWebSocket<unknown>): SendLimits {
 		return this.hooks.limitsFor?.(ws) ?? NETWORK_SEND_LIMITS;
+	}
+
+	/** The largest single frame this peer takes whole, or infinity when it has no frame cap. */
+	private messageLimit(ws: ServerWebSocket<unknown>): number {
+		const limits = this.limitsFor(ws);
+		return limits.kind === "link" ? limits.maxMessageBytes : Number.POSITIVE_INFINITY;
+	}
+
+	private overMessageLimit(ws: ServerWebSocket<unknown>, bytes: number): boolean {
+		return bytes > this.messageLimit(ws);
 	}
 
 	private overPendingLimit(ws: ServerWebSocket<unknown>, state: ClientQueueState): boolean {

@@ -106,6 +106,8 @@ type BroskiRuntimeEventEnvelope<TType extends string> = {
 	/** Present on a coalesced delta only: the seq of the first delta merged into it. */
 	seqStart?: number;
 	replayed?: boolean;
+	/** The bridge cut a payload out of this event to fit the link, and says so in it. */
+	truncated?: boolean;
 	backendData?: BroskiBackendData;
 };
 

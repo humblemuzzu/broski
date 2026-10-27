@@ -22,7 +22,7 @@ export function unregisterPiDurableWatcher(sessionId: string, socket: PiDurableS
 
 export function sendPiDurableMessage(socket: PiDurableSocket, message: ServerMessage): boolean {
 	try {
-		socket.send(JSON.stringify(message));
+		socket.send(JSON.stringify(message), "requestId" in message ? message.requestId : undefined);
 		return true;
 	} catch {
 		return false;

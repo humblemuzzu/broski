@@ -1,6 +1,7 @@
 import type { ServerWebSocket } from "bun";
 import type { RouteRegistry } from "../../routing/registry";
 import type { ServerDeps } from "../../routing/types";
+import { LINK_OVERFLOW_CLOSE_CODE } from "../../transport/send-limits";
 import type { BroskiRuntimeEvent } from "../../types/runtime";
 import { createLinkDecisionApplier, type LinkDecisionApplier, parseLinkDecision } from "./decision";
 import { busyMessage, LINK_FEED_PONG } from "./format";
@@ -10,16 +11,31 @@ import { LinkFeedTracker } from "./tracker";
 /** A health check or a decision fits well inside this; anything longer is not a feed frame. */
 const MAX_FEED_MESSAGE_BYTES = 1024;
 
+const LINK_FEED_OVERFLOW_CLOSE_REASON = "link feed frame dropped";
+
 let activeFeed: ServerWebSocket<unknown> | null = null;
 let applyDecision: LinkDecisionApplier | null = null;
 
+/**
+ * A feed frame that does not fit is never held: Bun answers `0` (dropped) or `-1`
+ * (over `backpressureLimit`) and the daemon would lose the alert without a word, so the feed is
+ * closed instead and its owner redials with a clean one.
+ */
 function sendToFeed(payload: unknown): void {
 	const feed = activeFeed;
 	if (!feed) return;
+	let status = 0;
 	try {
-		feed.send(JSON.stringify(payload));
+		status = feed.send(JSON.stringify(payload));
 	} catch {
-		// the socket died between this write and its close callback
+		status = 0;
+	}
+	if (status > 0) return;
+	activeFeed = null;
+	try {
+		feed.close(LINK_OVERFLOW_CLOSE_CODE, LINK_FEED_OVERFLOW_CLOSE_REASON);
+	} catch {
+		// already closed
 	}
 }
 

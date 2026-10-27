@@ -16,7 +16,7 @@ export class PiDurableSocketPool {
 	for(ws: ServerWebSocket<unknown>): PiDurableSocket {
 		let socket = this.sockets.get(ws);
 		if (!socket) {
-			socket = { send: (payload: string) => this.queue.sendPayload(ws, payload) };
+			socket = { send: (payload: string, requestId?: string) => this.queue.sendPayload(ws, payload, requestId) };
 			this.sockets.set(ws, socket);
 		}
 		return socket;
