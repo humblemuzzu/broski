@@ -16,6 +16,11 @@ export type {
 	PiInstance,
 } from "./pi/pi-instance-types";
 export {
+	type PiModelCatalogue,
+	readPiModelCatalogue as readModelCatalogue,
+	refreshPiModelCatalogue as refreshModelCatalogue,
+} from "./pi/pi-model-catalogue";
+export {
 	findModel,
 	listAllModels,
 	listAvailableModels,

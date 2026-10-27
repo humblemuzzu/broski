@@ -1,13 +1,15 @@
 import * as pi from "../connectors/pi";
 import { normalizeCwd } from "../connectors/pi/pi-cwd";
+import type { PiModelCatalogue } from "../connectors/pi/pi-model-catalogue";
 import { mapPiStreamToRuntimeEvent } from "../runtime/pi-runtime-event-mapper";
 import {
 	mapPiModelToSummary,
 	mapPiSessionToRuntimeSession,
 	mapPiStateToRuntimeState,
+	type PiModelSelectionMark,
 } from "../runtime/pi-runtime-read-models";
 import { registerSweepable } from "../state/bounded-map";
-import type { PiModelPayload, PiStatePayload, PiStreamMessage } from "../types/pi";
+import type { PiStatePayload, PiStreamMessage } from "../types/pi";
 import type { Broadcast, Reply } from "./pi_message_helpers";
 import { isPiStateChangingEvent } from "./pi_state_events";
 
@@ -91,11 +93,22 @@ export function broadcastPiRuntimeState(broadcast: Broadcast, cwd: string, state
 	});
 }
 
-export function emitPiRuntimeModels(reply: Reply, models: PiModelPayload[]): void {
+/** Where each selected model sits in the user's own list, so every summary row carries its position. */
+function selectionMarks(catalogue: PiModelCatalogue): Map<string, PiModelSelectionMark> {
+	const marks = new Map<string, PiModelSelectionMark>();
+	catalogue.selected.forEach((entry, order) => {
+		if (!entry.available || entry.provider === null || entry.modelId === null) return;
+		marks.set(`${entry.provider}/${entry.modelId}`, { order, thinkingLevel: entry.thinkingLevel });
+	});
+	return marks;
+}
+
+export function emitPiRuntimeModels(reply: Reply, catalogue: PiModelCatalogue): void {
+	const marks = selectionMarks(catalogue);
 	reply({
 		type: "runtime_models",
 		backend: "pi",
-		data: models.map(mapPiModelToSummary),
+		data: catalogue.data.map((model) => mapPiModelToSummary(model, marks.get(`${model.provider}/${model.id}`))),
 	});
 }
 

@@ -4,12 +4,18 @@ import { type PiHandlerContext, parseThinkingLevel } from "./pi_message_helpers"
 import { emitPiRuntimeModels } from "./pi_stream_bridge";
 
 async function handleListModels(message: Msg<"pi_list_models">, ctx: PiHandlerContext): Promise<void> {
-	const models = await pi.listAvailableModels();
-	ctx.reply({ type: "pi_models", data: models, requestId: message.requestId });
+	const catalogue = await pi.readModelCatalogue(ctx.cwd);
+	ctx.reply({
+		type: "pi_models",
+		data: catalogue.data,
+		selected: catalogue.selected,
+		defaultModel: catalogue.defaultModel,
+		requestId: message.requestId,
+	});
 	// Use broadcast (not reply) for runtime_models so the message doesn't
 	// carry the request-specific requestId, which would pollute the Flutter
 	// bridge service's early-response cache with unhandled messages.
-	emitPiRuntimeModels(ctx.broadcast, models);
+	emitPiRuntimeModels(ctx.broadcast, catalogue);
 }
 
 async function handleSetModel(message: Msg<"pi_set_model">, ctx: PiHandlerContext): Promise<void> {

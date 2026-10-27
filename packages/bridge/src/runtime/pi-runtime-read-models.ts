@@ -35,7 +35,10 @@ const pickSessionTitle = (session: PiSessionInfo): string => {
 	return session.id;
 };
 
-export function mapPiModelToSummary(piModel: PiModelPayload): BroskiModelSummary {
+/** Where a model sits in the user's own list, for the app's picker and the header's model menu. */
+export type PiModelSelectionMark = { order: number; thinkingLevel: string | null };
+
+export function mapPiModelToSummary(piModel: PiModelPayload, selection?: PiModelSelectionMark): BroskiModelSummary {
 	return {
 		id: piModel.id,
 		backend: "pi",
@@ -51,6 +54,7 @@ export function mapPiModelToSummary(piModel: PiModelPayload): BroskiModelSummary
 			api: piModel.api,
 			input: piModel.input,
 			cost: piModel.cost,
+			...(selection ? { selectedOrder: selection.order, selectedThinkingLevel: selection.thinkingLevel } : {}),
 		},
 	};
 }

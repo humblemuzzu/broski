@@ -1,8 +1,10 @@
 import type {
 	PiCommandPayload,
+	PiDefaultModelPayload,
 	PiForkMessagePayload,
 	PiModelPayload,
 	PiQueueState,
+	PiSelectedModelPayload,
 	PiSessionInfo,
 	PiStatePayload,
 	PiStreamMessage,
@@ -30,7 +32,14 @@ export type PiServerMessage =
 	| { type: "pi_auto_retry_set"; data: boolean; requestId?: string }
 	| { type: "pi_retry_aborted"; data: boolean; requestId?: string }
 	| { type: "pi_state"; data: PiStatePayload; requestId?: string }
-	| { type: "pi_models"; data: PiModelPayload[]; requestId?: string }
+	| {
+			type: "pi_models";
+			/** Every model Pi offers here, as `pi --list-models` prints them. */
+			data: PiModelPayload[];
+			selected: PiSelectedModelPayload[];
+			defaultModel: PiDefaultModelPayload | null;
+			requestId?: string;
+	  }
 	| { type: "pi_model_set"; data: PiModelPayload | null; isScoped?: boolean; requestId?: string }
 	| { type: "pi_thinking_level"; data: { level: string }; requestId?: string }
 	| { type: "pi_sessions"; data: PiSessionInfo[]; hasMore?: boolean; nextCursor?: string; requestId?: string }
@@ -85,7 +94,13 @@ export type PiServerMessage =
 	// Pi Model Capabilities (responses)
 	| { type: "pi_thinking_capabilities"; data: PiThinkingCapabilities; requestId?: string }
 	| { type: "pi_all_models"; data: PiModelPayload[]; requestId?: string }
-	| { type: "pi_models_refreshed"; data: PiModelPayload[]; requestId?: string }
+	| {
+			type: "pi_models_refreshed";
+			data: PiModelPayload[];
+			selected: PiSelectedModelPayload[];
+			defaultModel: PiDefaultModelPayload | null;
+			requestId?: string;
+	  }
 	// Pi Granular Abort (responses)
 	| { type: "pi_compaction_aborted"; data: boolean; requestId?: string }
 	| { type: "pi_branch_summary_aborted"; data: boolean; requestId?: string }

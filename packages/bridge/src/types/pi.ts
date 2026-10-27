@@ -1,3 +1,5 @@
+import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
+
 export type PiStatePayload = {
 	model: PiModelPayload | null;
 	thinkingLevel: string;
@@ -35,6 +37,29 @@ export type PiModelPayload = {
 	};
 	authenticated: boolean;
 	isOAuth: boolean;
+};
+
+/**
+ * One entry of the user's `enabledModels`, as Pi's own scope resolution reads it (`provider/id`, a bare id, a glob,
+ * each with an optional `:<thinking level>`).
+ */
+export type PiSelectedModelPayload = {
+	/** The entry as the user saved it, which is all there is to show when it matches nothing. */
+	pattern: string;
+	/** The model's name, or the pattern when nothing Pi can run matches it. */
+	label: string;
+	provider: string | null;
+	modelId: string | null;
+	/** The level the pattern pinned, or null when it left the choice to the session. */
+	thinkingLevel: ThinkingLevel | null;
+	/** False when no model Pi can run here matches the entry: a missing credential, or a stale entry. */
+	available: boolean;
+};
+
+export type PiDefaultModelPayload = {
+	provider: string;
+	modelId: string;
+	thinkingLevel: ThinkingLevel;
 };
 
 export type PiSessionInfo = {

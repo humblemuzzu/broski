@@ -67,9 +67,14 @@ export async function handle(message: PiMessage, reply: Reply): Promise<boolean>
 		}
 
 		case "pi_refresh_models": {
-			await pi.refreshModels();
-			const models = await pi.listAvailableModels();
-			reply({ type: "pi_models_refreshed", data: models, requestId: message.requestId });
+			const catalogue = await pi.refreshModelCatalogue(cwd);
+			reply({
+				type: "pi_models_refreshed",
+				data: catalogue.data,
+				selected: catalogue.selected,
+				defaultModel: catalogue.defaultModel,
+				requestId: message.requestId,
+			});
 			return true;
 		}
 
