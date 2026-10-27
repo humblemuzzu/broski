@@ -4,8 +4,8 @@
  * `~/.pi` or `~/.broski`.
  */
 
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { captureRealHome, TEST_ISOLATION_ENV } from "../../safety/real-home-guard";
 
@@ -14,6 +14,8 @@ captureRealHome();
 process.env[TEST_ISOLATION_ENV] = "1";
 process.env.BROSKI_CACHE_DIR = join(dir, "cache");
 process.env.BROSKI_COLLAB_CACHE_PATH = join(dir, "collab-cache.json");
+// macOS resolves the temp dir through /private, which the default allowlist's /tmp does not match.
+process.env.BROSKI_ALLOWED_BASE_PATHS = [homedir(), realpathSync(tmpdir())].join(",");
 
 process.on("exit", () => {
 	try {

@@ -1,3 +1,4 @@
+import type { ServerWebSocket } from "bun";
 import { normalizeCwd } from "../connectors/pi/pi-cwd";
 import type { PiMessage } from "../routing/messages";
 import { registerAll } from "../routing/registry";
@@ -18,6 +19,7 @@ import { ensureStreamBridge } from "./pi_stream_bridge";
 import * as piSubagentMessages from "./pi_subagent_messages";
 import * as piTools from "./pi_tools";
 import * as piTree from "./pi_tree";
+import { claimPiView } from "./pi_view_binding";
 
 export { getPendingExtensionUiRequests } from "./pi_extension_ui_requests";
 export { stopAllPiExternalTails, stopPiExternalTail, syncPiExternalTail } from "./pi_external_tail_sync";
@@ -101,9 +103,16 @@ export const MODULE_TYPES = [
 	...EXTENSION_UI_OPS,
 ] as const;
 
-function piContext(deps: ServerDeps, message: PiMessage, reply: Reply): PiHandlerContext {
+function piContext(deps: ServerDeps, message: PiMessage, reply: Reply, ws: ServerWebSocket<unknown>): PiHandlerContext {
 	const optionalCwd = resolveOptionalCwd(message);
-	return { cwd: optionalCwd ?? normalizeCwd(), optionalCwd, reply, broadcast: deps.broadcast };
+	const cwd = optionalCwd ?? normalizeCwd();
+	return {
+		cwd,
+		optionalCwd,
+		reply,
+		broadcast: deps.broadcast,
+		viewSession: (sessionId) => claimPiView(deps, ws, sessionId, cwd),
+	};
 }
 
 export function register(router: MessageRouter, deps: ServerDeps): void {
@@ -120,7 +129,7 @@ export function register(router: MessageRouter, deps: ServerDeps): void {
 		await piAbort.handle(message, ctx.reply);
 	});
 	registerAll(router, BASH_OPS, async (message, ctx) => {
-		const piCtx = piContext(deps, message, ctx.reply);
+		const piCtx = piContext(deps, message, ctx.reply, ctx.ws);
 		await ensureStreamBridge(piCtx.cwd, deps.broadcast);
 		await piBash.handle(message, ctx.reply);
 	});
@@ -135,21 +144,21 @@ export function register(router: MessageRouter, deps: ServerDeps): void {
 	});
 
 	registerAll(router, CHAT_OPS, async (message, ctx) => {
-		await piChat.handle(message, piContext(deps, message, ctx.reply));
+		await piChat.handle(message, piContext(deps, message, ctx.reply, ctx.ws));
 	});
 	registerAll(router, MODEL_OPS, async (message, ctx) => {
-		await piModels.handle(message, piContext(deps, message, ctx.reply));
+		await piModels.handle(message, piContext(deps, message, ctx.reply, ctx.ws));
 	});
 	registerAll(router, SETTINGS_OPS, async (message, ctx) => {
-		await piSettings.handle(message, piContext(deps, message, ctx.reply));
+		await piSettings.handle(message, piContext(deps, message, ctx.reply, ctx.ws));
 	});
 	registerAll(router, LIFECYCLE_OPS, async (message, ctx) => {
-		await piSessionLifecycle.handle(message, piContext(deps, message, ctx.reply));
+		await piSessionLifecycle.handle(message, piContext(deps, message, ctx.reply, ctx.ws));
 	});
 	registerAll(router, SESSION_DATA_OPS, async (message, ctx) => {
-		await piSessionData.handle(message, piContext(deps, message, ctx.reply));
+		await piSessionData.handle(message, piContext(deps, message, ctx.reply, ctx.ws));
 	});
 	registerAll(router, EXTENSION_UI_OPS, async (message, ctx) => {
-		await piExtensionUiRequests.handle(message, piContext(deps, message, ctx.reply));
+		await piExtensionUiRequests.handle(message, piContext(deps, message, ctx.reply, ctx.ws));
 	});
 }

@@ -7,7 +7,8 @@ import {
 	extractTaggedPaths,
 	type PiHandlerContext,
 } from "./pi_message_helpers";
-import { broadcastPiRuntimeState, broadcastPiStreamMessage, ensureStreamBridge } from "./pi_stream_bridge";
+import { broadcastPiRuntimeState, ensureStreamBridge } from "./pi_stream_bridge";
+import { broadcastPiStreamMessage } from "./pi_stream_delivery";
 
 async function handleChat(message: Msg<"pi_chat">, ctx: PiHandlerContext): Promise<void> {
 	await ensureStreamBridge(ctx.cwd, ctx.broadcast);
@@ -19,6 +20,7 @@ async function handleChat(message: Msg<"pi_chat">, ctx: PiHandlerContext): Promi
 	}
 
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
+	ctx.viewSession(instance.session.sessionId);
 	const attachments = message.fileAttachments as FileAttachment[] | undefined;
 	const prompt = composePromptWithTaggedPaths(
 		typeof message.prompt === "string" ? message.prompt : "",
@@ -53,6 +55,7 @@ async function handleQueueMessage(
 ): Promise<void> {
 	await ensureStreamBridge(ctx.cwd, ctx.broadcast);
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
+	ctx.viewSession(instance.session.sessionId);
 	const attachments = message.fileAttachments as FileAttachment[] | undefined;
 	const prompt = composePromptWithTaggedPaths(
 		typeof message.message === "string" ? message.message : "",

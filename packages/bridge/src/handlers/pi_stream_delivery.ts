@@ -3,6 +3,7 @@ import { mapPiStreamToRuntimeEvent } from "../runtime/pi-runtime-event-mapper";
 import type { ServerMessage } from "../types";
 import type { PiStreamMessage } from "../types/pi";
 import { recordRuntimeEvent } from "../utils/runtime-replay-buffer";
+import type { Broadcast } from "./pi_message_helpers";
 
 const piWatchersBySessionId = new Map<string, Set<ServerWebSocket<unknown>>>();
 const piSessionIdBySocket = new Map<ServerWebSocket<unknown>, string>();
@@ -95,4 +96,24 @@ export function replayPendingExtensionUiRequests(
 		send(ws, payload);
 	}
 	return pendingRequests.length;
+}
+
+export function broadcastPiStreamMessage(
+	broadcast: Broadcast,
+	cwd: string,
+	sessionId: string,
+	streamMessage: PiStreamMessage,
+): void {
+	const runtimeEvent = mapPiStreamToRuntimeEvent(streamMessage, {
+		backend: "pi",
+		sessionId,
+		cwd,
+	});
+	if (!runtimeEvent) return;
+
+	broadcast({
+		type: "runtime_event",
+		backend: "pi",
+		data: runtimeEvent,
+	});
 }

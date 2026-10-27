@@ -13,6 +13,8 @@ export type PiHandlerContext = {
 	optionalCwd: string | undefined;
 	reply: Reply;
 	broadcast: Broadcast;
+	/** The socket that sent this request is now looking at the Pi session. */
+	viewSession: (sessionId: string) => void;
 };
 
 export const resolveOptionalCwd = (message: PiMessage): string | undefined => {

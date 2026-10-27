@@ -4,14 +4,9 @@ import { registerAll } from "../routing/registry";
 import type { MessageRouter, ServerDeps } from "../routing/types";
 import type { AgentType, ConnectionType, ServerMessage } from "../types";
 import * as piDurable from "./pi_durable";
-import { getPendingExtensionUiRequests, stopPiExternalTail, syncPiExternalTail } from "./pi_features";
-import {
-	countPiWatchers,
-	prunePiWatchers,
-	registerPiWatcher,
-	replayPendingExtensionUiRequests,
-	unregisterPiWatcher,
-} from "./pi_stream_delivery";
+import { getPendingExtensionUiRequests } from "./pi_features";
+import { replayPendingExtensionUiRequests } from "./pi_stream_delivery";
+import { bindPiWatcher, piSessionViewedBy } from "./pi_view_binding";
 
 type ReplyFn = (msg: ServerMessage) => void;
 
@@ -130,7 +125,7 @@ export async function handle(
 		connectedAt: Date.now(),
 	};
 	const prevKey = ctx.makeSessionKey(existing.viewAgent as AgentType | undefined, existing.sessionId);
-	const prevPiSessionId = existing.viewAgent === "pi" ? existing.sessionId : undefined;
+	const prevPiSessionId = piSessionViewedBy(existing);
 	const nextAgent =
 		(message.agent as AgentType | undefined) ??
 		existing.viewAgent ??
@@ -162,19 +157,12 @@ export async function handle(
 		viewAgent: nextAgent,
 	});
 
-	unregisterPiWatcher(ws);
-	if (prevPiSessionId && prevPiSessionId !== nextSessionId && countPiWatchers(prevPiSessionId) === 0) {
-		stopPiExternalTail(prevPiSessionId);
-	}
-	for (const orphanedSessionId of prunePiWatchers((sock) => ctx.sockets.has(sock))) {
-		stopPiExternalTail(orphanedSessionId);
-	}
-	if (nextAgent === "pi" && nextSessionId) {
-		registerPiWatcher(ws, nextSessionId);
-		// Start external tail for Pi sessions running in terminal (not bridge-owned).
-		// If the session IS bridge-owned, syncPiExternalTail is a no-op.
-		void syncPiExternalTail(nextSessionId, ctx.broadcast, ctx.DEBUG_RTS, ctx.logDebug);
-	}
+	bindPiWatcher(ws, prevPiSessionId, nextAgent === "pi" ? nextSessionId : undefined, {
+		sockets: ctx.sockets,
+		broadcast: ctx.broadcast,
+		debugRts: ctx.DEBUG_RTS,
+		logDebug: ctx.logDebug,
+	});
 
 	// Track project path for OpenCode external tails
 	if (nextAgent === "opencode" && nextSessionId && message.projectPath) {

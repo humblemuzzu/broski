@@ -29,6 +29,7 @@ async function handleNewSession(message: Msg<"pi_new_session">, ctx: PiHandlerCo
 	}
 
 	await ensureStreamBridge(ctx.cwd, ctx.broadcast);
+	ctx.viewSession(instance.session.sessionId);
 	ctx.reply({ type: "pi_session_created", data: !result.cancelled, requestId: message.requestId });
 	void broadcastPiSessionDelta(ctx.broadcast, ctx.cwd, instance.session.sessionId);
 }
@@ -36,6 +37,7 @@ async function handleNewSession(message: Msg<"pi_new_session">, ctx: PiHandlerCo
 async function handleSwitchSession(message: Msg<"pi_switch_session">, ctx: PiHandlerContext): Promise<void> {
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
 	const result = await pi.switchToSession(instance, String(message.sessionPath ?? ""));
+	ctx.viewSession(instance.session.sessionId);
 	ctx.reply({ type: "pi_session_switched", data: !result.cancelled, requestId: message.requestId });
 	void broadcastPiSessionDelta(ctx.broadcast, ctx.cwd, instance.session.sessionId);
 }

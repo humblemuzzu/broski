@@ -79,6 +79,7 @@ async function listModels(): Promise<{
 		optionalCwd: projectDir,
 		reply: (message) => replies.push(message),
 		broadcast: () => {},
+		viewSession: () => {},
 	};
 	await handle({ type: "pi_list_models", requestId: "req-shell-env" } satisfies PiMessage, ctx);
 	const reply = replies.find((message) => message.type === "pi_models");

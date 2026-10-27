@@ -1,7 +1,6 @@
 import * as pi from "../connectors/pi";
 import { normalizeCwd } from "../connectors/pi/pi-cwd";
 import type { PiModelCatalogue } from "../connectors/pi/pi-model-catalogue";
-import { mapPiStreamToRuntimeEvent } from "../runtime/pi-runtime-event-mapper";
 import {
 	mapPiModelToSummary,
 	mapPiSessionToRuntimeSession,
@@ -10,8 +9,10 @@ import {
 } from "../runtime/pi-runtime-read-models";
 import { registerSweepable } from "../state/bounded-map";
 import type { PiStatePayload, PiStreamMessage } from "../types/pi";
+import { onBridgeTurnBoundary } from "./pi_external_tail_sync";
 import type { Broadcast, Reply } from "./pi_message_helpers";
 import { isPiStateChangingEvent } from "./pi_state_events";
+import { broadcastPiStreamMessage } from "./pi_stream_delivery";
 
 /** One event listener per project directory; a cwd nobody uses any more must not keep one. */
 const MAX_STREAM_BRIDGES = 200;
@@ -50,26 +51,6 @@ registerSweepable({
 	size: () => streamUnsubscribers.size,
 	limit: () => MAX_STREAM_BRIDGES,
 });
-
-export function broadcastPiStreamMessage(
-	broadcast: Broadcast,
-	cwd: string,
-	sessionId: string,
-	streamMessage: PiStreamMessage,
-): void {
-	const runtimeEvent = mapPiStreamToRuntimeEvent(streamMessage, {
-		backend: "pi",
-		sessionId,
-		cwd,
-	});
-	if (!runtimeEvent) return;
-
-	broadcast({
-		type: "runtime_event",
-		backend: "pi",
-		data: runtimeEvent,
-	});
-}
 
 export function emitPiRuntimeState(reply: Reply, cwd: string, state: PiStatePayload): void {
 	reply({
@@ -156,14 +137,16 @@ export async function ensureStreamBridge(cwd: string, broadcast: Broadcast, forc
 		const liveInstance = pi.getInstance(cwd);
 		if (!liveInstance) return;
 
-		broadcastPiStreamMessage(broadcast, cwd, liveInstance.session.sessionId, streamMessage);
+		const sessionId = liveInstance.session.sessionId;
+		onBridgeTurnBoundary(sessionId, streamMessage.type);
+		broadcastPiStreamMessage(broadcast, cwd, sessionId, streamMessage);
 
 		// Keep runtime_state authoritative. On start/end/error we publish a fresh
 		// snapshot so the client never gets stuck in streaming state.
 		if (isPiStateChangingEvent(streamMessage)) {
 			const state = pi.mapStatePayload(liveInstance);
 			broadcastPiRuntimeState(broadcast, cwd, state);
-			void broadcastPiSessionDelta(broadcast, cwd, liveInstance.session.sessionId);
+			void broadcastPiSessionDelta(broadcast, cwd, sessionId);
 		}
 	});
 
