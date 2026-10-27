@@ -22,6 +22,6 @@
     "lineWidth": 120
   },
   "files": {
-    "includes": ["src/**/*.ts", "bench/**/*.ts"]
+    "includes": ["src/**/*.ts", "bench/**/*.ts", "scripts/measure-session-lists.ts"]
   }
 }

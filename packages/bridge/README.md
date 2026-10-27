@@ -118,6 +118,23 @@ The relay is blind: it forwards encrypted frames and cannot read them. See `docs
 
 The bridge reads `~/.broski/config.json`. See `src/config/schema.ts` for the full config shape.
 
+## Development
+
+```bash
+bun run typecheck          # tsc --noEmit
+bunx biome check src/      # lint + format check
+bun test                   # Bun test runner
+
+# Size of every session list reply against this machine's real session stores
+bun scripts/measure-session-lists.ts
+```
+
+`measure-session-lists.ts` is read-only: it copies the Pi session index into a temp cache root, never
+writes to `~/.broski`, `~/.pi`, `~/.claude` or `~/.codex`, stops if the process passes 2 GiB RSS, and
+prints the full-list and first-page size of `pi_sessions`, `cc_sessions`, `cx_threads`, `sessions`
+(OpenCode) and the `runtime_sessions` shape each one used to send whole. A backend that is not
+installed is reported and skipped.
+
 ## Links
 
 - [Broski App](https://github.com/humblemuzzu/broski)
