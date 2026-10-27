@@ -16,6 +16,7 @@ app resync either: only the daemon can tell the phone to.
 | | network / loopback TCP | link (unix) |
 |---|---|---|
 | unsent bytes before the bridge acts | 4 MiB (`NETWORK_MAX_PENDING_BYTES`) | 32 MiB (`BROSKI_LINK_BACKPRESSURE_MB`, clamped 8..256 MiB) |
+| frames the queue holds while that window is full | — (shed at the 4 MiB) | up to one more window of 32 MiB (`maxHeldBytes`) |
 | pending frames | 4096 | scaled from the byte cap (32 768 at 32 MiB) |
 | largest single frame | none | 8 MiB (`BROSKI_LINK_MESSAGE_MB`, clamped 1..8 MiB) |
 | close code | `1013 backpressure` | `4013 link overflow` |
@@ -24,8 +25,8 @@ app resync either: only the daemon can tell the phone to.
 above is the queue's `NETWORK_MAX_PENDING_BYTES`, which is what closes a `1013`. For a link socket
 Bun's guard is off and the queue enforces its own window.
 
-A paused link client is never closed at 4 MiB; it closes only once the bridge would have to hand it
-more than its own window. One queue (`utils/runtime-send-queue.ts`) is the single scheduler for the
+A paused link client is never closed at 4 MiB; it closes only once the bridge holds more for it than its own
+window plus the second window of held frames. One queue (`utils/runtime-send-queue.ts`) is the single scheduler for the
 reply paths the phone sees: held deltas, held payloads, direct writes and broadcasts all read the
 socket's own limits, and the limits themselves come from `server/link-send-policy.ts`.
 
@@ -45,9 +46,16 @@ From `bun-types/serve.d.ts`:
 So the link ingress sets `backpressureLimit` to the link window and `closeOnBackpressureLimit:
 false` (`startLinkIngress` spreads `connections.websocketConfig` and overrides only those two), and
 the send queue enforces the window instead: before writing a frame to a link socket it checks
-`getBufferedAmount() + frameBytes <= window`, and closes with `4013 link overflow` when the frame
-would not fit. Bun's own limit is therefore never reached, nothing is silently dropped, and the only
-close a slow link peer ever sees is the one the bridge chose.
+`getBufferedAmount() + frameBytes <= window`. A frame that would not fit is **held** in the queue, behind
+anything already held so nothing overtakes it, and written when the daemon has read (`drain`, retried every
+16 ms). Bun's own limit is therefore never reached and nothing is silently dropped.
+
+The daemon stops reading the socket whenever the phone's window is full, so a burst of requests that arrives
+together (an app that reconnects with a queue of them) is answered faster than it can be sent. That burst is
+held, not punished: the socket is closed with `4013 link overflow` only when the held frames themselves reach a
+second window (`maxHeldBytes`, 32 MiB), or when the deltas waiting to be merged reach the first. The log line
+names the numbers — `[Link] Closing link socket (overflow) buffered=…B held=…B deltas=…B frames=…` — and nothing
+else, so a close can be traced to what was queued.
 
 Every other outcome is accounted for the same way: a frame is delivered, held (deltas merged into one
 `batch`, payloads queued on `drain`), or the socket is closed with `4013`.

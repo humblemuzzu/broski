@@ -14,9 +14,13 @@ export type SendLimits =
 			kind: "link";
 			maxPendingBytes: number;
 			maxPendingFrames: number;
+			/** Replies and events the queue holds for a socket whose window is full, before it is closed. */
+			maxHeldBytes: number;
 			/** Largest single frame the peer will accept whole. */
 			maxMessageBytes: number;
 	  };
+
+export type LinkSendLimits = Extract<SendLimits, { kind: "link" }>;
 
 /** Per socket, this much unsent data means a phone on the network is not reading any more. */
 const NETWORK_MAX_PENDING_BYTES = 4 * 1024 * 1024;

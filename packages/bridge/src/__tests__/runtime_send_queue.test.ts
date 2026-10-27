@@ -8,6 +8,7 @@ import { type QueueHooks, RuntimeSendQueue } from "../utils/runtime-send-queue";
 
 type FakeSocket = {
 	send: (payload: string | Uint8Array) => number;
+	getBufferedAmount: () => number;
 	sent: string[];
 	/** What the next `send` returns; `> 0` means bytes accepted. */
 	status: number;
@@ -17,6 +18,7 @@ function fakeSocket(): ServerWebSocket<unknown> & FakeSocket {
 	const socket: FakeSocket = {
 		status: 1,
 		sent: [],
+		getBufferedAmount: () => 0,
 		send(payload) {
 			if (typeof payload === "string") socket.sent.push(payload);
 			return socket.status;
@@ -48,7 +50,6 @@ function newQueue(onDeadSocket: (ws: ServerWebSocket<unknown>, reason: "dropped"
 function linkSocket(): ServerWebSocket<unknown> & FakeSocket {
 	const socket = fakeSocket();
 	(socket as unknown as { data: unknown }).data = { kind: "link", deviceId: "0123456789abcdef0123456789abcdef" };
-	(socket as unknown as { getBufferedAmount: () => number }).getBufferedAmount = () => 0;
 	return socket;
 }
 
@@ -314,5 +315,92 @@ describe("RuntimeSendQueue on a link socket", () => {
 			expect(JSON.parse(frame).type).toBe("runtime_event");
 			expect(Buffer.byteLength(frame, "utf8")).toBeLessThanOrEqual(limits.linkMessageLimitBytes);
 		}
+	});
+});
+
+describe("RuntimeSendQueue when the daemon has not read a burst of replies", () => {
+	const limits = createLimits();
+	const linkLimits = linkSendLimits(limits);
+	const REPLY_BYTES = 4 * 1024 * 1024;
+
+	function bufferedLinkSocket() {
+		const socket = linkSocket() as ServerWebSocket<unknown> & FakeSocket & { buffered: number };
+		socket.buffered = 0;
+		(socket as unknown as { getBufferedAmount: () => number }).getBufferedAmount = () => socket.buffered;
+		const send = socket.send;
+		socket.send = (payload) => {
+			const status = send(payload);
+			if (typeof payload === "string") socket.buffered += Buffer.byteLength(payload, "utf8");
+			return status;
+		};
+		return socket;
+	}
+
+	function newLinkQueue() {
+		const closed: Array<{ reason: string; detail?: string }> = [];
+		const queue = new RuntimeSendQueue(() => ({ lastRttMs: 0 }), {
+			limitsFor: (ws) => (isLinkTransportSocket(ws.data) ? linkLimits : NETWORK_SEND_LIMITS),
+			onDeadSocket: (_ws, reason, detail) => closed.push({ reason, detail }),
+		});
+		return { queue, closed };
+	}
+
+	function reply(index: number): ServerMessage {
+		return transcriptReply("r".repeat(REPLY_BYTES), `req-${index}`);
+	}
+
+	function requestIdsSent(socket: FakeSocket): string[] {
+		return socket.sent.map((frame) => (JSON.parse(frame) as { requestId: string }).requestId);
+	}
+
+	test("replies that do not fit the window wait in the queue instead of closing the socket", () => {
+		const socket = bufferedLinkSocket();
+		const { queue, closed } = newLinkQueue();
+		const fitting = Math.floor(linkLimits.maxPendingBytes / REPLY_BYTES);
+
+		for (let index = 0; index < fitting + 3; index += 1) queue.send(socket, reply(index));
+
+		expect(closed).toEqual([]);
+		expect(socket.sent).toHaveLength(fitting - 1);
+		expect(queue.stats().pendingFrames).toBe(4);
+	});
+
+	test("the held replies are written in order once the daemon has read", () => {
+		const socket = bufferedLinkSocket();
+		const { queue, closed } = newLinkQueue();
+		const total = Math.floor(linkLimits.maxPendingBytes / REPLY_BYTES) + 3;
+		for (let index = 0; index < total; index += 1) queue.send(socket, reply(index));
+
+		socket.buffered = 0;
+		queue.onDrain(socket);
+
+		expect(closed).toEqual([]);
+		expect(requestIdsSent(socket)).toEqual(Array.from({ length: total }, (_, index) => `req-${index}`));
+	});
+
+	test("a reply sent while others are held does not overtake them", () => {
+		const socket = bufferedLinkSocket();
+		const { queue } = newLinkQueue();
+		const total = Math.floor(linkLimits.maxPendingBytes / REPLY_BYTES) + 1;
+		for (let index = 0; index < total; index += 1) queue.send(socket, reply(index));
+		socket.buffered = 0;
+
+		queue.send(socket, transcriptReply("tiny", "req-late"));
+		queue.onDrain(socket);
+
+		expect(requestIdsSent(socket).at(-1)).toBe("req-late");
+		expect(requestIdsSent(socket).slice(0, total)).toEqual(Array.from({ length: total }, (_, index) => `req-${index}`));
+	});
+
+	test("the socket is closed with 4013 once the held replies fill a second window, and says what it held", () => {
+		const socket = bufferedLinkSocket();
+		const { queue, closed } = newLinkQueue();
+		const doubleWindow = Math.ceil((linkLimits.maxPendingBytes + linkLimits.maxHeldBytes) / REPLY_BYTES);
+
+		for (let index = 0; index < doubleWindow + 2 && closed.length === 0; index += 1) queue.send(socket, reply(index));
+
+		expect(closed).toHaveLength(1);
+		expect(closed[0]?.reason).toBe("overflow");
+		expect(closed[0]?.detail).toMatch(/^buffered=\d+B held=\d+B deltas=\d+B frames=\d+$/);
 	});
 });

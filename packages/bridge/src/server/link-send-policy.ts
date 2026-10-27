@@ -8,8 +8,8 @@ import type { ServerWebSocket } from "bun";
 import {
 	LINK_OVERFLOW_CLOSE_CODE,
 	LINK_OVERFLOW_CLOSE_REASON,
+	type LinkSendLimits,
 	NETWORK_SEND_LIMITS,
-	type SendLimits,
 } from "../transport/send-limits";
 import type { BridgeLimits } from "./limits";
 import { isLinkDaemonSocketData, isLinkSocketData } from "./link-identity";
@@ -18,11 +18,12 @@ export function isLinkTransportSocket(data: unknown): boolean {
 	return isLinkSocketData(data) || isLinkDaemonSocketData(data);
 }
 
-export function linkSendLimits(limits: BridgeLimits): SendLimits {
+export function linkSendLimits(limits: BridgeLimits): LinkSendLimits {
 	return {
 		kind: "link",
 		maxPendingBytes: limits.linkBackpressureLimitBytes,
 		maxPendingFrames: framesForBytes(limits.linkBackpressureLimitBytes),
+		maxHeldBytes: limits.linkBackpressureLimitBytes,
 		maxMessageBytes: limits.linkMessageLimitBytes,
 	};
 }

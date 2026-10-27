@@ -14,7 +14,8 @@ type Frame = { payload: string | Uint8Array; bytes: number };
 type ClientQueueState = {
 	parts: Frame[];
 	payloads: Frame[];
-	bytes: number;
+	partBytes: number;
+	payloadBytes: number;
 	timer: Timer | null;
 };
 
@@ -37,7 +38,7 @@ export type QueueHooks = {
 	/** Per-socket limits. Defaults to {@link NETWORK_SEND_LIMITS}. */
 	limitsFor?: (ws: ServerWebSocket<unknown>) => SendLimits;
 	/** The socket is unusable or hopelessly behind: close it so the client resyncs on reconnect. */
-	onDeadSocket?: (ws: ServerWebSocket<unknown>, reason: "dropped" | "overflow") => void;
+	onDeadSocket?: (ws: ServerWebSocket<unknown>, reason: "dropped" | "overflow", detail?: string) => void;
 	/** A frame was refused because this peer could never take it whole. It was not written. */
 	onResponseTooLarge?: (ws: ServerWebSocket<unknown>, detail: { type: string; bytes: number; limit: number }) => void;
 };
@@ -120,9 +121,9 @@ export class RuntimeSendQueue {
 		}
 		const state = this.stateFor(ws);
 		state.payloads.push(frame);
-		state.bytes += frame.bytes;
+		state.payloadBytes += frame.bytes;
 		if (this.overPendingLimit(ws, state)) {
-			this.shedSocket(ws);
+			this.shedSocket(ws, state);
 			return;
 		}
 		this.armFlush(ws, state);
@@ -173,13 +174,14 @@ export class RuntimeSendQueue {
 
 		const parts = state.parts.splice(0, state.parts.length);
 		const payloads = state.payloads.splice(0, state.payloads.length);
-		state.bytes = 0;
+		state.partBytes = 0;
+		state.payloadBytes = 0;
 		if (parts.length > 0 && !this.writeParts(ws, parts)) return;
 		for (let i = 0; i < payloads.length; i += 1) {
 			if (this.sender.isCongested(ws)) {
 				const held = payloads.slice(i);
 				state.payloads.push(...held);
-				for (const payload of held) state.bytes += payload.bytes;
+				for (const payload of held) state.payloadBytes += payload.bytes;
 				this.armFlush(ws, state, CONGESTED_RETRY_MS);
 				return;
 			}
@@ -193,7 +195,7 @@ export class RuntimeSendQueue {
 		let pendingBytes = 0;
 		for (const state of this.queues.values()) {
 			pendingFrames += state.parts.length + state.payloads.length;
-			pendingBytes += state.bytes;
+			pendingBytes += state.partBytes + state.payloadBytes;
 		}
 		return { ...this.sender.stats(), pendingFrames, pendingBytes, shed: this.shedCount };
 	}
@@ -241,16 +243,32 @@ export class RuntimeSendQueue {
 	}
 
 	/**
-	 * The one write. A link socket is never handed a frame that would push it past its window:
-	 * that is the only case where the peer would drop it, because Bun's own guard is off for it.
+	 * The one write. A link socket is never handed a frame that would push it past its window — Bun's
+	 * own guard is off for it, so that is the only way the peer could lose one — nor one that would
+	 * overtake a frame already held for it. Those wait in the queue for the daemon to read, and the
+	 * socket is closed only when what waits outgrows a second window.
 	 */
 	private write(ws: ServerWebSocket<unknown>, frame: Frame): SendStatus {
 		const limits = this.limitsFor(ws);
-		if (limits.kind === "link" && ws.getBufferedAmount() + frame.bytes > limits.maxPendingBytes) {
-			this.shedSocket(ws);
+		if (limits.kind === "link" && this.mustWait(ws, frame)) return this.holdForLink(ws, frame);
+		return this.sender.send(ws, frame.payload);
+	}
+
+	private mustWait(ws: ServerWebSocket<unknown>, frame: Frame): boolean {
+		const held = this.queues.get(ws)?.payloads.length ?? 0;
+		return held > 0 || ws.getBufferedAmount() + frame.bytes > this.limitsFor(ws).maxPendingBytes;
+	}
+
+	private holdForLink(ws: ServerWebSocket<unknown>, frame: Frame): SendStatus {
+		const state = this.stateFor(ws);
+		state.payloads.push(frame);
+		state.payloadBytes += frame.bytes;
+		if (this.overPendingLimit(ws, state)) {
+			this.shedSocket(ws, state);
 			return "dropped";
 		}
-		return this.sender.send(ws, frame.payload);
+		this.armFlush(ws, state, CONGESTED_RETRY_MS);
+		return "congested";
 	}
 
 	/** One frame for the whole burst, unless merging it would build a frame the link cannot take. */
@@ -273,9 +291,9 @@ export class RuntimeSendQueue {
 
 	private enqueue(ws: ServerWebSocket<unknown>, state: ClientQueueState, frame: Frame): void {
 		state.parts.push(frame);
-		state.bytes += frame.bytes;
+		state.partBytes += frame.bytes;
 		if (this.overPendingLimit(ws, state)) {
-			this.shedSocket(ws);
+			this.shedSocket(ws, state);
 			return;
 		}
 		this.armFlush(ws, state);
@@ -295,15 +313,23 @@ export class RuntimeSendQueue {
 		return bytes > this.messageLimit(ws);
 	}
 
+	/**
+	 * A network socket may owe 4 MiB in all. A link socket's deltas have the window the socket itself has,
+	 * and the replies waiting for the daemon a second one of their own.
+	 */
 	private overPendingLimit(ws: ServerWebSocket<unknown>, state: ClientQueueState): boolean {
 		const limits = this.limitsFor(ws);
-		return state.bytes > limits.maxPendingBytes || state.parts.length > limits.maxPendingFrames;
+		if (state.parts.length > limits.maxPendingFrames) return true;
+		if (limits.kind === "link") {
+			return state.partBytes > limits.maxPendingBytes || state.payloadBytes > limits.maxHeldBytes;
+		}
+		return state.partBytes + state.payloadBytes > limits.maxPendingBytes;
 	}
 
 	private stateFor(ws: ServerWebSocket<unknown>): ClientQueueState {
 		let state = this.queues.get(ws);
 		if (!state) {
-			state = { parts: [], payloads: [], bytes: 0, timer: null };
+			state = { parts: [], payloads: [], partBytes: 0, payloadBytes: 0, timer: null };
 			this.queues.set(ws, state);
 		}
 		return state;
@@ -318,12 +344,13 @@ export class RuntimeSendQueue {
 		}, delay);
 	}
 
-	private shedSocket(ws: ServerWebSocket<unknown>): void {
+	private shedSocket(ws: ServerWebSocket<unknown>, state: ClientQueueState): void {
 		this.shedCount += 1;
+		const detail = `buffered=${ws.getBufferedAmount()}B held=${state.payloadBytes}B deltas=${state.partBytes}B frames=${state.parts.length + state.payloads.length}`;
 		this.disposeSocket(ws);
 		// Nothing else is written to this socket until it is closed and disposed.
 		this.shed.add(ws);
-		this.hooks.onDeadSocket?.(ws, "overflow");
+		this.hooks.onDeadSocket?.(ws, "overflow", detail);
 	}
 
 	private batchDelay(ws: ServerWebSocket<unknown>, pendingCount: number): number {

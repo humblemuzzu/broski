@@ -160,9 +160,9 @@ function createRuntimeSendQueue(
 			// A socket that dropped a frame or fell too far behind is not reading. A phone on the
 			// network reconnects and resyncs through set_view + lastRuntimeSeq; a link socket's peer
 			// is the daemon, which redials and tells the phone to resync, so it gets its own code.
-			onDeadSocket: (ws, reason) => {
+			onDeadSocket: (ws, reason, detail) => {
 				if (isLinkTransportSocket(ws.data)) {
-					params.logInfo(`[Link] Closing link socket (${reason})`);
+					params.logInfo(`[Link] Closing link socket (${reason})${detail ? ` ${detail}` : ""}`);
 					closeLinkOverflow(ws);
 					return;
 				}
