@@ -14,7 +14,7 @@ import type { FileAttachment, PermissionResponse } from "./common";
 export type CcClientMessage =
 	// Claude Code-specific messages
 	| { type: "cc_list_projects" }
-	| { type: "cc_list_sessions"; cwd?: string }
+	| { type: "cc_list_sessions"; cwd?: string; limit?: number; before?: string }
 	| { type: "cc_get_session"; sessionId: string; cwd?: string }
 	| {
 			type: "cc_get_session_messages";

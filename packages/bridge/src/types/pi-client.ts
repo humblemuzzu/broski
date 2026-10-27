@@ -35,7 +35,7 @@ export type PiClientMessage =
 	| { type: "pi_set_thinking_level"; level: string; projectPath?: string }
 	| { type: "pi_cycle_thinking_level"; projectPath?: string }
 	| { type: "pi_cycle_model"; projectPath?: string; direction?: "forward" | "backward" }
-	| { type: "pi_list_sessions"; projectPath?: string }
+	| { type: "pi_list_sessions"; projectPath?: string; limit?: number; before?: string }
 	| { type: "pi_list_projects" }
 	| {
 			type: "pi_new_session";

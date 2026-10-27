@@ -17,6 +17,7 @@ import { existsSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { join } from "node:path";
 import type { ProjectSummary, SessionSummary } from "../../types";
+import { slimSessionSummary } from "./session-summary";
 
 // ---------------------------------------------------------------------------
 // DB location
@@ -102,6 +103,10 @@ function mapProjectRow(row: DbRow): ProjectSummary {
 }
 
 function mapSessionRow(row: DbRow, projectRow?: DbRow): SessionSummary {
+	return slimSessionSummary(rawSessionRow(row, projectRow));
+}
+
+function rawSessionRow(row: DbRow, projectRow?: DbRow): SessionSummary {
 	const additions = num(row.summary_additions);
 	const deletions = num(row.summary_deletions);
 	const files = num(row.summary_files);
@@ -150,6 +155,7 @@ export type OcSqliteListOptions = {
 	roots?: boolean;
 	start?: number;
 	search?: string;
+	/** 0 reads every row, for a caller that cuts its own page. */
 	limit?: number;
 	archived?: boolean;
 };
@@ -228,9 +234,9 @@ export function listSessionsFromDb(options?: OcSqliteListOptions, dbPath?: strin
       LEFT JOIN project p ON s.project_id = p.id
       ${where}
       ORDER BY s.time_updated DESC
-      LIMIT ?
+      ${limit > 0 ? "LIMIT ?" : ""}
     `;
-		params.push(limit);
+		if (limit > 0) params.push(limit);
 
 		const rows = db.query(sql).all(...(params as (string | number | bigint | boolean | null)[])) as DbRow[];
 

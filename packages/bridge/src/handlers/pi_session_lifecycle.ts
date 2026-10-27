@@ -2,7 +2,7 @@ import type { Model } from "@earendil-works/pi-ai/compat";
 import * as pi from "../connectors/pi";
 import type { Msg, PiMessage } from "../routing/messages";
 import { type PiHandlerContext, parseThinkingLevel } from "./pi_message_helpers";
-import { broadcastPiRuntimeSessions, ensureStreamBridge, removeStreamBridge } from "./pi_stream_bridge";
+import { broadcastPiSessionDelta, ensureStreamBridge, removeStreamBridge } from "./pi_stream_bridge";
 
 async function handleNewSession(message: Msg<"pi_new_session">, ctx: PiHandlerContext): Promise<void> {
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
@@ -30,20 +30,22 @@ async function handleNewSession(message: Msg<"pi_new_session">, ctx: PiHandlerCo
 
 	await ensureStreamBridge(ctx.cwd, ctx.broadcast);
 	ctx.reply({ type: "pi_session_created", data: !result.cancelled, requestId: message.requestId });
-	void broadcastPiRuntimeSessions(ctx.broadcast);
+	void broadcastPiSessionDelta(ctx.broadcast, ctx.cwd, instance.session.sessionId);
 }
 
 async function handleSwitchSession(message: Msg<"pi_switch_session">, ctx: PiHandlerContext): Promise<void> {
 	const instance = await pi.getOrCreateInstance(ctx.cwd);
 	const result = await pi.switchToSession(instance, String(message.sessionPath ?? ""));
 	ctx.reply({ type: "pi_session_switched", data: !result.cancelled, requestId: message.requestId });
-	void broadcastPiRuntimeSessions(ctx.broadcast);
+	void broadcastPiSessionDelta(ctx.broadcast, ctx.cwd, instance.session.sessionId);
 }
 
 async function handleDeleteSession(message: Msg<"pi_delete_session">, ctx: PiHandlerContext): Promise<void> {
-	const deleted = await pi.deleteSession(String(message.sessionPath ?? ""));
+	const sessionPath = String(message.sessionPath ?? "");
+	const sessionId = (await pi.listSessions(ctx.optionalCwd)).find((session) => session.path === sessionPath)?.id;
+	const deleted = await pi.deleteSession(sessionPath);
 	ctx.reply({ type: "pi_session_deleted", data: deleted, requestId: message.requestId });
-	void broadcastPiRuntimeSessions(ctx.broadcast);
+	if (deleted && sessionId) ctx.broadcast({ type: "runtime_session_removed", backend: "pi", sessionId });
 }
 
 async function handleSetSessionName(message: Msg<"pi_set_session_name">, ctx: PiHandlerContext): Promise<void> {

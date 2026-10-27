@@ -16,4 +16,6 @@ export type RuntimeServerMessage =
 	  }
 	| { type: "runtime_models"; backend: BroskiBackend; data: BroskiModelSummary[] }
 	| { type: "runtime_sessions"; backend: BroskiBackend; data: BroskiSessionSummary[] }
+	| { type: "runtime_session_updated"; backend: BroskiBackend; session: BroskiSessionSummary }
+	| { type: "runtime_session_removed"; backend: BroskiBackend; sessionId: string }
 	| { type: "runtime_state"; backend: BroskiBackend; data: BroskiRuntimeState };

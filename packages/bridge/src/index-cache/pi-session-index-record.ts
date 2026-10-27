@@ -7,6 +7,7 @@
 import type { SessionInfo } from "@earendil-works/pi-coding-agent";
 import type { SessionDiffSummary } from "../handlers/session-stats";
 import type { PiSessionInfo } from "../types/pi";
+import { sessionPreview } from "../utils/session-preview";
 
 export const PI_SESSION_INDEX_SCHEMA = 2;
 
@@ -159,7 +160,7 @@ export function toPiSessionInfo(record: PiSessionIndexRecord): PiSessionInfo {
 		created: record.created,
 		modified: record.modified,
 		messageCount: record.messageCount,
-		firstMessage: record.firstMessage,
+		firstMessage: sessionPreview(record.firstMessage),
 		summary: record.summary,
 		subagentToolCount: record.subagentToolCount,
 	};

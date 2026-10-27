@@ -5,17 +5,16 @@
  * cx_thread_fork, cx_thread_rollback
  */
 
-import { resolve } from "node:path";
 import type { CodexAppServerClient } from "../../connectors/codex";
 import {
 	listProjectsFromDb as cxListProjectsFromDb,
 	listThreadsFromDb as cxListThreadsFromDb,
 	findCodexStateDbPath,
 } from "../../connectors/codex/cx-sqlite";
-import { DEFAULT_CX_ENRICH_LIMIT } from "../../connectors/codex-fs";
 import type { CxMessage } from "../../routing/messages";
 import type { CodexThread } from "../../types";
 import { resolveCxProjects } from "./cx_projects";
+import { handleCxThreadList } from "./cx_thread_list";
 import { CX_WARMUP_PAGE_LIMIT, warmCxCaches } from "./cx_warmup";
 
 // Cache entry types (mirrored from server.ts scope)
@@ -88,144 +87,7 @@ export async function handleCxThreads(
 
 		// ── cx_list_threads ──────────────────────────────────────────────
 		case "cx_list_threads": {
-			// Protocol: thread/list via JSON-RPC (preferred) with filesystem fallback
-			// ThreadListParams: { cursor?, limit?, sortKey?, modelProviders?, sourceKinds?, archived?, cwd? }
-			// ThreadListResponse: { data: Thread[], nextCursor: string | null }
-			const now = Date.now();
-			const forceRefresh = message.refresh === true;
-			const cacheKey = message.cwd ? resolve(message.cwd) : "__all__";
-
-			// Check cache first (unless explicit refresh or cursor-based pagination)
-			const cached = ctx.cxThreadCache.get(cacheKey);
-			if (!forceRefresh && !message.cursor && cached && now - cached.fetchedAt < ctx.CODEX_THREAD_CACHE_TTL_MS) {
-				ctx.logInfo(`[cx_list_threads] Cache hit for ${cacheKey}, returning cached data`);
-				// Merge latest thread names into cached response (names may have changed since caching)
-				const cachedData =
-					ctx.cxThreadNames.size > 0
-						? cached.data.map((t: any) => {
-								const name = ctx.cxThreadNames.get(t.id);
-								return name ? { ...t, threadName: name } : t;
-							})
-						: cached.data;
-				reply({
-					type: "cx_threads",
-					data: cachedData,
-					nextCursor: cached.nextCursor,
-					requestId: message.requestId,
-				});
-				return true;
-			}
-
-			ctx.logInfo(`[cx_list_threads] ${forceRefresh ? "Refresh requested" : "Cache miss"}, fetching thread list...`);
-
-			// Try JSON-RPC thread/list first (if Codex is running), fall back to filesystem
-			let threadData: any[] = [];
-			let nextCursor: string | null = null;
-			try {
-				if (ctx.codexClient?.isRunning) {
-					// Use proper thread/list RPC — supports filtering, sorting, pagination
-					const rpcParams: any = {};
-					if (message.cursor) rpcParams.cursor = message.cursor;
-					if (message.limit) rpcParams.limit = message.limit;
-					if (message.sortKey) rpcParams.sortKey = message.sortKey;
-					if (message.modelProviders) rpcParams.modelProviders = message.modelProviders;
-					if (message.sourceKinds) rpcParams.sourceKinds = message.sourceKinds;
-					if (message.archived !== undefined && message.archived !== null) rpcParams.archived = message.archived;
-					if (message.cwd) rpcParams.cwd = message.cwd;
-					if (message.searchTerm) rpcParams.searchTerm = message.searchTerm;
-
-					const result: any = await ctx.codexClient.request("thread/list", rpcParams);
-					threadData = result?.data ?? [];
-					nextCursor = result?.nextCursor ?? null;
-					ctx.logInfo(`[cx_list_threads] Got ${threadData.length} threads via thread/list RPC`);
-				} else {
-					// Codex not running — try SQLite first (fast indexed queries), then filesystem.
-					const dbPath = findCodexStateDbPath();
-
-					if (dbPath) {
-						// Tier 2: SQLite available — use as authoritative offline source.
-						// Empty result = genuine no-match; do NOT fall through to unfiltered filesystem.
-						threadData = cxListThreadsFromDb(
-							{
-								cwd: message.cwd ?? undefined,
-								limit: message.limit ?? undefined,
-								archived: message.archived,
-								searchTerm: message.searchTerm ?? undefined,
-								sortKey: message.sortKey === "created_at" ? "created_at" : "updated_at",
-								sourceKinds: message.sourceKinds ?? undefined,
-								modelProviders: message.modelProviders ?? undefined,
-							},
-							dbPath,
-						);
-						nextCursor = null;
-						ctx.logInfo(`[cx_list_threads] Got ${threadData.length} threads via SQLite fallback`);
-					} else {
-						// Tier 3: No SQLite — filesystem is the only offline option (no filter support).
-						threadData = await ctx.codexFs.listThreadsFromFs(message.cwd ?? undefined);
-						nextCursor = null;
-						ctx.logInfo(`[cx_list_threads] Got ${threadData.length} threads via filesystem fallback`);
-
-						// Tier 4: Cold-start app-server — last resort when filesystem also empty.
-						if (threadData.length === 0) {
-							try {
-								const coldClient = await ctx.ensureCodexClient();
-								const rpcResult: any = await coldClient.request("thread/list", {});
-								threadData = rpcResult?.data ?? [];
-								nextCursor = rpcResult?.nextCursor ?? null;
-								ctx.logInfo(`[cx_list_threads] Recovered ${threadData.length} threads via cold thread/list`);
-							} catch (coldErr: any) {
-								ctx.logInfo(`[cx_list_threads] Cold thread/list fallback unavailable: ${coldErr?.message ?? coldErr}`);
-							}
-						}
-					}
-				}
-			} catch (e: any) {
-				// RPC failed — fall back to filesystem
-				ctx.logError(`[cx_list_threads] RPC failed, falling back to filesystem:`, e?.message);
-				try {
-					threadData = await ctx.codexFs.listThreadsFromFs(message.cwd ?? undefined);
-					nextCursor = null;
-				} catch (fsErr: any) {
-					ctx.logError(`[cx_list_threads] Filesystem fallback also failed:`, fsErr?.message);
-					threadData = [];
-					nextCursor = null;
-				}
-			}
-
-			// Merge any known thread names from thread/name/updated notifications
-			const threadsWithNames =
-				ctx.cxThreadNames.size > 0
-					? threadData.map((t: any) => {
-							const name = ctx.cxThreadNames.get(t.id);
-							return name ? { ...t, threadName: name } : t;
-						})
-					: threadData;
-
-			// Enrich threads with diff stats from filesystem (cached by mtime).
-			// Fire-and-forget: don't block the thread list response — stats enrichment
-			// can trigger slow filesystem scans when SQLite is locked by the app-server.
-			// Only the page the phone asked for is enriched, never the whole rollout tree.
-			const enrichLimit =
-				typeof message.limit === "number" && message.limit > 0 ? message.limit : DEFAULT_CX_ENRICH_LIMIT;
-			ctx.codexFs.enrichThreadsWithStats(threadsWithNames.slice(0, enrichLimit)).catch((e: any) => {
-				ctx.logError("[cx_list_threads] Stats enrichment failed (non-fatal):", e?.message ?? e);
-			});
-
-			// Update cache
-			ctx.cxThreadCache.set(cacheKey, {
-				data: threadsWithNames,
-				fetchedAt: Date.now(),
-				nextCursor,
-			});
-			ctx.logInfo(`[cx_list_threads] Done, cached ${threadsWithNames.length} threads`);
-			reply({ type: "cx_threads", data: threadsWithNames, nextCursor, requestId: message.requestId });
-			reply({
-				type: "runtime_sessions",
-				backend: "codex",
-				data: threadsWithNames.map((thread: CodexThread & { threadName?: string }) =>
-					ctx.mapCodexThreadToRuntimeSession(thread),
-				),
-			});
+			await handleCxThreadList(message, reply, ctx);
 			return true;
 		}
 

@@ -7,6 +7,7 @@ export type CxClientMessage =
 			type: "cx_list_threads";
 			cwd?: string;
 			cursor?: string | null;
+			before?: string;
 			limit?: number | null;
 			refresh?: boolean;
 			sourceKinds?: string[];

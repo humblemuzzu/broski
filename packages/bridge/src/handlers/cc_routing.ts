@@ -107,7 +107,6 @@ export const MODULE_TYPES = [
 export function register(router: MessageRouter, deps: ServerDeps): void {
 	registerLegacy(router, SESSION_OPS, ccSessions.handle, () => ({
 		claudeCode: deps.claudeCode,
-		mapClaudeCodeSessionToRuntimeSession: deps.mapClaudeCodeSessionToRuntimeSession,
 	}));
 	registerLegacy(router, SKILL_OPS, ccSkills.handle, () => ({
 		claudeCode: deps.claudeCode,

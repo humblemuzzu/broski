@@ -33,7 +33,7 @@ export type PiServerMessage =
 	| { type: "pi_models"; data: PiModelPayload[]; requestId?: string }
 	| { type: "pi_model_set"; data: PiModelPayload | null; isScoped?: boolean; requestId?: string }
 	| { type: "pi_thinking_level"; data: { level: string }; requestId?: string }
-	| { type: "pi_sessions"; data: PiSessionInfo[]; requestId?: string }
+	| { type: "pi_sessions"; data: PiSessionInfo[]; hasMore?: boolean; nextCursor?: string; requestId?: string }
 	| { type: "pi_projects"; data: ProjectSummary[]; requestId?: string }
 	| { type: "pi_session_created"; data: boolean; requestId?: string }
 	| { type: "pi_session_switched"; data: boolean; requestId?: string }

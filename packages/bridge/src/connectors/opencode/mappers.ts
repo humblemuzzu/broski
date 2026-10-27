@@ -1,6 +1,7 @@
 import { basename } from "node:path";
 import type { GlobalSession, Project, Session } from "@opencode-ai/sdk/v2";
 import type { ProjectSummary, PtySession, SessionSummary } from "../../types";
+import { slimSessionSummary } from "./session-summary";
 
 /**
  * Map LSP SymbolKind (number) to a human-readable string.
@@ -69,7 +70,7 @@ export function mapProject(project: Project): ProjectSummary {
 }
 
 export function mapSession(session: Session | GlobalSession): SessionSummary {
-	return {
+	return slimSessionSummary({
 		id: session.id,
 		slug: session.slug ?? undefined,
 		title: session.title,
@@ -90,5 +91,5 @@ export function mapSession(session: Session | GlobalSession): SessionSummary {
 						worktree: session.project.worktree,
 					}
 				: undefined,
-	};
+	});
 }

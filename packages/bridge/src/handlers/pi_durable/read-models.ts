@@ -4,6 +4,7 @@ import type { Cursor } from "@earendil-works/pi-durable";
 import type { PiDurableModelChoice, PiDurableSessionMeta } from "../../connectors/pi-durable";
 import type { PiDurableModelRef } from "../../types/pi-durable";
 import type { BroskiModelSummary, BroskiSessionSummary } from "../../types/runtime";
+import { sessionPreview } from "../../utils/session-preview";
 
 const THINKING_LEVELS: readonly ModelThinkingLevel[] = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
 
@@ -66,7 +67,7 @@ export function piDurableSessionSummaryOf(meta: PiDurableSessionMeta, isOpen: bo
 	return {
 		id: meta.id,
 		backend: "pi-durable",
-		title: meta.title?.trim() || basename(meta.cwd) || meta.id,
+		title: sessionPreview(meta.title?.trim() || basename(meta.cwd) || meta.id),
 		cwd: meta.cwd,
 		createdAtMs: meta.createdAtMs,
 		updatedAtMs: meta.updatedAtMs,

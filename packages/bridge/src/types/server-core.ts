@@ -7,6 +7,8 @@ export type CoreServerMessage =
 			type: "sessions";
 			data: SessionSummary[];
 			projectPath?: string;
+			hasMore?: boolean;
+			nextCursor?: string;
 			requestId?: string;
 	  }
 	| { type: "providers"; data: unknown; requestId?: string }

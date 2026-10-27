@@ -1,7 +1,11 @@
 import * as pi from "../connectors/pi";
 import type { Msg, PiMessage } from "../routing/messages";
+import type { PiSessionInfo } from "../types/pi";
 import type { PiHandlerContext } from "./pi_message_helpers";
 import { emitPiRuntimeState, ensureStreamBridge } from "./pi_stream_bridge";
+import { sessionListReply } from "./session_list_reply";
+
+const piSessionRow = (session: PiSessionInfo) => ({ id: session.id, modified: session.modified });
 
 async function handleGetState(message: Msg<"pi_get_state">, ctx: PiHandlerContext): Promise<void> {
 	await ensureStreamBridge(ctx.cwd, ctx.broadcast);
@@ -18,12 +22,11 @@ async function handleListSessions(message: Msg<"pi_list_sessions">, ctx: PiHandl
 		await ensureStreamBridge(existingCwd, ctx.broadcast, true);
 	}
 	const sessions = await pi.listSessions(ctx.optionalCwd);
-	ctx.reply({ type: "pi_sessions", data: sessions, requestId: message.requestId });
-	// NOTE: Do NOT broadcast runtime_sessions here. Flutter's runtimeSessions
-	// stream would pick it up, triggering a piSessionsProvider invalidation,
-	// which fires another pi_list_sessions — creating an infinite polling loop.
-	// Real-time updates are handled by broadcastPiRuntimeSessions() on actual
-	// state changes (agent-end, new session, etc.).
+	ctx.reply({
+		type: "pi_sessions",
+		...sessionListReply(sessions, message, piSessionRow),
+		requestId: message.requestId,
+	});
 }
 
 async function handleListProjects(message: Msg<"pi_list_projects">, ctx: PiHandlerContext): Promise<void> {

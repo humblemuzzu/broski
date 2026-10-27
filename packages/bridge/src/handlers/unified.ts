@@ -13,8 +13,10 @@ import type { UnifiedMessage } from "../routing/messages";
 import { registerLegacy } from "../routing/registry";
 import type { MessageRouter, ServerDeps } from "../routing/types";
 import type { BroskiBackend } from "../types/runtime";
+import type { CxThreadListContext } from "./codex/cx_thread_list";
 import { handleUnified as handlePiDurableUnified } from "./pi_durable";
 import { listPiSkills, setPiModel } from "./unified_pi";
+import { unifiedListSessions } from "./unified_session_lists";
 
 type Reply = (msg: any) => void;
 
@@ -32,13 +34,14 @@ export type UnifiedContext = {
 	}>;
 	requireOpenCode: () => {
 		listProjects: () => Promise<any[]>;
-		listSessions: (dir?: string, opts?: any) => Promise<any[]>;
+		listSessions: (dir?: string, opts?: { roots?: boolean; limit?: number }) => Promise<any[]>;
 		deleteSession: (sessionId: string, dir?: string) => Promise<boolean>;
 		abortSession: (sessionId: string, dir?: string) => Promise<boolean>;
 		listAllProviders: (dir?: string) => Promise<any>;
 		updateModel: (model: string, dir?: string) => Promise<any>;
 	} | null;
 	log: (...args: any[]) => void;
+	codex: CxThreadListContext;
 };
 
 const UNIFIED_OPS = [
@@ -59,6 +62,16 @@ export function register(router: MessageRouter, deps: ServerDeps): void {
 		ensureCodexClient: deps.ensureCodexClient,
 		requireOpenCode: deps.requireOpenCodeOrNull,
 		log: deps.logInfo,
+		codex: {
+			codexClient: deps.codexClient,
+			ensureCodexClient: deps.ensureCodexClient,
+			codexFs: deps.codexFs,
+			logInfo: deps.logInfo,
+			logError: deps.logError,
+			cxThreadCache: deps.cxThreadCache,
+			CODEX_THREAD_CACHE_TTL_MS: deps.CODEX_THREAD_CACHE_TTL_MS,
+			cxThreadNames: deps.cxThreadNames,
+		},
 	}));
 }
 
@@ -67,47 +80,11 @@ export async function handle(message: UnifiedMessage, reply: Reply, ctx: Unified
 	switch (message.type) {
 		// ── unified_list_sessions ─────────────────────────────────────────
 		case "unified_list_sessions": {
-			const backend: BroskiBackend = message.backend;
-			let data: unknown[] = [];
-			switch (backend) {
-				case "claude-code":
-					data = await ctx.claudeCode.listSessions(message.cwd);
-					break;
-				case "codex": {
-					try {
-						const client = await ctx.ensureCodexClient();
-						const result: any = await client.request("thread/list", {
-							...(message.cwd ? { cwd: message.cwd } : {}),
-							limit: 200,
-						});
-						data = result?.data ?? [];
-					} catch {
-						data = [];
-					}
-					break;
-				}
-				case "opencode": {
-					try {
-						const oc = ctx.requireOpenCode();
-						// Default `roots: true` so the main sessions list does NOT include
-						// subagent child sessions at the top level. Children are surfaced
-						// separately via unified_list_session_children when the user
-						// expands a parent row. Callers can still override with
-						// explicit `roots: false` to get the flat listing.
-						const rootsFilter = message.roots ?? true;
-						data = oc ? await oc.listSessions(message.cwd, { roots: rootsFilter }) : [];
-					} catch {
-						data = [];
-					}
-					break;
-				}
-				case "pi": {
-					const piMod = await import("../connectors/pi");
-					data = await piMod.listSessions(message.cwd);
-					break;
-				}
-			}
-			reply({ type: "unified_sessions", backend, data, requestId: message.requestId });
+			await unifiedListSessions(message, reply, {
+				claudeCode: ctx.claudeCode,
+				requireOpenCode: ctx.requireOpenCode,
+				codex: ctx.codex,
+			});
 			return true;
 		}
 

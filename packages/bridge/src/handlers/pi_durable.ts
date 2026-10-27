@@ -8,6 +8,7 @@ import * as ops from "./pi_durable/ops";
 import { parsePiDurableModelRef, parsePiDurableThinkingLevel } from "./pi_durable/read-models";
 import { attachPiDurableView, closePiDurableViews, detachPiDurableView, piDurableViewOf } from "./pi_durable/view";
 import { parseImageInputs } from "./pi_message_helpers";
+import { sessionListReply } from "./session_list_reply";
 import { listPiDurableSkills } from "./unified_pi";
 
 export { piDurableAvailability };
@@ -115,8 +116,13 @@ async function unifiedListSessions(
 	reply: Reply,
 	deps: PiDurableDeps,
 ): Promise<void> {
-	const data = await ops.listSessions(deps, stringField(message, "cwd"));
-	reply({ type: "unified_sessions", backend: "pi-durable", data, requestId });
+	const sessions = await ops.listSessions(deps, stringField(message, "cwd"));
+	reply({
+		type: "unified_sessions",
+		backend: "pi-durable",
+		...sessionListReply(sessions, message, (session) => ({ id: session.id, modified: session.updatedAtMs })),
+		requestId,
+	});
 }
 
 async function unifiedListProjects(requestId: string | undefined, reply: Reply, deps: PiDurableDeps): Promise<void> {

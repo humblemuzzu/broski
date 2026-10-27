@@ -8,6 +8,7 @@
 
 import { FileFingerprintCache } from "../../utils/file-fingerprint-cache";
 import { readJsonlHead } from "../../utils/jsonl-lines";
+import { sessionPreview } from "../../utils/session-preview";
 import { isInjectedUserContent } from "./cx-injected-user-content";
 
 export type RolloutHead = {
@@ -88,7 +89,7 @@ function promptFromContent(content: unknown): string | undefined {
 		if (!text) continue;
 		if (isInjectedUserContent(text)) continue;
 		const prompt = extractUserPrompt(text);
-		if (prompt) return prompt.slice(0, 300);
+		if (prompt) return sessionPreview(prompt);
 	}
 	return undefined;
 }
@@ -99,7 +100,7 @@ function previewFromRecord(record: Record<string, unknown> | null): string | und
 	if (record.type === "event_msg" && payload.type === "user_message" && typeof payload.message === "string") {
 		if (isInjectedUserContent(payload.message)) return undefined;
 		const prompt = extractUserPrompt(payload.message);
-		return prompt ? prompt.slice(0, 300) : undefined;
+		return prompt ? sessionPreview(prompt) : undefined;
 	}
 	if (record.type === "response_item" && payload.role === "user") {
 		return promptFromContent(payload.content);

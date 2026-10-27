@@ -6,6 +6,7 @@ import type {
 	BroskiRuntimeState,
 	BroskiSessionSummary,
 } from "../types/runtime";
+import { sessionPreview } from "../utils/session-preview";
 
 const piRuntimeCapabilities: BroskiRuntimeCapabilities = {
 	canStreamText: true,
@@ -26,10 +27,10 @@ const piRuntimeCapabilities: BroskiRuntimeCapabilities = {
 
 const pickSessionTitle = (session: PiSessionInfo): string => {
 	const name = session.name?.trim();
-	if (name) return name;
+	if (name) return sessionPreview(name);
 
 	const firstMessage = session.firstMessage.trim();
-	if (firstMessage) return firstMessage;
+	if (firstMessage) return sessionPreview(firstMessage);
 
 	return session.id;
 };
@@ -77,29 +78,30 @@ export function mapPiStateToRuntimeState(piState: PiStatePayload): BroskiRuntime
 	};
 }
 
-/**
- * Derive a stable session ID from a Pi session file path.
- * Pi uses file paths for parent links, but we need IDs for the unified model.
- */
-function piPathToSessionId(sessions: PiSessionInfo[], parentPath: string): string | undefined {
-	const match = sessions.find((s) => s.path === parentPath);
-	return match?.id;
+/** The parent and child relations a whole listing implies, built once for every row of it. */
+type PiSessionRelations = { idByPath: Map<string, string>; childCountByPath: Map<string, number> };
+
+function relationsOf(sessions: readonly PiSessionInfo[]): PiSessionRelations {
+	const idByPath = new Map<string, string>();
+	const childCountByPath = new Map<string, number>();
+	for (const session of sessions) {
+		idByPath.set(session.path, session.id);
+		const parentPath = session.parentSessionPath;
+		if (parentPath) childCountByPath.set(parentPath, (childCountByPath.get(parentPath) ?? 0) + 1);
+	}
+	return { idByPath, childCountByPath };
 }
 
-export function mapPiSessionToRuntimeSession(
+function summaryOf(
 	session: PiSessionInfo,
-	allSessions?: PiSessionInfo[],
+	relations: PiSessionRelations | undefined,
+	isActive: boolean,
 ): BroskiSessionSummary {
-	const hasParent = !!session.parentSessionPath;
-	const parentId = hasParent && allSessions ? piPathToSessionId(allSessions, session.parentSessionPath!) : undefined;
-
-	// Count children: handoff sessions + tool-based subagent invocations
-	const handoffChildCount = allSessions ? allSessions.filter((s) => s.parentSessionPath === session.path).length : 0;
-	const toolChildCount = session.subagentToolCount ?? 0;
-	const childCount = handoffChildCount + toolChildCount;
-
-	// Pi parentSession comes from handoff continuations or forks
-	const sessionKind = hasParent ? "handoff" : "root";
+	const parentSessionPath = session.parentSessionPath;
+	const parentId = parentSessionPath ? relations?.idByPath.get(parentSessionPath) : undefined;
+	const childCount =
+		(relations && parentSessionPath ? (relations.childCountByPath.get(session.path) ?? 0) : 0) +
+		(session.subagentToolCount ?? 0);
 
 	return {
 		id: session.id,
@@ -108,37 +110,46 @@ export function mapPiSessionToRuntimeSession(
 		cwd: session.cwd,
 		createdAtMs: session.created,
 		updatedAtMs: session.modified,
+		...(isActive ? { isActive: true } : {}),
 		...(session.summary ? { summary: session.summary } : {}),
 		...(parentId ? { parentSessionId: parentId } : {}),
 		...(childCount > 0 ? { childSessionCount: childCount } : {}),
-		sessionKind,
-		...(hasParent ? { subagentType: "handoff" } : {}),
+		sessionKind: parentSessionPath ? "handoff" : "root",
+		...(parentSessionPath ? { subagentType: "handoff" } : {}),
 		backendData: {
 			path: session.path,
-			parentSessionPath: session.parentSessionPath,
+			parentSessionPath,
 			messageCount: session.messageCount,
-			firstMessage: session.firstMessage,
 		},
 	};
 }
 
+/** One row, with its parent and child counts read off [sessions] when the caller has the listing. */
+export function mapPiSessionToRuntimeSession(
+	session: PiSessionInfo,
+	sessions?: readonly PiSessionInfo[],
+): BroskiSessionSummary {
+	return summaryOf(session, sessions ? relationsOf(sessions) : undefined, false);
+}
+
+function activeSessionKeys(activeStates: readonly PiActiveRuntimeState[]): Set<string> {
+	return new Set(
+		activeStates
+			.filter(
+				({ state }) => state.isStreaming || state.isCompacting || state.isRetrying || state.pendingMessageCount > 0,
+			)
+			.flatMap(({ cwd, state }) => {
+				const sessionId = state.sessionId.trim();
+				return sessionId ? [`${sessionId}::${cwd}`] : [];
+			}),
+	);
+}
+
 export function mapPiSessionsToRuntimeSessions(
-	sessions: PiSessionInfo[],
-	activeStates: PiActiveRuntimeState[] = [],
+	sessions: readonly PiSessionInfo[],
+	activeStates: readonly PiActiveRuntimeState[] = [],
 ): BroskiSessionSummary[] {
-	const activeKeys = activeStates
-		.filter(({ state }) => state.isStreaming || state.isCompacting || state.isRetrying || state.pendingMessageCount > 0)
-		.flatMap(({ cwd, state }) => {
-			const sessionId = state.sessionId.trim();
-			if (!sessionId) return [];
-			return [`${sessionId}::${cwd}`];
-		});
-
-	const activeKeySet = new Set(activeKeys);
-
-	return sessions.map((session) => {
-		const summary = mapPiSessionToRuntimeSession(session, sessions);
-		const sessionKey = `${session.id}::${session.cwd}`;
-		return activeKeySet.has(sessionKey) ? { ...summary, isActive: true } : summary;
-	});
+	const relations = relationsOf(sessions);
+	const active = activeSessionKeys(activeStates);
+	return sessions.map((session) => summaryOf(session, relations, active.has(`${session.id}::${session.cwd}`)));
 }

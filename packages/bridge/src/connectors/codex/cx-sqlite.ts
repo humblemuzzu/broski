@@ -17,6 +17,7 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import type { CodexThread, ProjectSummary } from "../../types";
+import { sessionPreview } from "../../utils/session-preview";
 
 // ---------------------------------------------------------------------------
 // DB location
@@ -79,7 +80,9 @@ function mapThreadRow(row: DbRow): CodexThread {
 	return {
 		id: str(row.id),
 		preview:
-			str(row.first_user_message).slice(0, 300) || str(row.title).slice(0, 300) || `Thread ${str(row.id).slice(0, 8)}`,
+			sessionPreview(str(row.first_user_message)) ||
+			sessionPreview(str(row.title)) ||
+			`Thread ${str(row.id).slice(0, 8)}`,
 		modelProvider: strOrUndefined(row.model_provider as string),
 		createdAt: num(row.created_at),
 		updatedAt: num(row.updated_at) || num(row.created_at),
@@ -95,6 +98,9 @@ function mapThreadRow(row: DbRow): CodexThread {
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
+
+/** Threads one unpaged listing returns; 0 in `limit` reads every row. */
+export const DEFAULT_CX_THREAD_LIMIT = 200;
 
 export type CxSqliteListOptions = {
 	cwd?: string;
@@ -165,7 +171,7 @@ export function listThreadsFromDb(options?: CxSqliteListOptions, dbPath?: string
 
 		const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 		const sortCol = options?.sortKey === "created_at" ? "created_at" : "updated_at";
-		const limit = options?.limit ?? 200;
+		const limit = options?.limit ?? DEFAULT_CX_THREAD_LIMIT;
 
 		const sql = `
       SELECT id, rollout_path, created_at, updated_at, source, model_provider,
@@ -174,9 +180,9 @@ export function listThreadsFromDb(options?: CxSqliteListOptions, dbPath?: string
       FROM threads
       ${where}
       ORDER BY ${sortCol} DESC
-      LIMIT ?
+      ${limit > 0 ? "LIMIT ?" : ""}
     `;
-		params.push(limit);
+		if (limit > 0) params.push(limit);
 
 		const rows = db.query(sql).all(...params) as DbRow[];
 		return rows.map(mapThreadRow);

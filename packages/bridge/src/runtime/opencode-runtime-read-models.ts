@@ -5,6 +5,7 @@ import type {
 	BroskiRuntimeState,
 	BroskiSessionSummary,
 } from "../types/runtime";
+import { sessionPreview } from "../utils/session-preview";
 import { normalizeTimestampMs } from "./shared";
 
 const openCodeRuntimeCapabilities: BroskiRuntimeCapabilities = {
@@ -46,7 +47,7 @@ export function mapOpenCodeSessionToRuntimeSession(session: SessionSummary): Bro
 	return {
 		id: session.id,
 		backend: "opencode",
-		title: session.title.trim() || session.id,
+		title: sessionPreview(session.title.trim() || session.id),
 		cwd: session.directory,
 		createdAtMs: normalizeTimestampMs(session.time.created),
 		updatedAtMs: normalizeTimestampMs(session.time.updated),

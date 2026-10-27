@@ -5,6 +5,7 @@ import type {
 	BroskiRuntimeState,
 	BroskiSessionSummary,
 } from "../types/runtime";
+import { sessionPreview } from "../utils/session-preview";
 import { normalizeTimestampMs } from "./shared";
 
 export const claudeCodeRuntimeCapabilities: BroskiRuntimeCapabilities = {
@@ -55,7 +56,7 @@ export function mapClaudeCodeSessionToRuntimeSession(session: ClaudeCodeSession)
 	return {
 		id: session.id,
 		backend: "claude-code",
-		title: session.title?.trim() || session.id,
+		title: sessionPreview(session.title?.trim() || session.id),
 		cwd: session.cwd,
 		createdAtMs: normalizeTimestampMs(session.createdAt),
 		updatedAtMs: normalizeTimestampMs(session.updatedAt),

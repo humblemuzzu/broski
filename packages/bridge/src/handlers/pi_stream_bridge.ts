@@ -3,7 +3,7 @@ import { normalizeCwd } from "../connectors/pi/pi-cwd";
 import { mapPiStreamToRuntimeEvent } from "../runtime/pi-runtime-event-mapper";
 import {
 	mapPiModelToSummary,
-	mapPiSessionsToRuntimeSessions,
+	mapPiSessionToRuntimeSession,
 	mapPiStateToRuntimeState,
 } from "../runtime/pi-runtime-read-models";
 import { registerSweepable } from "../state/bounded-map";
@@ -99,17 +99,22 @@ export function emitPiRuntimeModels(reply: Reply, models: PiModelPayload[]): voi
 	});
 }
 
-export async function broadcastPiRuntimeSessions(broadcast: Broadcast): Promise<void> {
+/** One session changed: the app upserts that row instead of re-reading the whole list. */
+export async function broadcastPiSessionDelta(broadcast: Broadcast, cwd: string, sessionId: string): Promise<void> {
 	try {
-		const sessions = await pi.listSessions(undefined);
-		const summaries = mapPiSessionsToRuntimeSessions(sessions, pi.listActiveRuntimeStates());
+		const sessions = await pi.listSessions(cwd);
+		const session = sessions.find((candidate) => candidate.id === sessionId);
+		if (!session) {
+			broadcast({ type: "runtime_session_removed", backend: "pi", sessionId });
+			return;
+		}
 		broadcast({
-			type: "runtime_sessions",
+			type: "runtime_session_updated",
 			backend: "pi",
-			data: summaries,
+			session: mapPiSessionToRuntimeSession(session, sessions),
 		});
 	} catch {
-		// Non-critical — don't crash on broadcast failures
+		// A delta the app never got is a stale row, not a broken session.
 	}
 }
 
@@ -145,7 +150,7 @@ export async function ensureStreamBridge(cwd: string, broadcast: Broadcast, forc
 		if (isPiStateChangingEvent(streamMessage)) {
 			const state = pi.mapStatePayload(liveInstance);
 			broadcastPiRuntimeState(broadcast, cwd, state);
-			void broadcastPiRuntimeSessions(broadcast);
+			void broadcastPiSessionDelta(broadcast, cwd, liveInstance.session.sessionId);
 		}
 	});
 

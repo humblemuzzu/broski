@@ -7,6 +7,7 @@ export type OcClientMessage =
 			roots?: boolean;
 			start?: number;
 			cursor?: number;
+			before?: string;
 			search?: string;
 			limit?: number;
 			archived?: boolean;

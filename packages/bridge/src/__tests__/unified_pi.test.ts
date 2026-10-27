@@ -68,6 +68,16 @@ const unifiedContext: UnifiedContext = {
 	ensureCodexClient: unused,
 	requireOpenCode: () => null,
 	log: () => {},
+	codex: {
+		codexClient: null,
+		ensureCodexClient: unused,
+		codexFs: { listThreadsFromFs: unused, enrichThreadsWithStats: unused },
+		logInfo: () => {},
+		logError: () => {},
+		cxThreadCache: new Map(),
+		CODEX_THREAD_CACHE_TTL_MS: 0,
+		cxThreadNames: new Map(),
+	},
 };
 
 async function callUnified(message: UnifiedMessage): Promise<ServerMessage[]> {

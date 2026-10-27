@@ -22,7 +22,13 @@ import type { ProjectSummary } from "./session";
 
 export type CcServerMessage =
 	| { type: "cc_projects"; data: ProjectSummary[]; requestId?: string }
-	| { type: "cc_sessions"; data: ClaudeCodeSession[]; requestId?: string }
+	| {
+			type: "cc_sessions";
+			data: ClaudeCodeSession[];
+			hasMore?: boolean;
+			nextCursor?: string;
+			requestId?: string;
+	  }
 	| { type: "cc_session"; data: ClaudeCodeSession; requestId?: string }
 	| {
 			type: "cc_session_deleted";

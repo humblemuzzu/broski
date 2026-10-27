@@ -6,6 +6,7 @@ import type {
 	BroskiRuntimeState,
 	BroskiSessionSummary,
 } from "../types/runtime";
+import { sessionPreview } from "../utils/session-preview";
 import { normalizeTimestampMs } from "./shared";
 
 export const codexRuntimeCapabilities: BroskiRuntimeCapabilities = {
@@ -44,7 +45,7 @@ export function mapCodexThreadToRuntimeSession(thread: CodexThread & { threadNam
 	return {
 		id: thread.id,
 		backend: "codex",
-		title: thread.threadName?.trim() || thread.preview.trim() || thread.id,
+		title: sessionPreview(thread.threadName?.trim() || thread.preview.trim() || thread.id),
 		cwd: thread.cwd,
 		createdAtMs: normalizeTimestampMs(thread.createdAt),
 		updatedAtMs: normalizeTimestampMs(thread.updatedAt),

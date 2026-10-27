@@ -24,18 +24,10 @@ describe("OpenCodeConnector sessions", () => {
 		expect(first).toEqual([
 			{
 				id: "ses_1",
-				slug: "happy-otter",
 				title: "Hello",
 				projectID: "proj_1",
-				workspaceID: "ws_1",
 				directory: "/repo",
-				parentID: undefined,
 				time: { created: 1, updated: 2 },
-				summary: undefined,
-				share: undefined,
-				revert: undefined,
-				permission: undefined,
-				project: undefined,
 			},
 		]);
 		expect(second).toEqual(first);

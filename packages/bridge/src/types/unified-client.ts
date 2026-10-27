@@ -3,7 +3,15 @@ import type { BroskiBackend } from "./runtime";
 export type UnifiedClientMessage =
 	// ── Phase 4: Unified request messages ──────────────────────────────────────
 	// These replace per-agent duplicates. Old messages still work for backward compat.
-	| { type: "unified_list_sessions"; backend: BroskiBackend; cwd?: string; roots?: boolean; requestId?: string }
+	| {
+			type: "unified_list_sessions";
+			backend: BroskiBackend;
+			cwd?: string;
+			roots?: boolean;
+			limit?: number;
+			before?: string;
+			requestId?: string;
+	  }
 	| { type: "unified_abort"; backend: BroskiBackend; sessionId?: string; cwd?: string; requestId?: string }
 	| { type: "unified_list_models"; backend: BroskiBackend; cwd?: string; requestId?: string }
 	| {

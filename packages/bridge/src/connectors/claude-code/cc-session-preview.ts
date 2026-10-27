@@ -8,6 +8,7 @@
 
 import { FileFingerprintCache } from "../../utils/file-fingerprint-cache";
 import { readJsonlHead } from "../../utils/jsonl-lines";
+import { sessionPreview } from "../../utils/session-preview";
 import {
 	type ClaudeTranscriptLine,
 	extractFirstTextContent,
@@ -84,8 +85,11 @@ function applyPreviewLine(state: PreviewState, parsed: ClaudeTranscriptLine): vo
 		?.trim();
 }
 
+/** 77 characters plus the ellipsis: the 80-character title budget a list row has. */
+export const CC_SESSION_TITLE_MAX_CHARS = 78;
+
 function finalizePreview(state: PreviewState): SessionPreview {
-	if (state.title && state.title.length > 80) state.title = `${state.title.slice(0, 77)}…`;
+	if (state.title) state.title = sessionPreview(state.title, CC_SESSION_TITLE_MAX_CHARS);
 
 	const titleHint = (state.title || "").toLowerCase();
 	if (!state.isBackground) {

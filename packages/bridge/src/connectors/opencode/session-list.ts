@@ -1,5 +1,6 @@
 import type { GlobalSession, OpencodeClient, Session } from "@opencode-ai/sdk/v2";
 import type { SessionSummary } from "../../types";
+import { mapSession } from "./mappers";
 
 export type OpenCodeSessionListOptions = {
 	roots?: boolean;
@@ -97,26 +98,4 @@ export async function listOpenCodeSessionsInternal(args: {
 		.sort((a: SessionSummary, b: SessionSummary) => (b.time?.updated ?? 0) - (a.time?.updated ?? 0));
 }
 
-function mapGlobalSession(session: GlobalSession): SessionSummary {
-	return {
-		id: session.id,
-		slug: session.slug || undefined,
-		title: session.title,
-		projectID: session.projectID,
-		workspaceID: session.workspaceID,
-		directory: session.directory,
-		parentID: session.parentID,
-		time: session.time,
-		summary: session.summary,
-		share: session.share,
-		revert: session.revert ?? undefined,
-		permission: session.permission ?? undefined,
-		project: session.project
-			? {
-					id: session.project.id,
-					name: session.project.name,
-					worktree: session.project.worktree,
-				}
-			: undefined,
-	};
-}
+const mapGlobalSession = (session: GlobalSession): SessionSummary => mapSession(session);

@@ -22,6 +22,7 @@ export type CxServerMessage =
 			type: "cx_threads";
 			data: CodexThread[];
 			nextCursor?: string | null;
+			hasMore?: boolean;
 			requestId?: string;
 	  }
 	| {

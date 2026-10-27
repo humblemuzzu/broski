@@ -1,12 +1,12 @@
 import { readCcTranscriptPage } from "../connectors/claude-code/cc-transcript";
 import type { ClaudeCodeSession, ClaudeCodeTranscriptMessage, ProjectSummary, ServerMessage } from "../types";
-import type { BroskiSessionSummary } from "../types/runtime";
 import {
 	DEFAULT_TRANSCRIPT_PAGE_LIMIT,
 	transcriptCursor,
 	transcriptPageFields,
 	transcriptPageLimit,
 } from "../types/transcript-page";
+import { sessionListReply } from "./session_list_reply";
 import type { ModifiedFileEntry } from "./session-stats";
 
 type ReplyFn = (msg: ServerMessage) => void;
@@ -24,7 +24,6 @@ type HandlerContext = {
 		resolveSessionFilePath: (sessionId: string, cwd?: string) => Promise<string | null>;
 		getModifiedFiles: (sessionId: string, cwd?: string) => Promise<ModifiedFileEntry[]>;
 	};
-	mapClaudeCodeSessionToRuntimeSession: (session: ClaudeCodeSession) => BroskiSessionSummary;
 };
 
 export async function handle(message: Record<string, unknown>, reply: ReplyFn, ctx: HandlerContext): Promise<boolean> {
@@ -37,11 +36,12 @@ export async function handle(message: Record<string, unknown>, reply: ReplyFn, c
 		}
 		case "cc_list_sessions": {
 			const sessions = await ctx.claudeCode.listSessions(message.cwd as string | undefined);
-			reply({ type: "cc_sessions", data: sessions });
 			reply({
-				type: "runtime_sessions",
-				backend: "claude-code",
-				data: sessions.map(ctx.mapClaudeCodeSessionToRuntimeSession),
+				type: "cc_sessions",
+				...sessionListReply(sessions, message, (session: ClaudeCodeSession) => ({
+					id: session.id,
+					modified: session.updatedAt,
+				})),
 			});
 			return true;
 		}
