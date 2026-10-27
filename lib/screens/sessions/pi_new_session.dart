@@ -1,4 +1,3 @@
-import 'package:broski/models/project.dart';
 import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/design_tokens.dart';
@@ -20,26 +19,15 @@ class PiNewSessionContent extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final ocTheme = OpenCodeTheme.of(context);
     final piProjectsLiveAsync = ref.watch(piProjectsForSessionsProvider);
-    final piSessionProjectsAsync = ref.watch(piFilterProjectsProvider);
 
-    // Merge bridge-discovered Pi projects + session-derived Pi projects (deduped)
     final liveProjects = piProjectsLiveAsync.valueOrNull ?? const [];
-    final sessionProjects = piSessionProjectsAsync.valueOrNull ?? const [];
-    final isLoading =
-        piProjectsLiveAsync.isLoading && piSessionProjectsAsync.isLoading;
+    final isLoading = piProjectsLiveAsync.isLoading;
 
-    final byPath = <String, ProjectSummary>{};
-    for (final p in liveProjects) {
-      byPath[p.path] = p;
-    }
-    for (final p in sessionProjects) {
-      byPath.putIfAbsent(p.path, () => p);
-    }
-    final allProjects = byPath.values.toList()
+    final allProjects = liveProjects.toList()
       ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 
-    // Separate: projects that already have Pi sessions vs fresh projects
-    final piPaths = sessionProjects.map((p) => p.path).toSet();
+    // Pi's project list is the one Pi already has sessions in, plus the app's own projects.
+    final piPaths = liveProjects.map((p) => p.path).toSet();
     final piActiveProjects = allProjects
         .where((p) => piPaths.contains(p.path))
         .toList();

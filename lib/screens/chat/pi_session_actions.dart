@@ -50,7 +50,7 @@ Future<void> piNewSession({
               : null,
           thinkingLevel: piState.thinkingLevel,
         );
-    ref.invalidate(piSessionsProvider(null));
+    ref.read(piSessionsProvider(null).notifier).refresh();
     if (context.mounted) {
       showInfo(context, 'New session created');
     }
@@ -97,7 +97,7 @@ Future<void> forkPiSessionFromEntry({
     if (!context.mounted) return;
     if (!result.cancelled) {
       ref.invalidate(piStateProvider(chatState.piCwd));
-      ref.invalidate(piSessionsProvider(null));
+      ref.read(piSessionsProvider(null).notifier).refresh();
       showInfo(context, 'Session forked');
     }
   } catch (e) {

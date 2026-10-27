@@ -23,6 +23,7 @@ import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:broski/widgets/sessions/cc_highlighted_card.dart';
 import 'package:broski/widgets/sessions/cc_session_card.dart';
 import 'package:broski/widgets/sessions/session_helpers.dart';
+import 'package:broski/widgets/sessions/session_list_states.dart';
 import 'package:broski/widgets/sessions/sessions_search_bar.dart';
 import 'package:broski/widgets/sessions/sort_chip.dart';
 import 'package:flutter/material.dart';
@@ -613,7 +614,7 @@ class ClaudeCodeSessionsViewState
   Widget build(BuildContext context) {
     final sessionsAsync = ref.watch(ccSessionsProvider);
     final filterCwd = ref.watch(ccSessionsFilterCwdProvider);
-    final ccFilterProjects = ref.watch(ccFilterProjectsProvider);
+    final ccFilterProjects = ref.watch(ccProjectsForSessionsProvider);
     final expandedProjects = ref.watch(ccProjectExpandedProvider);
     final ocTheme = OpenCodeTheme.of(context);
     final highlights = ref.watch(highlightsProvider);
@@ -626,6 +627,7 @@ class ClaudeCodeSessionsViewState
       projects: ccFilterProjects,
     );
     final theme = Theme.of(context);
+    final sessionsNotifier = ref.read(ccSessionsProvider.notifier);
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SafeArea(
@@ -635,457 +637,456 @@ class ClaudeCodeSessionsViewState
             onRefresh: _refresh,
             color: theme.colorScheme.primary,
             backgroundColor: theme.colorScheme.surface,
-            child: CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                // Active sessions (busy/retry) - parity with OpenCode
-                SliverToBoxAdapter(
-                  child: CCActiveSessionsSection(onSessionTap: _openSession),
-                ),
-                // Header
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                'Sessions',
-                                style: TextStyle(
-                                  color: ocTheme.text,
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: () => showNewCCSessionSheet(context),
-                              icon: Icon(AppIcons.add, color: ocTheme.text),
-                              tooltip: 'New session',
-                            ),
-                            IconButton(
-                              onPressed: _refresh,
-                              icon: Icon(
-                                AppIcons.refresh,
-                                color: ocTheme.textMuted,
-                              ),
-                              tooltip: 'Refresh',
-                            ),
-                            // Claude Code badge
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: ocTheme.accent.withValues(alpha: 0.15),
-                                borderRadius: Radii.brMd,
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    AppIcons.terminal,
-                                    size: 14,
-                                    color: ocTheme.accent,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Claude Code',
-                                    style: TextStyle(
-                                      color: ocTheme.accent,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: Spacing.sm),
-                        Text(
-                          'Claude Code sessions from ~/.claude',
-                          style: TextStyle(
-                            color: ocTheme.textMuted,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
+            child: SessionListScrollTrigger(
+              onNearBottom: () => unawaited(sessionsNotifier.loadMore()),
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  // Active sessions (busy/retry) - parity with OpenCode
+                  SliverToBoxAdapter(
+                    child: CCActiveSessionsSection(onSessionTap: _openSession),
+                  ),
+                  // Header
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
                             children: [
-                              FilterChipButton(
-                                label: label,
-                                onTap: () => showProjectFilter(
-                                  context: context,
-                                  theme: theme,
-                                  selectedPath: filterCwd,
-                                  projectsProvider: ccFilterProjectsProvider,
-                                  onSelected: (path) {
-                                    ref
-                                            .read(
-                                              ccSessionsFilterCwdProvider
-                                                  .notifier,
-                                            )
-                                            .state =
-                                        path;
-                                    ref
-                                        .read(ccSessionsProvider.notifier)
-                                        .load();
-                                  },
+                              Expanded(
+                                child: Text(
+                                  'Sessions',
+                                  style: TextStyle(
+                                    color: ocTheme.text,
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                               ),
-                              const SizedBox(width: Spacing.sm),
-                              TitleFiltersChip(
-                                count: titleFilterCount,
-                                onTap: () => _showTitleFiltersSheet(context),
+                              IconButton(
+                                onPressed: () => showNewCCSessionSheet(context),
+                                icon: Icon(AppIcons.add, color: ocTheme.text),
+                                tooltip: 'New session',
                               ),
-                              const SizedBox(width: Spacing.sm),
-                              SortChip(
-                                sortBy: _sortBy,
-                                onChanged: (value) {
-                                  setState(() => _sortBy = value);
-                                },
+                              IconButton(
+                                onPressed: _refresh,
+                                icon: Icon(
+                                  AppIcons.refresh,
+                                  color: ocTheme.textMuted,
+                                ),
+                                tooltip: 'Refresh',
                               ),
-                              // Subagent sessions filter
-                              Builder(
-                                builder: (context) {
-                                  final allSessions =
-                                      ref
-                                          .watch(ccSessionsProvider)
-                                          .valueOrNull ??
-                                      const <ClaudeCodeSession>[];
-                                  final subagentCount = allSessions
-                                      .where((s) => s.isSubagentSession)
-                                      .length;
-                                  if (subagentCount == 0) {
-                                    return const SizedBox.shrink();
-                                  }
-                                  return Padding(
-                                    padding: const EdgeInsets.only(
-                                      left: Spacing.sm,
+                              // Claude Code badge
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: ocTheme.accent.withValues(alpha: 0.15),
+                                  borderRadius: Radii.brMd,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      AppIcons.terminal,
+                                      size: 14,
+                                      color: ocTheme.accent,
                                     ),
-                                    child: BackgroundTasksChip(
-                                      count: subagentCount,
-                                      isExpanded: _showSubagentSessions,
-                                      onTap: () => setState(() {
-                                        _showSubagentSessions =
-                                            !_showSubagentSessions;
-                                        if (!_showSubagentSessions) {
-                                          _expandedParents.clear();
-                                        }
-                                      }),
-                                      onLongPress: () =>
-                                          ref
-                                                  .read(
-                                                    showTasksTabProvider
-                                                        .notifier,
-                                                  )
-                                                  .state =
-                                              true,
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Claude Code',
+                                      style: TextStyle(
+                                        color: ocTheme.accent,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
-                                  );
-                                },
+                                  ],
+                                ),
                               ),
                             ],
                           ),
-                        ),
-                        const SizedBox(height: Spacing.md),
-                        SessionsSearchBar(
-                          controller: _searchController,
-                          onChanged: _onSearchChanged,
-                          hintText: 'Search Claude Code sessions...',
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                // Sessions list
-                ...sessionsAsync.when(
-                  loading: () => [
-                    const SliverToBoxAdapter(child: DelayedSkeletonList()),
-                  ],
-                  error: (error, _) => [
-                    SliverFillRemaining(
-                      child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              AppIcons.error,
-                              color: ocTheme.error,
-                              size: 48,
-                            ),
-                            const SizedBox(height: Spacing.lg),
-                            Text(
-                              'Failed to load sessions',
-                              style: TextStyle(
-                                color: ocTheme.text,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: Spacing.sm),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                              ),
-                              child: Text(
-                                humanizeError(error),
-                                style: TextStyle(
-                                  color: ocTheme.textMuted,
-                                  fontSize: 14,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                  data: (sessions) {
-                    if (sessions.isEmpty) {
-                      return [const SliverFillRemaining(child: CCEmptyState())];
-                    }
-                    final titleFilters = ref.watch(
-                      sessionsTitleExcludeFiltersProvider(AgentType.claudeCode),
-                    );
-                    // Filter by project, title, search — but keep ALL sessions for grouping
-                    final filtered =
-                        sessions
-                            .where((s) => projectPathMatches(s.cwd, filterCwd))
-                            .where(
-                              (s) => titleFilters.isEmpty
-                                  ? true
-                                  : !sessionTitleMatchesExcludeFilters(
-                                      s.displayTitle,
-                                      titleFilters,
-                                    ),
-                            )
-                            .where(
-                              (s) => _searchQuery.isEmpty
-                                  ? true
-                                  : s.displayTitle.toLowerCase().contains(
-                                      _searchQuery,
-                                    ),
-                            )
-                            .toList()
-                          ..sort((a, b) {
-                            if (_sortBy == 'updatedAt') {
-                              return b.updatedAt.compareTo(a.updatedAt);
-                            }
-                            return b.createdAt.compareTo(a.createdAt);
-                          });
-
-                    // Separate root sessions from subagent children
-                    final rootSessions = filtered
-                        .where((s) => !s.isSubagentSession)
-                        .toList();
-                    final childMap = <String, List<ClaudeCodeSession>>{};
-                    for (final s in filtered.where(
-                      (s) => s.isSubagentSession,
-                    )) {
-                      if (s.parentSessionId != null) {
-                        childMap
-                            .putIfAbsent(s.parentSessionId!, () => [])
-                            .add(s);
-                      }
-                    }
-
-                    // Predictive prefetching: preload messages for top 3 CC sessions
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      prefetchTopCCSessions(ref, rootSessions);
-                    });
-                    if (rootSessions.isEmpty) {
-                      if (_searchQuery.isNotEmpty) {
-                        return [
-                          SliverFillRemaining(
-                            child: Center(
-                              child: Text(
-                                'No sessions matching "$_searchQuery"',
-                                style: TextStyle(
-                                  color: ocTheme.textMuted,
-                                  fontSize: 14,
-                                ),
-                              ),
+                          const SizedBox(height: Spacing.sm),
+                          Text(
+                            'Claude Code sessions from ~/.claude',
+                            style: TextStyle(
+                              color: ocTheme.textMuted,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                        ];
-                      }
-                      return [const SliverFillRemaining(child: CCEmptyState())];
-                    }
-                    // Separate highlighted and regular sessions
-                    final highlightedSessions = rootSessions
-                        .where((s) => highlights.isSessionHighlighted(s.id))
-                        .toList();
-                    final regularSessions = rootSessions
-                        .where((s) => !highlights.isSessionHighlighted(s.id))
-                        .toList();
-
-                    // Helper to add a session card + optional children
-                    void addSessionWithChildren(
-                      List<Widget> items,
-                      ClaudeCodeSession session,
-                    ) {
-                      items.add(
-                        Padding(
-                          padding: Insets.bottomMd,
-                          child: CCSessionCard(
-                            session: session,
-                            onTap: () => _openSession(session),
-                            onLongPress: () => _showSessionOptions(session),
-                            onDelete: () => _deleteSession(session),
-                          ),
-                        ),
-                      );
-                      final children = childMap[session.id] ?? [];
-                      if (_showSubagentSessions && children.isNotEmpty) {
-                        final isExpanded = _expandedParents.contains(
-                          session.id,
-                        );
-                        items.add(
-                          _CCChildExpandRow(
-                            count: children.length,
-                            isExpanded: isExpanded,
-                            onTap: () => setState(() {
-                              if (isExpanded) {
-                                _expandedParents.remove(session.id);
-                              } else {
-                                _expandedParents.add(session.id);
-                              }
-                            }),
-                          ),
-                        );
-                        if (isExpanded) {
-                          for (final child in children) {
-                            items.add(
-                              Padding(
-                                padding: const EdgeInsets.only(
-                                  left: 24,
-                                  bottom: 8,
+                          const SizedBox(height: 14),
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                FilterChipButton(
+                                  label: label,
+                                  onTap: () => showProjectFilter(
+                                    context: context,
+                                    theme: theme,
+                                    selectedPath: filterCwd,
+                                    projectsProvider:
+                                        ccProjectsForSessionsProvider,
+                                    onSelected: (path) {
+                                      ref
+                                              .read(
+                                                ccSessionsFilterCwdProvider
+                                                    .notifier,
+                                              )
+                                              .state =
+                                          path;
+                                      ref
+                                          .read(ccSessionsProvider.notifier)
+                                          .load();
+                                    },
+                                  ),
                                 ),
-                                child: _CCChildSessionCard(
-                                  session: child,
-                                  onTap: () => _openSession(child),
+                                const SizedBox(width: Spacing.sm),
+                                TitleFiltersChip(
+                                  count: titleFilterCount,
+                                  onTap: () => _showTitleFiltersSheet(context),
                                 ),
-                              ),
-                            );
-                          }
-                        }
-                      }
-                    }
-
-                    return [
-                      // Highlighted Sessions Section
-                      if (highlightedSessions.isNotEmpty)
-                        SliverToBoxAdapter(
-                          child: CCHighlightedSessionsSection(
-                            sessions: highlightedSessions,
-                            highlightColor: highlightColor,
-                            onTap: _openSession,
-                            onLongPress: _showSessionOptions,
-                            onDelete: _deleteSession,
-                          ),
-                        ),
-                      // Regular Sessions (grouped by project when no filter)
-                      (() {
-                        final isGrouped = filterCwd == null;
-                        final ccItems = <Widget>[];
-                        if (!isGrouped) {
-                          for (final session in regularSessions) {
-                            addSessionWithChildren(ccItems, session);
-                          }
-                        } else {
-                          // Group by project directory
-                          final groups = <String, List<ClaudeCodeSession>>{};
-                          for (final s in regularSessions) {
-                            groups.putIfAbsent(s.cwd, () => []).add(s);
-                          }
-                          final directories = groups.keys.toList()
-                            ..sort((a, b) {
-                              final aMax = groups[a]!
-                                  .map((s) => s.updatedAt)
-                                  .fold<int>(0, (p, v) => v > p ? v : p);
-                              final bMax = groups[b]!
-                                  .map((s) => s.updatedAt)
-                                  .fold<int>(0, (p, v) => v > p ? v : p);
-                              return bMax.compareTo(aMax);
-                            });
-                          for (final directory in directories) {
-                            final parts = directory
-                                .split('/')
-                                .where((p) => p.isNotEmpty)
-                                .toList();
-                            final name = parts.isEmpty ? 'Global' : parts.last;
-                            ccItems.add(
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  4,
-                                  14,
-                                  4,
-                                  10,
+                                const SizedBox(width: Spacing.sm),
+                                SortChip(
+                                  sortBy: _sortBy,
+                                  onChanged: (value) {
+                                    setState(() => _sortBy = value);
+                                  },
                                 ),
-                                child: Builder(
+                                // Subagent sessions filter
+                                Builder(
                                   builder: (context) {
-                                    final ocT = OpenCodeTheme.of(context);
-                                    return Text(
-                                      name.toUpperCase(),
-                                      style: TextStyle(
-                                        color: ocT.textMuted,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 0.5,
+                                    final allSessions =
+                                        ref
+                                            .watch(ccSessionsProvider)
+                                            .valueOrNull ??
+                                        const <ClaudeCodeSession>[];
+                                    final subagentCount = allSessions
+                                        .where((s) => s.isSubagentSession)
+                                        .length;
+                                    if (subagentCount == 0) {
+                                      return const SizedBox.shrink();
+                                    }
+                                    return Padding(
+                                      padding: const EdgeInsets.only(
+                                        left: Spacing.sm,
+                                      ),
+                                      child: BackgroundTasksChip(
+                                        count: subagentCount,
+                                        isExpanded: _showSubagentSessions,
+                                        onTap: () => setState(() {
+                                          _showSubagentSessions =
+                                              !_showSubagentSessions;
+                                          if (!_showSubagentSessions) {
+                                            _expandedParents.clear();
+                                          }
+                                        }),
+                                        onLongPress: () =>
+                                            ref
+                                                    .read(
+                                                      showTasksTabProvider
+                                                          .notifier,
+                                                    )
+                                                    .state =
+                                                true,
                                       ),
                                     );
                                   },
                                 ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: Spacing.md),
+                          SessionsSearchBar(
+                            controller: _searchController,
+                            onChanged: _onSearchChanged,
+                            hintText: 'Search Claude Code sessions...',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // Sessions list
+                  ...sessionsAsync.when(
+                    loading: () => [
+                      const SliverToBoxAdapter(child: DelayedSkeletonList()),
+                    ],
+                    error: (error, _) => [
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: SessionListErrorCard(
+                          title: 'Failed to load Claude Code sessions',
+                          error: error,
+                          onRetry: () => unawaited(sessionsNotifier.refresh()),
+                        ),
+                      ),
+                    ],
+                    data: (sessions) {
+                      if (sessions.isEmpty) {
+                        return [
+                          const SliverFillRemaining(child: CCEmptyState()),
+                        ];
+                      }
+                      final titleFilters = ref.watch(
+                        sessionsTitleExcludeFiltersProvider(
+                          AgentType.claudeCode,
+                        ),
+                      );
+                      // Filter by project, title, search — but keep ALL sessions for grouping
+                      final filtered =
+                          sessions
+                              .where(
+                                (s) => projectPathMatches(s.cwd, filterCwd),
+                              )
+                              .where(
+                                (s) => titleFilters.isEmpty
+                                    ? true
+                                    : !sessionTitleMatchesExcludeFilters(
+                                        s.displayTitle,
+                                        titleFilters,
+                                      ),
+                              )
+                              .where(
+                                (s) => _searchQuery.isEmpty
+                                    ? true
+                                    : s.displayTitle.toLowerCase().contains(
+                                        _searchQuery,
+                                      ),
+                              )
+                              .toList()
+                            ..sort((a, b) {
+                              if (_sortBy == 'updatedAt') {
+                                return b.updatedAt.compareTo(a.updatedAt);
+                              }
+                              return b.createdAt.compareTo(a.createdAt);
+                            });
+
+                      // Separate root sessions from subagent children
+                      final rootSessions = filtered
+                          .where((s) => !s.isSubagentSession)
+                          .toList();
+                      final childMap = <String, List<ClaudeCodeSession>>{};
+                      for (final s in filtered.where(
+                        (s) => s.isSubagentSession,
+                      )) {
+                        if (s.parentSessionId != null) {
+                          childMap
+                              .putIfAbsent(s.parentSessionId!, () => [])
+                              .add(s);
+                        }
+                      }
+
+                      // Predictive prefetching: preload messages for top 3 CC sessions
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        prefetchTopCCSessions(ref, rootSessions);
+                      });
+                      if (rootSessions.isEmpty) {
+                        if (_searchQuery.isNotEmpty) {
+                          return [
+                            SliverFillRemaining(
+                              child: Center(
+                                child: Text(
+                                  'No sessions matching "$_searchQuery"',
+                                  style: TextStyle(
+                                    color: ocTheme.textMuted,
+                                    fontSize: 14,
+                                  ),
+                                ),
                               ),
-                            );
-                            final group = groups[directory]!;
-                            final isExpanded = expandedProjects.contains(
-                              directory,
-                            );
-                            final limit = isExpanded
-                                ? group.length
-                                : kSessionsPerProjectDefault;
-                            final visible = group.take(limit);
-                            for (final session in visible) {
-                              addSessionWithChildren(ccItems, session);
-                            }
-                            final remaining = group.length - limit;
-                            if (remaining > 0) {
-                              ccItems.add(
-                                LoadMoreButton(
-                                  remainingCount: remaining,
-                                  onTap: () => ref
-                                      .read(ccProjectExpandedProvider.notifier)
-                                      .expand(directory),
+                            ),
+                          ];
+                        }
+                        return [
+                          const SliverFillRemaining(child: CCEmptyState()),
+                        ];
+                      }
+                      // Separate highlighted and regular sessions
+                      final highlightedSessions = rootSessions
+                          .where((s) => highlights.isSessionHighlighted(s.id))
+                          .toList();
+                      final regularSessions = rootSessions
+                          .where((s) => !highlights.isSessionHighlighted(s.id))
+                          .toList();
+
+                      // Helper to add a session card + optional children
+                      void addSessionWithChildren(
+                        List<Widget> items,
+                        ClaudeCodeSession session,
+                      ) {
+                        items.add(
+                          Padding(
+                            padding: Insets.bottomMd,
+                            child: CCSessionCard(
+                              session: session,
+                              onTap: () => _openSession(session),
+                              onLongPress: () => _showSessionOptions(session),
+                              onDelete: () => _deleteSession(session),
+                            ),
+                          ),
+                        );
+                        final children = childMap[session.id] ?? [];
+                        if (_showSubagentSessions && children.isNotEmpty) {
+                          final isExpanded = _expandedParents.contains(
+                            session.id,
+                          );
+                          items.add(
+                            _CCChildExpandRow(
+                              count: children.length,
+                              isExpanded: isExpanded,
+                              onTap: () => setState(() {
+                                if (isExpanded) {
+                                  _expandedParents.remove(session.id);
+                                } else {
+                                  _expandedParents.add(session.id);
+                                }
+                              }),
+                            ),
+                          );
+                          if (isExpanded) {
+                            for (final child in children) {
+                              items.add(
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    left: 24,
+                                    bottom: 8,
+                                  ),
+                                  child: _CCChildSessionCard(
+                                    session: child,
+                                    onTap: () => _openSession(child),
+                                  ),
                                 ),
                               );
                             }
                           }
                         }
-                        return SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-                          sliver: SliverList(
-                            delegate: SliverChildBuilderDelegate(
-                              (context, index) => ccItems[index],
-                              childCount: ccItems.length,
+                      }
+
+                      return [
+                        // Highlighted Sessions Section
+                        if (highlightedSessions.isNotEmpty)
+                          SliverToBoxAdapter(
+                            child: CCHighlightedSessionsSection(
+                              sessions: highlightedSessions,
+                              highlightColor: highlightColor,
+                              onTap: _openSession,
+                              onLongPress: _showSessionOptions,
+                              onDelete: _deleteSession,
                             ),
                           ),
-                        );
-                      })(),
-                    ];
-                  },
-                ),
-              ],
+                        // Regular Sessions (grouped by project when no filter)
+                        (() {
+                          final isGrouped = filterCwd == null;
+                          final ccItems = <Widget>[];
+                          if (!isGrouped) {
+                            for (final session in regularSessions) {
+                              addSessionWithChildren(ccItems, session);
+                            }
+                          } else {
+                            // Group by project directory
+                            final groups = <String, List<ClaudeCodeSession>>{};
+                            for (final s in regularSessions) {
+                              groups.putIfAbsent(s.cwd, () => []).add(s);
+                            }
+                            final directories = groups.keys.toList()
+                              ..sort((a, b) {
+                                final aMax = groups[a]!
+                                    .map((s) => s.updatedAt)
+                                    .fold<int>(0, (p, v) => v > p ? v : p);
+                                final bMax = groups[b]!
+                                    .map((s) => s.updatedAt)
+                                    .fold<int>(0, (p, v) => v > p ? v : p);
+                                return bMax.compareTo(aMax);
+                              });
+                            for (final directory in directories) {
+                              final parts = directory
+                                  .split('/')
+                                  .where((p) => p.isNotEmpty)
+                                  .toList();
+                              final name = parts.isEmpty
+                                  ? 'Global'
+                                  : parts.last;
+                              ccItems.add(
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    4,
+                                    14,
+                                    4,
+                                    10,
+                                  ),
+                                  child: Builder(
+                                    builder: (context) {
+                                      final ocT = OpenCodeTheme.of(context);
+                                      return Text(
+                                        name.toUpperCase(),
+                                        style: TextStyle(
+                                          color: ocT.textMuted,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              );
+                              final group = groups[directory]!;
+                              final isExpanded = expandedProjects.contains(
+                                directory,
+                              );
+                              final limit = isExpanded
+                                  ? group.length
+                                  : kSessionsPerProjectDefault;
+                              final visible = group.take(limit);
+                              for (final session in visible) {
+                                addSessionWithChildren(ccItems, session);
+                              }
+                              final remaining = group.length - limit;
+                              if (remaining > 0) {
+                                ccItems.add(
+                                  LoadMoreButton(
+                                    remainingCount: remaining,
+                                    onTap: () => ref
+                                        .read(
+                                          ccProjectExpandedProvider.notifier,
+                                        )
+                                        .expand(directory),
+                                  ),
+                                );
+                              }
+                            }
+                          }
+                          return SliverPadding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            sliver: SliverList(
+                              delegate: SliverChildBuilderDelegate(
+                                (context, index) => ccItems[index],
+                                childCount: ccItems.length,
+                              ),
+                            ),
+                          );
+                        })(),
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 100),
+                            child: SessionListFooter(
+                              hasMore: sessionsNotifier.hasMore,
+                              isLoading: sessionsNotifier.isLoadingMore,
+                              failed: sessionsNotifier.loadMoreFailed,
+                              onRetry: () =>
+                                  unawaited(sessionsNotifier.loadMore()),
+                            ),
+                          ),
+                        ),
+                      ];
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         ),

@@ -6,8 +6,8 @@ import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/screens/chat/hydration/hydration.dart';
 import 'package:broski/screens/chat/load_earlier.dart';
 import 'package:broski/screens/chat/pi_reconnect_hydrate.dart';
+import 'package:broski/services/bridge/bridge_page_fetch.dart';
 import 'package:broski/services/bridge/bridge_pi_transcript.dart';
-import 'package:broski/services/bridge/transcript_page_fetch.dart';
 
 /// Opens a Pi chat: a page of its transcript, then the live instance behind it.
 Future<bool> hydratePi(
@@ -40,7 +40,7 @@ Future<bool> hydratePi(
         widgetSessionId.isNotEmpty &&
         !connection.isOfflineMode) {
       try {
-        final page = await fetchTranscriptPage(
+        final page = await fetchBridgePage(
           (limit) => piBridge.readSessionMessagesPage(
             sessionPath: sessionPath,
             sessionId: widgetSessionId,
@@ -119,7 +119,7 @@ Future<bool> hydratePi(
     // messages in ~100ms instead of 2-4 seconds.
     var fastPathWorked = false;
     try {
-      final page = await fetchTranscriptPage(
+      final page = await fetchBridgePage(
         (limit) => piBridge.readSessionMessagesPage(
           sessionPath: sessionPath,
           sessionId: widgetSessionId,

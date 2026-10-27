@@ -21,6 +21,7 @@ import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:broski/widgets/sessions/pi_session_card.dart';
 import 'package:broski/widgets/sessions/session_helpers.dart';
+import 'package:broski/widgets/sessions/session_list_states.dart';
 import 'package:broski/widgets/sessions/sessions_search_bar.dart';
 import 'package:broski/widgets/sessions/sort_chip.dart';
 import 'package:flutter/material.dart';
@@ -58,7 +59,7 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
   }
 
   Future<void> _refresh() async {
-    ref.invalidate(piSessionsProvider(null));
+    ref.read(piSessionsProvider(null).notifier).refresh();
     await widget.onRefresh();
   }
 
@@ -133,7 +134,7 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
         sessionPath: session.path,
         projectPath: session.cwd,
       );
-      ref.invalidate(piSessionsProvider(null));
+      ref.read(piSessionsProvider(null).notifier).refresh();
       if (!mounted) return;
       showSuccess(context, 'Session deleted');
     } catch (e) {
@@ -316,7 +317,7 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
     final theme = Theme.of(context);
     final sessionsAsync = ref.watch(piSessionsProvider(null));
     final filterCwd = ref.watch(piSessionsFilterCwdProvider);
-    final piFilterProjects = ref.watch(piFilterProjectsProvider);
+    final piFilterProjects = ref.watch(piProjectsForSessionsProvider);
     final highlights = ref.watch(highlightsProvider);
     final titleFilterCount = ref
         .watch(sessionsTitleExcludeFiltersProvider(AgentType.pi))
@@ -338,6 +339,7 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
     );
 
     final expandedProjects = ref.watch(piProjectExpandedProvider);
+    final sessionsNotifier = ref.read(piSessionsProvider(null).notifier);
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SafeArea(
@@ -345,446 +347,323 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
           onRefresh: _refresh,
           color: theme.colorScheme.primary,
           backgroundColor: theme.colorScheme.surface,
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              // Active sessions (busy/retry) - parity with CC
-              SliverToBoxAdapter(
-                child: PiActiveSessionsSection(onSessionTap: _openSession),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Sessions',
-                              style: TextStyle(
-                                color: ocTheme.text,
-                                fontSize: 32,
-                                fontWeight: FontWeight.w700,
+          child: SessionListScrollTrigger(
+            onNearBottom: () => unawaited(sessionsNotifier.loadMore()),
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                // Active sessions (busy/retry) - parity with CC
+                SliverToBoxAdapter(
+                  child: PiActiveSessionsSection(onSessionTap: _openSession),
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Sessions',
+                                style: TextStyle(
+                                  color: ocTheme.text,
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: _refresh,
+                              icon: Icon(
+                                AppIcons.refresh,
+                                color: ocTheme.textMuted,
+                              ),
+                              tooltip: 'Refresh',
+                            ),
+                            // Pi badge
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: ocTheme.primary.withValues(alpha: 0.15),
+                                borderRadius: Radii.brMd,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    AppIcons.autoAwesome,
+                                    size: 14,
+                                    color: ocTheme.primary,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Pi',
+                                    style: TextStyle(
+                                      color: ocTheme.primary,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: Spacing.sm),
+                        Text(
+                          'Pi coding sessions',
+                          style: TextStyle(
+                            color: ocTheme.textMuted,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        // Filter chips row — scrollable horizontally
+                        Row(
+                          children: [
+                            Expanded(
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  children: [
+                                    FilterChipButton(
+                                      label: label,
+                                      onTap: () => showProjectFilter(
+                                        context: context,
+                                        theme: theme,
+                                        selectedPath: filterCwd,
+                                        projectsProvider:
+                                            piProjectsForSessionsProvider,
+                                        onSelected: (path) {
+                                          ref
+                                                  .read(
+                                                    piSessionsFilterCwdProvider
+                                                        .notifier,
+                                                  )
+                                                  .state =
+                                              path;
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: Spacing.sm),
+                                    TitleFiltersChip(
+                                      count: titleFilterCount,
+                                      onTap: () =>
+                                          _showTitleFiltersSheet(context),
+                                    ),
+                                    const SizedBox(width: Spacing.sm),
+                                    SortChip(
+                                      sortBy: _sortBy,
+                                      onChanged: (value) {
+                                        setState(() => _sortBy = value);
+                                      },
+                                    ),
+                                    if (childSessionCount > 0) ...[
+                                      const SizedBox(width: Spacing.sm),
+                                      BackgroundTasksChip(
+                                        count: childSessionCount,
+                                        isExpanded: _showChildSessions,
+                                        onTap: () => setState(() {
+                                          _showChildSessions =
+                                              !_showChildSessions;
+                                          if (!_showChildSessions) {
+                                            _expandedParents.clear();
+                                          }
+                                        }),
+                                        onLongPress: () =>
+                                            ref
+                                                    .read(
+                                                      showTasksTabProvider
+                                                          .notifier,
+                                                    )
+                                                    .state =
+                                                true,
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: _showNewSessionSheet,
+                              icon: Icon(AppIcons.add, color: ocTheme.text),
+                              tooltip: 'New session',
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        SessionsSearchBar(
+                          controller: _searchController,
+                          onChanged: _onSearchChanged,
+                          hintText: 'Search Pi sessions...',
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                ...sessionsAsync.when(
+                  loading: () => [
+                    const SliverToBoxAdapter(child: DelayedSkeletonList()),
+                  ],
+                  error: (error, _) => [
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: SessionListErrorCard(
+                        title: 'Failed to load Pi sessions',
+                        error: error,
+                        onRetry: () => unawaited(sessionsNotifier.refresh()),
+                      ),
+                    ),
+                  ],
+                  data: (sessions) {
+                    // Apply title exclude filters
+                    final titleFilters = ref.watch(
+                      sessionsTitleExcludeFiltersProvider(AgentType.pi),
+                    );
+                    final filtered =
+                        sessions.where((s) {
+                          // Project filter
+                          if (filterCwd != null &&
+                              !projectPathMatches(s.cwd, filterCwd)) {
+                            return false;
+                          }
+                          // Title exclude filters
+                          final title = (s.name ?? s.firstMessage)
+                              .toLowerCase();
+                          for (final filter in titleFilters) {
+                            if (filter.startsWith('/') &&
+                                filter.endsWith('/')) {
+                              try {
+                                final pattern = filter.substring(
+                                  1,
+                                  filter.length - 1,
+                                );
+                                if (RegExp(
+                                  pattern,
+                                  caseSensitive: false,
+                                ).hasMatch(title)) {
+                                  return false;
+                                }
+                              } catch (_) {}
+                            } else if (title.contains(filter.toLowerCase())) {
+                              return false;
+                            }
+                          }
+                          // Search query
+                          if (_searchQuery.isNotEmpty &&
+                              !title.contains(_searchQuery)) {
+                            return false;
+                          }
+                          return true;
+                        }).toList()..sort((a, b) {
+                          if (_sortBy == 'updatedAt') {
+                            return b.modified.compareTo(a.modified);
+                          }
+                          return b.created.compareTo(a.created);
+                        });
+                    // Predictive prefetching: preload messages for top 3 Pi sessions
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      prefetchTopPiSessions(ref, filtered);
+                    });
+
+                    if (filtered.isEmpty) {
+                      if (_searchQuery.isNotEmpty) {
+                        return [
+                          SliverFillRemaining(
+                            child: Center(
+                              child: Text(
+                                'No sessions matching "$_searchQuery"',
+                                style: TextStyle(
+                                  color: ocTheme.textMuted,
+                                  fontSize: 14,
+                                ),
                               ),
                             ),
                           ),
-                          IconButton(
-                            onPressed: _refresh,
-                            icon: Icon(
-                              AppIcons.refresh,
-                              color: ocTheme.textMuted,
-                            ),
-                            tooltip: 'Refresh',
-                          ),
-                          // Pi badge
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: ocTheme.primary.withValues(alpha: 0.15),
-                              borderRadius: Radii.brMd,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
+                        ];
+                      }
+                      return [
+                        SliverFillRemaining(
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(
-                                  AppIcons.autoAwesome,
-                                  size: 14,
-                                  color: ocTheme.primary,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'Pi',
-                                  style: TextStyle(
+                                Container(
+                                  padding: Insets.cardLg,
+                                  decoration: BoxDecoration(
+                                    color: ocTheme.primary.withValues(
+                                      alpha: 0.1,
+                                    ),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    AppIcons.autoAwesome,
+                                    size: 48,
                                     color: ocTheme.primary,
-                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(height: Spacing.xxl),
+                                Text(
+                                  'No Pi sessions',
+                                  style: TextStyle(
+                                    color: ocTheme.text,
+                                    fontSize: 20,
                                     fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: Spacing.sm),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 40,
+                                  ),
+                                  child: Text(
+                                    'Tap + to start a new Pi session',
+                                    style: TextStyle(
+                                      color: ocTheme.textMuted,
+                                      fontSize: 14,
+                                    ),
+                                    textAlign: TextAlign.center,
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: Spacing.sm),
-                      Text(
-                        'Pi coding sessions',
-                        style: TextStyle(
-                          color: ocTheme.textMuted,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      // Filter chips row — scrollable horizontally
-                      Row(
-                        children: [
-                          Expanded(
-                            child: SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: [
-                                  FilterChipButton(
-                                    label: label,
-                                    onTap: () => showProjectFilter(
-                                      context: context,
-                                      theme: theme,
-                                      selectedPath: filterCwd,
-                                      projectsProvider:
-                                          piFilterProjectsProvider,
-                                      onSelected: (path) {
-                                        ref
-                                                .read(
-                                                  piSessionsFilterCwdProvider
-                                                      .notifier,
-                                                )
-                                                .state =
-                                            path;
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: Spacing.sm),
-                                  TitleFiltersChip(
-                                    count: titleFilterCount,
-                                    onTap: () =>
-                                        _showTitleFiltersSheet(context),
-                                  ),
-                                  const SizedBox(width: Spacing.sm),
-                                  SortChip(
-                                    sortBy: _sortBy,
-                                    onChanged: (value) {
-                                      setState(() => _sortBy = value);
-                                    },
-                                  ),
-                                  if (childSessionCount > 0) ...[
-                                    const SizedBox(width: Spacing.sm),
-                                    BackgroundTasksChip(
-                                      count: childSessionCount,
-                                      isExpanded: _showChildSessions,
-                                      onTap: () => setState(() {
-                                        _showChildSessions =
-                                            !_showChildSessions;
-                                        if (!_showChildSessions) {
-                                          _expandedParents.clear();
-                                        }
-                                      }),
-                                      onLongPress: () =>
-                                          ref
-                                                  .read(
-                                                    showTasksTabProvider
-                                                        .notifier,
-                                                  )
-                                                  .state =
-                                              true,
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: _showNewSessionSheet,
-                            icon: Icon(AppIcons.add, color: ocTheme.text),
-                            tooltip: 'New session',
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      SessionsSearchBar(
-                        controller: _searchController,
-                        onChanged: _onSearchChanged,
-                        hintText: 'Search Pi sessions...',
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              ...sessionsAsync.when(
-                loading: () => [
-                  const SliverToBoxAdapter(child: DelayedSkeletonList()),
-                ],
-                error: (error, _) => [
-                  SliverFillRemaining(
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(AppIcons.error, color: ocTheme.error, size: 48),
-                          const SizedBox(height: Spacing.lg),
-                          Text(
-                            'Failed to load Pi sessions',
-                            style: TextStyle(
-                              color: ocTheme.text,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: Spacing.sm),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 24),
-                            child: Text(
-                              '$error',
-                              style: TextStyle(
-                                color: ocTheme.textMuted,
-                                fontSize: 14,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-                data: (sessions) {
-                  // Apply title exclude filters
-                  final titleFilters = ref.watch(
-                    sessionsTitleExcludeFiltersProvider(AgentType.pi),
-                  );
-                  final filtered =
-                      sessions.where((s) {
-                        // Project filter
-                        if (filterCwd != null &&
-                            !projectPathMatches(s.cwd, filterCwd)) {
-                          return false;
-                        }
-                        // Title exclude filters
-                        final title = (s.name ?? s.firstMessage).toLowerCase();
-                        for (final filter in titleFilters) {
-                          if (filter.startsWith('/') && filter.endsWith('/')) {
-                            try {
-                              final pattern = filter.substring(
-                                1,
-                                filter.length - 1,
-                              );
-                              if (RegExp(
-                                pattern,
-                                caseSensitive: false,
-                              ).hasMatch(title)) {
-                                return false;
-                              }
-                            } catch (_) {}
-                          } else if (title.contains(filter.toLowerCase())) {
-                            return false;
-                          }
-                        }
-                        // Search query
-                        if (_searchQuery.isNotEmpty &&
-                            !title.contains(_searchQuery)) {
-                          return false;
-                        }
-                        return true;
-                      }).toList()..sort((a, b) {
-                        if (_sortBy == 'updatedAt') {
-                          return b.modified.compareTo(a.modified);
-                        }
-                        return b.created.compareTo(a.created);
-                      });
-                  // Predictive prefetching: preload messages for top 3 Pi sessions
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    prefetchTopPiSessions(ref, filtered);
-                  });
-
-                  if (filtered.isEmpty) {
-                    if (_searchQuery.isNotEmpty) {
-                      return [
-                        SliverFillRemaining(
-                          child: Center(
-                            child: Text(
-                              'No sessions matching "$_searchQuery"',
-                              style: TextStyle(
-                                color: ocTheme.textMuted,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
                         ),
                       ];
                     }
-                    return [
-                      SliverFillRemaining(
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Container(
-                                padding: Insets.cardLg,
-                                decoration: BoxDecoration(
-                                  color: ocTheme.primary.withValues(alpha: 0.1),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  AppIcons.autoAwesome,
-                                  size: 48,
-                                  color: ocTheme.primary,
-                                ),
-                              ),
-                              const SizedBox(height: Spacing.xxl),
-                              Text(
-                                'No Pi sessions',
-                                style: TextStyle(
-                                  color: ocTheme.text,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: Spacing.sm),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 40,
-                                ),
-                                child: Text(
-                                  'Tap + to start a new Pi session',
-                                  style: TextStyle(
-                                    color: ocTheme.textMuted,
-                                    fontSize: 14,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ];
-                  }
 
-                  // Separate highlighted and regular sessions
-                  final highlightedSessions = filtered
-                      .where((s) => highlights.isSessionHighlighted(s.id))
-                      .toList();
-                  final regularSessions = filtered
-                      .where((s) => !highlights.isSessionHighlighted(s.id))
-                      .toList();
+                    // Separate highlighted and regular sessions
+                    final highlightedSessions = filtered
+                        .where((s) => highlights.isSessionHighlighted(s.id))
+                        .toList();
+                    final regularSessions = filtered
+                        .where((s) => !highlights.isSessionHighlighted(s.id))
+                        .toList();
 
-                  // Separate root sessions from handoff children
-                  final rootRegular = regularSessions
-                      .where((s) => s.parentSessionPath == null)
-                      .toList();
-                  final childMap = <String, List<PiSessionInfo>>{};
-                  for (final c in regularSessions.where(
-                    (s) => s.parentSessionPath != null,
-                  )) {
-                    childMap.putIfAbsent(c.parentSessionPath!, () => []).add(c);
-                  }
-
-                  // Build grouped items
-                  final piIsGrouped = filterCwd == null;
-                  final piGroupedItems = <Widget>[];
-                  if (!piIsGrouped) {
-                    for (final session in rootRegular) {
-                      final title = _sessionTitle(session);
-                      final isHighlighted = highlights.isSessionHighlighted(
-                        session.id,
-                      );
-                      final children = childMap[session.path] ?? [];
-                      final toolCount = session.subagentToolCount ?? 0;
-                      final hasAnyChildren =
-                          _showChildSessions &&
-                          (children.isNotEmpty || toolCount > 0);
-                      final isExpanded = _expandedParents.contains(
-                        session.path,
-                      );
-                      piGroupedItems.add(
-                        Padding(
-                          padding: Insets.bottomMd,
-                          child: PiSessionCard(
-                            title: title,
-                            session: session,
-                            isHighlighted: isHighlighted,
-                            onTap: () => _openSession(session),
-                            onLongPress: () => _showSessionOptions(session),
-                            onDelete: () => _deleteSession(session),
-                          ),
-                        ),
-                      );
-                      if (hasAnyChildren) {
-                        piGroupedItems.add(
-                          _buildChildExpandRow(
-                            session.path,
-                            children.length,
-                            isExpanded,
-                            toolCount: toolCount,
-                          ),
-                        );
-                        if (isExpanded) {
-                          for (final child in children) {
-                            piGroupedItems.add(
-                              Padding(
-                                padding: const EdgeInsets.only(
-                                  left: 24,
-                                  bottom: 8,
-                                ),
-                                child: _PiChildSessionCard(
-                                  session: child,
-                                  onTap: () => _openSession(child),
-                                ),
-                              ),
-                            );
-                          }
-                          // Lazy-load tool subagents (Task, oracle, finder, etc.)
-                          if (toolCount > 0) {
-                            piGroupedItems.add(
-                              PiToolSubagentsSection(
-                                sessionId: session.id,
-                                cwd: session.cwd,
-                              ),
-                            );
-                          }
-                        }
-                      }
+                    // Separate root sessions from handoff children
+                    final rootRegular = regularSessions
+                        .where((s) => s.parentSessionPath == null)
+                        .toList();
+                    final childMap = <String, List<PiSessionInfo>>{};
+                    for (final c in regularSessions.where(
+                      (s) => s.parentSessionPath != null,
+                    )) {
+                      childMap
+                          .putIfAbsent(c.parentSessionPath!, () => [])
+                          .add(c);
                     }
-                  } else {
-                    final groups = <String, List<PiSessionInfo>>{};
-                    for (final s in rootRegular) {
-                      groups.putIfAbsent(s.cwd, () => []).add(s);
-                    }
-                    final directories = groups.keys.toList()
-                      ..sort((a, b) {
-                        final aMax = groups[a]!
-                            .map((s) => s.modified.millisecondsSinceEpoch)
-                            .fold<int>(0, (p, v) => v > p ? v : p);
-                        final bMax = groups[b]!
-                            .map((s) => s.modified.millisecondsSinceEpoch)
-                            .fold<int>(0, (p, v) => v > p ? v : p);
-                        return bMax.compareTo(aMax);
-                      });
-                    for (final directory in directories) {
-                      final parts = directory
-                          .split('/')
-                          .where((p) => p.isNotEmpty)
-                          .toList();
-                      final name = parts.isEmpty ? 'Global' : parts.last;
-                      piGroupedItems.add(
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(4, 14, 4, 10),
-                          child: Builder(
-                            builder: (context) {
-                              final ocTheme = OpenCodeTheme.of(context);
-                              return Text(
-                                name.toUpperCase(),
-                                style: TextStyle(
-                                  color: ocTheme.textMuted,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.5,
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      );
-                      final group = groups[directory]!;
-                      final isExpanded = expandedProjects.contains(directory);
-                      final limit = isExpanded
-                          ? group.length
-                          : kSessionsPerProjectDefault;
-                      final visible = group.take(limit);
-                      for (final session in visible) {
+
+                    // Build grouped items
+                    final piIsGrouped = filterCwd == null;
+                    final piGroupedItems = <Widget>[];
+                    if (!piIsGrouped) {
+                      for (final session in rootRegular) {
                         final title = _sessionTitle(session);
                         final isHighlighted = highlights.isSessionHighlighted(
                           session.id,
@@ -794,7 +673,7 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
                         final hasAnyChildren =
                             _showChildSessions &&
                             (children.isNotEmpty || toolCount > 0);
-                        final isChildExpanded = _expandedParents.contains(
+                        final isExpanded = _expandedParents.contains(
                           session.path,
                         );
                         piGroupedItems.add(
@@ -815,11 +694,11 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
                             _buildChildExpandRow(
                               session.path,
                               children.length,
-                              isChildExpanded,
+                              isExpanded,
                               toolCount: toolCount,
                             ),
                           );
-                          if (isChildExpanded) {
+                          if (isExpanded) {
                             for (final child in children) {
                               piGroupedItems.add(
                                 Padding(
@@ -834,7 +713,7 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
                                 ),
                               );
                             }
-                            // Lazy-load tool subagents
+                            // Lazy-load tool subagents (Task, oracle, finder, etc.)
                             if (toolCount > 0) {
                               piGroupedItems.add(
                                 PiToolSubagentsSection(
@@ -846,45 +725,166 @@ class PiSessionsViewState extends ConsumerState<PiSessionsView> {
                           }
                         }
                       }
-                      final remaining = group.length - limit;
-                      if (remaining > 0) {
+                    } else {
+                      final groups = <String, List<PiSessionInfo>>{};
+                      for (final s in rootRegular) {
+                        groups.putIfAbsent(s.cwd, () => []).add(s);
+                      }
+                      final directories = groups.keys.toList()
+                        ..sort((a, b) {
+                          final aMax = groups[a]!
+                              .map((s) => s.modified.millisecondsSinceEpoch)
+                              .fold<int>(0, (p, v) => v > p ? v : p);
+                          final bMax = groups[b]!
+                              .map((s) => s.modified.millisecondsSinceEpoch)
+                              .fold<int>(0, (p, v) => v > p ? v : p);
+                          return bMax.compareTo(aMax);
+                        });
+                      for (final directory in directories) {
+                        final parts = directory
+                            .split('/')
+                            .where((p) => p.isNotEmpty)
+                            .toList();
+                        final name = parts.isEmpty ? 'Global' : parts.last;
                         piGroupedItems.add(
-                          LoadMoreButton(
-                            remainingCount: remaining,
-                            onTap: () => ref
-                                .read(piProjectExpandedProvider.notifier)
-                                .expand(directory),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(4, 14, 4, 10),
+                            child: Builder(
+                              builder: (context) {
+                                final ocTheme = OpenCodeTheme.of(context);
+                                return Text(
+                                  name.toUpperCase(),
+                                  style: TextStyle(
+                                    color: ocTheme.textMuted,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.5,
+                                  ),
+                                );
+                              },
+                            ),
                           ),
                         );
+                        final group = groups[directory]!;
+                        final isExpanded = expandedProjects.contains(directory);
+                        final limit = isExpanded
+                            ? group.length
+                            : kSessionsPerProjectDefault;
+                        final visible = group.take(limit);
+                        for (final session in visible) {
+                          final title = _sessionTitle(session);
+                          final isHighlighted = highlights.isSessionHighlighted(
+                            session.id,
+                          );
+                          final children = childMap[session.path] ?? [];
+                          final toolCount = session.subagentToolCount ?? 0;
+                          final hasAnyChildren =
+                              _showChildSessions &&
+                              (children.isNotEmpty || toolCount > 0);
+                          final isChildExpanded = _expandedParents.contains(
+                            session.path,
+                          );
+                          piGroupedItems.add(
+                            Padding(
+                              padding: Insets.bottomMd,
+                              child: PiSessionCard(
+                                title: title,
+                                session: session,
+                                isHighlighted: isHighlighted,
+                                onTap: () => _openSession(session),
+                                onLongPress: () => _showSessionOptions(session),
+                                onDelete: () => _deleteSession(session),
+                              ),
+                            ),
+                          );
+                          if (hasAnyChildren) {
+                            piGroupedItems.add(
+                              _buildChildExpandRow(
+                                session.path,
+                                children.length,
+                                isChildExpanded,
+                                toolCount: toolCount,
+                              ),
+                            );
+                            if (isChildExpanded) {
+                              for (final child in children) {
+                                piGroupedItems.add(
+                                  Padding(
+                                    padding: const EdgeInsets.only(
+                                      left: 24,
+                                      bottom: 8,
+                                    ),
+                                    child: _PiChildSessionCard(
+                                      session: child,
+                                      onTap: () => _openSession(child),
+                                    ),
+                                  ),
+                                );
+                              }
+                              // Lazy-load tool subagents
+                              if (toolCount > 0) {
+                                piGroupedItems.add(
+                                  PiToolSubagentsSection(
+                                    sessionId: session.id,
+                                    cwd: session.cwd,
+                                  ),
+                                );
+                              }
+                            }
+                          }
+                        }
+                        final remaining = group.length - limit;
+                        if (remaining > 0) {
+                          piGroupedItems.add(
+                            LoadMoreButton(
+                              remainingCount: remaining,
+                              onTap: () => ref
+                                  .read(piProjectExpandedProvider.notifier)
+                                  .expand(directory),
+                            ),
+                          );
+                        }
                       }
                     }
-                  }
 
-                  return [
-                    // Highlighted Sessions Section
-                    if (highlightedSessions.isNotEmpty)
+                    return [
+                      // Highlighted Sessions Section
+                      if (highlightedSessions.isNotEmpty)
+                        SliverToBoxAdapter(
+                          child: PiHighlightedSessionsSection(
+                            sessions: highlightedSessions,
+                            highlightColor: highlights.color,
+                            onTap: _openSession,
+                            onLongPress: _showSessionOptions,
+                            onDelete: _deleteSession,
+                          ),
+                        ),
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) => piGroupedItems[index],
+                            childCount: piGroupedItems.length,
+                          ),
+                        ),
+                      ),
                       SliverToBoxAdapter(
-                        child: PiHighlightedSessionsSection(
-                          sessions: highlightedSessions,
-                          highlightColor: highlights.color,
-                          onTap: _openSession,
-                          onLongPress: _showSessionOptions,
-                          onDelete: _deleteSession,
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 100),
+                          child: SessionListFooter(
+                            hasMore: sessionsNotifier.hasMore,
+                            isLoading: sessionsNotifier.isLoadingMore,
+                            failed: sessionsNotifier.loadMoreFailed,
+                            onRetry: () =>
+                                unawaited(sessionsNotifier.loadMore()),
+                          ),
                         ),
                       ),
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-                      sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) => piGroupedItems[index],
-                          childCount: piGroupedItems.length,
-                        ),
-                      ),
-                    ),
-                  ];
-                },
-              ),
-            ],
+                    ];
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),

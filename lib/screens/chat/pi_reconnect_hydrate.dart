@@ -1,6 +1,6 @@
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/screens/chat/load_earlier.dart';
-import 'package:broski/services/bridge/transcript_page_fetch.dart';
+import 'package:broski/services/bridge/bridge_page_fetch.dart';
 import 'package:broski/services/pi_bridge_service.dart';
 
 /// Re-syncs a Pi chat after a reconnect: one page of the transcript plus the cursor for the page
@@ -16,7 +16,7 @@ Future<bool> hydratePiAfterReconnect({
   if (sessionId.isEmpty) {
     return false;
   }
-  final page = await fetchTranscriptPage(
+  final page = await fetchBridgePage(
     (limit) => piBridge.readSessionMessagesPage(
       sessionPath: sessionPath,
       sessionId: sessionId,
@@ -57,7 +57,7 @@ Future<bool?> startPiLiveInstance({
   bool? hasOlder;
   if (loadMessages) {
     if (!chat.ownsTranscript(sessionId)) return null;
-    final page = await fetchTranscriptPage(
+    final page = await fetchBridgePage(
       (limit) => piBridge.readSessionMessagesPage(
         sessionPath: sessionPath,
         sessionId: sessionId,

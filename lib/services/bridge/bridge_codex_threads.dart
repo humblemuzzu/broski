@@ -34,24 +34,48 @@ extension BridgeServiceCodexThreads on BridgeService {
         .toList();
   }
 
-  /// Paginated thread listing — returns threads plus the cursor for the
-  /// next page. Used by infinite scroll in the threads list.
-  Future<({List<CodexThread> threads, String? nextCursor})> cxListThreadsPage({
+  /// One page of threads, with the cursor the page after it starts at.
+  Future<SessionPage<CodexThread>> cxListThreadsPage({
     String? cwd,
-    String? cursor,
-    int limit = 50,
+    String? before,
+    int limit = kSessionPageLimit,
     List<String>? sourceKinds,
     String? sortKey,
     List<String>? modelProviders,
     bool? archived,
     String? searchTerm,
+  }) {
+    return fetchBridgePage(
+      (attempt) => _cxListThreadsPageOnce(
+        cwd: cwd,
+        before: before,
+        limit: attempt,
+        sourceKinds: sourceKinds,
+        sortKey: sortKey,
+        modelProviders: modelProviders,
+        archived: archived,
+        searchTerm: searchTerm,
+      ),
+      limit: limit,
+    );
+  }
+
+  Future<SessionPage<CodexThread>> _cxListThreadsPageOnce({
+    required String? cwd,
+    required String? before,
+    required int limit,
+    required List<String>? sourceKinds,
+    required String? sortKey,
+    required List<String>? modelProviders,
+    required bool? archived,
+    required String? searchTerm,
   }) async {
     final requestId = _generateRequestId();
     _socket.send({
       'type': 'cx_list_threads',
       'requestId': requestId,
       if (cwd != null) 'cwd': cwd,
-      if (cursor != null) 'cursor': cursor,
+      if (before != null) 'before': before,
       'limit': limit,
       if (sourceKinds != null) 'sourceKinds': sourceKinds,
       if (sortKey != null) 'sortKey': sortKey,
@@ -64,14 +88,12 @@ extension BridgeServiceCodexThreads on BridgeService {
       requestId: requestId,
       timeoutSeconds: _codexTimeoutSeconds,
     );
-    final data = response['data'] as List<dynamic>? ?? [];
-    final nc = response['nextCursor']?.toString();
-    return (
-      threads: data
+    return SessionPage.fromResponse(
+      response,
+      (rows) => rows
           .whereType<Map<String, dynamic>>()
           .map(CodexThread.fromJson)
           .toList(),
-      nextCursor: (nc != null && nc.isNotEmpty && nc != 'null') ? nc : null,
     );
   }
 

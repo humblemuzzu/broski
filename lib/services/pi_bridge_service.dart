@@ -8,6 +8,7 @@ import 'package:broski/services/bridge/bridge_response_error.dart';
 import 'package:broski/services/bridge/pending_requests.dart';
 import 'package:broski/services/websocket_service.dart';
 
+export 'bridge/bridge_pi_sessions_page.dart';
 export 'bridge/bridge_pi_tools.dart';
 export 'bridge/bridge_pi_transcript.dart';
 

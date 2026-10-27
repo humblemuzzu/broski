@@ -1,7 +1,7 @@
 import 'package:broski/models/transcript_page.dart';
 import 'package:broski/screens/chat/load_earlier.dart';
+import 'package:broski/services/bridge/bridge_page_fetch.dart';
 import 'package:broski/services/bridge/bridge_response_error.dart';
-import 'package:broski/services/bridge/transcript_page_fetch.dart';
 import 'package:broski/services/pi_bridge_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -97,10 +97,7 @@ void main() {
         return call;
       }
 
-      final page = await fetchTranscriptPage(
-        readPage,
-        limit: kTranscriptPageLimit,
-      );
+      final page = await fetchBridgePage(readPage, limit: kTranscriptPageLimit);
 
       expect(requested, [kTranscriptPageLimit, 15, 8]);
       expect(page.items.single['content'], 'fits');

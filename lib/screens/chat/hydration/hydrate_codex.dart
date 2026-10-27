@@ -3,7 +3,7 @@ import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/screens/chat/hydration/hydration.dart';
 import 'package:broski/screens/chat/load_earlier.dart';
-import 'package:broski/services/bridge/transcript_page_fetch.dart';
+import 'package:broski/services/bridge/bridge_page_fetch.dart';
 
 /// The newest page of a Codex thread, or the cache when the bridge cannot be
 /// reached.
@@ -33,7 +33,7 @@ Future<bool> hydrateCodex(Hydration h) async {
     } else {
       try {
         final bridge = ref.read(bridgeServiceProvider);
-        final page = await fetchTranscriptPage(
+        final page = await fetchBridgePage(
           (limit) => bridge.cxGetThreadMessagesPage(threadId, limit: limit),
           limit: kTranscriptPageLimit,
         );

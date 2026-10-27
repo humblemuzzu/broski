@@ -34,7 +34,7 @@ extension BridgeServiceSessionMessagesPage on BridgeService {
     required int limit,
     String? projectPath,
     String? before,
-  }) => fetchTranscriptPage(
+  }) => fetchBridgePage(
     (take) => getSessionMessagesPage(
       sessionId,
       projectPath: projectPath,

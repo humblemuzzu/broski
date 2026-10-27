@@ -4,6 +4,7 @@ import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/claude_code.dart';
 import 'package:broski/models/project.dart';
 import 'package:broski/models/runtime/runtime_event.dart';
+import 'package:broski/providers/cc/cc_sessions_notifier.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/services/bridge/bridge_runtime.dart';
@@ -54,27 +55,6 @@ final ccProjectsForSessionsProvider = FutureProvider<List<ProjectSummary>>((
   }
 });
 
-/// Derived project list for filter sheet — computed directly from loaded
-/// CC sessions. Guaranteed: if sessions show in the list, projects show in
-/// the filter. No separate API call, no timing issues.
-final ccFilterProjectsProvider = Provider<AsyncValue<List<ProjectSummary>>>((
-  ref,
-) {
-  final sessionsAsync = ref.watch(ccSessionsProvider);
-  return sessionsAsync.whenData((sessions) {
-    final byPath = <String, ProjectSummary>{};
-    for (final s in sessions) {
-      final path = s.cwd;
-      if (path.isEmpty) continue;
-      final parts = path.split('/').where((p) => p.isNotEmpty).toList();
-      final name = parts.isEmpty ? path : parts.last;
-      byPath[path] = ProjectSummary(id: path, name: name, path: path);
-    }
-    return byPath.values.toList()
-      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-  });
-});
-
 final ccSessionsProvider =
     StateNotifierProvider<
       CCSessionsNotifier,
@@ -86,83 +66,6 @@ final ccSessionsProvider =
       final connection = ref.read(connectionProvider);
       return CCSessionsNotifier(bridge, storage, connection);
     });
-
-class CCSessionsNotifier
-    extends StateNotifier<AsyncValue<List<ClaudeCodeSession>>> {
-  CCSessionsNotifier(this._bridge, this._storage, this._connection)
-    : super(const AsyncValue.loading());
-
-  final BridgeService _bridge;
-  final StorageService _storage;
-  final BridgeConnectionState _connection;
-
-  Future<void> load({String? cwd}) async {
-    // Offline mode - use cached sessions
-    if (_connection.isOfflineMode) {
-      final cached = await _storage.getCachedCCSessions();
-      state = AsyncValue.data(cached);
-      return;
-    }
-
-    state = const AsyncValue.loading();
-    try {
-      final sessions = await _bridge.ccListSessions(cwd: cwd);
-      // Cache for offline use
-      if (sessions.isNotEmpty) {
-        await _storage.cacheCCSessions(sessions);
-      }
-      state = AsyncValue.data(sessions);
-    } catch (e, st) {
-      // On error, try cached data
-      final cached = await _storage.getCachedCCSessions();
-      if (cached.isNotEmpty) {
-        state = AsyncValue.data(cached);
-      } else {
-        state = AsyncValue.error(e, st);
-      }
-    }
-  }
-
-  Future<void> refresh({String? cwd}) async {
-    // Offline mode - just use cached
-    if (_connection.isOfflineMode) {
-      final cached = await _storage.getCachedCCSessions();
-      state = AsyncValue.data(cached);
-      return;
-    }
-
-    try {
-      final sessions = await _bridge.ccListSessions(cwd: cwd);
-      // Cache for offline use
-      if (sessions.isNotEmpty) {
-        await _storage.cacheCCSessions(sessions);
-      }
-      state = AsyncValue.data(sessions);
-    } catch (e, st) {
-      // On error, keep current data or use cached
-      final cached = await _storage.getCachedCCSessions();
-      if (cached.isNotEmpty && !state.hasValue) {
-        state = AsyncValue.data(cached);
-      } else if (!state.hasValue) {
-        state = AsyncValue.error(e, st);
-      }
-    }
-  }
-
-  Future<bool> deleteSession(String sessionId, {String? cwd}) async {
-    try {
-      final deleted = await _bridge.ccDeleteSession(sessionId, cwd: cwd);
-      if (deleted) {
-        state = state.whenData(
-          (sessions) => sessions.where((s) => s.id != sessionId).toList(),
-        );
-      }
-      return deleted;
-    } catch (_) {
-      return false;
-    }
-  }
-}
 
 final ccSkillsProvider = FutureProvider.family<List<ClaudeCodeSkill>, String?>((
   ref,

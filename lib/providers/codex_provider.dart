@@ -69,27 +69,6 @@ final codexProjectsForThreadsProvider = FutureProvider<List<ProjectSummary>>((
   }
 });
 
-/// Derived project list for filter sheet — computed directly from loaded
-/// Codex threads. Guaranteed: if threads show in the list, projects show in
-/// the filter. No separate API call, no timing issues.
-final codexFilterProjectsProvider = Provider<AsyncValue<List<ProjectSummary>>>((
-  ref,
-) {
-  final threadsAsync = ref.watch(codexThreadsProvider);
-  return threadsAsync.whenData((threads) {
-    final byPath = <String, ProjectSummary>{};
-    for (final t in threads) {
-      final path = t.cwd;
-      if (path.isEmpty) continue;
-      final parts = path.split('/').where((p) => p.isNotEmpty).toList();
-      final name = parts.isEmpty ? path : parts.last;
-      byPath[path] = ProjectSummary(id: path, name: name, path: path);
-    }
-    return byPath.values.toList()
-      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-  });
-});
-
 final codexThreadsProvider =
     StateNotifierProvider<CodexThreadsNotifier, AsyncValue<List<CodexThread>>>((
       ref,
@@ -116,7 +95,9 @@ class CodexThreadsNotifier
   StreamSubscription<Map<String, dynamic>>? _bridgeMessagesSub;
   String? _lastCwd;
   String? _nextCursor;
+  bool _hasMore = false;
   bool _loadingMore = false;
+  bool _loadMoreFailed = false;
   static bool _codexWarmupStarted = false;
 
   Future<void> _bootstrap() async {
@@ -275,9 +256,10 @@ class CodexThreadsNotifier
 
     state = const AsyncValue.loading();
     try {
-      final page = await _bridge.cxListThreadsPage(cwd: cwd, limit: 50);
+      final page = await _bridge.cxListThreadsPage(cwd: cwd);
       _nextCursor = page.nextCursor;
-      final threads = page.threads;
+      _hasMore = page.hasAnotherPage;
+      final threads = page.items;
       if (threads.isNotEmpty) {
         await _storage.cacheCodexThreads(threads);
         await _cacheProjectsFromThreads(threads);
@@ -303,9 +285,10 @@ class CodexThreadsNotifier
     }
 
     try {
-      final page = await _bridge.cxListThreadsPage(cwd: _lastCwd, limit: 50);
+      final page = await _bridge.cxListThreadsPage(cwd: _lastCwd);
       _nextCursor = page.nextCursor;
-      final threads = page.threads;
+      _hasMore = page.hasAnotherPage;
+      final threads = page.items;
       if (threads.isNotEmpty) {
         await _storage.cacheCodexThreads(threads);
         await _cacheProjectsFromThreads(threads);
@@ -323,7 +306,12 @@ class CodexThreadsNotifier
   }
 
   /// Whether there are more pages of threads available.
-  bool get hasMore => _nextCursor != null;
+  bool get hasMore => _hasMore;
+
+  bool get isLoadingMore => _loadingMore;
+
+  /// True after a page that did not arrive: the list keeps its rows and the footer offers a retry.
+  bool get loadMoreFailed => _loadMoreFailed;
 
   /// Loads the next page of threads and appends them to the current list.
   Future<void> loadMore() async {
@@ -331,16 +319,17 @@ class CodexThreadsNotifier
       return;
     }
     _loadingMore = true;
+    _loadMoreFailed = false;
     try {
       final page = await _bridge.cxListThreadsPage(
         cwd: _lastCwd,
-        cursor: _nextCursor,
-        limit: 50,
+        before: _nextCursor,
       );
       _nextCursor = page.nextCursor;
+      _hasMore = page.hasAnotherPage;
       final existing = state.valueOrNull ?? [];
       final existingIds = existing.map((t) => t.id).toSet();
-      final newThreads = page.threads
+      final newThreads = page.items
           .where((t) => !existingIds.contains(t.id))
           .toList();
       if (newThreads.isNotEmpty) {
@@ -349,7 +338,7 @@ class CodexThreadsNotifier
         state = AsyncValue.data(merged);
       }
     } catch (_) {
-      // Pagination failure is non-fatal — keep showing existing data.
+      _loadMoreFailed = true;
     } finally {
       _loadingMore = false;
     }

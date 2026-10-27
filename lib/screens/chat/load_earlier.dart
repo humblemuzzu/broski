@@ -4,8 +4,8 @@ import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/screens/chat/transcript_scroll_anchor.dart';
 import 'package:broski/screens/chat_screen.dart';
+import 'package:broski/services/bridge/bridge_page_fetch.dart';
 import 'package:broski/services/bridge/bridge_pi_transcript.dart';
-import 'package:broski/services/bridge/transcript_page_fetch.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -127,7 +127,7 @@ _fetchAndPrepend(
 
   if (widget.isClaudeCode) {
     final id = widget.ccSession?.id ?? '';
-    final page = await fetchTranscriptPage(
+    final page = await fetchBridgePage(
       (limit) => bridge.ccGetSessionMessagesPage(
         id,
         cwd: widget.ccSession?.cwd ?? widget.ccDraftCwd ?? '',
@@ -149,7 +149,7 @@ _fetchAndPrepend(
 
   if (widget.isCodex) {
     final id = widget.cxThread?.id ?? '';
-    final page = await fetchTranscriptPage(
+    final page = await fetchBridgePage(
       (limit) =>
           bridge.cxGetThreadMessagesPage(id, limit: limit, before: cursor),
       limit: kTranscriptPageLimit,
@@ -166,7 +166,7 @@ _fetchAndPrepend(
   }
 
   final piBridge = ref.read(piBridgeServiceProvider);
-  final page = await fetchTranscriptPage(
+  final page = await fetchBridgePage(
     (limit) => piBridge.readSessionMessagesPage(
       sessionPath: widget.piSession?.path,
       sessionId: widget.piSession?.id,

@@ -197,7 +197,7 @@ Future<void> _deletePiSession(
     await ref
         .read(piBridgeServiceProvider)
         .deleteSession(sessionPath: session.path, projectPath: session.cwd);
-    ref.invalidate(piSessionsProvider(null));
+    ref.read(piSessionsProvider(null).notifier).refresh();
     if (!context.mounted) return;
     showSuccess(context, 'Session deleted');
     onDeleted();
@@ -233,7 +233,7 @@ Future<void> _forkPiSession(
       showSuccess(context, 'Fork was cancelled');
       return;
     }
-    ref.invalidate(piSessionsProvider(null));
+    ref.read(piSessionsProvider(null).notifier).refresh();
     if (!context.mounted) return;
     showSuccess(context, 'Session forked');
   } catch (e) {

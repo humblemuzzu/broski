@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:broski/models/pi.dart';
 import 'package:broski/models/project.dart';
 import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/pi/pi_sessions_notifier.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/services/pi_bridge_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -33,37 +36,22 @@ final piModelsProvider = FutureProvider.family<List<PiModel>, String?>((
   return bridge.listModels(projectPath: projectPath);
 });
 
-final piSessionsProvider = FutureProvider.family<List<PiSessionInfo>, String?>((
-  ref,
-  projectPath,
-) async {
-  final bridge = ref.watch(piBridgeServiceProvider);
-  final storage = ref.watch(storageServiceProvider);
-  final connection = ref.read(connectionProvider);
-
-  if (connection.isOfflineMode) {
-    if (projectPath == null) {
-      return storage.getCachedPiSessions();
-    }
-    return const [];
-  }
-
-  try {
-    final sessions = await bridge.listSessions(projectPath: projectPath);
-    // Cache on success (only for "all sessions" query)
-    if (projectPath == null) {
-      await storage.cachePiSessions(sessions);
-    }
-    return sessions;
-  } catch (e) {
-    // Fall back to cache when offline or on error
-    if (projectPath == null) {
-      final cached = await storage.getCachedPiSessions();
-      if (cached.isNotEmpty) return cached;
-    }
-    return const [];
-  }
-});
+final piSessionsProvider =
+    StateNotifierProvider.family<
+      PiSessionsNotifier,
+      AsyncValue<List<PiSessionInfo>>,
+      String?
+    >((ref, projectPath) {
+      final notifier = PiSessionsNotifier(
+        bridge: ref.watch(piBridgeServiceProvider),
+        storage: ref.watch(storageServiceProvider),
+        deltas: ref.watch(bridgeServiceProvider).messages,
+        isOffline: ref.read(connectionProvider).isOfflineMode,
+        projectPath: projectPath,
+      );
+      unawaited(notifier.load());
+      return notifier;
+    });
 
 final piCommandsProvider = FutureProvider.family<List<PiCommand>, String?>((
   ref,
@@ -134,27 +122,6 @@ final piProjectsForSessionsProvider = FutureProvider<List<ProjectSummary>>((
     if (cached.isNotEmpty) return cached;
     return await fromCachedSessions();
   }
-});
-
-/// Unique projects derived from Pi sessions (for project filter chip).
-final piFilterProjectsProvider = FutureProvider<List<ProjectSummary>>((
-  ref,
-) async {
-  final sessions = ref.watch(piSessionsProvider(null)).valueOrNull ?? const [];
-  final byPath = <String, ProjectSummary>{};
-  for (final s in sessions) {
-    final path = s.cwd;
-    if (path.isEmpty || byPath.containsKey(path)) continue;
-    final parts = path.split('/').where((p) => p.isNotEmpty).toList();
-    byPath[path] = ProjectSummary(
-      id: path,
-      name: parts.isEmpty ? 'Project' : parts.last,
-      path: path,
-    );
-  }
-  final sorted = byPath.values.toList()
-    ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-  return sorted;
 });
 
 final piToolsProvider = FutureProvider.family<List<PiTool>, String?>((

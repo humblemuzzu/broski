@@ -8,10 +8,10 @@ import 'package:broski/models/runtime/runtime.dart';
 import 'package:broski/models/session.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/pi_durable/pi_durable_sessions_refresh.dart';
-import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/providers/session_archive_filter_provider.dart';
 import 'package:broski/providers/sessions/runtime_session_activity_handler.dart';
+import 'package:broski/providers/sessions/runtime_session_delta_handler.dart';
 import 'package:broski/providers/sessions/runtime_session_snapshot_handler.dart';
 import 'package:broski/services/bridge/bridge_runtime.dart';
 import 'package:broski/services/notification_service.dart';
@@ -61,6 +61,7 @@ class GlobalSessionStatusNotifier
   StreamSubscription<RuntimeEvent>? _runtimeEventSubscription;
   StreamSubscription<RuntimeState>? _runtimeStateSubscription;
   StreamSubscription<List<RuntimeSessionSummary>>? _runtimeSessionsSubscription;
+  StreamSubscription<Map<String, dynamic>>? _sessionDeltaSubscription;
   final Set<AgentType> _runtimeSnapshotBackends = <AgentType>{};
   late final PiDurableSessionsRefresher _piDurableSessionsRefresher =
       piDurableSessionsRefresher(_ref);
@@ -80,6 +81,7 @@ class GlobalSessionStatusNotifier
     // Keep raw snapshots only as read-model fallback while runtime snapshots
     // prove out across reconnect and thread-list paths.
     _rawSubscription = bridge.messages.listen(_handleRawMessage);
+    _sessionDeltaSubscription = bridge.messages.listen(_handleSessionDelta);
   }
 
   void _handleRawMessage(Map<String, dynamic> message) {
@@ -122,11 +124,19 @@ class GlobalSessionStatusNotifier
     if (updates.isNotEmpty) {
       state = {...state, ...updates};
     }
+  }
 
-    // When Pi broadcasts updated sessions, refresh the Pi sessions list
-    // so the sessions screen stays in sync without manual pull-to-refresh.
-    if (backend == AgentType.pi) {
-      _ref.invalidate(piSessionsProvider(null));
+  /// The bridge sends the one row that changed; the list providers apply it themselves.
+  void _handleSessionDelta(Map<String, dynamic> message) {
+    switch (runtimeSessionDeltaFromMessage(message)) {
+      case RuntimeSessionUpserted(:final session):
+        final status = runtimeSessionStatusFromSummary(session);
+        if (status != null) _applyRuntimeStatus(session.id, status);
+      case RuntimeSessionRemoved(:final sessionId):
+        final next = {...state}..remove(sessionId);
+        state = next;
+      case null:
+        break;
     }
   }
 
@@ -316,6 +326,7 @@ class GlobalSessionStatusNotifier
     _runtimeEventSubscription?.cancel();
     _runtimeStateSubscription?.cancel();
     _runtimeSessionsSubscription?.cancel();
+    _sessionDeltaSubscription?.cancel();
     _piDurableSessionsRefresher.dispose();
     super.dispose();
   }

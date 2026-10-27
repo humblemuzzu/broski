@@ -24,6 +24,7 @@ import 'package:broski/widgets/sessions/codex_active_threads_section.dart';
 import 'package:broski/widgets/sessions/cx_highlighted_card.dart';
 import 'package:broski/widgets/sessions/cx_thread_card.dart';
 import 'package:broski/widgets/sessions/session_helpers.dart';
+import 'package:broski/widgets/sessions/session_list_states.dart';
 import 'package:broski/widgets/sessions/sessions_search_bar.dart';
 import 'package:broski/widgets/sessions/sort_chip.dart';
 import 'package:flutter/material.dart';
@@ -461,7 +462,7 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
     final threadsAsync = ref.watch(codexThreadsProvider);
     final highlights = ref.watch(highlightsProvider);
     final filterCwd = ref.watch(codexThreadsFilterCwdProvider);
-    final codexFilterProjects = ref.watch(codexFilterProjectsProvider);
+    final codexFilterProjects = ref.watch(codexProjectsForThreadsProvider);
     final titleFilterCount = ref
         .watch(sessionsTitleExcludeFiltersProvider(AgentType.codex))
         .length;
@@ -470,6 +471,7 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
       projects: codexFilterProjects,
     );
     final expandedProjects = ref.watch(cxProjectExpandedProvider);
+    final threadsNotifier = ref.read(codexThreadsProvider.notifier);
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SafeArea(
@@ -479,382 +481,410 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
             onRefresh: _refresh,
             color: theme.colorScheme.primary,
             backgroundColor: theme.colorScheme.surface,
-            child: CustomScrollView(
-              controller: _scrollController,
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                SliverToBoxAdapter(
-                  child: CodexActiveThreadsSection(onThreadTap: _openThread),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: ocTheme.primary.withValues(alpha: 0.12),
-                                borderRadius: Radii.brMd,
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    AppIcons.autoAwesome,
-                                    size: 14,
-                                    color: ocTheme.primary,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Codex',
-                                    style: TextStyle(
-                                      color: ocTheme.primary,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Spacer(),
-                            IconButton(
-                              onPressed: () => showNewCxThreadSheet(context),
-                              icon: Icon(AppIcons.add, color: ocTheme.text),
-                              tooltip: 'New thread',
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: Spacing.sm),
-                        Text(
-                          'Codex threads from app-server',
-                          style: TextStyle(
-                            color: ocTheme.textMuted,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
+            child: SessionListScrollTrigger(
+              onNearBottom: () => unawaited(threadsNotifier.loadMore()),
+              child: CustomScrollView(
+                controller: _scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: CodexActiveThreadsSection(onThreadTap: _openThread),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
                             children: [
-                              FilterChipButton(
-                                label: label,
-                                onTap: () => showProjectFilter(
-                                  context: context,
-                                  theme: theme,
-                                  selectedPath: filterCwd,
-                                  projectsProvider: codexFilterProjectsProvider,
-                                  onSelected: (path) {
-                                    ref
-                                            .read(
-                                              codexThreadsFilterCwdProvider
-                                                  .notifier,
-                                            )
-                                            .state =
-                                        path;
-                                    ref
-                                        .read(codexThreadsProvider.notifier)
-                                        .load();
-                                  },
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: ocTheme.primary.withValues(
+                                    alpha: 0.12,
+                                  ),
+                                  borderRadius: Radii.brMd,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      AppIcons.autoAwesome,
+                                      size: 14,
+                                      color: ocTheme.primary,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Codex',
+                                      style: TextStyle(
+                                        color: ocTheme.primary,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              const SizedBox(width: Spacing.sm),
-                              TitleFiltersChip(
-                                count: titleFilterCount,
-                                onTap: () => _showTitleFiltersSheet(context),
+                              const Spacer(),
+                              IconButton(
+                                onPressed: () => showNewCxThreadSheet(context),
+                                icon: Icon(AppIcons.add, color: ocTheme.text),
+                                tooltip: 'New thread',
                               ),
-                              const SizedBox(width: Spacing.sm),
-                              SortChip(
-                                sortBy: _sortBy,
-                                onChanged: (value) {
-                                  setState(() => _sortBy = value);
-                                },
+                            ],
+                          ),
+                          const SizedBox(height: Spacing.sm),
+                          Text(
+                            'Codex threads from app-server',
+                            style: TextStyle(
+                              color: ocTheme.textMuted,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                FilterChipButton(
+                                  label: label,
+                                  onTap: () => showProjectFilter(
+                                    context: context,
+                                    theme: theme,
+                                    selectedPath: filterCwd,
+                                    projectsProvider:
+                                        codexProjectsForThreadsProvider,
+                                    onSelected: (path) {
+                                      ref
+                                              .read(
+                                                codexThreadsFilterCwdProvider
+                                                    .notifier,
+                                              )
+                                              .state =
+                                          path;
+                                      ref
+                                          .read(codexThreadsProvider.notifier)
+                                          .load();
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: Spacing.sm),
+                                TitleFiltersChip(
+                                  count: titleFilterCount,
+                                  onTap: () => _showTitleFiltersSheet(context),
+                                ),
+                                const SizedBox(width: Spacing.sm),
+                                SortChip(
+                                  sortBy: _sortBy,
+                                  onChanged: (value) {
+                                    setState(() => _sortBy = value);
+                                  },
+                                ),
+                                Builder(
+                                  builder: (context) {
+                                    final allThreads =
+                                        threadsAsync.valueOrNull ?? [];
+                                    final subagentCount = allThreads
+                                        .where(
+                                          (t) =>
+                                              t.agentNickname != null ||
+                                              t.agentRole != null,
+                                        )
+                                        .length;
+                                    if (subagentCount == 0) {
+                                      return const SizedBox.shrink();
+                                    }
+                                    return Padding(
+                                      padding: const EdgeInsets.only(
+                                        left: Spacing.sm,
+                                      ),
+                                      child: BackgroundTasksChip(
+                                        count: subagentCount,
+                                        isExpanded: _showSubagentThreads,
+                                        onTap: () => setState(() {
+                                          _showSubagentThreads =
+                                              !_showSubagentThreads;
+                                          if (!_showSubagentThreads) {
+                                            _expandedParents.clear();
+                                          }
+                                        }),
+                                        onLongPress: () =>
+                                            ref
+                                                    .read(
+                                                      showTasksTabProvider
+                                                          .notifier,
+                                                    )
+                                                    .state =
+                                                true,
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: Spacing.md),
+                          SessionsSearchBar(
+                            controller: _searchController,
+                            onChanged: _onSearchChanged,
+                            hintText: 'Search Codex threads...',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  ...threadsAsync.when(
+                    loading: () => [
+                      const SliverToBoxAdapter(child: DelayedSkeletonList()),
+                    ],
+                    error: (error, _) => [
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: SessionListErrorCard(
+                          title: 'Failed to load Codex threads',
+                          error: error,
+                          onRetry: () => unawaited(threadsNotifier.refresh()),
+                        ),
+                      ),
+                    ],
+                    data: (threads) {
+                      final titleFilters = ref.watch(
+                        sessionsTitleExcludeFiltersProvider(AgentType.codex),
+                      );
+                      // Filter but keep all threads for grouping
+                      final filtered =
+                          threads
+                              .where(
+                                (t) => projectPathMatches(t.cwd, filterCwd),
+                              )
+                              .where(
+                                (t) => titleFilters.isEmpty
+                                    ? true
+                                    : !sessionTitleMatchesExcludeFilters(
+                                        t.displayTitle,
+                                        titleFilters,
+                                      ),
+                              )
+                              .where(
+                                (t) => _searchQuery.isEmpty
+                                    ? true
+                                    : t.displayTitle.toLowerCase().contains(
+                                        _searchQuery,
+                                      ),
+                              )
+                              .toList()
+                            ..sort((a, b) {
+                              if (_sortBy == 'updatedAt') {
+                                return b.updatedAt.compareTo(a.updatedAt);
+                              }
+                              return b.createdAt.compareTo(a.createdAt);
+                            });
+
+                      // Classify threads:
+                      // - Root: no agentNickname/agentRole AND no forkedFromId
+                      // - Fork children: have forkedFromId → group under parent
+                      // - Collab children: have agentNickname/agentRole → flat when toggled
+                      bool isChild(CodexThread t) =>
+                          t.agentNickname != null ||
+                          t.agentRole != null ||
+                          (t.forkedFromId != null &&
+                              t.forkedFromId!.isNotEmpty);
+
+                      final rootThreads = filtered
+                          .where((t) => !isChild(t))
+                          .toList();
+
+                      // Build fork children map (keyed by forkedFromId)
+                      final forkChildMap = <String, List<CodexThread>>{};
+                      for (final t in filtered.where(
+                        (t) =>
+                            t.forkedFromId != null &&
+                            t.forkedFromId!.isNotEmpty,
+                      )) {
+                        forkChildMap
+                            .putIfAbsent(t.forkedFromId!, () => [])
+                            .add(t);
+                      }
+
+                      // Collab children (no forkedFromId, just agentNickname/agentRole)
+                      final collabChildren = filtered
+                          .where(
+                            (t) =>
+                                (t.agentNickname != null ||
+                                    t.agentRole != null) &&
+                                (t.forkedFromId == null ||
+                                    t.forkedFromId!.isEmpty),
+                          )
+                          .toList();
+
+                      // Predictive prefetching
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        prefetchTopCxThreads(ref, rootThreads);
+                      });
+                      if (rootThreads.isEmpty && collabChildren.isEmpty) {
+                        if (_searchQuery.isNotEmpty) {
+                          return [
+                            SliverFillRemaining(
+                              child: Center(
+                                child: Text(
+                                  'No threads matching "$_searchQuery"',
+                                  style: TextStyle(
+                                    color: ocTheme.textMuted,
+                                    fontSize: 14,
+                                  ),
+                                ),
                               ),
-                              Builder(
+                            ),
+                          ];
+                        }
+                        return [
+                          const SliverFillRemaining(child: CodexEmptyState()),
+                        ];
+                      }
+                      final highlightedThreads = rootThreads
+                          .where((t) => highlights.isSessionHighlighted(t.id))
+                          .toList();
+                      final regularThreads = rootThreads
+                          .where((t) => !highlights.isSessionHighlighted(t.id))
+                          .toList();
+
+                      // Helper to add a thread card + optional fork children
+                      void addThreadWithChildren(
+                        List<Widget> items,
+                        CodexThread thread,
+                      ) {
+                        items.add(
+                          Padding(
+                            padding: Insets.bottomMd,
+                            child: CodexThreadCard(
+                              thread: thread,
+                              isHighlighted: highlights.isSessionHighlighted(
+                                thread.id,
+                              ),
+                              highlightColor: highlights.color,
+                              onTap: () => _openThread(thread),
+                              onLongPress: () => _showThreadOptions(thread),
+                              onArchive: () => _archiveThread(thread),
+                            ),
+                          ),
+                        );
+                        final forkChildren = forkChildMap[thread.id] ?? [];
+                        if (_showSubagentThreads && forkChildren.isNotEmpty) {
+                          final isExpanded = _expandedParents.contains(
+                            thread.id,
+                          );
+                          items.add(
+                            _CxChildExpandRow(
+                              count: forkChildren.length,
+                              label: 'fork',
+                              isExpanded: isExpanded,
+                              onTap: () => setState(() {
+                                if (isExpanded) {
+                                  _expandedParents.remove(thread.id);
+                                } else {
+                                  _expandedParents.add(thread.id);
+                                }
+                              }),
+                            ),
+                          );
+                          if (isExpanded) {
+                            for (final child in forkChildren) {
+                              items.add(
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    left: 24,
+                                    bottom: 8,
+                                  ),
+                                  child: _CxChildThreadCard(
+                                    thread: child,
+                                    onTap: () => _openThread(child),
+                                  ),
+                                ),
+                              );
+                            }
+                          }
+                        }
+                      }
+
+                      // Build grouped items
+                      final cxIsGrouped = filterCwd == null;
+                      final cxGroupedItems = <Widget>[];
+                      if (!cxIsGrouped) {
+                        for (final t in regularThreads) {
+                          addThreadWithChildren(cxGroupedItems, t);
+                        }
+                      } else {
+                        final groups = <String, List<CodexThread>>{};
+                        for (final t in regularThreads) {
+                          groups.putIfAbsent(t.cwd, () => []).add(t);
+                        }
+                        final directories = groups.keys.toList()
+                          ..sort((a, b) {
+                            final aMax = groups[a]!
+                                .map((t) => t.updatedAt)
+                                .fold<int>(0, (p, v) => v > p ? v : p);
+                            final bMax = groups[b]!
+                                .map((t) => t.updatedAt)
+                                .fold<int>(0, (p, v) => v > p ? v : p);
+                            return bMax.compareTo(aMax);
+                          });
+                        for (final directory in directories) {
+                          final parts = directory
+                              .split('/')
+                              .where((p) => p.isNotEmpty)
+                              .toList();
+                          final name = parts.isEmpty ? 'Global' : parts.last;
+                          cxGroupedItems.add(
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(4, 14, 4, 10),
+                              child: Builder(
                                 builder: (context) {
-                                  final allThreads =
-                                      threadsAsync.valueOrNull ?? [];
-                                  final subagentCount = allThreads
-                                      .where(
-                                        (t) =>
-                                            t.agentNickname != null ||
-                                            t.agentRole != null,
-                                      )
-                                      .length;
-                                  if (subagentCount == 0) {
-                                    return const SizedBox.shrink();
-                                  }
-                                  return Padding(
-                                    padding: const EdgeInsets.only(
-                                      left: Spacing.sm,
-                                    ),
-                                    child: BackgroundTasksChip(
-                                      count: subagentCount,
-                                      isExpanded: _showSubagentThreads,
-                                      onTap: () => setState(() {
-                                        _showSubagentThreads =
-                                            !_showSubagentThreads;
-                                        if (!_showSubagentThreads) {
-                                          _expandedParents.clear();
-                                        }
-                                      }),
-                                      onLongPress: () =>
-                                          ref
-                                                  .read(
-                                                    showTasksTabProvider
-                                                        .notifier,
-                                                  )
-                                                  .state =
-                                              true,
+                                  final ocTheme = OpenCodeTheme.of(context);
+                                  return Text(
+                                    name.toUpperCase(),
+                                    style: TextStyle(
+                                      color: ocTheme.textMuted,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.5,
                                     ),
                                   );
                                 },
                               ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: Spacing.md),
-                        SessionsSearchBar(
-                          controller: _searchController,
-                          onChanged: _onSearchChanged,
-                          hintText: 'Search Codex threads...',
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                ...threadsAsync.when(
-                  loading: () => [
-                    const SliverToBoxAdapter(child: DelayedSkeletonList()),
-                  ],
-                  error: (error, _) => [
-                    SliverFillRemaining(
-                      child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              AppIcons.error,
-                              color: ocTheme.error,
-                              size: 48,
                             ),
-                            const SizedBox(height: Spacing.lg),
-                            Text(
-                              'Failed to load threads',
-                              style: TextStyle(
-                                color: ocTheme.text,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: Spacing.sm),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                              ),
-                              child: Text(
-                                humanizeError(error),
-                                style: TextStyle(
-                                  color: ocTheme.textMuted,
-                                  fontSize: 14,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                  data: (threads) {
-                    final titleFilters = ref.watch(
-                      sessionsTitleExcludeFiltersProvider(AgentType.codex),
-                    );
-                    // Filter but keep all threads for grouping
-                    final filtered =
-                        threads
-                            .where((t) => projectPathMatches(t.cwd, filterCwd))
-                            .where(
-                              (t) => titleFilters.isEmpty
-                                  ? true
-                                  : !sessionTitleMatchesExcludeFilters(
-                                      t.displayTitle,
-                                      titleFilters,
-                                    ),
-                            )
-                            .where(
-                              (t) => _searchQuery.isEmpty
-                                  ? true
-                                  : t.displayTitle.toLowerCase().contains(
-                                      _searchQuery,
-                                    ),
-                            )
-                            .toList()
-                          ..sort((a, b) {
-                            if (_sortBy == 'updatedAt') {
-                              return b.updatedAt.compareTo(a.updatedAt);
-                            }
-                            return b.createdAt.compareTo(a.createdAt);
-                          });
-
-                    // Classify threads:
-                    // - Root: no agentNickname/agentRole AND no forkedFromId
-                    // - Fork children: have forkedFromId → group under parent
-                    // - Collab children: have agentNickname/agentRole → flat when toggled
-                    bool isChild(CodexThread t) =>
-                        t.agentNickname != null ||
-                        t.agentRole != null ||
-                        (t.forkedFromId != null && t.forkedFromId!.isNotEmpty);
-
-                    final rootThreads = filtered
-                        .where((t) => !isChild(t))
-                        .toList();
-
-                    // Build fork children map (keyed by forkedFromId)
-                    final forkChildMap = <String, List<CodexThread>>{};
-                    for (final t in filtered.where(
-                      (t) =>
-                          t.forkedFromId != null && t.forkedFromId!.isNotEmpty,
-                    )) {
-                      forkChildMap
-                          .putIfAbsent(t.forkedFromId!, () => [])
-                          .add(t);
-                    }
-
-                    // Collab children (no forkedFromId, just agentNickname/agentRole)
-                    final collabChildren = filtered
-                        .where(
-                          (t) =>
-                              (t.agentNickname != null ||
-                                  t.agentRole != null) &&
-                              (t.forkedFromId == null ||
-                                  t.forkedFromId!.isEmpty),
-                        )
-                        .toList();
-
-                    // Predictive prefetching
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      prefetchTopCxThreads(ref, rootThreads);
-                    });
-                    if (rootThreads.isEmpty && collabChildren.isEmpty) {
-                      if (_searchQuery.isNotEmpty) {
-                        return [
-                          SliverFillRemaining(
-                            child: Center(
-                              child: Text(
-                                'No threads matching "$_searchQuery"',
-                                style: TextStyle(
-                                  color: ocTheme.textMuted,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ];
-                      }
-                      return [
-                        const SliverFillRemaining(child: CodexEmptyState()),
-                      ];
-                    }
-                    final highlightedThreads = rootThreads
-                        .where((t) => highlights.isSessionHighlighted(t.id))
-                        .toList();
-                    final regularThreads = rootThreads
-                        .where((t) => !highlights.isSessionHighlighted(t.id))
-                        .toList();
-
-                    // Helper to add a thread card + optional fork children
-                    void addThreadWithChildren(
-                      List<Widget> items,
-                      CodexThread thread,
-                    ) {
-                      items.add(
-                        Padding(
-                          padding: Insets.bottomMd,
-                          child: CodexThreadCard(
-                            thread: thread,
-                            isHighlighted: highlights.isSessionHighlighted(
-                              thread.id,
-                            ),
-                            highlightColor: highlights.color,
-                            onTap: () => _openThread(thread),
-                            onLongPress: () => _showThreadOptions(thread),
-                            onArchive: () => _archiveThread(thread),
-                          ),
-                        ),
-                      );
-                      final forkChildren = forkChildMap[thread.id] ?? [];
-                      if (_showSubagentThreads && forkChildren.isNotEmpty) {
-                        final isExpanded = _expandedParents.contains(thread.id);
-                        items.add(
-                          _CxChildExpandRow(
-                            count: forkChildren.length,
-                            label: 'fork',
-                            isExpanded: isExpanded,
-                            onTap: () => setState(() {
-                              if (isExpanded) {
-                                _expandedParents.remove(thread.id);
-                              } else {
-                                _expandedParents.add(thread.id);
-                              }
-                            }),
-                          ),
-                        );
-                        if (isExpanded) {
-                          for (final child in forkChildren) {
-                            items.add(
-                              Padding(
-                                padding: const EdgeInsets.only(
-                                  left: 24,
-                                  bottom: 8,
-                                ),
-                                child: _CxChildThreadCard(
-                                  thread: child,
-                                  onTap: () => _openThread(child),
-                                ),
+                          );
+                          final group = groups[directory]!;
+                          final isExpanded = expandedProjects.contains(
+                            directory,
+                          );
+                          final limit = isExpanded
+                              ? group.length
+                              : kSessionsPerProjectDefault;
+                          final visible = group.take(limit);
+                          for (final t in visible) {
+                            addThreadWithChildren(cxGroupedItems, t);
+                          }
+                          final remaining = group.length - limit;
+                          if (remaining > 0) {
+                            cxGroupedItems.add(
+                              LoadMoreButton(
+                                remainingCount: remaining,
+                                onTap: () => ref
+                                    .read(cxProjectExpandedProvider.notifier)
+                                    .expand(directory),
                               ),
                             );
                           }
                         }
                       }
-                    }
 
-                    // Build grouped items
-                    final cxIsGrouped = filterCwd == null;
-                    final cxGroupedItems = <Widget>[];
-                    if (!cxIsGrouped) {
-                      for (final t in regularThreads) {
-                        addThreadWithChildren(cxGroupedItems, t);
-                      }
-                    } else {
-                      final groups = <String, List<CodexThread>>{};
-                      for (final t in regularThreads) {
-                        groups.putIfAbsent(t.cwd, () => []).add(t);
-                      }
-                      final directories = groups.keys.toList()
-                        ..sort((a, b) {
-                          final aMax = groups[a]!
-                              .map((t) => t.updatedAt)
-                              .fold<int>(0, (p, v) => v > p ? v : p);
-                          final bMax = groups[b]!
-                              .map((t) => t.updatedAt)
-                              .fold<int>(0, (p, v) => v > p ? v : p);
-                          return bMax.compareTo(aMax);
-                        });
-                      for (final directory in directories) {
-                        final parts = directory
-                            .split('/')
-                            .where((p) => p.isNotEmpty)
-                            .toList();
-                        final name = parts.isEmpty ? 'Global' : parts.last;
+                      // Collab agents section (no parent link, show flat)
+                      if (_showSubagentThreads && collabChildren.isNotEmpty) {
                         cxGroupedItems.add(
                           Padding(
                             padding: const EdgeInsets.fromLTRB(4, 14, 4, 10),
@@ -862,7 +892,7 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
                               builder: (context) {
                                 final ocTheme = OpenCodeTheme.of(context);
                                 return Text(
-                                  name.toUpperCase(),
+                                  'COLLAB AGENTS',
                                   style: TextStyle(
                                     color: ocTheme.textMuted,
                                     fontSize: 12,
@@ -874,101 +904,55 @@ class CodexThreadsViewState extends ConsumerState<CodexThreadsView> {
                             ),
                           ),
                         );
-                        final group = groups[directory]!;
-                        final isExpanded = expandedProjects.contains(directory);
-                        final limit = isExpanded
-                            ? group.length
-                            : kSessionsPerProjectDefault;
-                        final visible = group.take(limit);
-                        for (final t in visible) {
-                          addThreadWithChildren(cxGroupedItems, t);
-                        }
-                        final remaining = group.length - limit;
-                        if (remaining > 0) {
+                        for (final t in collabChildren) {
                           cxGroupedItems.add(
-                            LoadMoreButton(
-                              remainingCount: remaining,
-                              onTap: () => ref
-                                  .read(cxProjectExpandedProvider.notifier)
-                                  .expand(directory),
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: _CxChildThreadCard(
+                                thread: t,
+                                onTap: () => _openThread(t),
+                              ),
                             ),
                           );
                         }
                       }
-                    }
 
-                    // Collab agents section (no parent link, show flat)
-                    if (_showSubagentThreads && collabChildren.isNotEmpty) {
-                      cxGroupedItems.add(
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(4, 14, 4, 10),
-                          child: Builder(
-                            builder: (context) {
-                              final ocTheme = OpenCodeTheme.of(context);
-                              return Text(
-                                'COLLAB AGENTS',
-                                style: TextStyle(
-                                  color: ocTheme.textMuted,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.5,
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      );
-                      for (final t in collabChildren) {
-                        cxGroupedItems.add(
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: _CxChildThreadCard(
-                              thread: t,
-                              onTap: () => _openThread(t),
+                      return [
+                        if (highlightedThreads.isNotEmpty)
+                          SliverToBoxAdapter(
+                            child: CodexHighlightedThreadsSection(
+                              threads: highlightedThreads,
+                              highlightColor: highlights.color,
+                              onTap: _openThread,
+                              onLongPress: _showThreadOptions,
                             ),
                           ),
-                        );
-                      }
-                    }
-
-                    return [
-                      if (highlightedThreads.isNotEmpty)
+                        SliverPadding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          sliver: SliverList(
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) => cxGroupedItems[index],
+                              childCount: cxGroupedItems.length,
+                            ),
+                          ),
+                        ),
                         SliverToBoxAdapter(
-                          child: CodexHighlightedThreadsSection(
-                            threads: highlightedThreads,
-                            highlightColor: highlights.color,
-                            onTap: _openThread,
-                            onLongPress: _showThreadOptions,
-                          ),
-                        ),
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-                        sliver: SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) => cxGroupedItems[index],
-                            childCount: cxGroupedItems.length,
-                          ),
-                        ),
-                      ),
-                      if (ref.watch(codexThreadsProvider.notifier).hasMore)
-                        const SliverToBoxAdapter(
                           child: Padding(
-                            padding: EdgeInsets.symmetric(vertical: 24),
-                            child: Center(
-                              child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
+                            padding: const EdgeInsets.only(bottom: 100),
+                            child: SessionListFooter(
+                              hasMore: threadsNotifier.hasMore,
+                              isLoading: threadsNotifier.isLoadingMore,
+                              failed: threadsNotifier.loadMoreFailed,
+                              onRetry: () =>
+                                  unawaited(threadsNotifier.loadMore()),
                             ),
                           ),
                         ),
-                    ];
-                  },
-                ),
-              ],
+                      ];
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         ),
