@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:broski/models/file_attachment.dart';
 import 'package:broski/models/pi.dart';
 import 'package:broski/models/project.dart';
+import 'package:broski/services/bridge/bridge_reset_exception.dart';
 import 'package:broski/services/websocket_service.dart';
 
 export 'bridge/bridge_pi_tools.dart';
@@ -55,6 +56,23 @@ class PiBridgeService {
     for (final completer in pending) {
       if (completer.isCompleted) continue;
       completer.completeError(PiBridgeDisconnectedException());
+    }
+  }
+
+  /// Fails every request still waiting for a reply the bridge lost when its
+  /// socket was replaced, restarted or went away, so a caller is not held until
+  /// its own timeout for an answer that is no longer coming.
+  void failPendingRequests(BridgeResetReason reason) {
+    if (_pendingByRequestId.isEmpty) {
+      return;
+    }
+    final pending = _pendingByRequestId.values.toList(growable: false);
+    _pendingByRequestId.clear();
+    final error = BridgeResetException(reason);
+    for (final completer in pending) {
+      if (!completer.isCompleted) {
+        completer.completeError(error);
+      }
     }
   }
 

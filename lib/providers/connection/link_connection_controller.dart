@@ -4,6 +4,7 @@ import 'dart:developer' as developer;
 import 'package:broski/models/link/link_control_exception.dart';
 import 'package:broski/models/link/machine.dart';
 import 'package:broski/providers/app_info_provider.dart';
+import 'package:broski/providers/connection/bridge_reset_fanout.dart';
 import 'package:broski/providers/connection/bridge_status_provider.dart';
 import 'package:broski/providers/connection/bridge_status_tracker.dart';
 import 'package:broski/providers/connection/link_status_mapping.dart';
@@ -225,7 +226,7 @@ class LinkConnectionController with WidgetsBindingObserver {
   /// A reset means the bridge forgot what it was asked, so a request still
   /// waiting for a reply will never see one.
   void _onBridgeReset(BridgeResetReason reason) {
-    _ref.read(bridgeServiceProvider).failPendingBridgeRequests(reason);
+    _ref.read(bridgeResetFanoutProvider).failAll(reason);
   }
 
   void _onControl(Map<String, Object?> message) {
