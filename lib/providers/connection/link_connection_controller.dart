@@ -9,6 +9,7 @@ import 'package:broski/providers/connection/bridge_status_provider.dart';
 import 'package:broski/providers/connection/connect_retry_schedule.dart';
 import 'package:broski/providers/connection/link_bridge_wiring.dart';
 import 'package:broski/providers/connection/link_connect_failure_notice.dart';
+import 'package:broski/providers/connection/link_frame_error_notice.dart';
 import 'package:broski/providers/connection/link_send_failure_notice.dart';
 import 'package:broski/providers/connection/link_status_mapping.dart';
 import 'package:broski/providers/link/discovery_provider.dart';
@@ -42,6 +43,7 @@ final linkConnectionControllerProvider = Provider<LinkConnectionController>((
 final linkConnectionBootstrapProvider = Provider<void>((ref) {
   ref.watch(linkConnectionControllerProvider);
   ref.watch(linkConnectFailureNoticeProvider);
+  ref.watch(linkFrameErrorNoticeProvider);
   ref.watch(linkSendFailureNoticeProvider);
   ref.watch(pushKeyPruneProvider);
 });

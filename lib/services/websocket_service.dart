@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:broski/services/websocket/bridge_transport.dart';
+import 'package:broski/services/websocket/inbound_frame_limit.dart';
 import 'package:broski/services/websocket/json_message_decoder.dart';
 import 'package:broski_link/broski_link.dart' show linkOutboundQueueMax;
 import 'package:flutter/foundation.dart' show debugPrint;
@@ -47,7 +48,7 @@ class WebSocketService {
   final WebSocketJsonMessageDecoder _jsonDecoder =
       WebSocketJsonMessageDecoder();
   bool _isDecoding = false;
-  static const int _maxIncomingMessageBytes = 15 * 1024 * 1024;
+  final _frameErrors = StreamController<String>.broadcast();
 
   static const _immediateTypes = {
     'permission_response',
@@ -71,6 +72,10 @@ class WebSocketService {
   };
 
   Stream<Map<String, dynamic>> get messages => _messageController.stream;
+
+  /// Frames the app refused to decode, with what it lost. An over-limit frame is
+  /// a reported error, never a silent drop.
+  Stream<String> get frameErrors => _frameErrors.stream;
   Stream<ConnectionStatus> get statusStream => _statusController.stream;
   ConnectionStatus get status => _status;
 
@@ -95,8 +100,7 @@ class WebSocketService {
         if (event is String) {
           _handleMessage(event);
         } else if (event is List<int>) {
-          if (event.length > _maxIncomingMessageBytes) return;
-          _handleMessage(utf8.decode(event));
+          _handleBytes(event);
         }
       },
       onError: (_) {
@@ -236,11 +240,20 @@ class WebSocketService {
     _channel = null;
     _messageController.close();
     _statusController.close();
+    _frameErrors.close();
+  }
+
+  void _handleBytes(List<int> bytes) {
+    if (bytes.length > linkMaxInboundFrameBytes) {
+      _reportOversizedFrame(bytes.length);
+      return;
+    }
+    _handleMessage(utf8.decode(bytes));
   }
 
   void _handleMessage(String raw) {
-    if (raw.length > _maxIncomingMessageBytes) {
-      debugPrint('[WebSocket] Dropping oversized message: ${raw.length} chars');
+    if (raw.length > linkMaxInboundFrameBytes) {
+      _reportOversizedFrame(raw.length);
       return;
     }
     _rawQueue.add(raw);
@@ -287,6 +300,12 @@ class WebSocketService {
       default:
         _messageController.add(data);
     }
+  }
+
+  void _reportOversizedFrame(int bytes) {
+    final message = oversizedInboundFrameMessage(bytes);
+    debugPrint('[WebSocket] $message');
+    if (!_frameErrors.isClosed) _frameErrors.add(message);
   }
 
   void _setStatus(ConnectionStatus status) {

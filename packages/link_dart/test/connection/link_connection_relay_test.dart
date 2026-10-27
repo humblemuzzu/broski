@@ -3,7 +3,6 @@ import 'package:test/test.dart';
 
 import 'fake_machine.dart';
 import 'harness.dart';
-import 'wait_for.dart';
 
 void main() {
   late FakeMachine machine;
@@ -95,15 +94,14 @@ void main() {
     expect(machine.relayRequests, 1);
     final mark = harness.statuses.length;
 
-    await waitFor(
-      () => machine.relayRequests >= 2,
-      reason: 'a second dial after the backoff',
+    // The retry's own status crosses the isolate port asynchronously, so the
+    // assertion waits for it rather than reading the list it may not be in yet.
+    await waitForStatus(
+      harness,
+      (status) => status.state == LinkConnectionState.connecting,
+      from: mark,
+      reason: 'the retry reports connecting',
     );
-    expect(
-      harness.statuses
-          .skip(mark)
-          .any((status) => status.state == LinkConnectionState.connecting),
-      isTrue,
-    );
+    expect(machine.relayRequests, greaterThanOrEqualTo(2));
   });
 }

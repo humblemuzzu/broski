@@ -84,26 +84,6 @@ extension PiBridgeTools on PiBridgeService {
     return PiThinkingCapabilities.fromJson(data);
   }
 
-  /// List ALL models including unauthenticated ones.
-  Future<List<PiModel>> listAllModels({String? projectPath}) async {
-    final requestId = generateRequestId();
-    sendMessage({
-      'type': 'pi_list_all_models',
-      'requestId': requestId,
-      if (projectPath != null) 'projectPath': projectPath,
-    });
-
-    final response = await waitForResponse(
-      'pi_all_models',
-      requestId: requestId,
-    );
-    final data = response['data'] as List<dynamic>? ?? const [];
-    return data
-        .whereType<Map<String, dynamic>>()
-        .map((entry) => PiModel.fromJson(entry))
-        .toList();
-  }
-
   // ── Granular Abort ─────────────────────────────────────────────
 
   /// Abort in-progress compaction (manual or auto).
