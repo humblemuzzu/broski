@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:broski_link/src/connection/isolate_protocol.dart';
 import 'package:broski_link/src/connection/lan_probe.dart';
+import 'package:broski_link/src/connection/link_close_code.dart';
 import 'package:broski_link/src/connection/link_handshake.dart';
 import 'package:broski_link/src/connection/link_session_io.dart';
 import 'package:broski_link/src/connection/link_socket.dart';
@@ -12,6 +13,7 @@ import 'package:broski_link/src/connection/link_sockets.dart';
 import 'package:broski_link/src/connection/link_status.dart';
 import 'package:broski_link/src/connection/link_status_reporter.dart';
 import 'package:broski_link/src/connection/machine_endpoint.dart';
+import 'package:broski_link/src/connection/presence_tracker.dart';
 import 'package:broski_link/src/connection/route_retry.dart';
 import 'package:broski_link/src/connection/web_link_socket.dart';
 
@@ -57,8 +59,7 @@ final class LinkEngine {
   final ReceivePort commands;
 
   final Stopwatch _clock = Stopwatch()..start();
-  final Map<LinkSocket, ({MachinePresence presence, DateTime? lastSeen})>
-  _presence = {};
+  final PresenceTracker _presence = PresenceTracker();
   final Uint8List _identitySecret;
 
   late LinkSessionIo _io;
@@ -73,6 +74,7 @@ final class LinkEngine {
   var _paused = false;
   var _closed = false;
   int? _pausedAtMs;
+  final PeerClosePolicy _close = PeerClosePolicy();
 
   Duration get _now => Duration(milliseconds: _clock.elapsedMilliseconds);
 
@@ -127,6 +129,8 @@ final class LinkEngine {
     onBridge: (text) => events.send(LinkIsolateBridge(text)),
     onControl: (message) => events.send(LinkIsolateControl(message)),
     onFailed: _onFailure,
+    onPeerClosed: _onPeerClosed,
+    onSendFailure: (failure) => events.send(LinkIsolateSendFailure(failure)),
   );
 
   void _setEndpoint(MachineEndpoint endpoint) {
@@ -147,6 +151,9 @@ final class LinkEngine {
   }
 
   void _connect({LinkRoute? only}) {
+    if (_closed || _close.isRevoked) {
+      return;
+    }
     _cancelRetry();
     _handshake.cancel();
     _handshake.reset();
@@ -192,7 +199,7 @@ final class LinkEngine {
       _startHandshake(socket);
       return;
     }
-    switch (_presence[socket]?.presence) {
+    switch (_presence.of(socket)) {
       case MachinePresence.online:
         _startHandshake(socket);
       case MachinePresence.offline:
@@ -216,8 +223,22 @@ final class LinkEngine {
     _setState(
       LinkConnectionState.connected,
       resumed: resumed,
-      sessionReset: sessionReset,
+      sessionReset: _close.takeResync(sessionReset: sessionReset),
     );
+  }
+
+  void _onPeerClosed(int code) {
+    _close.record(code);
+    if (!_close.isRevoked) {
+      _onFailure();
+      return;
+    }
+    _handshake.cancel();
+    _probe.stop();
+    _io.stop();
+    _sockets.stop();
+    _presence.clear();
+    _setState(LinkConnectionState.closed);
   }
 
   void _onFailure() {
@@ -257,7 +278,7 @@ final class LinkEngine {
   }
 
   void _reconnectNow() {
-    if (_closed || _paused) {
+    if (_closed || _paused || _close.isRevoked) {
       return;
     }
     _cancelRetry();
@@ -312,7 +333,7 @@ final class LinkEngine {
     MachinePresence presence,
     DateTime? lastSeen,
   ) {
-    _presence[socket] = (presence: presence, lastSeen: lastSeen);
+    _presence.record(socket, presence);
     _status.sawMachine(lastSeen);
     if (_closed || _paused || !identical(socket, _sockets.current)) {
       return;
@@ -353,12 +374,10 @@ final class LinkEngine {
     _attach(socket);
   }
 
-  void _syncProbe() {
-    _probe.sync(
-      eligible: !_closed && !_paused && _sockets.route == LinkRoute.relay,
-      hosts: <Uri>[for (final host in _endpoint.lan) _endpoint.lanLink(host)],
-    );
-  }
+  void _syncProbe() => _probe.sync(
+    eligible: !_closed && !_paused && _sockets.route == LinkRoute.relay,
+    hosts: <Uri>[for (final host in _endpoint.lan) _endpoint.lanLink(host)],
+  );
 
   void _setState(
     LinkConnectionState state, {
@@ -372,6 +391,7 @@ final class LinkEngine {
       routeDetail: _sockets.detail,
       resumed: resumed,
       sessionReset: sessionReset,
+      closeCode: _close.code,
     );
   }
 }

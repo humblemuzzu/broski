@@ -4,11 +4,14 @@ import 'dart:developer' as developer;
 import 'package:broski/models/link/link_control_exception.dart';
 import 'package:broski/models/link/machine.dart';
 import 'package:broski/providers/app_info_provider.dart';
+import 'package:broski/providers/connection/bridge_status_provider.dart';
+import 'package:broski/providers/connection/bridge_status_tracker.dart';
 import 'package:broski/providers/connection/link_status_mapping.dart';
 import 'package:broski/providers/link/link_status_provider.dart';
 import 'package:broski/providers/link/machines_provider.dart';
 import 'package:broski/providers/link/push_providers.dart';
 import 'package:broski/providers/service_providers.dart';
+import 'package:broski/services/bridge/bridge_reset_exception.dart';
 import 'package:broski/services/link/device_profile.dart';
 import 'package:broski/services/link/link_endpoint.dart';
 import 'package:broski/services/link/push_registration.dart';
@@ -44,6 +47,7 @@ class LinkConnectionController with WidgetsBindingObserver {
   LinkConnectionController(this._ref) {
     WidgetsBinding.instance.addObserver(this);
     _statusSink = _ref.read(linkStatusSinkProvider.notifier);
+    _bridgeSink = _ref.read(bridgeLinkStatusProvider.notifier);
     _socket = _ref.read(webSocketServiceProvider);
     _networkSub = _ref
         .read(networkMonitorServiceProvider)
@@ -60,16 +64,25 @@ class LinkConnectionController with WidgetsBindingObserver {
 
   final Ref _ref;
   late final LinkStatusSink _statusSink;
+  late final BridgeLinkStatusSink _bridgeSink;
   late final WebSocketService _socket;
   late final LinkStatusPublisher _publisher = LinkStatusPublisher(
     publish: _socket.applyTransportStatus,
     onConnected: () => unawaited(_announce()),
   );
+  late final BridgeStatusTracker _bridgeTracker = BridgeStatusTracker(
+    publisher: _publisher,
+    onReset: _onBridgeReset,
+  );
+  final StreamController<LinkSendFailure> _sendFailures =
+      StreamController<LinkSendFailure>.broadcast();
 
   ProviderSubscription<MachinesState>? _machinesSub;
   StreamSubscription<NetworkState>? _networkSub;
   StreamSubscription<LinkStatus>? _statusSub;
   StreamSubscription<Map<String, Object?>>? _controlSub;
+  StreamSubscription<BridgeLinkStatus>? _bridgeSub;
+  StreamSubscription<LinkSendFailure>? _sendFailureSub;
   LinkConnection? _connection;
   Machine? _machine;
   LinkStatus? _lastStatus;
@@ -79,6 +92,13 @@ class LinkConnectionController with WidgetsBindingObserver {
 
   /// Marks a pairing as owning the connection, so the auto-connect does not
   /// start a second link for the machine the QR is about to store.
+  /// Messages the link refused to send, for the notice the app shows.
+  Stream<LinkSendFailure> get sendFailures => _sendFailures.stream;
+
+  /// One control message to the daemon, for example a bridge restart.
+  void sendControl(Map<String, Object?> message) =>
+      _connection?.sendControl(message);
+
   void beginPairing() => _pairing = true;
 
   void endPairing() => _pairing = false;
@@ -97,6 +117,8 @@ class LinkConnectionController with WidgetsBindingObserver {
     _machine = machine;
     _statusSub = connection.status.listen(_onStatus);
     _controlSub = connection.control.listen(_onControl);
+    _bridgeSub = connection.bridgeStatus.listen(_onBridgeStatus);
+    _sendFailureSub = connection.sendFailures.listen(_onSendFailure);
     await _socket.connect(
       LinkTransport(
         messages: connection.bridgeMessages,
@@ -162,6 +184,7 @@ class LinkConnectionController with WidgetsBindingObserver {
     }
     if (_attached) {
       _publisher.add(status);
+      _bridgeTracker.onLinkStatus(status);
     }
     // A closed link must not hold the slot: the next resume or network change
     // has to be able to start a fresh one.
@@ -186,6 +209,23 @@ class LinkConnectionController with WidgetsBindingObserver {
     await _ref
         .read(machinesProvider.notifier)
         .touchConnected(machine.id, DateTime.now());
+  }
+
+  void _onBridgeStatus(BridgeLinkStatus status) {
+    _bridgeSink.publish(status);
+    _bridgeTracker.onBridgeStatus(status);
+  }
+
+  void _onSendFailure(LinkSendFailure failure) {
+    if (!_sendFailures.isClosed) {
+      _sendFailures.add(failure);
+    }
+  }
+
+  /// A reset means the bridge forgot what it was asked, so a request still
+  /// waiting for a reply will never see one.
+  void _onBridgeReset(BridgeResetReason reason) {
+    _ref.read(bridgeServiceProvider).failPendingBridgeRequests(reason);
   }
 
   void _onControl(Map<String, Object?> message) {
@@ -257,10 +297,16 @@ class LinkConnectionController with WidgetsBindingObserver {
     _lastStatus = null;
     _push?.detach();
     _statusSink.clear();
+    _bridgeTracker.reset();
+    _bridgeSink.publish(null);
     _statusSub?.cancel();
     _controlSub?.cancel();
+    _bridgeSub?.cancel();
+    _sendFailureSub?.cancel();
     _statusSub = null;
     _controlSub = null;
+    _bridgeSub = null;
+    _sendFailureSub = null;
     _machine = null;
     final connection = _connection;
     _connection = null;
@@ -274,5 +320,6 @@ class LinkConnectionController with WidgetsBindingObserver {
     _machinesSub?.close();
     _networkSub?.cancel();
     _detach();
+    unawaited(_sendFailures.close());
   }
 }

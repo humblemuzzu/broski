@@ -8,6 +8,7 @@ import 'package:broski/services/notification_service.dart';
 import 'package:broski/services/storage/legacy_connection_purge.dart';
 import 'package:broski/services/storage_service.dart';
 import 'package:broski/theme/theme.dart';
+import 'package:broski/widgets/link/link_send_failure_snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -88,6 +89,7 @@ class BroskiApp extends ConsumerWidget {
     if (themeState.isLoading || fontState.isLoading) {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
+        scaffoldMessengerKey: appMessengerKey,
         theme: BroskiTheme.black(),
         builder: _tabletAwareBuilder,
         home: const Scaffold(body: Center(child: CircularProgressIndicator())),
@@ -109,6 +111,7 @@ class BroskiApp extends ConsumerWidget {
     return MaterialApp(
       title: 'Broski',
       debugShowCheckedModeBanner: false,
+      scaffoldMessengerKey: appMessengerKey,
       theme: appTheme,
       darkTheme: appTheme,
       themeMode: ThemeMode.dark, // Always use dark mode

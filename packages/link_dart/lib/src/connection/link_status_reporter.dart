@@ -30,11 +30,12 @@ final class LinkStatusReporter {
     String? routeDetail,
     bool? resumed,
     bool sessionReset = false,
+    int? closeCode,
   }) {
     _state = state;
-    if (resumed != null) {
-      _resumed = resumed;
-    }
+    _resumed = state == LinkConnectionState.connected
+        ? resumed ?? _resumed
+        : null;
     if (sessionReset) {
       _sessionReset = true;
     }
@@ -45,12 +46,26 @@ final class LinkStatusReporter {
       lastSeen: _lastSeen,
       resumed: _resumed,
       sessionReset: _sessionReset,
+      closeCode: closeCode,
     );
     _sessionReset = false;
-    if (status == _last) {
+    final previous = _last;
+    _last = status;
+    // Dedupe on everything but the reset flag: two resets in a row carry the
+    // same route and detail, and the second one still has to reach the app.
+    if (previous != null &&
+        !status.sessionReset &&
+        _sameSnapshot(previous, status)) {
       return;
     }
-    _last = status;
     _events.send(LinkIsolateStatus(status));
   }
+
+  bool _sameSnapshot(LinkStatus a, LinkStatus b) =>
+      a.state == b.state &&
+      a.route == b.route &&
+      a.routeDetail == b.routeDetail &&
+      a.lastSeen == b.lastSeen &&
+      a.resumed == b.resumed &&
+      a.closeCode == b.closeCode;
 }

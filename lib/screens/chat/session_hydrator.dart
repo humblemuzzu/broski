@@ -195,11 +195,12 @@ Future<bool> hydrateSession({
           widgetSessionId.isNotEmpty &&
           !connection.isOfflineMode) {
         try {
-          final items = await piBridge.readSessionMessages(
+          final page = await piBridge.readSessionMessagesPage(
             sessionPath: sessionPath,
             sessionId: widgetSessionId,
+            limit: kTranscriptPageLimit,
           );
-          chat.hydratePiTranscript(items);
+          chat.hydratePiTranscript(page.items);
         } catch (_) {
           // Best effort — read-only view survives without messages
         }
@@ -353,17 +354,26 @@ Future<bool> hydrateSession({
     return false;
   }
   final bridge = ref.read(bridgeServiceProvider);
-  final messages = await bridge.getSessionMessages(
-    widget.session.id,
-    projectPath: widget.project.path,
-    limit: 20,
-  );
-  chat.hydrate(messages);
-  if (messages.length < 20) {
-    setPaginationState(loadingMore: false, loadedAll: true);
-  } else {
-    setPaginationState(loadingMore: false, loadedAll: false);
+  var ocHasOlder = false;
+  try {
+    final page = await bridge.pageSessionMessages(
+      widget.session.id,
+      projectPath: widget.project.path,
+      limit: kTranscriptPageLimit,
+    );
+    chat.hydrate(page.items);
+    // The page's cursor names the messages before it, so scroll-to-top asks for
+    // exactly one older page instead of the whole session.
+    chat.setTranscriptSession(widget.session.id);
+    chat.setTranscriptCursor(page.nextCursor);
+    ocHasOlder = page.hasOlder;
+  } catch (_) {
+    final cached = await storage.getCachedMessages(widget.session.id);
+    if (cached.isNotEmpty) {
+      chat.hydrate(cached.map((m) => messageToRaw(m)).toList());
+    }
   }
+  setPaginationState(loadingMore: false, loadedAll: !ocHasOlder);
   scrollToBottom(animate: false);
   // Cache messages for offline use
   final chatState = ref.read(chatSessionProvider);

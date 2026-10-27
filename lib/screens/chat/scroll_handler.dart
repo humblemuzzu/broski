@@ -1,6 +1,4 @@
 import 'package:broski/providers/chat_provider.dart';
-import 'package:broski/providers/connection_provider.dart';
-import 'package:broski/providers/service_providers.dart';
 import 'package:broski/screens/chat/load_earlier.dart';
 import 'package:broski/screens/chat/mcp_oauth_snackbar.dart';
 import 'package:broski/screens/chat/transcript_scroll_anchor.dart';
@@ -64,11 +62,11 @@ void handleAutoScroll({
   }
 }
 
-/// Load more messages when user scrolls to top.
-/// Extracted from `_ChatScreenState._loadMoreMessages`.
+/// Loads the page of messages older than the loaded window when the user
+/// scrolls to the top.
 ///
-/// OpenCode re-fetches the session, the other backends ask the bridge for the page before the
-/// loaded window.
+/// Every backend pages now, OpenCode included: asking it for the whole session
+/// is the request that used to stall a phone on a long chat.
 Future<void> loadMoreMessages({
   required WidgetRef ref,
   required bool loadingMoreMessages,
@@ -82,43 +80,29 @@ Future<void> loadMoreMessages({
   required bool Function() isMounted,
   ChatScreen? widget,
 }) async {
-  if (widget != null && !widget.isOpenCode) {
-    return loadEarlierTranscript(
-      ref: ref,
-      widget: widget,
-      loadingMoreMessages: loadingMoreMessages,
-      hasLoadedAllMessages: hasLoadedAllMessages,
-      scrollController: scrollController,
-      anchorKeys: anchorKeys,
-      setPaginationState: setPaginationState,
-    );
-  }
-  if (loadingMoreMessages || hasLoadedAllMessages) return;
-  final connection = ref.read(connectionProvider);
-  if (connection.isOfflineMode) {
+  final screen = widget;
+  if (screen == null || !supportsTranscriptPaging(screen)) {
     setPaginationState(loadingMore: false, loadedAll: true);
     return;
   }
-  setPaginationState(loadingMore: true, loadedAll: false);
-  try {
-    final bridge = ref.read(bridgeServiceProvider);
-    final chat = ref.read(chatSessionProvider.notifier);
-    final allMessages = await bridge.getSessionMessages(
-      sessionId,
-      projectPath: projectPath,
-    );
-    final currentOffset = scrollController.position.pixels;
-    final currentMax = scrollController.position.maxScrollExtent;
-    chat.hydrate(allMessages);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (scrollController.hasClients) {
-        final newMax = scrollController.position.maxScrollExtent;
-        final addedHeight = newMax - currentMax;
-        scrollController.jumpTo(currentOffset + addedHeight);
-      }
-    });
+  final chat = ref.read(chatSessionProvider.notifier);
+  // The user can leave a chat while a page is still loading: a page for the
+  // session or project they left would land in the wrong window.
+  if (sessionId != chat.transcriptSessionId ||
+      projectPath != screen.project.path) {
     setPaginationState(loadingMore: false, loadedAll: true);
-  } catch (e) {
-    setPaginationState(loadingMore: false, loadedAll: false);
+    return;
   }
+  await loadEarlierTranscript(
+    ref: ref,
+    widget: screen,
+    loadingMoreMessages: loadingMoreMessages,
+    hasLoadedAllMessages: hasLoadedAllMessages,
+    scrollController: scrollController,
+    anchorKeys: anchorKeys,
+    setPaginationState: ({required bool loadingMore, required bool loadedAll}) {
+      if (!isMounted()) return;
+      setPaginationState(loadingMore: loadingMore, loadedAll: loadedAll);
+    },
+  );
 }

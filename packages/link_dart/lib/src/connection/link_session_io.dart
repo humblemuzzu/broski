@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:broski_link/src/client.dart';
+import 'package:broski_link/src/connection/link_outbound_queue.dart';
+import 'package:broski_link/src/connection/link_send_failure.dart';
 import 'package:broski_link/src/errors.dart';
 import 'package:broski_link/src/events.dart';
 import 'package:broski_link/src/identity.dart';
@@ -19,25 +21,34 @@ final class LinkSessionIo {
     required this.onBridge,
     required this.onControl,
     required this.onFailed,
+    required this.onPeerClosed,
+    required this.onSendFailure,
     Uint8List? pairingSecret,
   }) : _pairingSecret = pairingSecret,
        _client = LinkClient(
          identity: LinkIdentity.fromSecret(identitySecret),
          serverBundle: serverBundle,
-       );
+       ) {
+    _outbound = LinkOutboundQueue(
+      sendFrame: (stream, bytes) => _client.send(stream, bytes, nowMs: _now),
+      report: onSendFailure,
+    );
+  }
 
   static const int _controlStream = 0;
   static const int _bridgeStream = 1;
 
   final LinkClient _client;
   final Stopwatch _clock = Stopwatch()..start();
-  final List<({int stream, Uint8List bytes})> _queued = [];
   final void Function(Uint8List wire) onWire;
   final void Function(bool resumed, bool sessionReset) onConnected;
   final void Function(String text) onBridge;
   final void Function(Map<String, Object?> message) onControl;
   final void Function() onFailed;
+  final void Function(int code) onPeerClosed;
+  final void Function(LinkSendFailure failure) onSendFailure;
 
+  late final LinkOutboundQueue _outbound;
   Uint8List? _pairingSecret;
   Timer? _timer;
   var _hasSession = false;
@@ -52,9 +63,15 @@ final class LinkSessionIo {
     return msg1;
   }
 
-  void sendBridge(Uint8List bytes) => _send(_bridgeStream, bytes);
+  void sendBridge(Uint8List bytes) {
+    _outbound.send(_bridgeStream, bytes);
+    _pump();
+  }
 
-  void sendControl(Uint8List bytes) => _send(_controlStream, bytes);
+  void sendControl(Uint8List bytes) {
+    _outbound.send(_controlStream, bytes);
+    _pump();
+  }
 
   /// One whole wire message: msg2 first, then one sealed frame per message.
   void handle(Uint8List wire) {
@@ -71,43 +88,19 @@ final class LinkSessionIo {
   void detach() {
     _timer?.cancel();
     _timer = null;
+    // Waiting here, not inside the session: a session the peer replaces drops
+    // its own buffer without a word, while this queue is bounded and reported.
+    _outbound.ready = false;
     _client.disconnect();
   }
 
   void stop() {
     _timer?.cancel();
     _timer = null;
+    _outbound.ready = false;
   }
 
   int get _now => _clock.elapsedMilliseconds;
-
-  void _send(int stream, Uint8List bytes) {
-    if (_hasSession) {
-      try {
-        _client.send(stream, bytes, nowMs: _now);
-      } on LinkBackpressureException {
-        // Shed rather than grow: the session is behind and will resync.
-      } on LinkProtocolException {
-        _queued.add((stream: stream, bytes: bytes));
-      }
-    } else {
-      _queued.add((stream: stream, bytes: bytes));
-    }
-    _pump();
-  }
-
-  /// Messages this session could not take yet, in order.
-  void _flushQueued() {
-    while (_queued.isNotEmpty) {
-      final message = _queued.first;
-      try {
-        _client.send(message.stream, message.bytes, nowMs: _now);
-      } on LinkException {
-        return;
-      }
-      _queued.removeAt(0);
-    }
-  }
 
   void _pump() {
     if (_pumping) {
@@ -116,7 +109,7 @@ final class LinkSessionIo {
     _pumping = true;
     try {
       _drainEvents();
-      _flushQueued();
+      _outbound.pump();
       _drainTransmit();
       _schedule();
     } finally {
@@ -145,13 +138,19 @@ final class LinkSessionIo {
           final reset = !resumed && _hasSession;
           _hasSession = true;
           _pairingSecret = null;
+          if (reset) {
+            _outbound.reset();
+          }
+          _outbound.ready = true;
           onConnected(resumed, reset);
         case LinkMessage(stream: final stream, bytes: final bytes):
           _deliver(stream, bytes);
-        case LinkPeerClosed():
-          onFailed();
+        case LinkPeerClosed(code: final code):
+          _outbound.ready = false;
+          onPeerClosed(code);
           return;
         case LinkDead():
+          _outbound.ready = false;
           onFailed();
           return;
       }

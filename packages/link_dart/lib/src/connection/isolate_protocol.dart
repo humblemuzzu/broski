@@ -1,6 +1,7 @@
 import 'dart:isolate';
 import 'dart:typed_data';
 
+import 'package:broski_link/src/connection/link_send_failure.dart';
 import 'package:broski_link/src/connection/link_status.dart';
 import 'package:broski_link/src/connection/machine_endpoint.dart';
 
@@ -86,6 +87,13 @@ final class LinkIsolateControl extends LinkIsolateEvent {
   const LinkIsolateControl(this.message);
 
   final Map<String, Object?> message;
+}
+
+/// A message the session refused; nothing else will carry it.
+final class LinkIsolateSendFailure extends LinkIsolateEvent {
+  const LinkIsolateSendFailure(this.failure);
+
+  final LinkSendFailure failure;
 }
 
 /// The isolate closed everything and is about to exit.

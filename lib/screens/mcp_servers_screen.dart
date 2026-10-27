@@ -1,6 +1,7 @@
 import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/mcp.dart';
 import 'package:broski/providers/agent_type_provider.dart';
+import 'package:broski/providers/connection/bridge_status_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/selection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
@@ -257,6 +258,7 @@ class _McpServersScreenState extends ConsumerState<McpServersScreen>
               agentAvailable: agentAvailable,
               isReconnecting: connection.isReconnecting,
               rttMs: connection.rttMs,
+              bridge: ref.watch(bridgeLinkStatusProvider),
               compact: true,
             ),
           ),

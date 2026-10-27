@@ -29,7 +29,12 @@ LinkStatusView presentLinkStatus({
   required LinkStatus status,
   required String machineName,
   required DateTime now,
+  BridgeLinkStatus? bridge,
 }) {
+  final bridgeView = bridge == null
+      ? null
+      : bridgeStatusView(bridge: bridge, machineName: machineName);
+  if (bridgeView != null) return bridgeView;
   final lastSeen = status.lastSeen;
   final seen = lastSeen == null ? null : formatLinkTime(lastSeen, now);
   switch (status.state) {
@@ -43,14 +48,70 @@ LinkStatusView presentLinkStatus({
     case LinkConnectionState.machineOffline:
       return _offline(seen, machineName);
     case LinkConnectionState.closed:
-      return _disconnected;
+      return status.closeCode == LinkCloseCode.revoked
+          ? _revoked
+          : _disconnected;
   }
 }
+
+/// The machine's bridge process, or null while it is up and the link status is
+/// the one worth showing.
+LinkStatusView? bridgeStatusView({
+  required BridgeLinkStatus bridge,
+  required String machineName,
+}) => _bridge(bridge.state, "$machineName's bridge");
+
+/// The bridge state without a machine name, for a row that already shows one.
+String? bridgeStatusLabel(BridgeLinkStatus bridge) =>
+    _bridge(bridge.state, 'Bridge')?.label;
+
+LinkStatusView? _bridge(BridgeStatusState state, String subject) =>
+    switch (state) {
+      BridgeStatusState.up => null,
+      BridgeStatusState.starting => (
+        label: '$subject is starting…',
+        state: 'Bridge starting…',
+        icon: AppIcons.sync,
+        tone: LinkStatusTone.pending,
+      ),
+      BridgeStatusState.connecting => (
+        label: '$subject is connecting…',
+        state: 'Bridge connecting…',
+        icon: AppIcons.sync,
+        tone: LinkStatusTone.pending,
+      ),
+      BridgeStatusState.down => (
+        label: '$subject is down',
+        state: 'Bridge down',
+        icon: AppIcons.wifiOff,
+        tone: LinkStatusTone.down,
+      ),
+      BridgeStatusState.crashed => (
+        label: '$subject crashed',
+        state: 'Bridge crashed',
+        icon: AppIcons.warning,
+        tone: LinkStatusTone.down,
+      ),
+      BridgeStatusState.unknown => (
+        label: '$subject is not ready',
+        state: 'Bridge not ready',
+        icon: AppIcons.sync,
+        tone: LinkStatusTone.pending,
+      ),
+    };
 
 const LinkStatusView _disconnected = (
   label: 'Disconnected',
   state: 'Disconnected',
   icon: AppIcons.signalOff,
+  tone: LinkStatusTone.down,
+);
+
+/// The machine ended the session because this phone is no longer paired.
+const LinkStatusView _revoked = (
+  label: 'Removed from this machine · pair again',
+  state: 'Removed · pair again',
+  icon: AppIcons.unlink,
   tone: LinkStatusTone.down,
 );
 

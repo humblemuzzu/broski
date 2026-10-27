@@ -951,6 +951,9 @@ final ccPluginConfigProvider = FutureProvider<ClaudeCodePluginConfig>((
   return bridge.ccGetPluginConfig();
 });
 
+/// How much of a session the prefetch asks for.
+const int _ccPrefetchMessages = 20;
+
 /// Prefetch messages for the top N Claude Code sessions to speed up opening.
 void prefetchTopCCSessions(
   WidgetRef ref,
@@ -959,9 +962,13 @@ void prefetchTopCCSessions(
 }) {
   final bridge = ref.read(bridgeServiceProvider);
   for (final session in sessions.take(count)) {
-    // Fire and forget — just warm the cache
+    // Fire and forget — just warm the cache, one screenful of it
     bridge
-        .ccGetSessionMessages(session.id, cwd: session.cwd)
+        .ccGetSessionMessages(
+          session.id,
+          cwd: session.cwd,
+          limit: _ccPrefetchMessages,
+        )
         .catchError((_) => <Map<String, dynamic>>[]);
   }
 }

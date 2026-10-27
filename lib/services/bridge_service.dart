@@ -32,8 +32,11 @@ import 'package:broski/models/tool.dart';
 import 'package:broski/models/transcript_page.dart';
 import 'package:broski/models/vcs.dart';
 import 'package:broski/models/worktree.dart';
+import 'package:broski/services/bridge/bridge_reset_exception.dart';
+import 'package:broski/services/bridge/bridge_response_error.dart';
 import 'package:broski/services/bridge/runtime_replay_tracker.dart';
 import 'package:broski/services/bridge/skill_mapping.dart';
+import 'package:broski/services/bridge/transcript_page_fetch.dart';
 import 'package:broski/services/websocket_service.dart';
 
 part 'bridge/bridge_cc_chat.dart';
@@ -70,9 +73,11 @@ part 'bridge/bridge_opencode_features.dart';
 part 'bridge/bridge_opencode_sessions.dart';
 part 'bridge/bridge_opencode_updates.dart';
 part 'bridge/bridge_pty.dart';
+part 'bridge/bridge_reset_guard.dart';
 part 'bridge/bridge_sessions_actions.dart';
 part 'bridge/bridge_sessions_core.dart';
 part 'bridge/bridge_sessions_lifecycle.dart';
+part 'bridge/bridge_sessions_messages_page.dart';
 part 'bridge/bridge_skills_universal.dart';
 part 'bridge/bridge_worktrees.dart';
 part 'bridge/bridge_pi_subagent.dart';
@@ -235,8 +240,7 @@ class BridgeService {
           )
           .then((message) {
             if (message['type'] == 'error') {
-              final errorMsg = message['message'] as String? ?? 'Unknown error';
-              throw Exception('Bridge error: $errorMsg');
+              throw bridgeResponseError(message);
             }
             return message;
           });
@@ -248,8 +252,7 @@ class BridgeService {
     if (cached != null && cachedAt != null && nowMs - cachedAt <= cacheMaxAge) {
       final msgType = cached['type'] as String?;
       if (msgType == 'error') {
-        final errorMsg = cached['message'] as String? ?? 'Unknown error';
-        throw Exception('Bridge error: $errorMsg');
+        throw bridgeResponseError(cached);
       }
       if (msgType != type) {
         throw Exception(
@@ -275,22 +278,21 @@ class BridgeService {
       }
     });
 
-    return completer.future.then((message) {
-      timer.cancel();
+    return completer.future
+        .then((message) {
+          final msgType = message['type'] as String?;
+          if (msgType == 'error') {
+            throw bridgeResponseError(message);
+          }
 
-      final msgType = message['type'] as String?;
-      if (msgType == 'error') {
-        final errorMsg = message['message'] as String? ?? 'Unknown error';
-        throw Exception('Bridge error: $errorMsg');
-      }
+          if (msgType != type) {
+            throw Exception(
+              'Bridge response mismatch: expected=$type got=$msgType',
+            );
+          }
 
-      if (msgType != type) {
-        throw Exception(
-          'Bridge response mismatch: expected=$type got=$msgType',
-        );
-      }
-
-      return message;
-    });
+          return message;
+        })
+        .whenComplete(timer.cancel);
   }
 }

@@ -1,5 +1,6 @@
 import 'package:broski/providers/chat/runtime_shadow_provider.dart';
 import 'package:broski/providers/connection/link_connection_controller.dart';
+import 'package:broski/providers/connection/link_send_failure_notice.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/link/machines_provider.dart';
 import 'package:broski/providers/onboarding_provider.dart';
@@ -25,6 +26,7 @@ class RootScreen extends ConsumerWidget {
     ref.watch(runtimeShadowBootstrapProvider);
     ref.watch(piBackendEventListenerProvider);
     ref.watch(linkConnectionBootstrapProvider);
+    ref.watch(linkSendFailureNoticeProvider);
     final connectionState = ref.watch(connectionProvider);
     final onboardingState = ref.watch(onboardingProvider);
     if (onboardingState.isLoading) {

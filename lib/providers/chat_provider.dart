@@ -30,6 +30,7 @@ part 'chat/chat_session_state.dart';
 part 'chat/cx_stream_handler.dart';
 part 'chat/message_builder.dart';
 part 'chat/oc_stream_handler.dart';
+part 'chat/oc_transcript_page.dart';
 part 'chat/pi_bash_message.dart';
 part 'chat/pi_durable_chat_state.dart';
 part 'chat/pi_durable_stream_handler.dart';
