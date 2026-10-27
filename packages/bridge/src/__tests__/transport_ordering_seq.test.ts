@@ -104,60 +104,68 @@ async function waitFor(condition: () => boolean, timeoutMs = 5_000): Promise<voi
 describe("merged delta seq range", () => {
 	test("a merged frame records the seq of its first delta", async () => {
 		const emitted: ServerMessage[] = [];
-		const coalescer = new RuntimeEventCoalescer((message) => emitted.push(message), 5);
+		const coalescer = new RuntimeEventCoalescer((message) => emitted.push(message), 40);
 
 		coalescer.push(delta("Hel", 1));
 		coalescer.push(delta("lo ", 2));
 		coalescer.push(delta("world", 3));
-		await waitFor(() => emitted.length >= 1);
+		await waitFor(() => emitted.length >= 2);
 
-		expect(emitted).toHaveLength(1);
-		const event = deltaEvent(emitted[0]!);
-		expect(event.delta).toBe("Hello world");
-		expect(event.seq).toBe(3);
-		expect(event.seqStart).toBe(1);
+		expect(deltaEvent(emitted[0]!).delta).toBe("Hel");
+		const merged = deltaEvent(emitted[1]!);
+		expect(merged.delta).toBe("lo world");
+		expect(merged.seq).toBe(3);
+		expect(merged.seqStart).toBe(2);
 	});
 
 	test("thinking deltas carry the same range", async () => {
 		const emitted: ServerMessage[] = [];
-		const coalescer = new RuntimeEventCoalescer((message) => emitted.push(message), 5);
+		const coalescer = new RuntimeEventCoalescer((message) => emitted.push(message), 40);
 
 		coalescer.push(thinking("a", 7));
 		coalescer.push(thinking("b", 8));
-		await waitFor(() => emitted.length >= 1);
+		coalescer.push(thinking("c", 9));
+		await waitFor(() => emitted.length >= 2);
 
-		const event = deltaEvent(emitted[0]!);
-		expect(event.seq).toBe(8);
-		expect(event.seqStart).toBe(7);
+		const first = deltaEvent(emitted[0]!);
+		const merged = deltaEvent(emitted[1]!);
+		expect([first.seq, first.seqStart]).toEqual([7, undefined]);
+		expect(merged.delta).toBe("bc");
+		expect([merged.seq, merged.seqStart]).toEqual([9, 8]);
 	});
 
-	test("an unmerged delta carries no seqStart", async () => {
+	test("an unmerged delta carries no seqStart", () => {
 		const emitted: ServerMessage[] = [];
-		const coalescer = new RuntimeEventCoalescer((message) => emitted.push(message), 5);
+		const coalescer = new RuntimeEventCoalescer((message) => emitted.push(message), 40);
 
 		coalescer.push(delta("only", 4));
-		await waitFor(() => emitted.length >= 1);
 
 		expect(deltaEvent(emitted[0]!)).not.toHaveProperty("seqStart");
 	});
 
-	test("consecutive merged frames cover a contiguous range", async () => {
+	test("consecutive frames cover a contiguous range", async () => {
 		const emitted: ServerMessage[] = [];
-		const coalescer = new RuntimeEventCoalescer((message) => emitted.push(message), 5);
+		const coalescer = new RuntimeEventCoalescer((message) => emitted.push(message), 40);
 
 		coalescer.push(delta("a", 10));
 		coalescer.push(delta("b", 11));
-		await waitFor(() => emitted.length >= 1);
+		await waitFor(() => emitted.length >= 2);
 		coalescer.push(delta("c", 12));
 		coalescer.push(delta("d", 13));
-		await waitFor(() => emitted.length >= 2);
+		await waitFor(() => emitted.length >= 3);
 
-		expect(emitted).toHaveLength(2);
-		const first = deltaEvent(emitted[0]!);
-		const second = deltaEvent(emitted[1]!);
-		expect([first.seqStart, first.seq]).toEqual([10, 11]);
-		expect([second.seqStart, second.seq]).toEqual([12, 13]);
-		expect(second.seqStart).toBe(first.seq! + 1);
+		const ranges = emitted.map((message) => {
+			const event = deltaEvent(message);
+			return [event.seqStart ?? event.seq, event.seq];
+		});
+		expect(ranges).toEqual([
+			[10, 10],
+			[11, 11],
+			[12, 13],
+		]);
+		for (let index = 1; index < ranges.length; index++) {
+			expect(ranges[index]![0]).toBe(ranges[index - 1]![1]! + 1);
+		}
 	});
 });
 
