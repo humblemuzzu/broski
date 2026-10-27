@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 /// A loopback TCP hop in front of the daemon's LAN port, so a test can take the
 /// LAN route away and give it back without touching the daemon.
@@ -16,7 +17,9 @@ final class LanForwarder {
   final ServerSocket _server;
   final int _target;
   final List<Socket> _live = <Socket>[];
+  final List<StreamSubscription<Uint8List>> _toPhone = [];
   var _open = true;
+  var _paused = false;
 
   /// The candidate a phone dials to reach the daemon through this hop.
   String get candidate => '127.0.0.1:${_server.port}';
@@ -24,6 +27,10 @@ final class LanForwarder {
   /// Drops every connection and refuses the next ones: the LAN route is gone.
   void cut() {
     _open = false;
+    for (final subscription in _toPhone) {
+      subscription.cancel();
+    }
+    _toPhone.clear();
     for (final socket in List<Socket>.of(_live)) {
       socket.destroy();
     }
@@ -31,6 +38,23 @@ final class LanForwarder {
   }
 
   void restore() => _open = true;
+
+  /// Stops handing the phone what the daemon sends, the way a phone that has
+  /// stopped reading its socket would: its buffers fill, nothing is acked, and
+  /// the daemon's window runs dry.
+  void pause() {
+    _paused = true;
+    for (final subscription in _toPhone) {
+      subscription.pause();
+    }
+  }
+
+  void resume() {
+    _paused = false;
+    for (final subscription in _toPhone) {
+      subscription.resume();
+    }
+  }
 
   Future<void> close() async {
     cut();
@@ -52,6 +76,7 @@ final class LanForwarder {
     _live
       ..add(inbound)
       ..add(outbound);
+    StreamSubscription<Uint8List>? fromDaemon;
     var settled = false;
     void drop() {
       if (settled) {
@@ -61,6 +86,10 @@ final class LanForwarder {
       _live
         ..remove(inbound)
         ..remove(outbound);
+      final subscription = fromDaemon;
+      if (subscription != null) {
+        _toPhone.remove(subscription);
+      }
     }
 
     inbound.listen(
@@ -74,7 +103,7 @@ final class LanForwarder {
         drop();
       },
     );
-    outbound.listen(
+    fromDaemon = outbound.listen(
       inbound.add,
       onError: (Object _) {
         inbound.destroy();
@@ -85,5 +114,9 @@ final class LanForwarder {
         drop();
       },
     );
+    _toPhone.add(fromDaemon);
+    if (_paused) {
+      fromDaemon.pause();
+    }
   }
 }

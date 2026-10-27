@@ -8,71 +8,13 @@ import 'package:test/test.dart';
 
 import 'bridge_session.dart';
 import 'lan_forwarder.dart';
-import 'link_phone.dart';
 import 'link_sandbox.dart';
 import 'pairing_flows.dart';
 import 'real_bridge.dart';
+import 'real_machine.dart';
 import 'soak_harness.dart';
 
 const Timeout _budget = Timeout(Duration(seconds: 600));
-
-/// A machine running the repo's real Bun bridge, with a paired phone.
-typedef Machine = ({
-  LinkSandbox sandbox,
-  RealBridge bridge,
-  LinkPhone phone,
-  BridgeSession session,
-  String deviceId,
-});
-
-/// Starts a sandbox whose daemon supervises the real bridge, pairs a phone over
-/// the LAN, and hands back both halves.
-Future<Machine> startMachine() async {
-  final sandbox = await LinkSandbox.create();
-  final environment = sandboxEnvironment(sandbox);
-  await sandbox.startDaemon(
-    bridgeCmd: await realBridgeCommand(),
-    environment: environment,
-  );
-  final bridge = await RealBridge.up(sandbox);
-
-  final identity = LinkIdentity.generate();
-  final paired = await pairOverLan(sandbox, identity);
-  final session = BridgeSession(paired.phone);
-  addTearDown(session.dispose);
-  return (
-    sandbox: sandbox,
-    bridge: bridge,
-    phone: paired.phone,
-    session: session,
-    deviceId: identity.id,
-  );
-}
-
-/// Every device id the bridge currently reports.
-Future<List<String>> bridgeDeviceIds(BridgeSession session) async {
-  final reply = await session.request(listDevices(session.key()));
-  expect(reply['type'], 'devices');
-  final data = reply['data'] as List<Object?>;
-  return <String>[
-    for (final device in data)
-      if (device is Map && device['deviceId'] is String)
-        device['deviceId'] as String,
-  ];
-}
-
-/// Asserts the correlator saw one reply per request and nothing else.
-void expectCleanReplies(BridgeSession session) {
-  expect(session.misnamed, 0, reason: 'every reply names its request');
-  expect(session.duplicates, 0, reason: 'nothing arrived twice');
-  expect(session.unsolicited, 0, reason: 'nothing named an unknown request');
-  expect(
-    session.errors,
-    0,
-    reason: 'the bridge answered no request with an error',
-  );
-  expect(session.outstanding, isEmpty, reason: 'every request was answered');
-}
 
 void main() {
   test('round-trips real bridge requests over a link-paired phone', () async {

@@ -19,18 +19,24 @@ Future<int> freePort() async {
 /// One throwaway machine: a temp directory, the real relay and daemon
 /// processes, and the control socket that drives them.
 final class LinkSandbox {
-  LinkSandbox._(this._binaries, this.directory);
+  LinkSandbox._(this._binaries, this.directory, this.realDirectory);
 
   static Future<LinkSandbox> create() async {
     final binaries = await linkBinaries();
     final directory = await Directory.systemTemp.createTemp('broski-e2e-');
-    final sandbox = LinkSandbox._(binaries, directory);
+    final real = await directory.resolveSymbolicLinks();
+    final sandbox = LinkSandbox._(binaries, directory, real);
     addTearDown(sandbox.dispose);
     return sandbox;
   }
 
   final LinkBinaries _binaries;
   final Directory directory;
+
+  /// [directory] with symlinks resolved. macOS keeps its temp directories under
+  /// `/var`, a link to `/private/var`, and the bridge compares a real path
+  /// against the lexical home it was started with.
+  final String realDirectory;
   final List<Process> _processes = <Process>[];
   final List<String> _log = <String>[];
   final Set<String> _exited = <String>{};
@@ -43,7 +49,9 @@ final class LinkSandbox {
 
   /// A throwaway `$HOME` for a supervised bridge, so it never reads or writes
   /// the developer's real `~/.claude`, `~/.codex`, `~/.pi` or `~/.broski`.
-  String get bridgeHome => p.join(directory.path, 'bridge-home');
+  /// Resolved through symlinks, so it is also a base the bridge accepts paths
+  /// under: something the phone names has to land inside it.
+  String get bridgeHome => p.join(realDirectory, 'bridge-home');
 
   /// The daemon's LAN listener as a phone would dial it.
   String get lanCandidate => '127.0.0.1:$_lanPort';

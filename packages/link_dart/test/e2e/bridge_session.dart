@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:test/test.dart';
+
 import 'link_phone.dart';
 
 /// Sends real bridge messages over the link and matches each response to the
@@ -144,3 +146,59 @@ Map<String, Object?> registerDevice(
   'deviceName': deviceName,
   'platform': platform,
 };
+
+/// `unified_list_sessions` → `unified_sessions` (handlers/unified.ts): one
+/// reply, whichever backend it names.
+Map<String, Object?> unifiedListSessions(
+  String key, {
+  required String backend,
+  String? cwd,
+}) => <String, Object?>{
+  'type': 'unified_list_sessions',
+  'requestId': key,
+  'backend': backend,
+  if (cwd != null) 'cwd': cwd,
+};
+
+/// `cc_get_session_messages` → `cc_session_messages`. With `limit` (and then
+/// optionally `before`) the bridge answers one page and reports `hasMore`,
+/// `nextCursor`; without it, the whole transcript.
+Map<String, Object?> ccGetSessionMessages(
+  String key, {
+  required String sessionId,
+  required String cwd,
+  int? limit,
+  String? before,
+}) => <String, Object?>{
+  'type': 'cc_get_session_messages',
+  'requestId': key,
+  'sessionId': sessionId,
+  'cwd': cwd,
+  if (limit != null) 'limit': limit,
+  if (before != null) 'before': before,
+};
+
+/// `set_view`, which the app sends when it opens a chat. It has no reply.
+Map<String, Object?> setView({
+  required String sessionId,
+  required String cwd,
+  String agent = 'claude-code',
+}) => <String, Object?>{
+  'type': 'set_view',
+  'agent': agent,
+  'projectPath': cwd,
+  'sessionId': sessionId,
+};
+
+/// Asserts the correlator saw one reply per request and nothing else.
+void expectCleanReplies(BridgeSession session) {
+  expect(session.misnamed, 0, reason: 'every reply names its request');
+  expect(session.duplicates, 0, reason: 'nothing arrived twice');
+  expect(session.unsolicited, 0, reason: 'nothing named an unknown request');
+  expect(
+    session.errors,
+    0,
+    reason: 'the bridge answered no request with an error',
+  );
+  expect(session.outstanding, isEmpty, reason: 'every request was answered');
+}

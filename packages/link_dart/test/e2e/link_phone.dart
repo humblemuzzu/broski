@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:broski_link/broski_link.dart';
@@ -11,6 +12,8 @@ final class LinkPhone {
     _statusSub = connection.status.listen(statuses.add);
     _controlSub = connection.control.listen(control.add);
     _bridgeSub = connection.bridgeMessages.listen(_onBridge);
+    _bridgeStatusSub = connection.bridgeStatus.listen(bridgeStatus.add);
+    _failureSub = connection.sendFailures.listen(sendFailures.add);
   }
 
   static Future<LinkPhone> start({
@@ -32,15 +35,32 @@ final class LinkPhone {
   final List<LinkStatus> statuses = <LinkStatus>[];
   final List<Map<String, Object?>> control = <Map<String, Object?>>[];
   final List<String> bridge = <String>[];
+
+  /// One entry per `{"t":"bridge",…}` control message, parsed.
+  final List<BridgeLinkStatus> bridgeStatus = <BridgeLinkStatus>[];
+
+  /// Every message the link refused to send, in order.
+  final List<LinkSendFailure> sendFailures = <LinkSendFailure>[];
+
+  /// Bridge payload bytes this phone has received: the whole transcript that
+  /// crossed the wire, measured.
+  int bridgeBytes = 0;
+
   final List<String> _incoming = <String>[];
   final List<Completer<String>> _waiters = <Completer<String>>[];
   late final StreamSubscription<LinkStatus> _statusSub;
   late final StreamSubscription<Map<String, Object?>> _controlSub;
   late final StreamSubscription<String> _bridgeSub;
+  late final StreamSubscription<BridgeLinkStatus> _bridgeStatusSub;
+  late final StreamSubscription<LinkSendFailure> _failureSub;
 
   int get statusCount => statuses.length;
 
+  /// The conn the machine last reported for this session's bridge socket.
+  int? get bridgeConn => bridgeStatus.isEmpty ? null : bridgeStatus.last.conn;
+
   void _onBridge(String text) {
+    bridgeBytes += utf8.encode(text).length;
     bridge.add(text);
     if (_waiters.isEmpty) {
       _incoming.add(text);
@@ -135,6 +155,26 @@ final class LinkPhone {
       if (message['t'] == 'bridge') '${message['state']}',
   ];
 
+  /// The first parsed bridge status at or after [from] that matches [test].
+  Future<BridgeLinkStatus> awaitBridgeStatus(
+    bool Function(BridgeLinkStatus status) test, {
+    int from = 0,
+    Duration timeout = const Duration(seconds: 20),
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+    while (true) {
+      for (var index = from; index < bridgeStatus.length; index++) {
+        if (test(bridgeStatus[index])) {
+          return bridgeStatus[index];
+        }
+      }
+      if (DateTime.now().isAfter(deadline)) {
+        fail('no matching bridge status arrived, saw $bridgeStatus');
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+  }
+
   /// Waits until a `bridge` control message at or after [from] reports [state].
   Future<void> awaitBridgeState(
     String state, {
@@ -167,6 +207,8 @@ final class LinkPhone {
     await _statusSub.cancel();
     await _controlSub.cancel();
     await _bridgeSub.cancel();
+    await _bridgeStatusSub.cancel();
+    await _failureSub.cancel();
     await connection.close();
   }
 }
