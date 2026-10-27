@@ -1582,8 +1582,9 @@ PiStreamMessages are mapped to normalized `BroskiRuntimeEvent` types:
 |-----------------|-------------------|---------|
 | `agent-start` | `agent_started` | `sourceType: "agent-start"` |
 | `agent-end` | `agent_finished` | `sourceType, messages` |
-| `turn-start` | `agent_started` | `sourceType: "turn-start"` |
-| `turn-end` | `agent_finished` | `sourceType, message, toolResults` |
+| `turn-start` | `null` (skipped) | a model call inside the run |
+| `turn-end` | `null` (skipped) | a model call inside the run |
+| `agent-settled` | `null` (skipped) | repeats `agent-end`; the `runtime_state` it triggers is the post-run snapshot |
 | `text-delta` | `assistant_text_delta` | `delta: content` |
 | `thinking-delta` | `assistant_thinking_delta` | `delta: content` |
 | `tool-exec-start` | `tool_started` | `toolCallId, toolName, input: args` |
@@ -1616,19 +1617,15 @@ Events are then enriched with `seq`, `streamId`, `turnId` by `enrichRuntimeEvent
 │                                                                              │
 │  ┌──── runtime_event stream ────────────────────────────────────────────┐    │
 │  │  agent_started { sourceType: "agent-start" }                        │    │
-│  │  agent_started { sourceType: "turn-start" }                         │    │
 │  │  assistant_thinking_delta { delta: "Let me look at..." }            │    │
 │  │  assistant_text_delta { delta: "I'll read " }                       │    │
 │  │  assistant_text_delta { delta: "the file." }                        │    │
 │  │  tool_started { toolName: "read", toolCallId: "tc_1" }             │    │
 │  │  tool_updated { partialOutput: "line 1..." }                        │    │
 │  │  tool_finished { output: "full content...", isError: false }        │    │
-│  │  agent_finished { sourceType: "turn-end" }                          │    │
-│  │  agent_started { sourceType: "turn-start" }                         │    │
 │  │  assistant_text_delta { delta: "Found the bug..." }                 │    │
 │  │  tool_started { toolName: "edit", toolCallId: "tc_2" }             │    │
 │  │  tool_finished { output: "File edited", isError: false }            │    │
-│  │  agent_finished { sourceType: "turn-end" }                          │    │
 │  │  assistant_text_delta { delta: "I fixed the bug..." }               │    │
 │  │  agent_finished { sourceType: "agent-end" }                         │    │
 │  │                                                                      │    │

@@ -67,11 +67,7 @@ export function mapDurableEventToBroski(event: AgentEvent, context: PiDurableMap
 			return [envelope("agent_finished", context, { backendData: { sourceType: "run_end", inputs: event.inputs } })];
 
 		case "turn_start":
-			return [envelope("agent_started", context, { backendData: { sourceType: "turn_start" } })];
-
 		case "turn_end":
-			return [envelope("agent_finished", context, { backendData: { sourceType: "turn_end" } })];
-
 		case "message_start":
 		case "message_update":
 		case "message_end":

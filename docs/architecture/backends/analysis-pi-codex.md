@@ -99,8 +99,8 @@ State broadcasts happen on:
 |-------------------|-----------------|-------------------|
 | `agent_start` | `agent-start` | `agent_started` |
 | `agent_end` | `agent-end` | `agent_finished` |
-| `turn_start` | `turn-start` | `agent_started` |
-| `turn_end` | `turn-end` | `agent_finished` |
+| `turn_start` | `turn-start` | `null` (a model call inside the run) |
+| `turn_end` | `turn-end` | `null` (a model call inside the run) |
 | `message_start` | `message-start` | `null` (skipped) |
 | `message_end` | `message-end` | `null` (skipped) |
 | `message_update` (text_delta) | `text-delta` | `assistant_text_delta` |
@@ -653,7 +653,7 @@ The 4-commit range (c11ffba → e19ebfe → b117ba4 → d647e1a) represents the 
 - Added runtime_state broadcast on error
 
 **`packages/bridge/src/runtime/pi-runtime-event-mapper.ts`** (+42 lines):
-- Added `turn-start` → `agent_started` and `turn-end` → `agent_finished` mappings
+- Added `turn-start` / `turn-end` mappings (since removed: a model call is not an agent run)
 - Added `external-user-message` → `backend_event` mapping
 
 **`packages/bridge/src/runtime/codex-runtime-event-mapper.ts`** (+42 lines):

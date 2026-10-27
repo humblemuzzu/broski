@@ -129,8 +129,10 @@ next open.
   double-render on a re-attach that followed a snapshot — dedupe by `messageId`/`entry.id`.
 - `tool_execution_update.output` is `{ set }` or `{ trimStart?, append? }`. `tool_execution_end.entry` is absent
   when the tool task faulted, was orphaned, or aborted.
-- `agent_started`/`agent_finished` fire twice per run (`run_*` and `turn_*`), like the stable Pi backend, so the
-  reducer's idempotency assumptions carry over.
+- Only `run_start` / `run_end` are `agent_started` / `agent_finished`. `turn_start` / `turn_end` bracket every
+  model call inside a run, so mapping them would finish and restart the agent once per tool call (the app reads each
+  finish as the turn ending: Stop disappears and a completion notification fires). The stable Pi backend follows the
+  same rule with `agent_start` / `agent_end`.
 - `auto_retry_end` / `compaction_end` are thin: `retry_finished.success` and `compaction_finished.aborted`
   cannot be populated from them — derive from the next `message_end`/`stopReason`, or accept partial UI.
 - `entry_appended` never fired in testing; read `entries()` / the snapshot instead. Never trust streamed text as

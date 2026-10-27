@@ -213,7 +213,7 @@ describe("pi-durable event mapping", () => {
 		expect(queue?.payload).toEqual({ items: [{ id: 42, mode: "steer" }] });
 	});
 
-	test("mirrors run and turn boundaries as agent started/finished", () => {
+	test("mirrors the run as agent started/finished, and a model turn inside it as nothing", () => {
 		const context = contextOf("boundaries");
 		expect(mapDurableEventToBroski({ type: "run_start", inputs: [1 as SubmissionId] }, context)[0]?.type).toBe(
 			"agent_started",
@@ -221,8 +221,8 @@ describe("pi-durable event mapping", () => {
 		expect(mapDurableEventToBroski({ type: "run_end", inputs: [1 as SubmissionId] }, context)[0]?.type).toBe(
 			"agent_finished",
 		);
-		expect(mapDurableEventToBroski({ type: "turn_start" }, context)[0]?.type).toBe("agent_started");
-		expect(mapDurableEventToBroski({ type: "turn_end" }, context)[0]?.type).toBe("agent_finished");
+		expect(mapDurableEventToBroski({ type: "turn_start" }, context)).toEqual([]);
+		expect(mapDurableEventToBroski({ type: "turn_end" }, context)).toEqual([]);
 		expect(
 			mapDurableEventToBroski(
 				{ type: "message_end", entry: { id: 9 as EntryId, conversationId: 1 as ConversationId, kind: "pi.user" } },
