@@ -2,13 +2,14 @@
 
 The phone reaches the bridge only through `broski-link`: one websocket per phone session on the
 unix socket, plus one feed socket (`kind: "link"` / `"link-daemon"`, see
-[bridge-feed.md](bridge-feed.md)). Both kinds get the policy below; a socket that arrives through
-the loopback TCP listener keeps the behaviour it had.
+[bridge-feed.md](bridge-feed.md)). The phone-facing kind carries the policy below; the feed writes
+its own bounded frames (see the end). A socket that arrives through the loopback TCP listener keeps
+the behaviour it had.
 
 The principle: **nobody kills a connection because the other side is slow.** A link socket's peer is
 the daemon, not the app. The daemon holds the phone's 8 MiB window and, when the phone falls behind,
-it stops reading this socket — that is expected, not a fault. The app's own resync loop
-(`set_view` + `lastRuntimeSeq`) belongs to the phone, and only the daemon can trigger it.
+it stops reading this socket — that is expected, not a fault. Closing the socket does not make the
+app resync either: only the daemon can tell the phone to.
 
 ## Two windows
 
@@ -20,9 +21,9 @@ it stops reading this socket — that is expected, not a fault. The app's own re
 | close code | `1013 backpressure` | `4013 link overflow` |
 
 A paused link client is never closed at 4 MiB; it closes only once the bridge would have to hand it
-more than its own window. `send()` is the single scheduler for both: held deltas, held payloads and
-direct writes all read the socket's own limits (`utils/runtime-send-queue.ts`, limits chosen by
-`server/link-send-policy.ts`).
+more than its own window. One queue (`utils/runtime-send-queue.ts`) is the single scheduler for the
+reply paths the phone sees: held deltas, held payloads, direct writes and broadcasts all read the
+socket's own limits, and the limits themselves come from `server/link-send-policy.ts`.
 
 ## Bun semantics this relies on
 
@@ -60,15 +61,17 @@ and the bridge logs `[Link] response_too_large type=<message type> bytes=<n> lim
 sits in the send queue, so it covers every reply and every broadcast without per-handler code.
 Pre-serialised frames (`sendRaw`, the Pi Durable `sendPayload` path) carry no request id; they get the
 same error frame without one, and are never written either. Network sockets have no frame cap: the
-phone's own client already refuses what it cannot parse, and their behaviour is unchanged.
+phone's own client already refuses what it cannot parse, and their behaviour is unchanged. The
+feed socket is not on this path at all: it writes its own bounded frames, whose title and body
+`server/link-feed/format.ts` truncates.
 
 A `batch` is only built when the merged frame still fits; otherwise its parts go out as separate
 frames. Text deltas are capped at 32 KB by the coalescer long before either limit matters.
 
 ## Transcript paging
 
-The shared contract in `types/transcript-page.ts` now covers all four transcript readers, OpenCode
-included. `types/transcript-page.ts` names the page; OpenCode's handler and connector implement it:
+The shared contract in `types/transcript-page.ts` covers all four transcript readers, OpenCode
+included, so the app pages every backend's history the same way:
 
 ```json
 {"type":"get_session_messages","sessionId":"<id>","projectPath":"<path>","limit":80,"before":"<nextCursor>"}
@@ -77,9 +80,10 @@ included. `types/transcript-page.ts` names the page; OpenCode's handler and conn
 
 `nextCursor` is the `id` of the oldest message in the page, and `before` names the boundary the next
 (older) page ends at, so paging always walks backwards from the tail and a cursor stays valid when
-the session grows at the end. No `limit` and no `before` (or a cursor that names no message of that
-session) answers the whole transcript with no `hasMore`/`nextCursor` — exactly what an app that sent
-no limit saw before, still subject to the 8 MiB frame cap above.
+the session grows at the end. A cursor that names the oldest message answers an empty page with
+`hasMore: false`. No `limit` and no `before` — or a cursor that names no message of that session —
+answers the whole transcript with no `hasMore`/`nextCursor`, exactly what an app that sent no limit
+saw before, still subject to the 8 MiB frame cap above.
 
 The bridge windows the fetched list itself instead of passing `limit`/`before` to the OpenCode
 server: a server that honoured neither would answer the whole transcript (the reply this page exists
