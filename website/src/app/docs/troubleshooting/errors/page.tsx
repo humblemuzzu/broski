@@ -32,15 +32,13 @@ export default function ErrorsPage() {
         <SimpleTable
           headers={["Error/Code", "Component", "Quick Fix"]}
           rows={[
-            ["Unauthorized", "Auth", "Re-scan QR code"],
+            ["Old Broski QR", "Pairing", "Update broski on your Mac, then run broski-link pair"],
             ["Port in use", "Bridge", <><code className="text-xs">kill &lt;PID&gt;</code> or <code className="text-xs">--port 0</code></>],
             ["OpenCode not found", "OpenCode", <code key="oc" className="text-xs">bun add -g opencode-ai</code>],
 
             ["Claude Code auth missing", "Claude Code", <><code key="cc" className="text-xs">export ANTHROPIC_API_KEY=...</code> or <code className="text-xs">claude login</code></>],
-            ["Tailscale not connected", "Tailscale", "Click Tailscale icon and connect"],
-            ["Funnel not enabled", "Tailscale", "Enable in admin console"],
-            ["Connection timeout", "Network", "Check IP/port, firewall"],
-            ["Heartbeat timeout", "Network", "Check connectivity, auto-reconnects"],
+            ["Offline or Asleep", "Link", "Wake the Mac; check broski-link status"],
+            ["Pairing QR expired", "Pairing", "Run broski-link pair and scan the new code"],
             ["Access denied", "Files", "Use paths under ~ or /tmp"],
             ["Rate limited (429)", "API", "Wait 1 minute, retry"],
             ["OAuth token expired", "Auth", <><code key="login" className="text-xs">claude login</code> or <code className="text-xs">codex</code></>],
@@ -138,139 +136,132 @@ OPENCODE_BASE_URL=http://localhost:4096 broski --manual`}</CodeBlock>
       {/* Connection Errors */}
       <section className="mb-12">
         <h2 id="connection-errors" className="text-2xl font-semibold mb-4">Connection Errors</h2>
-        
+
         <div className="space-y-6">
           <div className="border border-border rounded-lg p-4">
-            <div className="font-mono font-medium mb-2 text-red-400">&quot;Unauthorized&quot;</div>
+            <div className="font-mono font-medium mb-2 text-red-400">&quot;The machine did not answer. Check that it is running and that this phone can reach it.&quot;</div>
             <p className="text-sm text-muted-foreground mb-2">
-              <strong>Source:</strong> WebSocket authentication
+              <strong>Source:</strong> Pairing
             </p>
             <p className="text-sm text-muted-foreground mb-3">
-              <strong>Cause:</strong> Invalid or missing auth token. QR code may be outdated or token was regenerated.
+              <strong>Cause:</strong> None of the addresses in the QR answered within 1.5 seconds. The Mac may be asleep, broski-link may
+              not be running, or the phone is on a different network.
+            </p>
+            <CodeBlock language="bash">{`broski status
+broski-link status`}</CodeBlock>
+          </div>
+
+          <div className="border border-border rounded-lg p-4">
+            <div className="font-mono font-medium mb-2 text-red-400">&quot;This QR code has no address to reach the machine at.&quot;</div>
+            <p className="text-sm text-muted-foreground mb-2">
+              <strong>Source:</strong> Pairing
+            </p>
+            <p className="text-sm text-muted-foreground mb-3">
+              <strong>Cause:</strong> The QR carries neither a local address nor a relay. Your Mac has no reachable network address and no relay configured.
             </p>
             <p className="text-sm text-muted-foreground">
-              <strong>Solution:</strong> Re-scan the QR code from the bridge terminal.
+              <strong>Solution:</strong> Connect the Mac to a network, or configure a relay in <code>~/.broski/link/config.json</code>, then run <code>broski-link pair</code>.
             </p>
           </div>
 
           <div className="border border-border rounded-lg p-4">
-            <div className="font-mono font-medium mb-2 text-red-400">&quot;WebSocket upgrade failed&quot;</div>
+            <div className="font-mono font-medium mb-2 text-red-400">&quot;The machine did not confirm the pairing in time.&quot;</div>
             <p className="text-sm text-muted-foreground mb-2">
-              <strong>Source:</strong> WebSocket connection
-            </p>
-            <p className="text-sm text-muted-foreground mb-3">
-              <strong>Cause:</strong> HTTP-to-WebSocket upgrade was rejected. Server may be overloaded or proxy interfering.
+              <strong>Source:</strong> Pairing
             </p>
             <p className="text-sm text-muted-foreground">
-              <strong>Solution:</strong> Verify bridge is running, check no proxy is modifying WebSocket headers, restart bridge.
+              <strong>Solution:</strong> Check <code>broski-link status</code>, then run <code>broski-link pair</code> and try again.
             </p>
           </div>
 
           <div className="border border-border rounded-lg p-4">
-            <div className="font-mono font-medium mb-2 text-red-400">&quot;Heartbeat timeout&quot;</div>
+            <div className="font-mono font-medium mb-2 text-red-400">&quot;The machine closed the connection before confirming the pairing.&quot;</div>
             <p className="text-sm text-muted-foreground mb-2">
-              <strong>Source:</strong> WebSocket health monitoring
+              <strong>Source:</strong> Pairing
             </p>
             <p className="text-sm text-muted-foreground mb-3">
-              <strong>Cause:</strong> Server didn&apos;t receive a pong response within 90 seconds. 
-              Network may have dropped silently or app was backgrounded.
+              <strong>Cause:</strong> The pairing secret was wrong or already used, or the QR was replaced by a newer one.
             </p>
             <p className="text-sm text-muted-foreground">
-              <strong>Solution:</strong> App will auto-reconnect. Check network connectivity on both devices.
+              <strong>Solution:</strong> Run <code>broski-link pair</code> once and scan that code.
             </p>
           </div>
 
           <div className="border border-border rounded-lg p-4">
-            <div className="font-mono font-medium mb-2 text-red-400">&quot;Connection timeout&quot;</div>
-            <p className="text-sm text-muted-foreground mb-2">
-              <strong>Source:</strong> WebSocket client
-            </p>
+            <div className="font-mono font-medium mb-2 text-red-400">Machine shows as Asleep or Offline</div>
             <p className="text-sm text-muted-foreground mb-3">
-              <strong>Cause:</strong> Connection attempt didn&apos;t complete within 5 seconds. Bridge may not be running, 
-              wrong IP/port, or firewall blocking.
+              <strong>Cause:</strong> The Mac is asleep, off, or cannot reach the relay and the phone cannot reach it directly.
             </p>
-            <CodeBlock language="bash">{`# Verify bridge is running
-curl http://<ip>:18274/
-
-# Check firewall settings
-# Verify same network (for local)`}</CodeBlock>
-          </div>
-
-          <div className="border border-border rounded-lg p-4">
-            <div className="font-mono font-medium mb-2 text-red-400">&quot;Invalid connection URI&quot;</div>
-            <p className="text-sm text-muted-foreground mb-2">
-              <strong>Source:</strong> WebSocket service
-            </p>
-            <p className="text-sm text-muted-foreground mb-3">
-              <strong>Cause:</strong> Empty or malformed connection URI received.
-            </p>
-            <p className="text-sm text-muted-foreground">
-              <strong>Solution:</strong> Re-scan the QR code from the bridge terminal.
-            </p>
-          </div>
-
-          <div className="border border-border rounded-lg p-4">
-            <div className="font-mono font-medium mb-2 text-red-400">&quot;All connection attempts failed&quot;</div>
-            <p className="text-sm text-muted-foreground mb-2">
-              <strong>Source:</strong> Connection provider
-            </p>
-            <p className="text-sm text-muted-foreground mb-3">
-              <strong>Cause:</strong> App tried all available endpoints (local IP, Tailscale IP, MagicDNS) but none succeeded.
-            </p>
-            <CodeBlock language="bash">{`# Verify bridge is running
-broski doctor
-
-# Check firewall settings
-# For local: ensure same WiFi
-# For Tailscale: ensure both devices connected`}</CodeBlock>
+            <CodeBlock language="bash">{`# On the Mac
+broski-link status
+broski logs --follow`}</CodeBlock>
           </div>
         </div>
       </section>
 
-      {/* Authentication Errors */}
+      {/* Pairing Errors */}
       <section className="mb-12">
-        <h2 id="auth-errors" className="text-2xl font-semibold mb-4">Authentication Errors</h2>
-        
+        <h2 id="auth-errors" className="text-2xl font-semibold mb-4">Pairing Errors</h2>
+
         <div className="space-y-6">
           <div className="border border-border rounded-lg p-4">
-            <div className="font-mono font-medium mb-2 text-red-400">&quot;Invalid auth token&quot;</div>
+            <div className="font-mono font-medium mb-2 text-red-400">&quot;the pairing QR expired at ...&quot;</div>
             <p className="text-sm text-muted-foreground mb-2">
-              <strong>Source:</strong> Token validation
+              <strong>Source:</strong> Pairing QR check
             </p>
             <p className="text-sm text-muted-foreground mb-3">
-              <strong>Cause:</strong> Provided token doesn&apos;t match bridge&apos;s expected token.
+              <strong>Cause:</strong> A pairing QR works for 10 minutes and only once.
+            </p>
+            <CodeBlock language="bash">{`broski-link pair`}</CodeBlock>
+          </div>
+
+          <div className="border border-border rounded-lg p-4">
+            <div className="font-mono font-medium mb-2 text-red-400">&quot;This is an old Broski QR — update broski on your Mac and scan the new code.&quot;</div>
+            <p className="text-sm text-muted-foreground mb-2">
+              <strong>Source:</strong> Scan screen
+            </p>
+            <p className="text-sm text-muted-foreground mb-3">
+              <strong>Cause:</strong> The QR was made by a version of broski from before Broski Link.
+            </p>
+            <CodeBlock language="bash">{`broski update
+broski install
+broski-link pair`}</CodeBlock>
+          </div>
+
+          <div className="border border-border rounded-lg p-4">
+            <div className="font-mono font-medium mb-2 text-red-400">&quot;This QR code is not a Broski pairing code.&quot;</div>
+            <p className="text-sm text-muted-foreground mb-2">
+              <strong>Source:</strong> Scan screen
+            </p>
+            <p className="text-sm text-muted-foreground mb-3">
+              <strong>Cause:</strong> The scanned code is not a <code>broski://pair</code> link.
             </p>
             <p className="text-sm text-muted-foreground">
-              <strong>Solution:</strong> Re-scan QR code. If you regenerated the token, scan the new QR code.
+              <strong>Solution:</strong> Scan the code that <code>broski-link pair</code> prints.
             </p>
           </div>
 
           <div className="border border-border rounded-lg p-4">
-            <div className="font-mono font-medium mb-2 text-red-400">&quot;Missing auth token&quot;</div>
+            <div className="font-mono font-medium mb-2 text-red-400">&quot;That machine is not the one this QR code pairs with.&quot;</div>
             <p className="text-sm text-muted-foreground mb-2">
-              <strong>Source:</strong> Token validation
+              <strong>Source:</strong> Pairing
             </p>
             <p className="text-sm text-muted-foreground mb-3">
-              <strong>Cause:</strong> No authentication token was provided in the connection request.
+              <strong>Cause:</strong> The address in the QR answered, but the machine&apos;s fingerprint does not match the one in the QR.
+              This protects you from pairing with the wrong machine.
             </p>
-            <CodeBlock language="text">{`# Token should be in URL:
-wss://<ip>:18274?token=<your-token>`}</CodeBlock>
+            <p className="text-sm text-muted-foreground">
+              <strong>Solution:</strong> Run <code>broski-link pair</code> on the machine you want and scan that code.
+            </p>
           </div>
 
           <div className="border border-border rounded-lg p-4">
-            <div className="font-mono font-medium mb-2 text-amber-400">&quot;Warning: Could not persist auth token&quot;</div>
-            <p className="text-sm text-muted-foreground mb-2">
-              <strong>Source:</strong> Token storage
-            </p>
+            <div className="font-mono font-medium mb-2 text-red-400">Pairing refused</div>
             <p className="text-sm text-muted-foreground mb-3">
-              <strong>Cause:</strong> Couldn&apos;t save token to <code>~/.broski/token.json</code>. QR codes may rotate between restarts.
+              <strong>Cause:</strong> A machine pairs with at most 32 devices.
             </p>
-            <CodeBlock language="bash">{`# Check permissions
-ls -la ~/.broski/
-
-# Create directory if needed
-mkdir -p ~/.broski
-chmod 700 ~/.broski`}</CodeBlock>
+            <CodeBlock language="bash">{`broski-link devices
+broski-link revoke <device id prefix>`}</CodeBlock>
           </div>
         </div>
       </section>
@@ -364,71 +355,24 @@ claude login`}</CodeBlock>
         </div>
       </section>
 
-      {/* Tailscale Errors */}
+      {/* Relay Errors */}
       <section className="mb-12">
-        <h2 id="tailscale-errors" className="text-2xl font-semibold mb-4">Tailscale Errors</h2>
-        
+        <h2 id="relay-errors" className="text-2xl font-semibold mb-4">Relay Errors</h2>
+
         <div className="space-y-6">
           <div className="border border-border rounded-lg p-4">
-            <div className="font-mono font-medium mb-2 text-amber-400">&quot;Tailscale not installed&quot;</div>
+            <div className="font-mono font-medium mb-2 text-amber-400">Relay not connected</div>
             <p className="text-sm text-muted-foreground mb-2">
-              <strong>Source:</strong> Doctor check
+              <strong>Source:</strong> <code>broski-link status</code>
             </p>
             <p className="text-sm text-muted-foreground mb-3">
-              <strong>Cause:</strong> Tailscale app is not found on your system.
+              <strong>Cause:</strong> The relay URL in <code>~/.broski/link/config.json</code> is wrong or unreachable, or no relay is configured.
             </p>
-            <CodeBlock language="bash">{`# Run the setup wizard
-broski setup-tailscale
+            <CodeBlock language="bash">{`# Check the relay state
+broski-link status
 
-# Or install manually
-brew install --cask tailscale  # macOS`}</CodeBlock>
-          </div>
-
-          <div className="border border-border rounded-lg p-4">
-            <div className="font-mono font-medium mb-2 text-amber-400">&quot;Tailscale not connected&quot;</div>
-            <p className="text-sm text-muted-foreground mb-2">
-              <strong>Source:</strong> Tailscale check
-            </p>
-            <p className="text-sm text-muted-foreground mb-3">
-              <strong>Cause:</strong> Tailscale is installed but not connected to your tailnet.
-            </p>
-            <CodeBlock language="bash">{`# Check status
-tailscale status
-
-# Connect
-tailscale up`}</CodeBlock>
-          </div>
-
-          <div className="border border-border rounded-lg p-4">
-            <div className="font-mono font-medium mb-2 text-red-400">&quot;Tailscale Funnel is not enabled&quot;</div>
-            <p className="text-sm text-muted-foreground mb-2">
-              <strong>Source:</strong> Funnel setup
-            </p>
-            <p className="text-sm text-muted-foreground mb-3">
-              <strong>Cause:</strong> You tried to use <code>--funnel</code> but Funnel is not enabled in the Tailscale admin console.
-            </p>
-            <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-              <li>Go to <a href="https://login.tailscale.com/admin" className="text-primary hover:underline">admin.tailscale.com</a></li>
-              <li>Navigate to Access controls</li>
-              <li>Enable Funnel for your device</li>
-              <li>Wait a few minutes, then retry</li>
-            </ol>
-          </div>
-
-          <div className="border border-border rounded-lg p-4">
-            <div className="font-mono font-medium mb-2 text-red-400">&quot;Failed to enable Funnel&quot;</div>
-            <p className="text-sm text-muted-foreground mb-2">
-              <strong>Source:</strong> Funnel setup
-            </p>
-            <p className="text-sm text-muted-foreground mb-3">
-              <strong>Cause:</strong> The <code>tailscale funnel</code> command failed.
-            </p>
-            <CodeBlock language="bash">{`# Verify Tailscale is connected
-tailscale status
-
-# Check Funnel is enabled in admin console
-# Try without Funnel first
-broski`}</CodeBlock>
+# Fix the URL, then restart
+broski restart`}</CodeBlock>
           </div>
         </div>
       </section>
@@ -506,7 +450,7 @@ broski`}</CodeBlock>
           headers={["Code", "Meaning", "Solution"]}
           rows={[
             ["400", "Bad Request", "Check request format and required parameters"],
-            ["401", "Unauthorized", "Re-scan QR code to get valid token"],
+            ["401", "Unauthorized", "The local bearer token was missing or wrong (agent hooks and the dashboard use it). Restart the bridge to reload it"],
             ["403", "Forbidden", "Check permissions and path restrictions"],
             ["404", "Not Found", "Verify resource ID or path is correct"],
             ["429", "Too Many Requests", "Wait for rate limit to reset (usually 1 minute)"],

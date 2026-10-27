@@ -85,7 +85,7 @@ Broski is a **multi-agent orchestration bridge** that:
 
 The unique value that raw CLIs don't have:
 - **Unified multi-agent**: One protocol to control Claude Code + Codex + OpenCode + Pi
-- **Remote access**: Full control from anywhere (phone, Tailscale)
+- **Remote access**: Full control from anywhere (phone, over LAN or an end-to-end encrypted relay)
 - **Multi-device**: Multiple phones/tablets connected simultaneously
 - **Orchestration**: Run multiple agent sessions across different backends concurrently
 - **Integrated workflows**: File browsing + Git + GitHub + PTY + dev preview all in one
@@ -290,7 +290,7 @@ They **will** for simple cases. "Ask Claude Code to fix this bug" -- yeah, just 
 | File/Git/GitHub integration | Shell commands | First-class protocol |
 | Dev server preview | No | Built-in proxy |
 | Token budget control | Per-agent only | Cross-agent |
-| Remote access | No | WebSocket + TLS + Tailscale |
+| Remote access | No | Noise end-to-end over LAN or relay |
 
 ### The Bottom Line
 

@@ -9,13 +9,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Broski is a **mobile app that gives you full remote control of AI coding agents running on your computer** from your phone. It connects to 5 agent backends (4 stable, 1 experimental) through a bridge server:
 
 ```
-Phone (Flutter) ←TLS WebSocket→ Bridge (Bun/TS on your Mac) ←SDK→ {Claude Code, OpenCode, Codex, Pi, Pi Durable}
+Phone (Flutter + Rust core) ←Broski Link (Noise e2e; LAN or relay)→ broski-link daemon (Rust, your Mac) ←unix socket→ Bridge (Bun/TS) ←SDK→ {Claude Code, OpenCode, Codex, Pi, Pi Durable}
 ```
 
-- **Bridge** (`packages/bridge/`) — TypeScript server on the user's dev machine. Connects to local AI agents via their SDKs, exposes WebSocket + HTTP API.
-- **Flutter app** (`lib/`) — iOS/Android app. Renders UI only; all AI logic stays on Mac.
-- **Connection methods:** Local WiFi, Tailscale (mesh VPN), Tailscale Funnel (public HTTPS via .ts.net).
-- **Auth layers:** Bridge auth token (from QR), TLS cert pinning.
+- **Bridge** (`packages/bridge/`) — TypeScript server on the user's dev machine. Connects to local AI agents via their SDKs. Serves the app protocol to the daemon over the unix socket `~/.broski/link/bridge.sock`; its TCP listener is loopback-only (127.0.0.1) and exists for local things only: the CC/CX permission hooks, the dashboard, `/proxy/<port>`.
+- **broski-link daemon** (`packages/link/daemon/`, Rust) — runs as a launchd (macOS) / systemd (Linux) service installed by `broski install`; supervises the bridge, terminates the Noise session with each paired phone, and dials the relay. Windows is not supported.
+- **Relay** (`packages/link/relay/`) — blind rendezvous the phone and daemon both dial out to. It forwards encrypted frames and never sees plaintext.
+- **Flutter app** (`lib/`, Rust core via `packages/link_dart/`) — iOS/Android app. Renders UI only; all AI logic stays on Mac.
+- **Connection:** direct over the LAN when reachable, otherwise through the relay. No VPN, tunnel, port forwarding or public exposure of the bridge.
+- **Auth layers:** QR v2 pairing (`broski://pair?v=2&h=<fingerprint>&s=<one-time secret>&e=<expiry>&n=<name>[&r=<relay>][&l=<lan>]`), Noise end-to-end encryption (hybrid X25519 + ML-KEM-768) with the machine fingerprint pinned from the QR, and per-device revocable authorisation on the daemon. Design docs: `docs/architecture/connectivity-v2/`.
 - **530 Dart files** (~139K LOC under `lib/`), **239 TypeScript files** (~50K LOC under `packages/bridge/src/`, tests excluded).
 - **`pi-durable`** is the experimental 5th backend (`@earendil-works/pi-durable@1.1.0`, behind an Experimental toggle in the app). See `docs/architecture/backends/pi-durable.md`.
 
@@ -24,24 +26,26 @@ Phone (Flutter) ←TLS WebSocket→ Bridge (Bun/TS on your Mac) ←SDK→ {Claud
 - **Command execution from the app.** The app sends commands to AI agents (Claude Code, Codex, OpenCode, Pi) and to the shell. This is the product. Do NOT suggest removing or restricting command execution.
 - **File reading/writing from the phone.** Users browse, read, and edit files on their dev machine through the app. This is intentional.
 - **AI agent control.** Users chat with AI agents, approve/reject permission prompts, and manage coding sessions. The bridge is the relay between phone and agents.
-- **QR code pairing.** The QR code displayed in the user's terminal contains the auth token + connection info. This is the pairing mechanism (like SSH keys). The QR is only visible on the user's own screen.
+- **QR code pairing.** `broski-link pair` shows a QR v2 code in the user's terminal. It carries the machine fingerprint, a one-time pairing secret and an expiry, plus relay/LAN hints. This is the pairing mechanism (like SSH keys). The QR is only visible on the user's own screen, and the secret is consumed by the first successful pairing.
 
 ### The architecture (so you understand the threat model):
-- **Bridge** (`packages/bridge/`) = TypeScript server running on the user's own dev machine. It connects to local AI agents and exposes a WebSocket + HTTP API.
-- **Flutter app** (`lib/`) = iOS/Android app that connects to the bridge over TLS WebSocket. Authenticated via token from QR code.
-- **Connection methods:** Local WiFi, Tailscale (private mesh VPN), Tailscale Funnel (public HTTPS via .ts.net).
-- **Auth layers:** Bridge auth token (from QR), TLS cert pinning (SHA-256 fingerprint from QR).
+- **Bridge** (`packages/bridge/`) = TypeScript server running on the user's own dev machine. It connects to local AI agents. Phones never reach it directly: it listens on a unix socket for `broski-link` and on 127.0.0.1 (TLS + local bearer token) for the agent hooks, the dashboard and `/proxy/<port>`.
+- **broski-link daemon** (`packages/link/daemon/`) = the only network-facing process on the Mac. It accepts Noise sessions from paired phones over the LAN or the relay and pipes their traffic to the bridge.
+- **Flutter app** (`lib/`) = iOS/Android app. Pairs by scanning the QR v2 code, then talks to the daemon through the Rust Link core (`packages/link_dart/`).
+- **Connection methods:** direct LAN, or the blind relay (`packages/link/relay/`) when the phone is away. The relay sees ids, timing, sizes and push metadata; never plaintext.
+- **Auth layers:** one-time pairing secret from the QR, Noise end-to-end encryption with the pinned machine fingerprint, per-device authorisation and revocation on the daemon (`broski-link devices` / `revoke`).
 
 ### Security context for audits:
 - This is a **personal dev tool**, not a multi-tenant SaaS. The user owns both the phone and the machine.
-- Bearer token auth is standard for this category (same as VS Code tunnels, ngrok, SSH keys).
+- A one-time pairing secret plus a Noise end-to-end channel with a pinned machine fingerprint is the SSH-style trust model for this category; the relay is untrusted by design.
 - The bridge deliberately has broad filesystem and process access because that is its job.
 - Web app (`web-app/`) exists but is NOT launched yet. Bridge serves its static assets without auth (standard SPA behavior) but all API/WS endpoints require auth.
-- Compiled production binaries disable all debug flags, force TLS, and ignore env overrides that could weaken security.
+- Compiled production binaries disable all debug flags, force TLS on the loopback listener, and ignore env overrides that could weaken security.
 
 ### What IS worth auditing:
-- Auth token lifecycle (rotation, storage, transmission security)
-- TLS enforcement and cert pinning correctness
+- Pairing lifecycle (one-time secret consumption, expiry, device revocation, relay token storage)
+- Noise handshake correctness and relay blindness (what the relay can and cannot see)
+- Loopback listener hardening (TLS, local bearer token, bind address) for the agent hooks
 - Path traversal protections (realpath, symlink defense, base path checks)
 - Input validation and injection (prototype pollution, message size limits)
 - Rate limiting and DoS protection
@@ -348,7 +352,8 @@ lib/
     chat/                           ← 25 files (7,325 lines) — runtime event processing
     sessions/                       ← 2 runtime session handlers
     codex/                          ← 4 Codex-specific providers
-    connection/                     ← endpoint racer, error policy
+    connection/                     ← Link connection controller, status mapping
+    link/                           ← machines, link status, push providers
     pi_durable/                     ← Pi Durable providers + experimental flag
   models/                           ← 44 files here (8,556 lines); 74 recursive, 14,216 lines
     claude_code/                    ← 17 CC model files (4,052 lines)
@@ -576,7 +581,9 @@ bun run typecheck                             # tsc --noEmit (local TypeScript 7
 bun run lint                                  # biome check src/
 bun test                                      # Bun test runner
 broski-bridge --attach                       # Attach to existing agent instance
-broski-bridge --funnel                       # Tailscale Funnel (public HTTPS)
+broski install                               # Register broski-link as a launchd/systemd service
+broski-link pair                             # Show the QR v2 pairing code
+broski-link status                           # Machine, bridge, relay and session status
 broski-bridge doctor                         # Diagnose environment
 ```
 

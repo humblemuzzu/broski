@@ -47,7 +47,7 @@ This is still explicit (you pick), so it avoids wrong-instance surprises.
 2. OpenCode chooses a free port (default is `--port 0` → random port)
 3. Bridge waits for readiness (`GET /path`)
 4. Bridge subscribes to OpenCode global events (`GET /global/event`)
-5. Bridge prints QR code for phone to connect to bridge WebSocket
+5. Bridge serves the app protocol to `broski-link`; the phone pairs with `broski-link pair`
 
 ## Shutdown behavior
 

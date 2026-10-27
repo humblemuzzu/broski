@@ -42,9 +42,11 @@ broski logs
 broski logs --follow
 broski logs --export
 
-# Pairing
-broski qr
-broski qr --new-token
+# Pairing and devices (Broski Link)
+broski-link pair
+broski-link status
+broski-link devices
+broski-link revoke <device id prefix>
 
 # Background service
 broski install
@@ -102,14 +104,11 @@ broski logs --no-redact`}</CodeBlock>
 
       <section className="mb-12">
         <h2 id="serve-options" className="text-2xl font-semibold mb-4">Serve Options</h2>
-        <CodeBlock language="bash">{`# Custom bridge port
+        <CodeBlock language="bash">{`# Custom bridge loopback port
 broski --port 8080
 
-# Tailscale Funnel public URL
-broski --funnel
-
-# Hotspot-friendly IP prioritization
-broski --hotspot
+# New local hook token
+broski --new-token
 
 # OpenCode attach/manual modes
 broski --attach

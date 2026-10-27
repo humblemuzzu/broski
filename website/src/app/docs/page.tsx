@@ -77,7 +77,7 @@ export default function DocsPage() {
 
         <ol className="text-muted-foreground space-y-2">
           <li><strong className="text-foreground">1. Bridge Server</strong> runs on your system alongside your AI coding assistant</li>
-          <li><strong className="text-foreground">2. Broski App</strong> connects to the bridge via WebSocket (local WiFi or Tailscale)</li>
+          <li><strong className="text-foreground">2. Broski App</strong> connects to your Mac through Broski Link (local network or relay, end-to-end encrypted)</li>
           <li><strong className="text-foreground">3. Full Sync</strong> - all messages, tool calls, and session state flow bidirectionally</li>
         </ol>
       </section>
@@ -170,7 +170,7 @@ export default function DocsPage() {
         />
         <FeatureCard
           title="Remote Access"
-          description="Access from anywhere via Tailscale VPN - coffee shop, airport, anywhere."
+          description="Access from anywhere through an end-to-end encrypted relay - coffee shop, airport, anywhere."
           color="amber"
         />
       </CardGrid>

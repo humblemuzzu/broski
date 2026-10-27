@@ -16,35 +16,31 @@ export default function SettingsPage() {
 
       <h2 id="connection" className="text-xl font-semibold mb-4 mt-10">Connection Section</h2>
       <p className="text-muted-foreground mb-4">
-        When connected, shows your current bridge status:
+        Shows the computers you have paired with Broski Link.
       </p>
 
-      <h3 id="active-connection" className="text-lg font-medium mb-3 mt-6">Active Connection Card</h3>
+      <h3 id="paired-machines" className="text-lg font-medium mb-3 mt-6">Paired Computers</h3>
       <ul className="list-disc list-inside text-muted-foreground space-y-1 mb-6">
-        <li><strong>Device icon</strong> - Laptop/Mac icon</li>
-        <li><strong>"OpenCode Bridge"</strong> - Connection name</li>
-        <li><strong>Quality indicator</strong> - Signal strength bars</li>
-        <li><strong>Expand arrow</strong> - Tap to show details</li>
+        <li><strong>Computer name</strong> - The computer you paired, with a marker on the one in use</li>
+        <li><strong>Status</strong> - Connected (local network or relay), Connecting, Asleep or Offline</li>
+        <li><strong>Switch</strong> - Tap another computer to use it</li>
+        <li><strong>Forget</strong> - Remove a computer from this phone</li>
       </ul>
 
-      <h3 id="expanded-details" className="text-lg font-medium mb-3 mt-6">Expanded Details</h3>
-      <ul className="list-disc list-inside text-muted-foreground space-y-1 mb-6">
-        <li><strong>Local IP</strong> - WiFi address</li>
-        <li><strong>Port</strong> - Connection port</li>
-        <li><strong>Tailscale IP</strong> - VPN address (if available)</li>
-        <li><strong>Latency</strong> - Round-trip time in ms</li>
-      </ul>
+      <h3 id="pair-another" className="text-lg font-medium mb-3 mt-6">Pair Another Computer</h3>
+      <p className="text-muted-foreground mb-4">
+        Run <code>broski-link pair</code> on the computer and scan the QR code. Each QR code works once and expires after 10 minutes.
+      </p>
 
       <h3 id="device-manager" className="text-lg font-medium mb-3 mt-6">Device Manager</h3>
       <ul className="list-disc list-inside text-muted-foreground space-y-1 mb-6">
-        <li><strong>Paired Systems</strong> - List of known devices</li>
-        <li><strong>Connection History</strong> - Previous connections</li>
+        <li><strong>Connected Devices</strong> - Phones currently connected to the computer, with latency</li>
+        <li><strong>Disconnect</strong> - Drop another device&apos;s session</li>
       </ul>
-
-      <h3 id="disconnect" className="text-lg font-medium mb-3 mt-6">Disconnect</h3>
       <p className="text-muted-foreground mb-4">
-        Tap "Disconnect" to end the current session and return to the scan screen.
+        To stop a phone connecting at all, run <code>broski-link revoke</code> on the computer.
       </p>
+
 
       <h2 id="appearance" className="text-xl font-semibold mb-4 mt-10">Appearance Section</h2>
 

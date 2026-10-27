@@ -40,8 +40,9 @@ broski doctor --export`}</CodeBlock>
         <SimpleTable
           headers={["Category", "Examples", "Useful Command"]}
           rows={[
-            ["Pairing", "Token validity, TLS cert/fingerprint, QR readiness", "broski doctor --profile pairing"],
-            ["Network", "Local IP, port conflicts, Tailscale status", "broski doctor --profile network"],
+            ["Pairing", "Loopback TLS, hook token, network readiness", "broski doctor --profile pairing"],
+            ["Network", "Port conflicts, service and port state", "broski doctor --profile network"],
+            ["Link", "Bridge, relay and each phone's route", "broski-link status"],
             ["Agents", "OpenCode / Claude / Codex availability", "broski doctor --profile agents"],
             ["Daemon", "Background service state and config", "broski doctor --profile daemon"],
           ]}
@@ -92,7 +93,7 @@ broski logs --export`}</CodeBlock>
           </a>
           <a href="/docs/troubleshooting/network" className="block p-4 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/30 transition-colors">
             <h3 className="font-medium mb-1">Network Issues</h3>
-            <p className="text-sm text-muted-foreground">WiFi, firewall, Tailscale, VPN</p>
+            <p className="text-sm text-muted-foreground">WiFi, firewall, relay, VPN</p>
           </a>
           <a href="/docs/troubleshooting/ai-backends" className="block p-4 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/30 transition-colors">
             <h3 className="font-medium mb-1">AI Backend Issues</h3>
@@ -111,11 +112,11 @@ broski logs --export`}</CodeBlock>
         <SimpleTable
           headers={["Problem", "Quick Fix"]}
           rows={[
-            ["Can't connect", "Restart bridge, re-scan QR"],
+            ["Can't connect", <><code key="link" className="text-xs">broski restart</code>, then <code className="text-xs">broski-link pair</code></>],
             ["Port in use", <><code className="text-xs">lsof -nP -iTCP:18274</code> (macOS/Linux) or <code className="text-xs">netstat -ano | findstr :18274</code> (Windows) then kill the PID</>],
-            ["Auth failed", <code key="auth" className="text-xs">broski --new-token</code>],
+            ["Pairing failed", <code key="auth" className="text-xs">broski-link pair</code>],
             ["OpenCode missing", <code key="oc" className="text-xs">curl -fsSL https://opencode.ai/install | bash</code>],
-            ["Everything broken", <><code className="text-xs">rm -rf ~/.broski/</code> and restart</>],
+            ["Everything broken", <><code className="text-xs">broski uninstall</code>, <code className="text-xs">rm -rf ~/.broski/</code>, then <code className="text-xs">broski install</code> and pair again (this removes all pairings)</>],
           ]}
         />
       </section>
@@ -155,13 +156,15 @@ broski logs --export`}</CodeBlock>
         </div>
 
         <h3 id="reset-bridge" className="text-lg font-semibold mt-6 mb-3">Reset Bridge</h3>
-        <CodeBlock language="bash">{`# Stop the bridge (Ctrl+C in the terminal running it)
+        <CodeBlock language="bash">{`# Stop the service
+broski uninstall
 
-# Remove all Broski data
+# Remove all Broski data (this also removes every pairing)
 rm -rf ~/.broski/
 
-# Start fresh (generates new token)
-broski`}</CodeBlock>
+# Start fresh and pair your phone again
+broski install
+broski-link pair`}</CodeBlock>
 
         <h3 id="complete-reinstall" className="text-lg font-semibold mt-6 mb-3">Complete Reinstall</h3>
         <Steps
@@ -169,7 +172,8 @@ broski`}</CodeBlock>
             {
               title: "Remove bridge",
               content: (
-                <CodeBlock language="bash">{`rm -rf ~/.broski/`}</CodeBlock>
+                <CodeBlock language="bash">{`broski uninstall
+rm -rf ~/.broski/`}</CodeBlock>
               ),
             },
             {
@@ -226,7 +230,8 @@ broski troubleshoot`}</CodeBlock>
           headers={["Component", "Location"]}
           rows={[
             ["Bridge logs", "broski logs (or check ~/.broski/logs/bridge.log)"],
-            ["Auth token", "~/.broski/token.json"],
+            ["Local hook token", "~/.broski/token.json"],
+            ["Link log", "~/.broski/logs/link.log"],
             ["OpenCode logs", "Terminal output"],
             ["Claude Code sessions", "~/.claude/projects/"],
             ["iOS app logs", "Xcode Console or Analytics Data"],

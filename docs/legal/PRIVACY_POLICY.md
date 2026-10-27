@@ -36,11 +36,11 @@ The following data is stored exclusively on your mobile device using platform-na
 
 | Data | Storage Method | Purpose |
 |------|---------------|---------|
-| Bridge connection credentials (IP, port, auth token) | iOS Keychain / Android EncryptedSharedPreferences | Connecting to your bridge server |
+| Pairing data for each paired computer (the computer's public key and fingerprint, local network addresses, relay address and relay token) and this device's encryption key | iOS Keychain / Android EncryptedSharedPreferences | Connecting to your computer through Broski Link |
 | Cached chat sessions and messages | Encrypted local storage (max 50 messages per session) | Offline viewing |
 | Cached project lists | Encrypted local storage | Offline viewing |
 | App settings and preferences (theme, notification preferences, selected agent) | Encrypted local storage | Remembering your preferences |
-| TLS certificate fingerprints | Encrypted local storage | Secure connection verification |
+| Paired computer fingerprints (from the pairing QR code) | Encrypted local storage | Verifying that the end-to-end encrypted connection reaches the computer you paired with |
 
 ### 2.5 Data We Do NOT Collect
 
@@ -83,9 +83,10 @@ We use the information we collect solely for the following purposes:
 ```
 Your Phone (Broski App)
         |
-        | Direct peer-to-peer connection
-        | (Local WiFi, Tailscale VPN, or Tailscale Funnel)
-        | QR pairing token + TLS cert pin
+        | Broski Link: end-to-end encrypted connection
+        | (directly over the local network, or through a relay
+        | that only forwards encrypted data)
+        | One-time QR pairing secret + pinned computer fingerprint
         ↓
 Your Computer (Bridge Server)
         |
@@ -122,9 +123,9 @@ When you use Broski to interact with AI coding agents, your prompts and code con
 - [OpenAI Privacy Policy](https://openai.com/privacy)
 - [Google (Gemini) Privacy Policy](https://policies.google.com/privacy)
 
-### 5.5 Tailscale (Optional, User-Configured)
+### 5.5 Relay (When Your Phone Is Not on Your Computer's Network)
 
-If you choose to use Tailscale for remote access, your network traffic is subject to [Tailscale's Privacy Policy](https://tailscale.com/privacy-policy).
+When your phone cannot reach your computer directly on the local network, the connection goes through a relay. Everything between your phone and your computer is encrypted end to end, so the relay cannot read your prompts, code, files or conversations. The relay can see connection metadata: phone and computer identifiers, connection timing and message sizes, and, if you enable notifications, notification metadata (platform, push token, notification type and size). Notification contents are encrypted and are decrypted on your phone.
 
 ### 5.6 Services We Do NOT Use
 
@@ -157,9 +158,8 @@ All locally stored data uses platform-native encrypted storage:
 | Connection Type | Encryption | Exposure |
 |----------------|-----------|----------|
 | App to our cloud (auth/subscription) | TLS 1.2+ (HTTPS) | Internet |
-| App to your bridge (Local WiFi) | WPA2/WPA3 network-level | Local network only |
-| App to your bridge (Tailscale VPN) | WireGuard (ChaCha20-Poly1305, end-to-end) | Your Tailnet only |
-| App to your bridge (Tailscale Funnel) | TLS 1.3 | Public internet (auth token required) |
+| App to your computer (local network) | Noise end-to-end encryption (hybrid X25519 + ML-KEM-768) | Local network only |
+| App to your computer (through the relay) | Noise end-to-end encryption, carried over TLS to the relay | Internet; the relay sees identifiers, timing and sizes only, never content |
 
 ## 7. Data Retention
 
@@ -235,7 +235,7 @@ The App requests the following device permissions:
 |-----------|---------|---------------|
 | Camera | Scanning QR codes for bridge connection setup; attaching photos to AI conversations | None sent to our servers -- photos go to your bridge only |
 | Photo Library | Attaching images to AI conversations | None sent to our servers -- images go to your bridge only |
-| Local Network (iOS) | Discovering your bridge server on local WiFi | None |
+| Local Network (iOS) | Connecting directly to your computer on the local network | None |
 | Notifications | Alerting you when AI tasks complete | None |
 
 All permissions are optional and requested at the time of use. The App functions without camera or photo library access (you can enter connection details manually).

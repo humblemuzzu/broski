@@ -32,14 +32,13 @@ export default function EnvVariablesPage() {
                 <td className="p-3 border-b border-border/50 font-mono text-xs">BROSKI_PORT</td>
                 <td className="p-3 border-b border-border/50">number</td>
                 <td className="p-3 border-b border-border/50">18274</td>
-                <td className="p-3 border-b border-border/50">Bridge WebSocket port</td>
+                <td className="p-3 border-b border-border/50">Bridge loopback port</td>
               </tr>
-
               <tr>
-                <td className="p-3 font-mono text-xs">BROSKI_ENABLE_FUNNEL</td>
-                <td className="p-3">1 or unset</td>
-                <td className="p-3">unset</td>
-                <td className="p-3">Enable Tailscale Funnel</td>
+                <td className="p-3 font-mono text-xs">BROSKI_TLS</td>
+                <td className="p-3">0 or 1</td>
+                <td className="p-3">1</td>
+                <td className="p-3">TLS on the loopback listener used by agent hooks</td>
               </tr>
             </tbody>
           </table>

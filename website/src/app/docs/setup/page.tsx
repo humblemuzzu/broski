@@ -237,7 +237,7 @@ source ~/.bashrc  # or source ~/.zshrc`}</CodeBlock>
           >
             <h3 className="font-semibold mb-1">Remote Access &rarr;</h3>
             <p className="text-muted-foreground text-sm">
-              Access your AI from anywhere with Tailscale
+              Access your AI from anywhere through a relay
             </p>
           </a>
           <a 

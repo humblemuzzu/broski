@@ -41,7 +41,7 @@ export default function PrivacySecurityPage() {
                 <strong className="text-foreground">
                   Encrypted everything.
                 </strong>{" "}
-                TLS + certificate pinning on local, WireGuard on Tailscale.
+                Noise end-to-end encryption on the local network and through a relay.
               </span>
             </li>
             <li className="flex items-start gap-2">

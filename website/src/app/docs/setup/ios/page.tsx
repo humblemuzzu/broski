@@ -91,7 +91,7 @@ export default function IOSSetupPage() {
 
         <Callout type="warning" title="Local Network Permission">
           If you deny the Local Network permission, you won&apos;t be able to connect to your system 
-          over WiFi. You can still use Tailscale for remote connections.
+          directly over WiFi. Connections through a relay do not need it.
         </Callout>
 
         <h3 id="granting-permissions" className="text-lg font-semibold mb-3 mt-6">Granting Permissions Later</h3>
@@ -125,7 +125,7 @@ export default function IOSSetupPage() {
             },
             {
               title: "Scan QR Code",
-              description: "Point your camera at the QR code displayed in your terminal. Make sure the bridge is running.",
+              description: "Run broski-link pair on your Mac and point your camera at the QR code in your terminal.",
             },
           ]}
         />
@@ -136,42 +136,30 @@ export default function IOSSetupPage() {
         />
       </section>
 
-      {/* Tailscale Setup */}
+      {/* Remote Access */}
       <section className="mb-12">
-        <h2 id="tailscale" className="text-2xl font-semibold mb-4">Tailscale Setup (Optional)</h2>
+        <h2 id="remote-access" className="text-2xl font-semibold mb-4">Away From Home (Optional)</h2>
         <p className="text-muted-foreground mb-4">
-          For remote access outside your home network, install Tailscale on your iPhone:
+          On your home network your iPhone connects straight to your Mac. To reach it from anywhere, configure a
+          relay on your Mac. No VPN or extra app is needed on your phone.
         </p>
 
         <Steps
           steps={[
             {
-              title: "Install Tailscale",
-              description: (
-                <span>
-                  Download <a href="https://apps.apple.com/app/tailscale/id1470499037" className="text-primary hover:underline">Tailscale from the App Store</a>.
-                </span>
-              ),
+              title: "Add a relay on your Mac",
+              description: "Put the relay URL in ~/.broski/link/config.json, then run broski restart.",
             },
             {
-              title: "Sign In",
-              description: "Open Tailscale and sign in with the same account you use on your system.",
+              title: "Pair again",
+              description: "Run broski-link pair and scan the new QR code, which now includes the relay.",
             },
             {
-              title: "Enable VPN",
-              description: "Tap \"Connect\" and allow Tailscale to add a VPN configuration.",
-            },
-            {
-              title: "Verify Connection",
-              description: "In Broski, your system should now be reachable via its Tailscale IP (100.x.x.x).",
+              title: "Check the route",
+              description: "broski-link status shows whether your phone is on the local network or the relay.",
             },
           ]}
         />
-
-        <Callout type="tip" title="Always-On VPN">
-          Enable &quot;Connect on demand&quot; in Tailscale settings to automatically connect when needed.
-          This ensures Broski works even when you&apos;re away from home.
-        </Callout>
       </section>
 
       {/* Troubleshooting */}
@@ -228,7 +216,7 @@ export default function IOSSetupPage() {
           >
             <h3 className="font-semibold mb-1">Remote Access &rarr;</h3>
             <p className="text-muted-foreground text-sm">
-              Set up Tailscale for access from anywhere
+              Reach your Mac from anywhere with a relay
             </p>
           </a>
           <a 

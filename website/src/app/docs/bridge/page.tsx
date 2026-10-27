@@ -17,18 +17,18 @@ export default function BridgePage() {
 
       <h2 id="what-is-the-bridge" className="text-2xl font-semibold mb-4">What is the Bridge?</h2>
       <p className="text-muted-foreground mb-4">
-        The Broski Bridge is a lightweight server that runs on your desktop (Mac, Linux, or Windows) 
-        and acts as the communication hub between your phone and the AI coding agent. It serves two 
-        critical purposes:
+        The Broski Bridge is a lightweight server that runs on your Mac or Linux machine 
+        and acts as the communication hub between your phone and the AI coding agent. It sits behind 
+        <code> broski-link</code>, which handles pairing and the encrypted connection to your phone. The bridge:
       </p>
       <ul className="list-disc list-inside space-y-2 text-muted-foreground mb-6">
-        <li><strong className="text-foreground">Protocol Translation</strong> - Converts WebSocket messages from your phone into API calls to the AI backend</li>
-        <li><strong className="text-foreground">Network Bridging</strong> - Makes your local AI agent accessible from anywhere via multiple connection methods</li>
+        <li><strong className="text-foreground">Translates protocols</strong> - Converts messages from your phone into API calls to the AI backend</li>
+        <li><strong className="text-foreground">Stays private</strong> - Listens on a local socket and on loopback only; it is never exposed to your network</li>
       </ul>
 
       <h2 id="install" className="text-2xl font-semibold mb-4 mt-10">Installation</h2>
       
-      <CodeBlock language="bash">{`broski`}</CodeBlock>
+      <CodeBlock language="bash">{`broski install`}</CodeBlock>
 
       <Callout type="info" title="Verify your setup">
         Run <code>broski doctor</code> to check that everything is configured correctly.
@@ -41,11 +41,11 @@ broski install         # Install as background service
 broski uninstall       # Remove background service
 broski status          # Check if bridge is running
 broski stop            # Stop background service
-broski qr              # Show QR code to pair phone
+broski-link pair       # Show QR code to pair phone
+broski-link status     # Bridge, relay and session status
 broski doctor          # Full diagnostics
 broski doctor --fix    # Apply safe fixes
-broski logs --export   # Export diagnostics bundle
-broski setup-tailscale # Set up Tailscale for remote access`}</CodeBlock>
+broski logs --export   # Export diagnostics bundle`}</CodeBlock>
 
       <h2 id="architecture" className="text-2xl font-semibold mb-4 mt-10">Architecture</h2>
       
@@ -66,8 +66,13 @@ broski setup-tailscale # Set up Tailscale for remote access`}</CodeBlock>
             <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3">Your Desktop</div>
             <div className="space-y-2">
               <div className="px-3 py-2 bg-muted border border-border rounded text-sm">
+                <span className="font-medium">broski-link</span>
+                <span className="text-xs text-muted-foreground ml-2">Pairing, encryption</span>
+              </div>
+              <div className="text-center text-muted-foreground text-xs">↓</div>
+              <div className="px-3 py-2 bg-muted border border-border rounded text-sm">
                 <span className="font-medium">Bridge Server</span>
-                <span className="text-xs text-muted-foreground ml-2">Port 18274</span>
+                <span className="text-xs text-muted-foreground ml-2">Unix socket</span>
               </div>
               <div className="text-center text-muted-foreground text-xs">↓</div>
               <div className="px-3 py-2 bg-muted border border-border rounded text-sm">
@@ -84,7 +89,7 @@ broski setup-tailscale # Set up Tailscale for remote access`}</CodeBlock>
         
         <div className="mt-4 pt-4 border-t border-border">
           <div className="text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">Connection Types:</span> Local WiFi (ws://) • Tailscale VPN (ws://) • Tailscale Funnel (wss://)
+            <span className="font-medium text-foreground">Connection Routes:</span> Local network (direct) • Relay (end-to-end encrypted)
           </div>
         </div>
       </div>
@@ -94,8 +99,9 @@ broski setup-tailscale # Set up Tailscale for remote access`}</CodeBlock>
       <SimpleTable
         headers={["Component", "Responsibility"]}
         rows={[
-          ["Phone App", "User interface, WebSocket client, state management, caching"],
-          ["Bridge Server", "WebSocket server, message routing, event batching, health monitoring"],
+          ["Phone App", "User interface, Broski Link client, state management, caching"],
+          ["broski-link", "Pairing, device authorisation, Noise encryption, LAN listener, relay client, bridge supervision"],
+          ["Bridge Server", "Message routing, event batching, agent connectors"],
           ["AI Backend", "Session management, AI reasoning, tool execution, file operations"],
           ["Filesystem", "Your actual code files that the AI reads and modifies"],
         ]}
@@ -138,18 +144,17 @@ broski setup-tailscale # Set up Tailscale for remote access`}</CodeBlock>
         </div>
       </div>
 
-      <h2 id="connection-types" className="text-2xl font-semibold mb-4 mt-10">Connection Types</h2>
+      <h2 id="connection-types" className="text-2xl font-semibold mb-4 mt-10">Connection Routes</h2>
       
       <p className="text-muted-foreground mb-4">
-        Broski supports multiple connection methods for different scenarios:
+        Broski Link picks the route that works:
       </p>
 
       <SimpleTable
-        headers={["Type", "Latency", "Security", "Setup", "Use Case"]}
+        headers={["Route", "Latency", "Security", "Setup", "Use Case"]}
         rows={[
-          ["Local WiFi", "1-30ms", "Local network only", "Automatic", "Home/office, fastest"],
-          ["Tailscale VPN", "30-100ms", "WireGuard encrypted", "Install app on both", "Remote, secure"],
-          ["Tailscale Funnel", "Variable", "TLS 1.3 (HTTPS)", "Enable in admin console", "Public access, no VPN on phone"],
+          ["Local network", "1-30ms", "Noise end-to-end", "Automatic", "Home/office, fastest"],
+          ["Relay", "Variable", "Noise end-to-end", "Set a relay in ~/.broski/link/config.json", "Away from home"],
         ]}
       />
 
@@ -157,9 +162,9 @@ broski setup-tailscale # Set up Tailscale for remote access`}</CodeBlock>
       
       <Steps
         steps={[
-          { title: "Bridge starts", description: "WebSocket server runs on your system with a QR code containing connection info" },
-          { title: "Phone scans QR", description: "Broski app extracts host, port, and auth token from the QR code payload" },
-          { title: "Connection established", description: "Phone connects via WebSocket (local WiFi, Tailscale, or Funnel)" },
+          { title: "Service starts", description: "broski-link runs on your system, starts the bridge and listens for paired phones" },
+          { title: "Phone scans QR", description: "broski-link pair shows a QR code with your Mac's fingerprint, a one-time pairing secret and its local and relay addresses" },
+          { title: "Encrypted link established", description: "The phone connects directly on your network, or through a relay, and completes a Noise handshake" },
           { title: "Messages relay", description: "Your messages go to AI agent, responses and tool calls stream back in real-time" },
         ]}
       />
@@ -189,11 +194,9 @@ broski setup-tailscale # Set up Tailscale for remote access`}</CodeBlock>
       <SimpleTable
         headers={["Component", "Minimum Version", "Recommended"]}
         rows={[
-
           ["OpenCode", "Latest", "Latest"],
           ["Claude Code CLI", "Latest", "Latest"],
           ["macOS", "12 (Monterey)", "14+ (Sonoma)"],
-          ["Windows", "10 (1903+)", "11"],
           ["Linux", "Ubuntu 20.04+", "Ubuntu 22.04+"],
         ]}
       />
@@ -201,26 +204,26 @@ broski setup-tailscale # Set up Tailscale for remote access`}</CodeBlock>
       <h2 id="security" className="text-2xl font-semibold mb-4 mt-10">Security</h2>
       
       <Callout type="tip" title="Privacy by Design">
-        All traffic stays on your local network or encrypted Tailscale tunnel. No data is sent to 
-        Broski servers. Connection is secured with a cryptographically random token stored locally on your machine.
+        Traffic between your phone and your Mac is end-to-end encrypted, on your local network and through a relay.
+        No data is sent to Broski servers, and the bridge itself is never exposed to the network.
       </Callout>
 
       <SimpleTable
         headers={["Security Feature", "Implementation"]}
         rows={[
-          ["Auth Token", "24 bytes (192 bits) cryptographically random, base64url encoded"],
-          ["Token Validation", "Timing-safe comparison to prevent timing attacks"],
-          ["Token Storage", "~/.broski/token.json with 0600 permissions (owner read/write only)"],
-          ["Local WiFi", "Unencrypted but local-only (trusted network)"],
-          ["Tailscale", "WireGuard encryption (military-grade)"],
-          ["Funnel", "TLS 1.3 HTTPS (public but encrypted)"],
+          ["Pairing", "One-time secret in the QR code; expires after 10 minutes and works once"],
+          ["Link Encryption", "Noise end-to-end (hybrid X25519 + ML-KEM-768), pinned to your Mac's fingerprint"],
+          ["Device Control", "broski-link devices / revoke manage which phones may connect"],
+          ["Bridge Exposure", "Unix socket for broski-link and 127.0.0.1 only (agent hooks, dashboard)"],
+          ["Local Hook Token", "Random token with timing-safe comparison, stored in ~/.broski/token.json with 0600 permissions"],
+          ["Relay", "Forwards ciphertext only; sees ids, timing and sizes"],
         ]}
       />
 
       <h2 id="next" className="text-lg font-semibold mb-4 mt-10">Next Steps</h2>
       <CardGrid>
         <Card href="/docs/bridge/configuration" title="Configuration" description="CLI options, environment variables, and config files" />
-        <Card href="/docs/bridge/remote-access" title="Remote Access" description="Set up Tailscale for access from anywhere" />
+        <Card href="/docs/bridge/remote-access" title="Remote Access" description="How phones reach your Mac, directly or through a relay" />
         <Card href="/docs/bridge/background-service" title="Background Service" description="Run bridge automatically on boot" />
       </CardGrid>
     </article>

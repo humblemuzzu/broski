@@ -1031,7 +1031,7 @@ function ArchitectureDiagram() {
             <div className="mt-8 pt-6 border-t border-surface-2 grid grid-cols-3 gap-4 text-center">
               <div>
                 <div className="text-lg font-bold text-foreground">Local</div>
-                <div className="text-[11px] text-muted-foreground/50">Same network or Tailscale</div>
+                <div className="text-[11px] text-muted-foreground/50">Same network or relay</div>
               </div>
               <div>
                 <div className="text-lg font-bold text-foreground">Private</div>

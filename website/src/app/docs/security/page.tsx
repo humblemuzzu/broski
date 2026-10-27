@@ -58,8 +58,8 @@ export default function SecurityPage() {
                 <strong className="text-foreground">
                   Encrypted everything.
                 </strong>{" "}
-                TLS with certificate pinning on local connections. WireGuard
-                encryption on Tailscale. HTTPS on Funnel.
+                Noise end-to-end encryption between your phone and your Mac,
+                on the local network and through a relay.
               </span>
             </li>
             <li className="flex items-start gap-2">
@@ -166,11 +166,11 @@ export default function SecurityPage() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-green-500 shrink-0">&#8226;</span>
-                Bridge authentication tokens
+                Broski Link identity key and the list of paired phones
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-green-500 shrink-0">&#8226;</span>
-                TLS certificates (self-signed, generated locally)
+                The local hook token and loopback TLS certificate (self-signed, generated locally)
               </li>
             </ul>
           </div>
@@ -182,7 +182,7 @@ export default function SecurityPage() {
             <ul className="text-sm text-muted-foreground space-y-1.5">
               <li className="flex items-start gap-2">
                 <span className="text-blue-500 shrink-0">&#8226;</span>
-                Connection credentials (in iOS Keychain / Android
+                Pairing data and encryption keys (in iOS Keychain / Android
                 EncryptedSharedPreferences)
               </li>
               <li className="flex items-start gap-2">
@@ -263,104 +263,93 @@ export default function SecurityPage() {
           Encryption
         </h2>
         <p className="text-muted-foreground mb-6">
-          Every connection between your phone and your computer is encrypted.
-          The method depends on how you connect:
+          Every connection between your phone and your computer is end-to-end
+          encrypted, whichever route it takes:
         </p>
 
         <SimpleTable
-          headers={["Connection", "Encryption", "How It Works"]}
+          headers={["Route", "Encryption", "How It Works"]}
           rows={[
             [
-              "Local WiFi",
-              "TLS + Certificate Pinning",
-              "Self-signed cert generated on your system. Your phone pins the certificate hash from the QR code, preventing man-in-the-middle attacks even on untrusted WiFi.",
+              "Local network",
+              "Noise end-to-end",
+              "Hybrid X25519 + ML-KEM-768 handshake with your Mac, pinned to the fingerprint from the QR code.",
             ],
             [
-              "Tailscale VPN",
-              "WireGuard (end-to-end)",
-              "Modern cryptographic protocol. Traffic is encrypted between your devices with no intermediary able to decrypt it.",
-            ],
-            [
-              "Tailscale Funnel",
-              "HTTPS/TLS",
-              "Public endpoint with TLS termination at Tailscale's edge. Connection requires Tailscale authentication.",
+              "Relay",
+              "Noise end-to-end",
+              "The same Noise session runs inside the relay connection. The relay forwards ciphertext and cannot decrypt it.",
             ],
           ]}
         />
 
-        <h3 id="cert-pinning" className="text-lg font-medium mb-3 mt-8">
-          Certificate Pinning
+        <h3 id="machine-fingerprint" className="text-lg font-medium mb-3 mt-8">
+          Machine Fingerprint
         </h3>
         <p className="text-muted-foreground mb-4">
-          When you scan the QR code, your phone receives the SHA-256 fingerprint
-          of the bridge&apos;s TLS certificate. On every subsequent connection,
-          the app verifies the certificate matches that fingerprint. If someone
-          tries to intercept the connection with a different certificate, the app
-          refuses to connect.
+          When you scan the QR code, your phone learns your Mac&apos;s
+          fingerprint. On pairing the phone checks that the machine it reaches
+          matches that fingerprint, and every later connection is made to that
+          same machine. If someone tries to intercept the connection, the
+          handshake fails and the app refuses to connect.
         </p>
         <p className="text-muted-foreground">
           This means even on a compromised WiFi network (coffee shop, hotel,
-          airport), your connection is secure. The bridge generates a fresh
-          self-signed certificate on first run, and auto-renews it before
-          expiry.
+          airport), or through a relay you do not control, your connection is
+          secure.
         </p>
       </section>
 
       {/* Authentication */}
       <section className="mb-12">
         <h2 id="authentication" className="text-2xl font-semibold mb-4">
-          Authentication
+          Pairing &amp; Authentication
         </h2>
         <p className="text-muted-foreground mb-4">
-          The bridge uses a cryptographically secure token to authenticate
-          connections. Here&apos;s how it works:
+          Only phones you paired can connect. Here&apos;s how it works:
         </p>
 
         <div className="space-y-4">
           <div className="border border-border/50 rounded-lg p-4">
-            <h3 className="font-medium mb-2">Token Security</h3>
+            <h3 className="font-medium mb-2">One-Time Pairing Secret</h3>
             <ul className="text-sm text-muted-foreground space-y-1.5">
               <li>
-                &#8226; Generated with cryptographic randomness (192 bits of
-                entropy)
+                &#8226; The pairing QR carries a 32-byte random secret and your
+                Mac&apos;s fingerprint
               </li>
+              <li>&#8226; It expires after 10 minutes</li>
+              <li>&#8226; It works once; the next pairing needs a new QR</li>
               <li>
-                &#8226; Validated using constant-time comparison (prevents timing
-                attacks)
-              </li>
-              <li>
-                &#8226; Stored with restricted file permissions (owner-only
-                read/write)
-              </li>
-              <li>&#8226; Never transmitted in plaintext (TLS-wrapped)</li>
-              <li>
-                &#8226; Revokable anytime with{" "}
-                <code className="px-1 py-0.5 bg-muted rounded text-xs">
-                  broski --new-token
-                </code>
+                &#8226; A wrong secret fails the handshake before any data is
+                exchanged
               </li>
             </ul>
           </div>
 
           <div className="border border-border/50 rounded-lg p-4">
-            <h3 className="font-medium mb-2">Connection Handshake</h3>
+            <h3 className="font-medium mb-2">Per-Device Keys</h3>
             <p className="text-sm text-muted-foreground">
-              When your phone connects, it presents the auth token before any
-              data is exchanged. The bridge validates the token at the HTTP level
-              &mdash; if it doesn&apos;t match, the connection is rejected
-              before a WebSocket is even established. No messages, no data, no
-              access.
+              Each phone has its own key, created on the phone. Your Mac keeps
+              the list of paired phones (see{" "}
+              <code className="px-1 py-0.5 bg-muted rounded text-xs">
+                broski-link devices
+              </code>
+              ) and only accepts those. Remove a phone at any time with{" "}
+              <code className="px-1 py-0.5 bg-muted rounded text-xs">
+                broski-link revoke
+              </code>
+              .
             </p>
           </div>
         </div>
 
         <Callout type="warning" title="Protect your QR code">
-          The QR code contains your auth token. Don&apos;t screenshot it and
-          share it publicly. If you suspect someone has your token, run{" "}
+          The QR code contains the one-time pairing secret. Don&apos;t share a
+          screenshot of it. If you think someone saw it before you used it, run{" "}
           <code className="px-1 py-0.5 bg-muted rounded text-xs">
-            broski --new-token
+            broski-link pair
           </code>{" "}
-          to generate a new one and rescan on your phone.
+          again: a new QR replaces the old one.
         </Callout>
       </section>
 
@@ -541,17 +530,23 @@ export default function SecurityPage() {
         />
 
         <p className="text-muted-foreground mt-4 mb-4">
-          Your connection tokens, cached credentials, and voice API keys are
+          Your pairing data, cached credentials, and voice API keys are
           stored in this encrypted storage. UI preferences and cached session
           data also use this encrypted layer.
         </p>
 
         <p className="text-muted-foreground">
-          On your system, the bridge stores its auth token and TLS certificate in{" "}
+          On your system, the bridge stores its local hook token and loopback TLS
+          certificate in{" "}
           <code className="px-1 py-0.5 bg-muted rounded text-xs">
             ~/.broski/
-          </code>{" "}
-          with restricted file permissions (owner read/write only). Your AI
+          </code>
+          , and Broski Link stores its identity key and the list of paired
+          phones in{" "}
+          <code className="px-1 py-0.5 bg-muted rounded text-xs">
+            ~/.broski/link/
+          </code>
+          , all with restricted file permissions (owner read/write only). Your AI
           agent&apos;s credentials stay in their own secure storage (the OS keychain (macOS
           Keychain, Windows Credential Manager, or Linux keyring) for Claude Code, config files for OpenCode).
         </p>
@@ -564,51 +559,43 @@ export default function SecurityPage() {
         </h2>
 
         <h3 id="local-wifi" className="text-lg font-medium mb-3 mt-6">
-          Local WiFi
+          Local Network
         </h3>
         <p className="text-muted-foreground mb-4">
-          When on the same network, the bridge generates a self-signed TLS
-          certificate. Your phone pins the certificate fingerprint from the QR
-          code and verifies it on every connection. Even if someone is
-          sniffing WiFi traffic, they see encrypted gibberish.
+          On the same network, your phone connects straight to{" "}
+          <code className="px-1 py-0.5 bg-muted rounded text-xs">broski-link</code>{" "}
+          on your Mac. The connection is a Noise handshake pinned to the
+          fingerprint from the QR code, so someone sniffing or spoofing WiFi
+          traffic sees only encrypted data and cannot impersonate your Mac.
         </p>
 
-        <h3 id="tailscale" className="text-lg font-medium mb-3 mt-6">
-          Tailscale VPN
+        <h3 id="relay" className="text-lg font-medium mb-3 mt-6">
+          Relay
         </h3>
         <p className="text-muted-foreground mb-4">
-          Tailscale uses the WireGuard protocol &mdash; a modern, audited
-          cryptographic VPN. Your phone and Mac establish a direct encrypted
-          tunnel. Traffic never passes through Tailscale&apos;s servers in
-          plaintext; they only coordinate the connection setup (key exchange).
-        </p>
-
-        <h3 id="funnel" className="text-lg font-medium mb-3 mt-6">
-          Tailscale Funnel
-        </h3>
-        <p className="text-muted-foreground mb-4">
-          Funnel provides a public HTTPS endpoint managed by Tailscale. TLS is
-          terminated at Tailscale&apos;s edge with certificates they manage. The
-          bridge runs an additional loopback-only plaintext server that only
-          Tailscale can reach. No dashboard or debug endpoints are exposed on
-          the Funnel path.
+          Away from home, your phone and Mac both connect out to a relay. The
+          relay forwards opaque encrypted frames. It sees ids, connection
+          timing, message sizes and notification metadata, and it never has the
+          keys to read your traffic. Nothing is exposed publicly and no inbound
+          port needs to be opened.
         </p>
 
         <h3
           id="no-plaintext"
           className="text-lg font-medium mb-3 mt-6"
         >
-          No Plaintext Over the Network
+          The Bridge Is Not on the Network
         </h3>
         <p className="text-muted-foreground">
-          If TLS is disabled (for local development only), the bridge
-          automatically binds to{" "}
+          The bridge listens on a local Unix socket for{" "}
+          <code className="px-1 py-0.5 bg-muted rounded text-xs">broski-link</code>{" "}
+          and on{" "}
           <code className="px-1 py-0.5 bg-muted rounded text-xs">
             127.0.0.1
           </code>{" "}
-          (loopback only) &mdash; meaning it&apos;s only accessible from your
-          own machine, not the network. There&apos;s no configuration that
-          exposes unencrypted traffic to your LAN.
+          (loopback only, TLS with a local bearer token) for agent hooks, the
+          dashboard and dev-server previews. There&apos;s no configuration that
+          exposes the bridge to your LAN.
         </p>
       </section>
 
@@ -777,16 +764,16 @@ export default function SecurityPage() {
               <code className="px-1 py-0.5 bg-muted rounded text-xs">
                 broski doctor
               </code>{" "}
-              runs 30+ diagnostics including TLS cert validity, token status,
-              port bindings, and daemon health.
+              runs 30+ diagnostics including loopback TLS cert validity, hook token
+              status, port bindings, and daemon health.
             </span>
           </li>
           <li className="flex items-start gap-2">
             <span className="text-foreground font-bold shrink-0">&#8226;</span>
             <span>
               <strong className="text-foreground">Check DNS queries</strong>{" "}
-              &mdash; Monitor outgoing DNS. The bridge only resolves your local
-              network addresses and Tailscale endpoints.
+              &mdash; Monitor outgoing DNS. <code className="px-1 py-0.5 bg-muted rounded text-xs">broski-link</code> only
+              connects to the relay you configured, if any.
             </span>
           </li>
         </ul>
@@ -815,10 +802,14 @@ export default function SecurityPage() {
               &ldquo;What if someone finds my bridge on the network?&rdquo;
             </h3>
             <p className="text-muted-foreground">
-              They&apos;d need your auth token (192 bits of entropy) to
-              connect. Without it, the bridge rejects the connection at the
-              HTTP level before any data is exchanged. The token is validated
-              using constant-time comparison to prevent timing attacks.
+              Nothing, because the bridge is not on the network. It listens on
+              your machine&apos;s loopback interface and a local socket only.
+              The only network-facing process is{" "}
+              <code className="px-1 py-0.5 bg-muted rounded text-xs">
+                broski-link
+              </code>
+              , and it only completes an encrypted handshake with phones you
+              paired. An unpaired device cannot get past it.
             </p>
           </div>
 
@@ -855,7 +846,7 @@ export default function SecurityPage() {
               <code className="px-1 py-0.5 bg-muted rounded text-xs">
                 ~/.broski
               </code>{" "}
-              to remove all bridge data (token, certs, config).
+              to remove all bridge data (hook token, certificates, config, link state).
               <br />
               That&apos;s it. There&apos;s nothing on our end to delete because
               we never had it.
@@ -878,7 +869,7 @@ export default function SecurityPage() {
           <Card
             href="/docs/bridge/remote-access"
             title="Remote Access"
-            description="Secure Tailscale setup guide"
+            description="Direct and relay connections"
           />
           <Card
             href="/docs/guides/approve-commands"

@@ -89,8 +89,10 @@ export default function PrivacyPolicyPage() {
           <li className="flex items-start gap-3">
             <span className="text-[#7fd88f] mt-1">&#8226;</span>
             <span>
-              Bridge connection credentials (IP, port, auth token) &mdash; iOS
-              Keychain / Android EncryptedSharedPreferences
+              Pairing data for each paired computer (public key, fingerprint,
+              local network addresses, relay address and relay token) and this
+              device&apos;s encryption key &mdash; iOS Keychain / Android
+              EncryptedSharedPreferences
             </span>
           </li>
           <li className="flex items-start gap-3">
@@ -105,7 +107,7 @@ export default function PrivacyPolicyPage() {
           </li>
           <li className="flex items-start gap-3">
             <span className="text-[#7fd88f] mt-1">&#8226;</span>
-            <span>TLS certificate fingerprints</span>
+            <span>Paired computer fingerprints (from the pairing QR code)</span>
           </li>
         </ul>
       </section>
@@ -136,7 +138,7 @@ export default function PrivacyPolicyPage() {
         <div className="bg-card/50 border border-border/50 rounded-lg p-6 font-mono text-sm text-muted-foreground">
           <p>Your Phone (Broski App)</p>
           <p className="ml-4">
-            &darr;&uarr; Direct peer-to-peer (WiFi / Tailscale VPN / Funnel)
+            &darr;&uarr; End-to-end encrypted (local network, or via a relay)
           </p>
           <p>Your Computer (Bridge Server)</p>
           <p className="ml-4">&darr;&uarr; Local process</p>
@@ -180,16 +182,11 @@ export default function PrivacyPolicyPage() {
             </a>
           </li>
           <li>
-            <strong className="text-foreground">Tailscale (optional)</strong>{" "}
-            &mdash;{" "}
-            <a
-              href="https://tailscale.com/privacy-policy"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary hover:underline"
-            >
-              Privacy Policy
-            </a>
+            <strong className="text-foreground">Relay</strong> &mdash; when
+            your phone is not on your computer&apos;s network, traffic goes
+            through a relay. It is end-to-end encrypted, so the relay cannot
+            read it; it sees only identifiers, timing and message sizes, plus
+            notification metadata if you enable notifications.
           </li>
         </ul>
         <p className="text-muted-foreground mt-4 text-sm">

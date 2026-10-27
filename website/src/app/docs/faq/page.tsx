@@ -78,31 +78,32 @@ export default function FAQPage() {
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">What do I need to get started?</h3>
             <ul className="text-muted-foreground space-y-2">
-              <li>&#8226; A Mac, Windows PC, or Linux machine</li>
+              <li>&#8226; A Mac or Linux machine</li>
               <li>&#8226; Broski bridge installed on your computer</li>
               <li>&#8226; Claude Code, OpenCode, Codex, or Pi CLI installed</li>
               <li>&#8226; An AI provider account (Claude, OpenAI, etc.)</li>
               <li>&#8226; An iPhone/iPad (iOS 15+) or Android device (8.0+)</li>
-              <li>&#8226; Same WiFi network OR Tailscale for remote access</li>
+              <li>&#8226; Same WiFi network, or a relay configured for remote access</li>
             </ul>
           </div>
 
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">How do I install the bridge?</h3>
             <p className="text-muted-foreground mb-3">
-              Run one of these commands in your terminal:
+              Run these commands in your terminal:
             </p>
-            <CodeBlock language="bash">{`broski`}</CodeBlock>
+            <CodeBlock language="bash">{`broski install
+broski-link pair`}</CodeBlock>
             <p className="text-muted-foreground text-sm mt-2">
-              This starts the bridge server and displays a QR code to pair with your phone.
+              This starts Broski Link as a background service and shows a QR code to pair with your phone.
             </p>
           </div>
 
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">Can I use Broski on multiple computers?</h3>
             <p className="text-muted-foreground">
-              Yes, but one bridge instance connects to one AI backend at a time. Install the bridge 
-              on each computer, and scan the QR code for whichever computer you want to connect to.
+              Yes, but one bridge instance connects to one AI backend at a time. Install Broski Link on each computer,
+              pair each one with its own QR code, and pick the computer you want to use in the app.
               Sessions are stored per-computer.
             </p>
           </div>
@@ -110,11 +111,11 @@ export default function FAQPage() {
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">Why can&apos;t I scan the QR code?</h3>
             <ul className="text-muted-foreground space-y-2">
-              <li>&#8226; Make sure your phone and system are on the same WiFi network</li>
-              <li>&#8226; Check that the bridge is still running in your terminal</li>
+              <li>&#8226; A pairing QR expires after 10 minutes and works once &mdash; run <code className="px-1 py-0.5 bg-muted rounded text-sm">broski-link pair</code> for a new one</li>
+              <li>&#8226; Check that <code className="px-1 py-0.5 bg-muted rounded text-sm">broski status</code> shows the service running</li>
               <li>&#8226; Try increasing terminal brightness</li>
               <li>&#8226; Move closer to the screen for better camera focus</li>
-              <li>&#8226; Use &quot;Enter manually&quot; and type the IP address</li>
+              <li>&#8226; Copy the <code className="px-1 py-0.5 bg-muted rounded text-sm">broski://pair</code> link and use the paste button on the scan screen</li>
             </ul>
           </div>
 
@@ -138,8 +139,8 @@ export default function FAQPage() {
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">Do I need to be on the same WiFi?</h3>
             <p className="text-muted-foreground">
-              For local connections, yes. For remote access from anywhere, set up Tailscale 
-              (free) on both your computer and phone - then you can use Broski from any location.
+              For the direct route, yes. To use Broski from anywhere, configure a relay on your Mac (see Remote Access).
+              No VPN and no extra app on your phone is needed.
             </p>
           </div>
 
@@ -154,27 +155,8 @@ export default function FAQPage() {
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">Can I use Broski over cellular data?</h3>
             <p className="text-muted-foreground">
-              Yes, but you need Tailscale or Funnel for remote access. Local IPs (192.168.x.x) won&apos;t work 
-              on cellular - you need Tailscale IPs (100.x.x.x) or a Funnel URL. Data usage is light 
-              (1-50 KB per message).
-            </p>
-          </div>
-
-          <div className="border border-border/50 rounded-lg p-5">
-            <h3 className="font-semibold mb-2">What is Tailscale and why do I need it?</h3>
-            <p className="text-muted-foreground">
-              Tailscale is a free VPN that creates a secure connection between your devices. 
-               Without it, you can only use Broski when connected to the same WiFi as your system.
-              With Tailscale, you can use Broski from a coffee shop, airport, or anywhere in the world.
-            </p>
-          </div>
-
-          <div className="border border-border/50 rounded-lg p-5">
-            <h3 className="font-semibold mb-2">What is Funnel?</h3>
-            <p className="text-muted-foreground">
-              Tailscale Funnel exposes your bridge to the internet via a public HTTPS URL. 
-              This lets you connect without installing Tailscale on your phone - just use the URL. 
-              Enable with: <code className="px-1 py-0.5 bg-muted rounded text-sm">broski --funnel</code>
+              Yes, if your Mac has a relay configured. Local IPs (192.168.x.x) don&apos;t work on cellular, so the app
+              uses the relay. Data usage is light (1-50 KB per message).
             </p>
           </div>
 
@@ -184,7 +166,7 @@ export default function FAQPage() {
               <li>&#8226; Check your WiFi signal strength</li>
               <li>&#8226; The bridge may have crashed - restart it</li>
               <li>&#8226; Keep the app in foreground (mobile OSes kill background apps)</li>
-              <li>&#8226; If using Tailscale, verify both devices are connected</li>
+              <li>&#8226; Run <code className="px-1 py-0.5 bg-muted rounded text-sm">broski-link status</code> to check the relay and your phone&apos;s route</li>
               <li>&#8226; On Android, disable battery optimization for Broski</li>
             </ul>
           </div>
@@ -192,9 +174,9 @@ export default function FAQPage() {
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">Why does the connection drop when I leave my house?</h3>
             <p className="text-muted-foreground">
-              Your local IP (192.168.x.x) only works on your home WiFi. When you leave, that IP 
-              becomes unreachable. Set up Tailscale to get a stable IP that works everywhere, or 
-              enable Funnel for a public URL.
+              The direct route only works on your home network. When you leave, the app switches to the relay if you
+              configured one in <code className="px-1 py-0.5 bg-muted rounded text-sm">~/.broski/link/config.json</code>.
+              Without a relay, your Mac is unreachable until you are back on its network.
             </p>
           </div>
 
@@ -404,7 +386,7 @@ broski --port 8080
 # Or set environment variable
 BROSKI_PORT=8080 broski`}</CodeBlock>
             <p className="text-muted-foreground text-sm mt-2">
-              Note: Changing the port invalidates existing QR codes - scan the new one.
+              Note: this is the bridge&apos;s loopback port (used by agent hooks). Paired phones are not affected.
             </p>
           </div>
 
@@ -415,14 +397,14 @@ BROSKI_PORT=8080 broski`}</CodeBlock>
             </p>
             <ul className="text-muted-foreground text-sm space-y-1">
               <li>&#8226; <code className="px-1 py-0.5 bg-muted rounded">BROSKI_PORT</code> - Port number</li>
-              <li>&#8226; <code className="px-1 py-0.5 bg-muted rounded">BROSKI_ENABLE_FUNNEL</code> - Enable Tailscale Funnel</li>
               <li>&#8226; <code className="px-1 py-0.5 bg-muted rounded">OPENCODE_BASE_URL</code> - OpenCode server URL</li>
             </ul>
           </div>
 
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">How do I reset everything and start fresh?</h3>
-            <CodeBlock language="bash">{`# Clear bridge data
+            <CodeBlock language="bash">{`# Clear bridge and link data (removes every pairing; pair again afterwards)
+broski uninstall
 rm -rf ~/.broski
 
 # Clear OpenCode data (deletes all sessions!)
@@ -452,12 +434,11 @@ rm -rf ~/.opencode`}</CodeBlock>
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">Is my connection encrypted?</h3>
             <p className="text-muted-foreground mb-3">
-              Yes, always. The encryption depends on your connection type:
+              Yes, always, whichever route you use:
             </p>
             <ul className="text-muted-foreground space-y-2">
-              <li>&#8226; <strong className="text-foreground">Local WiFi:</strong> TLS with certificate pinning. The bridge generates a self-signed cert, and your phone pins the SHA-256 fingerprint from the QR code. Even on untrusted WiFi, a man-in-the-middle attack is blocked.</li>
-              <li>&#8226; <strong className="text-foreground">Tailscale:</strong> WireGuard end-to-end encryption. Modern, audited cryptographic protocol &mdash; traffic is encrypted directly between your devices.</li>
-              <li>&#8226; <strong className="text-foreground">Funnel:</strong> HTTPS/TLS managed by Tailscale. Public endpoint with TLS termination at their edge.</li>
+              <li>&#8226; <strong className="text-foreground">Local network:</strong> Noise end-to-end encryption (hybrid X25519 + ML-KEM-768). Your phone verifies your Mac&apos;s fingerprint from the QR code, so a man-in-the-middle attack is blocked even on untrusted WiFi.</li>
+              <li>&#8226; <strong className="text-foreground">Relay:</strong> The same end-to-end session runs through the relay. The relay forwards ciphertext and cannot read it.</li>
             </ul>
           </div>
 
@@ -474,21 +455,21 @@ rm -rf ~/.opencode`}</CodeBlock>
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">Where is my data stored?</h3>
             <ul className="text-muted-foreground space-y-2">
-              <li>&#8226; <strong className="text-foreground">Connection credentials:</strong> Encrypted in iOS Keychain (hardware-backed) / Android EncryptedSharedPreferences (AES-256)</li>
+              <li>&#8226; <strong className="text-foreground">Pairing data:</strong> Encrypted in iOS Keychain (hardware-backed) / Android EncryptedSharedPreferences (AES-256)</li>
               <li>&#8226; <strong className="text-foreground">Cached sessions &amp; messages:</strong> On your phone only, in encrypted storage. For offline viewing.</li>
               <li>&#8226; <strong className="text-foreground">AI conversations &amp; session history:</strong> On your computer only, managed by the AI backend.</li>
               <li>&#8226; <strong className="text-foreground">API keys:</strong> On your system only, in the OS keychain (macOS Keychain / Windows Credential Manager / Linux keyring) or local config files. Never sent through Broski.</li>
-              <li>&#8226; <strong className="text-foreground">Bridge auth token &amp; TLS cert:</strong> In <code className="px-1 py-0.5 bg-muted rounded text-sm">~/.broski/</code> on your system with restricted file permissions.</li>
+              <li>&#8226; <strong className="text-foreground">Hook token, loopback TLS cert &amp; link identity key:</strong> In <code className="px-1 py-0.5 bg-muted rounded text-sm">~/.broski/</code> on your system with restricted file permissions.</li>
             </ul>
           </div>
 
           <div className="border border-border/50 rounded-lg p-5">
             <h3 className="font-semibold mb-2">Can someone else access my bridge?</h3>
             <p className="text-muted-foreground">
-              Not without your authentication token. The bridge generates a cryptographically secure token with 192 bits
-              of entropy, embedded in the QR code. Connections are validated using constant-time comparison to prevent
-              timing attacks. Without the token, the bridge rejects the connection at the HTTP level &mdash; before a
-              WebSocket is even established. To revoke access: <code className="px-1 py-0.5 bg-muted rounded text-sm">broski --new-token</code>
+              Not without being paired. The bridge is not on the network: it listens on a local socket and on loopback
+              only. The only network-facing process is <code className="px-1 py-0.5 bg-muted rounded text-sm">broski-link</code>,
+              which completes an encrypted handshake only with phones you paired using the one-time secret in the QR code.
+              To remove a phone: <code className="px-1 py-0.5 bg-muted rounded text-sm">broski-link revoke</code>
             </p>
           </div>
 
@@ -498,7 +479,7 @@ rm -rf ~/.opencode`}</CodeBlock>
               None for accounts or billing. Broski is local-first and open source.
             </p>
             <ul className="text-muted-foreground space-y-2">
-              <li>&#8226; Pairing uses the local bridge auth token from the QR code. There is no Google/Apple sign-in or RevenueCat subscription.</li>
+              <li>&#8226; Pairing uses the one-time secret in the QR code. There is no Google/Apple sign-in or RevenueCat subscription. If you use a relay, it only forwards end-to-end encrypted data.</li>
             </ul>
             <p className="text-muted-foreground mt-3 text-sm">
               If you enable voice input, audio goes to Groq or OpenAI using your own API key. This is opt-in and off by default.
@@ -520,7 +501,7 @@ rm -rf ~/.opencode`}</CodeBlock>
             </p>
             <p className="text-muted-foreground mb-3">
               <strong className="text-foreground">System:</strong> Delete <code className="px-1 py-0.5 bg-muted rounded text-sm">~/.broski</code> to
-              remove all bridge data (token, certs, config).
+              remove all bridge data (hook token, certs, config, link state).
             </p>
             <p className="text-muted-foreground text-sm">
               That&apos;s it. There&apos;s nothing on our end to delete because we never had your data in the first place.
@@ -531,9 +512,10 @@ rm -rf ~/.opencode`}</CodeBlock>
             <h3 className="font-semibold mb-2">Can I verify all of this myself?</h3>
             <p className="text-muted-foreground">
               Yes. Run <code className="px-1 py-0.5 bg-muted rounded text-sm">broski doctor</code> to run 30+
-              diagnostics on your setup (TLS certs, token status, port bindings, daemon health). Use Wireshark to
-              inspect network traffic &mdash; you&apos;ll see encrypted WebSocket frames between your phone and Mac,
-              and nothing going to any Broski endpoint. The bridge runs on your machine; you can inspect every line of traffic.
+              diagnostics on your setup (loopback TLS cert, hook token status, port bindings, daemon health), and{" "}
+              <code className="px-1 py-0.5 bg-muted rounded text-sm">broski-link status</code> to see the link. Use Wireshark to
+              inspect network traffic &mdash; you&apos;ll see only encrypted Broski Link frames between your phone and Mac
+              (or your relay), and nothing going to any Broski endpoint. The bridge runs on your machine; you can inspect every line of traffic.
             </p>
             <p className="text-muted-foreground mt-2 text-sm">
               For the full deep-dive, see our <a href="/docs/security" className="text-primary hover:underline">Security &amp; Privacy</a> documentation.
@@ -560,11 +542,13 @@ broski --port 8080`}</CodeBlock>
           </div>
 
           <div className="border border-border/50 rounded-lg p-5">
-            <h3 className="font-semibold mb-2">The app says &quot;Unauthorized&quot;</h3>
+            <h3 className="font-semibold mb-2">The app shows my Mac as &quot;Offline&quot; or &quot;Asleep&quot;</h3>
             <p className="text-muted-foreground">
-              The authentication token doesn&apos;t match. This happens if you restarted the bridge 
-              with <code className="px-1 py-0.5 bg-muted rounded text-sm">--new-token</code> or the bridge crashed. 
-              Rescan the QR code from the terminal.
+              Check that <code className="px-1 py-0.5 bg-muted rounded text-sm">broski-link</code> is running with{" "}
+              <code className="px-1 py-0.5 bg-muted rounded text-sm">broski status</code>, that the Mac is awake, and that
+              the phone can reach it on the local network or through a relay. If the phone was removed with{" "}
+              <code className="px-1 py-0.5 bg-muted rounded text-sm">broski-link revoke</code>, pair it again with{" "}
+              <code className="px-1 py-0.5 bg-muted rounded text-sm">broski-link pair</code>.
             </p>
           </div>
 

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Cleartext is permitted for local bridge connections over WiFi.
-    The bridge runs on the user's own machine on the local network.
-    All remote connections (Tailscale Funnel) use TLS.
+    Cleartext is permitted for direct LAN connections to broski-link on the
+    user's own machine. The link payload is Noise-encrypted end to end, so the
+    transport underneath it needs no TLS. Relay connections use wss://.
 -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="true">

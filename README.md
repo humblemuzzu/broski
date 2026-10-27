@@ -43,14 +43,14 @@ Broski turns your phone into a remote control for your AI coding agents—[OpenC
 
 **The problem:** Your AI agent runs on your Mac. You're on the couch, at a coffee shop, on a flight. You want to ship that feature.
 
-**The solution:** Broski connects your phone to your AI agents via WebSocket. Chat with Claude, GPT, or any model, see file changes live, approve permissions with haptic feedback—all from your pocket.
+**The solution:** Broski connects your phone to your AI agents over an end-to-end encrypted link. Chat with Claude, GPT, or any model, see file changes live, approve permissions with haptic feedback—all from your pocket.
 
 <div align="center">
 
 ```
 ┌─────────────┐         ┌─────────────┐         ┌─────────────────────┐
-│   Broski    │         │   Bridge    │         │  OpenCode (SDK)     │
-│  (iPhone)   │ ──WS──► │   (Mac)     │ ──────► │  Claude Code (SDK)  │
+│   Broski    │         │ Broski Link │         │  OpenCode (SDK)     │
+│  (iPhone)   │ ──e2e─► │ + Bridge    │ ──────► │  Claude Code (SDK)  │
 │             │         │             │         │  Codex (app-server) │
 └─────────────┘         └─────────────┘         │  Pi (event-driven)  │
                                                 └─────────────────────┘
@@ -87,7 +87,7 @@ Stream responses at 60fps. Approve dangerous commands with haptic feedback. See 
 <td width="50%">
 
 ### Works From Anywhere
-Local WiFi for home. Tailscale for coffee shops. Funnel for public HTTPS. Your choice of connectivity.
+Direct over your home network, or through an end-to-end encrypted relay everywhere else. No VPN, no port forwarding.
 
 </td>
 </tr>
@@ -111,24 +111,24 @@ L1/L2 tiered caching means you can browse sessions and history without a connect
 
 ## Quick Start
 
-### 1. Start the bridge
+### 1. Install Broski Link on your Mac
 
 ```bash
-# One-liner (recommended)
-bunx broski
-
-# Or install globally
+# Install globally
 bun add -g broski
-broski
+
+# Register the Broski Link service (launchd on macOS, systemd on Linux)
+broski install
 ```
+
+`broski install` starts `broski-link`, which runs the bridge for you and restarts it if it crashes.
 
 ### Background Service
 
-Keep the bridge running in the background:
-
 ```bash
-broski install              # Install as background service
+broski install              # Install and start the service
 broski status               # Check if it's running
+broski-link status          # Link, relay, bridge and paired devices
 broski stop                 # Stop the service
 broski uninstall            # Remove the service
 ```
@@ -137,8 +137,8 @@ broski uninstall            # Remove the service
 
 ### 2. Connect from your phone
 
-1. Open Broski app
-2. Scan the QR code from your terminal
+1. Run `broski-link pair` on your Mac to show a pairing QR code
+2. Open the Broski app and scan it (the code is single-use and expires)
 3. Start coding
 
 That's it.
@@ -211,9 +211,9 @@ That's it.
 
 | Feature | Description |
 |---------|-------------|
-| **Local network** | Works on your home WiFi |
-| **Tailscale** | Secure access from anywhere (WireGuard encryption) |
-| **Tailscale Funnel** | Public HTTPS—no VPN needed on phone |
+| **Local network** | Direct connection to your Mac on your home network |
+| **Relay** | Works from anywhere; the relay only forwards encrypted frames |
+| **End-to-end encryption** | Noise handshake (hybrid X25519 + ML-KEM-768) between phone and Mac |
 | **Smart reconnection** | Exponential backoff with automatic re-sync |
 | **Connection quality** | RTT monitoring with adaptive event batching |
 
@@ -237,7 +237,6 @@ That's it.
 | macOS | 12+ | Required for now |
 | [Bun](https://bun.sh) | 1.0+ | JS runtime for bridge |
 | [Flutter](https://flutter.dev) | 3.0+ | Optional—for building from source |
-| [Tailscale](https://tailscale.com) | Any | Optional—for remote access |
 
 **AI Agents (at least one):**
 
@@ -284,21 +283,24 @@ flutter build apk
 broski                                  # Start (auto-detects available agents)
 broski --attach                         # Choose from running OpenCode instances
 broski --opencode-url <url>             # Connect to specific OpenCode URL
-broski --hotspot                        # Prioritize hotspot IP
 
 # Background service
-broski install                          # Install as background service
+broski install                          # Install the Broski Link service
 broski status                           # Check if running
 broski stop                             # Stop the service
 broski uninstall                        # Remove background service
 
-# Network options
-broski --funnel                         # Enable Tailscale Funnel (public HTTPS)
-broski --port <port>                    # Custom port (default: 18274)
+# Pairing and devices (broski-link)
+broski-link pair                        # Show the pairing QR code
+broski-link status                      # Machine, bridge, relay and session status
+broski-link devices                     # List paired phones
+broski-link revoke <id prefix>          # Remove a paired phone
+
+# Options
+broski --port <port>                    # Loopback listener port (default: 18274)
 
 # Diagnostics
 broski doctor                           # Diagnose environment (all agents)
-broski setup-tailscale                  # Interactive Tailscale setup
 broski --verbose                        # Debug logging
 ```
 
@@ -321,8 +323,8 @@ Broski is a thin UI layer. Your AI agents do all the heavy lifting.
 │                                                                             │
 │  ┌───────────┐              ┌─────────────┐              ┌───────────┐     │
 │  │           │              │             │              │           │     │
-│  │  Broski   │──────────────│   Bridge    │──────────────│  Claude   │     │
-│  │   App     │  WebSocket   │   Server    │   SDK/CLI    │  OpenAI   │     │
+│  │  Broski   │──────────────│ broski-link │──────────────│  Claude   │     │
+│  │   App     │  Noise e2e   │ + Bridge    │   SDK/CLI    │  OpenAI   │     │
 │  │           │              │   (Bun)     │              │  Gemini   │     │
 │  │  Flutter  │◄─────────────│             │◄─────────────│  + more   │     │
 │  │  Riverpod │              │             │              │           │     │
@@ -344,7 +346,9 @@ Broski is a thin UI layer. Your AI agents do all the heavy lifting.
 | Component | Tech | Role |
 |-----------|------|------|
 | **Mobile App** | Flutter + Riverpod | UI rendering, caching, offline mode |
-| **Bridge Server** | Bun + TypeScript | WebSocket server, multi-agent routing, connectors |
+| **broski-link** | Rust | Machine daemon: LAN listener, relay client, pairing, bridge supervision |
+| **Relay** | Rust | Blind rendezvous that forwards encrypted frames between phone and Mac |
+| **Bridge Server** | Bun + TypeScript | Multi-agent routing, connectors (talks to broski-link over a unix socket) |
 | **OpenCode Connector** | `@opencode-ai/sdk` | Full OpenCode SDK integration |
 | **Claude Code Connector** | `@anthropic-ai/claude-agent-sdk` | Claude Agent SDK integration |
 | **Codex Connector** | JSON-RPC | Codex app-server protocol |
@@ -355,7 +359,7 @@ Broski is a thin UI layer. Your AI agents do all the heavy lifting.
 - **Thin client**: App only renders UI. All AI logic stays on Mac.
 - **Multi-agent**: Unified interface for OpenCode, Claude Code, Codex, and Pi.
 - **SDK-based**: Uses official SDKs (`@opencode-ai/sdk`, `@anthropic-ai/claude-agent-sdk`).
-- **Peer-to-peer**: No cloud servers. Direct phone ↔ Mac connection.
+- **Direct or blind relay**: Phone ↔ Mac directly on the LAN, otherwise through a relay that cannot read your traffic.
 - **RTT-adaptive**: Event batching adjusts to connection latency (4ms local → 150ms high-latency).
 - **Cross-device sync**: Real-time updates across all connected devices.
 
@@ -381,7 +385,7 @@ broski/
 ├── packages/bridge/              # Bridge server (5K+ LOC)
 │   └── src/
 │       ├── index.ts              # CLI entry
-│       ├── server.ts             # WebSocket + HTTP server
+│       ├── server.ts             # Unix-socket + loopback server
 │       ├── connectors/
 │       │   ├── opencode.ts       # OpenCode SDK connector
 │       │   ├── claude-code.ts    # Claude Code SDK connector
@@ -402,7 +406,7 @@ broski/
 |--------|--------|----------------|
 | App startup | <2s | Cache pre-warming in `main.dart` |
 | Message latency (local) | <100ms | RTT-adaptive event batching |
-| Message latency (Tailscale) | <300ms | Connection type detection |
+| Message latency (relay) | <300ms | RTT-adaptive event batching |
 | Offline cache read | <1ms | L1 in-memory cache |
 | Bridge memory | <30MB | Efficient event streaming |
 
@@ -420,12 +424,13 @@ broski/
 
 | Aspect | Implementation |
 |--------|----------------|
-| Local network | Traffic stays on your WiFi |
-| Tailscale | WireGuard encryption (military-grade) |
-| No cloud | No Broski servers. Direct phone ↔ Mac |
+| Link encryption | Noise end-to-end (hybrid X25519 + ML-KEM-768); the machine fingerprint comes from the QR |
+| Pairing | One-time secret in the QR, expires, consumed by the first successful pairing; paired phones can be revoked |
+| Relay | Blind: sees ids, timing and sizes, never plaintext |
+| Bridge exposure | The bridge listens on `127.0.0.1` and a unix socket only |
 | Credentials | iOS Keychain / Android EncryptedSharedPrefs |
 | API keys | Never leave your Mac |
-| Auth tokens | Random 24-byte, timing-safe comparison |
+| Local hook token | Random token with timing-safe comparison guards the loopback listener used by agent hooks |
 | File access | Path validation against allowed directories |
 
 ---
@@ -453,15 +458,16 @@ broski status
 
 ### Can't connect from phone
 
-1. **Same WiFi?** Phone and Mac must be on same network
-2. **Firewall?** Allow incoming on port 18274
-3. **Tailscale?** Both devices logged in with same account
+1. **Service running?** `broski status` and `broski-link status`
+2. **Paired?** Run `broski-link pair` and scan the new QR (a QR expires and works once)
+3. **Away from home?** The phone uses the relay; `broski-link status` shows whether the relay is connected
+4. **Local firewall?** Allow incoming connections to `broski-link` for direct LAN access
 
 ### Slow responses
 
 ```bash
 # Check connection quality in app (Settings → Connection)
-# Try local network instead of Tailscale if possible
+# Direct LAN is faster than the relay; stay on the same network as your Mac if possible
 ```
 
 ---
@@ -484,7 +490,7 @@ broski status
 - [x] File browser with viewers (PDF, images, CSV, code)
 - [x] Terminal (PTY)
 - [x] Git integration + worktrees
-- [x] Tailscale + Funnel
+- [x] Broski Link (LAN + end-to-end encrypted relay)
 - [x] Offline mode
 - [x] Appearance customization
 - [x] Background notifications

@@ -284,7 +284,7 @@ export default function FirstSessionPage() {
           </a>
           <a href="/docs/guides/remote-coding" className="block p-4 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/30 transition-colors">
             <h3 className="font-medium mb-1">Remote Coding</h3>
-            <p className="text-sm text-muted-foreground">Code from anywhere with Tailscale</p>
+            <p className="text-sm text-muted-foreground">Code from anywhere with a relay</p>
           </a>
         </div>
       </section>

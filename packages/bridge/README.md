@@ -20,23 +20,26 @@ bun add -g broski
 ## Quick Start
 
 ```bash
-# Start the bridge
-broski
+# Install the Broski Link service (macOS launchd / Linux systemd)
+broski install
 
-# Scan the QR code with Broski app on your phone
-# Done! Start coding from anywhere.
+# Show a pairing QR, then scan it with the Broski app
+broski-link pair
 ```
+
+No VPN or port forwarding is needed. The phone reaches your Mac directly over the local network, or through a relay when it is away from home.
 
 ## Background Service
 
-Keep the bridge running in the background:
+`broski install` registers `broski-link` as a launchd (macOS) or systemd (Linux) user service. `broski-link` starts the bridge, restarts it if it crashes, and talks to it over `~/.broski/link/bridge.sock`. Windows is not supported.
 
 ```bash
-# Install as background service
+# Install and start the service
 broski install
 
-# Check if it's running
+# Check the service, and the link, relay and paired devices
 broski status
+broski-link status
 
 # Stop the service
 broski stop
@@ -50,11 +53,15 @@ broski uninstall
 ## Usage
 
 ```bash
-# Start bridge (spawns OpenCode automatically)
+# Start the bridge in the foreground (spawns OpenCode automatically)
 broski
 
-# Enable hotspot IP detection (for mobile tethering)
-broski --hotspot
+# Show a pairing QR for your phone
+broski-link pair
+
+# List and revoke paired phones
+broski-link devices
+broski-link revoke <device id prefix>
 
 # Attach to existing OpenCode instance
 broski --attach
@@ -62,10 +69,7 @@ broski --attach
 # Connect to specific OpenCode URL
 broski --opencode-url http://localhost:4096
 
-# Enable Tailscale Funnel (public HTTPS)
-broski --funnel
-
-# Custom port
+# Custom loopback port
 broski --port 8080
 
 # Verbose logging
@@ -73,41 +77,31 @@ broski --verbose
 
 # Diagnose environment
 broski doctor
-
-# Set up Tailscale for remote access
-broski setup-tailscale
 ```
 
 ## What it does
 
-1. Starts a WebSocket server on port 18274
-2. Spawns and manages AI agent servers (OpenCode, Claude Code, Codex)
-3. Displays QR code for phone pairing
-4. Bridges messages between Broski app and AI agents
-5. Handles file operations, permissions, and event streaming
+1. Serves the Broski app protocol to `broski-link` over a Unix socket (`~/.broski/link/bridge.sock`)
+2. Spawns and manages AI agent servers (OpenCode, Claude Code, Codex, Pi)
+3. Bridges messages between the Broski app and the AI agents
+4. Handles file operations, permissions, and event streaming
+5. Listens on `127.0.0.1` only, for the agent permission hooks, the dashboard and `/proxy/<port>`
 
 ## Architecture
 
 ```
-┌─────────────┐         ┌─────────────┐         ┌─────────────┐
-│   Broski    │ ──WS──► │   Bridge    │ ──SDK─► │  AI Agents  │
-│  (iPhone)   │         │   (Mac)     │         │(OpenCode/CC)│
-└─────────────┘         └─────────────┘         └─────────────┘
+┌─────────────┐   Noise e2e    ┌──────────────┐  Unix socket  ┌─────────────┐  SDK  ┌─────────────┐
+│   Broski    │ ◄────────────► │ broski-link  │ ◄───────────► │   Bridge    │ ────► │  AI Agents  │
+│   (phone)   │  LAN or relay  │  (your Mac)  │               │   (Bun)     │       │             │
+└─────────────┘                └──────────────┘               └─────────────┘       └─────────────┘
 ```
 
-**Lid Closed Mode** (Mac in bag, phone hotspot + Amphetamine):
-```
-┌─────────────┐         ┌─────────────┐
-│   iPhone    │◄──WiFi──│    Mac      │
-│  (Broski)   │ Hotspot │  (Bridge)   │
-│  (Hotspot)  │         │ (Lid Closed)│
-└─────────────┘         └─────────────┘
-```
+The relay is blind: it forwards encrypted frames and cannot read them. See `docs/architecture/connectivity-v2/`.
 
 ## Requirements
 
 - [Bun](https://bun.sh) 1.0+
-- macOS (Windows/Linux support coming)
+- macOS or Linux (Windows is not supported)
 - One of:
   - [OpenCode](https://github.com/opencode-ai/opencode)
   - [Claude Code](https://github.com/anthropics/claude-code)
@@ -115,10 +109,10 @@ broski setup-tailscale
 
 ## Security
 
-- Random auth token generation (timing-safe)
+- The phone link is end-to-end encrypted with Noise (hybrid X25519 + ML-KEM-768); a relay only sees ids, timing and sizes
+- Pairing uses a one-time secret in the QR (`broski://pair?v=2`) that expires
+- The bridge's TCP listener is loopback-only, TLS-protected and bearer-token-authenticated; it exists for the agent hooks, not for phones
 - Path validation for file operations
-- TLS with certificate pinning (SHA-256 fingerprint from QR)
-- Optional Tailscale WireGuard encryption
 
 ## Bridge config
 
