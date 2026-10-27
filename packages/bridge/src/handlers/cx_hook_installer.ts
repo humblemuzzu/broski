@@ -16,6 +16,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { assertNotRealHome } from "../safety/real-home-guard";
+import type { HookInstallTarget } from "./cc_hook_installer";
 
 const HOOK_MARKER = "broski-cx-permission-proxy";
 
@@ -24,7 +25,8 @@ const HOOK_MARKER = "broski-cx-permission-proxy";
  * If a hook with our marker already exists, it is updated in place.
  * Otherwise a new entry is prepended (runs first).
  */
-export async function installCxHook(bridgePort: number, authToken: string, log?: (msg: string) => void): Promise<void> {
+export async function installCxHook(target: HookInstallTarget): Promise<void> {
+	const { log } = target;
 	const codexDir = join(homedir(), ".codex");
 	const hooksPath = join(codexDir, "hooks.json");
 	const configPath = join(codexDir, "config.toml");
@@ -64,7 +66,7 @@ export async function installCxHook(bridgePort: number, authToken: string, log?:
 	});
 
 	// Build the hook command — inline curl, no external script needed
-	const hookCommand = buildHookCommand(bridgePort, authToken);
+	const hookCommand = buildHookCommand(target);
 
 	const hookEntry: Record<string, unknown> = {
 		matcher: "Bash",
@@ -161,12 +163,13 @@ async function ensureHooksEnabled(configPath: string, log?: (msg: string) => voi
  * Build the inline bash command that reads Codex's hook stdin and posts to the bridge.
  * The HOOK_MARKER is embedded in a comment so we can find/update our hook entry.
  */
-function buildHookCommand(port: number, token: string): string {
+function buildHookCommand(target: HookInstallTarget): string {
+	const { port, token, scheme } = target;
 	return [
 		`bash -c '`,
 		`# ${HOOK_MARKER}`,
 		`INPUT=$(cat)`,
-		`RESP=$(curl -sk --max-time 45 -X POST "https://127.0.0.1:${port}/cx-hook"`,
+		`RESP=$(curl -sk --max-time 45 -X POST "${scheme}://127.0.0.1:${port}/cx-hook"`,
 		` -H "Content-Type: application/json"`,
 		` -H "Authorization: Bearer ${token}"`,
 		` -d "$INPUT" 2>/dev/null) || true`,

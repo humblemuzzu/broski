@@ -12,6 +12,7 @@ export 'src/connection/link_close_code.dart';
 export 'src/connection/link_connection.dart';
 export 'src/connection/link_outbound_queue.dart' show linkOutboundQueueMax;
 export 'src/connection/link_send_failure.dart';
+export 'src/connection/link_session.dart';
 export 'src/connection/link_status.dart';
 export 'src/connection/machine_endpoint.dart' show MachineEndpoint;
 export 'src/errors.dart';

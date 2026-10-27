@@ -67,6 +67,7 @@ dependencies:
 
   broski_link:
     path: packages/link_dart
+  bonsoir: ^6.0.3
 
 dependency_overrides:
   # Force newer record_linux that implements startStream
@@ -75,6 +76,9 @@ dependency_overrides:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  # The platform seam flutter_secure_storage dispatches through, so a test can
+  # record what a secret is written and deleted with.
+  flutter_secure_storage_platform_interface: ^1.1.2
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

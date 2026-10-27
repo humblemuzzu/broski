@@ -31,6 +31,8 @@ export type CliOptions = {
 	help: boolean;
 	/** Unix socket path for the broski-link ingress; unset means the ingress is off. */
 	linkSocket?: string;
+	/** The daemon's key file: every upgrade on that socket must quote the key inside it. */
+	linkKeyFile?: string;
 	/** Path to broski-link, overriding discovery for `broski install`. */
 	linkBin?: string;
 	newToken: boolean;
@@ -76,6 +78,7 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
 	let verbose = false; // Set below after arg parsing; gated by isCompiledBinary
 	let help = false;
 	let linkSocket: string | undefined = env.BROSKI_LINK_SOCKET?.trim() || undefined;
+	let linkKeyFile: string | undefined = env.BROSKI_LINK_KEY_FILE?.trim() || undefined;
 	let linkBin: string | undefined;
 	let newToken = false;
 	let daemon = false;
@@ -197,6 +200,11 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
 		}
 		if (arg === "--link-socket") {
 			linkSocket = args[i + 1] ?? linkSocket;
+			i++;
+			continue;
+		}
+		if (arg === "--link-key-file") {
+			linkKeyFile = args[i + 1] ?? linkKeyFile;
 			i++;
 			continue;
 		}
@@ -325,6 +333,7 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
 		verbose,
 		help,
 		linkSocket,
+		linkKeyFile,
 		linkBin,
 		newToken,
 		daemon,
@@ -379,6 +388,7 @@ Options:
   --verbose, -v             Verbose logging (SDK events + debug)
   --port, --bridge-port N   Loopback listener port (default: 18274; use 0 for random free port)
   --link-socket PATH        Also serve broski-link on this Unix socket (filesystem-permission auth)
+  --link-key-file PATH      Refuse link upgrades that do not quote the key in this file (the daemon writes it)
   --link-bin PATH           broski-link binary to run as the background service (default: auto-detect)
   --new-token               Generate a new local auth token (invalidates the current one used by the agent hooks)
   --skip-wizard             Skip interactive wizard prompts (for daemon/CI mode)

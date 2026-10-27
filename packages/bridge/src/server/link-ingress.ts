@@ -1,6 +1,7 @@
 import type { Connections } from "./connections";
 import type { BridgeLimits } from "./limits";
 import { isLinkSocketData, readLinkHeaders } from "./link-identity";
+import { checkLinkKey } from "./link-key";
 import { linkBackpressureConfig } from "./link-send-policy";
 import { hardenLinkSocketFile, prepareLinkSocketPath, removeLinkSocketFile } from "./link-socket-path";
 import type { LeveledLogger } from "./logger";
@@ -12,6 +13,8 @@ export type LinkIngress = {
 
 export type LinkIngressDeps = {
 	socketPath: string;
+	/** The daemon's key file; without one the unix socket is unkeyed and this is dev mode. */
+	linkKeyFile?: string;
 	state: BridgeState;
 	connections: Connections;
 	limits: BridgeLimits;
@@ -37,6 +40,9 @@ export async function startLinkIngress(deps: LinkIngressDeps): Promise<LinkIngre
 	try {
 		hardenLinkSocketFile(deps.socketPath);
 		deps.log.logInfo(`[Link] broski-link ingress listening on ${deps.socketPath}`);
+		if (!deps.linkKeyFile) {
+			deps.log.logUser("[Link] No --link-key-file: unix-socket upgrades are not keyed (dev mode)");
+		}
 	} catch (error) {
 		stop();
 		throw error;
@@ -51,6 +57,12 @@ async function handleLinkRequest(
 ): Promise<Response | undefined> {
 	if (request.headers.get("upgrade")?.toLowerCase() !== "websocket") {
 		return new Response("Not found", { status: 404 });
+	}
+
+	const key = checkLinkKey(deps.linkKeyFile, request.headers);
+	if (!key.ok) {
+		deps.log.logUser(`[Link] Rejected upgrade: ${key.error}`);
+		return new Response(key.error, { status: 403 });
 	}
 
 	const identity = readLinkHeaders(request.headers);

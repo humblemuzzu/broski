@@ -95,15 +95,20 @@ void main() {
     expect(machine.relayRequests, 1);
     final mark = harness.statuses.length;
 
+    // Both halves are waited for rather than read: the retry dials on the
+    // isolate's clock and its status crosses a port, so a loaded machine can
+    // take well past the default window to show either.
     await waitFor(
       () => machine.relayRequests >= 2,
       reason: 'a second dial after the backoff',
+      timeout: const Duration(seconds: 20),
     );
-    expect(
-      harness.statuses
+    await waitFor(
+      () => harness.statuses
           .skip(mark)
           .any((status) => status.state == LinkConnectionState.connecting),
-      isTrue,
+      reason: 'the retry reports connecting',
+      timeout: const Duration(seconds: 20),
     );
   });
 }

@@ -3,9 +3,9 @@ import 'package:broski/services/link/pairing_input.dart';
 
 /// Reads a scanned QR as a Link v2 offer.
 ///
-/// Returns null for anything that is not a Link offer. A Link offer this build
-/// cannot read is reported through [onError] and also reads as null: a
-/// malformed v2 QR is not something a newer parser should ever see.
+/// Anything that is not a Link offer reads as null. A Link offer this build
+/// cannot read is reported through [onError] and also reads as null, so a
+/// newer QR is refused with a reason instead of a silent nothing.
 PendingPairing? scannedLinkOffer(
   String raw, {
   required DateTime now,

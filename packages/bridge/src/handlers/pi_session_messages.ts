@@ -6,6 +6,7 @@
  */
 
 import { readPiSessionTranscriptPage } from "../connectors/pi/pi-session-page";
+import { securePiSessionPath } from "../connectors/pi/pi-session-path";
 import { resolveSessionFilePath } from "../connectors/pi/pi-session-queries";
 import { readPiSessionTranscript } from "../connectors/pi/pi-session-transcript";
 import type { ServerMessage } from "../types";
@@ -32,7 +33,13 @@ export async function handle(message: Record<string, unknown>, reply: Reply): Pr
 	const pageLimit = transcriptPageLimit(message.limit);
 	const before = transcriptCursor(message.before);
 
-	const resolvedPath = nonEmpty(message.sessionPath) ?? (sessionId ? await resolveSessionFilePath(sessionId) : null);
+	const requestedPath = nonEmpty(message.sessionPath);
+	if (requestedPath && !(await securePiSessionPath(requestedPath))) {
+		reply({ type: "error", message: "Access denied", requestId });
+		return true;
+	}
+
+	const resolvedPath = requestedPath ?? (sessionId ? await resolveSessionFilePath(sessionId) : null);
 
 	if (!resolvedPath) {
 		reply({ type: "pi_session_messages", data: [], requestId });

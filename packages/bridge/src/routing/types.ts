@@ -13,7 +13,6 @@ import type {
 	ClientMessage,
 	CodexStreamMessage,
 	CodexThread,
-	ConnectionType,
 	DeviceInfo,
 	PermissionResponse,
 	ServerMessage,
@@ -34,7 +33,6 @@ export type ConnectionContext = {
 	lastPongAt: number;
 	lastRttMs: number;
 	pendingPing?: { id: string; sentAt: number };
-	connectionType: ConnectionType;
 	deviceId?: string;
 	deviceName?: string;
 	platform?: string;

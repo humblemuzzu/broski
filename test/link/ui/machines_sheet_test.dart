@@ -24,6 +24,9 @@ class _FakeLinkController
       const Stream<LinkSendFailure>.empty();
 
   @override
+  Stream<Object> get connectFailures => const Stream<Object>.empty();
+
+  @override
   void sendControl(Map<String, Object?> message) => controls.add(message);
 
   @override
@@ -34,7 +37,7 @@ class _FakeLinkController
 
   @override
   Future<void> adopt(
-    LinkConnection connection,
+    LinkSession connection,
     Machine machine, {
     required bool connected,
   }) async {}

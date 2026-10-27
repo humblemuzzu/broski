@@ -1,7 +1,7 @@
 import 'package:broski/models/device.dart';
 import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/screens/device_manager/device_list.dart';
 import 'package:broski/theme/app_icons.dart';
-import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/utils/error_utils.dart';
 import 'package:broski/utils/responsive.dart';
@@ -107,221 +107,23 @@ class _DeviceManagerScreenState extends ConsumerState<DeviceManagerScreen> {
     OpenCodeTheme ocTheme,
     String? thisDeviceId,
   ) {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(AppIcons.error, size: 48, color: ocTheme.error),
-            const SizedBox(height: Spacing.lg),
-            Text(
-              'Failed to load devices',
-              style: TextStyle(color: ocTheme.text),
-            ),
-            const SizedBox(height: Spacing.sm),
-            Text(
-              _error!,
-              style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
-            ),
-            const SizedBox(height: Spacing.lg),
-            ElevatedButton(onPressed: _loadDevices, child: const Text('Retry')),
-          ],
-        ),
+    if (_loading) return const DeviceListPlaceholder.loading();
+    final failure = _error;
+    if (failure != null) {
+      return DeviceListPlaceholder.failed(
+        failure: failure,
+        onRetry: _loadDevices,
       );
     }
-    if (_devices == null || _devices!.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(AppIcons.devices, size: 48, color: ocTheme.textMuted),
-            const SizedBox(height: Spacing.lg),
-            Text(
-              'No devices connected',
-              style: TextStyle(color: ocTheme.textMuted),
-            ),
-          ],
-        ),
-      );
+    final devices = _devices;
+    if (devices == null || devices.isEmpty) {
+      return const DeviceListPlaceholder.empty();
     }
-    final sortedDevices = List<DeviceInfo>.from(_devices!);
-    sortedDevices.sort((a, b) {
-      if (a.deviceId == thisDeviceId) return -1;
-      if (b.deviceId == thisDeviceId) return 1;
-      return a.connectedAt.compareTo(b.connectedAt);
-    });
-    return RefreshIndicator(
+    return DeviceListView(
+      devices: devices,
+      thisDeviceId: thisDeviceId,
       onRefresh: _loadDevices,
-      child: ListView.builder(
-        padding: Insets.card,
-        itemCount: sortedDevices.length,
-        itemBuilder: (context, index) {
-          final device = sortedDevices[index];
-          final isThisDevice = device.deviceId == thisDeviceId;
-          return _DeviceCard(
-            device: device,
-            isThisDevice: isThisDevice,
-            onDisconnect: isThisDevice ? null : () => _disconnectDevice(device),
-            ocTheme: ocTheme,
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _DeviceCard extends StatelessWidget {
-  const _DeviceCard({
-    required this.device,
-    required this.isThisDevice,
-    required this.onDisconnect,
-    required this.ocTheme,
-  });
-  final DeviceInfo device;
-  final bool isThisDevice;
-  final VoidCallback? onDisconnect;
-  final OpenCodeTheme ocTheme;
-  IconData _getPlatformIcon() {
-    switch (device.platform.toLowerCase()) {
-      case 'ios':
-        return AppIcons.phone;
-      case 'android':
-        return AppIcons.phone;
-      case 'macos':
-        return AppIcons.laptop;
-      case 'windows':
-        return AppIcons.laptop;
-      case 'linux':
-        return AppIcons.computer;
-      case 'web':
-        return AppIcons.globe;
-      default:
-        return AppIcons.devices;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: ocTheme.backgroundPanel,
-      margin: Insets.bottomMd,
-      shape: RoundedRectangleBorder(
-        borderRadius: Radii.brMd,
-        side: isThisDevice
-            ? BorderSide(color: ocTheme.primary, width: 2)
-            : BorderSide(color: ocTheme.border),
-      ),
-      child: Padding(
-        padding: Insets.card,
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: ocTheme.backgroundElement,
-                borderRadius: Radii.brMd,
-              ),
-              child: Icon(
-                _getPlatformIcon(),
-                color: isThisDevice ? ocTheme.primary : ocTheme.text,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: Spacing.lg),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          device.deviceName,
-                          style: TextStyle(
-                            color: ocTheme.text,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ),
-                      if (isThisDevice)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: ocTheme.primary.withValues(alpha: 0.2),
-                            borderRadius: Radii.brXs,
-                          ),
-                          child: Text(
-                            'This Device',
-                            style: TextStyle(
-                              color: ocTheme.primary,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: Spacing.xs),
-                  Row(
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: ocTheme.success,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        device.rttMs > 0 ? '${device.rttMs}ms' : 'Connected',
-                        style: TextStyle(
-                          color: ocTheme.textMuted,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: Spacing.xxs),
-                  Text(
-                    'Connected ${device.connectedDurationText}',
-                    style: TextStyle(color: ocTheme.textMuted, fontSize: 12),
-                  ),
-                  if (device.currentView != null) ...[
-                    const SizedBox(height: Spacing.xs),
-                    Text(
-                      device.currentView!.sessionId != null
-                          ? 'Viewing session'
-                          : device.currentView!.projectPath ?? 'Browsing',
-                      style: TextStyle(
-                        color: ocTheme.textMuted,
-                        fontSize: 11,
-                        fontStyle: FontStyle.italic,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            if (onDisconnect != null)
-              IconButton(
-                icon: Icon(AppIcons.close, color: ocTheme.error),
-                onPressed: onDisconnect,
-                tooltip: 'Disconnect',
-              ),
-          ],
-        ),
-      ),
+      onDisconnect: _disconnectDevice,
     );
   }
 }

@@ -22,7 +22,7 @@ export type HttpWiringDeps = {
 	log: LeveledLogger;
 	limits: BridgeLimits;
 	version: string;
-	opencode: OpenCodeConnector | null;
+	getOpenCode: () => OpenCodeConnector | null;
 	listFilesDirectly: (path: string) => Promise<unknown>;
 	debugRts: boolean;
 };
@@ -37,7 +37,7 @@ export function createHttpWiring(deps: HttpWiringDeps): HttpWiring {
 		webDistDir: state.webDistDir,
 		version: deps.version,
 		allowedProxyPorts,
-		opencode: deps.opencode,
+		getOpenCode: deps.getOpenCode,
 		listFilesDirectly: deps.listFilesDirectly,
 		logUser: deps.log.logUser,
 		handleCcPermissionHook: (request: Request) => {

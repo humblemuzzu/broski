@@ -5,13 +5,14 @@ type CoalescerTarget = ServerWebSocket<unknown> | null | undefined;
 type CoalescerEmit = (message: ServerMessage, target: CoalescerTarget) => void;
 
 /**
- * How long a text delta waits for company. The phone already sees 50–300 ms of network
- * latency, so a few milliseconds of extra delay is invisible next to the repeated envelope
- * (`type`, `backend`, `sessionId`, `streamId`, `seq`, …) that merging removes per delta.
+ * How long a stream's next frame waits for company. The first delta of a burst is emitted at once,
+ * so first-token latency is unchanged; only the deltas after it wait for this window to close.
  */
-const DEFAULT_FLUSH_DELAY_MS = 4;
-/** Merge until the delta is this big, then send — bounds both memory and the delay to first text. */
+const DEFAULT_FLUSH_CADENCE_MS = 45;
+/** Merge until the delta is this big, then send — bounds both memory and how much text one frame carries. */
 const MAX_MERGED_CHARS = 32 * 1024;
+/** How long a stream's "last frame at" is remembered after the stream goes quiet. */
+const STREAM_STATE_TTL_MS = 5_000;
 
 type PendingEntry = {
 	message: ServerMessage;
@@ -20,24 +21,26 @@ type PendingEntry = {
 };
 
 /**
- * Turn a burst of text deltas into one delta carrying the concatenated text.
+ * Turn a burst of text deltas into as few frames as the cadence allows: the first delta of a stream
+ * at once, the rest merged per `(session, type, streamId)` and emitted one cadence apart.
  *
- * Deltas are merged per `(session, type, streamId)`, so a batch of 10 deltas with the same
- * envelope costs one envelope instead of 10. Anything that is not a text/thinking delta flushes
- * the session's pending deltas first, which keeps the order the app reduces in.
+ * Anything that is not a text/thinking delta flushes the session's pending deltas first, which keeps
+ * the order the app reduces in. A merged event carries the newest `seq` so replay dedupe still keys
+ * on it, and `seqStart` names the oldest one so the app's `seq > previous + 1` gap check does not read
+ * a merge as lost events.
  *
- * The merged event *is* the one recorded for replay, and it carries the newest `seq`, so a
- * reconnect replays the merged event and the app's fingerprint (which is the seq) dedupes it.
- * `seqStart` records the oldest merged seq so the app's `seq > previous + 1` gap check does not
- * read a merge as lost events.
+ * The cadence is not rtt-driven: one merged frame fans out to every viewer, and the per-socket queue
+ * batches again against the rtt it measured for that socket.
  */
 export class RuntimeEventCoalescer {
 	private readonly pending = new Map<string, Map<string, PendingEntry>>();
 	private readonly timers = new Map<string, Timer>();
+	/** Per stream, when its last frame left: `session` → `type:streamId` → timestamp. */
+	private readonly lastFrameAt = new Map<string, Map<string, number>>();
 
 	constructor(
 		private readonly emit: CoalescerEmit,
-		private readonly flushDelayMs = DEFAULT_FLUSH_DELAY_MS,
+		private readonly cadenceMs = DEFAULT_FLUSH_CADENCE_MS,
 	) {}
 
 	push(message: ServerMessage, target?: CoalescerTarget): void {
@@ -59,14 +62,19 @@ export class RuntimeEventCoalescer {
 			existing.message = mergeDelta(existing.message, message);
 			existing.target = existing.target ?? target;
 			existing.chars += delta.chars;
-			if (existing.chars >= MAX_MERGED_CHARS) {
-				this.flushSession(delta.sessionKey);
-				return;
-			}
-		} else {
-			byStream.set(delta.key, { message, target, chars: delta.chars });
+			if (existing.chars >= MAX_MERGED_CHARS) this.flushSession(delta.sessionKey);
+			return;
 		}
-		this.scheduleFlush(delta.sessionKey);
+
+		const now = Date.now();
+		const dueAt = (this.lastFrameOf(delta.sessionKey, delta.key) ?? 0) + this.cadenceMs;
+		if (now >= dueAt) {
+			this.rememberFrame(delta.sessionKey, delta.key, now);
+			this.emit(message, target);
+			return;
+		}
+		byStream.set(delta.key, { message, target, chars: delta.chars });
+		this.scheduleFlush(delta.sessionKey, dueAt - now);
 	}
 
 	flushAll(): void {
@@ -82,16 +90,33 @@ export class RuntimeEventCoalescer {
 		const byStream = this.pending.get(sessionKey);
 		if (!byStream) return;
 		this.pending.delete(sessionKey);
-		for (const entry of byStream.values()) this.emit(entry.message, entry.target);
+		const now = Date.now();
+		for (const [key, entry] of byStream) {
+			this.rememberFrame(sessionKey, key, now);
+			this.emit(entry.message, entry.target);
+		}
 	}
 
-	private scheduleFlush(sessionKey: string): void {
+	private scheduleFlush(sessionKey: string, delayMs: number): void {
 		if (this.timers.has(sessionKey)) return;
 		const timer = setTimeout(() => {
 			this.timers.delete(sessionKey);
 			this.flushSession(sessionKey);
-		}, this.flushDelayMs);
+		}, delayMs);
 		this.timers.set(sessionKey, timer);
+	}
+
+	private lastFrameOf(sessionKey: string, key: string): number | undefined {
+		return this.lastFrameAt.get(sessionKey)?.get(key);
+	}
+
+	private rememberFrame(sessionKey: string, key: string, at: number): void {
+		const state = this.lastFrameAt.get(sessionKey) ?? new Map<string, number>();
+		state.set(key, at);
+		this.lastFrameAt.set(sessionKey, state);
+		for (const [otherKey, otherAt] of state) {
+			if (at - otherAt > STREAM_STATE_TTL_MS) state.delete(otherKey);
+		}
 	}
 }
 

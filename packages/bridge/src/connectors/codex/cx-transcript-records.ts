@@ -49,6 +49,22 @@ export type RolloutEvent =
 export type ToolCallEvent = Extract<RolloutEvent, { kind: "tool-call" }>;
 export type CustomToolCallEvent = Extract<RolloutEvent, { kind: "custom-tool-call" }>;
 
+/**
+ * The identity a rollout record carries in the file: its `ordinal` and its own `timestamp`.
+ *
+ * Both are written by Codex next to the payload, so a message read from a window of the file gets
+ * the same identity it has in a whole-file read — a wall clock or a running count would not.
+ */
+export function recordIdentity(record: TranscriptRecord): { ordinal?: number; atSeconds?: number } {
+	const ordinal = typeof record.ordinal === "number" && Number.isFinite(record.ordinal) ? record.ordinal : undefined;
+	const stamp = safeStr(record.timestamp);
+	const at = stamp ? Math.floor(Date.parse(stamp) / 1000) : Number.NaN;
+	return {
+		...(ordinal === undefined ? {} : { ordinal }),
+		...(Number.isFinite(at) ? { atSeconds: at } : {}),
+	};
+}
+
 export function classifyRecord(record: TranscriptRecord): RolloutEvent | null {
 	const type = safeStr(record.type);
 	if (type === "session_meta") return null;

@@ -174,10 +174,34 @@ every session sends one row instead:
 The app upserts or drops that row in its cached list, which also stops the poll loop the old
 broadcast caused (a whole-list broadcast made the app invalidate the list, which re-read it).
 
+## Liveness and round-trip time on a link socket
+
+A device socket behind `broski-link` is pinged like one on the network. `ping` and `pong` are
+ordinary bridge frames, so the daemon passes them through as opaquely as anything else: the
+response crosses the real path — link, daemon, relay if that is the route — and
+`server/heartbeat.ts` measures it from there. That is what makes `rtt` mean something over the
+link: `connection_metrics` reaches the app, `connection_provider` hands it to
+`WebSocketService.updateRtt`, the phone's `BatchThresholds` and the bridge's
+`utils/runtime-send-queue.ts` batching both follow it, and a relay link stops batching like a LAN
+one. Deltas take the same treatment before they reach the queue: the first delta of a stream goes
+out at once and the rest of that stream merge into one frame per 45 ms cadence
+(`transport/runtime-event-coalescer.ts`), so a reply that trickles a token every 23 ms costs about
+half the frames it used to. `seq` and `seqStart` keep the range a merged frame stands for, so the
+app's gap check and replay dedupe are unaffected.
+
+The window is the one every socket has: a ping is in flight at a time, and a socket that has not
+answered for `HEARTBEAT_DEAD_AFTER_MS` (90 s) is closed (`4000 Heartbeat timeout`). For a link
+socket that closes the bridge's side of the daemon's socket, not the phone's link session: the
+daemon hands its queue back and redials, and the phone resyncs on the `conn` change
+([daemon.md](daemon.md)). A phone the OS suspended answers nothing, which is exactly the socket the
+bridge should stop writing to.
+
+Only the daemon's own feed is skipped: it answers `link_feed_ping`, never `pong`.
+
 ## Untouched
 
-Heartbeat (`4000 Heartbeat timeout`), auth, TLS, the daemon feed's own messages (`4001` on replace)
-and the network listener's 4 MiB / `1013` shed are unchanged.
+Auth, TLS, the daemon feed's own messages (`4001` on replace) and the network listener's 4 MiB /
+`1013` shed are unchanged.
 
 ## Every limit, where it lives, and who must match
 
@@ -192,7 +216,7 @@ and the network listener's 4 MiB / `1013` shed are unchanged.
 | link send window (bridge side) | 32 MiB | `BROSKI_LINK_BACKPRESSURE_MB`, `server/limits.ts` | — |
 | network unsent budget | 4 MiB (1013) | `NETWORK_MAX_PENDING_BYTES`, `transport/send-limits.ts` | — |
 | phone outbound queue | 8 MiB | `linkOutboundQueueMax`, `packages/link_dart/lib/src/connection/link_outbound_queue.dart` | — |
-| phone inbound frame | 15 MiB | `_maxIncomingMessageBytes`, `lib/services/websocket_service.dart` | — |
+| phone inbound frame | 8 MiB | `linkMaxInboundFrameBytes`, `lib/services/websocket/inbound_frame_limit.dart` | — |
 
 Only the two rows with a mirror have to agree: the bridge never builds a frame the daemon would
 have to drop, and the phone's queue stays inside the window it sends into. Everything else is a

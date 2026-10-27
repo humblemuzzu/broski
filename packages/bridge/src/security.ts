@@ -5,6 +5,7 @@
  * Extracted from server.ts — pure functions and module-level constants
  * with no closure dependencies.
  */
+import { realpathSync } from "node:fs";
 import { realpath } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join, resolve, sep } from "node:path";
@@ -75,11 +76,27 @@ export function resolveClaudeCommandFilePath(params: {
 
 // ── Filesystem access control (path traversal protection) ───────────
 
+/**
+ * Each base in both spellings: `/tmp` is `/private/tmp` once resolved on macOS, and a request may
+ * arrive either way.
+ */
+export function expandAllowedBasePaths(bases: string[]): string[] {
+	return bases.flatMap((base) => {
+		const resolved = resolve(base);
+		try {
+			const real = realpathSync.native(resolved);
+			return real === resolved ? [resolved] : [resolved, real];
+		} catch {
+			return [resolved];
+		}
+	});
+}
+
 const SECURITY_ALLOWED_BASE_PATHS = (() => {
 	const defaults = getDefaultAllowedPaths();
 	// In compiled binaries, NEVER allow env var to override allowed paths.
 	// An attacker could set BROSKI_ALLOWED_BASE_PATHS=/ to read any file.
-	if (isCompiledBinary()) return defaults.map((p) => resolve(p));
+	if (isCompiledBinary()) return expandAllowedBasePaths(defaults);
 	const raw = (process.env.BROSKI_ALLOWED_BASE_PATHS ?? "").trim();
 	const bases = raw
 		? raw
@@ -87,7 +104,7 @@ const SECURITY_ALLOWED_BASE_PATHS = (() => {
 				.map((p) => p.trim())
 				.filter(Boolean)
 		: defaults;
-	return bases.map((p) => resolve(p));
+	return expandAllowedBasePaths(bases);
 })();
 
 function isSecureBasePath(realPath: string): boolean {

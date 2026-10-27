@@ -6,14 +6,22 @@ import 'package:broski/models/link/machine.dart';
 import 'package:broski/providers/app_info_provider.dart';
 import 'package:broski/providers/connection/bridge_reset_fanout.dart';
 import 'package:broski/providers/connection/bridge_status_provider.dart';
+import 'package:broski/providers/connection/connect_retry_schedule.dart';
 import 'package:broski/providers/connection/link_bridge_wiring.dart';
+import 'package:broski/providers/connection/link_connect_failure_notice.dart';
+import 'package:broski/providers/connection/link_frame_error_notice.dart';
+import 'package:broski/providers/connection/link_send_failure_notice.dart';
 import 'package:broski/providers/connection/link_status_mapping.dart';
+import 'package:broski/providers/link/discovery_provider.dart';
+import 'package:broski/providers/link/link_session_start_provider.dart';
 import 'package:broski/providers/link/link_status_provider.dart';
 import 'package:broski/providers/link/machines_provider.dart';
 import 'package:broski/providers/link/push_providers.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/services/bridge/bridge_reset_exception.dart';
 import 'package:broski/services/link/device_profile.dart';
+import 'package:broski/services/link/discovery/discovery_scheduler.dart';
+import 'package:broski/services/link/discovery/link_discovery.dart';
 import 'package:broski/services/link/link_endpoint.dart';
 import 'package:broski/services/link/push_registration.dart';
 import 'package:broski/services/network_monitor_service.dart';
@@ -35,6 +43,9 @@ final linkConnectionControllerProvider = Provider<LinkConnectionController>((
 /// Brings the controller up at app start.
 final linkConnectionBootstrapProvider = Provider<void>((ref) {
   ref.watch(linkConnectionControllerProvider);
+  ref.watch(linkConnectFailureNoticeProvider);
+  ref.watch(linkFrameErrorNoticeProvider);
+  ref.watch(linkSendFailureNoticeProvider);
   ref.watch(pushKeyPruneProvider);
 });
 
@@ -81,6 +92,13 @@ class LinkConnectionController with WidgetsBindingObserver {
   );
   final StreamController<LinkSendFailure> _sendFailures =
       StreamController<LinkSendFailure>.broadcast();
+  final StreamController<Object> _connectFailures =
+      StreamController<Object>.broadcast();
+  final ConnectRetrySchedule _retry = ConnectRetrySchedule();
+  final Stopwatch _clock = Stopwatch()..start();
+  late final DiscoveryScheduler _discovery = DiscoveryScheduler(
+    clock: () => _clock.elapsed,
+  );
 
   ProviderSubscription<MachinesState>? _machinesSub;
   StreamSubscription<NetworkState>? _networkSub;
@@ -88,11 +106,23 @@ class LinkConnectionController with WidgetsBindingObserver {
   StreamSubscription<Map<String, Object?>>? _controlSub;
   StreamSubscription<BridgeLinkStatus>? _bridgeSub;
   StreamSubscription<LinkSendFailure>? _sendFailureSub;
-  LinkConnection? _connection;
+  LinkSession? _connection;
   Machine? _machine;
   LinkStatus? _lastStatus;
   PushRegistration? _push;
   var _attached = false;
+
+  /// Bumped whenever the current connection is released, so a connect still
+  /// dialling when that happens closes what it opened instead of adopting it.
+  var _epoch = 0;
+
+  /// Set once per link session: a machine's last-connected time is written once,
+  /// not on every status the link reports.
+  var _touched = false;
+
+  /// A connect is dialling: nothing else may start one until it lands or fails.
+  var _connecting = false;
+  Timer? _retryTimer;
 
   /// A pairing owns the connection, so the auto-connect does not start a second
   /// link for the machine the QR is about to store.
@@ -100,6 +130,9 @@ class LinkConnectionController with WidgetsBindingObserver {
 
   /// Messages the user sent that the link refused, for the notice the app shows.
   Stream<LinkSendFailure> get sendFailures => _sendFailures.stream;
+
+  /// Connects that never reached the link at all, with the reason.
+  Stream<Object> get connectFailures => _connectFailures.stream;
 
   /// One control message to the daemon, for example a bridge restart.
   void sendControl(Map<String, Object?> message) =>
@@ -114,11 +147,12 @@ class LinkConnectionController with WidgetsBindingObserver {
   /// [connected] says whether the link has already reached the machine, which
   /// is the case when a pairing hands its live connection over.
   Future<void> adopt(
-    LinkConnection connection,
+    LinkSession connection,
     Machine machine, {
     required bool connected,
   }) async {
-    _detach();
+    _release();
+    _retry.reset();
     _connection = connection;
     _machine = machine;
     _statusSub = connection.status.listen(_onStatus);
@@ -153,7 +187,7 @@ class LinkConnectionController with WidgetsBindingObserver {
       }
       return;
     }
-    if (_connection != null) return;
+    if (_connection != null || _connecting) return;
     final machine = machineWithId(state.machines, id);
     if (machine == null) return;
     unawaited(_connect(machine));
@@ -168,21 +202,47 @@ class LinkConnectionController with WidgetsBindingObserver {
   }
 
   Future<void> _connect(Machine machine) async {
+    final epoch = ++_epoch;
+    _connecting = true;
+    _retryTimer?.cancel();
+    _retryTimer = null;
     try {
       final identity = await _ref.read(deviceIdentityProvider.future);
-      final connection = await LinkConnection.start(
+      if (epoch != _epoch) return;
+      final connection = await _ref.read(linkSessionStarterProvider)(
         identitySecret: identity.secret,
         endpoint: linkEndpoint(machine, deviceId: identity.id),
       );
+      if (epoch != _epoch) {
+        unawaited(connection.close());
+        return;
+      }
       await adopt(connection, machine, connected: false);
     } on Object catch (error, stackTrace) {
-      developer.log(
-        'link connect failed',
-        name: _logName,
-        error: error,
-        stackTrace: stackTrace,
-      );
+      if (epoch != _epoch) return;
+      _onConnectFailed(machine, error, stackTrace);
     }
+  }
+
+  /// Nothing is dialling after this, so the app is told so — with the reason —
+  /// and one more attempt is scheduled, doubling up to a bounded delay.
+  void _onConnectFailed(Machine machine, Object error, StackTrace stackTrace) {
+    developer.log(
+      'link connect failed',
+      name: _logName,
+      error: error,
+      stackTrace: stackTrace,
+    );
+    _connecting = false;
+    _publisher.reset();
+    _socket.applyTransportStatus(ConnectionStatus.disconnected);
+    _statusSink.clear();
+    if (!_connectFailures.isClosed) _connectFailures.add(error);
+    _retryTimer?.cancel();
+    _retryTimer = Timer(_retry.next(), () {
+      _retryTimer = null;
+      _maybeConnect(_ref.read(machinesProvider));
+    });
   }
 
   void _onStatus(LinkStatus status) {
@@ -195,6 +255,7 @@ class LinkConnectionController with WidgetsBindingObserver {
       _publisher.add(status);
       _wiring.onLinkStatus(status);
     }
+    _discoverIfNeeded();
     // A closed link must not hold the slot: the next resume or network change
     // has to be able to start a fresh one.
     if (status.state == LinkConnectionState.closed) {
@@ -215,6 +276,8 @@ class LinkConnectionController with WidgetsBindingObserver {
         connection.sendControl,
       ),
     );
+    if (_touched) return;
+    _touched = true;
     await _ref
         .read(machinesProvider.notifier)
         .touchConnected(machine.id, DateTime.now());
@@ -278,6 +341,7 @@ class LinkConnectionController with WidgetsBindingObserver {
         _connection?.appPaused();
       case AppLifecycleState.resumed:
         _connection?.appResumed();
+        _discoverIfNeeded();
         // A link that never came up — the isolate died, the machine was stored
         // by a pairing this controller never saw — gets another start.
         _maybeConnect(_ref.read(machinesProvider));
@@ -294,13 +358,73 @@ class LinkConnectionController with WidgetsBindingObserver {
       return;
     }
     connection.networkChanged();
+    _discoverIfNeeded();
   }
 
+  /// Looks for the machine on the LAN when the routes its record holds are not
+  /// answering, and hands what it finds back as routes for the next attempt.
+  ///
+  /// The advert is only a hint: the Noise handshake authenticates the machine on
+  /// the socket itself, so a wrong or spoofed advert costs a dial and nothing
+  /// else. What answers is written to the record, so the next connect tries it
+  /// first.
+  void _discoverIfNeeded() {
+    if (_pairing) return;
+    final machines = _ref.read(machinesProvider);
+    final machine = machineWithId(machines.machines, machines.selectedId ?? '');
+    if (machine == null) return;
+    final status = _lastStatus;
+    final connected = status?.state == LinkConnectionState.connected;
+    if (!browseHelps(connected: connected, route: status?.route)) return;
+    if (!_discovery.due()) return;
+    _discovery.record();
+    unawaited(_discover(machine));
+  }
+
+  Future<void> _discover(Machine machine) async {
+    final discovery = LinkDiscovery(
+      browser: _ref.read(linkServiceBrowserProvider),
+      machineId: machine.id,
+      persist: (routes) => _applyDiscoveredRoutes(machine, routes),
+    );
+    final routes = await discovery.run();
+    if (routes.isEmpty) return;
+    await _applyDiscoveredRoutes(machine, routes);
+  }
+
+  Future<void> _applyDiscoveredRoutes(
+    Machine machine,
+    List<String> routes,
+  ) async {
+    final merged = [
+      ...routes,
+      for (final route in machine.lan)
+        if (!routes.contains(route)) route,
+    ];
+    final updated = machine.copyWith(lan: merged);
+    await _ref.read(machinesProvider.notifier).update(updated);
+    if (_machine?.id != machine.id) return;
+    _machine = updated;
+    final identity = await _ref.read(deviceIdentityProvider.future);
+    _connection?.updateEndpoint(linkEndpoint(updated, deviceId: identity.id));
+  }
+
+  /// Drops the connection in use and supersedes anything still dialling.
   void _detach() {
+    _epoch++;
+    _release();
+  }
+
+  void _release() {
     _attached = false;
+    _touched = false;
+    _connecting = false;
     _lastStatus = null;
+    _retryTimer?.cancel();
+    _retryTimer = null;
     _push?.detach();
     _statusSink.clear();
+    _publisher.reset();
     _wiring.reset();
     _bridgeSink.publish(null);
     _statusSub?.cancel();
@@ -325,5 +449,6 @@ class LinkConnectionController with WidgetsBindingObserver {
     _networkSub?.cancel();
     _detach();
     unawaited(_sendFailures.close());
+    unawaited(_connectFailures.close());
   }
 }

@@ -47,6 +47,37 @@ with `Backpressure` rather than growing the window past `max_unacked_bytes`, so 
 stops reading its source instead of dropping the session. The daemon reads its bridge socket above
 8 MiB unacked only after acks take it back under 4 MiB.
 
+## Finding the machine on the LAN
+
+The daemon advertises DNS-SD service `_broski-link._tcp` in `local.` on its LAN listener port, with
+TXT `id=<32-hex machine id>` and `v=1`. That is what the phone browses when the routes its machine
+record holds do not answer.
+
+```
+link status: not connected, or connected over the relay
+  -> LinkDiscovery (lib/services/link/discovery/)
+       browse 3 s (linkDiscoveryWindow) with the platform's own Bonjour
+       keep only adverts whose TXT id is the machine's, and whose v is 1
+       routes = "<host>:<port>" for what is left
+  -> machine record grows those routes (machine_store), and the isolate gets them
+     through LinkConnection.updateEndpoint as LinkSetEndpoint
+```
+
+Browsing is the platform's, not a socket: `NWBrowser` on Apple platforms and `NsdManager` on
+Android, through `bonsoir`, on the **main isolate** — a platform channel cannot live in the link
+isolate, so the main isolate browses and the isolate is told about the result. iOS needs
+`_broski-link._tcp` in `NSBonjourServices`; Android needs nothing beyond the plugin's own manifest
+(`CHANGE_WIFI_MULTICAST_STATE`).
+
+An advert is a hint and nothing more. The Noise handshake authenticates the machine on the socket,
+so a spoofed advert costs a dial that fails in `msg2`, never a session with something else. What
+answers is written into the record, so the next connect tries it first, and discovery is rate
+limited (`linkDiscoveryInterval`) and skipped entirely while the link already carries LAN.
+
+`browseHelps` and `DiscoveryScheduler` (`discovery_scheduler.dart`) are the decision, and
+`LinkDiscovery` (`link_discovery.dart`) is the browse: one at a time, filtered, persisted. A status
+change, a network change and a resume are the three things that ask it to look again.
+
 ## Resume vs fresh
 
 - `connect` puts `Hello { resume: Resume { session_id, next_expected } }` in msg1 whenever a session

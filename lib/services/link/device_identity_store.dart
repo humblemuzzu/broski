@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:broski/services/storage/broski_secure_storage.dart';
 import 'package:broski_link/broski_link.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -9,12 +10,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class DeviceIdentityStore {
   static const _key = 'broski_link_device_identity';
 
-  final FlutterSecureStorage _storage = const FlutterSecureStorage(
-    iOptions: IOSOptions(
-      accessibility: KeychainAccessibility.first_unlock_this_device,
-    ),
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
-  );
+  final FlutterSecureStorage _storage = broskiSecureStorage;
 
   Future<LinkIdentity>? _loading;
 

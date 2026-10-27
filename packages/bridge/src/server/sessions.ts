@@ -29,7 +29,7 @@ export type SessionsDeps = {
 	streams: Streams;
 	log: LeveledLogger;
 	debugRts: boolean;
-	opencode: OpenCodeConnector | null;
+	getOpenCode: () => OpenCodeConnector | null;
 	startOpenCodeExternalTail: (sessionId: string, projectPath: string) => { stop: () => void };
 };
 
@@ -135,7 +135,7 @@ export function createSessions(deps: SessionsDeps): Sessions {
 			// time would cause every event to be emitted twice (the double-send bug).
 			const owner = state.ocSessionOwners.get(id) ?? null;
 			const projectPath = state.ocSessionProjectPaths.get(id);
-			const shouldRun = watcherCount > 0 && !owner && !!deps.opencode && !!projectPath;
+			const shouldRun = watcherCount > 0 && !owner && !!deps.getOpenCode() && !!projectPath;
 			if (deps.debugRts) {
 				deps.log.logDebug(
 					`[RTS] syncExternalTail(OC): id=${id}, watchers=${watcherCount}, owner=${!!owner}, shouldRun=${shouldRun}, alreadyRunning=${state.ocExternalTails.has(id)}`,

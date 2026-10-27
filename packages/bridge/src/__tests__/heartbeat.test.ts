@@ -3,14 +3,19 @@ import { HEARTBEAT_DEAD_AFTER_MS, heartbeatAction } from "../server/heartbeat";
 
 const now = 1_000_000;
 const silent = { lastPongAt: now - HEARTBEAT_DEAD_AFTER_MS - 1 };
+const LINK_DEVICE = { kind: "link", deviceId: "a".repeat(32) };
 
 describe("heartbeatAction", () => {
 	test("a network client that stopped answering is closed", () => {
 		expect(heartbeatAction(undefined, silent, now)).toBe("close");
 	});
 
-	test("a backgrounded phone behind broski-link keeps its connection", () => {
-		expect(heartbeatAction({ kind: "link", deviceId: "a".repeat(32) }, silent, now)).toBe("skip");
+	test("a device behind broski-link that stopped answering is closed too", () => {
+		expect(heartbeatAction(LINK_DEVICE, silent, now)).toBe("close");
+	});
+
+	test("a live device behind broski-link is pinged, so rtt flows over the link", () => {
+		expect(heartbeatAction(LINK_DEVICE, { lastPongAt: now }, now)).toBe("ping");
 	});
 
 	test("the link daemon's feed is never pinged", () => {

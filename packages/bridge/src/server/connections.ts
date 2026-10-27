@@ -45,7 +45,6 @@ export function createConnections(deps: ConnectionsDeps): Connections {
 			deviceId: ctx.deviceId,
 			deviceName: ctx.deviceName ?? "Unknown Device",
 			platform: ctx.platform ?? "unknown",
-			connectionType: ctx.connectionType,
 			rttMs: ctx.lastRttMs,
 			connectedAt: ctx.connectedAt,
 			currentView:
@@ -164,7 +163,6 @@ export function createConnections(deps: ConnectionsDeps): Connections {
 			state.contexts.set(ws, {
 				lastPongAt: Date.now(),
 				lastRttMs: 0,
-				connectionType: "unknown",
 				connectedAt: Date.now(),
 				...linkContextFields(ws.data),
 			});

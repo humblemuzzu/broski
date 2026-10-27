@@ -11,6 +11,7 @@ import * as piDurable from "../handlers/pi_durable";
 import { RouteRegistry } from "../routing/registry";
 import type { ServerDeps } from "../routing/types";
 import { createLinkDecisionApplier, type LinkDecisionApplier } from "../server/link-feed/decision";
+import { approvalMessage } from "../server/link-feed/format";
 import { LinkFeedRequests } from "../server/link-feed/requests";
 import {
 	createHarness,
@@ -52,7 +53,13 @@ function durableApplier(harness: Harness, sessionId: string, requestId: string):
 		await piDurable.handle(harness.socket, message, ctx.reply, harness.deps);
 	});
 	const requests = new LinkFeedRequests();
-	requests.announce("pi-durable", sessionId, requestId, { kind: "approval" });
+	requests.announce(
+		"pi-durable",
+		sessionId,
+		requestId,
+		{ kind: "approval" },
+		approvalMessage("pi-durable", sessionId, undefined, { requestId }, Date.now()),
+	);
 	return createLinkDecisionApplier({ registry, serverDeps: UNUSED_SERVER_DEPS, requests });
 }
 

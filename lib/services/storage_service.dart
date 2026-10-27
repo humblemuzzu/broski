@@ -19,6 +19,7 @@ import 'package:broski/models/terminal_settings.dart';
 import 'package:broski/models/todo.dart';
 import 'package:broski/models/tool.dart';
 import 'package:broski/models/vcs.dart';
+import 'package:broski/services/storage/broski_secure_storage.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 part 'storage/storage_codex.dart';
@@ -87,7 +88,7 @@ class StorageService {
   static const _cachedPiProjectsKey = 'broski_cached_pi_projects';
   static const _cachedCCProjectsKey = 'broski_cached_cc_projects';
 
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  final FlutterSecureStorage _storage = broskiSecureStorage;
 
   // ============================================================
   // L1 In-Memory Cache (fastest - sub-millisecond reads)

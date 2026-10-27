@@ -4,6 +4,8 @@ import { runAgentChecks } from "./agents";
 import { runConnectivityChecks } from "./connectivity";
 import { runDaemonChecks } from "./daemon";
 import { runDependencyChecks } from "./dependencies";
+import { runLinkServiceChecks } from "./link-service";
+import { runLinkStatusChecks } from "./link-status";
 import { runNetworkChecks } from "./network";
 import { runSecurityChecks } from "./security";
 import { runShellEnvChecks } from "./shell-env";
@@ -31,6 +33,8 @@ export async function runAllChecks(
 		...(await runAgentChecks()),
 		...(await runShellEnvChecks()),
 		...(await runConnectivityChecks(ctx, { deep: opts.deep })),
+		...(await runLinkServiceChecks(ctx)),
+		...(await runLinkStatusChecks(ctx)),
 	];
 
 	const profile = opts.profile ?? "all";

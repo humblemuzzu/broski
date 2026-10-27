@@ -15,6 +15,7 @@ import { RuntimeSendQueue } from "../utils/runtime-send-queue";
 import type { BridgeLimits } from "./limits";
 import type { LinkIngress } from "./link-ingress";
 import { closeLinkOverflow, closeNetworkBackpressure, isLinkTransportSocket, linkSendLimits } from "./link-send-policy";
+import { createOpenCodeSlot, type OpenCodeSlot } from "./opencode-slot";
 import type { PermissionWaiter } from "./permission-waiter";
 
 export type ClaudePermissionReply = {
@@ -47,6 +48,8 @@ export type BridgeState = {
 	allowTokenInUrl: boolean;
 	tlsMaterial: TlsMaterial | null;
 	authToken: string;
+	/** The OpenCode backend, which a managed start fills in after the listeners are up. */
+	opencode: OpenCodeSlot;
 	currentAgent: AgentType;
 	codexClient: CodexAppServerClient | null;
 	ptyManager: PtyManager;
@@ -86,6 +89,9 @@ export type BridgeState = {
 
 export type CreateBridgeStateParams = {
 	opencode: OpenCodeConnector | null;
+	/** A managed start is under way and will fill the slot through `server.setOpenCode`. */
+	opencodePending?: boolean;
+	opencodeReason?: string;
 	auth: AuthTokenState;
 	webDistDir: string;
 	defaultAgent: AgentType;
@@ -150,7 +156,7 @@ function createRuntimeSendQueue(
 		(ws) => {
 			const ctx = contexts.get(ws);
 			if (!ctx) return undefined;
-			return { lastRttMs: ctx.lastRttMs, connectionType: ctx.connectionType };
+			return { lastRttMs: ctx.lastRttMs };
 		},
 		{
 			limitsFor: (ws) => (isLinkTransportSocket(ws.data) ? linkLimits : NETWORK_SEND_LIMITS),
@@ -218,6 +224,11 @@ export function createBridgeState(params: CreateBridgeStateParams): BridgeState 
 		allowTokenInUrl: !compiled && process.env.BROSKI_ALLOW_TOKEN_IN_URL === "1",
 		tlsMaterial: null,
 		authToken: params.auth.token,
+		opencode: createOpenCodeSlot({
+			initial: params.opencode,
+			pending: params.opencodePending,
+			reason: params.opencodeReason,
+		}),
 		currentAgent: params.defaultAgent,
 		codexClient: null,
 		ptyManager: new PtyManager(params.opencode),

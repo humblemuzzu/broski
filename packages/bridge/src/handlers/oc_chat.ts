@@ -1,3 +1,4 @@
+import { pendingPermissions } from "../server/pending-permissions";
 import type { AgentType, ClientMessage, ServerMessage } from "../types";
 
 type Reply = (message: ServerMessage) => void;
@@ -87,6 +88,7 @@ export async function handle(
 			const normalized: "once" | "always" | "reject" =
 				raw === "once" || raw === "always" || raw === "reject" ? raw : "reject";
 			await oc.respondToPermission(message.permissionId, normalized, message.message, message.projectPath);
+			pendingPermissions.forget("opencode", message.sessionId, message.permissionId);
 			return true;
 		}
 		default:

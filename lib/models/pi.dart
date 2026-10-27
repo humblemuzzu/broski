@@ -108,7 +108,8 @@ enum PiThinkingLevel {
   low,
   medium,
   high,
-  xhigh;
+  xhigh,
+  max;
 
   String get wireValue => name;
 
@@ -125,6 +126,8 @@ enum PiThinkingLevel {
       case PiThinkingLevel.high:
         return 'High';
       case PiThinkingLevel.xhigh:
+        return 'Extra high';
+      case PiThinkingLevel.max:
         return 'Max';
     }
   }
@@ -141,6 +144,8 @@ enum PiThinkingLevel {
         return PiThinkingLevel.high;
       case 'xhigh':
         return PiThinkingLevel.xhigh;
+      case 'max':
+        return PiThinkingLevel.max;
       default:
         return PiThinkingLevel.medium;
     }

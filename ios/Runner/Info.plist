@@ -38,9 +38,10 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Scan the Broski bridge QR code to connect to your Mac, or take photos to attach to your AI conversations.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Connect to your Mac over the local network for broski-bridge.</string>
+	<string>Broski finds your Mac on this network and connects to it directly, so your phone never leaves the local network to reach it.</string>
 	<key>NSBonjourServices</key>
 	<array>
+		<string>_broski-link._tcp</string>
 		<string>_http._tcp</string>
 		<string>_https._tcp</string>
 	</array>

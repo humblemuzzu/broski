@@ -54,19 +54,20 @@ async function waitFor(condition: () => boolean, timeoutMs = 5_000): Promise<voi
 }
 
 describe("RuntimeEventCoalescer", () => {
-	test("merges consecutive deltas of one stream and keeps the newest seq", async () => {
+	test("sends the first delta at once and merges the ones after it", async () => {
 		const emitted: ServerMessage[] = [];
-		const coalescer = new RuntimeEventCoalescer((message) => emitted.push(message), 5);
+		const coalescer = new RuntimeEventCoalescer((message) => emitted.push(message), 40);
 
 		coalescer.push(delta("Hel", 1));
+		expect(textOf(emitted[0]!)).toBe("Hel");
+
 		coalescer.push(delta("lo ", 2));
 		coalescer.push(delta("world", 3));
-		expect(emitted).toHaveLength(0);
+		await waitFor(() => emitted.length >= 2);
 
-		await waitFor(() => emitted.length >= 1);
-		expect(emitted).toHaveLength(1);
-		expect(textOf(emitted[0]!)).toBe("Hello world");
-		expect(emitted[0]).toMatchObject({ type: "runtime_event", data: { seq: 3, streamId: "s1" } });
+		expect(emitted).toHaveLength(2);
+		expect(textOf(emitted[1]!)).toBe("lo world");
+		expect(emitted[1]).toMatchObject({ type: "runtime_event", data: { seq: 3, seqStart: 2, streamId: "s1" } });
 	});
 
 	test("keeps separate streams and separate sessions apart", async () => {
@@ -99,11 +100,12 @@ describe("RuntimeEventCoalescer", () => {
 		const coalescer = new RuntimeEventCoalescer((message) => emitted.push(message), 50);
 
 		coalescer.push(delta("mine", 1, "s1", "sess-1"));
-		coalescer.push(toolStarted(2, "sess-2"));
+		coalescer.push(delta(" too", 2, "s1", "sess-1"));
+		coalescer.push(toolStarted(3, "sess-2"));
 
-		expect(emitted).toHaveLength(1);
+		expect(emitted.map(textOf)).toEqual(["mine", ""]);
 		coalescer.flushAll();
-		expect(emitted.map(textOf)).toEqual(["", "mine"]);
+		expect(emitted.map(textOf)).toEqual(["mine", "", " too"]);
 	});
 
 	test("carries the explicit target through to the emit callback", async () => {

@@ -158,7 +158,7 @@ describe("RuntimeSendQueue broadcast", () => {
 describe("RuntimeSendQueue link limits", () => {
 	const limits = createLimits();
 	const linkLimits = linkSendLimits(limits);
-	const queue = new RuntimeSendQueue(() => ({ lastRttMs: 0, connectionType: "local" }), {
+	const queue = new RuntimeSendQueue(() => ({ lastRttMs: 0 }), {
 		limitsFor: (ws) => (isLinkTransportSocket(ws.data) ? linkLimits : NETWORK_SEND_LIMITS),
 	});
 	const overLimit = "x".repeat(limits.linkMessageLimitBytes);
@@ -201,7 +201,7 @@ describe("RuntimeSendQueue on a link socket", () => {
 	const limits = createLimits();
 	const linkLimits = linkSendLimits(limits);
 	function linkQueue(hooks: QueueHooks = {}) {
-		return new RuntimeSendQueue(() => ({ lastRttMs: 0, connectionType: "local" }), {
+		return new RuntimeSendQueue(() => ({ lastRttMs: 0 }), {
 			limitsFor: (ws) => (isLinkTransportSocket(ws.data) ? linkLimits : NETWORK_SEND_LIMITS),
 			...hooks,
 		});

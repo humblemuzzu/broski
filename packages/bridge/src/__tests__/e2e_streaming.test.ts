@@ -193,7 +193,7 @@ describe("e2e reconnect replay", () => {
 
 describe("e2e Pi transcript paging", () => {
 	test("pages the newest messages backwards and joins into the whole read", async () => {
-		const sessionPath = writeJsonlSession(join(env.home, "synthetic-sessions"), "session-page.jsonl", [
+		const sessionPath = writeJsonlSession(join(env.piAgentDir, "sessions", "synthetic"), "session-page.jsonl", [
 			header(3),
 			...chain(8, "page"),
 		]);

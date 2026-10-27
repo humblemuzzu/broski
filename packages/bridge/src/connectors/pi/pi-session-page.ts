@@ -163,6 +163,23 @@ async function buildPage(
 	return null;
 }
 
+/**
+ * The whole history, projected exactly as a page is: the leaf path with each compaction kept as a
+ * marker where it happened. A session therefore opens the same whether or not the client pages it.
+ *
+ * Null means the file could not be indexed, which leaves the caller its own fallback.
+ */
+export async function readPiSessionHistory(sessionPath: string): Promise<PiSessionTranscript | null> {
+	try {
+		const prepared = await prepare(sessionPath);
+		if (prepared.order.length === 0) return [];
+		const window = await loadWindow(sessionPath, prepared, 0, prepared.order.length);
+		return window?.messages ?? null;
+	} catch {
+		return null;
+	}
+}
+
 export async function readPiSessionTranscriptPage(
 	sessionPath: string,
 	options: { limit: number; before?: string },

@@ -30,7 +30,7 @@ import {
 } from "../../bench/lib/pi-synthetic-sessions";
 import { buildTranscriptMessages, readCcTranscriptPage } from "../connectors/claude-code/cc-transcript";
 import { readCxTranscript, readCxTranscriptPage } from "../connectors/codex/cx-transcript";
-import { readPiSessionTranscriptPage } from "../connectors/pi/pi-session-page";
+import { readPiSessionHistory, readPiSessionTranscriptPage } from "../connectors/pi/pi-session-page";
 import { readPiSessionTranscript } from "../connectors/pi/pi-session-transcript";
 import { TURN_EXTENSION_MAX } from "../utils/turn-aligned-page";
 import { normalizeTranscript } from "./codex_legacy_reference";
@@ -421,6 +421,44 @@ describe("Codex transcript paging parity", () => {
 		return `${lines.join("\n")}\n`;
 	}
 
+	it("names a message after the rollout record that wrote it, whichever window read it", async () => {
+		const dir = await tempRoot("cx-identity");
+		const path = join(dir, "rollout-identity.jsonl");
+		// Codex writes `ordinal` and `timestamp` next to every record; a window of the file and the
+		// whole file must therefore agree on what each message is called and when it was written.
+		const lines = rollout(6)
+			.trim()
+			.split("\n")
+			.map((line, ordinal) =>
+				JSON.stringify({
+					...(JSON.parse(line) as Record<string, unknown>),
+					ordinal,
+					timestamp: "2026-05-31T03:23:35.000Z",
+				}),
+			);
+		await writeFile(path, `${lines.join("\n")}\n`);
+
+		const whole = await readCxTranscript(path, { limit: 100_000 });
+		const paged = await walkPages(
+			(before) =>
+				readCxTranscriptPage(path, {
+					limit: 4,
+					end: before === undefined ? undefined : Number.parseInt(before, 10),
+				}),
+			40,
+		);
+
+		const byText = new Map(whole.map((message) => [message.text ?? message.id, message]));
+		for (const message of paged as typeof whole) {
+			const same = byText.get(message.text ?? message.id);
+			expect(same, message.text ?? message.id).toBeDefined();
+			expect(same?.id).toBe(message.id);
+			expect(same?.createdAt).toBe(message.createdAt);
+		}
+		const written = Math.floor(Date.parse("2026-05-31T03:23:35.000Z") / 1000);
+		expect(whole.every((message) => message.createdAt === written)).toBe(true);
+	});
+
 	it("concatenates to the whole-file transcript", async () => {
 		const dir = await tempRoot("cx-paging");
 		for (const turns of [1, 4, 25]) {
@@ -572,7 +610,12 @@ describe("paged transcript parity on real sessions", () => {
 				console.log(`[transcript-paging] Pi: ${file.path} cannot be paged, the bridge sends it whole`);
 				continue;
 			}
-			const expected = await readPiSessionTranscript(file.path);
+			// A page is the whole leaf-to-root history with each compaction kept as a marker, which is
+			// deliberately not what the unpaged read returns: that one is the agent's compaction-cut
+			// context, and the bounded-reader suite pins it to the pre-optimisation behaviour. The
+			// pages are measured here against the same history read in one window instead.
+			const expected = await readPiSessionHistory(file.path);
+			if (expected === null) continue;
 			for (const limit of [5, 40]) {
 				const { messages, pages } = await concatPages((before) =>
 					readPiSessionTranscriptPage(file.path, { limit, before }),
@@ -642,12 +685,16 @@ describe("paged transcript parity on real sessions", () => {
 			if (!file) return;
 
 			const span = 120;
-			const tail = await readPiSessionTranscript(file.path, span);
+			const history = await readPiSessionHistory(file.path);
+			expect(history, file.path).not.toBeNull();
+			if (!history) return;
+			const tail = history.slice(-span);
 			expect(tail.length).toBe(span);
 
 			const collected = await walkPages((before) => readPiSessionTranscriptPage(file.path, { limit: 60, before }), 8);
 			expect(collected.length).toBeGreaterThanOrEqual(span);
-			expect(collected.slice(collected.length - span)).toEqual(tail);
+			// A page carries what fit its byte budget, so a message over it is cut and marked.
+			expect(sameTranscript(collected.slice(collected.length - span), tail)).toBe(true);
 			console.log(
 				`[transcript-paging] Pi largest ${(file.size / 1e6).toFixed(0)} MB: ${collected.length} messages in pages`,
 			);
@@ -670,7 +717,13 @@ describe("paged transcript parity on real sessions", () => {
 				8,
 			);
 			expect(collected.length).toBeGreaterThanOrEqual(tail.length);
-			expect(normalizeTranscript(collected.slice(0, tail.length) as never)).toEqual(normalizeTranscript(tail));
+			// The pages are the whole history; the tail read is its newest end.
+			expect(
+				sameTranscript(
+					normalizeTranscript(collected.slice(collected.length - tail.length) as never),
+					normalizeTranscript(tail),
+				),
+			).toBe(true);
 			console.log(
 				`[transcript-paging] Codex largest ${(file.size / 1e6).toFixed(0)} MB: ${collected.length} messages in pages`,
 			);

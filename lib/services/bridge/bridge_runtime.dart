@@ -1,11 +1,15 @@
 import 'dart:async';
 
 import 'package:broski/models/runtime/runtime.dart';
+import 'package:broski/services/bridge/bridge_pending_prompts.dart';
 import 'package:broski/services/bridge/runtime_replay_tracker.dart';
 import 'package:broski/services/bridge_service.dart';
 
 extension BridgeServiceRuntime on BridgeService {
   Stream<RuntimeEvent> get runtimeEvents => messages.expand((message) {
+    if (message['type'] == 'sessions_active') {
+      return pendingPromptPayloads(message['data']).map(RuntimeEvent.fromJson);
+    }
     if (message['type'] != 'runtime_event') {
       return const Iterable<RuntimeEvent>.empty();
     }

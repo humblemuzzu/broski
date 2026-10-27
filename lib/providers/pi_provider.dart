@@ -147,19 +147,6 @@ final piThinkingCapabilitiesProvider =
       return bridge.getThinkingCapabilities(projectPath: projectPath);
     });
 
-final piAllModelsProvider = FutureProvider.family<List<PiModel>, String?>((
-  ref,
-  projectPath,
-) async {
-  final connection = ref.read(connectionProvider);
-  if (connection.isOfflineMode) {
-    return const [];
-  }
-
-  final bridge = ref.watch(piBridgeServiceProvider);
-  return bridge.listAllModels(projectPath: projectPath);
-});
-
 final piQueueProvider = FutureProvider.family<PiQueueState, String?>((
   ref,
   projectPath,

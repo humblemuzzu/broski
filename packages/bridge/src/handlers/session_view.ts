@@ -2,7 +2,7 @@ import { join } from "node:path";
 import type { ServerWebSocket } from "bun";
 import { registerAll } from "../routing/registry";
 import type { MessageRouter, ServerDeps } from "../routing/types";
-import type { AgentType, ConnectionType, ServerMessage } from "../types";
+import type { AgentType, ServerMessage } from "../types";
 import * as piDurable from "./pi_durable";
 import { getPendingExtensionUiRequests } from "./pi_features";
 import { replayPendingExtensionUiRequests } from "./pi_stream_delivery";
@@ -16,7 +16,6 @@ export type SessionViewHandlerContext = {
 		{
 			lastPongAt: number;
 			lastRttMs: number;
-			connectionType: ConnectionType;
 			connectedAt: number;
 			projectPath?: string;
 			sessionId?: string;
@@ -121,7 +120,6 @@ export async function handle(
 	const existing = ctx.contexts.get(ws) ?? {
 		lastPongAt: Date.now(),
 		lastRttMs: 0,
-		connectionType: "unknown" as const,
 		connectedAt: Date.now(),
 	};
 	const prevKey = ctx.makeSessionKey(existing.viewAgent as AgentType | undefined, existing.sessionId);

@@ -5,6 +5,8 @@ import type { ServerDeps } from "../routing/types";
 import { invalidPayloadError, validateMessageShape } from "../routing/validate";
 import { hasPrototypePoisonKeys } from "../security";
 import type { ClientMessage, ServerMessage } from "../types";
+import { awaitOpenCode, needsOpenCode } from "./opencode-gate";
+import type { OpenCodeSlot } from "./opencode-slot";
 
 export type MessageHandlerDeps = {
 	registry: RouteRegistry;
@@ -12,6 +14,10 @@ export type MessageHandlerDeps = {
 	send: (ws: ServerWebSocket<unknown>, message: ServerMessage) => void;
 	maxBatchSize: number;
 	getSecurePath: (path: string) => Promise<string | null>;
+	/** The backend a managed start may still be bringing up, for the requests that need it. */
+	opencode: OpenCodeSlot;
+	/** How long one of those requests waits for it. */
+	opencodeReadyTimeoutMs?: number;
 };
 
 /** Decodes, validates and dispatches one inbound client frame (and `batch` envelopes). */
@@ -27,6 +33,14 @@ export function createMessageHandler(
 		if (shapeError) {
 			reply(invalidPayloadError(shapeError));
 			return;
+		}
+
+		if (needsOpenCode(message.type)) {
+			const ready = await awaitOpenCode(deps.opencode, deps.opencodeReadyTimeoutMs);
+			if (!ready.ok) {
+				reply({ type: "error", message: ready.error, requestId: message.requestId });
+				return;
+			}
 		}
 
 		// Security: never trust client-supplied filesystem roots.

@@ -10,7 +10,7 @@ import type { ServerWebSocket } from "bun";
 import * as pi from "../connectors/pi";
 import { registerAll } from "../routing/registry";
 import type { MessageRouter, ServerDeps } from "../routing/types";
-import type { AgentStatusInfo, AgentType, ConnectionType, ServerMessage } from "../types";
+import type { AgentStatusInfo, AgentType, ServerMessage } from "../types";
 
 type ReplyFn = (msg: ServerMessage) => void;
 
@@ -51,7 +51,6 @@ export type MiscHandlerContext = {
 			lastPongAt: number;
 			lastRttMs: number;
 			pendingPing?: { id: string; sentAt: number };
-			connectionType: ConnectionType;
 			connectedAt: number;
 			projectPath?: string;
 			[key: string]: unknown;

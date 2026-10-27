@@ -7,7 +7,7 @@ import {
 	readFileBinaryDirectly as _readFileBinaryDirectly,
 	readFileDirectly as _readFileDirectly,
 } from "./file-ops";
-import { installCcHook } from "./handlers/cc_hook_installer";
+import { type HookInstallTarget, installCcHook } from "./handlers/cc_hook_installer";
 import { installCxHook } from "./handlers/cx_hook_installer";
 import { toErrorMessage } from "./http-utils";
 import { releaseFailedBindResources } from "./lifecycle/bridge-teardown";
@@ -30,7 +30,7 @@ import { createHttpWiring } from "./server/http";
 import { startBridgeIntervals } from "./server/intervals";
 import { createLimits } from "./server/limits";
 import { attachLinkDecisionPath } from "./server/link-feed/feed";
-import { startLinkIngress } from "./server/link-ingress";
+import { startConfiguredLinkIngress } from "./server/link-start";
 import { createLeveledLogger } from "./server/logger";
 import { createMessageHandler } from "./server/messages";
 import { createOpenCodeEvents } from "./server/opencode-events";
@@ -82,6 +82,14 @@ export type BridgeServerOptions = {
 	permissionTimeoutMs?: number;
 	/** Unix socket the broski-link daemon connects to; served without token auth. */
 	linkSocket?: string;
+	/** The daemon's key file, which every upgrade on that socket must quote. */
+	linkKeyFile?: string;
+	/** A managed OpenCode start is under way; requests that need it wait for `setOpenCode`. */
+	opencodePending?: boolean;
+	/** Why OpenCode is unavailable, for the error a request that needs it is given. */
+	opencodeReason?: string;
+	/** How long a request that needs OpenCode waits for a managed start. Defaults to 30 s. */
+	opencodeReadyTimeoutMs?: number;
 	restartOpenCode?: () => Promise<boolean>;
 	/** @deprecated Use bridgeLogger instead. Kept for backward compat. */
 	logger?: (message: string) => void;
@@ -91,6 +99,11 @@ export type BridgeServerOptions = {
 
 export type BridgeServer = {
 	broadcast: (message: ServerMessage) => void;
+	/**
+	 * The OpenCode backend, once a managed start has it — or the reason it never arrived. The
+	 * listeners are already up when this is called, so a slow start costs nobody else a wait.
+	 */
+	setOpenCode: (connector: OpenCodeConnector | null, reason?: string) => void;
 	enqueueSdkEvent: (event: unknown) => void;
 	/** Resolves once every async cleanup finished or the teardown budget elapsed. */
 	stop: (force?: boolean) => Promise<TeardownResult>;
@@ -115,6 +128,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 
 	const state = createBridgeState({
 		opencode: options.opencode,
+		opencodePending: options.opencodePending,
+		opencodeReason: options.opencodeReason,
 		auth: options.auth,
 		webDistDir,
 		defaultAgent: options.currentAgent || "opencode",
@@ -122,7 +137,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		logInfo: log.logInfo,
 	});
 
-	const backends = createBackends({ state, opencode: options.opencode, version: options.version });
+	const backends = createBackends({ state, opencode: state.opencode, version: options.version });
 	const streams = createStreams({ state, log, debugRts: DEBUG_RTS });
 	const fsWatchers = createFsWatchers({ broadcast: streams.broadcast });
 	const ptyRuntime = new PtyRuntime({
@@ -146,7 +161,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		streams,
 		log,
 		debugRts: DEBUG_RTS,
-		opencode: options.opencode,
+		getOpenCode: () => state.opencode.current(),
 		startOpenCodeExternalTail: opencodeEvents.startOpenCodeExternalTail,
 	});
 
@@ -198,7 +213,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		log,
 		limits,
 		version: options.version,
-		opencode: options.opencode,
+		getOpenCode: () => state.opencode.current(),
 		listFilesDirectly,
 		debugRts: DEBUG_RTS,
 	});
@@ -255,14 +270,21 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		send: streams.send,
 		maxBatchSize: limits.maxBatchSize,
 		getSecurePath,
+		opencode: state.opencode,
+		opencodeReadyTimeoutMs: options.opencodeReadyTimeoutMs,
 	});
 	attachLinkDecisionPath(messageRegistry, serverDeps);
 
 	let secureServer: ReturnType<typeof Bun.serve>;
 	try {
-		state.linkIngress = options.linkSocket
-			? await startLinkIngress({ socketPath: options.linkSocket, state, connections, limits, log })
-			: null;
+		state.linkIngress = await startConfiguredLinkIngress({
+			linkSocket: options.linkSocket,
+			linkKeyFile: options.linkKeyFile,
+			state,
+			connections,
+			limits,
+			log,
+		});
 		secureServer = Bun.serve({
 			// Phones reach the bridge only through broski-link's socket; this listener serves the
 			// agent permission hooks and the dashboard on this machine.
@@ -290,14 +312,20 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	}
 	state.secureServer = secureServer;
 	state.securePort = secureServer.port ?? options.port;
+	const hookTarget: HookInstallTarget = {
+		port: state.securePort,
+		token: state.authToken,
+		scheme: state.tlsMaterial ? "https" : "http",
+		log: log.logInfo,
+	};
 
 	// Install CC permission hook in ~/.claude/settings.json (non-blocking)
-	void installCcHook(state.securePort, state.authToken, log.logInfo).catch((err) => {
+	void installCcHook(hookTarget).catch((err) => {
 		log.logInfo(`[CC Hook] Install failed (non-fatal): ${toErrorMessage(err)}`);
 	});
 
 	// Install CX permission hook in ~/.codex/hooks.json (non-blocking)
-	void installCxHook(state.securePort, state.authToken, log.logInfo).catch((err) => {
+	void installCxHook(hookTarget).catch((err) => {
 		log.logInfo(`[CX Hook] Install failed (non-fatal): ${toErrorMessage(err)}`);
 	});
 
@@ -309,8 +337,30 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		codexClient,
 	});
 
+	const setOpenCode = (connector: OpenCodeConnector | null, reason?: string): void => {
+		state.opencode.settle(connector, reason);
+		state.ptyManager.updateOpenCode(connector);
+		void refreshOpenCodeArrival();
+	};
+
+	/** A client that connected during the start is told when the backend lands. */
+	const refreshOpenCodeArrival = async (): Promise<void> => {
+		backends.invalidateStatus();
+		await backends.refreshDefaultAgent();
+		const backendsStatus = await backends.getBackendsStatus();
+		streams.broadcast({
+			type: "status",
+			data: {
+				opencodeRunning: backendsStatus.opencode.available,
+				activeAgent: state.currentAgent,
+				backends: backendsStatus,
+			},
+		});
+	};
+
 	return {
 		broadcast: streams.broadcast,
+		setOpenCode,
 		enqueueSdkEvent: opencodeEvents.enqueueSdkEvent,
 		stop,
 		connections: () => state.sockets.size,
