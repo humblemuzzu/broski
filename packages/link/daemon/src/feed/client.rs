@@ -9,7 +9,7 @@ use serde_json::{json, Value};
 use tokio::net::UnixStream;
 use tokio::sync::{mpsc, oneshot, watch};
 use tokio::task::JoinHandle;
-use tokio::time::Instant;
+use tokio::time::{timeout, Instant};
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::http::HeaderValue;
 use tokio_tungstenite::tungstenite::Message;
@@ -17,6 +17,7 @@ use tokio_tungstenite::WebSocketStream;
 use tracing::{debug, warn};
 
 use crate::backoff::Backoff;
+use crate::bridge::DIAL_TIMEOUT;
 use crate::device::short;
 use crate::push::{self, keys, policy, seal};
 use crate::relay::{PushRequest, RelayCommand};
@@ -210,6 +211,16 @@ async fn alert(deps: &Deps, value: &Value, debounce: &mut policy::Debounce) {
 }
 
 async fn dial(socket: &Path) -> Option<Socket> {
+    match timeout(DIAL_TIMEOUT, connect(socket)).await {
+        Ok(socket) => socket,
+        Err(_) => {
+            debug!(socket = %socket.display(), "bridge feed: no answer in time");
+            None
+        }
+    }
+}
+
+async fn connect(socket: &Path) -> Option<Socket> {
     let mut request = REQUEST.into_client_request().ok()?;
     request
         .headers_mut()

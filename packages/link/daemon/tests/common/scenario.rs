@@ -28,6 +28,20 @@ pub const APNS_TOKEN: &str = "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5
 
 /// A daemon and its phone, paired over the lan, with the push key registered and the relay
 /// authorised for the device — the state every push and letter path starts from.
+/// A fresh phone that pairs with this daemon over the lan, with nothing else set up.
+pub async fn pair_lan_phone(daemon: &TestDaemon) -> Phone {
+    let addr = daemon.lan();
+    let bundle = fetch_bundle(addr).await;
+    let offer = daemon.offer().await;
+    let mut phone = Phone::new(bundle);
+    assert_eq!(
+        phone.pair_lan(addr, &offer).await,
+        Some(false),
+        "the phone pairs over the lan"
+    );
+    phone
+}
+
 pub struct Scenario {
     pub relay: TestRelay,
     pub daemon: TestDaemon,

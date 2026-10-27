@@ -42,6 +42,11 @@ phone (Link client)                        machine (daemon, Link server)
 `attach` re-queues them after the next handshake; a `handle_wire` error means drop the connection.
 `poll_timeout`/`handle_timeout` drive acks, PING/PONG and the 45 s `Dead` report.
 
+`unacked_bytes` is the outbound window and the only flow-control surface a caller has: `send` fails
+with `Backpressure` rather than growing the window past `max_unacked_bytes`, so a caller watching it
+stops reading its source instead of dropping the session. The daemon reads its bridge socket above
+8 MiB unacked only after acks take it back under 4 MiB.
+
 ## Resume vs fresh
 
 - `connect` puts `Hello { resume: Resume { session_id, next_expected } }` in msg1 whenever a session

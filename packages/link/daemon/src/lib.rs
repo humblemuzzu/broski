@@ -266,6 +266,7 @@ fn session_deps(
         offers: parts.offers.clone(),
         relay: parts.relay.clone(),
         shutdown,
+        idle_limit: options.durations.session_idle,
     })
 }
 

@@ -51,14 +51,54 @@ Machine to phone, one JSON object per link message:
 |---|
 | `{"t":"paired","device_id":"<32 hex>","relay_token":"<43 b64url>","machine":{"id":"<32 hex>","name":"…","os":"macos","relay":"<url\|null>","lan":["<host:port>",…]}}` |
 | `{"t":"routes","relay":"<url\|null>","lan":["<host:port>",…]}` |
-| `{"t":"bridge","state":"up"\|"starting"\|"down"\|"crashed","detail":<string\|null>}` |
+| `{"t":"bridge","state":"up"\|"connecting"\|"starting"\|"down"\|"crashed","conn":<n>,"detail":<string\|null>}` |
 
 Phone to machine: `{"t":"hello","name":"<≤64 B>","platform":"ios"|"android"|"web"}`,
 `{"t":"bridge_restart"}`, `{"t":"push_register","platform":"apns"|"fcm","token":"…","key":"<b64url 32 B>"}`
 and `{"t":"push_unregister"}`. `paired` is sent once, on the first attach after the connection that
-paired; `routes` follows every attach and every change, `bridge` only when its state changes.
-Unknown `t` is ignored in both directions, so a newer peer never breaks an older one. The two push
-messages are the phone's only way to be woken while the bridge is idle: see [push.md](push.md).
+paired; `routes` follows every attach and every change. `bridge` follows every change of
+`(state, conn, detail)` and every attach. Unknown `t` is ignored in both directions, so a newer peer
+never breaks an older one. The two push messages are the phone's only way to be woken while the
+bridge is idle: see [push.md](push.md).
+
+`bridge` is about this session's own bridge socket, not the process: `up` only while that socket is
+through its upgrade, `connecting` while the bridge answers but this socket is not, and otherwise the
+process state — `starting`, `crashed` with the supervisor's detail, or `down` when nothing is
+listening. `conn` counts the sockets this session has had. A reset socket is a new client to the
+bridge and knows nothing of what the old one was shown, so the phone resyncs whenever `conn` moves;
+that is the one signal it must not miss, which is why the count is per session and not process-wide
+(the control socket's `status` keeps the process-wide view).
+
+## Flow control
+
+Nobody ends a connection because the other side is slow; the slowness travels back to whoever is
+producing. The session reads its bridge socket only while `Link::unacked_bytes()` is below 8 MiB and,
+once past it, not again until acks bring the window under 4 MiB. Not polling is what pushes back: the
+reader blocks on a full four-message queue, the socket buffer fills and the bridge's write blocks.
+Control messages have the remaining half of the 16 MiB window to themselves.
+
+A message the link will not take is never a reason to end the session. Backpressure and a session
+that does not exist yet both leave the message waiting — one slot for the bridge stream, so nothing
+behind it is read, and a small ordered queue for control — retried on every pass, and the ack that
+frees the window is what lets it go.
+
+A bridge socket that dies hands back everything it never wrote, the message that failed included, the
+session puts it at the front of its queue for the bridge and redials. A message larger than 8 MiB
+(`LINK_MAX_MESSAGE_BYTES`, the whole unacked window has to fit one) drops the socket at once; the
+bridge never sends one.
+
+## Close codes
+
+The session ends with a code that says why, and the phone resyncs unless it was a normal end.
+
+| Code | Meaning |
+|---|---|
+| 1000 | the phone closed, or the daemon echoes a close it was sent |
+| 4001 | the daemon is shutting down |
+| 4002 | the phone handed the session more for the bridge than its 16 MiB queue holds |
+| 4003 | the device was revoked on this machine |
+| 4004 | no phone attached for the whole idle limit |
+| 4005 | the session's own crypto state could not carry on |
 
 ## Control socket (unix, one JSON line per request)
 
@@ -107,7 +147,7 @@ reply, so the relay closes the pairing channel only once the phone holds its rea
   phone drops its old queue.
 - A lost connection detaches the session: the link keeps the session id, the unacked window and a
   half-reassembled message, so only what the phone missed crosses the wire on resume. A detached
-  session lives 600 s; a CLOSE from the phone, or a revoked device, ends it.
+  session lives 600 s (`session_idle`); a CLOSE from the phone, or a revoked device, ends it.
 - The bridge connection belongs to the session, not to the network route: a phone that moves from
   LAN to relay keeps the same bridge websocket.
 
@@ -116,13 +156,20 @@ reply, so the relay closes the pairing channel only once the phone holds its rea
 Without `--bridge-cmd` the daemon only dials the socket it is given. With it, the daemon spawns the
 command with `--link-socket <bridge-socket>`, forwards the child's stdout and stderr to the log,
 and restarts it 1 s to 30 s after it exits, resetting the backoff once a run lasted 60 s.
-`{"t":"bridge_restart"}` restarts it at once. State is `up` while a websocket to the bridge is live
-— the daemon's own feed socket counts, so a supervised bridge that is listening is `up` before any
-phone attaches — `starting` before a child runs, `crashed` with the reason after one dies, and `down`
-when nobody is listening.
+`{"t":"bridge_restart"}` restarts it at once. A dial is the unix connect plus the websocket upgrade
+and gives up after 5 s, which counts as a failed dial: the socket is dropped and the bridge backoff
+runs again.
+
+The process-wide state is `up` while any websocket to the bridge is live — the daemon's own feed
+socket counts, so a supervised bridge that is listening is `up` before any phone attaches —
+`starting` before a child runs, `crashed` with the reason after one dies, and `down` when nobody is
+listening. `broski-link status` reports it as it is; each session reports its own socket against it
+(see the control stream above), so a live feed never hides a session with no socket.
+
 The bridge websocket carries `x-broski-device-id`, `x-broski-role: owner` and, once known,
-`x-broski-device-name`; a reader task and a writer task keep one slow direction from stalling the
-other.
+`x-broski-device-name`, and accepts one message of at most 8 MiB. A reader task and a writer task
+keep one slow direction from stalling the other; a close from the bridge is logged with its code and
+reason.
 
 ## Ports and CLI
 
@@ -142,16 +189,19 @@ broski-link pair|status|devices|revoke     # pair prints the QR uri; status and 
 |---|---|---|
 | connection frames out, wire in | 64 each, per connection | the session detaches; a full out queue retries the one frame it holds |
 | session commands | 64 | the responder stops forwarding and reports the connection lost |
-| bridge messages out, in | 64 each | the reader/writer pair is torn down |
-| bridge queue while the bridge is down | 16 MiB | the session is dropped |
+| bridge messages out, in | 64 / 4 | waits: the writer blocks, the reader stops reading |
+| bridge message | 8 MiB | the bridge socket is dropped and redialled (a warning carries the size) |
+| bridge queue while the bridge is down | 16 MiB | the session is closed with 4002 |
+| control backlog | 64 | a control message is dropped with a warning |
 | relay machine-socket outbox | 256 | the relay client logs and drops the connection |
-| link unacked bytes / message / frame | 16 MiB / 32 MiB / 65519 | `Backpressure` ends the session / decode error |
+| link unacked bytes / message / frame | 16 MiB / 32 MiB / 65519 | the bridge read gate shuts at 8 MiB and opens at 4 MiB / decode error |
 | LAN connections, upgrades | 64 live, 20/s burst 40 per IP | 429 before the upgrade |
 | LAN websocket message | 128 KiB | the connection is dropped |
 | control request | 8 KiB, 10 s | the request is refused |
 | paired devices | 32 | pairing is refused |
 | pairing offer | 600 s, one at a time | the newer offer replaces it |
 | backoff: bridge / relay / supervisor | 0.25–5 s / 0.5–30 s jittered / 1–30 s | — |
+| bridge dial | 5 s | counted as a failed dial, retried on the bridge backoff |
 | link timers | ping 15 s, dead 45 s, ack 25 ms | the session detaches |
 
 ## Not done yet

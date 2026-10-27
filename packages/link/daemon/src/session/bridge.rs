@@ -8,7 +8,7 @@ use tokio::time::Instant;
 use tracing::debug;
 
 use crate::backoff::Backoff;
-use crate::bridge::BridgeLink;
+use crate::bridge::{BridgeIn, BridgeLink};
 use crate::bridge_status::BridgeMonitor;
 use crate::device::short;
 
@@ -30,6 +30,8 @@ pub(super) struct BridgePump {
     backoff: Backoff,
     retry_at: Option<Instant>,
     since: Option<Instant>,
+    /// How many times this session's own socket has come up; the phone resyncs on a new one.
+    conn: u64,
     pending: VecDeque<Vec<u8>>,
     pending_bytes: usize,
 }
@@ -50,6 +52,7 @@ impl BridgePump {
             backoff: Backoff::new(BACKOFF_MIN, BACKOFF_MAX),
             retry_at: None,
             since: None,
+            conn: 0,
             pending: VecDeque::new(),
             pending_bytes: 0,
         }
@@ -59,7 +62,17 @@ impl BridgePump {
         &self.name
     }
 
+    /// This session's own socket is through its upgrade, whatever the process-wide monitor says.
+    pub(super) fn is_ready(&self) -> bool {
+        self.since.is_some()
+    }
+
+    pub(super) fn conn(&self) -> u64 {
+        self.conn
+    }
+
     pub(super) fn ready(&mut self) {
+        self.conn += 1;
         self.since = Some(Instant::now());
         self.retry_at = None;
     }
@@ -79,6 +92,21 @@ impl BridgePump {
         }
         self.retry_at = None;
         self.dial();
+    }
+
+    /// Takes the socket down and puts back everything it never wrote, oldest first. False when
+    /// that overflows the queue bound, which ends the session.
+    pub(super) fn closed(&mut self, unsent: Vec<Vec<u8>>) -> bool {
+        self.down();
+        let total: usize = unsent.iter().map(Vec::len).sum();
+        if self.pending_bytes + total > MAX_PENDING_BYTES {
+            return false;
+        }
+        for bytes in unsent.into_iter().rev() {
+            self.pending_bytes += bytes.len();
+            self.pending.push_front(bytes);
+        }
+        true
     }
 
     pub(super) fn down(&mut self) {
@@ -160,12 +188,16 @@ impl BridgePump {
     }
 }
 
-/// Awaits the bridge's next event, or never returns while no bridge is dialled.
-pub(super) async fn input(pump: &mut BridgePump) -> Input {
+/// Awaits this session's next bridge event; never returns while the read gate is shut or no socket
+/// is dialled.
+pub(super) async fn input(pump: &mut BridgePump, open: bool) -> Input {
+    if !open {
+        return std::future::pending().await;
+    }
     match pump.link.as_mut() {
         Some(link) => match link.rx.recv().await {
             Some(incoming) => Input::Bridge(incoming),
-            None => Input::BridgeClosed,
+            None => Input::Bridge(BridgeIn::Closed { unsent: Vec::new() }),
         },
         None => std::future::pending().await,
     }

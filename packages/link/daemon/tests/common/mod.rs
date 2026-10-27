@@ -8,6 +8,8 @@ pub mod phone;
 pub mod relay;
 pub mod relay_http;
 pub mod scenario;
+pub mod scripted;
+pub mod silent;
 
 use std::sync::Once;
 use std::sync::OnceLock;

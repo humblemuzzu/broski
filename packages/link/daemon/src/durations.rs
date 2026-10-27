@@ -1,7 +1,7 @@
 use std::time::Duration;
 
-/// Every window the push, letter, feed and keep-awake paths run on. Tests shrink these instead of
-/// waiting them out.
+/// Every window the push, letter, feed, session and keep-awake paths run on. Tests shrink these
+/// instead of waiting them out.
 #[derive(Clone, Copy, Debug)]
 pub struct Durations {
     pub push_debounce: Duration,
@@ -15,6 +15,7 @@ pub struct Durations {
     pub feed_retry_min: Duration,
     pub feed_retry_max: Duration,
     pub bridge_letter_hold: Duration,
+    pub session_idle: Duration,
     pub sleep_grace: Duration,
 }
 
@@ -32,6 +33,7 @@ impl Default for Durations {
             feed_retry_min: Duration::from_millis(250),
             feed_retry_max: Duration::from_secs(5),
             bridge_letter_hold: Duration::from_secs(30),
+            session_idle: Duration::from_secs(600),
             sleep_grace: Duration::from_secs(2),
         }
     }
