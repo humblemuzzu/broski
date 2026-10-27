@@ -18,6 +18,7 @@ import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/codex_settings_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/file_search_provider.dart';
+import 'package:broski/providers/notifications/chat_presence.dart';
 import 'package:broski/providers/pi/pi_live_queue_provider.dart';
 import 'package:broski/providers/pi/pi_live_session_name_provider.dart';
 import 'package:broski/providers/selection_provider.dart';
@@ -451,6 +452,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   @override
   void initState() {
     super.initState();
+    ref.read(chatPresenceProvider).opened();
     final bridge = ref.read(bridgeServiceProvider);
     // Defer state modifications to after the first frame to avoid
     // "Tried to modify a provider while the widget tree was building" error
@@ -1308,6 +1310,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     _piExtensionUiSub?.cancel();
     _bgSyncTimer?.cancel();
     ref.read(bridgeServiceProvider).setView(projectPath: 'global');
+    ref.read(chatPresenceProvider).closed();
     _controller.dispose();
     _scrollController.dispose();
     _inputFocusNode.dispose();

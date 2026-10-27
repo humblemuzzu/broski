@@ -7,6 +7,7 @@ import 'package:broski/models/project.dart';
 import 'package:broski/models/runtime/runtime.dart';
 import 'package:broski/models/session.dart';
 import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/notifications/chat_presence.dart';
 import 'package:broski/providers/pi_durable/pi_durable_sessions_refresh.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/providers/session_archive_filter_provider.dart';
@@ -32,11 +33,7 @@ final globalSessionStatusProvider =
     StateNotifierProvider<
       GlobalSessionStatusNotifier,
       Map<String, SessionStatus>
-    >((ref) {
-      final notifier = GlobalSessionStatusNotifier(ref);
-      ref.onDispose(() => notifier.dispose());
-      return notifier;
-    });
+    >((ref) => GlobalSessionStatusNotifier(ref));
 
 /// Tracks session activity for notifications (start time, last tool)
 class _SessionActivity {
@@ -183,11 +180,13 @@ class GlobalSessionStatusNotifier
       final lastTool = activity?.lastToolName;
 
       state = {...state, sessionId: status};
-      _showCompletionNotification(
-        sessionId,
-        duration: duration,
-        lastTool: lastTool,
-      );
+      if (shouldNotifyForFinishedSession(_ref, sessionId)) {
+        _showCompletionNotification(
+          sessionId,
+          duration: duration,
+          lastTool: lastTool,
+        );
+      }
       return;
     }
 
