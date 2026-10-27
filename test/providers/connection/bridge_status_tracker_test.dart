@@ -120,25 +120,39 @@ void main() {
   });
 
   test(
-    'a first bridge status that is down shows connecting, and up resyncs',
+    'a fresh session whose bridge is still starting resyncs nothing more',
     () {
       rig.connect();
       rig.published.clear();
 
-      rig.bridge(BridgeStatusState.starting, 1);
-      expect(rig.published, [ConnectionStatus.connecting]);
+      rig.bridge(BridgeStatusState.connecting, 0);
+      expect(rig.published, isEmpty);
       expect(rig.resyncs, 1);
 
       rig.bridge(BridgeStatusState.up, 1);
 
-      expect(rig.published, [
-        ConnectionStatus.connecting,
-        ConnectionStatus.connecting,
-        ConnectionStatus.connected,
-      ]);
-      expect(rig.resyncs, 2);
+      expect(rig.published, isEmpty, reason: 'the link edge already resynced');
+      expect(rig.resyncs, 1);
+      expect(rig.reasons, isEmpty);
     },
   );
+
+  test('a fresh session that opens on a crashed bridge fails nothing', () {
+    rig.connect();
+    rig.published.clear();
+
+    rig.bridge(BridgeStatusState.crashed, 0);
+    rig.bridge(BridgeStatusState.starting, 0);
+    rig.bridge(BridgeStatusState.up, 1);
+
+    expect(rig.published, isEmpty);
+    expect(rig.resyncs, 1, reason: 'one resync, from the link edge');
+    expect(
+      rig.reasons,
+      isEmpty,
+      reason: 'the daemon queues these requests until its socket is ready',
+    );
+  });
 
   test(
     'a replaced link session resyncs once, and its bridge status adds none',

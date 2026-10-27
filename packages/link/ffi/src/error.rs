@@ -7,6 +7,8 @@ pub const OK: i32 = 0;
 pub const INVALID_ARGUMENT: i32 = -1;
 pub const FAILED: i32 = -2;
 pub const BACKPRESSURE: i32 = -3;
+/// No handshake has completed on this link yet, so nothing can be sent on it.
+pub const NOT_READY: i32 = -4;
 pub const PANIC: i32 = -99;
 
 thread_local! {
@@ -20,10 +22,10 @@ pub fn invalid(message: &str) -> i32 {
 
 pub fn fail(error: LinkError) -> i32 {
     set_last_error(&format!("{error}"));
-    if matches!(error, LinkError::Proto(ProtoError::Backpressure { .. })) {
-        BACKPRESSURE
-    } else {
-        FAILED
+    match error {
+        LinkError::Proto(ProtoError::Backpressure { .. }) => BACKPRESSURE,
+        LinkError::NoSession | LinkError::NotConnected => NOT_READY,
+        _ => FAILED,
     }
 }
 

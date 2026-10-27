@@ -6,7 +6,7 @@ import 'package:broski/models/link/machine.dart';
 import 'package:broski/providers/app_info_provider.dart';
 import 'package:broski/providers/connection/bridge_reset_fanout.dart';
 import 'package:broski/providers/connection/bridge_status_provider.dart';
-import 'package:broski/providers/connection/bridge_status_tracker.dart';
+import 'package:broski/providers/connection/link_bridge_wiring.dart';
 import 'package:broski/providers/connection/link_status_mapping.dart';
 import 'package:broski/providers/link/link_status_provider.dart';
 import 'package:broski/providers/link/machines_provider.dart';
@@ -71,9 +71,13 @@ class LinkConnectionController with WidgetsBindingObserver {
     publish: _socket.applyTransportStatus,
     onConnected: () => unawaited(_announce()),
   );
-  late final BridgeStatusTracker _bridgeTracker = BridgeStatusTracker(
+  late final LinkBridgeWiring _wiring = LinkBridgeWiring(
     publisher: _publisher,
+    sink: _bridgeSink,
     onReset: _onBridgeReset,
+    onRefused: (requestId, reason) =>
+        _ref.read(bridgeResetFanoutProvider).refuse(requestId, reason),
+    announcements: _sendFailures,
   );
   final StreamController<LinkSendFailure> _sendFailures =
       StreamController<LinkSendFailure>.broadcast();
@@ -89,11 +93,12 @@ class LinkConnectionController with WidgetsBindingObserver {
   LinkStatus? _lastStatus;
   PushRegistration? _push;
   var _attached = false;
+
+  /// A pairing owns the connection, so the auto-connect does not start a second
+  /// link for the machine the QR is about to store.
   var _pairing = false;
 
-  /// Marks a pairing as owning the connection, so the auto-connect does not
-  /// start a second link for the machine the QR is about to store.
-  /// Messages the link refused to send, for the notice the app shows.
+  /// Messages the user sent that the link refused, for the notice the app shows.
   Stream<LinkSendFailure> get sendFailures => _sendFailures.stream;
 
   /// One control message to the daemon, for example a bridge restart.
@@ -130,8 +135,11 @@ class LinkConnectionController with WidgetsBindingObserver {
     final status = _lastStatus;
     if (status != null) {
       _publisher.add(status);
+      _wiring.onLinkStatus(status);
     } else if (connected) {
-      _publisher.add(const LinkStatus(state: LinkConnectionState.connected));
+      const reset = LinkStatus(state: LinkConnectionState.connected);
+      _publisher.add(reset);
+      _wiring.onLinkStatus(reset);
     }
   }
 
@@ -185,7 +193,7 @@ class LinkConnectionController with WidgetsBindingObserver {
     }
     if (_attached) {
       _publisher.add(status);
-      _bridgeTracker.onLinkStatus(status);
+      _wiring.onLinkStatus(status);
     }
     // A closed link must not hold the slot: the next resume or network change
     // has to be able to start a fresh one.
@@ -212,16 +220,11 @@ class LinkConnectionController with WidgetsBindingObserver {
         .touchConnected(machine.id, DateTime.now());
   }
 
-  void _onBridgeStatus(BridgeLinkStatus status) {
-    _bridgeSink.publish(status);
-    _bridgeTracker.onBridgeStatus(status);
-  }
+  void _onBridgeStatus(BridgeLinkStatus status) =>
+      _wiring.onBridgeStatus(status);
 
-  void _onSendFailure(LinkSendFailure failure) {
-    if (!_sendFailures.isClosed) {
-      _sendFailures.add(failure);
-    }
-  }
+  void _onSendFailure(LinkSendFailure failure) =>
+      _wiring.onSendFailure(failure);
 
   /// A reset means the bridge forgot what it was asked, so a request still
   /// waiting for a reply will never see one.
@@ -298,7 +301,7 @@ class LinkConnectionController with WidgetsBindingObserver {
     _lastStatus = null;
     _push?.detach();
     _statusSink.clear();
-    _bridgeTracker.reset();
+    _wiring.reset();
     _bridgeSink.publish(null);
     _statusSub?.cancel();
     _controlSub?.cancel();

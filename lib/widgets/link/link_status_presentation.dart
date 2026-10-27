@@ -31,9 +31,9 @@ LinkStatusView presentLinkStatus({
   required DateTime now,
   BridgeLinkStatus? bridge,
 }) {
-  final bridgeView = bridge == null
-      ? null
-      : bridgeStatusView(bridge: bridge, machineName: machineName);
+  final bridgeView = connectionHoldsBridge(status)
+      ? bridgeStatusView(bridge: bridge, machineName: machineName)
+      : null;
   if (bridgeView != null) return bridgeView;
   final lastSeen = status.lastSeen;
   final seen = lastSeen == null ? null : formatLinkTime(lastSeen, now);
@@ -42,7 +42,7 @@ LinkStatusView presentLinkStatus({
       return _connected(status.route, machineName);
     case LinkConnectionState.connecting:
     case LinkConnectionState.waiting:
-      return _connecting(machineName);
+      return _connecting(machineName, status.closeCode);
     case LinkConnectionState.machineAsleep:
       return _asleep(seen, machineName);
     case LinkConnectionState.machineOffline:
@@ -54,12 +54,36 @@ LinkStatusView presentLinkStatus({
   }
 }
 
+/// Whether the link is carrying this bridge at all. A bridge status left behind
+/// by a link that is now asleep or offline says nothing about the machine: only
+/// a connected link can be waiting on its bridge.
+bool connectionHoldsBridge(LinkStatus status) =>
+    status.state == LinkConnectionState.connected;
+
 /// The machine's bridge process, or null while it is up and the link status is
 /// the one worth showing.
 LinkStatusView? bridgeStatusView({
-  required BridgeLinkStatus bridge,
+  required BridgeLinkStatus? bridge,
   required String machineName,
-}) => _bridge(bridge.state, "$machineName's bridge");
+}) => bridge == null ? null : _bridge(bridge.state, "$machineName's bridge");
+
+/// How urgent a bridge state is, in the tones the link uses.
+LinkStatusTone bridgeTone(BridgeStatusState state) =>
+    _bridge(state, 'Bridge')?.tone ?? LinkStatusTone.ok;
+
+/// Whether the bridge crashed on a link that can carry the restart request.
+bool canRestartBridge(LinkStatus? status, BridgeLinkStatus? bridge) =>
+    status != null &&
+    connectionHoldsBridge(status) &&
+    bridge?.state == BridgeStatusState.crashed;
+
+/// What the machine's last close code means while the link reconnects.
+String? linkCloseDetail(int? code) => switch (code) {
+  LinkCloseCode.shuttingDown => 'Mac is restarting',
+  LinkCloseCode.bridgeOverflow || LinkCloseCode.sessionError => 'Session reset',
+  LinkCloseCode.idleExpired => 'Session timed out',
+  _ => null,
+};
 
 /// The bridge state without a machine name, for a row that already shows one.
 String? bridgeStatusLabel(BridgeLinkStatus bridge) =>
@@ -129,12 +153,18 @@ LinkStatusView _connected(LinkRoute? route, String machineName) {
   );
 }
 
-LinkStatusView _connecting(String machineName) => (
-  label: 'Connecting to $machineName…',
-  state: 'Connecting…',
-  icon: AppIcons.sync,
-  tone: LinkStatusTone.pending,
-);
+LinkStatusView _connecting(String machineName, int? closeCode) {
+  final detail = linkCloseDetail(closeCode);
+  final what = detail == null ? 'Connecting…' : 'Connecting… · $detail';
+  return (
+    label: detail == null
+        ? 'Connecting to $machineName…'
+        : 'Connecting to $machineName… · $detail',
+    state: what,
+    icon: AppIcons.sync,
+    tone: LinkStatusTone.pending,
+  );
+}
 
 LinkStatusView _asleep(String? seen, String machineName) => (
   label: seen == null

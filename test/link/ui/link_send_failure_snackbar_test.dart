@@ -1,4 +1,5 @@
-import 'package:broski/widgets/link/link_send_failure_snackbar.dart';
+import 'package:broski/app/app_messenger.dart';
+import 'package:broski/services/link/link_send_failure_notice.dart';
 import 'package:broski_link/broski_link.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,16 +20,44 @@ void main() {
         reason: LinkSendFailureReason.queueFull,
         stream: 1,
         bytes: 4096,
+        tag: 'req_1',
       ),
     );
     await tester.pump();
 
     expect(
-      find.text(
-        "Couldn't send — the connection to your Mac is busy, try again",
-      ),
+      find.text('Your phone is still sending the last messages'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('a frame nothing waits on is never announced', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        scaffoldMessengerKey: appMessengerKey,
+        home: const Scaffold(body: SizedBox.shrink()),
+      ),
+    );
+
+    showLinkSendFailure(
+      const LinkSendFailure(
+        reason: LinkSendFailureReason.rejected,
+        stream: 0,
+        bytes: 12,
+      ),
+    );
+    showLinkSendFailure(
+      const LinkSendFailure(
+        reason: LinkSendFailureReason.sessionReset,
+        stream: 1,
+        bytes: 4096,
+        count: 2,
+        tag: 'req_2',
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(SnackBar), findsNothing);
   });
 
   test('a message too large to carry says so', () {
@@ -44,19 +73,27 @@ void main() {
     );
   });
 
-  test('a cleared queue reads as a busy connection', () {
-    for (final reason in const [
-      LinkSendFailureReason.sessionReset,
-      LinkSendFailureReason.rejected,
-      LinkSendFailureReason.queueFull,
-    ]) {
-      expect(
-        linkSendFailureText(
-          LinkSendFailure(reason: reason, stream: 1, bytes: 10, count: 3),
+  test('each refusal says what actually happened', () {
+    expect(
+      linkSendFailureText(
+        const LinkSendFailure(
+          reason: LinkSendFailureReason.rejected,
+          stream: 1,
+          bytes: 10,
         ),
-        "Couldn't send — the connection to your Mac is busy, try again",
-        reason: '$reason',
-      );
-    }
+      ),
+      "Couldn't send — the Mac refused that message",
+    );
+    expect(
+      linkSendFailureText(
+        const LinkSendFailure(
+          reason: LinkSendFailureReason.sessionReset,
+          stream: 1,
+          bytes: 10,
+          count: 3,
+        ),
+      ),
+      'The session was replaced · reconnecting',
+    );
   });
 }

@@ -1,19 +1,21 @@
 import 'package:broski/models/message.dart';
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/chat/load_earlier.dart';
 import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:broski/widgets/rollback_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// How much of the thread the sheet reloads after a rollback: the newest turns
-/// are the ones a rollback can change.
-const int _rollbackTranscriptLimit = 20;
-
 /// Shows the Codex rollback sheet. Extracted from chat_screen.dart.
 ///
 /// Returns early with a snackbar if there is no active Codex thread.
-void showCodexRollbackSheet(BuildContext context, WidgetRef ref) {
+void showCodexRollbackSheet(
+  BuildContext context,
+  WidgetRef ref, {
+  required void Function({required bool loadingMore, required bool loadedAll})
+  setPaginationState,
+}) {
   final chatState = ref.read(chatSessionProvider);
   final threadId = chatState.cxThreadId;
   if (threadId == null || threadId.isEmpty) {
@@ -36,11 +38,14 @@ void showCodexRollbackSheet(BuildContext context, WidgetRef ref) {
           await bridge.cxThreadRollback(threadId: threadId, numTurns: numTurns);
           final page = await bridge.cxGetThreadMessagesPage(
             threadId,
-            limit: _rollbackTranscriptLimit,
+            limit: kTranscriptPageLimit,
           );
-          ref
-              .read(chatSessionProvider.notifier)
-              .hydrateCodexTranscript(page.items);
+          final chat = ref.read(chatSessionProvider.notifier);
+          // A rollback rewrites the newest turns, so the reload is a page plus
+          // the cursor and pagination state the chat screen scrolls from.
+          chat.hydrateCodexTranscript(page.items);
+          chat.setTranscriptCursor(page.nextCursor);
+          setPaginationState(loadingMore: false, loadedAll: !page.hasOlder);
           if (context.mounted) {
             showSuccess(
               context,

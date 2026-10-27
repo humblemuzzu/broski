@@ -1,10 +1,7 @@
 import 'package:broski/models/transcript_page.dart';
 import 'package:broski/services/pi_bridge_service.dart';
 
-/// Paged Pi transcript reads.
-///
-/// [readSessionMessages] answers with the whole transcript; this asks for one page plus the cursor
-/// for the page before it.
+/// Paged Pi transcript reads: one page of the transcript plus the cursor for the page before it.
 extension PiBridgeTranscriptPages on PiBridgeService {
   Future<TranscriptPage<Map<String, dynamic>>> readSessionMessagesPage({
     String? sessionPath,

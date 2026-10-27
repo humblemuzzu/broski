@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 
+import 'package:broski/app/app_messenger.dart';
 import 'package:broski/providers/font_provider.dart';
 import 'package:broski/providers/theme_provider.dart';
 import 'package:broski/screens/root_screen.dart';
@@ -8,7 +9,6 @@ import 'package:broski/services/notification_service.dart';
 import 'package:broski/services/storage/legacy_connection_purge.dart';
 import 'package:broski/services/storage_service.dart';
 import 'package:broski/theme/theme.dart';
-import 'package:broski/widgets/link/link_send_failure_snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

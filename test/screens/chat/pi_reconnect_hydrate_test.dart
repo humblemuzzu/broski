@@ -104,11 +104,11 @@ void main() {
       await pumpEventQueue();
 
       final messages = socket.sent.firstWhere(
-        (message) => message['type'] == 'pi_get_messages',
+        (message) => message['type'] == 'pi_read_session_messages',
       );
       chat.setPiSession(sessionId: 'other', cwd: '/p');
       socket.deliver({
-        'type': 'pi_messages',
+        'type': 'pi_session_messages',
         'requestId': messages['requestId'],
         'data': [
           {'role': 'user', 'content': 'stale', 'timestamp': 1},
@@ -120,31 +120,30 @@ void main() {
     },
   );
 
-  test(
-    'a reconnect without a session file falls back to the whole transcript',
-    () async {
-      final pending = hydratePiAfterReconnect(
-        piBridge: piBridge,
-        chat: chat,
-        sessionPath: null,
-        sessionId: 'pi-1',
-        projectPath: '/p',
-      );
+  test('a reconnect without a session file still asks for one page', () async {
+    final pending = hydratePiAfterReconnect(
+      piBridge: piBridge,
+      chat: chat,
+      sessionPath: null,
+      sessionId: 'pi-1',
+      projectPath: '/p',
+    );
 
-      final request = socket.sent.firstWhere(
-        (message) => message['type'] == 'pi_get_messages',
-      );
-      socket.deliver({
-        'type': 'pi_messages',
-        'requestId': request['requestId'],
-        'data': [
-          {'role': 'user', 'content': 'whole', 'timestamp': 5},
-        ],
-      });
+    final request = socket.sent.firstWhere(
+      (message) => message['type'] == 'pi_read_session_messages',
+    );
+    expect(request['limit'], 60);
+    expect(request['sessionPath'], isNull);
+    socket.deliver({
+      'type': 'pi_session_messages',
+      'requestId': request['requestId'],
+      'data': [
+        {'role': 'user', 'content': 'page', 'timestamp': 5},
+      ],
+    });
 
-      expect(await pending, isFalse);
-      expect(chat.transcriptCursor, isNull);
-      expect(chat.state.messages.map((m) => m.text), ['whole']);
-    },
-  );
+    expect(await pending, isFalse);
+    expect(chat.transcriptCursor, isNull);
+    expect(chat.state.messages.map((m) => m.text), ['page']);
+  });
 }

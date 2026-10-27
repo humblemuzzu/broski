@@ -34,6 +34,7 @@ import 'package:broski/models/vcs.dart';
 import 'package:broski/models/worktree.dart';
 import 'package:broski/services/bridge/bridge_reset_exception.dart';
 import 'package:broski/services/bridge/bridge_response_error.dart';
+import 'package:broski/services/bridge/pending_requests.dart';
 import 'package:broski/services/bridge/runtime_replay_tracker.dart';
 import 'package:broski/services/bridge/skill_mapping.dart';
 import 'package:broski/services/bridge/transcript_page_fetch.dart';
@@ -96,7 +97,7 @@ class BridgeService {
   final _random = Random();
   int _requestCounter = 0;
   late final StreamSubscription<Map<String, dynamic>> _dispatcherSub;
-  final Map<String, Completer<Map<String, dynamic>>> _pendingByRequestId = {};
+  final PendingRequests _pending = PendingRequests();
   final Map<String, Map<String, dynamic>> _earlyResponsesByRequestId = {};
   final Map<String, int> _earlyResponseAtMs = {};
 
@@ -178,7 +179,7 @@ class BridgeService {
   void _dispatchMessage(Map<String, dynamic> message) {
     final requestId = message['requestId'];
     if (requestId is! String || requestId.isEmpty) return;
-    final waiter = _pendingByRequestId.remove(requestId);
+    final waiter = _pending.take(requestId);
     if (waiter != null && !waiter.isCompleted) {
       waiter.complete(message);
       return;
@@ -203,14 +204,9 @@ class BridgeService {
 
   void dispose() {
     _dispatcherSub.cancel();
-    for (final entry in _pendingByRequestId.entries) {
-      if (!entry.value.isCompleted) {
-        entry.value.completeError(
-          StateError('BridgeService disposed while waiting for response'),
-        );
-      }
-    }
-    _pendingByRequestId.clear();
+    _pending.failAll(
+      StateError('BridgeService disposed while waiting for response'),
+    );
     _earlyResponsesByRequestId.clear();
     _earlyResponseAtMs.clear();
   }
@@ -262,15 +258,15 @@ class BridgeService {
       return Future.value(cached);
     }
 
-    if (_pendingByRequestId.containsKey(requestId)) {
-      return _pendingByRequestId[requestId]!.future;
+    final existing = _pending.existing(requestId);
+    if (existing != null) {
+      return existing.future;
     }
 
-    final completer = Completer<Map<String, dynamic>>();
-    _pendingByRequestId[requestId] = completer;
+    final completer = _pending.waiter(requestId);
 
     final timer = Timer(timeout, () {
-      _pendingByRequestId.remove(requestId);
+      _pending.take(requestId);
       if (!completer.isCompleted) {
         completer.completeError(
           TimeoutException('Bridge response timeout: $type'),

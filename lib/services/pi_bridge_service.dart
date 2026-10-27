@@ -4,6 +4,8 @@ import 'package:broski/models/file_attachment.dart';
 import 'package:broski/models/pi.dart';
 import 'package:broski/models/project.dart';
 import 'package:broski/services/bridge/bridge_reset_exception.dart';
+import 'package:broski/services/bridge/bridge_response_error.dart';
+import 'package:broski/services/bridge/pending_requests.dart';
 import 'package:broski/services/websocket_service.dart';
 
 export 'bridge/bridge_pi_tools.dart';
@@ -30,7 +32,7 @@ class PiBridgeService {
   late final StreamSubscription<ConnectionStatus> _statusSub;
 
   int _requestCounter = 0;
-  final Map<String, Completer<Map<String, dynamic>>> _pendingByRequestId = {};
+  final PendingRequests _pending = PendingRequests();
 
   static const _requestIdPrefix = 'pi_req_';
 
@@ -40,7 +42,7 @@ class PiBridgeService {
       return;
     }
 
-    final completer = _pendingByRequestId.remove(requestId);
+    final completer = _pending.take(requestId);
     if (completer != null && !completer.isCompleted) {
       completer.complete(message);
     }
@@ -51,42 +53,25 @@ class PiBridgeService {
   /// instead of holding the caller (and the composer) until its timeout.
   void _handleStatus(ConnectionStatus status) {
     if (status == ConnectionStatus.connected) return;
-    final pending = _pendingByRequestId.values.toList();
-    _pendingByRequestId.clear();
-    for (final completer in pending) {
-      if (completer.isCompleted) continue;
-      completer.completeError(PiBridgeDisconnectedException());
-    }
+    _pending.failAll(PiBridgeDisconnectedException());
   }
 
   /// Fails every request still waiting for a reply the bridge lost when its
   /// socket was replaced, restarted or went away, so a caller is not held until
   /// its own timeout for an answer that is no longer coming.
-  void failPendingRequests(BridgeResetReason reason) {
-    if (_pendingByRequestId.isEmpty) {
-      return;
-    }
-    final pending = _pendingByRequestId.values.toList(growable: false);
-    _pendingByRequestId.clear();
-    final error = BridgeResetException(reason);
-    for (final completer in pending) {
-      if (!completer.isCompleted) {
-        completer.completeError(error);
-      }
-    }
-  }
+  void failPendingRequests(BridgeResetReason reason) =>
+      _pending.failAll(BridgeResetException(reason));
+
+  /// The link refused one request, so it never reached the bridge.
+  void failPendingRequest(String requestId, Object error) =>
+      _pending.fail(requestId, error);
 
   void dispose() {
     _dispatcherSub.cancel();
     _statusSub.cancel();
-    for (final entry in _pendingByRequestId.entries) {
-      if (!entry.value.isCompleted) {
-        entry.value.completeError(
-          StateError('PiBridgeService disposed while waiting for response'),
-        );
-      }
-    }
-    _pendingByRequestId.clear();
+    _pending.failAll(
+      StateError('PiBridgeService disposed while waiting for response'),
+    );
   }
 
   /// Internal: generate a unique request ID (for extensions).
@@ -111,17 +96,15 @@ class PiBridgeService {
     String expectedType, {
     required String requestId,
     Duration timeout = const Duration(seconds: 30),
-  }) async {
-    final existing = _pendingByRequestId[requestId];
+  }) {
+    final existing = _pending.existing(requestId);
     if (existing != null) {
       return existing.future;
     }
 
-    final completer = Completer<Map<String, dynamic>>();
-    _pendingByRequestId[requestId] = completer;
-
-    Timer(timeout, () {
-      final pending = _pendingByRequestId.remove(requestId);
+    final completer = _pending.waiter(requestId);
+    final timer = Timer(timeout, () {
+      final pending = _pending.take(requestId);
       if (pending != null && !pending.isCompleted) {
         pending.completeError(
           TimeoutException(
@@ -131,20 +114,23 @@ class PiBridgeService {
       }
     });
 
-    final response = await completer.future;
-    final actualType = response['type'] as String?;
+    return completer.future
+        .then((response) {
+          final actualType = response['type'] as String?;
 
-    if (actualType == 'error') {
-      throw Exception(response['message'] ?? 'Unknown bridge error');
-    }
+          if (actualType == 'error') {
+            throw bridgeResponseError(response);
+          }
 
-    if (actualType != expectedType) {
-      throw StateError(
-        'Expected response type "$expectedType", got "$actualType"',
-      );
-    }
+          if (actualType != expectedType) {
+            throw StateError(
+              'Expected response type "$expectedType", got "$actualType"',
+            );
+          }
 
-    return response;
+          return response;
+        })
+        .whenComplete(timer.cancel);
   }
 
   Future<PiState> getState({String? projectPath}) async {

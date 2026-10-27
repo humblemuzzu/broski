@@ -18,6 +18,9 @@ abstract final class Spacing {
   static const double xl = 20;
   static const double xxl = 24;
   static const double xxxl = 32;
+
+  /// The smallest hit area a touch target may have.
+  static const double minTouchTarget = 48;
 }
 
 /// Border radius scale with pre-built [BorderRadius] constants.

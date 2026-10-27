@@ -21,7 +21,7 @@ const int pageLimit = 200;
 /// The largest single reply a link socket is given (`BROSKI_LINK_MESSAGE_MB`).
 const int replyLimit = 8 * 1024 * 1024;
 
-/// How many pages test C keeps in flight while the phone is not reading.
+/// How many pages are kept in flight while the phone is not reading.
 const int burstPages = 6;
 
 String megabytes(int bytes) => (bytes / (1024 * 1024)).toStringAsFixed(1);

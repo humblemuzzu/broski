@@ -26,6 +26,11 @@ final class LinkBackpressureException extends LinkException {
   const LinkBackpressureException(super.code, super.message);
 }
 
+/// No handshake has completed on this link yet, so nothing can leave on it.
+final class LinkNotReadyException extends LinkException {
+  const LinkNotReadyException(super.code, super.message);
+}
+
 final class LinkPanicException extends LinkException {
   const LinkPanicException(super.code, super.message);
 }
@@ -38,6 +43,7 @@ int checkStatus(int status) {
   throw switch (status) {
     -1 => LinkArgumentException(status, lastErrorMessage()),
     -3 => LinkBackpressureException(status, lastErrorMessage()),
+    -4 => LinkNotReadyException(status, lastErrorMessage()),
     -99 => LinkPanicException(status, lastErrorMessage()),
     _ => LinkProtocolException(status, lastErrorMessage()),
   };

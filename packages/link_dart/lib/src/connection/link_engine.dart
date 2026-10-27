@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:isolate';
 import 'dart:typed_data';
 
+import 'package:broski_link/src/connection/app_pause.dart';
 import 'package:broski_link/src/connection/isolate_protocol.dart';
 import 'package:broski_link/src/connection/lan_probe.dart';
 import 'package:broski_link/src/connection/link_close_code.dart';
@@ -14,6 +15,7 @@ import 'package:broski_link/src/connection/link_status.dart';
 import 'package:broski_link/src/connection/link_status_reporter.dart';
 import 'package:broski_link/src/connection/machine_endpoint.dart';
 import 'package:broski_link/src/connection/presence_tracker.dart';
+import 'package:broski_link/src/connection/retry_schedule.dart';
 import 'package:broski_link/src/connection/route_retry.dart';
 import 'package:broski_link/src/connection/web_link_socket.dart';
 
@@ -48,9 +50,9 @@ final class LinkEngine {
       hasRoute: (route) => LinkSockets.hasRoute(_endpoint, route),
     );
     _handshake = LinkHandshake(onTimeout: _onFailure, onState: _setState);
+    _retrySchedule = RetrySchedule(connect: (only) => _connect(only: only));
+    _pause = AppPause(() => _now);
   }
-
-  static const Duration _staleSocketAfter = Duration(seconds: 15);
 
   /// Events to the main isolate.
   final SendPort events;
@@ -68,15 +70,16 @@ final class LinkEngine {
   late final LinkStatusReporter _status;
   late final RouteRetry _retries;
   late final LinkHandshake _handshake;
+  late final RetrySchedule _retrySchedule;
+  late final AppPause _pause;
 
   MachineEndpoint _endpoint;
-  Timer? _retryTimer;
-  var _paused = false;
   var _closed = false;
-  int? _pausedAtMs;
   final PeerClosePolicy _close = PeerClosePolicy();
 
   Duration get _now => Duration(milliseconds: _clock.elapsedMilliseconds);
+
+  static const int _controlStream = 0;
 
   /// Starts the first attempt.
   void run() => _connect();
@@ -86,10 +89,10 @@ final class LinkEngine {
       return;
     }
     switch (command) {
-      case LinkSendBridge(:final text):
-        _io.sendBridge(utf8.encode(text));
+      case LinkSendBridge(:final stream, :final bytes, :final tag):
+        _io.send(stream, bytes, tag: tag);
       case LinkSendControl(:final message):
-        _io.sendControl(utf8.encode(jsonEncode(message)));
+        _io.send(_controlStream, utf8.encode(jsonEncode(message)), tag: null);
       case LinkSetEndpoint(:final endpoint):
         _setEndpoint(endpoint);
       case LinkNetworkChanged():
@@ -109,7 +112,7 @@ final class LinkEngine {
       return;
     }
     _closed = true;
-    _cancelRetry();
+    _retrySchedule.cancel();
     _handshake.cancel();
     _probe.stop();
     _io.stop();
@@ -154,7 +157,7 @@ final class LinkEngine {
     if (_closed || _close.isRevoked) {
       return;
     }
-    _cancelRetry();
+    _retrySchedule.cancel();
     _handshake.cancel();
     _handshake.reset();
     _sockets.stop();
@@ -185,7 +188,7 @@ final class LinkEngine {
       _sockets.stop();
       return;
     }
-    if (_paused) {
+    if (_pause.paused) {
       // A dial that was already in flight when the app paused: the socket waits
       // here and a quick resume picks it up instead of dialling again.
       return;
@@ -242,7 +245,7 @@ final class LinkEngine {
   }
 
   void _onFailure() {
-    if (_closed || _paused) {
+    if (_closed || _pause.paused) {
       _sockets.stop();
       return;
     }
@@ -258,41 +261,24 @@ final class LinkEngine {
     }
     final retry = _retries.next(route);
     _setState(LinkConnectionState.waiting);
-    _retry(only: retry.only, delay: retry.delay);
-  }
-
-  void _retry({required LinkRoute? only, required Duration delay}) {
-    _cancelRetry();
-    _retryTimer = Timer(delay, () {
-      _retryTimer = null;
-      if (_closed || _paused) {
-        return;
-      }
-      _connect(only: only);
-    });
-  }
-
-  void _cancelRetry() {
-    _retryTimer?.cancel();
-    _retryTimer = null;
+    _retrySchedule.after(retry.delay, only: retry.only);
   }
 
   void _reconnectNow() {
-    if (_closed || _paused || _close.isRevoked) {
+    if (_closed || _pause.paused || _close.isRevoked) {
       return;
     }
-    _cancelRetry();
+    _retrySchedule.cancel();
     _retries.reset();
     _connect();
   }
 
   void _pauseApp() {
-    if (_closed || _paused) {
+    if (_closed || _pause.paused) {
       return;
     }
-    _paused = true;
-    _pausedAtMs = _clock.elapsedMilliseconds;
-    _cancelRetry();
+    _pause.pause();
+    _retrySchedule.cancel();
     _handshake.cancel();
     _io.detach();
     _sockets.stop();
@@ -300,16 +286,12 @@ final class LinkEngine {
   }
 
   void _resumeApp() {
-    if (_closed || !_paused) {
+    if (_closed || !_pause.paused) {
       return;
     }
-    final away = _clock.elapsedMilliseconds - (_pausedAtMs ?? 0);
-    _paused = false;
-    _pausedAtMs = null;
+    final reusable = _pause.resume();
     final socket = _sockets.current;
-    if (socket != null &&
-        away <= _staleSocketAfter.inMilliseconds &&
-        socket.isOpen) {
+    if (reusable && socket != null && socket.isOpen) {
       _retries.reset();
       _attach(socket);
       return;
@@ -335,7 +317,7 @@ final class LinkEngine {
   ) {
     _presence.record(socket, presence);
     _status.sawMachine(lastSeen);
-    if (_closed || _paused || !identical(socket, _sockets.current)) {
+    if (_closed || _pause.paused || !identical(socket, _sockets.current)) {
       return;
     }
     _handshake.presenceReported();
@@ -362,7 +344,7 @@ final class LinkEngine {
     if (_closed) {
       return;
     }
-    if (_paused) {
+    if (_pause.paused) {
       _sockets.forget();
       return;
     }
@@ -375,7 +357,7 @@ final class LinkEngine {
   }
 
   void _syncProbe() => _probe.sync(
-    eligible: !_closed && !_paused && _sockets.route == LinkRoute.relay,
+    eligible: !_closed && !_pause.paused && _sockets.route == LinkRoute.relay,
     hosts: <Uri>[for (final host in _endpoint.lan) _endpoint.lanLink(host)],
   );
 

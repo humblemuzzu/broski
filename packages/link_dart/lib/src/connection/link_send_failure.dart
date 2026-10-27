@@ -3,8 +3,7 @@ enum LinkSendFailureReason {
   /// The outbound queue is at its byte bound.
   queueFull,
 
-  /// The message alone is larger than the queue bound, so it could never be
-  /// carried.
+  /// Larger than the queue bound, so it could never be carried.
   tooLarge,
 
   /// The session rejected this message; the ones behind it still go out.
@@ -21,6 +20,7 @@ final class LinkSendFailure {
     required this.stream,
     required this.bytes,
     this.count = 1,
+    this.tag,
   });
 
   final LinkSendFailureReason reason;
@@ -28,15 +28,18 @@ final class LinkSendFailure {
   /// 0 is control JSON, 1 is bridge messages.
   final int stream;
 
-  /// Bytes of the refused message, or of every message cleared on a
-  /// [LinkSendFailureReason.sessionReset].
+  /// Bytes refused, or cleared on a [LinkSendFailureReason.sessionReset].
   final int bytes;
 
   /// How many messages this failure covers.
   final int count;
 
+  /// The sender's name for the refused message, so what waits on it can fail
+  /// now instead of timing out. Null when nothing does, and on a reset.
+  final String? tag;
+
   @override
   String toString() =>
       'LinkSendFailure(${reason.name}, stream=$stream, bytes=$bytes, '
-      'count=$count)';
+      'count=$count${tag == null ? '' : ', tag=$tag'})';
 }

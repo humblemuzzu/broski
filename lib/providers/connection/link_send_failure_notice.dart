@@ -1,5 +1,5 @@
 import 'package:broski/providers/connection/link_connection_controller.dart';
-import 'package:broski/widgets/link/link_send_failure_snackbar.dart';
+import 'package:broski/services/link/link_send_failure_notice.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Tells the user when the link refused a message, instead of leaving them

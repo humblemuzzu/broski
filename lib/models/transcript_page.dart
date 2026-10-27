@@ -8,20 +8,29 @@ class TranscriptPage<T> {
     required this.items,
     required this.hasMore,
     this.nextCursor,
+    this.cursorUnknown = false,
   });
 
   final List<T> items;
   final bool hasMore;
   final String? nextCursor;
 
+  /// The cursor asked for names no message of this session any more, so the page is the newest
+  /// one instead of the one before it: the caller replaces its transcript rather than prepending.
+  final bool cursorUnknown;
+
   bool get hasOlder => hasMore && nextCursor != null;
 
-  TranscriptPage.complete(this.items) : hasMore = false, nextCursor = null;
+  TranscriptPage.complete(this.items)
+    : hasMore = false,
+      nextCursor = null,
+      cursorUnknown = false;
 
   static TranscriptPage<T> fromResponse<T>(
     Map<String, dynamic> response,
     List<T> items,
   ) {
+    final unknown = response['cursorUnknown'];
     final hasMore = response['hasMore'];
     if (hasMore is! bool) return TranscriptPage<T>.complete(items);
     final cursor = response['nextCursor'];
@@ -29,6 +38,7 @@ class TranscriptPage<T> {
       items: items,
       hasMore: hasMore,
       nextCursor: cursor is String && cursor.isNotEmpty ? cursor : null,
+      cursorUnknown: unknown == true,
     );
   }
 }

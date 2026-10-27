@@ -33,7 +33,7 @@ void main() {
     );
     expect(
       () => client.send(1, Uint8List.fromList([1, 2, 3]), nowMs: 0),
-      throwsA(isA<LinkProtocolException>()),
+      throwsA(isA<LinkNotReadyException>()),
       reason: 'no session before the handshake finishes',
     );
   });

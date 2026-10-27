@@ -31,14 +31,14 @@ void main() {
   tearDown(() => io.stop());
 
   test('a message with no session yet waits instead of going nowhere', () {
-    io.sendBridge(Uint8List.fromList(utf8.encode('{"type":"set_view"}')));
+    io.send(1, Uint8List.fromList(utf8.encode('{"type":"set_view"}')));
 
     expect(failures, isEmpty);
     expect(wire, isEmpty);
   });
 
   test('a message the session could never carry is refused at once', () {
-    io.sendControl(Uint8List(linkOutboundQueueMax + 1));
+    io.send(0, Uint8List(linkOutboundQueueMax + 1));
 
     expect(failures.single.reason, LinkSendFailureReason.tooLarge);
     expect(wire, isEmpty);

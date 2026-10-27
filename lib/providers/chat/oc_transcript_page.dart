@@ -7,71 +7,43 @@ extension OcTranscriptPage on ChatSessionNotifier {
   /// visible content.
   ChatMessage? openCodeTranscriptMessage(Map<String, dynamic> item) {
     final info = item['info'] as Map<String, dynamic>? ?? const {};
-    final parts = item['parts'] as List<dynamic>? ?? const [];
     final messageId = info['id'] as String? ?? '';
     if (messageId.isEmpty) return null;
 
-    final sessionId =
-        info['sessionID'] as String? ?? info['sessionId'] as String? ?? '';
+    final parts = item['parts'] as List<dynamic>? ?? const [];
+    final collected = _OcPartCollection();
+    for (final partItem in parts) {
+      if (partItem is Map<String, dynamic>) {
+        collected.add(partItem, _openCodeTool);
+      }
+    }
+
     final role = info['role'] as String? ?? 'assistant';
+    final text = collected.text.toString();
+    // A user message left with nothing visible is system-injected context, not
+    // something the user typed.
+    if (role == 'user' && text.isEmpty && collected.tools.isEmpty) {
+      return null;
+    }
+    final diffs = <DiffEntry>[];
+    for (final tool in collected.tools) {
+      final diff = _extractDiffFromTool(tool);
+      if (diff != null) diffs.add(diff);
+    }
     final created =
         info['time']?['created'] as int? ??
         DateTime.now().millisecondsSinceEpoch;
-
-    var textBuffer = StringBuffer();
-    final tools = <ToolCall>[];
-    final diffs = <DiffEntry>[];
-    final subtasks = <SubtaskNotification>[];
-    final reasoningParts = <ReasoningPart>[];
-
-    for (final partItem in parts) {
-      final part = partItem as Map<String, dynamic>;
-      final partType = part['type'] as String? ?? '';
-      if (partType == 'text') {
-        // Skip synthetic and ignored text parts (system-injected content)
-        // OpenCode TUI does the same filtering
-        final isSynthetic = part['synthetic'] as bool? ?? false;
-        final isIgnored = part['ignored'] as bool? ?? false;
-        if (!isSynthetic && !isIgnored) {
-          textBuffer.write(part['text'] as String? ?? '');
-        }
-      }
-      if (partType == 'tool') {
-        final tool = _openCodeTool(part);
-        if (tool != null) {
-          tools.add(tool);
-          final diff = _extractDiffFromTool(tool);
-          if (diff != null) {
-            diffs.add(diff);
-          }
-        }
-      }
-      if (partType == 'subtask') {
-        subtasks.add(SubtaskNotification.fromJson(part));
-      }
-      if (partType == 'reasoning') {
-        reasoningParts.add(ReasoningPart.fromJson(part));
-      }
-    }
-
-    final textContent = textBuffer.toString();
-
-    // Skip user messages that have no visible content after filtering synthetic parts
-    // (these are system-injected context messages, not real user input)
-    if (role == 'user' && textContent.isEmpty && tools.isEmpty) {
-      return null;
-    }
-
     return ChatMessage(
       id: messageId,
-      sessionId: sessionId,
+      sessionId:
+          info['sessionID'] as String? ?? info['sessionId'] as String? ?? '',
       role: role == 'user' ? MessageRole.user : MessageRole.assistant,
       createdAt: DateTime.fromMillisecondsSinceEpoch(created),
-      text: textContent,
-      toolCalls: tools,
+      text: text,
+      toolCalls: collected.tools,
       diffs: diffs,
-      subtaskNotifications: subtasks,
-      reasoningParts: reasoningParts,
+      subtaskNotifications: collected.subtasks,
+      reasoningParts: collected.reasoning,
     );
   }
 
@@ -113,5 +85,32 @@ extension OcTranscriptPage on ChatSessionNotifier {
       additions.add(message);
     }
     _prependMessages(additions);
+  }
+}
+
+/// What one message's parts add up to, in the shapes a [ChatMessage] holds.
+final class _OcPartCollection {
+  final StringBuffer text = StringBuffer();
+  final List<ToolCall> tools = <ToolCall>[];
+  final List<SubtaskNotification> subtasks = <SubtaskNotification>[];
+  final List<ReasoningPart> reasoning = <ReasoningPart>[];
+
+  void add(
+    Map<String, dynamic> part,
+    ToolCall? Function(Map<String, dynamic>) tool,
+  ) {
+    switch (part['type'] as String? ?? '') {
+      case 'text':
+        // OpenCode's own TUI drops synthetic and ignored text too.
+        if (part['synthetic'] == true || part['ignored'] == true) return;
+        text.write(part['text'] as String? ?? '');
+      case 'tool':
+        final call = tool(part);
+        if (call != null) tools.add(call);
+      case 'subtask':
+        subtasks.add(SubtaskNotification.fromJson(part));
+      case 'reasoning':
+        reasoning.add(ReasoningPart.fromJson(part));
+    }
   }
 }

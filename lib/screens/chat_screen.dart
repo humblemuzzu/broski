@@ -1038,7 +1038,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     ca.showCodexSkillsSheet(context: context, ref: ref, cwd: cwd);
   }
 
-  void _showCodexRollbackSheet() => showCodexRollbackSheet(context, ref);
+  void _showCodexRollbackSheet() => showCodexRollbackSheet(
+    context,
+    ref,
+    setPaginationState: ({required bool loadingMore, required bool loadedAll}) {
+      if (mounted) {
+        setState(() {
+          _loadingMoreMessages = loadingMore;
+          _hasLoadedAllMessages = loadedAll;
+        });
+      }
+    },
+  );
 
   void _editCodexMessage(String messageId, String text) =>
       cxedit.editCodexMessage(

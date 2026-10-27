@@ -4,17 +4,16 @@ import 'dart:typed_data';
 import 'package:broski_link/src/connection/link_send_failure.dart';
 import 'package:broski_link/src/errors.dart';
 
-/// Bytes the outbound queue holds before it refuses a send, shared with the
-/// machine's reply budget so a message that fits the queue is a message the
-/// other side will answer.
+/// Bytes the outbound queue holds before it refuses a send.
 ///
-/// It sits well inside the Rust session's own ceiling (`Config.max_unacked_bytes`
-/// is 16 MiB and `max_message` 32 MiB in `packages/link/proto/src/config.rs`), so
-/// a full queue is a phone problem the app is told about, never a silent drop.
+/// It is the phone's own budget, not the machine's: a message that fits here
+/// still has to fit the daemon's 8 MiB per-message and 16 MiB window limits
+/// (`LINK_MAX_MESSAGE_BYTES` and `BRIDGE_PENDING_BYTES` in
+/// `packages/link/daemon/src/limits.rs`), and the bridge answers
+/// `response_too_large` for a reply over its own cap. Staying inside the Rust
+/// session's ceiling (`Config.max_unacked_bytes` and `max_message` in
+/// `packages/link/proto/src/config.rs`) is all this bound promises.
 const int linkOutboundQueueMax = 8 * 1024 * 1024;
-
-/// Sessions report "not connected yet" through the message, not the code.
-const List<String> _notReadyPrefixes = <String>['no session', 'not connected'];
 
 /// The session's outbound messages, in order, bounded in bytes.
 ///
@@ -28,14 +27,15 @@ final class LinkOutboundQueue {
   final void Function(int stream, Uint8List bytes) sendFrame;
   final void Function(LinkSendFailure failure) report;
 
-  final Queue<({int stream, Uint8List bytes})> _queued =
-      Queue<({int stream, Uint8List bytes})>();
+  final Queue<({int stream, Uint8List bytes, String? tag})> _queued =
+      Queue<({int stream, Uint8List bytes, String? tag})>();
   var _bytes = 0;
   var _ready = false;
 
-  /// Whether a handshake is in flight or done. While it is false nothing can
-  /// leave, so every message waits here rather than filling the session's own
-  /// buffer, which a new session would drop without telling anyone.
+  /// Whether a handshake has completed, so the session can take a message.
+  /// While it is false nothing can leave, so every message waits here rather
+  /// than filling the session's own buffer, which a new session would drop
+  /// without telling anyone.
   set ready(bool value) {
     if (_ready == value) {
       return;
@@ -48,13 +48,14 @@ final class LinkOutboundQueue {
 
   int get queuedMessages => _queued.length;
 
-  void send(int stream, Uint8List bytes) {
+  void send(int stream, Uint8List bytes, {String? tag}) {
     if (bytes.length > linkOutboundQueueMax) {
       report(
         LinkSendFailure(
           reason: LinkSendFailureReason.tooLarge,
           stream: stream,
           bytes: bytes.length,
+          tag: tag,
         ),
       );
       return;
@@ -65,11 +66,12 @@ final class LinkOutboundQueue {
           reason: LinkSendFailureReason.queueFull,
           stream: stream,
           bytes: bytes.length,
+          tag: tag,
         ),
       );
       return;
     }
-    _queued.add((stream: stream, bytes: bytes));
+    _queued.add((stream: stream, bytes: bytes, tag: tag));
     _bytes += bytes.length;
     pump();
   }
@@ -83,12 +85,8 @@ final class LinkOutboundQueue {
         sendFrame(message.stream, message.bytes);
       } on LinkBackpressureException {
         return;
-      } on LinkProtocolException catch (error) {
-        if (_isNotReadyYet(error)) {
-          return;
-        }
-        _dropFirst(LinkSendFailureReason.rejected);
-        continue;
+      } on LinkNotReadyException {
+        return;
       } on LinkException {
         _dropFirst(LinkSendFailureReason.rejected);
         continue;
@@ -118,9 +116,6 @@ final class LinkOutboundQueue {
     );
   }
 
-  bool _isNotReadyYet(LinkProtocolException error) =>
-      _notReadyPrefixes.any((prefix) => error.message.startsWith(prefix));
-
   void _dropFirst(LinkSendFailureReason reason) {
     final message = _queued.first;
     report(
@@ -128,6 +123,7 @@ final class LinkOutboundQueue {
         reason: reason,
         stream: message.stream,
         bytes: message.bytes.length,
+        tag: message.tag,
       ),
     );
     _release();

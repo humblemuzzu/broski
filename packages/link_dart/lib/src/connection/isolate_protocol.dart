@@ -26,9 +26,11 @@ sealed class LinkCommand {
 }
 
 final class LinkSendBridge extends LinkCommand {
-  const LinkSendBridge(this.text);
+  const LinkSendBridge(this.stream, this.bytes, {this.tag});
 
-  final String text;
+  final int stream;
+  final Uint8List bytes;
+  final String? tag;
 }
 
 final class LinkSendControl extends LinkCommand {

@@ -6,7 +6,7 @@ import 'package:test/test.dart';
 
 void main() {
   test('reports the native ABI version', () {
-    expect(abiVersion(), 2);
+    expect(abiVersion(), 3);
   });
 
   test('hashes the known vector for "abc"', () {

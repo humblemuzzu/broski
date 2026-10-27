@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:broski/services/websocket/bridge_transport.dart';
 import 'package:broski/services/websocket/json_message_decoder.dart';
+import 'package:broski_link/broski_link.dart' show linkOutboundQueueMax;
 import 'package:flutter/foundation.dart' show debugPrint;
 
 enum ConnectionStatus { disconnected, connecting, connected }
@@ -117,7 +118,7 @@ class WebSocketService {
     if (channel == null) return _queueDetached(message);
     final priority = _getPriority(message['type'] as String? ?? '');
     if (priority == MessagePriority.immediate) {
-      channel.sink.add(jsonEncode(message));
+      channel.sink.add(jsonEncode(message), tag: _tagOf(message));
       return true;
     }
     _pendingBatch.add(message);
@@ -133,8 +134,15 @@ class WebSocketService {
   bool sendImmediate(Map<String, dynamic> message) {
     final channel = _channel;
     if (channel == null) return _queueDetached(message);
-    channel.sink.add(jsonEncode(message));
+    channel.sink.add(jsonEncode(message), tag: _tagOf(message));
     return true;
+  }
+
+  /// The request this message is waiting for a reply to, if any: the caller
+  /// fails it the moment the link says the message never left.
+  String? _tagOf(Map<String, dynamic> message) {
+    final requestId = message['requestId'];
+    return requestId is String && requestId.isNotEmpty ? requestId : null;
   }
 
   bool _queueDetached(Map<String, dynamic> message) {
@@ -149,7 +157,7 @@ class WebSocketService {
     final channel = _channel;
     if (channel == null || _detachedQueue.isEmpty) return;
     for (final message in _detachedQueue) {
-      channel.sink.add(jsonEncode(message));
+      channel.sink.add(jsonEncode(message), tag: _tagOf(message));
     }
     _detachedQueue.clear();
   }
@@ -179,16 +187,25 @@ class WebSocketService {
       return;
     }
     if (_pendingBatch.length == 1) {
-      channel.sink.add(jsonEncode(_pendingBatch.first));
+      final message = _pendingBatch.first;
+      channel.sink.add(jsonEncode(message), tag: _tagOf(message));
+      _pendingBatch.clear();
+      return;
+    }
+    final batch = jsonEncode({
+      'type': 'batch',
+      'messages': List<Map<String, dynamic>>.from(_pendingBatch),
+      'count': _pendingBatch.length,
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    });
+    // A merged frame names no single request, so it carries no tag: one the link
+    // would refuse goes out as its parts instead, each with its own.
+    if (utf8.encode(batch).length > linkOutboundQueueMax) {
+      for (final message in _pendingBatch) {
+        channel.sink.add(jsonEncode(message), tag: _tagOf(message));
+      }
     } else {
-      channel.sink.add(
-        jsonEncode({
-          'type': 'batch',
-          'messages': List<Map<String, dynamic>>.from(_pendingBatch),
-          'count': _pendingBatch.length,
-          'timestamp': DateTime.now().millisecondsSinceEpoch,
-        }),
-      );
+      channel.sink.add(batch);
     }
     _pendingBatch.clear();
   }

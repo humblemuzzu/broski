@@ -9,5 +9,7 @@ abstract interface class BridgeTransport {
 }
 
 abstract interface class BridgeSink {
-  void add(String text);
+  /// [tag] is the request id of a message whose reply something waits for, so
+  /// a refusal can fail that request instead of leaving it to time out.
+  void add(String text, {String? tag});
 }

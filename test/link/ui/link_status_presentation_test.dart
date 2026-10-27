@@ -94,6 +94,42 @@ void main() {
     });
   });
 
+  test('a stale bridge status never hides the link state', () {
+    final view = presentLinkStatus(
+      status: const LinkStatus(state: LinkConnectionState.machineAsleep),
+      machineName: 'Studio Mac',
+      now: _now,
+      bridge: const BridgeLinkStatus(state: BridgeStatusState.crashed, conn: 3),
+    );
+
+    expect(view.state, 'Asleep');
+    expect(view.icon, AppIcons.pause);
+    expect(
+      canRestartBridge(
+        const LinkStatus(state: LinkConnectionState.machineAsleep),
+        const BridgeLinkStatus(state: BridgeStatusState.crashed, conn: 3),
+      ),
+      isFalse,
+      reason: 'an asleep link cannot carry a restart request',
+    );
+  });
+
+  test('a link that is reconnecting says what the machine closed it for', () {
+    LinkStatusView waitingWith(int code) => presentLinkStatus(
+      status: LinkStatus(state: LinkConnectionState.waiting, closeCode: code),
+      machineName: 'Studio Mac',
+      now: _now,
+    );
+
+    expect(
+      waitingWith(LinkCloseCode.shuttingDown).state,
+      contains('restarting'),
+    );
+    expect(waitingWith(LinkCloseCode.idleExpired).state, contains('timed out'));
+    expect(waitingWith(LinkCloseCode.sessionError).state, contains('reset'));
+    expect(waitingWith(LinkCloseCode.normal).state, 'Connecting…');
+  });
+
   test('a link the machine revoked says to pair again', () {
     final view = presentLinkStatus(
       status: const LinkStatus(

@@ -21,7 +21,7 @@ pub use error::bl_last_error;
 pub use identity::{bl_bundle_fingerprint, bl_bundle_id, bl_identity_generate, bl_identity_public};
 pub use pairing::bl_pairing_parse;
 
-const ABI_VERSION: u32 = 2;
+const ABI_VERSION: u32 = 3;
 
 #[no_mangle]
 pub extern "C" fn bl_abi_version() -> u32 {

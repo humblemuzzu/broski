@@ -5,14 +5,14 @@ import 'package:broski_link/broski_link.dart';
 /// Turns the daemon's per-session bridge status into the app-level status edges
 /// the rest of the app resyncs on, and says when in-flight requests are dead.
 ///
-/// The link publishes connecting to connected when the link itself comes up and
-/// when a link session is replaced, and that edge already resyncs. So the first
-/// bridge status after a link connect is adopted without another edge, and one
-/// resync follows each later change of [BridgeLinkStatus.conn]: a new bridge
-/// socket is the only thing that makes the bridge forget this phone's view.
+/// The link's own connecting-to-connected edge already resyncs, and the daemon
+/// reports its bridge state on every attach (`connecting` while its socket dials,
+/// `crashed` if the bridge is down). None of that is news: the daemon queues the
+/// phone's messages until its socket is ready, so a request issued then is
+/// answered rather than lost. The first `up` after a link connect is adopted
+/// silently, and one resync follows each later change of [BridgeLinkStatus.conn].
 ///
-/// [onLinkStatus] must be called after the link's own status was published, so
-/// the tracker decides on the state the app has already seen.
+/// [onLinkStatus] must be called after the link's own status was published.
 final class BridgeStatusTracker {
   BridgeStatusTracker({
     required LinkStatusPublisher publisher,
@@ -25,7 +25,7 @@ final class BridgeStatusTracker {
   int? _conn;
   var _linkUp = false;
   var _awaitingFirstForLink = true;
-  var _bridgeReportedUp = true;
+  var _bridgeReportedUp = false;
 
   void onLinkStatus(LinkStatus status) {
     switch (status.state) {
@@ -55,13 +55,14 @@ final class BridgeStatusTracker {
   }
 
   void onBridgeStatus(BridgeLinkStatus status) {
-    final wasReportedUp = _bridgeReportedUp;
     if (status.state == BridgeStatusState.up) {
       final previousConn = _conn;
+      final adopting = _awaitingFirstForLink;
+      final wasReportedUp = _bridgeReportedUp;
       _conn = status.conn;
+      _awaitingFirstForLink = false;
       _bridgeReportedUp = true;
-      if (_awaitingFirstForLink) {
-        _awaitingFirstForLink = false;
+      if (adopting) {
         return;
       }
       final newSocket = previousConn != null && status.conn != previousConn;
@@ -71,8 +72,11 @@ final class BridgeStatusTracker {
       }
       return;
     }
-    _awaitingFirstForLink = false;
+    final wasReportedUp = _bridgeReportedUp;
     _bridgeReportedUp = false;
+    if (_awaitingFirstForLink) {
+      return;
+    }
     if (wasReportedUp) {
       _publisher.add(const LinkStatus(state: LinkConnectionState.waiting));
     }

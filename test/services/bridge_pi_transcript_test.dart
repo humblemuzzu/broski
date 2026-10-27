@@ -1,3 +1,7 @@
+import 'package:broski/models/transcript_page.dart';
+import 'package:broski/screens/chat/load_earlier.dart';
+import 'package:broski/services/bridge/bridge_response_error.dart';
+import 'package:broski/services/bridge/transcript_page_fetch.dart';
 import 'package:broski/services/pi_bridge_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -62,5 +66,60 @@ void main() {
     final page = await pending;
     expect(page.items, isEmpty);
     expect(page.hasOlder, isFalse);
+  });
+
+  test(
+    'a page too large for the link is retried smaller until it fits',
+    () async {
+      final requested = <int>[];
+      late Future<TranscriptPage<Map<String, dynamic>>> call;
+      var attempt = 0;
+
+      Future<TranscriptPage<Map<String, dynamic>>> readPage(int limit) {
+        requested.add(limit);
+        attempt += 1;
+        call = service.readSessionMessagesPage(sessionId: 's1', limit: limit);
+        final requestId = socket.lastRequestId;
+        socket.deliver({
+          'type': attempt < 3 ? 'error' : 'pi_session_messages',
+          'requestId': requestId,
+          if (attempt < 3) ...{
+            'code': bridgeResponseTooLargeCode,
+            'bytes': 9 * 1024 * 1024,
+            'limit': 8 * 1024 * 1024,
+            'message': 'Response too large for the link',
+          },
+          'data': [
+            {'role': 'user', 'content': 'fits'},
+          ],
+          'hasMore': false,
+        });
+        return call;
+      }
+
+      final page = await fetchTranscriptPage(
+        readPage,
+        limit: kTranscriptPageLimit,
+      );
+
+      expect(requested, [kTranscriptPageLimit, 15, 8]);
+      expect(page.items.single['content'], 'fits');
+      expect(page.hasOlder, isFalse);
+    },
+  );
+
+  test('a bridge error reply is typed, not a plain exception', () async {
+    final pending = service.readSessionMessagesPage(sessionId: 's1', limit: 8);
+
+    socket.deliver({
+      'type': 'error',
+      'requestId': socket.lastRequestId,
+      'code': bridgeResponseTooLargeCode,
+      'bytes': 9 * 1024 * 1024,
+      'limit': 8 * 1024 * 1024,
+      'message': 'Response too large for the link',
+    });
+
+    await expectLater(pending, throwsA(isA<BridgeResponseTooLargeException>()));
   });
 }

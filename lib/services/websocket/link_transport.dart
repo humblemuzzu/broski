@@ -9,7 +9,7 @@ import 'package:broski/services/websocket/bridge_transport.dart';
 final class LinkTransport implements BridgeTransport {
   LinkTransport({
     required Stream<String> messages,
-    required void Function(String text) send,
+    required void Function(String text, {String? tag}) send,
   }) : sink = _LinkSink(send) {
     _incoming = messages.listen(_onMessage, onError: _onError, onDone: _onDone);
   }
@@ -54,8 +54,8 @@ final class LinkTransport implements BridgeTransport {
 final class _LinkSink implements BridgeSink {
   _LinkSink(this._send);
 
-  final void Function(String text) _send;
+  final void Function(String text, {String? tag}) _send;
 
   @override
-  void add(String text) => _send(text);
+  void add(String text, {String? tag}) => _send(text, tag: tag);
 }

@@ -8,13 +8,20 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   late StreamController<String> incoming;
   late List<String> sent;
+  late List<String?> tags;
   late WebSocketService service;
 
   setUp(() {
     incoming = StreamController<String>();
     sent = <String>[];
+    tags = <String?>[];
     service = WebSocketService();
   });
+
+  void send(String text, {String? tag}) {
+    sent.add(text);
+    tags.add(tag);
+  }
 
   tearDown(() async {
     service.dispose();
@@ -22,7 +29,7 @@ void main() {
   });
 
   Future<void> connect() =>
-      service.connect(LinkTransport(messages: incoming.stream, send: sent.add));
+      service.connect(LinkTransport(messages: incoming.stream, send: send));
 
   test('bridge messages reach WebSocketService consumers', () async {
     final received = <Map<String, dynamic>>[];
@@ -72,6 +79,15 @@ void main() {
     ]);
   });
 
+  test('a request carries its id so a refused send can fail it', () async {
+    await connect();
+
+    service.send({'type': 'cc_abort', 'sessionId': 's1', 'requestId': 'req_3'});
+    service.send({'type': 'cc_abort', 'sessionId': 's2'});
+
+    expect(tags, ['req_3', null]);
+  });
+
   test('sends made before a link attaches go out once it does', () async {
     service.send({'type': 'cc_abort', 'sessionId': 's1'});
     expect(sent, isEmpty);
@@ -89,7 +105,7 @@ void main() {
     service.send({'type': 'execute_command', 'command': 'ls'});
     expect(sent, isEmpty);
 
-    await Future<void>.delayed(const Duration(milliseconds: 80));
+    await _until(() => sent.isNotEmpty);
 
     expect(sent, [
       jsonEncode({'type': 'execute_command', 'command': 'ls'}),
@@ -107,7 +123,7 @@ void main() {
   });
 
   test('closing the transport disconnects the service', () async {
-    final transport = LinkTransport(messages: incoming.stream, send: sent.add);
+    final transport = LinkTransport(messages: incoming.stream, send: send);
     await service.connect(transport);
     service.applyTransportStatus(ConnectionStatus.connected);
 
@@ -116,4 +132,16 @@ void main() {
 
     expect(service.status, ConnectionStatus.disconnected);
   });
+}
+
+/// Waits for [ready] instead of for a duration, so a slow machine cannot make
+/// the test pass or fail on its own timing.
+Future<void> _until(bool Function() ready) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 5));
+  while (!ready()) {
+    if (DateTime.now().isAfter(deadline)) {
+      fail('the condition never became true');
+    }
+    await pumpEventQueue();
+  }
 }

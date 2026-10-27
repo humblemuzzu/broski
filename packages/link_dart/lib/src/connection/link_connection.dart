@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:isolate';
 import 'dart:typed_data';
 
@@ -7,6 +8,8 @@ import 'package:broski_link/src/bindings.dart'
 import 'package:broski_link/src/connection/bridge_link_status.dart';
 import 'package:broski_link/src/connection/isolate_entry.dart';
 import 'package:broski_link/src/connection/isolate_protocol.dart';
+import 'package:broski_link/src/connection/link_outbound_queue.dart'
+    show linkOutboundQueueMax;
 import 'package:broski_link/src/connection/link_send_failure.dart';
 import 'package:broski_link/src/connection/link_status.dart';
 import 'package:broski_link/src/connection/machine_endpoint.dart';
@@ -39,6 +42,9 @@ final class LinkConnection {
       StreamController<LinkSendFailure>.broadcast();
   final Completer<SendPort> _ready = Completer<SendPort>();
   final Completer<void> _stopped = Completer<void>();
+
+  static const int _controlStream = 0;
+  static const int _bridgeStream = 1;
   Isolate? _isolate;
   SendPort? _commands;
   var _closed = false;
@@ -117,11 +123,30 @@ final class LinkConnection {
 
   /// Queued in the session even while disconnected; the machine's session
   /// resends it after a resume. A send that cannot be made, now or later, is
-  /// reported on [sendFailures].
-  void sendBridge(String text) => _send(LinkSendBridge(text));
+  /// reported on [sendFailures] with [tag], and one that could never fit is
+  /// refused here without waking the isolate.
+  void sendBridge(String text, {String? tag}) =>
+      _sendBytes(_bridgeStream, utf8.encode(text), tag);
 
   void sendControl(Map<String, Object?> message) =>
-      _send(LinkSendControl(message));
+      _sendBytes(_controlStream, utf8.encode(jsonEncode(message)), null);
+
+  void _sendBytes(int stream, Uint8List bytes, String? tag) {
+    if (bytes.length > linkOutboundQueueMax) {
+      if (!_sendFailures.isClosed) {
+        _sendFailures.add(
+          LinkSendFailure(
+            reason: LinkSendFailureReason.tooLarge,
+            stream: stream,
+            bytes: bytes.length,
+            tag: tag,
+          ),
+        );
+      }
+      return;
+    }
+    _send(LinkSendBridge(stream, bytes, tag: tag));
+  }
 
   /// Replaces the routes, for example after control reported new ones.
   void updateEndpoint(MachineEndpoint endpoint) {

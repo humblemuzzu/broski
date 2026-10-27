@@ -12,7 +12,11 @@ import 'package:broski_link/src/identity.dart';
 /// Owns the Rust client: handshakes, sealed frames, the link timer and the
 /// stream split. Wire bytes leave through [onWire]; the socket belongs to the
 /// engine.
+/// 0 is control JSON, 1 is bridge messages.
 final class LinkSessionIo {
+  static const int _controlStream = 0;
+  static const int _bridgeStream = 1;
+
   LinkSessionIo({
     required Uint8List identitySecret,
     required Uint8List serverBundle,
@@ -34,9 +38,6 @@ final class LinkSessionIo {
       report: onSendFailure,
     );
   }
-
-  static const int _controlStream = 0;
-  static const int _bridgeStream = 1;
 
   final LinkClient _client;
   final Stopwatch _clock = Stopwatch()..start();
@@ -63,13 +64,10 @@ final class LinkSessionIo {
     return msg1;
   }
 
-  void sendBridge(Uint8List bytes) {
-    _outbound.send(_bridgeStream, bytes);
-    _pump();
-  }
-
-  void sendControl(Uint8List bytes) {
-    _outbound.send(_controlStream, bytes);
+  /// One message for the session, waiting here while it cannot take it; [tag]
+  /// comes back on the failure if it never goes out.
+  void send(int stream, Uint8List bytes, {String? tag}) {
+    _outbound.send(stream, bytes, tag: tag);
     _pump();
   }
 

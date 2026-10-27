@@ -16,8 +16,9 @@ extern "C" {
  * frees caller memory; NULL is valid only with len == 0. BlClient is opaque,
  * owns one link and a copy of the secret, is not thread-safe, and is freed with
  * bl_client_free exactly once. 0 ok, -1 invalid argument, -2 protocol/crypto
- * (see bl_last_error), -3 backpressure (retry after an ack), -99 internal
- * panic; 1 means a value was produced, 0 that there was nothing to report.
+ * (see bl_last_error), -3 backpressure (retry after an ack), -4 not ready (no
+ * handshake has completed on this link yet), -99 internal panic; 1 means a value
+ * was produced, 0 that there was nothing to report.
  */
 
 typedef struct BlBuf {

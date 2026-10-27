@@ -1,13 +1,12 @@
-/// Close codes the daemon ends a link session with.
-///
-/// [bridgeOverflow] means the bridge forgot this phone's view; [revoked] means
-/// this device is no longer paired.
+/// Close codes the daemon ends a link session with, as defined in
+/// `packages/link/daemon/src/session/close_codes.rs`.
 abstract final class LinkCloseCode {
   static const int normal = 1000;
   static const int shuttingDown = 4001;
   static const int bridgeOverflow = 4002;
   static const int revoked = 4003;
   static const int idleExpired = 4004;
+  static const int sessionError = 4005;
 }
 
 /// What the machine's close codes mean for one link.

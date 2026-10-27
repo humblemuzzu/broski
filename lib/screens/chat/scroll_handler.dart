@@ -63,10 +63,8 @@ void handleAutoScroll({
 }
 
 /// Loads the page of messages older than the loaded window when the user
-/// scrolls to the top.
-///
-/// Every backend pages now, OpenCode included: asking it for the whole session
-/// is the request that used to stall a phone on a long chat.
+/// scrolls to the top. Every backend pages, OpenCode included: one frame is all
+/// a long chat's whole transcript would ever be.
 Future<void> loadMoreMessages({
   required WidgetRef ref,
   required bool loadingMoreMessages,

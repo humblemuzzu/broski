@@ -8,7 +8,6 @@ import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/widgets/link/bridge_restart_button.dart';
 import 'package:broski/widgets/link/link_status_presentation.dart';
-import 'package:broski_link/broski_link.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -42,8 +41,23 @@ class LinkStatusIndicator extends ConsumerWidget {
       bridge: bridge,
     );
     final color = view.tone.color(theme);
-    final crashed = bridge?.state == BridgeStatusState.crashed;
-    final chip = Container(
+    final chip = _chip(theme, view, color);
+    if (!canRestartBridge(status, bridge)) return chip;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        chip,
+        BridgeRestartButton(
+          send: ref.watch(linkControlSendProvider),
+          detail: bridge?.detail,
+          color: color,
+        ),
+      ],
+    );
+  }
+
+  Widget _chip(OpenCodeTheme theme, LinkStatusView view, Color color) {
+    return Container(
       padding: Insets.chip,
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
@@ -64,18 +78,6 @@ class LinkStatusIndicator extends ConsumerWidget {
           ),
         ],
       ),
-    );
-    if (!crashed) return chip;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        chip,
-        BridgeRestartButton(
-          send: ref.watch(linkControlSendProvider),
-          detail: bridge?.detail,
-          color: color,
-        ),
-      ],
     );
   }
 }

@@ -21,8 +21,8 @@ final class FakeSession {
       throw refusal;
     }
     if (notReady) {
-      throw const LinkProtocolException(
-        -2,
+      throw const LinkNotReadyException(
+        -4,
         'no session: no handshake has completed yet',
       );
     }
@@ -104,13 +104,23 @@ void main() {
     'a message larger than the queue could ever hold is refused at once',
     () {
       queue.ready = true;
-      queue.send(1, Uint8List(linkOutboundQueueMax + 1));
+      queue.send(1, Uint8List(linkOutboundQueueMax + 1), tag: 'req_4');
 
       expect(failures.single.reason, LinkSendFailureReason.tooLarge);
       expect(failures.single.bytes, linkOutboundQueueMax + 1);
+      expect(failures.single.tag, 'req_4');
       expect(queue.queuedMessages, 0);
     },
   );
+
+  test('a refused message keeps the tag its sender gave it', () {
+    queue.ready = true;
+    session.poison = const LinkProtocolException(-2, 'closed');
+    queue.send(1, frame('poisoned'), tag: 'req_9');
+
+    expect(failures.single.reason, LinkSendFailureReason.rejected);
+    expect(failures.single.tag, 'req_9');
+  });
 
   test('a message the session refuses is dropped alone, not as a barrier', () {
     queue.ready = true;

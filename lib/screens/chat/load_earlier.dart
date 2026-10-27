@@ -106,6 +106,17 @@ _fetchAndPrepend(
     if (!chat.ownsTranscript(sessionId)) return null;
     final extent = _extentOf(scrollController);
     chat.setTranscriptCursor(page.nextCursor);
+    if (page.cursorUnknown) {
+      // The cursor named a message the session no longer has: the reply is the
+      // newest page, so the transcript is replaced rather than prepended to.
+      chat.hydrate(page.items);
+      chat.setTranscriptSession(id);
+      return (
+        hasOlder: page.hasOlder,
+        offsetAtPrepend: extent.extent,
+        extentAtPrepend: extent.extent,
+      );
+    }
     chat.prependOpenCodeTranscript(page.items, sessionId: id);
     return (
       hasOlder: page.hasOlder,
