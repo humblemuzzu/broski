@@ -107,6 +107,42 @@ server: a server that honoured neither would answer the whole transcript (the re
 to keep small), and one that honoured `before` differently would hand out a boundary the app cannot
 resume from (`connectors/opencode/oc-transcript-page.ts`).
 
+## Session list paging
+
+Every list of sessions, threads or projects takes the same page contract as a transcript, so one
+reply can never grow with the number of sessions a machine has recorded:
+
+```json
+{"type":"pi_list_sessions","limit":100,"before":"<nextCursor>"}
+{"type":"pi_sessions","data":[...],"hasMore":true,"nextCursor":"<opaque>"}
+```
+
+`pi_list_sessions`/`pi_sessions`, `cc_list_sessions`/`cc_sessions`, `cx_list_threads`/`cx_threads`,
+OpenCode's `list_sessions`/`sessions` and `unified_list_sessions`/`unified_sessions` all use it, out
+of one implementation (`utils/session-list-page.ts`). `limit` defaults to 100 and is clamped to 500.
+Rows are ordered newest-modified first with `id` breaking ties, and `nextCursor` is base64url of
+`[modified, id]` — a place in that order, not a distance from the top, so a session created between
+two pages is neither duplicated nor skipped: it sorts above the cursor and appears on the next first
+page. A cursor this bridge did not mint answers the newest page. No `limit` and no `before` answers
+the whole list with no `hasMore`/`nextCursor`, as before.
+
+A list row carries a preview, never the whole first message: every free-text preview field is cut to
+`SESSION_PREVIEW_MAX_CHARS` (280, code points, with `…`) by `utils/session-preview.ts`. The Pi
+`firstMessage`, a Codex `preview` and every runtime `title` go through it. OpenCode summaries also
+drop the file-sized parts of a diff (`summary.diffs[].before`/`after`, `revert.diff`/`snapshot`) and
+the fields the app never reads.
+
+A session list is never broadcast whole. A state change that used to re-send `runtime_sessions` for
+every session sends one row instead:
+
+```json
+{"type":"runtime_session_updated","backend":"pi","session":{...}}
+{"type":"runtime_session_removed","backend":"pi","sessionId":"<id>"}
+```
+
+The app upserts or drops that row in its cached list, which also stops the poll loop the old
+broadcast caused (a whole-list broadcast made the app invalidate the list, which re-read it).
+
 ## Untouched
 
 Heartbeat (`4000 Heartbeat timeout`), auth, TLS, the daemon feed's own messages (`4001` on replace)

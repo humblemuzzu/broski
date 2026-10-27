@@ -139,11 +139,24 @@ Provider layer in `lib/providers/chat/` (25 files, 7,325 lines; 15 `runtime_*` f
 `packages/bridge/src/handlers/unified.ts` (378 lines) — instead of per-agent messages (`cc_list_sessions`, `cx_list_threads`, `pi_list_sessions`), the app sends ONE message with a `backend` parameter:
 
 ```
-{ type: "unified_list_sessions", backend: "codex", cwd: "..." }
-→ { type: "unified_sessions", backend: "codex", data: [...], requestId: "..." }
+{ type: "unified_list_sessions", backend: "codex", cwd: "...", limit: 100, before: "<cursor>" }
+→ { type: "unified_sessions", backend: "codex", data: [...], hasMore: true, nextCursor: "...", requestId: "..." }
 ```
 
 Old per-agent messages still work for backward compatibility. New features should use unified messages.
+
+**Every session/thread list is paged** (`utils/session-list-page.ts`, one implementation for all of
+`pi_sessions`, `cc_sessions`, `cx_threads`, OC `sessions` and `unified_sessions`): `limit` defaults to
+100, is clamped to 500, rows are newest-modified first with `id` breaking ties, and `nextCursor` is a
+cursor into that order. A request with neither `limit` nor `before` still gets the whole list.
+
+**List rows carry previews, not transcripts**: any free-text preview field goes through
+`sessionPreview()` (`utils/session-preview.ts`, `SESSION_PREVIEW_MAX_CHARS = 280`), which cuts on code
+points. A list row is a list row; the full text belongs to a per-item read.
+
+**A session list is never broadcast.** On a state change emit one row — `runtime_session_updated`
+`{ backend, session }` or `runtime_session_removed` `{ backend, sessionId }` — and let the app upsert
+its cached list. `runtime_sessions` answers an explicit list request only.
 
 ### Supporting Infrastructure
 
