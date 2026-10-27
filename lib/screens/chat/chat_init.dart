@@ -22,9 +22,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// Used both during initial setup and after reconnection.
 ///
 /// Extracted from `_ChatScreenState.initState` in `chat_screen.dart`.
+///
+/// A Pi chat that started as a draft has no session id on [widget]; [chatPiSessionId] is the one the
+/// bridge gave it, so the view survives a reconnect.
 void setViewForAgent({
   required BridgeService bridge,
   required ChatScreen widget,
+  String? chatPiSessionId,
 }) {
   if (widget.isOpenCode) {
     bridge.setView(
@@ -52,7 +56,7 @@ void setViewForAgent({
       );
     }
   } else if (widget.isPi) {
-    final sessionId = widget.piSession?.id ?? '';
+    final sessionId = widget.piSession?.id ?? chatPiSessionId ?? '';
     if (sessionId.isNotEmpty) {
       bridge.setView(sessionId: sessionId, agent: 'pi');
     }

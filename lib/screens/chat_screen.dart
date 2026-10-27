@@ -472,7 +472,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         if (_resyncingAfterReconnect) return;
         _resyncingAfterReconnect = true;
         // Re-establish view routing for all backends (enables real-time sync)
-        ci.setViewForAgent(bridge: bridge, widget: widget);
+        ci.setViewForAgent(
+          bridge: bridge,
+          widget: widget,
+          chatPiSessionId: ref.read(chatSessionProvider).piSessionId,
+        );
         _hydrateSession().whenComplete(() {
           _resyncingAfterReconnect = false;
           if (widget.isOpenCode &&

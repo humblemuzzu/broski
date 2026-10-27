@@ -22,6 +22,7 @@ Future<bool> hydratePi(
   final scrollToBottom = h.scrollToBottom;
   final cwd = widget.piSession?.cwd ?? widget.piDraftCwd ?? '';
   final widgetSessionId = widget.piSession?.id ?? '';
+  final liveSessionId = ref.read(chatSessionProvider).piSessionId ?? '';
   final isDraft = widget.piSession == null;
   final piBridge = ref.read(piBridgeServiceProvider);
   final sessionPath = widget.piSession?.path;
@@ -83,7 +84,9 @@ Future<bool> hydratePi(
           piBridge: piBridge,
           chat: chat,
           sessionPath: sessionPath,
-          sessionId: widgetSessionId,
+          sessionId: widgetSessionId.isNotEmpty
+              ? widgetSessionId
+              : liveSessionId,
           projectPath: cwd,
         );
       } catch (_) {
