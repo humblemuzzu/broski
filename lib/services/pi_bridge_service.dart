@@ -8,6 +8,7 @@ import 'package:broski/services/bridge/bridge_response_error.dart';
 import 'package:broski/services/bridge/pending_requests.dart';
 import 'package:broski/services/websocket_service.dart';
 
+export 'bridge/bridge_pi_models.dart';
 export 'bridge/bridge_pi_sessions_page.dart';
 export 'bridge/bridge_pi_tools.dart';
 export 'bridge/bridge_pi_transcript.dart';
@@ -285,22 +286,6 @@ class PiBridgeService {
     });
 
     await _waitFor('pi_retry_aborted', requestId: requestId);
-  }
-
-  Future<List<PiModel>> listModels({String? projectPath}) async {
-    final requestId = _generateRequestId();
-    _socket.send({
-      'type': 'pi_list_models',
-      'requestId': requestId,
-      if (projectPath != null) 'projectPath': projectPath,
-    });
-
-    final response = await _waitFor('pi_models', requestId: requestId);
-    final data = response['data'] as List<dynamic>? ?? const [];
-    return data
-        .whereType<Map<String, dynamic>>()
-        .map((entry) => PiModel.fromJson(entry))
-        .toList();
   }
 
   Future<PiModel?> setModel({

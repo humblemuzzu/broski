@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:broski/models/pi.dart';
+import 'package:broski/models/pi_model_catalogue.dart';
 import 'package:broski/models/project.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/pi/pi_sessions_notifier.dart';
@@ -23,17 +24,17 @@ final piStateProvider = FutureProvider.family<PiState, String?>((
   return bridge.getState(projectPath: projectPath);
 });
 
-final piModelsProvider = FutureProvider.family<List<PiModel>, String?>((
+final piModelsProvider = FutureProvider.family<PiModelCatalogue, String?>((
   ref,
   projectPath,
 ) async {
   final connection = ref.read(connectionProvider);
   if (connection.isOfflineMode) {
-    return const [];
+    return PiModelCatalogue.empty;
   }
 
   final bridge = ref.watch(piBridgeServiceProvider);
-  return bridge.listModels(projectPath: projectPath);
+  return bridge.listModelCatalogue(projectPath: projectPath);
 });
 
 final piSessionsProvider =

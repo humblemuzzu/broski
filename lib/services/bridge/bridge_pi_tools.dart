@@ -104,27 +104,6 @@ extension PiBridgeTools on PiBridgeService {
         .toList();
   }
 
-  /// Refresh model registry (re-scan for API keys).
-  /// Returns updated list of available (authenticated) models.
-  Future<List<PiModel>> refreshModels({String? projectPath}) async {
-    final requestId = generateRequestId();
-    sendMessage({
-      'type': 'pi_refresh_models',
-      'requestId': requestId,
-      if (projectPath != null) 'projectPath': projectPath,
-    });
-
-    final response = await waitForResponse(
-      'pi_models_refreshed',
-      requestId: requestId,
-    );
-    final data = response['data'] as List<dynamic>? ?? const [];
-    return data
-        .whereType<Map<String, dynamic>>()
-        .map((entry) => PiModel.fromJson(entry))
-        .toList();
-  }
-
   // ── Granular Abort ─────────────────────────────────────────────
 
   /// Abort in-progress compaction (manual or auto).
