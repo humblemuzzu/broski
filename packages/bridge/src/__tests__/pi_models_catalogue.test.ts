@@ -123,26 +123,32 @@ describe("pi_models", () => {
 			{
 				pattern: `${CUSTOM_PROVIDER}/acme-1`,
 				label: "Acme acme-1",
+				name: "Acme acme-1",
 				provider: CUSTOM_PROVIDER,
 				modelId: "acme-1",
 				thinkingLevel: null,
 				available: true,
+				unavailableReason: null,
 			},
 			{
 				pattern: `${STORE_PROVIDER}/deepseek-store-1`,
 				label: "Store deepseek-store-1",
+				name: "Store deepseek-store-1",
 				provider: STORE_PROVIDER,
 				modelId: "deepseek-store-1",
 				thinkingLevel: null,
 				available: true,
+				unavailableReason: null,
 			},
 			{
 				pattern: "acme/gone",
 				label: "acme/gone",
+				name: null,
 				provider: null,
 				modelId: null,
 				thinkingLevel: null,
 				available: false,
+				unavailableReason: "Not in Pi's catalogue",
 			},
 		]);
 		expect(reply.defaultModel).toEqual({

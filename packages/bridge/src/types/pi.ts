@@ -48,12 +48,23 @@ export type PiSelectedModelPayload = {
 	pattern: string;
 	/** The model's name, or the pattern when nothing Pi can run matches it. */
 	label: string;
+	/** The model's name from Pi's full catalogue, including providers that are not signed in here. */
+	name: string | null;
 	provider: string | null;
 	modelId: string | null;
 	/** The level the pattern pinned, or null when it left the choice to the session. */
 	thinkingLevel: ThinkingLevel | null;
 	/** False when no model Pi can run here matches the entry: a missing credential, or a stale entry. */
 	available: boolean;
+	/** One sentence naming the missing provider or the environment variable it reads; null when runnable. */
+	unavailableReason: string | null;
+};
+
+/** Models Pi's full catalogue knows but cannot run here, counted for providers that are not signed in. */
+export type PiHiddenModelsPayload = {
+	count: number;
+	/** Provider ids, sorted, names only. */
+	providers: string[];
 };
 
 export type PiDefaultModelPayload = {

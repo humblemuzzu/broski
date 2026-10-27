@@ -12,7 +12,13 @@ import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import type { Api, Model } from "@earendil-works/pi-ai";
 import type { ModelRuntime, SettingsManager } from "@earendil-works/pi-coding-agent";
 import { loadPiCodingAgent } from "../../sdk/pi-coding-agent";
-import type { PiDefaultModelPayload, PiModelPayload, PiSelectedModelPayload } from "../../types/pi";
+import type {
+	PiDefaultModelPayload,
+	PiHiddenModelsPayload,
+	PiModelPayload,
+	PiSelectedModelPayload,
+} from "../../types/pi";
+import { findInCatalogue, hiddenModels, unavailableReason } from "./pi-model-availability";
 import { availableModels, ensurePiModelRuntime, mapPiModel, refreshPiModelRuntime } from "./pi-model-runtime";
 
 /** Pi's own default when neither the setting nor a per-model override names a level. */
@@ -27,21 +33,51 @@ export type PiModelCatalogue = {
 	/** `enabledModels` in the user's order; an entry nothing matches is one muted row carrying its pattern. */
 	selected: PiSelectedModelPayload[];
 	defaultModel: PiDefaultModelPayload | null;
+	/** Models of the providers the user's own list names that no credential can run here. */
+	hidden: PiHiddenModelsPayload;
 };
 
 function rowOf(pattern: string, model: CatalogModel, thinkingLevel: ThinkingLevel | undefined): PiSelectedModelPayload {
 	return {
 		pattern,
 		label: model.name || model.id,
+		name: model.name || model.id,
 		provider: model.provider,
 		modelId: model.id,
 		thinkingLevel: thinkingLevel ?? null,
 		available: true,
+		unavailableReason: null,
 	};
 }
 
-function unmatchedRow(pattern: string): PiSelectedModelPayload {
-	return { pattern, label: pattern, provider: null, modelId: null, thinkingLevel: null, available: false };
+function unknownRow(pattern: string): PiSelectedModelPayload {
+	return {
+		pattern,
+		label: pattern,
+		name: null,
+		provider: null,
+		modelId: null,
+		thinkingLevel: null,
+		available: false,
+		unavailableReason: "Not in Pi's catalogue",
+	};
+}
+
+/**
+ * A pattern `getAvailable()` matched nothing for still names something in the full catalogue: the model is
+ * there, its provider is just not signed in. Keeping the real name lets us say which variable is missing.
+ */
+async function unavailableRows(pattern: string, runtime: ModelRuntime): Promise<PiSelectedModelPayload[]> {
+	const matches = findInCatalogue(pattern, runtime.getModels());
+	if (matches.length === 0) return [unknownRow(pattern)];
+
+	return await Promise.all(
+		matches.map(async ({ model, thinkingLevel }) => ({
+			...rowOf(pattern, model, thinkingLevel ?? undefined),
+			available: false,
+			unavailableReason: await unavailableReason(runtime, model.provider),
+		})),
+	);
 }
 
 /** One `enabledModels` entry resolved the way the CLI resolves `--models`. */
@@ -51,7 +87,7 @@ async function selectionOf(
 	scope: ScopeResolver,
 ): Promise<PiSelectedModelPayload[]> {
 	const { scopedModels } = await scope([pattern], runtime);
-	if (scopedModels.length === 0) return [unmatchedRow(pattern)];
+	if (scopedModels.length === 0) return await unavailableRows(pattern, runtime);
 	return scopedModels.map((scoped) => rowOf(pattern, scoped.model, scoped.thinkingLevel));
 }
 
@@ -132,12 +168,20 @@ export async function readPiModelCatalogue(cwd?: string): Promise<PiModelCatalog
 		selected.push(...(await selectionOf(pattern, runtime, resolveModelScopeWithDiagnostics)));
 	}
 	const rows = dedupe(selected);
+	const selectedProviders = new Set(
+		rows.map((row) => row.provider).filter((provider): provider is string => provider !== null),
+	);
 
 	const data = [...available]
 		.sort((left, right) => left.provider.localeCompare(right.provider) || left.id.localeCompare(right.id))
 		.map((model) => mapPiModel(model, true));
 
-	return { data, selected: rows, defaultModel: defaultModelOf(settings, available, rows) };
+	return {
+		data,
+		selected: rows,
+		defaultModel: defaultModelOf(settings, available, rows),
+		hidden: hiddenModels(runtime, available, runtime.getModels(), selectedProviders),
+	};
 }
 
 /** Fetches newer catalogues over the network like `pi update --models`, then reads the result back. */

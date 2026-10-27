@@ -73,6 +73,7 @@ export async function handle(message: PiMessage, reply: Reply): Promise<boolean>
 				data: catalogue.data,
 				selected: catalogue.selected,
 				defaultModel: catalogue.defaultModel,
+				hidden: catalogue.hidden,
 				requestId: message.requestId,
 			});
 			return true;

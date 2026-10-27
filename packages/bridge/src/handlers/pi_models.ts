@@ -10,6 +10,7 @@ async function handleListModels(message: Msg<"pi_list_models">, ctx: PiHandlerCo
 		data: catalogue.data,
 		selected: catalogue.selected,
 		defaultModel: catalogue.defaultModel,
+		hidden: catalogue.hidden,
 		requestId: message.requestId,
 	});
 	// Use broadcast (not reply) for runtime_models so the message doesn't

@@ -2,6 +2,7 @@ import type {
 	PiCommandPayload,
 	PiDefaultModelPayload,
 	PiForkMessagePayload,
+	PiHiddenModelsPayload,
 	PiModelPayload,
 	PiQueueState,
 	PiSelectedModelPayload,
@@ -38,6 +39,7 @@ export type PiServerMessage =
 			data: PiModelPayload[];
 			selected: PiSelectedModelPayload[];
 			defaultModel: PiDefaultModelPayload | null;
+			hidden: PiHiddenModelsPayload;
 			requestId?: string;
 	  }
 	| { type: "pi_model_set"; data: PiModelPayload | null; isScoped?: boolean; requestId?: string }
@@ -99,6 +101,7 @@ export type PiServerMessage =
 			data: PiModelPayload[];
 			selected: PiSelectedModelPayload[];
 			defaultModel: PiDefaultModelPayload | null;
+			hidden: PiHiddenModelsPayload;
 			requestId?: string;
 	  }
 	// Pi Granular Abort (responses)
