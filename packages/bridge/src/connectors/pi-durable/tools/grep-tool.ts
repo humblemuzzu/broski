@@ -194,7 +194,7 @@ export async function createPiDurableGrepTool(cwd: string): Promise<ToolRegistra
 				limit: args.limit,
 			});
 			return {
-				content: [{ type: "text", text: outcome.text }],
+				output: [{ type: "text", text: outcome.text }],
 				...(outcome.details !== undefined ? { details: outcome.details } : {}),
 			};
 		},

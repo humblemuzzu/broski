@@ -42,7 +42,7 @@ export async function piDurableReadOnlyTool<Parameters extends TSchema>(
 			const result = await build(api.env?.cwd ?? fallbackCwd).execute(api.callId, args, undefined, undefined);
 			const details = toJsonValue(result.details);
 			return {
-				content: [...result.content],
+				output: [...result.content],
 				...(details !== undefined ? { details } : {}),
 				...(result.isError !== undefined ? { isError: result.isError } : {}),
 			};
