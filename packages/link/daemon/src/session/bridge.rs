@@ -166,7 +166,9 @@ impl BridgePump {
                     self.pending.push_front(message);
                     return;
                 }
-                Err(mpsc::error::TrySendError::Closed(_)) => {
+                // Never written: `closed()` puts the older handed-back messages in front of it.
+                Err(mpsc::error::TrySendError::Closed(message)) => {
+                    self.pending.push_front(message);
                     self.down();
                     return;
                 }

@@ -178,7 +178,9 @@ async fn a_killed_bridge_is_reported_crashed_then_starting_then_up_again() {
         seen_at.duration_since(killed_at)
     );
     assert!(
-        message["detail"].as_str().is_some_and(|d| !d.trim().is_empty()),
+        message["detail"]
+            .as_str()
+            .is_some_and(|d| !d.trim().is_empty()),
         "a crash has to carry the supervisor's reason: {message}"
     );
 
