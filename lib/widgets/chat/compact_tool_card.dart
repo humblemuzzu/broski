@@ -10,6 +10,7 @@ import 'package:broski/theme/markdown_styles.dart';
 import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/theme/tool_style.dart';
 import 'package:broski/utils/ansi_escape.dart';
+import 'package:broski/utils/shell_command_input.dart';
 import 'package:broski/widgets/chat/adaptive_markdown_body.dart';
 import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:flutter/material.dart';
@@ -70,7 +71,7 @@ class CompactToolCard extends ConsumerWidget {
     }
     // Bash/Shell: first 50 chars of command
     if (name.contains('bash') || name.contains('shell')) {
-      final command = tool.input['command'] as String? ?? '';
+      final command = shellCommandOf(tool.input);
       if (command.length > 50) {
         return '${command.substring(0, 50)}...';
       }
@@ -239,7 +240,7 @@ class CompactToolCard extends ConsumerWidget {
   }
 
   Widget _buildBashContent(OpenCodeTheme theme) {
-    final command = tool.input['command'] as String? ?? '';
+    final command = shellCommandOf(tool.input);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
