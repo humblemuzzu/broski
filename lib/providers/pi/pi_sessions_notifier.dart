@@ -83,6 +83,7 @@ class PiSessionsNotifier
       }
       state = AsyncValue.data(page.items);
     } catch (error, stackTrace) {
+      if (state.valueOrNull?.isNotEmpty ?? false) return;
       final cached = projectPath == null
           ? await _storage.getCachedPiSessions()
           : const <PiSessionInfo>[];

@@ -30,37 +30,22 @@ class CCSessionsNotifier
 
   Future<void> load({String? cwd}) async {
     _cwd = cwd;
+    await _fetchFirstPage(showLoading: true);
+  }
+
+  Future<void> refresh({String? cwd}) async {
+    _cwd = cwd ?? _cwd;
+    await _fetchFirstPage(showLoading: false);
+  }
+
+  Future<void> _fetchFirstPage({required bool showLoading}) async {
     if (_connection.isOfflineMode) {
       _hasMore = false;
       _nextCursor = null;
       state = AsyncValue.data(await _storage.getCachedCCSessions());
       return;
     }
-
-    state = const AsyncValue.loading();
-    try {
-      final page = await _bridge.ccListSessionsPage(
-        cwd: cwd,
-        limit: kSessionPageLimit,
-      );
-      _nextCursor = page.nextCursor;
-      _hasMore = page.hasAnotherPage;
-      _loadMoreFailed = false;
-      if (cwd == null && page.items.isNotEmpty) {
-        await _storage.cacheCCSessions(page.items);
-      }
-      state = AsyncValue.data(page.items);
-    } catch (error, stackTrace) {
-      state = await _withCacheOrError(error, stackTrace);
-    }
-  }
-
-  Future<void> refresh({String? cwd}) async {
-    _cwd = cwd ?? _cwd;
-    if (_connection.isOfflineMode) {
-      state = AsyncValue.data(await _storage.getCachedCCSessions());
-      return;
-    }
+    if (showLoading) state = const AsyncValue.loading();
     try {
       final page = await _bridge.ccListSessionsPage(
         cwd: _cwd,
