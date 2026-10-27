@@ -118,6 +118,42 @@ The relay is blind: it forwards encrypted frames and cannot read them. See `docs
 
 The bridge reads `~/.broski/config.json`. See `src/config/schema.ts` for the full config shape.
 
+## Environment
+
+A bridge started by the service inherits almost nothing: launchd and systemd hand it a `PATH` and a `HOME`, and
+nothing from `~/.zshrc`. So at startup the bridge asks your login shell for its environment once (one interactive
+`env -0` through `zsh`/`bash`/`fish`, 10 s timeout) and runs every agent with it — Claude Code, Codex, OpenCode,
+Pi, Pi Durable and every terminal opened from the phone.
+
+That means provider keys, `~/.local/bin` and version-manager shims exported in your shell profile work from the
+app exactly as they do in your terminal.
+
+- **Changed `~/.zshrc`?** Restart the bridge: tap restart in the app, or run `broski restart`. The environment is
+  read once at startup, not per request.
+- **A provider still shows as unavailable?** `broski doctor` resolves the same environment the service resolves and
+  lists which known agent variables are present by name ([`agent_credentials`]), never their values.
+- `broski doctor` and `resolveUserShellEnv` never print a value; only names, counts and timings.
+- Running `broski` in a terminal skips the import — it already has your environment.
+
+## Troubleshooting
+
+**Pi providers are unavailable from the phone but work in the terminal.** Your key is exported in a shell profile
+(`export RIVER_API_KEY=…`) and the service never read it. `bun scripts/measure-pi-models.ts --service-env` prints
+the catalogue with the service's environment, and `bun scripts/measure-pi-models.ts` prints it with yours; the two
+must match `pi --list-models`. If they do not, check `~/.broski/logs/bridge.log` for the `[shell-env]` line.
+
+**`Ensure OpenCode is installed and on PATH`.** Same cause: `~/.local/bin`, `~/.npm-global/bin` or a version
+manager's shims were not on the service's `PATH`. The login-shell import puts them there; restart the bridge.
+
+**A provider row says "No API key — set X".** That `X` is the environment variable Pi's own auth check reads for
+that provider. Export it in your shell profile, then restart the bridge.
+
+```bash
+broski restart                 # or the restart button in the app
+broski logs                    # bridge.log, including the [shell-env] line
+bun scripts/measure-pi-models.ts --service-env
+```
+
 ## Development
 
 ```bash

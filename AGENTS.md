@@ -9,6 +9,7 @@ Phone (Flutter + Rust core) ←Broski Link (Noise e2e; LAN or relay)→ broski-l
 ```
 
 - **Bridge** (`packages/bridge/`) — TypeScript server on the user's dev machine. Connects to local AI agents via their SDKs. Serves the app protocol to the daemon over the unix socket `~/.broski/link/bridge.sock`; its TCP listener is loopback-only (127.0.0.1) and exists for local things only: the CC/CX permission hooks, the dashboard, `/proxy/<port>`.
+- **The bridge's environment** — a service start inherits only `PATH` and `HOME` from launchd/systemd, so at startup the bridge asks the user's login shell once (`platform/shell-env.ts`: one interactive `env -0` between markers, 10 s timeout, process-group kill) and runs every agent and PTY with the result. A `~/.zshrc` change applies on the next bridge start (`broski restart`, or the app's restart button). A compiled binary never takes `BROSKI_*`/`BUN_*` from a shell: those stay the service manager's and config's.
 - **broski-link daemon** (`packages/link/daemon/`, Rust) — runs as a launchd (macOS) / systemd (Linux) service installed by `broski install`; supervises the bridge, terminates the Noise session with each paired phone, and dials the relay. Windows is not supported.
 - **Relay** (`packages/link/relay/`) — blind rendezvous the phone and daemon both dial out to. It forwards encrypted frames and never sees plaintext.
 - **Flutter app** (`lib/`, Rust core via `packages/link_dart/`) — iOS/Android app. Renders UI only; all AI logic stays on Mac.
