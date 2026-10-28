@@ -113,7 +113,7 @@ export function TerminalMockup() {
         <div className="space-y-1 text-center">
           <div className="flex justify-center gap-4">
             <span className="text-[#888]">Local:</span>
-            <span className="text-[#7ee787]">ws://192.168.1.5:18274</span>
+            <span className="text-[#7ee787]">broski-link 192.168.1.5:18275</span>
           </div>
           <div className="flex justify-center gap-4">
             <span className="text-[#888]">Status:</span>

@@ -1,9 +1,7 @@
-import { stdin as input, stdout as output } from "node:process";
-import readline from "node:readline/promises";
 import { isCompiledBinary } from "./compiled-binary";
 import { DEFAULT_PORT, parsePort } from "./config/port";
 
-export type OpencodeMode = "managed" | "manual" | "attach";
+export type OpencodeMode = "managed" | "manual";
 export type SubCommand =
 	| "serve"
 	| "doctor"
@@ -184,10 +182,6 @@ export function parseCli(argv: string[], env: NodeJS.ProcessEnv): CliOptions {
 		if (arg === "--opencode-port") {
 			opencodePort = parseNumber(args[i + 1], opencodePort);
 			i++;
-			continue;
-		}
-		if (arg === "--attach") {
-			opencodeMode = "attach";
 			continue;
 		}
 		if (arg === "--manual") {
@@ -420,9 +414,8 @@ Logs:
 
 OpenCode:
   --managed                 Force managed mode (default)
-  --manual                  Force manual/attach mode (requires --opencode-url or OPENCODE_BASE_URL)
+  --manual                  Force manual mode (requires --opencode-url or OPENCODE_BASE_URL)
   --opencode-url URL        Attach to an existing OpenCode server (power users)
-  --attach                  Scan common ports and interactively choose a running OpenCode server
   --opencode-hostname HOST  Hostname for managed OpenCode server (default: 127.0.0.1)
   --opencode-port N         Port for managed OpenCode server (default: 0 for random)
 
@@ -444,24 +437,4 @@ Examples:
   broski --verbose               Start with debug logging
 `.trim(),
 	);
-}
-
-export async function promptForChoice(prompt: string, choices: string[]): Promise<number | null> {
-	if (choices.length === 0) return null;
-	const rl = readline.createInterface({ input, output });
-	try {
-		// eslint-disable-next-line no-console
-		console.log(prompt);
-		for (let i = 0; i < choices.length; i++) {
-			// eslint-disable-next-line no-console
-			console.log(`  ${i + 1}) ${choices[i]}`);
-		}
-		const answer = (await rl.question(`Select 1-${choices.length} (or press Enter to cancel): `)).trim();
-		if (!answer) return null;
-		const idx = Number(answer);
-		if (!Number.isFinite(idx) || idx < 1 || idx > choices.length) return null;
-		return idx - 1;
-	} finally {
-		rl.close();
-	}
 }

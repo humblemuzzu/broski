@@ -85,8 +85,6 @@ class MessageGroup extends ConsumerWidget {
     required this.onRevert,
     required this.onOpenDiffView,
     required this.onCcRewind,
-    required this.onCodexRollback,
-    this.onCodexEditMessage,
     // Builder callbacks for complex sub-widgets that remain in chat_screen
     required this.buildVariantCard,
     required this.buildOrderedParts,
@@ -113,12 +111,6 @@ class MessageGroup extends ConsumerWidget {
 
   /// Called to rewind to the last checkpoint (Claude Code turn-level undo).
   final VoidCallback onCcRewind;
-
-  /// Called to show the Codex rollback sheet.
-  final VoidCallback onCodexRollback;
-
-  /// Called when the user edits a message in a Codex session (rollback + prefill).
-  final void Function(String messageId, String text)? onCodexEditMessage;
 
   /// Builds a variant-tagged system message card. Returns null if unrecognized.
   final Widget? Function(ChatMessage) buildVariantCard;
@@ -197,10 +189,6 @@ class MessageGroup extends ConsumerWidget {
                             ref.read(chatSessionProvider).projectPath ??
                             projectPath,
                       )
-                    : null,
-                onRollback: isCodex ? onCodexRollback : null,
-                onEditMessage: isCodex && message.role == MessageRole.user
-                    ? onCodexEditMessage
                     : null,
                 onRetryMessage:
                     message.role == MessageRole.user &&

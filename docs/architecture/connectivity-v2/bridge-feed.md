@@ -109,5 +109,3 @@ hand-built broadcasts), `server/opencode-events.ts`'s `enqueueSdkEvent`, and
 - **Pi Durable busy/done.** Durable events are mapped per attached socket
   (`attachPiDurableView` → `host.watch`), so no phone watching means no stream; its approvals do
   reach the feed, without a cwd.
-- **Hand-built events.** `handlers/cx_permission_hook.ts` builds a `permission_requested` envelope
-  inline rather than through the Codex mapper; it reaches the feed but carries no `seq`.

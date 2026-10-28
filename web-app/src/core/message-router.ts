@@ -106,10 +106,6 @@ export function routeServerMessage(msg: ServerMessage) {
       useChatStore.getState().ingestCodexThreadMessages(msg.threadId, msg.data)
       return
     }
-    case "cc_stream": {
-      useChatStore.getState().ingestClaudeCodeStream(msg.sessionId, msg.data)
-      return
-    }
     case "cc_config": {
       useConfigStore.getState().setClaudeCodeConfig(msg.data)
       return
@@ -185,19 +181,6 @@ export function routeServerMessage(msg: ServerMessage) {
       })
       return
     }
-    case "cx_stream": {
-      // Keep transcript in sync without having to fully parse every stream method.
-      if (
-        msg.data?.type === "notification" &&
-        (msg.data as any).method === "turn/completed"
-      ) {
-        useConnectionStore
-          .getState()
-          .send({ type: "cx_get_thread_messages", threadId: msg.threadId } as any)
-      }
-      useChatStore.getState().ingestCodexStream(msg.threadId, msg.data)
-      return
-    }
     case "cx_models": {
       useConfigStore.getState().setCodexModels(msg.data)
       return
@@ -238,14 +221,6 @@ export function routeServerMessage(msg: ServerMessage) {
         title: "MCP reloaded",
       })
       useMcpStore.getState().setCodexMcpStatus(msg.data)
-      return
-    }
-    case "sdk_event": {
-      useChatStore.getState().ingestOpenCodeEvent(msg.data)
-      return
-    }
-    case "sdk_event_batch": {
-      useChatStore.getState().ingestOpenCodeEventBatch(msg.data)
       return
     }
     case "browse_result": {

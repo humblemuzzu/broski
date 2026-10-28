@@ -110,8 +110,7 @@ broski --port 8080
 # New local hook token
 broski --new-token
 
-# OpenCode attach/manual modes
-broski --attach
+# OpenCode manual mode
 broski --manual --opencode-url http://localhost:4096`}</CodeBlock>
       </section>
 

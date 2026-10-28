@@ -34,12 +34,6 @@ export function buildCodexApprovalDecision({
 		return { answers: response.answers };
 	}
 
-	const isSkillApproval = requestMethod === "skill/requestApproval";
-	if (isSkillApproval) {
-		const decision = response.response === "once" || response.response === "always" ? "approve" : "decline";
-		return { decision };
-	}
-
 	// Permissions approval (SDK item/permissions/requestApproval)
 	const isPermissionsApproval = requestMethod === "item/permissions/requestApproval";
 	if (isPermissionsApproval) {

@@ -35,7 +35,6 @@ import 'package:broski/screens/chat/command_handler.dart';
 import 'package:broski/screens/chat/commands_loader.dart';
 import 'package:broski/screens/chat/context_loader.dart';
 import 'package:broski/screens/chat/cx_background_sync.dart' as cxbg;
-import 'package:broski/screens/chat/cx_edit_message.dart' as cxedit;
 import 'package:broski/screens/chat/image_picker_handler.dart' as iph;
 import 'package:broski/screens/chat/menu_handlers.dart';
 import 'package:broski/screens/chat/oc_menu_handler.dart' as omh;
@@ -76,8 +75,6 @@ import 'package:broski/screens/sheets/cc_tools_sheet.dart';
 import 'package:broski/screens/sheets/cx_agents_sheet.dart';
 import 'package:broski/screens/sheets/cx_apps_sheet.dart';
 import 'package:broski/screens/sheets/cx_model_sheet.dart';
-import 'package:broski/screens/sheets/cx_remote_skills_sheet.dart';
-import 'package:broski/screens/sheets/cx_rollback_sheet.dart';
 import 'package:broski/screens/sheets/pi_durable_model_sheet.dart';
 import 'package:broski/screens/sheets/pi_model_sheet.dart';
 import 'package:broski/services/haptics_service.dart';
@@ -103,7 +100,6 @@ import 'package:broski/widgets/chat/revert_state_banner.dart';
 import 'package:broski/widgets/chat/running_stop_bar.dart';
 import 'package:broski/widgets/chat/variant_card_builder.dart';
 import 'package:broski/widgets/file_tagging.dart';
-import 'package:broski/widgets/multi_agent_tree.dart';
 import 'package:broski/widgets/opencode_branding.dart';
 import 'package:broski/widgets/pi/pi_queue_indicator.dart';
 import 'package:broski/widgets/pi_branding.dart';
@@ -1027,11 +1023,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     CxAppsSheet.show(context);
   }
 
-  void _showCodexRemoteSkillsSheet() {
-    // Delegate to modular sheet
-    CxRemoteSkillsSheet.show(context);
-  }
-
   void _showCodexAgentsSheet() {
     final chatState = ref.read(chatSessionProvider);
     final cwd = chatState.cxCwd ?? widget.cxThread?.cwd ?? widget.cxDraftCwd;
@@ -1044,29 +1035,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final cwd = chatState.cxCwd ?? widget.cxThread?.cwd ?? widget.cxDraftCwd;
     ca.showCodexSkillsSheet(context: context, ref: ref, cwd: cwd);
   }
-
-  void _showCodexRollbackSheet() => showCodexRollbackSheet(
-    context,
-    ref,
-    setPaginationState: ({required bool loadingMore, required bool loadedAll}) {
-      if (mounted) {
-        setState(() {
-          _loadingMoreMessages = loadingMore;
-          _hasLoadedAllMessages = loadedAll;
-        });
-      }
-    },
-  );
-
-  void _editCodexMessage(String messageId, String text) =>
-      cxedit.editCodexMessage(
-        context: context,
-        ref: ref,
-        messageId: messageId,
-        text: text,
-        controller: _controller,
-        focusNode: _inputFocusNode,
-      );
 
   Future<void> _startCodexReview() async {
     final chatState = ref.read(chatSessionProvider);
@@ -1432,54 +1400,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                           if (widget.isPi && messages.isEmpty)
                             const Center(
                               child: PiBranding(width: 120, opacity: 0.3),
-                            ),
-                          // Codex Multi-Agent Collaboration Tree (SDK v0.87.0+)
-                          if (widget.isCodex)
-                            Consumer(
-                              builder: (context, ref, _) {
-                                final collabTree = ref.watch(
-                                  chatSessionProvider.select(
-                                    (s) => s.cxCollabTree,
-                                  ),
-                                );
-                                if (collabTree == null ||
-                                    collabTree.totalAgents <= 1) {
-                                  return const SizedBox.shrink();
-                                }
-                                return Positioned(
-                                  top: 70,
-                                  left: 16,
-                                  right: 16,
-                                  child: MultiAgentTreeWidget(
-                                    tree: collabTree,
-                                    compact: true,
-                                    onAgentTap: (threadId) {
-                                      // Navigate to child thread as read-only transcript.
-                                      // Get the current session's cwd from chat state.
-                                      final chatState = ref.read(
-                                        chatSessionProvider,
-                                      );
-                                      final cwd = chatState.effectivePath ?? '';
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => ChatScreen.codex(
-                                            cxThread: CodexThread(
-                                              id: threadId,
-                                              preview: 'Agent Thread',
-                                              cwd: cwd,
-                                              createdAt: DateTime.now()
-                                                  .millisecondsSinceEpoch,
-                                              updatedAt: DateTime.now()
-                                                  .millisecondsSinceEpoch,
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                );
-                              },
                             ),
                           // Message list
                           ScrollbarTheme(
@@ -1937,8 +1857,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       onOpenDiffView: (diff, {String? messageId}) =>
           _openDiffView(diff, messageId: messageId),
       onCcRewind: _ccRewindToCheckpoint,
-      onCodexRollback: _showCodexRollbackSheet,
-      onCodexEditMessage: widget.isCodex ? _editCodexMessage : null,
       buildVariantCard: _buildVariantCard,
       buildOrderedParts: _buildOrderedParts,
       buildToolCard: _buildToolCard,
@@ -1971,8 +1889,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                 widget.project.path,
           )
         : null,
-    onRollback: widget.isCodex ? _showCodexRollbackSheet : null,
-    onEditMessage: widget.isCodex ? _editCodexMessage : null,
   );
 
   // PERF: Menu action handler that takes messages list directly (used with select())
@@ -2120,11 +2036,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       onCcResumeIdCleared: () => _ccResumeSessionAtMessageId = null,
       isMounted: () => mounted,
       showCodexAppsSheet: _showCodexAppsSheet,
-      showCodexRemoteSkillsSheet: _showCodexRemoteSkillsSheet,
       startCodexReview: _startCodexReview,
       openDiffView: (diff) => _openDiffView(diff),
       loadSessionContext: _loadSessionContext,
-      showCodexRollbackSheet: _showCodexRollbackSheet,
       showCodexAgentsSheet: _showCodexAgentsSheet,
     );
   }

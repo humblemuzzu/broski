@@ -2,7 +2,6 @@ import 'package:broski/models/codex.dart';
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/codex_settings_provider.dart';
 import 'package:broski/providers/service_providers.dart';
-import 'package:broski/screens/sheets/cx_remote_skills_sheet.dart';
 import 'package:broski/screens/sheets/cx_skills_sheet_content.dart';
 import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/widgets/chat/detail_sheet.dart';
@@ -74,10 +73,6 @@ void showCodexSkillsSheet({
       bridge: ref.read(bridgeServiceProvider),
       cwd: cwd,
       theme: theme,
-      onBrowseRemote: () {
-        Navigator.pop(context);
-        CxRemoteSkillsSheet.show(context);
-      },
     ),
   );
 }

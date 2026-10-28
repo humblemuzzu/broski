@@ -1,18 +1,9 @@
 import { spawnSync } from "node:child_process";
 import type { OpencodeClient } from "@opencode-ai/sdk/v2";
-import { promptForChoice } from "../cli";
 import { logDaemon, logDaemonError } from "../logging/daemon-log";
-import { IS_WINDOWS } from "../platform";
 import { loadOpenCodeSdk } from "../sdk/opencode-sdk";
 import { describeOpenCodeProbe, probeOpenCode } from "./open-code-probe";
 import type { OpenCodeServer } from "./state";
-
-export type OpenCodeInstance = {
-	port: number;
-	url: string;
-	projects: Array<{ id: string; worktree: string; time?: { created?: number; updated?: number } }>;
-	lastActivity: number;
-};
 
 export type OpencodeBootstrap = {
 	server: OpenCodeServer;
@@ -31,59 +22,6 @@ export async function waitForOpencodeReady(url: string, timeoutMs: number): Prom
 		await Bun.sleep(150);
 	}
 	return false;
-}
-
-export async function discoverRunningOpencodeInstances(
-	portsToScan: number[],
-	verbose: boolean,
-): Promise<OpenCodeInstance[]> {
-	if (verbose) {
-		console.log("Scanning for running OpenCode instances...");
-	}
-
-	const instances: OpenCodeInstance[] = [];
-
-	// Limit concurrency so a large port range does not flood the system with parallel connections.
-	const queue = portsToScan.slice();
-	const concurrency = 32;
-	await Promise.all(
-		Array.from({ length: concurrency }, async () => {
-			for (;;) {
-				const port = queue.shift();
-				if (port == null) return;
-				try {
-					const url = `http://127.0.0.1:${port}`;
-					const ready = await fetch(`${url}/path`, { signal: AbortSignal.timeout(750) });
-					if (!ready.ok) continue;
-
-					let projects: OpenCodeInstance["projects"] = [];
-					try {
-						const response = await fetch(`${url}/project`, { signal: AbortSignal.timeout(750) });
-						if (response.ok) {
-							projects = (await response.json()) as OpenCodeInstance["projects"];
-						}
-					} catch {
-						// Best-effort: older/newer versions may not expose this endpoint.
-					}
-
-					let lastActivity = 0;
-					for (const project of projects) {
-						const updated = project.time?.updated ?? project.time?.created ?? 0;
-						if (updated > lastActivity) {
-							lastActivity = updated;
-						}
-					}
-
-					instances.push({ port, url, projects, lastActivity });
-				} catch {
-					// Port not responding or not OpenCode
-				}
-			}
-		}),
-	);
-
-	instances.sort((a, b) => b.lastActivity - a.lastActivity);
-	return instances;
 }
 
 export async function bootstrapManagedOpenCode(
@@ -168,51 +106,6 @@ export async function bootstrapManualOpenCode(url: string): Promise<OpencodeBoot
 	};
 }
 
-export function defaultAttachPorts(): number[] {
-	// We only scan in explicit --attach mode (power users).
-	// Default range covers the most common ports observed in practice.
-	const ports: number[] = [4096];
-	for (let i = 0; i < 256; i++) ports.push(64864 + i);
-	for (let i = 0; i < 256; i++) ports.push(49152 + i);
-	return ports;
-}
-
-export function discoverListeningPortsFromLsof(verbose: boolean): number[] {
-	try {
-		if (IS_WINDOWS) {
-			const result = spawnSync("netstat", ["-ano"], { encoding: "utf8", timeout: 5000 });
-			const out = result.stdout ?? "";
-			const ports = new Set<number>();
-			for (const line of out.split("\n")) {
-				const m = line.match(/:(\d+)\s+.*LISTENING/);
-				if (!m) continue;
-				const port = Number(m[1]);
-				if (Number.isFinite(port) && port > 0 && port <= 65535) ports.add(port);
-			}
-			return Array.from(ports);
-		}
-
-		const res = spawnSync("lsof", ["-nP", "-iTCP", "-sTCP:LISTEN"], { encoding: "utf8" });
-		const out = `${res.stdout ?? ""}\n${res.stderr ?? ""}`;
-		if (!out.trim()) return [];
-
-		const ports = new Set<number>();
-		for (const line of out.split("\n")) {
-			const m = line.match(/TCP\s+.*?:(\d+)\s+\(LISTEN\)/);
-			if (!m) continue;
-			const port = Number(m[1]);
-			if (!Number.isFinite(port) || port <= 0 || port > 65535) continue;
-			ports.add(port);
-		}
-		return Array.from(ports);
-	} catch (err) {
-		if (verbose) {
-			logDaemon(`Port scan failed (continuing without it): ${String(err)}`);
-		}
-		return [];
-	}
-}
-
 export function isOpencodeCliAvailable(verbose: boolean): boolean {
 	try {
 		// Fast PATH check to avoid slow retries when OpenCode isn't installed.
@@ -230,42 +123,4 @@ export function isOpencodeCliAvailable(verbose: boolean): boolean {
 		}
 		return false;
 	}
-}
-
-export async function bootstrapAttachOpenCode(verbose: boolean): Promise<OpencodeBootstrap> {
-	const lsofPorts = discoverListeningPortsFromLsof(verbose);
-	const ports = Array.from(new Set([...defaultAttachPorts(), ...lsofPorts]));
-	const instances = await discoverRunningOpencodeInstances(ports, verbose);
-	if (instances.length === 0) {
-		logDaemon("No running OpenCode servers found.");
-		logDaemon("  Start one: `opencode serve`");
-		logDaemon("  Or attach explicitly: `broski --opencode-url http://127.0.0.1:4096`");
-		throw new Error("No running OpenCode servers found");
-	}
-
-	if (instances.length === 1) {
-		const inst = instances[0]!;
-		logDaemon(`✓ Found OpenCode at ${inst.url}`);
-		return { server: { url: inst.url, managed: false } };
-	}
-
-	const choices = instances.map((inst) => {
-		const ago = inst.lastActivity > 0 ? `${Math.round((Date.now() - inst.lastActivity) / 1000 / 60)}m ago` : "unknown";
-		return `${inst.url} (${inst.projects.length} projects, last active ${ago})`;
-	});
-
-	const selected = await promptForChoice("Multiple OpenCode servers detected:", choices);
-	if (selected == null) {
-		throw new Error("Attach cancelled");
-	}
-	const inst = instances[selected]!;
-	logDaemon(`✓ Using OpenCode at ${inst.url}`);
-	return { server: { url: inst.url, managed: false } };
-}
-
-export async function discoverLocalOpencodeUrls(verbose: boolean): Promise<string[]> {
-	const ports = discoverListeningPortsFromLsof(verbose);
-	if (ports.length === 0) return [];
-	const instances = await discoverRunningOpencodeInstances(ports, false);
-	return instances.map((i) => i.url);
 }

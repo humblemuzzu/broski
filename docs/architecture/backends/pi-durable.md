@@ -2,7 +2,7 @@
 
 > Source of truth: `packages/bridge/src/connectors/pi-durable/`, `packages/bridge/src/handlers/pi_durable*.ts`,
 > `packages/bridge/src/runtime/pi-durable-*.ts`, `packages/bridge/src/types/pi-durable.ts`.
-> Related: [pi.md](pi.md) (the stable Pi backend), `AGENTS.md` (the runtime abstraction).
+> Related: the stable Pi backend (`packages/bridge/src/connectors/pi/`), `AGENTS.md` (the runtime abstraction).
 
 `pi-durable` is Broski's 5th backend (`BroskiBackend = … | "pi-durable"`). It is **experimental** and hidden
 behind the app's Experimental toggle (`AgentType.piDurable`).
@@ -50,7 +50,7 @@ pi-durable has **no** cross-process guard — "one process owns a storage at a t
 - acquire **before** `openNodeJsonlStorage`, release **after** `harness.close()` + `storage.close()`.
 
 Reclaim must stay automatic: a `SIGKILL`ed bridge leaves the file behind, so refusing on any existing file
-would permanently brick the session. Any second process (including `broski-bridge --attach`) must respect it.
+would permanently brick the session. Any second process (including a second bridge) must respect it.
 
 ## WebSocket contract
 
@@ -146,7 +146,7 @@ no new auth flow. `pi.usage` reports **catalog list price** — a subscription-b
 cost unless the app labels it "included in plan".
 
 The durable model list is the Pi backend's own catalogue: `listPiDurableModels()` reads
-`readPiModelCatalogue()` (see [pi.md](pi.md#14-modelruntime--model-discovery-and-selection)), so it is
+`readPiModelCatalogue()` (`packages/bridge/src/connectors/pi/pi-model-catalogue.ts`), so it is
 refreshed from `auth.json` / `models.json` / `models-store.json` on every call and the user's `enabledModels`
 come first, in their order, each marked `backendData.selectedOrder` (and `isDefault` for the default model).
 `HarnessOptions.models` may be a function; we pass the runtime object itself, which every bridge refresh

@@ -9,19 +9,17 @@ import 'package:flutter/material.dart';
 
 /// Content widget for the Codex Skills sheet.
 ///
-/// Shows per-skill enable/disable toggles and a "Browse Remote" button at top.
+/// Shows per-skill enable/disable toggles.
 class CxSkillsSheetContent extends StatefulWidget {
   const CxSkillsSheetContent({
     super.key,
     required this.bridge,
     required this.cwd,
     required this.theme,
-    required this.onBrowseRemote,
   });
   final BridgeService bridge;
   final String? cwd;
   final OpenCodeTheme theme;
-  final VoidCallback onBrowseRemote;
   @override
   State<CxSkillsSheetContent> createState() => _CxSkillsSheetContentState();
 }
@@ -85,21 +83,6 @@ class _CxSkillsSheetContentState extends State<CxSkillsSheetContent> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Browse Remote button
-          Padding(
-            padding: Insets.bottomMd,
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: widget.onBrowseRemote,
-                icon: Icon(AppIcons.explore, size: 16, color: theme.primary),
-                label: Text(
-                  'Browse Remote',
-                  style: AppTypography.bodySmall(color: theme.primary),
-                ),
-              ),
-            ),
-          ),
           // Loading / Error / Content
           if (_loading)
             const Padding(

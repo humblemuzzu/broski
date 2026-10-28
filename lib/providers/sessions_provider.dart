@@ -57,9 +57,7 @@ class GlobalSessionStatusNotifier
   StreamSubscription<Map<String, dynamic>>? _rawSubscription;
   StreamSubscription<RuntimeEvent>? _runtimeEventSubscription;
   StreamSubscription<RuntimeState>? _runtimeStateSubscription;
-  StreamSubscription<List<RuntimeSessionSummary>>? _runtimeSessionsSubscription;
   StreamSubscription<Map<String, dynamic>>? _sessionDeltaSubscription;
-  final Set<AgentType> _runtimeSnapshotBackends = <AgentType>{};
   late final PiDurableSessionsRefresher _piDurableSessionsRefresher =
       piDurableSessionsRefresher(_ref);
 
@@ -71,20 +69,13 @@ class GlobalSessionStatusNotifier
     _runtimeStateSubscription = bridge.runtimeStates.listen(
       _handleRuntimeState,
     );
-    _runtimeSessionsSubscription = bridge.runtimeSessions.listen(
-      _handleRuntimeSessions,
-    );
-
-    // Keep raw snapshots only as read-model fallback while runtime snapshots
-    // prove out across reconnect and thread-list paths.
     _rawSubscription = bridge.messages.listen(_handleRawMessage);
     _sessionDeltaSubscription = bridge.messages.listen(_handleSessionDelta);
   }
 
   void _handleRawMessage(Map<String, dynamic> message) {
     final type = message['type'] as String? ?? '';
-    if (type == 'cx_threads' &&
-        !_runtimeSnapshotBackends.contains(AgentType.codex)) {
+    if (type == 'cx_threads') {
       _handleCxThreadsSnapshot(message['data'] as List<dynamic>? ?? const []);
     }
   }
@@ -110,17 +101,6 @@ class GlobalSessionStatusNotifier
     final sessionId = (runtimeState.sessionId ?? '').trim();
     if (sessionId.isEmpty) return;
     _applyRuntimeStatus(sessionId, runtimeSessionStatusFromState(runtimeState));
-  }
-
-  void _handleRuntimeSessions(List<RuntimeSessionSummary> sessions) {
-    if (sessions.isEmpty) return;
-
-    final backend = sessions.first.backend;
-    _runtimeSnapshotBackends.add(backend);
-    final updates = runtimeSessionStatusesFromSummaries(sessions);
-    if (updates.isNotEmpty) {
-      state = {...state, ...updates};
-    }
   }
 
   /// The bridge sends the one row that changed; the list providers apply it themselves.
@@ -287,15 +267,11 @@ class GlobalSessionStatusNotifier
       final bridge = _ref.read(bridgeServiceProvider);
       final statuses = await bridge.getSessionStatus();
 
-      // Claude Code fallback only while normalized runtime snapshots are not
-      // yet available from the bridge.
-      if (!_runtimeSnapshotBackends.contains(AgentType.claudeCode)) {
-        final ccActive = await bridge.ccGetActiveSessions();
-        for (final item in ccActive) {
-          final sessionId = item['sessionId'] as String? ?? '';
-          if (sessionId.isEmpty) continue;
-          statuses[sessionId] = const SessionStatus.busy();
-        }
+      final ccActive = await bridge.ccGetActiveSessions();
+      for (final item in ccActive) {
+        final sessionId = item['sessionId'] as String? ?? '';
+        if (sessionId.isEmpty) continue;
+        statuses[sessionId] = const SessionStatus.busy();
       }
 
       if (kDebugMode) {
@@ -326,7 +302,6 @@ class GlobalSessionStatusNotifier
     _rawSubscription?.cancel();
     _runtimeEventSubscription?.cancel();
     _runtimeStateSubscription?.cancel();
-    _runtimeSessionsSubscription?.cancel();
     _sessionDeltaSubscription?.cancel();
     _piDurableSessionsRefresher.dispose();
     super.dispose();

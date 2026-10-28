@@ -58,7 +58,6 @@ export type BridgeState = {
 	sessionWatchers: Map<string, Set<ServerWebSocket<unknown>>>;
 	ccExternalTails: Map<string, { stop: () => void }>;
 	cxExternalTails: Map<string, { stop: () => void }>;
-	ocExternalTails: Map<string, { stop: () => void }>;
 	ccPermissionWaiters: Map<string, PermissionWaiter<ClaudePermissionReply>>;
 	ccElicitationWaiters: Map<string, ElicitationWaiter>;
 	cxApprovalWaiters: Map<string, PermissionWaiter<CodexApprovalReply>>;
@@ -185,7 +184,6 @@ function createSessionMaps() {
 		sessionWatchers: new Map<string, Set<ServerWebSocket<unknown>>>(),
 		ccExternalTails: new Map<string, { stop: () => void }>(),
 		cxExternalTails: new Map<string, { stop: () => void }>(),
-		ocExternalTails: new Map<string, { stop: () => void }>(),
 		ccPermissionWaiters: new Map<string, PermissionWaiter<ClaudePermissionReply>>(),
 		ccElicitationWaiters: new Map<string, ElicitationWaiter>(),
 		cxApprovalWaiters: new Map<string, PermissionWaiter<CodexApprovalReply>>(),

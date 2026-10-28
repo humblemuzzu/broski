@@ -2,7 +2,7 @@
  * Codex thread CRUD handler.
  * Extracted from server.ts — cases: cx_list_projects, cx_list_threads,
  * cx_warmup, cx_start_thread, cx_resume_thread, cx_archive_thread,
- * cx_thread_fork, cx_thread_rollback
+ * cx_thread_fork
  */
 
 import type { CodexAppServerClient } from "../../connectors/codex";
@@ -214,26 +214,6 @@ export async function handleCxThreads(
 				});
 			} else {
 				reply({ type: "error", message: "Fork failed", requestId: message.requestId });
-			}
-			return true;
-		}
-
-		// ── cx_thread_rollback ───────────────────────────────────────────
-		case "cx_thread_rollback": {
-			const client = await ctx.ensureCodexClient();
-			const result: any = await client.request("thread/rollback", {
-				threadId: message.threadId,
-				numTurns: message.numTurns,
-			});
-			const thread = result?.thread;
-			if (thread) {
-				reply({
-					type: "cx_thread_rolled_back",
-					data: ctx.mapCodexThread(thread, ctx.cxThreadNames.get(message.threadId)),
-					requestId: message.requestId,
-				});
-			} else {
-				reply({ type: "error", message: "Rollback failed", requestId: message.requestId });
 			}
 			return true;
 		}

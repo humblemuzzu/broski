@@ -103,50 +103,6 @@ describe("claude-code decisions", () => {
 	});
 });
 
-describe("codex decisions", () => {
-	test("deny reaches the hook as a deny and allow reaches it as Codex's own no-op", async () => {
-		const feed = await openFeed(h.socketPath);
-		try {
-			const deny = h.postHook("cx-hook", {
-				hook_event_name: "PreToolUse",
-				session_id: "cx-dec-deny",
-				tool_use_id: "cx-toolu-deny",
-				tool_name: "Bash",
-				tool_input: { command: "rm -rf /tmp/x" },
-			});
-			const denyAlert = await h.alertFor(feed, "codex", "cx-dec-deny");
-			expect(denyAlert.request).toBe("cx-toolu-deny");
-			const denyResult = await h.decide(feed, {
-				backend: "codex",
-				session: "cx-dec-deny",
-				request: "cx-toolu-deny",
-				decision: "deny",
-			});
-			expect(denyResult).toMatchObject({ ok: true, error: null });
-			expect(await h.hookDecision(await deny)).toBe("deny");
-
-			const allow = h.postHook("cx-hook", {
-				hook_event_name: "PreToolUse",
-				session_id: "cx-dec-allow",
-				tool_use_id: "cx-toolu-allow",
-				tool_name: "Bash",
-				tool_input: { command: "ls" },
-			});
-			await h.alertFor(feed, "codex", "cx-dec-allow");
-			const allowResult = await h.decide(feed, {
-				backend: "codex",
-				session: "cx-dec-allow",
-				request: "cx-toolu-allow",
-				decision: "allow",
-			});
-			expect(allowResult).toMatchObject({ ok: true, error: null });
-			expect(await h.hookDecision(await allow)).toBeUndefined();
-		} finally {
-			feed.close();
-		}
-	});
-});
-
 describe("opencode decisions", () => {
 	test("allow and deny reach the connector's permission reply", async () => {
 		const feed = await openFeed(h.socketPath);

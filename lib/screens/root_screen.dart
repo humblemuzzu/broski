@@ -1,4 +1,3 @@
-import 'package:broski/providers/chat/runtime_shadow_provider.dart';
 import 'package:broski/providers/connection/link_connection_controller.dart';
 import 'package:broski/providers/connection/link_send_failure_notice.dart';
 import 'package:broski/providers/connection_provider.dart';
@@ -23,7 +22,6 @@ class RootScreen extends ConsumerWidget {
   const RootScreen({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    ref.watch(runtimeShadowBootstrapProvider);
     ref.watch(piBackendEventListenerProvider);
     ref.watch(linkConnectionBootstrapProvider);
     ref.watch(linkSendFailureNoticeProvider);

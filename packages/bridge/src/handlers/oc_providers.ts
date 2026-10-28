@@ -1,5 +1,4 @@
 import type { Auth } from "@opencode-ai/sdk/v2";
-import { mapOpenCodeProvidersToRuntimeModels } from "../runtime/opencode-runtime-read-models";
 import type { ClientMessage, ServerMessage } from "../types";
 
 type Reply = (message: ServerMessage) => void;
@@ -30,11 +29,6 @@ export async function handle(
 			const oc = requireOpenCode();
 			const providers = await oc.listAllProviders(message.projectPath);
 			reply({ type: "all_providers", data: providers });
-			reply({
-				type: "runtime_models",
-				backend: "opencode",
-				data: mapOpenCodeProvidersToRuntimeModels(providers),
-			});
 			return true;
 		}
 		case "get_provider_auth": {

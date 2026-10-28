@@ -144,7 +144,6 @@ export async function handleCcChat(
 				model,
 			}),
 		});
-		// Legacy sdk_event removed in Phase 4 — runtime_state (above) drives UI state.
 	};
 
 	const sendSessionIdle = (sessionId: string) => {

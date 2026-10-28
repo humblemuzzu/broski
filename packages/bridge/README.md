@@ -63,9 +63,6 @@ broski-link pair
 broski-link devices
 broski-link revoke <device id prefix>
 
-# Attach to existing OpenCode instance
-broski --attach
-
 # Connect to specific OpenCode URL
 broski --opencode-url http://localhost:4096
 

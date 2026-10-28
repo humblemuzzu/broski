@@ -12,13 +12,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as claudeCode from "../src/connectors/claude-code";
 import { findCodexStateDbPath, listThreadsFromDb } from "../src/connectors/codex/cx-sqlite";
-import { findOpenCodeDbPath, listSessionsFromDb } from "../src/connectors/opencode/oc-sqlite";
 import * as pi from "../src/connectors/pi";
 import { resolveIndexCacheRoot } from "../src/index-cache/index-cache-root";
 import { PI_SESSION_INDEX_FILE } from "../src/index-cache/pi-session-index-record";
 import { mapClaudeCodeSessionToRuntimeSession } from "../src/runtime/claude-code-runtime-read-models";
 import { mapCodexThreadToRuntimeSession } from "../src/runtime/codex-runtime-read-models";
-import { mapOpenCodeSessionToRuntimeSession } from "../src/runtime/opencode-runtime-read-models";
 import { mapPiSessionsToRuntimeSessions } from "../src/runtime/pi-runtime-read-models";
 import { DEFAULT_SESSION_PAGE_LIMIT, pageSessionList, type SessionListRow } from "../src/utils/session-list-page";
 
@@ -143,40 +141,11 @@ function measureCodex(): void {
 	);
 }
 
-function measureOpenCode(): void {
-	const dbPath = findOpenCodeDbPath();
-	if (!dbPath) {
-		console.log("opencode     not installed (no opencode.db); skipped");
-		return;
-	}
-	const sessions = listSessionsFromDb({ limit: 0 }, dbPath);
-	guard();
-	report(
-		measure(
-			"opencode",
-			"sessions",
-			sessions,
-			(session) => ({ id: session.id, modified: session.time?.updated ?? 0 }),
-			"sessions",
-		),
-	);
-	report(
-		measure(
-			"opencode",
-			"runtime_sessions (old mapping)",
-			sessions.map(mapOpenCodeSessionToRuntimeSession),
-			(session: { id: string; updatedAtMs: number }) => ({ id: session.id, modified: session.updatedAtMs }),
-			"runtime_sessions",
-		),
-	);
-}
-
 async function main(): Promise<void> {
 	console.log(`first page = limit ${DEFAULT_SESSION_PAGE_LIMIT}; full = the whole list in one reply\n`);
 	await measurePi();
 	await measureClaudeCode();
 	measureCodex();
-	measureOpenCode();
 	guard();
 	console.log(`\nrss after the run: ${mib(process.memoryUsage().rss)}`);
 }

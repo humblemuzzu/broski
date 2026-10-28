@@ -67,7 +67,7 @@ function reclaimable(holder: PiDurableLockHolder | undefined): boolean {
 
 /**
  * pi-durable has no cross-process guard of its own, so one `O_CREAT|O_EXCL` lock file per storage directory keeps a
- * second bridge (or `--attach`) out. A holder whose pid is gone is reclaimed once, so a SIGKILLed bridge cannot brick
+ * second bridge out. A holder whose pid is gone is reclaimed once, so a SIGKILLed bridge cannot brick
  * a session.
  */
 export function acquirePiDurableStorageLock(directory: string): PiDurableStorageLock {

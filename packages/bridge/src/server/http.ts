@@ -1,7 +1,6 @@
 import { validateAuthToken } from "../auth-token";
 import type { OpenCodeConnector } from "../connectors/opencode";
 import { type CcPermissionHookContext, handleCcPermissionHook } from "../handlers/cc_permission_hook";
-import { type CxPermissionHookContext, handleCxPermissionHook } from "../handlers/cx_permission_hook";
 import { createFetchHandler, type FetchHandlerDeps, type HandleHttpDeps } from "../http-handler";
 import { buildProxyPortAllowlist } from "../http-utils";
 import { isLoopbackAddress } from "../security";
@@ -48,15 +47,6 @@ export function createHttpWiring(deps: HttpWiringDeps): HttpWiring {
 				DEBUG_RTS: deps.debugRts,
 			};
 			return handleCcPermissionHook(request, hookCtx);
-		},
-		handleCxPermissionHook: (request: Request) => {
-			const hookCtx: CxPermissionHookContext = {
-				broadcast: deps.streams.broadcast,
-				logInfo: deps.log.logInfo,
-				logDebug: deps.log.logDebug,
-				DEBUG_RTS: deps.debugRts,
-			};
-			return handleCxPermissionHook(request, hookCtx);
 		},
 	};
 

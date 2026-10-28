@@ -274,4 +274,4 @@ If you have questions, concerns, or requests regarding this Privacy Policy or yo
 
 **Response time:** We will acknowledge your request within 48 hours and provide a substantive response within 30 days (or sooner if required by applicable law).
 
-For security vulnerabilities, please see our [Security Reporting](../Public%20Docs/pd/privacy-security.md) documentation.
+For security vulnerabilities, please see our [Security Reporting](../../Public%20Docs/pd/privacy-security.md) documentation.

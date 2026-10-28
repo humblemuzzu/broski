@@ -1,28 +1,3 @@
-import 'package:broski/models/message.dart';
-
-PermissionRequest buildCodexSkillPermissionRequest({
-  required String requestId,
-  required String sessionId,
-  required Map<String, dynamic> params,
-}) {
-  final skillName =
-      (params['skillName'] ?? params['skill_name'])?.toString().trim() ??
-      'Unknown skill';
-
-  return PermissionRequest(
-    id: requestId,
-    sessionId: sessionId,
-    title: 'Allow skill "$skillName" to run?',
-    command: skillName,
-    metadata: {
-      'threadId': params['threadId'] ?? params['thread_id'],
-      'method': 'skill/requestApproval',
-      'skillName': skillName,
-      'itemId': (params['itemId'] ?? params['item_id'])?.toString(),
-    },
-  );
-}
-
 String buildCodexApprovalTitle({
   required String method,
   Object? reason,

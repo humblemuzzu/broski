@@ -80,7 +80,6 @@ export type CxClientMessage =
 			answers: Record<string, { answers: string[] }>;
 	  }
 	| { type: "cx_thread_fork"; threadId: string }
-	| { type: "cx_thread_rollback"; threadId: string; numTurns: number }
 	| { type: "cx_model_list" }
 	| { type: "cx_skills_list"; cwd?: string; forceReload?: boolean }
 	| {
@@ -152,13 +151,6 @@ export type CxClientMessage =
 	| { type: "cx_thread_rename"; threadId: string; name: string }
 	| { type: "cx_thread_unarchive"; threadId: string }
 	| { type: "cx_thread_compact"; threadId: string }
-	| {
-			type: "cx_remote_skills_list";
-			hazelnutScope?: "example" | "workspace-shared" | "all-shared" | "personal";
-			productSurface?: "chatgpt" | "codex" | "api" | "atlas";
-			enabled?: boolean;
-	  }
-	| { type: "cx_remote_skill_install"; hazelnutId: string; isPreload?: boolean }
 	| { type: "cx_skill_config_write"; path: string; enabled: boolean }
 	| {
 			type: "cx_apps_list";

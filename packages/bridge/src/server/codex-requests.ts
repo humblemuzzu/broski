@@ -35,27 +35,11 @@ export function createCodexRequestHandler(deps: CodexRequestDeps): (r: CodexServ
 		const isLegacyExecApproval = requestMethod === "execCommandApproval";
 		const isLegacyApproval = isLegacyPatchApproval || isLegacyExecApproval;
 
-		let threadId = safeString(
+		const threadId = safeString(
 			params.threadId ?? params.thread_id ?? params.threadID ?? params.conversationId ?? params.conversation_id,
 		);
-		let turnId = safeString(params.turnId ?? params.turn_id ?? params.turnID);
+		const turnId = safeString(params.turnId ?? params.turn_id ?? params.turnID);
 		const itemId = safeString(params.itemId ?? params.item_id ?? params.itemID ?? params.callId);
-
-		// skill/requestApproval does not currently include threadId in protocol params.
-		// Recover it from cached item events: key format `${threadId}:${turnId}:${itemId}`.
-		if (!threadId && requestMethod === "skill/requestApproval" && itemId) {
-			for (const key of state.cxItemCache.keys()) {
-				if (key.endsWith(`:${itemId}`)) {
-					const [resolvedThreadId, resolvedTurnId] = key.split(":");
-					threadId = resolvedThreadId ?? "";
-					if (!turnId) turnId = resolvedTurnId ?? "";
-					break;
-				}
-			}
-		}
-		if (!threadId && requestMethod === "skill/requestApproval" && state.cxThreadOwners.size === 1) {
-			threadId = Array.from(state.cxThreadOwners.keys())[0] ?? "";
-		}
 
 		const owner = threadId ? state.cxThreadOwners.get(threadId) : null;
 
@@ -135,10 +119,6 @@ export function createCodexRequestHandler(deps: CodexRequestDeps): (r: CodexServ
 		if (requestMethod === "item/fileChange/requestApproval" || isLegacyPatchApproval) {
 			if (params.grantRoot) enrichedParams.grantRoot = params.grantRoot;
 			if (params.fileChanges && !enrichedParams.fileChanges) enrichedParams.fileChanges = params.fileChanges;
-		}
-		if (requestMethod === "skill/requestApproval") {
-			if (params.skillName && !enrichedParams.skillName) enrichedParams.skillName = params.skillName;
-			if (params.itemId && !enrichedParams.itemId) enrichedParams.itemId = params.itemId;
 		}
 
 		const frontendMethod = isLegacyExecApproval

@@ -5,7 +5,6 @@
 
 import type { CodexAppServerClient } from "../../connectors/codex";
 import type { CxMessage } from "../../routing/messages";
-import { mapCodexModelToSummary } from "../../runtime/codex-runtime-read-models";
 
 export type CxConfigHandlerContext = {
 	ensureCodexClient: () => Promise<CodexAppServerClient>;
@@ -56,14 +55,6 @@ export async function handleCxConfig(
 				data: result?.data ?? [],
 				nextCursor: result?.nextCursor ?? null,
 				requestId: message.requestId,
-			});
-			reply({
-				type: "runtime_models",
-				backend: "codex",
-				data: (Array.isArray(result?.data) ? result.data : []).map((model: Record<string, unknown>) =>
-					mapCodexModelToSummary(model),
-				),
-				// No requestId — push notification, not a response to a specific request
 			});
 			return true;
 		}

@@ -217,10 +217,8 @@ export class CodexAppServerClient {
 	async request(method: string, params?: unknown, timeoutMs = 120_000): Promise<unknown> {
 		const id = this.nextId++;
 		const key = String(id);
-		console.log(`[Codex] Request ${id}: ${method}`);
 		return await new Promise((resolve, reject) => {
 			const timer = setTimeout(() => {
-				console.log(`[Codex] Request ${id} timed out: ${method}`);
 				this.pending.delete(key);
 				reject(new Error(`Codex app-server request timed out: ${method}`));
 			}, timeoutMs);
@@ -256,7 +254,6 @@ export class CodexAppServerClient {
 			if (msg && typeof msg === "object" && "id" in msg && ("result" in msg || "error" in msg)) {
 				const key = String(msg.id);
 				const pending = this.pending.get(key);
-				console.log(`[Codex] Response ${key}: ${msg.error ? "error" : "success"}`);
 				if (pending) {
 					clearTimeout(pending.timer);
 					this.pending.delete(key);
@@ -266,8 +263,6 @@ export class CodexAppServerClient {
 					} else {
 						pending.resolve(msg.result);
 					}
-				} else {
-					console.log(`[Codex] No pending request for id ${key}`);
 				}
 				continue;
 			}

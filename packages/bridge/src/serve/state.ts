@@ -23,7 +23,6 @@ export const serveState = {
 	opencodeServer: null as OpenCodeServer | null,
 	bridgeServer: null as BridgeServer | null,
 	primaryEventStreamController: null as AbortController | null,
-	extraEventStreamControllers: [] as AbortController[],
 	healthTimer: null as Timer | null,
 	opencodeConnector: null as OpenCodeConnector | null,
 	restartInFlight: false,

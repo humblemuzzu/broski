@@ -25,5 +25,4 @@ export const STORAGE_KEYS = {
   selectedSession: "broski:web:selectedSession",
   specByProject: "broski:web:specByProject:v1",
   previewByProject: "broski:web:previewByProject:v1",
-  settings: "broski:web:settings:v1",
 } as const

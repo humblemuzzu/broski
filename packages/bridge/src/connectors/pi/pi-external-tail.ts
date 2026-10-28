@@ -75,7 +75,6 @@ export function startPiExternalTail(sessionFile: string, ctx: PiExternalTailCont
 				// Caught up to end of file — any new content from now on is live.
 				if (!initialSyncDone) {
 					initialSyncDone = true;
-					console.log(`[Pi tail] Initial sync done, ${seenMessageIds.size} baseline messages`);
 				}
 				pumping = false;
 				return;
@@ -109,7 +108,6 @@ export function startPiExternalTail(sessionFile: string, ctx: PiExternalTailCont
 				// Check if we've caught up after this read
 				if (!initialSyncDone && offset >= fileSize) {
 					initialSyncDone = true;
-					console.log(`[Pi tail] Initial sync done, ${seenMessageIds.size} baseline messages`);
 				}
 			} finally {
 				await fh.close().catch(() => {});
@@ -136,7 +134,6 @@ export function startPiExternalTail(sessionFile: string, ctx: PiExternalTailCont
 		if (!msg || typeof msg !== "object") return;
 		const role = msg.role as string;
 		if (!role) return;
-		console.log(`[Pi tail] Processing new entry: role=${role}, msgId=${msgId}`);
 
 		if (role === "user") {
 			// User typed a prompt in the terminal — emit it so the phone shows it

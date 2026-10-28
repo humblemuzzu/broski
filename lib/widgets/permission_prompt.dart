@@ -59,7 +59,6 @@ class _PermissionPromptState extends State<PermissionPrompt> {
   }
 
   IconData _getPermissionIcon() {
-    if (_isSkillApproval) return AppIcons.autoAwesome;
     switch (widget.request.permission) {
       case 'edit':
         return AppIcons.edit;
@@ -75,7 +74,6 @@ class _PermissionPromptState extends State<PermissionPrompt> {
   }
 
   Color _getPermissionColor(OpenCodeTheme theme) {
-    if (_isSkillApproval) return theme.info;
     switch (widget.request.permission) {
       case 'edit':
         return theme.warning;
@@ -97,9 +95,6 @@ class _PermissionPromptState extends State<PermissionPrompt> {
         (widget.request.metadata['doomLoop'] == true);
   }
 
-  bool get _isSkillApproval =>
-      (widget.request.metadata['method'] as String?) == 'skill/requestApproval';
-
   String? get _networkHost {
     final proposed = widget.request.metadata['proposedNetworkPolicyAmendments'];
     if (proposed is List && proposed.isNotEmpty) {
@@ -117,10 +112,6 @@ class _PermissionPromptState extends State<PermissionPrompt> {
     return null;
   }
 
-  String get _approveLabel =>
-      _isSkillApproval ? 'Approve' : widget.approveOnceLabel;
-  String get _rejectLabel => _isSkillApproval ? 'Decline' : 'Reject';
-  bool get _showPersistentApprovalButtons => !_isSkillApproval;
   String get _effectiveAlwaysLabel {
     final host = _networkHost;
     if (host != null && host.isNotEmpty) return 'Allow $host';
@@ -434,7 +425,7 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                                         ),
                                       ),
                                     ),
-                                    child: Text(_rejectLabel),
+                                    child: const Text('Reject'),
                                   ),
                                 ),
                                 const SizedBox(width: 10),
@@ -449,57 +440,54 @@ class _PermissionPromptState extends State<PermissionPrompt> {
                                         ),
                                       ),
                                     ),
-                                    child: Text(_approveLabel),
+                                    child: Text(widget.approveOnceLabel),
                                   ),
                                 ),
                               ],
                             ),
-                            if (_showPersistentApprovalButtons) ...[
-                              const SizedBox(height: 10),
-                              // Row 2: Session | Always
-                              Row(
-                                children: [
-                                  // Session button - only show if callback provided
-                                  if (widget.onApproveForSession != null) ...[
-                                    Expanded(
-                                      child: OutlinedButton.icon(
-                                        onPressed: widget.onApproveForSession,
-                                        icon: const Icon(
-                                          AppIcons.timer,
-                                          size: 16,
-                                        ),
-                                        label: Text(
-                                          widget.approveForSessionLabel,
-                                        ),
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor: theme.info,
-                                          side: BorderSide(
-                                            color: theme.info.withValues(
-                                              alpha: 0.5,
-                                            ),
+                            const SizedBox(height: 10),
+                            // Row 2: Session | Always
+                            Row(
+                              children: [
+                                // Session button - only show if callback provided
+                                if (widget.onApproveForSession != null) ...[
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      onPressed: widget.onApproveForSession,
+                                      icon: const Icon(
+                                        AppIcons.timer,
+                                        size: 16,
+                                      ),
+                                      label: Text(
+                                        widget.approveForSessionLabel,
+                                      ),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: theme.info,
+                                        side: BorderSide(
+                                          color: theme.info.withValues(
+                                            alpha: 0.5,
                                           ),
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(width: 10),
-                                  ],
-                                  Expanded(
-                                    child: ElevatedButton(
-                                      onPressed: widget.onAlwaysAllow,
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: theme.accent,
-                                        foregroundColor:
-                                            theme.selectedListItemText,
-                                      ),
-                                      child: Text(_effectiveAlwaysLabel),
-                                    ),
                                   ),
+                                  const SizedBox(width: 10),
                                 ],
-                              ),
-                            ],
+                                Expanded(
+                                  child: ElevatedButton(
+                                    onPressed: widget.onAlwaysAllow,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: theme.accent,
+                                      foregroundColor:
+                                          theme.selectedListItemText,
+                                    ),
+                                    child: Text(_effectiveAlwaysLabel),
+                                  ),
+                                ),
+                              ],
+                            ),
                             // Execpolicy prefix learning button
-                            if (_showPersistentApprovalButtons &&
-                                widget.onApproveWithExecpolicy != null) ...[
+                            if (widget.onApproveWithExecpolicy != null) ...[
                               const SizedBox(height: 10),
                               OutlinedButton.icon(
                                 onPressed: widget.onApproveWithExecpolicy,

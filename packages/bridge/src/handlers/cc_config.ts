@@ -5,7 +5,6 @@ import type {
 	ClaudeCodeSupportedModel,
 	ServerMessage,
 } from "../types";
-import type { BroskiModelSummary } from "../types/runtime";
 
 type ReplyFn = (msg: ServerMessage) => void;
 
@@ -27,7 +26,6 @@ type HandlerContext = {
 			deletions?: number;
 		}>;
 	};
-	mapClaudeCodeModelToSummary: (model: ClaudeCodeSupportedModel) => BroskiModelSummary;
 };
 
 export async function handle(message: Record<string, unknown>, reply: ReplyFn, ctx: HandlerContext): Promise<boolean> {
@@ -49,11 +47,6 @@ export async function handle(message: Record<string, unknown>, reply: ReplyFn, c
 		case "cc_get_supported_models": {
 			const models = await ctx.claudeCode.getSupportedModels(message.cwd as string | undefined);
 			reply({ type: "cc_supported_models", data: models });
-			reply({
-				type: "runtime_models",
-				backend: "claude-code",
-				data: models.map(ctx.mapClaudeCodeModelToSummary),
-			});
 			return true;
 		}
 		case "cc_get_account_info": {

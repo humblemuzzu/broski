@@ -187,25 +187,6 @@ extension BridgeServiceCcSessions on BridgeService {
     }
   }
 
-  Future<bool> ccBackgroundSession(String sessionId, {String? cwd}) async {
-    final requestId = _generateRequestId();
-    _socket.send({
-      'type': 'cc_background_session',
-      'sessionId': sessionId,
-      'requestId': requestId,
-      if (cwd != null) 'cwd': cwd,
-    });
-    try {
-      final response = await _waitFor(
-        'cc_session_backgrounded',
-        requestId: requestId,
-      );
-      return response['data'] as bool? ?? false;
-    } catch (_) {
-      return false;
-    }
-  }
-
   Future<List<Map<String, dynamic>>> ccGetActiveSessions() async {
     final requestId = _generateRequestId();
     _socket.send({'type': 'cc_get_active_sessions', 'requestId': requestId});

@@ -47,62 +47,6 @@ void main() {
         isTrue,
       );
     });
-
-    test('maps active summaries to busy and inactive summaries to idle', () {
-      final statuses = runtimeSessionStatusesFromSummaries([
-        const RuntimeSessionSummary(
-          backend: AgentType.codex,
-          id: 'cx-1',
-          title: 'Session 1',
-          cwd: '/tmp/cx-1',
-          createdAtMs: 1,
-          updatedAtMs: 2,
-          isActive: true,
-        ),
-        const RuntimeSessionSummary(
-          backend: AgentType.codex,
-          id: 'cx-2',
-          title: 'Session 2',
-          cwd: '/tmp/cx-2',
-          createdAtMs: 3,
-          updatedAtMs: 4,
-          isActive: false,
-        ),
-      ]);
-
-      expect(statuses['cx-1']?.isBusy, isTrue);
-      expect(statuses['cx-2']?.isIdle, isTrue);
-    });
-
-    test(
-      'derives summary status from backend status payloads only when honest',
-      () {
-        final statuses = runtimeSessionStatusesFromSummaries([
-          const RuntimeSessionSummary(
-            backend: AgentType.codex,
-            id: 'cx-running',
-            title: 'Running',
-            cwd: '/tmp/cx-running',
-            createdAtMs: 1,
-            updatedAtMs: 2,
-            backendData: {
-              'status': {'type': 'active'},
-            },
-          ),
-          const RuntimeSessionSummary(
-            backend: AgentType.claudeCode,
-            id: 'cc-unknown',
-            title: 'Unknown',
-            cwd: '/tmp/cc-unknown',
-            createdAtMs: 3,
-            updatedAtMs: 4,
-          ),
-        ]);
-
-        expect(statuses['cx-running']?.isBusy, isTrue);
-        expect(statuses.containsKey('cc-unknown'), isFalse);
-      },
-    );
   });
 
   group('runtime session activity handler', () {

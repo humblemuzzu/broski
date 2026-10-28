@@ -16,11 +16,8 @@ async function startTail(sessionId: string, request: TailRequest): Promise<void>
 
 	const filePath = await pi.resolveSessionFilePath(sessionId);
 	if (!filePath) {
-		console.log(`[Pi tail] Cannot resolve file for session ${sessionId}`);
 		return;
 	}
-
-	console.log(`[Pi tail] Starting external tail for ${sessionId} → ${filePath}`);
 
 	const tail = startPiExternalTail(filePath, {
 		emitPiStream: (streamMsg) => {
@@ -50,10 +47,7 @@ export async function syncPiExternalTail(
 ): Promise<void> {
 	const request = { broadcast, debugRts, logDebug };
 	wantedTails.set(sessionId, request);
-	if (externalTails.has(sessionId)) {
-		console.log(`[Pi tail] Already tailing session ${sessionId}`);
-		return;
-	}
+	if (externalTails.has(sessionId)) return;
 
 	// Only skip the external tail if the bridge is ACTIVELY streaming for
 	// this session. Having a bridge instance alone isn't enough — after a
@@ -61,10 +55,7 @@ export async function syncPiExternalTail(
 	// generates events, but isSessionOwnedByBridge would still return true,
 	// causing the external tail to be skipped and leaving the app with zero
 	// event delivery.
-	if (pi.isSessionActivelyStreaming(sessionId)) {
-		console.log(`[Pi tail] Session ${sessionId} is actively streaming via bridge, skipping external tail`);
-		return;
-	}
+	if (pi.isSessionActivelyStreaming(sessionId)) return;
 
 	await startTail(sessionId, request);
 }

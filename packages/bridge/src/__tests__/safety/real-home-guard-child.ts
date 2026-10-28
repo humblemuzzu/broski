@@ -8,10 +8,8 @@ import { homedir, tmpdir } from "node:os";
 import { createNewAuthState } from "../../auth-token";
 import { getDefaultConfig } from "../../config/defaults";
 import { getConfigPath, writeConfig } from "../../config/read-write";
-import { recordCollabSpawn } from "../../connectors/codex/cx-collab-cache";
 import { PiDurableSessionStore } from "../../connectors/pi-durable/session-store";
 import { installCcHook, uninstallCcHook } from "../../handlers/cc_hook_installer";
-import { installCxHook, uninstallCxHook } from "../../handlers/cx_hook_installer";
 import { resolveIndexCacheRoot } from "../../index-cache/index-cache-root";
 import { createBridgeLogger } from "../../logging/logger";
 import { isIsolationActive, realHomeDir } from "../../safety/real-home-guard";
@@ -23,18 +21,9 @@ type Probe = { name: string; work: () => Promise<unknown> };
 const probes: Probe[] = [
 	{ name: "installCcHook", work: () => installCcHook({ port: 1234, token: "guard-token", scheme: "https" }) },
 	{ name: "uninstallCcHook", work: () => uninstallCcHook() },
-	{ name: "installCxHook", work: () => installCxHook({ port: 1234, token: "guard-token", scheme: "https" }) },
-	{ name: "uninstallCxHook", work: () => uninstallCxHook() },
 	{ name: "writeConfig.defaultPath", work: () => writeConfig(getDefaultConfig()) },
 	{ name: "createNewAuthState", work: () => createNewAuthState() },
 	{ name: "ensureTlsMaterial", work: () => ensureTlsMaterial() },
-	{
-		name: "recordCollabSpawn",
-		work: async () => {
-			recordCollabSpawn("parent", "child");
-			return "recorded";
-		},
-	},
 	{ name: "piDurableCreate", work: () => new PiDurableSessionStore().create({ cwd: tmpdir() }) },
 	{
 		name: "resolveIndexCacheRoot",

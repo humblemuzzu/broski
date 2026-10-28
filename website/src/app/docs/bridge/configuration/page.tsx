@@ -157,13 +157,6 @@ broski --manual --opencode-url http://localhost:4096
 # Via environment variable
 OPENCODE_BASE_URL=http://localhost:4096 broski`}</CodeBlock>
           </div>
-
-          <div className="border border-border rounded-lg p-4">
-            <h3 className="font-mono font-medium mb-2">--attach</h3>
-            <p className="text-muted-foreground text-sm mb-3">Scan for running OpenCode servers and interactively choose one.</p>
-            <CodeBlock language="bash">{`broski --attach`}</CodeBlock>
-            <p className="text-sm text-muted-foreground mt-3">Scans common ports (4096, 64864-65119, 49152-49407). If multiple found, presents interactive selection menu.</p>
-          </div>
         </div>
       </section>
 

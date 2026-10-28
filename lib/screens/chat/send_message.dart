@@ -68,11 +68,9 @@ void sendMessage({
   required VoidCallback onCcResumeIdCleared,
   required bool Function() isMounted,
   required VoidCallback showCodexAppsSheet,
-  required VoidCallback showCodexRemoteSkillsSheet,
   required Future<void> Function() startCodexReview,
   required void Function(DiffEntry) openDiffView,
   required VoidCallback loadSessionContext,
-  required VoidCallback showCodexRollbackSheet,
   required VoidCallback showCodexAgentsSheet,
 }) {
   final text = controller.text.trim();
@@ -237,11 +235,9 @@ void sendMessage({
       scrollAndReset: scrollToBottom,
       isMounted: isMounted,
       showAppsSheet: showCodexAppsSheet,
-      showRemoteSkillsSheet: showCodexRemoteSkillsSheet,
       startReview: startCodexReview,
       openDiffView: openDiffView,
       loadSessionContext: loadSessionContext,
-      showRollbackSheet: showCodexRollbackSheet,
       showAgentsSheet: showCodexAgentsSheet,
     )) {
       return;

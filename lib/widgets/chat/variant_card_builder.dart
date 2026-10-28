@@ -7,10 +7,8 @@ import 'package:broski/widgets/chat/cc_system_message_cards.dart';
 import 'package:broski/widgets/chat/compact_hook_card.dart';
 import 'package:broski/widgets/chat/compact_task_notification_card.dart';
 import 'package:broski/widgets/chat/compact_tool_summary_chip.dart';
-import 'package:broski/widgets/chat/cx_collab_card.dart';
 import 'package:broski/widgets/chat/cx_compaction_divider.dart';
 import 'package:broski/widgets/chat/cx_hook_status_row.dart';
-import 'package:broski/widgets/chat/cx_image_gen_card.dart';
 import 'package:broski/widgets/chat/cx_model_rerouted_banner.dart';
 import 'package:broski/widgets/chat/cx_plan_card.dart';
 import 'package:broski/widgets/chat/cx_review_mode_indicator.dart';
@@ -228,29 +226,12 @@ Widget? buildVariantCard({
     return const CxCompactionDivider();
   }
 
-  // Codex: multi-agent collaboration card
-  if (variant == 'cx-collab-update') {
-    return const CxCollabCard();
-  }
-
   // Codex: plan mode card — inline plan progress
   if (variant == 'cx-plan-update') {
     // Read current todos from chat provider for live progress
     final todos = ref.watch(chatSessionProvider.select((s) => s.todos));
     final explanation = message.metadata['explanation']?.toString();
     return CxPlanCard(todos: todos, explanation: explanation);
-  }
-
-  // Codex: image generation card
-  if (variant == 'cx-image-gen') {
-    final isCompleted = message.metadata['completed'] == true;
-    final prompt = message.metadata['prompt']?.toString();
-    final imageUrl = message.metadata['imageUrl']?.toString();
-    return CxImageGenCard(
-      isCompleted: isCompleted,
-      prompt: prompt,
-      imageUrl: imageUrl,
-    );
   }
 
   // Codex: terminal interaction — agent waiting for stdin

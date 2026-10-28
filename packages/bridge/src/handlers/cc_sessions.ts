@@ -112,15 +112,6 @@ export async function handle(message: Record<string, unknown>, reply: ReplyFn, c
 			reply({ type: "cc_session_renamed", data: renamed });
 			return true;
 		}
-		case "cc_background_session": {
-			const sessionId = message.sessionId as string;
-			reply({
-				type: "cc_session_backgrounded",
-				data: true,
-				sessionId,
-			});
-			return true;
-		}
 		case "cc_get_active_sessions": {
 			const sessions = ctx.claudeCode.listActiveSessions().map((s) => ({
 				id: s.sessionId,

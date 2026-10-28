@@ -8,7 +8,6 @@ import type {
 	PiSelectedModelPayload,
 	PiSessionInfo,
 	PiStatePayload,
-	PiStreamMessage,
 	PiThinkingCapabilities,
 	PiToolInfo,
 } from "./pi";
@@ -88,7 +87,6 @@ export type PiServerMessage =
 	| { type: "pi_settings_updated"; data: boolean; requestId?: string }
 	| { type: "pi_instance_disposed"; data: boolean; requestId?: string }
 	| { type: "pi_extension_ui_responded"; data: boolean; requestId?: string }
-	| { type: "pi_stream"; data: PiStreamMessage; sessionId: string }
 	// Pi Tool Management (responses)
 	| { type: "pi_tools"; data: (PiToolInfo & { active: boolean })[]; requestId?: string }
 	| { type: "pi_active_tools"; data: string[]; requestId?: string }

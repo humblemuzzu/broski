@@ -2,7 +2,7 @@ import type { CodexNotification } from "../connectors/codex";
 import { extractCodexErrorDetails } from "../handlers/codex/cx_error_extract";
 import { handleCodexRuntimeNotification } from "../handlers/codex/runtime-notifications";
 import { buildCodexRuntimeState } from "../runtime/codex-runtime-read-models";
-import type { CodexStreamMessage, ServerMessage } from "../types";
+import type { ServerMessage } from "../types";
 import type { CodexFileUndo } from "./codex-file-undo";
 import type { LeveledLogger } from "./logger";
 import type { Sessions } from "./sessions";
@@ -19,7 +19,6 @@ export type CodexNotificationDeps = {
 	sessions: Sessions;
 	fileUndo: CodexFileUndo;
 	log: LeveledLogger;
-	debugCxGlobal: boolean;
 	getSecurePath: (path: string) => Promise<string | null>;
 };
 
@@ -148,7 +147,6 @@ export function createCodexNotificationHandler(deps: CodexNotificationDeps): (n:
 			const turnError = params.turn?.error;
 			deps.log.logInfo(`[Codex] turn/completed: threadId=${threadId}, turnId=${turnId}, status=${turnStatus}`);
 
-			// Handle turn/completed with failed status (different from turn/failed notification)
 			if (turnStatus === "failed" && turnError && threadId) {
 				deps.log.logError(`[Codex] turn/completed with failed status:`, JSON.stringify(turnError, null, 2));
 
@@ -168,7 +166,7 @@ export function createCodexNotificationHandler(deps: CodexNotificationDeps): (n:
 			}
 		}
 		// Handle turn failures and errors - EMIT TO CLIENT, not just log!
-		if (n.method === "turn/failed" || n.method === "error") {
+		if (n.method === "error") {
 			const turn = params.turn;
 			const error = turn?.error ?? params.error ?? params;
 			deps.log.logError(`[Codex] ${n.method}: threadId=${threadId}`, JSON.stringify(error, null, 2));
@@ -204,7 +202,6 @@ export function createCodexNotificationHandler(deps: CodexNotificationDeps): (n:
 				}
 				sessions.broadcastToSessionWatchers("codex", threadId, runtimeStatePayload, owner);
 
-				// Legacy sdk_event for session.idle removed in Phase 4.
 				// UI state is now driven by runtime_state (sent above).
 			}
 		}
@@ -224,50 +221,13 @@ export function createCodexNotificationHandler(deps: CodexNotificationDeps): (n:
 			deps.log.logInfo(`[Codex] ${n.method}: threadId=${threadId}, itemType=${itemType}, itemId=${itemId}`);
 		}
 
-		// Multi-Agent Collaboration Events (Codex SDK v0.87.0+)
-		// EXPERIMENTAL: `collab/*` notifications are not part of the stable, documented
-		// Codex protocol surface. We forward them for richer UI rendering, but they may
-		// change or disappear in future SDK/app-server versions.
-		if (n.method.startsWith("collab/")) {
-			const collabMethod = n.method.replace("collab/", "").replace("/", "_");
-			const collabData = {
-				callId: safeString(params.call_id ?? params.callId),
-				senderThreadId: safeString(params.sender_thread_id ?? params.senderThreadId ?? threadId),
-				receiverThreadId: safeString(params.receiver_thread_id ?? params.receiverThreadId),
-				receiverThreadIds: Array.isArray(params.receiver_thread_ids ?? params.receiverThreadIds)
-					? (params.receiver_thread_ids ?? params.receiverThreadIds).map(safeString)
-					: [],
-				newThreadId: safeString(params.new_thread_id ?? params.newThreadId) || undefined,
-				newAgentNickname: safeString(params.new_agent_nickname ?? params.newAgentNickname) || undefined,
-				newAgentRole: safeString(params.new_agent_role ?? params.newAgentRole) || undefined,
-				prompt: safeString(params.prompt),
-				status: params.status,
-				statuses: params.statuses,
-			};
-			const senderThread = collabData.senderThreadId || threadId;
-			const collabOwner = senderThread ? state.cxThreadOwners.get(senderThread) : null;
-			streams.emitCxStream(
-				senderThread || threadId,
-				{ type: `collab_${collabMethod}`, data: collabData } as unknown as CodexStreamMessage,
-				collabOwner,
-			);
-			return;
-		}
-
 		if (!threadId) {
 			// Some notifications are global (no threadId): auth, rate limits, MCP oauth completion, etc.
-			// NOTE: Codex app-server can emit extremely high-volume `codex/event/*` telemetry
-			// (often duplicating the same information we already forward via `cx_stream`).
-			// Forwarding this to every client can overwhelm mobile devices during streaming,
-			// making “High” effort appear to hang. By default we drop `codex/event/*` and
-			// only forward them when explicitly enabled for debugging.
-			if (deps.debugCxGlobal || !n.method.startsWith("codex/event/")) {
-				for (const ws of state.sockets) {
-					streams.send(ws, {
-						type: "cx_global",
-						data: { method: n.method, params },
-					});
-				}
+			for (const ws of state.sockets) {
+				streams.send(ws, {
+					type: "cx_global",
+					data: { method: n.method, params },
+				});
 			}
 			return;
 		}
@@ -287,7 +247,6 @@ export function createCodexNotificationHandler(deps: CodexNotificationDeps): (n:
 			};
 			streams.send(owner, runtimeStatePayload);
 			sessions.broadcastToSessionWatchers("codex", threadId, runtimeStatePayload, owner);
-			// Legacy sdk_event removed in Phase 4 — runtime_state (above) drives UI state.
 		}
 		if (owner && n.method === "turn/completed" && threadId) {
 			const runtimeStatePayload: ServerMessage = {
@@ -301,7 +260,6 @@ export function createCodexNotificationHandler(deps: CodexNotificationDeps): (n:
 			};
 			streams.send(owner, runtimeStatePayload);
 			sessions.broadcastToSessionWatchers("codex", threadId, runtimeStatePayload, owner);
-			// Legacy sdk_event removed in Phase 4 — runtime_state (above) drives UI state.
 		}
 	};
 }

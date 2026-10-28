@@ -103,21 +103,6 @@ broski --manual --opencode-url http://localhost:4096`}</CodeBlock>
           </div>
 
           <div className="border border-border rounded-lg p-4">
-            <div className="font-mono font-medium mb-2 text-red-400">&quot;No running OpenCode servers found&quot;</div>
-            <p className="text-sm text-muted-foreground mb-2">
-              <strong>Source:</strong> Attach mode
-            </p>
-            <p className="text-sm text-muted-foreground mb-3">
-              <strong>Cause:</strong> You used <code>--attach</code> but no running OpenCode instances were detected.
-            </p>
-            <CodeBlock language="bash">{`# Start OpenCode manually first
-opencode serve
-
-# Or use managed mode (default)
-broski`}</CodeBlock>
-          </div>
-
-          <div className="border border-border rounded-lg p-4">
             <div className="font-mono font-medium mb-2 text-red-400">&quot;Manual mode requires --opencode-url&quot;</div>
             <p className="text-sm text-muted-foreground mb-2">
               <strong>Source:</strong> CLI validation

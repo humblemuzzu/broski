@@ -9,7 +9,6 @@ import type {
 	AgentType,
 	ClaudeCodeSession,
 	ClaudeCodeStreamMessage,
-	ClaudeCodeSupportedModel,
 	ClientMessage,
 	CodexStreamMessage,
 	CodexThread,
@@ -18,7 +17,7 @@ import type {
 	ServerMessage,
 	SessionStatusInfo,
 } from "../types";
-import type { BroskiModelSummary, BroskiSessionSummary } from "../types/runtime";
+import type { BroskiSessionSummary } from "../types/runtime";
 
 export type Reply = (message: ServerMessage) => void;
 
@@ -162,7 +161,6 @@ export type ServerDeps = {
 	mapCodexThread: (thread: unknown, nameOverride?: string) => CodexThread & { threadName?: string };
 	mapCodexThreadToRuntimeSession: (thread: CodexThread) => BroskiSessionSummary;
 	mapClaudeCodeSessionToRuntimeSession: (session: ClaudeCodeSession) => BroskiSessionSummary;
-	mapClaudeCodeModelToSummary: (model: ClaudeCodeSupportedModel) => BroskiModelSummary;
 	ocSessionOwners: Map<string, ServerWebSocket<unknown>>;
 	ocSessionProjectPaths: Map<string, string>;
 	sessionWatchers: Map<string, Set<ServerWebSocket<unknown>>>;

@@ -282,7 +282,7 @@ codex
 which pi
 
 # If not found, install it
-npm i -g @mariozechner/pi-coding-agent
+npm i -g @earendil-works/pi-coding-agent
 
 # Then reload your shell
 source ~/.bashrc  # or ~/.zshrc`}</CodeBlock>
@@ -333,7 +333,7 @@ export ANTHROPIC_API_KEY=sk-ant-...`}</CodeBlock>
           headers={["Mistake", "Fix"]}
           rows={[
             ["No API key set", "Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or another provider key"],
-            ["Pi not found on PATH", "Run npm i -g @mariozechner/pi-coding-agent"],
+            ["Pi not found on PATH", "Run npm i -g @earendil-works/pi-coding-agent"],
             ["Wrong model name", "Use the model picker in Broski — Pi auto-discovers available models"],
             ["Context too long", "Use compact command or enable auto-compaction"],
             ["Extension not loading", "Check extension paths and npm package installation"],

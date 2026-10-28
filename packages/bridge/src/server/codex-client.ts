@@ -6,7 +6,6 @@ import {
 } from "../connectors/codex";
 import { buildCodexRuntimeState } from "../runtime/codex-runtime-read-models";
 import type { ServerMessage } from "../types";
-import { resetUnsupportedParams } from "../utils/codex-compat-retry";
 import type { LeveledLogger } from "./logger";
 import type { Sessions } from "./sessions";
 import type { BridgeState } from "./state";
@@ -64,8 +63,6 @@ export function createCodexClient(deps: CodexClientDeps): CodexClient {
 						};
 						streams.send(owner, runtimeStatePayload);
 						sessions.broadcastToSessionWatchers("codex", threadId, runtimeStatePayload, owner);
-
-						// Legacy sdk_event removed in Phase 4 — runtime_state (above) drives UI state.
 					}
 
 					// Clean up all state
@@ -96,8 +93,6 @@ export function createCodexClient(deps: CodexClientDeps): CodexClient {
 					}
 				},
 				onStatusChange: (status: CodexProcessStatus) => {
-					// Reset compat-retry cache on successful restart
-					if (status.alive) resetUnsupportedParams();
 					// Broadcast Codex process status to all connected clients
 					for (const ws of state.sockets) {
 						streams.send(ws, {

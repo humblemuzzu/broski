@@ -22,8 +22,6 @@ class MessageBubble extends StatelessWidget {
     this.onForkFromHere,
     this.onResumeFromHere,
     this.onDeleteMessage,
-    this.onRollback,
-    this.onEditMessage,
     this.onRetryMessage,
   });
   final ChatMessage message;
@@ -32,10 +30,6 @@ class MessageBubble extends StatelessWidget {
   final void Function(String messageId)? onForkFromHere;
   final void Function(String messageId)? onResumeFromHere;
   final void Function(String messageId)? onDeleteMessage;
-  final VoidCallback? onRollback;
-
-  /// Callback for editing a user message (Codex: rollback + prefill).
-  final void Function(String messageId, String text)? onEditMessage;
 
   /// Resends a user message whose delivery failed.
   final VoidCallback? onRetryMessage;
@@ -165,9 +159,6 @@ class MessageBubble extends StatelessWidget {
 
     return GestureDetector(
       onTap: isFailed ? onRetryMessage : null,
-      onLongPress: onEditMessage != null && message.id.isNotEmpty
-          ? () => _showEditMenu(context, theme)
-          : null,
       child: Align(
         alignment: Alignment.centerRight,
         child: Opacity(
@@ -239,43 +230,13 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
-  /// Shows the edit menu when a user message is long-pressed (Codex).
-  void _showEditMenu(BuildContext context, OpenCodeTheme theme) {
-    DetailSheet.show(
-      context: context,
-      title: 'Message Actions',
-      initialSize: 0.25,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: Icon(AppIcons.edit, color: theme.primary),
-            title: Text(
-              'Edit message',
-              style: TextStyle(color: theme.text, fontWeight: FontWeight.w500),
-            ),
-            subtitle: Text(
-              'Roll back to this turn and edit your message',
-              style: TextStyle(color: theme.textMuted, fontSize: 12),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              onEditMessage?.call(message.id, message.text);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildAssistantMessage(BuildContext context, OpenCodeTheme theme) {
     // Feature 6/CodeX: Long press actions
     return GestureDetector(
       onLongPress:
           (onForkFromHere != null ||
                   onResumeFromHere != null ||
-                  onDeleteMessage != null ||
-                  onRollback != null) &&
+                  onDeleteMessage != null) &&
               message.id.isNotEmpty
           ? () => _showForkMenu(context, theme)
           : null,
@@ -505,30 +466,6 @@ class MessageBubble extends StatelessWidget {
               onTap: () {
                 Navigator.pop(context);
                 onDeleteMessage?.call(message.id);
-              },
-            ),
-          ],
-          if (onRollback != null) ...[
-            if (onForkFromHere != null ||
-                onResumeFromHere != null ||
-                onDeleteMessage != null)
-              Divider(height: 1, color: theme.borderSubtle),
-            ListTile(
-              leading: Icon(AppIcons.history, color: theme.warning),
-              title: Text(
-                'Rollback…',
-                style: TextStyle(
-                  color: theme.text,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              subtitle: Text(
-                'Drop recent turns from this thread',
-                style: AppTypography.label(color: theme.textMuted),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                onRollback?.call();
               },
             ),
           ],

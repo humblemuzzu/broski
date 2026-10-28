@@ -15,7 +15,7 @@ export 'claude_code/cc_permission.dart';
 export 'claude_code/cc_plugin.dart';
 export 'claude_code/cc_sandbox.dart';
 export 'claude_code/cc_session.dart';
+export 'claude_code/cc_session_payloads.dart';
 export 'claude_code/cc_skill.dart';
-export 'claude_code/cc_stream_message.dart';
 export 'claude_code/cc_subagent.dart';
 export 'claude_code/cc_thinking.dart';

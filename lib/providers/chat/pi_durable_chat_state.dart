@@ -95,7 +95,6 @@ final class PiDurableChatState extends ChatSessionState {
     Object? cxModel = _absent,
     Object? cxTokenUsage = _absent,
     bool? cxIsStreaming,
-    Object? cxCollabTree = _absent,
     Object? cxPendingUserInput = _absent,
     List<String>? cxQueuedMessages,
     String? ocAgentMode,

@@ -110,8 +110,6 @@ reference/
 reference/
 reference/
 reference/
-# docs/mvp/chats/
-# logs.md
 # critical-g-*.md
 # optimization.md
 #cursor-codex-cc-chat.md
@@ -127,7 +125,6 @@ config.json
 # Build artifacts and temp files that shouldn't be tracked
 chart.png
 geist-1.7.0.tgz
-# logs.md
 analysis.log
 
 # Continuous Claude

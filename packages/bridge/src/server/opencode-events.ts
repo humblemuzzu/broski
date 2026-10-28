@@ -1,6 +1,4 @@
 import type { ServerWebSocket } from "bun";
-import type { OpenCodeConnector } from "../connectors/opencode";
-import { startOpenCodeExternalTail as _startOpenCodeExternalTail } from "../oc-external-tail";
 import {
 	createOpenCodeMapperContext,
 	mapOpenCodeSdkEventToRuntimeEvent,
@@ -17,7 +15,6 @@ import { safeString } from "./util";
 export type OpenCodeEvents = {
 	enqueueSdkEvent: (event: unknown) => void;
 	filterEventForSocket: (ws: ServerWebSocket<unknown>, event: unknown) => boolean;
-	startOpenCodeExternalTail: (sessionId: string, projectPath: string) => { stop: () => void };
 };
 
 export type OpenCodeEventsDeps = {
@@ -25,7 +22,6 @@ export type OpenCodeEventsDeps = {
 	streams: Streams;
 	log: LeveledLogger;
 	debugRts: boolean;
-	requireOpenCode: () => OpenCodeConnector;
 	syncExternalTailForKey: (key: string | null) => void;
 };
 
@@ -174,7 +170,6 @@ export function createOpenCodeEvents(deps: OpenCodeEventsDeps): OpenCodeEvents {
 			if (!filterEventForSocket(ws, event)) continue;
 			deliveredCount++;
 
-			// Phase 4: Only send runtime_event. Legacy sdk_event/sdk_event_batch removed.
 			// Flutter only reads runtime_event for OpenCode events.
 			if (runtimePayload) {
 				deps.streams.send(ws, runtimePayload);
@@ -228,19 +223,5 @@ export function createOpenCodeEvents(deps: OpenCodeEventsDeps): OpenCodeEvents {
 		});
 	};
 
-	/**
-	 * OpenCode External Tail: Polls session messages to detect changes from external TUI sessions.
-	 * When the TUI runs, events don't reach global.event() stream, so we poll the API instead.
-	 */
-	const startOpenCodeExternalTail = (sessionId: string, projectPath: string): { stop: () => void } => {
-		return _startOpenCodeExternalTail(sessionId, projectPath, {
-			oc: deps.requireOpenCode(),
-			enqueueSdkEvent,
-			broadcastRaw: deps.streams.broadcast as (message: Record<string, unknown>) => void,
-			logDebug: deps.log.logDebug,
-			DEBUG_RTS: deps.debugRts,
-		});
-	};
-
-	return { enqueueSdkEvent, filterEventForSocket, startOpenCodeExternalTail };
+	return { enqueueSdkEvent, filterEventForSocket };
 }

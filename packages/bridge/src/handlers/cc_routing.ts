@@ -13,7 +13,7 @@ import * as ccCustomTools from "./cc_custom_tools";
 import * as ccHooksMcp from "./cc_hooks_mcp";
 import * as ccLiveSession from "./cc_live_session";
 import * as ccMemory from "./cc_memory";
-import { getHookWaiterKeys, resolveHookPermissionByToolUse } from "./cc_permission_hook";
+import { resolveHookPermissionByToolUse } from "./cc_permission_hook";
 import * as ccPlugins from "./cc_plugins";
 import * as ccSessions from "./cc_sessions";
 import * as ccSkills from "./cc_skills";
@@ -27,7 +27,6 @@ const SESSION_OPS = [
 	"cc_delete_session",
 	"cc_fork_session",
 	"cc_rename_session",
-	"cc_background_session",
 	"cc_get_active_sessions",
 	"cc_get_modified_files",
 ] as const;
@@ -120,10 +119,7 @@ export function register(router: MessageRouter, deps: ServerDeps): void {
 		resolveClaudeCommandFilePath: deps.resolveClaudeCommandFilePath,
 	}));
 	registerLegacy(router, MEMORY_OPS, ccMemory.handle, () => ({ claudeCode: deps.claudeCode }));
-	registerLegacy(router, CONFIG_OPS, ccConfig.handle, () => ({
-		claudeCode: deps.claudeCode,
-		mapClaudeCodeModelToSummary: deps.mapClaudeCodeModelToSummary,
-	}));
+	registerLegacy(router, CONFIG_OPS, ccConfig.handle, () => ({ claudeCode: deps.claudeCode }));
 	registerLegacy(router, HOOKS_MCP_OPS, ccHooksMcp.handle, () => ({
 		claudeCode: deps.claudeCode,
 		safeString: deps.safeString,
@@ -140,11 +136,6 @@ export function register(router: MessageRouter, deps: ServerDeps): void {
 
 	registerAll(router, ["cc_permission_response"], async (message, ctx) => {
 		const key = `${message.sessionId}:${message.toolUseId}`;
-		console.log(
-			`[CC Routing] ◀ cc_permission_response: sessionId=${message.sessionId}, toolUseId=${message.toolUseId}, response=${message.response}, hasUpdatedInput=${!!message.updatedInput}`,
-		);
-		console.log(`[CC Routing]   SDK waiters: [${[...deps.ccPermissionWaiters.keys()].join(", ")}]`);
-		console.log(`[CC Routing]   Hook waiters: [${getHookWaiterKeys().join(", ")}]`);
 		const waiter = deps.ccPermissionWaiters.get(key);
 		if (waiter) {
 			clearTimeout(waiter.timer);
@@ -170,20 +161,18 @@ export function register(router: MessageRouter, deps: ServerDeps): void {
 		} else {
 			// Fallback: try to resolve a hook-initiated permission request
 			// (from external CC sessions using the PreToolUse hook)
-			console.log(`[CC Routing]   No SDK waiter found, trying hook fallback...`);
 			const hookResponse = message.response === "reject" ? "deny" : "allow";
 			const hookUpdatedInput =
 				message.updatedInput && typeof message.updatedInput === "object" && !Array.isArray(message.updatedInput)
 					? message.updatedInput
 					: undefined;
-			const hookResolved = resolveHookPermissionByToolUse(
+			resolveHookPermissionByToolUse(
 				message.sessionId,
 				message.toolUseId,
 				hookResponse,
 				typeof message.reason === "string" ? message.reason : undefined,
 				hookUpdatedInput,
 			);
-			console.log(`[CC Routing]   Hook fallback result: ${hookResolved ? "✅ RESOLVED" : "❌ NO MATCHING WAITER"}`);
 		}
 		void ctx;
 	});

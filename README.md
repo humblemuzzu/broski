@@ -151,7 +151,7 @@ That's it.
 
 | Agent | Status | Features |
 |-------|--------|----------|
-| **[OpenCode](https://github.com/opencode-ai/opencode)** | Full support | Sessions, MCP, providers, terminal, file browser, git |
+| **[OpenCode](https://github.com/opencode-ai/opencode)** | Targets the 1.x SDK; 2.x rework pending | Sessions, MCP, providers, terminal, file browser, git |
 | **[Claude Code](https://claude.ai/code)** | Full support | Sessions, skills, hooks, plugins, subagents, undo/rewind |
 | **[Codex](https://github.com/openai/codex)** | Full support | Sessions, threads, streaming, app-server protocol |
 | **[Pi](https://github.com/mariozechner/pi-coding-agent)** | Full support | Sessions, extensions, session tree, multi-provider, dynamic models |
@@ -235,17 +235,17 @@ That's it.
 | Dependency | Version | Notes |
 |------------|---------|-------|
 | macOS | 12+ | Required for now |
-| [Bun](https://bun.sh) | 1.0+ | JS runtime for bridge |
-| [Flutter](https://flutter.dev) | 3.0+ | Optional—for building from source |
+| [Bun](https://bun.sh) | 1.4.2+ | JS runtime for bridge |
+| [Flutter](https://flutter.dev) | 3.38+ | Optional—for building from source |
 
 **AI Agents (at least one):**
 
 | Agent | Installation | Notes |
 |-------|-------------|-------|
-| [OpenCode](https://github.com/opencode-ai/opencode) | `npm i -g opencode` | Open source AI coding agent |
+| [OpenCode](https://github.com/opencode-ai/opencode) | `npm i -g opencode-ai` | Open source AI coding agent |
 | [Claude Code](https://claude.ai/code) | `npm i -g @anthropic-ai/claude-code` | Anthropic's official CLI |
 | [Codex](https://github.com/openai/codex) | `npm i -g @openai/codex` | OpenAI's coding agent |
-| [Pi](https://github.com/mariozechner/pi-coding-agent) | `npm i -g @mariozechner/pi-coding-agent` | Open-source multi-provider agent |
+| [Pi](https://github.com/mariozechner/pi-coding-agent) | `npm i -g @earendil-works/pi-coding-agent` | Open-source multi-provider agent |
 
 ### Bridge
 
@@ -281,7 +281,6 @@ flutter build apk
 ```bash
 # Basic usage
 broski                                  # Start (auto-detects available agents)
-broski --attach                         # Choose from running OpenCode instances
 broski --opencode-url <url>             # Connect to specific OpenCode URL
 
 # Background service
@@ -305,7 +304,7 @@ broski --verbose                        # Debug logging
 ```
 
 The bridge auto-detects which AI agents are available:
-- **OpenCode**: SDK-based, spawns automatically or attaches to running instance
+- **OpenCode**: SDK-based, spawns automatically or connects to the server given with `--opencode-url`
 - **Claude Code**: Uses Claude Agent SDK, requires `ANTHROPIC_API_KEY` or `~/.claude/settings.json`
 - **Codex**: Uses JSON-RPC app-server protocol, requires Codex CLI installed
 - **Pi**: Event-driven AgentSession, dynamic model registry, requires Pi CLI installed
@@ -352,7 +351,7 @@ Broski is a thin UI layer. Your AI agents do all the heavy lifting.
 | **OpenCode Connector** | `@opencode-ai/sdk` | Full OpenCode SDK integration |
 | **Claude Code Connector** | `@anthropic-ai/claude-agent-sdk` | Claude Agent SDK integration |
 | **Codex Connector** | JSON-RPC | Codex app-server protocol |
-| **Pi Connector** | `@mariozechner/pi-coding-agent` | Event-driven AgentSession integration |
+| **Pi Connector** | `@earendil-works/pi-coding-agent` | Event-driven AgentSession integration |
 
 ### Key Design Decisions
 
@@ -369,7 +368,7 @@ Broski is a thin UI layer. Your AI agents do all the heavy lifting.
 
 ```
 broski/
-├── lib/                          # Flutter app (34K+ LOC)
+├── lib/                          # Flutter app (~139K LOC)
 │   ├── screens/                  # 25+ screens
 │   │   ├── chat_screen.dart      # Main chat interface
 │   │   ├── sessions_screen.dart  # Session management
@@ -382,7 +381,7 @@ broski/
 │   ├── models/                   # Data models (all agents)
 │   └── theme/                    # OpenCode design system
 │
-├── packages/bridge/              # Bridge server (5K+ LOC)
+├── packages/bridge/              # Bridge server (~59K LOC)
 │   └── src/
 │       ├── index.ts              # CLI entry
 │       ├── server.ts             # Unix-socket + loopback server
@@ -395,6 +394,7 @@ broski/
 │       ├── custom-tools.ts       # Custom MCP tools
 │       └── ...
 │
+├── packages/link/                # broski-link daemon, relay and shared core (Rust)
 └── docs/                         # Documentation
 ```
 
@@ -491,6 +491,8 @@ broski status
 - [x] Terminal (PTY)
 - [x] Git integration + worktrees
 - [x] Broski Link (LAN + end-to-end encrypted relay)
+- [x] Push notifications (APNs/FCM)
+- [x] Voice input
 - [x] Offline mode
 - [x] Appearance customization
 - [x] Background notifications
@@ -504,12 +506,9 @@ broski status
 
 ### Next
 
-- [ ] Push notifications (APNs/FCM)
-- [ ] Voice input
 - [ ] Apple Watch companion
 - [ ] iPad layout
-- [ ] Windows/Linux support
-- [ ] E2E encryption
+- [ ] Windows support
 
 ---
 
@@ -537,7 +536,7 @@ broski status
 | [@opencode-ai/sdk](https://github.com/opencode-ai/opencode) | OpenCode integration |
 | [@anthropic-ai/claude-agent-sdk](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk) | Claude Code integration |
 | JSON-RPC | Codex app-server protocol |
-| [@mariozechner/pi-coding-agent](https://www.npmjs.com/package/@mariozechner/pi-coding-agent) | Pi agent integration |
+| [@earendil-works/pi-coding-agent](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) | Pi agent integration |
 
 ---
 
@@ -567,10 +566,8 @@ See [AGENTS.md](AGENTS.md) for code conventions.
 
 | Metric | Value |
 |--------|-------|
-| Flutter app | ~34,000 LOC |
-| Bridge server | ~5,000 LOC |
-| Screens | 25+ |
-| Widgets | 18+ |
+| Flutter app | ~139,000 LOC |
+| Bridge server | ~59,000 LOC |
 | Agent connectors | 4 (OpenCode, Claude Code, Codex, Pi) |
 | SDK features | 25+ per agent |
 | Color tokens | 50+ |
@@ -585,7 +582,7 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 <div align="center">
 
-**[Documentation](docs/mvp/)** •
+**[Documentation](docs/architecture/)** •
 **[Report Bug](https://github.com/humblemuzzu/broski/issues)** •
 **[Request Feature](https://github.com/humblemuzzu/broski/issues)**
 

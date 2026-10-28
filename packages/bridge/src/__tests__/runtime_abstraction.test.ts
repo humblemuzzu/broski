@@ -690,7 +690,6 @@ describe("Runtime Abstraction", () => {
 		const realtimeMethods = [
 			"thread/realtime/started",
 			"thread/realtime/itemAdded",
-			"thread/realtime/transcriptUpdated",
 			"thread/realtime/outputAudio/delta",
 			"thread/realtime/error",
 			"thread/realtime/closed",

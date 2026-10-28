@@ -12,7 +12,6 @@ import 'package:broski/screens/sheets/cx_feedback_sheet.dart';
 import 'package:broski/screens/sheets/cx_mcp_sheet.dart';
 import 'package:broski/screens/sheets/cx_model_sheet.dart';
 import 'package:broski/screens/sheets/cx_rate_limits_sheet.dart';
-import 'package:broski/screens/sheets/cx_remote_skills_sheet.dart';
 import 'package:broski/screens/sheets/cx_review_sheet.dart';
 import 'package:broski/screens/sheets/cx_settings_sheet.dart';
 import 'package:broski/screens/sheets/pi_model_sheet.dart';
@@ -99,8 +98,6 @@ void handleCodexMenuAction(
       showCodexFeedbackSheet(context, ref);
     case 'cx_apps':
       CxAppsSheet.show(context);
-    case 'cx_remote_skills':
-      CxRemoteSkillsSheet.show(context);
     case 'cx_desktop_handoff':
       final threadId = ref.read(chatSessionProvider).cxThreadId ?? '';
       openCxThreadInDesktop(context: context, threadId: threadId);

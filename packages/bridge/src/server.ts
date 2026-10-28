@@ -8,7 +8,6 @@ import {
 	readFileDirectly as _readFileDirectly,
 } from "./file-ops";
 import { type HookInstallTarget, installCcHook } from "./handlers/cc_hook_installer";
-import { installCxHook } from "./handlers/cx_hook_installer";
 import { toErrorMessage } from "./http-utils";
 import { releaseFailedBindResources } from "./lifecycle/bridge-teardown";
 import type { TeardownResult } from "./lifecycle/teardown";
@@ -153,7 +152,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		streams,
 		log,
 		debugRts: DEBUG_RTS,
-		requireOpenCode: backends.requireOpenCode,
 		syncExternalTailForKey: (key) => sessions.syncExternalTailForKey(key),
 	});
 	sessions = createSessions({
@@ -161,8 +159,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		streams,
 		log,
 		debugRts: DEBUG_RTS,
-		getOpenCode: () => state.opencode.current(),
-		startOpenCodeExternalTail: opencodeEvents.startOpenCodeExternalTail,
 	});
 
 	const codexCaches = createCodexCaches();
@@ -173,7 +169,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		sessions,
 		fileUndo: codexFileUndo,
 		log,
-		debugCxGlobal: DEBUG_CX_GLOBAL,
 		getSecurePath,
 	});
 	const codexRequests = createCodexRequestHandler({
@@ -322,11 +317,6 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	// Install CC permission hook in ~/.claude/settings.json (non-blocking)
 	void installCcHook(hookTarget).catch((err) => {
 		log.logInfo(`[CC Hook] Install failed (non-fatal): ${toErrorMessage(err)}`);
-	});
-
-	// Install CX permission hook in ~/.codex/hooks.json (non-blocking)
-	void installCxHook(hookTarget).catch((err) => {
-		log.logInfo(`[CX Hook] Install failed (non-fatal): ${toErrorMessage(err)}`);
 	});
 
 	const stop = createStop({

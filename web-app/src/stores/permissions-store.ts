@@ -39,9 +39,7 @@ type PermissionsState = {
   pendingPermissionsRaw: unknown[]
   pendingQuestionsRaw: unknown[]
 
-  upsertClaudeCodeRequest: (req: ClaudeCodePermissionRequest) => void
   resolveClaudeCodeRequest: (sessionId: string, toolUseId: string) => void
-  upsertCodexRequest: (req: CodexPendingRequest | CodexUserInputRequest) => void
   resolveCodexRequest: (threadId: string, requestId: string) => void
   setPendingPermissions: (items: unknown[]) => void
   setPendingQuestions: (items: unknown[]) => void
@@ -54,21 +52,6 @@ export const usePermissionsStore = create<PermissionsState>((set) => ({
   pendingPermissionsRaw: [],
   pendingQuestionsRaw: [],
 
-  upsertClaudeCodeRequest: (req) =>
-    set((s) => {
-      const list = s.claudeCode[req.sessionId] ?? []
-      const next = [
-        req,
-        ...list.filter((r) => r.toolUseId !== req.toolUseId),
-      ].slice(0, 50)
-      return {
-        claudeCode: {
-          ...s.claudeCode,
-          [req.sessionId]: next,
-        },
-      }
-    }),
-
   resolveClaudeCodeRequest: (sessionId, toolUseId) =>
     set((s) => ({
       claudeCode: {
@@ -78,28 +61,6 @@ export const usePermissionsStore = create<PermissionsState>((set) => ({
         ),
       },
     })),
-
-  upsertCodexRequest: (req) =>
-    set((s) => {
-      if ("questions" in req) {
-        const list = s.codexUserInputs[req.threadId] ?? []
-        const next = [
-          req,
-          ...list.filter((r) => r.requestId !== req.requestId),
-        ].slice(0, 25)
-        return {
-          codexUserInputs: { ...s.codexUserInputs, [req.threadId]: next },
-        }
-      }
-      const list = s.codexApprovals[req.threadId] ?? []
-      const next = [
-        req,
-        ...list.filter((r) => r.requestId !== req.requestId),
-      ].slice(0, 50)
-      return {
-        codexApprovals: { ...s.codexApprovals, [req.threadId]: next },
-      }
-    }),
 
   resolveCodexRequest: (threadId, requestId) =>
     set((s) => ({

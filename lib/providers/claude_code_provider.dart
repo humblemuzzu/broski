@@ -280,34 +280,8 @@ class CCConfigNotifier extends StateNotifier<AsyncValue<ClaudeCodeConfig>> {
   }
 }
 
-/// Lightweight display item for CC inline chat — replaces raw
-/// [ClaudeCodeStreamMessage] accumulation with a typed display model
-/// driven by runtime events.
-class CCDisplayItem {
-  final String type; // 'text', 'tool', 'error', 'turn_end'
-  final String content;
-  final String? toolName;
-  final dynamic toolInput;
-  final String? toolStatus; // 'running', 'completed', 'failed'
-
-  const CCDisplayItem({
-    required this.type,
-    this.content = '',
-    this.toolName,
-    this.toolInput,
-    this.toolStatus,
-  });
-}
-
 class CCChatState {
   final String? sessionId;
-  final List<CCDisplayItem> displayItems;
-  final bool isStreaming;
-  final String? error;
-
-  /// True when viewing a session that was not created in this app flow.
-  /// Used for clarity in UX around undo/checkpoints.
-  final bool isExternal;
 
   /// Stack of checkpoint UUIDs for file revert (undo) functionality.
   /// Each user message turn creates a checkpoint; we store all of them so
@@ -321,33 +295,18 @@ class CCChatState {
   /// Whether any checkpoints are available for undo.
   bool get canUndo => checkpoints.isNotEmpty;
 
-  const CCChatState({
-    this.sessionId,
-    this.displayItems = const [],
-    this.isStreaming = false,
-    this.error,
-    this.checkpoints = const [],
-    this.isExternal = false,
-  });
+  const CCChatState({this.sessionId, this.checkpoints = const []});
 
   CCChatState copyWith({
     String? sessionId,
-    List<CCDisplayItem>? displayItems,
-    bool? isStreaming,
-    String? error,
     List<CCCheckpointCreated>? checkpoints,
     bool clearCheckpoints = false,
-    bool? isExternal,
   }) {
     return CCChatState(
       sessionId: sessionId ?? this.sessionId,
-      displayItems: displayItems ?? this.displayItems,
-      isStreaming: isStreaming ?? this.isStreaming,
-      error: error,
       checkpoints: clearCheckpoints
           ? const []
           : (checkpoints ?? this.checkpoints),
-      isExternal: isExternal ?? this.isExternal,
     );
   }
 }
@@ -359,11 +318,8 @@ final ccChatProvider = StateNotifierProvider<CCChatNotifier, CCChatState>((
   return CCChatNotifier(bridge);
 });
 
-/// Tracks CC chat state using the unified runtime event stream.
-///
-/// Replaces the legacy `cc_stream` subscription with runtime events.
-/// Tracks checkpoints (for undo), streaming state, errors, and display items
-/// for the inline CC chat view.
+/// Tracks the Claude Code session id and file checkpoints (for undo) from the
+/// unified runtime event stream.
 class CCChatNotifier extends StateNotifier<CCChatState> {
   CCChatNotifier(this._bridge) : super(const CCChatState()) {
     _subscription = _bridge.runtimeEvents
@@ -374,111 +330,10 @@ class CCChatNotifier extends StateNotifier<CCChatState> {
   final BridgeService _bridge;
   StreamSubscription<RuntimeEvent>? _subscription;
 
-  /// Accumulates text deltas during a streaming turn.
-  final StringBuffer _textBuffer = StringBuffer();
-
-  void sendMessage({
-    required String sessionId,
-    required String prompt,
-    String? cwd,
-    String? model,
-    ClaudeCodePermissionMode? permissionMode,
-    String? activeSubagent,
-  }) {
-    state = state.copyWith(
-      sessionId: sessionId,
-      isStreaming: true,
-      error: null,
-    );
-
-    _bridge.ccChat(
-      sessionId: sessionId,
-      prompt: prompt,
-      cwd: cwd,
-      model: model,
-      permissionMode: permissionMode,
-      activeSubagent: activeSubagent,
-    );
-  }
-
-  void abort() {
-    if (state.sessionId != null) {
-      _bridge.ccAbort(state.sessionId!);
-      state = state.copyWith(isStreaming: false);
-    }
-  }
-
   void _handleRuntimeEvent(RuntimeEvent event) {
     switch (event) {
       case RuntimeAgentStartedEvent():
-        _textBuffer.clear();
-        state = state.copyWith(
-          sessionId: event.sessionId ?? state.sessionId,
-          isStreaming: true,
-          isExternal: false,
-          error: null,
-          displayItems: const [], // Clear previous turn's items
-        );
-
-      case RuntimeAssistantTextDeltaEvent():
-        _textBuffer.write(event.delta);
-        // Update the last text display item or add a new one
-        final items = List<CCDisplayItem>.from(state.displayItems);
-        if (items.isNotEmpty && items.last.type == 'text') {
-          items[items.length - 1] = CCDisplayItem(
-            type: 'text',
-            content: _textBuffer.toString(),
-          );
-        } else {
-          items.add(
-            CCDisplayItem(type: 'text', content: _textBuffer.toString()),
-          );
-        }
-        state = state.copyWith(displayItems: items);
-
-      case RuntimeToolStartedEvent():
-        final items = List<CCDisplayItem>.from(state.displayItems);
-        items.add(
-          CCDisplayItem(
-            type: 'tool',
-            toolName: event.toolName,
-            toolInput: event.input,
-            toolStatus: 'running',
-          ),
-        );
-        state = state.copyWith(displayItems: items);
-
-      case RuntimeToolFinishedEvent():
-        final items = List<CCDisplayItem>.from(state.displayItems);
-        // Update the matching tool item status
-        for (int i = items.length - 1; i >= 0; i--) {
-          if (items[i].type == 'tool' &&
-              items[i].toolName == event.toolName &&
-              items[i].toolStatus == 'running') {
-            items[i] = CCDisplayItem(
-              type: 'tool',
-              toolName: event.toolName,
-              toolInput: event.input,
-              toolStatus: (event.isError == true) ? 'failed' : 'completed',
-              content: event.output?.toString() ?? '',
-            );
-            break;
-          }
-        }
-        state = state.copyWith(displayItems: items);
-
-      case RuntimeErrorEvent():
-        final items = List<CCDisplayItem>.from(state.displayItems)
-          ..add(CCDisplayItem(type: 'error', content: event.message));
-        state = state.copyWith(
-          isStreaming: false,
-          error: event.message,
-          displayItems: items,
-        );
-
-      case RuntimeAgentFinishedEvent():
-        _textBuffer.clear();
-        state = state.copyWith(isStreaming: false);
+        state = state.copyWith(sessionId: event.sessionId ?? state.sessionId);
 
       case RuntimeBackendEvent():
         if (event.kind == 'checkpoint-created') {
@@ -491,25 +346,11 @@ class CCChatNotifier extends StateNotifier<CCChatState> {
               );
             }
           }
-        } else if (event.kind == 'token-usage') {
-          // Token usage signals turn end
-          state = state.copyWith(isStreaming: false);
         }
 
       default:
         break;
     }
-  }
-
-  void clearMessages() {
-    _textBuffer.clear();
-    state = const CCChatState();
-  }
-
-  void setSession(String sessionId) {
-    _textBuffer.clear();
-    // Clear checkpoint when switching sessions - it's session-specific
-    state = CCChatState(sessionId: sessionId, isExternal: true);
   }
 
   /// Rewind files to the latest checkpoint (undo the last turn's file changes).

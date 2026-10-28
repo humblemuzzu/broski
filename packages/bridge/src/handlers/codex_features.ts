@@ -4,7 +4,6 @@
  *   - thread/name/set (rename thread)
  *   - thread/unarchive
  *   - thread/compact/start
- *   - skills/remote/list + skills/remote/export
  *   - skills/config/write (enable/disable individual skills)
  *   - app/list (apps marketplace)
  *   - command/exec (one-off command)
@@ -131,44 +130,6 @@ export async function handleCodexFeature(
 			}
 			const result = await client.request("thread/compact/start", { threadId });
 			reply({ requestId: message.requestId, type: "cx_thread_compacted", data: result ?? { ok: true } });
-			break;
-		}
-
-		// ── skills/remote/list ───────────────────────────────────────────
-		case "cx_remote_skills_list": {
-			const client = await ensureCodexClient();
-			const hazelnutScope = safeString(message.hazelnutScope).trim() || "all-shared";
-			const productSurface = safeString(message.productSurface).trim() || "codex";
-			const enabled = message.enabled !== false;
-			const result: any = await client.request("skills/remote/list", {
-				hazelnutScope,
-				productSurface,
-				enabled,
-			});
-			reply({ requestId: message.requestId, type: "cx_remote_skills", data: result?.data ?? [] });
-			break;
-		}
-
-		// ── skills/remote/export (install) ───────────────────────────────
-		case "cx_remote_skill_install": {
-			const client = await ensureCodexClient();
-			const hazelnutId = safeString(message.hazelnutId).trim();
-			if (!hazelnutId) {
-				reply({
-					requestId: message.requestId,
-					type: "error",
-					message: "cx_remote_skill_install requires hazelnutId",
-				});
-				break;
-			}
-			const result = await client.request("skills/remote/export", {
-				hazelnutId,
-			});
-			reply({
-				requestId: message.requestId,
-				type: "cx_remote_skill_installed",
-				data: result ?? { ok: true },
-			});
 			break;
 		}
 

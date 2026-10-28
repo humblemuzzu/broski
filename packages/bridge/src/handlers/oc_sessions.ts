@@ -1,4 +1,3 @@
-import { findOpenCodeDbPath, listSessionsFromDb as ocListSessionsFromDb } from "../connectors/opencode/oc-sqlite";
 import type { ClientMessage, ServerMessage, SessionSummary } from "../types";
 import { isPagedSessionRequest, sessionPageRequest } from "../utils/session-list-page";
 import { sessionListReply } from "./session_list_reply";
@@ -36,26 +35,6 @@ function listOptions(message: OcListMessage, paged: boolean): OpenCodeSessionLis
 	};
 }
 
-function fromDb(message: OcListMessage, options: OpenCodeSessionListOptions): SessionSummary[] {
-	try {
-		const dbPath = findOpenCodeDbPath();
-		if (!dbPath) return [];
-		return ocListSessionsFromDb(
-			{
-				directory: message.projectPath,
-				roots: options.roots,
-				start: options.start,
-				search: options.search,
-				limit: options.limit,
-				archived: options.archived,
-			},
-			dbPath,
-		);
-	} catch {
-		return [];
-	}
-}
-
 async function listSessions(
 	message: OcListMessage,
 	options: OpenCodeSessionListOptions,
@@ -64,8 +43,7 @@ async function listSessions(
 	try {
 		return await requireOpenCode().listSessions(message.projectPath, options);
 	} catch {
-		// The SQLite reader has no cursor of its own: a cursor request it cannot answer is empty.
-		return options.cursor ? [] : fromDb(message, options);
+		return [];
 	}
 }
 

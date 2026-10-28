@@ -62,7 +62,6 @@ export async function handleCcPermissionHook(request: Request, ctx: CcPermission
 	const toolInput = body.tool_input ?? {};
 	const sessionId = typeof body.session_id === "string" ? body.session_id : "";
 	const toolUseId = typeof body.tool_use_id === "string" ? body.tool_use_id : randomUUID();
-	const cwd = typeof body.cwd === "string" ? body.cwd : "";
 
 	// ALWAYS log hook requests (not just DEBUG_RTS) to trace the flow
 	ctx.logInfo(
@@ -169,16 +168,6 @@ export function resolveHookPermissionByToolUse(
 		}
 	}
 	return resolved;
-}
-
-/** Check if there are any pending hook permissions. */
-export function hasPendingHookPermissions(): boolean {
-	return hookPermissionWaiters.size > 0;
-}
-
-/** Get all hook waiter keys (for debug logging). */
-export function getHookWaiterKeys(): string[] {
-	return [...hookPermissionWaiters.keys()];
 }
 
 /**

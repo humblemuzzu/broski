@@ -20,15 +20,10 @@ async function runShutdown(signal: string, _exitCode = 0): Promise<void> {
 		serveState.healthTimer = null;
 	}
 
-	if (serveState.primaryEventStreamController || serveState.extraEventStreamControllers.length > 0) {
+	if (serveState.primaryEventStreamController) {
 		logDaemon("Stopping OpenCode event streams...");
-		if (serveState.primaryEventStreamController) {
-			serveState.primaryEventStreamController.abort();
-			serveState.primaryEventStreamController = null;
-		}
-		while (serveState.extraEventStreamControllers.length > 0) {
-			serveState.extraEventStreamControllers.pop()?.abort();
-		}
+		serveState.primaryEventStreamController.abort();
+		serveState.primaryEventStreamController = null;
 	}
 
 	if (serveState.bridgeServer) {

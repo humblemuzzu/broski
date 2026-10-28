@@ -122,26 +122,6 @@ extension BridgeServiceCodexCore on BridgeService {
     return const {};
   }
 
-  Future<CodexThread> cxThreadRollback({
-    required String threadId,
-    required int numTurns,
-  }) async {
-    final requestId = _generateRequestId();
-    _socket.send({
-      'type': 'cx_thread_rollback',
-      'requestId': requestId,
-      'threadId': threadId,
-      'numTurns': numTurns,
-    });
-    final response = await _waitFor(
-      'cx_thread_rolled_back',
-      requestId: requestId,
-      timeoutSeconds: _codexTimeoutSeconds,
-    );
-    final data = response['data'] as Map<String, dynamic>? ?? const {};
-    return CodexThread.fromJson(data);
-  }
-
   Future<CodexThread> cxThreadFork({required String threadId}) async {
     final requestId = _generateRequestId();
     _socket.send({

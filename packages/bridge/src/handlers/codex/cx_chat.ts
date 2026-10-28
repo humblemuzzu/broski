@@ -10,8 +10,6 @@ import { resolve } from "node:path";
 import type { CodexAppServerClient } from "../../connectors/codex";
 import type { CxMessage } from "../../routing/messages";
 import type { AgentType, CodexStreamMessage, CodexThread, ServerMessage } from "../../types";
-import { codexInterruptWithRetry, codexRequestWithRetry } from "../../utils/codex-compat-retry";
-import { resolveCxHookPermissionByToolUse } from "../cx_permission_hook";
 
 /** Pending approval / user-input waiter */
 type ApprovalWaiter = {
@@ -217,7 +215,7 @@ export async function handleCxChat(
 			}
 
 			try {
-				const turnRes: any = await codexRequestWithRetry(client, "turn/start", {
+				const turnRes: any = await client.request("turn/start", {
 					threadId,
 					input,
 					cwd,
@@ -281,7 +279,6 @@ export async function handleCxChat(
 					ctx.send(ctx.ws, turnFailedRuntimeState);
 					ctx.broadcastToSessionWatchers("codex", threadId, turnFailedRuntimeState, ctx.ws);
 
-					// Legacy sdk_event removed in Phase 4 — runtime_state drives UI state.
 					break;
 				}
 
@@ -335,8 +332,6 @@ export async function handleCxChat(
 				};
 				ctx.send(ctx.ws, exceptionRuntimeState);
 				ctx.broadcastToSessionWatchers("codex", threadId, exceptionRuntimeState, ctx.ws);
-
-				// Legacy sdk_event removed in Phase 4 — runtime_state drives UI state.
 			}
 			break;
 		}
@@ -345,7 +340,7 @@ export async function handleCxChat(
 			const client = await ctx.ensureCodexClient();
 			const turnId = message.turnId ?? ctx.cxActiveTurns.get(message.threadId);
 			if (turnId) {
-				await codexInterruptWithRetry(client, message.threadId, turnId);
+				await client.request("turn/interrupt", { threadId: message.threadId, turnId });
 			}
 			break;
 		}
@@ -360,14 +355,6 @@ export async function handleCxChat(
 					execpolicyAmendment: message.execpolicyAmendment,
 					networkPolicyAmendment: message.networkPolicyAmendment,
 				});
-			} else {
-				// Fallback: try hook-initiated permission (from PreToolUse shell hook)
-				const hookResponse = message.response === "reject" ? "deny" : "allow";
-				resolveCxHookPermissionByToolUse(
-					message.threadId ?? message.requestId ?? "",
-					message.requestId ?? "",
-					hookResponse,
-				);
 			}
 			break;
 		}

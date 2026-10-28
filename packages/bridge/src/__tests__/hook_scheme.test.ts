@@ -56,16 +56,11 @@ function ccCommands(home: string): string[] {
 	return hookCommands(settings, "PreToolUse");
 }
 
-function cxCommands(home: string): string[] {
-	const settings = JSON.parse(readFileSync(join(home, ".codex", "hooks.json"), "utf-8")) as Record<string, unknown>;
-	return hookCommands(settings, "PreToolUse");
-}
-
-describe("the permission hooks", () => {
+describe("the permission hook", () => {
 	test("call the listener over http when the listener serves http", () => {
 		const home = tempHome();
 		install(home, "http");
-		for (const command of [...ccCommands(home), ...cxCommands(home)]) {
+		for (const command of ccCommands(home)) {
 			expect(command).toContain(`http://127.0.0.1:${PORT}/`);
 			expect(command).not.toContain("https://127.0.0.1");
 			expect(command).toContain(TOKEN);
@@ -77,11 +72,8 @@ describe("the permission hooks", () => {
 		install(home, "http");
 		install(home, "https");
 		const cc = ccCommands(home);
-		const cx = cxCommands(home);
 		expect(cc).toHaveLength(1);
-		expect(cx).toHaveLength(1);
 		expect(cc[0]).toContain(`https://127.0.0.1:${PORT}/cc-hook`);
-		expect(cx[0]).toContain(`https://127.0.0.1:${PORT}/cx-hook`);
 	});
 
 	test("a scheme change rewrites in place rather than adding a second hook", () => {
@@ -89,7 +81,6 @@ describe("the permission hooks", () => {
 		install(home, "https");
 		install(home, "http");
 		expect(ccCommands(home)).toHaveLength(1);
-		expect(cxCommands(home)).toHaveLength(1);
 		expect(ccCommands(home)[0]).toContain(`http://127.0.0.1:${PORT}/cc-hook`);
 	});
 });

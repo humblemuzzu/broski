@@ -2,7 +2,7 @@ part of '../chat_provider.dart';
 
 // ignore_for_file: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
 
-/// CX backend_event handlers — metadata, plan, diff, collab events.
+/// CX backend_event handlers — metadata, plan, diff events.
 /// Extracted from runtime_chat_ingest.dart (Wave 6).
 extension _RuntimeCxHandlers on ChatSessionNotifier {
   // ---------------------------------------------------------------------------
@@ -129,19 +129,6 @@ extension _RuntimeCxHandlers on ChatSessionNotifier {
           state = state.copyWith(sessionDiffs: perFileDiffs);
         }
 
-      // Collab events (from bridge mapper top-level types)
-      case 'collab_spawn_begin':
-      case 'collab_spawn_end':
-      case 'collab_interaction_begin':
-      case 'collab_interaction_end':
-      case 'collab_waiting_begin':
-      case 'collab_waiting_end':
-      case 'collab_close_begin':
-      case 'collab_close_end':
-      case 'collab_resume_begin':
-      case 'collab_resume_end':
-        _handleRuntimeCxCollabEvent(event.kind, payloadMap);
-
       // BUG-3: Model rerouted — show warning
       case 'model/rerouted':
         final from =
@@ -237,44 +224,8 @@ extension _RuntimeCxHandlers on ChatSessionNotifier {
           );
         }
 
-      // Plan text streaming delta
       case 'item/plan/delta':
-        // Plan deltas arrive via collab tree backend_event (turn/plan/updated).
         break;
-
-      // Image generation lifecycle
-      case 'item/imageGeneration/started':
-      case 'item/imageGeneration/completed':
-        final isCompleted = event.kind == 'item/imageGeneration/completed';
-        final prompt = payloadMap['prompt']?.toString();
-        final imageUrl =
-            payloadMap['url']?.toString() ?? payloadMap['imageUrl']?.toString();
-        final itemId =
-            payloadMap['itemId']?.toString() ??
-            payloadMap['id']?.toString() ??
-            'unknown';
-        final msgId = 'cx-image-gen-$itemId';
-        final existingIdx = state.messages.indexWhere((m) => m.id == msgId);
-        final msg = ChatMessage(
-          id: msgId,
-          sessionId: state.cxThreadId ?? '',
-          role: MessageRole.system,
-          createdAt: DateTime.now(),
-          text: '',
-          variant: 'cx-image-gen',
-          metadata: {
-            'completed': isCompleted,
-            if (prompt != null) 'prompt': prompt,
-            if (imageUrl != null) 'imageUrl': imageUrl,
-          },
-        );
-        if (existingIdx >= 0) {
-          final updated = [...state.messages];
-          updated[existingIdx] = msg;
-          state = state.copyWith(messages: updated);
-        } else {
-          _addMessage(msg);
-        }
 
       // Terminal interaction — agent needs stdin during command
       case 'terminal_interaction':
@@ -428,167 +379,5 @@ extension _RuntimeCxHandlers on ChatSessionNotifier {
     flush();
 
     return entries;
-  }
-
-  // ---------------------------------------------------------------------------
-  // CX collab event handler
-  // ---------------------------------------------------------------------------
-
-  void _handleRuntimeCxCollabEvent(String kind, Map<String, dynamic> params) {
-    final senderThreadId =
-        (params['senderThreadId'] ?? params['sender_thread_id'])?.toString() ??
-        state.cxThreadId ??
-        '';
-    final receiverThreadId =
-        (params['receiverThreadId'] ?? params['receiver_thread_id'])
-            ?.toString();
-    final newThreadId = (params['newThreadId'] ?? params['new_thread_id'])
-        ?.toString();
-    final newAgentNickname =
-        (params['newAgentNickname'] ?? params['new_agent_nickname'])
-            ?.toString();
-    final newAgentRole = (params['newAgentRole'] ?? params['new_agent_role'])
-        ?.toString();
-    final prompt = params['prompt']?.toString();
-
-    CodexCollabAgentStatus? parseStatus(dynamic statusData) {
-      if (statusData == null) return null;
-      if (statusData is Map<String, dynamic>) {
-        return CodexCollabAgentStatus.fromJson(statusData);
-      } else if (statusData is String) {
-        return CodexCollabAgentStatus.fromString(statusData);
-      }
-      return null;
-    }
-
-    final status = parseStatus(params['status']);
-
-    CodexCollabAgentTree getOrCreateTree() {
-      return state.cxCollabTree ??
-          CodexCollabAgentTree(rootThreadId: state.cxThreadId ?? '');
-    }
-
-    switch (kind) {
-      case 'collab_spawn_begin':
-        break; // debug logging only in original
-
-      case 'collab_spawn_end':
-        if (newThreadId != null && newThreadId.isNotEmpty) {
-          final tree = getOrCreateTree();
-          tree.addNode(
-            CodexCollabAgentNode(
-              threadId: newThreadId,
-              parentThreadId: senderThreadId,
-              status: status ?? CodexCollabAgentStatus.running,
-              prompt: prompt,
-              agentNickname: newAgentNickname,
-              agentRole: newAgentRole,
-              startedAt: DateTime.now(),
-            ),
-          );
-          state = state.copyWith(cxCollabTree: tree);
-          _upsertCollabCard();
-        }
-
-      case 'collab_interaction_begin':
-        break; // debug logging only in original
-
-      case 'collab_interaction_end':
-        if (receiverThreadId != null && status != null) {
-          final tree = state.cxCollabTree;
-          if (tree != null) {
-            tree.updateStatus(receiverThreadId, status);
-            state = state.copyWith(cxCollabTree: tree);
-            _upsertCollabCard();
-          }
-        }
-
-      case 'collab_waiting_begin':
-        final receiverIds =
-            (params['receiverThreadIds'] ?? params['receiver_thread_ids']);
-        if (receiverIds is List) {
-          final tree = state.cxCollabTree;
-          if (tree != null) {
-            tree.updateWaitingFor(
-              senderThreadId,
-              receiverIds.map((e) => e.toString()).toList(),
-            );
-            state = state.copyWith(cxCollabTree: tree);
-          }
-        }
-
-      case 'collab_waiting_end':
-        final statuses = params['statuses'];
-        if (statuses is Map) {
-          final tree = state.cxCollabTree;
-          if (tree != null) {
-            for (final entry in statuses.entries) {
-              final tid = entry.key.toString();
-              final st = parseStatus(entry.value);
-              if (st != null) {
-                tree.updateStatus(tid, st);
-              }
-            }
-            tree.updateWaitingFor(senderThreadId, []);
-            state = state.copyWith(cxCollabTree: tree);
-          }
-        }
-
-      case 'collab_close_begin':
-        break; // debug logging only in original
-
-      case 'collab_close_end':
-        if (receiverThreadId != null) {
-          final tree = state.cxCollabTree;
-          if (tree != null) {
-            tree.updateStatus(
-              receiverThreadId,
-              status ?? CodexCollabAgentStatus.shutdown,
-            );
-            state = state.copyWith(cxCollabTree: tree);
-            _upsertCollabCard();
-          }
-        }
-
-      case 'collab_resume_begin':
-        break; // debug logging only in original
-
-      case 'collab_resume_end':
-        if (receiverThreadId != null) {
-          final tree = state.cxCollabTree;
-          if (tree != null) {
-            tree.updateStatus(
-              receiverThreadId,
-              status ?? CodexCollabAgentStatus.running,
-            );
-            state = state.copyWith(cxCollabTree: tree);
-            _upsertCollabCard();
-          }
-        }
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Collab card — upsert inline chat message with stable ID
-  // ---------------------------------------------------------------------------
-
-  void _upsertCollabCard() {
-    const collabMsgId = 'cx-collab-card';
-    final existingIdx = state.messages.indexWhere((m) => m.id == collabMsgId);
-    final collabMsg = ChatMessage(
-      id: collabMsgId,
-      sessionId: state.cxThreadId ?? '',
-      role: MessageRole.system,
-      createdAt: DateTime.now(),
-      text: '', // rendered by variant card
-      variant: 'cx-collab-update',
-    );
-    if (existingIdx >= 0) {
-      final updated = [...state.messages];
-      updated[existingIdx] = collabMsg;
-      state = state.copyWith(messages: updated);
-    } else {
-      _addMessage(collabMsg);
-    }
   }
 }

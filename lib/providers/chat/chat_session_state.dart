@@ -140,8 +140,6 @@ sealed class ChatSessionState {
       this is CodexChatState ? (this as CodexChatState).cxTokenUsage : null;
   bool get cxIsStreaming =>
       this is CodexChatState ? (this as CodexChatState).cxIsStreaming : false;
-  CodexCollabAgentTree? get cxCollabTree =>
-      this is CodexChatState ? (this as CodexChatState).cxCollabTree : null;
   CodexUserInputRequest? get cxPendingUserInput => this is CodexChatState
       ? (this as CodexChatState).cxPendingUserInput
       : null;
@@ -199,7 +197,6 @@ sealed class ChatSessionState {
     Object? cxModel = _absent,
     Object? cxTokenUsage = _absent,
     bool? cxIsStreaming,
-    Object? cxCollabTree = _absent,
     Object? cxPendingUserInput = _absent,
     List<String>? cxQueuedMessages,
     String? ocAgentMode,
@@ -279,7 +276,6 @@ final class OpenCodeChatState extends ChatSessionState {
     Object? cxModel = _absent,
     Object? cxTokenUsage = _absent,
     bool? cxIsStreaming,
-    Object? cxCollabTree = _absent,
     Object? cxPendingUserInput = _absent,
     List<String>? cxQueuedMessages,
     bool? isPi,
@@ -399,7 +395,6 @@ final class ClaudeCodeChatState extends ChatSessionState {
     Object? cxModel = _absent,
     Object? cxTokenUsage = _absent,
     bool? cxIsStreaming,
-    Object? cxCollabTree = _absent,
     Object? cxPendingUserInput = _absent,
     List<String>? cxQueuedMessages,
     String? ocAgentMode,
@@ -472,7 +467,6 @@ final class CodexChatState extends ChatSessionState {
     this.cxModel,
     this.cxTokenUsage,
     this.cxIsStreaming = false,
-    this.cxCollabTree,
     this.cxPendingUserInput,
     this.cxQueuedMessages = const [],
   });
@@ -488,7 +482,6 @@ final class CodexChatState extends ChatSessionState {
   @override
   final bool cxIsStreaming;
   @override
-  final CodexCollabAgentTree? cxCollabTree;
   @override
   final CodexUserInputRequest? cxPendingUserInput;
   @override
@@ -522,7 +515,6 @@ final class CodexChatState extends ChatSessionState {
     Object? cxModel = _absent,
     Object? cxTokenUsage = _absent,
     bool? cxIsStreaming,
-    Object? cxCollabTree = _absent,
     Object? cxPendingUserInput = _absent,
     List<String>? cxQueuedMessages,
     // Ignored (wrong subclass)
@@ -572,10 +564,6 @@ final class CodexChatState extends ChatSessionState {
         this.cxTokenUsage,
       ),
       cxIsStreaming: cxIsStreaming ?? this.cxIsStreaming,
-      cxCollabTree: _resolve<CodexCollabAgentTree>(
-        cxCollabTree,
-        this.cxCollabTree,
-      ),
       cxPendingUserInput: _resolve<CodexUserInputRequest>(
         cxPendingUserInput,
         this.cxPendingUserInput,
@@ -668,7 +656,6 @@ final class PiChatState extends ChatSessionState {
     Object? cxModel = _absent,
     Object? cxTokenUsage = _absent,
     bool? cxIsStreaming,
-    Object? cxCollabTree = _absent,
     Object? cxPendingUserInput = _absent,
     List<String>? cxQueuedMessages,
     String? ocAgentMode,

@@ -1,11 +1,4 @@
-import type {
-	CodexAppInfo,
-	CodexPrompt,
-	CodexRemoteSkill,
-	CodexStreamMessage,
-	CodexThread,
-	CodexTranscriptMessage,
-} from "./codex";
+import type { CodexAppInfo, CodexPrompt, CodexThread, CodexTranscriptMessage } from "./codex";
 import type { ProjectSummary } from "./session";
 
 export type CxServerMessage =
@@ -34,7 +27,6 @@ export type CxServerMessage =
 	| { type: "cx_thread"; data: CodexThread; requestId?: string }
 	| { type: "cx_thread_created"; data: CodexThread; requestId?: string }
 	| { type: "cx_thread_forked"; data: CodexThread; requestId?: string }
-	| { type: "cx_thread_rolled_back"; data: CodexThread; requestId?: string }
 	| {
 			type: "cx_thread_archived";
 			data: boolean;
@@ -113,8 +105,6 @@ export type CxServerMessage =
 	| { type: "cx_thread_renamed"; data: any; requestId?: string }
 	| { type: "cx_thread_unarchived"; data: any; requestId?: string }
 	| { type: "cx_thread_compacted"; data: any; requestId?: string }
-	| { type: "cx_remote_skills"; data: CodexRemoteSkill[]; requestId?: string }
-	| { type: "cx_remote_skill_installed"; data: any; requestId?: string }
 	| { type: "cx_skill_config_written"; data: any; requestId?: string }
 	| {
 			type: "cx_apps";
@@ -150,7 +140,6 @@ export type CxServerMessage =
 	| { type: "cx_plugin_detail"; data: any; requestId?: string }
 	| { type: "cx_plugin_installed"; data: { ok: boolean }; requestId?: string }
 	| { type: "cx_plugin_uninstalled"; data: { ok: boolean }; requestId?: string }
-	| { type: "cx_stream"; data: CodexStreamMessage; threadId: string }
 	// Codex workspace / changeset revert
 	| { type: "cx_changes_reverted"; data: { ok: boolean; error?: string; filesReverted?: string[] }; requestId?: string }
 	| {

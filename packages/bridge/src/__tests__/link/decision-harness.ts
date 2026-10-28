@@ -35,7 +35,7 @@ export type DecisionHarness = {
 	/** Sends one decision and returns its result; earlier frames are dropped so a repeat cannot match. */
 	decide: (feed: UnixWsClient, input: DecisionRequest) => Promise<LinkFrame>;
 	/** The permission hook the daemon decides for, held open until the decision lands. */
-	postHook: (name: "cc-hook" | "cx-hook", body: Record<string, unknown>) => Promise<Response>;
+	postHook: (name: "cc-hook", body: Record<string, unknown>) => Promise<Response>;
 	hookDecision: (response: Response) => Promise<unknown>;
 	permissionReplies: () => RecordedCall[];
 	stop: () => Promise<void>;
@@ -64,9 +64,6 @@ export async function startDecisionHarness(): Promise<DecisionHarness> {
 		streams,
 		log,
 		debugRts: false,
-		requireOpenCode: () => {
-			throw new Error("the decision tests never start an OpenCode server");
-		},
 		syncExternalTailForKey: () => {},
 	});
 

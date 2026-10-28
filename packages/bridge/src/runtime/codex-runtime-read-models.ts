@@ -1,11 +1,5 @@
-import { getCollabParent } from "../connectors/codex/cx-collab-cache";
 import type { CodexThread } from "../types";
-import type {
-	BroskiModelSummary,
-	BroskiRuntimeCapabilities,
-	BroskiRuntimeState,
-	BroskiSessionSummary,
-} from "../types/runtime";
+import type { BroskiRuntimeCapabilities, BroskiRuntimeState, BroskiSessionSummary } from "../types/runtime";
 import { sessionPreview } from "../utils/session-preview";
 import { normalizeTimestampMs } from "./shared";
 
@@ -35,12 +29,7 @@ export function mapCodexThreadToRuntimeSession(thread: CodexThread & { threadNam
 	const isFork = !!thread.forkedFromId && !isCollabChild;
 	const sessionKind = isCollabChild ? "subagent" : isFork ? "fork" : "root";
 
-	// For collab children, look up parent from the persisted collab cache
-	let parentId = thread.forkedFromId ?? undefined;
-	if (isCollabChild && !parentId) {
-		const collabParent = getCollabParent(thread.id);
-		if (collabParent) parentId = collabParent.parentThreadId;
-	}
+	const parentId = thread.forkedFromId ?? undefined;
 
 	return {
 		id: thread.id,
@@ -62,30 +51,6 @@ export function mapCodexThreadToRuntimeSession(thread: CodexThread & { threadNam
 			...(thread.agentNickname ? { agentNickname: thread.agentNickname } : {}),
 			...(thread.agentRole ? { agentRole: thread.agentRole } : {}),
 			...(thread.status ? { status: thread.status } : {}),
-		},
-	};
-}
-
-export function mapCodexModelToSummary(model: Record<string, unknown>): BroskiModelSummary {
-	const id = String(model.id ?? model.model ?? "");
-	const reasoningEfforts = Array.isArray(model.supportedReasoningEfforts) ? model.supportedReasoningEfforts : [];
-
-	return {
-		id,
-		backend: "codex",
-		label: String(model.displayName ?? model.model ?? id),
-		providerId: "openai",
-		supportsReasoning: reasoningEfforts.length > 0,
-		supportsImages: false,
-		supportsTools: true,
-		supportsMcp: true,
-		backendData: {
-			...(model.description ? { description: model.description } : {}),
-			...(model.upgrade ? { upgrade: model.upgrade } : {}),
-			...(model.isDefault !== undefined ? { isDefault: model.isDefault } : {}),
-			...(model.supportsPersonality !== undefined ? { supportsPersonality: model.supportsPersonality } : {}),
-			...(reasoningEfforts.length > 0 ? { supportedReasoningEfforts: reasoningEfforts } : {}),
-			...(model.defaultReasoningEffort ? { defaultReasoningEffort: model.defaultReasoningEffort } : {}),
 		},
 	};
 }

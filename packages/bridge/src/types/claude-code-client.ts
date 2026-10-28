@@ -181,7 +181,6 @@ export type CcClientMessage =
 	  }
 	| { type: "cc_get_active_sessions" }
 	| { type: "cc_rename_session"; sessionId: string; name: string; cwd?: string }
-	| { type: "cc_background_session"; sessionId: string; cwd?: string }
 	| { type: "cc_get_context_usage"; sessionId: string; requestId?: string }
 	| { type: "cc_apply_settings"; sessionId: string; settings: Record<string, unknown>; requestId?: string }
 	| { type: "cc_tag_session"; sessionId: string; tag?: string | null; cwd?: string; requestId?: string }

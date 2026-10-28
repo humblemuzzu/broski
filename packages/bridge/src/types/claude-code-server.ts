@@ -17,7 +17,6 @@ import type {
 	ClaudeCodeSupportedModel,
 	ClaudeCodeTranscriptMessage,
 } from "./claude-code-stream";
-import type { ClaudeCodeStreamMessage } from "./claude-code-stream-message";
 import type { ProjectSummary } from "./session";
 
 export type CcServerMessage =
@@ -50,12 +49,6 @@ export type CcServerMessage =
 	| {
 			type: "cc_session_renamed";
 			data: ClaudeCodeSession | null;
-			requestId?: string;
-	  }
-	| {
-			type: "cc_session_backgrounded";
-			data: boolean;
-			sessionId: string;
 			requestId?: string;
 	  }
 	| {
@@ -256,7 +249,6 @@ export type CcServerMessage =
 			error?: string;
 			requestId?: string;
 	  }
-	| { type: "cc_stream"; data: ClaudeCodeStreamMessage; sessionId: string }
 	// SDK 0.2.92: Subagent inspection responses
 	| { type: "cc_subagents"; data: string[]; requestId?: string }
 	| { type: "cc_subagent_messages"; data: Array<{ role: string; content: unknown; uuid?: string }>; requestId?: string }

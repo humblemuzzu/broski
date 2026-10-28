@@ -1,6 +1,5 @@
 import * as pi from "../connectors/pi";
 import { uninstallCcHook } from "../handlers/cc_hook_installer";
-import { uninstallCxHook } from "../handlers/cx_hook_installer";
 import * as piDurable from "../handlers/pi_durable";
 import * as piFeatures from "../handlers/pi_features";
 import { stopBridgeResources } from "../lifecycle/bridge-teardown";
@@ -46,11 +45,11 @@ export function createStop(deps: StopDeps): (force?: boolean) => Promise<Teardow
 
 		return stopBridgeResources(
 			{
-				externalTails: [state.ccExternalTails, state.cxExternalTails, state.ocExternalTails],
+				externalTails: [state.ccExternalTails, state.cxExternalTails],
 				eventBuffers: [state.ccEventBuffers, state.cxEventBuffers],
 				closeFsWatchers: () => deps.fsWatchers.closeAll(),
 				stopPtyRuntime: () => deps.ptyRuntime.stop(),
-				uninstallHooks: [() => uninstallCcHook(deps.log.logInfo), () => uninstallCxHook(deps.log.logInfo)],
+				uninstallHooks: [() => uninstallCcHook(deps.log.logInfo)],
 				stopCodexAppServer: () => deps.codexClient.stopCodexAppServer(),
 				disposeBackends: [() => pi.disposeAll(), () => piFeatures.stopAllPiExternalTails(), () => piDurable.shutdown()],
 				stopServers: () => {

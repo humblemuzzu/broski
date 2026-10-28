@@ -71,7 +71,7 @@ export default function PiPage() {
       <h2 id="setup" className="text-xl font-semibold mb-4 mt-10">Setup</h2>
       
       <h3 id="step-1" className="text-base font-medium mb-3 mt-6">1. Install Pi</h3>
-      <CodeBlock language="bash">{`npm i -g @mariozechner/pi-coding-agent`}</CodeBlock>
+      <CodeBlock language="bash">{`npm i -g @earendil-works/pi-coding-agent`}</CodeBlock>
 
       <h3 id="step-2" className="text-base font-medium mb-3 mt-6">2. Configure a Provider</h3>
       <p className="text-sm text-muted-foreground mb-3">
@@ -180,7 +180,7 @@ export OPENAI_API_KEY=ollama`}</CodeBlock>
         <div className="p-4 rounded-lg border border-border/40 bg-card/30">
           <div className="font-medium mb-2 text-sm">&quot;Pi not found&quot;</div>
           <CodeBlock language="bash">{`# Install Pi globally
-npm i -g @mariozechner/pi-coding-agent
+npm i -g @earendil-works/pi-coding-agent
 
 # Verify installation
 which pi

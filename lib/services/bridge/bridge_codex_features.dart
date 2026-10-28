@@ -69,39 +69,6 @@ extension BridgeServiceCodexFeatures on BridgeService {
     return true;
   }
 
-  /// List remote skills from public marketplace (skills/remote/list).
-  Future<List<Map<String, dynamic>>> cxListRemoteSkills() async {
-    final requestId = _generateRequestId();
-    _socket.send({'type': 'cx_remote_skills_list', 'requestId': requestId});
-    final response = await _waitFor(
-      'cx_remote_skills',
-      requestId: requestId,
-      timeoutSeconds: _codexTimeoutSeconds,
-    );
-    final data = response['data'] as List<dynamic>? ?? [];
-    return data.whereType<Map<String, dynamic>>().toList();
-  }
-
-  /// Install/export a remote skill by hazelnut ID (skills/remote/export).
-  Future<bool> cxInstallRemoteSkill({
-    required String hazelnutId,
-    bool isPreload = false,
-  }) async {
-    final requestId = _generateRequestId();
-    _socket.send({
-      'type': 'cx_remote_skill_install',
-      'requestId': requestId,
-      'hazelnutId': hazelnutId,
-      'isPreload': isPreload,
-    });
-    await _waitFor(
-      'cx_remote_skill_installed',
-      requestId: requestId,
-      timeoutSeconds: _codexTimeoutSeconds,
-    );
-    return true;
-  }
-
   /// Enable/disable a specific skill (skills/config/write).
   Future<bool> cxSetSkillEnabled({
     required String path,

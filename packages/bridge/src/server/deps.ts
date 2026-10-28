@@ -9,7 +9,6 @@ import type { PtyRuntime } from "../pty/runtime";
 import type { ServerDeps } from "../routing/types";
 import {
 	buildClaudeCodeRuntimeState,
-	mapClaudeCodeModelToSummary,
 	mapClaudeCodeSessionToRuntimeSession,
 } from "../runtime/claude-code-runtime-read-models";
 import { buildCodexRuntimeState, mapCodexThreadToRuntimeSession } from "../runtime/codex-runtime-read-models";
@@ -146,7 +145,6 @@ export function buildServerDeps(ctx: ServerDepsContext): ServerDeps {
 		mapCodexThread,
 		mapCodexThreadToRuntimeSession,
 		mapClaudeCodeSessionToRuntimeSession,
-		mapClaudeCodeModelToSummary,
 		ocSessionOwners: state.ocSessionOwners,
 		ocSessionProjectPaths: state.ocSessionProjectPaths,
 		sessionWatchers: state.sessionWatchers,

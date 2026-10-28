@@ -2,7 +2,6 @@ import 'package:broski/models/message.dart';
 import 'package:broski/models/runtime/runtime.dart';
 import 'package:broski/providers/chat/runtime_common_models.dart';
 import 'package:broski/providers/chat/runtime_common_reducer.dart';
-import 'package:broski/providers/chat/runtime_event_reducer.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 RuntimeEvent pi(
@@ -220,73 +219,5 @@ void main() {
         expect(turn.assistantText, 'dup dup2');
       },
     );
-
-    test('shadow reducer tracks Pi streaming, tools, and agent_finished', () {
-      var session = reduceRuntimeEvent(null, pi('agent_started'));
-      expect(session.isStreaming, isTrue);
-
-      session = reduceRuntimeEvent(
-        session,
-        pi('assistant_text_delta', seq: 2, extra: {'delta': 'Hi'}),
-      );
-      session = reduceRuntimeEvent(
-        session,
-        pi('assistant_thinking_delta', seq: 3, extra: {'delta': 'th'}),
-      );
-      session = reduceRuntimeEvent(
-        session,
-        pi(
-          'tool_started',
-          seq: 4,
-          extra: {
-            'toolCallId': 'tool-1',
-            'toolName': 'Bash',
-            'input': {'command': 'ls'},
-          },
-        ),
-      );
-
-      expect(session.tools['tool-1']!.status, 'running');
-
-      session = reduceRuntimeEvent(
-        session,
-        pi(
-          'tool_finished',
-          seq: 5,
-          extra: {
-            'toolCallId': 'tool-1',
-            'toolName': 'Bash',
-            'output': 'file.txt',
-          },
-        ),
-      );
-
-      expect(session.tools['tool-1']!.status, 'completed');
-      expect(session.tools['tool-1']!.output, 'file.txt');
-      expect(session.assistantText, 'Hi');
-      expect(session.thinkingText, 'th');
-
-      session = reduceRuntimeEvent(session, pi('agent_finished', seq: 6));
-      expect(session.isStreaming, isFalse);
-    });
-
-    test('shadow reducer ignores a replayed Pi event with the same seq', () {
-      const json = <String, dynamic>{
-        'type': 'assistant_text_delta',
-        'backend': 'pi',
-        'timestampMs': 50,
-        'sessionId': 'pi-1',
-        'seq': 3,
-        'delta': 'x',
-      };
-
-      var session = reduceRuntimeEvent(null, RuntimeEvent.fromJson(json));
-      session = reduceRuntimeEvent(
-        session,
-        RuntimeEvent.fromJson({...json, 'replayed': true}),
-      );
-
-      expect(session.assistantText, 'x');
-    });
   });
 }

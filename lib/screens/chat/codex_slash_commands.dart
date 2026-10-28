@@ -25,11 +25,9 @@ bool handleCodexSlashCommand({
   required VoidCallback scrollAndReset,
   required bool Function() isMounted,
   required VoidCallback showAppsSheet,
-  required VoidCallback showRemoteSkillsSheet,
   required Future<void> Function() startReview,
   required void Function(DiffEntry) openDiffView,
   required VoidCallback loadSessionContext,
-  required VoidCallback showRollbackSheet,
   required VoidCallback showAgentsSheet,
 }) {
   if (text.startsWith('/model ')) {
@@ -236,13 +234,6 @@ bool handleCodexSlashCommand({
     scrollAndReset();
     return true;
   }
-  if (text == '/remote-skills') {
-    chat.appendUserMessage(text);
-    showRemoteSkillsSheet();
-    controller.clear();
-    scrollAndReset();
-    return true;
-  }
   if (text.startsWith('/review')) {
     controller.clear();
     scrollAndReset();
@@ -342,16 +333,6 @@ bool handleCodexSlashCommand({
         }
       }();
     }
-    return true;
-  }
-  if (text.startsWith('/rollback')) {
-    chat.appendUserMessage(text);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!isMounted()) return;
-      showRollbackSheet();
-    });
-    controller.clear();
-    scrollAndReset();
     return true;
   }
   if (text.startsWith('/agents')) {

@@ -10,9 +10,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 const Duration piDurableSessionsRefreshDebounce = Duration(milliseconds: 500);
 
 /// Whether [event] can change what `unified_list_sessions` reports for a
-/// durable session (title, updatedAt, streaming). The bridge broadcasts no
-/// `runtime_sessions` for pi-durable, so the refresh is derived from its event
-/// stream instead.
+/// durable session (title, updatedAt, streaming). The bridge sends no session
+/// row for pi-durable, so the refresh is derived from its event stream.
 bool piDurableEventChangesSessions(RuntimeEvent event) {
   if (event.backend != AgentType.piDurable) return false;
   switch (event) {

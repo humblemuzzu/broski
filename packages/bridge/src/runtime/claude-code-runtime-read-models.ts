@@ -1,10 +1,5 @@
-import type { ClaudeCodeSession, ClaudeCodeSupportedModel } from "../types";
-import type {
-	BroskiModelSummary,
-	BroskiRuntimeCapabilities,
-	BroskiRuntimeState,
-	BroskiSessionSummary,
-} from "../types/runtime";
+import type { ClaudeCodeSession } from "../types";
+import type { BroskiRuntimeCapabilities, BroskiRuntimeState, BroskiSessionSummary } from "../types/runtime";
 import { sessionPreview } from "../utils/session-preview";
 import { normalizeTimestampMs } from "./shared";
 
@@ -24,28 +19,6 @@ export const claudeCodeRuntimeCapabilities: BroskiRuntimeCapabilities = {
 	canRequestPermissions: true,
 	backendExtras: ["elicitation", "checkpoints", "subagents", "local-config"],
 };
-
-export function mapClaudeCodeModelToSummary(model: ClaudeCodeSupportedModel): BroskiModelSummary {
-	return {
-		id: model.value,
-		backend: "claude-code",
-		label: model.displayName || model.value,
-		providerId: "anthropic",
-		supportsReasoning: model.supportsAdaptiveThinking === true || model.supportsEffort === true,
-		supportsImages: true,
-		supportsTools: true,
-		supportsMcp: true,
-		backendData: {
-			source: "supportedModels",
-			description: model.description,
-			...(model.supportsEffort !== undefined ? { supportsEffort: model.supportsEffort } : {}),
-			...(model.supportedEffortLevels ? { supportedEffortLevels: model.supportedEffortLevels } : {}),
-			...(model.supportsAdaptiveThinking !== undefined
-				? { supportsAdaptiveThinking: model.supportsAdaptiveThinking }
-				: {}),
-		},
-	};
-}
 
 export function mapClaudeCodeSessionToRuntimeSession(session: ClaudeCodeSession): BroskiSessionSummary {
 	// CC subagents are stored in subagents/ directory, not as separate sessions.

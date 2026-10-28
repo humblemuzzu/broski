@@ -34,7 +34,6 @@ const THREAD_OPS = [
 	"cx_resume_thread",
 	"cx_archive_thread",
 	"cx_thread_fork",
-	"cx_thread_rollback",
 	"cx_thread_unsubscribe",
 ] as const;
 const FILE_OPS = ["cx_get_thread_messages", "cx_undo_files", "cx_get_modified_files"] as const;
@@ -67,8 +66,6 @@ const FEATURE_OPS = [
 	"cx_thread_rename",
 	"cx_thread_unarchive",
 	"cx_thread_compact",
-	"cx_remote_skills_list",
-	"cx_remote_skill_install",
 	"cx_skill_config_write",
 	"cx_apps_list",
 	"cx_command_exec",

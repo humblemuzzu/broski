@@ -7,7 +7,6 @@
  *   { backend, data: BroskiSessionSummary[], requestId? }
  */
 
-import { getCollabChildren } from "../connectors/codex/cx-collab-cache";
 import type { UnifiedMessage } from "../routing/messages";
 import { registerAll } from "../routing/registry";
 import type { MessageRouter, ServerDeps } from "../routing/types";
@@ -144,7 +143,6 @@ export async function handle(message: UnifiedMessage, reply: Reply, ctx: Session
 				}
 
 				case "codex": {
-					// Check both forks (forkedFromId) and collab cache for parent-child links.
 					try {
 						const client = await ctx.ensureCodexClient();
 						const result: any = await client.request("thread/list", {
@@ -152,14 +150,9 @@ export async function handle(message: UnifiedMessage, reply: Reply, ctx: Session
 						});
 						const threads: any[] = result?.data ?? [];
 
-						// Forks: explicit parent link in DB
 						const forkChildren = threads.filter((t: any) => t.forkedFromId === sessionId);
 
-						// Collab children: look up from persisted cache
-						const collabChildIds = new Set(getCollabChildren(sessionId).map((r) => r.childThreadId));
-						const collabChildren = threads.filter((t: any) => collabChildIds.has(t.id) && t.forkedFromId !== sessionId);
-
-						data = [...forkChildren, ...collabChildren].map((t: any) => mapCodexThreadToRuntimeSession(t));
+						data = forkChildren.map((t: any) => mapCodexThreadToRuntimeSession(t));
 					} catch (e) {
 						ctx.log("[unified_session_children] CX error:", e);
 						data = [];

@@ -117,8 +117,6 @@ export function createStreams(deps: StreamsDeps): Streams {
 			emitCcStream(sessionId, syntheticPermReq, owner);
 		}
 
-		// Map to unified runtime_event — this is now the ONLY emission path.
-		// Legacy cc_stream was removed in Phase 4 (Flutter only reads runtime_event).
 		const runtimeEvent = mapClaudeCodeStreamToRuntimeEvent(streamMsg, {
 			backend: "claude-code",
 			sessionId,
@@ -147,8 +145,6 @@ export function createStreams(deps: StreamsDeps): Streams {
 			deps.log.logDebug(`[RTS] emitCxStream: thread=${threadId}, msgType=${msgType}, owner=${!!resolvedOwner}`);
 		}
 
-		// Map to unified runtime_event — this is now the ONLY emission path.
-		// Legacy cx_stream was removed in Phase 4 (Flutter only reads runtime_event).
 		const runtimeEvent = mapCodexStreamToRuntimeEvent(streamMsg, {
 			backend: "codex",
 			threadId,

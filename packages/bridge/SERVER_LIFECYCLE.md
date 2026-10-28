@@ -31,16 +31,6 @@ bun run dev -- --opencode-url http://127.0.0.1:4096
 
 In manual mode, the bridge will **not** stop OpenCode on shutdown.
 
-### 3) Attach chooser (power users with multiple servers)
-
-Scan common ports and prompt you to choose:
-
-```bash
-bun run dev -- --attach
-```
-
-This is still explicit (you pick), so it avoids wrong-instance surprises.
-
 ## Startup flow (managed)
 
 1. Bridge starts OpenCode via the SDK (`createOpencode`)

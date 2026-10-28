@@ -1,12 +1,6 @@
 import * as pi from "../connectors/pi";
 import { normalizeCwd } from "../connectors/pi/pi-cwd";
-import type { PiModelCatalogue } from "../connectors/pi/pi-model-catalogue";
-import {
-	mapPiModelToSummary,
-	mapPiSessionToRuntimeSession,
-	mapPiStateToRuntimeState,
-	type PiModelSelectionMark,
-} from "../runtime/pi-runtime-read-models";
+import { mapPiSessionToRuntimeSession, mapPiStateToRuntimeState } from "../runtime/pi-runtime-read-models";
 import { registerSweepable } from "../state/bounded-map";
 import type { PiStatePayload } from "../types/pi";
 import { onBridgeTurnBoundary } from "./pi_external_tail_sync";
@@ -74,25 +68,6 @@ export function broadcastPiRuntimeState(broadcast: Broadcast, cwd: string, state
 	});
 }
 
-/** Where each selected model sits in the user's own list, so every summary row carries its position. */
-function selectionMarks(catalogue: PiModelCatalogue): Map<string, PiModelSelectionMark> {
-	const marks = new Map<string, PiModelSelectionMark>();
-	catalogue.selected.forEach((entry, order) => {
-		if (!entry.available || entry.provider === null || entry.modelId === null) return;
-		marks.set(`${entry.provider}/${entry.modelId}`, { order, thinkingLevel: entry.thinkingLevel });
-	});
-	return marks;
-}
-
-export function emitPiRuntimeModels(reply: Reply, catalogue: PiModelCatalogue): void {
-	const marks = selectionMarks(catalogue);
-	reply({
-		type: "runtime_models",
-		backend: "pi",
-		data: catalogue.data.map((model) => mapPiModelToSummary(model, marks.get(`${model.provider}/${model.id}`))),
-	});
-}
-
 /** One session changed: the app upserts that row instead of re-reading the whole list. */
 export async function broadcastPiSessionDelta(broadcast: Broadcast, cwd: string, sessionId: string): Promise<void> {
 	try {
@@ -127,7 +102,6 @@ export async function ensureStreamBridge(cwd: string, broadcast: Broadcast, forc
 	// Create/get the instance to register with, but use dynamic lookup in the
 	// event callback so session switches are reflected immediately.
 	await pi.getOrCreateInstance(cwd);
-	console.log(`[Pi RTS DEBUG] ensureStreamBridge: setting up event listener for cwd=${cwd}`);
 	const unsubscribe = await pi.addEventListener(cwd, (event) => {
 		const streamMessage = pi.translateEvent(event);
 		if (!streamMessage) return;

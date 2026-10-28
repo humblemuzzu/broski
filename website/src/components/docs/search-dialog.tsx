@@ -56,9 +56,9 @@ const searchIndex: SearchResult[] = [
   // Bridge
   { title: "Bridge Installation", href: "/docs/bridge", section: "Installation", content: "bunx broski, npx broski, bun install -g broski, npm install -g broski", category: "Bridge" },
   { title: "Bridge Commands", href: "/docs/bridge", section: "Commands", content: "broski install, broski-link pair, broski --port, broski --help, broski --version", category: "Bridge" },
-  { title: "Configuration", href: "/docs/bridge/configuration", section: "CLI Options", content: "--port --verbose --new-token --tls --managed --attach --manual --opencode-url", category: "Bridge" },
+  { title: "Configuration", href: "/docs/bridge/configuration", section: "CLI Options", content: "--port --verbose --new-token --tls --managed --manual --opencode-url", category: "Bridge" },
   { title: "Configuration", href: "/docs/bridge/configuration", section: "Environment Variables", content: "BROSKI_PORT BROSKI_VERBOSE BROSKI_TLS ANTHROPIC_API_KEY", category: "Bridge" },
-  { title: "Configuration", href: "/docs/bridge/configuration", section: "OpenCode Modes", content: "--managed --manual --attach connect to OpenCode server", category: "Bridge" },
+  { title: "Configuration", href: "/docs/bridge/configuration", section: "OpenCode Modes", content: "--managed --manual connect to OpenCode server", category: "Bridge" },
   { title: "Remote Access", href: "/docs/bridge/remote-access", section: "Setup", content: "broski install, broski-link pair, scan the QR code with the Broski app", category: "Bridge" },
   { title: "Remote Access", href: "/docs/bridge/remote-access", section: "Using a Relay", content: "relay in ~/.broski/link/config.json, end-to-end encrypted, access from anywhere", category: "Bridge" },
   { title: "Background Service", href: "/docs/bridge/background-service", section: "LaunchAgent", content: "Run broski-link as a macOS service that starts automatically on login", category: "Bridge" },
@@ -74,7 +74,7 @@ const searchIndex: SearchResult[] = [
   { title: "OpenCode", href: "/docs/backends/opencode", section: "MCP Integration", content: "Full Model Context Protocol support for custom tools", category: "AI Backends" },
   { title: "Codex", href: "/docs/backends/codex", section: "Setup", content: "OpenAI official CLI agent with sandbox and own tooling", category: "AI Backends" },
   { title: "Codex", href: "/docs/backends/codex", section: "Models", content: "GPT-4 Turbo, GPT-4, GPT-3.5 Turbo, o1 models", category: "AI Backends" },
-  { title: "Pi", href: "/docs/backends/pi", section: "Setup", content: "npm install -g @mariozechner/pi-coding-agent, multi-provider, extension system, open source", category: "AI Backends" },
+  { title: "Pi", href: "/docs/backends/pi", section: "Setup", content: "npm install -g @earendil-works/pi-coding-agent, multi-provider, extension system, open source", category: "AI Backends" },
   { title: "Pi", href: "/docs/backends/pi", section: "Features", content: "Multi-provider support, extensions, skills, auto-compaction, session tree, fork, HTML export", category: "AI Backends" },
   { title: "Pi", href: "/docs/backends/pi", section: "Providers", content: "Anthropic, OpenAI, Google Gemini, Groq, Mistral, Ollama, any OpenAI-compatible provider", category: "AI Backends" },
   
@@ -93,7 +93,7 @@ const searchIndex: SearchResult[] = [
   
   // Reference
   { title: "CLI Reference", href: "/docs/reference/cli", section: "Commands", content: "broski, broski install, broski doctor, broski-link pair status devices revoke subcommands", category: "Reference" },
-  { title: "CLI Reference", href: "/docs/reference/cli", section: "Options", content: "--port --verbose --new-token --tls --managed --manual --attach", category: "Reference" },
+  { title: "CLI Reference", href: "/docs/reference/cli", section: "Options", content: "--port --verbose --new-token --tls --managed --manual", category: "Reference" },
   { title: "Environment Variables", href: "/docs/reference/env", section: "Bridge Variables", content: "BROSKI_PORT BROSKI_VERBOSE BROSKI_TLS", category: "Reference" },
   { title: "Environment Variables", href: "/docs/reference/env", section: "API Keys", content: "ANTHROPIC_API_KEY OPENAI_API_KEY GOOGLE_API_KEY", category: "Reference" },
   { title: "Privacy & Security", href: "/docs/reference/privacy", section: "Data Flow", content: "What stays local, what goes to AI providers, no telemetry", category: "Reference" },

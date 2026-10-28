@@ -126,7 +126,7 @@ function buildSessionList(): ServerMessage {
 			}),
 		);
 	}
-	return { type: "runtime_sessions", backend: "claude-code", data } as ServerMessage;
+	return { type: "unified_sessions", backend: "claude-code", data };
 }
 
 type Counting = { ws: WebSocket; frames: number; events: number; chars: number; sample: string };

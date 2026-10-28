@@ -63,7 +63,6 @@ export async function createWorktree(
 		if (result.directory) {
 			try {
 				await ctx.client.vcs.get({ directory: result.directory });
-				console.log("[createWorktree] Registered sandbox:", result.directory);
 			} catch {
 				console.warn("[createWorktree] Failed to register sandbox, worktree may not persist in list");
 			}

@@ -1,6 +1,4 @@
-import { recordCollabSpawn } from "../connectors/codex/cx-collab-cache";
 import type { CodexStreamMessage } from "../types";
-import type { CodexCollabAgentSpawnEndEvent } from "../types/codex";
 import type { BroskiBackendData, BroskiRuntimeEvent } from "../types/runtime";
 import { extractToolCallId } from "./shared";
 import { enrichRuntimeEvent } from "./stream-contract";
@@ -185,17 +183,6 @@ export function mapCodexStreamToRuntimeEvent(
 							...(params.turn?.completedAt != null ? { completedAt: params.turn.completedAt } : {}),
 						}),
 						...(typeof params.turn?.status === "string" ? { stopReason: params.turn.status } : {}),
-					};
-
-				case "turn/failed":
-					return {
-						...baseEvent("agent_finished", ctx, {
-							sourceType: streamMessage.type,
-							method: streamMessage.method,
-							turnId: params.turnId ?? params.turn?.id,
-							status: "failed",
-						}),
-						stopReason: "failed",
 					};
 
 				case "thread/compacted":
@@ -555,19 +542,6 @@ export function mapCodexStreamToRuntimeEvent(
 					};
 				}
 
-				// Image generation items
-				case "item/imageGeneration/started":
-				case "item/imageGeneration/completed": {
-					return {
-						...baseEvent("backend_event", ctx, {
-							sourceType: streamMessage.type,
-							method: streamMessage.method,
-						}),
-						kind: streamMessage.method,
-						payload: params,
-					};
-				}
-
 				case "item/autoApprovalReview/started":
 				case "item/autoApprovalReview/completed": {
 					return {
@@ -582,7 +556,6 @@ export function mapCodexStreamToRuntimeEvent(
 
 				case "thread/realtime/started":
 				case "thread/realtime/itemAdded":
-				case "thread/realtime/transcriptUpdated":
 				case "thread/realtime/outputAudio/delta":
 				case "thread/realtime/error":
 				case "thread/realtime/closed": {
@@ -597,43 +570,9 @@ export function mapCodexStreamToRuntimeEvent(
 				}
 
 				default:
-					console.log(`[Codex runtime mapper] Unmapped notification: ${streamMessage.method}`);
 					return null;
 			}
 		}
-
-		case "collab_spawn_end": {
-			// Persist parent→child thread mapping for reconnect survival
-			const spawnData = streamMessage.data as CodexCollabAgentSpawnEndEvent;
-			if (spawnData?.newThreadId && spawnData.senderThreadId) {
-				recordCollabSpawn(
-					spawnData.senderThreadId,
-					spawnData.newThreadId,
-					spawnData.newAgentNickname,
-					spawnData.newAgentRole,
-					spawnData.prompt,
-				);
-			}
-			return {
-				...baseEvent("backend_event", ctx),
-				kind: streamMessage.type,
-				payload: streamMessage.data ?? streamMessage,
-			};
-		}
-		case "collab_spawn_begin":
-		case "collab_interaction_begin":
-		case "collab_interaction_end":
-		case "collab_waiting_begin":
-		case "collab_waiting_end":
-		case "collab_close_begin":
-		case "collab_close_end":
-		case "collab_resume_begin":
-		case "collab_resume_end":
-			return {
-				...baseEvent("backend_event", ctx),
-				kind: streamMessage.type,
-				payload: streamMessage.data ?? streamMessage,
-			};
 	}
 	return null;
 }

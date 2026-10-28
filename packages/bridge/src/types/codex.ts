@@ -67,116 +67,13 @@ export type CodexStreamMessage =
 			modelCapModel?: string;
 			modelCapRetrySeconds?: number;
 	  }
-	| { type: "collab_spawn_begin"; data: CodexCollabAgentSpawnBeginEvent }
-	| { type: "collab_spawn_end"; data: CodexCollabAgentSpawnEndEvent }
-	| {
-			type: "collab_interaction_begin";
-			data: CodexCollabAgentInteractionBeginEvent;
-	  }
-	| {
-			type: "collab_interaction_end";
-			data: CodexCollabAgentInteractionEndEvent;
-	  }
-	| { type: "collab_waiting_begin"; data: CodexCollabWaitingBeginEvent }
-	| { type: "collab_waiting_end"; data: CodexCollabWaitingEndEvent }
-	| { type: "collab_close_begin"; data: CodexCollabCloseBeginEvent }
-	| { type: "collab_close_end"; data: CodexCollabCloseEndEvent }
-	| { type: "collab_resume_begin"; data: CodexCollabResumeBeginEvent }
-	| { type: "collab_resume_end"; data: CodexCollabResumeEndEvent }
 	| { type: "info"; message: string };
-
-// ============================================================================
-// CODEX MULTI-AGENT COLLABORATION TYPES (SDK v0.87.0+)
-// ============================================================================
-
-export type CodexAgentStatus =
-	| { type: "pending_init" }
-	| { type: "running" }
-	| { type: "completed"; message?: string }
-	| { type: "errored"; error: string }
-	| { type: "shutdown" }
-	| { type: "not_found" };
-
-export type CodexCollabAgentSpawnBeginEvent = {
-	callId: string;
-	senderThreadId: string;
-	prompt: string;
-};
-
-export type CodexCollabAgentSpawnEndEvent = {
-	callId: string;
-	senderThreadId: string;
-	newThreadId?: string;
-	newAgentNickname?: string | null;
-	newAgentRole?: string | null;
-	prompt: string;
-	status: CodexAgentStatus;
-};
-
-export type CodexCollabAgentInteractionBeginEvent = {
-	callId: string;
-	senderThreadId: string;
-	receiverThreadId: string;
-	prompt: string;
-};
-
-export type CodexCollabAgentInteractionEndEvent = {
-	callId: string;
-	senderThreadId: string;
-	receiverThreadId: string;
-	prompt: string;
-	status: CodexAgentStatus;
-};
-
-export type CodexCollabWaitingBeginEvent = {
-	senderThreadId: string;
-	receiverThreadIds: string[];
-	callId: string;
-};
-
-export type CodexCollabWaitingEndEvent = {
-	senderThreadId: string;
-	callId: string;
-	statuses: Record<string, CodexAgentStatus>;
-};
-
-export type CodexCollabCloseBeginEvent = {
-	callId: string;
-	senderThreadId: string;
-	receiverThreadId: string;
-};
-
-export type CodexCollabCloseEndEvent = {
-	callId: string;
-	senderThreadId: string;
-	receiverThreadId: string;
-	status: CodexAgentStatus;
-};
-
-export type CodexCollabResumeBeginEvent = {
-	callId: string;
-	senderThreadId: string;
-	receiverThreadId: string;
-};
-
-export type CodexCollabResumeEndEvent = {
-	callId: string;
-	senderThreadId: string;
-	receiverThreadId: string;
-	status: CodexAgentStatus;
-};
 
 export type CodexWebSearchMode = "disabled" | "cached" | "live";
 
 // ============================================================================
 // CODEX NEW SDK TYPES (mid-2026)
 // ============================================================================
-
-export type CodexRemoteSkill = {
-	id: string;
-	name: string;
-	description: string;
-};
 
 export type CodexAppInfo = {
 	id: string;

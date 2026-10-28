@@ -163,7 +163,7 @@ A list row carries a preview, never the whole first message: every free-text pre
 drop the file-sized parts of a diff (`summary.diffs[].before`/`after`, `revert.diff`/`snapshot`) and
 the fields the app never reads.
 
-A session list is never broadcast whole. A state change that used to re-send `runtime_sessions` for
+A session list is never broadcast whole. A state change that used to re-send the whole list for
 every session sends one row instead:
 
 ```json

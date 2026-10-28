@@ -118,7 +118,7 @@ describe("real-home guard", () => {
 		expect(report.configPath.startsWith(resolve(fakeRealHome))).toBe(true);
 
 		const refused = Object.entries(report.outcomes).map(([, outcome]) => outcome);
-		expect(refused.length).toBeGreaterThanOrEqual(10);
+		expect(refused.length).toBeGreaterThanOrEqual(8);
 		for (const outcome of refused) expect(outcome).toStartWith("threw:RealHomeWriteError");
 
 		expect(existsSync(join(fakeRealHome, ".claude"))).toBe(false);
@@ -135,10 +135,8 @@ describe("real-home guard", () => {
 		expect(report.home).toBe(resolve(workHome));
 		expect(report.realHome).toBe(resolve(fakeRealHome));
 		expect(report.outcomes.installCcHook).toBe("ok:done");
-		expect(report.outcomes.installCxHook).toBe("ok:done");
 		expect(report.outcomes["writeConfig.defaultPath"]).toBe("ok:done");
 		expect(existsSync(join(workHome, ".claude", "settings.json"))).toBe(true);
-		expect(existsSync(join(workHome, ".codex", "hooks.json"))).toBe(true);
 
 		expect(existsSync(join(fakeRealHome, ".claude"))).toBe(false);
 		expect(existsSync(join(fakeRealHome, ".codex"))).toBe(false);

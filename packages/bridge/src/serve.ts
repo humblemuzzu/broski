@@ -10,10 +10,8 @@ import { getKillPortHint, getProcessOnPort, IS_WINDOWS } from "./platform";
 import { applyServiceShellEnv } from "./platform/shell-env";
 import { loadOpenCodeSdk } from "./sdk/opencode-sdk";
 import {
-	bootstrapAttachOpenCode,
 	bootstrapManagedOpenCode,
 	bootstrapManualOpenCode,
-	discoverLocalOpencodeUrls,
 	isOpencodeCliAvailable,
 	type OpencodeBootstrap,
 } from "./serve/open-code";
@@ -22,10 +20,6 @@ import { restartManagedOpenCode, shutdown, startOpenCodeHealthMonitor } from "./
 import { serveState, subscribeOpenCodeStream } from "./serve/state";
 import { createBridgeServer, loadOrCreateAuthState } from "./server";
 import { startPeriodicUpdateCheck, startupUpdateCheck } from "./updater";
-
-function normalizeBaseUrl(url: string): string {
-	return url.replace(/\/+$/, "");
-}
 
 async function runFirstRunWizard(cli: CliOptions): Promise<void> {
 	if (cli.skipWizard || cli.daemon) return;
@@ -66,9 +60,6 @@ async function bootstrapOpenCode(cli: CliOptions): Promise<OpencodeBootstrap | n
 				return null;
 			}
 			return await bootstrapManualOpenCode(cli.opencodeUrl);
-		}
-		if (cli.opencodeMode === "attach") {
-			return await bootstrapAttachOpenCode(cli.verbose);
 		}
 		if (!isOpencodeCliAvailable(cli.verbose)) {
 			logDaemon("OpenCode CLI not found in PATH; skipping OpenCode bootstrap.");
@@ -152,29 +143,6 @@ function reportBindFailure(error: unknown, effectivePort: number, logger: Return
 	});
 }
 
-async function subscribeExtraOpenCodeStreams(verbose: boolean): Promise<void> {
-	const connector = serveState.opencodeConnector;
-	if (!connector) return;
-
-	try {
-		const primaryUrl = normalizeBaseUrl(connector.url);
-		const extraUrls = (await discoverLocalOpencodeUrls(verbose)).map(normalizeBaseUrl).filter((u) => u !== primaryUrl);
-
-		const seen = new Set<string>();
-		for (const u of extraUrls) {
-			if (seen.has(u)) continue;
-			seen.add(u);
-			const extra = new OpenCodeConnector({ baseUrl: u });
-			const ctrl = await subscribeOpenCodeStream(extra, "extra", verbose);
-			serveState.extraEventStreamControllers.push(ctrl);
-		}
-	} catch (err) {
-		if (verbose) {
-			logDaemon(`⚠️  Failed to subscribe to extra local OpenCode servers: ${String(err)}`);
-		}
-	}
-}
-
 export async function runServe(cli: CliOptions, config: BroskiConfig): Promise<void> {
 	const argvHas = (flag: string): boolean => process.argv.includes(flag);
 	const argvHasPortFlag = argvHas("--port") || argvHas("--bridge-port");
@@ -223,11 +191,7 @@ export async function runServe(cli: CliOptions, config: BroskiConfig): Promise<v
 	const opencode = await settleOpenCode(opencodeStart, bridgeServer, daemonLog);
 
 	if (opencode) {
-		// Subscribe to the primary OpenCode event stream and to any other local
-		// OpenCode servers, so a TUI using a different instance still drives
-		// real-time updates in the app.
 		serveState.primaryEventStreamController = await subscribeOpenCodeStream(opencode, "primary", cli.verbose);
-		await subscribeExtraOpenCodeStreams(cli.verbose);
 	}
 
 	startOpenCodeHealthMonitor();

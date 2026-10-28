@@ -27,7 +27,6 @@ export function handleCodexRuntimeNotification({
 	cxThreadNames,
 }: RuntimeNotificationParams): boolean {
 	if (method === "thread/status/changed") {
-		// Legacy sdk_event sends removed in Phase 4 — runtime_state drives UI state.
 		// The thread/status/changed notification is now handled via runtime_state
 		// emitted from cx_chat.ts turn handlers.
 		return true;

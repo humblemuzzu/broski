@@ -116,7 +116,7 @@ export async function handle(
 			if (sessionId) {
 				cxSearchSessions.delete(sessionId);
 				try {
-					await client.request("fuzzyFileSearch/sessionEnd", { sessionId });
+					await client.request("fuzzyFileSearch/sessionStop", { sessionId });
 				} catch {
 					// Best-effort cleanup
 				}

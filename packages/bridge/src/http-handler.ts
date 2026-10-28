@@ -33,7 +33,6 @@ export interface HandleHttpDeps {
 	listFilesDirectly: (path: string) => Promise<unknown>;
 	logUser: (msg: string) => void;
 	handleCcPermissionHook?: (request: Request) => Promise<Response>;
-	handleCxPermissionHook?: (request: Request) => Promise<Response>;
 }
 
 /**
@@ -171,14 +170,6 @@ export async function handleHttpRequest(request: Request, deps: HandleHttpDeps):
 			return jsonResponse({ error: "CC hook handler not available" }, 503);
 		}
 		return await deps.handleCcPermissionHook(request);
-	}
-
-	// ── CX Permission Hook endpoint ───────────────────────────────────
-	if (url.pathname === "/cx-hook") {
-		if (!deps.handleCxPermissionHook) {
-			return jsonResponse({ error: "CX hook handler not available" }, 503);
-		}
-		return await deps.handleCxPermissionHook(request);
 	}
 
 	return new Response("Not found", { status: 404 });

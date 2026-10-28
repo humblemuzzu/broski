@@ -22,10 +22,6 @@ mock.module("../../handlers/cc_hook_installer", () => ({
 	installCcHook: async () => {},
 	uninstallCcHook: async () => {},
 }));
-mock.module("../../handlers/cx_hook_installer", () => ({
-	installCxHook: async () => {},
-	uninstallCxHook: async () => {},
-}));
 
 export type TestEnv = {
 	home: string;

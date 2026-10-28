@@ -18,20 +18,6 @@ SessionStatus runtimeSessionStatusFromState(RuntimeState runtimeState) {
   return const SessionStatus.idle();
 }
 
-Map<String, SessionStatus> runtimeSessionStatusesFromSummaries(
-  List<RuntimeSessionSummary> sessions,
-) {
-  final updates = <String, SessionStatus>{};
-  for (final session in sessions) {
-    if (session.id.isEmpty) continue;
-    final status = runtimeSessionStatusFromSummary(session);
-    if (status != null) {
-      updates[session.id] = status;
-    }
-  }
-  return updates;
-}
-
 SessionStatus? runtimeSessionStatusFromSummary(RuntimeSessionSummary session) {
   final parsedBackendStatus = _runtimeSessionStatusFromBackendStatus(
     session.backendData == null ? null : session.backendData!['status'],

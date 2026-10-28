@@ -46,9 +46,6 @@ const opencodeEvents = createOpenCodeEvents({
 	streams,
 	log,
 	debugRts: false,
-	requireOpenCode: () => {
-		throw new Error("the feed tests never start an OpenCode server");
-	},
 	syncExternalTailForKey: () => {},
 });
 const broadcast: Broadcast = streams.broadcast;
