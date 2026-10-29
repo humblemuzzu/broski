@@ -1,0 +1,2002 @@
+[
+  {
+    "type": "session.attach.result",
+    "requestId": "attach-1",
+    "capabilities": {
+      "controllable": true,
+      "compact": true,
+      "cancelQueued": true
+    },
+    "sync": {
+      "kind": "snapshot",
+      "epoch": "fixture-epoch",
+      "lastSeq": 0,
+      "snapshot": {
+        "blocks": [],
+        "tools": [],
+        "interactions": [],
+        "queue": [],
+        "modes": [
+          {
+            "axis": "permissions",
+            "value": "ask"
+          },
+          {
+            "axis": "agent",
+            "value": "build"
+          }
+        ],
+        "modelId": "fake-large"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 1,
+      "at": 1800000000001,
+      "event": {
+        "type": "run_started",
+        "runId": "id-4",
+        "trigger": "prompt"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 2,
+      "at": 1800000000002,
+      "event": {
+        "type": "user_message",
+        "messageId": "id-2",
+        "text": "Fix a.ts",
+        "attachments": [
+          {
+            "kind": "image_ref",
+            "id": "id-3",
+            "mimeType": "image/png",
+            "name": "shot.png"
+          },
+          {
+            "kind": "file",
+            "uri": "/fixture/a.ts"
+          }
+        ],
+        "clientRequestId": "00000000-0000-4000-8000-000000000001"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 3,
+      "at": 1800000000003,
+      "event": {
+        "type": "block_started",
+        "blockId": "id-6",
+        "messageId": "id-5",
+        "kind": "thinking"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 4,
+      "at": 1800000000004,
+      "event": {
+        "type": "block_delta",
+        "blockId": "id-6",
+        "text": "Readin"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 5,
+      "at": 1800000000005,
+      "event": {
+        "type": "block_delta",
+        "blockId": "id-6",
+        "text": "g the "
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 6,
+      "at": 1800000000006,
+      "event": {
+        "type": "block_delta",
+        "blockId": "id-6",
+        "text": "task."
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 7,
+      "at": 1800000000007,
+      "event": {
+        "type": "block_finished",
+        "blockId": "id-6",
+        "text": "Reading the task."
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 8,
+      "at": 1800000000008,
+      "event": {
+        "type": "block_started",
+        "blockId": "id-7",
+        "messageId": "id-5",
+        "kind": "text"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 9,
+      "at": 1800000000009,
+      "event": {
+        "type": "block_delta",
+        "blockId": "id-7",
+        "text": "Sta"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 10,
+      "at": 1800000000010,
+      "event": {
+        "type": "block_delta",
+        "blockId": "id-7",
+        "text": "rti"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 11,
+      "at": 1800000000011,
+      "event": {
+        "type": "block_delta",
+        "blockId": "id-7",
+        "text": "ng."
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 12,
+      "at": 1800000000012,
+      "event": {
+        "type": "block_finished",
+        "blockId": "id-7",
+        "text": "Starting."
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 13,
+      "at": 1800000000013,
+      "event": {
+        "type": "tool_started",
+        "toolCallId": "id-8",
+        "name": "edit",
+        "messageId": "id-5"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 14,
+      "at": 1800000000014,
+      "event": {
+        "type": "tool_updated",
+        "toolCallId": "id-8",
+        "update": {
+          "kind": "input",
+          "input": {
+            "path": "a.ts"
+          }
+        }
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 15,
+      "at": 1800000000016,
+      "event": {
+        "type": "interaction_requested",
+        "interaction": {
+          "id": "id-9",
+          "runId": "id-4",
+          "createdAt": 1800000000015,
+          "title": "Run edit?",
+          "blocksRun": true,
+          "origin": {
+            "toolCallId": "id-8",
+            "toolName": "edit"
+          },
+          "request": {
+            "kind": "tool_permission",
+            "input": {
+              "path": "a.ts"
+            },
+            "inputEditable": true,
+            "previews": [
+              {
+                "kind": "command",
+                "command": "edit"
+              }
+            ],
+            "options": [
+              {
+                "id": "allow_once",
+                "label": "Allow",
+                "effect": "allow",
+                "scope": "once",
+                "stopsRun": false,
+                "message": "none"
+              },
+              {
+                "id": "allow_session",
+                "label": "Allow for this session",
+                "effect": "allow",
+                "scope": "session",
+                "stopsRun": false,
+                "message": "none"
+              },
+              {
+                "id": "allow_always",
+                "label": "Always allow",
+                "effect": "allow",
+                "scope": "always",
+                "stopsRun": false,
+                "message": "none",
+                "rule": "fake(*)"
+              },
+              {
+                "id": "deny",
+                "label": "Deny",
+                "effect": "deny",
+                "scope": "once",
+                "stopsRun": false,
+                "message": "optional"
+              },
+              {
+                "id": "deny_stop",
+                "label": "Deny and stop",
+                "effect": "deny",
+                "scope": "once",
+                "stopsRun": true,
+                "message": "none"
+              }
+            ],
+            "grants": [],
+            "defaultOptionId": "allow_once",
+            "deliberate": false
+          }
+        }
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 16,
+      "at": 1800000000017,
+      "event": {
+        "type": "interaction_resolved",
+        "interactionId": "id-9",
+        "reason": "answered"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 17,
+      "at": 1800000000019,
+      "event": {
+        "type": "tool_updated",
+        "toolCallId": "id-8",
+        "update": {
+          "kind": "child_session",
+          "session": {
+            "backend": "pi",
+            "sessionId": "id-10"
+          }
+        }
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 18,
+      "at": 1800000000020,
+      "event": {
+        "type": "tool_started",
+        "toolCallId": "id-11",
+        "name": "read",
+        "input": {
+          "path": "a.ts"
+        },
+        "messageId": "id-5",
+        "parentToolCallId": "id-8"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 19,
+      "at": 1800000000021,
+      "event": {
+        "type": "tool_updated",
+        "toolCallId": "id-11",
+        "update": {
+          "kind": "progress",
+          "message": "running"
+        }
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 20,
+      "at": 1800000000022,
+      "event": {
+        "type": "tool_updated",
+        "toolCallId": "id-11",
+        "update": {
+          "kind": "output_appended",
+          "text": "a"
+        }
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 21,
+      "at": 1800000000023,
+      "event": {
+        "type": "tool_finished",
+        "toolCallId": "id-11",
+        "outcome": "completed",
+        "result": {
+          "content": [
+            {
+              "kind": "text",
+              "text": "a"
+            }
+          ],
+          "fileChanges": []
+        }
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 22,
+      "at": 1800000000024,
+      "event": {
+        "type": "tool_updated",
+        "toolCallId": "id-8",
+        "update": {
+          "kind": "progress",
+          "message": "running"
+        }
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 23,
+      "at": 1800000000025,
+      "event": {
+        "type": "tool_updated",
+        "toolCallId": "id-8",
+        "update": {
+          "kind": "output_appended",
+          "text": "ed"
+        }
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 24,
+      "at": 1800000000026,
+      "event": {
+        "type": "tool_updated",
+        "toolCallId": "id-8",
+        "update": {
+          "kind": "output_appended",
+          "text": "it"
+        }
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 25,
+      "at": 1800000000027,
+      "event": {
+        "type": "tool_updated",
+        "toolCallId": "id-8",
+        "update": {
+          "kind": "output_appended",
+          "text": "ed"
+        }
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 26,
+      "at": 1800000000028,
+      "event": {
+        "type": "tool_updated",
+        "toolCallId": "id-8",
+        "update": {
+          "kind": "file_changes",
+          "changes": [
+            {
+              "path": "a.ts",
+              "change": "modified",
+              "diff": "@@ -1 +1 @@\n-a\n+b",
+              "additions": 1,
+              "deletions": 1
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 27,
+      "at": 1800000000029,
+      "event": {
+        "type": "tool_finished",
+        "toolCallId": "id-8",
+        "outcome": "completed",
+        "result": {
+          "content": [
+            {
+              "kind": "text",
+              "text": "edited"
+            }
+          ],
+          "fileChanges": [
+            {
+              "path": "a.ts",
+              "change": "modified",
+              "diff": "@@ -1 +1 @@\n-a\n+b",
+              "additions": 1,
+              "deletions": 1
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 28,
+      "at": 1800000000031,
+      "event": {
+        "type": "interaction_requested",
+        "interaction": {
+          "id": "id-12",
+          "runId": "id-4",
+          "createdAt": 1800000000030,
+          "title": "Pick a library",
+          "blocksRun": true,
+          "request": {
+            "kind": "questions",
+            "questions": [
+              {
+                "id": "q0",
+                "header": "Library",
+                "text": "Which library?",
+                "options": [
+                  {
+                    "label": "date-fns",
+                    "description": "Small"
+                  },
+                  {
+                    "label": "luxon"
+                  }
+                ],
+                "multiSelect": false,
+                "allowCustom": true,
+                "secret": false,
+                "required": true
+              },
+              {
+                "id": "q1",
+                "text": "Your token?",
+                "options": [],
+                "multiSelect": false,
+                "allowCustom": true,
+                "secret": true,
+                "required": false
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 29,
+      "at": 1800000000032,
+      "event": {
+        "type": "interaction_resolved",
+        "interactionId": "id-12",
+        "reason": "answered"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 30,
+      "at": 1800000000033,
+      "event": {
+        "type": "plan_updated",
+        "plan": {
+          "items": [
+            {
+              "text": "Edit a.ts",
+              "status": "completed"
+            },
+            {
+              "text": "Test",
+              "status": "in_progress"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 31,
+      "at": 1800000000034,
+      "event": {
+        "type": "usage_updated",
+        "usage": {
+          "inputTokens": 1200,
+          "outputTokens": 80,
+          "cacheReadTokens": 900,
+          "costUsd": 0.0125
+        }
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 32,
+      "at": 1800000000036,
+      "event": {
+        "type": "retry_scheduled",
+        "attempt": 1,
+        "maxAttempts": 1,
+        "retryAt": 1800000001035,
+        "message": "overloaded"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 33,
+      "at": 1800000000037,
+      "event": {
+        "type": "retry_finished",
+        "succeeded": true
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 34,
+      "at": 1800000000038,
+      "event": {
+        "type": "compaction_started",
+        "trigger": "auto"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 35,
+      "at": 1800000000039,
+      "event": {
+        "type": "compaction_finished",
+        "outcome": {
+          "kind": "completed",
+          "tokensBefore": 1000,
+          "tokensAfter": 200
+        }
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 36,
+      "at": 1800000000040,
+      "event": {
+        "type": "extension",
+        "extension": {
+          "kind": "turn_diff",
+          "diff": "diff --git a/a.ts b/a.ts"
+        }
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 37,
+      "at": 1800000000041,
+      "event": {
+        "type": "notice",
+        "level": "warning",
+        "text": "Close to the context limit."
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 38,
+      "at": 1800000000042,
+      "event": {
+        "type": "error",
+        "error": {
+          "code": "network",
+          "message": "The stream dropped."
+        },
+        "retryable": true
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 39,
+      "at": 1800000000043,
+      "event": {
+        "type": "messages_retracted",
+        "messageIds": [
+          "id-5"
+        ]
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 40,
+      "at": 1800000000044,
+      "event": {
+        "type": "block_started",
+        "blockId": "id-16",
+        "messageId": "id-15",
+        "kind": "plan"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 41,
+      "at": 1800000000045,
+      "event": {
+        "type": "block_delta",
+        "blockId": "id-16",
+        "text": "1. Te"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 42,
+      "at": 1800000000046,
+      "event": {
+        "type": "block_delta",
+        "blockId": "id-16",
+        "text": "st\n2."
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 43,
+      "at": 1800000000047,
+      "event": {
+        "type": "block_delta",
+        "blockId": "id-16",
+        "text": " Ship"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 44,
+      "at": 1800000000048,
+      "event": {
+        "type": "block_finished",
+        "blockId": "id-16",
+        "text": "1. Test\n2. Ship"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 45,
+      "at": 1800000000050,
+      "event": {
+        "type": "session_replaced",
+        "session": {
+          "backend": "pi",
+          "sessionId": "id-17"
+        }
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 46,
+      "at": 1800000000051,
+      "event": {
+        "type": "block_started",
+        "blockId": "id-18",
+        "messageId": "id-15",
+        "kind": "text"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 47,
+      "at": 1800000000052,
+      "event": {
+        "type": "block_delta",
+        "blockId": "id-18",
+        "text": "Fin"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 48,
+      "at": 1800000000053,
+      "event": {
+        "type": "block_delta",
+        "blockId": "id-18",
+        "text": "ish"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 49,
+      "at": 1800000000054,
+      "event": {
+        "type": "block_delta",
+        "blockId": "id-18",
+        "text": "ed."
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 50,
+      "at": 1800000000055,
+      "event": {
+        "type": "block_finished",
+        "blockId": "id-18",
+        "text": "Finished."
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 51,
+      "at": 1800000000056,
+      "event": {
+        "type": "run_finished",
+        "runId": "id-4",
+        "outcome": {
+          "kind": "completed"
+        }
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 52,
+      "at": 1800000000057,
+      "event": {
+        "type": "run_started",
+        "runId": "id-21",
+        "trigger": "prompt"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 53,
+      "at": 1800000000058,
+      "event": {
+        "type": "user_message",
+        "messageId": "id-20",
+        "text": "Keep going",
+        "attachments": [],
+        "clientRequestId": "00000000-0000-4000-8000-000000000002"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 54,
+      "at": 1800000000059,
+      "event": {
+        "type": "block_started",
+        "blockId": "id-23",
+        "messageId": "id-22",
+        "kind": "text"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 55,
+      "at": 1800000000060,
+      "event": {
+        "type": "queue_changed",
+        "items": [
+          {
+            "id": "id-24",
+            "delivery": "steer",
+            "preview": "Also lint",
+            "clientRequestId": "00000000-0000-4000-8000-000000000003"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 56,
+      "at": 1800000000061,
+      "event": {
+        "type": "block_delta",
+        "blockId": "id-23",
+        "text": "Wor"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 57,
+      "at": 1800000000062,
+      "event": {
+        "type": "queue_changed",
+        "items": [
+          {
+            "id": "id-24",
+            "delivery": "steer",
+            "preview": "Also lint",
+            "clientRequestId": "00000000-0000-4000-8000-000000000003"
+          },
+          {
+            "id": "id-25",
+            "delivery": "queue",
+            "preview": "Then commit",
+            "clientRequestId": "00000000-0000-4000-8000-000000000004"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 58,
+      "at": 1800000000063,
+      "event": {
+        "type": "block_delta",
+        "blockId": "id-23",
+        "text": "kin"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 59,
+      "at": 1800000000064,
+      "event": {
+        "type": "block_delta",
+        "blockId": "id-23",
+        "text": "g."
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 60,
+      "at": 1800000000065,
+      "event": {
+        "type": "block_finished",
+        "blockId": "id-23",
+        "text": "Working."
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 61,
+      "at": 1800000000066,
+      "event": {
+        "type": "user_message",
+        "messageId": "id-26",
+        "text": "Also lint",
+        "attachments": [],
+        "clientRequestId": "00000000-0000-4000-8000-000000000003"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 62,
+      "at": 1800000000067,
+      "event": {
+        "type": "queue_changed",
+        "items": [
+          {
+            "id": "id-25",
+            "delivery": "queue",
+            "preview": "Then commit",
+            "clientRequestId": "00000000-0000-4000-8000-000000000004"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 63,
+      "at": 1800000000068,
+      "event": {
+        "type": "block_started",
+        "blockId": "id-27",
+        "messageId": "id-22",
+        "kind": "text"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 64,
+      "at": 1800000000069,
+      "event": {
+        "type": "block_delta",
+        "blockId": "id-27",
+        "text": "Do"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 65,
+      "at": 1800000000070,
+      "event": {
+        "type": "block_delta",
+        "blockId": "id-27",
+        "text": "ne"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 66,
+      "at": 1800000000071,
+      "event": {
+        "type": "block_delta",
+        "blockId": "id-27",
+        "text": "."
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 67,
+      "at": 1800000000072,
+      "event": {
+        "type": "block_finished",
+        "blockId": "id-27",
+        "text": "Done."
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 68,
+      "at": 1800000000073,
+      "event": {
+        "type": "run_finished",
+        "runId": "id-21",
+        "outcome": {
+          "kind": "completed"
+        }
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 69,
+      "at": 1800000000074,
+      "event": {
+        "type": "queue_changed",
+        "items": []
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 70,
+      "at": 1800000000075,
+      "event": {
+        "type": "run_started",
+        "runId": "id-30",
+        "trigger": "queue"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 71,
+      "at": 1800000000076,
+      "event": {
+        "type": "user_message",
+        "messageId": "id-29",
+        "text": "Then commit",
+        "attachments": [],
+        "clientRequestId": "00000000-0000-4000-8000-000000000004"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 72,
+      "at": 1800000000077,
+      "event": {
+        "type": "block_started",
+        "blockId": "id-32",
+        "messageId": "id-31",
+        "kind": "text"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 73,
+      "at": 1800000000078,
+      "event": {
+        "type": "block_delta",
+        "blockId": "id-32",
+        "text": "Do"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 74,
+      "at": 1800000000079,
+      "event": {
+        "type": "block_delta",
+        "blockId": "id-32",
+        "text": "ne"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 75,
+      "at": 1800000000080,
+      "event": {
+        "type": "block_delta",
+        "blockId": "id-32",
+        "text": "."
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 76,
+      "at": 1800000000081,
+      "event": {
+        "type": "block_finished",
+        "blockId": "id-32",
+        "text": "Done."
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 77,
+      "at": 1800000000082,
+      "event": {
+        "type": "run_finished",
+        "runId": "id-30",
+        "outcome": {
+          "kind": "completed"
+        }
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 78,
+      "at": 1800000000083,
+      "event": {
+        "type": "model_changed",
+        "modelId": "fake-large",
+        "thinking": "high"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 79,
+      "at": 1800000000084,
+      "event": {
+        "type": "mode_changed",
+        "axis": "agent",
+        "value": "plan"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 80,
+      "at": 1800000000085,
+      "event": {
+        "type": "resynced",
+        "snapshot": {
+          "blocks": [],
+          "tools": [],
+          "interactions": [],
+          "queue": [],
+          "modes": [
+            {
+              "axis": "permissions",
+              "value": "ask"
+            },
+            {
+              "axis": "agent",
+              "value": "plan"
+            }
+          ],
+          "plan": {
+            "items": [
+              {
+                "text": "Edit a.ts",
+                "status": "completed"
+              },
+              {
+                "text": "Test",
+                "status": "in_progress"
+              }
+            ]
+          },
+          "usage": {
+            "inputTokens": 1200,
+            "outputTokens": 80,
+            "cacheReadTokens": 900,
+            "costUsd": 0.0125
+          },
+          "lastOutcome": {
+            "kind": "completed"
+          },
+          "modelId": "fake-large",
+          "thinking": "high"
+        }
+      }
+    }
+  },
+  {
+    "type": "catalog",
+    "backend": "pi",
+    "event": {
+      "type": "session_updated",
+      "summary": {
+        "session": {
+          "backend": "pi",
+          "sessionId": "id-1"
+        },
+        "cwd": "/fixture",
+        "createdAt": 1800000000000,
+        "updatedAt": 1800000000000,
+        "archived": false,
+        "modelId": "fake-large",
+        "status": "idle",
+        "origin": "broski"
+      }
+    }
+  },
+  {
+    "type": "catalog",
+    "backend": "pi",
+    "event": {
+      "type": "session_updated",
+      "summary": {
+        "session": {
+          "backend": "pi",
+          "sessionId": "id-1"
+        },
+        "cwd": "/fixture",
+        "createdAt": 1800000000000,
+        "updatedAt": 1800000000001,
+        "archived": false,
+        "status": "running",
+        "origin": "broski",
+        "modelId": "fake-large"
+      }
+    }
+  },
+  {
+    "type": "catalog",
+    "backend": "pi",
+    "event": {
+      "type": "session_updated",
+      "summary": {
+        "session": {
+          "backend": "pi",
+          "sessionId": "id-1"
+        },
+        "cwd": "/fixture",
+        "createdAt": 1800000000000,
+        "updatedAt": 1800000000002,
+        "archived": false,
+        "status": "running",
+        "origin": "broski",
+        "title": {
+          "text": "Fix a.ts",
+          "source": "first_prompt"
+        },
+        "modelId": "fake-large"
+      }
+    }
+  },
+  {
+    "type": "catalog",
+    "backend": "pi",
+    "event": {
+      "type": "session_updated",
+      "summary": {
+        "session": {
+          "backend": "pi",
+          "sessionId": "id-1"
+        },
+        "cwd": "/fixture",
+        "createdAt": 1800000000000,
+        "updatedAt": 1800000000016,
+        "archived": false,
+        "status": "waiting_for_user",
+        "origin": "broski",
+        "title": {
+          "text": "Fix a.ts",
+          "source": "first_prompt"
+        },
+        "modelId": "fake-large"
+      }
+    }
+  },
+  {
+    "type": "catalog",
+    "backend": "pi",
+    "event": {
+      "type": "session_updated",
+      "summary": {
+        "session": {
+          "backend": "pi",
+          "sessionId": "id-1"
+        },
+        "cwd": "/fixture",
+        "createdAt": 1800000000000,
+        "updatedAt": 1800000000017,
+        "archived": false,
+        "status": "running",
+        "origin": "broski",
+        "title": {
+          "text": "Fix a.ts",
+          "source": "first_prompt"
+        },
+        "modelId": "fake-large"
+      }
+    }
+  },
+  {
+    "type": "catalog",
+    "backend": "pi",
+    "event": {
+      "type": "session_updated",
+      "summary": {
+        "session": {
+          "backend": "pi",
+          "sessionId": "id-10"
+        },
+        "cwd": "/fixture",
+        "createdAt": 1800000000018,
+        "updatedAt": 1800000000018,
+        "parent": {
+          "kind": "subagent",
+          "session": {
+            "backend": "pi",
+            "sessionId": "id-1"
+          }
+        },
+        "archived": false,
+        "modelId": "fake-large",
+        "status": "idle",
+        "origin": "broski",
+        "title": {
+          "text": "Subagent of id-8",
+          "source": "generated"
+        }
+      }
+    }
+  },
+  {
+    "type": "catalog",
+    "backend": "pi",
+    "event": {
+      "type": "session_updated",
+      "summary": {
+        "session": {
+          "backend": "pi",
+          "sessionId": "id-1"
+        },
+        "cwd": "/fixture",
+        "createdAt": 1800000000000,
+        "updatedAt": 1800000000031,
+        "archived": false,
+        "status": "waiting_for_user",
+        "origin": "broski",
+        "title": {
+          "text": "Fix a.ts",
+          "source": "first_prompt"
+        },
+        "modelId": "fake-large"
+      }
+    }
+  },
+  {
+    "type": "catalog",
+    "backend": "pi",
+    "event": {
+      "type": "session_updated",
+      "summary": {
+        "session": {
+          "backend": "pi",
+          "sessionId": "id-1"
+        },
+        "cwd": "/fixture",
+        "createdAt": 1800000000000,
+        "updatedAt": 1800000000032,
+        "archived": false,
+        "status": "running",
+        "origin": "broski",
+        "title": {
+          "text": "Fix a.ts",
+          "source": "first_prompt"
+        },
+        "modelId": "fake-large"
+      }
+    }
+  },
+  {
+    "type": "catalog",
+    "backend": "pi",
+    "event": {
+      "type": "session_updated",
+      "summary": {
+        "session": {
+          "backend": "pi",
+          "sessionId": "id-1"
+        },
+        "cwd": "/fixture",
+        "createdAt": 1800000000000,
+        "updatedAt": 1800000000032,
+        "archived": false,
+        "status": "idle",
+        "origin": "broski",
+        "title": {
+          "text": "Fix a.ts",
+          "source": "first_prompt"
+        },
+        "modelId": "fake-large"
+      }
+    }
+  },
+  {
+    "type": "catalog",
+    "backend": "pi",
+    "event": {
+      "type": "session_updated",
+      "summary": {
+        "session": {
+          "backend": "pi",
+          "sessionId": "id-17"
+        },
+        "cwd": "/fixture",
+        "createdAt": 1800000000049,
+        "updatedAt": 1800000000049,
+        "archived": false,
+        "status": "running",
+        "origin": "broski",
+        "modelId": "fake-large"
+      }
+    }
+  },
+  {
+    "type": "catalog",
+    "backend": "pi",
+    "event": {
+      "type": "session_updated",
+      "summary": {
+        "session": {
+          "backend": "pi",
+          "sessionId": "id-17"
+        },
+        "cwd": "/fixture",
+        "createdAt": 1800000000049,
+        "updatedAt": 1800000000056,
+        "archived": false,
+        "status": "idle",
+        "origin": "broski",
+        "modelId": "fake-large"
+      }
+    }
+  },
+  {
+    "type": "catalog",
+    "backend": "pi",
+    "event": {
+      "type": "session_updated",
+      "summary": {
+        "session": {
+          "backend": "pi",
+          "sessionId": "id-17"
+        },
+        "cwd": "/fixture",
+        "createdAt": 1800000000049,
+        "updatedAt": 1800000000057,
+        "archived": false,
+        "status": "running",
+        "origin": "broski",
+        "modelId": "fake-large"
+      }
+    }
+  },
+  {
+    "type": "catalog",
+    "backend": "pi",
+    "event": {
+      "type": "session_updated",
+      "summary": {
+        "session": {
+          "backend": "pi",
+          "sessionId": "id-17"
+        },
+        "cwd": "/fixture",
+        "createdAt": 1800000000049,
+        "updatedAt": 1800000000058,
+        "archived": false,
+        "status": "running",
+        "origin": "broski",
+        "title": {
+          "text": "Keep going",
+          "source": "first_prompt"
+        },
+        "modelId": "fake-large"
+      }
+    }
+  },
+  {
+    "type": "catalog",
+    "backend": "pi",
+    "event": {
+      "type": "session_updated",
+      "summary": {
+        "session": {
+          "backend": "pi",
+          "sessionId": "id-17"
+        },
+        "cwd": "/fixture",
+        "createdAt": 1800000000049,
+        "updatedAt": 1800000000073,
+        "archived": false,
+        "status": "idle",
+        "origin": "broski",
+        "title": {
+          "text": "Keep going",
+          "source": "first_prompt"
+        },
+        "modelId": "fake-large"
+      }
+    }
+  },
+  {
+    "type": "catalog",
+    "backend": "pi",
+    "event": {
+      "type": "session_updated",
+      "summary": {
+        "session": {
+          "backend": "pi",
+          "sessionId": "id-17"
+        },
+        "cwd": "/fixture",
+        "createdAt": 1800000000049,
+        "updatedAt": 1800000000075,
+        "archived": false,
+        "status": "running",
+        "origin": "broski",
+        "title": {
+          "text": "Keep going",
+          "source": "first_prompt"
+        },
+        "modelId": "fake-large"
+      }
+    }
+  },
+  {
+    "type": "catalog",
+    "backend": "pi",
+    "event": {
+      "type": "session_updated",
+      "summary": {
+        "session": {
+          "backend": "pi",
+          "sessionId": "id-17"
+        },
+        "cwd": "/fixture",
+        "createdAt": 1800000000049,
+        "updatedAt": 1800000000082,
+        "archived": false,
+        "status": "idle",
+        "origin": "broski",
+        "title": {
+          "text": "Keep going",
+          "source": "first_prompt"
+        },
+        "modelId": "fake-large"
+      }
+    }
+  },
+  {
+    "type": "catalog",
+    "backend": "pi",
+    "event": {
+      "type": "session_updated",
+      "summary": {
+        "session": {
+          "backend": "pi",
+          "sessionId": "id-17"
+        },
+        "cwd": "/fixture",
+        "createdAt": 1800000000049,
+        "updatedAt": 1800000000083,
+        "archived": false,
+        "status": "idle",
+        "origin": "broski",
+        "title": {
+          "text": "Keep going",
+          "source": "first_prompt"
+        },
+        "modelId": "fake-large"
+      }
+    }
+  }
+]

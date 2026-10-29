@@ -13,6 +13,13 @@
     "resolveJsonModule": true,
     "types": ["bun-types"]
   },
-  "include": ["src/**/*.ts", "bench/**/*.ts", "scripts/measure-session-lists.ts"],
+  "include": [
+    "src/**/*.ts",
+    "bench/**/*.ts",
+    "scripts/measure-session-lists.ts",
+    "scripts/gen-contract.ts",
+    "scripts/check-layers.ts",
+    "scripts/contract-gen/**/*.ts"
+  ],
   "exclude": ["node_modules", "dist"]
 }

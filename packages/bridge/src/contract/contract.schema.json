@@ -1,0 +1,7565 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://broski.dev/contract.schema.json",
+  "title": "Broski backend contract",
+  "x-protocolVersion": {
+    "major": 1,
+    "minor": 0
+  },
+  "$defs": {
+    "AbortRequest": {
+      "x-module": "protocol",
+      "$id": "#/$defs/AbortRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "abort"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "session": {
+          "$ref": "#/$defs/SessionRef"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "session"
+      ],
+      "additionalProperties": false
+    },
+    "AbortResponse": {
+      "x-module": "protocol",
+      "$id": "#/$defs/AbortResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "abort.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/ActionResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "ActionAccepted": {
+      "x-module": "input",
+      "$id": "#/$defs/ActionAccepted",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "accepted"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    "ActionResult": {
+      "x-module": "input",
+      "$id": "#/$defs/ActionResult",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ActionAccepted"
+        },
+        {
+          "$ref": "#/$defs/Rejected"
+        }
+      ]
+    },
+    "ActiveRun": {
+      "x-module": "snapshot",
+      "$id": "#/$defs/ActiveRun",
+      "type": "object",
+      "properties": {
+        "runId": {
+          "$ref": "#/$defs/RunId"
+        },
+        "trigger": {
+          "$ref": "#/$defs/RunTrigger"
+        },
+        "startedAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "items": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TranscriptItem"
+          }
+        },
+        "droppedItems": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "runId",
+        "trigger",
+        "startedAt",
+        "items",
+        "droppedItems"
+      ],
+      "additionalProperties": false
+    },
+    "AgentEvent": {
+      "x-module": "events",
+      "$id": "#/$defs/AgentEvent",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/RunStartedEvent"
+        },
+        {
+          "$ref": "#/$defs/RunFinishedEvent"
+        },
+        {
+          "$ref": "#/$defs/UserMessageEvent"
+        },
+        {
+          "$ref": "#/$defs/BlockStartedEvent"
+        },
+        {
+          "$ref": "#/$defs/BlockDeltaEvent"
+        },
+        {
+          "$ref": "#/$defs/BlockFinishedEvent"
+        },
+        {
+          "$ref": "#/$defs/ToolStartedEvent"
+        },
+        {
+          "$ref": "#/$defs/ToolUpdatedEvent"
+        },
+        {
+          "$ref": "#/$defs/ToolFinishedEvent"
+        },
+        {
+          "$ref": "#/$defs/InteractionRequestedEvent"
+        },
+        {
+          "$ref": "#/$defs/InteractionResolvedEvent"
+        },
+        {
+          "$ref": "#/$defs/QueueChangedEvent"
+        },
+        {
+          "$ref": "#/$defs/CompactionStartedEvent"
+        },
+        {
+          "$ref": "#/$defs/CompactionFinishedEvent"
+        },
+        {
+          "$ref": "#/$defs/RetryScheduledEvent"
+        },
+        {
+          "$ref": "#/$defs/RetryFinishedEvent"
+        },
+        {
+          "$ref": "#/$defs/UsageUpdatedEvent"
+        },
+        {
+          "$ref": "#/$defs/PlanUpdatedEvent"
+        },
+        {
+          "$ref": "#/$defs/MessagesRetractedEvent"
+        },
+        {
+          "$ref": "#/$defs/ModelChangedEvent"
+        },
+        {
+          "$ref": "#/$defs/ModeChangedEvent"
+        },
+        {
+          "$ref": "#/$defs/NoticeEvent"
+        },
+        {
+          "$ref": "#/$defs/ErrorEvent"
+        },
+        {
+          "$ref": "#/$defs/ExtensionEvent"
+        },
+        {
+          "$ref": "#/$defs/SessionReplacedEvent"
+        },
+        {
+          "$ref": "#/$defs/ResyncedEvent"
+        }
+      ]
+    },
+    "AgentMention": {
+      "x-module": "input",
+      "$id": "#/$defs/AgentMention",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "agent"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "kind",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "AttachSync": {
+      "x-module": "protocol",
+      "$id": "#/$defs/AttachSync",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ReplaySync"
+        },
+        {
+          "$ref": "#/$defs/SnapshotSync"
+        }
+      ]
+    },
+    "Attachment": {
+      "x-module": "content",
+      "$id": "#/$defs/Attachment",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ImageContent"
+        },
+        {
+          "$ref": "#/$defs/FileContent"
+        }
+      ]
+    },
+    "AttachmentId": {
+      "x-module": "ids",
+      "$id": "#/$defs/AttachmentId",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "AttachmentKind": {
+      "x-module": "content",
+      "$id": "#/$defs/AttachmentKind",
+      "type": "string",
+      "enum": [
+        "image",
+        "file"
+      ]
+    },
+    "AttachmentRead": {
+      "x-module": "read-results",
+      "$id": "#/$defs/AttachmentRead",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "accepted"
+        },
+        "image": {
+          "$ref": "#/$defs/ImageContent"
+        }
+      },
+      "required": [
+        "status",
+        "image"
+      ],
+      "additionalProperties": false
+    },
+    "AttachmentReadRequest": {
+      "x-module": "protocol",
+      "$id": "#/$defs/AttachmentReadRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "attachment.read"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "session": {
+          "$ref": "#/$defs/SessionRef"
+        },
+        "attachmentId": {
+          "$ref": "#/$defs/AttachmentId"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "session",
+        "attachmentId"
+      ],
+      "additionalProperties": false
+    },
+    "AttachmentReadResponse": {
+      "x-module": "protocol",
+      "$id": "#/$defs/AttachmentReadResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "attachment.read.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/AttachmentReadResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "AttachmentReadResult": {
+      "x-module": "read-results",
+      "$id": "#/$defs/AttachmentReadResult",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/AttachmentRead"
+        },
+        {
+          "$ref": "#/$defs/Rejected"
+        }
+      ]
+    },
+    "AttachmentRef": {
+      "x-module": "content",
+      "$id": "#/$defs/AttachmentRef",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ImageRef"
+        },
+        {
+          "$ref": "#/$defs/FileContent"
+        }
+      ]
+    },
+    "AuthState": {
+      "x-module": "status",
+      "$id": "#/$defs/AuthState",
+      "type": "string",
+      "enum": [
+        "signed_in",
+        "signed_out",
+        "unknown"
+      ]
+    },
+    "BackendCall": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/BackendCall",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ClaudeCodeCall"
+        },
+        {
+          "$ref": "#/$defs/CodexCall"
+        },
+        {
+          "$ref": "#/$defs/OpenCodeCall"
+        },
+        {
+          "$ref": "#/$defs/PiCall"
+        }
+      ]
+    },
+    "BackendCallAccepted": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/BackendCallAccepted",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "accepted"
+        },
+        "result": {
+          "$ref": "#/$defs/BackendOpResult"
+        }
+      },
+      "required": [
+        "status",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "BackendCallRequest": {
+      "x-module": "protocol",
+      "$id": "#/$defs/BackendCallRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "backend.call"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "call": {
+          "$ref": "#/$defs/BackendCall"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "call"
+      ],
+      "additionalProperties": false
+    },
+    "BackendCallResponse": {
+      "x-module": "protocol",
+      "$id": "#/$defs/BackendCallResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "backend.call.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/BackendCallResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "BackendCallResult": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/BackendCallResult",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/BackendCallAccepted"
+        },
+        {
+          "$ref": "#/$defs/Rejected"
+        }
+      ]
+    },
+    "BackendDescriptor": {
+      "x-module": "protocol",
+      "$id": "#/$defs/BackendDescriptor",
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/BackendId"
+        },
+        "capabilities": {
+          "$ref": "#/$defs/Capabilities"
+        }
+      },
+      "required": [
+        "id",
+        "capabilities"
+      ],
+      "additionalProperties": false
+    },
+    "BackendExtension": {
+      "x-module": "extensions",
+      "$id": "#/$defs/BackendExtension",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/CodexTurnDiff"
+        },
+        {
+          "$ref": "#/$defs/RateLimitUpdate"
+        }
+      ]
+    },
+    "BackendId": {
+      "x-module": "ids",
+      "$id": "#/$defs/BackendId",
+      "type": "string",
+      "enum": [
+        "claude-code",
+        "codex",
+        "opencode",
+        "pi",
+        "pi-durable"
+      ]
+    },
+    "BackendOpKind": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/BackendOpKind",
+      "type": "string",
+      "enum": [
+        "rewind_files",
+        "review_start",
+        "revert",
+        "revert_stage",
+        "revert_clear",
+        "revert_commit",
+        "navigate_tree"
+      ]
+    },
+    "BackendOpResult": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/BackendOpResult",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/RewindFilesResult"
+        },
+        {
+          "$ref": "#/$defs/ReviewStarted"
+        },
+        {
+          "$ref": "#/$defs/Reverted"
+        },
+        {
+          "$ref": "#/$defs/RevertStaged"
+        },
+        {
+          "$ref": "#/$defs/RevertCleared"
+        },
+        {
+          "$ref": "#/$defs/RevertCommitted"
+        },
+        {
+          "$ref": "#/$defs/TreeNavigated"
+        }
+      ]
+    },
+    "BackendStatus": {
+      "x-module": "status",
+      "$id": "#/$defs/BackendStatus",
+      "type": "object",
+      "properties": {
+        "installed": {
+          "type": "boolean"
+        },
+        "version": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "auth": {
+          "$ref": "#/$defs/AuthState"
+        },
+        "usable": {
+          "type": "boolean"
+        },
+        "issues": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StatusIssue"
+          }
+        }
+      },
+      "required": [
+        "installed",
+        "auth",
+        "usable",
+        "issues"
+      ],
+      "additionalProperties": false
+    },
+    "BackendStatusRequest": {
+      "x-module": "protocol",
+      "$id": "#/$defs/BackendStatusRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "backend.status"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "backend": {
+          "$ref": "#/$defs/BackendId"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "backend"
+      ],
+      "additionalProperties": false
+    },
+    "BackendStatusResponse": {
+      "x-module": "protocol",
+      "$id": "#/$defs/BackendStatusResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "backend.status.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "status": {
+          "$ref": "#/$defs/BackendStatus"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    "BackendsListRequest": {
+      "x-module": "protocol",
+      "$id": "#/$defs/BackendsListRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "backends.list"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        }
+      },
+      "required": [
+        "type",
+        "requestId"
+      ],
+      "additionalProperties": false
+    },
+    "BackendsListResponse": {
+      "x-module": "protocol",
+      "$id": "#/$defs/BackendsListResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "backends.list.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "backends": {
+          "maxItems": 5,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BackendDescriptor"
+          }
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "backends"
+      ],
+      "additionalProperties": false
+    },
+    "BaseBranchReview": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/BaseBranchReview",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "base_branch"
+        },
+        "branch": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "kind",
+        "branch"
+      ],
+      "additionalProperties": false
+    },
+    "BlockDeltaEvent": {
+      "x-module": "events",
+      "$id": "#/$defs/BlockDeltaEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "block_delta"
+        },
+        "blockId": {
+          "$ref": "#/$defs/BlockId"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "type",
+        "blockId",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "BlockFinishedEvent": {
+      "x-module": "events",
+      "$id": "#/$defs/BlockFinishedEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "block_finished"
+        },
+        "blockId": {
+          "$ref": "#/$defs/BlockId"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "type",
+        "blockId",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "BlockId": {
+      "x-module": "ids",
+      "$id": "#/$defs/BlockId",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "BlockItem": {
+      "x-module": "transcript",
+      "$id": "#/$defs/BlockItem",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "block"
+        },
+        "id": {
+          "$ref": "#/$defs/TranscriptItemId"
+        },
+        "at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "messageId": {
+          "$ref": "#/$defs/MessageId"
+        },
+        "block": {
+          "$ref": "#/$defs/BlockKind"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "parentToolCallId": {
+          "$ref": "#/$defs/ToolCallId"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "messageId",
+        "block",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "BlockKind": {
+      "x-module": "content",
+      "$id": "#/$defs/BlockKind",
+      "type": "string",
+      "enum": [
+        "text",
+        "thinking",
+        "plan"
+      ]
+    },
+    "BlockStartedEvent": {
+      "x-module": "events",
+      "$id": "#/$defs/BlockStartedEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "block_started"
+        },
+        "blockId": {
+          "$ref": "#/$defs/BlockId"
+        },
+        "messageId": {
+          "$ref": "#/$defs/MessageId"
+        },
+        "kind": {
+          "$ref": "#/$defs/BlockKind"
+        },
+        "parentToolCallId": {
+          "$ref": "#/$defs/ToolCallId"
+        }
+      },
+      "required": [
+        "type",
+        "blockId",
+        "messageId",
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "BooleanField": {
+      "x-module": "forms",
+      "$id": "#/$defs/BooleanField",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "boolean"
+        },
+        "key": {
+          "$ref": "#/$defs/FieldKey"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "hidden": {
+          "type": "boolean"
+        },
+        "when": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FieldCondition"
+          }
+        },
+        "defaultValue": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "key",
+        "required",
+        "hidden",
+        "when"
+      ],
+      "additionalProperties": false
+    },
+    "BooleanValue": {
+      "x-module": "forms",
+      "$id": "#/$defs/BooleanValue",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "boolean"
+        },
+        "value": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "CancelReply": {
+      "x-module": "interaction-replies",
+      "$id": "#/$defs/CancelReply",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "cancel"
+        },
+        "stopRun": {
+          "type": "boolean"
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "kind",
+        "stopRun"
+      ],
+      "additionalProperties": false
+    },
+    "Capabilities": {
+      "x-module": "capabilities",
+      "$id": "#/$defs/Capabilities",
+      "type": "object",
+      "properties": {
+        "streamText": {
+          "type": "boolean"
+        },
+        "streamThinking": {
+          "type": "boolean"
+        },
+        "promptModes": {
+          "maxItems": 3,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PromptMode"
+          }
+        },
+        "attachments": {
+          "maxItems": 2,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AttachmentKind"
+          }
+        },
+        "mentions": {
+          "maxItems": 2,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/MentionKind"
+          }
+        },
+        "commands": {
+          "type": "boolean"
+        },
+        "queue": {
+          "type": "boolean"
+        },
+        "interactions": {
+          "maxItems": 8,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/InteractionKind"
+          }
+        },
+        "modelSwitch": {
+          "$ref": "#/$defs/ModelSwitchTiming"
+        },
+        "thinking": {
+          "type": "boolean"
+        },
+        "children": {
+          "type": "boolean"
+        },
+        "usage": {
+          "type": "boolean"
+        },
+        "plan": {
+          "type": "boolean"
+        },
+        "planProposals": {
+          "type": "boolean"
+        },
+        "externalLive": {
+          "type": "boolean"
+        },
+        "durableRuns": {
+          "type": "boolean"
+        },
+        "extensions": {
+          "maxItems": 2,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ExtensionKind"
+          }
+        },
+        "backendOps": {
+          "maxItems": 7,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BackendOpKind"
+          }
+        },
+        "fork": {
+          "type": "boolean"
+        },
+        "rename": {
+          "type": "boolean"
+        },
+        "delete": {
+          "type": "boolean"
+        },
+        "archive": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "streamText",
+        "streamThinking",
+        "promptModes",
+        "attachments",
+        "mentions",
+        "commands",
+        "queue",
+        "interactions",
+        "modelSwitch",
+        "thinking",
+        "children",
+        "usage",
+        "plan",
+        "planProposals",
+        "externalLive",
+        "durableRuns",
+        "extensions",
+        "backendOps",
+        "fork",
+        "rename",
+        "delete",
+        "archive"
+      ],
+      "additionalProperties": false
+    },
+    "CatalogEvent": {
+      "x-module": "catalog-events",
+      "$id": "#/$defs/CatalogEvent",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/SessionUpdatedEvent"
+        },
+        {
+          "$ref": "#/$defs/SessionRemovedEvent"
+        },
+        {
+          "$ref": "#/$defs/StatusChangedEvent"
+        },
+        {
+          "$ref": "#/$defs/CatalogInvalidatedEvent"
+        },
+        {
+          "$ref": "#/$defs/TranscriptInvalidatedEvent"
+        }
+      ]
+    },
+    "CatalogInvalidatedEvent": {
+      "x-module": "catalog-events",
+      "$id": "#/$defs/CatalogInvalidatedEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "catalog_invalidated"
+        },
+        "scope": {
+          "$ref": "#/$defs/CatalogScope"
+        }
+      },
+      "required": [
+        "type",
+        "scope"
+      ],
+      "additionalProperties": false
+    },
+    "CatalogMessage": {
+      "x-module": "protocol",
+      "$id": "#/$defs/CatalogMessage",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "catalog"
+        },
+        "backend": {
+          "$ref": "#/$defs/BackendId"
+        },
+        "event": {
+          "$ref": "#/$defs/CatalogEvent"
+        }
+      },
+      "required": [
+        "type",
+        "backend",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    "CatalogScope": {
+      "x-module": "catalog-events",
+      "$id": "#/$defs/CatalogScope",
+      "type": "string",
+      "enum": [
+        "models",
+        "commands",
+        "modes"
+      ]
+    },
+    "ChoiceReply": {
+      "x-module": "interaction-replies",
+      "$id": "#/$defs/ChoiceReply",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "choice"
+        },
+        "value": {
+          "type": "string",
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "ChoiceRequest": {
+      "x-module": "interactions",
+      "$id": "#/$defs/ChoiceRequest",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "choice"
+        },
+        "options": {
+          "minItems": 1,
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Option"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "options"
+      ],
+      "additionalProperties": false
+    },
+    "ChoicesValue": {
+      "x-module": "forms",
+      "$id": "#/$defs/ChoicesValue",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "choices"
+        },
+        "values": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 1024
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "values"
+      ],
+      "additionalProperties": false
+    },
+    "ClaudeCodeCall": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/ClaudeCodeCall",
+      "type": "object",
+      "properties": {
+        "backend": {
+          "type": "string",
+          "const": "claude-code"
+        },
+        "op": {
+          "$ref": "#/$defs/ClaudeCodeOp"
+        }
+      },
+      "required": [
+        "backend",
+        "op"
+      ],
+      "additionalProperties": false
+    },
+    "ClaudeCodeOp": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/ClaudeCodeOp",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/RewindFilesOp"
+        }
+      ]
+    },
+    "ClientInfo": {
+      "x-module": "protocol",
+      "$id": "#/$defs/ClientInfo",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "name",
+        "version"
+      ],
+      "additionalProperties": false
+    },
+    "ClientMessage": {
+      "x-module": "protocol",
+      "$id": "#/$defs/ClientMessage",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/HelloRequest"
+        },
+        {
+          "$ref": "#/$defs/BackendsListRequest"
+        },
+        {
+          "$ref": "#/$defs/BackendStatusRequest"
+        },
+        {
+          "$ref": "#/$defs/ModelsListRequest"
+        },
+        {
+          "$ref": "#/$defs/CommandsListRequest"
+        },
+        {
+          "$ref": "#/$defs/ModesListRequest"
+        },
+        {
+          "$ref": "#/$defs/SessionsListRequest"
+        },
+        {
+          "$ref": "#/$defs/SessionGetRequest"
+        },
+        {
+          "$ref": "#/$defs/SessionCreateRequest"
+        },
+        {
+          "$ref": "#/$defs/SessionForkRequest"
+        },
+        {
+          "$ref": "#/$defs/SessionRenameRequest"
+        },
+        {
+          "$ref": "#/$defs/SessionDeleteRequest"
+        },
+        {
+          "$ref": "#/$defs/SessionArchiveRequest"
+        },
+        {
+          "$ref": "#/$defs/SessionAttachRequest"
+        },
+        {
+          "$ref": "#/$defs/SessionDetachRequest"
+        },
+        {
+          "$ref": "#/$defs/TranscriptReadRequest"
+        },
+        {
+          "$ref": "#/$defs/AttachmentReadRequest"
+        },
+        {
+          "$ref": "#/$defs/PromptRequest"
+        },
+        {
+          "$ref": "#/$defs/AbortRequest"
+        },
+        {
+          "$ref": "#/$defs/InteractionAnswerRequest"
+        },
+        {
+          "$ref": "#/$defs/QueueCancelRequest"
+        },
+        {
+          "$ref": "#/$defs/ModelSetRequest"
+        },
+        {
+          "$ref": "#/$defs/ThinkingSetRequest"
+        },
+        {
+          "$ref": "#/$defs/ModeSetRequest"
+        },
+        {
+          "$ref": "#/$defs/CompactRequest"
+        },
+        {
+          "$ref": "#/$defs/BackendCallRequest"
+        }
+      ]
+    },
+    "ClientRequestId": {
+      "x-module": "ids",
+      "$id": "#/$defs/ClientRequestId",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "CodexCall": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/CodexCall",
+      "type": "object",
+      "properties": {
+        "backend": {
+          "type": "string",
+          "const": "codex"
+        },
+        "op": {
+          "$ref": "#/$defs/CodexOp"
+        }
+      },
+      "required": [
+        "backend",
+        "op"
+      ],
+      "additionalProperties": false
+    },
+    "CodexOp": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/CodexOp",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ReviewStartOp"
+        },
+        {
+          "$ref": "#/$defs/RevertOp"
+        }
+      ]
+    },
+    "CodexTurnDiff": {
+      "x-module": "extensions",
+      "$id": "#/$defs/CodexTurnDiff",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "turn_diff"
+        },
+        "diff": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "kind",
+        "diff"
+      ],
+      "additionalProperties": false
+    },
+    "CommandId": {
+      "x-module": "ids",
+      "$id": "#/$defs/CommandId",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "CommandKind": {
+      "x-module": "commands",
+      "$id": "#/$defs/CommandKind",
+      "type": "string",
+      "enum": [
+        "command",
+        "skill",
+        "prompt"
+      ]
+    },
+    "CommandPreview": {
+      "x-module": "interactions",
+      "$id": "#/$defs/CommandPreview",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "command"
+        },
+        "command": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "cwd": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "kind",
+        "command"
+      ],
+      "additionalProperties": false
+    },
+    "CommandSummary": {
+      "x-module": "commands",
+      "$id": "#/$defs/CommandSummary",
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/CommandId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "kind": {
+          "$ref": "#/$defs/CommandKind"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "argumentHint": {
+          "type": "string",
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "CommandsListRequest": {
+      "x-module": "protocol",
+      "$id": "#/$defs/CommandsListRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "commands.list"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "backend": {
+          "$ref": "#/$defs/BackendId"
+        },
+        "cwd": {
+          "$ref": "#/$defs/WorkingDirectory"
+        },
+        "session": {
+          "$ref": "#/$defs/SessionRef"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "backend"
+      ],
+      "additionalProperties": false
+    },
+    "CommandsListResponse": {
+      "x-module": "protocol",
+      "$id": "#/$defs/CommandsListResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "commands.list.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/CommandsListResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "CommandsListResult": {
+      "x-module": "read-results",
+      "$id": "#/$defs/CommandsListResult",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/CommandsListed"
+        },
+        {
+          "$ref": "#/$defs/Rejected"
+        }
+      ]
+    },
+    "CommandsListed": {
+      "x-module": "read-results",
+      "$id": "#/$defs/CommandsListed",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "accepted"
+        },
+        "commands": {
+          "maxItems": 10000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CommandSummary"
+          }
+        }
+      },
+      "required": [
+        "status",
+        "commands"
+      ],
+      "additionalProperties": false
+    },
+    "CommitReview": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/CommitReview",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "commit"
+        },
+        "sha": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "kind",
+        "sha"
+      ],
+      "additionalProperties": false
+    },
+    "CompactRequest": {
+      "x-module": "protocol",
+      "$id": "#/$defs/CompactRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "compact"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "session": {
+          "$ref": "#/$defs/SessionRef"
+        },
+        "instructions": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "session"
+      ],
+      "additionalProperties": false
+    },
+    "CompactResponse": {
+      "x-module": "protocol",
+      "$id": "#/$defs/CompactResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "compact.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/ActionResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "CompactionAborted": {
+      "x-module": "compaction",
+      "$id": "#/$defs/CompactionAborted",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "aborted"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "CompactionCompleted": {
+      "x-module": "compaction",
+      "$id": "#/$defs/CompactionCompleted",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "completed"
+        },
+        "tokensBefore": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "tokensAfter": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "CompactionFailed": {
+      "x-module": "compaction",
+      "$id": "#/$defs/CompactionFailed",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "failed"
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "kind",
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "CompactionFinishedEvent": {
+      "x-module": "events",
+      "$id": "#/$defs/CompactionFinishedEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "compaction_finished"
+        },
+        "outcome": {
+          "$ref": "#/$defs/CompactionOutcome"
+        }
+      },
+      "required": [
+        "type",
+        "outcome"
+      ],
+      "additionalProperties": false
+    },
+    "CompactionItem": {
+      "x-module": "transcript",
+      "$id": "#/$defs/CompactionItem",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "compaction"
+        },
+        "id": {
+          "$ref": "#/$defs/TranscriptItemId"
+        },
+        "at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "trigger": {
+          "$ref": "#/$defs/CompactionTrigger"
+        },
+        "summary": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "tokensBefore": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "tokensAfter": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "CompactionOutcome": {
+      "x-module": "compaction",
+      "$id": "#/$defs/CompactionOutcome",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/CompactionCompleted"
+        },
+        {
+          "$ref": "#/$defs/CompactionFailed"
+        },
+        {
+          "$ref": "#/$defs/CompactionAborted"
+        }
+      ]
+    },
+    "CompactionStartedEvent": {
+      "x-module": "events",
+      "$id": "#/$defs/CompactionStartedEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "compaction_started"
+        },
+        "trigger": {
+          "$ref": "#/$defs/CompactionTrigger"
+        }
+      },
+      "required": [
+        "type",
+        "trigger"
+      ],
+      "additionalProperties": false
+    },
+    "CompactionState": {
+      "x-module": "snapshot",
+      "$id": "#/$defs/CompactionState",
+      "type": "object",
+      "properties": {
+        "trigger": {
+          "$ref": "#/$defs/CompactionTrigger"
+        },
+        "startedAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      },
+      "required": [
+        "trigger",
+        "startedAt"
+      ],
+      "additionalProperties": false
+    },
+    "CompactionTrigger": {
+      "x-module": "compaction",
+      "$id": "#/$defs/CompactionTrigger",
+      "type": "string",
+      "enum": [
+        "manual",
+        "auto",
+        "overflow"
+      ]
+    },
+    "ConditionOperator": {
+      "x-module": "forms",
+      "$id": "#/$defs/ConditionOperator",
+      "type": "string",
+      "enum": [
+        "eq",
+        "neq"
+      ]
+    },
+    "ConfirmReply": {
+      "x-module": "interaction-replies",
+      "$id": "#/$defs/ConfirmReply",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "confirm"
+        },
+        "confirmed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "confirmed"
+      ],
+      "additionalProperties": false
+    },
+    "ConfirmRequest": {
+      "x-module": "interactions",
+      "$id": "#/$defs/ConfirmRequest",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "confirm"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "CustomReview": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/CustomReview",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "custom"
+        },
+        "instructions": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "kind",
+        "instructions"
+      ],
+      "additionalProperties": false
+    },
+    "ErrorCode": {
+      "x-module": "runs",
+      "$id": "#/$defs/ErrorCode",
+      "type": "string",
+      "enum": [
+        "auth",
+        "rate_limit",
+        "quota",
+        "context_overflow",
+        "model_unavailable",
+        "content_filter",
+        "network",
+        "server",
+        "tool",
+        "invalid_request",
+        "backend_unavailable",
+        "unknown"
+      ]
+    },
+    "ErrorEvent": {
+      "x-module": "events",
+      "$id": "#/$defs/ErrorEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "error"
+        },
+        "error": {
+          "$ref": "#/$defs/ErrorInfo"
+        },
+        "retryable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "type",
+        "error",
+        "retryable"
+      ],
+      "additionalProperties": false
+    },
+    "ErrorInfo": {
+      "x-module": "runs",
+      "$id": "#/$defs/ErrorInfo",
+      "type": "object",
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/ErrorCode"
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "ErrorResponse": {
+      "x-module": "protocol",
+      "$id": "#/$defs/ErrorResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "error"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "error": {
+          "$ref": "#/$defs/ProtocolError"
+        }
+      },
+      "required": [
+        "type",
+        "error"
+      ],
+      "additionalProperties": false
+    },
+    "EventEnvelope": {
+      "x-module": "events",
+      "$id": "#/$defs/EventEnvelope",
+      "type": "object",
+      "properties": {
+        "session": {
+          "$ref": "#/$defs/SessionRef"
+        },
+        "seq": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "event": {
+          "$ref": "#/$defs/AgentEvent"
+        },
+        "native": {
+          "$ref": "#/$defs/NativeIds"
+        }
+      },
+      "required": [
+        "session",
+        "seq",
+        "at",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    "EventMessage": {
+      "x-module": "protocol",
+      "$id": "#/$defs/EventMessage",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "event"
+        },
+        "envelope": {
+          "$ref": "#/$defs/EventEnvelope"
+        }
+      },
+      "required": [
+        "type",
+        "envelope"
+      ],
+      "additionalProperties": false
+    },
+    "ExtensionEvent": {
+      "x-module": "events",
+      "$id": "#/$defs/ExtensionEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "extension"
+        },
+        "extension": {
+          "$ref": "#/$defs/BackendExtension"
+        }
+      },
+      "required": [
+        "type",
+        "extension"
+      ],
+      "additionalProperties": false
+    },
+    "ExtensionKind": {
+      "x-module": "extensions",
+      "$id": "#/$defs/ExtensionKind",
+      "type": "string",
+      "enum": [
+        "turn_diff",
+        "rate_limit"
+      ]
+    },
+    "ExternalField": {
+      "x-module": "forms",
+      "$id": "#/$defs/ExternalField",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "external"
+        },
+        "key": {
+          "$ref": "#/$defs/FieldKey"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "kind",
+        "key",
+        "url"
+      ],
+      "additionalProperties": false
+    },
+    "ExternalUrlReply": {
+      "x-module": "interaction-replies",
+      "$id": "#/$defs/ExternalUrlReply",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "external_url"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "ExternalUrlRequest": {
+      "x-module": "interactions",
+      "$id": "#/$defs/ExternalUrlRequest",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "external_url"
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "server": {
+          "type": "string",
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "kind",
+        "url"
+      ],
+      "additionalProperties": false
+    },
+    "FieldCondition": {
+      "x-module": "forms",
+      "$id": "#/$defs/FieldCondition",
+      "type": "object",
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/FieldKey"
+        },
+        "op": {
+          "$ref": "#/$defs/ConditionOperator"
+        },
+        "value": {
+          "$ref": "#/$defs/FormScalar"
+        }
+      },
+      "required": [
+        "key",
+        "op",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "FieldKey": {
+      "x-module": "forms",
+      "$id": "#/$defs/FieldKey",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "FileChange": {
+      "x-module": "content",
+      "$id": "#/$defs/FileChange",
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "change": {
+          "$ref": "#/$defs/FileChangeKind"
+        },
+        "previousPath": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "diff": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "additions": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "deletions": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "path",
+        "change"
+      ],
+      "additionalProperties": false
+    },
+    "FileChangeKind": {
+      "x-module": "content",
+      "$id": "#/$defs/FileChangeKind",
+      "type": "string",
+      "enum": [
+        "added",
+        "deleted",
+        "modified",
+        "renamed"
+      ]
+    },
+    "FileChangesPreview": {
+      "x-module": "interactions",
+      "$id": "#/$defs/FileChangesPreview",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "file_changes"
+        },
+        "changes": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FileChange"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "changes"
+      ],
+      "additionalProperties": false
+    },
+    "FileContent": {
+      "x-module": "content",
+      "$id": "#/$defs/FileContent",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "file"
+        },
+        "uri": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "mimeType": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "kind",
+        "uri"
+      ],
+      "additionalProperties": false
+    },
+    "FileMention": {
+      "x-module": "input",
+      "$id": "#/$defs/FileMention",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "file"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "kind",
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "ForkPoint": {
+      "x-module": "sessions",
+      "$id": "#/$defs/ForkPoint",
+      "type": "object",
+      "properties": {
+        "itemId": {
+          "$ref": "#/$defs/TranscriptItemId"
+        },
+        "position": {
+          "$ref": "#/$defs/ForkPosition"
+        }
+      },
+      "required": [
+        "itemId",
+        "position"
+      ],
+      "additionalProperties": false
+    },
+    "ForkPosition": {
+      "x-module": "sessions",
+      "$id": "#/$defs/ForkPosition",
+      "type": "string",
+      "enum": [
+        "before",
+        "through"
+      ]
+    },
+    "FormFieldSpec": {
+      "x-module": "forms",
+      "$id": "#/$defs/FormFieldSpec",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/StringField"
+        },
+        {
+          "$ref": "#/$defs/NumberField"
+        },
+        {
+          "$ref": "#/$defs/IntegerField"
+        },
+        {
+          "$ref": "#/$defs/BooleanField"
+        },
+        {
+          "$ref": "#/$defs/MultiselectField"
+        },
+        {
+          "$ref": "#/$defs/ExternalField"
+        }
+      ]
+    },
+    "FormReply": {
+      "x-module": "interaction-replies",
+      "$id": "#/$defs/FormReply",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "form"
+        },
+        "values": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/FieldKey"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/FormValue"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "values"
+      ],
+      "additionalProperties": false
+    },
+    "FormRequest": {
+      "x-module": "interactions",
+      "$id": "#/$defs/FormRequest",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "form"
+        },
+        "fields": {
+          "minItems": 1,
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FormFieldSpec"
+          }
+        },
+        "server": {
+          "type": "string",
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "kind",
+        "fields"
+      ],
+      "additionalProperties": false
+    },
+    "FormScalar": {
+      "x-module": "forms",
+      "$id": "#/$defs/FormScalar",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/TextValue"
+        },
+        {
+          "$ref": "#/$defs/NumberValue"
+        },
+        {
+          "$ref": "#/$defs/BooleanValue"
+        }
+      ]
+    },
+    "FormValue": {
+      "x-module": "forms",
+      "$id": "#/$defs/FormValue",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/TextValue"
+        },
+        {
+          "$ref": "#/$defs/NumberValue"
+        },
+        {
+          "$ref": "#/$defs/BooleanValue"
+        },
+        {
+          "$ref": "#/$defs/ChoicesValue"
+        }
+      ]
+    },
+    "GrantKind": {
+      "x-module": "interactions",
+      "$id": "#/$defs/GrantKind",
+      "type": "string",
+      "enum": [
+        "network",
+        "read",
+        "write",
+        "deny"
+      ]
+    },
+    "HelloRequest": {
+      "x-module": "protocol",
+      "$id": "#/$defs/HelloRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "hello"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "protocol": {
+          "$ref": "#/$defs/ProtocolVersion"
+        },
+        "client": {
+          "$ref": "#/$defs/ClientInfo"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "protocol",
+        "client"
+      ],
+      "additionalProperties": false
+    },
+    "HelloResponse": {
+      "x-module": "protocol",
+      "$id": "#/$defs/HelloResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "hello.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "protocol": {
+          "$ref": "#/$defs/ProtocolVersion"
+        },
+        "bridgeVersion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "protocol",
+        "bridgeVersion"
+      ],
+      "additionalProperties": false
+    },
+    "IdStability": {
+      "x-module": "transcript",
+      "$id": "#/$defs/IdStability",
+      "type": "string",
+      "enum": [
+        "stable",
+        "positional"
+      ]
+    },
+    "ImageContent": {
+      "x-module": "content",
+      "$id": "#/$defs/ImageContent",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "image"
+        },
+        "mimeType": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "data": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4194304
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "kind",
+        "mimeType",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    "ImageRef": {
+      "x-module": "content",
+      "$id": "#/$defs/ImageRef",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "image_ref"
+        },
+        "id": {
+          "$ref": "#/$defs/AttachmentId"
+        },
+        "mimeType": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "mimeType"
+      ],
+      "additionalProperties": false
+    },
+    "InputModality": {
+      "x-module": "models",
+      "$id": "#/$defs/InputModality",
+      "type": "string",
+      "enum": [
+        "text",
+        "image",
+        "audio"
+      ]
+    },
+    "IntegerField": {
+      "x-module": "forms",
+      "$id": "#/$defs/IntegerField",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "integer"
+        },
+        "key": {
+          "$ref": "#/$defs/FieldKey"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "hidden": {
+          "type": "boolean"
+        },
+        "when": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FieldCondition"
+          }
+        },
+        "minimum": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "maximum": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "defaultValue": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "kind",
+        "key",
+        "required",
+        "hidden",
+        "when"
+      ],
+      "additionalProperties": false
+    },
+    "Interaction": {
+      "x-module": "interactions",
+      "$id": "#/$defs/Interaction",
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/InteractionId"
+        },
+        "runId": {
+          "$ref": "#/$defs/RunId"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "expiresAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "body": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "blocksRun": {
+          "type": "boolean"
+        },
+        "origin": {
+          "$ref": "#/$defs/InteractionOrigin"
+        },
+        "request": {
+          "$ref": "#/$defs/InteractionRequest"
+        }
+      },
+      "required": [
+        "id",
+        "createdAt",
+        "title",
+        "blocksRun",
+        "request"
+      ],
+      "additionalProperties": false
+    },
+    "InteractionAnswer": {
+      "x-module": "interaction-replies",
+      "$id": "#/$defs/InteractionAnswer",
+      "type": "object",
+      "properties": {
+        "interactionId": {
+          "$ref": "#/$defs/InteractionId"
+        },
+        "reply": {
+          "$ref": "#/$defs/InteractionReply"
+        }
+      },
+      "required": [
+        "interactionId",
+        "reply"
+      ],
+      "additionalProperties": false
+    },
+    "InteractionAnswerRequest": {
+      "x-module": "protocol",
+      "$id": "#/$defs/InteractionAnswerRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "interaction.answer"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "session": {
+          "$ref": "#/$defs/SessionRef"
+        },
+        "answer": {
+          "$ref": "#/$defs/InteractionAnswer"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "session",
+        "answer"
+      ],
+      "additionalProperties": false
+    },
+    "InteractionAnswerResponse": {
+      "x-module": "protocol",
+      "$id": "#/$defs/InteractionAnswerResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "interaction.answer.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/ActionResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "InteractionId": {
+      "x-module": "ids",
+      "$id": "#/$defs/InteractionId",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "InteractionKind": {
+      "x-module": "interactions",
+      "$id": "#/$defs/InteractionKind",
+      "type": "string",
+      "enum": [
+        "tool_permission",
+        "questions",
+        "form",
+        "plan_approval",
+        "external_url",
+        "choice",
+        "confirm",
+        "text"
+      ]
+    },
+    "InteractionOrigin": {
+      "x-module": "interactions",
+      "$id": "#/$defs/InteractionOrigin",
+      "type": "object",
+      "properties": {
+        "toolCallId": {
+          "$ref": "#/$defs/ToolCallId"
+        },
+        "toolName": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "parentToolCallId": {
+          "$ref": "#/$defs/ToolCallId"
+        }
+      },
+      "additionalProperties": false
+    },
+    "InteractionReply": {
+      "x-module": "interaction-replies",
+      "$id": "#/$defs/InteractionReply",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ToolPermissionReply"
+        },
+        {
+          "$ref": "#/$defs/QuestionsReply"
+        },
+        {
+          "$ref": "#/$defs/FormReply"
+        },
+        {
+          "$ref": "#/$defs/PlanApprovalReply"
+        },
+        {
+          "$ref": "#/$defs/ExternalUrlReply"
+        },
+        {
+          "$ref": "#/$defs/ChoiceReply"
+        },
+        {
+          "$ref": "#/$defs/ConfirmReply"
+        },
+        {
+          "$ref": "#/$defs/TextReply"
+        },
+        {
+          "$ref": "#/$defs/CancelReply"
+        }
+      ]
+    },
+    "InteractionRequest": {
+      "x-module": "interactions",
+      "$id": "#/$defs/InteractionRequest",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ToolPermissionRequest"
+        },
+        {
+          "$ref": "#/$defs/QuestionsRequest"
+        },
+        {
+          "$ref": "#/$defs/FormRequest"
+        },
+        {
+          "$ref": "#/$defs/PlanApprovalRequest"
+        },
+        {
+          "$ref": "#/$defs/ExternalUrlRequest"
+        },
+        {
+          "$ref": "#/$defs/ChoiceRequest"
+        },
+        {
+          "$ref": "#/$defs/ConfirmRequest"
+        },
+        {
+          "$ref": "#/$defs/TextRequest"
+        }
+      ]
+    },
+    "InteractionRequestedEvent": {
+      "x-module": "events",
+      "$id": "#/$defs/InteractionRequestedEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "interaction_requested"
+        },
+        "interaction": {
+          "$ref": "#/$defs/Interaction"
+        }
+      },
+      "required": [
+        "type",
+        "interaction"
+      ],
+      "additionalProperties": false
+    },
+    "InteractionResolvedEvent": {
+      "x-module": "events",
+      "$id": "#/$defs/InteractionResolvedEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "interaction_resolved"
+        },
+        "interactionId": {
+          "$ref": "#/$defs/InteractionId"
+        },
+        "reason": {
+          "$ref": "#/$defs/ResolutionReason"
+        }
+      },
+      "required": [
+        "type",
+        "interactionId",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "IssueSeverity": {
+      "x-module": "status",
+      "$id": "#/$defs/IssueSeverity",
+      "type": "string",
+      "enum": [
+        "warning",
+        "error"
+      ]
+    },
+    "JsonValue": {
+      "x-module": "json",
+      "$id": "#/$defs/JsonValue",
+      "description": "Any JSON nested at most 64 deep.",
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        {
+          "type": "array",
+          "maxItems": 1000,
+          "items": {
+            "$ref": "#/$defs/JsonValue"
+          }
+        },
+        {
+          "type": "object",
+          "maxProperties": 1000,
+          "propertyNames": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          }
+        }
+      ]
+    },
+    "Mention": {
+      "x-module": "input",
+      "$id": "#/$defs/Mention",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/FileMention"
+        },
+        {
+          "$ref": "#/$defs/AgentMention"
+        }
+      ]
+    },
+    "MentionKind": {
+      "x-module": "input",
+      "$id": "#/$defs/MentionKind",
+      "type": "string",
+      "enum": [
+        "file",
+        "agent"
+      ]
+    },
+    "MessageId": {
+      "x-module": "ids",
+      "$id": "#/$defs/MessageId",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "MessagePolicy": {
+      "x-module": "interactions",
+      "$id": "#/$defs/MessagePolicy",
+      "type": "string",
+      "enum": [
+        "none",
+        "optional",
+        "required"
+      ]
+    },
+    "MessagesRetractedEvent": {
+      "x-module": "events",
+      "$id": "#/$defs/MessagesRetractedEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "messages_retracted"
+        },
+        "messageIds": {
+          "minItems": 1,
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/MessageId"
+          }
+        }
+      },
+      "required": [
+        "type",
+        "messageIds"
+      ],
+      "additionalProperties": false
+    },
+    "ModeAxis": {
+      "x-module": "modes",
+      "$id": "#/$defs/ModeAxis",
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/ModeAxisId"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "options": {
+          "minItems": 1,
+          "maxItems": 10000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Option"
+          }
+        },
+        "defaultValue": {
+          "type": "string",
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "options"
+      ],
+      "additionalProperties": false
+    },
+    "ModeAxisId": {
+      "x-module": "modes",
+      "$id": "#/$defs/ModeAxisId",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "ModeChangedEvent": {
+      "x-module": "events",
+      "$id": "#/$defs/ModeChangedEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "mode_changed"
+        },
+        "axis": {
+          "$ref": "#/$defs/ModeAxisId"
+        },
+        "value": {
+          "type": "string",
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "type",
+        "axis",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "ModeSetRequest": {
+      "x-module": "protocol",
+      "$id": "#/$defs/ModeSetRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "mode.set"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "session": {
+          "$ref": "#/$defs/SessionRef"
+        },
+        "axis": {
+          "$ref": "#/$defs/ModeAxisId"
+        },
+        "value": {
+          "type": "string",
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "session",
+        "axis",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "ModeSetResponse": {
+      "x-module": "protocol",
+      "$id": "#/$defs/ModeSetResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "mode.set.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/ActionResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "ModeSetting": {
+      "x-module": "modes",
+      "$id": "#/$defs/ModeSetting",
+      "type": "object",
+      "properties": {
+        "axis": {
+          "$ref": "#/$defs/ModeAxisId"
+        },
+        "value": {
+          "type": "string",
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "axis",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "ModelChangeItem": {
+      "x-module": "transcript",
+      "$id": "#/$defs/ModelChangeItem",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "model_change"
+        },
+        "id": {
+          "$ref": "#/$defs/TranscriptItemId"
+        },
+        "at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "modelId": {
+          "$ref": "#/$defs/ModelId"
+        },
+        "thinking": {
+          "type": "string",
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "ModelChangedEvent": {
+      "x-module": "events",
+      "$id": "#/$defs/ModelChangedEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "model_changed"
+        },
+        "modelId": {
+          "$ref": "#/$defs/ModelId"
+        },
+        "thinking": {
+          "type": "string",
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "additionalProperties": false
+    },
+    "ModelId": {
+      "x-module": "ids",
+      "$id": "#/$defs/ModelId",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "ModelSetRequest": {
+      "x-module": "protocol",
+      "$id": "#/$defs/ModelSetRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "model.set"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "session": {
+          "$ref": "#/$defs/SessionRef"
+        },
+        "modelId": {
+          "$ref": "#/$defs/ModelId"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "session",
+        "modelId"
+      ],
+      "additionalProperties": false
+    },
+    "ModelSetResponse": {
+      "x-module": "protocol",
+      "$id": "#/$defs/ModelSetResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "model.set.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/ActionResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "ModelSummary": {
+      "x-module": "models",
+      "$id": "#/$defs/ModelSummary",
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/ModelId"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "providerId": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "providerName": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "contextWindow": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "inputModalities": {
+          "maxItems": 3,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/InputModality"
+          }
+        },
+        "thinking": {
+          "$ref": "#/$defs/ThinkingSpec"
+        },
+        "isDefault": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "displayName",
+        "thinking",
+        "isDefault"
+      ],
+      "additionalProperties": false
+    },
+    "ModelSwitchTiming": {
+      "x-module": "capabilities",
+      "$id": "#/$defs/ModelSwitchTiming",
+      "type": "string",
+      "enum": [
+        "next_request",
+        "next_run"
+      ]
+    },
+    "ModelsListRequest": {
+      "x-module": "protocol",
+      "$id": "#/$defs/ModelsListRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "models.list"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "backend": {
+          "$ref": "#/$defs/BackendId"
+        },
+        "cwd": {
+          "$ref": "#/$defs/WorkingDirectory"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "backend"
+      ],
+      "additionalProperties": false
+    },
+    "ModelsListResponse": {
+      "x-module": "protocol",
+      "$id": "#/$defs/ModelsListResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "models.list.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/ModelsListResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "ModelsListResult": {
+      "x-module": "read-results",
+      "$id": "#/$defs/ModelsListResult",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ModelsListed"
+        },
+        {
+          "$ref": "#/$defs/Rejected"
+        }
+      ]
+    },
+    "ModelsListed": {
+      "x-module": "read-results",
+      "$id": "#/$defs/ModelsListed",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "accepted"
+        },
+        "models": {
+          "maxItems": 10000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ModelSummary"
+          }
+        }
+      },
+      "required": [
+        "status",
+        "models"
+      ],
+      "additionalProperties": false
+    },
+    "ModesListRequest": {
+      "x-module": "protocol",
+      "$id": "#/$defs/ModesListRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "modes.list"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "backend": {
+          "$ref": "#/$defs/BackendId"
+        },
+        "cwd": {
+          "$ref": "#/$defs/WorkingDirectory"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "backend"
+      ],
+      "additionalProperties": false
+    },
+    "ModesListResponse": {
+      "x-module": "protocol",
+      "$id": "#/$defs/ModesListResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "modes.list.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/ModesListResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "ModesListResult": {
+      "x-module": "read-results",
+      "$id": "#/$defs/ModesListResult",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ModesListed"
+        },
+        {
+          "$ref": "#/$defs/Rejected"
+        }
+      ]
+    },
+    "ModesListed": {
+      "x-module": "read-results",
+      "$id": "#/$defs/ModesListed",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "accepted"
+        },
+        "modes": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ModeAxis"
+          }
+        }
+      },
+      "required": [
+        "status",
+        "modes"
+      ],
+      "additionalProperties": false
+    },
+    "MultiselectField": {
+      "x-module": "forms",
+      "$id": "#/$defs/MultiselectField",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "multiselect"
+        },
+        "key": {
+          "$ref": "#/$defs/FieldKey"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "hidden": {
+          "type": "boolean"
+        },
+        "when": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FieldCondition"
+          }
+        },
+        "options": {
+          "minItems": 1,
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Option"
+          }
+        },
+        "minItems": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "maxItems": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "allowCustom": {
+          "type": "boolean"
+        },
+        "defaultValue": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 1024
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "key",
+        "required",
+        "hidden",
+        "when",
+        "options",
+        "allowCustom"
+      ],
+      "additionalProperties": false
+    },
+    "NativeIds": {
+      "x-module": "json",
+      "$id": "#/$defs/NativeIds",
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "maxLength": 1024
+      },
+      "additionalProperties": {
+        "type": "string",
+        "maxLength": 256
+      }
+    },
+    "NavigateTreeOp": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/NavigateTreeOp",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "navigate_tree"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        },
+        "itemId": {
+          "$ref": "#/$defs/TranscriptItemId"
+        },
+        "summarize": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "sessionId",
+        "itemId",
+        "summarize"
+      ],
+      "additionalProperties": false
+    },
+    "NetworkPreview": {
+      "x-module": "interactions",
+      "$id": "#/$defs/NetworkPreview",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "network"
+        },
+        "host": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "protocol": {
+          "type": "string",
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "kind",
+        "host"
+      ],
+      "additionalProperties": false
+    },
+    "NewSessionAccepted": {
+      "x-module": "sessions",
+      "$id": "#/$defs/NewSessionAccepted",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "accepted"
+        },
+        "session": {
+          "$ref": "#/$defs/SessionRef"
+        }
+      },
+      "required": [
+        "status",
+        "session"
+      ],
+      "additionalProperties": false
+    },
+    "NewSessionOptions": {
+      "x-module": "sessions",
+      "$id": "#/$defs/NewSessionOptions",
+      "type": "object",
+      "properties": {
+        "cwd": {
+          "$ref": "#/$defs/WorkingDirectory"
+        },
+        "modelId": {
+          "$ref": "#/$defs/ModelId"
+        },
+        "thinking": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "modes": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ModeSetting"
+          }
+        }
+      },
+      "required": [
+        "cwd"
+      ],
+      "additionalProperties": false
+    },
+    "NewSessionResult": {
+      "x-module": "sessions",
+      "$id": "#/$defs/NewSessionResult",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/NewSessionAccepted"
+        },
+        {
+          "$ref": "#/$defs/Rejected"
+        }
+      ]
+    },
+    "NoticeEvent": {
+      "x-module": "events",
+      "$id": "#/$defs/NoticeEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "notice"
+        },
+        "level": {
+          "$ref": "#/$defs/NoticeLevel"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "type",
+        "level",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "NoticeItem": {
+      "x-module": "transcript",
+      "$id": "#/$defs/NoticeItem",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "notice"
+        },
+        "id": {
+          "$ref": "#/$defs/TranscriptItemId"
+        },
+        "at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "level": {
+          "$ref": "#/$defs/NoticeLevel"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "level",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "NoticeLevel": {
+      "x-module": "notice",
+      "$id": "#/$defs/NoticeLevel",
+      "type": "string",
+      "enum": [
+        "info",
+        "warning",
+        "error"
+      ]
+    },
+    "NumberField": {
+      "x-module": "forms",
+      "$id": "#/$defs/NumberField",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "number"
+        },
+        "key": {
+          "$ref": "#/$defs/FieldKey"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "hidden": {
+          "type": "boolean"
+        },
+        "when": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FieldCondition"
+          }
+        },
+        "minimum": {
+          "type": "number"
+        },
+        "maximum": {
+          "type": "number"
+        },
+        "defaultValue": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind",
+        "key",
+        "required",
+        "hidden",
+        "when"
+      ],
+      "additionalProperties": false
+    },
+    "NumberValue": {
+      "x-module": "forms",
+      "$id": "#/$defs/NumberValue",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "number"
+        },
+        "value": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "OpenBlock": {
+      "x-module": "snapshot",
+      "$id": "#/$defs/OpenBlock",
+      "type": "object",
+      "properties": {
+        "blockId": {
+          "$ref": "#/$defs/BlockId"
+        },
+        "messageId": {
+          "$ref": "#/$defs/MessageId"
+        },
+        "kind": {
+          "$ref": "#/$defs/BlockKind"
+        },
+        "parentToolCallId": {
+          "$ref": "#/$defs/ToolCallId"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "blockId",
+        "messageId",
+        "kind",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "OpenCodeCall": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/OpenCodeCall",
+      "type": "object",
+      "properties": {
+        "backend": {
+          "type": "string",
+          "const": "opencode"
+        },
+        "op": {
+          "$ref": "#/$defs/OpenCodeOp"
+        }
+      },
+      "required": [
+        "backend",
+        "op"
+      ],
+      "additionalProperties": false
+    },
+    "OpenCodeOp": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/OpenCodeOp",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/RevertStageOp"
+        },
+        {
+          "$ref": "#/$defs/RevertClearOp"
+        },
+        {
+          "$ref": "#/$defs/RevertCommitOp"
+        }
+      ]
+    },
+    "Option": {
+      "x-module": "option",
+      "$id": "#/$defs/Option",
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "value",
+        "label"
+      ],
+      "additionalProperties": false
+    },
+    "PageCursor": {
+      "x-module": "paging",
+      "$id": "#/$defs/PageCursor",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8192
+    },
+    "PageRequest": {
+      "x-module": "paging",
+      "$id": "#/$defs/PageRequest",
+      "type": "object",
+      "properties": {
+        "cursor": {
+          "$ref": "#/$defs/PageCursor"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200
+        }
+      },
+      "required": [
+        "limit"
+      ],
+      "additionalProperties": false
+    },
+    "ParentKind": {
+      "x-module": "sessions",
+      "$id": "#/$defs/ParentKind",
+      "type": "string",
+      "enum": [
+        "fork",
+        "subagent"
+      ]
+    },
+    "PathsPreview": {
+      "x-module": "interactions",
+      "$id": "#/$defs/PathsPreview",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "paths"
+        },
+        "paths": {
+          "minItems": 1,
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 4096
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "paths"
+      ],
+      "additionalProperties": false
+    },
+    "PermissionEffect": {
+      "x-module": "interactions",
+      "$id": "#/$defs/PermissionEffect",
+      "type": "string",
+      "enum": [
+        "allow",
+        "deny"
+      ]
+    },
+    "PermissionGrant": {
+      "x-module": "interactions",
+      "$id": "#/$defs/PermissionGrant",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "kind": {
+          "$ref": "#/$defs/GrantKind"
+        },
+        "target": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "id",
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "PermissionOption": {
+      "x-module": "interactions",
+      "$id": "#/$defs/PermissionOption",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "effect": {
+          "$ref": "#/$defs/PermissionEffect"
+        },
+        "scope": {
+          "$ref": "#/$defs/PermissionScope"
+        },
+        "stopsRun": {
+          "type": "boolean"
+        },
+        "message": {
+          "$ref": "#/$defs/MessagePolicy"
+        },
+        "rule": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "effect",
+        "scope",
+        "stopsRun",
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "PermissionPreview": {
+      "x-module": "interactions",
+      "$id": "#/$defs/PermissionPreview",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/CommandPreview"
+        },
+        {
+          "$ref": "#/$defs/FileChangesPreview"
+        },
+        {
+          "$ref": "#/$defs/NetworkPreview"
+        },
+        {
+          "$ref": "#/$defs/PathsPreview"
+        }
+      ]
+    },
+    "PermissionScope": {
+      "x-module": "interactions",
+      "$id": "#/$defs/PermissionScope",
+      "type": "string",
+      "enum": [
+        "once",
+        "turn",
+        "session",
+        "always"
+      ]
+    },
+    "PiCall": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/PiCall",
+      "type": "object",
+      "properties": {
+        "backend": {
+          "type": "string",
+          "const": "pi"
+        },
+        "op": {
+          "$ref": "#/$defs/PiOp"
+        }
+      },
+      "required": [
+        "backend",
+        "op"
+      ],
+      "additionalProperties": false
+    },
+    "PiOp": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/PiOp",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/NavigateTreeOp"
+        }
+      ]
+    },
+    "Plan": {
+      "x-module": "plan",
+      "$id": "#/$defs/Plan",
+      "type": "object",
+      "properties": {
+        "items": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PlanItem"
+          }
+        },
+        "explanation": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "additionalProperties": false
+    },
+    "PlanApprovalReply": {
+      "x-module": "interaction-replies",
+      "$id": "#/$defs/PlanApprovalReply",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "plan_approval"
+        },
+        "decision": {
+          "$ref": "#/$defs/PlanDecision"
+        },
+        "plan": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "feedback": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "kind",
+        "decision"
+      ],
+      "additionalProperties": false
+    },
+    "PlanApprovalRequest": {
+      "x-module": "interactions",
+      "$id": "#/$defs/PlanApprovalRequest",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "plan_approval"
+        },
+        "plan": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "editable": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "kind",
+        "plan",
+        "editable"
+      ],
+      "additionalProperties": false
+    },
+    "PlanDecision": {
+      "x-module": "interaction-replies",
+      "$id": "#/$defs/PlanDecision",
+      "type": "string",
+      "enum": [
+        "approve",
+        "reject"
+      ]
+    },
+    "PlanItem": {
+      "x-module": "plan",
+      "$id": "#/$defs/PlanItem",
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "status": {
+          "$ref": "#/$defs/PlanItemStatus"
+        }
+      },
+      "required": [
+        "text",
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    "PlanItemStatus": {
+      "x-module": "plan",
+      "$id": "#/$defs/PlanItemStatus",
+      "type": "string",
+      "enum": [
+        "pending",
+        "in_progress",
+        "completed",
+        "cancelled"
+      ]
+    },
+    "PlanUpdatedEvent": {
+      "x-module": "events",
+      "$id": "#/$defs/PlanUpdatedEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "plan_updated"
+        },
+        "plan": {
+          "$ref": "#/$defs/Plan"
+        }
+      },
+      "required": [
+        "type",
+        "plan"
+      ],
+      "additionalProperties": false
+    },
+    "PromptAccepted": {
+      "x-module": "input",
+      "$id": "#/$defs/PromptAccepted",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "accepted"
+        },
+        "disposition": {
+          "$ref": "#/$defs/PromptDisposition"
+        },
+        "queueItemId": {
+          "$ref": "#/$defs/QueueItemId"
+        }
+      },
+      "required": [
+        "status",
+        "disposition"
+      ],
+      "additionalProperties": false
+    },
+    "PromptDisposition": {
+      "x-module": "input",
+      "$id": "#/$defs/PromptDisposition",
+      "type": "string",
+      "enum": [
+        "started",
+        "steered",
+        "queued",
+        "handled"
+      ]
+    },
+    "PromptInput": {
+      "x-module": "input",
+      "$id": "#/$defs/PromptInput",
+      "type": "object",
+      "properties": {
+        "clientRequestId": {
+          "$ref": "#/$defs/ClientRequestId"
+        },
+        "mode": {
+          "$ref": "#/$defs/PromptMode"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "attachments": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Attachment"
+          }
+        },
+        "mentions": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Mention"
+          }
+        },
+        "command": {
+          "$ref": "#/$defs/CommandId"
+        }
+      },
+      "required": [
+        "clientRequestId",
+        "mode",
+        "text",
+        "attachments",
+        "mentions"
+      ],
+      "additionalProperties": false
+    },
+    "PromptMode": {
+      "x-module": "input",
+      "$id": "#/$defs/PromptMode",
+      "type": "string",
+      "enum": [
+        "start",
+        "steer",
+        "queue"
+      ]
+    },
+    "PromptRequest": {
+      "x-module": "protocol",
+      "$id": "#/$defs/PromptRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "prompt"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "session": {
+          "$ref": "#/$defs/SessionRef"
+        },
+        "input": {
+          "$ref": "#/$defs/PromptInput"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "session",
+        "input"
+      ],
+      "additionalProperties": false
+    },
+    "PromptResponse": {
+      "x-module": "protocol",
+      "$id": "#/$defs/PromptResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "prompt.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/PromptResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "PromptResult": {
+      "x-module": "input",
+      "$id": "#/$defs/PromptResult",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/PromptAccepted"
+        },
+        {
+          "$ref": "#/$defs/Rejected"
+        }
+      ]
+    },
+    "ProtocolError": {
+      "x-module": "protocol",
+      "$id": "#/$defs/ProtocolError",
+      "type": "object",
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/ProtocolErrorCode"
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "ProtocolErrorCode": {
+      "x-module": "protocol",
+      "$id": "#/$defs/ProtocolErrorCode",
+      "type": "string",
+      "enum": [
+        "invalid_message",
+        "unsupported_version",
+        "unknown_backend",
+        "unknown_session",
+        "not_attached",
+        "internal"
+      ]
+    },
+    "ProtocolVersion": {
+      "x-module": "protocol",
+      "$id": "#/$defs/ProtocolVersion",
+      "type": "object",
+      "properties": {
+        "major": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "minor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "major",
+        "minor"
+      ],
+      "additionalProperties": false
+    },
+    "Question": {
+      "x-module": "interactions",
+      "$id": "#/$defs/Question",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "header": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1048576
+        },
+        "options": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/QuestionOption"
+          }
+        },
+        "multiSelect": {
+          "type": "boolean"
+        },
+        "allowCustom": {
+          "type": "boolean"
+        },
+        "secret": {
+          "type": "boolean"
+        },
+        "required": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "text",
+        "options",
+        "multiSelect",
+        "allowCustom",
+        "secret",
+        "required"
+      ],
+      "additionalProperties": false
+    },
+    "QuestionAnswer": {
+      "x-module": "interaction-replies",
+      "$id": "#/$defs/QuestionAnswer",
+      "type": "object",
+      "properties": {
+        "questionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "selected": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 1024
+          }
+        },
+        "custom": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "questionId",
+        "selected"
+      ],
+      "additionalProperties": false
+    },
+    "QuestionOption": {
+      "x-module": "interactions",
+      "$id": "#/$defs/QuestionOption",
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "preview": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "label"
+      ],
+      "additionalProperties": false
+    },
+    "QuestionsReply": {
+      "x-module": "interaction-replies",
+      "$id": "#/$defs/QuestionsReply",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "questions"
+        },
+        "answers": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/QuestionAnswer"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "answers"
+      ],
+      "additionalProperties": false
+    },
+    "QuestionsRequest": {
+      "x-module": "interactions",
+      "$id": "#/$defs/QuestionsRequest",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "questions"
+        },
+        "questions": {
+          "minItems": 1,
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Question"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "questions"
+      ],
+      "additionalProperties": false
+    },
+    "QueueCancelRequest": {
+      "x-module": "protocol",
+      "$id": "#/$defs/QueueCancelRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "queue.cancel"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "session": {
+          "$ref": "#/$defs/SessionRef"
+        },
+        "queueItemId": {
+          "$ref": "#/$defs/QueueItemId"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "session",
+        "queueItemId"
+      ],
+      "additionalProperties": false
+    },
+    "QueueCancelResponse": {
+      "x-module": "protocol",
+      "$id": "#/$defs/QueueCancelResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "queue.cancel.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/ActionResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "QueueChangedEvent": {
+      "x-module": "events",
+      "$id": "#/$defs/QueueChangedEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "queue_changed"
+        },
+        "items": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/QueueItem"
+          }
+        }
+      },
+      "required": [
+        "type",
+        "items"
+      ],
+      "additionalProperties": false
+    },
+    "QueueItem": {
+      "x-module": "queue",
+      "$id": "#/$defs/QueueItem",
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/QueueItemId"
+        },
+        "delivery": {
+          "$ref": "#/$defs/QueuedDelivery"
+        },
+        "preview": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "clientRequestId": {
+          "$ref": "#/$defs/ClientRequestId"
+        }
+      },
+      "required": [
+        "id",
+        "delivery",
+        "preview"
+      ],
+      "additionalProperties": false
+    },
+    "QueueItemId": {
+      "x-module": "ids",
+      "$id": "#/$defs/QueueItemId",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "QueuedDelivery": {
+      "x-module": "queue",
+      "$id": "#/$defs/QueuedDelivery",
+      "type": "string",
+      "enum": [
+        "steer",
+        "queue"
+      ]
+    },
+    "RateLimitStatus": {
+      "x-module": "extensions",
+      "$id": "#/$defs/RateLimitStatus",
+      "type": "string",
+      "enum": [
+        "allowed",
+        "allowed_warning",
+        "rejected"
+      ]
+    },
+    "RateLimitUpdate": {
+      "x-module": "extensions",
+      "$id": "#/$defs/RateLimitUpdate",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "rate_limit"
+        },
+        "window": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "status": {
+          "$ref": "#/$defs/RateLimitStatus"
+        },
+        "usedPercent": {
+          "type": "number",
+          "minimum": 0
+        },
+        "resetsAt": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      },
+      "required": [
+        "kind",
+        "window"
+      ],
+      "additionalProperties": false
+    },
+    "Rejected": {
+      "x-module": "rejection",
+      "$id": "#/$defs/Rejected",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "rejected"
+        },
+        "rejection": {
+          "$ref": "#/$defs/Rejection"
+        }
+      },
+      "required": [
+        "status",
+        "rejection"
+      ],
+      "additionalProperties": false
+    },
+    "Rejection": {
+      "x-module": "rejection",
+      "$id": "#/$defs/Rejection",
+      "type": "object",
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/RejectionCode"
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "RejectionCode": {
+      "x-module": "rejection",
+      "$id": "#/$defs/RejectionCode",
+      "type": "string",
+      "enum": [
+        "busy",
+        "not_steerable",
+        "no_model",
+        "auth",
+        "invalid_input",
+        "unsupported",
+        "not_found",
+        "stale",
+        "closed",
+        "backend_error"
+      ]
+    },
+    "ReplaySync": {
+      "x-module": "protocol",
+      "$id": "#/$defs/ReplaySync",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "replay"
+        },
+        "epoch": {
+          "$ref": "#/$defs/StreamEpoch"
+        },
+        "afterSeq": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "kind",
+        "epoch",
+        "afterSeq"
+      ],
+      "additionalProperties": false
+    },
+    "RequestId": {
+      "x-module": "protocol",
+      "$id": "#/$defs/RequestId",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "ResolutionReason": {
+      "x-module": "interaction-replies",
+      "$id": "#/$defs/ResolutionReason",
+      "type": "string",
+      "enum": [
+        "answered",
+        "withdrawn",
+        "expired"
+      ]
+    },
+    "ResyncedEvent": {
+      "x-module": "events",
+      "$id": "#/$defs/ResyncedEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "resynced"
+        },
+        "snapshot": {
+          "$ref": "#/$defs/SessionSnapshot"
+        }
+      },
+      "required": [
+        "type",
+        "snapshot"
+      ],
+      "additionalProperties": false
+    },
+    "RetryFinishedEvent": {
+      "x-module": "events",
+      "$id": "#/$defs/RetryFinishedEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "retry_finished"
+        },
+        "succeeded": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "type",
+        "succeeded"
+      ],
+      "additionalProperties": false
+    },
+    "RetryScheduledEvent": {
+      "x-module": "events",
+      "$id": "#/$defs/RetryScheduledEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "retry_scheduled"
+        },
+        "attempt": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "maxAttempts": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "retryAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "type",
+        "attempt",
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "RetryState": {
+      "x-module": "snapshot",
+      "$id": "#/$defs/RetryState",
+      "type": "object",
+      "properties": {
+        "attempt": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "maxAttempts": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "retryAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "attempt",
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "RevertClearOp": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/RevertClearOp",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "revert_clear"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        }
+      },
+      "required": [
+        "kind",
+        "sessionId"
+      ],
+      "additionalProperties": false
+    },
+    "RevertCleared": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/RevertCleared",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "revert_clear"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "RevertCommitOp": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/RevertCommitOp",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "revert_commit"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        }
+      },
+      "required": [
+        "kind",
+        "sessionId"
+      ],
+      "additionalProperties": false
+    },
+    "RevertCommitted": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/RevertCommitted",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "revert_commit"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "RevertOp": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/RevertOp",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "revert"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        },
+        "beforeItemId": {
+          "$ref": "#/$defs/TranscriptItemId"
+        }
+      },
+      "required": [
+        "kind",
+        "sessionId",
+        "beforeItemId"
+      ],
+      "additionalProperties": false
+    },
+    "RevertStageOp": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/RevertStageOp",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "revert_stage"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        },
+        "itemId": {
+          "$ref": "#/$defs/TranscriptItemId"
+        },
+        "restoreFiles": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "sessionId",
+        "itemId",
+        "restoreFiles"
+      ],
+      "additionalProperties": false
+    },
+    "RevertStaged": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/RevertStaged",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "revert_stage"
+        },
+        "files": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FileChange"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "files"
+      ],
+      "additionalProperties": false
+    },
+    "Reverted": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/Reverted",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "revert"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "ReviewStartOp": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/ReviewStartOp",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "review_start"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        },
+        "target": {
+          "$ref": "#/$defs/ReviewTarget"
+        }
+      },
+      "required": [
+        "kind",
+        "sessionId",
+        "target"
+      ],
+      "additionalProperties": false
+    },
+    "ReviewStarted": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/ReviewStarted",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "review_start"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "ReviewTarget": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/ReviewTarget",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/UncommittedReview"
+        },
+        {
+          "$ref": "#/$defs/BaseBranchReview"
+        },
+        {
+          "$ref": "#/$defs/CommitReview"
+        },
+        {
+          "$ref": "#/$defs/CustomReview"
+        }
+      ]
+    },
+    "RewindFilesOp": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/RewindFilesOp",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "rewind_files"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        },
+        "userItemId": {
+          "$ref": "#/$defs/TranscriptItemId"
+        },
+        "dryRun": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "sessionId",
+        "userItemId",
+        "dryRun"
+      ],
+      "additionalProperties": false
+    },
+    "RewindFilesResult": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/RewindFilesResult",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "rewind_files"
+        },
+        "canRewind": {
+          "type": "boolean"
+        },
+        "filesChanged": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 4096
+          }
+        },
+        "insertions": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "deletions": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "skippedLinks": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "error": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "kind",
+        "canRewind"
+      ],
+      "additionalProperties": false
+    },
+    "RunAborted": {
+      "x-module": "runs",
+      "$id": "#/$defs/RunAborted",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "aborted"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "RunBoundaryItem": {
+      "x-module": "transcript",
+      "$id": "#/$defs/RunBoundaryItem",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "run_boundary"
+        },
+        "id": {
+          "$ref": "#/$defs/TranscriptItemId"
+        },
+        "at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "outcome": {
+          "$ref": "#/$defs/RunOutcome"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "outcome"
+      ],
+      "additionalProperties": false
+    },
+    "RunCompleted": {
+      "x-module": "runs",
+      "$id": "#/$defs/RunCompleted",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "completed"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "RunDeferred": {
+      "x-module": "runs",
+      "$id": "#/$defs/RunDeferred",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "deferred"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "RunErrored": {
+      "x-module": "runs",
+      "$id": "#/$defs/RunErrored",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "error"
+        },
+        "error": {
+          "$ref": "#/$defs/ErrorInfo"
+        }
+      },
+      "required": [
+        "kind",
+        "error"
+      ],
+      "additionalProperties": false
+    },
+    "RunFinishedEvent": {
+      "x-module": "events",
+      "$id": "#/$defs/RunFinishedEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "run_finished"
+        },
+        "runId": {
+          "$ref": "#/$defs/RunId"
+        },
+        "outcome": {
+          "$ref": "#/$defs/RunOutcome"
+        }
+      },
+      "required": [
+        "type",
+        "runId",
+        "outcome"
+      ],
+      "additionalProperties": false
+    },
+    "RunId": {
+      "x-module": "ids",
+      "$id": "#/$defs/RunId",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "RunLimit": {
+      "x-module": "runs",
+      "$id": "#/$defs/RunLimit",
+      "type": "string",
+      "enum": [
+        "max_turns",
+        "budget",
+        "output_tokens"
+      ]
+    },
+    "RunLimited": {
+      "x-module": "runs",
+      "$id": "#/$defs/RunLimited",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "limit"
+        },
+        "limit": {
+          "$ref": "#/$defs/RunLimit"
+        }
+      },
+      "required": [
+        "kind",
+        "limit"
+      ],
+      "additionalProperties": false
+    },
+    "RunOutcome": {
+      "x-module": "runs",
+      "$id": "#/$defs/RunOutcome",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/RunCompleted"
+        },
+        {
+          "$ref": "#/$defs/RunAborted"
+        },
+        {
+          "$ref": "#/$defs/RunErrored"
+        },
+        {
+          "$ref": "#/$defs/RunLimited"
+        },
+        {
+          "$ref": "#/$defs/RunSuspended"
+        },
+        {
+          "$ref": "#/$defs/RunDeferred"
+        }
+      ]
+    },
+    "RunStartedEvent": {
+      "x-module": "events",
+      "$id": "#/$defs/RunStartedEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "run_started"
+        },
+        "runId": {
+          "$ref": "#/$defs/RunId"
+        },
+        "trigger": {
+          "$ref": "#/$defs/RunTrigger"
+        }
+      },
+      "required": [
+        "type",
+        "runId",
+        "trigger"
+      ],
+      "additionalProperties": false
+    },
+    "RunSuspended": {
+      "x-module": "runs",
+      "$id": "#/$defs/RunSuspended",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "suspended"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "RunTrigger": {
+      "x-module": "runs",
+      "$id": "#/$defs/RunTrigger",
+      "type": "string",
+      "enum": [
+        "prompt",
+        "queue",
+        "system",
+        "external"
+      ]
+    },
+    "RunningTool": {
+      "x-module": "snapshot",
+      "$id": "#/$defs/RunningTool",
+      "type": "object",
+      "properties": {
+        "toolCallId": {
+          "$ref": "#/$defs/ToolCallId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "input": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "messageId": {
+          "$ref": "#/$defs/MessageId"
+        },
+        "parentToolCallId": {
+          "$ref": "#/$defs/ToolCallId"
+        },
+        "childSession": {
+          "$ref": "#/$defs/SessionRef"
+        },
+        "output": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "progress": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "fileChanges": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FileChange"
+          }
+        }
+      },
+      "required": [
+        "toolCallId",
+        "name",
+        "output",
+        "fileChanges"
+      ],
+      "additionalProperties": false
+    },
+    "ServerMessage": {
+      "x-module": "protocol",
+      "$id": "#/$defs/ServerMessage",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/HelloResponse"
+        },
+        {
+          "$ref": "#/$defs/BackendsListResponse"
+        },
+        {
+          "$ref": "#/$defs/BackendStatusResponse"
+        },
+        {
+          "$ref": "#/$defs/ModelsListResponse"
+        },
+        {
+          "$ref": "#/$defs/CommandsListResponse"
+        },
+        {
+          "$ref": "#/$defs/ModesListResponse"
+        },
+        {
+          "$ref": "#/$defs/SessionsListResponse"
+        },
+        {
+          "$ref": "#/$defs/SessionGetResponse"
+        },
+        {
+          "$ref": "#/$defs/SessionCreateResponse"
+        },
+        {
+          "$ref": "#/$defs/SessionForkResponse"
+        },
+        {
+          "$ref": "#/$defs/SessionRenameResponse"
+        },
+        {
+          "$ref": "#/$defs/SessionDeleteResponse"
+        },
+        {
+          "$ref": "#/$defs/SessionArchiveResponse"
+        },
+        {
+          "$ref": "#/$defs/SessionAttachResponse"
+        },
+        {
+          "$ref": "#/$defs/SessionDetachResponse"
+        },
+        {
+          "$ref": "#/$defs/TranscriptReadResponse"
+        },
+        {
+          "$ref": "#/$defs/AttachmentReadResponse"
+        },
+        {
+          "$ref": "#/$defs/PromptResponse"
+        },
+        {
+          "$ref": "#/$defs/AbortResponse"
+        },
+        {
+          "$ref": "#/$defs/InteractionAnswerResponse"
+        },
+        {
+          "$ref": "#/$defs/QueueCancelResponse"
+        },
+        {
+          "$ref": "#/$defs/ModelSetResponse"
+        },
+        {
+          "$ref": "#/$defs/ThinkingSetResponse"
+        },
+        {
+          "$ref": "#/$defs/ModeSetResponse"
+        },
+        {
+          "$ref": "#/$defs/CompactResponse"
+        },
+        {
+          "$ref": "#/$defs/BackendCallResponse"
+        },
+        {
+          "$ref": "#/$defs/ErrorResponse"
+        },
+        {
+          "$ref": "#/$defs/EventMessage"
+        },
+        {
+          "$ref": "#/$defs/CatalogMessage"
+        }
+      ]
+    },
+    "SessionArchiveRequest": {
+      "x-module": "protocol",
+      "$id": "#/$defs/SessionArchiveRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "session.archive"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "session": {
+          "$ref": "#/$defs/SessionRef"
+        },
+        "archived": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "session",
+        "archived"
+      ],
+      "additionalProperties": false
+    },
+    "SessionArchiveResponse": {
+      "x-module": "protocol",
+      "$id": "#/$defs/SessionArchiveResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "session.archive.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/ActionResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "SessionAttachRequest": {
+      "x-module": "protocol",
+      "$id": "#/$defs/SessionAttachRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "session.attach"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "session": {
+          "$ref": "#/$defs/SessionRef"
+        },
+        "resume": {
+          "$ref": "#/$defs/StreamPosition"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "session"
+      ],
+      "additionalProperties": false
+    },
+    "SessionAttachResponse": {
+      "x-module": "protocol",
+      "$id": "#/$defs/SessionAttachResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "session.attach.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "capabilities": {
+          "$ref": "#/$defs/SessionCapabilities"
+        },
+        "sync": {
+          "$ref": "#/$defs/AttachSync"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "capabilities",
+        "sync"
+      ],
+      "additionalProperties": false
+    },
+    "SessionCapabilities": {
+      "x-module": "capabilities",
+      "$id": "#/$defs/SessionCapabilities",
+      "type": "object",
+      "properties": {
+        "controllable": {
+          "type": "boolean"
+        },
+        "compact": {
+          "type": "boolean"
+        },
+        "cancelQueued": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "controllable",
+        "compact",
+        "cancelQueued"
+      ],
+      "additionalProperties": false
+    },
+    "SessionCreateRequest": {
+      "x-module": "protocol",
+      "$id": "#/$defs/SessionCreateRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "session.create"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "backend": {
+          "$ref": "#/$defs/BackendId"
+        },
+        "options": {
+          "$ref": "#/$defs/NewSessionOptions"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "backend",
+        "options"
+      ],
+      "additionalProperties": false
+    },
+    "SessionCreateResponse": {
+      "x-module": "protocol",
+      "$id": "#/$defs/SessionCreateResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "session.create.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/NewSessionResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "SessionDeleteRequest": {
+      "x-module": "protocol",
+      "$id": "#/$defs/SessionDeleteRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "session.delete"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "session": {
+          "$ref": "#/$defs/SessionRef"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "session"
+      ],
+      "additionalProperties": false
+    },
+    "SessionDeleteResponse": {
+      "x-module": "protocol",
+      "$id": "#/$defs/SessionDeleteResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "session.delete.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/ActionResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "SessionDetachRequest": {
+      "x-module": "protocol",
+      "$id": "#/$defs/SessionDetachRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "session.detach"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "session": {
+          "$ref": "#/$defs/SessionRef"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "session"
+      ],
+      "additionalProperties": false
+    },
+    "SessionDetachResponse": {
+      "x-module": "protocol",
+      "$id": "#/$defs/SessionDetachResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "session.detach.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        }
+      },
+      "required": [
+        "type",
+        "requestId"
+      ],
+      "additionalProperties": false
+    },
+    "SessionForkRequest": {
+      "x-module": "protocol",
+      "$id": "#/$defs/SessionForkRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "session.fork"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "session": {
+          "$ref": "#/$defs/SessionRef"
+        },
+        "at": {
+          "$ref": "#/$defs/ForkPoint"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "session"
+      ],
+      "additionalProperties": false
+    },
+    "SessionForkResponse": {
+      "x-module": "protocol",
+      "$id": "#/$defs/SessionForkResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "session.fork.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/NewSessionResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "SessionFound": {
+      "x-module": "read-results",
+      "$id": "#/$defs/SessionFound",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "accepted"
+        },
+        "summary": {
+          "$ref": "#/$defs/SessionSummary"
+        }
+      },
+      "required": [
+        "status",
+        "summary"
+      ],
+      "additionalProperties": false
+    },
+    "SessionGetRequest": {
+      "x-module": "protocol",
+      "$id": "#/$defs/SessionGetRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "session.get"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "session": {
+          "$ref": "#/$defs/SessionRef"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "session"
+      ],
+      "additionalProperties": false
+    },
+    "SessionGetResponse": {
+      "x-module": "protocol",
+      "$id": "#/$defs/SessionGetResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "session.get.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/SessionGetResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "SessionGetResult": {
+      "x-module": "read-results",
+      "$id": "#/$defs/SessionGetResult",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/SessionFound"
+        },
+        {
+          "$ref": "#/$defs/Rejected"
+        }
+      ]
+    },
+    "SessionId": {
+      "x-module": "ids",
+      "$id": "#/$defs/SessionId",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "SessionOrigin": {
+      "x-module": "sessions",
+      "$id": "#/$defs/SessionOrigin",
+      "type": "string",
+      "enum": [
+        "broski",
+        "external"
+      ]
+    },
+    "SessionPage": {
+      "x-module": "sessions",
+      "$id": "#/$defs/SessionPage",
+      "type": "object",
+      "properties": {
+        "items": {
+          "maxItems": 200,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SessionSummary"
+          }
+        },
+        "nextCursor": {
+          "$ref": "#/$defs/PageCursor"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "additionalProperties": false
+    },
+    "SessionParent": {
+      "x-module": "sessions",
+      "$id": "#/$defs/SessionParent",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/ParentKind"
+        },
+        "session": {
+          "$ref": "#/$defs/SessionRef"
+        }
+      },
+      "required": [
+        "kind",
+        "session"
+      ],
+      "additionalProperties": false
+    },
+    "SessionQuery": {
+      "x-module": "sessions",
+      "$id": "#/$defs/SessionQuery",
+      "type": "object",
+      "properties": {
+        "cwd": {
+          "$ref": "#/$defs/WorkingDirectory"
+        },
+        "archived": {
+          "type": "boolean"
+        },
+        "parent": {
+          "$ref": "#/$defs/SessionRef"
+        }
+      },
+      "required": [
+        "archived"
+      ],
+      "additionalProperties": false
+    },
+    "SessionRef": {
+      "x-module": "ids",
+      "$id": "#/$defs/SessionRef",
+      "type": "object",
+      "properties": {
+        "backend": {
+          "$ref": "#/$defs/BackendId"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        }
+      },
+      "required": [
+        "backend",
+        "sessionId"
+      ],
+      "additionalProperties": false
+    },
+    "SessionRemovedEvent": {
+      "x-module": "catalog-events",
+      "$id": "#/$defs/SessionRemovedEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "session_removed"
+        },
+        "session": {
+          "$ref": "#/$defs/SessionRef"
+        }
+      },
+      "required": [
+        "type",
+        "session"
+      ],
+      "additionalProperties": false
+    },
+    "SessionRenameRequest": {
+      "x-module": "protocol",
+      "$id": "#/$defs/SessionRenameRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "session.rename"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "session": {
+          "$ref": "#/$defs/SessionRef"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "session",
+        "title"
+      ],
+      "additionalProperties": false
+    },
+    "SessionRenameResponse": {
+      "x-module": "protocol",
+      "$id": "#/$defs/SessionRenameResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "session.rename.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/ActionResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "SessionReplacedEvent": {
+      "x-module": "events",
+      "$id": "#/$defs/SessionReplacedEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "session_replaced"
+        },
+        "session": {
+          "$ref": "#/$defs/SessionRef"
+        }
+      },
+      "required": [
+        "type",
+        "session"
+      ],
+      "additionalProperties": false
+    },
+    "SessionSnapshot": {
+      "x-module": "snapshot",
+      "$id": "#/$defs/SessionSnapshot",
+      "type": "object",
+      "properties": {
+        "run": {
+          "$ref": "#/$defs/ActiveRun"
+        },
+        "blocks": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OpenBlock"
+          }
+        },
+        "tools": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RunningTool"
+          }
+        },
+        "interactions": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Interaction"
+          }
+        },
+        "queue": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/QueueItem"
+          }
+        },
+        "modelId": {
+          "$ref": "#/$defs/ModelId"
+        },
+        "thinking": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "modes": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ModeSetting"
+          }
+        },
+        "usage": {
+          "$ref": "#/$defs/Usage"
+        },
+        "plan": {
+          "$ref": "#/$defs/Plan"
+        },
+        "compaction": {
+          "$ref": "#/$defs/CompactionState"
+        },
+        "retry": {
+          "$ref": "#/$defs/RetryState"
+        },
+        "lastOutcome": {
+          "$ref": "#/$defs/RunOutcome"
+        }
+      },
+      "required": [
+        "blocks",
+        "tools",
+        "interactions",
+        "queue",
+        "modes"
+      ],
+      "additionalProperties": false
+    },
+    "SessionStatus": {
+      "x-module": "sessions",
+      "$id": "#/$defs/SessionStatus",
+      "type": "string",
+      "enum": [
+        "idle",
+        "running",
+        "waiting_for_user",
+        "suspended",
+        "unknown"
+      ]
+    },
+    "SessionSummary": {
+      "x-module": "sessions",
+      "$id": "#/$defs/SessionSummary",
+      "type": "object",
+      "properties": {
+        "session": {
+          "$ref": "#/$defs/SessionRef"
+        },
+        "title": {
+          "$ref": "#/$defs/SessionTitle"
+        },
+        "cwd": {
+          "$ref": "#/$defs/WorkingDirectory"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "updatedAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "parent": {
+          "$ref": "#/$defs/SessionParent"
+        },
+        "archived": {
+          "type": "boolean"
+        },
+        "modelId": {
+          "$ref": "#/$defs/ModelId"
+        },
+        "status": {
+          "$ref": "#/$defs/SessionStatus"
+        },
+        "origin": {
+          "$ref": "#/$defs/SessionOrigin"
+        },
+        "source": {
+          "type": "string",
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "session",
+        "updatedAt",
+        "archived",
+        "status",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "SessionTitle": {
+      "x-module": "sessions",
+      "$id": "#/$defs/SessionTitle",
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "source": {
+          "$ref": "#/$defs/TitleSource"
+        }
+      },
+      "required": [
+        "text",
+        "source"
+      ],
+      "additionalProperties": false
+    },
+    "SessionUpdatedEvent": {
+      "x-module": "catalog-events",
+      "$id": "#/$defs/SessionUpdatedEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "session_updated"
+        },
+        "summary": {
+          "$ref": "#/$defs/SessionSummary"
+        }
+      },
+      "required": [
+        "type",
+        "summary"
+      ],
+      "additionalProperties": false
+    },
+    "SessionsListRequest": {
+      "x-module": "protocol",
+      "$id": "#/$defs/SessionsListRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "sessions.list"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "backend": {
+          "$ref": "#/$defs/BackendId"
+        },
+        "query": {
+          "$ref": "#/$defs/SessionQuery"
+        },
+        "page": {
+          "$ref": "#/$defs/PageRequest"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "backend",
+        "query",
+        "page"
+      ],
+      "additionalProperties": false
+    },
+    "SessionsListResponse": {
+      "x-module": "protocol",
+      "$id": "#/$defs/SessionsListResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "sessions.list.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/SessionsListResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "SessionsListResult": {
+      "x-module": "read-results",
+      "$id": "#/$defs/SessionsListResult",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/SessionsListed"
+        },
+        {
+          "$ref": "#/$defs/Rejected"
+        }
+      ]
+    },
+    "SessionsListed": {
+      "x-module": "read-results",
+      "$id": "#/$defs/SessionsListed",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "accepted"
+        },
+        "page": {
+          "$ref": "#/$defs/SessionPage"
+        }
+      },
+      "required": [
+        "status",
+        "page"
+      ],
+      "additionalProperties": false
+    },
+    "SnapshotSync": {
+      "x-module": "protocol",
+      "$id": "#/$defs/SnapshotSync",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "snapshot"
+        },
+        "epoch": {
+          "$ref": "#/$defs/StreamEpoch"
+        },
+        "lastSeq": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "snapshot": {
+          "$ref": "#/$defs/SessionSnapshot"
+        }
+      },
+      "required": [
+        "kind",
+        "epoch",
+        "lastSeq",
+        "snapshot"
+      ],
+      "additionalProperties": false
+    },
+    "StatusChangedEvent": {
+      "x-module": "catalog-events",
+      "$id": "#/$defs/StatusChangedEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "status_changed"
+        },
+        "status": {
+          "$ref": "#/$defs/BackendStatus"
+        }
+      },
+      "required": [
+        "type",
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    "StatusIssue": {
+      "x-module": "status",
+      "$id": "#/$defs/StatusIssue",
+      "type": "object",
+      "properties": {
+        "severity": {
+          "$ref": "#/$defs/IssueSeverity"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "severity",
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "StreamEpoch": {
+      "x-module": "protocol",
+      "$id": "#/$defs/StreamEpoch",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "StreamPosition": {
+      "x-module": "protocol",
+      "$id": "#/$defs/StreamPosition",
+      "type": "object",
+      "properties": {
+        "epoch": {
+          "$ref": "#/$defs/StreamEpoch"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "epoch",
+        "seq"
+      ],
+      "additionalProperties": false
+    },
+    "StringField": {
+      "x-module": "forms",
+      "$id": "#/$defs/StringField",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "string"
+        },
+        "key": {
+          "$ref": "#/$defs/FieldKey"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "hidden": {
+          "type": "boolean"
+        },
+        "when": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FieldCondition"
+          }
+        },
+        "format": {
+          "$ref": "#/$defs/StringFormat"
+        },
+        "minLength": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "maxLength": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "pattern": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "placeholder": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "defaultValue": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "options": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Option"
+          }
+        },
+        "allowCustom": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "key",
+        "required",
+        "hidden",
+        "when",
+        "options",
+        "allowCustom"
+      ],
+      "additionalProperties": false
+    },
+    "StringFormat": {
+      "x-module": "forms",
+      "$id": "#/$defs/StringFormat",
+      "type": "string",
+      "enum": [
+        "email",
+        "uri",
+        "date",
+        "date-time"
+      ]
+    },
+    "TextContent": {
+      "x-module": "content",
+      "$id": "#/$defs/TextContent",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "text"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "kind",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "TextReply": {
+      "x-module": "interaction-replies",
+      "$id": "#/$defs/TextReply",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "text"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "kind",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "TextRequest": {
+      "x-module": "interactions",
+      "$id": "#/$defs/TextRequest",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "text"
+        },
+        "placeholder": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "initialText": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "multiline": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "multiline"
+      ],
+      "additionalProperties": false
+    },
+    "TextValue": {
+      "x-module": "forms",
+      "$id": "#/$defs/TextValue",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "text"
+        },
+        "value": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "ThinkingOption": {
+      "x-module": "models",
+      "$id": "#/$defs/ThinkingOption",
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "ThinkingSetRequest": {
+      "x-module": "protocol",
+      "$id": "#/$defs/ThinkingSetRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "thinking.set"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "session": {
+          "$ref": "#/$defs/SessionRef"
+        },
+        "thinking": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "session",
+        "thinking"
+      ],
+      "additionalProperties": false
+    },
+    "ThinkingSetResponse": {
+      "x-module": "protocol",
+      "$id": "#/$defs/ThinkingSetResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "thinking.set.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/ActionResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "ThinkingSpec": {
+      "x-module": "models",
+      "$id": "#/$defs/ThinkingSpec",
+      "type": "object",
+      "properties": {
+        "options": {
+          "maxItems": 10000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ThinkingOption"
+          }
+        },
+        "defaultValue": {
+          "type": "string",
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "options"
+      ],
+      "additionalProperties": false
+    },
+    "Timestamp": {
+      "x-module": "ids",
+      "$id": "#/$defs/Timestamp",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "TitleSource": {
+      "x-module": "sessions",
+      "$id": "#/$defs/TitleSource",
+      "type": "string",
+      "enum": [
+        "user",
+        "generated",
+        "first_prompt"
+      ]
+    },
+    "ToolCallId": {
+      "x-module": "ids",
+      "$id": "#/$defs/ToolCallId",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "ToolCallItem": {
+      "x-module": "transcript",
+      "$id": "#/$defs/ToolCallItem",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "tool_call"
+        },
+        "id": {
+          "$ref": "#/$defs/TranscriptItemId"
+        },
+        "at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "toolCallId": {
+          "$ref": "#/$defs/ToolCallId"
+        },
+        "messageId": {
+          "$ref": "#/$defs/MessageId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "input": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "parentToolCallId": {
+          "$ref": "#/$defs/ToolCallId"
+        },
+        "childSession": {
+          "$ref": "#/$defs/SessionRef"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "toolCallId",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "ToolChildSession": {
+      "x-module": "tools",
+      "$id": "#/$defs/ToolChildSession",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "child_session"
+        },
+        "session": {
+          "$ref": "#/$defs/SessionRef"
+        }
+      },
+      "required": [
+        "kind",
+        "session"
+      ],
+      "additionalProperties": false
+    },
+    "ToolContent": {
+      "x-module": "tools",
+      "$id": "#/$defs/ToolContent",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/TextContent"
+        },
+        {
+          "$ref": "#/$defs/ImageRef"
+        },
+        {
+          "$ref": "#/$defs/FileContent"
+        }
+      ]
+    },
+    "ToolFileChanges": {
+      "x-module": "tools",
+      "$id": "#/$defs/ToolFileChanges",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "file_changes"
+        },
+        "changes": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FileChange"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "changes"
+      ],
+      "additionalProperties": false
+    },
+    "ToolFinishedEvent": {
+      "x-module": "events",
+      "$id": "#/$defs/ToolFinishedEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "tool_finished"
+        },
+        "toolCallId": {
+          "$ref": "#/$defs/ToolCallId"
+        },
+        "outcome": {
+          "$ref": "#/$defs/ToolOutcome"
+        },
+        "result": {
+          "$ref": "#/$defs/ToolResult"
+        }
+      },
+      "required": [
+        "type",
+        "toolCallId",
+        "outcome",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "ToolInputSet": {
+      "x-module": "tools",
+      "$id": "#/$defs/ToolInputSet",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "input"
+        },
+        "input": {
+          "$ref": "#/$defs/JsonValue"
+        }
+      },
+      "required": [
+        "kind",
+        "input"
+      ],
+      "additionalProperties": false
+    },
+    "ToolOutcome": {
+      "x-module": "tools",
+      "$id": "#/$defs/ToolOutcome",
+      "type": "string",
+      "enum": [
+        "completed",
+        "failed",
+        "denied",
+        "aborted"
+      ]
+    },
+    "ToolOutputAppended": {
+      "x-module": "tools",
+      "$id": "#/$defs/ToolOutputAppended",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "output_appended"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "kind",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "ToolOutputReplaced": {
+      "x-module": "tools",
+      "$id": "#/$defs/ToolOutputReplaced",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "output_replaced"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "kind",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "ToolPermissionReply": {
+      "x-module": "interaction-replies",
+      "$id": "#/$defs/ToolPermissionReply",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "tool_permission"
+        },
+        "optionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "editedInput": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "grantIds": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 256
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "optionId",
+        "grantIds"
+      ],
+      "additionalProperties": false
+    },
+    "ToolPermissionRequest": {
+      "x-module": "interactions",
+      "$id": "#/$defs/ToolPermissionRequest",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "tool_permission"
+        },
+        "input": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "inputEditable": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "previews": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PermissionPreview"
+          }
+        },
+        "options": {
+          "minItems": 1,
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PermissionOption"
+          }
+        },
+        "grants": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PermissionGrant"
+          }
+        },
+        "defaultOptionId": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "deliberate": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "inputEditable",
+        "previews",
+        "options",
+        "grants",
+        "deliberate"
+      ],
+      "additionalProperties": false
+    },
+    "ToolProgress": {
+      "x-module": "tools",
+      "$id": "#/$defs/ToolProgress",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "progress"
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "kind",
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "ToolResult": {
+      "x-module": "tools",
+      "$id": "#/$defs/ToolResult",
+      "type": "object",
+      "properties": {
+        "content": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ToolContent"
+          }
+        },
+        "fileChanges": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FileChange"
+          }
+        },
+        "error": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "exitCode": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "content",
+        "fileChanges"
+      ],
+      "additionalProperties": false
+    },
+    "ToolResultItem": {
+      "x-module": "transcript",
+      "$id": "#/$defs/ToolResultItem",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "tool_result"
+        },
+        "id": {
+          "$ref": "#/$defs/TranscriptItemId"
+        },
+        "at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "toolCallId": {
+          "$ref": "#/$defs/ToolCallId"
+        },
+        "outcome": {
+          "$ref": "#/$defs/ToolOutcome"
+        },
+        "result": {
+          "$ref": "#/$defs/ToolResult"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "toolCallId",
+        "outcome",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "ToolStartedEvent": {
+      "x-module": "events",
+      "$id": "#/$defs/ToolStartedEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "tool_started"
+        },
+        "toolCallId": {
+          "$ref": "#/$defs/ToolCallId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "input": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "messageId": {
+          "$ref": "#/$defs/MessageId"
+        },
+        "parentToolCallId": {
+          "$ref": "#/$defs/ToolCallId"
+        }
+      },
+      "required": [
+        "type",
+        "toolCallId",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "ToolUpdate": {
+      "x-module": "tools",
+      "$id": "#/$defs/ToolUpdate",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ToolInputSet"
+        },
+        {
+          "$ref": "#/$defs/ToolOutputAppended"
+        },
+        {
+          "$ref": "#/$defs/ToolOutputReplaced"
+        },
+        {
+          "$ref": "#/$defs/ToolProgress"
+        },
+        {
+          "$ref": "#/$defs/ToolFileChanges"
+        },
+        {
+          "$ref": "#/$defs/ToolChildSession"
+        }
+      ]
+    },
+    "ToolUpdatedEvent": {
+      "x-module": "events",
+      "$id": "#/$defs/ToolUpdatedEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "tool_updated"
+        },
+        "toolCallId": {
+          "$ref": "#/$defs/ToolCallId"
+        },
+        "update": {
+          "$ref": "#/$defs/ToolUpdate"
+        }
+      },
+      "required": [
+        "type",
+        "toolCallId",
+        "update"
+      ],
+      "additionalProperties": false
+    },
+    "TranscriptInvalidatedEvent": {
+      "x-module": "catalog-events",
+      "$id": "#/$defs/TranscriptInvalidatedEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "transcript_invalidated"
+        },
+        "session": {
+          "$ref": "#/$defs/SessionRef"
+        }
+      },
+      "required": [
+        "type",
+        "session"
+      ],
+      "additionalProperties": false
+    },
+    "TranscriptItem": {
+      "x-module": "transcript",
+      "$id": "#/$defs/TranscriptItem",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/UserMessageItem"
+        },
+        {
+          "$ref": "#/$defs/BlockItem"
+        },
+        {
+          "$ref": "#/$defs/ToolCallItem"
+        },
+        {
+          "$ref": "#/$defs/ToolResultItem"
+        },
+        {
+          "$ref": "#/$defs/NoticeItem"
+        },
+        {
+          "$ref": "#/$defs/CompactionItem"
+        },
+        {
+          "$ref": "#/$defs/ModelChangeItem"
+        },
+        {
+          "$ref": "#/$defs/RunBoundaryItem"
+        }
+      ]
+    },
+    "TranscriptItemId": {
+      "x-module": "ids",
+      "$id": "#/$defs/TranscriptItemId",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "TranscriptPage": {
+      "x-module": "transcript",
+      "$id": "#/$defs/TranscriptPage",
+      "type": "object",
+      "properties": {
+        "items": {
+          "maxItems": 200,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TranscriptItem"
+          }
+        },
+        "nextCursor": {
+          "$ref": "#/$defs/PageCursor"
+        },
+        "idStability": {
+          "$ref": "#/$defs/IdStability"
+        }
+      },
+      "required": [
+        "items",
+        "idStability"
+      ],
+      "additionalProperties": false
+    },
+    "TranscriptRead": {
+      "x-module": "read-results",
+      "$id": "#/$defs/TranscriptRead",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "accepted"
+        },
+        "page": {
+          "$ref": "#/$defs/TranscriptPage"
+        }
+      },
+      "required": [
+        "status",
+        "page"
+      ],
+      "additionalProperties": false
+    },
+    "TranscriptReadRequest": {
+      "x-module": "protocol",
+      "$id": "#/$defs/TranscriptReadRequest",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "transcript.read"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "session": {
+          "$ref": "#/$defs/SessionRef"
+        },
+        "page": {
+          "$ref": "#/$defs/PageRequest"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "session",
+        "page"
+      ],
+      "additionalProperties": false
+    },
+    "TranscriptReadResponse": {
+      "x-module": "protocol",
+      "$id": "#/$defs/TranscriptReadResponse",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "transcript.read.result"
+        },
+        "requestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "result": {
+          "$ref": "#/$defs/TranscriptReadResult"
+        }
+      },
+      "required": [
+        "type",
+        "requestId",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "TranscriptReadResult": {
+      "x-module": "read-results",
+      "$id": "#/$defs/TranscriptReadResult",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/TranscriptRead"
+        },
+        {
+          "$ref": "#/$defs/Rejected"
+        }
+      ]
+    },
+    "TreeNavigated": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/TreeNavigated",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "navigate_tree"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "UncommittedReview": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/UncommittedReview",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "uncommitted"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "Usage": {
+      "x-module": "usage",
+      "$id": "#/$defs/Usage",
+      "type": "object",
+      "properties": {
+        "inputTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "outputTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "cacheReadTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "cacheWriteTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "reasoningTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "costUsd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "contextTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "contextWindow": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "additionalProperties": false
+    },
+    "UsageUpdatedEvent": {
+      "x-module": "events",
+      "$id": "#/$defs/UsageUpdatedEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "usage_updated"
+        },
+        "usage": {
+          "$ref": "#/$defs/Usage"
+        }
+      },
+      "required": [
+        "type",
+        "usage"
+      ],
+      "additionalProperties": false
+    },
+    "UserMessageEvent": {
+      "x-module": "events",
+      "$id": "#/$defs/UserMessageEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "user_message"
+        },
+        "messageId": {
+          "$ref": "#/$defs/MessageId"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "attachments": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AttachmentRef"
+          }
+        },
+        "clientRequestId": {
+          "$ref": "#/$defs/ClientRequestId"
+        }
+      },
+      "required": [
+        "type",
+        "messageId",
+        "text",
+        "attachments"
+      ],
+      "additionalProperties": false
+    },
+    "UserMessageItem": {
+      "x-module": "transcript",
+      "$id": "#/$defs/UserMessageItem",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "user_message"
+        },
+        "id": {
+          "$ref": "#/$defs/TranscriptItemId"
+        },
+        "at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 1048576
+        },
+        "attachments": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AttachmentRef"
+          }
+        },
+        "clientRequestId": {
+          "$ref": "#/$defs/ClientRequestId"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "text",
+        "attachments"
+      ],
+      "additionalProperties": false
+    },
+    "WorkingDirectory": {
+      "x-module": "sessions",
+      "$id": "#/$defs/WorkingDirectory",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    }
+  }
+}

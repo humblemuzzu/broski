@@ -1,0 +1,9363 @@
+{
+  "AbortRequest": [
+    {
+      "type": "abort",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    }
+  ],
+  "AbortResponse": [
+    {
+      "type": "abort.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    }
+  ],
+  "ActionAccepted": [
+    {
+      "status": "accepted"
+    }
+  ],
+  "ActionResult": [
+    {
+      "status": "accepted"
+    },
+    {
+      "status": "rejected",
+      "rejection": {
+        "code": "busy",
+        "message": "x"
+      }
+    }
+  ],
+  "ActiveRun": [
+    {
+      "runId": "x",
+      "trigger": "prompt",
+      "startedAt": 1,
+      "items": [
+        {
+          "kind": "user_message",
+          "id": "x",
+          "at": 1,
+          "text": "x",
+          "attachments": [
+            {
+              "kind": "image_ref",
+              "id": "x",
+              "mimeType": "x",
+              "name": "x"
+            }
+          ],
+          "clientRequestId": "00000000-0000-4000-8000-000000000000"
+        }
+      ],
+      "droppedItems": 1
+    },
+    {
+      "runId": "x",
+      "trigger": "prompt",
+      "startedAt": 1,
+      "items": [
+        {
+          "kind": "user_message",
+          "id": "x",
+          "text": "x",
+          "attachments": [
+            {
+              "kind": "image_ref",
+              "id": "x",
+              "mimeType": "x"
+            }
+          ]
+        }
+      ],
+      "droppedItems": 1
+    }
+  ],
+  "AgentEvent": [
+    {
+      "type": "run_started",
+      "runId": "x",
+      "trigger": "prompt"
+    },
+    {
+      "type": "run_finished",
+      "runId": "x",
+      "outcome": {
+        "kind": "completed"
+      }
+    },
+    {
+      "type": "user_message",
+      "messageId": "x",
+      "text": "x",
+      "attachments": [
+        {
+          "kind": "image_ref",
+          "id": "x",
+          "mimeType": "x",
+          "name": "x"
+        }
+      ],
+      "clientRequestId": "00000000-0000-4000-8000-000000000000"
+    },
+    {
+      "type": "user_message",
+      "messageId": "x",
+      "text": "x",
+      "attachments": [
+        {
+          "kind": "image_ref",
+          "id": "x",
+          "mimeType": "x"
+        }
+      ]
+    },
+    {
+      "type": "block_started",
+      "blockId": "x",
+      "messageId": "x",
+      "kind": "text",
+      "parentToolCallId": "x"
+    },
+    {
+      "type": "block_started",
+      "blockId": "x",
+      "messageId": "x",
+      "kind": "text"
+    },
+    {
+      "type": "block_delta",
+      "blockId": "x",
+      "text": "x"
+    },
+    {
+      "type": "block_finished",
+      "blockId": "x",
+      "text": "x"
+    },
+    {
+      "type": "tool_started",
+      "toolCallId": "x",
+      "name": "x",
+      "title": "x",
+      "input": {
+        "text": "x",
+        "list": [
+          1,
+          2.5,
+          true,
+          null
+        ],
+        "nested": {
+          "ok": false
+        }
+      },
+      "messageId": "x",
+      "parentToolCallId": "x"
+    },
+    {
+      "type": "tool_started",
+      "toolCallId": "x",
+      "name": "x"
+    },
+    {
+      "type": "tool_updated",
+      "toolCallId": "x",
+      "update": {
+        "kind": "input",
+        "input": {
+          "text": "x",
+          "list": [
+            1,
+            2.5,
+            true,
+            null
+          ],
+          "nested": {
+            "ok": false
+          }
+        }
+      }
+    },
+    {
+      "type": "tool_finished",
+      "toolCallId": "x",
+      "outcome": "completed",
+      "result": {
+        "content": [
+          {
+            "kind": "text",
+            "text": "x"
+          }
+        ],
+        "fileChanges": [
+          {
+            "path": "x",
+            "change": "added",
+            "previousPath": "x",
+            "diff": "x",
+            "additions": 1,
+            "deletions": 1
+          }
+        ],
+        "error": "x",
+        "exitCode": 1
+      }
+    },
+    {
+      "type": "tool_finished",
+      "toolCallId": "x",
+      "outcome": "completed",
+      "result": {
+        "content": [
+          {
+            "kind": "text",
+            "text": "x"
+          }
+        ],
+        "fileChanges": [
+          {
+            "path": "x",
+            "change": "added"
+          }
+        ]
+      }
+    },
+    {
+      "type": "interaction_requested",
+      "interaction": {
+        "id": "x",
+        "runId": "x",
+        "createdAt": 1,
+        "expiresAt": 1,
+        "title": "x",
+        "body": "x",
+        "blocksRun": true,
+        "origin": {
+          "toolCallId": "x",
+          "toolName": "x",
+          "parentToolCallId": "x"
+        },
+        "request": {
+          "kind": "tool_permission",
+          "input": {
+            "text": "x",
+            "list": [
+              1,
+              2.5,
+              true,
+              null
+            ],
+            "nested": {
+              "ok": false
+            }
+          },
+          "inputEditable": true,
+          "reason": "x",
+          "previews": [
+            {
+              "kind": "command",
+              "command": "x",
+              "cwd": "x"
+            }
+          ],
+          "options": [
+            {
+              "id": "x",
+              "label": "x",
+              "effect": "allow",
+              "scope": "once",
+              "stopsRun": true,
+              "message": "none",
+              "rule": "x"
+            }
+          ],
+          "grants": [
+            {
+              "id": "x",
+              "kind": "network",
+              "target": "x"
+            }
+          ],
+          "defaultOptionId": "x",
+          "deliberate": true
+        }
+      }
+    },
+    {
+      "type": "interaction_requested",
+      "interaction": {
+        "id": "x",
+        "createdAt": 1,
+        "title": "x",
+        "blocksRun": false,
+        "request": {
+          "kind": "tool_permission",
+          "inputEditable": false,
+          "previews": [
+            {
+              "kind": "command",
+              "command": "x"
+            }
+          ],
+          "options": [
+            {
+              "id": "x",
+              "label": "x",
+              "effect": "allow",
+              "scope": "once",
+              "stopsRun": false,
+              "message": "none"
+            }
+          ],
+          "grants": [
+            {
+              "id": "x",
+              "kind": "network"
+            }
+          ],
+          "deliberate": false
+        }
+      }
+    },
+    {
+      "type": "interaction_resolved",
+      "interactionId": "x",
+      "reason": "answered"
+    },
+    {
+      "type": "queue_changed",
+      "items": [
+        {
+          "id": "x",
+          "delivery": "steer",
+          "preview": "x",
+          "clientRequestId": "00000000-0000-4000-8000-000000000000"
+        }
+      ]
+    },
+    {
+      "type": "queue_changed",
+      "items": [
+        {
+          "id": "x",
+          "delivery": "steer",
+          "preview": "x"
+        }
+      ]
+    },
+    {
+      "type": "compaction_started",
+      "trigger": "manual"
+    },
+    {
+      "type": "compaction_finished",
+      "outcome": {
+        "kind": "completed",
+        "tokensBefore": 1,
+        "tokensAfter": 1
+      }
+    },
+    {
+      "type": "compaction_finished",
+      "outcome": {
+        "kind": "completed"
+      }
+    },
+    {
+      "type": "retry_scheduled",
+      "attempt": 1,
+      "maxAttempts": 1,
+      "retryAt": 1,
+      "message": "x"
+    },
+    {
+      "type": "retry_scheduled",
+      "attempt": 1,
+      "message": "x"
+    },
+    {
+      "type": "retry_finished",
+      "succeeded": true
+    },
+    {
+      "type": "retry_finished",
+      "succeeded": false
+    },
+    {
+      "type": "usage_updated",
+      "usage": {
+        "inputTokens": 1,
+        "outputTokens": 1,
+        "cacheReadTokens": 1,
+        "cacheWriteTokens": 1,
+        "reasoningTokens": 1,
+        "costUsd": 1.5,
+        "contextTokens": 1,
+        "contextWindow": 1
+      }
+    },
+    {
+      "type": "usage_updated",
+      "usage": {}
+    },
+    {
+      "type": "plan_updated",
+      "plan": {
+        "items": [
+          {
+            "text": "x",
+            "status": "pending"
+          }
+        ],
+        "explanation": "x"
+      }
+    },
+    {
+      "type": "plan_updated",
+      "plan": {
+        "items": [
+          {
+            "text": "x",
+            "status": "pending"
+          }
+        ]
+      }
+    },
+    {
+      "type": "messages_retracted",
+      "messageIds": [
+        "x"
+      ]
+    },
+    {
+      "type": "model_changed",
+      "modelId": "x",
+      "thinking": "x"
+    },
+    {
+      "type": "model_changed"
+    },
+    {
+      "type": "mode_changed",
+      "axis": "x",
+      "value": "x"
+    },
+    {
+      "type": "notice",
+      "level": "info",
+      "text": "x"
+    },
+    {
+      "type": "error",
+      "error": {
+        "code": "auth",
+        "message": "x"
+      },
+      "retryable": true
+    },
+    {
+      "type": "error",
+      "error": {
+        "code": "auth",
+        "message": "x"
+      },
+      "retryable": false
+    },
+    {
+      "type": "extension",
+      "extension": {
+        "kind": "turn_diff",
+        "diff": "x"
+      }
+    },
+    {
+      "type": "session_replaced",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    },
+    {
+      "type": "resynced",
+      "snapshot": {
+        "run": {
+          "runId": "x",
+          "trigger": "prompt",
+          "startedAt": 1,
+          "items": [
+            {
+              "kind": "user_message",
+              "id": "x",
+              "at": 1,
+              "text": "x",
+              "attachments": [
+                {
+                  "kind": "image_ref",
+                  "id": "x",
+                  "mimeType": "x",
+                  "name": "x"
+                }
+              ],
+              "clientRequestId": "00000000-0000-4000-8000-000000000000"
+            }
+          ],
+          "droppedItems": 1
+        },
+        "blocks": [
+          {
+            "blockId": "x",
+            "messageId": "x",
+            "kind": "text",
+            "parentToolCallId": "x",
+            "text": "x"
+          }
+        ],
+        "tools": [
+          {
+            "toolCallId": "x",
+            "name": "x",
+            "title": "x",
+            "input": {
+              "text": "x",
+              "list": [
+                1,
+                2.5,
+                true,
+                null
+              ],
+              "nested": {
+                "ok": false
+              }
+            },
+            "messageId": "x",
+            "parentToolCallId": "x",
+            "childSession": {
+              "backend": "claude-code",
+              "sessionId": "x"
+            },
+            "output": "x",
+            "progress": "x",
+            "fileChanges": [
+              {
+                "path": "x",
+                "change": "added",
+                "previousPath": "x",
+                "diff": "x",
+                "additions": 1,
+                "deletions": 1
+              }
+            ]
+          }
+        ],
+        "interactions": [
+          {
+            "id": "x",
+            "runId": "x",
+            "createdAt": 1,
+            "expiresAt": 1,
+            "title": "x",
+            "body": "x",
+            "blocksRun": true,
+            "origin": {
+              "toolCallId": "x",
+              "toolName": "x",
+              "parentToolCallId": "x"
+            },
+            "request": {
+              "kind": "tool_permission",
+              "input": {
+                "text": "x",
+                "list": [
+                  1,
+                  2.5,
+                  true,
+                  null
+                ],
+                "nested": {
+                  "ok": false
+                }
+              },
+              "inputEditable": true,
+              "reason": "x",
+              "previews": [
+                {
+                  "kind": "command",
+                  "command": "x",
+                  "cwd": "x"
+                }
+              ],
+              "options": [
+                {
+                  "id": "x",
+                  "label": "x",
+                  "effect": "allow",
+                  "scope": "once",
+                  "stopsRun": true,
+                  "message": "none",
+                  "rule": "x"
+                }
+              ],
+              "grants": [
+                {
+                  "id": "x",
+                  "kind": "network",
+                  "target": "x"
+                }
+              ],
+              "defaultOptionId": "x",
+              "deliberate": true
+            }
+          }
+        ],
+        "queue": [
+          {
+            "id": "x",
+            "delivery": "steer",
+            "preview": "x",
+            "clientRequestId": "00000000-0000-4000-8000-000000000000"
+          }
+        ],
+        "modelId": "x",
+        "thinking": "x",
+        "modes": [
+          {
+            "axis": "x",
+            "value": "x"
+          }
+        ],
+        "usage": {
+          "inputTokens": 1,
+          "outputTokens": 1,
+          "cacheReadTokens": 1,
+          "cacheWriteTokens": 1,
+          "reasoningTokens": 1,
+          "costUsd": 1.5,
+          "contextTokens": 1,
+          "contextWindow": 1
+        },
+        "plan": {
+          "items": [
+            {
+              "text": "x",
+              "status": "pending"
+            }
+          ],
+          "explanation": "x"
+        },
+        "compaction": {
+          "trigger": "manual",
+          "startedAt": 1
+        },
+        "retry": {
+          "attempt": 1,
+          "maxAttempts": 1,
+          "retryAt": 1,
+          "message": "x"
+        },
+        "lastOutcome": {
+          "kind": "completed"
+        }
+      }
+    },
+    {
+      "type": "resynced",
+      "snapshot": {
+        "blocks": [
+          {
+            "blockId": "x",
+            "messageId": "x",
+            "kind": "text",
+            "text": "x"
+          }
+        ],
+        "tools": [
+          {
+            "toolCallId": "x",
+            "name": "x",
+            "output": "x",
+            "fileChanges": [
+              {
+                "path": "x",
+                "change": "added"
+              }
+            ]
+          }
+        ],
+        "interactions": [
+          {
+            "id": "x",
+            "createdAt": 1,
+            "title": "x",
+            "blocksRun": false,
+            "request": {
+              "kind": "tool_permission",
+              "inputEditable": false,
+              "previews": [
+                {
+                  "kind": "command",
+                  "command": "x"
+                }
+              ],
+              "options": [
+                {
+                  "id": "x",
+                  "label": "x",
+                  "effect": "allow",
+                  "scope": "once",
+                  "stopsRun": false,
+                  "message": "none"
+                }
+              ],
+              "grants": [
+                {
+                  "id": "x",
+                  "kind": "network"
+                }
+              ],
+              "deliberate": false
+            }
+          }
+        ],
+        "queue": [
+          {
+            "id": "x",
+            "delivery": "steer",
+            "preview": "x"
+          }
+        ],
+        "modes": [
+          {
+            "axis": "x",
+            "value": "x"
+          }
+        ]
+      }
+    }
+  ],
+  "AgentMention": [
+    {
+      "kind": "agent",
+      "name": "x"
+    }
+  ],
+  "AttachSync": [
+    {
+      "kind": "replay",
+      "epoch": "x",
+      "afterSeq": 1
+    },
+    {
+      "kind": "snapshot",
+      "epoch": "x",
+      "lastSeq": 1,
+      "snapshot": {
+        "run": {
+          "runId": "x",
+          "trigger": "prompt",
+          "startedAt": 1,
+          "items": [
+            {
+              "kind": "user_message",
+              "id": "x",
+              "at": 1,
+              "text": "x",
+              "attachments": [
+                {
+                  "kind": "image_ref",
+                  "id": "x",
+                  "mimeType": "x",
+                  "name": "x"
+                }
+              ],
+              "clientRequestId": "00000000-0000-4000-8000-000000000000"
+            }
+          ],
+          "droppedItems": 1
+        },
+        "blocks": [
+          {
+            "blockId": "x",
+            "messageId": "x",
+            "kind": "text",
+            "parentToolCallId": "x",
+            "text": "x"
+          }
+        ],
+        "tools": [
+          {
+            "toolCallId": "x",
+            "name": "x",
+            "title": "x",
+            "input": {
+              "text": "x",
+              "list": [
+                1,
+                2.5,
+                true,
+                null
+              ],
+              "nested": {
+                "ok": false
+              }
+            },
+            "messageId": "x",
+            "parentToolCallId": "x",
+            "childSession": {
+              "backend": "claude-code",
+              "sessionId": "x"
+            },
+            "output": "x",
+            "progress": "x",
+            "fileChanges": [
+              {
+                "path": "x",
+                "change": "added",
+                "previousPath": "x",
+                "diff": "x",
+                "additions": 1,
+                "deletions": 1
+              }
+            ]
+          }
+        ],
+        "interactions": [
+          {
+            "id": "x",
+            "runId": "x",
+            "createdAt": 1,
+            "expiresAt": 1,
+            "title": "x",
+            "body": "x",
+            "blocksRun": true,
+            "origin": {
+              "toolCallId": "x",
+              "toolName": "x",
+              "parentToolCallId": "x"
+            },
+            "request": {
+              "kind": "tool_permission",
+              "input": {
+                "text": "x",
+                "list": [
+                  1,
+                  2.5,
+                  true,
+                  null
+                ],
+                "nested": {
+                  "ok": false
+                }
+              },
+              "inputEditable": true,
+              "reason": "x",
+              "previews": [
+                {
+                  "kind": "command",
+                  "command": "x",
+                  "cwd": "x"
+                }
+              ],
+              "options": [
+                {
+                  "id": "x",
+                  "label": "x",
+                  "effect": "allow",
+                  "scope": "once",
+                  "stopsRun": true,
+                  "message": "none",
+                  "rule": "x"
+                }
+              ],
+              "grants": [
+                {
+                  "id": "x",
+                  "kind": "network",
+                  "target": "x"
+                }
+              ],
+              "defaultOptionId": "x",
+              "deliberate": true
+            }
+          }
+        ],
+        "queue": [
+          {
+            "id": "x",
+            "delivery": "steer",
+            "preview": "x",
+            "clientRequestId": "00000000-0000-4000-8000-000000000000"
+          }
+        ],
+        "modelId": "x",
+        "thinking": "x",
+        "modes": [
+          {
+            "axis": "x",
+            "value": "x"
+          }
+        ],
+        "usage": {
+          "inputTokens": 1,
+          "outputTokens": 1,
+          "cacheReadTokens": 1,
+          "cacheWriteTokens": 1,
+          "reasoningTokens": 1,
+          "costUsd": 1.5,
+          "contextTokens": 1,
+          "contextWindow": 1
+        },
+        "plan": {
+          "items": [
+            {
+              "text": "x",
+              "status": "pending"
+            }
+          ],
+          "explanation": "x"
+        },
+        "compaction": {
+          "trigger": "manual",
+          "startedAt": 1
+        },
+        "retry": {
+          "attempt": 1,
+          "maxAttempts": 1,
+          "retryAt": 1,
+          "message": "x"
+        },
+        "lastOutcome": {
+          "kind": "completed"
+        }
+      }
+    },
+    {
+      "kind": "snapshot",
+      "epoch": "x",
+      "lastSeq": 1,
+      "snapshot": {
+        "blocks": [
+          {
+            "blockId": "x",
+            "messageId": "x",
+            "kind": "text",
+            "text": "x"
+          }
+        ],
+        "tools": [
+          {
+            "toolCallId": "x",
+            "name": "x",
+            "output": "x",
+            "fileChanges": [
+              {
+                "path": "x",
+                "change": "added"
+              }
+            ]
+          }
+        ],
+        "interactions": [
+          {
+            "id": "x",
+            "createdAt": 1,
+            "title": "x",
+            "blocksRun": false,
+            "request": {
+              "kind": "tool_permission",
+              "inputEditable": false,
+              "previews": [
+                {
+                  "kind": "command",
+                  "command": "x"
+                }
+              ],
+              "options": [
+                {
+                  "id": "x",
+                  "label": "x",
+                  "effect": "allow",
+                  "scope": "once",
+                  "stopsRun": false,
+                  "message": "none"
+                }
+              ],
+              "grants": [
+                {
+                  "id": "x",
+                  "kind": "network"
+                }
+              ],
+              "deliberate": false
+            }
+          }
+        ],
+        "queue": [
+          {
+            "id": "x",
+            "delivery": "steer",
+            "preview": "x"
+          }
+        ],
+        "modes": [
+          {
+            "axis": "x",
+            "value": "x"
+          }
+        ]
+      }
+    }
+  ],
+  "Attachment": [
+    {
+      "kind": "image",
+      "mimeType": "x",
+      "data": "x",
+      "name": "x"
+    },
+    {
+      "kind": "image",
+      "mimeType": "x",
+      "data": "x"
+    },
+    {
+      "kind": "file",
+      "uri": "x",
+      "mimeType": "x",
+      "name": "x"
+    },
+    {
+      "kind": "file",
+      "uri": "x"
+    }
+  ],
+  "AttachmentId": [
+    "x"
+  ],
+  "AttachmentKind": [
+    "image",
+    "file"
+  ],
+  "AttachmentRead": [
+    {
+      "status": "accepted",
+      "image": {
+        "kind": "image",
+        "mimeType": "x",
+        "data": "x",
+        "name": "x"
+      }
+    },
+    {
+      "status": "accepted",
+      "image": {
+        "kind": "image",
+        "mimeType": "x",
+        "data": "x"
+      }
+    }
+  ],
+  "AttachmentReadRequest": [
+    {
+      "type": "attachment.read",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "attachmentId": "x"
+    }
+  ],
+  "AttachmentReadResponse": [
+    {
+      "type": "attachment.read.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "image": {
+          "kind": "image",
+          "mimeType": "x",
+          "data": "x",
+          "name": "x"
+        }
+      }
+    },
+    {
+      "type": "attachment.read.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "image": {
+          "kind": "image",
+          "mimeType": "x",
+          "data": "x"
+        }
+      }
+    }
+  ],
+  "AttachmentReadResult": [
+    {
+      "status": "accepted",
+      "image": {
+        "kind": "image",
+        "mimeType": "x",
+        "data": "x",
+        "name": "x"
+      }
+    },
+    {
+      "status": "accepted",
+      "image": {
+        "kind": "image",
+        "mimeType": "x",
+        "data": "x"
+      }
+    },
+    {
+      "status": "rejected",
+      "rejection": {
+        "code": "busy",
+        "message": "x"
+      }
+    }
+  ],
+  "AttachmentRef": [
+    {
+      "kind": "image_ref",
+      "id": "x",
+      "mimeType": "x",
+      "name": "x"
+    },
+    {
+      "kind": "image_ref",
+      "id": "x",
+      "mimeType": "x"
+    },
+    {
+      "kind": "file",
+      "uri": "x",
+      "mimeType": "x",
+      "name": "x"
+    },
+    {
+      "kind": "file",
+      "uri": "x"
+    }
+  ],
+  "AuthState": [
+    "signed_in",
+    "signed_out",
+    "unknown"
+  ],
+  "BackendCall": [
+    {
+      "backend": "claude-code",
+      "op": {
+        "kind": "rewind_files",
+        "sessionId": "x",
+        "userItemId": "x",
+        "dryRun": true
+      }
+    },
+    {
+      "backend": "claude-code",
+      "op": {
+        "kind": "rewind_files",
+        "sessionId": "x",
+        "userItemId": "x",
+        "dryRun": false
+      }
+    },
+    {
+      "backend": "codex",
+      "op": {
+        "kind": "review_start",
+        "sessionId": "x",
+        "target": {
+          "kind": "uncommitted"
+        }
+      }
+    },
+    {
+      "backend": "opencode",
+      "op": {
+        "kind": "revert_stage",
+        "sessionId": "x",
+        "itemId": "x",
+        "restoreFiles": true
+      }
+    },
+    {
+      "backend": "opencode",
+      "op": {
+        "kind": "revert_stage",
+        "sessionId": "x",
+        "itemId": "x",
+        "restoreFiles": false
+      }
+    },
+    {
+      "backend": "pi",
+      "op": {
+        "kind": "navigate_tree",
+        "sessionId": "x",
+        "itemId": "x",
+        "summarize": true
+      }
+    },
+    {
+      "backend": "pi",
+      "op": {
+        "kind": "navigate_tree",
+        "sessionId": "x",
+        "itemId": "x",
+        "summarize": false
+      }
+    }
+  ],
+  "BackendCallAccepted": [
+    {
+      "status": "accepted",
+      "result": {
+        "kind": "rewind_files",
+        "canRewind": true,
+        "filesChanged": [
+          "x"
+        ],
+        "insertions": 1,
+        "deletions": 1,
+        "skippedLinks": 1,
+        "error": "x"
+      }
+    },
+    {
+      "status": "accepted",
+      "result": {
+        "kind": "rewind_files",
+        "canRewind": false
+      }
+    }
+  ],
+  "BackendCallRequest": [
+    {
+      "type": "backend.call",
+      "requestId": "x",
+      "call": {
+        "backend": "claude-code",
+        "op": {
+          "kind": "rewind_files",
+          "sessionId": "x",
+          "userItemId": "x",
+          "dryRun": true
+        }
+      }
+    },
+    {
+      "type": "backend.call",
+      "requestId": "x",
+      "call": {
+        "backend": "claude-code",
+        "op": {
+          "kind": "rewind_files",
+          "sessionId": "x",
+          "userItemId": "x",
+          "dryRun": false
+        }
+      }
+    }
+  ],
+  "BackendCallResponse": [
+    {
+      "type": "backend.call.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "result": {
+          "kind": "rewind_files",
+          "canRewind": true,
+          "filesChanged": [
+            "x"
+          ],
+          "insertions": 1,
+          "deletions": 1,
+          "skippedLinks": 1,
+          "error": "x"
+        }
+      }
+    },
+    {
+      "type": "backend.call.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "result": {
+          "kind": "rewind_files",
+          "canRewind": false
+        }
+      }
+    }
+  ],
+  "BackendCallResult": [
+    {
+      "status": "accepted",
+      "result": {
+        "kind": "rewind_files",
+        "canRewind": true,
+        "filesChanged": [
+          "x"
+        ],
+        "insertions": 1,
+        "deletions": 1,
+        "skippedLinks": 1,
+        "error": "x"
+      }
+    },
+    {
+      "status": "accepted",
+      "result": {
+        "kind": "rewind_files",
+        "canRewind": false
+      }
+    },
+    {
+      "status": "rejected",
+      "rejection": {
+        "code": "busy",
+        "message": "x"
+      }
+    }
+  ],
+  "BackendDescriptor": [
+    {
+      "id": "claude-code",
+      "capabilities": {
+        "streamText": true,
+        "streamThinking": true,
+        "promptModes": [
+          "start"
+        ],
+        "attachments": [
+          "image"
+        ],
+        "mentions": [
+          "file"
+        ],
+        "commands": true,
+        "queue": true,
+        "interactions": [
+          "tool_permission"
+        ],
+        "modelSwitch": "next_request",
+        "thinking": true,
+        "children": true,
+        "usage": true,
+        "plan": true,
+        "planProposals": true,
+        "externalLive": true,
+        "durableRuns": true,
+        "extensions": [
+          "turn_diff"
+        ],
+        "backendOps": [
+          "rewind_files"
+        ],
+        "fork": true,
+        "rename": true,
+        "delete": true,
+        "archive": true
+      }
+    },
+    {
+      "id": "claude-code",
+      "capabilities": {
+        "streamText": false,
+        "streamThinking": false,
+        "promptModes": [
+          "start"
+        ],
+        "attachments": [
+          "image"
+        ],
+        "mentions": [
+          "file"
+        ],
+        "commands": false,
+        "queue": false,
+        "interactions": [
+          "tool_permission"
+        ],
+        "modelSwitch": "next_request",
+        "thinking": false,
+        "children": false,
+        "usage": false,
+        "plan": false,
+        "planProposals": false,
+        "externalLive": false,
+        "durableRuns": false,
+        "extensions": [
+          "turn_diff"
+        ],
+        "backendOps": [
+          "rewind_files"
+        ],
+        "fork": false,
+        "rename": false,
+        "delete": false,
+        "archive": false
+      }
+    }
+  ],
+  "BackendExtension": [
+    {
+      "kind": "turn_diff",
+      "diff": "x"
+    },
+    {
+      "kind": "rate_limit",
+      "window": "x",
+      "status": "allowed",
+      "usedPercent": 1.5,
+      "resetsAt": 1
+    },
+    {
+      "kind": "rate_limit",
+      "window": "x"
+    }
+  ],
+  "BackendId": [
+    "claude-code",
+    "codex",
+    "opencode",
+    "pi",
+    "pi-durable"
+  ],
+  "BackendOpKind": [
+    "rewind_files",
+    "review_start",
+    "revert",
+    "revert_stage",
+    "revert_clear",
+    "revert_commit",
+    "navigate_tree"
+  ],
+  "BackendOpResult": [
+    {
+      "kind": "rewind_files",
+      "canRewind": true,
+      "filesChanged": [
+        "x"
+      ],
+      "insertions": 1,
+      "deletions": 1,
+      "skippedLinks": 1,
+      "error": "x"
+    },
+    {
+      "kind": "rewind_files",
+      "canRewind": false
+    },
+    {
+      "kind": "review_start"
+    },
+    {
+      "kind": "revert"
+    },
+    {
+      "kind": "revert_stage",
+      "files": [
+        {
+          "path": "x",
+          "change": "added",
+          "previousPath": "x",
+          "diff": "x",
+          "additions": 1,
+          "deletions": 1
+        }
+      ]
+    },
+    {
+      "kind": "revert_stage",
+      "files": [
+        {
+          "path": "x",
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "kind": "revert_clear"
+    },
+    {
+      "kind": "revert_commit"
+    },
+    {
+      "kind": "navigate_tree"
+    }
+  ],
+  "BackendStatus": [
+    {
+      "installed": true,
+      "version": "x",
+      "auth": "signed_in",
+      "usable": true,
+      "issues": [
+        {
+          "severity": "warning",
+          "message": "x"
+        }
+      ]
+    },
+    {
+      "installed": false,
+      "auth": "signed_in",
+      "usable": false,
+      "issues": [
+        {
+          "severity": "warning",
+          "message": "x"
+        }
+      ]
+    }
+  ],
+  "BackendStatusRequest": [
+    {
+      "type": "backend.status",
+      "requestId": "x",
+      "backend": "claude-code"
+    }
+  ],
+  "BackendStatusResponse": [
+    {
+      "type": "backend.status.result",
+      "requestId": "x",
+      "status": {
+        "installed": true,
+        "version": "x",
+        "auth": "signed_in",
+        "usable": true,
+        "issues": [
+          {
+            "severity": "warning",
+            "message": "x"
+          }
+        ]
+      }
+    },
+    {
+      "type": "backend.status.result",
+      "requestId": "x",
+      "status": {
+        "installed": false,
+        "auth": "signed_in",
+        "usable": false,
+        "issues": [
+          {
+            "severity": "warning",
+            "message": "x"
+          }
+        ]
+      }
+    }
+  ],
+  "BackendsListRequest": [
+    {
+      "type": "backends.list",
+      "requestId": "x"
+    }
+  ],
+  "BackendsListResponse": [
+    {
+      "type": "backends.list.result",
+      "requestId": "x",
+      "backends": [
+        {
+          "id": "claude-code",
+          "capabilities": {
+            "streamText": true,
+            "streamThinking": true,
+            "promptModes": [
+              "start"
+            ],
+            "attachments": [
+              "image"
+            ],
+            "mentions": [
+              "file"
+            ],
+            "commands": true,
+            "queue": true,
+            "interactions": [
+              "tool_permission"
+            ],
+            "modelSwitch": "next_request",
+            "thinking": true,
+            "children": true,
+            "usage": true,
+            "plan": true,
+            "planProposals": true,
+            "externalLive": true,
+            "durableRuns": true,
+            "extensions": [
+              "turn_diff"
+            ],
+            "backendOps": [
+              "rewind_files"
+            ],
+            "fork": true,
+            "rename": true,
+            "delete": true,
+            "archive": true
+          }
+        }
+      ]
+    },
+    {
+      "type": "backends.list.result",
+      "requestId": "x",
+      "backends": [
+        {
+          "id": "claude-code",
+          "capabilities": {
+            "streamText": false,
+            "streamThinking": false,
+            "promptModes": [
+              "start"
+            ],
+            "attachments": [
+              "image"
+            ],
+            "mentions": [
+              "file"
+            ],
+            "commands": false,
+            "queue": false,
+            "interactions": [
+              "tool_permission"
+            ],
+            "modelSwitch": "next_request",
+            "thinking": false,
+            "children": false,
+            "usage": false,
+            "plan": false,
+            "planProposals": false,
+            "externalLive": false,
+            "durableRuns": false,
+            "extensions": [
+              "turn_diff"
+            ],
+            "backendOps": [
+              "rewind_files"
+            ],
+            "fork": false,
+            "rename": false,
+            "delete": false,
+            "archive": false
+          }
+        }
+      ]
+    }
+  ],
+  "BaseBranchReview": [
+    {
+      "kind": "base_branch",
+      "branch": "x"
+    }
+  ],
+  "BlockDeltaEvent": [
+    {
+      "type": "block_delta",
+      "blockId": "x",
+      "text": "x"
+    }
+  ],
+  "BlockFinishedEvent": [
+    {
+      "type": "block_finished",
+      "blockId": "x",
+      "text": "x"
+    }
+  ],
+  "BlockId": [
+    "x"
+  ],
+  "BlockItem": [
+    {
+      "kind": "block",
+      "id": "x",
+      "at": 1,
+      "messageId": "x",
+      "block": "text",
+      "text": "x",
+      "parentToolCallId": "x"
+    },
+    {
+      "kind": "block",
+      "id": "x",
+      "messageId": "x",
+      "block": "text",
+      "text": "x"
+    }
+  ],
+  "BlockKind": [
+    "text",
+    "thinking",
+    "plan"
+  ],
+  "BlockStartedEvent": [
+    {
+      "type": "block_started",
+      "blockId": "x",
+      "messageId": "x",
+      "kind": "text",
+      "parentToolCallId": "x"
+    },
+    {
+      "type": "block_started",
+      "blockId": "x",
+      "messageId": "x",
+      "kind": "text"
+    }
+  ],
+  "BooleanField": [
+    {
+      "kind": "boolean",
+      "key": "x",
+      "title": "x",
+      "description": "x",
+      "required": true,
+      "hidden": true,
+      "when": [
+        {
+          "key": "x",
+          "op": "eq",
+          "value": {
+            "kind": "text",
+            "value": "x"
+          }
+        }
+      ],
+      "defaultValue": true
+    },
+    {
+      "kind": "boolean",
+      "key": "x",
+      "required": false,
+      "hidden": false,
+      "when": [
+        {
+          "key": "x",
+          "op": "eq",
+          "value": {
+            "kind": "text",
+            "value": "x"
+          }
+        }
+      ]
+    }
+  ],
+  "BooleanValue": [
+    {
+      "kind": "boolean",
+      "value": true
+    },
+    {
+      "kind": "boolean",
+      "value": false
+    }
+  ],
+  "CancelReply": [
+    {
+      "kind": "cancel",
+      "stopRun": true,
+      "message": "x"
+    },
+    {
+      "kind": "cancel",
+      "stopRun": false
+    }
+  ],
+  "Capabilities": [
+    {
+      "streamText": true,
+      "streamThinking": true,
+      "promptModes": [
+        "start"
+      ],
+      "attachments": [
+        "image"
+      ],
+      "mentions": [
+        "file"
+      ],
+      "commands": true,
+      "queue": true,
+      "interactions": [
+        "tool_permission"
+      ],
+      "modelSwitch": "next_request",
+      "thinking": true,
+      "children": true,
+      "usage": true,
+      "plan": true,
+      "planProposals": true,
+      "externalLive": true,
+      "durableRuns": true,
+      "extensions": [
+        "turn_diff"
+      ],
+      "backendOps": [
+        "rewind_files"
+      ],
+      "fork": true,
+      "rename": true,
+      "delete": true,
+      "archive": true
+    },
+    {
+      "streamText": false,
+      "streamThinking": false,
+      "promptModes": [
+        "start"
+      ],
+      "attachments": [
+        "image"
+      ],
+      "mentions": [
+        "file"
+      ],
+      "commands": false,
+      "queue": false,
+      "interactions": [
+        "tool_permission"
+      ],
+      "modelSwitch": "next_request",
+      "thinking": false,
+      "children": false,
+      "usage": false,
+      "plan": false,
+      "planProposals": false,
+      "externalLive": false,
+      "durableRuns": false,
+      "extensions": [
+        "turn_diff"
+      ],
+      "backendOps": [
+        "rewind_files"
+      ],
+      "fork": false,
+      "rename": false,
+      "delete": false,
+      "archive": false
+    }
+  ],
+  "CatalogEvent": [
+    {
+      "type": "session_updated",
+      "summary": {
+        "session": {
+          "backend": "claude-code",
+          "sessionId": "x"
+        },
+        "title": {
+          "text": "x",
+          "source": "user"
+        },
+        "cwd": "x",
+        "createdAt": 1,
+        "updatedAt": 1,
+        "parent": {
+          "kind": "fork",
+          "session": {
+            "backend": "claude-code",
+            "sessionId": "x"
+          }
+        },
+        "archived": true,
+        "modelId": "x",
+        "status": "idle",
+        "origin": "broski",
+        "source": "x"
+      }
+    },
+    {
+      "type": "session_updated",
+      "summary": {
+        "session": {
+          "backend": "claude-code",
+          "sessionId": "x"
+        },
+        "updatedAt": 1,
+        "archived": false,
+        "status": "idle",
+        "origin": "broski"
+      }
+    },
+    {
+      "type": "session_removed",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    },
+    {
+      "type": "status_changed",
+      "status": {
+        "installed": true,
+        "version": "x",
+        "auth": "signed_in",
+        "usable": true,
+        "issues": [
+          {
+            "severity": "warning",
+            "message": "x"
+          }
+        ]
+      }
+    },
+    {
+      "type": "status_changed",
+      "status": {
+        "installed": false,
+        "auth": "signed_in",
+        "usable": false,
+        "issues": [
+          {
+            "severity": "warning",
+            "message": "x"
+          }
+        ]
+      }
+    },
+    {
+      "type": "catalog_invalidated",
+      "scope": "models"
+    },
+    {
+      "type": "transcript_invalidated",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    }
+  ],
+  "CatalogInvalidatedEvent": [
+    {
+      "type": "catalog_invalidated",
+      "scope": "models"
+    }
+  ],
+  "CatalogMessage": [
+    {
+      "type": "catalog",
+      "backend": "claude-code",
+      "event": {
+        "type": "session_updated",
+        "summary": {
+          "session": {
+            "backend": "claude-code",
+            "sessionId": "x"
+          },
+          "title": {
+            "text": "x",
+            "source": "user"
+          },
+          "cwd": "x",
+          "createdAt": 1,
+          "updatedAt": 1,
+          "parent": {
+            "kind": "fork",
+            "session": {
+              "backend": "claude-code",
+              "sessionId": "x"
+            }
+          },
+          "archived": true,
+          "modelId": "x",
+          "status": "idle",
+          "origin": "broski",
+          "source": "x"
+        }
+      }
+    },
+    {
+      "type": "catalog",
+      "backend": "claude-code",
+      "event": {
+        "type": "session_updated",
+        "summary": {
+          "session": {
+            "backend": "claude-code",
+            "sessionId": "x"
+          },
+          "updatedAt": 1,
+          "archived": false,
+          "status": "idle",
+          "origin": "broski"
+        }
+      }
+    }
+  ],
+  "CatalogScope": [
+    "models",
+    "commands",
+    "modes"
+  ],
+  "ChoiceReply": [
+    {
+      "kind": "choice",
+      "value": "x"
+    }
+  ],
+  "ChoiceRequest": [
+    {
+      "kind": "choice",
+      "options": [
+        {
+          "value": "x",
+          "label": "x",
+          "description": "x"
+        }
+      ]
+    },
+    {
+      "kind": "choice",
+      "options": [
+        {
+          "value": "x",
+          "label": "x"
+        }
+      ]
+    }
+  ],
+  "ChoicesValue": [
+    {
+      "kind": "choices",
+      "values": [
+        "x"
+      ]
+    }
+  ],
+  "ClaudeCodeCall": [
+    {
+      "backend": "claude-code",
+      "op": {
+        "kind": "rewind_files",
+        "sessionId": "x",
+        "userItemId": "x",
+        "dryRun": true
+      }
+    },
+    {
+      "backend": "claude-code",
+      "op": {
+        "kind": "rewind_files",
+        "sessionId": "x",
+        "userItemId": "x",
+        "dryRun": false
+      }
+    }
+  ],
+  "ClaudeCodeOp": [
+    {
+      "kind": "rewind_files",
+      "sessionId": "x",
+      "userItemId": "x",
+      "dryRun": true
+    },
+    {
+      "kind": "rewind_files",
+      "sessionId": "x",
+      "userItemId": "x",
+      "dryRun": false
+    }
+  ],
+  "ClientInfo": [
+    {
+      "name": "x",
+      "version": "x"
+    }
+  ],
+  "ClientMessage": [
+    {
+      "type": "hello",
+      "requestId": "x",
+      "protocol": {
+        "major": 1,
+        "minor": 1
+      },
+      "client": {
+        "name": "x",
+        "version": "x"
+      }
+    },
+    {
+      "type": "backends.list",
+      "requestId": "x"
+    },
+    {
+      "type": "backend.status",
+      "requestId": "x",
+      "backend": "claude-code"
+    },
+    {
+      "type": "models.list",
+      "requestId": "x",
+      "backend": "claude-code",
+      "cwd": "x"
+    },
+    {
+      "type": "models.list",
+      "requestId": "x",
+      "backend": "claude-code"
+    },
+    {
+      "type": "commands.list",
+      "requestId": "x",
+      "backend": "claude-code",
+      "cwd": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    },
+    {
+      "type": "commands.list",
+      "requestId": "x",
+      "backend": "claude-code"
+    },
+    {
+      "type": "modes.list",
+      "requestId": "x",
+      "backend": "claude-code",
+      "cwd": "x"
+    },
+    {
+      "type": "modes.list",
+      "requestId": "x",
+      "backend": "claude-code"
+    },
+    {
+      "type": "sessions.list",
+      "requestId": "x",
+      "backend": "claude-code",
+      "query": {
+        "cwd": "x",
+        "archived": true,
+        "parent": {
+          "backend": "claude-code",
+          "sessionId": "x"
+        }
+      },
+      "page": {
+        "cursor": "x",
+        "limit": 1
+      }
+    },
+    {
+      "type": "sessions.list",
+      "requestId": "x",
+      "backend": "claude-code",
+      "query": {
+        "archived": false
+      },
+      "page": {
+        "limit": 1
+      }
+    },
+    {
+      "type": "session.get",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    },
+    {
+      "type": "session.create",
+      "requestId": "x",
+      "backend": "claude-code",
+      "options": {
+        "cwd": "x",
+        "modelId": "x",
+        "thinking": "x",
+        "modes": [
+          {
+            "axis": "x",
+            "value": "x"
+          }
+        ]
+      }
+    },
+    {
+      "type": "session.create",
+      "requestId": "x",
+      "backend": "claude-code",
+      "options": {
+        "cwd": "x"
+      }
+    },
+    {
+      "type": "session.fork",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "at": {
+        "itemId": "x",
+        "position": "before"
+      }
+    },
+    {
+      "type": "session.fork",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    },
+    {
+      "type": "session.rename",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "title": "x"
+    },
+    {
+      "type": "session.delete",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    },
+    {
+      "type": "session.archive",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "archived": true
+    },
+    {
+      "type": "session.archive",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "archived": false
+    },
+    {
+      "type": "session.attach",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "resume": {
+        "epoch": "x",
+        "seq": 1
+      }
+    },
+    {
+      "type": "session.attach",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    },
+    {
+      "type": "session.detach",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    },
+    {
+      "type": "transcript.read",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "page": {
+        "cursor": "x",
+        "limit": 1
+      }
+    },
+    {
+      "type": "transcript.read",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "page": {
+        "limit": 1
+      }
+    },
+    {
+      "type": "attachment.read",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "attachmentId": "x"
+    },
+    {
+      "type": "prompt",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "input": {
+        "clientRequestId": "00000000-0000-4000-8000-000000000000",
+        "mode": "start",
+        "text": "x",
+        "attachments": [
+          {
+            "kind": "image",
+            "mimeType": "x",
+            "data": "x",
+            "name": "x"
+          }
+        ],
+        "mentions": [
+          {
+            "kind": "file",
+            "path": "x"
+          }
+        ],
+        "command": "x"
+      }
+    },
+    {
+      "type": "prompt",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "input": {
+        "clientRequestId": "00000000-0000-4000-8000-000000000000",
+        "mode": "start",
+        "text": "x",
+        "attachments": [
+          {
+            "kind": "image",
+            "mimeType": "x",
+            "data": "x"
+          }
+        ],
+        "mentions": [
+          {
+            "kind": "file",
+            "path": "x"
+          }
+        ]
+      }
+    },
+    {
+      "type": "abort",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    },
+    {
+      "type": "interaction.answer",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "answer": {
+        "interactionId": "x",
+        "reply": {
+          "kind": "tool_permission",
+          "optionId": "x",
+          "message": "x",
+          "editedInput": {
+            "text": "x",
+            "list": [
+              1,
+              2.5,
+              true,
+              null
+            ],
+            "nested": {
+              "ok": false
+            }
+          },
+          "grantIds": [
+            "x"
+          ]
+        }
+      }
+    },
+    {
+      "type": "interaction.answer",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "answer": {
+        "interactionId": "x",
+        "reply": {
+          "kind": "tool_permission",
+          "optionId": "x",
+          "grantIds": [
+            "x"
+          ]
+        }
+      }
+    },
+    {
+      "type": "queue.cancel",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "queueItemId": "x"
+    },
+    {
+      "type": "model.set",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "modelId": "x"
+    },
+    {
+      "type": "thinking.set",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "thinking": "x"
+    },
+    {
+      "type": "mode.set",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "axis": "x",
+      "value": "x"
+    },
+    {
+      "type": "compact",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "instructions": "x"
+    },
+    {
+      "type": "compact",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    },
+    {
+      "type": "backend.call",
+      "requestId": "x",
+      "call": {
+        "backend": "claude-code",
+        "op": {
+          "kind": "rewind_files",
+          "sessionId": "x",
+          "userItemId": "x",
+          "dryRun": true
+        }
+      }
+    },
+    {
+      "type": "backend.call",
+      "requestId": "x",
+      "call": {
+        "backend": "claude-code",
+        "op": {
+          "kind": "rewind_files",
+          "sessionId": "x",
+          "userItemId": "x",
+          "dryRun": false
+        }
+      }
+    }
+  ],
+  "ClientRequestId": [
+    "00000000-0000-4000-8000-000000000000"
+  ],
+  "CodexCall": [
+    {
+      "backend": "codex",
+      "op": {
+        "kind": "review_start",
+        "sessionId": "x",
+        "target": {
+          "kind": "uncommitted"
+        }
+      }
+    }
+  ],
+  "CodexOp": [
+    {
+      "kind": "review_start",
+      "sessionId": "x",
+      "target": {
+        "kind": "uncommitted"
+      }
+    },
+    {
+      "kind": "revert",
+      "sessionId": "x",
+      "beforeItemId": "x"
+    }
+  ],
+  "CodexTurnDiff": [
+    {
+      "kind": "turn_diff",
+      "diff": "x"
+    }
+  ],
+  "CommandId": [
+    "x"
+  ],
+  "CommandKind": [
+    "command",
+    "skill",
+    "prompt"
+  ],
+  "CommandPreview": [
+    {
+      "kind": "command",
+      "command": "x",
+      "cwd": "x"
+    },
+    {
+      "kind": "command",
+      "command": "x"
+    }
+  ],
+  "CommandSummary": [
+    {
+      "id": "x",
+      "name": "x",
+      "kind": "command",
+      "description": "x",
+      "argumentHint": "x"
+    },
+    {
+      "id": "x",
+      "name": "x",
+      "kind": "command"
+    }
+  ],
+  "CommandsListRequest": [
+    {
+      "type": "commands.list",
+      "requestId": "x",
+      "backend": "claude-code",
+      "cwd": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    },
+    {
+      "type": "commands.list",
+      "requestId": "x",
+      "backend": "claude-code"
+    }
+  ],
+  "CommandsListResponse": [
+    {
+      "type": "commands.list.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "commands": [
+          {
+            "id": "x",
+            "name": "x",
+            "kind": "command",
+            "description": "x",
+            "argumentHint": "x"
+          }
+        ]
+      }
+    },
+    {
+      "type": "commands.list.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "commands": [
+          {
+            "id": "x",
+            "name": "x",
+            "kind": "command"
+          }
+        ]
+      }
+    }
+  ],
+  "CommandsListResult": [
+    {
+      "status": "accepted",
+      "commands": [
+        {
+          "id": "x",
+          "name": "x",
+          "kind": "command",
+          "description": "x",
+          "argumentHint": "x"
+        }
+      ]
+    },
+    {
+      "status": "accepted",
+      "commands": [
+        {
+          "id": "x",
+          "name": "x",
+          "kind": "command"
+        }
+      ]
+    },
+    {
+      "status": "rejected",
+      "rejection": {
+        "code": "busy",
+        "message": "x"
+      }
+    }
+  ],
+  "CommandsListed": [
+    {
+      "status": "accepted",
+      "commands": [
+        {
+          "id": "x",
+          "name": "x",
+          "kind": "command",
+          "description": "x",
+          "argumentHint": "x"
+        }
+      ]
+    },
+    {
+      "status": "accepted",
+      "commands": [
+        {
+          "id": "x",
+          "name": "x",
+          "kind": "command"
+        }
+      ]
+    }
+  ],
+  "CommitReview": [
+    {
+      "kind": "commit",
+      "sha": "x",
+      "title": "x"
+    },
+    {
+      "kind": "commit",
+      "sha": "x"
+    }
+  ],
+  "CompactRequest": [
+    {
+      "type": "compact",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "instructions": "x"
+    },
+    {
+      "type": "compact",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    }
+  ],
+  "CompactResponse": [
+    {
+      "type": "compact.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    }
+  ],
+  "CompactionAborted": [
+    {
+      "kind": "aborted"
+    }
+  ],
+  "CompactionCompleted": [
+    {
+      "kind": "completed",
+      "tokensBefore": 1,
+      "tokensAfter": 1
+    },
+    {
+      "kind": "completed"
+    }
+  ],
+  "CompactionFailed": [
+    {
+      "kind": "failed",
+      "message": "x"
+    }
+  ],
+  "CompactionFinishedEvent": [
+    {
+      "type": "compaction_finished",
+      "outcome": {
+        "kind": "completed",
+        "tokensBefore": 1,
+        "tokensAfter": 1
+      }
+    },
+    {
+      "type": "compaction_finished",
+      "outcome": {
+        "kind": "completed"
+      }
+    }
+  ],
+  "CompactionItem": [
+    {
+      "kind": "compaction",
+      "id": "x",
+      "at": 1,
+      "trigger": "manual",
+      "summary": "x",
+      "tokensBefore": 1,
+      "tokensAfter": 1
+    },
+    {
+      "kind": "compaction",
+      "id": "x"
+    }
+  ],
+  "CompactionOutcome": [
+    {
+      "kind": "completed",
+      "tokensBefore": 1,
+      "tokensAfter": 1
+    },
+    {
+      "kind": "completed"
+    },
+    {
+      "kind": "failed",
+      "message": "x"
+    },
+    {
+      "kind": "aborted"
+    }
+  ],
+  "CompactionStartedEvent": [
+    {
+      "type": "compaction_started",
+      "trigger": "manual"
+    }
+  ],
+  "CompactionState": [
+    {
+      "trigger": "manual",
+      "startedAt": 1
+    }
+  ],
+  "CompactionTrigger": [
+    "manual",
+    "auto",
+    "overflow"
+  ],
+  "ConditionOperator": [
+    "eq",
+    "neq"
+  ],
+  "ConfirmReply": [
+    {
+      "kind": "confirm",
+      "confirmed": true
+    },
+    {
+      "kind": "confirm",
+      "confirmed": false
+    }
+  ],
+  "ConfirmRequest": [
+    {
+      "kind": "confirm"
+    }
+  ],
+  "CustomReview": [
+    {
+      "kind": "custom",
+      "instructions": "x"
+    }
+  ],
+  "ErrorCode": [
+    "auth",
+    "rate_limit",
+    "quota",
+    "context_overflow",
+    "model_unavailable",
+    "content_filter",
+    "network",
+    "server",
+    "tool",
+    "invalid_request",
+    "backend_unavailable",
+    "unknown"
+  ],
+  "ErrorEvent": [
+    {
+      "type": "error",
+      "error": {
+        "code": "auth",
+        "message": "x"
+      },
+      "retryable": true
+    },
+    {
+      "type": "error",
+      "error": {
+        "code": "auth",
+        "message": "x"
+      },
+      "retryable": false
+    }
+  ],
+  "ErrorInfo": [
+    {
+      "code": "auth",
+      "message": "x"
+    }
+  ],
+  "ErrorResponse": [
+    {
+      "type": "error",
+      "requestId": "x",
+      "error": {
+        "code": "invalid_message",
+        "message": "x"
+      }
+    },
+    {
+      "type": "error",
+      "error": {
+        "code": "invalid_message",
+        "message": "x"
+      }
+    }
+  ],
+  "EventEnvelope": [
+    {
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "seq": 1,
+      "at": 1,
+      "event": {
+        "type": "run_started",
+        "runId": "x",
+        "trigger": "prompt"
+      },
+      "native": {
+        "key": "x"
+      }
+    },
+    {
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "seq": 1,
+      "at": 1,
+      "event": {
+        "type": "run_started",
+        "runId": "x",
+        "trigger": "prompt"
+      }
+    }
+  ],
+  "EventMessage": [
+    {
+      "type": "event",
+      "envelope": {
+        "session": {
+          "backend": "claude-code",
+          "sessionId": "x"
+        },
+        "seq": 1,
+        "at": 1,
+        "event": {
+          "type": "run_started",
+          "runId": "x",
+          "trigger": "prompt"
+        },
+        "native": {
+          "key": "x"
+        }
+      }
+    },
+    {
+      "type": "event",
+      "envelope": {
+        "session": {
+          "backend": "claude-code",
+          "sessionId": "x"
+        },
+        "seq": 1,
+        "at": 1,
+        "event": {
+          "type": "run_started",
+          "runId": "x",
+          "trigger": "prompt"
+        }
+      }
+    }
+  ],
+  "ExtensionEvent": [
+    {
+      "type": "extension",
+      "extension": {
+        "kind": "turn_diff",
+        "diff": "x"
+      }
+    }
+  ],
+  "ExtensionKind": [
+    "turn_diff",
+    "rate_limit"
+  ],
+  "ExternalField": [
+    {
+      "kind": "external",
+      "key": "x",
+      "title": "x",
+      "description": "x",
+      "url": "x"
+    },
+    {
+      "kind": "external",
+      "key": "x",
+      "url": "x"
+    }
+  ],
+  "ExternalUrlReply": [
+    {
+      "kind": "external_url"
+    }
+  ],
+  "ExternalUrlRequest": [
+    {
+      "kind": "external_url",
+      "url": "x",
+      "server": "x"
+    },
+    {
+      "kind": "external_url",
+      "url": "x"
+    }
+  ],
+  "FieldCondition": [
+    {
+      "key": "x",
+      "op": "eq",
+      "value": {
+        "kind": "text",
+        "value": "x"
+      }
+    }
+  ],
+  "FieldKey": [
+    "x"
+  ],
+  "FileChange": [
+    {
+      "path": "x",
+      "change": "added",
+      "previousPath": "x",
+      "diff": "x",
+      "additions": 1,
+      "deletions": 1
+    },
+    {
+      "path": "x",
+      "change": "added"
+    }
+  ],
+  "FileChangeKind": [
+    "added",
+    "deleted",
+    "modified",
+    "renamed"
+  ],
+  "FileChangesPreview": [
+    {
+      "kind": "file_changes",
+      "changes": [
+        {
+          "path": "x",
+          "change": "added",
+          "previousPath": "x",
+          "diff": "x",
+          "additions": 1,
+          "deletions": 1
+        }
+      ]
+    },
+    {
+      "kind": "file_changes",
+      "changes": [
+        {
+          "path": "x",
+          "change": "added"
+        }
+      ]
+    }
+  ],
+  "FileContent": [
+    {
+      "kind": "file",
+      "uri": "x",
+      "mimeType": "x",
+      "name": "x"
+    },
+    {
+      "kind": "file",
+      "uri": "x"
+    }
+  ],
+  "FileMention": [
+    {
+      "kind": "file",
+      "path": "x"
+    }
+  ],
+  "ForkPoint": [
+    {
+      "itemId": "x",
+      "position": "before"
+    }
+  ],
+  "ForkPosition": [
+    "before",
+    "through"
+  ],
+  "FormFieldSpec": [
+    {
+      "kind": "string",
+      "key": "x",
+      "title": "x",
+      "description": "x",
+      "required": true,
+      "hidden": true,
+      "when": [
+        {
+          "key": "x",
+          "op": "eq",
+          "value": {
+            "kind": "text",
+            "value": "x"
+          }
+        }
+      ],
+      "format": "email",
+      "minLength": 1,
+      "maxLength": 1,
+      "pattern": "x",
+      "placeholder": "x",
+      "defaultValue": "x",
+      "options": [
+        {
+          "value": "x",
+          "label": "x",
+          "description": "x"
+        }
+      ],
+      "allowCustom": true
+    },
+    {
+      "kind": "string",
+      "key": "x",
+      "required": false,
+      "hidden": false,
+      "when": [
+        {
+          "key": "x",
+          "op": "eq",
+          "value": {
+            "kind": "text",
+            "value": "x"
+          }
+        }
+      ],
+      "options": [
+        {
+          "value": "x",
+          "label": "x"
+        }
+      ],
+      "allowCustom": false
+    },
+    {
+      "kind": "number",
+      "key": "x",
+      "title": "x",
+      "description": "x",
+      "required": true,
+      "hidden": true,
+      "when": [
+        {
+          "key": "x",
+          "op": "eq",
+          "value": {
+            "kind": "text",
+            "value": "x"
+          }
+        }
+      ],
+      "minimum": 1.5,
+      "maximum": 1.5,
+      "defaultValue": 1.5
+    },
+    {
+      "kind": "number",
+      "key": "x",
+      "required": false,
+      "hidden": false,
+      "when": [
+        {
+          "key": "x",
+          "op": "eq",
+          "value": {
+            "kind": "text",
+            "value": "x"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "integer",
+      "key": "x",
+      "title": "x",
+      "description": "x",
+      "required": true,
+      "hidden": true,
+      "when": [
+        {
+          "key": "x",
+          "op": "eq",
+          "value": {
+            "kind": "text",
+            "value": "x"
+          }
+        }
+      ],
+      "minimum": 1,
+      "maximum": 1,
+      "defaultValue": 1
+    },
+    {
+      "kind": "integer",
+      "key": "x",
+      "required": false,
+      "hidden": false,
+      "when": [
+        {
+          "key": "x",
+          "op": "eq",
+          "value": {
+            "kind": "text",
+            "value": "x"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "boolean",
+      "key": "x",
+      "title": "x",
+      "description": "x",
+      "required": true,
+      "hidden": true,
+      "when": [
+        {
+          "key": "x",
+          "op": "eq",
+          "value": {
+            "kind": "text",
+            "value": "x"
+          }
+        }
+      ],
+      "defaultValue": true
+    },
+    {
+      "kind": "boolean",
+      "key": "x",
+      "required": false,
+      "hidden": false,
+      "when": [
+        {
+          "key": "x",
+          "op": "eq",
+          "value": {
+            "kind": "text",
+            "value": "x"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "multiselect",
+      "key": "x",
+      "title": "x",
+      "description": "x",
+      "required": true,
+      "hidden": true,
+      "when": [
+        {
+          "key": "x",
+          "op": "eq",
+          "value": {
+            "kind": "text",
+            "value": "x"
+          }
+        }
+      ],
+      "options": [
+        {
+          "value": "x",
+          "label": "x",
+          "description": "x"
+        }
+      ],
+      "minItems": 1,
+      "maxItems": 1,
+      "allowCustom": true,
+      "defaultValue": [
+        "x"
+      ]
+    },
+    {
+      "kind": "multiselect",
+      "key": "x",
+      "required": false,
+      "hidden": false,
+      "when": [
+        {
+          "key": "x",
+          "op": "eq",
+          "value": {
+            "kind": "text",
+            "value": "x"
+          }
+        }
+      ],
+      "options": [
+        {
+          "value": "x",
+          "label": "x"
+        }
+      ],
+      "allowCustom": false
+    },
+    {
+      "kind": "external",
+      "key": "x",
+      "title": "x",
+      "description": "x",
+      "url": "x"
+    },
+    {
+      "kind": "external",
+      "key": "x",
+      "url": "x"
+    }
+  ],
+  "FormReply": [
+    {
+      "kind": "form",
+      "values": {
+        "key": {
+          "kind": "text",
+          "value": "x"
+        }
+      }
+    }
+  ],
+  "FormRequest": [
+    {
+      "kind": "form",
+      "fields": [
+        {
+          "kind": "string",
+          "key": "x",
+          "title": "x",
+          "description": "x",
+          "required": true,
+          "hidden": true,
+          "when": [
+            {
+              "key": "x",
+              "op": "eq",
+              "value": {
+                "kind": "text",
+                "value": "x"
+              }
+            }
+          ],
+          "format": "email",
+          "minLength": 1,
+          "maxLength": 1,
+          "pattern": "x",
+          "placeholder": "x",
+          "defaultValue": "x",
+          "options": [
+            {
+              "value": "x",
+              "label": "x",
+              "description": "x"
+            }
+          ],
+          "allowCustom": true
+        }
+      ],
+      "server": "x"
+    },
+    {
+      "kind": "form",
+      "fields": [
+        {
+          "kind": "string",
+          "key": "x",
+          "required": false,
+          "hidden": false,
+          "when": [
+            {
+              "key": "x",
+              "op": "eq",
+              "value": {
+                "kind": "text",
+                "value": "x"
+              }
+            }
+          ],
+          "options": [
+            {
+              "value": "x",
+              "label": "x"
+            }
+          ],
+          "allowCustom": false
+        }
+      ]
+    }
+  ],
+  "FormScalar": [
+    {
+      "kind": "text",
+      "value": "x"
+    },
+    {
+      "kind": "number",
+      "value": 1.5
+    },
+    {
+      "kind": "boolean",
+      "value": true
+    },
+    {
+      "kind": "boolean",
+      "value": false
+    }
+  ],
+  "FormValue": [
+    {
+      "kind": "text",
+      "value": "x"
+    },
+    {
+      "kind": "number",
+      "value": 1.5
+    },
+    {
+      "kind": "boolean",
+      "value": true
+    },
+    {
+      "kind": "boolean",
+      "value": false
+    },
+    {
+      "kind": "choices",
+      "values": [
+        "x"
+      ]
+    }
+  ],
+  "GrantKind": [
+    "network",
+    "read",
+    "write",
+    "deny"
+  ],
+  "HelloRequest": [
+    {
+      "type": "hello",
+      "requestId": "x",
+      "protocol": {
+        "major": 1,
+        "minor": 1
+      },
+      "client": {
+        "name": "x",
+        "version": "x"
+      }
+    }
+  ],
+  "HelloResponse": [
+    {
+      "type": "hello.result",
+      "requestId": "x",
+      "protocol": {
+        "major": 1,
+        "minor": 1
+      },
+      "bridgeVersion": "x"
+    }
+  ],
+  "IdStability": [
+    "stable",
+    "positional"
+  ],
+  "ImageContent": [
+    {
+      "kind": "image",
+      "mimeType": "x",
+      "data": "x",
+      "name": "x"
+    },
+    {
+      "kind": "image",
+      "mimeType": "x",
+      "data": "x"
+    }
+  ],
+  "ImageRef": [
+    {
+      "kind": "image_ref",
+      "id": "x",
+      "mimeType": "x",
+      "name": "x"
+    },
+    {
+      "kind": "image_ref",
+      "id": "x",
+      "mimeType": "x"
+    }
+  ],
+  "InputModality": [
+    "text",
+    "image",
+    "audio"
+  ],
+  "IntegerField": [
+    {
+      "kind": "integer",
+      "key": "x",
+      "title": "x",
+      "description": "x",
+      "required": true,
+      "hidden": true,
+      "when": [
+        {
+          "key": "x",
+          "op": "eq",
+          "value": {
+            "kind": "text",
+            "value": "x"
+          }
+        }
+      ],
+      "minimum": 1,
+      "maximum": 1,
+      "defaultValue": 1
+    },
+    {
+      "kind": "integer",
+      "key": "x",
+      "required": false,
+      "hidden": false,
+      "when": [
+        {
+          "key": "x",
+          "op": "eq",
+          "value": {
+            "kind": "text",
+            "value": "x"
+          }
+        }
+      ]
+    }
+  ],
+  "Interaction": [
+    {
+      "id": "x",
+      "runId": "x",
+      "createdAt": 1,
+      "expiresAt": 1,
+      "title": "x",
+      "body": "x",
+      "blocksRun": true,
+      "origin": {
+        "toolCallId": "x",
+        "toolName": "x",
+        "parentToolCallId": "x"
+      },
+      "request": {
+        "kind": "tool_permission",
+        "input": {
+          "text": "x",
+          "list": [
+            1,
+            2.5,
+            true,
+            null
+          ],
+          "nested": {
+            "ok": false
+          }
+        },
+        "inputEditable": true,
+        "reason": "x",
+        "previews": [
+          {
+            "kind": "command",
+            "command": "x",
+            "cwd": "x"
+          }
+        ],
+        "options": [
+          {
+            "id": "x",
+            "label": "x",
+            "effect": "allow",
+            "scope": "once",
+            "stopsRun": true,
+            "message": "none",
+            "rule": "x"
+          }
+        ],
+        "grants": [
+          {
+            "id": "x",
+            "kind": "network",
+            "target": "x"
+          }
+        ],
+        "defaultOptionId": "x",
+        "deliberate": true
+      }
+    },
+    {
+      "id": "x",
+      "createdAt": 1,
+      "title": "x",
+      "blocksRun": false,
+      "request": {
+        "kind": "tool_permission",
+        "inputEditable": false,
+        "previews": [
+          {
+            "kind": "command",
+            "command": "x"
+          }
+        ],
+        "options": [
+          {
+            "id": "x",
+            "label": "x",
+            "effect": "allow",
+            "scope": "once",
+            "stopsRun": false,
+            "message": "none"
+          }
+        ],
+        "grants": [
+          {
+            "id": "x",
+            "kind": "network"
+          }
+        ],
+        "deliberate": false
+      }
+    }
+  ],
+  "InteractionAnswer": [
+    {
+      "interactionId": "x",
+      "reply": {
+        "kind": "tool_permission",
+        "optionId": "x",
+        "message": "x",
+        "editedInput": {
+          "text": "x",
+          "list": [
+            1,
+            2.5,
+            true,
+            null
+          ],
+          "nested": {
+            "ok": false
+          }
+        },
+        "grantIds": [
+          "x"
+        ]
+      }
+    },
+    {
+      "interactionId": "x",
+      "reply": {
+        "kind": "tool_permission",
+        "optionId": "x",
+        "grantIds": [
+          "x"
+        ]
+      }
+    }
+  ],
+  "InteractionAnswerRequest": [
+    {
+      "type": "interaction.answer",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "answer": {
+        "interactionId": "x",
+        "reply": {
+          "kind": "tool_permission",
+          "optionId": "x",
+          "message": "x",
+          "editedInput": {
+            "text": "x",
+            "list": [
+              1,
+              2.5,
+              true,
+              null
+            ],
+            "nested": {
+              "ok": false
+            }
+          },
+          "grantIds": [
+            "x"
+          ]
+        }
+      }
+    },
+    {
+      "type": "interaction.answer",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "answer": {
+        "interactionId": "x",
+        "reply": {
+          "kind": "tool_permission",
+          "optionId": "x",
+          "grantIds": [
+            "x"
+          ]
+        }
+      }
+    }
+  ],
+  "InteractionAnswerResponse": [
+    {
+      "type": "interaction.answer.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    }
+  ],
+  "InteractionId": [
+    "x"
+  ],
+  "InteractionKind": [
+    "tool_permission",
+    "questions",
+    "form",
+    "plan_approval",
+    "external_url",
+    "choice",
+    "confirm",
+    "text"
+  ],
+  "InteractionOrigin": [
+    {
+      "toolCallId": "x",
+      "toolName": "x",
+      "parentToolCallId": "x"
+    },
+    {}
+  ],
+  "InteractionReply": [
+    {
+      "kind": "tool_permission",
+      "optionId": "x",
+      "message": "x",
+      "editedInput": {
+        "text": "x",
+        "list": [
+          1,
+          2.5,
+          true,
+          null
+        ],
+        "nested": {
+          "ok": false
+        }
+      },
+      "grantIds": [
+        "x"
+      ]
+    },
+    {
+      "kind": "tool_permission",
+      "optionId": "x",
+      "grantIds": [
+        "x"
+      ]
+    },
+    {
+      "kind": "questions",
+      "answers": [
+        {
+          "questionId": "x",
+          "selected": [
+            "x"
+          ],
+          "custom": "x"
+        }
+      ]
+    },
+    {
+      "kind": "questions",
+      "answers": [
+        {
+          "questionId": "x",
+          "selected": [
+            "x"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "form",
+      "values": {
+        "key": {
+          "kind": "text",
+          "value": "x"
+        }
+      }
+    },
+    {
+      "kind": "plan_approval",
+      "decision": "approve",
+      "plan": "x",
+      "feedback": "x"
+    },
+    {
+      "kind": "plan_approval",
+      "decision": "approve"
+    },
+    {
+      "kind": "external_url"
+    },
+    {
+      "kind": "choice",
+      "value": "x"
+    },
+    {
+      "kind": "confirm",
+      "confirmed": true
+    },
+    {
+      "kind": "confirm",
+      "confirmed": false
+    },
+    {
+      "kind": "text",
+      "text": "x"
+    },
+    {
+      "kind": "cancel",
+      "stopRun": true,
+      "message": "x"
+    },
+    {
+      "kind": "cancel",
+      "stopRun": false
+    }
+  ],
+  "InteractionRequest": [
+    {
+      "kind": "tool_permission",
+      "input": {
+        "text": "x",
+        "list": [
+          1,
+          2.5,
+          true,
+          null
+        ],
+        "nested": {
+          "ok": false
+        }
+      },
+      "inputEditable": true,
+      "reason": "x",
+      "previews": [
+        {
+          "kind": "command",
+          "command": "x",
+          "cwd": "x"
+        }
+      ],
+      "options": [
+        {
+          "id": "x",
+          "label": "x",
+          "effect": "allow",
+          "scope": "once",
+          "stopsRun": true,
+          "message": "none",
+          "rule": "x"
+        }
+      ],
+      "grants": [
+        {
+          "id": "x",
+          "kind": "network",
+          "target": "x"
+        }
+      ],
+      "defaultOptionId": "x",
+      "deliberate": true
+    },
+    {
+      "kind": "tool_permission",
+      "inputEditable": false,
+      "previews": [
+        {
+          "kind": "command",
+          "command": "x"
+        }
+      ],
+      "options": [
+        {
+          "id": "x",
+          "label": "x",
+          "effect": "allow",
+          "scope": "once",
+          "stopsRun": false,
+          "message": "none"
+        }
+      ],
+      "grants": [
+        {
+          "id": "x",
+          "kind": "network"
+        }
+      ],
+      "deliberate": false
+    },
+    {
+      "kind": "questions",
+      "questions": [
+        {
+          "id": "x",
+          "header": "x",
+          "text": "x",
+          "options": [
+            {
+              "label": "x",
+              "description": "x",
+              "preview": "x"
+            }
+          ],
+          "multiSelect": true,
+          "allowCustom": true,
+          "secret": true,
+          "required": true
+        }
+      ]
+    },
+    {
+      "kind": "questions",
+      "questions": [
+        {
+          "id": "x",
+          "text": "x",
+          "options": [
+            {
+              "label": "x"
+            }
+          ],
+          "multiSelect": false,
+          "allowCustom": false,
+          "secret": false,
+          "required": false
+        }
+      ]
+    },
+    {
+      "kind": "form",
+      "fields": [
+        {
+          "kind": "string",
+          "key": "x",
+          "title": "x",
+          "description": "x",
+          "required": true,
+          "hidden": true,
+          "when": [
+            {
+              "key": "x",
+              "op": "eq",
+              "value": {
+                "kind": "text",
+                "value": "x"
+              }
+            }
+          ],
+          "format": "email",
+          "minLength": 1,
+          "maxLength": 1,
+          "pattern": "x",
+          "placeholder": "x",
+          "defaultValue": "x",
+          "options": [
+            {
+              "value": "x",
+              "label": "x",
+              "description": "x"
+            }
+          ],
+          "allowCustom": true
+        }
+      ],
+      "server": "x"
+    },
+    {
+      "kind": "form",
+      "fields": [
+        {
+          "kind": "string",
+          "key": "x",
+          "required": false,
+          "hidden": false,
+          "when": [
+            {
+              "key": "x",
+              "op": "eq",
+              "value": {
+                "kind": "text",
+                "value": "x"
+              }
+            }
+          ],
+          "options": [
+            {
+              "value": "x",
+              "label": "x"
+            }
+          ],
+          "allowCustom": false
+        }
+      ]
+    },
+    {
+      "kind": "plan_approval",
+      "plan": "x",
+      "editable": true,
+      "path": "x"
+    },
+    {
+      "kind": "plan_approval",
+      "plan": "x",
+      "editable": false
+    },
+    {
+      "kind": "external_url",
+      "url": "x",
+      "server": "x"
+    },
+    {
+      "kind": "external_url",
+      "url": "x"
+    },
+    {
+      "kind": "choice",
+      "options": [
+        {
+          "value": "x",
+          "label": "x",
+          "description": "x"
+        }
+      ]
+    },
+    {
+      "kind": "choice",
+      "options": [
+        {
+          "value": "x",
+          "label": "x"
+        }
+      ]
+    },
+    {
+      "kind": "confirm"
+    },
+    {
+      "kind": "text",
+      "placeholder": "x",
+      "initialText": "x",
+      "multiline": true
+    },
+    {
+      "kind": "text",
+      "multiline": false
+    }
+  ],
+  "InteractionRequestedEvent": [
+    {
+      "type": "interaction_requested",
+      "interaction": {
+        "id": "x",
+        "runId": "x",
+        "createdAt": 1,
+        "expiresAt": 1,
+        "title": "x",
+        "body": "x",
+        "blocksRun": true,
+        "origin": {
+          "toolCallId": "x",
+          "toolName": "x",
+          "parentToolCallId": "x"
+        },
+        "request": {
+          "kind": "tool_permission",
+          "input": {
+            "text": "x",
+            "list": [
+              1,
+              2.5,
+              true,
+              null
+            ],
+            "nested": {
+              "ok": false
+            }
+          },
+          "inputEditable": true,
+          "reason": "x",
+          "previews": [
+            {
+              "kind": "command",
+              "command": "x",
+              "cwd": "x"
+            }
+          ],
+          "options": [
+            {
+              "id": "x",
+              "label": "x",
+              "effect": "allow",
+              "scope": "once",
+              "stopsRun": true,
+              "message": "none",
+              "rule": "x"
+            }
+          ],
+          "grants": [
+            {
+              "id": "x",
+              "kind": "network",
+              "target": "x"
+            }
+          ],
+          "defaultOptionId": "x",
+          "deliberate": true
+        }
+      }
+    },
+    {
+      "type": "interaction_requested",
+      "interaction": {
+        "id": "x",
+        "createdAt": 1,
+        "title": "x",
+        "blocksRun": false,
+        "request": {
+          "kind": "tool_permission",
+          "inputEditable": false,
+          "previews": [
+            {
+              "kind": "command",
+              "command": "x"
+            }
+          ],
+          "options": [
+            {
+              "id": "x",
+              "label": "x",
+              "effect": "allow",
+              "scope": "once",
+              "stopsRun": false,
+              "message": "none"
+            }
+          ],
+          "grants": [
+            {
+              "id": "x",
+              "kind": "network"
+            }
+          ],
+          "deliberate": false
+        }
+      }
+    }
+  ],
+  "InteractionResolvedEvent": [
+    {
+      "type": "interaction_resolved",
+      "interactionId": "x",
+      "reason": "answered"
+    }
+  ],
+  "IssueSeverity": [
+    "warning",
+    "error"
+  ],
+  "JsonValue": [
+    {
+      "text": "x",
+      "list": [
+        1,
+        2.5,
+        true,
+        null
+      ],
+      "nested": {
+        "ok": false
+      }
+    },
+    null,
+    "text"
+  ],
+  "Mention": [
+    {
+      "kind": "file",
+      "path": "x"
+    },
+    {
+      "kind": "agent",
+      "name": "x"
+    }
+  ],
+  "MentionKind": [
+    "file",
+    "agent"
+  ],
+  "MessageId": [
+    "x"
+  ],
+  "MessagePolicy": [
+    "none",
+    "optional",
+    "required"
+  ],
+  "MessagesRetractedEvent": [
+    {
+      "type": "messages_retracted",
+      "messageIds": [
+        "x"
+      ]
+    }
+  ],
+  "ModeAxis": [
+    {
+      "id": "x",
+      "label": "x",
+      "description": "x",
+      "options": [
+        {
+          "value": "x",
+          "label": "x",
+          "description": "x"
+        }
+      ],
+      "defaultValue": "x"
+    },
+    {
+      "id": "x",
+      "label": "x",
+      "options": [
+        {
+          "value": "x",
+          "label": "x"
+        }
+      ]
+    }
+  ],
+  "ModeAxisId": [
+    "x"
+  ],
+  "ModeChangedEvent": [
+    {
+      "type": "mode_changed",
+      "axis": "x",
+      "value": "x"
+    }
+  ],
+  "ModeSetRequest": [
+    {
+      "type": "mode.set",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "axis": "x",
+      "value": "x"
+    }
+  ],
+  "ModeSetResponse": [
+    {
+      "type": "mode.set.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    }
+  ],
+  "ModeSetting": [
+    {
+      "axis": "x",
+      "value": "x"
+    }
+  ],
+  "ModelChangeItem": [
+    {
+      "kind": "model_change",
+      "id": "x",
+      "at": 1,
+      "modelId": "x",
+      "thinking": "x"
+    },
+    {
+      "kind": "model_change",
+      "id": "x"
+    }
+  ],
+  "ModelChangedEvent": [
+    {
+      "type": "model_changed",
+      "modelId": "x",
+      "thinking": "x"
+    },
+    {
+      "type": "model_changed"
+    }
+  ],
+  "ModelId": [
+    "x"
+  ],
+  "ModelSetRequest": [
+    {
+      "type": "model.set",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "modelId": "x"
+    }
+  ],
+  "ModelSetResponse": [
+    {
+      "type": "model.set.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    }
+  ],
+  "ModelSummary": [
+    {
+      "id": "x",
+      "displayName": "x",
+      "description": "x",
+      "providerId": "x",
+      "providerName": "x",
+      "contextWindow": 1,
+      "inputModalities": [
+        "text"
+      ],
+      "thinking": {
+        "options": [
+          {
+            "value": "x",
+            "label": "x",
+            "description": "x"
+          }
+        ],
+        "defaultValue": "x"
+      },
+      "isDefault": true
+    },
+    {
+      "id": "x",
+      "displayName": "x",
+      "thinking": {
+        "options": [
+          {
+            "value": "x"
+          }
+        ]
+      },
+      "isDefault": false
+    }
+  ],
+  "ModelSwitchTiming": [
+    "next_request",
+    "next_run"
+  ],
+  "ModelsListRequest": [
+    {
+      "type": "models.list",
+      "requestId": "x",
+      "backend": "claude-code",
+      "cwd": "x"
+    },
+    {
+      "type": "models.list",
+      "requestId": "x",
+      "backend": "claude-code"
+    }
+  ],
+  "ModelsListResponse": [
+    {
+      "type": "models.list.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "models": [
+          {
+            "id": "x",
+            "displayName": "x",
+            "description": "x",
+            "providerId": "x",
+            "providerName": "x",
+            "contextWindow": 1,
+            "inputModalities": [
+              "text"
+            ],
+            "thinking": {
+              "options": [
+                {
+                  "value": "x",
+                  "label": "x",
+                  "description": "x"
+                }
+              ],
+              "defaultValue": "x"
+            },
+            "isDefault": true
+          }
+        ]
+      }
+    },
+    {
+      "type": "models.list.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "models": [
+          {
+            "id": "x",
+            "displayName": "x",
+            "thinking": {
+              "options": [
+                {
+                  "value": "x"
+                }
+              ]
+            },
+            "isDefault": false
+          }
+        ]
+      }
+    }
+  ],
+  "ModelsListResult": [
+    {
+      "status": "accepted",
+      "models": [
+        {
+          "id": "x",
+          "displayName": "x",
+          "description": "x",
+          "providerId": "x",
+          "providerName": "x",
+          "contextWindow": 1,
+          "inputModalities": [
+            "text"
+          ],
+          "thinking": {
+            "options": [
+              {
+                "value": "x",
+                "label": "x",
+                "description": "x"
+              }
+            ],
+            "defaultValue": "x"
+          },
+          "isDefault": true
+        }
+      ]
+    },
+    {
+      "status": "accepted",
+      "models": [
+        {
+          "id": "x",
+          "displayName": "x",
+          "thinking": {
+            "options": [
+              {
+                "value": "x"
+              }
+            ]
+          },
+          "isDefault": false
+        }
+      ]
+    },
+    {
+      "status": "rejected",
+      "rejection": {
+        "code": "busy",
+        "message": "x"
+      }
+    }
+  ],
+  "ModelsListed": [
+    {
+      "status": "accepted",
+      "models": [
+        {
+          "id": "x",
+          "displayName": "x",
+          "description": "x",
+          "providerId": "x",
+          "providerName": "x",
+          "contextWindow": 1,
+          "inputModalities": [
+            "text"
+          ],
+          "thinking": {
+            "options": [
+              {
+                "value": "x",
+                "label": "x",
+                "description": "x"
+              }
+            ],
+            "defaultValue": "x"
+          },
+          "isDefault": true
+        }
+      ]
+    },
+    {
+      "status": "accepted",
+      "models": [
+        {
+          "id": "x",
+          "displayName": "x",
+          "thinking": {
+            "options": [
+              {
+                "value": "x"
+              }
+            ]
+          },
+          "isDefault": false
+        }
+      ]
+    }
+  ],
+  "ModesListRequest": [
+    {
+      "type": "modes.list",
+      "requestId": "x",
+      "backend": "claude-code",
+      "cwd": "x"
+    },
+    {
+      "type": "modes.list",
+      "requestId": "x",
+      "backend": "claude-code"
+    }
+  ],
+  "ModesListResponse": [
+    {
+      "type": "modes.list.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "modes": [
+          {
+            "id": "x",
+            "label": "x",
+            "description": "x",
+            "options": [
+              {
+                "value": "x",
+                "label": "x",
+                "description": "x"
+              }
+            ],
+            "defaultValue": "x"
+          }
+        ]
+      }
+    },
+    {
+      "type": "modes.list.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "modes": [
+          {
+            "id": "x",
+            "label": "x",
+            "options": [
+              {
+                "value": "x",
+                "label": "x"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "ModesListResult": [
+    {
+      "status": "accepted",
+      "modes": [
+        {
+          "id": "x",
+          "label": "x",
+          "description": "x",
+          "options": [
+            {
+              "value": "x",
+              "label": "x",
+              "description": "x"
+            }
+          ],
+          "defaultValue": "x"
+        }
+      ]
+    },
+    {
+      "status": "accepted",
+      "modes": [
+        {
+          "id": "x",
+          "label": "x",
+          "options": [
+            {
+              "value": "x",
+              "label": "x"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "status": "rejected",
+      "rejection": {
+        "code": "busy",
+        "message": "x"
+      }
+    }
+  ],
+  "ModesListed": [
+    {
+      "status": "accepted",
+      "modes": [
+        {
+          "id": "x",
+          "label": "x",
+          "description": "x",
+          "options": [
+            {
+              "value": "x",
+              "label": "x",
+              "description": "x"
+            }
+          ],
+          "defaultValue": "x"
+        }
+      ]
+    },
+    {
+      "status": "accepted",
+      "modes": [
+        {
+          "id": "x",
+          "label": "x",
+          "options": [
+            {
+              "value": "x",
+              "label": "x"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "MultiselectField": [
+    {
+      "kind": "multiselect",
+      "key": "x",
+      "title": "x",
+      "description": "x",
+      "required": true,
+      "hidden": true,
+      "when": [
+        {
+          "key": "x",
+          "op": "eq",
+          "value": {
+            "kind": "text",
+            "value": "x"
+          }
+        }
+      ],
+      "options": [
+        {
+          "value": "x",
+          "label": "x",
+          "description": "x"
+        }
+      ],
+      "minItems": 1,
+      "maxItems": 1,
+      "allowCustom": true,
+      "defaultValue": [
+        "x"
+      ]
+    },
+    {
+      "kind": "multiselect",
+      "key": "x",
+      "required": false,
+      "hidden": false,
+      "when": [
+        {
+          "key": "x",
+          "op": "eq",
+          "value": {
+            "kind": "text",
+            "value": "x"
+          }
+        }
+      ],
+      "options": [
+        {
+          "value": "x",
+          "label": "x"
+        }
+      ],
+      "allowCustom": false
+    }
+  ],
+  "NativeIds": [
+    {
+      "key": "x"
+    }
+  ],
+  "NavigateTreeOp": [
+    {
+      "kind": "navigate_tree",
+      "sessionId": "x",
+      "itemId": "x",
+      "summarize": true
+    },
+    {
+      "kind": "navigate_tree",
+      "sessionId": "x",
+      "itemId": "x",
+      "summarize": false
+    }
+  ],
+  "NetworkPreview": [
+    {
+      "kind": "network",
+      "host": "x",
+      "protocol": "x"
+    },
+    {
+      "kind": "network",
+      "host": "x"
+    }
+  ],
+  "NewSessionAccepted": [
+    {
+      "status": "accepted",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    }
+  ],
+  "NewSessionOptions": [
+    {
+      "cwd": "x",
+      "modelId": "x",
+      "thinking": "x",
+      "modes": [
+        {
+          "axis": "x",
+          "value": "x"
+        }
+      ]
+    },
+    {
+      "cwd": "x"
+    }
+  ],
+  "NewSessionResult": [
+    {
+      "status": "accepted",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    },
+    {
+      "status": "rejected",
+      "rejection": {
+        "code": "busy",
+        "message": "x"
+      }
+    }
+  ],
+  "NoticeEvent": [
+    {
+      "type": "notice",
+      "level": "info",
+      "text": "x"
+    }
+  ],
+  "NoticeItem": [
+    {
+      "kind": "notice",
+      "id": "x",
+      "at": 1,
+      "level": "info",
+      "text": "x"
+    },
+    {
+      "kind": "notice",
+      "id": "x",
+      "level": "info",
+      "text": "x"
+    }
+  ],
+  "NoticeLevel": [
+    "info",
+    "warning",
+    "error"
+  ],
+  "NumberField": [
+    {
+      "kind": "number",
+      "key": "x",
+      "title": "x",
+      "description": "x",
+      "required": true,
+      "hidden": true,
+      "when": [
+        {
+          "key": "x",
+          "op": "eq",
+          "value": {
+            "kind": "text",
+            "value": "x"
+          }
+        }
+      ],
+      "minimum": 1.5,
+      "maximum": 1.5,
+      "defaultValue": 1.5
+    },
+    {
+      "kind": "number",
+      "key": "x",
+      "required": false,
+      "hidden": false,
+      "when": [
+        {
+          "key": "x",
+          "op": "eq",
+          "value": {
+            "kind": "text",
+            "value": "x"
+          }
+        }
+      ]
+    }
+  ],
+  "NumberValue": [
+    {
+      "kind": "number",
+      "value": 1.5
+    }
+  ],
+  "OpenBlock": [
+    {
+      "blockId": "x",
+      "messageId": "x",
+      "kind": "text",
+      "parentToolCallId": "x",
+      "text": "x"
+    },
+    {
+      "blockId": "x",
+      "messageId": "x",
+      "kind": "text",
+      "text": "x"
+    }
+  ],
+  "OpenCodeCall": [
+    {
+      "backend": "opencode",
+      "op": {
+        "kind": "revert_stage",
+        "sessionId": "x",
+        "itemId": "x",
+        "restoreFiles": true
+      }
+    },
+    {
+      "backend": "opencode",
+      "op": {
+        "kind": "revert_stage",
+        "sessionId": "x",
+        "itemId": "x",
+        "restoreFiles": false
+      }
+    }
+  ],
+  "OpenCodeOp": [
+    {
+      "kind": "revert_stage",
+      "sessionId": "x",
+      "itemId": "x",
+      "restoreFiles": true
+    },
+    {
+      "kind": "revert_stage",
+      "sessionId": "x",
+      "itemId": "x",
+      "restoreFiles": false
+    },
+    {
+      "kind": "revert_clear",
+      "sessionId": "x"
+    },
+    {
+      "kind": "revert_commit",
+      "sessionId": "x"
+    }
+  ],
+  "Option": [
+    {
+      "value": "x",
+      "label": "x",
+      "description": "x"
+    },
+    {
+      "value": "x",
+      "label": "x"
+    }
+  ],
+  "PageCursor": [
+    "x"
+  ],
+  "PageRequest": [
+    {
+      "cursor": "x",
+      "limit": 1
+    },
+    {
+      "limit": 1
+    }
+  ],
+  "ParentKind": [
+    "fork",
+    "subagent"
+  ],
+  "PathsPreview": [
+    {
+      "kind": "paths",
+      "paths": [
+        "x"
+      ]
+    }
+  ],
+  "PermissionEffect": [
+    "allow",
+    "deny"
+  ],
+  "PermissionGrant": [
+    {
+      "id": "x",
+      "kind": "network",
+      "target": "x"
+    },
+    {
+      "id": "x",
+      "kind": "network"
+    }
+  ],
+  "PermissionOption": [
+    {
+      "id": "x",
+      "label": "x",
+      "effect": "allow",
+      "scope": "once",
+      "stopsRun": true,
+      "message": "none",
+      "rule": "x"
+    },
+    {
+      "id": "x",
+      "label": "x",
+      "effect": "allow",
+      "scope": "once",
+      "stopsRun": false,
+      "message": "none"
+    }
+  ],
+  "PermissionPreview": [
+    {
+      "kind": "command",
+      "command": "x",
+      "cwd": "x"
+    },
+    {
+      "kind": "command",
+      "command": "x"
+    },
+    {
+      "kind": "file_changes",
+      "changes": [
+        {
+          "path": "x",
+          "change": "added",
+          "previousPath": "x",
+          "diff": "x",
+          "additions": 1,
+          "deletions": 1
+        }
+      ]
+    },
+    {
+      "kind": "file_changes",
+      "changes": [
+        {
+          "path": "x",
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "kind": "network",
+      "host": "x",
+      "protocol": "x"
+    },
+    {
+      "kind": "network",
+      "host": "x"
+    },
+    {
+      "kind": "paths",
+      "paths": [
+        "x"
+      ]
+    }
+  ],
+  "PermissionScope": [
+    "once",
+    "turn",
+    "session",
+    "always"
+  ],
+  "PiCall": [
+    {
+      "backend": "pi",
+      "op": {
+        "kind": "navigate_tree",
+        "sessionId": "x",
+        "itemId": "x",
+        "summarize": true
+      }
+    },
+    {
+      "backend": "pi",
+      "op": {
+        "kind": "navigate_tree",
+        "sessionId": "x",
+        "itemId": "x",
+        "summarize": false
+      }
+    }
+  ],
+  "PiOp": [
+    {
+      "kind": "navigate_tree",
+      "sessionId": "x",
+      "itemId": "x",
+      "summarize": true
+    },
+    {
+      "kind": "navigate_tree",
+      "sessionId": "x",
+      "itemId": "x",
+      "summarize": false
+    }
+  ],
+  "Plan": [
+    {
+      "items": [
+        {
+          "text": "x",
+          "status": "pending"
+        }
+      ],
+      "explanation": "x"
+    },
+    {
+      "items": [
+        {
+          "text": "x",
+          "status": "pending"
+        }
+      ]
+    }
+  ],
+  "PlanApprovalReply": [
+    {
+      "kind": "plan_approval",
+      "decision": "approve",
+      "plan": "x",
+      "feedback": "x"
+    },
+    {
+      "kind": "plan_approval",
+      "decision": "approve"
+    }
+  ],
+  "PlanApprovalRequest": [
+    {
+      "kind": "plan_approval",
+      "plan": "x",
+      "editable": true,
+      "path": "x"
+    },
+    {
+      "kind": "plan_approval",
+      "plan": "x",
+      "editable": false
+    }
+  ],
+  "PlanDecision": [
+    "approve",
+    "reject"
+  ],
+  "PlanItem": [
+    {
+      "text": "x",
+      "status": "pending"
+    }
+  ],
+  "PlanItemStatus": [
+    "pending",
+    "in_progress",
+    "completed",
+    "cancelled"
+  ],
+  "PlanUpdatedEvent": [
+    {
+      "type": "plan_updated",
+      "plan": {
+        "items": [
+          {
+            "text": "x",
+            "status": "pending"
+          }
+        ],
+        "explanation": "x"
+      }
+    },
+    {
+      "type": "plan_updated",
+      "plan": {
+        "items": [
+          {
+            "text": "x",
+            "status": "pending"
+          }
+        ]
+      }
+    }
+  ],
+  "PromptAccepted": [
+    {
+      "status": "accepted",
+      "disposition": "started",
+      "queueItemId": "x"
+    },
+    {
+      "status": "accepted",
+      "disposition": "started"
+    }
+  ],
+  "PromptDisposition": [
+    "started",
+    "steered",
+    "queued",
+    "handled"
+  ],
+  "PromptInput": [
+    {
+      "clientRequestId": "00000000-0000-4000-8000-000000000000",
+      "mode": "start",
+      "text": "x",
+      "attachments": [
+        {
+          "kind": "image",
+          "mimeType": "x",
+          "data": "x",
+          "name": "x"
+        }
+      ],
+      "mentions": [
+        {
+          "kind": "file",
+          "path": "x"
+        }
+      ],
+      "command": "x"
+    },
+    {
+      "clientRequestId": "00000000-0000-4000-8000-000000000000",
+      "mode": "start",
+      "text": "x",
+      "attachments": [
+        {
+          "kind": "image",
+          "mimeType": "x",
+          "data": "x"
+        }
+      ],
+      "mentions": [
+        {
+          "kind": "file",
+          "path": "x"
+        }
+      ]
+    }
+  ],
+  "PromptMode": [
+    "start",
+    "steer",
+    "queue"
+  ],
+  "PromptRequest": [
+    {
+      "type": "prompt",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "input": {
+        "clientRequestId": "00000000-0000-4000-8000-000000000000",
+        "mode": "start",
+        "text": "x",
+        "attachments": [
+          {
+            "kind": "image",
+            "mimeType": "x",
+            "data": "x",
+            "name": "x"
+          }
+        ],
+        "mentions": [
+          {
+            "kind": "file",
+            "path": "x"
+          }
+        ],
+        "command": "x"
+      }
+    },
+    {
+      "type": "prompt",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "input": {
+        "clientRequestId": "00000000-0000-4000-8000-000000000000",
+        "mode": "start",
+        "text": "x",
+        "attachments": [
+          {
+            "kind": "image",
+            "mimeType": "x",
+            "data": "x"
+          }
+        ],
+        "mentions": [
+          {
+            "kind": "file",
+            "path": "x"
+          }
+        ]
+      }
+    }
+  ],
+  "PromptResponse": [
+    {
+      "type": "prompt.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "disposition": "started",
+        "queueItemId": "x"
+      }
+    },
+    {
+      "type": "prompt.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "disposition": "started"
+      }
+    }
+  ],
+  "PromptResult": [
+    {
+      "status": "accepted",
+      "disposition": "started",
+      "queueItemId": "x"
+    },
+    {
+      "status": "accepted",
+      "disposition": "started"
+    },
+    {
+      "status": "rejected",
+      "rejection": {
+        "code": "busy",
+        "message": "x"
+      }
+    }
+  ],
+  "ProtocolError": [
+    {
+      "code": "invalid_message",
+      "message": "x"
+    }
+  ],
+  "ProtocolErrorCode": [
+    "invalid_message",
+    "unsupported_version",
+    "unknown_backend",
+    "unknown_session",
+    "not_attached",
+    "internal"
+  ],
+  "ProtocolVersion": [
+    {
+      "major": 1,
+      "minor": 1
+    }
+  ],
+  "Question": [
+    {
+      "id": "x",
+      "header": "x",
+      "text": "x",
+      "options": [
+        {
+          "label": "x",
+          "description": "x",
+          "preview": "x"
+        }
+      ],
+      "multiSelect": true,
+      "allowCustom": true,
+      "secret": true,
+      "required": true
+    },
+    {
+      "id": "x",
+      "text": "x",
+      "options": [
+        {
+          "label": "x"
+        }
+      ],
+      "multiSelect": false,
+      "allowCustom": false,
+      "secret": false,
+      "required": false
+    }
+  ],
+  "QuestionAnswer": [
+    {
+      "questionId": "x",
+      "selected": [
+        "x"
+      ],
+      "custom": "x"
+    },
+    {
+      "questionId": "x",
+      "selected": [
+        "x"
+      ]
+    }
+  ],
+  "QuestionOption": [
+    {
+      "label": "x",
+      "description": "x",
+      "preview": "x"
+    },
+    {
+      "label": "x"
+    }
+  ],
+  "QuestionsReply": [
+    {
+      "kind": "questions",
+      "answers": [
+        {
+          "questionId": "x",
+          "selected": [
+            "x"
+          ],
+          "custom": "x"
+        }
+      ]
+    },
+    {
+      "kind": "questions",
+      "answers": [
+        {
+          "questionId": "x",
+          "selected": [
+            "x"
+          ]
+        }
+      ]
+    }
+  ],
+  "QuestionsRequest": [
+    {
+      "kind": "questions",
+      "questions": [
+        {
+          "id": "x",
+          "header": "x",
+          "text": "x",
+          "options": [
+            {
+              "label": "x",
+              "description": "x",
+              "preview": "x"
+            }
+          ],
+          "multiSelect": true,
+          "allowCustom": true,
+          "secret": true,
+          "required": true
+        }
+      ]
+    },
+    {
+      "kind": "questions",
+      "questions": [
+        {
+          "id": "x",
+          "text": "x",
+          "options": [
+            {
+              "label": "x"
+            }
+          ],
+          "multiSelect": false,
+          "allowCustom": false,
+          "secret": false,
+          "required": false
+        }
+      ]
+    }
+  ],
+  "QueueCancelRequest": [
+    {
+      "type": "queue.cancel",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "queueItemId": "x"
+    }
+  ],
+  "QueueCancelResponse": [
+    {
+      "type": "queue.cancel.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    }
+  ],
+  "QueueChangedEvent": [
+    {
+      "type": "queue_changed",
+      "items": [
+        {
+          "id": "x",
+          "delivery": "steer",
+          "preview": "x",
+          "clientRequestId": "00000000-0000-4000-8000-000000000000"
+        }
+      ]
+    },
+    {
+      "type": "queue_changed",
+      "items": [
+        {
+          "id": "x",
+          "delivery": "steer",
+          "preview": "x"
+        }
+      ]
+    }
+  ],
+  "QueueItem": [
+    {
+      "id": "x",
+      "delivery": "steer",
+      "preview": "x",
+      "clientRequestId": "00000000-0000-4000-8000-000000000000"
+    },
+    {
+      "id": "x",
+      "delivery": "steer",
+      "preview": "x"
+    }
+  ],
+  "QueueItemId": [
+    "x"
+  ],
+  "QueuedDelivery": [
+    "steer",
+    "queue"
+  ],
+  "RateLimitStatus": [
+    "allowed",
+    "allowed_warning",
+    "rejected"
+  ],
+  "RateLimitUpdate": [
+    {
+      "kind": "rate_limit",
+      "window": "x",
+      "status": "allowed",
+      "usedPercent": 1.5,
+      "resetsAt": 1
+    },
+    {
+      "kind": "rate_limit",
+      "window": "x"
+    }
+  ],
+  "Rejected": [
+    {
+      "status": "rejected",
+      "rejection": {
+        "code": "busy",
+        "message": "x"
+      }
+    }
+  ],
+  "Rejection": [
+    {
+      "code": "busy",
+      "message": "x"
+    }
+  ],
+  "RejectionCode": [
+    "busy",
+    "not_steerable",
+    "no_model",
+    "auth",
+    "invalid_input",
+    "unsupported",
+    "not_found",
+    "stale",
+    "closed",
+    "backend_error"
+  ],
+  "ReplaySync": [
+    {
+      "kind": "replay",
+      "epoch": "x",
+      "afterSeq": 1
+    }
+  ],
+  "RequestId": [
+    "x"
+  ],
+  "ResolutionReason": [
+    "answered",
+    "withdrawn",
+    "expired"
+  ],
+  "ResyncedEvent": [
+    {
+      "type": "resynced",
+      "snapshot": {
+        "run": {
+          "runId": "x",
+          "trigger": "prompt",
+          "startedAt": 1,
+          "items": [
+            {
+              "kind": "user_message",
+              "id": "x",
+              "at": 1,
+              "text": "x",
+              "attachments": [
+                {
+                  "kind": "image_ref",
+                  "id": "x",
+                  "mimeType": "x",
+                  "name": "x"
+                }
+              ],
+              "clientRequestId": "00000000-0000-4000-8000-000000000000"
+            }
+          ],
+          "droppedItems": 1
+        },
+        "blocks": [
+          {
+            "blockId": "x",
+            "messageId": "x",
+            "kind": "text",
+            "parentToolCallId": "x",
+            "text": "x"
+          }
+        ],
+        "tools": [
+          {
+            "toolCallId": "x",
+            "name": "x",
+            "title": "x",
+            "input": {
+              "text": "x",
+              "list": [
+                1,
+                2.5,
+                true,
+                null
+              ],
+              "nested": {
+                "ok": false
+              }
+            },
+            "messageId": "x",
+            "parentToolCallId": "x",
+            "childSession": {
+              "backend": "claude-code",
+              "sessionId": "x"
+            },
+            "output": "x",
+            "progress": "x",
+            "fileChanges": [
+              {
+                "path": "x",
+                "change": "added",
+                "previousPath": "x",
+                "diff": "x",
+                "additions": 1,
+                "deletions": 1
+              }
+            ]
+          }
+        ],
+        "interactions": [
+          {
+            "id": "x",
+            "runId": "x",
+            "createdAt": 1,
+            "expiresAt": 1,
+            "title": "x",
+            "body": "x",
+            "blocksRun": true,
+            "origin": {
+              "toolCallId": "x",
+              "toolName": "x",
+              "parentToolCallId": "x"
+            },
+            "request": {
+              "kind": "tool_permission",
+              "input": {
+                "text": "x",
+                "list": [
+                  1,
+                  2.5,
+                  true,
+                  null
+                ],
+                "nested": {
+                  "ok": false
+                }
+              },
+              "inputEditable": true,
+              "reason": "x",
+              "previews": [
+                {
+                  "kind": "command",
+                  "command": "x",
+                  "cwd": "x"
+                }
+              ],
+              "options": [
+                {
+                  "id": "x",
+                  "label": "x",
+                  "effect": "allow",
+                  "scope": "once",
+                  "stopsRun": true,
+                  "message": "none",
+                  "rule": "x"
+                }
+              ],
+              "grants": [
+                {
+                  "id": "x",
+                  "kind": "network",
+                  "target": "x"
+                }
+              ],
+              "defaultOptionId": "x",
+              "deliberate": true
+            }
+          }
+        ],
+        "queue": [
+          {
+            "id": "x",
+            "delivery": "steer",
+            "preview": "x",
+            "clientRequestId": "00000000-0000-4000-8000-000000000000"
+          }
+        ],
+        "modelId": "x",
+        "thinking": "x",
+        "modes": [
+          {
+            "axis": "x",
+            "value": "x"
+          }
+        ],
+        "usage": {
+          "inputTokens": 1,
+          "outputTokens": 1,
+          "cacheReadTokens": 1,
+          "cacheWriteTokens": 1,
+          "reasoningTokens": 1,
+          "costUsd": 1.5,
+          "contextTokens": 1,
+          "contextWindow": 1
+        },
+        "plan": {
+          "items": [
+            {
+              "text": "x",
+              "status": "pending"
+            }
+          ],
+          "explanation": "x"
+        },
+        "compaction": {
+          "trigger": "manual",
+          "startedAt": 1
+        },
+        "retry": {
+          "attempt": 1,
+          "maxAttempts": 1,
+          "retryAt": 1,
+          "message": "x"
+        },
+        "lastOutcome": {
+          "kind": "completed"
+        }
+      }
+    },
+    {
+      "type": "resynced",
+      "snapshot": {
+        "blocks": [
+          {
+            "blockId": "x",
+            "messageId": "x",
+            "kind": "text",
+            "text": "x"
+          }
+        ],
+        "tools": [
+          {
+            "toolCallId": "x",
+            "name": "x",
+            "output": "x",
+            "fileChanges": [
+              {
+                "path": "x",
+                "change": "added"
+              }
+            ]
+          }
+        ],
+        "interactions": [
+          {
+            "id": "x",
+            "createdAt": 1,
+            "title": "x",
+            "blocksRun": false,
+            "request": {
+              "kind": "tool_permission",
+              "inputEditable": false,
+              "previews": [
+                {
+                  "kind": "command",
+                  "command": "x"
+                }
+              ],
+              "options": [
+                {
+                  "id": "x",
+                  "label": "x",
+                  "effect": "allow",
+                  "scope": "once",
+                  "stopsRun": false,
+                  "message": "none"
+                }
+              ],
+              "grants": [
+                {
+                  "id": "x",
+                  "kind": "network"
+                }
+              ],
+              "deliberate": false
+            }
+          }
+        ],
+        "queue": [
+          {
+            "id": "x",
+            "delivery": "steer",
+            "preview": "x"
+          }
+        ],
+        "modes": [
+          {
+            "axis": "x",
+            "value": "x"
+          }
+        ]
+      }
+    }
+  ],
+  "RetryFinishedEvent": [
+    {
+      "type": "retry_finished",
+      "succeeded": true
+    },
+    {
+      "type": "retry_finished",
+      "succeeded": false
+    }
+  ],
+  "RetryScheduledEvent": [
+    {
+      "type": "retry_scheduled",
+      "attempt": 1,
+      "maxAttempts": 1,
+      "retryAt": 1,
+      "message": "x"
+    },
+    {
+      "type": "retry_scheduled",
+      "attempt": 1,
+      "message": "x"
+    }
+  ],
+  "RetryState": [
+    {
+      "attempt": 1,
+      "maxAttempts": 1,
+      "retryAt": 1,
+      "message": "x"
+    },
+    {
+      "attempt": 1,
+      "message": "x"
+    }
+  ],
+  "RevertClearOp": [
+    {
+      "kind": "revert_clear",
+      "sessionId": "x"
+    }
+  ],
+  "RevertCleared": [
+    {
+      "kind": "revert_clear"
+    }
+  ],
+  "RevertCommitOp": [
+    {
+      "kind": "revert_commit",
+      "sessionId": "x"
+    }
+  ],
+  "RevertCommitted": [
+    {
+      "kind": "revert_commit"
+    }
+  ],
+  "RevertOp": [
+    {
+      "kind": "revert",
+      "sessionId": "x",
+      "beforeItemId": "x"
+    }
+  ],
+  "RevertStageOp": [
+    {
+      "kind": "revert_stage",
+      "sessionId": "x",
+      "itemId": "x",
+      "restoreFiles": true
+    },
+    {
+      "kind": "revert_stage",
+      "sessionId": "x",
+      "itemId": "x",
+      "restoreFiles": false
+    }
+  ],
+  "RevertStaged": [
+    {
+      "kind": "revert_stage",
+      "files": [
+        {
+          "path": "x",
+          "change": "added",
+          "previousPath": "x",
+          "diff": "x",
+          "additions": 1,
+          "deletions": 1
+        }
+      ]
+    },
+    {
+      "kind": "revert_stage",
+      "files": [
+        {
+          "path": "x",
+          "change": "added"
+        }
+      ]
+    }
+  ],
+  "Reverted": [
+    {
+      "kind": "revert"
+    }
+  ],
+  "ReviewStartOp": [
+    {
+      "kind": "review_start",
+      "sessionId": "x",
+      "target": {
+        "kind": "uncommitted"
+      }
+    }
+  ],
+  "ReviewStarted": [
+    {
+      "kind": "review_start"
+    }
+  ],
+  "ReviewTarget": [
+    {
+      "kind": "uncommitted"
+    },
+    {
+      "kind": "base_branch",
+      "branch": "x"
+    },
+    {
+      "kind": "commit",
+      "sha": "x",
+      "title": "x"
+    },
+    {
+      "kind": "commit",
+      "sha": "x"
+    },
+    {
+      "kind": "custom",
+      "instructions": "x"
+    }
+  ],
+  "RewindFilesOp": [
+    {
+      "kind": "rewind_files",
+      "sessionId": "x",
+      "userItemId": "x",
+      "dryRun": true
+    },
+    {
+      "kind": "rewind_files",
+      "sessionId": "x",
+      "userItemId": "x",
+      "dryRun": false
+    }
+  ],
+  "RewindFilesResult": [
+    {
+      "kind": "rewind_files",
+      "canRewind": true,
+      "filesChanged": [
+        "x"
+      ],
+      "insertions": 1,
+      "deletions": 1,
+      "skippedLinks": 1,
+      "error": "x"
+    },
+    {
+      "kind": "rewind_files",
+      "canRewind": false
+    }
+  ],
+  "RunAborted": [
+    {
+      "kind": "aborted"
+    }
+  ],
+  "RunBoundaryItem": [
+    {
+      "kind": "run_boundary",
+      "id": "x",
+      "at": 1,
+      "outcome": {
+        "kind": "completed"
+      }
+    },
+    {
+      "kind": "run_boundary",
+      "id": "x",
+      "outcome": {
+        "kind": "completed"
+      }
+    }
+  ],
+  "RunCompleted": [
+    {
+      "kind": "completed"
+    }
+  ],
+  "RunDeferred": [
+    {
+      "kind": "deferred"
+    }
+  ],
+  "RunErrored": [
+    {
+      "kind": "error",
+      "error": {
+        "code": "auth",
+        "message": "x"
+      }
+    }
+  ],
+  "RunFinishedEvent": [
+    {
+      "type": "run_finished",
+      "runId": "x",
+      "outcome": {
+        "kind": "completed"
+      }
+    }
+  ],
+  "RunId": [
+    "x"
+  ],
+  "RunLimit": [
+    "max_turns",
+    "budget",
+    "output_tokens"
+  ],
+  "RunLimited": [
+    {
+      "kind": "limit",
+      "limit": "max_turns"
+    }
+  ],
+  "RunOutcome": [
+    {
+      "kind": "completed"
+    },
+    {
+      "kind": "aborted"
+    },
+    {
+      "kind": "error",
+      "error": {
+        "code": "auth",
+        "message": "x"
+      }
+    },
+    {
+      "kind": "limit",
+      "limit": "max_turns"
+    },
+    {
+      "kind": "suspended"
+    },
+    {
+      "kind": "deferred"
+    }
+  ],
+  "RunStartedEvent": [
+    {
+      "type": "run_started",
+      "runId": "x",
+      "trigger": "prompt"
+    }
+  ],
+  "RunSuspended": [
+    {
+      "kind": "suspended"
+    }
+  ],
+  "RunTrigger": [
+    "prompt",
+    "queue",
+    "system",
+    "external"
+  ],
+  "RunningTool": [
+    {
+      "toolCallId": "x",
+      "name": "x",
+      "title": "x",
+      "input": {
+        "text": "x",
+        "list": [
+          1,
+          2.5,
+          true,
+          null
+        ],
+        "nested": {
+          "ok": false
+        }
+      },
+      "messageId": "x",
+      "parentToolCallId": "x",
+      "childSession": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "output": "x",
+      "progress": "x",
+      "fileChanges": [
+        {
+          "path": "x",
+          "change": "added",
+          "previousPath": "x",
+          "diff": "x",
+          "additions": 1,
+          "deletions": 1
+        }
+      ]
+    },
+    {
+      "toolCallId": "x",
+      "name": "x",
+      "output": "x",
+      "fileChanges": [
+        {
+          "path": "x",
+          "change": "added"
+        }
+      ]
+    }
+  ],
+  "ServerMessage": [
+    {
+      "type": "hello.result",
+      "requestId": "x",
+      "protocol": {
+        "major": 1,
+        "minor": 1
+      },
+      "bridgeVersion": "x"
+    },
+    {
+      "type": "backends.list.result",
+      "requestId": "x",
+      "backends": [
+        {
+          "id": "claude-code",
+          "capabilities": {
+            "streamText": true,
+            "streamThinking": true,
+            "promptModes": [
+              "start"
+            ],
+            "attachments": [
+              "image"
+            ],
+            "mentions": [
+              "file"
+            ],
+            "commands": true,
+            "queue": true,
+            "interactions": [
+              "tool_permission"
+            ],
+            "modelSwitch": "next_request",
+            "thinking": true,
+            "children": true,
+            "usage": true,
+            "plan": true,
+            "planProposals": true,
+            "externalLive": true,
+            "durableRuns": true,
+            "extensions": [
+              "turn_diff"
+            ],
+            "backendOps": [
+              "rewind_files"
+            ],
+            "fork": true,
+            "rename": true,
+            "delete": true,
+            "archive": true
+          }
+        }
+      ]
+    },
+    {
+      "type": "backends.list.result",
+      "requestId": "x",
+      "backends": [
+        {
+          "id": "claude-code",
+          "capabilities": {
+            "streamText": false,
+            "streamThinking": false,
+            "promptModes": [
+              "start"
+            ],
+            "attachments": [
+              "image"
+            ],
+            "mentions": [
+              "file"
+            ],
+            "commands": false,
+            "queue": false,
+            "interactions": [
+              "tool_permission"
+            ],
+            "modelSwitch": "next_request",
+            "thinking": false,
+            "children": false,
+            "usage": false,
+            "plan": false,
+            "planProposals": false,
+            "externalLive": false,
+            "durableRuns": false,
+            "extensions": [
+              "turn_diff"
+            ],
+            "backendOps": [
+              "rewind_files"
+            ],
+            "fork": false,
+            "rename": false,
+            "delete": false,
+            "archive": false
+          }
+        }
+      ]
+    },
+    {
+      "type": "backend.status.result",
+      "requestId": "x",
+      "status": {
+        "installed": true,
+        "version": "x",
+        "auth": "signed_in",
+        "usable": true,
+        "issues": [
+          {
+            "severity": "warning",
+            "message": "x"
+          }
+        ]
+      }
+    },
+    {
+      "type": "backend.status.result",
+      "requestId": "x",
+      "status": {
+        "installed": false,
+        "auth": "signed_in",
+        "usable": false,
+        "issues": [
+          {
+            "severity": "warning",
+            "message": "x"
+          }
+        ]
+      }
+    },
+    {
+      "type": "models.list.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "models": [
+          {
+            "id": "x",
+            "displayName": "x",
+            "description": "x",
+            "providerId": "x",
+            "providerName": "x",
+            "contextWindow": 1,
+            "inputModalities": [
+              "text"
+            ],
+            "thinking": {
+              "options": [
+                {
+                  "value": "x",
+                  "label": "x",
+                  "description": "x"
+                }
+              ],
+              "defaultValue": "x"
+            },
+            "isDefault": true
+          }
+        ]
+      }
+    },
+    {
+      "type": "models.list.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "models": [
+          {
+            "id": "x",
+            "displayName": "x",
+            "thinking": {
+              "options": [
+                {
+                  "value": "x"
+                }
+              ]
+            },
+            "isDefault": false
+          }
+        ]
+      }
+    },
+    {
+      "type": "commands.list.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "commands": [
+          {
+            "id": "x",
+            "name": "x",
+            "kind": "command",
+            "description": "x",
+            "argumentHint": "x"
+          }
+        ]
+      }
+    },
+    {
+      "type": "commands.list.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "commands": [
+          {
+            "id": "x",
+            "name": "x",
+            "kind": "command"
+          }
+        ]
+      }
+    },
+    {
+      "type": "modes.list.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "modes": [
+          {
+            "id": "x",
+            "label": "x",
+            "description": "x",
+            "options": [
+              {
+                "value": "x",
+                "label": "x",
+                "description": "x"
+              }
+            ],
+            "defaultValue": "x"
+          }
+        ]
+      }
+    },
+    {
+      "type": "modes.list.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "modes": [
+          {
+            "id": "x",
+            "label": "x",
+            "options": [
+              {
+                "value": "x",
+                "label": "x"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "type": "sessions.list.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "page": {
+          "items": [
+            {
+              "session": {
+                "backend": "claude-code",
+                "sessionId": "x"
+              },
+              "title": {
+                "text": "x",
+                "source": "user"
+              },
+              "cwd": "x",
+              "createdAt": 1,
+              "updatedAt": 1,
+              "parent": {
+                "kind": "fork",
+                "session": {
+                  "backend": "claude-code",
+                  "sessionId": "x"
+                }
+              },
+              "archived": true,
+              "modelId": "x",
+              "status": "idle",
+              "origin": "broski",
+              "source": "x"
+            }
+          ],
+          "nextCursor": "x"
+        }
+      }
+    },
+    {
+      "type": "sessions.list.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "page": {
+          "items": [
+            {
+              "session": {
+                "backend": "claude-code",
+                "sessionId": "x"
+              },
+              "updatedAt": 1,
+              "archived": false,
+              "status": "idle",
+              "origin": "broski"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "session.get.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "summary": {
+          "session": {
+            "backend": "claude-code",
+            "sessionId": "x"
+          },
+          "title": {
+            "text": "x",
+            "source": "user"
+          },
+          "cwd": "x",
+          "createdAt": 1,
+          "updatedAt": 1,
+          "parent": {
+            "kind": "fork",
+            "session": {
+              "backend": "claude-code",
+              "sessionId": "x"
+            }
+          },
+          "archived": true,
+          "modelId": "x",
+          "status": "idle",
+          "origin": "broski",
+          "source": "x"
+        }
+      }
+    },
+    {
+      "type": "session.get.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "summary": {
+          "session": {
+            "backend": "claude-code",
+            "sessionId": "x"
+          },
+          "updatedAt": 1,
+          "archived": false,
+          "status": "idle",
+          "origin": "broski"
+        }
+      }
+    },
+    {
+      "type": "session.create.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "session": {
+          "backend": "claude-code",
+          "sessionId": "x"
+        }
+      }
+    },
+    {
+      "type": "session.fork.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "session": {
+          "backend": "claude-code",
+          "sessionId": "x"
+        }
+      }
+    },
+    {
+      "type": "session.rename.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    },
+    {
+      "type": "session.delete.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    },
+    {
+      "type": "session.archive.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    },
+    {
+      "type": "session.attach.result",
+      "requestId": "x",
+      "capabilities": {
+        "controllable": true,
+        "compact": true,
+        "cancelQueued": true
+      },
+      "sync": {
+        "kind": "replay",
+        "epoch": "x",
+        "afterSeq": 1
+      }
+    },
+    {
+      "type": "session.attach.result",
+      "requestId": "x",
+      "capabilities": {
+        "controllable": false,
+        "compact": false,
+        "cancelQueued": false
+      },
+      "sync": {
+        "kind": "replay",
+        "epoch": "x",
+        "afterSeq": 1
+      }
+    },
+    {
+      "type": "session.detach.result",
+      "requestId": "x"
+    },
+    {
+      "type": "transcript.read.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "page": {
+          "items": [
+            {
+              "kind": "user_message",
+              "id": "x",
+              "at": 1,
+              "text": "x",
+              "attachments": [
+                {
+                  "kind": "image_ref",
+                  "id": "x",
+                  "mimeType": "x",
+                  "name": "x"
+                }
+              ],
+              "clientRequestId": "00000000-0000-4000-8000-000000000000"
+            }
+          ],
+          "nextCursor": "x",
+          "idStability": "stable"
+        }
+      }
+    },
+    {
+      "type": "transcript.read.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "page": {
+          "items": [
+            {
+              "kind": "user_message",
+              "id": "x",
+              "text": "x",
+              "attachments": [
+                {
+                  "kind": "image_ref",
+                  "id": "x",
+                  "mimeType": "x"
+                }
+              ]
+            }
+          ],
+          "idStability": "stable"
+        }
+      }
+    },
+    {
+      "type": "attachment.read.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "image": {
+          "kind": "image",
+          "mimeType": "x",
+          "data": "x",
+          "name": "x"
+        }
+      }
+    },
+    {
+      "type": "attachment.read.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "image": {
+          "kind": "image",
+          "mimeType": "x",
+          "data": "x"
+        }
+      }
+    },
+    {
+      "type": "prompt.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "disposition": "started",
+        "queueItemId": "x"
+      }
+    },
+    {
+      "type": "prompt.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "disposition": "started"
+      }
+    },
+    {
+      "type": "abort.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    },
+    {
+      "type": "interaction.answer.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    },
+    {
+      "type": "queue.cancel.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    },
+    {
+      "type": "model.set.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    },
+    {
+      "type": "thinking.set.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    },
+    {
+      "type": "mode.set.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    },
+    {
+      "type": "compact.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    },
+    {
+      "type": "backend.call.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "result": {
+          "kind": "rewind_files",
+          "canRewind": true,
+          "filesChanged": [
+            "x"
+          ],
+          "insertions": 1,
+          "deletions": 1,
+          "skippedLinks": 1,
+          "error": "x"
+        }
+      }
+    },
+    {
+      "type": "backend.call.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "result": {
+          "kind": "rewind_files",
+          "canRewind": false
+        }
+      }
+    },
+    {
+      "type": "error",
+      "requestId": "x",
+      "error": {
+        "code": "invalid_message",
+        "message": "x"
+      }
+    },
+    {
+      "type": "error",
+      "error": {
+        "code": "invalid_message",
+        "message": "x"
+      }
+    },
+    {
+      "type": "event",
+      "envelope": {
+        "session": {
+          "backend": "claude-code",
+          "sessionId": "x"
+        },
+        "seq": 1,
+        "at": 1,
+        "event": {
+          "type": "run_started",
+          "runId": "x",
+          "trigger": "prompt"
+        },
+        "native": {
+          "key": "x"
+        }
+      }
+    },
+    {
+      "type": "event",
+      "envelope": {
+        "session": {
+          "backend": "claude-code",
+          "sessionId": "x"
+        },
+        "seq": 1,
+        "at": 1,
+        "event": {
+          "type": "run_started",
+          "runId": "x",
+          "trigger": "prompt"
+        }
+      }
+    },
+    {
+      "type": "catalog",
+      "backend": "claude-code",
+      "event": {
+        "type": "session_updated",
+        "summary": {
+          "session": {
+            "backend": "claude-code",
+            "sessionId": "x"
+          },
+          "title": {
+            "text": "x",
+            "source": "user"
+          },
+          "cwd": "x",
+          "createdAt": 1,
+          "updatedAt": 1,
+          "parent": {
+            "kind": "fork",
+            "session": {
+              "backend": "claude-code",
+              "sessionId": "x"
+            }
+          },
+          "archived": true,
+          "modelId": "x",
+          "status": "idle",
+          "origin": "broski",
+          "source": "x"
+        }
+      }
+    },
+    {
+      "type": "catalog",
+      "backend": "claude-code",
+      "event": {
+        "type": "session_updated",
+        "summary": {
+          "session": {
+            "backend": "claude-code",
+            "sessionId": "x"
+          },
+          "updatedAt": 1,
+          "archived": false,
+          "status": "idle",
+          "origin": "broski"
+        }
+      }
+    }
+  ],
+  "SessionArchiveRequest": [
+    {
+      "type": "session.archive",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "archived": true
+    },
+    {
+      "type": "session.archive",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "archived": false
+    }
+  ],
+  "SessionArchiveResponse": [
+    {
+      "type": "session.archive.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    }
+  ],
+  "SessionAttachRequest": [
+    {
+      "type": "session.attach",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "resume": {
+        "epoch": "x",
+        "seq": 1
+      }
+    },
+    {
+      "type": "session.attach",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    }
+  ],
+  "SessionAttachResponse": [
+    {
+      "type": "session.attach.result",
+      "requestId": "x",
+      "capabilities": {
+        "controllable": true,
+        "compact": true,
+        "cancelQueued": true
+      },
+      "sync": {
+        "kind": "replay",
+        "epoch": "x",
+        "afterSeq": 1
+      }
+    },
+    {
+      "type": "session.attach.result",
+      "requestId": "x",
+      "capabilities": {
+        "controllable": false,
+        "compact": false,
+        "cancelQueued": false
+      },
+      "sync": {
+        "kind": "replay",
+        "epoch": "x",
+        "afterSeq": 1
+      }
+    }
+  ],
+  "SessionCapabilities": [
+    {
+      "controllable": true,
+      "compact": true,
+      "cancelQueued": true
+    },
+    {
+      "controllable": false,
+      "compact": false,
+      "cancelQueued": false
+    }
+  ],
+  "SessionCreateRequest": [
+    {
+      "type": "session.create",
+      "requestId": "x",
+      "backend": "claude-code",
+      "options": {
+        "cwd": "x",
+        "modelId": "x",
+        "thinking": "x",
+        "modes": [
+          {
+            "axis": "x",
+            "value": "x"
+          }
+        ]
+      }
+    },
+    {
+      "type": "session.create",
+      "requestId": "x",
+      "backend": "claude-code",
+      "options": {
+        "cwd": "x"
+      }
+    }
+  ],
+  "SessionCreateResponse": [
+    {
+      "type": "session.create.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "session": {
+          "backend": "claude-code",
+          "sessionId": "x"
+        }
+      }
+    }
+  ],
+  "SessionDeleteRequest": [
+    {
+      "type": "session.delete",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    }
+  ],
+  "SessionDeleteResponse": [
+    {
+      "type": "session.delete.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    }
+  ],
+  "SessionDetachRequest": [
+    {
+      "type": "session.detach",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    }
+  ],
+  "SessionDetachResponse": [
+    {
+      "type": "session.detach.result",
+      "requestId": "x"
+    }
+  ],
+  "SessionForkRequest": [
+    {
+      "type": "session.fork",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "at": {
+        "itemId": "x",
+        "position": "before"
+      }
+    },
+    {
+      "type": "session.fork",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    }
+  ],
+  "SessionForkResponse": [
+    {
+      "type": "session.fork.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "session": {
+          "backend": "claude-code",
+          "sessionId": "x"
+        }
+      }
+    }
+  ],
+  "SessionFound": [
+    {
+      "status": "accepted",
+      "summary": {
+        "session": {
+          "backend": "claude-code",
+          "sessionId": "x"
+        },
+        "title": {
+          "text": "x",
+          "source": "user"
+        },
+        "cwd": "x",
+        "createdAt": 1,
+        "updatedAt": 1,
+        "parent": {
+          "kind": "fork",
+          "session": {
+            "backend": "claude-code",
+            "sessionId": "x"
+          }
+        },
+        "archived": true,
+        "modelId": "x",
+        "status": "idle",
+        "origin": "broski",
+        "source": "x"
+      }
+    },
+    {
+      "status": "accepted",
+      "summary": {
+        "session": {
+          "backend": "claude-code",
+          "sessionId": "x"
+        },
+        "updatedAt": 1,
+        "archived": false,
+        "status": "idle",
+        "origin": "broski"
+      }
+    }
+  ],
+  "SessionGetRequest": [
+    {
+      "type": "session.get",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    }
+  ],
+  "SessionGetResponse": [
+    {
+      "type": "session.get.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "summary": {
+          "session": {
+            "backend": "claude-code",
+            "sessionId": "x"
+          },
+          "title": {
+            "text": "x",
+            "source": "user"
+          },
+          "cwd": "x",
+          "createdAt": 1,
+          "updatedAt": 1,
+          "parent": {
+            "kind": "fork",
+            "session": {
+              "backend": "claude-code",
+              "sessionId": "x"
+            }
+          },
+          "archived": true,
+          "modelId": "x",
+          "status": "idle",
+          "origin": "broski",
+          "source": "x"
+        }
+      }
+    },
+    {
+      "type": "session.get.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "summary": {
+          "session": {
+            "backend": "claude-code",
+            "sessionId": "x"
+          },
+          "updatedAt": 1,
+          "archived": false,
+          "status": "idle",
+          "origin": "broski"
+        }
+      }
+    }
+  ],
+  "SessionGetResult": [
+    {
+      "status": "accepted",
+      "summary": {
+        "session": {
+          "backend": "claude-code",
+          "sessionId": "x"
+        },
+        "title": {
+          "text": "x",
+          "source": "user"
+        },
+        "cwd": "x",
+        "createdAt": 1,
+        "updatedAt": 1,
+        "parent": {
+          "kind": "fork",
+          "session": {
+            "backend": "claude-code",
+            "sessionId": "x"
+          }
+        },
+        "archived": true,
+        "modelId": "x",
+        "status": "idle",
+        "origin": "broski",
+        "source": "x"
+      }
+    },
+    {
+      "status": "accepted",
+      "summary": {
+        "session": {
+          "backend": "claude-code",
+          "sessionId": "x"
+        },
+        "updatedAt": 1,
+        "archived": false,
+        "status": "idle",
+        "origin": "broski"
+      }
+    },
+    {
+      "status": "rejected",
+      "rejection": {
+        "code": "busy",
+        "message": "x"
+      }
+    }
+  ],
+  "SessionId": [
+    "x"
+  ],
+  "SessionOrigin": [
+    "broski",
+    "external"
+  ],
+  "SessionPage": [
+    {
+      "items": [
+        {
+          "session": {
+            "backend": "claude-code",
+            "sessionId": "x"
+          },
+          "title": {
+            "text": "x",
+            "source": "user"
+          },
+          "cwd": "x",
+          "createdAt": 1,
+          "updatedAt": 1,
+          "parent": {
+            "kind": "fork",
+            "session": {
+              "backend": "claude-code",
+              "sessionId": "x"
+            }
+          },
+          "archived": true,
+          "modelId": "x",
+          "status": "idle",
+          "origin": "broski",
+          "source": "x"
+        }
+      ],
+      "nextCursor": "x"
+    },
+    {
+      "items": [
+        {
+          "session": {
+            "backend": "claude-code",
+            "sessionId": "x"
+          },
+          "updatedAt": 1,
+          "archived": false,
+          "status": "idle",
+          "origin": "broski"
+        }
+      ]
+    }
+  ],
+  "SessionParent": [
+    {
+      "kind": "fork",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    }
+  ],
+  "SessionQuery": [
+    {
+      "cwd": "x",
+      "archived": true,
+      "parent": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    },
+    {
+      "archived": false
+    }
+  ],
+  "SessionRef": [
+    {
+      "backend": "claude-code",
+      "sessionId": "x"
+    }
+  ],
+  "SessionRemovedEvent": [
+    {
+      "type": "session_removed",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    }
+  ],
+  "SessionRenameRequest": [
+    {
+      "type": "session.rename",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "title": "x"
+    }
+  ],
+  "SessionRenameResponse": [
+    {
+      "type": "session.rename.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    }
+  ],
+  "SessionReplacedEvent": [
+    {
+      "type": "session_replaced",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    }
+  ],
+  "SessionSnapshot": [
+    {
+      "run": {
+        "runId": "x",
+        "trigger": "prompt",
+        "startedAt": 1,
+        "items": [
+          {
+            "kind": "user_message",
+            "id": "x",
+            "at": 1,
+            "text": "x",
+            "attachments": [
+              {
+                "kind": "image_ref",
+                "id": "x",
+                "mimeType": "x",
+                "name": "x"
+              }
+            ],
+            "clientRequestId": "00000000-0000-4000-8000-000000000000"
+          }
+        ],
+        "droppedItems": 1
+      },
+      "blocks": [
+        {
+          "blockId": "x",
+          "messageId": "x",
+          "kind": "text",
+          "parentToolCallId": "x",
+          "text": "x"
+        }
+      ],
+      "tools": [
+        {
+          "toolCallId": "x",
+          "name": "x",
+          "title": "x",
+          "input": {
+            "text": "x",
+            "list": [
+              1,
+              2.5,
+              true,
+              null
+            ],
+            "nested": {
+              "ok": false
+            }
+          },
+          "messageId": "x",
+          "parentToolCallId": "x",
+          "childSession": {
+            "backend": "claude-code",
+            "sessionId": "x"
+          },
+          "output": "x",
+          "progress": "x",
+          "fileChanges": [
+            {
+              "path": "x",
+              "change": "added",
+              "previousPath": "x",
+              "diff": "x",
+              "additions": 1,
+              "deletions": 1
+            }
+          ]
+        }
+      ],
+      "interactions": [
+        {
+          "id": "x",
+          "runId": "x",
+          "createdAt": 1,
+          "expiresAt": 1,
+          "title": "x",
+          "body": "x",
+          "blocksRun": true,
+          "origin": {
+            "toolCallId": "x",
+            "toolName": "x",
+            "parentToolCallId": "x"
+          },
+          "request": {
+            "kind": "tool_permission",
+            "input": {
+              "text": "x",
+              "list": [
+                1,
+                2.5,
+                true,
+                null
+              ],
+              "nested": {
+                "ok": false
+              }
+            },
+            "inputEditable": true,
+            "reason": "x",
+            "previews": [
+              {
+                "kind": "command",
+                "command": "x",
+                "cwd": "x"
+              }
+            ],
+            "options": [
+              {
+                "id": "x",
+                "label": "x",
+                "effect": "allow",
+                "scope": "once",
+                "stopsRun": true,
+                "message": "none",
+                "rule": "x"
+              }
+            ],
+            "grants": [
+              {
+                "id": "x",
+                "kind": "network",
+                "target": "x"
+              }
+            ],
+            "defaultOptionId": "x",
+            "deliberate": true
+          }
+        }
+      ],
+      "queue": [
+        {
+          "id": "x",
+          "delivery": "steer",
+          "preview": "x",
+          "clientRequestId": "00000000-0000-4000-8000-000000000000"
+        }
+      ],
+      "modelId": "x",
+      "thinking": "x",
+      "modes": [
+        {
+          "axis": "x",
+          "value": "x"
+        }
+      ],
+      "usage": {
+        "inputTokens": 1,
+        "outputTokens": 1,
+        "cacheReadTokens": 1,
+        "cacheWriteTokens": 1,
+        "reasoningTokens": 1,
+        "costUsd": 1.5,
+        "contextTokens": 1,
+        "contextWindow": 1
+      },
+      "plan": {
+        "items": [
+          {
+            "text": "x",
+            "status": "pending"
+          }
+        ],
+        "explanation": "x"
+      },
+      "compaction": {
+        "trigger": "manual",
+        "startedAt": 1
+      },
+      "retry": {
+        "attempt": 1,
+        "maxAttempts": 1,
+        "retryAt": 1,
+        "message": "x"
+      },
+      "lastOutcome": {
+        "kind": "completed"
+      }
+    },
+    {
+      "blocks": [
+        {
+          "blockId": "x",
+          "messageId": "x",
+          "kind": "text",
+          "text": "x"
+        }
+      ],
+      "tools": [
+        {
+          "toolCallId": "x",
+          "name": "x",
+          "output": "x",
+          "fileChanges": [
+            {
+              "path": "x",
+              "change": "added"
+            }
+          ]
+        }
+      ],
+      "interactions": [
+        {
+          "id": "x",
+          "createdAt": 1,
+          "title": "x",
+          "blocksRun": false,
+          "request": {
+            "kind": "tool_permission",
+            "inputEditable": false,
+            "previews": [
+              {
+                "kind": "command",
+                "command": "x"
+              }
+            ],
+            "options": [
+              {
+                "id": "x",
+                "label": "x",
+                "effect": "allow",
+                "scope": "once",
+                "stopsRun": false,
+                "message": "none"
+              }
+            ],
+            "grants": [
+              {
+                "id": "x",
+                "kind": "network"
+              }
+            ],
+            "deliberate": false
+          }
+        }
+      ],
+      "queue": [
+        {
+          "id": "x",
+          "delivery": "steer",
+          "preview": "x"
+        }
+      ],
+      "modes": [
+        {
+          "axis": "x",
+          "value": "x"
+        }
+      ]
+    }
+  ],
+  "SessionStatus": [
+    "idle",
+    "running",
+    "waiting_for_user",
+    "suspended",
+    "unknown"
+  ],
+  "SessionSummary": [
+    {
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "title": {
+        "text": "x",
+        "source": "user"
+      },
+      "cwd": "x",
+      "createdAt": 1,
+      "updatedAt": 1,
+      "parent": {
+        "kind": "fork",
+        "session": {
+          "backend": "claude-code",
+          "sessionId": "x"
+        }
+      },
+      "archived": true,
+      "modelId": "x",
+      "status": "idle",
+      "origin": "broski",
+      "source": "x"
+    },
+    {
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "updatedAt": 1,
+      "archived": false,
+      "status": "idle",
+      "origin": "broski"
+    }
+  ],
+  "SessionTitle": [
+    {
+      "text": "x",
+      "source": "user"
+    }
+  ],
+  "SessionUpdatedEvent": [
+    {
+      "type": "session_updated",
+      "summary": {
+        "session": {
+          "backend": "claude-code",
+          "sessionId": "x"
+        },
+        "title": {
+          "text": "x",
+          "source": "user"
+        },
+        "cwd": "x",
+        "createdAt": 1,
+        "updatedAt": 1,
+        "parent": {
+          "kind": "fork",
+          "session": {
+            "backend": "claude-code",
+            "sessionId": "x"
+          }
+        },
+        "archived": true,
+        "modelId": "x",
+        "status": "idle",
+        "origin": "broski",
+        "source": "x"
+      }
+    },
+    {
+      "type": "session_updated",
+      "summary": {
+        "session": {
+          "backend": "claude-code",
+          "sessionId": "x"
+        },
+        "updatedAt": 1,
+        "archived": false,
+        "status": "idle",
+        "origin": "broski"
+      }
+    }
+  ],
+  "SessionsListRequest": [
+    {
+      "type": "sessions.list",
+      "requestId": "x",
+      "backend": "claude-code",
+      "query": {
+        "cwd": "x",
+        "archived": true,
+        "parent": {
+          "backend": "claude-code",
+          "sessionId": "x"
+        }
+      },
+      "page": {
+        "cursor": "x",
+        "limit": 1
+      }
+    },
+    {
+      "type": "sessions.list",
+      "requestId": "x",
+      "backend": "claude-code",
+      "query": {
+        "archived": false
+      },
+      "page": {
+        "limit": 1
+      }
+    }
+  ],
+  "SessionsListResponse": [
+    {
+      "type": "sessions.list.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "page": {
+          "items": [
+            {
+              "session": {
+                "backend": "claude-code",
+                "sessionId": "x"
+              },
+              "title": {
+                "text": "x",
+                "source": "user"
+              },
+              "cwd": "x",
+              "createdAt": 1,
+              "updatedAt": 1,
+              "parent": {
+                "kind": "fork",
+                "session": {
+                  "backend": "claude-code",
+                  "sessionId": "x"
+                }
+              },
+              "archived": true,
+              "modelId": "x",
+              "status": "idle",
+              "origin": "broski",
+              "source": "x"
+            }
+          ],
+          "nextCursor": "x"
+        }
+      }
+    },
+    {
+      "type": "sessions.list.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "page": {
+          "items": [
+            {
+              "session": {
+                "backend": "claude-code",
+                "sessionId": "x"
+              },
+              "updatedAt": 1,
+              "archived": false,
+              "status": "idle",
+              "origin": "broski"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "SessionsListResult": [
+    {
+      "status": "accepted",
+      "page": {
+        "items": [
+          {
+            "session": {
+              "backend": "claude-code",
+              "sessionId": "x"
+            },
+            "title": {
+              "text": "x",
+              "source": "user"
+            },
+            "cwd": "x",
+            "createdAt": 1,
+            "updatedAt": 1,
+            "parent": {
+              "kind": "fork",
+              "session": {
+                "backend": "claude-code",
+                "sessionId": "x"
+              }
+            },
+            "archived": true,
+            "modelId": "x",
+            "status": "idle",
+            "origin": "broski",
+            "source": "x"
+          }
+        ],
+        "nextCursor": "x"
+      }
+    },
+    {
+      "status": "accepted",
+      "page": {
+        "items": [
+          {
+            "session": {
+              "backend": "claude-code",
+              "sessionId": "x"
+            },
+            "updatedAt": 1,
+            "archived": false,
+            "status": "idle",
+            "origin": "broski"
+          }
+        ]
+      }
+    },
+    {
+      "status": "rejected",
+      "rejection": {
+        "code": "busy",
+        "message": "x"
+      }
+    }
+  ],
+  "SessionsListed": [
+    {
+      "status": "accepted",
+      "page": {
+        "items": [
+          {
+            "session": {
+              "backend": "claude-code",
+              "sessionId": "x"
+            },
+            "title": {
+              "text": "x",
+              "source": "user"
+            },
+            "cwd": "x",
+            "createdAt": 1,
+            "updatedAt": 1,
+            "parent": {
+              "kind": "fork",
+              "session": {
+                "backend": "claude-code",
+                "sessionId": "x"
+              }
+            },
+            "archived": true,
+            "modelId": "x",
+            "status": "idle",
+            "origin": "broski",
+            "source": "x"
+          }
+        ],
+        "nextCursor": "x"
+      }
+    },
+    {
+      "status": "accepted",
+      "page": {
+        "items": [
+          {
+            "session": {
+              "backend": "claude-code",
+              "sessionId": "x"
+            },
+            "updatedAt": 1,
+            "archived": false,
+            "status": "idle",
+            "origin": "broski"
+          }
+        ]
+      }
+    }
+  ],
+  "SnapshotSync": [
+    {
+      "kind": "snapshot",
+      "epoch": "x",
+      "lastSeq": 1,
+      "snapshot": {
+        "run": {
+          "runId": "x",
+          "trigger": "prompt",
+          "startedAt": 1,
+          "items": [
+            {
+              "kind": "user_message",
+              "id": "x",
+              "at": 1,
+              "text": "x",
+              "attachments": [
+                {
+                  "kind": "image_ref",
+                  "id": "x",
+                  "mimeType": "x",
+                  "name": "x"
+                }
+              ],
+              "clientRequestId": "00000000-0000-4000-8000-000000000000"
+            }
+          ],
+          "droppedItems": 1
+        },
+        "blocks": [
+          {
+            "blockId": "x",
+            "messageId": "x",
+            "kind": "text",
+            "parentToolCallId": "x",
+            "text": "x"
+          }
+        ],
+        "tools": [
+          {
+            "toolCallId": "x",
+            "name": "x",
+            "title": "x",
+            "input": {
+              "text": "x",
+              "list": [
+                1,
+                2.5,
+                true,
+                null
+              ],
+              "nested": {
+                "ok": false
+              }
+            },
+            "messageId": "x",
+            "parentToolCallId": "x",
+            "childSession": {
+              "backend": "claude-code",
+              "sessionId": "x"
+            },
+            "output": "x",
+            "progress": "x",
+            "fileChanges": [
+              {
+                "path": "x",
+                "change": "added",
+                "previousPath": "x",
+                "diff": "x",
+                "additions": 1,
+                "deletions": 1
+              }
+            ]
+          }
+        ],
+        "interactions": [
+          {
+            "id": "x",
+            "runId": "x",
+            "createdAt": 1,
+            "expiresAt": 1,
+            "title": "x",
+            "body": "x",
+            "blocksRun": true,
+            "origin": {
+              "toolCallId": "x",
+              "toolName": "x",
+              "parentToolCallId": "x"
+            },
+            "request": {
+              "kind": "tool_permission",
+              "input": {
+                "text": "x",
+                "list": [
+                  1,
+                  2.5,
+                  true,
+                  null
+                ],
+                "nested": {
+                  "ok": false
+                }
+              },
+              "inputEditable": true,
+              "reason": "x",
+              "previews": [
+                {
+                  "kind": "command",
+                  "command": "x",
+                  "cwd": "x"
+                }
+              ],
+              "options": [
+                {
+                  "id": "x",
+                  "label": "x",
+                  "effect": "allow",
+                  "scope": "once",
+                  "stopsRun": true,
+                  "message": "none",
+                  "rule": "x"
+                }
+              ],
+              "grants": [
+                {
+                  "id": "x",
+                  "kind": "network",
+                  "target": "x"
+                }
+              ],
+              "defaultOptionId": "x",
+              "deliberate": true
+            }
+          }
+        ],
+        "queue": [
+          {
+            "id": "x",
+            "delivery": "steer",
+            "preview": "x",
+            "clientRequestId": "00000000-0000-4000-8000-000000000000"
+          }
+        ],
+        "modelId": "x",
+        "thinking": "x",
+        "modes": [
+          {
+            "axis": "x",
+            "value": "x"
+          }
+        ],
+        "usage": {
+          "inputTokens": 1,
+          "outputTokens": 1,
+          "cacheReadTokens": 1,
+          "cacheWriteTokens": 1,
+          "reasoningTokens": 1,
+          "costUsd": 1.5,
+          "contextTokens": 1,
+          "contextWindow": 1
+        },
+        "plan": {
+          "items": [
+            {
+              "text": "x",
+              "status": "pending"
+            }
+          ],
+          "explanation": "x"
+        },
+        "compaction": {
+          "trigger": "manual",
+          "startedAt": 1
+        },
+        "retry": {
+          "attempt": 1,
+          "maxAttempts": 1,
+          "retryAt": 1,
+          "message": "x"
+        },
+        "lastOutcome": {
+          "kind": "completed"
+        }
+      }
+    },
+    {
+      "kind": "snapshot",
+      "epoch": "x",
+      "lastSeq": 1,
+      "snapshot": {
+        "blocks": [
+          {
+            "blockId": "x",
+            "messageId": "x",
+            "kind": "text",
+            "text": "x"
+          }
+        ],
+        "tools": [
+          {
+            "toolCallId": "x",
+            "name": "x",
+            "output": "x",
+            "fileChanges": [
+              {
+                "path": "x",
+                "change": "added"
+              }
+            ]
+          }
+        ],
+        "interactions": [
+          {
+            "id": "x",
+            "createdAt": 1,
+            "title": "x",
+            "blocksRun": false,
+            "request": {
+              "kind": "tool_permission",
+              "inputEditable": false,
+              "previews": [
+                {
+                  "kind": "command",
+                  "command": "x"
+                }
+              ],
+              "options": [
+                {
+                  "id": "x",
+                  "label": "x",
+                  "effect": "allow",
+                  "scope": "once",
+                  "stopsRun": false,
+                  "message": "none"
+                }
+              ],
+              "grants": [
+                {
+                  "id": "x",
+                  "kind": "network"
+                }
+              ],
+              "deliberate": false
+            }
+          }
+        ],
+        "queue": [
+          {
+            "id": "x",
+            "delivery": "steer",
+            "preview": "x"
+          }
+        ],
+        "modes": [
+          {
+            "axis": "x",
+            "value": "x"
+          }
+        ]
+      }
+    }
+  ],
+  "StatusChangedEvent": [
+    {
+      "type": "status_changed",
+      "status": {
+        "installed": true,
+        "version": "x",
+        "auth": "signed_in",
+        "usable": true,
+        "issues": [
+          {
+            "severity": "warning",
+            "message": "x"
+          }
+        ]
+      }
+    },
+    {
+      "type": "status_changed",
+      "status": {
+        "installed": false,
+        "auth": "signed_in",
+        "usable": false,
+        "issues": [
+          {
+            "severity": "warning",
+            "message": "x"
+          }
+        ]
+      }
+    }
+  ],
+  "StatusIssue": [
+    {
+      "severity": "warning",
+      "message": "x"
+    }
+  ],
+  "StreamEpoch": [
+    "x"
+  ],
+  "StreamPosition": [
+    {
+      "epoch": "x",
+      "seq": 1
+    }
+  ],
+  "StringField": [
+    {
+      "kind": "string",
+      "key": "x",
+      "title": "x",
+      "description": "x",
+      "required": true,
+      "hidden": true,
+      "when": [
+        {
+          "key": "x",
+          "op": "eq",
+          "value": {
+            "kind": "text",
+            "value": "x"
+          }
+        }
+      ],
+      "format": "email",
+      "minLength": 1,
+      "maxLength": 1,
+      "pattern": "x",
+      "placeholder": "x",
+      "defaultValue": "x",
+      "options": [
+        {
+          "value": "x",
+          "label": "x",
+          "description": "x"
+        }
+      ],
+      "allowCustom": true
+    },
+    {
+      "kind": "string",
+      "key": "x",
+      "required": false,
+      "hidden": false,
+      "when": [
+        {
+          "key": "x",
+          "op": "eq",
+          "value": {
+            "kind": "text",
+            "value": "x"
+          }
+        }
+      ],
+      "options": [
+        {
+          "value": "x",
+          "label": "x"
+        }
+      ],
+      "allowCustom": false
+    }
+  ],
+  "StringFormat": [
+    "email",
+    "uri",
+    "date",
+    "date-time"
+  ],
+  "TextContent": [
+    {
+      "kind": "text",
+      "text": "x"
+    }
+  ],
+  "TextReply": [
+    {
+      "kind": "text",
+      "text": "x"
+    }
+  ],
+  "TextRequest": [
+    {
+      "kind": "text",
+      "placeholder": "x",
+      "initialText": "x",
+      "multiline": true
+    },
+    {
+      "kind": "text",
+      "multiline": false
+    }
+  ],
+  "TextValue": [
+    {
+      "kind": "text",
+      "value": "x"
+    }
+  ],
+  "ThinkingOption": [
+    {
+      "value": "x",
+      "label": "x",
+      "description": "x"
+    },
+    {
+      "value": "x"
+    }
+  ],
+  "ThinkingSetRequest": [
+    {
+      "type": "thinking.set",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "thinking": "x"
+    }
+  ],
+  "ThinkingSetResponse": [
+    {
+      "type": "thinking.set.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    }
+  ],
+  "ThinkingSpec": [
+    {
+      "options": [
+        {
+          "value": "x",
+          "label": "x",
+          "description": "x"
+        }
+      ],
+      "defaultValue": "x"
+    },
+    {
+      "options": [
+        {
+          "value": "x"
+        }
+      ]
+    }
+  ],
+  "Timestamp": [
+    1
+  ],
+  "TitleSource": [
+    "user",
+    "generated",
+    "first_prompt"
+  ],
+  "ToolCallId": [
+    "x"
+  ],
+  "ToolCallItem": [
+    {
+      "kind": "tool_call",
+      "id": "x",
+      "at": 1,
+      "toolCallId": "x",
+      "messageId": "x",
+      "name": "x",
+      "title": "x",
+      "input": {
+        "text": "x",
+        "list": [
+          1,
+          2.5,
+          true,
+          null
+        ],
+        "nested": {
+          "ok": false
+        }
+      },
+      "parentToolCallId": "x",
+      "childSession": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    },
+    {
+      "kind": "tool_call",
+      "id": "x",
+      "toolCallId": "x",
+      "name": "x"
+    }
+  ],
+  "ToolChildSession": [
+    {
+      "kind": "child_session",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    }
+  ],
+  "ToolContent": [
+    {
+      "kind": "text",
+      "text": "x"
+    },
+    {
+      "kind": "image_ref",
+      "id": "x",
+      "mimeType": "x",
+      "name": "x"
+    },
+    {
+      "kind": "image_ref",
+      "id": "x",
+      "mimeType": "x"
+    },
+    {
+      "kind": "file",
+      "uri": "x",
+      "mimeType": "x",
+      "name": "x"
+    },
+    {
+      "kind": "file",
+      "uri": "x"
+    }
+  ],
+  "ToolFileChanges": [
+    {
+      "kind": "file_changes",
+      "changes": [
+        {
+          "path": "x",
+          "change": "added",
+          "previousPath": "x",
+          "diff": "x",
+          "additions": 1,
+          "deletions": 1
+        }
+      ]
+    },
+    {
+      "kind": "file_changes",
+      "changes": [
+        {
+          "path": "x",
+          "change": "added"
+        }
+      ]
+    }
+  ],
+  "ToolFinishedEvent": [
+    {
+      "type": "tool_finished",
+      "toolCallId": "x",
+      "outcome": "completed",
+      "result": {
+        "content": [
+          {
+            "kind": "text",
+            "text": "x"
+          }
+        ],
+        "fileChanges": [
+          {
+            "path": "x",
+            "change": "added",
+            "previousPath": "x",
+            "diff": "x",
+            "additions": 1,
+            "deletions": 1
+          }
+        ],
+        "error": "x",
+        "exitCode": 1
+      }
+    },
+    {
+      "type": "tool_finished",
+      "toolCallId": "x",
+      "outcome": "completed",
+      "result": {
+        "content": [
+          {
+            "kind": "text",
+            "text": "x"
+          }
+        ],
+        "fileChanges": [
+          {
+            "path": "x",
+            "change": "added"
+          }
+        ]
+      }
+    }
+  ],
+  "ToolInputSet": [
+    {
+      "kind": "input",
+      "input": {
+        "text": "x",
+        "list": [
+          1,
+          2.5,
+          true,
+          null
+        ],
+        "nested": {
+          "ok": false
+        }
+      }
+    }
+  ],
+  "ToolOutcome": [
+    "completed",
+    "failed",
+    "denied",
+    "aborted"
+  ],
+  "ToolOutputAppended": [
+    {
+      "kind": "output_appended",
+      "text": "x"
+    }
+  ],
+  "ToolOutputReplaced": [
+    {
+      "kind": "output_replaced",
+      "text": "x"
+    }
+  ],
+  "ToolPermissionReply": [
+    {
+      "kind": "tool_permission",
+      "optionId": "x",
+      "message": "x",
+      "editedInput": {
+        "text": "x",
+        "list": [
+          1,
+          2.5,
+          true,
+          null
+        ],
+        "nested": {
+          "ok": false
+        }
+      },
+      "grantIds": [
+        "x"
+      ]
+    },
+    {
+      "kind": "tool_permission",
+      "optionId": "x",
+      "grantIds": [
+        "x"
+      ]
+    }
+  ],
+  "ToolPermissionRequest": [
+    {
+      "kind": "tool_permission",
+      "input": {
+        "text": "x",
+        "list": [
+          1,
+          2.5,
+          true,
+          null
+        ],
+        "nested": {
+          "ok": false
+        }
+      },
+      "inputEditable": true,
+      "reason": "x",
+      "previews": [
+        {
+          "kind": "command",
+          "command": "x",
+          "cwd": "x"
+        }
+      ],
+      "options": [
+        {
+          "id": "x",
+          "label": "x",
+          "effect": "allow",
+          "scope": "once",
+          "stopsRun": true,
+          "message": "none",
+          "rule": "x"
+        }
+      ],
+      "grants": [
+        {
+          "id": "x",
+          "kind": "network",
+          "target": "x"
+        }
+      ],
+      "defaultOptionId": "x",
+      "deliberate": true
+    },
+    {
+      "kind": "tool_permission",
+      "inputEditable": false,
+      "previews": [
+        {
+          "kind": "command",
+          "command": "x"
+        }
+      ],
+      "options": [
+        {
+          "id": "x",
+          "label": "x",
+          "effect": "allow",
+          "scope": "once",
+          "stopsRun": false,
+          "message": "none"
+        }
+      ],
+      "grants": [
+        {
+          "id": "x",
+          "kind": "network"
+        }
+      ],
+      "deliberate": false
+    }
+  ],
+  "ToolProgress": [
+    {
+      "kind": "progress",
+      "message": "x"
+    }
+  ],
+  "ToolResult": [
+    {
+      "content": [
+        {
+          "kind": "text",
+          "text": "x"
+        }
+      ],
+      "fileChanges": [
+        {
+          "path": "x",
+          "change": "added",
+          "previousPath": "x",
+          "diff": "x",
+          "additions": 1,
+          "deletions": 1
+        }
+      ],
+      "error": "x",
+      "exitCode": 1
+    },
+    {
+      "content": [
+        {
+          "kind": "text",
+          "text": "x"
+        }
+      ],
+      "fileChanges": [
+        {
+          "path": "x",
+          "change": "added"
+        }
+      ]
+    }
+  ],
+  "ToolResultItem": [
+    {
+      "kind": "tool_result",
+      "id": "x",
+      "at": 1,
+      "toolCallId": "x",
+      "outcome": "completed",
+      "result": {
+        "content": [
+          {
+            "kind": "text",
+            "text": "x"
+          }
+        ],
+        "fileChanges": [
+          {
+            "path": "x",
+            "change": "added",
+            "previousPath": "x",
+            "diff": "x",
+            "additions": 1,
+            "deletions": 1
+          }
+        ],
+        "error": "x",
+        "exitCode": 1
+      }
+    },
+    {
+      "kind": "tool_result",
+      "id": "x",
+      "toolCallId": "x",
+      "outcome": "completed",
+      "result": {
+        "content": [
+          {
+            "kind": "text",
+            "text": "x"
+          }
+        ],
+        "fileChanges": [
+          {
+            "path": "x",
+            "change": "added"
+          }
+        ]
+      }
+    }
+  ],
+  "ToolStartedEvent": [
+    {
+      "type": "tool_started",
+      "toolCallId": "x",
+      "name": "x",
+      "title": "x",
+      "input": {
+        "text": "x",
+        "list": [
+          1,
+          2.5,
+          true,
+          null
+        ],
+        "nested": {
+          "ok": false
+        }
+      },
+      "messageId": "x",
+      "parentToolCallId": "x"
+    },
+    {
+      "type": "tool_started",
+      "toolCallId": "x",
+      "name": "x"
+    }
+  ],
+  "ToolUpdate": [
+    {
+      "kind": "input",
+      "input": {
+        "text": "x",
+        "list": [
+          1,
+          2.5,
+          true,
+          null
+        ],
+        "nested": {
+          "ok": false
+        }
+      }
+    },
+    {
+      "kind": "output_appended",
+      "text": "x"
+    },
+    {
+      "kind": "output_replaced",
+      "text": "x"
+    },
+    {
+      "kind": "progress",
+      "message": "x"
+    },
+    {
+      "kind": "file_changes",
+      "changes": [
+        {
+          "path": "x",
+          "change": "added",
+          "previousPath": "x",
+          "diff": "x",
+          "additions": 1,
+          "deletions": 1
+        }
+      ]
+    },
+    {
+      "kind": "file_changes",
+      "changes": [
+        {
+          "path": "x",
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "kind": "child_session",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    }
+  ],
+  "ToolUpdatedEvent": [
+    {
+      "type": "tool_updated",
+      "toolCallId": "x",
+      "update": {
+        "kind": "input",
+        "input": {
+          "text": "x",
+          "list": [
+            1,
+            2.5,
+            true,
+            null
+          ],
+          "nested": {
+            "ok": false
+          }
+        }
+      }
+    }
+  ],
+  "TranscriptInvalidatedEvent": [
+    {
+      "type": "transcript_invalidated",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    }
+  ],
+  "TranscriptItem": [
+    {
+      "kind": "user_message",
+      "id": "x",
+      "at": 1,
+      "text": "x",
+      "attachments": [
+        {
+          "kind": "image_ref",
+          "id": "x",
+          "mimeType": "x",
+          "name": "x"
+        }
+      ],
+      "clientRequestId": "00000000-0000-4000-8000-000000000000"
+    },
+    {
+      "kind": "user_message",
+      "id": "x",
+      "text": "x",
+      "attachments": [
+        {
+          "kind": "image_ref",
+          "id": "x",
+          "mimeType": "x"
+        }
+      ]
+    },
+    {
+      "kind": "block",
+      "id": "x",
+      "at": 1,
+      "messageId": "x",
+      "block": "text",
+      "text": "x",
+      "parentToolCallId": "x"
+    },
+    {
+      "kind": "block",
+      "id": "x",
+      "messageId": "x",
+      "block": "text",
+      "text": "x"
+    },
+    {
+      "kind": "tool_call",
+      "id": "x",
+      "at": 1,
+      "toolCallId": "x",
+      "messageId": "x",
+      "name": "x",
+      "title": "x",
+      "input": {
+        "text": "x",
+        "list": [
+          1,
+          2.5,
+          true,
+          null
+        ],
+        "nested": {
+          "ok": false
+        }
+      },
+      "parentToolCallId": "x",
+      "childSession": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    },
+    {
+      "kind": "tool_call",
+      "id": "x",
+      "toolCallId": "x",
+      "name": "x"
+    },
+    {
+      "kind": "tool_result",
+      "id": "x",
+      "at": 1,
+      "toolCallId": "x",
+      "outcome": "completed",
+      "result": {
+        "content": [
+          {
+            "kind": "text",
+            "text": "x"
+          }
+        ],
+        "fileChanges": [
+          {
+            "path": "x",
+            "change": "added",
+            "previousPath": "x",
+            "diff": "x",
+            "additions": 1,
+            "deletions": 1
+          }
+        ],
+        "error": "x",
+        "exitCode": 1
+      }
+    },
+    {
+      "kind": "tool_result",
+      "id": "x",
+      "toolCallId": "x",
+      "outcome": "completed",
+      "result": {
+        "content": [
+          {
+            "kind": "text",
+            "text": "x"
+          }
+        ],
+        "fileChanges": [
+          {
+            "path": "x",
+            "change": "added"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "notice",
+      "id": "x",
+      "at": 1,
+      "level": "info",
+      "text": "x"
+    },
+    {
+      "kind": "notice",
+      "id": "x",
+      "level": "info",
+      "text": "x"
+    },
+    {
+      "kind": "compaction",
+      "id": "x",
+      "at": 1,
+      "trigger": "manual",
+      "summary": "x",
+      "tokensBefore": 1,
+      "tokensAfter": 1
+    },
+    {
+      "kind": "compaction",
+      "id": "x"
+    },
+    {
+      "kind": "model_change",
+      "id": "x",
+      "at": 1,
+      "modelId": "x",
+      "thinking": "x"
+    },
+    {
+      "kind": "model_change",
+      "id": "x"
+    },
+    {
+      "kind": "run_boundary",
+      "id": "x",
+      "at": 1,
+      "outcome": {
+        "kind": "completed"
+      }
+    },
+    {
+      "kind": "run_boundary",
+      "id": "x",
+      "outcome": {
+        "kind": "completed"
+      }
+    }
+  ],
+  "TranscriptItemId": [
+    "x"
+  ],
+  "TranscriptPage": [
+    {
+      "items": [
+        {
+          "kind": "user_message",
+          "id": "x",
+          "at": 1,
+          "text": "x",
+          "attachments": [
+            {
+              "kind": "image_ref",
+              "id": "x",
+              "mimeType": "x",
+              "name": "x"
+            }
+          ],
+          "clientRequestId": "00000000-0000-4000-8000-000000000000"
+        }
+      ],
+      "nextCursor": "x",
+      "idStability": "stable"
+    },
+    {
+      "items": [
+        {
+          "kind": "user_message",
+          "id": "x",
+          "text": "x",
+          "attachments": [
+            {
+              "kind": "image_ref",
+              "id": "x",
+              "mimeType": "x"
+            }
+          ]
+        }
+      ],
+      "idStability": "stable"
+    }
+  ],
+  "TranscriptRead": [
+    {
+      "status": "accepted",
+      "page": {
+        "items": [
+          {
+            "kind": "user_message",
+            "id": "x",
+            "at": 1,
+            "text": "x",
+            "attachments": [
+              {
+                "kind": "image_ref",
+                "id": "x",
+                "mimeType": "x",
+                "name": "x"
+              }
+            ],
+            "clientRequestId": "00000000-0000-4000-8000-000000000000"
+          }
+        ],
+        "nextCursor": "x",
+        "idStability": "stable"
+      }
+    },
+    {
+      "status": "accepted",
+      "page": {
+        "items": [
+          {
+            "kind": "user_message",
+            "id": "x",
+            "text": "x",
+            "attachments": [
+              {
+                "kind": "image_ref",
+                "id": "x",
+                "mimeType": "x"
+              }
+            ]
+          }
+        ],
+        "idStability": "stable"
+      }
+    }
+  ],
+  "TranscriptReadRequest": [
+    {
+      "type": "transcript.read",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "page": {
+        "cursor": "x",
+        "limit": 1
+      }
+    },
+    {
+      "type": "transcript.read",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      },
+      "page": {
+        "limit": 1
+      }
+    }
+  ],
+  "TranscriptReadResponse": [
+    {
+      "type": "transcript.read.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "page": {
+          "items": [
+            {
+              "kind": "user_message",
+              "id": "x",
+              "at": 1,
+              "text": "x",
+              "attachments": [
+                {
+                  "kind": "image_ref",
+                  "id": "x",
+                  "mimeType": "x",
+                  "name": "x"
+                }
+              ],
+              "clientRequestId": "00000000-0000-4000-8000-000000000000"
+            }
+          ],
+          "nextCursor": "x",
+          "idStability": "stable"
+        }
+      }
+    },
+    {
+      "type": "transcript.read.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted",
+        "page": {
+          "items": [
+            {
+              "kind": "user_message",
+              "id": "x",
+              "text": "x",
+              "attachments": [
+                {
+                  "kind": "image_ref",
+                  "id": "x",
+                  "mimeType": "x"
+                }
+              ]
+            }
+          ],
+          "idStability": "stable"
+        }
+      }
+    }
+  ],
+  "TranscriptReadResult": [
+    {
+      "status": "accepted",
+      "page": {
+        "items": [
+          {
+            "kind": "user_message",
+            "id": "x",
+            "at": 1,
+            "text": "x",
+            "attachments": [
+              {
+                "kind": "image_ref",
+                "id": "x",
+                "mimeType": "x",
+                "name": "x"
+              }
+            ],
+            "clientRequestId": "00000000-0000-4000-8000-000000000000"
+          }
+        ],
+        "nextCursor": "x",
+        "idStability": "stable"
+      }
+    },
+    {
+      "status": "accepted",
+      "page": {
+        "items": [
+          {
+            "kind": "user_message",
+            "id": "x",
+            "text": "x",
+            "attachments": [
+              {
+                "kind": "image_ref",
+                "id": "x",
+                "mimeType": "x"
+              }
+            ]
+          }
+        ],
+        "idStability": "stable"
+      }
+    },
+    {
+      "status": "rejected",
+      "rejection": {
+        "code": "busy",
+        "message": "x"
+      }
+    }
+  ],
+  "TreeNavigated": [
+    {
+      "kind": "navigate_tree"
+    }
+  ],
+  "UncommittedReview": [
+    {
+      "kind": "uncommitted"
+    }
+  ],
+  "Usage": [
+    {
+      "inputTokens": 1,
+      "outputTokens": 1,
+      "cacheReadTokens": 1,
+      "cacheWriteTokens": 1,
+      "reasoningTokens": 1,
+      "costUsd": 1.5,
+      "contextTokens": 1,
+      "contextWindow": 1
+    },
+    {}
+  ],
+  "UsageUpdatedEvent": [
+    {
+      "type": "usage_updated",
+      "usage": {
+        "inputTokens": 1,
+        "outputTokens": 1,
+        "cacheReadTokens": 1,
+        "cacheWriteTokens": 1,
+        "reasoningTokens": 1,
+        "costUsd": 1.5,
+        "contextTokens": 1,
+        "contextWindow": 1
+      }
+    },
+    {
+      "type": "usage_updated",
+      "usage": {}
+    }
+  ],
+  "UserMessageEvent": [
+    {
+      "type": "user_message",
+      "messageId": "x",
+      "text": "x",
+      "attachments": [
+        {
+          "kind": "image_ref",
+          "id": "x",
+          "mimeType": "x",
+          "name": "x"
+        }
+      ],
+      "clientRequestId": "00000000-0000-4000-8000-000000000000"
+    },
+    {
+      "type": "user_message",
+      "messageId": "x",
+      "text": "x",
+      "attachments": [
+        {
+          "kind": "image_ref",
+          "id": "x",
+          "mimeType": "x"
+        }
+      ]
+    }
+  ],
+  "UserMessageItem": [
+    {
+      "kind": "user_message",
+      "id": "x",
+      "at": 1,
+      "text": "x",
+      "attachments": [
+        {
+          "kind": "image_ref",
+          "id": "x",
+          "mimeType": "x",
+          "name": "x"
+        }
+      ],
+      "clientRequestId": "00000000-0000-4000-8000-000000000000"
+    },
+    {
+      "kind": "user_message",
+      "id": "x",
+      "text": "x",
+      "attachments": [
+        {
+          "kind": "image_ref",
+          "id": "x",
+          "mimeType": "x"
+        }
+      ]
+    }
+  ],
+  "WorkingDirectory": [
+    "x"
+  ]
+}

@@ -29,7 +29,9 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
       - name: Lint
-        run: bunx biome check src/ --diagnostic-level=error
+        run: bunx biome check src/ scripts/ --diagnostic-level=error
+      - name: Contract layers
+        run: bun run check:layers
       - name: Test
         run: bun test
       - name: Perf budget (synthetic, 3 runs)
@@ -98,6 +100,9 @@ jobs:
       - name: Install the bridge dependencies
         working-directory: packages/bridge
         run: bun install --frozen-lockfile
+      - name: Generated contract is current
+        working-directory: packages/bridge
+        run: bun run contract:check
       - name: Link package tests
         working-directory: packages/link_dart
         run: dart test

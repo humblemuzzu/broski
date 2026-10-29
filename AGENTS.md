@@ -15,7 +15,7 @@ Phone (Flutter + Rust core) ←Broski Link (Noise e2e; LAN or relay)→ broski-l
 - **Flutter app** (`lib/`, Rust core via `packages/link_dart/`) — iOS/Android app. Renders UI only; all AI logic stays on Mac.
 - **Connection:** direct over the LAN when reachable, otherwise through the relay. No VPN, tunnel, port forwarding or public exposure of the bridge.
 - **Auth layers:** QR v2 pairing (`broski://pair?v=2&h=<fingerprint>&s=<one-time secret>&e=<expiry>&n=<name>[&r=<relay>][&l=<lan>]`), Noise end-to-end encryption (hybrid X25519 + ML-KEM-768) with the machine fingerprint pinned from the QR, and per-device revocable authorisation on the daemon. Design docs: `docs/architecture/connectivity-v2/`.
-- **623 Dart files** (~139K LOC under `lib/`), **449 TypeScript files** (~59K LOC under `packages/bridge/src/`, tests excluded).
+- **655 Dart files** (~153K LOC under `lib/`, of which 32 files and ~14K LOC are the generated contract in `lib/contract/generated/`), **514 TypeScript files** (~66K LOC under `packages/bridge/src/`, tests excluded).
 - **OpenCode** is wired to the 1.x SDK (`@opencode-ai/sdk` 1.3.17). The installed OpenCode CLI is 2.x (v2.1.4: new storage under `$XDG_DATA_HOME|~/.local/share/opencode`, one registered service). The integration is slated for a rewrite; until then treat OpenCode behaviour against a 2.x CLI as unverified.
 - **`pi-durable`** is the experimental 5th backend (`@earendil-works/pi-durable@1.4.0`, behind an Experimental toggle in the app). See `docs/architecture/backends/pi-durable.md`.
 
@@ -55,6 +55,17 @@ Phone (Flutter + Rust core) ←Broski Link (Noise e2e; LAN or relay)→ broski-l
 - QR code containing the auth token (it's the pairing mechanism)
 - Bridge having access to AI agent credentials (it's the relay, that's its job)
 - Localhost proxy to dev server ports (authenticated, loopback-only)
+
+## Backend contract (the rebuild, Phase 1)
+
+The backend-agnostic contract that replaces the runtime abstraction below lives in `packages/bridge/src/contract/`. Its spec is [`docs/architecture/contract/README.md`](docs/architecture/contract/README.md). Nothing is wired to it yet: Phase 2 builds the bridge core on it, Phase 3 the Flutter core, Phase 4 one adapter per backend under `packages/bridge/src/backends/<id>/`. Hard rules:
+
+- **The UI never branches on the backend**, only on `Capabilities` / `SessionCapabilities` and the shape of the data. Backend extras arrive as typed `extension` events and `backend.call` ops.
+- **Adapters are reached only through the contract** (`AgentBackend`). The core never imports `backends/<id>/`; an adapter never sees sockets, phones or the wire.
+- **The contract is a leaf**: `src/contract/` imports only `zod` and itself (its `testing/` may add `bun:test`); `src/backends/<id>/` imports only the contract, itself, `node:` built-ins (not `node:module`) and its own SDK; `src/backends/pi-shared/` is the one shared directory, for `pi` and `pi-durable`. Every import specifier is a plain string. `bun run check:layers` enforces it in CI.
+- **Expected failures are values**: every adapter method that can fail returns `{status: "accepted", …} | Rejected`; `status()` never fails (its failures are `issues`). Every wire string, list and map is bounded (`src/contract/limits.ts`).
+- **Generated code is never edited by hand**: `lib/contract/generated/`, `test/contract/generated/`, `test/contract/fixtures/` and `src/contract/contract.schema.json` come from the zod schemas via `bun run contract:gen`; CI runs `bun run contract:check`.
+- **Every adapter passes the conformance suite** (`runConformance` in `src/contract/testing/`, 28 rules, each proven to fail by the broken adapters in `src/__tests__/contract_negative_*.test.ts`), and every answer goes through `answerProblem` before it reaches a backend.
 
 ## The Runtime Abstraction
 
@@ -331,7 +342,7 @@ Other files over 400 lines (not tabulated): `lib/theme/themes/all_themes.dart` (
 
 ## Where Code Lives
 
-### Flutter (`lib/`) — 623 files, ~139K LOC
+### Flutter (`lib/`) — 655 files, ~153K LOC (32 generated under `contract/generated/`)
 
 ```
 lib/
@@ -372,7 +383,7 @@ lib/
   utils/                            ← shared utilities
 ```
 
-### Bridge (`packages/bridge/src/`) — 449 files, ~59K LOC (tests excluded; 603 files with tests)
+### Bridge (`packages/bridge/src/`) — 514 files, ~66K LOC (tests excluded; 685 files with tests)
 
 ```
 packages/bridge/src/
