@@ -1,24 +1,27 @@
-import {
-	type ActionResult,
-	type ErrorResponse,
-	type PromptResult,
-	type Rejected,
-	sessionCapabilities,
-} from "../contract";
+import { type ActionResult, type PromptResult, sessionCapabilities } from "../contract";
+import { movedTo, redirectAttach } from "./attach-redirect";
 import { type BackendRequest, type Handler, reachBackend } from "./context";
 import { controlled } from "./controlled";
 import { LiveSession } from "./live-session";
-import { HELLO_FIRST, protocolError, unsupported } from "./results";
+import { HELLO_FIRST, openFailure, protocolError, unsupported } from "./results";
 import { sessionKey } from "./session-key";
 
 /** Sessions one client may view at once; each holds an `OpenSession` open. */
 export const MAX_SESSIONS_PER_CLIENT = 32;
 
-/** In order with the client's other attaches and detaches of the session, from the moment it arrives. */
+/**
+ * In order with the client's other attaches and detaches of the session, from the moment it arrives.
+ * A client resuming a stream that ended in `session_replaced` is sent to the session that continues
+ * it instead (when its `hello` allows), without the replaced session being opened.
+ */
 export const sessionAttach: Handler<"session.attach"> = (ctx, client, request, respond) =>
 	client.inOrder(sessionKey(request.session), async () => {
 		const backend = await reachBackend(ctx, request.session.backend, request.requestId, respond);
-		if (backend) await attach({ ctx, client, request, respond, backend });
+		if (!backend) return;
+		const target = { ctx, client, request, respond, backend };
+		const moved = movedTo(ctx, client, request.resume?.epoch);
+		if (moved) await redirectAttach(target, moved);
+		else await attach(target);
 	});
 
 /** Re-attaching to a session already viewed holds no new place under the cap; a new one does, from the start. */
@@ -37,7 +40,8 @@ async function attach(target: BackendRequest<"session.attach">): Promise<void> {
 	}
 }
 
-async function join({ ctx, client, request, respond, backend }: BackendRequest<"session.attach">): Promise<void> {
+async function join(target: BackendRequest<"session.attach">): Promise<void> {
+	const { ctx, client, request, respond, backend } = target;
 	const live = await ctx.hub.acquire(backend, request.session);
 	if (!(live instanceof LiveSession)) {
 		respond(openFailure(request.requestId, live));
@@ -49,7 +53,9 @@ async function join({ ctx, client, request, respond, backend }: BackendRequest<"
 		return;
 	}
 	if (live.closed) {
-		respond(protocolError(request.requestId, "unknown_session", "the session went away while attaching"));
+		const moved = movedTo(ctx, client, live.epoch);
+		if (moved) await redirectAttach(target, moved);
+		else respond(protocolError(request.requestId, "unknown_session", "the session went away while attaching"));
 		return;
 	}
 	// Nothing below awaits, so no event can fall between the sync and the first live event.
@@ -66,13 +72,6 @@ async function join({ ctx, client, request, respond, backend }: BackendRequest<"
 	live.viewers.add(client);
 	client.attach(live);
 	ctx.hub.reviewIdle(live);
-}
-
-function openFailure(requestId: string, failure: Rejected): ErrorResponse {
-	const { code, message } = failure.rejection;
-	return code === "not_found"
-		? protocolError(requestId, "unknown_session", message)
-		: protocolError(requestId, "internal", `the session could not be opened (${code}): ${message}`);
 }
 
 export const sessionDetach: Handler<"session.detach"> = async (ctx, client, request, respond) => {

@@ -167,7 +167,7 @@ describe("the seam into the running bridge", () => {
 			contract: {
 				backends: [["pi", factory]],
 				clock: new ManualClock(),
-				promptJournalPath: join(root, "prompts.jsonl"),
+				journalDirectory: join(root, "journals"),
 			},
 		});
 		try {

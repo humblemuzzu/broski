@@ -93,6 +93,7 @@ sealed class AttachSync {
       switch (json['kind']) {
         'replay' => ReplaySync.fromJson(json),
         'snapshot' => SnapshotSync.fromJson(json),
+        'replaced' => ReplacedSync.fromJson(json),
         final tag => throw FormatException('Unknown AttachSync kind: $tag'),
       };
 
@@ -1858,6 +1859,49 @@ final class QueueCancelResponse implements ServerMessage {
   @override
   String toString() =>
       'QueueCancelResponse(requestId: $requestId, result: $result)';
+}
+
+final class ReplacedSync implements AttachSync {
+  const ReplacedSync({required this.epoch, required this.session});
+
+  factory ReplacedSync.fromJson(Map<String, Object?> json) {
+    _expectShape(
+      json,
+      'ReplacedSync',
+      const <String>{'kind', 'epoch', 'session'},
+      const <String, String>{'kind': 'replaced'},
+    );
+    return ReplacedSync(
+      epoch: _as<String>(json['epoch'], 'ReplacedSync.epoch'),
+      session: SessionRef.fromJson(
+        _as<Map<String, Object?>>(json['session'], 'ReplacedSync.session'),
+      ),
+    );
+  }
+
+  @override
+  final StreamEpoch epoch;
+  final SessionRef session;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'kind': 'replaced',
+    'epoch': epoch,
+    'session': session.toJson(),
+  };
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ReplacedSync &&
+          _equal(epoch, other.epoch) &&
+          _equal(session, other.session);
+
+  @override
+  int get hashCode => Object.hashAll([_hash(epoch), _hash(session)]);
+
+  @override
+  String toString() => 'ReplacedSync(epoch: $epoch, session: $session)';
 }
 
 final class ReplaySync implements AttachSync {

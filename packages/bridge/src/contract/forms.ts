@@ -28,7 +28,17 @@ export type FormScalar = z.infer<typeof FormScalar>;
 export const ConditionOperator = z.enum(["eq", "neq"]);
 export type ConditionOperator = z.infer<typeof ConditionOperator>;
 
-export const FieldKey = z.string().min(1).max(MAX_NAME_CHARS);
+/**
+ * The key of a form field, and of its answer in a reply's `values`. Any string but `__proto__`:
+ * `JSON.parse` gives a parsed object that key as its own, and zod's record parse drops it without a
+ * word, so a field so keyed could never be answered. An adapter whose backend names a field
+ * `__proto__` (an MCP server's form may) gives the phone another key and maps the answer back.
+ */
+export const FieldKey = z
+	.string()
+	.min(1)
+	.max(MAX_NAME_CHARS)
+	.regex(/^(?!__proto__$)/, "a field key cannot be __proto__");
 export type FieldKey = z.infer<typeof FieldKey>;
 
 /**

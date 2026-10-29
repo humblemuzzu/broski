@@ -35,33 +35,64 @@ SessionLink advanced(SessionLink link, int seq) => switch (link) {
   _ => link,
 };
 
-/// [state] once the bridge answered an attach, or null when a replay does not
-/// continue the stream this phone holds, which only a fresh attach repairs.
-AgentSessionState? withAttachAnswer(
+/// What the bridge's answer to an attach comes to.
+sealed class AttachOutcome {
+  const AttachOutcome();
+}
+
+/// The phone is attached: [applied] is the state the answer leads to.
+final class AttachApplied extends AttachOutcome {
+  const AttachApplied(this.applied);
+
+  final AgentSessionState applied;
+}
+
+/// A replay that does not continue the stream this phone holds, which only a
+/// fresh attach repairs.
+final class AttachRestart extends AttachOutcome {
+  const AttachRestart();
+}
+
+/// The stream this phone resumed ended in `session_replaced` while it was
+/// away, and the conversation goes on as [next] (contract §12.2). Nothing is
+/// attached; the phone follows to [next].
+final class AttachMoved extends AttachOutcome {
+  const AttachMoved(this.next);
+
+  final SessionRef next;
+}
+
+AttachOutcome attachOutcome(
   AgentSessionState state,
   SessionAttachResponse answer,
 ) {
   switch (answer.sync) {
+    case ReplacedSync(:final session):
+      return AttachMoved(session);
     case SnapshotSync(:final epoch, :final lastSeq, :final snapshot):
-      return state.copyWith(
-        link: LinkLive(StreamPosition(epoch: epoch, seq: lastSeq)),
-        snapshot: snapshot,
-        capabilities: answer.capabilities,
-        prompts: withoutEchoed(state.prompts, snapshot.run?.items ?? const []),
-        answering: {
-          for (final MapEntry(:key, :value) in state.answering.entries)
-            if (snapshot.interactions.any((asked) => asked.id == key))
-              key: value,
-        },
+      return AttachApplied(
+        state.copyWith(
+          link: LinkLive(StreamPosition(epoch: epoch, seq: lastSeq)),
+          snapshot: snapshot,
+          capabilities: answer.capabilities,
+          prompts: withoutEchoed(
+            state.prompts,
+            snapshot.run?.items ?? const [],
+          ),
+          answering: {
+            for (final MapEntry(:key, :value) in state.answering.entries)
+              if (snapshot.interactions.any((asked) => asked.id == key))
+                key: value,
+          },
+        ),
       );
     case ReplaySync(:final epoch, :final afterSeq):
       final held = positionOf(state.link);
       if (held == null || held.epoch != epoch || afterSeq > held.seq) {
-        return null;
+        return const AttachRestart();
       }
-      return state.copyWith(
-        link: LinkLive(held),
-        capabilities: answer.capabilities,
+      return AttachApplied(
+        state.copyWith(link: LinkLive(held), capabilities: answer.capabilities),
       );
   }
 }

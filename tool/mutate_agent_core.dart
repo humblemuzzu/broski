@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'agent_core_mutants/frame_mutants.dart';
 import 'agent_core_mutants/mutant.dart';
 import 'agent_core_mutants/port_mutants.dart';
 import 'agent_core_mutants/session_mutants.dart';
@@ -29,6 +30,7 @@ Future<void> main(List<String> args) async {
   ].firstOrNull;
   final mutants = [
     ...sessionMutants,
+    ...frameMutants,
     ...portMutants,
   ].where((mutant) => filter == null || mutant.name.contains(filter)).toList();
   final stale = [

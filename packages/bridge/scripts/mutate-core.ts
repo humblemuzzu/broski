@@ -15,11 +15,17 @@ import { join, resolve } from "node:path";
 import { SESSION_MUTANTS } from "./mutate-core/core-mutants";
 import type { Mutant } from "./mutate-core/mutant";
 import { PROTOCOL_MUTANTS } from "./mutate-core/protocol-mutants";
+import { REPLACEMENT_MUTANTS } from "./mutate-core/replacement-mutants";
 import { FIT_MUTANTS, SEAM_MUTANTS } from "./mutate-core/seam-mutants";
 
 const BRIDGE = resolve(import.meta.dir, "..");
 const COPIED = ["src", "scripts", "package.json", "tsconfig.json", "bunfig.toml", "biome.json"];
-const TESTS = ["src/__tests__/core_", "src/__tests__/contract_layers", "src/__tests__/contract_session_reducer"];
+const TESTS = [
+	"src/__tests__/core_",
+	"src/__tests__/contract_layers",
+	"src/__tests__/contract_session_reducer",
+	"src/__tests__/contract_form_keys",
+];
 /** A mutant can make a test wait for an event that never comes; that is a failure too. */
 const RUN_TIMEOUT_MS = 120_000;
 
@@ -36,9 +42,13 @@ const checkOnly = args.includes("--check");
 const jobsAt = args.indexOf("--jobs");
 const jobs = jobsAt >= 0 ? Number(args[jobsAt + 1]) : Math.max(1, Math.min(4, Math.floor(availableParallelism() / 2)));
 const filter = args.find((arg, index) => !arg.startsWith("--") && args[index - 1] !== "--jobs") ?? "";
-const mutants = [...SESSION_MUTANTS, ...PROTOCOL_MUTANTS, ...FIT_MUTANTS, ...SEAM_MUTANTS].filter((mutant) =>
-	mutant.name.includes(filter),
-);
+const mutants = [
+	...SESSION_MUTANTS,
+	...PROTOCOL_MUTANTS,
+	...REPLACEMENT_MUTANTS,
+	...FIT_MUTANTS,
+	...SEAM_MUTANTS,
+].filter((mutant) => mutant.name.includes(filter));
 
 const stale = mutants.flatMap((mutant) => {
 	const source = readFileSync(join(BRIDGE, "src", mutant.file), "utf8");

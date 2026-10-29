@@ -45,7 +45,7 @@ final class SessionController extends StateNotifier<AgentSessionState>
     history = HistoryLoader(this);
     prompts = PromptDesk(this, newId: newPromptId);
     controls = SessionControls(this);
-    update((state) => state.copyWith(prompts: _handoff.take(ref)));
+    _arrive();
     _subscriptions.addAll([
       client.events.listen(_onEnvelope),
       client.states.listen(_onClientState),
@@ -148,13 +148,19 @@ final class SessionController extends StateNotifier<AgentSessionState>
     final released = _held.release(arrival);
     released.before.forEach(_judge);
     if (state.link is LinkReplaced) return;
-    final next = withAttachAnswer(state, answer);
-    if (next == null) {
-      unawaited(attach(fresh: true));
-      return;
+    final AgentSessionState applied;
+    switch (attachOutcome(state, answer)) {
+      case AttachRestart():
+        unawaited(attach(fresh: true));
+        return;
+      case AttachMoved(:final next):
+        update((state) => _handedOver(state, next));
+        return;
+      case AttachApplied(applied: final next):
+        applied = next;
     }
     _attachRetries = 0;
-    update((_) => next);
+    update((_) => applied);
     if (answer.sync is SnapshotSync || !state.history.loaded) {
       unawaited(history.refreshNewest());
     }
@@ -207,6 +213,31 @@ final class SessionController extends StateNotifier<AgentSessionState>
             !_closed && attempt == _attaches && client.state is ContractReady;
         if (due) unawaited(attach());
       }),
+    );
+  }
+
+  /// [state] once the conversation goes on as [next]: the prompts not echoed
+  /// leave for it, and this session is followed no more.
+  AgentSessionState _handedOver(AgentSessionState state, SessionRef next) {
+    _handoff.leave(next, state.prompts);
+    return state.copyWith(link: LinkReplaced(next), prompts: const []);
+  }
+
+  /// Takes what a replaced session left for this one, and says so.
+  void _arrive() {
+    final prompts = _handoff.take(ref);
+    if (prompts == null) return;
+    update(
+      (state) => state.copyWith(
+        prompts: prompts,
+        notices: withNotice(
+          state.notices,
+          notice(
+            NoticeLevel.info,
+            'This conversation continued in a new session',
+          ),
+        ),
+      ),
     );
   }
 
@@ -277,8 +308,7 @@ final class SessionController extends StateNotifier<AgentSessionState>
     );
     var after = withEventEffects(before, reduced, event, notice: notice);
     if (event case SessionReplacedEvent(:final session)) {
-      _handoff.leave(session, after.prompts);
-      after = after.copyWith(prompts: const []);
+      after = _handedOver(after, session);
     }
     update((_) => after);
     if (event is RunFinishedEvent) unawaited(history.refreshNewest());

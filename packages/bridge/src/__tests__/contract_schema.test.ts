@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { contractSchemaDocument, type Schema } from "../../scripts/contract-gen/json-schema";
 import {
+	ADDED_IN_MINOR,
 	AgentEvent,
 	ClientMessage,
 	JsonValue,
@@ -119,7 +120,11 @@ describe("the contract schemas", () => {
 		expect(anonymous).toEqual([]);
 	});
 
-	test("version the protocol as major 1, minor 0", () => {
-		expect(PROTOCOL_VERSION).toEqual({ major: 1, minor: 0 });
+	test("version the protocol as major 1, minor 1", () => {
+		expect(PROTOCOL_VERSION).toEqual({ major: 1, minor: 1 });
+	});
+
+	test("name no addition for a minor the protocol has not reached", () => {
+		for (const minor of Object.values(ADDED_IN_MINOR)) expect(minor).toBeLessThanOrEqual(PROTOCOL_VERSION.minor);
 	});
 });

@@ -77,6 +77,37 @@ void main() {
     expect(rig.sent<AbortRequest>().session, sessionRef);
   });
 
+  testWidgets(
+    'a session replaced while the phone was away is followed, and the '
+    'person is told',
+    (tester) async {
+      final rig = await _chat(tester);
+      const next = SessionRef(backend: BackendId.pi, sessionId: 's2');
+      rig.bridge.on<SessionAttachRequest>(
+        (request) => request.session == next
+            ? snapshotAnswer(request)
+            : SessionAttachResponse(
+                requestId: request.requestId,
+                capabilities: controllable,
+                sync: const ReplacedSync(epoch: 'e1', session: next),
+              ),
+      );
+      rig.link.down();
+      rig.link.up();
+      await WidgetRig.settle(tester);
+      expect(
+        rig.link.sent.whereType<SessionAttachRequest>().map(
+          (request) => request.session,
+        ),
+        [sessionRef, sessionRef, next],
+      );
+      expect(
+        find.text('This conversation continued in a new session'),
+        findsOneWidget,
+      );
+    },
+  );
+
   testWidgets('while a run is on, the composer steers or queues', (
     tester,
   ) async {

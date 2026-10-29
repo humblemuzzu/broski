@@ -1,6 +1,6 @@
 # The Broski backend contract
 
-Status: Phase 1, protocol **1.0**. Built on commit `9678394`. Nothing here is wired into the running bridge or the app yet. Phase 2 builds the bridge core on it, Phase 3 the Flutter core, and Phase 4 one adapter per backend.
+Status: Phase 1, protocol **1.1** (1.0 plus the `replaced` attach answer, §12.4). Built on commit `9678394`. Nothing here is wired into the running bridge or the app yet. Phase 2 builds the bridge core on it, Phase 3 the Flutter core, and Phase 4 one adapter per backend.
 
 This document is the spec. The code is the definition: `packages/bridge/src/contract/` (zod schemas, interfaces, reducer, answer checker) and `packages/bridge/src/contract/testing/` (fake backend, conformance suite). Every backend fact below cites the research in [`research/`](research/):
 
@@ -86,7 +86,7 @@ zod schemas ──z.toJSONSchema──▶ contract.schema.json ──type model�
       └──▶ test/contract/generated/contract_round_trips.dart (a decoder and a decode-then-encode for every type)
 ```
 
-The last two fixtures hold the app's ports of the reducer and the answer check equal to these (app-core README §8).
+The last two fixtures hold the app's ports of the reducer and the answer check equal to these (app-core README §8). Beside them the generator writes `frame_prefix.json`: how the core begins every frame it sends, and one frame it encoded, so the app's test holds its reading of that prefix to the bridge's (app-core README §3).
 
 `test/contract/contract_round_trip_test.dart` decodes every sample and every fake-stream message in Dart and re-encodes it, and the result must equal the TypeScript JSON exactly; it also checks that two decodes of one sample are equal values with equal hash codes. The Dart models:
 
@@ -246,7 +246,7 @@ SinkRecord    = EventEnvelope without seq and session      // what an adapter em
 | `notice{level, text}` | Something to show, not a turn | `system/informational`, `system/notification` (cc §5) | `warning`, `deprecationNotice`, `configWarning` (cx §5.2) | synthetic messages (oc §4) | extension `notify` (pi §8) | — |
 | `error{error, retryable}` | A failure outside a run's outcome | process exit, transport error (cc §1) | connection drop (cx §1.5) | SSE end, service restart (oc §10) | — | `onReport`, `harness.closed` (pd D14) |
 | `extension{extension}` | Typed per-backend extra (§13) | `rate_limit_event` | `turn/diff/updated`, `account/rateLimits/updated` | — | — | — |
-| `session_replaced{session}` | The live session goes on under a new id; this event is the last under the old one | `conversation_reset` (`/clear`, plan-exit context clear) (cc §5) | — | — | — (the adapter hosts one runtime per session, pi §1) | — |
+| `session_replaced{session}` | The live session goes on under a new id; this event is the last under the old one. A phone away when it happened is told at its next attach (§12.2) | `conversation_reset` (`/clear`, plan-exit context clear) (cc §5) | — | — | — (the adapter hosts one runtime per session, pi §1) | — |
 | `resynced{snapshot}` | The live state is replaced | the CLI child restarted | re-`thread/resume` after reconnect (cx §10) | `server.connected` rehydration, overflow (oc §10) | — | a replacement snapshot for a slow watcher (pd D5) |
 
 **Run triggers.** `prompt` (input through this bridge, including an action the backend runs as a run: a Codex manual compaction is a compact-kind turn, cx §5.3, and `review_start` is a review turn), `queue` (a queued prompt dispatched as the previous run ended: Codex trigger `"queue"`, cx §5.3; Pi Durable chained runs, pd D5), `system` (goal, wakeup, background task, restart recovery: cc §5, cx §5.3, oc §1), `external` (another client: a Codex TUI turn, cx §11; an OpenCode TUI run, oc §11).
@@ -340,6 +340,8 @@ interaction_resolved { interactionId, reason: answered | withdrawn | expired }
 - plan feedback on an approval, an edited plan on a rejection or on a non-editable plan;
 - a choice that is not an option;
 - newlines in single-line text.
+
+**Field keys.** A field's `key` is any string but `__proto__` (`FieldKey`; the JSON Schema says so as a `pattern`). A reply holds its answers in an object keyed by field key, and `JSON.parse` gives such an object a `__proto__` key of its own that zod's record parse then drops without a word, so a field so keyed could never be answered. The schema refuses the key in a field, a `when` condition and a reply (`invalid_message` naming it), and an adapter whose backend names a field `__proto__` owns the mapping: it shows the phone another key, unique among the form's, and maps the answer back to the backend's. Only `__proto__` is lost: every other name an object, a function or an array inherits, and the names around them, survives the parse (a test holds more than fifty of them to it). Any backend can name one: an MCP server's elicitation schema chooses its property names (cc §8.4, cx §8.1), and OpenCode's `Form.Info` keys are free (oc §8.2).
 
 `fieldIsActive` evaluates `when` (all conditions must hold; `eq` against a multiselect means "includes"; a condition on an unanswered field is false), as OpenCode defines it (oc §8.2).
 
@@ -518,8 +520,11 @@ Every `…Listed`/`…Found`/`…Read` member is `{status: "accepted", …}`, an
 
 - `replay{epoch, afterSeq}`: events from `afterSeq + 1` follow as `event` messages.
 - `snapshot{epoch, lastSeq, snapshot}`: the live state after `lastSeq`; events from `lastSeq + 1` follow.
+- `replaced{epoch, session}` (since 1.1): the stream `epoch` ended in `session_replaced`, and its conversation goes on as `session`, after any further replacement. The client is attached to neither session and nothing follows: it attaches to `session` next (without `resume`, which names another session's stream). The answer's `capabilities` are `session`'s own, since the bridge opens it to give them.
 
 The bridge replays only when it still holds every event after `resume.seq` in the same epoch. A bridge restart starts a new epoch.
+
+**A session replaced while the phone is away.** `session_replaced` reaches only the clients viewing the stream. The core therefore remembers, for every stream that ended in one, which stream replaced it (the old stream's epoch to the new session and its epoch: the old session's id would also catch a phone that opens it on purpose to read its history). A client that attaches with a `resume` whose epoch is one of those is sent `replaced`, the chain followed to its end; a `resume` of any other epoch, or none, attaches as ever. An attach already under way when its session is replaced gets the same answer. Only an attach is answered so: reading the old session's transcript is not a sign the phone lost its conversation, and the old transcript is still there. The memory is bounded and kept across bridge restarts (core README §5). A client of minor 0 never sees `replaced`: it is attached to the session it named, as before.
 
 ### 12.3 Interactions over the wire
 
@@ -527,7 +532,7 @@ Pending interactions arrive in the snapshot or the replayed `interaction_request
 
 ### 12.4 Versioning
 
-`PROTOCOL_VERSION = {major: 1, minor: 0}`. The rules:
+`PROTOCOL_VERSION = {major: 1, minor: 1}`; `ADDED_IN_MINOR` (`protocol.ts`) names the minor each addition came in, and the core sends it only to a client whose `hello` named that minor. 1.1 is `replaced` (§12.2) and nothing else. The rules:
 
 - Bridge and app talk only when `major` is equal.
 - A change the older side can ignore bumps `minor`: a new optional field, a new request type, a new union member or enum value.
@@ -759,4 +764,5 @@ Found in round 2 (SDK source against the research and the contract):
 
 Found in Phase 3 (the app's port against the contract):
 
-12. **`answer-check.ts`, `field-check.ts` (inherited keys)**: a form answer was read as `values[key]`, so a field whose key every JavaScript object inherits (`constructor`, `toString`, `hasOwnProperty`, …) read a function as its answer: an optional such field left unanswered was refused (`expects text`), and a `neq` condition on it held with no answer. Answers are now read by own key only (`answerFor`); `contract_form_keys.test.ts` and the generated `answer_cases.json` hold it. A field keyed `__proto__` remains unanswerable over the wire: zod's record parse drops that key.
+12. **`answer-check.ts`, `field-check.ts` (inherited keys)**: a form answer was read as `values[key]`, so a field whose key every JavaScript object inherits (`constructor`, `toString`, `hasOwnProperty`, …) read a function as its answer: an optional such field left unanswered was refused (`expects text`), and a `neq` condition on it held with no answer. Answers are now read by own key only (`answerFor`); `contract_form_keys.test.ts` and the generated `answer_cases.json` hold it. A field keyed `__proto__` was unanswerable over the wire (zod's record parse drops that key); it is now refused in the schema (erratum 13).
+13. **`forms.ts`, `interaction-replies.ts` (`FieldKey`)**: `__proto__` is no longer a legal field key, and a reply carrying it is refused instead of arriving without it. The one key that cannot survive JSON parse plus zod's record, found by trying every name an object, a function and an array inherit (§9, *Field keys*). The adapter maps such a backend key to another; `answer_cases.json` holds the answer check to the same verdict on a reply beyond the wire (`no field __proto__`).

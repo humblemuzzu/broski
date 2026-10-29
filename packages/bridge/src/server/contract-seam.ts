@@ -8,19 +8,23 @@ import type { CoreClock } from "../core/ports";
 import { getSecurePath } from "../security";
 import type { RuntimeSendQueue } from "../utils/runtime-send-queue";
 import { openPromptJournal } from "./contract-prompt-journal";
+import { openReplacementJournal } from "./contract-replacement-journal";
 import type { BridgeLimits } from "./limits";
 import type { LeveledLogger } from "./logger";
 
-/** Where the prompt journal lives when backends are served and no other path is given. */
-function defaultPromptJournalPath(): string {
-	return join(homedir(), ".broski", "core", "prompts.jsonl");
+/** Where the journals live when backends are served and no other directory is given. */
+function defaultJournalDirectory(): string {
+	return join(homedir(), ".broski", "core");
 }
 
 /** How the bridge core is set up. Production passes none and serves no backend until Phase 4 brings the adapters. */
 export type ContractOptions = {
 	readonly backends?: ReadonlyArray<readonly [BackendId, BackendFactory]>;
-	/** Keeps prompt idempotency across bridge restarts; `~/.broski/core/prompts.jsonl` once there are backends. */
-	readonly promptJournalPath?: string;
+	/**
+	 * Where the core keeps what must outlive a bridge restart: `prompts.jsonl` (prompt idempotency)
+	 * and `replacements.jsonl` (replaced sessions). `~/.broski/core` once there are backends.
+	 */
+	readonly journalDirectory?: string;
 	readonly idleCloseMs?: number;
 	readonly clock?: CoreClock;
 };
@@ -61,14 +65,17 @@ export function createContractSeam(
 	const ids = backends.map(([id]) => id);
 	if (new Set(ids).size !== ids.length) throw new Error(`a backend is configured twice: ${ids.join(", ")}`);
 	const log = { info: logger.logInfo, error: logger.logError };
-	const journalPath = options?.promptJournalPath ?? (backends.length > 0 ? defaultPromptJournalPath() : undefined);
+	const journals = options?.journalDirectory ?? (backends.length > 0 ? defaultJournalDirectory() : undefined);
 	const core = new BridgeCore({
 		bridgeVersion: version,
 		maxFrameBytes: limits.linkMessageLimitBytes,
 		log,
 		clock: options?.clock ?? SYSTEM_CLOCK,
 		directories: async (path) => (await getSecurePath(path)) ?? undefined,
-		...(journalPath !== undefined && { journal: openPromptJournal(journalPath, log) }),
+		...(journals !== undefined && {
+			journal: openPromptJournal(join(journals, "prompts.jsonl"), log),
+			replacementJournal: openReplacementJournal(join(journals, "replacements.jsonl"), log),
+		}),
 		...(options?.idleCloseMs !== undefined && { idleCloseMs: options.idleCloseMs }),
 	});
 

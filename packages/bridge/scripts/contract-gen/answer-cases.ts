@@ -51,7 +51,8 @@ export function answerCases(): { answers: JsonValue[]; activity: JsonValue[]; id
 		const interaction = Interaction.parse(
 			asJson({ id: "i-1", runId: "r-1", createdAt: 1, title: "Asked", blocksRun: true, request: input.request }),
 		);
-		const answer = InteractionAnswer.parse(asJson({ interactionId: input.interactionId ?? "i-1", reply: input.reply }));
+		const given = { interactionId: input.interactionId ?? "i-1", reply: input.reply };
+		const answer = input.beyondTheWire ? given : InteractionAnswer.parse(asJson(given));
 		return asJson({ name: input.name, interaction, answer, problem: answerProblem(interaction, answer) ?? null });
 	});
 	const idnaHosts = IDNA_HOST_INPUTS.map((input) => ({ input, canParse: URL.canParse(input) }));

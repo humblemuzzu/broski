@@ -146,6 +146,12 @@ function formCases(): AnswerInput[] {
 		),
 		...hiddenFieldCases(),
 		...inheritedKeyCases(),
+		{
+			name: "form: an answer keyed __proto__, which no field can be and the wire refuses",
+			request,
+			reply: { kind: "form", values: { email, docs, ["__proto__"]: email } },
+			beyondTheWire: true,
+		},
 	];
 }
 

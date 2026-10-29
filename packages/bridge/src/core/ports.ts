@@ -1,4 +1,4 @@
-import type { ClientRequestId, PromptAccepted, SessionRef } from "../contract";
+import type { ClientRequestId, PromptAccepted, SessionRef, StreamEpoch } from "../contract";
 
 /** Where the frames for one client go. `send` never throws: a frame for a client that has gone is dropped. */
 export interface ClientLink {
@@ -31,4 +31,20 @@ export interface PromptJournal {
 	/** The entries kept by earlier runs of the bridge, oldest first. */
 	load(): JournalEntry[];
 	append(entry: JournalEntry): void;
+}
+
+/** One stream that ended in `session_replaced`: the conversation went on as `next`, in the stream `nextEpoch`. */
+export interface ReplacementRecord {
+	readonly epoch: StreamEpoch;
+	readonly next: SessionRef;
+	readonly nextEpoch: StreamEpoch;
+	/** When the stream ended, in the core clock's milliseconds. */
+	readonly at: number;
+}
+
+/** Durable memory of replaced streams, like the prompt journal: both methods handle their own I/O failures. */
+export interface ReplacementJournal {
+	/** The records kept by earlier runs of the bridge, oldest first. */
+	load(): ReplacementRecord[];
+	append(record: ReplacementRecord): void;
 }

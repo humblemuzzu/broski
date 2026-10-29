@@ -76,7 +76,7 @@ async function serve(): Promise<void> {
 		linkKeyFile: flag("--link-key-file"),
 		contract: {
 			backends: [["pi", factory(fake.resolve)]],
-			promptJournalPath: join(homedir(), ".broski", "core", "prompts.jsonl"),
+			journalDirectory: join(homedir(), ".broski", "core"),
 			idleCloseMs: Number(flag("--idle-close-ms") ?? 60_000),
 		},
 	});

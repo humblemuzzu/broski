@@ -5,19 +5,20 @@ import 'package:broski/contract/generated/contract.dart';
 /// inside one frame type (core README §4).
 const contractFrameType = 'contract';
 
+/// How every frame the bridge core sends begins, to the character
+/// (`CONTRACT_FRAME_PREFIX` in the core; `frame_prefix.json` holds the two
+/// together). It tells a contract frame from the old protocol's before the
+/// JSON is read, so a large one can be read off the UI thread.
+const contractFramePrefix = '{"type":"$contractFrameType","message":';
+
 Map<String, Object?> contractFrame(ClientMessage message) => {
   'type': contractFrameType,
   'message': message.toJson(),
 };
 
-/// One frame from the bridge socket, as the contract client reads it.
+/// One contract frame from the bridge socket, as the contract client reads it.
 sealed class InboundFrame {
   const InboundFrame();
-}
-
-/// A frame of the old protocol, which the old services handle.
-final class OldProtocolFrame extends InboundFrame {
-  const OldProtocolFrame();
 }
 
 final class ContractInbound extends InboundFrame {
@@ -29,19 +30,27 @@ final class ContractInbound extends InboundFrame {
 /// A contract frame that does not decode: the bridge broke the contract, or
 /// sent something newer than this app said it speaks.
 final class UnreadableContract extends InboundFrame {
-  const UnreadableContract({required this.requestId, required this.problem});
+  const UnreadableContract({
+    required this.problem,
+    this.requestId,
+    this.session,
+  });
 
   /// The request the frame answers, when it names one this app can read.
   final String? requestId;
+
+  /// The session an unreadable event belongs to, when this app can tell.
+  final SessionRef? session;
   final String problem;
 }
 
-InboundFrame readFrame(Map<String, Object?> frame) {
-  if (frame['type'] != contractFrameType) return const OldProtocolFrame();
+/// [frame] as the contract client reads it, or null when it is not a contract
+/// frame: it belongs to the old protocol, which the old services handle.
+InboundFrame? readFrame(Map<String, Object?> frame) {
+  if (frame['type'] != contractFrameType) return null;
   final message = frame['message'];
   if (frame.length != 2 || message is! Map<String, Object?>) {
     return const UnreadableContract(
-      requestId: null,
       problem: 'a contract frame is {"type":"contract","message":{…}}',
     );
   }
@@ -51,8 +60,25 @@ InboundFrame readFrame(Map<String, Object?> frame) {
     final requestId = message['requestId'];
     return UnreadableContract(
       requestId: requestId is String ? requestId : null,
+      session: _eventSession(message),
       problem: error.message,
     );
+  }
+}
+
+/// The session of the event `message` carries, when it is one that names a
+/// readable session.
+SessionRef? _eventSession(Map<String, Object?> message) => switch (message) {
+  {'type': 'event', 'envelope': {'session': final Map<String, Object?> ref}} =>
+    _sessionRef(ref),
+  _ => null,
+};
+
+SessionRef? _sessionRef(Map<String, Object?> json) {
+  try {
+    return SessionRef.fromJson(json);
+  } on FormatException {
+    return null;
   }
 }
 

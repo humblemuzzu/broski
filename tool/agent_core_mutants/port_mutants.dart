@@ -25,8 +25,8 @@ final portMutants = [
     ),
     Mutant(
       'client: an event is not counted',
-      '        _received++;\n        _onMessage(message);',
-      '        _onMessage(message);',
+      '    _received++;\n    switch (frame) {',
+      '    switch (frame) {',
     ),
   ]),
   ...mutantsOf('reducer/newest_text.dart', const [
@@ -121,19 +121,73 @@ final portMutants = [
   ]),
   ...mutantsOf('answers/js_pattern.dart', const [
     Mutant(
-      'pattern: U+0000 trusts the u reading',
-      "  if (unicode && text.contains('\\u0000')) return _Reading.unknown;\n",
-      '',
-    ),
-    Mutant(
       'pattern: newer syntax does not compile',
-      'if (older == null || !older.sameMatches) return _Reading.unknown;',
+      'if (!older.sameMatches) return _Reading.unknown;',
       'return _Reading.invalid;',
     ),
     Mutant(
       'pattern: a rewrite is never matched',
-      'if (older == null || !older.sameMatches) return _Reading.unknown;',
+      'if (!older.sameMatches) return _Reading.unknown;',
       'return _Reading.unknown;',
+    ),
+    Mutant(
+      'pattern: a property escape is judged beyond ASCII',
+      'if (propertiesDecide) return _Reading.unknown;\n',
+      '',
+    ),
+    Mutant(
+      'pattern: a property escape is left to the bridge for ASCII too',
+      'reading.usesProperties && text.codeUnits.any((unit) => unit > 0x7f);',
+      'reading.usesProperties;',
+    ),
+    Mutant(
+      'pattern: U+0000 is not noticed',
+      "textHasNul: text.contains('\\u0000'),",
+      'textHasNul: false,',
+    ),
+  ]),
+  ...mutantsOf('answers/js_unicode_reading.dart', const [
+    Mutant(
+      'pattern: a non-ASCII escape keeps its backslash',
+      'if (next > 0x7f && (next < 0xd800 || next > 0xdfff)) {',
+      'if (false) {',
+    ),
+    Mutant(
+      'pattern: a property escape is not noticed',
+      'usesProperties = true;\n    }\n    into.write',
+      '}\n    into.write',
+    ),
+    Mutant(
+      'pattern: a negated class is kept with U+0000 in the text',
+      'final lookahead = negated && closed && _textHasNul;',
+      'final lookahead = false;',
+    ),
+    Mutant(
+      'pattern: every class becomes a lookahead',
+      'final lookahead = negated && closed && _textHasNul;',
+      'final lookahead = closed && _textHasNul;',
+    ),
+    Mutant(
+      'pattern: an empty negated class is kept',
+      "out.write(r'[\\s\\S]');",
+      "out.write(r'[^]');",
+    ),
+  ]),
+  ...mutantsOf('answers/js_search.dart', const [
+    Mutant(
+      'pattern: a match between a pair\'s halves counts',
+      'if (!unicode || !_insidePair(text, first.start)) return true;',
+      'return true;',
+    ),
+    Mutant(
+      'pattern: no start after a bogus one is tried',
+      'if (pattern.matchAsPrefix(text, at) != null) return true;',
+      '',
+    ),
+    Mutant(
+      'pattern: a plain reading is searched by code point',
+      'if (!unicode || !_insidePair(text, first.start)) return true;',
+      'if (!_insidePair(text, first.start)) return true;',
     ),
   ]),
   ...mutantsOf('answers/js_pattern_syntax.dart', const [
@@ -151,6 +205,21 @@ final portMutants = [
       'pattern: a renamed back reference keeps its name',
       'final given = _known[name] ?? name;',
       'final given = name;',
+    ),
+    Mutant(
+      'pattern: a group of one lookaround is not closed by an alternative',
+      "if (_closesNeedingAlternative.contains(_i)) out.write('|(?!)');",
+      '',
+    ),
+    Mutant(
+      'pattern: a group of a lookaround and more is closed by one too',
+      "if (close == null || !_s.startsWith(')', close + 1)) return;",
+      'if (close == null) return;',
+    ),
+    Mutant(
+      'pattern: a non-ASCII name repeated in a group is renamed apart',
+      r"given = renamed[name] ?? _known[name] ?? 'named_$_i';",
+      r"given = 'named_$_i';",
     ),
   ]),
   ...mutantsOf('answers/url/punycode.dart', const [

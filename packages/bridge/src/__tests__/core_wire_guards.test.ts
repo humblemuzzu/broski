@@ -45,6 +45,15 @@ describe("the inbound guards before the schema", () => {
 		]);
 	});
 
+	test("an answer keyed __proto__ is refused by name, not delivered without the key", async () => {
+		const rig = await startCoreRig();
+		const client = await rig.client("a");
+		const values = JSON.parse('{"__proto__":{"kind":"text","value":"v"}}');
+		const [, code, message] = await errorFor(client, answer({ kind: "form", values }));
+		expect(code).toBe("invalid_message");
+		expect(message).toContain("a field key cannot be __proto__");
+	});
+
 	test("lists of lists whose every entry is wrong are refused by their number of values", async () => {
 		const rig = await startCoreRig();
 		const client = await rig.client("a");

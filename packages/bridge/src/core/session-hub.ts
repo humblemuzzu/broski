@@ -14,6 +14,7 @@ import type { CoreClient } from "./client";
 import { SESSION_CALL_DEADLINE_MS, type Settled, settled, within } from "./deadline";
 import { holdsOpen } from "./keep-open";
 import { LiveSession, type LiveSessionDeps } from "./live-session";
+import type { Replacements } from "./replacements";
 import { rejected } from "./results";
 import { sessionKey, sessionLabel } from "./session-key";
 import { SessionSinkRouter } from "./session-sink";
@@ -23,6 +24,8 @@ export interface HubDeps extends Omit<LiveSessionDeps, "published"> {
 	readonly idleCloseMs: number;
 	/** Every event after it reached the viewers, before the hub's own bookkeeping. */
 	readonly onEvent: (live: LiveSession, event: AgentEvent) => void;
+	/** Told which stream replaced which, for a phone that was away. */
+	readonly replacements: Replacements;
 }
 
 /**
@@ -155,7 +158,8 @@ export class SessionHub {
 	/**
 	 * The live session goes on under `ref`: a new stream with its own epoch takes over the
 	 * `OpenSession`, its sink and its pending answers. Viewers of the old stream saw its last event,
-	 * `session_replaced`, and attach to the new one themselves.
+	 * `session_replaced`, and attach to the new one themselves; a phone that was away is told by
+	 * the attach it resumes the old stream with (`Replacements`).
 	 */
 	private replace(old: LiveSession, ref: SessionRef): void {
 		this.retire(old);
@@ -167,6 +171,7 @@ export class SessionHub {
 			{ ...this.deps, published: (session, event) => this.published(session, event) },
 			old.claims,
 		);
+		this.deps.replacements.record(old.epoch, ref, next.epoch);
 		this.live.set(next.key, next);
 		old.sink.deliverTo(next);
 		this.reviewIdle(next);

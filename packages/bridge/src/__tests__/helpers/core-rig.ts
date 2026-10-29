@@ -16,6 +16,7 @@ import {
 	PROTOCOL_VERSION,
 	type PromptInput,
 	type PromptMode,
+	type ProtocolVersion,
 	type ResponseFor,
 	ServerMessage,
 	type SessionRef,
@@ -137,8 +138,9 @@ export class TestClient {
 		return answer;
 	}
 
-	hello(): Promise<ResponseFor<"hello">> {
-		return this.ok("hello", { protocol: PROTOCOL_VERSION, client: { name: "test", version: "1.0.0" } });
+	/** Says `hello` as an app of `protocol`: the bridge's own by default, or an older minor. */
+	hello(protocol: ProtocolVersion = PROTOCOL_VERSION): Promise<ResponseFor<"hello">> {
+		return this.ok("hello", { protocol, client: { name: "test", version: "1.0.0" } });
 	}
 
 	envelopes(session?: SessionRef): EventEnvelope[] {
@@ -200,7 +202,7 @@ export interface CoreRig {
 	readonly opens: OpenRecord;
 	readonly clock: ManualClock;
 	readonly log: RecordingLog;
-	client(name: string): Promise<TestClient>;
+	client(name: string, protocol?: ProtocolVersion): Promise<TestClient>;
 }
 
 export interface CoreRigOptions {
@@ -269,9 +271,9 @@ export async function startCoreRig(options: CoreRigOptions = {}): Promise<CoreRi
 		opens,
 		clock,
 		log,
-		client: async (name) => {
+		client: async (name, protocol) => {
 			const client = new TestClient(core, name);
-			await client.hello();
+			await client.hello(protocol);
 			return client;
 		},
 	};

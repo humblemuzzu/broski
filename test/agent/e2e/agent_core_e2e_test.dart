@@ -213,6 +213,58 @@ void main() {
     );
   }, timeout: _budget);
 
+  test('a session replaced while the phone was away is followed on reconnect, '
+      'with the prompt it had not sent', () async {
+    final machine = await _Machine.start();
+    final phone = await machine.phone();
+    final session = await machine.bridge.seed(machine.cwd);
+    final controller = phone.session(session);
+    await eventually(() => phone.state(session).link is LinkLive, 'the attach');
+    await machine.bridge.script(session, 'replace');
+    await controller.prompts.send(
+      const PromptDraft(mode: PromptMode.start, text: 'Clear it'),
+    );
+    await eventually(
+      () => phone.state(session).snapshot.run?.items.length == 2,
+      'the run to start',
+    );
+    await machine.daemon.restartOnNewPort();
+    await eventually(
+      () => phone.client.state is ContractOffline,
+      'the phone to drop',
+    );
+    await controller.prompts.send(
+      const PromptDraft(mode: PromptMode.queue, text: 'Then this'),
+    );
+    await machine.bridge.release(session);
+    phone.moveTo(machine.daemon.lanCandidate);
+    late final SessionRef next;
+    await eventually(() {
+      final link = phone.state(session).link;
+      if (link is! LinkReplaced) return false;
+      next = link.next;
+      return true;
+    }, 'the phone to be told where the conversation went on');
+    expect(next, isNot(session));
+    final following = phone.session(next);
+    await eventually(
+      () => phone.state(next).link is LinkLive,
+      'the attach to the session that goes on',
+    );
+    await eventually(
+      () => _texts(phone.state(next)).contains('Moved on.'),
+      'the end of the run, under the new id',
+    );
+    expect(phone.state(next).notices.map((shown) => shown.text), [
+      'This conversation continued in a new session',
+    ]);
+    expect(
+      following.current.prompts.map((prompt) => prompt.input.text),
+      ['Then this'],
+      reason: 'the prompt typed while away came along',
+    );
+  }, timeout: _budget);
+
   test('a reconnect after the stream ended takes a fresh snapshot', () async {
     final machine = await _Machine.start();
     final phone = await machine.phone();

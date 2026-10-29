@@ -85,13 +85,28 @@ final sessionMutants = [
     ),
     Mutant(
       'replaced: prompts are not handed over',
-      '_handoff.leave(session, after.prompts);',
+      '_handoff.leave(next, state.prompts);',
       '',
     ),
     Mutant(
       'replaced: the old session keeps the prompts it handed over',
-      'after = after.copyWith(prompts: const []);',
-      '',
+      'return state.copyWith(link: LinkReplaced(next), prompts: const []);',
+      'return state.copyWith(link: LinkReplaced(next));',
+    ),
+    Mutant(
+      'replaced: an answer of "replaced" is not followed',
+      '      case AttachMoved(:final next):\n        update((state) => _handedOver(state, next));\n        return;',
+      '      case AttachMoved():\n        return;',
+    ),
+    Mutant(
+      'replaced: a session reached by a replacement says nothing',
+      "          notice(\n            NoticeLevel.info,\n            'This conversation continued in a new session',\n          ),",
+      '          notice(NoticeLevel.info, \'\'),',
+    ),
+    Mutant(
+      'replaced: every session says it was reached by a replacement',
+      'final prompts = _handoff.take(ref);\n    if (prompts == null) return;',
+      'final prompts = _handoff.take(ref) ?? const [];',
     ),
     Mutant(
       'problem: an unreadable event while attaching is forgotten',
@@ -215,6 +230,13 @@ final sessionMutants = [
       'prompt: an unconfirmed one does not wait for the person',
       'PromptNotSent() || PromptUnconfirmed() => true,',
       'PromptNotSent() => true,\n    PromptUnconfirmed() => false,',
+    ),
+  ]),
+  ...mutantsOf('session/stream_sync.dart', const [
+    Mutant(
+      'replaced: the answer is taken for an attach',
+      '    case ReplacedSync(:final session):\n      return AttachMoved(session);',
+      '    case ReplacedSync():\n      return AttachApplied(state);',
     ),
   ]),
   ...mutantsOf('session/prompt_handoff.dart', const [

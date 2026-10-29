@@ -1,12 +1,13 @@
+import type { ProtocolVersion } from "../contract";
 import type { EncodedFrame } from "./frame";
 import type { LiveSession } from "./live-session";
 import type { ClientLink, CoreLog } from "./ports";
 
 /** One connected app: whether it said `hello`, and the sessions it views. */
 export class CoreClient {
-	/** Set once a `hello` with a matching major version arrived; nothing else is served before. */
-	negotiated = false;
 	connected = true;
+	/** What the client's last `hello` named, while its major was the bridge's; nothing else is served before. */
+	private spoken: ProtocolVersion | undefined;
 	private readonly attached = new Map<string, LiveSession>();
 	/** Attaches under way to sessions not viewed yet, each holding a place under the viewing cap. */
 	private reserved = 0;
@@ -25,6 +26,24 @@ export class CoreClient {
 		} catch (error) {
 			this.log.error(`[core] sending a frame to a client failed: ${String(error)}`);
 		}
+	}
+
+	get negotiated(): boolean {
+		return this.spoken !== undefined;
+	}
+
+	/** Records a `hello`; true when its major is the bridge's, which is the only time the client is served. */
+	hello(theirs: ProtocolVersion, ours: ProtocolVersion): boolean {
+		this.spoken = theirs.major === ours.major ? theirs : undefined;
+		return this.spoken !== undefined;
+	}
+
+	/**
+	 * Whether the client's `hello` named at least `minor`, so what that minor added may be sent to it
+	 * (contract README §12.4: nothing newer than the client's minor is).
+	 */
+	speaks(minor: number): boolean {
+		return this.spoken !== undefined && this.spoken.minor >= minor;
 	}
 
 	/**

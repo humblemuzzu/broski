@@ -1013,6 +1013,14 @@
           }
         ]
       }
+    },
+    {
+      "kind": "replaced",
+      "epoch": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
     }
   ],
   "Attachment": [
@@ -5585,6 +5593,16 @@
     "stale",
     "closed",
     "backend_error"
+  ],
+  "ReplacedSync": [
+    {
+      "kind": "replaced",
+      "epoch": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    }
   ],
   "ReplaySync": [
     {

@@ -42,7 +42,8 @@ export async function startCoreBridge(options: CoreBridgeOptions = {}): Promise<
 	const cwd = join(root, "project");
 	mkdirSync(cwd, { recursive: true });
 	const socketPath = join(root, "link.sock");
-	const journalPath = join(root, "core", "prompts.jsonl");
+	const journalDirectory = join(root, "core");
+	const journalPath = join(journalDirectory, "prompts.jsonl");
 	const clock = new ManualClock();
 	const opens: OpenRecord = { opened: [], closed: [] };
 	let disposals = 0;
@@ -61,7 +62,7 @@ export async function startCoreBridge(options: CoreBridgeOptions = {}): Promise<
 	};
 	const bridge = await startBridge({
 		linkSocket: socketPath,
-		contract: { backends: [[options.fake?.id ?? "pi", factory]], clock, promptJournalPath: journalPath },
+		contract: { backends: [[options.fake?.id ?? "pi", factory]], clock, journalDirectory },
 	});
 	const unstarted = setTimeout(() => started.reject(new Error("the fake backend did not start")), E2E_WAIT_MS);
 	const fake = await started.promise.finally(() => clearTimeout(unstarted));

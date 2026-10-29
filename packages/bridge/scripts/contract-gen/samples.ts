@@ -92,8 +92,10 @@ class Sampler {
 
 	private text(schema: Schema): string {
 		if (schema.format === "uuid") return SAMPLE_UUID;
-		if (schema.pattern !== undefined) throw new Error(`cannot sample the pattern ${schema.pattern}`);
-		return "x".repeat(Math.max(schema.minLength ?? 0, 1));
+		const text = "x".repeat(Math.max(schema.minLength ?? 0, 1));
+		if (schema.pattern !== undefined && !new RegExp(schema.pattern).test(text))
+			throw new Error(`cannot sample the pattern ${schema.pattern}`);
+		return text;
 	}
 
 	private refOf(member: Schema): string {

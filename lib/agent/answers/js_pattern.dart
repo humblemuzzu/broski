@@ -1,4 +1,6 @@
 import 'package:broski/agent/answers/js_pattern_syntax.dart';
+import 'package:broski/agent/answers/js_search.dart';
+import 'package:broski/agent/answers/js_unicode_reading.dart';
 
 /// Why [text] fails a form field's [pattern], or null when it passes: it must
 /// match under both readings a backend may use, plain ECMAScript (OpenCode)
@@ -18,18 +20,30 @@ String? patternProblem(String pattern, String text) {
 
 enum _Reading { matches, misses, invalid, unknown }
 
-/// Dart 3.10's engine misses U+0000 against a negated class with `unicode`
-/// in a string holding a code unit above U+00FF, so that reading is unknown.
 _Reading _read(String pattern, bool unicode, String text) {
-  var compiled = _compiled(pattern, unicode);
-  if (compiled == null) {
-    final older = withoutNewerSyntax(pattern);
-    compiled = older == null ? null : _compiled(older.pattern, unicode);
-    if (compiled == null) return _Reading.invalid;
-    if (older == null || !older.sameMatches) return _Reading.unknown;
+  var source = pattern;
+  var propertiesDecide = false;
+  if (unicode) {
+    final reading = unicodeReading(
+      pattern,
+      textHasNul: text.contains('\u0000'),
+    );
+    source = reading.pattern;
+    propertiesDecide =
+        reading.usesProperties && text.codeUnits.any((unit) => unit > 0x7f);
   }
-  if (unicode && text.contains('\u0000')) return _Reading.unknown;
-  return compiled.hasMatch(text) ? _Reading.matches : _Reading.misses;
+  var compiled = _compiled(source, unicode);
+  if (compiled == null) {
+    final older = withoutNewerSyntax(source);
+    final rewritten = older == null ? null : _compiled(older.pattern, unicode);
+    if (older == null || rewritten == null) return _Reading.invalid;
+    if (!older.sameMatches) return _Reading.unknown;
+    compiled = rewritten;
+  }
+  if (propertiesDecide) return _Reading.unknown;
+  return searchesLikeEcmaScript(compiled, text, unicode: unicode)
+      ? _Reading.matches
+      : _Reading.misses;
 }
 
 RegExp? _compiled(String pattern, bool unicode) {

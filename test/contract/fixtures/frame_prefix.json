@@ -1,0 +1,4 @@
+{
+  "prefix": "{\"type\":\"contract\",\"message\":",
+  "example": "{\"type\":\"contract\",\"message\":{\"type\":\"session.detach.result\",\"requestId\":\"r\"}}"
+}

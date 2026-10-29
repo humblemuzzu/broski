@@ -27,7 +27,13 @@ import { BackendStatus } from "./status";
  * field, a new request, a new union member or enum value) bumps `minor`; anything else bumps `major`.
  * Neither side sends the other anything newer than the other's `minor`, learnt from `hello`.
  */
-export const PROTOCOL_VERSION = { major: 1, minor: 0 } as const;
+export const PROTOCOL_VERSION = { major: 1, minor: 1 } as const;
+
+/**
+ * The minor that introduced each addition to 1.0. The bridge sends it only to a client whose `hello`
+ * named at least that minor (`CoreClient.speaks`).
+ */
+export const ADDED_IN_MINOR = { replacedSync: 1 } as const;
 
 export const ProtocolVersion = z.strictObject({ major: z.int().nonnegative(), minor: z.int().nonnegative() });
 export type ProtocolVersion = z.infer<typeof ProtocolVersion>;
@@ -69,7 +75,20 @@ export const SnapshotSync = z.strictObject({
 });
 export type SnapshotSync = z.infer<typeof SnapshotSync>;
 
-export const AttachSync = z.discriminatedUnion("kind", [ReplaySync, SnapshotSync]);
+/**
+ * The stream `epoch` ended in `session_replaced`, and its conversation goes on as `session` (after
+ * any further replacement). The client is attached to neither session; the answer's `capabilities`
+ * are those of `session`, which the client attaches to next. Sent only to a client of minor 1 or
+ * later; an older one is attached to the session it named, as before.
+ */
+export const ReplacedSync = z.strictObject({
+	kind: z.literal("replaced"),
+	epoch: StreamEpoch,
+	session: SessionRef,
+});
+export type ReplacedSync = z.infer<typeof ReplacedSync>;
+
+export const AttachSync = z.discriminatedUnion("kind", [ReplaySync, SnapshotSync, ReplacedSync]);
 export type AttachSync = z.infer<typeof AttachSync>;
 
 function request<T extends string, S extends z.ZodRawShape>(type: T, shape: S) {

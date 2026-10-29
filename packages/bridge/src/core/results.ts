@@ -13,3 +13,11 @@ export function protocolError(requestId: string | undefined, code: ProtocolError
 export function unsupported(what: string): Rejected {
 	return rejected("unsupported", `this backend cannot ${what}`);
 }
+
+/** The answer to a request that needed a session the adapter would not open. */
+export function openFailure(requestId: string, failure: Rejected): ErrorResponse {
+	const { code, message } = failure.rejection;
+	return code === "not_found"
+		? protocolError(requestId, "unknown_session", message)
+		: protocolError(requestId, "internal", `the session could not be opened (${code}): ${message}`);
+}

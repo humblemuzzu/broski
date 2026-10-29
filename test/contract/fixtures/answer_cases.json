@@ -7642,6 +7642,112 @@
       "problem": null
     },
     {
+      "name": "form: an answer keyed __proto__, which no field can be and the wire refuses",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "form",
+          "fields": [
+            {
+              "kind": "string",
+              "key": "email",
+              "required": true,
+              "hidden": false,
+              "when": [],
+              "format": "email",
+              "options": [],
+              "allowCustom": false
+            },
+            {
+              "kind": "boolean",
+              "key": "notify",
+              "required": false,
+              "hidden": false,
+              "when": []
+            },
+            {
+              "kind": "multiselect",
+              "key": "channels",
+              "required": true,
+              "hidden": false,
+              "when": [
+                {
+                  "key": "notify",
+                  "op": "eq",
+                  "value": {
+                    "kind": "boolean",
+                    "value": true
+                  }
+                }
+              ],
+              "options": [
+                {
+                  "value": "mail",
+                  "label": "Mail"
+                },
+                {
+                  "value": "chat",
+                  "label": "Chat"
+                }
+              ],
+              "minItems": 1,
+              "maxItems": 1,
+              "allowCustom": false
+            },
+            {
+              "kind": "integer",
+              "key": "retries",
+              "required": false,
+              "hidden": false,
+              "when": [],
+              "minimum": 0,
+              "maximum": 5
+            },
+            {
+              "kind": "string",
+              "key": "token",
+              "required": true,
+              "hidden": true,
+              "when": [],
+              "defaultValue": "t",
+              "options": [],
+              "allowCustom": false
+            },
+            {
+              "kind": "external",
+              "key": "docs",
+              "url": "https://example.com"
+            }
+          ]
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "form",
+          "values": {
+            "email": {
+              "kind": "text",
+              "value": "a@b.co"
+            },
+            "docs": {
+              "kind": "boolean",
+              "value": true
+            },
+            "__proto__": {
+              "kind": "text",
+              "value": "a@b.co"
+            }
+          }
+        }
+      },
+      "problem": "no field __proto__"
+    },
+    {
       "name": "number field given {\"kind\":\"number\",\"value\":2}",
       "interaction": {
         "id": "i-1",
@@ -23210,6 +23316,690 @@
         }
       },
       "problem": "field v: does not match the pattern"
+    },
+    {
+      "name": "pattern \"^[^a]$\" on \"\\u0000\"",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "form",
+          "fields": [
+            {
+              "kind": "string",
+              "key": "v",
+              "required": false,
+              "hidden": false,
+              "when": [],
+              "pattern": "^[^a]$",
+              "options": [],
+              "allowCustom": false
+            }
+          ]
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "form",
+          "values": {
+            "v": {
+              "kind": "text",
+              "value": "\u0000"
+            }
+          }
+        }
+      },
+      "problem": null
+    },
+    {
+      "name": "pattern \"^[^a]+$\" on \"Ā\\u0000\"",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "form",
+          "fields": [
+            {
+              "kind": "string",
+              "key": "v",
+              "required": false,
+              "hidden": false,
+              "when": [],
+              "pattern": "^[^a]+$",
+              "options": [],
+              "allowCustom": false
+            }
+          ]
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "form",
+          "values": {
+            "v": {
+              "kind": "text",
+              "value": "Ā\u0000"
+            }
+          }
+        }
+      },
+      "problem": null
+    },
+    {
+      "name": "pattern \"[^\\\\d]\" on \"\\u0000Ā\"",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "form",
+          "fields": [
+            {
+              "kind": "string",
+              "key": "v",
+              "required": false,
+              "hidden": false,
+              "when": [],
+              "pattern": "[^\\d]",
+              "options": [],
+              "allowCustom": false
+            }
+          ]
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "form",
+          "values": {
+            "v": {
+              "kind": "text",
+              "value": "\u0000Ā"
+            }
+          }
+        }
+      },
+      "problem": null
+    },
+    {
+      "name": "pattern \"^[^\\\\x00]$\" on \"\\u0000\"",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "form",
+          "fields": [
+            {
+              "kind": "string",
+              "key": "v",
+              "required": false,
+              "hidden": false,
+              "when": [],
+              "pattern": "^[^\\x00]$",
+              "options": [],
+              "allowCustom": false
+            }
+          ]
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "form",
+          "values": {
+            "v": {
+              "kind": "text",
+              "value": "\u0000"
+            }
+          }
+        }
+      },
+      "problem": "field v: does not match the pattern"
+    },
+    {
+      "name": "pattern \"^\\\\é$\" on \"é\"",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "form",
+          "fields": [
+            {
+              "kind": "string",
+              "key": "v",
+              "required": false,
+              "hidden": false,
+              "when": [],
+              "pattern": "^\\é$",
+              "options": [],
+              "allowCustom": false
+            }
+          ]
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "form",
+          "values": {
+            "v": {
+              "kind": "text",
+              "value": "é"
+            }
+          }
+        }
+      },
+      "problem": null
+    },
+    {
+      "name": "pattern \"^[\\\\é]$\" on \"é\"",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "form",
+          "fields": [
+            {
+              "kind": "string",
+              "key": "v",
+              "required": false,
+              "hidden": false,
+              "when": [],
+              "pattern": "^[\\é]$",
+              "options": [],
+              "allowCustom": false
+            }
+          ]
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "form",
+          "values": {
+            "v": {
+              "kind": "text",
+              "value": "é"
+            }
+          }
+        }
+      },
+      "problem": null
+    },
+    {
+      "name": "pattern \"^\\\\é$\" on \"e\"",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "form",
+          "fields": [
+            {
+              "kind": "string",
+              "key": "v",
+              "required": false,
+              "hidden": false,
+              "when": [],
+              "pattern": "^\\é$",
+              "options": [],
+              "allowCustom": false
+            }
+          ]
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "form",
+          "values": {
+            "v": {
+              "kind": "text",
+              "value": "e"
+            }
+          }
+        }
+      },
+      "problem": "field v: does not match the pattern"
+    },
+    {
+      "name": "pattern \"\\\\B\" on \"a😀A\"",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "form",
+          "fields": [
+            {
+              "kind": "string",
+              "key": "v",
+              "required": false,
+              "hidden": false,
+              "when": [],
+              "pattern": "\\B",
+              "options": [],
+              "allowCustom": false
+            }
+          ]
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "form",
+          "values": {
+            "v": {
+              "kind": "text",
+              "value": "a😀A"
+            }
+          }
+        }
+      },
+      "problem": "field v: does not match the pattern"
+    },
+    {
+      "name": "pattern \"(?<!a)\" on \"a😀A\"",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "form",
+          "fields": [
+            {
+              "kind": "string",
+              "key": "v",
+              "required": false,
+              "hidden": false,
+              "when": [],
+              "pattern": "(?<!a)",
+              "options": [],
+              "allowCustom": false
+            }
+          ]
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "form",
+          "values": {
+            "v": {
+              "kind": "text",
+              "value": "a😀A"
+            }
+          }
+        }
+      },
+      "problem": null
+    },
+    {
+      "name": "pattern \"^(?:(?<!a))*x$\" on \"x\"",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "form",
+          "fields": [
+            {
+              "kind": "string",
+              "key": "v",
+              "required": false,
+              "hidden": false,
+              "when": [],
+              "pattern": "^(?:(?<!a))*x$",
+              "options": [],
+              "allowCustom": false
+            }
+          ]
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "form",
+          "values": {
+            "v": {
+              "kind": "text",
+              "value": "x"
+            }
+          }
+        }
+      },
+      "problem": null
+    },
+    {
+      "name": "pattern \"^(?:(?=a))+a$\" on \"a\"",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "form",
+          "fields": [
+            {
+              "kind": "string",
+              "key": "v",
+              "required": false,
+              "hidden": false,
+              "when": [],
+              "pattern": "^(?:(?=a))+a$",
+              "options": [],
+              "allowCustom": false
+            }
+          ]
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "form",
+          "values": {
+            "v": {
+              "kind": "text",
+              "value": "a"
+            }
+          }
+        }
+      },
+      "problem": null
+    },
+    {
+      "name": "pattern \"^\\\\p{L}$\" on \"࢏\"",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "form",
+          "fields": [
+            {
+              "kind": "string",
+              "key": "v",
+              "required": false,
+              "hidden": false,
+              "when": [],
+              "pattern": "^\\p{L}$",
+              "options": [],
+              "allowCustom": false
+            }
+          ]
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "form",
+          "values": {
+            "v": {
+              "kind": "text",
+              "value": "࢏"
+            }
+          }
+        }
+      },
+      "problem": "field v: does not match the pattern"
+    },
+    {
+      "name": "pattern \"^\\\\p{L}+$\" on \"𝑎b\"",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "form",
+          "fields": [
+            {
+              "kind": "string",
+              "key": "v",
+              "required": false,
+              "hidden": false,
+              "when": [],
+              "pattern": "^\\p{L}+$",
+              "options": [],
+              "allowCustom": false
+            }
+          ]
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "form",
+          "values": {
+            "v": {
+              "kind": "text",
+              "value": "𝑎b"
+            }
+          }
+        }
+      },
+      "problem": "field v: does not match the pattern"
+    },
+    {
+      "name": "pattern \"^\\\\p{Lu}$\" on \"a\"",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "form",
+          "fields": [
+            {
+              "kind": "string",
+              "key": "v",
+              "required": false,
+              "hidden": false,
+              "when": [],
+              "pattern": "^\\p{Lu}$",
+              "options": [],
+              "allowCustom": false
+            }
+          ]
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "form",
+          "values": {
+            "v": {
+              "kind": "text",
+              "value": "a"
+            }
+          }
+        }
+      },
+      "problem": "field v: does not match the pattern"
+    },
+    {
+      "name": "pattern \"^[^\\\\P{L}]$\" on \"࢏\"",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "form",
+          "fields": [
+            {
+              "kind": "string",
+              "key": "v",
+              "required": false,
+              "hidden": false,
+              "when": [],
+              "pattern": "^[^\\P{L}]$",
+              "options": [],
+              "allowCustom": false
+            }
+          ]
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "form",
+          "values": {
+            "v": {
+              "kind": "text",
+              "value": "࢏"
+            }
+          }
+        }
+      },
+      "problem": null
+    },
+    {
+      "name": "pattern \"^[^\\\\P{L}]$\" on \"1\"",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "form",
+          "fields": [
+            {
+              "kind": "string",
+              "key": "v",
+              "required": false,
+              "hidden": false,
+              "when": [],
+              "pattern": "^[^\\P{L}]$",
+              "options": [],
+              "allowCustom": false
+            }
+          ]
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "form",
+          "values": {
+            "v": {
+              "kind": "text",
+              "value": "1"
+            }
+          }
+        }
+      },
+      "problem": "field v: does not match the pattern"
+    },
+    {
+      "name": "pattern \"(?<é>a)(?<é>b)\" on \"ab\"",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "form",
+          "fields": [
+            {
+              "kind": "string",
+              "key": "v",
+              "required": false,
+              "hidden": false,
+              "when": [],
+              "pattern": "(?<é>a)(?<é>b)",
+              "options": [],
+              "allowCustom": false
+            }
+          ]
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "form",
+          "values": {
+            "v": {
+              "kind": "text",
+              "value": "ab"
+            }
+          }
+        }
+      },
+      "problem": "field v: the field's pattern does not compile, so no answer can pass it"
+    },
+    {
+      "name": "pattern \"^(?:(?<é>a)|(?<é>b))\\\\k<é>$\" on \"aa\"",
+      "interaction": {
+        "id": "i-1",
+        "runId": "r-1",
+        "createdAt": 1,
+        "title": "Asked",
+        "blocksRun": true,
+        "request": {
+          "kind": "form",
+          "fields": [
+            {
+              "kind": "string",
+              "key": "v",
+              "required": false,
+              "hidden": false,
+              "when": [],
+              "pattern": "^(?:(?<é>a)|(?<é>b))\\k<é>$",
+              "options": [],
+              "allowCustom": false
+            }
+          ]
+        }
+      },
+      "answer": {
+        "interactionId": "i-1",
+        "reply": {
+          "kind": "form",
+          "values": {
+            "v": {
+              "kind": "text",
+              "value": "aa"
+            }
+          }
+        }
+      },
+      "problem": null
     },
     {
       "name": "length {\"minLength\":2} of \"\"",

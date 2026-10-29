@@ -4,6 +4,7 @@ import type { CoreClient } from "./client";
 import type { InteractionDesk } from "./interaction-desk";
 import type { CoreClock, CoreLog, DirectoryPolicy } from "./ports";
 import type { PromptLedger } from "./prompt-ledger";
+import type { Replacements } from "./replacements";
 import { protocolError } from "./results";
 import type { SessionHub } from "./session-hub";
 
@@ -13,6 +14,7 @@ export interface CoreContext {
 	readonly hub: SessionHub;
 	readonly desk: InteractionDesk;
 	readonly ledger: PromptLedger;
+	readonly replacements: Replacements;
 	readonly directories: DirectoryPolicy;
 	readonly bridgeVersion: string;
 	readonly maxFrameBytes: number;

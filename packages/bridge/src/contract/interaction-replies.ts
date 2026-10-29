@@ -27,9 +27,15 @@ export const QuestionsReply = z.strictObject({
 });
 export type QuestionsReply = z.infer<typeof QuestionsReply>;
 
+/** A parsed reply keeps an own `__proto__` key that zod's record parse would drop; refused, as `FieldKey` says. */
+const withoutProtoKey = z.custom<object>(
+	(values) => typeof values !== "object" || values === null || !Object.hasOwn(values, "__proto__"),
+	"a field key cannot be __proto__",
+);
+
 export const FormReply = z.strictObject({
 	kind: z.literal("form"),
-	values: z.record(FieldKey, FormValue).refine(fewKeys, "too many values"),
+	values: withoutProtoKey.pipe(z.record(FieldKey, FormValue).refine(fewKeys, "too many values")),
 });
 export type FormReply = z.infer<typeof FormReply>;
 

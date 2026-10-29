@@ -119,6 +119,7 @@ final class ContractClient {
     for (final subscription in _subscriptions) {
       unawaited(subscription.cancel());
     }
+    _link.close();
     _waiters.failAll(const ClientClosed());
     _delays.close();
     _wakeStateWaiters();
@@ -251,20 +252,19 @@ final class ContractClient {
     const LinkRefusal('The phone could not send that to the Mac'),
   );
 
-  void _onFrame(Map<String, Object?> frame) {
+  void _onFrame(InboundFrame frame) {
     if (_closed) return;
-    switch (readFrame(frame)) {
-      case OldProtocolFrame():
-        return;
+    _received++;
+    switch (frame) {
       case ContractInbound(:final message):
-        _received++;
         _onMessage(message);
-      case UnreadableContract(:final requestId, :final problem):
-        _received++;
+      case UnreadableContract(:final requestId, :final problem, :final session):
         final failed =
             requestId != null &&
             _waiters.fail(requestId, MalformedAnswer(problem));
-        if (!failed) _problems.add(unreadableFrame(frame, problem));
+        if (!failed) {
+          _problems.add(UnreadableFrame(message: problem, session: session));
+        }
     }
   }
 

@@ -6,9 +6,10 @@ import type { CoreContext } from "./context";
 import { DEFAULT_REPLAY_WINDOW, type ReplayWindow } from "./event-log";
 import { InteractionDesk } from "./interaction-desk";
 import { DEFAULT_IDLE_CLOSE_MS } from "./keep-open";
-import type { ClientLink, CoreClock, CoreLog, DirectoryPolicy, PromptJournal } from "./ports";
+import type { ClientLink, CoreClock, CoreLog, DirectoryPolicy, PromptJournal, ReplacementJournal } from "./ports";
 import { PromptLedger } from "./prompt-ledger";
 import { ProtocolServer } from "./protocol-server";
+import { Replacements } from "./replacements";
 import { SessionHub } from "./session-hub";
 
 export interface CoreOptions {
@@ -20,6 +21,8 @@ export interface CoreOptions {
 	readonly directories: DirectoryPolicy;
 	/** Remembers accepted prompts across bridge restarts; without one they are remembered in memory only. */
 	readonly journal?: PromptJournal;
+	/** Remembers replaced sessions across bridge restarts; without one they are remembered in memory only. */
+	readonly replacementJournal?: ReplacementJournal;
 	readonly idleCloseMs?: number;
 	readonly replay?: ReplayWindow;
 }
@@ -47,6 +50,7 @@ export class BridgeCore {
 
 	constructor(private readonly options: CoreOptions) {
 		const desk = new InteractionDesk();
+		const replacements = new Replacements(options.clock, options.replacementJournal);
 		this.hub = new SessionHub({
 			maxFrameBytes: options.maxFrameBytes,
 			replay: options.replay ?? DEFAULT_REPLAY_WINDOW,
@@ -54,6 +58,7 @@ export class BridgeCore {
 			log: options.log,
 			idleCloseMs: options.idleCloseMs ?? DEFAULT_IDLE_CLOSE_MS,
 			onEvent: (live, event) => desk.observe(live, event),
+			replacements,
 		});
 		this.feed = new CatalogFeed(this.clients, this.hub, options.maxFrameBytes, options.log);
 		this.registry = new BackendRegistry({
@@ -67,6 +72,7 @@ export class BridgeCore {
 			hub: this.hub,
 			desk,
 			ledger: new PromptLedger(options.journal),
+			replacements,
 			directories: options.directories,
 			bridgeVersion: options.bridgeVersion,
 			maxFrameBytes: options.maxFrameBytes,

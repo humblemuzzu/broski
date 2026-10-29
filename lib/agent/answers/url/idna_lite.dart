@@ -25,15 +25,18 @@ bool isIdnaValidInLabel(int point) =>
     _folded(point) == point &&
     (_isCherokeeCapital(point) || !_lowercases(point));
 
+/// The code points no version of UTS 46 has allowed or will: controls,
+/// surrogates, private use, U+FFFD and the noncharacters. Unassigned code
+/// points are not among them, since a later Unicode assigns some.
 bool isIdnaDisallowed(int point) =>
     (point >= 0x80 && point <= 0x9f) ||
     point == 0x2028 ||
     point == 0x2029 ||
-    (point >= 0xd800 && point <= 0xdfff) ||
-    (point >= 0xe000 && point <= 0xf8ff) ||
+    (point >= 0xd800 && point <= 0xf8ff) ||
+    point >= 0xf0000 ||
     point == 0xfffd ||
-    point == 0xfffe ||
-    point == 0xffff;
+    (point >= 0xfdd0 && point <= 0xfdef) ||
+    (point & 0xfffe) == 0xfffe;
 
 /// The spaces UTS 46 maps to U+0020 (or disallows), a forbidden host code
 /// point either way.

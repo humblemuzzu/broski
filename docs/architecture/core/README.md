@@ -1,6 +1,6 @@
 # The Broski bridge core
 
-Status: Phase 2. The core speaks the [contract](../contract/README.md) (protocol **1.0**) to phones and the `AgentBackend` interface to adapters. Production registers **no backend** yet: Phase 4 adds one adapter per backend. The old protocol keeps serving the app beside it until Phase 4 deletes it backend by backend.
+Status: Phase 2. The core speaks the [contract](../contract/README.md) (protocol **1.1**) to phones and the `AgentBackend` interface to adapters. Production registers **no backend** yet: Phase 4 adds one adapter per backend. The old protocol keeps serving the app beside it until Phase 4 deletes it backend by backend.
 
 Code: `packages/bridge/src/core/` (one concept per file), wired into the existing connection layer by `packages/bridge/src/server/contract-seam.ts`.
 
@@ -46,10 +46,11 @@ What it does not do: anything backend-specific. It never mints run, block, tool,
 | `context.ts`, `controlled.ts` | The handler context, `onBackend` (the backend a request names, waited for while it starts) and `controlled` (the viewed session and its control, for the eight control requests). |
 | `requests-catalog.ts`, `requests-sessions.ts`, `requests-live.ts` | The handlers: backend-wide reads; session mutations and reads; attach, detach and session control. |
 | `results.ts`, `directories.ts`, `paged-read.ts`, `session-key.ts`, `same-state.ts` | Result and error builders; the directory policy; re-reading a page that is too large; session keys and log labels; snapshot equality. |
-| `frame.ts` | The `{"type":"contract","message":…}` frame. |
+| `replacements.ts`, `attach-redirect.ts` | Which stream replaced which, bounded and kept across restarts; answering an attach to a replaced session with the session that continues it. |
+| `frame.ts` | The `{"type":"contract","message":…}` frame, and the prefix every frame begins with. |
 | `wire-fit.ts`, `snapshot-fit.ts`, `text-elision.ts` | Fitting a message to the link: run items, free text, the event fallbacks. |
 
-Outside `core/`: `server/contract-seam.ts` (the seam, §4) and `server/contract-prompt-journal.ts` (the journal file).
+Outside `core/`: `server/contract-seam.ts` (the seam, §4), `server/json-lines-journal.ts` (a journal file) with `contract-prompt-journal.ts` and `contract-replacement-journal.ts` (the two it keeps).
 
 ## 3. Data flow
 
@@ -88,7 +89,7 @@ So a contract frame passes the old connection layer's socket cap (`BROSKI_MAX_WS
 - **The sink holds early records.** `open` resolves with the snapshot; records the adapter emits after that moment but before the hub's continuation runs are held and published in order, on top of that snapshot (README §5 rule 1).
 - **Keep-open rule** (README §5 rule 3). `holdsOpen(snapshot)`: an active run, a pending interaction, a compaction or retry under way, or accepted input still queued. While it holds, the session stays open with or without viewers, so no ask is raised to nobody and no event is lost from the log. The queue is included because closing would strand accepted input an adapter may hold in its own memory (Codex without the experimental queue, cx §6.2).
 - **Idle close**: once a session is idle and unviewed, it closes after `idleCloseMs` (60 s). Any viewer change and every event passes through `reviewIdle`, which schedules or cancels the timer. A created session nobody attaches to closes the same way.
-- **Replacement**: `session_replaced{session}` is the old stream's last event. A new stream (new epoch, `seq` from 1) takes over the same `OpenSession`, sink and in-flight answers (one shared set of claims) under the new id. Viewers of the old stream are let go and attach to the new one. An attach under way when the session is replaced answers `unknown_session`.
+- **Replacement**: `session_replaced{session}` is the old stream's last event. A new stream (new epoch, `seq` from 1) takes over the same `OpenSession`, sink and in-flight answers (one shared set of claims) under the new id. Viewers of the old stream are let go and attach to the new one. The core records which stream replaced which (`Replacements`: the old stream's epoch to the new session and its epoch, so a chain is followed from the first epoch alone): at most 4,096 records, none older than 30 days, appended to `replacements.jsonl` beside the prompt journal and loaded at start. A client of minor 1 or later that attaches with a `resume` of one of those epochs, or whose attach was under way when its session was replaced, is answered `replaced{epoch, session}` with the successor's own capabilities, opened for the purpose and kept for the attach that follows (README §12.2); an older client is attached to the session it named, as before. A session replaced and then reopened under its old id is a new stream with a new epoch, which no record names.
 - **Removal**: a catalog `session_removed` ends the session's stream and lets its viewers go.
 - **Shutdown** is the one time busy sessions close: `dispose` retires every stream and disposes every backend, whose pending asks expire (README §9). An open or a backend that lands after it is closed or disposed as it lands.
 
@@ -114,7 +115,7 @@ So a contract frame passes the old connection layer's socket cap (`BROSKI_MAX_WS
 
 - `PromptInput` is checked by the contract schema at the wire (text 1 MiB, images 4 MiB of base64 together, lists 1,000).
 - **Idempotency** (README §10): a repeat of an **accepted** `clientRequestId` gets the first result and reaches no backend; a rejection is not remembered; a repeat that arrives while the first is on its way shares its result. The ledger keeps 10,000 accepted prompts by `(session, clientRequestId)`, across a close and reopen of the session.
-- **Across bridge restarts**: the prompt journal, a JSON-lines file (`~/.broski/core/prompts.jsonl` once backends are served, `0600` in a `0700` directory), loaded at start, appended per accepted prompt, compacted to the newest 10,000 past 20,000 lines. Unparsable lines are skipped and rewritten away at the next start; after an append that failed part-way the next one starts on a line of its own. An I/O failure is logged; the in-memory ledger goes on. Under test isolation, a journal path inside the real home throws before anything is written.
+- **Across bridge restarts**: the prompt journal, a JSON-lines file (`prompts.jsonl` in the journal directory, `~/.broski/core` once backends are served, `0600` in a `0700` directory; the replacement journal is `replacements.jsonl` beside it, written the same way, README §5), loaded at start, appended per accepted prompt, compacted to the newest 10,000 past 20,000 lines. Unparsable lines are skipped and rewritten away at the next start; after an append that failed part-way the next one starts on a line of its own. An I/O failure is logged; the in-memory ledger goes on. Under test isolation, a journal path inside the real home throws before anything is written.
 - The adapter still de-duplicates within an open session and passes the id to backends that persist it (README §10); the ledger covers what it cannot see.
 
 ## 9. Fitting every message to the link
@@ -151,7 +152,7 @@ Inbound, a socket has one token bucket for both protocols (`BROSKI_RATE_LIMIT_*`
 
 ## 12. Versioning
 
-`hello` is mandatory. Bridge and app talk only when `major` is equal (README §12.4); another major is `unsupported_version` and ends the talk: the client's sessions are let go, and an attach already under way is refused rather than completed. Every minor so far is 0, so nothing the bridge sends can be newer than a client's minor; **the first minor bump must add the filter that keeps newer fields, members and values from an older client.** The answer carries the bridge's protocol and version.
+`hello` is mandatory. Bridge and app talk only when `major` is equal (README §12.4); another major is `unsupported_version` and ends the talk: the client's sessions are let go, and an attach already under way is refused rather than completed. The client's minor is kept (`CoreClient.speaks`), and what a later minor added is sent only to a client that named it: 1.1 added the `replaced` attach answer (`ADDED_IN_MINOR.replacedSync`), which an older client is not sent. **The next minor bump adds its own check at the place it sends.** The answer carries the bridge's protocol and version.
 
 ## 13. Layers
 
@@ -170,6 +171,7 @@ Inbound, a socket has one token bucket for both protocols (`BROSKI_RATE_LIMIT_*`
 | Replay window | 4,096 events or 4 MiB | `event-log.ts` |
 | Sessions one client views at once | 32, attaches under way included | `requests-live.ts` |
 | Accepted prompts remembered | 10,000 (journal compacts past 20,000 lines) | `prompt-ledger.ts` |
+| Replaced streams remembered | 4,096, none older than 30 days (journal compacts past 8,192 lines) | `replacements.ts` |
 | Resolved interactions remembered | 10,000 | `interaction-desk.ts` |
 | Shortened text keeps at least | 1,024 UTF-16 units | `text-elision.ts` |
 | Frame cap, outbound | `linkMessageLimitBytes`, 8 MiB | `server/limits.ts` |
@@ -187,7 +189,7 @@ Inbound, a socket has one token bucket for both protocols (`BROSKI_RATE_LIMIT_*`
 - `backends.list` gives the backends ready now. A `catalog{backend, status_changed}` for a backend the app has not listed means it has just landed: list again.
 - `error{rate_limited}` means the request was not served: wait a few seconds and send it again.
 - Mirror `applyEvent`; treat `resynced` as a replacement; expect `droppedItems > 0` on a long run; expect `…` in very long text; re-read the transcript's newest page at `run_finished` (README §8).
-- After `session_replaced`, attach to the new id. After `session_removed`, drop the session.
+- After `session_replaced`, attach to the new id. An attach whose answer is `replaced{session}` (a phone that was away; send `hello` with minor 1) says the same: attach to `session` instead, without `resume`. After `session_removed`, drop the session.
 
 The app does all of this in `lib/agent/`: see [`docs/architecture/app-core/README.md`](../app-core/README.md).
 
@@ -196,15 +198,15 @@ The app does all of this in `lib/agent/`: see [`docs/architecture/app-core/READM
 - Write `backends/<id>/`, export a `BackendFactory`, and register it in `server.ts`'s options (`contract.backends: [[id, factory]]`). Nothing in the core changes.
 - Factories start once the bridge listens (`contract.start()`), all at once and in the background, as the managed OpenCode start does: a request that names a backend still starting waits for it up to 30 s from the start, then is answered `unknown_backend` saying it is still starting; a backend that lands later is announced to every client (`status_changed`). A factory may take as long as its backend needs, but report an unreachable service through `status()` rather than failing.
 - Pass the conformance suite; then delete that backend's old code.
-- Once backends are registered the prompt journal defaults to `~/.broski/core/prompts.jsonl`; pass another `promptJournalPath` to move it.
+- Once backends are registered the journals (`prompts.jsonl`, `replacements.jsonl`) default to `~/.broski/core`; pass another `journalDirectory` to move them.
 
 ## 17. Tests
 
-- Unit, in process (`__tests__/helpers/core-rig.ts`: the core, the fake backend, in-memory clients that check every frame against `ServerMessage`, a manual clock): `core_protocol`, `core_streams`, `core_session_lifecycle`, `core_control`, `core_interactions`, `core_wire_fit`, `core_text_elision`, `core_wire_guards`, `core_adapter_guards`, `core_backend_start`, `core_backend_registry`, `core_event_log`, `core_keep_open`, `core_session_keys`, `core_prompt_journal`, `core_seam`; the layer rules in `contract_layers`.
+- Unit, in process (`__tests__/helpers/core-rig.ts`: the core, the fake backend, in-memory clients that check every frame against `ServerMessage`, a manual clock): `core_protocol`, `core_streams`, `core_session_lifecycle`, `core_control`, `core_interactions`, `core_wire_fit`, `core_text_elision`, `core_wire_guards`, `core_adapter_guards`, `core_backend_start`, `core_backend_registry`, `core_event_log`, `core_keep_open`, `core_session_keys`, `core_prompt_journal`, `core_replacement_journal`, `core_session_replacement` (a phone away, a chain, an older minor, the memory's bounds, a successor not yet open), `core_seam`; the layer rules in `contract_layers`.
 - Adapters that differ from the fake in one way live in `__tests__/helpers/core-adapters.ts` (`wrappingSessions`, `changedSession`, `Gate` for a call that waits for the test); faults are made by wrapping the fake (`adapt`), never by mocking the core.
-- End to end over the real link path (`__tests__/helpers/core-bridge.ts`: a real bridge with the fake registered, phones on its unix socket through `link/unix-ws.ts`): `core_e2e_link` (hello, broken frames, the old protocol beside, two phones, steer and queue, catalog, interactions across phones), `core_e2e_resilience` (replay and stale-epoch snapshot, a slow phone, a phone cut off at its window, keep-open, the snapshot of a long run at a 1 MiB cap, a bridge restart) and `core_e2e_seam` (a closed socket's sessions, stop, the old guards beside the contract, the rate limit, an oversized frame, backends starting after the bridge listens).
+- End to end over the real link path (`__tests__/helpers/core-bridge.ts`: a real bridge with the fake registered, phones on its unix socket through `link/unix-ws.ts`): `core_e2e_link` (hello, broken frames, the old protocol beside, two phones, steer and queue, catalog, interactions across phones), `core_e2e_resilience` (replay and stale-epoch snapshot, a slow phone, a phone cut off at its window, keep-open, the snapshot of a long run at a 1 MiB cap, a bridge restart) and `core_e2e_seam` (a closed socket's sessions, stop, the old guards beside the contract, the rate limit, an oversized frame, backends starting after the bridge listens) and `core_e2e_replacement` (a replaced session told to the phone that comes back, also after a bridge restart). The phone's side of it runs through the real daemon in `test/agent/e2e/` (app-core README §11).
 - No sleeps: the fake works in microtasks, so `setImmediate` is its quiescence; timers run on the manual clock (`whenPending` waits for another process to schedule one); e2e waits on frames.
-- **Mutation check**: `bun run mutate:core` (`scripts/mutate-core.ts`, mutants in `scripts/mutate-core/`) applies each of 163 mutants (one guard changed or removed) of the core, the seam, the journal, the reducer and the layer rules to a copy of the bridge and runs these tests; `--check` only verifies that every mutant still matches its file. Every mutant is killed except the ones listed with the reason they change nothing a test can see (memory only, speed only, or a guard no input can reach).
+- **Mutation check**: `bun run mutate:core` (`scripts/mutate-core.ts`, mutants in `scripts/mutate-core/`) applies each of 185 mutants (one guard changed or removed) of the core, the seam, the journals, the reducer, the layer rules and the field-key rule to a copy of the bridge and runs these tests; `--check` only verifies that every mutant still matches its file. Every mutant is killed except the ones listed with the reason they change nothing a test can see (memory only, speed only, or a guard no input can reach).
 
 ## 18. Limits and open risks
 
@@ -214,6 +216,7 @@ The app does all of this in `lib/agent/`: see [`docs/architecture/app-core/READM
 - **A wedged adapter call is answered, not cancelled.** The contract has no cancellation, so the request deadline answers the phone while the core still awaits the adapter's promise; each such call holds its continuation until the adapter settles it.
 - **The live state is only as legal as the adapter's events.** `applyEvent` bounds text but not how many blocks, tools or asks are open at once; an adapter that opens more than 1,000 makes the live state break the contract, and attaches answer `error{internal}` until they close.
 - **The adapter's `session_replaced` id must be fresh.** The hub does not merge two streams under one id.
+- **A replacement is remembered by stream, for 30 days.** A phone away longer, or whose record fell out of the 4,096, attaches to the old session as it was left. Reading the old session's transcript is never redirected (the history is still there); only an attach that resumes the ended stream is.
 - **The old heartbeat** still closes a socket that never answers `ping` (90 s).
 - **A watch-only session** shows asks it cannot answer; the terminal that owns it answers them.
 - `session.attach.result` has no `Rejected` member, so an open the adapter refuses for a reason other than `not_found` is `error{internal}` carrying the rejection's code and message. Giving the answer a result union would change its shape, a major change; the error carries everything meanwhile.

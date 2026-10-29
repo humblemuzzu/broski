@@ -503,6 +503,8 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
       Rejection.fromJson(_as<Map<String, Object?>>(json, 'Rejection')),
   'RejectionCode': (json) =>
       RejectionCode.fromJson(_as<String>(json, 'RejectionCode')),
+  'ReplacedSync': (json) =>
+      ReplacedSync.fromJson(_as<Map<String, Object?>>(json, 'ReplacedSync')),
   'ReplaySync': (json) =>
       ReplaySync.fromJson(_as<Map<String, Object?>>(json, 'ReplaySync')),
   'RequestId': (json) => _as<String>(json, 'RequestId'),
@@ -1379,6 +1381,9 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   )).toJson(),
   'RejectionCode': (json) =>
       (RejectionCode.fromJson(_as<String>(json, 'RejectionCode'))).toJson(),
+  'ReplacedSync': (json) => (ReplacedSync.fromJson(
+    _as<Map<String, Object?>>(json, 'ReplacedSync'),
+  )).toJson(),
   'ReplaySync': (json) => (ReplaySync.fromJson(
     _as<Map<String, Object?>>(json, 'ReplaySync'),
   )).toJson(),

@@ -5,7 +5,9 @@
 /// - modifiers, `(?i:…)` and `(?m-s:…)`, become `(?:…)`;
 /// - a group name used again where both groups cannot take part in one match
 ///   (another alternative) gets a name of its own;
-/// - a group name outside ASCII gets an ASCII one, with its back references.
+/// - a group name outside ASCII gets an ASCII one, with its back references;
+/// - `(?:(?<!a))*`, a group holding one lookaround, which Dart refuses to
+///   repeat, gets the alternative `|(?!)` that never matches.
 ///
 /// [sameMatches] says the rewrite also matches what the original matches:
 /// nothing but names changed, and no back reference names a group twice.
@@ -34,6 +36,7 @@ final class _Scan {
   final Map<String, List<_Path>> named = {};
   final Map<String, String> renamed = {};
   final Set<String> references = {};
+  final Set<int> _closesNeedingAlternative = {};
   var changed = false;
   var modifiers = false;
   var _i = 0;
@@ -51,6 +54,7 @@ final class _Scan {
           _group();
         case ')':
           if (_stack.length > 1) _stack.removeLast();
+          if (_closesNeedingAlternative.contains(_i)) out.write('|(?!)');
           _copy(1);
         case '|':
           final (disjunction, alternative) = _stack.removeLast();
@@ -94,12 +98,45 @@ final class _Scan {
       _i = flags.end;
       changed = true;
       modifiers = true;
+      _alternativeIfLookaroundOnly(_i);
     } else if (_namedStart.matchAsPrefix(_s, _i) != null) {
       _namedGroup();
     } else {
+      if (_s.startsWith('(?:', _i)) _alternativeIfLookaroundOnly(_i + 3);
       _copy(1);
     }
     _stack.add((++_disjunctions, 0));
+  }
+
+  /// A group whose whole body, from [bodyStart], is one lookaround is closed
+  /// by `|(?!)`.
+  void _alternativeIfLookaroundOnly(int bodyStart) {
+    if (_lookaround.matchAsPrefix(_s, bodyStart) == null) return;
+    final close = _closeOf(bodyStart);
+    if (close == null || !_s.startsWith(')', close + 1)) return;
+    _closesNeedingAlternative.add(close + 1);
+    changed = true;
+  }
+
+  /// The index of the parenthesis closing the one at [open], or null.
+  int? _closeOf(int open) {
+    var depth = 0;
+    for (var index = open; index < _s.length; index++) {
+      switch (_s[index]) {
+        case r'\':
+          index++;
+        case '[':
+          while (index < _s.length && _s[index] != ']') {
+            if (_s[index] == r'\') index++;
+            index++;
+          }
+        case '(':
+          depth++;
+        case ')':
+          if (--depth == 0) return index;
+      }
+    }
+    return null;
   }
 
   void _namedGroup() {
@@ -114,7 +151,7 @@ final class _Scan {
       given = 'dup${earlier.length}_$_i';
     } else if (name.codeUnits.any((unit) => unit > 0x7f) ||
         name.contains(r'\')) {
-      given = 'named_$_i';
+      given = renamed[name] ?? _known[name] ?? 'named_$_i';
       renamed[name] = given;
     }
     earlier.add(path);
@@ -126,6 +163,7 @@ final class _Scan {
 
 final _modifiers = RegExp(r'\(\?([ims]*)(?:-([ims]*))?:');
 final _namedStart = RegExp(r'\(\?<[^=!]');
+final _lookaround = RegExp(r'\(\?(?:=|!|<=|<!)');
 
 /// ES2025 `RegularExpressionModifiers`: some flag, none twice, none both
 /// added and removed.

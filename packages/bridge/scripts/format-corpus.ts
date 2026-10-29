@@ -5,10 +5,12 @@
  * holds the app's port to every line.
  *
  *   bun scripts/format-corpus.ts [--seed N] [--count N]
+ *   bun scripts/format-corpus.ts --sweep NAME
  *
  * `--count` is per check; the `uri` check gets twice as many, since its port is the largest.
+ * `--sweep` prints instead one of the exhaustive sweeps of `format-corpus/sweeps.ts` (every code
+ * point as a host, as a Punycode label, as an escape, ...), each line with a `kind` to tally it by.
  */
-import { fieldProblem, type StringField, type StringFormat } from "../src/contract";
 import {
 	DATE_DAYS,
 	DATE_JUNK,
@@ -24,6 +26,8 @@ import {
 	URL_FRAGMENTS,
 	URL_PREFIXES,
 } from "./format-corpus/fragments";
+import { corpusLine } from "./format-corpus/line";
+import { SWEEPS, type SweepName, sweep } from "./format-corpus/sweeps";
 
 const args = process.argv.slice(2);
 const option = (name: string, fallback: number): number => {
@@ -63,13 +67,26 @@ function dateTime(): string {
 	return date() + usually(TIME_JOINS) + time + pick(TIME_FRACTIONS) + usually(TIME_ZONES);
 }
 
-function field(extra: { format?: StringFormat; pattern?: string }): StringField {
-	return { kind: "string", key: "k", required: false, hidden: false, when: [], options: [], allowCustom: false, ...extra };
+const line = corpusLine;
+
+/** A sweep is written as it is made: some have millions of lines. */
+async function writeSweep(name: SweepName): Promise<void> {
+	let batch: string[] = [];
+	for (const sweepLine of sweep(name)) {
+		batch.push(sweepLine);
+		if (batch.length < 20_000) continue;
+		await Bun.write(Bun.stdout, `${batch.join("\n")}\n`);
+		batch = [];
+	}
+	if (batch.length > 0) await Bun.write(Bun.stdout, `${batch.join("\n")}\n`);
 }
 
-function line(check: string, text: string, extra: { format?: StringFormat; pattern?: string }): string {
-	const problem = fieldProblem(field(extra), { kind: "text", value: text }) ?? null;
-	return JSON.stringify({ check, text, pattern: extra.pattern, problem });
+const sweepAt = args.indexOf("--sweep");
+if (sweepAt >= 0) {
+	const name = SWEEPS.find((candidate) => candidate === args[sweepAt + 1]);
+	if (!name) throw new Error(`--sweep takes one of: ${SWEEPS.join(", ")}`);
+	await writeSweep(name);
+	process.exit(0);
 }
 
 const out: string[] = [];

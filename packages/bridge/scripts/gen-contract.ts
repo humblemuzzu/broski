@@ -13,6 +13,7 @@ import { contractConstants } from "./contract-gen/constants";
 import { dartLibrary } from "./contract-gen/dart-emit";
 import { dartRoundTrips } from "./contract-gen/dart-round-trips";
 import { fakeSessionStream } from "./contract-gen/fake-stream";
+import { framePrefix } from "./contract-gen/frame-prefix";
 import { contractSchemaDocument } from "./contract-gen/json-schema";
 import { reducerTrace } from "./contract-gen/reducer-trace";
 import { contractSamples } from "./contract-gen/samples";
@@ -40,6 +41,7 @@ async function expectedOutputs(): Promise<Map<string, string>> {
 	outputs.set(join(FIXTURES_DIR, "fake_session_stream.json"), json(stream));
 	outputs.set(join(FIXTURES_DIR, "reducer_trace.json"), json(reducerTrace(stream)));
 	outputs.set(join(FIXTURES_DIR, "answer_cases.json"), json(answerCases()));
+	outputs.set(join(FIXTURES_DIR, "frame_prefix.json"), json(framePrefix()));
 	const languageVersion = dartLanguageVersion();
 	for (const [file, source] of outputs) {
 		if (file.endsWith(".dart")) outputs.set(file, formatDart(file, source, languageVersion));

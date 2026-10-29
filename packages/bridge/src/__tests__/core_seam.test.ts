@@ -20,7 +20,7 @@ function seam(backends: Parameters<typeof createContractSeam>[0]) {
 	const root = mkdtempSync(join(tmpdir(), "broski-seam-"));
 	roots.push(root);
 	return createContractSeam(
-		{ ...backends, clock: new ManualClock(), promptJournalPath: join(root, "prompts.jsonl") },
+		{ ...backends, clock: new ManualClock(), journalDirectory: join(root, "journals") },
 		"0.0.0-test",
 		QUEUE,
 		LIMITS,

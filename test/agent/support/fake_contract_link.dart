@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:broski/agent/client/contract_frame.dart';
 import 'package:broski/agent/client/contract_link.dart';
 import 'package:broski/contract/generated/contract.dart';
 
@@ -8,7 +9,7 @@ import 'package:broski/contract/generated/contract.dart';
 final class FakeContractLink implements ContractLink {
   FakeContractLink({bool reachable = true}) : _reachable = reachable;
 
-  final _frames = StreamController<Map<String, Object?>>.broadcast(sync: true);
+  final _frames = StreamController<InboundFrame>.broadcast(sync: true);
   final _reachability = StreamController<bool>.broadcast(sync: true);
   final _refused = StreamController<String>.broadcast(sync: true);
   bool _reachable;
@@ -23,7 +24,7 @@ final class FakeContractLink implements ContractLink {
   bool brokenSend = false;
 
   @override
-  Stream<Map<String, Object?>> get frames => _frames.stream;
+  Stream<InboundFrame> get frames => _frames.stream;
 
   @override
   Stream<bool> get reachability => _reachability.stream;
@@ -50,6 +51,12 @@ final class FakeContractLink implements ContractLink {
 
   T last<T extends ClientMessage>() => sent.whereType<T>().last;
 
+  /// Whether the client let go of the link.
+  bool closed = false;
+
+  @override
+  void close() => closed = true;
+
   void up() {
     _reachable = true;
     _reachability.add(true);
@@ -61,9 +68,14 @@ final class FakeContractLink implements ContractLink {
   }
 
   void deliver(ServerMessage message) =>
-      _frames.add({'type': 'contract', 'message': message.toJson()});
+      deliverRaw({'type': contractFrameType, 'message': message.toJson()});
 
-  void deliverRaw(Map<String, Object?> frame) => _frames.add(frame);
+  /// A decoded frame, read as the real link reads one; a frame of the old
+  /// protocol is not the contract's and goes no further.
+  void deliverRaw(Map<String, Object?> frame) {
+    final read = readFrame(frame);
+    if (read != null) _frames.add(read);
+  }
 
   void refuse(String requestId) => _refused.add(requestId);
 

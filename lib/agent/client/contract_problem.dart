@@ -27,23 +27,3 @@ final class UnattributedError extends ContractProblem {
   @override
   String get message => error.message;
 }
-
-ContractProblem unreadableFrame(Map<String, Object?> frame, String problem) {
-  final session = switch (frame['message']) {
-    {
-      'type': 'event',
-      'envelope': {'session': final Map<String, Object?> ref},
-    } =>
-      _sessionRef(ref),
-    _ => null,
-  };
-  return UnreadableFrame(message: problem, session: session);
-}
-
-SessionRef? _sessionRef(Map<String, Object?> json) {
-  try {
-    return SessionRef.fromJson(json);
-  } on FormatException {
-    return null;
-  }
-}

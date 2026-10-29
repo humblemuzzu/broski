@@ -5,13 +5,12 @@ import { pageWithinFrame } from "./paged-read";
 import { protocolError } from "./results";
 
 /**
- * Bridge and app talk only when `major` is equal (README §12.4). Every minor so far is 0, so
- * nothing the bridge sends is newer than any client's minor; the first minor bump adds that filter.
+ * Bridge and app talk only when `major` is equal (README §12.4). The client's minor is kept: the
+ * bridge sends what a later minor added (`ADDED_IN_MINOR`) only to a client that named it.
  */
 export const hello: Handler<"hello"> = async (ctx, client, request, respond) => {
 	const theirs = request.protocol;
-	client.negotiated = theirs.major === PROTOCOL_VERSION.major;
-	if (!client.negotiated) {
+	if (!client.hello(theirs, PROTOCOL_VERSION)) {
 		for (const live of client.detachAll()) ctx.hub.leave(live, client);
 		respond(
 			protocolError(

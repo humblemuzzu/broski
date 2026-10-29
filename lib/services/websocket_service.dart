@@ -73,6 +73,11 @@ class WebSocketService {
 
   Stream<Map<String, dynamic>> get messages => _messageController.stream;
 
+  /// Offered each text frame before this service decodes it. Returning true
+  /// takes the frame: it is neither decoded nor dispatched here. The contract
+  /// client reads its own frames this way, large ones off the UI isolate.
+  bool Function(String text)? frameClaim;
+
   /// Frames the app refused to decode, with what it lost. An over-limit frame is
   /// a reported error, never a silent drop.
   Stream<String> get frameErrors => _frameErrors.stream;
@@ -259,6 +264,7 @@ class WebSocketService {
       _reportOversizedFrame(raw.length);
       return;
     }
+    if (frameClaim?.call(raw) ?? false) return;
     _rawQueue.add(raw);
     if (_isDecoding) return;
     _isDecoding = true;

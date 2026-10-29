@@ -78,8 +78,15 @@ void main() {
     test('is taken once, by the session it was left for', () {
       final handoff = PromptHandoff()
         ..leave(sessionRef, [prompt('a', const PromptNotSent('no'))]);
-      expect(handoff.take(sessionRef).single.clientRequestId, 'a');
+      expect(handoff.take(sessionRef)?.single.clientRequestId, 'a');
+      expect(handoff.take(sessionRef), isNull);
+    });
+
+    test('is left even with no prompts, so the session knows it was reached '
+        'by a replacement', () {
+      final handoff = PromptHandoff()..leave(sessionRef, const []);
       expect(handoff.take(sessionRef), isEmpty);
+      expect(handoff.take(sessionRef), isNull);
     });
 
     test('keeps the newest sessions only', () {
@@ -91,7 +98,7 @@ void main() {
       }
       expect(
         handoff.take(const SessionRef(backend: BackendId.pi, sessionId: 's0')),
-        isEmpty,
+        isNull,
       );
       expect(
         handoff.take(

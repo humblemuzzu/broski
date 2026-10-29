@@ -112,8 +112,8 @@ export const SEAM_MUTANTS: Mutant[] = [
 			replace: "if (false) throw",
 		},
 	]),
-	...mutantsOf("server/contract-prompt-journal.ts", [
-		{ name: "journal: the real-home guard is gone", find: 'assertNotRealHome(path, "prompt journal");', replace: "" },
+	...mutantsOf("server/json-lines-journal.ts", [
+		{ name: "journal: the real-home guard is gone", find: "assertNotRealHome(path, what);", replace: "" },
 		{
 			name: "journal: appended lines are world-readable",
 			find: "}\\n`, { mode: 0o600 });",
@@ -132,7 +132,7 @@ export const SEAM_MUTANTS: Mutant[] = [
 		{ name: "journal: a torn append glues the next", find: "\t\t\t\ttorn = true;\n", replace: "" },
 		{
 			name: "journal: never compacted while running",
-			find: "if (lines <= 2 * PROMPT_MEMORY) return;",
+			find: "if (lines <= 2 * keep) return;",
 			replace: "return;",
 		},
 		{

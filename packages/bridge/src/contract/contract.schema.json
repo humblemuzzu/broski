@@ -4,7 +4,7 @@
   "title": "Broski backend contract",
   "x-protocolVersion": {
     "major": 1,
-    "minor": 0
+    "minor": 1
   },
   "$defs": {
     "AbortRequest": {
@@ -230,6 +230,9 @@
         },
         {
           "$ref": "#/$defs/SnapshotSync"
+        },
+        {
+          "$ref": "#/$defs/ReplacedSync"
         }
       ]
     },
@@ -2106,7 +2109,8 @@
       "$id": "#/$defs/FieldKey",
       "type": "string",
       "minLength": 1,
-      "maxLength": 1024
+      "maxLength": 1024,
+      "pattern": "^(?!__proto__$)"
     },
     "FileChange": {
       "x-module": "content",
@@ -4728,6 +4732,29 @@
         "closed",
         "backend_error"
       ]
+    },
+    "ReplacedSync": {
+      "x-module": "protocol",
+      "$id": "#/$defs/ReplacedSync",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "replaced"
+        },
+        "epoch": {
+          "$ref": "#/$defs/StreamEpoch"
+        },
+        "session": {
+          "$ref": "#/$defs/SessionRef"
+        }
+      },
+      "required": [
+        "kind",
+        "epoch",
+        "session"
+      ],
+      "additionalProperties": false
     },
     "ReplaySync": {
       "x-module": "protocol",

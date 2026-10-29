@@ -4,6 +4,12 @@ import { frameBytes } from "../transport/send-limits";
 /** The old protocol shares the socket, and two of its types (`abort`, `error`) are also contract types. */
 export const CONTRACT_FRAME_TYPE = "contract";
 
+/**
+ * How every frame the core sends begins, to the character: the app tells a contract frame from the old
+ * protocol's by it before it reads the JSON, so it can read a large one off its UI thread.
+ */
+export const CONTRACT_FRAME_PREFIX = `{"type":"${CONTRACT_FRAME_TYPE}","message":`;
+
 /** Unchecked: `ClientMessage` checks it with each field's bounds, and a prompt's images exceed free JSON's. */
 export function framedMessage(frame: JsonValue): JsonValue | undefined {
 	if (frame === null || typeof frame !== "object" || Array.isArray(frame)) return undefined;
@@ -19,6 +25,6 @@ export interface EncodedFrame {
 }
 
 export function encodeFrame(message: ServerMessage | JsonValue): EncodedFrame {
-	const text = `{"type":"${CONTRACT_FRAME_TYPE}","message":${JSON.stringify(message)}}`;
+	const text = `${CONTRACT_FRAME_PREFIX}${JSON.stringify(message)}}`;
 	return { text, bytes: frameBytes(text) };
 }

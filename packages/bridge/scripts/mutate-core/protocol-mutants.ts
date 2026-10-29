@@ -58,12 +58,24 @@ export const PROTOCOL_MUTANTS: Mutant[] = [
 	...mutantsOf("core/frame.ts", [
 		{ name: "frame: extra keys pass", find: "keys.length === 2", replace: "keys.length >= 2" },
 	]),
-	...mutantsOf("core/requests-catalog.ts", [
+	...mutantsOf("core/client.ts", [
 		{
 			name: "hello: any major agrees",
-			find: "client.negotiated = theirs.major === PROTOCOL_VERSION.major;",
-			replace: "client.negotiated = true;",
+			find: "this.spoken = theirs.major === ours.major ? theirs : undefined;",
+			replace: "this.spoken = theirs;",
 		},
+		{
+			name: "hello: a client of a lower minor is sent what a later minor added",
+			find: "return this.spoken !== undefined && this.spoken.minor >= minor;",
+			replace: "return this.spoken !== undefined;",
+		},
+		{
+			name: "hello: a client is sent only what a minor above its own added",
+			find: "this.spoken.minor >= minor",
+			replace: "this.spoken.minor > minor",
+		},
+	]),
+	...mutantsOf("core/requests-catalog.ts", [
 		{
 			name: "hello: another major keeps the sessions",
 			find: "for (const live of client.detachAll()) ctx.hub.leave(live, client);",
@@ -140,13 +152,15 @@ export const PROTOCOL_MUTANTS: Mutant[] = [
 				"nothing awaits between the two, so no event can be published in between: the frames leave in the same order",
 		},
 		{ name: "attach: the idle close is not cancelled", find: "\tctx.hub.reviewIdle(live);\n}", replace: "}" },
-		{ name: "attach: a missing session is internal", find: 'code === "not_found"', replace: 'code === "never"' },
 		{
 			name: "detach: the client stays a viewer",
 			find: '\t\tctx.hub.leave(live, client);\n\t\trespond({ type: "session.detach.result"',
 			replace: '\t\trespond({ type: "session.detach.result"',
 		},
 		{ name: "detach: the client keeps the session", find: "\t\tclient.forget(live);\n", replace: "" },
+	]),
+	...mutantsOf("core/results.ts", [
+		{ name: "attach: a missing session is internal", find: 'code === "not_found"', replace: 'code === "never"' },
 	]),
 	...mutantsOf("core/interaction-desk.ts", [
 		{

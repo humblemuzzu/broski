@@ -6,6 +6,8 @@ export interface AnswerInput {
 	readonly request: InteractionRequest;
 	readonly reply: InteractionReply;
 	readonly interactionId?: string;
+	/** A reply the wire refuses: the checks must still agree on it, as an adapter may call them on any value. */
+	readonly beyondTheWire?: true;
 }
 
 /** A permission ask with one option per message policy and an editable input. */
