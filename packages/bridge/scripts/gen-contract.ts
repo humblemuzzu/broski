@@ -8,10 +8,13 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { PROTOCOL_VERSION } from "../src/contract";
+import { answerCases } from "./contract-gen/answer-cases";
+import { contractConstants } from "./contract-gen/constants";
 import { dartLibrary } from "./contract-gen/dart-emit";
 import { dartRoundTrips } from "./contract-gen/dart-round-trips";
 import { fakeSessionStream } from "./contract-gen/fake-stream";
 import { contractSchemaDocument } from "./contract-gen/json-schema";
+import { reducerTrace } from "./contract-gen/reducer-trace";
 import { contractSamples } from "./contract-gen/samples";
 import { typeModel } from "./contract-gen/type-model";
 
@@ -28,10 +31,15 @@ async function expectedOutputs(): Promise<Map<string, string>> {
 	const types = typeModel(document);
 	const outputs = new Map<string, string>();
 	outputs.set(SCHEMA_FILE, json(document));
-	for (const [file, source] of dartLibrary(types, PROTOCOL_VERSION)) outputs.set(join(DART_DIR, file), source);
+	for (const [file, source] of dartLibrary(types, PROTOCOL_VERSION, contractConstants())) {
+		outputs.set(join(DART_DIR, file), source);
+	}
 	outputs.set(join(DART_TEST_DIR, "contract_round_trips.dart"), dartRoundTrips(types));
 	outputs.set(join(FIXTURES_DIR, "contract_samples.json"), json(contractSamples(document)));
-	outputs.set(join(FIXTURES_DIR, "fake_session_stream.json"), json(await fakeSessionStream()));
+	const stream = await fakeSessionStream();
+	outputs.set(join(FIXTURES_DIR, "fake_session_stream.json"), json(stream));
+	outputs.set(join(FIXTURES_DIR, "reducer_trace.json"), json(reducerTrace(stream)));
+	outputs.set(join(FIXTURES_DIR, "answer_cases.json"), json(answerCases()));
 	const languageVersion = dartLanguageVersion();
 	for (const [file, source] of outputs) {
 		if (file.endsWith(".dart")) outputs.set(file, formatDart(file, source, languageVersion));

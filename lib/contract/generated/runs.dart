@@ -50,9 +50,10 @@ final class ErrorInfo {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ErrorInfo &&
-      _equal(code, other.code) &&
-      _equal(message, other.message);
+          _equal(code, other.code) &&
+          _equal(message, other.message);
 
   @override
   int get hashCode => Object.hashAll([_hash(code), _hash(message)]);
@@ -78,7 +79,8 @@ final class RunAborted implements RunOutcome {
   Map<String, Object?> toJson() => {'kind': 'aborted'};
 
   @override
-  bool operator ==(Object other) => other is RunAborted;
+  bool operator ==(Object other) =>
+      identical(this, other) || other is RunAborted;
 
   @override
   int get hashCode => runtimeType.hashCode;
@@ -104,7 +106,8 @@ final class RunCompleted implements RunOutcome {
   Map<String, Object?> toJson() => {'kind': 'completed'};
 
   @override
-  bool operator ==(Object other) => other is RunCompleted;
+  bool operator ==(Object other) =>
+      identical(this, other) || other is RunCompleted;
 
   @override
   int get hashCode => runtimeType.hashCode;
@@ -130,7 +133,8 @@ final class RunDeferred implements RunOutcome {
   Map<String, Object?> toJson() => {'kind': 'deferred'};
 
   @override
-  bool operator ==(Object other) => other is RunDeferred;
+  bool operator ==(Object other) =>
+      identical(this, other) || other is RunDeferred;
 
   @override
   int get hashCode => runtimeType.hashCode;
@@ -163,6 +167,7 @@ final class RunErrored implements RunOutcome {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is RunErrored && _equal(error, other.error);
 
   @override
@@ -211,6 +216,7 @@ final class RunLimited implements RunOutcome {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is RunLimited && _equal(limit, other.limit);
 
   @override
@@ -252,7 +258,8 @@ final class RunSuspended implements RunOutcome {
   Map<String, Object?> toJson() => {'kind': 'suspended'};
 
   @override
-  bool operator ==(Object other) => other is RunSuspended;
+  bool operator ==(Object other) =>
+      identical(this, other) || other is RunSuspended;
 
   @override
   int get hashCode => runtimeType.hashCode;

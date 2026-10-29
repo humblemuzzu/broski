@@ -43,6 +43,7 @@ final class BackendCallAccepted implements BackendCallResult {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is BackendCallAccepted && _equal(result, other.result);
 
   @override
@@ -126,6 +127,7 @@ final class BaseBranchReview implements ReviewTarget {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is BaseBranchReview && _equal(branch, other.branch);
 
   @override
@@ -162,7 +164,7 @@ final class ClaudeCodeCall implements BackendCall {
 
   @override
   bool operator ==(Object other) =>
-      other is ClaudeCodeCall && _equal(op, other.op);
+      identical(this, other) || other is ClaudeCodeCall && _equal(op, other.op);
 
   @override
   int get hashCode => Object.hashAll([_hash(op)]);
@@ -177,6 +179,12 @@ sealed class ClaudeCodeOp {
         'rewind_files' => RewindFilesOp.fromJson(json),
         final tag => throw FormatException('Unknown ClaudeCodeOp kind: $tag'),
       };
+
+  SessionId get sessionId;
+
+  TranscriptItemId get userItemId;
+
+  bool get dryRun;
 
   Map<String, Object?> toJson();
 }
@@ -204,7 +212,8 @@ final class CodexCall implements BackendCall {
   Map<String, Object?> toJson() => {'backend': 'codex', 'op': op.toJson()};
 
   @override
-  bool operator ==(Object other) => other is CodexCall && _equal(op, other.op);
+  bool operator ==(Object other) =>
+      identical(this, other) || other is CodexCall && _equal(op, other.op);
 
   @override
   int get hashCode => Object.hashAll([_hash(op)]);
@@ -219,6 +228,8 @@ sealed class CodexOp {
     'revert' => RevertOp.fromJson(json),
     final tag => throw FormatException('Unknown CodexOp kind: $tag'),
   };
+
+  SessionId get sessionId;
 
   Map<String, Object?> toJson();
 }
@@ -253,9 +264,10 @@ final class CommitReview implements ReviewTarget {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is CommitReview &&
-      _equal(sha, other.sha) &&
-      _equal(title, other.title);
+          _equal(sha, other.sha) &&
+          _equal(title, other.title);
 
   @override
   int get hashCode => Object.hashAll([_hash(sha), _hash(title)]);
@@ -292,6 +304,7 @@ final class CustomReview implements ReviewTarget {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is CustomReview && _equal(instructions, other.instructions);
 
   @override
@@ -322,8 +335,11 @@ final class NavigateTreeOp implements PiOp {
     );
   }
 
+  @override
   final SessionId sessionId;
+  @override
   final TranscriptItemId itemId;
+  @override
   final bool summarize;
 
   @override
@@ -336,10 +352,11 @@ final class NavigateTreeOp implements PiOp {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is NavigateTreeOp &&
-      _equal(sessionId, other.sessionId) &&
-      _equal(itemId, other.itemId) &&
-      _equal(summarize, other.summarize);
+          _equal(sessionId, other.sessionId) &&
+          _equal(itemId, other.itemId) &&
+          _equal(summarize, other.summarize);
 
   @override
   int get hashCode =>
@@ -374,7 +391,7 @@ final class OpenCodeCall implements BackendCall {
 
   @override
   bool operator ==(Object other) =>
-      other is OpenCodeCall && _equal(op, other.op);
+      identical(this, other) || other is OpenCodeCall && _equal(op, other.op);
 
   @override
   int get hashCode => Object.hashAll([_hash(op)]);
@@ -391,6 +408,8 @@ sealed class OpenCodeOp {
         'revert_commit' => RevertCommitOp.fromJson(json),
         final tag => throw FormatException('Unknown OpenCodeOp kind: $tag'),
       };
+
+  SessionId get sessionId;
 
   Map<String, Object?> toJson();
 }
@@ -416,7 +435,8 @@ final class PiCall implements BackendCall {
   Map<String, Object?> toJson() => {'backend': 'pi', 'op': op.toJson()};
 
   @override
-  bool operator ==(Object other) => other is PiCall && _equal(op, other.op);
+  bool operator ==(Object other) =>
+      identical(this, other) || other is PiCall && _equal(op, other.op);
 
   @override
   int get hashCode => Object.hashAll([_hash(op)]);
@@ -430,6 +450,12 @@ sealed class PiOp {
     'navigate_tree' => NavigateTreeOp.fromJson(json),
     final tag => throw FormatException('Unknown PiOp kind: $tag'),
   };
+
+  SessionId get sessionId;
+
+  TranscriptItemId get itemId;
+
+  bool get summarize;
 
   Map<String, Object?> toJson();
 }
@@ -449,6 +475,7 @@ final class RevertClearOp implements OpenCodeOp {
     );
   }
 
+  @override
   final SessionId sessionId;
 
   @override
@@ -459,6 +486,7 @@ final class RevertClearOp implements OpenCodeOp {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is RevertClearOp && _equal(sessionId, other.sessionId);
 
   @override
@@ -485,7 +513,8 @@ final class RevertCleared implements BackendOpResult {
   Map<String, Object?> toJson() => {'kind': 'revert_clear'};
 
   @override
-  bool operator ==(Object other) => other is RevertCleared;
+  bool operator ==(Object other) =>
+      identical(this, other) || other is RevertCleared;
 
   @override
   int get hashCode => runtimeType.hashCode;
@@ -509,6 +538,7 @@ final class RevertCommitOp implements OpenCodeOp {
     );
   }
 
+  @override
   final SessionId sessionId;
 
   @override
@@ -519,6 +549,7 @@ final class RevertCommitOp implements OpenCodeOp {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is RevertCommitOp && _equal(sessionId, other.sessionId);
 
   @override
@@ -545,7 +576,8 @@ final class RevertCommitted implements BackendOpResult {
   Map<String, Object?> toJson() => {'kind': 'revert_commit'};
 
   @override
-  bool operator ==(Object other) => other is RevertCommitted;
+  bool operator ==(Object other) =>
+      identical(this, other) || other is RevertCommitted;
 
   @override
   int get hashCode => runtimeType.hashCode;
@@ -570,6 +602,7 @@ final class RevertOp implements CodexOp {
     );
   }
 
+  @override
   final SessionId sessionId;
   final TranscriptItemId beforeItemId;
 
@@ -582,9 +615,10 @@ final class RevertOp implements CodexOp {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is RevertOp &&
-      _equal(sessionId, other.sessionId) &&
-      _equal(beforeItemId, other.beforeItemId);
+          _equal(sessionId, other.sessionId) &&
+          _equal(beforeItemId, other.beforeItemId);
 
   @override
   int get hashCode => Object.hashAll([_hash(sessionId), _hash(beforeItemId)]);
@@ -618,6 +652,7 @@ final class RevertStageOp implements OpenCodeOp {
     );
   }
 
+  @override
   final SessionId sessionId;
   final TranscriptItemId itemId;
   final bool restoreFiles;
@@ -632,10 +667,11 @@ final class RevertStageOp implements OpenCodeOp {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is RevertStageOp &&
-      _equal(sessionId, other.sessionId) &&
-      _equal(itemId, other.itemId) &&
-      _equal(restoreFiles, other.restoreFiles);
+          _equal(sessionId, other.sessionId) &&
+          _equal(itemId, other.itemId) &&
+          _equal(restoreFiles, other.restoreFiles);
 
   @override
   int get hashCode =>
@@ -679,6 +715,7 @@ final class RevertStaged implements BackendOpResult {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is RevertStaged && _equal(files, other.files);
 
   @override
@@ -705,7 +742,7 @@ final class Reverted implements BackendOpResult {
   Map<String, Object?> toJson() => {'kind': 'revert'};
 
   @override
-  bool operator ==(Object other) => other is Reverted;
+  bool operator ==(Object other) => identical(this, other) || other is Reverted;
 
   @override
   int get hashCode => runtimeType.hashCode;
@@ -732,6 +769,7 @@ final class ReviewStartOp implements CodexOp {
     );
   }
 
+  @override
   final SessionId sessionId;
   final ReviewTarget target;
 
@@ -744,9 +782,10 @@ final class ReviewStartOp implements CodexOp {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ReviewStartOp &&
-      _equal(sessionId, other.sessionId) &&
-      _equal(target, other.target);
+          _equal(sessionId, other.sessionId) &&
+          _equal(target, other.target);
 
   @override
   int get hashCode => Object.hashAll([_hash(sessionId), _hash(target)]);
@@ -772,7 +811,8 @@ final class ReviewStarted implements BackendOpResult {
   Map<String, Object?> toJson() => {'kind': 'review_start'};
 
   @override
-  bool operator ==(Object other) => other is ReviewStarted;
+  bool operator ==(Object other) =>
+      identical(this, other) || other is ReviewStarted;
 
   @override
   int get hashCode => runtimeType.hashCode;
@@ -815,8 +855,11 @@ final class RewindFilesOp implements ClaudeCodeOp {
     );
   }
 
+  @override
   final SessionId sessionId;
+  @override
   final TranscriptItemId userItemId;
+  @override
   final bool dryRun;
 
   @override
@@ -829,10 +872,11 @@ final class RewindFilesOp implements ClaudeCodeOp {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is RewindFilesOp &&
-      _equal(sessionId, other.sessionId) &&
-      _equal(userItemId, other.userItemId) &&
-      _equal(dryRun, other.dryRun);
+          _equal(sessionId, other.sessionId) &&
+          _equal(userItemId, other.userItemId) &&
+          _equal(dryRun, other.dryRun);
 
   @override
   int get hashCode =>
@@ -914,13 +958,14 @@ final class RewindFilesResult implements BackendOpResult {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is RewindFilesResult &&
-      _equal(canRewind, other.canRewind) &&
-      _equal(filesChanged, other.filesChanged) &&
-      _equal(insertions, other.insertions) &&
-      _equal(deletions, other.deletions) &&
-      _equal(skippedLinks, other.skippedLinks) &&
-      _equal(error, other.error);
+          _equal(canRewind, other.canRewind) &&
+          _equal(filesChanged, other.filesChanged) &&
+          _equal(insertions, other.insertions) &&
+          _equal(deletions, other.deletions) &&
+          _equal(skippedLinks, other.skippedLinks) &&
+          _equal(error, other.error);
 
   @override
   int get hashCode => Object.hashAll([
@@ -954,7 +999,8 @@ final class TreeNavigated implements BackendOpResult {
   Map<String, Object?> toJson() => {'kind': 'navigate_tree'};
 
   @override
-  bool operator ==(Object other) => other is TreeNavigated;
+  bool operator ==(Object other) =>
+      identical(this, other) || other is TreeNavigated;
 
   @override
   int get hashCode => runtimeType.hashCode;
@@ -980,7 +1026,8 @@ final class UncommittedReview implements ReviewTarget {
   Map<String, Object?> toJson() => {'kind': 'uncommitted'};
 
   @override
-  bool operator ==(Object other) => other is UncommittedReview;
+  bool operator ==(Object other) =>
+      identical(this, other) || other is UncommittedReview;
 
   @override
   int get hashCode => runtimeType.hashCode;

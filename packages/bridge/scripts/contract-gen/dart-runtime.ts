@@ -28,6 +28,7 @@ void _expectShape(
 }
 
 bool _equal(Object? a, Object? b) {
+  if (identical(a, b)) return true;
   if (a is List<Object?> && b is List<Object?>) {
     if (a.length != b.length) return false;
     for (var index = 0; index < a.length; index++) {

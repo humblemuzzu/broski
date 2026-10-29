@@ -66,9 +66,10 @@ final class BlockDeltaEvent implements AgentEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is BlockDeltaEvent &&
-      _equal(blockId, other.blockId) &&
-      _equal(text, other.text);
+          _equal(blockId, other.blockId) &&
+          _equal(text, other.text);
 
   @override
   int get hashCode => Object.hashAll([_hash(blockId), _hash(text)]);
@@ -105,9 +106,10 @@ final class BlockFinishedEvent implements AgentEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is BlockFinishedEvent &&
-      _equal(blockId, other.blockId) &&
-      _equal(text, other.text);
+          _equal(blockId, other.blockId) &&
+          _equal(text, other.text);
 
   @override
   int get hashCode => Object.hashAll([_hash(blockId), _hash(text)]);
@@ -168,11 +170,12 @@ final class BlockStartedEvent implements AgentEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is BlockStartedEvent &&
-      _equal(blockId, other.blockId) &&
-      _equal(messageId, other.messageId) &&
-      _equal(kind, other.kind) &&
-      _equal(parentToolCallId, other.parentToolCallId);
+          _equal(blockId, other.blockId) &&
+          _equal(messageId, other.messageId) &&
+          _equal(kind, other.kind) &&
+          _equal(parentToolCallId, other.parentToolCallId);
 
   @override
   int get hashCode => Object.hashAll([
@@ -217,6 +220,7 @@ final class CompactionFinishedEvent implements AgentEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is CompactionFinishedEvent && _equal(outcome, other.outcome);
 
   @override
@@ -253,6 +257,7 @@ final class CompactionStartedEvent implements AgentEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is CompactionStartedEvent && _equal(trigger, other.trigger);
 
   @override
@@ -292,9 +297,10 @@ final class ErrorEvent implements AgentEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ErrorEvent &&
-      _equal(error, other.error) &&
-      _equal(retryable, other.retryable);
+          _equal(error, other.error) &&
+          _equal(retryable, other.retryable);
 
   @override
   int get hashCode => Object.hashAll([_hash(error), _hash(retryable)]);
@@ -357,12 +363,13 @@ final class EventEnvelope {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is EventEnvelope &&
-      _equal(session, other.session) &&
-      _equal(seq, other.seq) &&
-      _equal(at, other.at) &&
-      _equal(event, other.event) &&
-      _equal(native, other.native);
+          _equal(session, other.session) &&
+          _equal(seq, other.seq) &&
+          _equal(at, other.at) &&
+          _equal(event, other.event) &&
+          _equal(native, other.native);
 
   @override
   int get hashCode => Object.hashAll([
@@ -408,6 +415,7 @@ final class ExtensionEvent implements AgentEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ExtensionEvent && _equal(extension, other.extension);
 
   @override
@@ -447,8 +455,9 @@ final class InteractionRequestedEvent implements AgentEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is InteractionRequestedEvent &&
-      _equal(interaction, other.interaction);
+          _equal(interaction, other.interaction);
 
   @override
   int get hashCode => Object.hashAll([_hash(interaction)]);
@@ -493,9 +502,10 @@ final class InteractionResolvedEvent implements AgentEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is InteractionResolvedEvent &&
-      _equal(interactionId, other.interactionId) &&
-      _equal(reason, other.reason);
+          _equal(interactionId, other.interactionId) &&
+          _equal(reason, other.reason);
 
   @override
   int get hashCode => Object.hashAll([_hash(interactionId), _hash(reason)]);
@@ -536,6 +546,7 @@ final class MessagesRetractedEvent implements AgentEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is MessagesRetractedEvent && _equal(messageIds, other.messageIds);
 
   @override
@@ -573,9 +584,10 @@ final class ModeChangedEvent implements AgentEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ModeChangedEvent &&
-      _equal(axis, other.axis) &&
-      _equal(value, other.value);
+          _equal(axis, other.axis) &&
+          _equal(value, other.value);
 
   @override
   int get hashCode => Object.hashAll([_hash(axis), _hash(value)]);
@@ -616,9 +628,10 @@ final class ModelChangedEvent implements AgentEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ModelChangedEvent &&
-      _equal(modelId, other.modelId) &&
-      _equal(thinking, other.thinking);
+          _equal(modelId, other.modelId) &&
+          _equal(thinking, other.thinking);
 
   @override
   int get hashCode => Object.hashAll([_hash(modelId), _hash(thinking)]);
@@ -658,9 +671,10 @@ final class NoticeEvent implements AgentEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is NoticeEvent &&
-      _equal(level, other.level) &&
-      _equal(text, other.text);
+          _equal(level, other.level) &&
+          _equal(text, other.text);
 
   @override
   int get hashCode => Object.hashAll([_hash(level), _hash(text)]);
@@ -696,6 +710,7 @@ final class PlanUpdatedEvent implements AgentEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is PlanUpdatedEvent && _equal(plan, other.plan);
 
   @override
@@ -738,6 +753,7 @@ final class QueueChangedEvent implements AgentEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is QueueChangedEvent && _equal(items, other.items);
 
   @override
@@ -774,6 +790,7 @@ final class ResyncedEvent implements AgentEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ResyncedEvent && _equal(snapshot, other.snapshot);
 
   @override
@@ -808,6 +825,7 @@ final class RetryFinishedEvent implements AgentEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is RetryFinishedEvent && _equal(succeeded, other.succeeded);
 
   @override
@@ -860,11 +878,12 @@ final class RetryScheduledEvent implements AgentEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is RetryScheduledEvent &&
-      _equal(attempt, other.attempt) &&
-      _equal(maxAttempts, other.maxAttempts) &&
-      _equal(retryAt, other.retryAt) &&
-      _equal(message, other.message);
+          _equal(attempt, other.attempt) &&
+          _equal(maxAttempts, other.maxAttempts) &&
+          _equal(retryAt, other.retryAt) &&
+          _equal(message, other.message);
 
   @override
   int get hashCode => Object.hashAll([
@@ -909,9 +928,10 @@ final class RunFinishedEvent implements AgentEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is RunFinishedEvent &&
-      _equal(runId, other.runId) &&
-      _equal(outcome, other.outcome);
+          _equal(runId, other.runId) &&
+          _equal(outcome, other.outcome);
 
   @override
   int get hashCode => Object.hashAll([_hash(runId), _hash(outcome)]);
@@ -950,9 +970,10 @@ final class RunStartedEvent implements AgentEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is RunStartedEvent &&
-      _equal(runId, other.runId) &&
-      _equal(trigger, other.trigger);
+          _equal(runId, other.runId) &&
+          _equal(trigger, other.trigger);
 
   @override
   int get hashCode => Object.hashAll([_hash(runId), _hash(trigger)]);
@@ -991,6 +1012,7 @@ final class SessionReplacedEvent implements AgentEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionReplacedEvent && _equal(session, other.session);
 
   @override
@@ -1042,10 +1064,11 @@ final class ToolFinishedEvent implements AgentEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ToolFinishedEvent &&
-      _equal(toolCallId, other.toolCallId) &&
-      _equal(outcome, other.outcome) &&
-      _equal(result, other.result);
+          _equal(toolCallId, other.toolCallId) &&
+          _equal(outcome, other.outcome) &&
+          _equal(result, other.result);
 
   @override
   int get hashCode =>
@@ -1125,13 +1148,14 @@ final class ToolStartedEvent implements AgentEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ToolStartedEvent &&
-      _equal(toolCallId, other.toolCallId) &&
-      _equal(name, other.name) &&
-      _equal(title, other.title) &&
-      _equal(input, other.input) &&
-      _equal(messageId, other.messageId) &&
-      _equal(parentToolCallId, other.parentToolCallId);
+          _equal(toolCallId, other.toolCallId) &&
+          _equal(name, other.name) &&
+          _equal(title, other.title) &&
+          _equal(input, other.input) &&
+          _equal(messageId, other.messageId) &&
+          _equal(parentToolCallId, other.parentToolCallId);
 
   @override
   int get hashCode => Object.hashAll([
@@ -1181,9 +1205,10 @@ final class ToolUpdatedEvent implements AgentEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ToolUpdatedEvent &&
-      _equal(toolCallId, other.toolCallId) &&
-      _equal(update, other.update);
+          _equal(toolCallId, other.toolCallId) &&
+          _equal(update, other.update);
 
   @override
   int get hashCode => Object.hashAll([_hash(toolCallId), _hash(update)]);
@@ -1220,6 +1245,7 @@ final class UsageUpdatedEvent implements AgentEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is UsageUpdatedEvent && _equal(usage, other.usage);
 
   @override
@@ -1287,11 +1313,12 @@ final class UserMessageEvent implements AgentEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is UserMessageEvent &&
-      _equal(messageId, other.messageId) &&
-      _equal(text, other.text) &&
-      _equal(attachments, other.attachments) &&
-      _equal(clientRequestId, other.clientRequestId);
+          _equal(messageId, other.messageId) &&
+          _equal(text, other.text) &&
+          _equal(attachments, other.attachments) &&
+          _equal(clientRequestId, other.clientRequestId);
 
   @override
   int get hashCode => Object.hashAll([

@@ -30,6 +30,7 @@ final class AttachmentRead implements AttachmentReadResult {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is AttachmentRead && _equal(image, other.image);
 
   @override
@@ -98,6 +99,7 @@ final class CommandsListed implements CommandsListResult {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is CommandsListed && _equal(commands, other.commands);
 
   @override
@@ -153,6 +155,7 @@ final class ModelsListed implements ModelsListResult {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ModelsListed && _equal(models, other.models);
 
   @override
@@ -205,6 +208,7 @@ final class ModesListed implements ModesListResult {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ModesListed && _equal(modes, other.modes);
 
   @override
@@ -241,6 +245,7 @@ final class SessionFound implements SessionGetResult {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionFound && _equal(summary, other.summary);
 
   @override
@@ -303,6 +308,7 @@ final class SessionsListed implements SessionsListResult {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionsListed && _equal(page, other.page);
 
   @override
@@ -339,6 +345,7 @@ final class TranscriptRead implements TranscriptReadResult {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is TranscriptRead && _equal(page, other.page);
 
   @override

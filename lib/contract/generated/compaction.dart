@@ -20,7 +20,8 @@ final class CompactionAborted implements CompactionOutcome {
   Map<String, Object?> toJson() => {'kind': 'aborted'};
 
   @override
-  bool operator ==(Object other) => other is CompactionAborted;
+  bool operator ==(Object other) =>
+      identical(this, other) || other is CompactionAborted;
 
   @override
   int get hashCode => runtimeType.hashCode;
@@ -61,9 +62,10 @@ final class CompactionCompleted implements CompactionOutcome {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is CompactionCompleted &&
-      _equal(tokensBefore, other.tokensBefore) &&
-      _equal(tokensAfter, other.tokensAfter);
+          _equal(tokensBefore, other.tokensBefore) &&
+          _equal(tokensAfter, other.tokensAfter);
 
   @override
   int get hashCode => Object.hashAll([_hash(tokensBefore), _hash(tokensAfter)]);
@@ -95,6 +97,7 @@ final class CompactionFailed implements CompactionOutcome {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is CompactionFailed && _equal(message, other.message);
 
   @override

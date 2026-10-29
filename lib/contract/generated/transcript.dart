@@ -40,7 +40,9 @@ final class BlockItem implements TranscriptItem {
     );
   }
 
+  @override
   final TranscriptItemId id;
+  @override
   final Timestamp? at;
   final MessageId messageId;
   final BlockKind block;
@@ -60,13 +62,14 @@ final class BlockItem implements TranscriptItem {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is BlockItem &&
-      _equal(id, other.id) &&
-      _equal(at, other.at) &&
-      _equal(messageId, other.messageId) &&
-      _equal(block, other.block) &&
-      _equal(text, other.text) &&
-      _equal(parentToolCallId, other.parentToolCallId);
+          _equal(id, other.id) &&
+          _equal(at, other.at) &&
+          _equal(messageId, other.messageId) &&
+          _equal(block, other.block) &&
+          _equal(text, other.text) &&
+          _equal(parentToolCallId, other.parentToolCallId);
 
   @override
   int get hashCode => Object.hashAll([
@@ -130,7 +133,9 @@ final class CompactionItem implements TranscriptItem {
     );
   }
 
+  @override
   final TranscriptItemId id;
+  @override
   final Timestamp? at;
   final CompactionTrigger? trigger;
   final String? summary;
@@ -150,13 +155,14 @@ final class CompactionItem implements TranscriptItem {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is CompactionItem &&
-      _equal(id, other.id) &&
-      _equal(at, other.at) &&
-      _equal(trigger, other.trigger) &&
-      _equal(summary, other.summary) &&
-      _equal(tokensBefore, other.tokensBefore) &&
-      _equal(tokensAfter, other.tokensAfter);
+          _equal(id, other.id) &&
+          _equal(at, other.at) &&
+          _equal(trigger, other.trigger) &&
+          _equal(summary, other.summary) &&
+          _equal(tokensBefore, other.tokensBefore) &&
+          _equal(tokensAfter, other.tokensAfter);
 
   @override
   int get hashCode => Object.hashAll([
@@ -218,7 +224,9 @@ final class ModelChangeItem implements TranscriptItem {
     );
   }
 
+  @override
   final TranscriptItemId id;
+  @override
   final Timestamp? at;
   final ModelId? modelId;
   final String? thinking;
@@ -234,11 +242,12 @@ final class ModelChangeItem implements TranscriptItem {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ModelChangeItem &&
-      _equal(id, other.id) &&
-      _equal(at, other.at) &&
-      _equal(modelId, other.modelId) &&
-      _equal(thinking, other.thinking);
+          _equal(id, other.id) &&
+          _equal(at, other.at) &&
+          _equal(modelId, other.modelId) &&
+          _equal(thinking, other.thinking);
 
   @override
   int get hashCode =>
@@ -274,7 +283,9 @@ final class NoticeItem implements TranscriptItem {
     );
   }
 
+  @override
   final TranscriptItemId id;
+  @override
   final Timestamp? at;
   final NoticeLevel level;
   final String text;
@@ -290,11 +301,12 @@ final class NoticeItem implements TranscriptItem {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is NoticeItem &&
-      _equal(id, other.id) &&
-      _equal(at, other.at) &&
-      _equal(level, other.level) &&
-      _equal(text, other.text);
+          _equal(id, other.id) &&
+          _equal(at, other.at) &&
+          _equal(level, other.level) &&
+          _equal(text, other.text);
 
   @override
   int get hashCode =>
@@ -326,7 +338,9 @@ final class RunBoundaryItem implements TranscriptItem {
     );
   }
 
+  @override
   final TranscriptItemId id;
+  @override
   final Timestamp? at;
   final RunOutcome outcome;
 
@@ -340,10 +354,11 @@ final class RunBoundaryItem implements TranscriptItem {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is RunBoundaryItem &&
-      _equal(id, other.id) &&
-      _equal(at, other.at) &&
-      _equal(outcome, other.outcome);
+          _equal(id, other.id) &&
+          _equal(at, other.at) &&
+          _equal(outcome, other.outcome);
 
   @override
   int get hashCode => Object.hashAll([_hash(id), _hash(at), _hash(outcome)]);
@@ -416,7 +431,9 @@ final class ToolCallItem implements TranscriptItem {
     );
   }
 
+  @override
   final TranscriptItemId id;
+  @override
   final Timestamp? at;
   final ToolCallId toolCallId;
   final MessageId? messageId;
@@ -442,16 +459,17 @@ final class ToolCallItem implements TranscriptItem {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ToolCallItem &&
-      _equal(id, other.id) &&
-      _equal(at, other.at) &&
-      _equal(toolCallId, other.toolCallId) &&
-      _equal(messageId, other.messageId) &&
-      _equal(name, other.name) &&
-      _equal(title, other.title) &&
-      _equal(input, other.input) &&
-      _equal(parentToolCallId, other.parentToolCallId) &&
-      _equal(childSession, other.childSession);
+          _equal(id, other.id) &&
+          _equal(at, other.at) &&
+          _equal(toolCallId, other.toolCallId) &&
+          _equal(messageId, other.messageId) &&
+          _equal(name, other.name) &&
+          _equal(title, other.title) &&
+          _equal(input, other.input) &&
+          _equal(parentToolCallId, other.parentToolCallId) &&
+          _equal(childSession, other.childSession);
 
   @override
   int get hashCode => Object.hashAll([
@@ -502,7 +520,9 @@ final class ToolResultItem implements TranscriptItem {
     );
   }
 
+  @override
   final TranscriptItemId id;
+  @override
   final Timestamp? at;
   final ToolCallId toolCallId;
   final ToolOutcome outcome;
@@ -520,12 +540,13 @@ final class ToolResultItem implements TranscriptItem {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ToolResultItem &&
-      _equal(id, other.id) &&
-      _equal(at, other.at) &&
-      _equal(toolCallId, other.toolCallId) &&
-      _equal(outcome, other.outcome) &&
-      _equal(result, other.result);
+          _equal(id, other.id) &&
+          _equal(at, other.at) &&
+          _equal(toolCallId, other.toolCallId) &&
+          _equal(outcome, other.outcome) &&
+          _equal(result, other.result);
 
   @override
   int get hashCode => Object.hashAll([
@@ -554,6 +575,10 @@ sealed class TranscriptItem {
         'run_boundary' => RunBoundaryItem.fromJson(json),
         final tag => throw FormatException('Unknown TranscriptItem kind: $tag'),
       };
+
+  TranscriptItemId get id;
+
+  Timestamp? get at;
 
   Map<String, Object?> toJson();
 }
@@ -602,10 +627,11 @@ final class TranscriptPage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is TranscriptPage &&
-      _equal(items, other.items) &&
-      _equal(nextCursor, other.nextCursor) &&
-      _equal(idStability, other.idStability);
+          _equal(items, other.items) &&
+          _equal(nextCursor, other.nextCursor) &&
+          _equal(idStability, other.idStability);
 
   @override
   int get hashCode =>
@@ -663,7 +689,9 @@ final class UserMessageItem implements TranscriptItem {
     );
   }
 
+  @override
   final TranscriptItemId id;
+  @override
   final Timestamp? at;
   final String text;
   final List<AttachmentRef> attachments;
@@ -681,12 +709,13 @@ final class UserMessageItem implements TranscriptItem {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is UserMessageItem &&
-      _equal(id, other.id) &&
-      _equal(at, other.at) &&
-      _equal(text, other.text) &&
-      _equal(attachments, other.attachments) &&
-      _equal(clientRequestId, other.clientRequestId);
+          _equal(id, other.id) &&
+          _equal(at, other.at) &&
+          _equal(text, other.text) &&
+          _equal(attachments, other.attachments) &&
+          _equal(clientRequestId, other.clientRequestId);
 
   @override
   int get hashCode => Object.hashAll([

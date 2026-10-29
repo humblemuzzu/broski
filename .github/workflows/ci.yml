@@ -91,15 +91,18 @@ jobs:
         run: |
           flutter pub get
           (cd packages/link_dart && dart pub get)
-      - name: Format
-        run: dart format --output=none --set-exit-if-changed lib test
-      - name: Analyze
-        run: flutter analyze
-      - name: Test
-        run: flutter test
+      # The app core's end-to-end test runs the real bridge (with the fake backend) under Bun.
       - name: Install the bridge dependencies
         working-directory: packages/bridge
         run: bun install --frozen-lockfile
+      - name: Format
+        run: dart format --output=none --set-exit-if-changed lib test tool
+      - name: Analyze
+        run: flutter analyze
+      - name: App core steers by capability only
+        run: dart run tool/check_agent_core.dart
+      - name: Test
+        run: flutter test
       - name: Generated contract is current
         working-directory: packages/bridge
         run: bun run contract:check

@@ -3,7 +3,15 @@ import type { FieldCondition, FormFieldSpec, FormValue, StringField, StringForma
 /** Whether `field` is shown and answerable given the answers so far (its `when` conditions all hold). */
 export function fieldIsActive(field: FormFieldSpec, values: Record<string, FormValue>): boolean {
 	if (field.kind === "external") return true;
-	return field.when.every((condition) => holds(condition, values[condition.key]));
+	return field.when.every((condition) => holds(condition, answerFor(values, condition.key)));
+}
+
+/**
+ * The answer given for `key`, or undefined. Only the object's own keys are answers: a key such as
+ * `constructor` would otherwise read what every object inherits.
+ */
+export function answerFor(values: Record<string, FormValue>, key: string): FormValue | undefined {
+	return Object.hasOwn(values, key) ? values[key] : undefined;
 }
 
 function holds(condition: FieldCondition, answer: FormValue | undefined): boolean {

@@ -30,6 +30,7 @@ final class ToolChildSession implements ToolUpdate {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ToolChildSession && _equal(session, other.session);
 
   @override
@@ -84,6 +85,7 @@ final class ToolFileChanges implements ToolUpdate {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ToolFileChanges && _equal(changes, other.changes);
 
   @override
@@ -113,6 +115,7 @@ final class ToolInputSet implements ToolUpdate {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ToolInputSet && _equal(input, other.input);
 
   @override
@@ -162,6 +165,7 @@ final class ToolOutputAppended implements ToolUpdate {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ToolOutputAppended && _equal(text, other.text);
 
   @override
@@ -193,6 +197,7 @@ final class ToolOutputReplaced implements ToolUpdate {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ToolOutputReplaced && _equal(text, other.text);
 
   @override
@@ -224,6 +229,7 @@ final class ToolProgress implements ToolUpdate {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ToolProgress && _equal(message, other.message);
 
   @override
@@ -290,11 +296,12 @@ final class ToolResult {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ToolResult &&
-      _equal(content, other.content) &&
-      _equal(fileChanges, other.fileChanges) &&
-      _equal(error, other.error) &&
-      _equal(exitCode, other.exitCode);
+          _equal(content, other.content) &&
+          _equal(fileChanges, other.fileChanges) &&
+          _equal(error, other.error) &&
+          _equal(exitCode, other.exitCode);
 
   @override
   int get hashCode => Object.hashAll([

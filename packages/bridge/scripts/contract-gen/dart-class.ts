@@ -7,16 +7,27 @@ type UnionDef = Extract<TypeDef, { kind: "union" }>;
 
 /**
  * One contract object as a Dart class: immutable fields, a `fromJson` that refuses unknown fields and
- * wrong tags with a `FormatException`, `toJson`, and value equality.
+ * wrong tags with a `FormatException`, `toJson`, and value equality. `inherited` names the fields
+ * that implement a getter one of its unions declares (`dart-union.ts`).
  */
-export function classDeclaration(type: ClassDef, codec: DartCodec, unions: readonly UnionDef[]): string {
+export function classDeclaration(
+	type: ClassDef,
+	codec: DartCodec,
+	unions: readonly UnionDef[],
+	inherited: ReadonlySet<string>,
+): string {
 	const name = typeName(type.name);
 	const fields = type.fields.map((field) => ({ ...field, name: fieldName(name, field.name) }));
 	const implementsClause = unions.length > 0 ? ` implements ${unions.map((union) => union.name).join(", ")}` : "";
 	const body = [
 		fields.length === 0 ? `  const ${name}();\n` : `  const ${name}({${parameters(fields)}});\n`,
 		fromJson(name, type, fields, codec),
-		fields.map((field) => `  final ${codec.type(field.type)}${field.required ? "" : "?"} ${field.name};\n`).join(""),
+		fields
+			.map((field) => {
+				const annotation = inherited.has(field.name) ? "  @override\n" : "";
+				return `${annotation}  final ${codec.type(field.type)}${field.required ? "" : "?"} ${field.name};\n`;
+			})
+			.join(""),
 		toJson(type, fields, codec, unions.length > 0),
 		equality(name, fields),
 	];
@@ -65,7 +76,8 @@ function equality(name: string, fields: readonly Field[]): string {
 			: `Object.hashAll([${fields.map((field) => `_hash(${field.name})`).join(", ")}])`;
 	const shown = fields.map((field) => `${field.name}: $${field.name}`).join(", ");
 	return `  @override
-  bool operator ==(Object other) => other is ${name}${same};
+  bool operator ==(Object other) =>
+      identical(this, other) || other is ${name}${same};
 
   @override
   int get hashCode => ${hash};

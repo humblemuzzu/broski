@@ -21,6 +21,7 @@ final class AbortRequest implements ClientMessage {
     );
   }
 
+  @override
   final RequestId requestId;
   final SessionRef session;
 
@@ -33,9 +34,10 @@ final class AbortRequest implements ClientMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is AbortRequest &&
-      _equal(requestId, other.requestId) &&
-      _equal(session, other.session);
+          _equal(requestId, other.requestId) &&
+          _equal(session, other.session);
 
   @override
   int get hashCode => Object.hashAll([_hash(requestId), _hash(session)]);
@@ -74,9 +76,10 @@ final class AbortResponse implements ServerMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is AbortResponse &&
-      _equal(requestId, other.requestId) &&
-      _equal(result, other.result);
+          _equal(requestId, other.requestId) &&
+          _equal(result, other.result);
 
   @override
   int get hashCode => Object.hashAll([_hash(requestId), _hash(result)]);
@@ -92,6 +95,8 @@ sealed class AttachSync {
         'snapshot' => SnapshotSync.fromJson(json),
         final tag => throw FormatException('Unknown AttachSync kind: $tag'),
       };
+
+  StreamEpoch get epoch;
 
   Map<String, Object?> toJson();
 }
@@ -128,6 +133,7 @@ final class AttachmentReadRequest implements ClientMessage {
     );
   }
 
+  @override
   final RequestId requestId;
   final SessionRef session;
   final AttachmentId attachmentId;
@@ -142,10 +148,11 @@ final class AttachmentReadRequest implements ClientMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is AttachmentReadRequest &&
-      _equal(requestId, other.requestId) &&
-      _equal(session, other.session) &&
-      _equal(attachmentId, other.attachmentId);
+          _equal(requestId, other.requestId) &&
+          _equal(session, other.session) &&
+          _equal(attachmentId, other.attachmentId);
 
   @override
   int get hashCode =>
@@ -192,9 +199,10 @@ final class AttachmentReadResponse implements ServerMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is AttachmentReadResponse &&
-      _equal(requestId, other.requestId) &&
-      _equal(result, other.result);
+          _equal(requestId, other.requestId) &&
+          _equal(result, other.result);
 
   @override
   int get hashCode => Object.hashAll([_hash(requestId), _hash(result)]);
@@ -222,6 +230,7 @@ final class BackendCallRequest implements ClientMessage {
     );
   }
 
+  @override
   final RequestId requestId;
   final BackendCall call;
 
@@ -234,9 +243,10 @@ final class BackendCallRequest implements ClientMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is BackendCallRequest &&
-      _equal(requestId, other.requestId) &&
-      _equal(call, other.call);
+          _equal(requestId, other.requestId) &&
+          _equal(call, other.call);
 
   @override
   int get hashCode => Object.hashAll([_hash(requestId), _hash(call)]);
@@ -278,9 +288,10 @@ final class BackendCallResponse implements ServerMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is BackendCallResponse &&
-      _equal(requestId, other.requestId) &&
-      _equal(result, other.result);
+          _equal(requestId, other.requestId) &&
+          _equal(result, other.result);
 
   @override
   int get hashCode => Object.hashAll([_hash(requestId), _hash(result)]);
@@ -319,9 +330,10 @@ final class BackendDescriptor {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is BackendDescriptor &&
-      _equal(id, other.id) &&
-      _equal(capabilities, other.capabilities);
+          _equal(id, other.id) &&
+          _equal(capabilities, other.capabilities);
 
   @override
   int get hashCode => Object.hashAll([_hash(id), _hash(capabilities)]);
@@ -352,6 +364,7 @@ final class BackendStatusRequest implements ClientMessage {
     );
   }
 
+  @override
   final RequestId requestId;
   final BackendId backend;
 
@@ -364,9 +377,10 @@ final class BackendStatusRequest implements ClientMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is BackendStatusRequest &&
-      _equal(requestId, other.requestId) &&
-      _equal(backend, other.backend);
+          _equal(requestId, other.requestId) &&
+          _equal(backend, other.backend);
 
   @override
   int get hashCode => Object.hashAll([_hash(requestId), _hash(backend)]);
@@ -412,9 +426,10 @@ final class BackendStatusResponse implements ServerMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is BackendStatusResponse &&
-      _equal(requestId, other.requestId) &&
-      _equal(status, other.status);
+          _equal(requestId, other.requestId) &&
+          _equal(status, other.status);
 
   @override
   int get hashCode => Object.hashAll([_hash(requestId), _hash(status)]);
@@ -442,6 +457,7 @@ final class BackendsListRequest implements ClientMessage {
     );
   }
 
+  @override
   final RequestId requestId;
 
   @override
@@ -452,6 +468,7 @@ final class BackendsListRequest implements ClientMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is BackendsListRequest && _equal(requestId, other.requestId);
 
   @override
@@ -500,9 +517,10 @@ final class BackendsListResponse implements ServerMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is BackendsListResponse &&
-      _equal(requestId, other.requestId) &&
-      _equal(backends, other.backends);
+          _equal(requestId, other.requestId) &&
+          _equal(backends, other.backends);
 
   @override
   int get hashCode => Object.hashAll([_hash(requestId), _hash(backends)]);
@@ -544,9 +562,10 @@ final class CatalogMessage implements ServerMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is CatalogMessage &&
-      _equal(backend, other.backend) &&
-      _equal(event, other.event);
+          _equal(backend, other.backend) &&
+          _equal(event, other.event);
 
   @override
   int get hashCode => Object.hashAll([_hash(backend), _hash(event)]);
@@ -576,9 +595,10 @@ final class ClientInfo {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ClientInfo &&
-      _equal(name, other.name) &&
-      _equal(version, other.version);
+          _equal(name, other.name) &&
+          _equal(version, other.version);
 
   @override
   int get hashCode => Object.hashAll([_hash(name), _hash(version)]);
@@ -618,6 +638,8 @@ sealed class ClientMessage {
         'backend.call' => BackendCallRequest.fromJson(json),
         final tag => throw FormatException('Unknown ClientMessage type: $tag'),
       };
+
+  RequestId get requestId;
 
   Map<String, Object?> toJson();
 }
@@ -659,6 +681,7 @@ final class CommandsListRequest implements ClientMessage {
     );
   }
 
+  @override
   final RequestId requestId;
   final BackendId backend;
   final WorkingDirectory? cwd;
@@ -675,11 +698,12 @@ final class CommandsListRequest implements ClientMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is CommandsListRequest &&
-      _equal(requestId, other.requestId) &&
-      _equal(backend, other.backend) &&
-      _equal(cwd, other.cwd) &&
-      _equal(session, other.session);
+          _equal(requestId, other.requestId) &&
+          _equal(backend, other.backend) &&
+          _equal(cwd, other.cwd) &&
+          _equal(session, other.session);
 
   @override
   int get hashCode => Object.hashAll([
@@ -730,9 +754,10 @@ final class CommandsListResponse implements ServerMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is CommandsListResponse &&
-      _equal(requestId, other.requestId) &&
-      _equal(result, other.result);
+          _equal(requestId, other.requestId) &&
+          _equal(result, other.result);
 
   @override
   int get hashCode => Object.hashAll([_hash(requestId), _hash(result)]);
@@ -767,6 +792,7 @@ final class CompactRequest implements ClientMessage {
     );
   }
 
+  @override
   final RequestId requestId;
   final SessionRef session;
   final String? instructions;
@@ -781,10 +807,11 @@ final class CompactRequest implements ClientMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is CompactRequest &&
-      _equal(requestId, other.requestId) &&
-      _equal(session, other.session) &&
-      _equal(instructions, other.instructions);
+          _equal(requestId, other.requestId) &&
+          _equal(session, other.session) &&
+          _equal(instructions, other.instructions);
 
   @override
   int get hashCode =>
@@ -825,9 +852,10 @@ final class CompactResponse implements ServerMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is CompactResponse &&
-      _equal(requestId, other.requestId) &&
-      _equal(result, other.result);
+          _equal(requestId, other.requestId) &&
+          _equal(result, other.result);
 
   @override
   int get hashCode => Object.hashAll([_hash(requestId), _hash(result)]);
@@ -869,9 +897,10 @@ final class ErrorResponse implements ServerMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ErrorResponse &&
-      _equal(requestId, other.requestId) &&
-      _equal(error, other.error);
+          _equal(requestId, other.requestId) &&
+          _equal(error, other.error);
 
   @override
   int get hashCode => Object.hashAll([_hash(requestId), _hash(error)]);
@@ -907,6 +936,7 @@ final class EventMessage implements ServerMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is EventMessage && _equal(envelope, other.envelope);
 
   @override
@@ -941,6 +971,7 @@ final class HelloRequest implements ClientMessage {
     );
   }
 
+  @override
   final RequestId requestId;
   final ProtocolVersion protocol;
   final ClientInfo client;
@@ -955,10 +986,11 @@ final class HelloRequest implements ClientMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is HelloRequest &&
-      _equal(requestId, other.requestId) &&
-      _equal(protocol, other.protocol) &&
-      _equal(client, other.client);
+          _equal(requestId, other.requestId) &&
+          _equal(protocol, other.protocol) &&
+          _equal(client, other.client);
 
   @override
   int get hashCode =>
@@ -1009,10 +1041,11 @@ final class HelloResponse implements ServerMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is HelloResponse &&
-      _equal(requestId, other.requestId) &&
-      _equal(protocol, other.protocol) &&
-      _equal(bridgeVersion, other.bridgeVersion);
+          _equal(requestId, other.requestId) &&
+          _equal(protocol, other.protocol) &&
+          _equal(bridgeVersion, other.bridgeVersion);
 
   @override
   int get hashCode =>
@@ -1057,6 +1090,7 @@ final class InteractionAnswerRequest implements ClientMessage {
     );
   }
 
+  @override
   final RequestId requestId;
   final SessionRef session;
   final InteractionAnswer answer;
@@ -1071,10 +1105,11 @@ final class InteractionAnswerRequest implements ClientMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is InteractionAnswerRequest &&
-      _equal(requestId, other.requestId) &&
-      _equal(session, other.session) &&
-      _equal(answer, other.answer);
+          _equal(requestId, other.requestId) &&
+          _equal(session, other.session) &&
+          _equal(answer, other.answer);
 
   @override
   int get hashCode =>
@@ -1124,9 +1159,10 @@ final class InteractionAnswerResponse implements ServerMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is InteractionAnswerResponse &&
-      _equal(requestId, other.requestId) &&
-      _equal(result, other.result);
+          _equal(requestId, other.requestId) &&
+          _equal(result, other.result);
 
   @override
   int get hashCode => Object.hashAll([_hash(requestId), _hash(result)]);
@@ -1161,6 +1197,7 @@ final class ModeSetRequest implements ClientMessage {
     );
   }
 
+  @override
   final RequestId requestId;
   final SessionRef session;
   final ModeAxisId axis;
@@ -1177,11 +1214,12 @@ final class ModeSetRequest implements ClientMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ModeSetRequest &&
-      _equal(requestId, other.requestId) &&
-      _equal(session, other.session) &&
-      _equal(axis, other.axis) &&
-      _equal(value, other.value);
+          _equal(requestId, other.requestId) &&
+          _equal(session, other.session) &&
+          _equal(axis, other.axis) &&
+          _equal(value, other.value);
 
   @override
   int get hashCode => Object.hashAll([
@@ -1226,9 +1264,10 @@ final class ModeSetResponse implements ServerMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ModeSetResponse &&
-      _equal(requestId, other.requestId) &&
-      _equal(result, other.result);
+          _equal(requestId, other.requestId) &&
+          _equal(result, other.result);
 
   @override
   int get hashCode => Object.hashAll([_hash(requestId), _hash(result)]);
@@ -1261,6 +1300,7 @@ final class ModelSetRequest implements ClientMessage {
     );
   }
 
+  @override
   final RequestId requestId;
   final SessionRef session;
   final ModelId modelId;
@@ -1275,10 +1315,11 @@ final class ModelSetRequest implements ClientMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ModelSetRequest &&
-      _equal(requestId, other.requestId) &&
-      _equal(session, other.session) &&
-      _equal(modelId, other.modelId);
+          _equal(requestId, other.requestId) &&
+          _equal(session, other.session) &&
+          _equal(modelId, other.modelId);
 
   @override
   int get hashCode =>
@@ -1319,9 +1360,10 @@ final class ModelSetResponse implements ServerMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ModelSetResponse &&
-      _equal(requestId, other.requestId) &&
-      _equal(result, other.result);
+          _equal(requestId, other.requestId) &&
+          _equal(result, other.result);
 
   @override
   int get hashCode => Object.hashAll([_hash(requestId), _hash(result)]);
@@ -1356,6 +1398,7 @@ final class ModelsListRequest implements ClientMessage {
     );
   }
 
+  @override
   final RequestId requestId;
   final BackendId backend;
   final WorkingDirectory? cwd;
@@ -1370,10 +1413,11 @@ final class ModelsListRequest implements ClientMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ModelsListRequest &&
-      _equal(requestId, other.requestId) &&
-      _equal(backend, other.backend) &&
-      _equal(cwd, other.cwd);
+          _equal(requestId, other.requestId) &&
+          _equal(backend, other.backend) &&
+          _equal(cwd, other.cwd);
 
   @override
   int get hashCode =>
@@ -1414,9 +1458,10 @@ final class ModelsListResponse implements ServerMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ModelsListResponse &&
-      _equal(requestId, other.requestId) &&
-      _equal(result, other.result);
+          _equal(requestId, other.requestId) &&
+          _equal(result, other.result);
 
   @override
   int get hashCode => Object.hashAll([_hash(requestId), _hash(result)]);
@@ -1451,6 +1496,7 @@ final class ModesListRequest implements ClientMessage {
     );
   }
 
+  @override
   final RequestId requestId;
   final BackendId backend;
   final WorkingDirectory? cwd;
@@ -1465,10 +1511,11 @@ final class ModesListRequest implements ClientMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ModesListRequest &&
-      _equal(requestId, other.requestId) &&
-      _equal(backend, other.backend) &&
-      _equal(cwd, other.cwd);
+          _equal(requestId, other.requestId) &&
+          _equal(backend, other.backend) &&
+          _equal(cwd, other.cwd);
 
   @override
   int get hashCode =>
@@ -1509,9 +1556,10 @@ final class ModesListResponse implements ServerMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ModesListResponse &&
-      _equal(requestId, other.requestId) &&
-      _equal(result, other.result);
+          _equal(requestId, other.requestId) &&
+          _equal(result, other.result);
 
   @override
   int get hashCode => Object.hashAll([_hash(requestId), _hash(result)]);
@@ -1546,6 +1594,7 @@ final class PromptRequest implements ClientMessage {
     );
   }
 
+  @override
   final RequestId requestId;
   final SessionRef session;
   final PromptInput input;
@@ -1560,10 +1609,11 @@ final class PromptRequest implements ClientMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is PromptRequest &&
-      _equal(requestId, other.requestId) &&
-      _equal(session, other.session) &&
-      _equal(input, other.input);
+          _equal(requestId, other.requestId) &&
+          _equal(session, other.session) &&
+          _equal(input, other.input);
 
   @override
   int get hashCode =>
@@ -1604,9 +1654,10 @@ final class PromptResponse implements ServerMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is PromptResponse &&
-      _equal(requestId, other.requestId) &&
-      _equal(result, other.result);
+          _equal(requestId, other.requestId) &&
+          _equal(result, other.result);
 
   @override
   int get hashCode => Object.hashAll([_hash(requestId), _hash(result)]);
@@ -1638,9 +1689,10 @@ final class ProtocolError {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ProtocolError &&
-      _equal(code, other.code) &&
-      _equal(message, other.message);
+          _equal(code, other.code) &&
+          _equal(message, other.message);
 
   @override
   int get hashCode => Object.hashAll([_hash(code), _hash(message)]);
@@ -1691,9 +1743,10 @@ final class ProtocolVersion {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ProtocolVersion &&
-      _equal(major, other.major) &&
-      _equal(minor, other.minor);
+          _equal(major, other.major) &&
+          _equal(minor, other.minor);
 
   @override
   int get hashCode => Object.hashAll([_hash(major), _hash(minor)]);
@@ -1731,6 +1784,7 @@ final class QueueCancelRequest implements ClientMessage {
     );
   }
 
+  @override
   final RequestId requestId;
   final SessionRef session;
   final QueueItemId queueItemId;
@@ -1745,10 +1799,11 @@ final class QueueCancelRequest implements ClientMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is QueueCancelRequest &&
-      _equal(requestId, other.requestId) &&
-      _equal(session, other.session) &&
-      _equal(queueItemId, other.queueItemId);
+          _equal(requestId, other.requestId) &&
+          _equal(session, other.session) &&
+          _equal(queueItemId, other.queueItemId);
 
   @override
   int get hashCode =>
@@ -1792,9 +1847,10 @@ final class QueueCancelResponse implements ServerMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is QueueCancelResponse &&
-      _equal(requestId, other.requestId) &&
-      _equal(result, other.result);
+          _equal(requestId, other.requestId) &&
+          _equal(result, other.result);
 
   @override
   int get hashCode => Object.hashAll([_hash(requestId), _hash(result)]);
@@ -1820,6 +1876,7 @@ final class ReplaySync implements AttachSync {
     );
   }
 
+  @override
   final StreamEpoch epoch;
   final int afterSeq;
 
@@ -1832,9 +1889,10 @@ final class ReplaySync implements AttachSync {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ReplaySync &&
-      _equal(epoch, other.epoch) &&
-      _equal(afterSeq, other.afterSeq);
+          _equal(epoch, other.epoch) &&
+          _equal(afterSeq, other.afterSeq);
 
   @override
   int get hashCode => Object.hashAll([_hash(epoch), _hash(afterSeq)]);
@@ -1912,6 +1970,7 @@ final class SessionArchiveRequest implements ClientMessage {
     );
   }
 
+  @override
   final RequestId requestId;
   final SessionRef session;
   final bool archived;
@@ -1926,10 +1985,11 @@ final class SessionArchiveRequest implements ClientMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionArchiveRequest &&
-      _equal(requestId, other.requestId) &&
-      _equal(session, other.session) &&
-      _equal(archived, other.archived);
+          _equal(requestId, other.requestId) &&
+          _equal(session, other.session) &&
+          _equal(archived, other.archived);
 
   @override
   int get hashCode =>
@@ -1976,9 +2036,10 @@ final class SessionArchiveResponse implements ServerMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionArchiveResponse &&
-      _equal(requestId, other.requestId) &&
-      _equal(result, other.result);
+          _equal(requestId, other.requestId) &&
+          _equal(result, other.result);
 
   @override
   int get hashCode => Object.hashAll([_hash(requestId), _hash(result)]);
@@ -2024,6 +2085,7 @@ final class SessionAttachRequest implements ClientMessage {
     );
   }
 
+  @override
   final RequestId requestId;
   final SessionRef session;
   final StreamPosition? resume;
@@ -2038,10 +2100,11 @@ final class SessionAttachRequest implements ClientMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionAttachRequest &&
-      _equal(requestId, other.requestId) &&
-      _equal(session, other.session) &&
-      _equal(resume, other.resume);
+          _equal(requestId, other.requestId) &&
+          _equal(session, other.session) &&
+          _equal(resume, other.resume);
 
   @override
   int get hashCode =>
@@ -2097,10 +2160,11 @@ final class SessionAttachResponse implements ServerMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionAttachResponse &&
-      _equal(requestId, other.requestId) &&
-      _equal(capabilities, other.capabilities) &&
-      _equal(sync, other.sync);
+          _equal(requestId, other.requestId) &&
+          _equal(capabilities, other.capabilities) &&
+          _equal(sync, other.sync);
 
   @override
   int get hashCode =>
@@ -2142,6 +2206,7 @@ final class SessionCreateRequest implements ClientMessage {
     );
   }
 
+  @override
   final RequestId requestId;
   final BackendId backend;
   final NewSessionOptions options;
@@ -2156,10 +2221,11 @@ final class SessionCreateRequest implements ClientMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionCreateRequest &&
-      _equal(requestId, other.requestId) &&
-      _equal(backend, other.backend) &&
-      _equal(options, other.options);
+          _equal(requestId, other.requestId) &&
+          _equal(backend, other.backend) &&
+          _equal(options, other.options);
 
   @override
   int get hashCode =>
@@ -2206,9 +2272,10 @@ final class SessionCreateResponse implements ServerMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionCreateResponse &&
-      _equal(requestId, other.requestId) &&
-      _equal(result, other.result);
+          _equal(requestId, other.requestId) &&
+          _equal(result, other.result);
 
   @override
   int get hashCode => Object.hashAll([_hash(requestId), _hash(result)]);
@@ -2242,6 +2309,7 @@ final class SessionDeleteRequest implements ClientMessage {
     );
   }
 
+  @override
   final RequestId requestId;
   final SessionRef session;
 
@@ -2254,9 +2322,10 @@ final class SessionDeleteRequest implements ClientMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionDeleteRequest &&
-      _equal(requestId, other.requestId) &&
-      _equal(session, other.session);
+          _equal(requestId, other.requestId) &&
+          _equal(session, other.session);
 
   @override
   int get hashCode => Object.hashAll([_hash(requestId), _hash(session)]);
@@ -2302,9 +2371,10 @@ final class SessionDeleteResponse implements ServerMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionDeleteResponse &&
-      _equal(requestId, other.requestId) &&
-      _equal(result, other.result);
+          _equal(requestId, other.requestId) &&
+          _equal(result, other.result);
 
   @override
   int get hashCode => Object.hashAll([_hash(requestId), _hash(result)]);
@@ -2338,6 +2408,7 @@ final class SessionDetachRequest implements ClientMessage {
     );
   }
 
+  @override
   final RequestId requestId;
   final SessionRef session;
 
@@ -2350,9 +2421,10 @@ final class SessionDetachRequest implements ClientMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionDetachRequest &&
-      _equal(requestId, other.requestId) &&
-      _equal(session, other.session);
+          _equal(requestId, other.requestId) &&
+          _equal(session, other.session);
 
   @override
   int get hashCode => Object.hashAll([_hash(requestId), _hash(session)]);
@@ -2390,6 +2462,7 @@ final class SessionDetachResponse implements ServerMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionDetachResponse && _equal(requestId, other.requestId);
 
   @override
@@ -2429,6 +2502,7 @@ final class SessionForkRequest implements ClientMessage {
     );
   }
 
+  @override
   final RequestId requestId;
   final SessionRef session;
   final ForkPoint? at;
@@ -2443,10 +2517,11 @@ final class SessionForkRequest implements ClientMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionForkRequest &&
-      _equal(requestId, other.requestId) &&
-      _equal(session, other.session) &&
-      _equal(at, other.at);
+          _equal(requestId, other.requestId) &&
+          _equal(session, other.session) &&
+          _equal(at, other.at);
 
   @override
   int get hashCode =>
@@ -2490,9 +2565,10 @@ final class SessionForkResponse implements ServerMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionForkResponse &&
-      _equal(requestId, other.requestId) &&
-      _equal(result, other.result);
+          _equal(requestId, other.requestId) &&
+          _equal(result, other.result);
 
   @override
   int get hashCode => Object.hashAll([_hash(requestId), _hash(result)]);
@@ -2520,6 +2596,7 @@ final class SessionGetRequest implements ClientMessage {
     );
   }
 
+  @override
   final RequestId requestId;
   final SessionRef session;
 
@@ -2532,9 +2609,10 @@ final class SessionGetRequest implements ClientMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionGetRequest &&
-      _equal(requestId, other.requestId) &&
-      _equal(session, other.session);
+          _equal(requestId, other.requestId) &&
+          _equal(session, other.session);
 
   @override
   int get hashCode => Object.hashAll([_hash(requestId), _hash(session)]);
@@ -2574,9 +2652,10 @@ final class SessionGetResponse implements ServerMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionGetResponse &&
-      _equal(requestId, other.requestId) &&
-      _equal(result, other.result);
+          _equal(requestId, other.requestId) &&
+          _equal(result, other.result);
 
   @override
   int get hashCode => Object.hashAll([_hash(requestId), _hash(result)]);
@@ -2615,6 +2694,7 @@ final class SessionRenameRequest implements ClientMessage {
     );
   }
 
+  @override
   final RequestId requestId;
   final SessionRef session;
   final String title;
@@ -2629,10 +2709,11 @@ final class SessionRenameRequest implements ClientMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionRenameRequest &&
-      _equal(requestId, other.requestId) &&
-      _equal(session, other.session) &&
-      _equal(title, other.title);
+          _equal(requestId, other.requestId) &&
+          _equal(session, other.session) &&
+          _equal(title, other.title);
 
   @override
   int get hashCode =>
@@ -2679,9 +2760,10 @@ final class SessionRenameResponse implements ServerMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionRenameResponse &&
-      _equal(requestId, other.requestId) &&
-      _equal(result, other.result);
+          _equal(requestId, other.requestId) &&
+          _equal(result, other.result);
 
   @override
   int get hashCode => Object.hashAll([_hash(requestId), _hash(result)]);
@@ -2723,6 +2805,7 @@ final class SessionsListRequest implements ClientMessage {
     );
   }
 
+  @override
   final RequestId requestId;
   final BackendId backend;
   final SessionQuery query;
@@ -2739,11 +2822,12 @@ final class SessionsListRequest implements ClientMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionsListRequest &&
-      _equal(requestId, other.requestId) &&
-      _equal(backend, other.backend) &&
-      _equal(query, other.query) &&
-      _equal(page, other.page);
+          _equal(requestId, other.requestId) &&
+          _equal(backend, other.backend) &&
+          _equal(query, other.query) &&
+          _equal(page, other.page);
 
   @override
   int get hashCode => Object.hashAll([
@@ -2794,9 +2878,10 @@ final class SessionsListResponse implements ServerMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionsListResponse &&
-      _equal(requestId, other.requestId) &&
-      _equal(result, other.result);
+          _equal(requestId, other.requestId) &&
+          _equal(result, other.result);
 
   @override
   int get hashCode => Object.hashAll([_hash(requestId), _hash(result)]);
@@ -2829,6 +2914,7 @@ final class SnapshotSync implements AttachSync {
     );
   }
 
+  @override
   final StreamEpoch epoch;
   final int lastSeq;
   final SessionSnapshot snapshot;
@@ -2843,10 +2929,11 @@ final class SnapshotSync implements AttachSync {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SnapshotSync &&
-      _equal(epoch, other.epoch) &&
-      _equal(lastSeq, other.lastSeq) &&
-      _equal(snapshot, other.snapshot);
+          _equal(epoch, other.epoch) &&
+          _equal(lastSeq, other.lastSeq) &&
+          _equal(snapshot, other.snapshot);
 
   @override
   int get hashCode =>
@@ -2880,9 +2967,10 @@ final class StreamPosition {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is StreamPosition &&
-      _equal(epoch, other.epoch) &&
-      _equal(seq, other.seq);
+          _equal(epoch, other.epoch) &&
+          _equal(seq, other.seq);
 
   @override
   int get hashCode => Object.hashAll([_hash(epoch), _hash(seq)]);
@@ -2917,6 +3005,7 @@ final class ThinkingSetRequest implements ClientMessage {
     );
   }
 
+  @override
   final RequestId requestId;
   final SessionRef session;
   final String thinking;
@@ -2931,10 +3020,11 @@ final class ThinkingSetRequest implements ClientMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ThinkingSetRequest &&
-      _equal(requestId, other.requestId) &&
-      _equal(session, other.session) &&
-      _equal(thinking, other.thinking);
+          _equal(requestId, other.requestId) &&
+          _equal(session, other.session) &&
+          _equal(thinking, other.thinking);
 
   @override
   int get hashCode =>
@@ -2978,9 +3068,10 @@ final class ThinkingSetResponse implements ServerMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ThinkingSetResponse &&
-      _equal(requestId, other.requestId) &&
-      _equal(result, other.result);
+          _equal(requestId, other.requestId) &&
+          _equal(result, other.result);
 
   @override
   int get hashCode => Object.hashAll([_hash(requestId), _hash(result)]);
@@ -3021,6 +3112,7 @@ final class TranscriptReadRequest implements ClientMessage {
     );
   }
 
+  @override
   final RequestId requestId;
   final SessionRef session;
   final PageRequest page;
@@ -3035,10 +3127,11 @@ final class TranscriptReadRequest implements ClientMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is TranscriptReadRequest &&
-      _equal(requestId, other.requestId) &&
-      _equal(session, other.session) &&
-      _equal(page, other.page);
+          _equal(requestId, other.requestId) &&
+          _equal(session, other.session) &&
+          _equal(page, other.page);
 
   @override
   int get hashCode =>
@@ -3085,9 +3178,10 @@ final class TranscriptReadResponse implements ServerMessage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is TranscriptReadResponse &&
-      _equal(requestId, other.requestId) &&
-      _equal(result, other.result);
+          _equal(requestId, other.requestId) &&
+          _equal(result, other.result);
 
   @override
   int get hashCode => Object.hashAll([_hash(requestId), _hash(result)]);

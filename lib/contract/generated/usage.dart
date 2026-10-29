@@ -76,15 +76,16 @@ final class Usage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is Usage &&
-      _equal(inputTokens, other.inputTokens) &&
-      _equal(outputTokens, other.outputTokens) &&
-      _equal(cacheReadTokens, other.cacheReadTokens) &&
-      _equal(cacheWriteTokens, other.cacheWriteTokens) &&
-      _equal(reasoningTokens, other.reasoningTokens) &&
-      _equal(costUsd, other.costUsd) &&
-      _equal(contextTokens, other.contextTokens) &&
-      _equal(contextWindow, other.contextWindow);
+          _equal(inputTokens, other.inputTokens) &&
+          _equal(outputTokens, other.outputTokens) &&
+          _equal(cacheReadTokens, other.cacheReadTokens) &&
+          _equal(cacheWriteTokens, other.cacheWriteTokens) &&
+          _equal(reasoningTokens, other.reasoningTokens) &&
+          _equal(costUsd, other.costUsd) &&
+          _equal(contextTokens, other.contextTokens) &&
+          _equal(contextWindow, other.contextWindow);
 
   @override
   int get hashCode => Object.hashAll([

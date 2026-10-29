@@ -181,29 +181,30 @@ final class Capabilities {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is Capabilities &&
-      _equal(streamText, other.streamText) &&
-      _equal(streamThinking, other.streamThinking) &&
-      _equal(promptModes, other.promptModes) &&
-      _equal(attachments, other.attachments) &&
-      _equal(mentions, other.mentions) &&
-      _equal(commands, other.commands) &&
-      _equal(queue, other.queue) &&
-      _equal(interactions, other.interactions) &&
-      _equal(modelSwitch, other.modelSwitch) &&
-      _equal(thinking, other.thinking) &&
-      _equal(children, other.children) &&
-      _equal(usage, other.usage) &&
-      _equal(plan, other.plan) &&
-      _equal(planProposals, other.planProposals) &&
-      _equal(externalLive, other.externalLive) &&
-      _equal(durableRuns, other.durableRuns) &&
-      _equal(extensions, other.extensions) &&
-      _equal(backendOps, other.backendOps) &&
-      _equal(fork, other.fork) &&
-      _equal(rename, other.rename) &&
-      _equal(delete, other.delete) &&
-      _equal(archive, other.archive);
+          _equal(streamText, other.streamText) &&
+          _equal(streamThinking, other.streamThinking) &&
+          _equal(promptModes, other.promptModes) &&
+          _equal(attachments, other.attachments) &&
+          _equal(mentions, other.mentions) &&
+          _equal(commands, other.commands) &&
+          _equal(queue, other.queue) &&
+          _equal(interactions, other.interactions) &&
+          _equal(modelSwitch, other.modelSwitch) &&
+          _equal(thinking, other.thinking) &&
+          _equal(children, other.children) &&
+          _equal(usage, other.usage) &&
+          _equal(plan, other.plan) &&
+          _equal(planProposals, other.planProposals) &&
+          _equal(externalLive, other.externalLive) &&
+          _equal(durableRuns, other.durableRuns) &&
+          _equal(extensions, other.extensions) &&
+          _equal(backendOps, other.backendOps) &&
+          _equal(fork, other.fork) &&
+          _equal(rename, other.rename) &&
+          _equal(delete, other.delete) &&
+          _equal(archive, other.archive);
 
   @override
   int get hashCode => Object.hashAll([
@@ -290,10 +291,11 @@ final class SessionCapabilities {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionCapabilities &&
-      _equal(controllable, other.controllable) &&
-      _equal(compact, other.compact) &&
-      _equal(cancelQueued, other.cancelQueued);
+          _equal(controllable, other.controllable) &&
+          _equal(compact, other.compact) &&
+          _equal(cancelQueued, other.cancelQueued);
 
   @override
   int get hashCode => Object.hashAll([

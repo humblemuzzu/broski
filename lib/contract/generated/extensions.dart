@@ -36,6 +36,7 @@ final class CodexTurnDiff implements BackendExtension {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is CodexTurnDiff && _equal(diff, other.diff);
 
   @override
@@ -128,11 +129,12 @@ final class RateLimitUpdate implements BackendExtension {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is RateLimitUpdate &&
-      _equal(window, other.window) &&
-      _equal(status, other.status) &&
-      _equal(usedPercent, other.usedPercent) &&
-      _equal(resetsAt, other.resetsAt);
+          _equal(window, other.window) &&
+          _equal(status, other.status) &&
+          _equal(usedPercent, other.usedPercent) &&
+          _equal(resetsAt, other.resetsAt);
 
   @override
   int get hashCode => Object.hashAll([

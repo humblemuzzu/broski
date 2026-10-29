@@ -20,7 +20,8 @@ final class ActionAccepted implements ActionResult {
   Map<String, Object?> toJson() => {'status': 'accepted'};
 
   @override
-  bool operator ==(Object other) => other is ActionAccepted;
+  bool operator ==(Object other) =>
+      identical(this, other) || other is ActionAccepted;
 
   @override
   int get hashCode => runtimeType.hashCode;
@@ -60,6 +61,7 @@ final class AgentMention implements Mention {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is AgentMention && _equal(name, other.name);
 
   @override
@@ -89,6 +91,7 @@ final class FileMention implements Mention {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is FileMention && _equal(path, other.path);
 
   @override
@@ -156,9 +159,10 @@ final class PromptAccepted implements PromptResult {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is PromptAccepted &&
-      _equal(disposition, other.disposition) &&
-      _equal(queueItemId, other.queueItemId);
+          _equal(disposition, other.disposition) &&
+          _equal(queueItemId, other.queueItemId);
 
   @override
   int get hashCode => Object.hashAll([_hash(disposition), _hash(queueItemId)]);
@@ -254,13 +258,14 @@ final class PromptInput {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is PromptInput &&
-      _equal(clientRequestId, other.clientRequestId) &&
-      _equal(mode, other.mode) &&
-      _equal(text, other.text) &&
-      _equal(attachments, other.attachments) &&
-      _equal(mentions, other.mentions) &&
-      _equal(command, other.command);
+          _equal(clientRequestId, other.clientRequestId) &&
+          _equal(mode, other.mode) &&
+          _equal(text, other.text) &&
+          _equal(attachments, other.attachments) &&
+          _equal(mentions, other.mentions) &&
+          _equal(command, other.command);
 
   @override
   int get hashCode => Object.hashAll([

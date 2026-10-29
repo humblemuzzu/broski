@@ -189,6 +189,8 @@ Inbound, a socket has one token bucket for both protocols (`BROSKI_RATE_LIMIT_*`
 - Mirror `applyEvent`; treat `resynced` as a replacement; expect `droppedItems > 0` on a long run; expect `…` in very long text; re-read the transcript's newest page at `run_finished` (README §8).
 - After `session_replaced`, attach to the new id. After `session_removed`, drop the session.
 
+The app does all of this in `lib/agent/`: see [`docs/architecture/app-core/README.md`](../app-core/README.md).
+
 ## 16. How Phase 4 plugs in
 
 - Write `backends/<id>/`, export a `BackendFactory`, and register it in `server.ts`'s options (`contract.backends: [[id, factory]]`). Nothing in the core changes.

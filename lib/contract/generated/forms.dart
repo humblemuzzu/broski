@@ -52,8 +52,11 @@ final class BooleanField implements FormFieldSpec {
     );
   }
 
+  @override
   final FieldKey key;
+  @override
   final String? title;
+  @override
   final String? description;
   final bool required;
   final bool hidden;
@@ -74,14 +77,15 @@ final class BooleanField implements FormFieldSpec {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is BooleanField &&
-      _equal(key, other.key) &&
-      _equal(title, other.title) &&
-      _equal(description, other.description) &&
-      _equal(required, other.required) &&
-      _equal(hidden, other.hidden) &&
-      _equal(when, other.when) &&
-      _equal(defaultValue, other.defaultValue);
+          _equal(key, other.key) &&
+          _equal(title, other.title) &&
+          _equal(description, other.description) &&
+          _equal(required, other.required) &&
+          _equal(hidden, other.hidden) &&
+          _equal(when, other.when) &&
+          _equal(defaultValue, other.defaultValue);
 
   @override
   int get hashCode => Object.hashAll([
@@ -119,6 +123,7 @@ final class BooleanValue implements FormScalar, FormValue {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is BooleanValue && _equal(value, other.value);
 
   @override
@@ -156,6 +161,7 @@ final class ChoicesValue implements FormValue {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ChoicesValue && _equal(values, other.values);
 
   @override
@@ -208,8 +214,11 @@ final class ExternalField implements FormFieldSpec {
     );
   }
 
+  @override
   final FieldKey key;
+  @override
   final String? title;
+  @override
   final String? description;
   final String url;
 
@@ -224,11 +233,12 @@ final class ExternalField implements FormFieldSpec {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ExternalField &&
-      _equal(key, other.key) &&
-      _equal(title, other.title) &&
-      _equal(description, other.description) &&
-      _equal(url, other.url);
+          _equal(key, other.key) &&
+          _equal(title, other.title) &&
+          _equal(description, other.description) &&
+          _equal(url, other.url);
 
   @override
   int get hashCode => Object.hashAll([
@@ -279,10 +289,11 @@ final class FieldCondition {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is FieldCondition &&
-      _equal(key, other.key) &&
-      _equal(op, other.op) &&
-      _equal(value, other.value);
+          _equal(key, other.key) &&
+          _equal(op, other.op) &&
+          _equal(value, other.value);
 
   @override
   int get hashCode => Object.hashAll([_hash(key), _hash(op), _hash(value)]);
@@ -304,6 +315,12 @@ sealed class FormFieldSpec {
         'external' => ExternalField.fromJson(json),
         final tag => throw FormatException('Unknown FormFieldSpec kind: $tag'),
       };
+
+  FieldKey get key;
+
+  String? get title;
+
+  String? get description;
 
   Map<String, Object?> toJson();
 }
@@ -392,8 +409,11 @@ final class IntegerField implements FormFieldSpec {
     );
   }
 
+  @override
   final FieldKey key;
+  @override
   final String? title;
+  @override
   final String? description;
   final bool required;
   final bool hidden;
@@ -418,16 +438,17 @@ final class IntegerField implements FormFieldSpec {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is IntegerField &&
-      _equal(key, other.key) &&
-      _equal(title, other.title) &&
-      _equal(description, other.description) &&
-      _equal(required, other.required) &&
-      _equal(hidden, other.hidden) &&
-      _equal(when, other.when) &&
-      _equal(minimum, other.minimum) &&
-      _equal(maximum, other.maximum) &&
-      _equal(defaultValue, other.defaultValue);
+          _equal(key, other.key) &&
+          _equal(title, other.title) &&
+          _equal(description, other.description) &&
+          _equal(required, other.required) &&
+          _equal(hidden, other.hidden) &&
+          _equal(when, other.when) &&
+          _equal(minimum, other.minimum) &&
+          _equal(maximum, other.maximum) &&
+          _equal(defaultValue, other.defaultValue);
 
   @override
   int get hashCode => Object.hashAll([
@@ -532,8 +553,11 @@ final class MultiselectField implements FormFieldSpec {
     );
   }
 
+  @override
   final FieldKey key;
+  @override
   final String? title;
+  @override
   final String? description;
   final bool required;
   final bool hidden;
@@ -562,18 +586,19 @@ final class MultiselectField implements FormFieldSpec {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is MultiselectField &&
-      _equal(key, other.key) &&
-      _equal(title, other.title) &&
-      _equal(description, other.description) &&
-      _equal(required, other.required) &&
-      _equal(hidden, other.hidden) &&
-      _equal(when, other.when) &&
-      _equal(options, other.options) &&
-      _equal(minItems, other.minItems) &&
-      _equal(maxItems, other.maxItems) &&
-      _equal(allowCustom, other.allowCustom) &&
-      _equal(defaultValue, other.defaultValue);
+          _equal(key, other.key) &&
+          _equal(title, other.title) &&
+          _equal(description, other.description) &&
+          _equal(required, other.required) &&
+          _equal(hidden, other.hidden) &&
+          _equal(when, other.when) &&
+          _equal(options, other.options) &&
+          _equal(minItems, other.minItems) &&
+          _equal(maxItems, other.maxItems) &&
+          _equal(allowCustom, other.allowCustom) &&
+          _equal(defaultValue, other.defaultValue);
 
   @override
   int get hashCode => Object.hashAll([
@@ -657,8 +682,11 @@ final class NumberField implements FormFieldSpec {
     );
   }
 
+  @override
   final FieldKey key;
+  @override
   final String? title;
+  @override
   final String? description;
   final bool required;
   final bool hidden;
@@ -683,16 +711,17 @@ final class NumberField implements FormFieldSpec {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is NumberField &&
-      _equal(key, other.key) &&
-      _equal(title, other.title) &&
-      _equal(description, other.description) &&
-      _equal(required, other.required) &&
-      _equal(hidden, other.hidden) &&
-      _equal(when, other.when) &&
-      _equal(minimum, other.minimum) &&
-      _equal(maximum, other.maximum) &&
-      _equal(defaultValue, other.defaultValue);
+          _equal(key, other.key) &&
+          _equal(title, other.title) &&
+          _equal(description, other.description) &&
+          _equal(required, other.required) &&
+          _equal(hidden, other.hidden) &&
+          _equal(when, other.when) &&
+          _equal(minimum, other.minimum) &&
+          _equal(maximum, other.maximum) &&
+          _equal(defaultValue, other.defaultValue);
 
   @override
   int get hashCode => Object.hashAll([
@@ -734,6 +763,7 @@ final class NumberValue implements FormScalar, FormValue {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is NumberValue && _equal(value, other.value);
 
   @override
@@ -833,8 +863,11 @@ final class StringField implements FormFieldSpec {
     );
   }
 
+  @override
   final FieldKey key;
+  @override
   final String? title;
+  @override
   final String? description;
   final bool required;
   final bool hidden;
@@ -869,21 +902,22 @@ final class StringField implements FormFieldSpec {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is StringField &&
-      _equal(key, other.key) &&
-      _equal(title, other.title) &&
-      _equal(description, other.description) &&
-      _equal(required, other.required) &&
-      _equal(hidden, other.hidden) &&
-      _equal(when, other.when) &&
-      _equal(format, other.format) &&
-      _equal(minLength, other.minLength) &&
-      _equal(maxLength, other.maxLength) &&
-      _equal(pattern, other.pattern) &&
-      _equal(placeholder, other.placeholder) &&
-      _equal(defaultValue, other.defaultValue) &&
-      _equal(options, other.options) &&
-      _equal(allowCustom, other.allowCustom);
+          _equal(key, other.key) &&
+          _equal(title, other.title) &&
+          _equal(description, other.description) &&
+          _equal(required, other.required) &&
+          _equal(hidden, other.hidden) &&
+          _equal(when, other.when) &&
+          _equal(format, other.format) &&
+          _equal(minLength, other.minLength) &&
+          _equal(maxLength, other.maxLength) &&
+          _equal(pattern, other.pattern) &&
+          _equal(placeholder, other.placeholder) &&
+          _equal(defaultValue, other.defaultValue) &&
+          _equal(options, other.options) &&
+          _equal(allowCustom, other.allowCustom);
 
   @override
   int get hashCode => Object.hashAll([
@@ -946,6 +980,7 @@ final class TextValue implements FormScalar, FormValue {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is TextValue && _equal(value, other.value);
 
   @override

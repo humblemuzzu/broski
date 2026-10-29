@@ -29,9 +29,10 @@ final class ForkPoint {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ForkPoint &&
-      _equal(itemId, other.itemId) &&
-      _equal(position, other.position);
+          _equal(itemId, other.itemId) &&
+          _equal(position, other.position);
 
   @override
   int get hashCode => Object.hashAll([_hash(itemId), _hash(position)]);
@@ -86,6 +87,7 @@ final class NewSessionAccepted implements NewSessionResult {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is NewSessionAccepted && _equal(session, other.session);
 
   @override
@@ -146,11 +148,12 @@ final class NewSessionOptions {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is NewSessionOptions &&
-      _equal(cwd, other.cwd) &&
-      _equal(modelId, other.modelId) &&
-      _equal(thinking, other.thinking) &&
-      _equal(modes, other.modes);
+          _equal(cwd, other.cwd) &&
+          _equal(modelId, other.modelId) &&
+          _equal(thinking, other.thinking) &&
+          _equal(modes, other.modes);
 
   @override
   int get hashCode => Object.hashAll([
@@ -241,9 +244,10 @@ final class SessionPage {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionPage &&
-      _equal(items, other.items) &&
-      _equal(nextCursor, other.nextCursor);
+          _equal(items, other.items) &&
+          _equal(nextCursor, other.nextCursor);
 
   @override
   int get hashCode => Object.hashAll([_hash(items), _hash(nextCursor)]);
@@ -280,9 +284,10 @@ final class SessionParent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionParent &&
-      _equal(kind, other.kind) &&
-      _equal(session, other.session);
+          _equal(kind, other.kind) &&
+          _equal(session, other.session);
 
   @override
   int get hashCode => Object.hashAll([_hash(kind), _hash(session)]);
@@ -325,10 +330,11 @@ final class SessionQuery {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionQuery &&
-      _equal(cwd, other.cwd) &&
-      _equal(archived, other.archived) &&
-      _equal(parent, other.parent);
+          _equal(cwd, other.cwd) &&
+          _equal(archived, other.archived) &&
+          _equal(parent, other.parent);
 
   @override
   int get hashCode =>
@@ -455,18 +461,19 @@ final class SessionSummary {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionSummary &&
-      _equal(session, other.session) &&
-      _equal(title, other.title) &&
-      _equal(cwd, other.cwd) &&
-      _equal(createdAt, other.createdAt) &&
-      _equal(updatedAt, other.updatedAt) &&
-      _equal(parent, other.parent) &&
-      _equal(archived, other.archived) &&
-      _equal(modelId, other.modelId) &&
-      _equal(status, other.status) &&
-      _equal(origin, other.origin) &&
-      _equal(source, other.source);
+          _equal(session, other.session) &&
+          _equal(title, other.title) &&
+          _equal(cwd, other.cwd) &&
+          _equal(createdAt, other.createdAt) &&
+          _equal(updatedAt, other.updatedAt) &&
+          _equal(parent, other.parent) &&
+          _equal(archived, other.archived) &&
+          _equal(modelId, other.modelId) &&
+          _equal(status, other.status) &&
+          _equal(origin, other.origin) &&
+          _equal(source, other.source);
 
   @override
   int get hashCode => Object.hashAll([
@@ -511,9 +518,10 @@ final class SessionTitle {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionTitle &&
-      _equal(text, other.text) &&
-      _equal(source, other.source);
+          _equal(text, other.text) &&
+          _equal(source, other.source);
 
   @override
   int get hashCode => Object.hashAll([_hash(text), _hash(source)]);

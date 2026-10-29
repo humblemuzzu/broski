@@ -145,7 +145,10 @@ class WebSocketService {
   /// The request this message is waiting for a reply to, if any: the caller
   /// fails it the moment the link says the message never left.
   String? _tagOf(Map<String, dynamic> message) {
-    final requestId = message['requestId'];
+    final contract = message['message'];
+    final requestId = message['type'] == 'contract' && contract is Map
+        ? contract['requestId']
+        : message['requestId'];
     return requestId is String && requestId.isNotEmpty ? requestId : null;
   }
 

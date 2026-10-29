@@ -1,7 +1,6 @@
 import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/project.dart';
 import 'package:broski/providers/agent_type_provider.dart';
-import 'package:broski/providers/app_info_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/link/machines_provider.dart';
 import 'package:broski/providers/onboarding_provider.dart';
@@ -25,6 +24,7 @@ import 'package:broski/screens/opencode_plugins_screen.dart';
 import 'package:broski/screens/permission_rules_screen.dart';
 import 'package:broski/screens/plugins_screen.dart';
 import 'package:broski/screens/scan_screen.dart';
+import 'package:broski/screens/settings/app_version_line.dart';
 import 'package:broski/screens/sheets/cx_apps_sheet.dart';
 import 'package:broski/screens/sheets/git_panel_sheet.dart';
 import 'package:broski/screens/skills_screen.dart';
@@ -61,7 +61,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
     final currentThemeInfo = ref.watch(currentThemeInfoProvider);
     final currentAgent = ref.watch(agentTypeProvider);
-    final appVersion = ref.watch(appVersionProvider);
     final selection = ref.watch(selectionProvider);
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
@@ -449,23 +448,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               // ── Version (bottom) ─────────────────────────────────
               const SliverToBoxAdapter(child: SizedBox(height: Spacing.xxxl)),
-              SliverToBoxAdapter(
-                child: Center(
-                  child: Padding(
-                    padding: Insets.bottomSm,
-                    child: Text(
-                      'Broski v$appVersion',
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.25,
-                        ),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+              const SliverToBoxAdapter(child: AppVersionLine()),
               const SliverToBoxAdapter(child: SizedBox(height: 40)),
             ],
           ),

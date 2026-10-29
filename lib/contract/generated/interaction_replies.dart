@@ -33,9 +33,10 @@ final class CancelReply implements InteractionReply {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is CancelReply &&
-      _equal(stopRun, other.stopRun) &&
-      _equal(message, other.message);
+          _equal(stopRun, other.stopRun) &&
+          _equal(message, other.message);
 
   @override
   int get hashCode => Object.hashAll([_hash(stopRun), _hash(message)]);
@@ -64,6 +65,7 @@ final class ChoiceReply implements InteractionReply {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ChoiceReply && _equal(value, other.value);
 
   @override
@@ -95,6 +97,7 @@ final class ConfirmReply implements InteractionReply {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ConfirmReply && _equal(confirmed, other.confirmed);
 
   @override
@@ -121,7 +124,8 @@ final class ExternalUrlReply implements InteractionReply {
   Map<String, Object?> toJson() => {'kind': 'external_url'};
 
   @override
-  bool operator ==(Object other) => other is ExternalUrlReply;
+  bool operator ==(Object other) =>
+      identical(this, other) || other is ExternalUrlReply;
 
   @override
   int get hashCode => runtimeType.hashCode;
@@ -163,6 +167,7 @@ final class FormReply implements InteractionReply {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is FormReply && _equal(values, other.values);
 
   @override
@@ -201,9 +206,10 @@ final class InteractionAnswer {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is InteractionAnswer &&
-      _equal(interactionId, other.interactionId) &&
-      _equal(reply, other.reply);
+          _equal(interactionId, other.interactionId) &&
+          _equal(reply, other.reply);
 
   @override
   int get hashCode => Object.hashAll([_hash(interactionId), _hash(reply)]);
@@ -270,10 +276,11 @@ final class PlanApprovalReply implements InteractionReply {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is PlanApprovalReply &&
-      _equal(decision, other.decision) &&
-      _equal(plan, other.plan) &&
-      _equal(feedback, other.feedback);
+          _equal(decision, other.decision) &&
+          _equal(plan, other.plan) &&
+          _equal(feedback, other.feedback);
 
   @override
   int get hashCode =>
@@ -340,10 +347,11 @@ final class QuestionAnswer {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is QuestionAnswer &&
-      _equal(questionId, other.questionId) &&
-      _equal(selected, other.selected) &&
-      _equal(custom, other.custom);
+          _equal(questionId, other.questionId) &&
+          _equal(selected, other.selected) &&
+          _equal(custom, other.custom);
 
   @override
   int get hashCode =>
@@ -387,6 +395,7 @@ final class QuestionsReply implements InteractionReply {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is QuestionsReply && _equal(answers, other.answers);
 
   @override
@@ -433,7 +442,7 @@ final class TextReply implements InteractionReply {
 
   @override
   bool operator ==(Object other) =>
-      other is TextReply && _equal(text, other.text);
+      identical(this, other) || other is TextReply && _equal(text, other.text);
 
   @override
   int get hashCode => Object.hashAll([_hash(text)]);
@@ -491,11 +500,12 @@ final class ToolPermissionReply implements InteractionReply {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ToolPermissionReply &&
-      _equal(optionId, other.optionId) &&
-      _equal(message, other.message) &&
-      _equal(editedInput, other.editedInput) &&
-      _equal(grantIds, other.grantIds);
+          _equal(optionId, other.optionId) &&
+          _equal(message, other.message) &&
+          _equal(editedInput, other.editedInput) &&
+          _equal(grantIds, other.grantIds);
 
   @override
   int get hashCode => Object.hashAll([

@@ -103,16 +103,17 @@ final class ModelSummary {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ModelSummary &&
-      _equal(id, other.id) &&
-      _equal(displayName, other.displayName) &&
-      _equal(description, other.description) &&
-      _equal(providerId, other.providerId) &&
-      _equal(providerName, other.providerName) &&
-      _equal(contextWindow, other.contextWindow) &&
-      _equal(inputModalities, other.inputModalities) &&
-      _equal(thinking, other.thinking) &&
-      _equal(isDefault, other.isDefault);
+          _equal(id, other.id) &&
+          _equal(displayName, other.displayName) &&
+          _equal(description, other.description) &&
+          _equal(providerId, other.providerId) &&
+          _equal(providerName, other.providerName) &&
+          _equal(contextWindow, other.contextWindow) &&
+          _equal(inputModalities, other.inputModalities) &&
+          _equal(thinking, other.thinking) &&
+          _equal(isDefault, other.isDefault);
 
   @override
   int get hashCode => Object.hashAll([
@@ -164,10 +165,11 @@ final class ThinkingOption {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ThinkingOption &&
-      _equal(value, other.value) &&
-      _equal(label, other.label) &&
-      _equal(description, other.description);
+          _equal(value, other.value) &&
+          _equal(label, other.label) &&
+          _equal(description, other.description);
 
   @override
   int get hashCode =>
@@ -212,9 +214,10 @@ final class ThinkingSpec {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ThinkingSpec &&
-      _equal(options, other.options) &&
-      _equal(defaultValue, other.defaultValue);
+          _equal(options, other.options) &&
+          _equal(defaultValue, other.defaultValue);
 
   @override
   int get hashCode => Object.hashAll([_hash(options), _hash(defaultValue)]);

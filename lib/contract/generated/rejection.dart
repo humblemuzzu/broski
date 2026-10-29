@@ -42,6 +42,7 @@ final class Rejected
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is Rejected && _equal(rejection, other.rejection);
 
   @override
@@ -72,9 +73,10 @@ final class Rejection {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is Rejection &&
-      _equal(code, other.code) &&
-      _equal(message, other.message);
+          _equal(code, other.code) &&
+          _equal(message, other.message);
 
   @override
   int get hashCode => Object.hashAll([_hash(code), _hash(message)]);

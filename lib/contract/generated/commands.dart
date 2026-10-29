@@ -68,12 +68,13 @@ final class CommandSummary {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is CommandSummary &&
-      _equal(id, other.id) &&
-      _equal(name, other.name) &&
-      _equal(kind, other.kind) &&
-      _equal(description, other.description) &&
-      _equal(argumentHint, other.argumentHint);
+          _equal(id, other.id) &&
+          _equal(name, other.name) &&
+          _equal(kind, other.kind) &&
+          _equal(description, other.description) &&
+          _equal(argumentHint, other.argumentHint);
 
   @override
   int get hashCode => Object.hashAll([

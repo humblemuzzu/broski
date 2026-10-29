@@ -33,10 +33,11 @@ final class Option {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is Option &&
-      _equal(value, other.value) &&
-      _equal(label, other.label) &&
-      _equal(description, other.description);
+          _equal(value, other.value) &&
+          _equal(label, other.label) &&
+          _equal(description, other.description);
 
   @override
   int get hashCode =>

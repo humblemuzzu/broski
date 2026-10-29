@@ -11,6 +11,8 @@ sealed class Attachment {
         final tag => throw FormatException('Unknown Attachment kind: $tag'),
       };
 
+  String? get name;
+
   Map<String, Object?> toJson();
 }
 
@@ -37,6 +39,8 @@ sealed class AttachmentRef {
         'file' => FileContent.fromJson(json),
         final tag => throw FormatException('Unknown AttachmentRef kind: $tag'),
       };
+
+  String? get name;
 
   Map<String, Object?> toJson();
 }
@@ -115,13 +119,14 @@ final class FileChange {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is FileChange &&
-      _equal(path, other.path) &&
-      _equal(change, other.change) &&
-      _equal(previousPath, other.previousPath) &&
-      _equal(diff, other.diff) &&
-      _equal(additions, other.additions) &&
-      _equal(deletions, other.deletions);
+          _equal(path, other.path) &&
+          _equal(change, other.change) &&
+          _equal(previousPath, other.previousPath) &&
+          _equal(diff, other.diff) &&
+          _equal(additions, other.additions) &&
+          _equal(deletions, other.deletions);
 
   @override
   int get hashCode => Object.hashAll([
@@ -179,6 +184,7 @@ final class FileContent implements Attachment, AttachmentRef, ToolContent {
 
   final String uri;
   final String? mimeType;
+  @override
   final String? name;
 
   @override
@@ -191,10 +197,11 @@ final class FileContent implements Attachment, AttachmentRef, ToolContent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is FileContent &&
-      _equal(uri, other.uri) &&
-      _equal(mimeType, other.mimeType) &&
-      _equal(name, other.name);
+          _equal(uri, other.uri) &&
+          _equal(mimeType, other.mimeType) &&
+          _equal(name, other.name);
 
   @override
   int get hashCode =>
@@ -226,6 +233,7 @@ final class ImageContent implements Attachment {
 
   final String mimeType;
   final String data;
+  @override
   final String? name;
 
   @override
@@ -238,10 +246,11 @@ final class ImageContent implements Attachment {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ImageContent &&
-      _equal(mimeType, other.mimeType) &&
-      _equal(data, other.data) &&
-      _equal(name, other.name);
+          _equal(mimeType, other.mimeType) &&
+          _equal(data, other.data) &&
+          _equal(name, other.name);
 
   @override
   int get hashCode =>
@@ -273,6 +282,7 @@ final class ImageRef implements AttachmentRef, ToolContent {
 
   final AttachmentId id;
   final String mimeType;
+  @override
   final String? name;
 
   @override
@@ -285,10 +295,11 @@ final class ImageRef implements AttachmentRef, ToolContent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ImageRef &&
-      _equal(id, other.id) &&
-      _equal(mimeType, other.mimeType) &&
-      _equal(name, other.name);
+          _equal(id, other.id) &&
+          _equal(mimeType, other.mimeType) &&
+          _equal(name, other.name);
 
   @override
   int get hashCode => Object.hashAll([_hash(id), _hash(mimeType), _hash(name)]);
@@ -317,6 +328,7 @@ final class TextContent implements ToolContent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is TextContent && _equal(text, other.text);
 
   @override

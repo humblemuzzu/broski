@@ -1,7 +1,9 @@
+import { dartConstants } from "./constants";
 import { classDeclaration } from "./dart-class";
 import { DartCodec } from "./dart-codec";
 import { dartString, enumMemberName, partFileName, typeName } from "./dart-names";
 import { DART_RUNTIME, JSON_VALUE_DECLARATION } from "./dart-runtime";
+import { sharedFields } from "./dart-union";
 import { byCodeUnits } from "./order";
 import { type TypeDef, tagValue } from "./type-model";
 
@@ -18,6 +20,7 @@ export const LIBRARY_FILE = "contract.dart";
 export function dartLibrary(
 	types: Map<string, TypeDef>,
 	protocol: { major: number; minor: number },
+	constants: [string, number][],
 ): Map<string, string> {
 	const codec = new DartCodec(types);
 	const unionsOf = unionMembership(types);
@@ -30,6 +33,7 @@ export function dartLibrary(
 		libraryFile(
 			modules.map(([module]) => module),
 			protocol,
+			constants,
 		),
 	);
 	for (const [module, moduleTypes] of modules) {
@@ -41,12 +45,17 @@ export function dartLibrary(
 	return files;
 }
 
-function libraryFile(modules: string[], protocol: { major: number; minor: number }): string {
+function libraryFile(
+	modules: string[],
+	protocol: { major: number; minor: number },
+	constants: [string, number][],
+): string {
 	const parts = modules.map((module) => `part '${partFileName(module)}';`).join("\n");
 	return (
 		`${GENERATED_HEADER}\nlibrary;\n\n${parts}\n\n` +
 		`const int contractProtocolMajor = ${protocol.major};\n` +
 		`const int contractProtocolMinor = ${protocol.minor};\n\n` +
+		`${dartConstants(constants)}\n` +
 		DART_RUNTIME
 	);
 }
@@ -69,10 +78,15 @@ function declaration(
 	switch (type.kind) {
 		case "enum":
 			return enumDeclaration(type);
-		case "class":
-			return classDeclaration(type, codec, unionsOf.get(type.name) ?? []);
+		case "class": {
+			const unions = unionsOf.get(type.name) ?? [];
+			const inherited = new Set(
+				unions.flatMap((union) => sharedFields(union, types, codec).map((field) => field.name)),
+			);
+			return classDeclaration(type, codec, unions, inherited);
+		}
 		case "union":
-			return unionDeclaration(type, types);
+			return unionDeclaration(type, types, codec);
 		case "alias":
 			return `typedef ${typeName(type.name)} = ${codec.type(type.target)};\n`;
 		case "json":
@@ -100,8 +114,11 @@ ${members};
 `;
 }
 
-function unionDeclaration(type: UnionDef, types: Map<string, TypeDef>): string {
+function unionDeclaration(type: UnionDef, types: Map<string, TypeDef>, codec: DartCodec): string {
 	const name = typeName(type.name);
+	const getters = sharedFields(type, types, codec)
+		.map((field) => `  ${field.type} get ${field.name};\n\n`)
+		.join("");
 	const cases = type.members
 		.map((member) => {
 			const memberDef = types.get(member);
@@ -114,7 +131,7 @@ function unionDeclaration(type: UnionDef, types: Map<string, TypeDef>): string {
 ${cases}    final tag => throw FormatException('Unknown ${name} ${type.key}: $tag'),
   };
 
-  Map<String, Object?> toJson();
+${getters}  Map<String, Object?> toJson();
 }
 `;
 }

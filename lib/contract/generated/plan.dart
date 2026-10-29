@@ -32,9 +32,10 @@ final class Plan {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is Plan &&
-      _equal(items, other.items) &&
-      _equal(explanation, other.explanation);
+          _equal(items, other.items) &&
+          _equal(explanation, other.explanation);
 
   @override
   int get hashCode => Object.hashAll([_hash(items), _hash(explanation)]);
@@ -66,9 +67,10 @@ final class PlanItem {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is PlanItem &&
-      _equal(text, other.text) &&
-      _equal(status, other.status);
+          _equal(text, other.text) &&
+          _equal(status, other.status);
 
   @override
   int get hashCode => Object.hashAll([_hash(text), _hash(status)]);

@@ -72,12 +72,13 @@ final class BackendStatus {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is BackendStatus &&
-      _equal(installed, other.installed) &&
-      _equal(version, other.version) &&
-      _equal(auth, other.auth) &&
-      _equal(usable, other.usable) &&
-      _equal(issues, other.issues);
+          _equal(installed, other.installed) &&
+          _equal(version, other.version) &&
+          _equal(auth, other.auth) &&
+          _equal(usable, other.usable) &&
+          _equal(issues, other.issues);
 
   @override
   int get hashCode => Object.hashAll([
@@ -135,9 +136,10 @@ final class StatusIssue {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is StatusIssue &&
-      _equal(severity, other.severity) &&
-      _equal(message, other.message);
+          _equal(severity, other.severity) &&
+          _equal(message, other.message);
 
   @override
   int get hashCode => Object.hashAll([_hash(severity), _hash(message)]);

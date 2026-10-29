@@ -36,6 +36,7 @@ final class ChoiceRequest implements InteractionRequest {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ChoiceRequest && _equal(options, other.options);
 
   @override
@@ -75,9 +76,10 @@ final class CommandPreview implements PermissionPreview {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is CommandPreview &&
-      _equal(command, other.command) &&
-      _equal(cwd, other.cwd);
+          _equal(command, other.command) &&
+          _equal(cwd, other.cwd);
 
   @override
   int get hashCode => Object.hashAll([_hash(command), _hash(cwd)]);
@@ -103,7 +105,8 @@ final class ConfirmRequest implements InteractionRequest {
   Map<String, Object?> toJson() => {'kind': 'confirm'};
 
   @override
-  bool operator ==(Object other) => other is ConfirmRequest;
+  bool operator ==(Object other) =>
+      identical(this, other) || other is ConfirmRequest;
 
   @override
   int get hashCode => runtimeType.hashCode;
@@ -142,9 +145,10 @@ final class ExternalUrlRequest implements InteractionRequest {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ExternalUrlRequest &&
-      _equal(url, other.url) &&
-      _equal(server, other.server);
+          _equal(url, other.url) &&
+          _equal(server, other.server);
 
   @override
   int get hashCode => Object.hashAll([_hash(url), _hash(server)]);
@@ -186,6 +190,7 @@ final class FileChangesPreview implements PermissionPreview {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is FileChangesPreview && _equal(changes, other.changes);
 
   @override
@@ -233,9 +238,10 @@ final class FormRequest implements InteractionRequest {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is FormRequest &&
-      _equal(fields, other.fields) &&
-      _equal(server, other.server);
+          _equal(fields, other.fields) &&
+          _equal(server, other.server);
 
   @override
   int get hashCode => Object.hashAll([_hash(fields), _hash(server)]);
@@ -336,16 +342,17 @@ final class Interaction {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is Interaction &&
-      _equal(id, other.id) &&
-      _equal(runId, other.runId) &&
-      _equal(createdAt, other.createdAt) &&
-      _equal(expiresAt, other.expiresAt) &&
-      _equal(title, other.title) &&
-      _equal(body, other.body) &&
-      _equal(blocksRun, other.blocksRun) &&
-      _equal(origin, other.origin) &&
-      _equal(request, other.request);
+          _equal(id, other.id) &&
+          _equal(runId, other.runId) &&
+          _equal(createdAt, other.createdAt) &&
+          _equal(expiresAt, other.expiresAt) &&
+          _equal(title, other.title) &&
+          _equal(body, other.body) &&
+          _equal(blocksRun, other.blocksRun) &&
+          _equal(origin, other.origin) &&
+          _equal(request, other.request);
 
   @override
   int get hashCode => Object.hashAll([
@@ -428,10 +435,11 @@ final class InteractionOrigin {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is InteractionOrigin &&
-      _equal(toolCallId, other.toolCallId) &&
-      _equal(toolName, other.toolName) &&
-      _equal(parentToolCallId, other.parentToolCallId);
+          _equal(toolCallId, other.toolCallId) &&
+          _equal(toolName, other.toolName) &&
+          _equal(parentToolCallId, other.parentToolCallId);
 
   @override
   int get hashCode => Object.hashAll([
@@ -511,9 +519,10 @@ final class NetworkPreview implements PermissionPreview {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is NetworkPreview &&
-      _equal(host, other.host) &&
-      _equal(protocol, other.protocol);
+          _equal(host, other.host) &&
+          _equal(protocol, other.protocol);
 
   @override
   int get hashCode => Object.hashAll([_hash(host), _hash(protocol)]);
@@ -550,6 +559,7 @@ final class PathsPreview implements PermissionPreview {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is PathsPreview && _equal(paths, other.paths);
 
   @override
@@ -607,10 +617,11 @@ final class PermissionGrant {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is PermissionGrant &&
-      _equal(id, other.id) &&
-      _equal(kind, other.kind) &&
-      _equal(target, other.target);
+          _equal(id, other.id) &&
+          _equal(kind, other.kind) &&
+          _equal(target, other.target);
 
   @override
   int get hashCode => Object.hashAll([_hash(id), _hash(kind), _hash(target)]);
@@ -679,14 +690,15 @@ final class PermissionOption {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is PermissionOption &&
-      _equal(id, other.id) &&
-      _equal(label, other.label) &&
-      _equal(effect, other.effect) &&
-      _equal(scope, other.scope) &&
-      _equal(stopsRun, other.stopsRun) &&
-      _equal(message, other.message) &&
-      _equal(rule, other.rule);
+          _equal(id, other.id) &&
+          _equal(label, other.label) &&
+          _equal(effect, other.effect) &&
+          _equal(scope, other.scope) &&
+          _equal(stopsRun, other.stopsRun) &&
+          _equal(message, other.message) &&
+          _equal(rule, other.rule);
 
   @override
   int get hashCode => Object.hashAll([
@@ -774,10 +786,11 @@ final class PlanApprovalRequest implements InteractionRequest {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is PlanApprovalRequest &&
-      _equal(plan, other.plan) &&
-      _equal(editable, other.editable) &&
-      _equal(path, other.path);
+          _equal(plan, other.plan) &&
+          _equal(editable, other.editable) &&
+          _equal(path, other.path);
 
   @override
   int get hashCode =>
@@ -855,15 +868,16 @@ final class Question {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is Question &&
-      _equal(id, other.id) &&
-      _equal(header, other.header) &&
-      _equal(text, other.text) &&
-      _equal(options, other.options) &&
-      _equal(multiSelect, other.multiSelect) &&
-      _equal(allowCustom, other.allowCustom) &&
-      _equal(secret, other.secret) &&
-      _equal(required, other.required);
+          _equal(id, other.id) &&
+          _equal(header, other.header) &&
+          _equal(text, other.text) &&
+          _equal(options, other.options) &&
+          _equal(multiSelect, other.multiSelect) &&
+          _equal(allowCustom, other.allowCustom) &&
+          _equal(secret, other.secret) &&
+          _equal(required, other.required);
 
   @override
   int get hashCode => Object.hashAll([
@@ -914,10 +928,11 @@ final class QuestionOption {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is QuestionOption &&
-      _equal(label, other.label) &&
-      _equal(description, other.description) &&
-      _equal(preview, other.preview);
+          _equal(label, other.label) &&
+          _equal(description, other.description) &&
+          _equal(preview, other.preview);
 
   @override
   int get hashCode =>
@@ -961,6 +976,7 @@ final class QuestionsRequest implements InteractionRequest {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is QuestionsRequest && _equal(questions, other.questions);
 
   @override
@@ -1009,10 +1025,11 @@ final class TextRequest implements InteractionRequest {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is TextRequest &&
-      _equal(placeholder, other.placeholder) &&
-      _equal(initialText, other.initialText) &&
-      _equal(multiline, other.multiline);
+          _equal(placeholder, other.placeholder) &&
+          _equal(initialText, other.initialText) &&
+          _equal(multiline, other.multiline);
 
   @override
   int get hashCode => Object.hashAll([
@@ -1130,15 +1147,16 @@ final class ToolPermissionRequest implements InteractionRequest {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ToolPermissionRequest &&
-      _equal(input, other.input) &&
-      _equal(inputEditable, other.inputEditable) &&
-      _equal(reason, other.reason) &&
-      _equal(previews, other.previews) &&
-      _equal(options, other.options) &&
-      _equal(grants, other.grants) &&
-      _equal(defaultOptionId, other.defaultOptionId) &&
-      _equal(deliberate, other.deliberate);
+          _equal(input, other.input) &&
+          _equal(inputEditable, other.inputEditable) &&
+          _equal(reason, other.reason) &&
+          _equal(previews, other.previews) &&
+          _equal(options, other.options) &&
+          _equal(grants, other.grants) &&
+          _equal(defaultOptionId, other.defaultOptionId) &&
+          _equal(deliberate, other.deliberate);
 
   @override
   int get hashCode => Object.hashAll([

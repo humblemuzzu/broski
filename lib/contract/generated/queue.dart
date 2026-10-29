@@ -44,11 +44,12 @@ final class QueueItem {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is QueueItem &&
-      _equal(id, other.id) &&
-      _equal(delivery, other.delivery) &&
-      _equal(preview, other.preview) &&
-      _equal(clientRequestId, other.clientRequestId);
+          _equal(id, other.id) &&
+          _equal(delivery, other.delivery) &&
+          _equal(preview, other.preview) &&
+          _equal(clientRequestId, other.clientRequestId);
 
   @override
   int get hashCode => Object.hashAll([

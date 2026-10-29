@@ -55,12 +55,13 @@ final class ModeAxis {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ModeAxis &&
-      _equal(id, other.id) &&
-      _equal(label, other.label) &&
-      _equal(description, other.description) &&
-      _equal(options, other.options) &&
-      _equal(defaultValue, other.defaultValue);
+          _equal(id, other.id) &&
+          _equal(label, other.label) &&
+          _equal(description, other.description) &&
+          _equal(options, other.options) &&
+          _equal(defaultValue, other.defaultValue);
 
   @override
   int get hashCode => Object.hashAll([
@@ -99,9 +100,10 @@ final class ModeSetting {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ModeSetting &&
-      _equal(axis, other.axis) &&
-      _equal(value, other.value);
+          _equal(axis, other.axis) &&
+          _equal(value, other.value);
 
   @override
   int get hashCode => Object.hashAll([_hash(axis), _hash(value)]);

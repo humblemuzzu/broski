@@ -52,12 +52,13 @@ final class ActiveRun {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is ActiveRun &&
-      _equal(runId, other.runId) &&
-      _equal(trigger, other.trigger) &&
-      _equal(startedAt, other.startedAt) &&
-      _equal(items, other.items) &&
-      _equal(droppedItems, other.droppedItems);
+          _equal(runId, other.runId) &&
+          _equal(trigger, other.trigger) &&
+          _equal(startedAt, other.startedAt) &&
+          _equal(items, other.items) &&
+          _equal(droppedItems, other.droppedItems);
 
   @override
   int get hashCode => Object.hashAll([
@@ -99,9 +100,10 @@ final class CompactionState {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is CompactionState &&
-      _equal(trigger, other.trigger) &&
-      _equal(startedAt, other.startedAt);
+          _equal(trigger, other.trigger) &&
+          _equal(startedAt, other.startedAt);
 
   @override
   int get hashCode => Object.hashAll([_hash(trigger), _hash(startedAt)]);
@@ -155,12 +157,13 @@ final class OpenBlock {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is OpenBlock &&
-      _equal(blockId, other.blockId) &&
-      _equal(messageId, other.messageId) &&
-      _equal(kind, other.kind) &&
-      _equal(parentToolCallId, other.parentToolCallId) &&
-      _equal(text, other.text);
+          _equal(blockId, other.blockId) &&
+          _equal(messageId, other.messageId) &&
+          _equal(kind, other.kind) &&
+          _equal(parentToolCallId, other.parentToolCallId) &&
+          _equal(text, other.text);
 
   @override
   int get hashCode => Object.hashAll([
@@ -217,11 +220,12 @@ final class RetryState {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is RetryState &&
-      _equal(attempt, other.attempt) &&
-      _equal(maxAttempts, other.maxAttempts) &&
-      _equal(retryAt, other.retryAt) &&
-      _equal(message, other.message);
+          _equal(attempt, other.attempt) &&
+          _equal(maxAttempts, other.maxAttempts) &&
+          _equal(retryAt, other.retryAt) &&
+          _equal(message, other.message);
 
   @override
   int get hashCode => Object.hashAll([
@@ -331,17 +335,18 @@ final class RunningTool {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is RunningTool &&
-      _equal(toolCallId, other.toolCallId) &&
-      _equal(name, other.name) &&
-      _equal(title, other.title) &&
-      _equal(input, other.input) &&
-      _equal(messageId, other.messageId) &&
-      _equal(parentToolCallId, other.parentToolCallId) &&
-      _equal(childSession, other.childSession) &&
-      _equal(output, other.output) &&
-      _equal(progress, other.progress) &&
-      _equal(fileChanges, other.fileChanges);
+          _equal(toolCallId, other.toolCallId) &&
+          _equal(name, other.name) &&
+          _equal(title, other.title) &&
+          _equal(input, other.input) &&
+          _equal(messageId, other.messageId) &&
+          _equal(parentToolCallId, other.parentToolCallId) &&
+          _equal(childSession, other.childSession) &&
+          _equal(output, other.output) &&
+          _equal(progress, other.progress) &&
+          _equal(fileChanges, other.fileChanges);
 
   @override
   int get hashCode => Object.hashAll([
@@ -518,20 +523,21 @@ final class SessionSnapshot {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionSnapshot &&
-      _equal(run, other.run) &&
-      _equal(blocks, other.blocks) &&
-      _equal(tools, other.tools) &&
-      _equal(interactions, other.interactions) &&
-      _equal(queue, other.queue) &&
-      _equal(modelId, other.modelId) &&
-      _equal(thinking, other.thinking) &&
-      _equal(modes, other.modes) &&
-      _equal(usage, other.usage) &&
-      _equal(plan, other.plan) &&
-      _equal(compaction, other.compaction) &&
-      _equal(retry, other.retry) &&
-      _equal(lastOutcome, other.lastOutcome);
+          _equal(run, other.run) &&
+          _equal(blocks, other.blocks) &&
+          _equal(tools, other.tools) &&
+          _equal(interactions, other.interactions) &&
+          _equal(queue, other.queue) &&
+          _equal(modelId, other.modelId) &&
+          _equal(thinking, other.thinking) &&
+          _equal(modes, other.modes) &&
+          _equal(usage, other.usage) &&
+          _equal(plan, other.plan) &&
+          _equal(compaction, other.compaction) &&
+          _equal(retry, other.retry) &&
+          _equal(lastOutcome, other.lastOutcome);
 
   @override
   int get hashCode => Object.hashAll([

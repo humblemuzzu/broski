@@ -15,7 +15,7 @@ Phone (Flutter + Rust core) ←Broski Link (Noise e2e; LAN or relay)→ broski-l
 - **Flutter app** (`lib/`, Rust core via `packages/link_dart/`) — iOS/Android app. Renders UI only; all AI logic stays on Mac.
 - **Connection:** direct over the LAN when reachable, otherwise through the relay. No VPN, tunnel, port forwarding or public exposure of the bridge.
 - **Auth layers:** QR v2 pairing (`broski://pair?v=2&h=<fingerprint>&s=<one-time secret>&e=<expiry>&n=<name>[&r=<relay>][&l=<lan>]`), Noise end-to-end encryption (hybrid X25519 + ML-KEM-768) with the machine fingerprint pinned from the QR, and per-device revocable authorisation on the daemon. Design docs: `docs/architecture/connectivity-v2/`.
-- **655 Dart files** (~153K LOC under `lib/`, of which 32 files and ~14K LOC are the generated contract in `lib/contract/generated/`), **514 TypeScript files** (~66K LOC under `packages/bridge/src/`, tests excluded).
+- **760 Dart files** (~163K LOC under `lib/`, of which 32 files and ~14K LOC are the generated contract in `lib/contract/generated/` and 104 files and ~10K LOC the app core in `lib/agent/`), **546 TypeScript files** (~68K LOC under `packages/bridge/src/`, tests excluded).
 - **OpenCode** is wired to the 1.x SDK (`@opencode-ai/sdk` 1.3.17). The installed OpenCode CLI is 2.x (v2.1.4: new storage under `$XDG_DATA_HOME|~/.local/share/opencode`, one registered service). The integration is slated for a rewrite; until then treat OpenCode behaviour against a 2.x CLI as unverified.
 - **`pi-durable`** is the experimental 5th backend (`@earendil-works/pi-durable@1.4.0`, behind an Experimental toggle in the app). See `docs/architecture/backends/pi-durable.md`.
 
@@ -78,6 +78,16 @@ The core that speaks the contract lives in `packages/bridge/src/core/`; its doc 
 - **Keep-open**: a session with a run, a pending ask, a compaction, a retry or queued input stays open, viewed or not; only bridge shutdown closes a busy session.
 - **Every frame fits the link** (`wire-fit.ts`): every contract message goes out through `fitMessage`/`fitEvent` (only the core's own short `error` answers skip it), and fitting never cuts ids, cursors or image bytes.
 - **Tests drive the fake backend** (`__tests__/helpers/core-rig.ts`, `core-bridge.ts`) and break adapters by wrapping the fake (`adapt`, `helpers/core-adapters.ts`); they never mock the core. `bun run mutate:core` checks that the core's tests fail on every guard removed, except the equivalent mutants it lists with their reasons.
+
+## App core (the rebuild, Phase 3)
+
+The phone side of the contract lives in `lib/agent/`; its doc is [`docs/architecture/app-core/README.md`](docs/architecture/app-core/README.md). It is additive: the old screens keep working, and the new ones are reached only by a long press on the version line in Settings (debug builds). Rules:
+
+- **`lib/agent/` never steers by backend.** Branch on `Capabilities`, `SessionCapabilities` and the data. `BackendId` members and backend-id strings appear only in `ui/backend_label.dart`, for display; `AgentType` never appears.
+- **`lib/agent/` imports only** `dart:`, Flutter, Riverpod, the generated contract, itself, the theme, and the named infrastructure `tool/agent_core_check/import_rules.dart` lists, each with a `show` of only the names listed. `dart run tool/check_agent_core.dart` enforces both rules in CI; it catches accidents, not every determined bypass.
+- **The reducer and the answer check are ports**, held equal to `session-reducer.ts` and `answer-check.ts` by fixtures the generator computes (`reducer_trace.json`, `answer_cases.json`). Change the TypeScript, regenerate, and the Dart tests say what to change; never write their expectations by hand. `dart run tool/format_differential.dart` holds the string formats and patterns to Bun on a seeded corpus; `dart run tool/mutate_agent_core.dart` checks that the agent tests fail on every guard removed, except the equivalent mutants it lists.
+- **One client, one store.** Requests go through `ContractClient` (typed results, never a throw); session state through `sessionProvider(SessionRef)`. Do not add another request client.
+- **Tests use the injected `AgentClock`** (`test/agent/support/manual_clock.dart`), the scripted bridge (`scripted_bridge.dart`) and a real controller; the e2e test runs the real daemon and `packages/bridge/scripts/dev-fake-bridge.ts`, which never ships.
 
 ## The Runtime Abstraction
 
@@ -215,7 +225,7 @@ Every edit must make the codebase more modular, not less. New code goes in new f
 | File | Lines | What it has | Where new code goes |
 |------|-------|-------------|-------------------|
 | `lib/screens/chat_screen.dart` | 2,135 | Main chat screen build + routing | `lib/screens/sheets/` (52 files), `lib/screens/chat/` (52 files), `lib/screens/dialogs/` (9 files) |
-| `lib/screens/settings_screen.dart` | 1,301 | All settings | Extract sections to `lib/screens/sheets/` or dedicated screens |
+| `lib/screens/settings_screen.dart` | 1,284 | All settings | Extract sections to `lib/screens/settings/`, `lib/screens/sheets/` or dedicated screens |
 | `lib/screens/claude_code_settings_screen.dart` | 1,502 | CC settings | Extract to `lib/screens/sheets/cc_*.dart` |
 | `lib/screens/projects_screen.dart` | 1,261 | Project management | Extract sections |
 | `lib/screens/browse_screen.dart` | 1,312 | File browser | Extract sections |
@@ -354,11 +364,13 @@ Other files over 400 lines (not tabulated): `lib/theme/themes/all_themes.dart` (
 
 ## Where Code Lives
 
-### Flutter (`lib/`) — 655 files, ~153K LOC (32 generated under `contract/generated/`)
+### Flutter (`lib/`) — 760 files, ~163K LOC (32 generated under `contract/generated/`)
 
 ```
 lib/
-  screens/                          ← 50 files here (30,046 lines); 196 recursive, 61,720 lines
+  agent/                            ← the app core (Phase 3): contract client, session store, reducer and answer-check ports, generic screens
+  screens/                          ← 50 files here (30,029 lines); 197 recursive, 61,735 lines
+    settings/                       ← the version line (`AppVersionLine`, the agent core's hidden entry)
     sheets/                         ← 52 extracted sheets (13,305 lines)
     chat/                           ← 52 extracted chat helpers incl. hydration/ (6,458 lines)
     sessions/                       ← 11 extracted session views (6,016 lines)
@@ -395,7 +407,7 @@ lib/
   utils/                            ← shared utilities
 ```
 
-### Bridge (`packages/bridge/src/`) — 514 files, ~66K LOC (tests excluded; 685 files with tests)
+### Bridge (`packages/bridge/src/`) — 546 files, ~68K LOC (tests excluded; 744 files with tests)
 
 ```
 packages/bridge/src/

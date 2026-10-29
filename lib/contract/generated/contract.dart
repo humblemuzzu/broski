@@ -38,6 +38,19 @@ part 'usage.dart';
 const int contractProtocolMajor = 1;
 const int contractProtocolMinor = 0;
 
+const int contractMaxCatalogItems = 10000;
+const int contractMaxClientMessageValues = 50000;
+const int contractMaxIdChars = 256;
+const int contractMaxImageChars = 4194304;
+const int contractMaxJsonDepth = 64;
+const int contractMaxListItems = 1000;
+const int contractMaxMessageBytes = 8388608;
+const int contractMaxNameChars = 1024;
+const int contractMaxPageLimit = 200;
+const int contractMaxPathChars = 4096;
+const int contractMaxTextChars = 1048576;
+const int contractRequestDeadlineMs = 120000;
+
 T _as<T>(Object? value, String path) => value is T
     ? value
     : throw FormatException('$path: expected $T, got ${value.runtimeType}');
@@ -61,6 +74,7 @@ void _expectShape(
 }
 
 bool _equal(Object? a, Object? b) {
+  if (identical(a, b)) return true;
   if (a is List<Object?> && b is List<Object?>) {
     if (a.length != b.length) return false;
     for (var index = 0; index < a.length; index++) {

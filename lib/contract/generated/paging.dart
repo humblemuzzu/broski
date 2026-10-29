@@ -31,9 +31,10 @@ final class PageRequest {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is PageRequest &&
-      _equal(cursor, other.cursor) &&
-      _equal(limit, other.limit);
+          _equal(cursor, other.cursor) &&
+          _equal(limit, other.limit);
 
   @override
   int get hashCode => Object.hashAll([_hash(cursor), _hash(limit)]);

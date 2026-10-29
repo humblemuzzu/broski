@@ -68,9 +68,10 @@ final class SessionRef {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionRef &&
-      _equal(backend, other.backend) &&
-      _equal(sessionId, other.sessionId);
+          _equal(backend, other.backend) &&
+          _equal(sessionId, other.sessionId);
 
   @override
   int get hashCode => Object.hashAll([_hash(backend), _hash(sessionId)]);

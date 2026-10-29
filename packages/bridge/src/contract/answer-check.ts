@@ -1,4 +1,4 @@
-import { fieldIsActive, fieldProblem } from "./field-check";
+import { answerFor, fieldIsActive, fieldProblem } from "./field-check";
 import type { FormFieldSpec } from "./forms";
 import type {
 	FormReply,
@@ -103,7 +103,7 @@ function formProblem(request: FormRequest, reply: FormReply): string | undefined
 	const unknown = Object.keys(reply.values).find((key) => !keys.has(key));
 	if (unknown !== undefined) return `no field ${unknown}`;
 	for (const field of request.fields) {
-		const value = reply.values[field.key];
+		const value = answerFor(reply.values, field.key);
 		if (!fieldIsActive(field, reply.values)) {
 			if (value !== undefined) return `field ${field.key} is not active`;
 			continue;

@@ -44,6 +44,7 @@ final class CatalogInvalidatedEvent implements CatalogEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is CatalogInvalidatedEvent && _equal(scope, other.scope);
 
   @override
@@ -100,6 +101,7 @@ final class SessionRemovedEvent implements CatalogEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionRemovedEvent && _equal(session, other.session);
 
   @override
@@ -139,6 +141,7 @@ final class SessionUpdatedEvent implements CatalogEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is SessionUpdatedEvent && _equal(summary, other.summary);
 
   @override
@@ -175,6 +178,7 @@ final class StatusChangedEvent implements CatalogEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is StatusChangedEvent && _equal(status, other.status);
 
   @override
@@ -214,6 +218,7 @@ final class TranscriptInvalidatedEvent implements CatalogEvent {
 
   @override
   bool operator ==(Object other) =>
+      identical(this, other) ||
       other is TranscriptInvalidatedEvent && _equal(session, other.session);
 
   @override

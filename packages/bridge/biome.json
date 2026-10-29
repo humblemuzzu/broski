@@ -30,7 +30,9 @@
       "scripts/check-layers.ts",
       "scripts/contract-gen/**/*.ts",
       "scripts/mutate-core.ts",
-      "scripts/mutate-core/**/*.ts"
+      "scripts/mutate-core/**/*.ts",
+      "scripts/dev-fake-bridge.ts",
+      "scripts/dev-fake-bridge/**/*.ts"
     ]
   }
 }

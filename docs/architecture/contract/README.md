@@ -72,7 +72,7 @@ Commands, from `packages/bridge`: `bun run contract:gen` writes every generated 
 - No `null`. Optional means absent.
 - `JsonValue` is the only open type, for genuinely free JSON (tool input, edited input). It is checked by one bounded walk (`json.ts`) rather than a recursive zod schema, because zod recurses once per level of the input and overflows the stack near 10,000 levels, which one small message reaches; the generator writes its JSON Schema by hand to the same shape. `NativeIds` (`string → string`) carries backend-native ids for debugging. Nothing in the contract is `unknown` or `any`.
 - Dart names must compile and must not collide with `dart:core`, common Flutter widgets or the members every generated class has (`hashCode`, `toString`, `toJson`, `other`, …). This is why the form field union is `FormFieldSpec`, not `FormField`.
-- Six contract names are also names of the app's current models: `FileContent`, `QuestionOption`, `SessionPage`, `SessionStatus`, `SessionSummary`, `TranscriptPage`. The contract keeps them, because one name holds across TypeScript, JSON Schema and Dart. Until Phase 3 deletes the old models, an app file that needs both imports the contract with a prefix: `import 'package:broski/contract/generated/contract.dart' as contract;`.
+- Six contract names are also names of the app's current models: `FileContent`, `QuestionOption`, `SessionPage`, `SessionStatus`, `SessionSummary`, `TranscriptPage`. The contract keeps them, because one name holds across TypeScript, JSON Schema and Dart. Until Phase 4 deletes the old models, an app file that needs both imports the contract with a prefix: `import 'package:broski/contract/generated/contract.dart' as contract;`.
 
 **Pipeline** (`bun run contract:gen`):
 
@@ -80,16 +80,22 @@ Commands, from `packages/bridge`: `bun run contract:gen` writes every generated 
 zod schemas ──z.toJSONSchema──▶ contract.schema.json ──type model──▶ lib/contract/generated/*.dart (dart format, pubspec language version)
       │                               │
       │                               └──sampler──▶ test/contract/fixtures/contract_samples.json  (every union member, every enum value, every object full and minimal; each sample is parsed by its zod schema)
-      └──FakeBackend scripted session──▶ test/contract/fixtures/fake_session_stream.json (every AgentEvent member, as wire ServerMessages)
-                                      └──▶ test/contract/generated/contract_round_trips.dart (a decoder and a decode-then-encode for every type)
+      ├──FakeBackend scripted session──▶ test/contract/fixtures/fake_session_stream.json (every AgentEvent member, as wire ServerMessages)
+      │                               └──applyEvent──▶ test/contract/fixtures/reducer_trace.json (the snapshot and status after every event)
+      ├──answerProblem, fieldIsActive──▶ test/contract/fixtures/answer_cases.json (the problem, or null, for every case)
+      └──▶ test/contract/generated/contract_round_trips.dart (a decoder and a decode-then-encode for every type)
 ```
+
+The last two fixtures hold the app's ports of the reducer and the answer check equal to these (app-core README §8).
 
 `test/contract/contract_round_trip_test.dart` decodes every sample and every fake-stream message in Dart and re-encodes it, and the result must equal the TypeScript JSON exactly; it also checks that two decodes of one sample are equal values with equal hash codes. The Dart models:
 
 - expose `fromJson`/`toJson`, use sealed classes for unions (exhaustive `switch`), and have no `dynamic` in public API;
 - make a field nullable exactly when the schema makes it optional;
 - are values: `==` and `hashCode` compare fields, lists and maps deeply, and `toString` names every field;
-- refuse anything the schema refuses with a `FormatException` naming the path: a missing or mistyped field, an unknown field (the schema's `additionalProperties: false`), a wrong tag, an unknown union member or enum value.
+- refuse anything the schema refuses with a `FormatException` naming the path: a missing or mistyped field, an unknown field (the schema's `additionalProperties: false`), a wrong tag, an unknown union member or enum value;
+- declare on a union the fields every member has with the same type, as getters (`TranscriptItem.id`, `ClientMessage.requestId`);
+- come with the numbers the app shares with the bridge: every bound in `limits.ts`, `MAX_PAGE_LIMIT` and the core's `REQUEST_DEADLINE_MS`, as `contractMaxTextChars` and so on in `contract.dart`.
 
 **Determinism.** Every generated file is ordered by UTF-16 code units, never by locale. `contract:check` ignores dotfiles (such as `.DS_Store`) in the directories it owns. The Dart text is whatever `dart format` prints for the app's language version (read from `pubspec.yaml`); `contract:gen` expects the Dart SDK that CI's Flutter 3.38.5 ships (Dart 3.10), and a different formatter release can format differently.
 
@@ -750,3 +756,7 @@ Found in round 2 (SDK source against the research and the contract):
 9. **codex.md §3.2**: the `thread/list` limits are at `thread_processor.rs:46-47` at the tag (`THREAD_LIST_DEFAULT_LIMIT = 25`, `THREAD_LIST_MAX_LIMIT = 100`), not `:48-49`. The values are right.
 10. **claude-code.md §6, §12 (`cancelQueued`)**: `interrupt_cancel_queued_v1` gates only `interrupt{cancel_queued: true}`, which aborts the turn and cancels every queued command (`sdk.d.ts:4836`). Per-item cancel is `cancel_async_message{message_uuid}`, which no capability gates (`sdk.d.ts:3987-3992`); it is still runtime-only on `Query` (Q4).
 11. **claude-code.md §8.4**: `ElicitResult.content` is typed `Record<string, unknown>` (`sdk.d.ts:778`), not the primitive record the report gives; the values MCP accepts are the primitives `FormValue` carries.
+
+Found in Phase 3 (the app's port against the contract):
+
+12. **`answer-check.ts`, `field-check.ts` (inherited keys)**: a form answer was read as `values[key]`, so a field whose key every JavaScript object inherits (`constructor`, `toString`, `hasOwnProperty`, …) read a function as its answer: an optional such field left unanswered was refused (`expects text`), and a `neq` condition on it held with no answer. Answers are now read by own key only (`answerFor`); `contract_form_keys.test.ts` and the generated `answer_cases.json` hold it. A field keyed `__proto__` remains unanswerable over the wire: zod's record parse drops that key.
