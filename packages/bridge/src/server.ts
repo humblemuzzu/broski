@@ -23,6 +23,7 @@ import { createCodexFileUndo } from "./server/codex-file-undo";
 import { createCodexNotificationHandler } from "./server/codex-notifications";
 import { createCodexRequestHandler } from "./server/codex-requests";
 import { createConnections } from "./server/connections";
+import { type ContractOptions, createContractSeam } from "./server/contract-seam";
 import { buildServerDeps } from "./server/deps";
 import { createFsWatchers } from "./server/fs-watchers";
 import { createHttpWiring } from "./server/http";
@@ -94,6 +95,8 @@ export type BridgeServerOptions = {
 	logger?: (message: string) => void;
 	/** Leveled logger. If not provided, falls back to legacy `logger` as info-level. */
 	bridgeLogger?: BridgeLogger;
+	/** The bridge core that speaks the contract protocol; without it, the core serves no backend. */
+	contract?: ContractOptions;
 };
 
 export type BridgeServer = {
@@ -219,6 +222,8 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		log.log("[Security] BROSKI_TLS=0 set. Running WITHOUT transport encryption for direct connections.");
 	}
 
+	const contract = createContractSeam(options.contract, options.version, state.runtimeSendQueue, limits, log);
+
 	// The message handler needs the device helpers on `connections`, and `connections` needs the
 	// message handler at socket-message time — wire the handler in after it exists.
 	let handleMessage!: (ws: ServerWebSocket<unknown>, raw: string | Uint8Array) => Promise<void>;
@@ -231,6 +236,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		ptyRuntime,
 		sendStatus,
 		handleMessage: (ws, raw) => handleMessage(ws, raw),
+		contract,
 	});
 
 	const serverDeps = buildServerDeps({
@@ -267,6 +273,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		getSecurePath,
 		opencode: state.opencode,
 		opencodeReadyTimeoutMs: options.opencodeReadyTimeoutMs,
+		contract,
 	});
 	attachLinkDecisionPath(messageRegistry, serverDeps);
 
@@ -307,6 +314,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 	}
 	state.secureServer = secureServer;
 	state.securePort = secureServer.port ?? options.port;
+	contract.start();
 	const hookTarget: HookInstallTarget = {
 		port: state.securePort,
 		token: state.authToken,
@@ -325,6 +333,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		fsWatchers,
 		ptyRuntime,
 		codexClient,
+		contract,
 	});
 
 	const setOpenCode = (connector: OpenCodeConnector | null, reason?: string): void => {

@@ -6,6 +6,7 @@ import { stopBridgeResources } from "../lifecycle/bridge-teardown";
 import { DEFAULT_TEARDOWN_TIMEOUT_MS, type TeardownResult } from "../lifecycle/teardown";
 import type { PtyRuntime } from "../pty/runtime";
 import type { CodexClient } from "./codex-client";
+import type { ContractSeam } from "./contract-seam";
 import type { FsWatchers } from "./fs-watchers";
 import type { LeveledLogger } from "./logger";
 import type { BridgeState } from "./state";
@@ -16,6 +17,7 @@ export type StopDeps = {
 	fsWatchers: FsWatchers;
 	ptyRuntime: PtyRuntime;
 	codexClient: CodexClient;
+	contract: ContractSeam;
 };
 
 /** Cancels the timers, drains the waiters, and runs the resource teardown behind `server.stop()`. */
@@ -51,7 +53,12 @@ export function createStop(deps: StopDeps): (force?: boolean) => Promise<Teardow
 				stopPtyRuntime: () => deps.ptyRuntime.stop(),
 				uninstallHooks: [() => uninstallCcHook(deps.log.logInfo)],
 				stopCodexAppServer: () => deps.codexClient.stopCodexAppServer(),
-				disposeBackends: [() => pi.disposeAll(), () => piFeatures.stopAllPiExternalTails(), () => piDurable.shutdown()],
+				disposeBackends: [
+					() => pi.disposeAll(),
+					() => piFeatures.stopAllPiExternalTails(),
+					() => piDurable.shutdown(),
+					() => deps.contract.stop(),
+				],
 				stopServers: () => {
 					state.secureServer?.stop(force);
 					state.linkIngress?.stop();

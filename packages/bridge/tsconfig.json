@@ -19,7 +19,9 @@
     "scripts/measure-session-lists.ts",
     "scripts/gen-contract.ts",
     "scripts/check-layers.ts",
-    "scripts/contract-gen/**/*.ts"
+    "scripts/contract-gen/**/*.ts",
+    "scripts/mutate-core.ts",
+    "scripts/mutate-core/**/*.ts"
   ],
   "exclude": ["node_modules", "dist"]
 }

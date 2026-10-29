@@ -51,7 +51,7 @@ function applyToLiveState(snapshot: SessionSnapshot, record: Pick<SinkRecord, "a
 			return {
 				...snapshot,
 				blocks: snapshot.blocks.map((block) =>
-					block.blockId === event.blockId ? { ...block, text: block.text + event.text } : block,
+					block.blockId === event.blockId ? { ...block, text: newestText(block.text + event.text) } : block,
 				),
 			};
 		case "block_finished":

@@ -1,10 +1,13 @@
 import type { ServerWebSocket } from "bun";
+import type { JsonValue } from "../contract";
 import { toPublicErrorMessage } from "../http-utils";
 import type { RouteRegistry } from "../routing/registry";
 import type { ServerDeps } from "../routing/types";
 import { invalidPayloadError, validateMessageShape } from "../routing/validate";
 import { hasPrototypePoisonKeys } from "../security";
+import { frameBytes } from "../transport/send-limits";
 import type { ClientMessage, ServerMessage } from "../types";
+import type { ContractSeam } from "./contract-seam";
 import { awaitOpenCode, needsOpenCode } from "./opencode-gate";
 import type { OpenCodeSlot } from "./opencode-slot";
 
@@ -18,6 +21,7 @@ export type MessageHandlerDeps = {
 	opencode: OpenCodeSlot;
 	/** How long one of those requests waits for it. */
 	opencodeReadyTimeoutMs?: number;
+	contract: ContractSeam;
 };
 
 /** Decodes, validates and dispatches one inbound client frame (and `batch` envelopes). */
@@ -98,22 +102,24 @@ export function createMessageHandler(
 	return async (ws: ServerWebSocket<unknown>, raw: string | Uint8Array): Promise<void> => {
 		const text = typeof raw === "string" ? raw : new TextDecoder().decode(raw);
 
-		let message: ClientMessage & { requestId?: string };
+		let parsed: JsonValue;
 		try {
-			const parsed = JSON.parse(text);
-			if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-				deps.send(ws, { type: "error", message: "Invalid JSON payload" });
-				return;
-			}
-			if (hasPrototypePoisonKeys(parsed)) {
-				deps.send(ws, { type: "error", message: "Invalid JSON payload" });
-				return;
-			}
-			message = parsed as ClientMessage & { requestId?: string };
+			parsed = JSON.parse(text);
 		} catch {
 			deps.send(ws, { type: "error", message: "Invalid JSON payload" });
 			return;
 		}
+		if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+			deps.send(ws, { type: "error", message: "Invalid JSON payload" });
+			return;
+		}
+		// The contract's strict schemas refuse what this guard does, and legal contract data may hold the keys it refuses.
+		if (deps.contract.owns(parsed)) return deps.contract.receive(ws, parsed, frameBytes(raw));
+		if (hasPrototypePoisonKeys(parsed)) {
+			deps.send(ws, { type: "error", message: "Invalid JSON payload" });
+			return;
+		}
+		const message = parsed as ClientMessage & { requestId?: string };
 
 		if (typeof message.type !== "string" || message.type.length > 64) {
 			deps.send(ws, { type: "error", message: "Invalid message type" });

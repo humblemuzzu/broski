@@ -126,6 +126,76 @@ describe("the layer check", () => {
 		expect(check("backends/index.ts", "")).toEqual(["backends/index.ts: index.ts is not a backend id directory"]);
 	});
 
+	test("lets the core import itself, the contract, zod and its listed infrastructure", () => {
+		const source = [
+			'import { LiveSession } from "./live-session";',
+			'import { applyEvent } from "../contract";',
+			'import type { SessionSnapshot } from "../contract/snapshot";',
+			'import { z } from "zod";',
+			'import { BoundedMap } from "../state/bounded-map";',
+			'import { frameBytes } from "../transport/send-limits.ts";',
+		].join("\n");
+		expect(check("core/session-hub.ts", source)).toEqual([]);
+		expect(check("core/ports.ts", 'import type { BridgeLogger } from "../logging/logger";')).toEqual([
+			"core/ports.ts: ../logging/logger is neither the core, the contract nor the core's infrastructure",
+		]);
+	});
+
+	test("judges the core's infrastructure too, so the core reaches nothing through it", () => {
+		expect(
+			check("state/bounded-map.ts", 'import { z } from "zod";\nimport { frameBytes } from "../transport/send-limits";'),
+		).toEqual([]);
+		const source = [
+			'import { sendPayload } from "../server/streams";',
+			'import type { BridgeLogger } from "../logging/logger";',
+			'import { readFileSync } from "node:fs";',
+		].join("\n");
+		const outside = "is not the core's infrastructure, which the core reaches through this file";
+		expect(check("transport/send-limits.ts", source)).toEqual([
+			`transport/send-limits.ts: ../server/streams ${outside}`,
+			`transport/send-limits.ts: ../logging/logger ${outside}`,
+			"transport/send-limits.ts: node:fs is not zod",
+		]);
+		expect(check("transport/other.ts", 'import { x } from "../server/streams";')).toEqual([]);
+	});
+
+	test("stops the core importing connectors, handlers, runtime mappers, adapters, the server or the contract's test kit", () => {
+		const source = [
+			'import { x } from "../connectors/pi";',
+			'import { y } from "../handlers/unified";',
+			'import { z } from "../runtime/pi-runtime-event-mapper";',
+			'import { a } from "../backends/codex/index";',
+			'import { b } from "../server/streams";',
+			'import type { ServerMessage } from "../types";',
+			'import { createFakeBackend } from "../contract/testing/fake-backend";',
+			'import { RuntimeSendQueue } from "../utils/runtime-send-queue";',
+			'import { readFileSync } from "node:fs";',
+			'import { query } from "@anthropic-ai/claude-agent-sdk";',
+		].join("\n");
+		const outside = "is neither the core, the contract nor the core's infrastructure";
+		expect(check("core/hub.ts", source)).toEqual([
+			`core/hub.ts: ../connectors/pi ${outside}`,
+			`core/hub.ts: ../handlers/unified ${outside}`,
+			`core/hub.ts: ../runtime/pi-runtime-event-mapper ${outside}`,
+			`core/hub.ts: ../backends/codex/index ${outside}`,
+			`core/hub.ts: ../server/streams ${outside}`,
+			`core/hub.ts: ../types ${outside}`,
+			`core/hub.ts: ../contract/testing/fake-backend ${outside}`,
+			`core/hub.ts: ../utils/runtime-send-queue ${outside}`,
+			"core/hub.ts: node:fs is not zod",
+			"core/hub.ts: @anthropic-ai/claude-agent-sdk is not zod",
+		]);
+		expect(check("core/a.ts", "const m = await import(name);")).toEqual([
+			"core/a.ts: an import whose specifier is not a plain string",
+		]);
+	});
+
+	test("stops an adapter importing the core", () => {
+		expect(check("backends/pi/index.ts", 'import { BridgeCore } from "../../core/core";')).toEqual([
+			"backends/pi/index.ts: ../../core/core is neither this backend nor the contract",
+		]);
+	});
+
 	test("ignores the rest of the bridge", () => {
 		expect(check("server.ts", 'import { x } from "anything";')).toEqual([]);
 	});

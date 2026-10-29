@@ -210,6 +210,7 @@ export const ProtocolErrorCode = z.enum([
 	"unknown_backend",
 	"unknown_session",
 	"not_attached",
+	"rate_limited",
 	"internal",
 ]);
 export type ProtocolErrorCode = z.infer<typeof ProtocolErrorCode>;

@@ -67,6 +67,18 @@ The backend-agnostic contract that replaces the runtime abstraction below lives 
 - **Generated code is never edited by hand**: `lib/contract/generated/`, `test/contract/generated/`, `test/contract/fixtures/` and `src/contract/contract.schema.json` come from the zod schemas via `bun run contract:gen`; CI runs `bun run contract:check`.
 - **Every adapter passes the conformance suite** (`runConformance` in `src/contract/testing/`, 28 rules, each proven to fail by the broken adapters in `src/__tests__/contract_negative_*.test.ts`), and every answer goes through `answerProblem` before it reaches a backend.
 
+## Bridge core (the rebuild, Phase 2)
+
+The core that speaks the contract lives in `packages/bridge/src/core/`; its doc is [`docs/architecture/core/README.md`](docs/architecture/core/README.md). Production registers no backend yet (Phase 4 does, one adapter at a time). Rules:
+
+- **Contract messages travel as `{"type":"contract","message":…}`** on the same sockets as the old protocol, which owns every other frame type. The seam is `server/contract-seam.ts`; old code knows the core only through the seam's calls: in `server.ts` one `createContractSeam(…)` line, `contract` handed to three dependency objects, and `contract.start()` once the listeners are bound (backends start after the bridge listens); `server/messages.ts` hands an owned frame to the core before the old prototype-poison check; `server/connections.ts` calls `disconnect` on close and `refuse` when the rate limit refuses a contract frame; `server/shutdown.ts` calls `stop`. Do not route contract messages through `routing/`.
+- **`src/core/` imports only itself, the contract (not its test kit), `zod` and `CORE_INFRASTRUCTURE`** (`state/bounded-map`, `transport/send-limits`, which may import only `zod` and each other; `scripts/contract-gen/layers.ts`). `bun run check:layers` enforces it. Adapters reach the core only through the `AgentBackend` they give the registry.
+- **Every contract request gets exactly one answer**, within 120 s even from an adapter that never answers; inbound frames are bounded (8 MiB, 50,000 JSON values, the contract's list and depth bounds) before the schema checks them.
+- **No automatic answers.** An interaction ends only when a human answers or cancels it, or the backend withdraws it or lets it expire. Never add a timeout that answers for the user.
+- **Keep-open**: a session with a run, a pending ask, a compaction, a retry or queued input stays open, viewed or not; only bridge shutdown closes a busy session.
+- **Every frame fits the link** (`wire-fit.ts`): every contract message goes out through `fitMessage`/`fitEvent` (only the core's own short `error` answers skip it), and fitting never cuts ids, cursors or image bytes.
+- **Tests drive the fake backend** (`__tests__/helpers/core-rig.ts`, `core-bridge.ts`) and break adapters by wrapping the fake (`adapt`, `helpers/core-adapters.ts`); they never mock the core. `bun run mutate:core` checks that the core's tests fail on every guard removed, except the equivalent mutants it lists with their reasons.
+
 ## The Runtime Abstraction
 
 This is the core architecture of the app. **Read this before adding any agent feature.**
@@ -195,7 +207,7 @@ Every edit must make the codebase more modular, not less. New code goes in new f
 |------|-------|-------------|-------------------|
 | `packages/bridge/src/types.ts` | 28 | Barrel re-exporting `types/*.ts` (ClientMessage/ServerMessage unions) | `types/*.ts` (32 files: `types/runtime.ts`, `types/codex*.ts`, `types/pi*.ts`, …) |
 | `packages/bridge/src/connectors/claude-code.ts` | 39 | Facade re-exporting `connectors/claude-code/` | `connectors/claude-code/` (31 files) |
-| `packages/bridge/src/server.ts` | 364 | Server wiring; routing lives in `routing/` | `handlers/{domain}.ts` (106 handler files already extracted), `server/*.ts` (36 files) |
+| `packages/bridge/src/server.ts` | 373 | Server wiring; routing lives in `routing/` | `handlers/{domain}.ts` (106 handler files already extracted), `server/*.ts` (37 files) |
 | `packages/bridge/src/connectors/opencode.ts` | 633 | OC connector class | `connectors/opencode/` (21 files, session-list already extracted) |
 
 **Flutter (Dart):**
@@ -387,7 +399,7 @@ lib/
 
 ```
 packages/bridge/src/
-  server.ts                         ← 364 lines — server wiring; delegates to server/, routing/ and handlers/
+  server.ts                         ← 373 lines — server wiring; delegates to server/, routing/ and handlers/
   types.ts                          ← 28-line barrel — ClientMessage/ServerMessage unions live in types/
   index.ts                          ← 127 lines — CLI entry + startup
   connectors/                       ← 117 files (15,891 lines)
@@ -413,7 +425,7 @@ packages/bridge/src/
     devices.ts, misc.ts             ← shared handlers
     session_view.ts, session-stats.ts
   routing/                          ← 5 files — registry, routes (ALL_MESSAGE_TYPES), types, validate, messages
-  server/                           ← 40 files (4,178 lines) — wiring: streams, sessions, codex notifications/requests, link-feed/, opencode events
+  server/                           ← 42 files (4,393 lines) — wiring: streams, sessions, codex notifications/requests, link-feed/, opencode events, the contract seam
   runtime/                          ← 14 files (2,531 lines)
     *-runtime-event-mapper.ts       ← 5 per-backend event mappers (incl. pi-durable)
     *-runtime-read-models.ts        ← 5 per-backend read models

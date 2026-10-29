@@ -6,7 +6,7 @@ import {
 	type Interaction,
 	MAX_LIST_ITEMS,
 	MAX_TEXT_CHARS,
-	type SessionSnapshot,
+	SessionSnapshot,
 	sessionStatus,
 } from "../contract";
 
@@ -220,6 +220,18 @@ describe("applyEvent", () => {
 			{ type: "tool_updated", toolCallId: "t1", update: { kind: "output_appended", text: tail } },
 		]);
 		expect(state.tools[0]?.output).toBe(tail);
+	});
+
+	test("an open block keeps its newest text past the bound, never half a character, so the live state stays legal", () => {
+		const tail = "y".repeat(MAX_TEXT_CHARS - 1);
+		const state = reduce([
+			{ type: "run_started", runId: "r1", trigger: "prompt" },
+			{ type: "block_started", blockId: "b1", messageId: "m1", kind: "text" },
+			{ type: "block_delta", blockId: "b1", text: "a😀" },
+			{ type: "block_delta", blockId: "b1", text: tail },
+		]);
+		expect(state.blocks[0]?.text).toBe(tail);
+		expect(SessionSnapshot.safeParse(state).success).toBe(true);
 	});
 
 	test("resynced replaces everything; notices, errors, extensions, user messages and a replacement change nothing", () => {

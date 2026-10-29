@@ -25,32 +25,49 @@ const SHARED_DIRS = new Map<string, readonly string[]>([["pi-shared", ["pi", "pi
 /** `createRequire` hands out a `require` this check cannot follow. */
 const LOADERS = new Set(["module", "node:module"]);
 
+/**
+ * The generic infrastructure `src/core/` may use, by path under `src` without its extension: the
+ * bounded map, and the frame-size measure of the send limits. These are judged too, so the core
+ * cannot reach anything through them: they import nothing but zod and each other.
+ */
+export const CORE_INFRASTRUCTURE: readonly string[] = ["state/bounded-map", "transport/send-limits"];
+
 const transpiler = new Bun.Transpiler({ loader: "ts" });
 
 /**
  * Every import in `files` that breaks the bridge's layers (contract README §2, Hard rules), as
- * `path: problem`. `src` is the bridge's `src` directory; only files under `src/contract` and
- * `src/backends` are judged.
+ * `path: problem`. `src` is the bridge's `src` directory; only files under `src/contract`,
+ * `src/core` and `src/backends`, and the `CORE_INFRASTRUCTURE` modules, are judged.
  *
  * - `src/contract/` is a leaf: it imports only zod and itself; its `testing/` may also import bun:test.
+ * - `src/core/` imports only itself, the contract (not its test kit), zod and `CORE_INFRASTRUCTURE`:
+ *   never a connector, handler, runtime mapper, adapter, `node:` module or the server. It reaches
+ *   adapters only through the `AgentBackend` values its registry holds.
+ * - A `CORE_INFRASTRUCTURE` module imports only zod and the other such modules.
  * - `src/backends/<id>/` imports only the contract (not its test kit), itself, a shared directory
  *   made for it, `node:` built-ins and that backend's own SDK.
  * - Every specifier is a plain string, so the check sees what is loaded.
  */
 export function layerViolations(src: string, files: readonly SourceFile[]): string[] {
 	const layout = {
+		src,
 		contract: join(src, "contract"),
 		testing: join(src, "contract", "testing"),
+		core: join(src, "core"),
 		backends: join(src, "backends"),
 	};
 	return files.flatMap((file) => problemsOf(file, layout).map((problem) => `${relative(src, file.path)}: ${problem}`));
 }
 
-type Layout = { contract: string; testing: string; backends: string };
+type Layout = { src: string; contract: string; testing: string; core: string; backends: string };
 type Judge = (specifier: string | undefined) => string[];
 
 function problemsOf(file: SourceFile, layout: Layout): string[] {
 	if (within(file.path, layout.contract)) return specifiersOf(file).flatMap(contractJudge(file, layout));
+	if (within(file.path, layout.core)) return specifiersOf(file).flatMap(coreJudge(file, layout));
+	if (infrastructureOf(layout).has(withoutExtension(file.path))) {
+		return specifiersOf(file).flatMap(infrastructureJudge(file, layout));
+	}
 	if (!within(file.path, layout.backends)) return [];
 	const [id = ""] = relative(layout.backends, file.path).split(sep);
 	const sdks = BACKEND_SDKS.get(id);
@@ -77,6 +94,44 @@ function contractJudge(file: SourceFile, layout: Layout): Judge {
 		if (isPackage(specifier, "zod") || (testing && specifier === "bun:test")) return [];
 		return [`${specifier} is not zod`];
 	};
+}
+
+function coreJudge(file: SourceFile, layout: Layout): Judge {
+	const infrastructure = infrastructureOf(layout);
+	return (specifier) => {
+		if (specifier === undefined) return ["an import whose specifier is not a plain string"];
+		if (specifier.startsWith(".")) {
+			const target = resolve(dirname(file.path), specifier);
+			const allowed =
+				within(target, layout.core) ||
+				(within(target, layout.contract) && !within(target, layout.testing)) ||
+				infrastructure.has(withoutExtension(target));
+			return allowed ? [] : [`${specifier} is neither the core, the contract nor the core's infrastructure`];
+		}
+		return isPackage(specifier, "zod") ? [] : [`${specifier} is not zod`];
+	};
+}
+
+function infrastructureJudge(file: SourceFile, layout: Layout): Judge {
+	const infrastructure = infrastructureOf(layout);
+	return (specifier) => {
+		if (specifier === undefined) return ["an import whose specifier is not a plain string"];
+		if (specifier.startsWith(".")) {
+			return infrastructure.has(withoutExtension(resolve(dirname(file.path), specifier)))
+				? []
+				: [`${specifier} is not the core's infrastructure, which the core reaches through this file`];
+		}
+		return isPackage(specifier, "zod") ? [] : [`${specifier} is not zod`];
+	};
+}
+
+/** The paths of `CORE_INFRASTRUCTURE`, absolute and without extension. */
+function infrastructureOf(layout: Layout): Set<string> {
+	return new Set(CORE_INFRASTRUCTURE.map((path) => join(layout.src, path)));
+}
+
+function withoutExtension(path: string): string {
+	return path.replace(/\.ts$/, "");
 }
 
 function backendJudge(file: SourceFile, id: string, sdks: readonly string[], layout: Layout): Judge {

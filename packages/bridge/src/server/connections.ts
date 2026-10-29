@@ -4,6 +4,7 @@ import * as piDurable from "../handlers/pi_durable";
 import * as piFeatures from "../handlers/pi_features";
 import type { PtyRuntime } from "../pty/runtime";
 import type { AgentType, DeviceInfo } from "../types";
+import type { ContractSeam } from "./contract-seam";
 import type { BridgeLimits } from "./limits";
 import { attachLinkFeed, detachLinkFeed, handleLinkFeedMessage } from "./link-feed/feed";
 import { isLinkDaemonSocketData, linkContextFields } from "./link-identity";
@@ -31,6 +32,7 @@ export type ConnectionsDeps = {
 	ptyRuntime: PtyRuntime;
 	sendStatus: (ws: ServerWebSocket<unknown>) => Promise<void>;
 	handleMessage: (ws: ServerWebSocket<unknown>, raw: string | Uint8Array) => Promise<void>;
+	contract: ContractSeam;
 };
 
 /** WebSocket open/close/message handling, the token-bucket rate limiter, and device lookup. */
@@ -195,6 +197,7 @@ export function createConnections(deps: ConnectionsDeps): Connections {
 			const prevKey = makeSessionKey(ctx?.viewAgent, ctx?.sessionId);
 			sessions.updateSessionWatchers(ws, prevKey, null);
 			piDurable.detach(state.piDurableSockets.for(ws));
+			deps.contract.disconnect(ws);
 			cxRouting.detachCxFsWatches(ws, state.codexClient);
 
 			// If this socket owned any CC/Codex/OpenCode sessions, release ownership so watchers
@@ -274,6 +277,7 @@ export function createConnections(deps: ConnectionsDeps): Connections {
 				return;
 			}
 			if (!checkRateLimit(ws)) {
+				if (deps.contract.refuse(ws, raw)) return;
 				// Best-effort: notify, but don't amplify further under load.
 				try {
 					streams.send(ws, { type: "error", message: "RATE_LIMITED" });

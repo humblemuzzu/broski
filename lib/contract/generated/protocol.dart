@@ -1655,6 +1655,7 @@ enum ProtocolErrorCode {
   unknownBackend('unknown_backend'),
   unknownSession('unknown_session'),
   notAttached('not_attached'),
+  rateLimited('rate_limited'),
   internal('internal');
 
   const ProtocolErrorCode(this.wire);
