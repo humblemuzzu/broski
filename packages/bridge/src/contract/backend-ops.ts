@@ -3,6 +3,14 @@ import { FileChange } from "./content";
 import { SessionId, TranscriptItemId } from "./ids";
 import { MAX_ID_CHARS, MAX_LIST_ITEMS, MAX_NAME_CHARS, MAX_PATH_CHARS, MAX_TEXT_CHARS } from "./limits";
 import { Rejected } from "./rejection";
+import {
+	SessionSettingsOp,
+	SessionSettingsResult,
+	SessionToolsOp,
+	SessionToolsResult,
+	SystemPromptOp,
+	SystemPromptResult,
+} from "./session-controls";
 
 export const BackendOpKind = z.enum([
 	"rewind_files",
@@ -13,6 +21,9 @@ export const BackendOpKind = z.enum([
 	"revert_commit",
 	"navigate_tree",
 	"take_over",
+	"session_settings",
+	"session_tools",
+	"system_prompt",
 ]);
 export type BackendOpKind = z.infer<typeof BackendOpKind>;
 
@@ -28,6 +39,9 @@ export function rewritesHistory(kind: BackendOpKind): boolean {
 		case "revert_stage":
 		case "revert_clear":
 		case "take_over":
+		case "session_settings":
+		case "session_tools":
+		case "system_prompt":
 			return false;
 	}
 }
@@ -136,7 +150,13 @@ export type CodexOp = z.infer<typeof CodexOp>;
 export const OpenCodeOp = z.discriminatedUnion("kind", [RevertStageOp, RevertClearOp, RevertCommitOp]);
 export type OpenCodeOp = z.infer<typeof OpenCodeOp>;
 
-export const PiOp = z.discriminatedUnion("kind", [NavigateTreeOp, TakeOverOp]);
+export const PiOp = z.discriminatedUnion("kind", [
+	NavigateTreeOp,
+	TakeOverOp,
+	SessionSettingsOp,
+	SessionToolsOp,
+	SystemPromptOp,
+]);
 export type PiOp = z.infer<typeof PiOp>;
 
 export const ClaudeCodeCall = z.strictObject({ backend: z.literal("claude-code"), op: ClaudeCodeOp });
@@ -200,6 +220,9 @@ export const BackendOpResult = z.discriminatedUnion("kind", [
 	RevertCommitted,
 	TreeNavigated,
 	TakenOver,
+	SessionSettingsResult,
+	SessionToolsResult,
+	SystemPromptResult,
 ]);
 export type BackendOpResult = z.infer<typeof BackendOpResult>;
 

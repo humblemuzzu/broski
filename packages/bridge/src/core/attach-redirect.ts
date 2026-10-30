@@ -2,6 +2,7 @@ import { ADDED_IN_MINOR, type SessionRef, sessionCapabilities } from "../contrac
 import type { CoreClient } from "./client";
 import { type BackendRequest, type CoreContext, reachBackend } from "./context";
 import { LiveSession } from "./live-session";
+import { capabilitiesFor } from "./minor-views";
 import { openFailure, protocolError } from "./results";
 
 /** A stream that ended in `session_replaced`, and the session its conversation went on as. */
@@ -44,7 +45,7 @@ export async function redirectAttach(target: BackendRequest<"session.attach">, m
 	respond({
 		type: "session.attach.result",
 		requestId: request.requestId,
-		capabilities: sessionCapabilities(live.open),
+		capabilities: capabilitiesFor(client, sessionCapabilities(live.open)),
 		sync: { kind: "replaced", epoch: moved.epoch, session: live.ref },
 	});
 }

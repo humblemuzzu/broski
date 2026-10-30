@@ -27,15 +27,17 @@ import { BackendStatus } from "./status";
  * field, a new request, a new union member or enum value) bumps `minor`; anything else bumps `major`.
  * Neither side sends the other anything newer than the other's `minor`, learnt from `hello`.
  */
-export const PROTOCOL_VERSION = { major: 1, minor: 2 } as const;
+export const PROTOCOL_VERSION = { major: 1, minor: 3 } as const;
 
 /**
  * The minor that introduced each addition to 1.0. The bridge sends it only to a client whose `hello`
  * named at least that minor (`CoreClient.speaks`). 1.1: the `replaced` attach answer. 1.2: the
  * `input_returned` event (an older client is sent a `notice` with the same texts in its place) and the
- * `take_over` Pi op (an older client is not told it exists).
+ * `take_over` Pi op (an older client is not told it exists). 1.3: `sessionControls`, the `compaction.cancel` and
+ * `retry.cancel` requests with the `SessionCapabilities` fields that announce them, and the Pi ops `session_settings`,
+ * `session_tools` and `system_prompt` (an older client is told of none of them).
  */
-export const ADDED_IN_MINOR = { replacedSync: 1, inputReturned: 2, takeOver: 2 } as const;
+export const ADDED_IN_MINOR = { replacedSync: 1, inputReturned: 2, takeOver: 2, sessionControls: 3 } as const;
 
 export const ProtocolVersion = z.strictObject({ major: z.int().nonnegative(), minor: z.int().nonnegative() });
 export type ProtocolVersion = z.infer<typeof ProtocolVersion>;
@@ -154,6 +156,8 @@ export const CompactRequest = request("compact", {
 	session: SessionRef,
 	instructions: z.string().min(1).max(MAX_TEXT_CHARS).optional(),
 });
+export const CompactionCancelRequest = request("compaction.cancel", { session: SessionRef });
+export const RetryCancelRequest = request("retry.cancel", { session: SessionRef });
 export const BackendCallRequest = request("backend.call", { call: BackendCall });
 
 export const ClientMessage = z.discriminatedUnion("type", [
@@ -182,6 +186,8 @@ export const ClientMessage = z.discriminatedUnion("type", [
 	ThinkingSetRequest,
 	ModeSetRequest,
 	CompactRequest,
+	CompactionCancelRequest,
+	RetryCancelRequest,
 	BackendCallRequest,
 ]);
 export type ClientMessage = z.infer<typeof ClientMessage>;
@@ -219,6 +225,8 @@ export const ModelSetResponse = response("model.set", { result: ActionResult });
 export const ThinkingSetResponse = response("thinking.set", { result: ActionResult });
 export const ModeSetResponse = response("mode.set", { result: ActionResult });
 export const CompactResponse = response("compact", { result: ActionResult });
+export const CompactionCancelResponse = response("compaction.cancel", { result: ActionResult });
+export const RetryCancelResponse = response("retry.cancel", { result: ActionResult });
 export const BackendCallResponse = response("backend.call", { result: BackendCallResult });
 
 /**
@@ -279,6 +287,8 @@ export const ServerMessage = z.discriminatedUnion("type", [
 	ThinkingSetResponse,
 	ModeSetResponse,
 	CompactResponse,
+	CompactionCancelResponse,
+	RetryCancelResponse,
 	BackendCallResponse,
 	ErrorResponse,
 	EventMessage,

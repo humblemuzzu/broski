@@ -195,8 +195,13 @@ export const SESSION_MUTANTS: Mutant[] = [
 	...mutantsOf("core/minor-views.ts", [
 		{
 			name: "minor views: an older client is offered the op it cannot send",
-			find: "if (client.speaks(ADDED_IN_MINOR.takeOver)) return descriptor;",
-			replace: "return descriptor;",
+			find: "const unknown = OPS_ADDED.filter(([minor]) => !client.speaks(minor)).flatMap(([, ops]) => ops);",
+			replace: "const unknown: BackendOpKind[] = [];",
+		},
+		{
+			name: "minor views: an older client is sent capability fields it cannot read",
+			find: "if (client.speaks(ADDED_IN_MINOR.sessionControls)) return capabilities;",
+			replace: "return capabilities;",
 		},
 		{
 			name: "minor views: no stand-in for the returned input",

@@ -14,11 +14,13 @@ import {
 import {
 	abort,
 	compact,
+	compactionCancel,
 	interactionAnswer,
 	modelSet,
 	modeSet,
 	prompt,
 	queueCancel,
+	retryCancel,
 	sessionAttach,
 	sessionDetach,
 	thinkingSet,
@@ -92,6 +94,10 @@ export function routeRequest(
 			return modeSet(ctx, client, request, respond);
 		case "compact":
 			return compact(ctx, client, request, respond);
+		case "compaction.cancel":
+			return compactionCancel(ctx, client, request, respond);
+		case "retry.cancel":
+			return retryCancel(ctx, client, request, respond);
 		case "backend.call":
 			return backendCall(ctx, client, request, respond);
 	}

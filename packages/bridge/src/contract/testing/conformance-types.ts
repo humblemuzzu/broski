@@ -18,7 +18,11 @@ export type Scenario =
 	| { kind: "interaction"; interaction: InteractionKind }
 	| { kind: "feature"; feature: Feature }
 	/** Two model requests, each answering with one text block that is exactly the id of the model it ran with. */
-	| { kind: "echo_model" };
+	| { kind: "echo_model" }
+	/** The next compaction, started by `compact`, waits until cancelled, aborted or `release`d. */
+	| { kind: "slow_compaction" }
+	/** The next run's first request fails transiently and its retry waits until cancelled, aborted or `release`d; the retry answers. */
+	| { kind: "slow_retry" };
 
 /** A user message as it reached the model. */
 export interface DeliveredInput {

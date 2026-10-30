@@ -18,7 +18,13 @@ describe("the core's session streams", () => {
 		const bystander = await rig.client("bystander");
 		const session = rig.fake.fake.seed({ cwd: RIG_CWD });
 		const answer = await viewer.ok("session.attach", { session });
-		expect(answer.capabilities).toEqual({ controllable: true, compact: true, cancelQueued: true });
+		expect(answer.capabilities).toEqual({
+			controllable: true,
+			compact: true,
+			cancelQueued: true,
+			cancelCompaction: true,
+			cancelRetry: true,
+		});
 		expect(answer.sync).toMatchObject({ kind: "snapshot", lastSeq: 0 });
 		if (answer.sync.kind !== "snapshot") throw new Error("expected a snapshot");
 		const prompted = await viewer.ok("prompt", { session, input: promptInput("Hello") });

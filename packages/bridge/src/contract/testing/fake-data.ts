@@ -122,5 +122,11 @@ export function fakeOpResult(call: BackendCall): BackendOpResult {
 		case "navigate_tree":
 		case "take_over":
 			return { kind: op.kind };
+		case "session_settings":
+			return { kind: op.kind, settings: [{ kind: "toggle", key: "example", label: "Example", enabled: true }] };
+		case "session_tools":
+			return { kind: op.kind, tools: [{ name: "read", description: "Reads a file", active: true }] };
+		case "system_prompt":
+			return { kind: op.kind, text: "You are a fake agent.", offset: 0, totalChars: 21 };
 	}
 }

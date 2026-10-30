@@ -54,6 +54,7 @@ export function newestUserMessage(
 
 export class FauxRouter {
 	private readonly scripts = new Map<string, FauxResponseStep[]>();
+	private readonly summaries: FauxResponseStep[] = [];
 	private readonly recorded: RecordedRequest[] = [];
 	private count = 0;
 
@@ -79,7 +80,10 @@ export class FauxRouter {
 					modelId: model.id,
 					messages: [...context.messages],
 				});
-				const step = (sessionId === undefined ? undefined : this.scripts.get(sessionId)?.shift()) ?? fallback();
+				const step =
+					(sessionId === undefined ? undefined : this.scripts.get(sessionId)?.shift()) ??
+					(sessionId !== undefined && this.scripts.has(sessionId) ? undefined : this.summaries.shift()) ??
+					fallback();
 				return typeof step === "function" ? await step(context, options, state, model) : step;
 			} finally {
 				end();
@@ -96,6 +100,14 @@ export class FauxRouter {
 	/** The session's next requests are answered by `steps`, in order; what it had left is dropped. */
 	script(sessionId: string, steps: readonly FauxResponseStep[]): void {
 		this.scripts.set(sessionId, [...steps]);
+	}
+
+	/**
+	 * The next requests that belong to no scripted session are answered by `steps`. Pi's compaction summaries are such
+	 * requests: they carry a random id, not the session's (pi `dist/core/agent-session.js:2209`).
+	 */
+	scriptSummaries(steps: readonly FauxResponseStep[]): void {
+		this.summaries.splice(0, this.summaries.length, ...steps);
 	}
 
 	/** Steps the session has not been asked for yet. */

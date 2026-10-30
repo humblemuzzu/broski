@@ -30,6 +30,8 @@ export interface FakeMethods {
 	readonly call: boolean;
 	readonly compact: boolean;
 	readonly cancelQueued: boolean;
+	readonly cancelCompaction: boolean;
+	readonly cancelRetry: boolean;
 }
 
 export interface FakeSettings {
@@ -312,6 +314,10 @@ function control(session: FakeSession, methods: FakeMethods, isClosed: () => boo
 		setMode: async (axis, value) => (isClosed() ? CLOSED : session.setMode({ axis, value })),
 		...(methods.compact && { compact: async () => (isClosed() ? CLOSED : session.compact()) }),
 		...(methods.cancelQueued && { cancelQueued: async (id) => (isClosed() ? CLOSED : session.cancelQueued(id)) }),
+		...(methods.cancelCompaction && {
+			cancelCompaction: async () => (isClosed() ? CLOSED : session.cancelCompaction()),
+		}),
+		...(methods.cancelRetry && { cancelRetry: async () => (isClosed() ? CLOSED : session.cancelRetry()) }),
 	};
 }
 

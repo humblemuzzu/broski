@@ -50,7 +50,13 @@ function texts(events: readonly AgentEvent[], type: "user_message"): string[] {
 describe("a session a terminal runs", () => {
 	test("streams to the phone while it runs: run, thinking, text, tool, end", async () => {
 		const { t, terminal, live, id } = await watched();
-		expect(sessionCapabilities(live.session)).toEqual({ controllable: true, compact: false, cancelQueued: false });
+		expect(sessionCapabilities(live.session)).toEqual({
+			controllable: true,
+			compact: false,
+			cancelQueued: false,
+			cancelCompaction: false,
+			cancelRetry: false,
+		});
 		const mark = live.recorder.items.length;
 		t.router.script(id, [
 			toolUse(fauxThinking("Considering."), fauxText("Reading it."), fauxToolCall("read", { path: "README.md" })),
@@ -153,7 +159,13 @@ describe("a session a terminal runs", () => {
 		await terminals.gone(terminal.file);
 		const replaced = await live.waitFor("session_replaced", () => true, mark);
 		expect(replaced.session).toEqual(live.ref);
-		expect(sessionCapabilities(live.session)).toEqual({ controllable: false, compact: false, cancelQueued: false });
+		expect(sessionCapabilities(live.session)).toEqual({
+			controllable: false,
+			compact: false,
+			cancelQueued: false,
+			cancelCompaction: false,
+			cancelRetry: false,
+		});
 		expect(live.session.control).toBeUndefined();
 		await live.close();
 	});
@@ -214,7 +226,13 @@ describe("a session a terminal runs", () => {
 
 		const live = await t.rig.open({ backend: "pi", sessionId: id });
 		expect(t.bus.starts(id)).toBe(sessionStarts);
-		expect(sessionCapabilities(live.session)).toEqual({ controllable: true, compact: false, cancelQueued: false });
+		expect(sessionCapabilities(live.session)).toEqual({
+			controllable: true,
+			compact: false,
+			cancelQueued: false,
+			cancelCompaction: false,
+			cancelRetry: false,
+		});
 		await live.close();
 	});
 
@@ -273,7 +291,13 @@ describe("a session a terminal runs", () => {
 		t.router.script(hosted.ref.sessionId, [say("terminal reply")]);
 		await opened.session.prompt("from the terminal");
 		const replaced = await t.rig.open({ backend: "pi", sessionId: hosted.ref.sessionId });
-		expect(sessionCapabilities(replaced.session)).toEqual({ controllable: true, compact: false, cancelQueued: false });
+		expect(sessionCapabilities(replaced.session)).toEqual({
+			controllable: true,
+			compact: false,
+			cancelQueued: false,
+			cancelCompaction: false,
+			cancelRetry: false,
+		});
 		expect(texts(replaced.events(), "user_message")).toEqual([]);
 		await replaced.close();
 		await hosted.close();

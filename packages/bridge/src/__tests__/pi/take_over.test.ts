@@ -63,14 +63,26 @@ describe("taking over a session another client wrote", () => {
 		const { ref, path } = terminalSession(t, "terminal-1");
 		const lastBefore = readEntries(path).at(-1);
 		const opened = await t.rig.open(ref);
-		expect(sessionCapabilities(opened.session)).toEqual({ controllable: false, compact: false, cancelQueued: false });
+		expect(sessionCapabilities(opened.session)).toEqual({
+			controllable: false,
+			compact: false,
+			cancelQueued: false,
+			cancelCompaction: false,
+			cancelRetry: false,
+		});
 
 		const result = await takeOver(t, ref.sessionId);
 		expect(result).toEqual({ status: "accepted", result: { kind: "take_over" } });
 
 		const replaced = await opened.waitFor("session_replaced");
 		expect(replaced.session).toEqual(ref);
-		expect(sessionCapabilities(opened.session)).toEqual({ controllable: true, compact: true, cancelQueued: false });
+		expect(sessionCapabilities(opened.session)).toEqual({
+			controllable: true,
+			compact: true,
+			cancelQueued: false,
+			cancelCompaction: true,
+			cancelRetry: true,
+		});
 		const marks = readEntries(path).filter((entry) => entry.type === "custom" && entry.customType === "broski.origin");
 		expect(marks).toHaveLength(1);
 		expect(marks[0]).toMatchObject({ type: "custom", parentId: (lastBefore as { id: string }).id });

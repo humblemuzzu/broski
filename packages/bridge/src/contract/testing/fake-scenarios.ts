@@ -31,6 +31,10 @@ export function scenarioSteps(traits: BackendTraits, scenario: Scenario): FakeSt
 			return featureSteps(traits, scenario.feature);
 		case "echo_model":
 			return [{ kind: "echo_model" }, { kind: "hold" }, { kind: "echo_model" }];
+		case "slow_retry":
+			return [{ kind: "retry_wait" }, { kind: "text", text: "Recovered." }];
+		case "slow_compaction":
+			return undefined;
 	}
 }
 

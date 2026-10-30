@@ -3,6 +3,7 @@ import { movedTo, redirectAttach } from "./attach-redirect";
 import { type BackendRequest, type Handler, reachBackend } from "./context";
 import { controlled } from "./controlled";
 import { LiveSession } from "./live-session";
+import { capabilitiesFor } from "./minor-views";
 import { HELLO_FIRST, openFailure, protocolError, unsupported } from "./results";
 import { sessionKey } from "./session-key";
 
@@ -64,7 +65,7 @@ async function join(target: BackendRequest<"session.attach">): Promise<void> {
 	const sent = respond({
 		type: "session.attach.result",
 		requestId: request.requestId,
-		capabilities: sessionCapabilities(live.open),
+		capabilities: capabilitiesFor(client, sessionCapabilities(live.open)),
 		sync,
 	});
 	if (!sent) return;
@@ -122,6 +123,17 @@ export const thinkingSet = controlled<"thinking.set", ActionResult>(
 export const modeSet = controlled<"mode.set", ActionResult>(
 	(request, result) => ({ type: "mode.set.result", requestId: request.requestId, result }),
 	({ request, control }) => control.setMode(request.axis, request.value),
+);
+
+export const compactionCancel = controlled<"compaction.cancel", ActionResult>(
+	(request, result) => ({ type: "compaction.cancel.result", requestId: request.requestId, result }),
+	async ({ control }) =>
+		control.cancelCompaction ? control.cancelCompaction() : unsupported("cancel the compaction on its own"),
+);
+
+export const retryCancel = controlled<"retry.cancel", ActionResult>(
+	(request, result) => ({ type: "retry.cancel.result", requestId: request.requestId, result }),
+	async ({ control }) => (control.cancelRetry ? control.cancelRetry() : unsupported("cancel the retry on its own")),
 );
 
 export const compact = controlled<"compact", ActionResult>(

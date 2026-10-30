@@ -168,7 +168,13 @@ describe("a session another client made", () => {
 		expect(rows.find((row) => row.session.sessionId === id)?.origin).toBe("external");
 		const opened = await t.rig.open({ backend: "pi", sessionId: id });
 		expect(opened.session.control).toBeUndefined();
-		expect(sessionCapabilities(opened.session)).toEqual({ controllable: false, compact: false, cancelQueued: false });
+		expect(sessionCapabilities(opened.session)).toEqual({
+			controllable: false,
+			compact: false,
+			cancelQueued: false,
+			cancelCompaction: false,
+			cancelRetry: false,
+		});
 		expect(opened.initial.run).toBeUndefined();
 		const items = await allItems(t.backend, opened.ref, 200);
 		expect(userItems(items).map((item) => item.text)).toEqual(["from the terminal"]);

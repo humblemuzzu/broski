@@ -6,7 +6,7 @@ import { useWatchdog } from "./helpers/use-watchdog";
 
 useWatchdog();
 
-const kit = piConformanceKit(WAIT_MS, { link: true });
+const kit = piConformanceKit(WAIT_MS, { link: true, settings: { retry: { baseDelayMs: 600_000 } } });
 
 afterEach(() => kit.dispose());
 

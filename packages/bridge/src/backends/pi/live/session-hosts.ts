@@ -20,7 +20,15 @@ import { errorText } from "../error-text";
 import { isDirectory } from "../is-directory";
 import type { ModelCatalogue } from "../models/catalogue";
 import { initialPermissions } from "../modes";
-import type { HostAccess, LiveOverlay, LiveRow, OwnershipAccess, SessionStore, StoredSession } from "../ports";
+import type {
+	HostAccess,
+	LiveOverlay,
+	LiveRow,
+	LiveSessionAccess,
+	OwnershipAccess,
+	SessionStore,
+	StoredSession,
+} from "../ports";
 import { ACCEPTED, CLOSED, rejected } from "../rejections";
 import { sessionName } from "../session-name";
 import { canonicalCwd } from "../store/session-dir";
@@ -32,7 +40,7 @@ import { chooseModel } from "./new-session-options";
 import { NoticeMemory } from "./notice-memory";
 import { openSessionView } from "./open-session";
 import type { SharedServices } from "./runtime-factory";
-import { SessionHost } from "./session-host";
+import { BINDING, SessionHost } from "./session-host";
 import { SessionLocks } from "./session-lock";
 import { type HostedPart, SessionView, type SessionViewDeps, watchedSnapshot } from "./session-view";
 
@@ -54,7 +62,7 @@ const STARTING_ASKS: Rejected = rejected(
 	"an extension asks something as the session starts: open it to answer",
 );
 
-export class SessionHosts implements LiveOverlay, HostAccess, OwnershipAccess {
+export class SessionHosts implements LiveOverlay, HostAccess, OwnershipAccess, LiveSessionAccess {
 	private readonly hosts = new Map<SessionId, SessionHost>();
 	/** The views the core holds now, by session. */
 	private readonly views = new Map<SessionId, SessionView>();
@@ -147,6 +155,29 @@ export class SessionHosts implements LiveOverlay, HostAccess, OwnershipAccess {
 				await host.finish();
 			}
 		});
+	}
+
+	async withLiveSession<T>(
+		sessionId: SessionId,
+		work: (session: AgentSession) => T | Promise<T>,
+	): Promise<T | Rejected> {
+		if (this.disposing) return CLOSED;
+		const host = this.hosts.get(sessionId);
+		if (host === undefined) return this.notOpenHere(sessionId);
+		if (host.ended) return CLOSED;
+		return host.bound ? work(host.session) : BINDING;
+	}
+
+	private async notOpenHere(sessionId: SessionId): Promise<Rejected> {
+		const stored = await this.deps.store.locate(sessionId);
+		if ("status" in stored) return stored;
+		if (this.deps.terminals.holder(stored.path) !== undefined) {
+			return rejected("unsupported", "A terminal runs this session. Change it there.");
+		}
+		if (stored.origin === "external") {
+			return rejected("unsupported", "Another client made this session. Take it over to change it from here.");
+		}
+		return rejected("not_found", "The session is not open on this bridge.");
 	}
 
 	row(sessionId: SessionId): LiveRow | undefined {

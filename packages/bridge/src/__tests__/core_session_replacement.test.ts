@@ -70,7 +70,13 @@ describe("a session replaced while the phone is away", () => {
 			resume: { epoch: away.epoch, seq: away.seq },
 		});
 		expect(answer.sync).toEqual({ kind: "replaced", epoch: away.epoch, session: away.first });
-		expect(answer.capabilities).toEqual({ controllable: true, compact: true, cancelQueued: true });
+		expect(answer.capabilities).toEqual({
+			controllable: true,
+			compact: true,
+			cancelQueued: true,
+			cancelCompaction: true,
+			cancelRetry: true,
+		});
 		expect(await back.request("abort", { session: away.old })).toMatchObject({ error: { code: "not_attached" } });
 		expect(await back.request("abort", { session: away.first })).toMatchObject({
 			error: { code: "not_attached" },

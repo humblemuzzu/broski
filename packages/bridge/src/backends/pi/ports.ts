@@ -158,3 +158,12 @@ export interface HostAccess {
 	 */
 	withIdleSession<T>(sessionId: SessionId, work: (session: AgentSession) => Promise<T>): Promise<T | Rejected>;
 }
+
+/** How the ops of `ops/session-*.ts` and `ops/system-prompt.ts` reach the `AgentSession` of a session that is open here (`live/`). */
+export interface LiveSessionAccess {
+	/**
+	 * Runs `work` on the session this bridge hosts, whatever it is doing. `not_found` for an unknown session or one that is
+	 * not open here; `unsupported` for one a terminal or another client runs; `busy` while its extensions start.
+	 */
+	withLiveSession<T>(sessionId: SessionId, work: (session: AgentSession) => T | Promise<T>): Promise<T | Rejected>;
+}

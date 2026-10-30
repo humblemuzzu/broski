@@ -3,8 +3,10 @@
 import {
 	ADDED_IN_MINOR,
 	type BackendDescriptor,
+	type BackendOpKind,
 	type EventEnvelope,
 	MAX_TEXT_CHARS,
+	type SessionCapabilities,
 	type SessionSnapshot,
 } from "../contract";
 import type { CoreClient } from "./client";
@@ -12,11 +14,24 @@ import type { EncodedFrame } from "./frame";
 import type { CoreLog } from "./ports";
 import { fitEvent } from "./wire-fit";
 
+const OPS_ADDED: readonly (readonly [minor: number, ops: readonly BackendOpKind[]])[] = [
+	[ADDED_IN_MINOR.takeOver, ["take_over"]],
+	[ADDED_IN_MINOR.sessionControls, ["session_settings", "session_tools", "system_prompt"]],
+];
+
 /** The descriptor as `client` may know it: without the ops a later minor added. */
 export function descriptorFor(client: CoreClient, descriptor: BackendDescriptor): BackendDescriptor {
-	if (client.speaks(ADDED_IN_MINOR.takeOver)) return descriptor;
-	const backendOps = descriptor.capabilities.backendOps.filter((op) => op !== "take_over");
+	const unknown = OPS_ADDED.filter(([minor]) => !client.speaks(minor)).flatMap(([, ops]) => ops);
+	if (unknown.length === 0) return descriptor;
+	const backendOps = descriptor.capabilities.backendOps.filter((op) => !unknown.includes(op));
 	return { ...descriptor, capabilities: { ...descriptor.capabilities, backendOps } };
+}
+
+/** A session's capabilities as `client` may know them: without the fields a later minor added. */
+export function capabilitiesFor(client: CoreClient, capabilities: SessionCapabilities): SessionCapabilities {
+	if (client.speaks(ADDED_IN_MINOR.sessionControls)) return capabilities;
+	const { cancelCompaction: _compaction, cancelRetry: _retry, ...older } = capabilities;
+	return older;
 }
 
 /**

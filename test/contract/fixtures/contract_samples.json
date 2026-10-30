@@ -1460,7 +1460,10 @@
     "revert_clear",
     "revert_commit",
     "navigate_tree",
-    "take_over"
+    "take_over",
+    "session_settings",
+    "session_tools",
+    "system_prompt"
   ],
   "BackendOpResult": [
     {
@@ -1517,6 +1520,65 @@
     },
     {
       "kind": "take_over"
+    },
+    {
+      "kind": "session_settings",
+      "settings": [
+        {
+          "kind": "toggle",
+          "key": "x",
+          "label": "x",
+          "description": "x",
+          "enabled": true,
+          "note": "x"
+        }
+      ]
+    },
+    {
+      "kind": "session_settings",
+      "settings": [
+        {
+          "kind": "toggle",
+          "key": "x",
+          "label": "x",
+          "enabled": false
+        }
+      ]
+    },
+    {
+      "kind": "session_tools",
+      "tools": [
+        {
+          "name": "x",
+          "description": "x",
+          "active": true,
+          "group": "x"
+        }
+      ],
+      "omitted": 1
+    },
+    {
+      "kind": "session_tools",
+      "tools": [
+        {
+          "name": "x",
+          "description": "x",
+          "active": false
+        }
+      ]
+    },
+    {
+      "kind": "system_prompt",
+      "text": "x",
+      "offset": 1,
+      "totalChars": 1,
+      "nextOffset": 1
+    },
+    {
+      "kind": "system_prompt",
+      "text": "x",
+      "offset": 1,
+      "totalChars": 1
     }
   ],
   "BackendStatus": [
@@ -2027,6 +2089,13 @@
     "commands",
     "modes"
   ],
+  "ChoiceChange": [
+    {
+      "kind": "choice",
+      "key": "x",
+      "value": "x"
+    }
+  ],
   "ChoiceReply": [
     {
       "kind": "choice",
@@ -2046,6 +2115,35 @@
     },
     {
       "kind": "choice",
+      "options": [
+        {
+          "value": "x",
+          "label": "x"
+        }
+      ]
+    }
+  ],
+  "ChoiceSetting": [
+    {
+      "kind": "choice",
+      "key": "x",
+      "label": "x",
+      "description": "x",
+      "value": "x",
+      "options": [
+        {
+          "value": "x",
+          "label": "x",
+          "description": "x"
+        }
+      ],
+      "note": "x"
+    },
+    {
+      "kind": "choice",
+      "key": "x",
+      "label": "x",
+      "value": "x",
       "options": [
         {
           "value": "x",
@@ -2502,6 +2600,22 @@
       }
     },
     {
+      "type": "compaction.cancel",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    },
+    {
+      "type": "retry.cancel",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    },
+    {
       "type": "backend.call",
       "requestId": "x",
       "call": {
@@ -2742,6 +2856,25 @@
   "CompactionAborted": [
     {
       "kind": "aborted"
+    }
+  ],
+  "CompactionCancelRequest": [
+    {
+      "type": "compaction.cancel",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    }
+  ],
+  "CompactionCancelResponse": [
+    {
+      "type": "compaction.cancel.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
     }
   ],
   "CompactionCompleted": [
@@ -5123,6 +5256,40 @@
     {
       "kind": "take_over",
       "sessionId": "x"
+    },
+    {
+      "kind": "session_settings",
+      "sessionId": "x",
+      "change": {
+        "kind": "toggle",
+        "key": "x",
+        "enabled": true
+      }
+    },
+    {
+      "kind": "session_settings",
+      "sessionId": "x"
+    },
+    {
+      "kind": "session_tools",
+      "sessionId": "x",
+      "change": {
+        "name": "x",
+        "active": true
+      }
+    },
+    {
+      "kind": "session_tools",
+      "sessionId": "x"
+    },
+    {
+      "kind": "system_prompt",
+      "sessionId": "x",
+      "offset": 1
+    },
+    {
+      "kind": "system_prompt",
+      "sessionId": "x"
     }
   ],
   "Plan": [
@@ -5899,6 +6066,25 @@
       }
     }
   ],
+  "RetryCancelRequest": [
+    {
+      "type": "retry.cancel",
+      "requestId": "x",
+      "session": {
+        "backend": "claude-code",
+        "sessionId": "x"
+      }
+    }
+  ],
+  "RetryCancelResponse": [
+    {
+      "type": "retry.cancel.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    }
+  ],
   "RetryFinishedEvent": [
     {
       "type": "retry_finished",
@@ -6639,7 +6825,9 @@
       "capabilities": {
         "controllable": true,
         "compact": true,
-        "cancelQueued": true
+        "cancelQueued": true,
+        "cancelCompaction": true,
+        "cancelRetry": true
       },
       "sync": {
         "kind": "replay",
@@ -6803,6 +6991,20 @@
     },
     {
       "type": "compact.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    },
+    {
+      "type": "compaction.cancel.result",
+      "requestId": "x",
+      "result": {
+        "status": "accepted"
+      }
+    },
+    {
+      "type": "retry.cancel.result",
       "requestId": "x",
       "result": {
         "status": "accepted"
@@ -6995,7 +7197,9 @@
       "capabilities": {
         "controllable": true,
         "compact": true,
-        "cancelQueued": true
+        "cancelQueued": true,
+        "cancelCompaction": true,
+        "cancelRetry": true
       },
       "sync": {
         "kind": "replay",
@@ -7022,7 +7226,9 @@
     {
       "controllable": true,
       "compact": true,
-      "cancelQueued": true
+      "cancelQueued": true,
+      "cancelCompaction": true,
+      "cancelRetry": true
     },
     {
       "controllable": false,
@@ -7412,6 +7618,90 @@
       }
     }
   ],
+  "SessionSetting": [
+    {
+      "kind": "toggle",
+      "key": "x",
+      "label": "x",
+      "description": "x",
+      "enabled": true,
+      "note": "x"
+    },
+    {
+      "kind": "toggle",
+      "key": "x",
+      "label": "x",
+      "enabled": false
+    },
+    {
+      "kind": "choice",
+      "key": "x",
+      "label": "x",
+      "description": "x",
+      "value": "x",
+      "options": [
+        {
+          "value": "x",
+          "label": "x",
+          "description": "x"
+        }
+      ],
+      "note": "x"
+    },
+    {
+      "kind": "choice",
+      "key": "x",
+      "label": "x",
+      "value": "x",
+      "options": [
+        {
+          "value": "x",
+          "label": "x"
+        }
+      ]
+    }
+  ],
+  "SessionSettingsOp": [
+    {
+      "kind": "session_settings",
+      "sessionId": "x",
+      "change": {
+        "kind": "toggle",
+        "key": "x",
+        "enabled": true
+      }
+    },
+    {
+      "kind": "session_settings",
+      "sessionId": "x"
+    }
+  ],
+  "SessionSettingsResult": [
+    {
+      "kind": "session_settings",
+      "settings": [
+        {
+          "kind": "toggle",
+          "key": "x",
+          "label": "x",
+          "description": "x",
+          "enabled": true,
+          "note": "x"
+        }
+      ]
+    },
+    {
+      "kind": "session_settings",
+      "settings": [
+        {
+          "kind": "toggle",
+          "key": "x",
+          "label": "x",
+          "enabled": false
+        }
+      ]
+    }
+  ],
   "SessionSnapshot": [
     {
       "run": {
@@ -7714,6 +8004,57 @@
       "source": "user"
     }
   ],
+  "SessionTool": [
+    {
+      "name": "x",
+      "description": "x",
+      "active": true,
+      "group": "x"
+    },
+    {
+      "name": "x",
+      "description": "x",
+      "active": false
+    }
+  ],
+  "SessionToolsOp": [
+    {
+      "kind": "session_tools",
+      "sessionId": "x",
+      "change": {
+        "name": "x",
+        "active": true
+      }
+    },
+    {
+      "kind": "session_tools",
+      "sessionId": "x"
+    }
+  ],
+  "SessionToolsResult": [
+    {
+      "kind": "session_tools",
+      "tools": [
+        {
+          "name": "x",
+          "description": "x",
+          "active": true,
+          "group": "x"
+        }
+      ],
+      "omitted": 1
+    },
+    {
+      "kind": "session_tools",
+      "tools": [
+        {
+          "name": "x",
+          "description": "x",
+          "active": false
+        }
+      ]
+    }
+  ],
   "SessionUpdatedEvent": [
     {
       "type": "session_updated",
@@ -7957,6 +8298,26 @@
         ]
       }
     }
+  ],
+  "SettingChange": [
+    {
+      "kind": "toggle",
+      "key": "x",
+      "enabled": true
+    },
+    {
+      "kind": "toggle",
+      "key": "x",
+      "enabled": false
+    },
+    {
+      "kind": "choice",
+      "key": "x",
+      "value": "x"
+    }
+  ],
+  "SettingKey": [
+    "x"
   ],
   "SnapshotSync": [
     {
@@ -8329,6 +8690,32 @@
     "date",
     "date-time"
   ],
+  "SystemPromptOp": [
+    {
+      "kind": "system_prompt",
+      "sessionId": "x",
+      "offset": 1
+    },
+    {
+      "kind": "system_prompt",
+      "sessionId": "x"
+    }
+  ],
+  "SystemPromptResult": [
+    {
+      "kind": "system_prompt",
+      "text": "x",
+      "offset": 1,
+      "totalChars": 1,
+      "nextOffset": 1
+    },
+    {
+      "kind": "system_prompt",
+      "text": "x",
+      "offset": 1,
+      "totalChars": 1
+    }
+  ],
   "TakeOverOp": [
     {
       "kind": "take_over",
@@ -8427,6 +8814,34 @@
     "generated",
     "first_prompt"
   ],
+  "ToggleChange": [
+    {
+      "kind": "toggle",
+      "key": "x",
+      "enabled": true
+    },
+    {
+      "kind": "toggle",
+      "key": "x",
+      "enabled": false
+    }
+  ],
+  "ToggleSetting": [
+    {
+      "kind": "toggle",
+      "key": "x",
+      "label": "x",
+      "description": "x",
+      "enabled": true,
+      "note": "x"
+    },
+    {
+      "kind": "toggle",
+      "key": "x",
+      "label": "x",
+      "enabled": false
+    }
+  ],
   "ToolCallId": [
     "x"
   ],
@@ -8462,6 +8877,16 @@
       "id": "x",
       "toolCallId": "x",
       "name": "x"
+    }
+  ],
+  "ToolChange": [
+    {
+      "name": "x",
+      "active": true
+    },
+    {
+      "name": "x",
+      "active": false
     }
   ],
   "ToolChildSession": [

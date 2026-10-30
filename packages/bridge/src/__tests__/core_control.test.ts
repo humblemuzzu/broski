@@ -194,7 +194,13 @@ describe("the core's prompt path", () => {
 		const a = await rig.client("a");
 		const session = rig.fake.fake.seed({ cwd: RIG_CWD, external: true });
 		const answer = await a.ok("session.attach", { session });
-		expect(answer.capabilities).toEqual({ controllable: false, compact: false, cancelQueued: false });
+		expect(answer.capabilities).toEqual({
+			controllable: false,
+			compact: false,
+			cancelQueued: false,
+			cancelCompaction: false,
+			cancelRetry: false,
+		});
 		const results = [
 			(await a.ok("prompt", { session, input: promptInput("x") })).result,
 			(await a.ok("abort", { session })).result,

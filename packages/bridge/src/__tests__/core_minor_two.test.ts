@@ -61,7 +61,13 @@ describe("a session that goes on as itself with other capabilities", () => {
 		const session = rig.fake.fake.seed({ cwd: RIG_CWD });
 		const phone = await rig.client("phone");
 		const first = await phone.ok("session.attach", { session });
-		expect(first.capabilities).toEqual({ controllable: false, compact: false, cancelQueued: false });
+		expect(first.capabilities).toEqual({
+			controllable: false,
+			compact: false,
+			cancelQueued: false,
+			cancelCompaction: false,
+			cancelRetry: false,
+		});
 		if (first.sync.kind !== "snapshot") throw new Error("a fresh attach gets a snapshot");
 
 		world.grant(session);
@@ -70,7 +76,13 @@ describe("a session that goes on as itself with other capabilities", () => {
 		expect(await phone.request("abort", { session })).toMatchObject({ error: { code: "not_attached" } });
 
 		const second = await phone.ok("session.attach", { session });
-		expect(second.capabilities).toEqual({ controllable: true, compact: true, cancelQueued: true });
+		expect(second.capabilities).toEqual({
+			controllable: true,
+			compact: true,
+			cancelQueued: true,
+			cancelCompaction: true,
+			cancelRetry: true,
+		});
 		if (second.sync.kind !== "snapshot") throw new Error("the new stream starts with a snapshot");
 		expect(second.sync.epoch).not.toBe(first.sync.epoch);
 		expect(second.sync.lastSeq).toBe(0);

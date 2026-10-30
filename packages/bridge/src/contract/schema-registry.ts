@@ -24,6 +24,7 @@ import * as queue from "./queue";
 import * as readResults from "./read-results";
 import * as rejection from "./rejection";
 import * as runs from "./runs";
+import * as sessionControls from "./session-controls";
 import * as sessions from "./sessions";
 import * as snapshot from "./snapshot";
 import * as status from "./status";
@@ -57,6 +58,7 @@ const SCHEMA_MODULES = {
 	status,
 	paging,
 	sessions,
+	"session-controls": sessionControls,
 	transcript,
 	snapshot,
 	events,

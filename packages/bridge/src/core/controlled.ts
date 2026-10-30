@@ -15,7 +15,9 @@ type ControlType =
 	| "model.set"
 	| "thinking.set"
 	| "mode.set"
-	| "compact";
+	| "compact"
+	| "compaction.cancel"
+	| "retry.cancel";
 
 /** `RequestOf<T>`, written so that the fields every control request has stay reachable for a generic `T`. */
 type ControlRequest<T extends ControlType> = Extract<ClientMessage, { type: ControlType }> & { type: T };

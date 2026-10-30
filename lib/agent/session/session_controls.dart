@@ -79,6 +79,14 @@ final class SessionControls {
     _report('Removing the queued message', outcome);
   }
 
+  Future<void> cancelCompaction() async => _report(
+    'Stopping the compaction',
+    await _cell.client.cancelCompaction(_cell.ref),
+  );
+
+  Future<void> cancelRetry() async =>
+      _report('Stopping the retry', await _cell.client.cancelRetry(_cell.ref));
+
   Future<void> setModel(ModelId modelId) async => _report(
     'Changing the model',
     await _cell.client.setModel(_cell.ref, modelId),

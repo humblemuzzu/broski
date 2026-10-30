@@ -112,5 +112,7 @@ String? answeredRequestId(ServerMessage message) => switch (message) {
   ThinkingSetResponse(:final requestId) ||
   ModeSetResponse(:final requestId) ||
   CompactResponse(:final requestId) ||
+  CompactionCancelResponse(:final requestId) ||
+  RetryCancelResponse(:final requestId) ||
   BackendCallResponse(:final requestId) => requestId,
 };
