@@ -60,7 +60,7 @@ describe("reading Pi's catalogue writes nothing", () => {
 			await catalogue.list(env.cwd);
 			await catalogue.list(undefined);
 			await catalogue.find("faux/a");
-			await piStatus(services.models, env.agentDir);
+			await piStatus(services.models, env.agentDir, { proxy: services.proxy });
 			await new PiCommandLister(sources).list({ cwd: env.cwd });
 			await new PiCommandLister(sources).list({ cwd: undefined });
 		};

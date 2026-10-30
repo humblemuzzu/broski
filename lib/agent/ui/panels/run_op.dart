@@ -83,6 +83,7 @@ class OpResultView extends StatelessWidget {
     Reverted() ||
     RevertCommitted() ||
     TreeNavigated() => const Text('Done. The conversation reloads.'),
+    TakenOver() => const Text('This session now runs from your phone.'),
     RevertCleared() => const Text('The staged revert was undone.'),
   };
 }

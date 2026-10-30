@@ -153,6 +153,9 @@ final class SessionController extends StateNotifier<AgentSessionState>
       case AttachRestart():
         unawaited(attach(fresh: true));
         return;
+      case AttachMoved(:final next) when next == ref:
+        unawaited(attach(fresh: true));
+        return;
       case AttachMoved(:final next):
         update((state) => _handedOver(state, next));
         return;
@@ -306,9 +309,11 @@ final class SessionController extends StateNotifier<AgentSessionState>
       snapshot: applyEvent(before.snapshot, envelope.at, event),
       link: advanced(before.link, envelope.seq),
     );
-    var after = withEventEffects(before, reduced, event, notice: notice);
+    final after = withEventEffects(before, reduced, event, notice: notice);
     if (event case SessionReplacedEvent(:final session)) {
-      after = _handedOver(after, session);
+      update((_) => session == ref ? after : _handedOver(after, session));
+      if (session == ref) unawaited(attach(fresh: true));
+      return;
     }
     update((_) => after);
     if (event is RunFinishedEvent) unawaited(history.refreshNewest());

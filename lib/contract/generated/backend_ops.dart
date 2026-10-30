@@ -73,7 +73,8 @@ enum BackendOpKind {
   revertStage('revert_stage'),
   revertClear('revert_clear'),
   revertCommit('revert_commit'),
-  navigateTree('navigate_tree');
+  navigateTree('navigate_tree'),
+  takeOver('take_over');
 
   const BackendOpKind(this.wire);
 
@@ -97,6 +98,7 @@ sealed class BackendOpResult {
         'revert_clear' => RevertCleared.fromJson(json),
         'revert_commit' => RevertCommitted.fromJson(json),
         'navigate_tree' => TreeNavigated.fromJson(json),
+        'take_over' => TakenOver.fromJson(json),
         final tag => throw FormatException(
           'Unknown BackendOpResult kind: $tag',
         ),
@@ -337,9 +339,7 @@ final class NavigateTreeOp implements PiOp {
 
   @override
   final SessionId sessionId;
-  @override
   final TranscriptItemId itemId;
-  @override
   final bool summarize;
 
   @override
@@ -448,14 +448,11 @@ final class PiCall implements BackendCall {
 sealed class PiOp {
   factory PiOp.fromJson(Map<String, Object?> json) => switch (json['kind']) {
     'navigate_tree' => NavigateTreeOp.fromJson(json),
+    'take_over' => TakeOverOp.fromJson(json),
     final tag => throw FormatException('Unknown PiOp kind: $tag'),
   };
 
   SessionId get sessionId;
-
-  TranscriptItemId get itemId;
-
-  bool get summarize;
 
   Map<String, Object?> toJson();
 }
@@ -980,6 +977,69 @@ final class RewindFilesResult implements BackendOpResult {
   @override
   String toString() =>
       'RewindFilesResult(canRewind: $canRewind, filesChanged: $filesChanged, insertions: $insertions, deletions: $deletions, skippedLinks: $skippedLinks, error: $error)';
+}
+
+final class TakeOverOp implements PiOp {
+  const TakeOverOp({required this.sessionId});
+
+  factory TakeOverOp.fromJson(Map<String, Object?> json) {
+    _expectShape(
+      json,
+      'TakeOverOp',
+      const <String>{'kind', 'sessionId'},
+      const <String, String>{'kind': 'take_over'},
+    );
+    return TakeOverOp(
+      sessionId: _as<String>(json['sessionId'], 'TakeOverOp.sessionId'),
+    );
+  }
+
+  @override
+  final SessionId sessionId;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'kind': 'take_over',
+    'sessionId': sessionId,
+  };
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TakeOverOp && _equal(sessionId, other.sessionId);
+
+  @override
+  int get hashCode => Object.hashAll([_hash(sessionId)]);
+
+  @override
+  String toString() => 'TakeOverOp(sessionId: $sessionId)';
+}
+
+final class TakenOver implements BackendOpResult {
+  const TakenOver();
+
+  factory TakenOver.fromJson(Map<String, Object?> json) {
+    _expectShape(
+      json,
+      'TakenOver',
+      const <String>{'kind'},
+      const <String, String>{'kind': 'take_over'},
+    );
+    return const TakenOver();
+  }
+
+  @override
+  Map<String, Object?> toJson() => {'kind': 'take_over'};
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) || other is TakenOver;
+
+  @override
+  int get hashCode => runtimeType.hashCode;
+
+  @override
+  String toString() => 'TakenOver()';
 }
 
 final class TreeNavigated implements BackendOpResult {

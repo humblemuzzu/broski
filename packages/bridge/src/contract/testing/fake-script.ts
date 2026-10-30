@@ -43,6 +43,8 @@ type FakeContentStep =
 export type FakeSignalStep =
 	| { kind: "compaction" }
 	| { kind: "retry"; attempts: number }
+	/** The backend hands queued input back, as an abort that clears its queue does. */
+	| { kind: "return_input"; texts: string[] }
 	| { kind: "usage"; usage: Usage }
 	| { kind: "plan"; plan: Plan }
 	| { kind: "notice"; level: NoticeLevel; text: string }

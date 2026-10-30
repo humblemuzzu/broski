@@ -9,6 +9,7 @@ import {
 	type AgentEvent,
 	emptySnapshot,
 	MAX_LIST_ITEMS,
+	MAX_TEXT_CHARS,
 	type NoticeEvent,
 	type Rejected,
 	type SessionControl,
@@ -17,6 +18,7 @@ import {
 	type SessionSummary,
 	sessionStatus,
 } from "../../../contract";
+import { clipStart } from "../bounds";
 import { errorText } from "../error-text";
 import { permissionsSetting } from "../modes";
 import type { AskHost, LiveRow } from "../ports";
@@ -190,6 +192,13 @@ export class SessionHost {
 		return this.start.cwd;
 	}
 
+	/** The session's file: a hosted session is always a persisted one. */
+	get file(): string {
+		const file = this.session.sessionManager.getSessionFile();
+		if (file === undefined) throw new Error("a hosted session has no file");
+		return file;
+	}
+
 	attach(sink: SessionSink): SessionSnapshot {
 		this.sink = sink;
 		return this.live.attach(sink);
@@ -327,7 +336,13 @@ export class SessionHost {
 		return this.abortNow();
 	}
 
+	/**
+	 * Stops what runs, as Esc does in the terminal (pi `src/modes/interactive/interactive-mode.ts:4711-4725`): while a
+	 * run is on, the steering and follow-up input queued behind it leaves Pi's queue before the abort, and goes back to
+	 * the person as `input_returned`, steering first, so nothing queued is sent by a run that was stopped.
+	 */
 	private async abortNow(): Promise<ActionResult> {
+		this.returnQueuedInput();
 		const run = this.runs.current();
 		if (run) {
 			this.runs.noteAbort();
@@ -341,6 +356,15 @@ export class SessionHost {
 			return rejected("backend_error", `the abort failed: ${errorText(error)}`);
 		}
 		return ACCEPTED;
+	}
+
+	private returnQueuedInput(): void {
+		const session = this.session;
+		if (!session.isStreaming) return;
+		const { steering, followUp } = session.clearQueue();
+		const texts = [...steering, ...followUp].filter((text) => text !== "");
+		if (texts.length > 0)
+			this.live.emit({ type: "input_returned", texts: texts.map((text) => clipStart(text, MAX_TEXT_CHARS)) });
 	}
 
 	private abortInBackground(): void {

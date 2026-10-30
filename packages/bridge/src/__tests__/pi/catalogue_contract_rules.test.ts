@@ -47,7 +47,7 @@ async function rig(): Promise<Rig> {
 		...fake,
 		id: "pi",
 		traits: PI_TRAITS,
-		status: () => piStatus(world.services.models, world.env.agentDir),
+		status: () => piStatus(world.services.models, world.env.agentDir, { proxy: world.services.proxy }),
 		listModels: (cwd) => models.list(cwd),
 		listCommands: (scope) => new PiCommandLister(sources).list({ cwd: scope.cwd }),
 	};

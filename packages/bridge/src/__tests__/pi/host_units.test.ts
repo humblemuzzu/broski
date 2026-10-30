@@ -10,6 +10,7 @@ import { promptRejection } from "../../backends/pi/live/prompt-errors";
 import { QueueMirror } from "../../backends/pi/live/queue-mirror";
 import { RunTracker } from "../../backends/pi/live/run-tracker";
 import { DISPOSE_DEADLINE_MS } from "../../backends/pi/live/shutdown";
+import type { InteractionPort } from "../../backends/pi/ports";
 import { ACCEPTED } from "../../backends/pi/rejections";
 import { type AgentEvent, emptySnapshot, type SinkRecord } from "../../contract";
 import { useWatchdog } from "./helpers/use-watchdog";
@@ -87,16 +88,17 @@ describe("RunTracker", () => {
 	function tracker(usage?: { inputTokens: number }) {
 		const { live, events } = recorded();
 		const released: string[] = [];
+		const interactions: InteractionPort = {
+			answer: () => ACCEPTED,
+			withdrawRun: () => {
+				throw new Error("a run that ends lets its asks go; only an abort withdraws them");
+			},
+			releaseRun: (runId) => released.push(runId),
+			expireAll: () => {},
+		};
 		const runs = new RunTracker({
 			live,
-			interactions: {
-				answer: () => ACCEPTED,
-				withdrawRun: () => {
-					throw new Error("a run that ends lets its asks go; only an abort withdraws them");
-				},
-				releaseRun: (runId) => released.push(runId),
-				expireAll: () => {},
-			},
+			interactions,
 			refreshUsage: () => {
 				if (usage) live.emit({ type: "usage_updated", usage });
 			},

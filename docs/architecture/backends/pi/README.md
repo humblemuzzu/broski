@@ -1,10 +1,12 @@
 # The Pi adapter
 
-`packages/bridge/src/backends/pi/` serves Pi (`@earendil-works/pi-coding-agent` 1.4.0, exact pin) through the backend contract ([`../../contract/README.md`](../../contract/README.md)). It implements `AgentBackend` on Pi's classic engine (`AgentSession` + session JSONL files), the engine the terminal `pi` runs, and passes all 28 conformance rules (rule 27 returns early: `externalLive` is false).
+`packages/bridge/src/backends/pi/` serves Pi (`@earendil-works/pi-coding-agent` 1.4.0, exact pin) through the backend contract ([`../../contract/README.md`](../../contract/README.md)). It implements `AgentBackend` on Pi's classic engine (`AgentSession` + session JSONL files), the engine the terminal `pi` runs, and passes all 28 conformance rules, rule 27 (`externalLive`) against a real terminal `pi` that runs the Broski link extension ([`terminal-link.md`](terminal-link.md)).
 
 Status: built, reviewed three times, and every review finding answered ([`reviews/FIXES.md`](reviews/FIXES.md)). It is registered behind a dev flag; the old Pi path (`connectors/pi/**`, `handlers/pi_*`) still serves the app and is untouched. App routing, the on-device checklist, cutover and deletion are in [`PHASE-4-PI-PLAN.md`](PHASE-4-PI-PLAN.md). [`STEP-0-INTERFACES.md`](STEP-0-INTERFACES.md) is the historical build plan; where it and this file differ, this file says what was built.
 
 **`research/` is superseded.** The five research notes were written by an agent before the build, and are partly wrong. Where they differ from this file or the code (and the SDK `path:line` the code cites), this file and the code are right. They are kept as history only.
+
+**Also:** [`terminal-link.md`](terminal-link.md) (the extension in the terminal, the channel, the reverse direction, take over, what Pi 1.4.0 cannot do).
 
 **Contents.** [Run it](#run-it) · [Layout](#layout) · [Decisions](#decisions) · [Capabilities](#capabilities) · [How each method maps to Pi](#how-each-method-maps-to-pi) · [Traps it handles](#traps-it-handles) · [Tests](#tests) · [Owner decisions pending](#owner-decisions-pending) · [Contract gaps](#contract-gaps) · [Risks](#risks)
 
@@ -15,11 +17,11 @@ cd packages/bridge
 BROSKI_CONTRACT_PI=1 bun dev        # the core serves `pi` beside the old protocol
 ```
 
-`server/contract-backends.ts` builds the core's backends: `[["pi", piBackendFactory()]]` only when `BROSKI_CONTRACT_PI` is exactly `1` and the process is not a compiled binary, else none; `serve.ts` passes it as `contract`. With backends registered the core's journals default to `~/.broski/core`. The adapter reads the real `~/.pi/agent` (or `$PI_CODING_AGENT_DIR`) and the sessions directory the `pi` command uses. The old Pi path keeps serving Pi on the same bridge: do not drive one session from both at once.
+`server/contract-backends.ts` builds the core's backends: `[["pi", piWithLink]]` (`piBackendFactory` with the terminal link, on unless the bridge's config has `"pi": {"terminalLink": false}`; installing the extension and the socket are in [`terminal-link.md`](terminal-link.md)) only when `BROSKI_CONTRACT_PI` is exactly `1` and the process is not a compiled binary, else none; `serve.ts` passes it as `contract`. With backends registered the core's journals default to `~/.broski/core`. The adapter reads the real `~/.pi/agent` (or `$PI_CODING_AGENT_DIR`) and the sessions directory the `pi` command uses. The old Pi path keeps serving Pi on the same bridge: do not drive one session from both at once.
 
 ## Layout
 
-One concept per file, 103 files; none passes 400 lines (`live/session-host.ts`, 370, is the largest). Imports: the contract, the adapter itself, `node:` built-ins and the three Pi packages from their roots (`bun run check:layers`).
+One concept per file, 125 files; none passes 400 lines (`live/session-host.ts`, 394, is the largest). Imports: the contract, the adapter itself, `zod` (the terminal link's frames), `node:` built-ins and the three Pi packages from their roots (`bun run check:layers`).
 
 | File | What it is |
 |---|---|
@@ -78,7 +80,10 @@ One concept per file, 103 files; none passes 400 lines (`live/session-host.ts`, 
 | `live/shutdown.ts` | Bounded abort, abort-then-dispose within `HOST_END_BUDGET_MS` (D17). |
 | `live/session-lock.ts`, `live/live-state.ts`, `live/host-live-state.ts`, `live/open-session.ts`, `live/host-summary.ts`, `live/host-row.ts`, `live/host-environment.ts`, `live/hosted-session.ts`, `live/live-notes.ts` | The per-session lock; the live state through `applyEvent`; the view the core holds; a hosted session's list row; notice and fault events. |
 | **`ui/`** | `interactions.ts` (pending asks, exactly-once resolution), `ui-context.ts` (the remote `ExtensionUIContext`), `permission-gate.ts` + `permission-request.ts` + `visible-text.ts` + `edited-input.ts` (D14; no default answer, and a cut input is shown cut and cannot be edited), `extensions.ts` (built-ins + the gate), `plain-theme.ts`. |
-| `ops/navigate-tree.ts` | `backend.call` `navigate_tree` (D8). |
+| `ops/navigate-tree.ts`, `ops/take-over.ts` | `backend.call` `navigate_tree` (D8) and `take_over` (decision 17). |
+| `live/session-view.ts` | The `OpenSession` the core holds for a session: hosted, watching, or a terminal's, changing between them with `session_replaced` (decision 19). |
+| **`terminal/`** | The terminal link ([`terminal-link.md`](terminal-link.md)): `protocol.ts` (strict frames), `link-server.ts` (the socket and key), `connection.ts`, `registry.ts`, `feed.ts` (a terminal's events as live state), `control.ts` (prompt and abort through the terminal), `install.ts` + `extension-sources.ts` (the extension in the agent dir), `link.ts` (start, stop, problem), and `extension/` (the files that run inside the terminal's `pi`). |
+| **`network/`** | Pi's `httpProxy` for Pi's requests only (decision 18): `proxy-setting.ts`, `proxy-plan.ts`, `no-proxy.ts`, `scoped-runtime.ts`, `proxy-status.ts`. |
 
 ## Decisions
 
@@ -89,7 +94,7 @@ One concept per file, 103 files; none passes 400 lines (`live/session-host.ts`, 
 | D1 | In-process SDK. `services.ts` creates the one `ModelRuntime`; `runtime-factory.ts` passes it to `createAgentSessionServices`, so Pi never builds a second. One `AgentSessionRuntime` per hosted session. |
 | D2 | `SessionLocks` per session id, held for an open, a prompt until Pi decides it, `setModel`/`setThinking`/`setMode`, `compact` until Pi has taken it, a hosted rename, a delete, `withIdleSession` and a host's end; never for `abort`, `answer`, `snapshot`, `close` or reads. In-process only. |
 | D3 | The run is the adapter's: `run_started` when Pi reports `preflightResult("started")`, when a prompt Pi is still deciding starts its run early (below), or on an agent event with no run (trigger `system`); `run_finished` only at `agent_settled`, or when a run started early ends because Pi did not run the prompt. Outcome from `agent_settled.aborted`, else the last assistant message's `stopReason`. |
-| D4 | `start`/`steer`/`queue`, routed on the adapter's run, each one `session.prompt(text, {streamingBehavior})`. No `cancelQueued`: Pi's `clearQueue()` empties the queue whole, and input queued again meets every `input` handler anew (`queue_leftovers.test.ts`). A run that settles with input still queued says so in a warning notice. A blank prompt is `invalid_input`; while a compaction runs, prompts are refused `busy`. |
+| D4 | `start`/`steer`/`queue`, routed on the adapter's run, each one `session.prompt(text, {streamingBehavior})`. No `cancelQueued`: Pi's `clearQueue()` empties the queue whole, and input queued again meets every `input` handler anew (`queue_leftovers.test.ts`). Stop clears the queue and hands the texts back (decision 16). A run that settles with input still queued says so in a warning notice. A blank prompt is `invalid_input`; while a compaction runs, prompts are refused `busy`. |
 | D5 | An in-memory map of accepted results (1,000) plus `broski.prompt {clientRequestId, imageNames}` right after the user message. |
 | D6 | The store reads files itself. `SessionManager.open` only hosts a session this bridge made (a write path). |
 | D7 | In-memory index, stamped `(size, mtimeMs, ino, ctimeMs)`; header-cwd filter after realpath; keyset list cursor; transcript cursor `{entry position, item position, item id}`. |
@@ -101,14 +106,14 @@ One concept per file, 103 files; none passes 400 lines (`live/session-host.ts`, 
 | D13 | The remote UI context, modelled on Pi's RPC mode. Only the extension's own `timeout` or `signal` ends an ask besides the human (reported `withdrawn`); an abort withdraws the run's asks; shutdown expires them (Pi's default answers). No timer of the adapter's own. An ask raised inside an extension command (before or after it awaits) has no run and never blocks one. Supersedes the plan's D13. |
 | D14 | `permissions` axis; the hidden `broski-permissions` extension asks `tool_permission` per call with `ask`; persisted as `broski.permissions`. |
 | D15 | `codemode`, `tool-search`, `mcp` load as the CLI loads them (`llama.cpp` has no root export). |
-| D16 | `externalLive: false`. Sessions another client made open watch-only, and so does a session of this bridge whose cwd is gone. The sessions directories are watched for the catalog; a hosted session's row is announced by its host alone. |
-| D17 | Shutdown ends every host at once. For each: asks expired, the extensions' start let finish (500 ms), abort and wait for `agent_settled` (2.5 s), then `dispose()` (1 s). That is `HOST_END_BUDGET_MS`, 4 s, inside the bridge's 5 s teardown (`lifecycle/teardown.ts`). An abort that rejects still disposes. `abort()` from Stop is bounded (5 s). A start is bounded too (`START_DEADLINE_MS`, 20 s, inside the core's 30 s), and a runtime that arrives later is disposed. The queue is left as Pi leaves it (owner decision 2). Supersedes the plan's D17. |
+| D16 | `externalLive: true`, for a terminal that runs the link extension (decision 19). Sessions another client made, with no terminal link, open watch-only until taken over (decision 17), and so does a session of this bridge whose cwd is gone. The sessions directories are watched for the catalog; a hosted session's row is announced by its host alone. |
+| D17 | Shutdown ends every host at once. For each: asks expired, the extensions' start let finish (500 ms), abort and wait for `agent_settled` (2.5 s), then `dispose()` (1 s). That is `HOST_END_BUDGET_MS`, 4 s, inside the bridge's 5 s teardown (`lifecycle/teardown.ts`). An abort that rejects still disposes. `abort()` from Stop is bounded (5 s). A start is bounded too (`START_DEADLINE_MS`, 20 s, inside the core's 30 s), and a runtime that arrives later is disposed. Supersedes the plan's D17. |
 | D18 | No `reload()`: an extension's `ctx.reload()` throws "The phone cannot reload extensions". Settings never through `applyOverrides`. |
 | D19, D20 | One `pi` backend on the classic engine; the durable engine is not built. |
 
 ### Rulings carried from the build plan (STEP-0 §9–§10)
 
-External sessions are watch-only (§10 item 4); an abort leaves Pi's queue as it is (§10 item 1); an extension's timeout reports `withdrawn`, not `expired` (§10 item 2); only `notify` and `custom()` become notices (§10 item 3); `compact` answers once Pi has taken it (§9 item 6); `listModels` lists every available model, the `enabledModels` scope first (§9 item 8).
+External sessions are watch-only unless taken over or run through the link (§10 item 4, decisions 17 and 19); an abort clears Pi's queue and returns the texts (§10 item 1, decision 16); an extension's timeout reports `withdrawn`, not `expired` (§10 item 2); only `notify` and `custom()` become notices (§10 item 3); `compact` answers once Pi has taken it (§9 item 6); `listModels` lists every available model, the `enabledModels` scope first (§9 item 8).
 
 ### Adapter decisions
 
@@ -128,30 +133,34 @@ External sessions are watch-only (§10 item 4); an abort leaves Pi's queue as it
 14. **The transcript shows what happened, as the terminal does.** `context_edit` entries change only what the model is sent. The terminal's rebuilt chat renders entries without them (`src/modes/interactive/interactive-mode.ts:4060-4076`), and so does the adapter.
 15. **Start notices are not repeated.** A session hosted again reports only the start problems its previous start did not (per session, 256 remembered, for the bridge's life).
 16. **Pi's agent dir is watched.** A `/login`, a `models.json` edit or a settings change in a terminal invalidates the phone's model list (and its commands, for a settings change) and sends a fresh status. A `models.json` caught half-written is never loaded into the runtime the sessions share.
+17. **Take over.** `backend.call take_over{sessionId}` (protocol 1.2) makes a session another client made controllable. `ops/take-over.ts` refuses `busy` when a terminal holds the file through the link, or its file changed in the last 10 s (`RECENT_WRITE_MS`); `not_found` when its cwd is gone; `accepted` at once when it is already this bridge's. Otherwise, inside the session lock (`SessionHosts.takeOver`), it appends `broski.origin` as a rename appends `session_info`, hosts the session, and hands the viewing phone the new capabilities with `session_replaced` naming the same session. Only the human knows whether a terminal without the extension is still on the file, so the app's panel asks first: "Make sure no terminal is using this session". A fork is unchanged and needs no take-over.
+18. **`httpProxy` is applied to Pi's requests only.** The shared `ModelRuntime` handed to Pi's sessions is wrapped (`network/scoped-runtime.ts`): `stream`, `complete`, `streamSimple` and `completeSimple` get a per-request `fetch` that routes through the proxy, and the `env` option (`HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`) that Bedrock and the Codex WebSocket read (pi-ai `ProviderRequestOptions`). No global changes: `process.env`, the global `fetch` and every other backend's and the bridge's own requests behave as before. The setting is read from the global `settings.json` (`??=` as Pi: a proxy variable already in the bridge's environment wins, per scheme) and re-read when the file changes. Loopback, `localhost`, `::1` and unix sockets are never proxied, and `NO_PROXY` always lists `localhost,127.0.0.1,::1`. Not covered, and named by `status()`: the Google providers (their adapter throws on a custom `fetch`), OAuth token refresh, extensions' own requests, and `bash` tool children. Tested against a local `node:http` proxy and the scripted model endpoint (`network_proxy.test.ts`).
+19. **Terminal sessions are live through the Broski link.** A bridge-owned extension inside the terminal's `pi` sends the session's events over a local authenticated socket; the bridge turns them into live state (`terminal/feed.ts`), `run_started{trigger: "external"}` included. The phone's message and Stop go through the terminal's own process, so Pi's terminal stays the file's only writer. Terminal asks stay in the terminal. The session is a `SessionView` that is hosted, watching or a terminal's and changes between them as circumstances do; every change is a `session_replaced` naming the same session. A hosted session that is idle gives way to a terminal that opens it; one that is running is not given up, and the terminal's user is warned. Everything about the extension, the channel and its limits is in [`terminal-link.md`](terminal-link.md).
+20. **Stop is the terminal's Esc.** Where this bridge hosts the session, `abort` first takes both queues out of Pi (`clearQueue()`, steering then follow-up, as `interactive-mode.ts:4711-4725` restores them), emits `queue_changed` empty and then `input_returned{texts}` (protocol 1.2), then aborts. The app puts the texts into the composer in front of what is typed, joined with a blank line, as the terminal's editor does. A client below 1.2 gets a `notice` naming the unsent texts. Nothing is queued again by the adapter, and the next prompt carries no leftovers (`live_runs.test.ts`).
 
 ## Capabilities
 
-`streamText` ✓, `streamThinking` ✓, `promptModes` start/steer/queue, `attachments` image, `mentions` none, `commands` ✓, `queue` ✓, `interactions` tool_permission/choice/confirm/text, `modelSwitch` next_request, `thinking` ✓, `children` ✗, `usage` ✓, `plan` ✗, `planProposals` ✗, `externalLive` ✗, `durableRuns` ✗, `extensions` none, `backendOps` navigate_tree. Derived: `fork`, `rename`, `delete` ✓, `archive` ✗. Session: a session this bridge made (`broski.origin`) is controllable with `compact` and without `cancelQueued`; one another client made, or one whose cwd is gone, has no `control`.
+`streamText` ✓, `streamThinking` ✓, `promptModes` start/steer/queue, `attachments` image, `mentions` none, `commands` ✓, `queue` ✓, `interactions` tool_permission/choice/confirm/text, `modelSwitch` next_request, `thinking` ✓, `children` ✗, `usage` ✓, `plan` ✗, `planProposals` ✗, `externalLive` ✓ (terminals with the link extension), `durableRuns` ✗, `extensions` none, `backendOps` navigate_tree, take_over. Derived: `fork`, `rename`, `delete` ✓, `archive` ✗. Session: a session this bridge runs (`broski.origin`, or taken over) is controllable with `compact` and without `cancelQueued`; one a terminal runs through the link is controllable (message and Stop only, no `compact`, no model/thinking/mode change); one nobody runs here, or one whose cwd is gone, has no `control`.
 
 ## How each method maps to Pi
 
 | Method | Pi |
 |---|---|
-| `status` | `ModelRuntimeHost.available()` (a refresh when a file changed, then `getAvailableSnapshot()`), `hasConfiguredAuth`, settings `defaultProvider/defaultModel`, `resolveModelScopeWithDiagnostics` (once per refresh), a warning that `httpProxy` is not applied, `VERSION`. Never throws. |
+| `status` | `ModelRuntimeHost.available()` (a refresh when a file changed, then `getAvailableSnapshot()`), `hasConfiguredAuth`, settings `defaultProvider/defaultModel`, `resolveModelScopeWithDiagnostics` (once per refresh), the `httpProxy` and terminal-link warnings (decisions 18, 19), `VERSION`. Never throws. |
 | `listSessions`, `getSession` | The store's index over the sessions directories; live status and model from `SessionHosts`. |
 | `readTranscript`, `readAttachment` | The store's span reader over the branch to the file's last entry, or to the leaf at the run's start while a run is active. |
 | `listModels` | `refresh({allowNetwork:false})` when a file changed, then `getAvailableSnapshot()`, scope order from `enabledModels`, `getSupportedThinkingLevels`/`clampThinkingLevel`. |
 | `listCommands` | For a session hosted in the cwd: `extensionRunner.getRegisteredCommands()`, `promptTemplates`, `resourceLoader.getSkills()`. Otherwise a `DefaultResourceLoader.reload()` for the cwd (trust as the terminal), kept while the settings signature holds (30 s). An extension command hides the template and the skill it shadows. |
 | `listModes` | `permissions`. |
 | `open` (new) | `SessionManager.create(cwd, dir)` + `broski.origin` (+ `broski.permissions`), written with `"wx"` and reopened with `SessionManager.open` (decision 10); the model from the `enabledModels` scope; then `createAgentSessionRuntime` and `bindExtensions({uiContext, mode: "rpc", abortHandler, commandContextActions, onError})`, within 20 s. |
-| `open` (existing) | The hosted session's view; else `SessionManager.open` for a session this bridge made whose cwd exists; a watch-only view otherwise. |
+| `open` (existing) | The hosted session's view; a terminal's view when a terminal holds the file through the link; else `SessionManager.open` for a session this bridge made whose cwd exists; a watch-only view otherwise. |
 | `rename` | One title check (`session-name.ts`), then `session.setSessionName` when hosted; else one appended `session_info` line, inside a trusted root. |
 | `delete` | `busy` unless idle; containment on real paths; the host ends; then `trash`, or `backend_error` with the file kept. |
 | `fork` | A new v3 file written by the store, laid out as `createBranchedSession`. |
-| `call` | `navigate_tree`: `session.navigateTree` under `withIdleSession`, a `label` when no summary, then `transcript_invalidated`. |
+| `call` | `navigate_tree`: `session.navigateTree` under `withIdleSession`, a `label` when no summary, then `transcript_invalidated`. `take_over`: decision 17. |
 | `dispose` | Watch stopped, every host shut down (D17), catalog silenced. |
 | `prompt` | `session.prompt(text, {expandPromptTemplates, source: "rpc", images, streamingBehavior, preflightResult})`. |
-| `abort` | The run's asks withdrawn, then `session.abort()` bounded. |
+| `abort` | The run's asks withdrawn, the queues cleared and returned (`input_returned`, decision 20), then `session.abort()` bounded. For a terminal's session, `ctx.abort()` in the terminal. |
 | `answer` | `answerProblem`, then the pending ask's promise. |
 | `setModel`, `setThinking` | `session.setModel(model)` (no persist), `session.setThinkingLevel(level)`, then `model_changed`. |
 | `setMode` | `broski.permissions`, then `mode_changed`. |
@@ -163,7 +172,7 @@ External sessions are watch-only (§10 item 4); an abort leaves Pi's queue as it
 
 ## Tests
 
-`packages/bridge/src/__tests__/pi/`: 83 test files, 881 tests, all on Pi's faux provider in a throwaway home (`createPiTestEnv` scrubs every provider key; `registerFaux` refuses to run beside a real model). `bun test src/__tests__/pi/` runs them in about 95 seconds. None runs concurrently with another (`test_hygiene.test.ts`): they share `process.env` and `PATH`. The memory and event-loop watchdog is armed only by the files that run live sessions (`helpers/use-watchdog.ts`), and terminated after them.
+`packages/bridge/src/__tests__/pi/`: 90 test files, 960 tests, all on Pi's faux provider in a throwaway home (`createPiTestEnv` scrubs every provider key; `registerFaux` refuses to run beside a real model). `bun test src/__tests__/pi/` runs them in about 105 seconds. None runs concurrently with another (`test_hygiene.test.ts`): they share `process.env` and `PATH`. The memory and event-loop watchdog is armed only by the files that run live sessions (`helpers/use-watchdog.ts`), and terminated after them.
 
 | Files | What they hold |
 |---|---|
@@ -175,31 +184,18 @@ External sessions are watch-only (§10 item 4); an abort leaves Pi's queue as it
 | `models_*`, `status`, `commands*`, `config_watch`, `project_trust`, `no_package_installs`, `reads_write_nothing`, `catalogue_contract_rules` | Models and the catalogue, status, commands, the agent-dir watch, trust, package loads. |
 | `host_*`, `start_*`, `ask_deadlines`, `queue_leftovers` | A hosted session's life: hosting, starts and their deadlines, ends and shutdown, interleavings, races, leaks over 100 cycles, asks that come before anything awaits. |
 | `live_*`, `transcript_records` | The live matrix over the backend: prompts, runs, compaction, settings, permissions, sessions, listing, lifecycle, dialogs, transcript records. |
+| `take_over`, `terminal_link`, `terminal_channel`, `terminal_extension`, `terminal_install` | Take over (refused with a terminal and on a recent write, accepted otherwise, controllable afterwards, a fork unchanged); the terminal link end to end with a real Pi session in `tui` mode behind the real extension (live run, mid-run attach, a message and Stop through the terminal, quitting, a new session, compaction, thinking, a name); the socket's key, modes, strict frames and size limit; the extension alone (no bridge, backoff under fake timers, a full buffer and the resync, the warning); install, update, foreign folder, uninstall, the off switch, and no extension in hosted sessions. |
+| `network_proxy*` | `httpProxy` for Pi's requests only, against a local `node:http` proxy and the scripted endpoint: a hosted session's request goes through it, no setting goes direct, the global `fetch` and `process.env` are untouched, `CONNECT` for https, loopback/`NO_PROXY`/unix never proxied. |
 | `interaction_desk`, `dialogs`, `ui_context`, `gate*`, `builtin_extensions`, `navigate*` | Interactions, the remote UI, the permission gate, the built-in extensions, `navigate_tree`. |
 
 Plus `src/__tests__/contract_pi_registration.test.ts`: the flag off serves nothing, on serves `pi` to a phone over a real bridge's link socket, a compiled binary never.
 
 ## Owner decisions pending
 
-1. **Who may drive a session the bridge did not make: the old app's and the terminal's** (review 2, finding 1). A session is controllable only with a `broski.origin` entry, and the old Pi path writes none. A read-only search of `connectors/pi/**` and `handlers/pi_*` found no entry, header field or side file that tells the old app's sessions from the terminal's, and the old index covers every file in the directory. Pi holds no descriptor between writes (`appendFileSync` per entry, `src/core/session-manager.ts:1187`), so "no `pi` process holds the file" cannot be checked either. Today, after cutover, every existing conversation opens watch-only and "continue" means fork (`live_lifecycle.test.ts` pins this). Options:
-   - **a. Leave it.** Old conversations are read-only; a fork continues one. Safe, and costs a tap per old conversation.
-   - **b. One-time migration** that appends `broski.origin` to every session file at cutover. Makes terminal sessions controllable too, and writes to every user file at once.
-   - **c. A registry written by the old path** before cutover (each session it creates or prompts). After cutover, the adapter treats those sessions as its own. Needs a change in the old path, and covers only sessions touched after it ships.
-   - **d. "Take over" on request.** A `backend.call` op the phone offers on a watch-only session. The adapter appends `broski.origin` only when the file has not changed for a while, and says that a terminal `pi` must not be writing it. Explicit, covers both kinds, and needs no heuristic.
-
-   **Recommendation: d**, with option a until it ships. Only the human knows whether a terminal is still writing the file, so the human should be the one to say so, once per session.
-2. **The queue after Stop is left as Pi leaves it** (review 2, finding 5). The input stays in Pi's queue and goes with the next prompt; the phone cannot remove it, and the host stays open until then. Removing one item is not possible: Pi's `clearQueue()` empties both queues whole, and input queued again runs every `input` handler again (`queue_leftovers.test.ts`). The terminal's Esc clears both queues and puts their text back in the editor (`src/modes/interactive/interactive-mode.ts:4711-4725`). Options:
-   - **a. Leave it** (today).
-   - **b. Clear on Stop**, as the terminal does, and give the texts back in a notice the human can copy.
-   - **c. Clear on Stop, and add a contract event that hands the texts back** to the phone's composer.
-
-   **Recommendation: c**, which is exactly what the terminal does, with option b until the contract has the event.
+1. **Who may drive a session the bridge did not make** — *resolved: option d, and more.* "Take over" is a `backend.call` the phone offers on a watch-only session (decision 17); the adapter refuses while a terminal holds the file through the link or the file changed in the last 10 s, and the app asks the human first. A session a terminal runs through the Broski link needs no take-over: the phone drives it through the terminal (decision 19). Sessions no one runs here and no one takes over stay watch-only (the old app's sessions after cutover, until the first take-over). What remains: a terminal without the extension that is idle on the file cannot be seen; only the question to the human covers it.
+2. **The queue after Stop** — *resolved: option c.* Stop clears both queues and `input_returned` hands the texts to the phone's composer, as the terminal's Esc does (decision 20). Only for a session this bridge hosts; for a terminal's session the texts go to the terminal's editor (`terminal-link.md`).
 3. **Missing packages are never installed from the phone** (adapter decision 1). Installing as the terminal does would need a progress channel and a deadline the contract does not give an open.
-4. **`httpProxy` is reported, not applied** (review 1, finding 6). Pi's CLI sets `HTTP_PROXY`/`HTTPS_PROXY` from it at start (`src/main.ts:597`). In the bridge that would change the environment of every backend and child process the bridge runs, not just Pi. `status()` warns while the bridge's environment names no proxy. Options:
-   - **a. Warn** (today).
-   - **b. Apply it process-wide** at bridge start when unset.
-
-   **Recommendation: a.** The bridge already takes the user's login-shell environment (`platform/shell-env.ts`), so `export HTTPS_PROXY=…` in the shell profile reaches every backend alike.
+4. **`httpProxy`** — *resolved: applied to Pi's requests only* (decision 18), with a warning for the uncovered cases (Google models, OAuth token refresh). The bridge's environment and other backends are unchanged.
 5. **`isDefault` marks the settings default only** (contract README §11.3). With no default set, a new session takes the `enabledModels` scope's first model, or else Pi's pick (`findInitialModel`, not exported); the snapshot's `modelId` shows it.
 6. **Text prompts do not dispatch commands** (`expandPromptTemplates: false`, STEP-0 §9 item 3): `/name` typed as text reaches the model; commands go through `PromptInput.command`.
 7. **`notify` is not throttled**: Pi's own RPC mode forwards every one; each notice is one bounded event, and the core's replay window and send windows bound what a flood costs.
@@ -216,6 +212,9 @@ Plus `src/__tests__/contract_pi_registration.test.ts`: the flag off serves nothi
 6. From STEP-0 §12: `DeliveredInput` compares an image's name, which no model receives; a fork point inside an assistant message (Pi forks at whole messages: `invalid_input`); `navigate_tree` on a `user_message` moves the leaf to its parent, as the terminal's `/tree`.
 7. From the plan: no tree read, no user `!bash`, no active-tools op; `setStatus`/`setWidget`/`setTitle` are lost.
 8. Contract README §2 rule 3 still names `src/backends/pi-shared/`, which D19/D20 do not build.
+9. **A terminal's queue is invisible.** Pi gives extensions no queue or retry event (1.4.0), so a terminal session never sends `queue_changed` and cannot `cancelQueued`; the phone's steer and queue are delivered but not listed.
+10. **A terminal's questions cannot be answered from the phone.** There is no extension API to answer another surface's dialog; the phone shows a notice that the terminal waits.
+11. **No "this session changed what it allows" event.** `session_replaced` naming the same session carries it (contract errata 14); a dedicated `capabilities_changed` would not end the stream.
 
 ## Risks
 
@@ -225,3 +224,8 @@ Plus `src/__tests__/contract_pi_registration.test.ts`: the flag off serves nothi
 - With a configured package missing, `PI_OFFLINE` is on process-wide while that session loads, so a `find`/`grep` in another session cannot download a missing `fd`/`rg` meanwhile (Pi reads the variable at each call, `src/utils/tools-manager.ts:15-19, 362-365`).
 - The lock orders this bridge's calls only; a terminal `pi` writing the same file is not excluded (hence owner decision 1).
 - A new chat abandoned before its first prompt stays as an empty session file (decision 10), in the phone's list and in the terminal's `/resume`.
+- The extension is code in the user's `pi` process. It is small, bounded and tested against a stalled bridge, but a Pi release that changes the extension API (`ctx.mode`, `session_start`, `pi.sendUserMessage`, `ui_prompt_*`) can break it; the bridge then sees no terminal (watch-only) and the terminal is not harmed. The extension is versioned (`// broski-link-extension v1`) and rewritten by the bridge when it differs.
+- A terminal started before the extension was installed has not loaded it; it needs a restart or `/reload`.
+- A terminal that opens a session the phone is running can still type in it (decision 19): the warning is all the bridge can do.
+- Any process of the same user that reads `~/.broski/pi-link/bridge.key` can speak to the link: it can claim to be a terminal and feed a session's live state, and receive the phone's messages for the session it names. It is the trust of `~/.pi` itself.
+- `httpProxy` does not cover Google models, OAuth refresh, extensions' own requests or a `bash` tool's children (decision 18).

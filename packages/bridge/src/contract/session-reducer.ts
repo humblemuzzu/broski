@@ -117,6 +117,7 @@ function applyToLiveState(snapshot: SessionSnapshot, record: Pick<SinkRecord, "a
 		case "resynced":
 			return event.snapshot;
 		case "user_message":
+		case "input_returned":
 		case "notice":
 		case "error":
 		case "extension":

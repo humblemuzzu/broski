@@ -75,6 +75,8 @@ export interface SessionStore {
 	entryOf(sessionId: SessionId, itemId: TranscriptItemId, live: LiveOverlay): Promise<string | undefined | Rejected>;
 	/** `name` is `sessionName`'s. */
 	rename(sessionId: SessionId, name: string): Promise<ActionResult>;
+	/** Writes the `broski.origin` entry a session this bridge creates starts with; a session that has one is untouched. */
+	claim(sessionId: SessionId): Promise<ActionResult>;
 	/** `release` runs once the file may be deleted and before it is: the session's host ends there. */
 	remove(sessionId: SessionId, release: () => Promise<void>): Promise<ActionResult>;
 	fork(sessionId: SessionId, at: ForkPoint | undefined, live: LiveOverlay): Promise<NewSessionResult>;
@@ -126,6 +128,25 @@ export interface GateHost {
 	/** The human allowed `toolName` for the whole session. */
 	allowed(toolName: string): boolean;
 	allowForSession(toolName: string): void;
+}
+
+/** A terminal `pi` that has a session open and is connected through the Broski link extension (`terminal/`). */
+export interface TerminalHolder {
+	readonly pid: number;
+}
+
+/** Which session files a connected terminal `pi` has open now. */
+export interface TerminalPresence {
+	holder(sessionPath: string): TerminalHolder | undefined;
+}
+
+/** How the op (`ops/take-over.ts`) reaches the registry of hosted sessions (`live/`). */
+export interface OwnershipAccess {
+	/**
+	 * Makes a session another client wrote this bridge's and hosts it, under the session lock. `claim` runs inside the
+	 * lock on the stored session and either refuses or writes the mark that makes the session this bridge's.
+	 */
+	takeOver(sessionId: SessionId, claim: (stored: StoredSession) => Promise<ActionResult>): Promise<ActionResult>;
 }
 
 /** How the op (`ops/navigate-tree.ts`) reaches a session's `AgentSession` (`live/`). */

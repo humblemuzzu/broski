@@ -6,7 +6,7 @@ import { useWatchdog } from "./helpers/use-watchdog";
 
 useWatchdog();
 
-const kit = piConformanceKit(WAIT_MS);
+const kit = piConformanceKit(WAIT_MS, { link: true });
 
 afterEach(() => kit.dispose());
 

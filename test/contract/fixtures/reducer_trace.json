@@ -4546,6 +4546,81 @@
           "record": {
             "at": 1800000000044,
             "event": {
+              "type": "input_returned",
+              "texts": [
+                "Also lint",
+                "Then commit"
+              ]
+            }
+          },
+          "status": "running",
+          "expected": {
+            "run": {
+              "runId": "id-4",
+              "trigger": "prompt",
+              "startedAt": 1800000000001,
+              "items": [
+                {
+                  "kind": "user_message",
+                  "id": "id-2",
+                  "at": 1800000000002,
+                  "text": "Fix a.ts",
+                  "attachments": [
+                    {
+                      "kind": "image_ref",
+                      "id": "id-3",
+                      "mimeType": "image/png",
+                      "name": "shot.png"
+                    },
+                    {
+                      "kind": "file",
+                      "uri": "/fixture/a.ts"
+                    }
+                  ],
+                  "clientRequestId": "00000000-0000-4000-8000-000000000001"
+                }
+              ],
+              "droppedItems": 0
+            },
+            "blocks": [],
+            "tools": [],
+            "interactions": [],
+            "queue": [],
+            "modelId": "fake-large",
+            "modes": [
+              {
+                "axis": "permissions",
+                "value": "ask"
+              },
+              {
+                "axis": "agent",
+                "value": "build"
+              }
+            ],
+            "usage": {
+              "inputTokens": 1200,
+              "outputTokens": 80,
+              "cacheReadTokens": 900,
+              "costUsd": 0.0125
+            },
+            "plan": {
+              "items": [
+                {
+                  "text": "Edit a.ts",
+                  "status": "completed"
+                },
+                {
+                  "text": "Test",
+                  "status": "in_progress"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "record": {
+            "at": 1800000000045,
+            "event": {
               "type": "block_started",
               "blockId": "id-16",
               "messageId": "id-15",
@@ -4625,7 +4700,7 @@
         },
         {
           "record": {
-            "at": 1800000000045,
+            "at": 1800000000046,
             "event": {
               "type": "block_delta",
               "blockId": "id-16",
@@ -4705,7 +4780,7 @@
         },
         {
           "record": {
-            "at": 1800000000046,
+            "at": 1800000000047,
             "event": {
               "type": "block_delta",
               "blockId": "id-16",
@@ -4785,7 +4860,7 @@
         },
         {
           "record": {
-            "at": 1800000000047,
+            "at": 1800000000048,
             "event": {
               "type": "block_delta",
               "blockId": "id-16",
@@ -4865,7 +4940,7 @@
         },
         {
           "record": {
-            "at": 1800000000048,
+            "at": 1800000000049,
             "event": {
               "type": "block_finished",
               "blockId": "id-16",
@@ -4901,7 +4976,7 @@
                 {
                   "kind": "block",
                   "id": "id-16",
-                  "at": 1800000000048,
+                  "at": 1800000000049,
                   "messageId": "id-15",
                   "block": "plan",
                   "text": "1. Test\n2. Ship"
@@ -4946,7 +5021,7 @@
         },
         {
           "record": {
-            "at": 1800000000050,
+            "at": 1800000000051,
             "event": {
               "type": "session_replaced",
               "session": {
@@ -5001,7 +5076,7 @@
         },
         {
           "record": {
-            "at": 1800000000051,
+            "at": 1800000000052,
             "event": {
               "type": "block_started",
               "blockId": "id-18",
@@ -5062,7 +5137,7 @@
         },
         {
           "record": {
-            "at": 1800000000052,
+            "at": 1800000000053,
             "event": {
               "type": "block_delta",
               "blockId": "id-18",
@@ -5122,7 +5197,7 @@
         },
         {
           "record": {
-            "at": 1800000000053,
+            "at": 1800000000054,
             "event": {
               "type": "block_delta",
               "blockId": "id-18",
@@ -5182,7 +5257,7 @@
         },
         {
           "record": {
-            "at": 1800000000054,
+            "at": 1800000000055,
             "event": {
               "type": "block_delta",
               "blockId": "id-18",
@@ -5242,7 +5317,7 @@
         },
         {
           "record": {
-            "at": 1800000000055,
+            "at": 1800000000056,
             "event": {
               "type": "block_finished",
               "blockId": "id-18",
@@ -5259,7 +5334,7 @@
                 {
                   "kind": "block",
                   "id": "id-18",
-                  "at": 1800000000055,
+                  "at": 1800000000056,
                   "messageId": "id-15",
                   "block": "text",
                   "text": "Finished."
@@ -5304,7 +5379,7 @@
         },
         {
           "record": {
-            "at": 1800000000056,
+            "at": 1800000000057,
             "event": {
               "type": "run_finished",
               "runId": "id-4",
@@ -5355,7 +5430,7 @@
         },
         {
           "record": {
-            "at": 1800000000057,
+            "at": 1800000000058,
             "event": {
               "type": "run_started",
               "runId": "id-21",
@@ -5367,7 +5442,7 @@
             "run": {
               "runId": "id-21",
               "trigger": "prompt",
-              "startedAt": 1800000000057,
+              "startedAt": 1800000000058,
               "items": [],
               "droppedItems": 0
             },
@@ -5411,7 +5486,7 @@
         },
         {
           "record": {
-            "at": 1800000000058,
+            "at": 1800000000059,
             "event": {
               "type": "user_message",
               "messageId": "id-20",
@@ -5425,12 +5500,12 @@
             "run": {
               "runId": "id-21",
               "trigger": "prompt",
-              "startedAt": 1800000000057,
+              "startedAt": 1800000000058,
               "items": [
                 {
                   "kind": "user_message",
                   "id": "id-20",
-                  "at": 1800000000058,
+                  "at": 1800000000059,
                   "text": "Keep going",
                   "attachments": [],
                   "clientRequestId": "00000000-0000-4000-8000-000000000002"
@@ -5478,7 +5553,7 @@
         },
         {
           "record": {
-            "at": 1800000000059,
+            "at": 1800000000060,
             "event": {
               "type": "block_started",
               "blockId": "id-23",
@@ -5491,12 +5566,12 @@
             "run": {
               "runId": "id-21",
               "trigger": "prompt",
-              "startedAt": 1800000000057,
+              "startedAt": 1800000000058,
               "items": [
                 {
                   "kind": "user_message",
                   "id": "id-20",
-                  "at": 1800000000058,
+                  "at": 1800000000059,
                   "text": "Keep going",
                   "attachments": [],
                   "clientRequestId": "00000000-0000-4000-8000-000000000002"
@@ -5551,7 +5626,7 @@
         },
         {
           "record": {
-            "at": 1800000000060,
+            "at": 1800000000061,
             "event": {
               "type": "queue_changed",
               "items": [
@@ -5569,12 +5644,12 @@
             "run": {
               "runId": "id-21",
               "trigger": "prompt",
-              "startedAt": 1800000000057,
+              "startedAt": 1800000000058,
               "items": [
                 {
                   "kind": "user_message",
                   "id": "id-20",
-                  "at": 1800000000058,
+                  "at": 1800000000059,
                   "text": "Keep going",
                   "attachments": [],
                   "clientRequestId": "00000000-0000-4000-8000-000000000002"
@@ -5636,7 +5711,7 @@
         },
         {
           "record": {
-            "at": 1800000000061,
+            "at": 1800000000062,
             "event": {
               "type": "block_delta",
               "blockId": "id-23",
@@ -5648,12 +5723,12 @@
             "run": {
               "runId": "id-21",
               "trigger": "prompt",
-              "startedAt": 1800000000057,
+              "startedAt": 1800000000058,
               "items": [
                 {
                   "kind": "user_message",
                   "id": "id-20",
-                  "at": 1800000000058,
+                  "at": 1800000000059,
                   "text": "Keep going",
                   "attachments": [],
                   "clientRequestId": "00000000-0000-4000-8000-000000000002"
@@ -5715,7 +5790,7 @@
         },
         {
           "record": {
-            "at": 1800000000062,
+            "at": 1800000000063,
             "event": {
               "type": "queue_changed",
               "items": [
@@ -5739,12 +5814,12 @@
             "run": {
               "runId": "id-21",
               "trigger": "prompt",
-              "startedAt": 1800000000057,
+              "startedAt": 1800000000058,
               "items": [
                 {
                   "kind": "user_message",
                   "id": "id-20",
-                  "at": 1800000000058,
+                  "at": 1800000000059,
                   "text": "Keep going",
                   "attachments": [],
                   "clientRequestId": "00000000-0000-4000-8000-000000000002"
@@ -5812,7 +5887,7 @@
         },
         {
           "record": {
-            "at": 1800000000063,
+            "at": 1800000000064,
             "event": {
               "type": "block_delta",
               "blockId": "id-23",
@@ -5824,12 +5899,12 @@
             "run": {
               "runId": "id-21",
               "trigger": "prompt",
-              "startedAt": 1800000000057,
+              "startedAt": 1800000000058,
               "items": [
                 {
                   "kind": "user_message",
                   "id": "id-20",
-                  "at": 1800000000058,
+                  "at": 1800000000059,
                   "text": "Keep going",
                   "attachments": [],
                   "clientRequestId": "00000000-0000-4000-8000-000000000002"
@@ -5897,7 +5972,7 @@
         },
         {
           "record": {
-            "at": 1800000000064,
+            "at": 1800000000065,
             "event": {
               "type": "block_delta",
               "blockId": "id-23",
@@ -5909,12 +5984,12 @@
             "run": {
               "runId": "id-21",
               "trigger": "prompt",
-              "startedAt": 1800000000057,
+              "startedAt": 1800000000058,
               "items": [
                 {
                   "kind": "user_message",
                   "id": "id-20",
-                  "at": 1800000000058,
+                  "at": 1800000000059,
                   "text": "Keep going",
                   "attachments": [],
                   "clientRequestId": "00000000-0000-4000-8000-000000000002"
@@ -5982,7 +6057,7 @@
         },
         {
           "record": {
-            "at": 1800000000065,
+            "at": 1800000000066,
             "event": {
               "type": "block_finished",
               "blockId": "id-23",
@@ -5994,12 +6069,12 @@
             "run": {
               "runId": "id-21",
               "trigger": "prompt",
-              "startedAt": 1800000000057,
+              "startedAt": 1800000000058,
               "items": [
                 {
                   "kind": "user_message",
                   "id": "id-20",
-                  "at": 1800000000058,
+                  "at": 1800000000059,
                   "text": "Keep going",
                   "attachments": [],
                   "clientRequestId": "00000000-0000-4000-8000-000000000002"
@@ -6007,106 +6082,10 @@
                 {
                   "kind": "block",
                   "id": "id-23",
-                  "at": 1800000000065,
-                  "messageId": "id-22",
-                  "block": "text",
-                  "text": "Working."
-                }
-              ],
-              "droppedItems": 0
-            },
-            "blocks": [],
-            "tools": [],
-            "interactions": [],
-            "queue": [
-              {
-                "id": "id-24",
-                "delivery": "steer",
-                "preview": "Also lint",
-                "clientRequestId": "00000000-0000-4000-8000-000000000003"
-              },
-              {
-                "id": "id-25",
-                "delivery": "queue",
-                "preview": "Then commit",
-                "clientRequestId": "00000000-0000-4000-8000-000000000004"
-              }
-            ],
-            "modelId": "fake-large",
-            "modes": [
-              {
-                "axis": "permissions",
-                "value": "ask"
-              },
-              {
-                "axis": "agent",
-                "value": "build"
-              }
-            ],
-            "usage": {
-              "inputTokens": 1200,
-              "outputTokens": 80,
-              "cacheReadTokens": 900,
-              "costUsd": 0.0125
-            },
-            "plan": {
-              "items": [
-                {
-                  "text": "Edit a.ts",
-                  "status": "completed"
-                },
-                {
-                  "text": "Test",
-                  "status": "in_progress"
-                }
-              ]
-            },
-            "lastOutcome": {
-              "kind": "completed"
-            }
-          }
-        },
-        {
-          "record": {
-            "at": 1800000000066,
-            "event": {
-              "type": "user_message",
-              "messageId": "id-26",
-              "text": "Also lint",
-              "attachments": [],
-              "clientRequestId": "00000000-0000-4000-8000-000000000003"
-            }
-          },
-          "status": "running",
-          "expected": {
-            "run": {
-              "runId": "id-21",
-              "trigger": "prompt",
-              "startedAt": 1800000000057,
-              "items": [
-                {
-                  "kind": "user_message",
-                  "id": "id-20",
-                  "at": 1800000000058,
-                  "text": "Keep going",
-                  "attachments": [],
-                  "clientRequestId": "00000000-0000-4000-8000-000000000002"
-                },
-                {
-                  "kind": "block",
-                  "id": "id-23",
-                  "at": 1800000000065,
-                  "messageId": "id-22",
-                  "block": "text",
-                  "text": "Working."
-                },
-                {
-                  "kind": "user_message",
-                  "id": "id-26",
                   "at": 1800000000066,
-                  "text": "Also lint",
-                  "attachments": [],
-                  "clientRequestId": "00000000-0000-4000-8000-000000000003"
+                  "messageId": "id-22",
+                  "block": "text",
+                  "text": "Working."
                 }
               ],
               "droppedItems": 0
@@ -6166,6 +6145,102 @@
           "record": {
             "at": 1800000000067,
             "event": {
+              "type": "user_message",
+              "messageId": "id-26",
+              "text": "Also lint",
+              "attachments": [],
+              "clientRequestId": "00000000-0000-4000-8000-000000000003"
+            }
+          },
+          "status": "running",
+          "expected": {
+            "run": {
+              "runId": "id-21",
+              "trigger": "prompt",
+              "startedAt": 1800000000058,
+              "items": [
+                {
+                  "kind": "user_message",
+                  "id": "id-20",
+                  "at": 1800000000059,
+                  "text": "Keep going",
+                  "attachments": [],
+                  "clientRequestId": "00000000-0000-4000-8000-000000000002"
+                },
+                {
+                  "kind": "block",
+                  "id": "id-23",
+                  "at": 1800000000066,
+                  "messageId": "id-22",
+                  "block": "text",
+                  "text": "Working."
+                },
+                {
+                  "kind": "user_message",
+                  "id": "id-26",
+                  "at": 1800000000067,
+                  "text": "Also lint",
+                  "attachments": [],
+                  "clientRequestId": "00000000-0000-4000-8000-000000000003"
+                }
+              ],
+              "droppedItems": 0
+            },
+            "blocks": [],
+            "tools": [],
+            "interactions": [],
+            "queue": [
+              {
+                "id": "id-24",
+                "delivery": "steer",
+                "preview": "Also lint",
+                "clientRequestId": "00000000-0000-4000-8000-000000000003"
+              },
+              {
+                "id": "id-25",
+                "delivery": "queue",
+                "preview": "Then commit",
+                "clientRequestId": "00000000-0000-4000-8000-000000000004"
+              }
+            ],
+            "modelId": "fake-large",
+            "modes": [
+              {
+                "axis": "permissions",
+                "value": "ask"
+              },
+              {
+                "axis": "agent",
+                "value": "build"
+              }
+            ],
+            "usage": {
+              "inputTokens": 1200,
+              "outputTokens": 80,
+              "cacheReadTokens": 900,
+              "costUsd": 0.0125
+            },
+            "plan": {
+              "items": [
+                {
+                  "text": "Edit a.ts",
+                  "status": "completed"
+                },
+                {
+                  "text": "Test",
+                  "status": "in_progress"
+                }
+              ]
+            },
+            "lastOutcome": {
+              "kind": "completed"
+            }
+          }
+        },
+        {
+          "record": {
+            "at": 1800000000068,
+            "event": {
               "type": "queue_changed",
               "items": [
                 {
@@ -6182,12 +6257,12 @@
             "run": {
               "runId": "id-21",
               "trigger": "prompt",
-              "startedAt": 1800000000057,
+              "startedAt": 1800000000058,
               "items": [
                 {
                   "kind": "user_message",
                   "id": "id-20",
-                  "at": 1800000000058,
+                  "at": 1800000000059,
                   "text": "Keep going",
                   "attachments": [],
                   "clientRequestId": "00000000-0000-4000-8000-000000000002"
@@ -6195,7 +6270,7 @@
                 {
                   "kind": "block",
                   "id": "id-23",
-                  "at": 1800000000065,
+                  "at": 1800000000066,
                   "messageId": "id-22",
                   "block": "text",
                   "text": "Working."
@@ -6203,7 +6278,7 @@
                 {
                   "kind": "user_message",
                   "id": "id-26",
-                  "at": 1800000000066,
+                  "at": 1800000000067,
                   "text": "Also lint",
                   "attachments": [],
                   "clientRequestId": "00000000-0000-4000-8000-000000000003"
@@ -6258,7 +6333,7 @@
         },
         {
           "record": {
-            "at": 1800000000068,
+            "at": 1800000000069,
             "event": {
               "type": "block_started",
               "blockId": "id-27",
@@ -6271,12 +6346,12 @@
             "run": {
               "runId": "id-21",
               "trigger": "prompt",
-              "startedAt": 1800000000057,
+              "startedAt": 1800000000058,
               "items": [
                 {
                   "kind": "user_message",
                   "id": "id-20",
-                  "at": 1800000000058,
+                  "at": 1800000000059,
                   "text": "Keep going",
                   "attachments": [],
                   "clientRequestId": "00000000-0000-4000-8000-000000000002"
@@ -6284,7 +6359,7 @@
                 {
                   "kind": "block",
                   "id": "id-23",
-                  "at": 1800000000065,
+                  "at": 1800000000066,
                   "messageId": "id-22",
                   "block": "text",
                   "text": "Working."
@@ -6292,7 +6367,7 @@
                 {
                   "kind": "user_message",
                   "id": "id-26",
-                  "at": 1800000000066,
+                  "at": 1800000000067,
                   "text": "Also lint",
                   "attachments": [],
                   "clientRequestId": "00000000-0000-4000-8000-000000000003"
@@ -6306,101 +6381,6 @@
                 "messageId": "id-22",
                 "kind": "text",
                 "text": ""
-              }
-            ],
-            "tools": [],
-            "interactions": [],
-            "queue": [
-              {
-                "id": "id-25",
-                "delivery": "queue",
-                "preview": "Then commit",
-                "clientRequestId": "00000000-0000-4000-8000-000000000004"
-              }
-            ],
-            "modelId": "fake-large",
-            "modes": [
-              {
-                "axis": "permissions",
-                "value": "ask"
-              },
-              {
-                "axis": "agent",
-                "value": "build"
-              }
-            ],
-            "usage": {
-              "inputTokens": 1200,
-              "outputTokens": 80,
-              "cacheReadTokens": 900,
-              "costUsd": 0.0125
-            },
-            "plan": {
-              "items": [
-                {
-                  "text": "Edit a.ts",
-                  "status": "completed"
-                },
-                {
-                  "text": "Test",
-                  "status": "in_progress"
-                }
-              ]
-            },
-            "lastOutcome": {
-              "kind": "completed"
-            }
-          }
-        },
-        {
-          "record": {
-            "at": 1800000000069,
-            "event": {
-              "type": "block_delta",
-              "blockId": "id-27",
-              "text": "Do"
-            }
-          },
-          "status": "running",
-          "expected": {
-            "run": {
-              "runId": "id-21",
-              "trigger": "prompt",
-              "startedAt": 1800000000057,
-              "items": [
-                {
-                  "kind": "user_message",
-                  "id": "id-20",
-                  "at": 1800000000058,
-                  "text": "Keep going",
-                  "attachments": [],
-                  "clientRequestId": "00000000-0000-4000-8000-000000000002"
-                },
-                {
-                  "kind": "block",
-                  "id": "id-23",
-                  "at": 1800000000065,
-                  "messageId": "id-22",
-                  "block": "text",
-                  "text": "Working."
-                },
-                {
-                  "kind": "user_message",
-                  "id": "id-26",
-                  "at": 1800000000066,
-                  "text": "Also lint",
-                  "attachments": [],
-                  "clientRequestId": "00000000-0000-4000-8000-000000000003"
-                }
-              ],
-              "droppedItems": 0
-            },
-            "blocks": [
-              {
-                "blockId": "id-27",
-                "messageId": "id-22",
-                "kind": "text",
-                "text": "Do"
               }
             ],
             "tools": [],
@@ -6453,6 +6433,101 @@
             "event": {
               "type": "block_delta",
               "blockId": "id-27",
+              "text": "Do"
+            }
+          },
+          "status": "running",
+          "expected": {
+            "run": {
+              "runId": "id-21",
+              "trigger": "prompt",
+              "startedAt": 1800000000058,
+              "items": [
+                {
+                  "kind": "user_message",
+                  "id": "id-20",
+                  "at": 1800000000059,
+                  "text": "Keep going",
+                  "attachments": [],
+                  "clientRequestId": "00000000-0000-4000-8000-000000000002"
+                },
+                {
+                  "kind": "block",
+                  "id": "id-23",
+                  "at": 1800000000066,
+                  "messageId": "id-22",
+                  "block": "text",
+                  "text": "Working."
+                },
+                {
+                  "kind": "user_message",
+                  "id": "id-26",
+                  "at": 1800000000067,
+                  "text": "Also lint",
+                  "attachments": [],
+                  "clientRequestId": "00000000-0000-4000-8000-000000000003"
+                }
+              ],
+              "droppedItems": 0
+            },
+            "blocks": [
+              {
+                "blockId": "id-27",
+                "messageId": "id-22",
+                "kind": "text",
+                "text": "Do"
+              }
+            ],
+            "tools": [],
+            "interactions": [],
+            "queue": [
+              {
+                "id": "id-25",
+                "delivery": "queue",
+                "preview": "Then commit",
+                "clientRequestId": "00000000-0000-4000-8000-000000000004"
+              }
+            ],
+            "modelId": "fake-large",
+            "modes": [
+              {
+                "axis": "permissions",
+                "value": "ask"
+              },
+              {
+                "axis": "agent",
+                "value": "build"
+              }
+            ],
+            "usage": {
+              "inputTokens": 1200,
+              "outputTokens": 80,
+              "cacheReadTokens": 900,
+              "costUsd": 0.0125
+            },
+            "plan": {
+              "items": [
+                {
+                  "text": "Edit a.ts",
+                  "status": "completed"
+                },
+                {
+                  "text": "Test",
+                  "status": "in_progress"
+                }
+              ]
+            },
+            "lastOutcome": {
+              "kind": "completed"
+            }
+          }
+        },
+        {
+          "record": {
+            "at": 1800000000071,
+            "event": {
+              "type": "block_delta",
+              "blockId": "id-27",
               "text": "ne"
             }
           },
@@ -6461,12 +6536,12 @@
             "run": {
               "runId": "id-21",
               "trigger": "prompt",
-              "startedAt": 1800000000057,
+              "startedAt": 1800000000058,
               "items": [
                 {
                   "kind": "user_message",
                   "id": "id-20",
-                  "at": 1800000000058,
+                  "at": 1800000000059,
                   "text": "Keep going",
                   "attachments": [],
                   "clientRequestId": "00000000-0000-4000-8000-000000000002"
@@ -6474,7 +6549,7 @@
                 {
                   "kind": "block",
                   "id": "id-23",
-                  "at": 1800000000065,
+                  "at": 1800000000066,
                   "messageId": "id-22",
                   "block": "text",
                   "text": "Working."
@@ -6482,7 +6557,7 @@
                 {
                   "kind": "user_message",
                   "id": "id-26",
-                  "at": 1800000000066,
+                  "at": 1800000000067,
                   "text": "Also lint",
                   "attachments": [],
                   "clientRequestId": "00000000-0000-4000-8000-000000000003"
@@ -6544,7 +6619,7 @@
         },
         {
           "record": {
-            "at": 1800000000071,
+            "at": 1800000000072,
             "event": {
               "type": "block_delta",
               "blockId": "id-27",
@@ -6556,12 +6631,12 @@
             "run": {
               "runId": "id-21",
               "trigger": "prompt",
-              "startedAt": 1800000000057,
+              "startedAt": 1800000000058,
               "items": [
                 {
                   "kind": "user_message",
                   "id": "id-20",
-                  "at": 1800000000058,
+                  "at": 1800000000059,
                   "text": "Keep going",
                   "attachments": [],
                   "clientRequestId": "00000000-0000-4000-8000-000000000002"
@@ -6569,7 +6644,7 @@
                 {
                   "kind": "block",
                   "id": "id-23",
-                  "at": 1800000000065,
+                  "at": 1800000000066,
                   "messageId": "id-22",
                   "block": "text",
                   "text": "Working."
@@ -6577,7 +6652,7 @@
                 {
                   "kind": "user_message",
                   "id": "id-26",
-                  "at": 1800000000066,
+                  "at": 1800000000067,
                   "text": "Also lint",
                   "attachments": [],
                   "clientRequestId": "00000000-0000-4000-8000-000000000003"
@@ -6639,7 +6714,7 @@
         },
         {
           "record": {
-            "at": 1800000000072,
+            "at": 1800000000073,
             "event": {
               "type": "block_finished",
               "blockId": "id-27",
@@ -6651,12 +6726,12 @@
             "run": {
               "runId": "id-21",
               "trigger": "prompt",
-              "startedAt": 1800000000057,
+              "startedAt": 1800000000058,
               "items": [
                 {
                   "kind": "user_message",
                   "id": "id-20",
-                  "at": 1800000000058,
+                  "at": 1800000000059,
                   "text": "Keep going",
                   "attachments": [],
                   "clientRequestId": "00000000-0000-4000-8000-000000000002"
@@ -6664,7 +6739,7 @@
                 {
                   "kind": "block",
                   "id": "id-23",
-                  "at": 1800000000065,
+                  "at": 1800000000066,
                   "messageId": "id-22",
                   "block": "text",
                   "text": "Working."
@@ -6672,7 +6747,7 @@
                 {
                   "kind": "user_message",
                   "id": "id-26",
-                  "at": 1800000000066,
+                  "at": 1800000000067,
                   "text": "Also lint",
                   "attachments": [],
                   "clientRequestId": "00000000-0000-4000-8000-000000000003"
@@ -6680,7 +6755,7 @@
                 {
                   "kind": "block",
                   "id": "id-27",
-                  "at": 1800000000072,
+                  "at": 1800000000073,
                   "messageId": "id-22",
                   "block": "text",
                   "text": "Done."
@@ -6735,7 +6810,7 @@
         },
         {
           "record": {
-            "at": 1800000000073,
+            "at": 1800000000074,
             "event": {
               "type": "run_finished",
               "runId": "id-21",
@@ -6793,7 +6868,7 @@
         },
         {
           "record": {
-            "at": 1800000000074,
+            "at": 1800000000075,
             "event": {
               "type": "queue_changed",
               "items": []
@@ -6841,7 +6916,7 @@
         },
         {
           "record": {
-            "at": 1800000000075,
+            "at": 1800000000076,
             "event": {
               "type": "run_started",
               "runId": "id-30",
@@ -6853,7 +6928,7 @@
             "run": {
               "runId": "id-30",
               "trigger": "queue",
-              "startedAt": 1800000000075,
+              "startedAt": 1800000000076,
               "items": [],
               "droppedItems": 0
             },
@@ -6897,7 +6972,7 @@
         },
         {
           "record": {
-            "at": 1800000000076,
+            "at": 1800000000077,
             "event": {
               "type": "user_message",
               "messageId": "id-29",
@@ -6911,12 +6986,12 @@
             "run": {
               "runId": "id-30",
               "trigger": "queue",
-              "startedAt": 1800000000075,
+              "startedAt": 1800000000076,
               "items": [
                 {
                   "kind": "user_message",
                   "id": "id-29",
-                  "at": 1800000000076,
+                  "at": 1800000000077,
                   "text": "Then commit",
                   "attachments": [],
                   "clientRequestId": "00000000-0000-4000-8000-000000000004"
@@ -6964,7 +7039,7 @@
         },
         {
           "record": {
-            "at": 1800000000077,
+            "at": 1800000000078,
             "event": {
               "type": "block_started",
               "blockId": "id-32",
@@ -6977,12 +7052,12 @@
             "run": {
               "runId": "id-30",
               "trigger": "queue",
-              "startedAt": 1800000000075,
+              "startedAt": 1800000000076,
               "items": [
                 {
                   "kind": "user_message",
                   "id": "id-29",
-                  "at": 1800000000076,
+                  "at": 1800000000077,
                   "text": "Then commit",
                   "attachments": [],
                   "clientRequestId": "00000000-0000-4000-8000-000000000004"
@@ -7037,7 +7112,7 @@
         },
         {
           "record": {
-            "at": 1800000000078,
+            "at": 1800000000079,
             "event": {
               "type": "block_delta",
               "blockId": "id-32",
@@ -7049,12 +7124,12 @@
             "run": {
               "runId": "id-30",
               "trigger": "queue",
-              "startedAt": 1800000000075,
+              "startedAt": 1800000000076,
               "items": [
                 {
                   "kind": "user_message",
                   "id": "id-29",
-                  "at": 1800000000076,
+                  "at": 1800000000077,
                   "text": "Then commit",
                   "attachments": [],
                   "clientRequestId": "00000000-0000-4000-8000-000000000004"
@@ -7109,7 +7184,7 @@
         },
         {
           "record": {
-            "at": 1800000000079,
+            "at": 1800000000080,
             "event": {
               "type": "block_delta",
               "blockId": "id-32",
@@ -7121,12 +7196,12 @@
             "run": {
               "runId": "id-30",
               "trigger": "queue",
-              "startedAt": 1800000000075,
+              "startedAt": 1800000000076,
               "items": [
                 {
                   "kind": "user_message",
                   "id": "id-29",
-                  "at": 1800000000076,
+                  "at": 1800000000077,
                   "text": "Then commit",
                   "attachments": [],
                   "clientRequestId": "00000000-0000-4000-8000-000000000004"
@@ -7181,7 +7256,7 @@
         },
         {
           "record": {
-            "at": 1800000000080,
+            "at": 1800000000081,
             "event": {
               "type": "block_delta",
               "blockId": "id-32",
@@ -7193,12 +7268,12 @@
             "run": {
               "runId": "id-30",
               "trigger": "queue",
-              "startedAt": 1800000000075,
+              "startedAt": 1800000000076,
               "items": [
                 {
                   "kind": "user_message",
                   "id": "id-29",
-                  "at": 1800000000076,
+                  "at": 1800000000077,
                   "text": "Then commit",
                   "attachments": [],
                   "clientRequestId": "00000000-0000-4000-8000-000000000004"
@@ -7253,7 +7328,7 @@
         },
         {
           "record": {
-            "at": 1800000000081,
+            "at": 1800000000082,
             "event": {
               "type": "block_finished",
               "blockId": "id-32",
@@ -7265,12 +7340,12 @@
             "run": {
               "runId": "id-30",
               "trigger": "queue",
-              "startedAt": 1800000000075,
+              "startedAt": 1800000000076,
               "items": [
                 {
                   "kind": "user_message",
                   "id": "id-29",
-                  "at": 1800000000076,
+                  "at": 1800000000077,
                   "text": "Then commit",
                   "attachments": [],
                   "clientRequestId": "00000000-0000-4000-8000-000000000004"
@@ -7278,7 +7353,7 @@
                 {
                   "kind": "block",
                   "id": "id-32",
-                  "at": 1800000000081,
+                  "at": 1800000000082,
                   "messageId": "id-31",
                   "block": "text",
                   "text": "Done."
@@ -7326,7 +7401,7 @@
         },
         {
           "record": {
-            "at": 1800000000082,
+            "at": 1800000000083,
             "event": {
               "type": "run_finished",
               "runId": "id-30",
@@ -7377,7 +7452,7 @@
         },
         {
           "record": {
-            "at": 1800000000083,
+            "at": 1800000000084,
             "event": {
               "type": "model_changed",
               "modelId": "fake-large",
@@ -7427,7 +7502,7 @@
         },
         {
           "record": {
-            "at": 1800000000084,
+            "at": 1800000000085,
             "event": {
               "type": "mode_changed",
               "axis": "agent",
@@ -7477,7 +7552,7 @@
         },
         {
           "record": {
-            "at": 1800000000085,
+            "at": 1800000000086,
             "event": {
               "type": "resynced",
               "snapshot": {

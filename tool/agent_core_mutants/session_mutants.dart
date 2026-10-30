@@ -4,6 +4,21 @@ import 'mutant.dart';
 final sessionMutants = [
   ...mutantsOf('session/session_controller.dart', const [
     Mutant(
+      'replaced: a session that goes on as itself is handed over',
+      'update((_) => session == ref ? after : _handedOver(after, session));',
+      'update((_) => _handedOver(after, session));',
+    ),
+    Mutant(
+      'replaced: a session that goes on as itself is not attached again',
+      'if (session == ref) unawaited(attach(fresh: true));',
+      '',
+    ),
+    Mutant(
+      'replaced: an answer moving to the same session is not attached again',
+      'case AttachMoved(:final next) when next == ref:',
+      'case AttachMoved(:final next) when false:',
+    ),
+    Mutant(
       'attach: an overtaken answer is applied',
       'if (attempt != _attaches) {',
       'if (false) {',
@@ -249,6 +264,12 @@ final sessionMutants = [
   ]),
   ...mutantsOf('session/session_controls.dart', const [
     Mutant(
+      'controls: handed-back input stays after it was taken',
+      'void clearReturnedInput() =>\n'
+          '      _cell.update((state) => state.copyWith(returnedInput: const []));',
+      'void clearReturnedInput() {}',
+    ),
+    Mutant(
       'answer: a second answer is sent',
       'if (_cell.current.answering[interaction.id] is AnswerSending) {',
       'if (false) {',
@@ -274,6 +295,11 @@ final sessionMutants = [
     ),
   ]),
   ...mutantsOf('session/session_effects.dart', const [
+    Mutant(
+      'effects: input handed back replaces what was handed back before',
+      'returnedInput: [...after.returnedInput, ...texts],',
+      'returnedInput: [...texts],',
+    ),
     Mutant(
       'effects: a resync keeps answers to asks it dropped',
       '  ResyncedEvent(:final snapshot) => after.copyWith(',

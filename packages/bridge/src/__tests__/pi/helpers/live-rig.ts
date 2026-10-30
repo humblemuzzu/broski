@@ -54,6 +54,7 @@ export class LiveRig {
 	}
 
 	async dispose(): Promise<void> {
+		await this.driver.quitTerminals();
 		await this.rig.backend.dispose();
 		this.world.dispose();
 		this.world.assertNotCapped();

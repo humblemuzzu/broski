@@ -8,6 +8,7 @@ import 'package:broski/agent/ui/chat/link_banner.dart';
 import 'package:broski/agent/ui/chat/live_strips.dart';
 import 'package:broski/agent/ui/chat/stop_bar.dart';
 import 'package:broski/agent/ui/composer/composer.dart';
+import 'package:broski/agent/ui/composer/composer_rules.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:broski/theme/app_typography.dart';
 import 'package:broski/theme/design_tokens.dart';
@@ -51,9 +52,26 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
     },
   );
 
+  void _takeReturnedInput() => ref.listen(
+    sessionProvider(_session).select((state) => state.returnedInput),
+    (_, returned) {
+      if (returned.isEmpty) return;
+      final merged = withReturnedInput(returned, _draft.text);
+      _draft.value = TextEditingValue(
+        text: merged,
+        selection: TextSelection.collapsed(offset: merged.length),
+      );
+      ref
+          .read(sessionProvider(_session).notifier)
+          .controls
+          .clearReturnedInput();
+    },
+  );
+
   @override
   Widget build(BuildContext context) {
     _followReplacement();
+    _takeReturnedInput();
     final state = ref.watch(sessionProvider(_session));
     final capabilities = ref.watch(capabilitiesProvider(_session.backend));
     return Scaffold(

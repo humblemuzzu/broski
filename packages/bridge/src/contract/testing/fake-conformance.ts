@@ -65,5 +65,7 @@ function exampleCall(op: BackendOpKind, sessionId: string, itemId: string): Back
 			return { backend: "opencode", op: { kind: op, sessionId } };
 		case "navigate_tree":
 			return { backend: "pi", op: { kind: op, sessionId, itemId, summarize: false } };
+		case "take_over":
+			return { backend: "pi", op: { kind: op, sessionId } };
 	}
 }

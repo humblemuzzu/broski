@@ -120,6 +120,7 @@ export function fakeOpResult(call: BackendCall): BackendOpResult {
 		case "revert_clear":
 		case "revert_commit":
 		case "navigate_tree":
+		case "take_over":
 			return { kind: op.kind };
 	}
 }

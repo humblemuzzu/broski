@@ -15,6 +15,15 @@ List<PromptMode> composerModes(
       ]
     : const [PromptMode.start];
 
+/// The composer's text once input the backend handed back joins [typed], as
+/// a terminal's own composer takes it back after Esc: the returned messages in queue
+/// order, a blank line between them, then what was typed, each part only when
+/// it holds more than whitespace.
+String withReturnedInput(List<String> returned, String typed) => [
+  returned.join('\n\n'),
+  typed,
+].where((piece) => piece.trim().isNotEmpty).join('\n\n');
+
 /// Why the prompt cannot be sent as it stands, or null.
 String? composerProblem({
   required String text,

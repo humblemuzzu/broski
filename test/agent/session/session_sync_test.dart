@@ -161,6 +161,26 @@ void main() {
     controller.dispose();
   });
 
+  test('session_replaced naming the session itself attaches it again, with '
+      'nothing handed over', () async {
+    final controller = await rig.attached();
+    final attaches = rig.link.sent.whereType<SessionAttachRequest>().length;
+    rig.bridge.event(
+      sessionRef,
+      1,
+      const SessionReplacedEvent(session: sessionRef),
+    );
+    await pumpEventQueue();
+    expect(controller.current.link, isA<LinkLive>());
+    expect(
+      rig.link.sent.whereType<SessionAttachRequest>().length,
+      attaches + 1,
+    );
+    expect(rig.link.last<SessionAttachRequest>().resume, isNull);
+    expect(controller.current.notices, isEmpty);
+    controller.dispose();
+  });
+
   test('an unknown session is lost', () async {
     rig.bridge.on<SessionAttachRequest>(
       (request) => ErrorResponse(

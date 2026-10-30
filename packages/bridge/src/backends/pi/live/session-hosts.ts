@@ -13,27 +13,31 @@ import type {
 	Rejected,
 	SessionId,
 	SessionSink,
+	SessionSnapshot,
 } from "../../../contract";
 import type { CatalogFeed } from "../catalog-feed";
 import { errorText } from "../error-text";
 import { isDirectory } from "../is-directory";
 import type { ModelCatalogue } from "../models/catalogue";
 import { initialPermissions } from "../modes";
-import type { HostAccess, LiveOverlay, LiveRow, SessionStore, StoredSession } from "../ports";
-import { CLOSED, rejected } from "../rejections";
+import type { HostAccess, LiveOverlay, LiveRow, OwnershipAccess, SessionStore, StoredSession } from "../ports";
+import { ACCEPTED, CLOSED, rejected } from "../rejections";
 import { sessionName } from "../session-name";
 import { canonicalCwd } from "../store/session-dir";
+import type { TerminalRegistry } from "../terminal/registry";
 import type { HostEnvironment, HostStart } from "./host-environment";
 import { factsOf, lastPermissions } from "./hosted-session";
 import { createSessionFile } from "./new-session-file";
 import { chooseModel } from "./new-session-options";
 import { NoticeMemory } from "./notice-memory";
-import { openSessionView, watchOnlyView } from "./open-session";
+import { openSessionView } from "./open-session";
 import type { SharedServices } from "./runtime-factory";
 import { SessionHost } from "./session-host";
 import { SessionLocks } from "./session-lock";
+import { type HostedPart, SessionView, type SessionViewDeps, watchedSnapshot } from "./session-view";
 
 export interface SessionHostsDeps {
+	readonly terminals: TerminalRegistry;
 	readonly shared: SharedServices;
 	readonly models: Pick<ModelCatalogue, "find">;
 	readonly store: SessionStore;
@@ -50,8 +54,10 @@ const STARTING_ASKS: Rejected = rejected(
 	"an extension asks something as the session starts: open it to answer",
 );
 
-export class SessionHosts implements LiveOverlay, HostAccess {
+export class SessionHosts implements LiveOverlay, HostAccess, OwnershipAccess {
 	private readonly hosts = new Map<SessionId, SessionHost>();
+	/** The views the core holds now, by session. */
+	private readonly views = new Map<SessionId, SessionView>();
 	private readonly locks = new SessionLocks();
 	private readonly env: HostEnvironment;
 	private disposing: Promise<void> | undefined;
@@ -99,6 +105,32 @@ export class SessionHosts implements LiveOverlay, HostAccess {
 		});
 	}
 
+	/**
+	 * Makes a session another client wrote this bridge's (`claim` writes the mark, or refuses), and hosts it: its open
+	 * view, if it has one, becomes the host's. Under the session lock, with the claim, so nothing else opens or writes
+	 * the session between the refusals and the mark. A session this bridge hosts already is its own.
+	 */
+	takeOver(sessionId: SessionId, claim: (stored: StoredSession) => Promise<ActionResult>): Promise<ActionResult> {
+		return this.locks.run(sessionId, async () => {
+			if (this.disposing) return CLOSED;
+			if (this.hosts.has(sessionId)) return ACCEPTED;
+			const before = await this.deps.store.locate(sessionId);
+			if ("status" in before) return before;
+			const claimed = await claim(before);
+			if (claimed.status === "rejected") return claimed;
+			const view = this.views.get(sessionId);
+			if (view === undefined) return ACCEPTED;
+			const claimedSession = await this.deps.store.locate(sessionId);
+			if ("status" in claimedSession) return claimedSession;
+			const host = await this.hostStored(claimedSession);
+			if ("status" in host) return host;
+			const part = this.partOf(host, view.sink);
+			host.markReady();
+			view.becomeHosted(part);
+			return ACCEPTED;
+		});
+	}
+
 	withIdleSession<T>(sessionId: SessionId, work: (session: AgentSession) => Promise<T>): Promise<T | Rejected> {
 		return this.locks.run(sessionId, async () => {
 			if (this.disposing) return CLOSED;
@@ -118,7 +150,16 @@ export class SessionHosts implements LiveOverlay, HostAccess {
 	}
 
 	row(sessionId: SessionId): LiveRow | undefined {
-		return this.hosts.get(sessionId)?.row();
+		return this.hosts.get(sessionId)?.row() ?? this.deps.terminals.row(sessionId);
+	}
+
+	/**
+	 * This bridge runs the session and has something in flight in it, so a terminal that opens it is told not to type in
+	 * it. An idle host gives way to the terminal instead (`SessionView`).
+	 */
+	isBusy(sessionId: SessionId): boolean {
+		const host = this.hosts.get(sessionId);
+		return host !== undefined && !host.ended && !host.idle();
 	}
 
 	/** The live session of a hosted session, for `listCommands({session})`. */
@@ -141,7 +182,9 @@ export class SessionHosts implements LiveOverlay, HostAccess {
 	 * the abort in `finish()` releases, and the whole bridge has only `DEFAULT_TEARDOWN_TIMEOUT_MS` to stop.
 	 */
 	dispose(): Promise<void> {
-		this.disposing ??= Promise.all([...this.hosts.values()].map((host) => host.finish())).then(() => undefined);
+		this.disposing ??= Promise.all([...this.hosts.values()].map((host) => host.finish())).then(() =>
+			Promise.all([...this.views.values()].map((view) => view.close())).then(() => undefined),
+		);
 		return this.disposing;
 	}
 
@@ -182,11 +225,49 @@ export class SessionHosts implements LiveOverlay, HostAccess {
 		if (existing) return existing.ended ? CLOSED : this.viewOf(existing, sink);
 		const stored = await this.deps.store.locate(sessionId);
 		if ("status" in stored) return stored;
-		if (stored.origin === "external" || stored.cwd === undefined || !isDirectory(stored.cwd)) {
-			return watchOnlyView(stored, this.deps.store);
+		const heldByTerminal = this.deps.terminals.holder(stored.path) !== undefined;
+		if (heldByTerminal || stored.origin === "external" || stored.cwd === undefined || !isDirectory(stored.cwd)) {
+			return this.watch(stored, sink);
 		}
 		const host = await this.hostStored(stored);
 		return "status" in host ? host : this.attachNew(host, sink);
+	}
+
+	private async watch(stored: StoredSession, sink: SessionSink): Promise<OpenResult> {
+		const view = this.register(
+			stored.sessionId,
+			stored.path,
+			sink,
+			await watchedSnapshot(stored.sessionId, this.deps.store),
+		);
+		return { status: "accepted", session: view, snapshot: view.snapshot() };
+	}
+
+	private register(
+		sessionId: SessionId,
+		path: string,
+		sink: SessionSink,
+		start: HostedPart | SessionSnapshot,
+	): SessionView {
+		const deps: SessionViewDeps = {
+			sessionId,
+			path,
+			terminals: this.deps.terminals,
+			reread: () => watchedSnapshot(sessionId, this.deps.store),
+			now: this.deps.now,
+			release: () => {
+				if (this.views.get(sessionId) === view) this.views.delete(sessionId);
+			},
+		};
+		const view: SessionView = new SessionView(deps, sink, start);
+		this.views.set(sessionId, view);
+		return view;
+	}
+
+	/** The host's side of a view of its session: events reach `sink` from now on, and a closed view lets an idle host end. */
+	private partOf(host: SessionHost, sink: SessionSink): HostedPart {
+		host.attach(sink);
+		return { view: openSessionView(host, sink, () => this.endWhenIdle(host)), idle: () => host.idle() };
 	}
 
 	private async hostStored(stored: StoredSession): Promise<SessionHost | Rejected> {
@@ -232,8 +313,8 @@ export class SessionHosts implements LiveOverlay, HostAccess {
 	}
 
 	private viewOf(host: SessionHost, sink: SessionSink): OpenResult {
-		const snapshot = host.attach(sink);
-		return { status: "accepted", session: openSessionView(host, sink, () => this.endWhenIdle(host)), snapshot };
+		const view = this.register(host.sessionId, host.file, sink, this.partOf(host, sink));
+		return { status: "accepted", session: view, snapshot: view.snapshot() };
 	}
 
 	/** The host is unattached and idle: it ends, after anything queued on its lock has had its turn (open, prompt). */

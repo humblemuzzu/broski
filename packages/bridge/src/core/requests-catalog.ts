@@ -1,6 +1,7 @@
 import { PROTOCOL_VERSION, type ResponseFor } from "../contract";
 import { type Handler, onBackend } from "./context";
 import { allowedOptionalDirectory } from "./directories";
+import { descriptorFor } from "./minor-views";
 import { pageWithinFrame } from "./paged-read";
 import { protocolError } from "./results";
 
@@ -30,8 +31,9 @@ export const hello: Handler<"hello"> = async (ctx, client, request, respond) => 
 };
 
 /** The backends registered now; one still starting is announced by a `status_changed` once it lands. */
-export const backendsList: Handler<"backends.list"> = async (ctx, _client, request, respond) => {
-	respond({ type: "backends.list.result", requestId: request.requestId, backends: ctx.registry.descriptors() });
+export const backendsList: Handler<"backends.list"> = async (ctx, client, request, respond) => {
+	const backends = ctx.registry.descriptors().map((descriptor) => descriptorFor(client, descriptor));
+	respond({ type: "backends.list.result", requestId: request.requestId, backends });
 };
 
 export const backendStatus = onBackend<"backend.status">(

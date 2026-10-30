@@ -224,4 +224,44 @@ void main() {
       findsOneWidget,
     );
   });
+
+  group('input the backend handed back after Stop', () {
+    String composerText(WidgetTester tester) =>
+        tester.widget<TextField>(_key('composer-text')).controller!.text;
+
+    testWidgets('goes into an empty composer, in queue order', (tester) async {
+      final rig = await _chat(tester);
+      rig.bridge.event(
+        sessionRef,
+        1,
+        const InputReturnedEvent(texts: ['Also lint', 'Then commit']),
+      );
+      await WidgetRig.settle(tester);
+      expect(composerText(tester), 'Also lint\n\nThen commit');
+    });
+
+    testWidgets('goes before what the person had typed', (tester) async {
+      final rig = await _chat(tester);
+      await tester.enterText(_key('composer-text'), 'and push');
+      await tester.pump();
+      rig.bridge.event(
+        sessionRef,
+        1,
+        const InputReturnedEvent(texts: ['Also lint']),
+      );
+      await WidgetRig.settle(tester);
+      expect(composerText(tester), 'Also lint\n\nand push');
+    });
+
+    testWidgets('is taken once: a later hand-back adds to what is there', (
+      tester,
+    ) async {
+      final rig = await _chat(tester);
+      rig.bridge.event(sessionRef, 1, const InputReturnedEvent(texts: ['one']));
+      await WidgetRig.settle(tester);
+      rig.bridge.event(sessionRef, 2, const InputReturnedEvent(texts: ['two']));
+      await WidgetRig.settle(tester);
+      expect(composerText(tester), 'two\n\none');
+    });
+  });
 }

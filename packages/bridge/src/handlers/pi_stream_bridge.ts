@@ -3,6 +3,7 @@ import { normalizeCwd } from "../connectors/pi/pi-cwd";
 import { mapPiSessionToRuntimeSession, mapPiStateToRuntimeState } from "../runtime/pi-runtime-read-models";
 import { registerSweepable } from "../state/bounded-map";
 import type { PiStatePayload } from "../types/pi";
+import { singleFlight } from "../utils/single-flight";
 import { onBridgeTurnBoundary } from "./pi_external_tail_sync";
 import type { Broadcast, Reply } from "./pi_message_helpers";
 import { isPiStateChangingEvent } from "./pi_state_events";
@@ -87,7 +88,14 @@ export async function broadcastPiSessionDelta(broadcast: Broadcast, cwd: string,
 	}
 }
 
-export async function ensureStreamBridge(cwd: string, broadcast: Broadcast, force = false): Promise<void> {
+const registrationsInFlight = new Map<string, Promise<void>>();
+
+/** Registering takes awaits, so two callers on one cwd would each add a listener and the phone would get every event twice. */
+export function ensureStreamBridge(cwd: string, broadcast: Broadcast, force = false): Promise<void> {
+	return singleFlight(registrationsInFlight, normalizeCwd(cwd), () => registerStreamBridge(cwd, broadcast, force));
+}
+
+async function registerStreamBridge(cwd: string, broadcast: Broadcast, force: boolean): Promise<void> {
 	const key = normalizeCwd(cwd);
 	const existing = streamUnsubscribers.get(key);
 	if (existing && !force) {

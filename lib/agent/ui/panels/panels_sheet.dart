@@ -11,14 +11,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 void showPanels(
   BuildContext context,
   SessionRef session,
-  Capabilities capabilities,
-) => DetailSheet.show<void>(
+  Capabilities capabilities, {
+  required bool controllable,
+}) => DetailSheet.show<void>(
   context: context,
   title: 'More',
   child: Consumer(
     builder: (sheetContext, ref, _) => Column(
       children: [
-        for (final panel in panelsAt(capabilities, OpPlace.session))
+        for (final panel in panelsAt(
+          capabilities,
+          OpPlace.session,
+          controllable: controllable,
+        ))
           ListTile(
             key: ValueKey('panel:${panel.kind.wire}'),
             title: Text(panel.label),

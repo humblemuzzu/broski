@@ -14,11 +14,14 @@ import type {
 } from "../../contract/testing/conformance-types";
 import { deliveredInput } from "./helpers/delivered";
 import { PiWorld, type PiWorldOptions } from "./helpers/pi-world";
-import { scenarioSteps } from "./helpers/scenarios";
+import { say, scenarioSteps } from "./helpers/scenarios";
+import { findSessionFile } from "./helpers/session-files";
+import { TerminalRig } from "./helpers/terminal-rig";
 
 export class PiConformanceDriver implements ConformanceDriver {
 	readonly cwd: string;
 	readonly otherCwd: string;
+	private readonly terminals: TerminalRig;
 
 	constructor(
 		readonly world: PiWorld,
@@ -26,6 +29,7 @@ export class PiConformanceDriver implements ConformanceDriver {
 	) {
 		this.cwd = world.env.cwd;
 		this.otherCwd = world.env.otherCwd;
+		this.terminals = new TerminalRig({ world });
 	}
 
 	/** Sessions are made and run through the backend, so each is `origin: "broski"` and controllable. */
@@ -56,6 +60,7 @@ export class PiConformanceDriver implements ConformanceDriver {
 	}
 
 	async backendCall(session: SessionRef, op: BackendOpKind): Promise<BackendCall | undefined> {
+		if (op === "take_over") return { backend: "pi", op: { kind: op, sessionId: session.sessionId } };
 		if (op !== "navigate_tree") return undefined;
 		const read = await this.world.backend.readTranscript(session, { limit: 200 });
 		if (read.status === "rejected") return undefined;
@@ -65,9 +70,23 @@ export class PiConformanceDriver implements ConformanceDriver {
 		);
 	}
 
-	/** Pi declares no `externalLive`: no other client's run reaches this bridge (D16). */
-	async runExternally(_session: SessionRef): Promise<boolean> {
-		return false;
+	/**
+	 * The other client is a terminal `pi` resuming the session, whose Broski link extension (installed by the bridge) tells
+	 * the bridge what it runs. The world must have the link on (`PiWorldOptions.link`).
+	 */
+	async runExternally(session: SessionRef): Promise<boolean> {
+		const file = findSessionFile(this.world.sessionsRoot, session.sessionId);
+		if (file === undefined) return false;
+		const terminal = await this.terminals.open(file);
+		await this.terminals.connected(file);
+		this.world.router.script(session.sessionId, [say("Done there.")]);
+		void terminal.session.prompt("From the terminal.");
+		return true;
+	}
+
+	/** Ends the terminals the driver started. */
+	quitTerminals(): Promise<void> {
+		return this.terminals.quit();
 	}
 
 	restart(host: BackendHost): Promise<AgentBackend> {
@@ -105,8 +124,8 @@ export class PiConformanceDriver implements ConformanceDriver {
 
 export interface PiConformanceKit {
 	readonly factory: ConformanceFactory;
-	/** Removes every world the factory made; call it after each test. */
-	dispose(): void;
+	/** Removes every world the factory made, after the terminals its drivers started have quit; call it after each test. */
+	dispose(): Promise<void>;
 }
 
 /**
@@ -115,13 +134,17 @@ export interface PiConformanceKit {
  */
 export function piConformanceKit(timeoutMs: number, options: PiWorldOptions = {}): PiConformanceKit {
 	const worlds: PiWorld[] = [];
+	const drivers: PiConformanceDriver[] = [];
 	return {
 		factory: async (host) => {
 			const world = await PiWorld.create(host, options);
 			worlds.push(world);
-			return { backend: world.backend, driver: new PiConformanceDriver(world, timeoutMs) };
+			const driver = new PiConformanceDriver(world, timeoutMs);
+			drivers.push(driver);
+			return { backend: world.backend, driver };
 		},
-		dispose: () => {
+		dispose: async () => {
+			for (const driver of drivers.splice(0)) await driver.quitTerminals();
 			const made = worlds.splice(0);
 			for (const world of made) world.dispose();
 			for (const world of made) world.assertNotCapped();

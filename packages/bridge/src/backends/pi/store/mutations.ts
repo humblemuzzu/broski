@@ -10,6 +10,7 @@ import { dirname } from "node:path";
 import { uuidv7 } from "@earendil-works/pi-ai";
 import { CURRENT_SESSION_VERSION, type SessionHeader } from "@earendil-works/pi-coding-agent";
 import type { ActionResult, ForkPoint, NewSessionResult, Rejected, SessionId } from "../../../contract";
+import { ORIGIN_ENTRY } from "../broski-entries";
 import type { CatalogFeed } from "../catalog-feed";
 import { errorText } from "../error-text";
 import { parseEntryPart } from "../ids";
@@ -47,6 +48,36 @@ export async function renameStored(deps: MutationDeps, sessionId: SessionId, nam
 		parentId: file.version >= 2 ? lastEntryId(file) : null,
 		timestamp: new Date(deps.now()).toISOString(),
 		name,
+	};
+	try {
+		if (!(await appendLine(head.path, `${JSON.stringify(entry)}\n`))) {
+			return rejected("not_found", "the session file is no longer a regular file");
+		}
+	} catch (error) {
+		return writeFailure(error);
+	}
+	await announceUpdate(deps, head.path);
+	return ACCEPTED;
+}
+
+/**
+ * Marks a session another client wrote as this bridge's, with the `broski.origin` entry a session it creates starts
+ * with, appended as a rename appends: one line chained under the file's last entry. A session that has one already is
+ * left alone. Emits `session_updated` (`origin: "broski"`).
+ */
+export async function claimStored(deps: MutationDeps, sessionId: SessionId): Promise<ActionResult> {
+	const head = await deps.index.find(sessionId);
+	if (head === undefined) return rejected("not_found", `no Pi session ${sessionId}`);
+	if ((await deps.index.complete(head)).origin === "broski") return ACCEPTED;
+	if (!(await isContainedFile(trustedRoots(deps.dirs), head.path))) return OUTSIDE;
+	const file = await openFileIndex(deps.index, head.path);
+	if (isRejection(file)) return file;
+	const entry = {
+		type: "custom",
+		customType: ORIGIN_ENTRY,
+		id: freshEntryId(file.byId),
+		parentId: file.version >= 2 ? lastEntryId(file) : null,
+		timestamp: new Date(deps.now()).toISOString(),
 	};
 	try {
 		if (!(await appendLine(head.path, `${JSON.stringify(entry)}\n`))) {

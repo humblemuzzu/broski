@@ -99,6 +99,10 @@ final class SessionControls {
     await _cell.client.compact(_cell.ref, instructions: instructions),
   );
 
+  /// The composer has taken the input the backend handed back.
+  void clearReturnedInput() =>
+      _cell.update((state) => state.copyWith(returnedInput: const []));
+
   /// Clears a refusal the person has read.
   void dismissAnswerProblem(InteractionId id) => _cell.update(
     (state) => state.copyWith(answering: {...state.answering}..remove(id)),

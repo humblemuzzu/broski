@@ -1,7 +1,9 @@
 /**
  * The capabilities Pi 1.4.0 declares. `fork`, `rename` and `delete` follow from the methods `backend.ts` implements;
- * `archive` is absent. Session capabilities: `controllable` and `compact` for a session this bridge made, neither for
- * one another client made (watch-only, README owner decisions); never `cancelQueued` (README, "the queue after Stop").
+ * `archive` is absent. `externalLive`: a terminal `pi` that runs the Broski link extension is followed live. Session
+ * capabilities: `controllable` and `compact` for a session this bridge runs, `controllable` alone for one a terminal runs
+ * (a message and Stop go through that terminal), neither for one nobody runs here (watch-only, until it is taken over);
+ * never `cancelQueued`.
  */
 
 import type { BackendTraits } from "../../contract";
@@ -21,8 +23,8 @@ export const PI_TRAITS: BackendTraits = {
 	usage: true,
 	plan: false,
 	planProposals: false,
-	externalLive: false,
+	externalLive: true,
 	durableRuns: false,
 	extensions: [],
-	backendOps: ["navigate_tree"],
+	backendOps: ["navigate_tree", "take_over"],
 };

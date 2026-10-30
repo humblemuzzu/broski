@@ -3,8 +3,10 @@
  * the hosted sessions' live facts laid over them; a hosted session is written only through its host.
  */
 
+import { stat } from "node:fs/promises";
 import type {
 	AgentBackend,
+	BackendCall,
 	BackendCallResult,
 	BackendHost,
 	CommandsListResult,
@@ -18,11 +20,13 @@ import { SessionHosts } from "./live/session-hosts";
 import { ModelCatalogue } from "./models/catalogue";
 import { listPiModes } from "./modes";
 import { navigateTree } from "./ops/navigate-tree";
+import { takeOver } from "./ops/take-over";
 import type { SessionStore } from "./ports";
 import { rejected } from "./rejections";
 import type { PiServices } from "./services";
 import { piStatus } from "./status";
 import { createSessionStore } from "./store/session-store";
+import { TerminalLink, type TerminalLinkOptions } from "./terminal/link";
 import { PI_TRAITS } from "./traits";
 import { builtinExtensions } from "./ui/extensions";
 
@@ -35,32 +39,56 @@ export interface PiParts {
 	readonly hosts: SessionHosts;
 	readonly commands: PiCommandLister;
 	readonly config: ConfigWatch;
+	readonly terminal: TerminalLink;
 }
 
 export function createPiBackend(host: BackendHost, services: PiServices): AgentBackend {
 	return piBackendOf(createPiParts(host, services));
 }
 
-export function createPiParts(host: BackendHost, services: PiServices): PiParts {
+export function createPiParts(host: BackendHost, services: PiServices, link?: TerminalLinkOptions): PiParts {
 	const { agentDir } = services;
 	const catalog = new CatalogFeed(host.catalog);
 	const store = createSessionStore({ agentDir, catalog, now: Date.now });
 	const models = new ModelCatalogue(services.models, agentDir);
 	const shared = {
 		agentDir,
-		modelRuntime: services.models.runtime,
+		modelRuntime: services.sessionRuntime,
 		scope: (patterns: readonly string[]) => services.models.scope(patterns),
 	};
-	const hosts = new SessionHosts({ shared, models, store, catalog, now: Date.now });
+	const terminal = new TerminalLink(agentDir, link, {
+		now: Date.now,
+		busy: (sessionId) => hosts.isBusy(sessionId),
+		changed: (sessionId, path) => announce(sessionId, path),
+	});
+	const hosts: SessionHosts = new SessionHosts({
+		terminals: terminal.registry,
+		shared,
+		models,
+		store,
+		catalog,
+		now: Date.now,
+	});
+	/** A session a terminal runs shows its run in the list. Not before it has a file: a store asked for an id no file holds keeps saying so for a while. */
+	const announce = (sessionId: string, path: string): void => {
+		void stat(path)
+			.then(() => store.get(sessionId, hosts))
+			.then((found) => {
+				if (found.status === "accepted") catalog.emit({ type: "session_updated", summary: found.summary });
+			})
+			.catch(() => undefined);
+	};
 	const commands = new PiCommandLister({ agentDir, extensions: builtinExtensions });
-	const config = new ConfigWatch(agentDir, catalog, () => piStatus(services.models, agentDir));
+	const config = new ConfigWatch(agentDir, catalog, () =>
+		piStatus(services.models, agentDir, { proxy: services.proxy, link: terminal }),
+	);
 	store.watch(hosts);
 	config.attach();
-	return { services, catalog, store, models, hosts, commands, config };
+	return { services, catalog, store, models, hosts, commands, config, terminal };
 }
 
 export function piBackendOf(parts: PiParts): AgentBackend {
-	const { services, catalog, store, models, hosts, commands, config } = parts;
+	const { services, catalog, store, models, hosts, commands, config, terminal } = parts;
 	const listCommands = async (scope: { cwd?: string; session?: SessionRef }): Promise<CommandsListResult> => {
 		if (scope.session === undefined) {
 			const live = scope.cwd === undefined ? undefined : hosts.sessionIn(scope.cwd);
@@ -77,7 +105,7 @@ export function piBackendOf(parts: PiParts): AgentBackend {
 		traits: PI_TRAITS,
 		status: () => {
 			config.attach();
-			return piStatus(services.models, services.agentDir);
+			return piStatus(services.models, services.agentDir, { proxy: services.proxy, link: terminal });
 		},
 		listSessions: (query, page) => store.list(query, page, hosts),
 		getSession: async (ref) => (ref.backend === "pi" ? store.get(ref.sessionId, hosts) : notFound(ref)),
@@ -100,17 +128,27 @@ export function piBackendOf(parts: PiParts): AgentBackend {
 				? hosts.remove(ref.sessionId, (release) => store.remove(ref.sessionId, release))
 				: notFound(ref),
 		fork: async (ref, at) => (ref.backend === "pi" ? store.fork(ref.sessionId, at, hosts) : notFound(ref)),
-		call: async (call): Promise<BackendCallResult> =>
-			call.backend === "pi"
-				? navigateTree({ hosts, store, live: hosts, catalog }, call.op)
-				: rejected("unsupported", `Pi has no ${call.backend} op ${call.op.kind}`),
+		call: async (call) => callOp(parts, call),
 		dispose: async () => {
 			store.dispose();
 			config.stop();
+			await terminal.stop();
 			await hosts.dispose();
 			catalog.silence();
 		},
 	};
+}
+
+function callOp(parts: PiParts, call: BackendCall): Promise<BackendCallResult> {
+	const { hosts, store, catalog, terminal } = parts;
+	if (call.backend !== "pi")
+		return Promise.resolve(rejected("unsupported", `Pi has no ${call.backend} op ${call.op.kind}`));
+	switch (call.op.kind) {
+		case "navigate_tree":
+			return navigateTree({ hosts, store, live: hosts, catalog }, call.op);
+		case "take_over":
+			return takeOver({ hosts, store, terminals: terminal.registry, now: Date.now }, call.op);
+	}
 }
 
 function notFound(ref: SessionRef): Rejected {

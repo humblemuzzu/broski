@@ -879,10 +879,11 @@
       "seq": 40,
       "at": 1800000000044,
       "event": {
-        "type": "block_started",
-        "blockId": "id-16",
-        "messageId": "id-15",
-        "kind": "plan"
+        "type": "input_returned",
+        "texts": [
+          "Also lint",
+          "Then commit"
+        ]
       }
     }
   },
@@ -896,9 +897,10 @@
       "seq": 41,
       "at": 1800000000045,
       "event": {
-        "type": "block_delta",
+        "type": "block_started",
         "blockId": "id-16",
-        "text": "1. Te"
+        "messageId": "id-15",
+        "kind": "plan"
       }
     }
   },
@@ -914,7 +916,7 @@
       "event": {
         "type": "block_delta",
         "blockId": "id-16",
-        "text": "st\n2."
+        "text": "1. Te"
       }
     }
   },
@@ -930,7 +932,7 @@
       "event": {
         "type": "block_delta",
         "blockId": "id-16",
-        "text": " Ship"
+        "text": "st\n2."
       }
     }
   },
@@ -943,6 +945,22 @@
       },
       "seq": 44,
       "at": 1800000000048,
+      "event": {
+        "type": "block_delta",
+        "blockId": "id-16",
+        "text": " Ship"
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-1"
+      },
+      "seq": 45,
+      "at": 1800000000049,
       "event": {
         "type": "block_finished",
         "blockId": "id-16",
@@ -957,8 +975,8 @@
         "backend": "pi",
         "sessionId": "id-1"
       },
-      "seq": 45,
-      "at": 1800000000050,
+      "seq": 46,
+      "at": 1800000000051,
       "event": {
         "type": "session_replaced",
         "session": {
@@ -975,8 +993,8 @@
         "backend": "pi",
         "sessionId": "id-17"
       },
-      "seq": 46,
-      "at": 1800000000051,
+      "seq": 47,
+      "at": 1800000000052,
       "event": {
         "type": "block_started",
         "blockId": "id-18",
@@ -992,28 +1010,12 @@
         "backend": "pi",
         "sessionId": "id-17"
       },
-      "seq": 47,
-      "at": 1800000000052,
-      "event": {
-        "type": "block_delta",
-        "blockId": "id-18",
-        "text": "Fin"
-      }
-    }
-  },
-  {
-    "type": "event",
-    "envelope": {
-      "session": {
-        "backend": "pi",
-        "sessionId": "id-17"
-      },
       "seq": 48,
       "at": 1800000000053,
       "event": {
         "type": "block_delta",
         "blockId": "id-18",
-        "text": "ish"
+        "text": "Fin"
       }
     }
   },
@@ -1029,7 +1031,7 @@
       "event": {
         "type": "block_delta",
         "blockId": "id-18",
-        "text": "ed."
+        "text": "ish"
       }
     }
   },
@@ -1042,6 +1044,22 @@
       },
       "seq": 50,
       "at": 1800000000055,
+      "event": {
+        "type": "block_delta",
+        "blockId": "id-18",
+        "text": "ed."
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 51,
+      "at": 1800000000056,
       "event": {
         "type": "block_finished",
         "blockId": "id-18",
@@ -1056,8 +1074,8 @@
         "backend": "pi",
         "sessionId": "id-17"
       },
-      "seq": 51,
-      "at": 1800000000056,
+      "seq": 52,
+      "at": 1800000000057,
       "event": {
         "type": "run_finished",
         "runId": "id-4",
@@ -1074,8 +1092,8 @@
         "backend": "pi",
         "sessionId": "id-17"
       },
-      "seq": 52,
-      "at": 1800000000057,
+      "seq": 53,
+      "at": 1800000000058,
       "event": {
         "type": "run_started",
         "runId": "id-21",
@@ -1090,8 +1108,8 @@
         "backend": "pi",
         "sessionId": "id-17"
       },
-      "seq": 53,
-      "at": 1800000000058,
+      "seq": 54,
+      "at": 1800000000059,
       "event": {
         "type": "user_message",
         "messageId": "id-20",
@@ -1108,8 +1126,8 @@
         "backend": "pi",
         "sessionId": "id-17"
       },
-      "seq": 54,
-      "at": 1800000000059,
+      "seq": 55,
+      "at": 1800000000060,
       "event": {
         "type": "block_started",
         "blockId": "id-23",
@@ -1125,8 +1143,8 @@
         "backend": "pi",
         "sessionId": "id-17"
       },
-      "seq": 55,
-      "at": 1800000000060,
+      "seq": 56,
+      "at": 1800000000061,
       "event": {
         "type": "queue_changed",
         "items": [
@@ -1147,8 +1165,8 @@
         "backend": "pi",
         "sessionId": "id-17"
       },
-      "seq": 56,
-      "at": 1800000000061,
+      "seq": 57,
+      "at": 1800000000062,
       "event": {
         "type": "block_delta",
         "blockId": "id-23",
@@ -1163,8 +1181,8 @@
         "backend": "pi",
         "sessionId": "id-17"
       },
-      "seq": 57,
-      "at": 1800000000062,
+      "seq": 58,
+      "at": 1800000000063,
       "event": {
         "type": "queue_changed",
         "items": [
@@ -1191,8 +1209,8 @@
         "backend": "pi",
         "sessionId": "id-17"
       },
-      "seq": 58,
-      "at": 1800000000063,
+      "seq": 59,
+      "at": 1800000000064,
       "event": {
         "type": "block_delta",
         "blockId": "id-23",
@@ -1207,8 +1225,8 @@
         "backend": "pi",
         "sessionId": "id-17"
       },
-      "seq": 59,
-      "at": 1800000000064,
+      "seq": 60,
+      "at": 1800000000065,
       "event": {
         "type": "block_delta",
         "blockId": "id-23",
@@ -1223,8 +1241,8 @@
         "backend": "pi",
         "sessionId": "id-17"
       },
-      "seq": 60,
-      "at": 1800000000065,
+      "seq": 61,
+      "at": 1800000000066,
       "event": {
         "type": "block_finished",
         "blockId": "id-23",
@@ -1239,8 +1257,8 @@
         "backend": "pi",
         "sessionId": "id-17"
       },
-      "seq": 61,
-      "at": 1800000000066,
+      "seq": 62,
+      "at": 1800000000067,
       "event": {
         "type": "user_message",
         "messageId": "id-26",
@@ -1257,8 +1275,8 @@
         "backend": "pi",
         "sessionId": "id-17"
       },
-      "seq": 62,
-      "at": 1800000000067,
+      "seq": 63,
+      "at": 1800000000068,
       "event": {
         "type": "queue_changed",
         "items": [
@@ -1279,8 +1297,8 @@
         "backend": "pi",
         "sessionId": "id-17"
       },
-      "seq": 63,
-      "at": 1800000000068,
+      "seq": 64,
+      "at": 1800000000069,
       "event": {
         "type": "block_started",
         "blockId": "id-27",
@@ -1296,28 +1314,12 @@
         "backend": "pi",
         "sessionId": "id-17"
       },
-      "seq": 64,
-      "at": 1800000000069,
-      "event": {
-        "type": "block_delta",
-        "blockId": "id-27",
-        "text": "Do"
-      }
-    }
-  },
-  {
-    "type": "event",
-    "envelope": {
-      "session": {
-        "backend": "pi",
-        "sessionId": "id-17"
-      },
       "seq": 65,
       "at": 1800000000070,
       "event": {
         "type": "block_delta",
         "blockId": "id-27",
-        "text": "ne"
+        "text": "Do"
       }
     }
   },
@@ -1333,7 +1335,7 @@
       "event": {
         "type": "block_delta",
         "blockId": "id-27",
-        "text": "."
+        "text": "ne"
       }
     }
   },
@@ -1346,6 +1348,22 @@
       },
       "seq": 67,
       "at": 1800000000072,
+      "event": {
+        "type": "block_delta",
+        "blockId": "id-27",
+        "text": "."
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 68,
+      "at": 1800000000073,
       "event": {
         "type": "block_finished",
         "blockId": "id-27",
@@ -1360,8 +1378,8 @@
         "backend": "pi",
         "sessionId": "id-17"
       },
-      "seq": 68,
-      "at": 1800000000073,
+      "seq": 69,
+      "at": 1800000000074,
       "event": {
         "type": "run_finished",
         "runId": "id-21",
@@ -1378,8 +1396,8 @@
         "backend": "pi",
         "sessionId": "id-17"
       },
-      "seq": 69,
-      "at": 1800000000074,
+      "seq": 70,
+      "at": 1800000000075,
       "event": {
         "type": "queue_changed",
         "items": []
@@ -1393,8 +1411,8 @@
         "backend": "pi",
         "sessionId": "id-17"
       },
-      "seq": 70,
-      "at": 1800000000075,
+      "seq": 71,
+      "at": 1800000000076,
       "event": {
         "type": "run_started",
         "runId": "id-30",
@@ -1409,8 +1427,8 @@
         "backend": "pi",
         "sessionId": "id-17"
       },
-      "seq": 71,
-      "at": 1800000000076,
+      "seq": 72,
+      "at": 1800000000077,
       "event": {
         "type": "user_message",
         "messageId": "id-29",
@@ -1427,8 +1445,8 @@
         "backend": "pi",
         "sessionId": "id-17"
       },
-      "seq": 72,
-      "at": 1800000000077,
+      "seq": 73,
+      "at": 1800000000078,
       "event": {
         "type": "block_started",
         "blockId": "id-32",
@@ -1444,28 +1462,12 @@
         "backend": "pi",
         "sessionId": "id-17"
       },
-      "seq": 73,
-      "at": 1800000000078,
-      "event": {
-        "type": "block_delta",
-        "blockId": "id-32",
-        "text": "Do"
-      }
-    }
-  },
-  {
-    "type": "event",
-    "envelope": {
-      "session": {
-        "backend": "pi",
-        "sessionId": "id-17"
-      },
       "seq": 74,
       "at": 1800000000079,
       "event": {
         "type": "block_delta",
         "blockId": "id-32",
-        "text": "ne"
+        "text": "Do"
       }
     }
   },
@@ -1481,7 +1483,7 @@
       "event": {
         "type": "block_delta",
         "blockId": "id-32",
-        "text": "."
+        "text": "ne"
       }
     }
   },
@@ -1494,6 +1496,22 @@
       },
       "seq": 76,
       "at": 1800000000081,
+      "event": {
+        "type": "block_delta",
+        "blockId": "id-32",
+        "text": "."
+      }
+    }
+  },
+  {
+    "type": "event",
+    "envelope": {
+      "session": {
+        "backend": "pi",
+        "sessionId": "id-17"
+      },
+      "seq": 77,
+      "at": 1800000000082,
       "event": {
         "type": "block_finished",
         "blockId": "id-32",
@@ -1508,8 +1526,8 @@
         "backend": "pi",
         "sessionId": "id-17"
       },
-      "seq": 77,
-      "at": 1800000000082,
+      "seq": 78,
+      "at": 1800000000083,
       "event": {
         "type": "run_finished",
         "runId": "id-30",
@@ -1526,8 +1544,8 @@
         "backend": "pi",
         "sessionId": "id-17"
       },
-      "seq": 78,
-      "at": 1800000000083,
+      "seq": 79,
+      "at": 1800000000084,
       "event": {
         "type": "model_changed",
         "modelId": "fake-large",
@@ -1542,8 +1560,8 @@
         "backend": "pi",
         "sessionId": "id-17"
       },
-      "seq": 79,
-      "at": 1800000000084,
+      "seq": 80,
+      "at": 1800000000085,
       "event": {
         "type": "mode_changed",
         "axis": "agent",
@@ -1558,8 +1576,8 @@
         "backend": "pi",
         "sessionId": "id-17"
       },
-      "seq": 80,
-      "at": 1800000000085,
+      "seq": 81,
+      "at": 1800000000086,
       "event": {
         "type": "resynced",
         "snapshot": {
@@ -1830,8 +1848,8 @@
           "sessionId": "id-17"
         },
         "cwd": "/fixture",
-        "createdAt": 1800000000049,
-        "updatedAt": 1800000000049,
+        "createdAt": 1800000000050,
+        "updatedAt": 1800000000050,
         "archived": false,
         "status": "running",
         "origin": "broski",
@@ -1850,8 +1868,8 @@
           "sessionId": "id-17"
         },
         "cwd": "/fixture",
-        "createdAt": 1800000000049,
-        "updatedAt": 1800000000056,
+        "createdAt": 1800000000050,
+        "updatedAt": 1800000000057,
         "archived": false,
         "status": "idle",
         "origin": "broski",
@@ -1870,35 +1888,11 @@
           "sessionId": "id-17"
         },
         "cwd": "/fixture",
-        "createdAt": 1800000000049,
-        "updatedAt": 1800000000057,
-        "archived": false,
-        "status": "running",
-        "origin": "broski",
-        "modelId": "fake-large"
-      }
-    }
-  },
-  {
-    "type": "catalog",
-    "backend": "pi",
-    "event": {
-      "type": "session_updated",
-      "summary": {
-        "session": {
-          "backend": "pi",
-          "sessionId": "id-17"
-        },
-        "cwd": "/fixture",
-        "createdAt": 1800000000049,
+        "createdAt": 1800000000050,
         "updatedAt": 1800000000058,
         "archived": false,
         "status": "running",
         "origin": "broski",
-        "title": {
-          "text": "Keep going",
-          "source": "first_prompt"
-        },
         "modelId": "fake-large"
       }
     }
@@ -1914,32 +1908,8 @@
           "sessionId": "id-17"
         },
         "cwd": "/fixture",
-        "createdAt": 1800000000049,
-        "updatedAt": 1800000000073,
-        "archived": false,
-        "status": "idle",
-        "origin": "broski",
-        "title": {
-          "text": "Keep going",
-          "source": "first_prompt"
-        },
-        "modelId": "fake-large"
-      }
-    }
-  },
-  {
-    "type": "catalog",
-    "backend": "pi",
-    "event": {
-      "type": "session_updated",
-      "summary": {
-        "session": {
-          "backend": "pi",
-          "sessionId": "id-17"
-        },
-        "cwd": "/fixture",
-        "createdAt": 1800000000049,
-        "updatedAt": 1800000000075,
+        "createdAt": 1800000000050,
+        "updatedAt": 1800000000059,
         "archived": false,
         "status": "running",
         "origin": "broski",
@@ -1962,8 +1932,8 @@
           "sessionId": "id-17"
         },
         "cwd": "/fixture",
-        "createdAt": 1800000000049,
-        "updatedAt": 1800000000082,
+        "createdAt": 1800000000050,
+        "updatedAt": 1800000000074,
         "archived": false,
         "status": "idle",
         "origin": "broski",
@@ -1986,8 +1956,56 @@
           "sessionId": "id-17"
         },
         "cwd": "/fixture",
-        "createdAt": 1800000000049,
+        "createdAt": 1800000000050,
+        "updatedAt": 1800000000076,
+        "archived": false,
+        "status": "running",
+        "origin": "broski",
+        "title": {
+          "text": "Keep going",
+          "source": "first_prompt"
+        },
+        "modelId": "fake-large"
+      }
+    }
+  },
+  {
+    "type": "catalog",
+    "backend": "pi",
+    "event": {
+      "type": "session_updated",
+      "summary": {
+        "session": {
+          "backend": "pi",
+          "sessionId": "id-17"
+        },
+        "cwd": "/fixture",
+        "createdAt": 1800000000050,
         "updatedAt": 1800000000083,
+        "archived": false,
+        "status": "idle",
+        "origin": "broski",
+        "title": {
+          "text": "Keep going",
+          "source": "first_prompt"
+        },
+        "modelId": "fake-large"
+      }
+    }
+  },
+  {
+    "type": "catalog",
+    "backend": "pi",
+    "event": {
+      "type": "session_updated",
+      "summary": {
+        "session": {
+          "backend": "pi",
+          "sessionId": "id-17"
+        },
+        "cwd": "/fixture",
+        "createdAt": 1800000000050,
+        "updatedAt": 1800000000084,
         "archived": false,
         "status": "idle",
         "origin": "broski",

@@ -120,8 +120,8 @@ describe("the contract schemas", () => {
 		expect(anonymous).toEqual([]);
 	});
 
-	test("version the protocol as major 1, minor 1", () => {
-		expect(PROTOCOL_VERSION).toEqual({ major: 1, minor: 1 });
+	test("version the protocol as major 1, minor 2", () => {
+		expect(PROTOCOL_VERSION).toEqual({ major: 1, minor: 2 });
 	});
 
 	test("name no addition for a minor the protocol has not reached", () => {

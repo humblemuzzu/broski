@@ -267,6 +267,9 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
       ImageRef.fromJson(_as<Map<String, Object?>>(json, 'ImageRef')),
   'InputModality': (json) =>
       InputModality.fromJson(_as<String>(json, 'InputModality')),
+  'InputReturnedEvent': (json) => InputReturnedEvent.fromJson(
+    _as<Map<String, Object?>>(json, 'InputReturnedEvent'),
+  ),
   'IntegerField': (json) =>
       IntegerField.fromJson(_as<Map<String, Object?>>(json, 'IntegerField')),
   'Interaction': (json) =>
@@ -692,6 +695,10 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
       StringField.fromJson(_as<Map<String, Object?>>(json, 'StringField')),
   'StringFormat': (json) =>
       StringFormat.fromJson(_as<String>(json, 'StringFormat')),
+  'TakeOverOp': (json) =>
+      TakeOverOp.fromJson(_as<Map<String, Object?>>(json, 'TakeOverOp')),
+  'TakenOver': (json) =>
+      TakenOver.fromJson(_as<Map<String, Object?>>(json, 'TakenOver')),
   'TextContent': (json) =>
       TextContent.fromJson(_as<Map<String, Object?>>(json, 'TextContent')),
   'TextReply': (json) =>
@@ -1116,6 +1123,9 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
       (ImageRef.fromJson(_as<Map<String, Object?>>(json, 'ImageRef'))).toJson(),
   'InputModality': (json) =>
       (InputModality.fromJson(_as<String>(json, 'InputModality'))).toJson(),
+  'InputReturnedEvent': (json) => (InputReturnedEvent.fromJson(
+    _as<Map<String, Object?>>(json, 'InputReturnedEvent'),
+  )).toJson(),
   'IntegerField': (json) => (IntegerField.fromJson(
     _as<Map<String, Object?>>(json, 'IntegerField'),
   )).toJson(),
@@ -1603,6 +1613,12 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   )).toJson(),
   'StringFormat': (json) =>
       (StringFormat.fromJson(_as<String>(json, 'StringFormat'))).toJson(),
+  'TakeOverOp': (json) => (TakeOverOp.fromJson(
+    _as<Map<String, Object?>>(json, 'TakeOverOp'),
+  )).toJson(),
+  'TakenOver': (json) => (TakenOver.fromJson(
+    _as<Map<String, Object?>>(json, 'TakenOver'),
+  )).toJson(),
   'TextContent': (json) => (TextContent.fromJson(
     _as<Map<String, Object?>>(json, 'TextContent'),
   )).toJson(),

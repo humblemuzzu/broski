@@ -1,6 +1,5 @@
 import 'package:broski/agent/session/agent_session_state.dart';
 import 'package:broski/agent/session/outgoing_prompt.dart';
-import 'package:broski/agent/session/session_link.dart';
 import 'package:broski/agent/session/session_notices.dart';
 import 'package:broski/contract/generated/contract.dart';
 
@@ -39,11 +38,11 @@ AgentSessionState withEventEffects(
       notice(NoticeLevel.error, error.message),
     ),
   ),
+  InputReturnedEvent(:final texts) => after.copyWith(
+    returnedInput: [...after.returnedInput, ...texts],
+  ),
   ExtensionEvent(:final extension) => after.copyWith(
     extensions: withExtension(after.extensions, extension),
-  ),
-  SessionReplacedEvent(:final session) => after.copyWith(
-    link: LinkReplaced(session),
   ),
   _ => after,
 };

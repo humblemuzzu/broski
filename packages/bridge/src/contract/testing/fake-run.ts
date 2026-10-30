@@ -149,6 +149,9 @@ export class FakeRun {
 				}
 				this.host.emit({ type: "retry_finished", succeeded: true });
 				return undefined;
+			case "return_input":
+				this.host.emit({ type: "input_returned", texts: step.texts });
+				return undefined;
 			case "usage":
 				this.host.emit({ type: "usage_updated", usage: step.usage });
 				return undefined;

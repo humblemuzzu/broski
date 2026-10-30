@@ -36,6 +36,26 @@ void main() {
     return controller;
   }
 
+  test('a reconnect answered "replaced" with the session itself attaches it '
+      'afresh', () async {
+    final controller = await rig.attached();
+    rig.link.down();
+    rig.bridge.on<SessionAttachRequest>(
+      (request) => request.resume == null
+          ? snapshotAnswer(request)
+          : SessionAttachResponse(
+              requestId: request.requestId,
+              capabilities: controllable,
+              sync: const ReplacedSync(epoch: 'e1', session: sessionRef),
+            ),
+    );
+    rig.link.up();
+    await pumpEventQueue();
+    expect(controller.current.link, isA<LinkLive>());
+    expect(rig.link.last<SessionAttachRequest>().resume, isNull);
+    controller.dispose();
+  });
+
   test('a reconnect answered "replaced" follows the conversation and attaches '
       'to nothing', () async {
     final controller = await reconnectedAfterReplacement();

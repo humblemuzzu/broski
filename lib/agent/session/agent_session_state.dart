@@ -26,6 +26,7 @@ final class AgentSessionState {
     this.answering = const {},
     this.notices = const [],
     this.extensions = const {},
+    this.returnedInput = const [],
   });
 
   final SessionRef ref;
@@ -46,6 +47,10 @@ final class AgentSessionState {
   final Map<InteractionId, AnswerProgress> answering;
   final List<SessionNotice> notices;
   final Map<String, BackendExtension> extensions;
+
+  /// Queued input the backend took back (`input_returned`, contract §7), in
+  /// queue order, waiting for the composer to take it.
+  final List<String> returnedInput;
 
   SessionStatus get status => sessionStatus(snapshot);
 
@@ -73,6 +78,7 @@ final class AgentSessionState {
     Map<InteractionId, AnswerProgress>? answering,
     List<SessionNotice>? notices,
     Map<String, BackendExtension>? extensions,
+    List<String>? returnedInput,
   }) => AgentSessionState(
     ref: ref,
     link: link ?? this.link,
@@ -84,6 +90,7 @@ final class AgentSessionState {
     answering: answering ?? this.answering,
     notices: notices ?? this.notices,
     extensions: extensions ?? this.extensions,
+    returnedInput: returnedInput ?? this.returnedInput,
   );
 }
 

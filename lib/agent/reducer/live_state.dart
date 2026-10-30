@@ -37,6 +37,7 @@ SessionSnapshot applyToLiveState(
   ModeChangedEvent() => replacing(s, modes: _modesWith(s.modes, event)),
   ResyncedEvent() => event.snapshot,
   UserMessageEvent() ||
+  InputReturnedEvent() ||
   NoticeEvent() ||
   ErrorEvent() ||
   ExtensionEvent() ||

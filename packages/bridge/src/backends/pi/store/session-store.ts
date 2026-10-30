@@ -11,7 +11,7 @@ import type { SessionStore, StoredSession } from "../ports";
 import { rejected } from "../rejections";
 import { readAttachment } from "./attachments";
 import { getSession, listSessions } from "./list";
-import { forkStored, type MutationDeps, removeStored, renameStored } from "./mutations";
+import { claimStored, forkStored, type MutationDeps, removeStored, renameStored } from "./mutations";
 import { isFileSystemError } from "./open-file";
 import { piSessionDirs } from "./session-dir";
 import { SessionIndex } from "./session-index";
@@ -58,6 +58,7 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
 		},
 		entryOf: (sessionId, itemId, live) => reaching(() => entryOfItem(index, sessionId, itemId, live, itemsOfEntry)),
 		rename: (sessionId, name) => reaching(() => renameStored(mutation, sessionId, name)),
+		claim: (sessionId) => reaching(() => claimStored(mutation, sessionId)),
 		remove: (sessionId, release) => reaching(() => removeStored(mutation, sessionId, release)),
 		fork: (sessionId, at, live) => reaching(() => forkStored(mutation, sessionId, at, live)),
 		watch: (live) => watcher.start(live),

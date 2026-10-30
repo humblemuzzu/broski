@@ -45,7 +45,7 @@ const transpiler = new Bun.Transpiler({ loader: "ts" });
  *   adapters only through the `AgentBackend` values its registry holds.
  * - A `CORE_INFRASTRUCTURE` module imports only zod and the other such modules.
  * - `src/backends/<id>/` imports only the contract (not its test kit), itself, a shared directory
- *   made for it, `node:` built-ins and that backend's own SDK.
+ *   made for it, `node:` built-ins, zod (to check what a backend reads from a process it talks to) and that backend's own SDK.
  * - Every specifier is a plain string, so the check sees what is loaded.
  */
 export function layerViolations(src: string, files: readonly SourceFile[]): string[] {
@@ -146,7 +146,9 @@ function backendJudge(file: SourceFile, id: string, sdks: readonly string[], lay
 			return allowed ? [] : [`${specifier} is neither this backend nor the contract`];
 		}
 		if (LOADERS.has(specifier)) return [`${specifier} loads modules this check cannot see`];
-		if (specifier.startsWith("node:") || sdks.some((sdk) => isPackage(specifier, sdk))) return [];
+		if (specifier.startsWith("node:") || isPackage(specifier, "zod") || sdks.some((sdk) => isPackage(specifier, sdk))) {
+			return [];
+		}
 		return [`${specifier} is not this backend's SDK`];
 	};
 }

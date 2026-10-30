@@ -31,7 +31,7 @@ test("a run that settles with input still in Pi's queue says it was not sent", a
 	expect(notice.level).toBe("warning");
 });
 
-test("a run aborted with input still queued says nothing: Stop leaves the queue as Pi leaves it", async () => {
+test("a run stopped with input still queued says nothing is left: Stop handed it back", async () => {
 	t = await HostRig.create();
 	const live = await t.rig.rig.openNew();
 	await t.rig.rig.arrange(live.ref, { kind: "hold" });
@@ -41,7 +41,10 @@ test("a run aborted with input still queued says nothing: Stop leaves the queue 
 	await live.control.abort();
 	await live.waitFor("run_finished");
 	expect(live.events().some((event) => event.type === "notice" && event.text.includes("not sent"))).toBe(false);
-	expect(live.reduced().queue).toHaveLength(1);
+	expect(live.events().filter((event) => event.type === "input_returned")).toEqual([
+		{ type: "input_returned", texts: ["then this"] },
+	]);
+	expect(live.reduced().queue).toHaveLength(0);
 });
 
 test("why one queued item cannot be taken back: Pi clears its queue whole, and queued again an input meets the extensions anew", async () => {

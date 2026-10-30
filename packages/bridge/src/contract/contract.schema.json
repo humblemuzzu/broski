@@ -4,7 +4,7 @@
   "title": "Broski backend contract",
   "x-protocolVersion": {
     "major": 1,
-    "minor": 1
+    "minor": 2
   },
   "$defs": {
     "AbortRequest": {
@@ -155,6 +155,9 @@
         },
         {
           "$ref": "#/$defs/QueueChangedEvent"
+        },
+        {
+          "$ref": "#/$defs/InputReturnedEvent"
         },
         {
           "$ref": "#/$defs/CompactionStartedEvent"
@@ -515,7 +518,8 @@
         "revert_stage",
         "revert_clear",
         "revert_commit",
-        "navigate_tree"
+        "navigate_tree",
+        "take_over"
       ]
     },
     "BackendOpResult": {
@@ -542,6 +546,9 @@
         },
         {
           "$ref": "#/$defs/TreeNavigated"
+        },
+        {
+          "$ref": "#/$defs/TakenOver"
         }
       ]
     },
@@ -990,7 +997,7 @@
           }
         },
         "backendOps": {
-          "maxItems": 7,
+          "maxItems": 8,
           "type": "array",
           "items": {
             "$ref": "#/$defs/BackendOpKind"
@@ -2517,6 +2524,32 @@
         "audio"
       ]
     },
+    "InputReturnedEvent": {
+      "x-module": "events",
+      "$id": "#/$defs/InputReturnedEvent",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "input_returned"
+        },
+        "texts": {
+          "minItems": 1,
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1048576
+          }
+        }
+      },
+      "required": [
+        "type",
+        "texts"
+      ],
+      "additionalProperties": false
+    },
     "IntegerField": {
       "x-module": "forms",
       "$id": "#/$defs/IntegerField",
@@ -4032,6 +4065,9 @@
       "oneOf": [
         {
           "$ref": "#/$defs/NavigateTreeOp"
+        },
+        {
+          "$ref": "#/$defs/TakeOverOp"
         }
       ]
     },
@@ -6569,6 +6605,40 @@
         "date",
         "date-time"
       ]
+    },
+    "TakeOverOp": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/TakeOverOp",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "take_over"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        }
+      },
+      "required": [
+        "kind",
+        "sessionId"
+      ],
+      "additionalProperties": false
+    },
+    "TakenOver": {
+      "x-module": "backend-ops",
+      "$id": "#/$defs/TakenOver",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "take_over"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
     },
     "TextContent": {
       "x-module": "content",

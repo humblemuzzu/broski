@@ -1,5 +1,6 @@
 import 'package:broski/agent/agent_providers.dart';
 import 'package:broski/agent/session/agent_session_state.dart';
+import 'package:broski/agent/ui/panels/panel_registry.dart';
 import 'package:broski/agent/ui/panels/panels_sheet.dart';
 import 'package:broski/agent/ui/pickers/live_settings_sheet.dart';
 import 'package:broski/agent/ui/shared/status_look.dart';
@@ -77,18 +78,23 @@ class ChatActions extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!state.controllable) return const SizedBox.shrink();
     final controls = ref.read(sessionProvider(session).notifier).controls;
+    final panels = panelsAt(
+      capabilities,
+      OpPlace.session,
+      controllable: state.controllable,
+    );
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        IconButton(
-          key: const ValueKey('chat-settings'),
-          tooltip: 'Model and modes',
-          icon: const Icon(AppIcons.tune),
-          onPressed: () => showLiveSettings(context, session, capabilities),
-        ),
-        if (state.capabilities?.compact ?? false)
+        if (state.controllable)
+          IconButton(
+            key: const ValueKey('chat-settings'),
+            tooltip: 'Model and modes',
+            icon: const Icon(AppIcons.tune),
+            onPressed: () => showLiveSettings(context, session, capabilities),
+          ),
+        if (state.controllable && (state.capabilities?.compact ?? false))
           IconButton(
             key: const ValueKey('chat-compact'),
             tooltip: 'Compact',
@@ -107,12 +113,17 @@ class ChatActions extends ConsumerWidget {
               );
             },
           ),
-        if (capabilities.backendOps.isNotEmpty)
+        if (panels.isNotEmpty)
           IconButton(
             key: const ValueKey('chat-panels'),
             tooltip: 'More',
             icon: const Icon(AppIcons.moreVertical),
-            onPressed: () => showPanels(context, session, capabilities),
+            onPressed: () => showPanels(
+              context,
+              session,
+              capabilities,
+              controllable: state.controllable,
+            ),
           ),
       ],
     );

@@ -154,6 +154,23 @@ Future<BackendCall?> askNavigateTree(
   );
 }
 
+Future<BackendCall?> askTakeOver(
+  BuildContext context,
+  SessionId sessionId,
+  TranscriptItemId? _,
+) async {
+  final sure = await askToConfirm(
+    context,
+    title: 'Take over this session?',
+    body:
+        'Make sure no terminal is using this session. If pi is open on it in '
+        'a terminal, close it there first: two programs writing one session '
+        'can corrupt it. Broski then runs the session from your phone.',
+    action: 'Take over',
+  );
+  return sure ? PiCall(op: TakeOverOp(sessionId: sessionId)) : null;
+}
+
 Future<T?> _choose<T>(
   BuildContext context, {
   required String title,

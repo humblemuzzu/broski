@@ -50,7 +50,11 @@ export function toolNameOf(name: string): string {
 }
 
 /** A call the assistant message streams (`toolcall_start`): input absent until `toolcall_end`. */
-export function toolStartedOfCall(call: ToolCall, messageId: MessageId, tools: ToolCallIds): ToolStartedEvent {
+export function toolStartedOfCall(
+	call: Pick<ToolCall, "id" | "name">,
+	messageId: MessageId,
+	tools: ToolCallIds,
+): ToolStartedEvent {
 	return { type: "tool_started", toolCallId: tools.liveId(call.id), name: toolNameOf(call.name), messageId };
 }
 
@@ -82,7 +86,7 @@ export function toolOutputOf(event: PiEvent<"tool_execution_update">, tools: Too
  * validation (pi-ai `src/utils/validation.ts:318-319`), so the failure reaches the phone as that call's
  * error result, which quotes what the model sent.
  */
-export function toolInputOf(call: ToolCall, tools: ToolCallIds): ToolUpdatedEvent {
+export function toolInputOf(call: Pick<ToolCall, "id" | "arguments">, tools: ToolCallIds): ToolUpdatedEvent {
 	return {
 		type: "tool_updated",
 		toolCallId: tools.liveId(call.id),

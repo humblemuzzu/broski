@@ -36,7 +36,7 @@ part 'transcript.dart';
 part 'usage.dart';
 
 const int contractProtocolMajor = 1;
-const int contractProtocolMinor = 1;
+const int contractProtocolMinor = 2;
 
 const int contractMaxCatalogItems = 10000;
 const int contractMaxClientMessageValues = 50000;

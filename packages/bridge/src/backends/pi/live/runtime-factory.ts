@@ -19,6 +19,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { withoutPackageInstalls } from "../no-package-installs";
 import { sessionSettingsOf } from "../project-settings";
+import { isBroskiLink } from "../terminal/install";
 import { scopedStart } from "./scoped-start";
 
 export interface SharedServices {
@@ -56,7 +57,13 @@ export async function createHostedRuntime(shared: SharedServices, target: Runtim
 				agentDir,
 				modelRuntime: shared.modelRuntime,
 				settingsManager,
-				resourceLoaderOptions: { extensionFactories: [...target.extensions] },
+				resourceLoaderOptions: {
+					extensionFactories: [...target.extensions],
+					extensionsOverride: (loaded) => ({
+						...loaded,
+						extensions: loaded.extensions.filter((extension) => !isBroskiLink(agentDir, extension.path)),
+					}),
+				},
 			}),
 		);
 		const services = loaded.value;

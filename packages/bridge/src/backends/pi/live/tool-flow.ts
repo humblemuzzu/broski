@@ -45,7 +45,7 @@ export class ToolFlow {
 	constructor(private readonly deps: ToolFlowDeps) {}
 
 	/** The assistant message streams a call (the event itself is mapped by the message's `AssistantStream`). */
-	streamed(call: ToolCall): void {
+	streamed(call: Pick<ToolCall, "id" | "name" | "arguments">): void {
 		this.open.set(call.id, { name: call.name, args: call.arguments, denied: false });
 	}
 
@@ -79,6 +79,11 @@ export class ToolFlow {
 		const run = this.deps.run();
 		if (call && run) call.denied = run.tools.wasDenied(event.toolCallId);
 		if (event.parentToolCallId === undefined) return;
+		this.finishCall(event.toolCallId, event.result.content, event.isError, event.result.details, () => undefined);
+	}
+
+	/** A call whose result no stored entry will hold (a terminal's): finished at its `tool_execution_end`, an image in it a placeholder. */
+	finishedWithoutEntry(event: PiEvent<"tool_execution_end">): void {
 		this.finishCall(event.toolCallId, event.result.content, event.isError, event.result.details, () => undefined);
 	}
 

@@ -22,64 +22,60 @@ afterEach(async () => {
 });
 
 describe("prompt, abort, prompt", () => {
-	test("an abort leaves the queued follow-up shown, and the next run delivers it once, after its own prompt", async () => {
+	test("Stop takes the queued input out of Pi and hands it back, steering first, and the next run carries none of it", async () => {
 		t = await LiveRig.create();
 		const live = await holdingRun(t, {}, "first");
-		const queued = await live.prompt("later", "queue", "11111111-1111-4111-8111-111111111111");
-		if (queued.status !== "accepted" || queued.queueItemId === undefined)
-			throw new Error("the follow-up was not queued");
-		const queueItemId = queued.queueItemId;
-		await live.waitFor("queue_changed", (event) => event.items.some((item) => item.id === queueItemId));
+		for (const [text, mode] of [
+			["steer one", "steer"],
+			["later one", "queue"],
+			["steer two", "steer"],
+			["later two", "queue"],
+		] as const) {
+			expect(await live.prompt(text, mode)).toMatchObject({ status: "accepted" });
+		}
+		await live.waitFor("queue_changed", (event) => event.items.length === 4);
 		const firstRun = live.reduced().run?.runId;
+		const stopped = live.recorder.items.length;
 
 		expect((await live.control.abort()).status).toBe("accepted");
 		const ended = await live.waitFor("run_finished", (event) => event.runId === firstRun);
 		expect(ended.outcome.kind).toBe("aborted");
 		await t.driver.quiesce();
-		expect(live.reduced().queue.map((item) => item.id)).toEqual([queueItemId]);
+		const afterStop = live.events().slice(stopped);
+		expect(afterStop.filter((event) => event.type === "input_returned")).toEqual([
+			{ type: "input_returned", texts: ["steer one", "steer two", "later one", "later two"] },
+		]);
+		const emptied = afterStop.findIndex((event) => event.type === "queue_changed" && event.items.length === 0);
+		const handedBack = afterStop.findIndex((event) => event.type === "input_returned");
+		expect([emptied >= 0, emptied < handedBack]).toEqual([true, true]);
+		expect(live.reduced().queue).toEqual([]);
+		const pi = t.world.parts.hosts.session(live.ref.sessionId);
+		expect([pi?.getSteeringMessages(), pi?.getFollowUpMessages(), pi?.pendingMessageCount]).toEqual([[], [], 0]);
+		expect(live.events().some((event) => event.type === "notice" && event.text.includes("not sent"))).toBe(false);
 
 		const mark = live.recorder.items.length;
-		t.router.script(live.ref.sessionId, [say("reply to next"), say("reply to later")]);
-		const next = await live.prompt("next");
-		expect(next).toEqual({ status: "accepted", disposition: "started" });
-		const run = await live.runAfter(mark);
-		expect(run.outcome.kind).toBe("completed");
-		expect(
-			live
-				.events()
-				.slice(mark)
-				.filter((event) => event.type === "run_started"),
-		).toHaveLength(1);
-		expect(userMessages(live).map((message) => message.text)).toEqual(["first", "next", "later"]);
-		expect(userMessages(live).at(-1)?.clientRequestId).toBe("11111111-1111-4111-8111-111111111111");
-		expect(live.reduced().queue).toEqual([]);
-		expect(userTexts(t.fileOf(live.ref))).toEqual(["first", "next", "later"]);
+		t.router.script(live.ref.sessionId, [say("reply to next")]);
+		expect(await live.prompt("next")).toEqual({ status: "accepted", disposition: "started" });
+		expect((await live.runAfter(mark)).outcome.kind).toBe("completed");
+		expect(userMessages(live).map((message) => message.text)).toEqual(["first", "next"]);
+		expect(userTexts(t.fileOf(live.ref))).toEqual(["first", "next"]);
 		live.assertSettled();
 	});
 
-	test("a steer pending at the abort is delivered into the aborted run, which still ends aborted, and never into the next", async () => {
+	test("Stop with nothing queued hands nothing back", async () => {
 		t = await LiveRig.create();
 		const live = await holdingRun(t, {}, "first");
-		const steered = await live.prompt("steer now", "steer");
-		expect(steered).toMatchObject({ status: "accepted", disposition: "steered" });
 		await live.control.abort();
-		const ended = await live.waitFor("run_finished");
-		expect(ended.outcome.kind).toBe("aborted");
-		await t.driver.quiesce();
-		expect(live.reduced().queue).toEqual([]);
-
-		const mark = live.recorder.items.length;
-		await t.rig.arrange(live.ref, { kind: "reply" });
-		await live.run("next");
-		const delivered = userMessages(live).map((message) => message.text);
-		expect(delivered.filter((text) => text === "steer now")).toHaveLength(1);
-		expect(
-			live
-				.events()
-				.slice(mark)
-				.filter((event) => event.type === "user_message"),
-		).toHaveLength(1);
+		await live.waitFor("run_finished");
+		expect(live.events().some((event) => event.type === "input_returned")).toBe(false);
 		live.assertSettled();
+	});
+
+	test("Stop while nothing runs hands nothing back", async () => {
+		t = await LiveRig.create();
+		const live = await t.rig.openNew();
+		expect((await live.control.abort()).status).toBe("accepted");
+		expect(live.events().some((event) => event.type === "input_returned")).toBe(false);
 	});
 });
 

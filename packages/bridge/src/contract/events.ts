@@ -157,6 +157,17 @@ export const MessagesRetractedEvent = z.strictObject({
 });
 export type MessagesRetractedEvent = z.infer<typeof MessagesRetractedEvent>;
 
+/**
+ * Queued input the backend took back out of its queue, to be put into the composer of the session: the person
+ * stopped the run, and what they had queued behind it was not sent. In queue order, steering input first. The
+ * queue itself is `queue_changed`; this event only says what to give back, and is not state (since minor 2, `ADDED_IN_MINOR`).
+ */
+export const InputReturnedEvent = z.strictObject({
+	type: z.literal("input_returned"),
+	texts: z.array(z.string().min(1).max(MAX_TEXT_CHARS)).min(1).max(MAX_LIST_ITEMS),
+});
+export type InputReturnedEvent = z.infer<typeof InputReturnedEvent>;
+
 /** The session's model and thinking setting, both replaced. */
 export const ModelChangedEvent = z.strictObject({
 	type: z.literal("model_changed"),
@@ -207,6 +218,7 @@ export const AgentEvent = z.discriminatedUnion("type", [
 	InteractionRequestedEvent,
 	InteractionResolvedEvent,
 	QueueChangedEvent,
+	InputReturnedEvent,
 	CompactionStartedEvent,
 	CompactionFinishedEvent,
 	RetryScheduledEvent,

@@ -19,6 +19,7 @@ import {
 import { clipStart } from "../bounds";
 import { blockId, type ToolCallIds } from "../ids";
 import { type BlockType, OpenBlock } from "./open-block";
+import { type StreamEvent, streamEventOf } from "./stream-event";
 import { toolInputOf, toolStartedOfCall } from "./tool-items";
 
 /** A call this stream reported as started: Pi's id for it and the live id it got. */
@@ -37,8 +38,13 @@ export class AssistantStream {
 		private readonly tools: ToolCallIds,
 	) {}
 
-	/** The events one `message_update.assistantMessageEvent` adds. */
-	update(event: AssistantMessageEvent): AgentEvent[] {
+	/** The events one `message_update.assistantMessageEvent` adds, as Pi sent it or as a `StreamEvent`. */
+	update(event: AssistantMessageEvent | StreamEvent): AgentEvent[] {
+		const stream = "partial" in event || event.type === "done" || event.type === "error" ? streamEventOf(event) : event;
+		return stream === undefined ? [] : this.apply(stream);
+	}
+
+	private apply(event: StreamEvent): AgentEvent[] {
 		switch (event.type) {
 			case "text_start":
 				return this.begin(event.contentIndex, "text");
@@ -52,14 +58,9 @@ export class AssistantStream {
 			case "thinking_end":
 				return this.finish(event.contentIndex, "thinking", event.content);
 			case "toolcall_start":
-				return this.startCall(event);
+				return [this.started({ id: event.id, name: event.toolName })];
 			case "toolcall_end":
-				return this.endCall(event);
-			case "start":
-			case "toolcall_delta":
-			case "done":
-			case "error":
-				return [];
+				return this.endCall(event.toolCall);
 		}
 	}
 
@@ -119,21 +120,13 @@ export class AssistantStream {
 		return [...events, ...finishedEvents(blockId(this.messageId, index), block, authoritative)];
 	}
 
-	private startCall(event: Extract<AssistantMessageEvent, { type: "toolcall_start" }>): AgentEvent[] {
-		const call = event.partial.content[event.contentIndex];
-		// openai-completions starts a call before its id and name arrive (pi-ai `src/api/openai-completions.ts:502-515, 659-664`).
-		if (call?.type !== "toolCall" || call.id === "" || call.name === "") return [];
-		return [this.started(call)];
-	}
-
-	private endCall(event: Extract<AssistantMessageEvent, { type: "toolcall_end" }>): AgentEvent[] {
-		const { toolCall } = event;
+	private endCall(toolCall: Pick<ToolCall, "id" | "name" | "arguments">): AgentEvent[] {
 		const known = this.calls.some((call) => call.piId === toolCall.id);
 		const input = toolInputOf(toolCall, this.tools);
 		return known ? [input] : [this.started(toolCall), input];
 	}
 
-	private started(call: ToolCall): ToolStartedEvent {
+	private started(call: Pick<ToolCall, "id" | "name">): ToolStartedEvent {
 		const event = toolStartedOfCall(call, this.messageId, this.tools);
 		this.calls.push({ piId: call.id, id: event.toolCallId });
 		return event;

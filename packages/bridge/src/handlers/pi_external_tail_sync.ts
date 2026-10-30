@@ -11,23 +11,34 @@ type TailRequest = { broadcast: Broadcast; debugRts: boolean; logDebug: (msg: st
 /** Sessions someone is viewing, so a tail paused for a bridge-run turn knows to come back. */
 const wantedTails = new Map<string, TailRequest>();
 
+/**
+ * Sessions whose tail is being started: finding the file can take a while, and a start that is not in this
+ * map by the time it has the path was stopped meanwhile. Two starts must never both register, because the
+ * one that lost its slot in `externalTails` keeps running, unreachable by `pauseTail`.
+ */
+const startsInFlight = new Map<string, symbol>();
+
 async function startTail(sessionId: string, request: TailRequest): Promise<void> {
-	if (externalTails.has(sessionId)) return;
+	if (externalTails.has(sessionId) || startsInFlight.has(sessionId)) return;
 
-	const filePath = await pi.resolveSessionFilePath(sessionId);
-	if (!filePath) {
-		return;
+	const start = Symbol(sessionId);
+	startsInFlight.set(sessionId, start);
+	try {
+		const filePath = await pi.resolveSessionFilePath(sessionId);
+		if (!filePath || startsInFlight.get(sessionId) !== start) return;
+
+		const tail = startPiExternalTail(filePath, {
+			emitPiStream: (streamMsg) => {
+				broadcastPiStreamMessage(request.broadcast, "", sessionId, streamMsg);
+			},
+			logDebug: request.logDebug,
+			DEBUG_RTS: request.debugRts,
+		});
+
+		externalTails.set(sessionId, tail);
+	} finally {
+		if (startsInFlight.get(sessionId) === start) startsInFlight.delete(sessionId);
 	}
-
-	const tail = startPiExternalTail(filePath, {
-		emitPiStream: (streamMsg) => {
-			broadcastPiStreamMessage(request.broadcast, "", sessionId, streamMsg);
-		},
-		logDebug: request.logDebug,
-		DEBUG_RTS: request.debugRts,
-	});
-
-	externalTails.set(sessionId, tail);
 }
 
 /**
@@ -67,6 +78,7 @@ export function stopPiExternalTail(sessionId: string): void {
 }
 
 function pauseTail(sessionId: string): void {
+	startsInFlight.delete(sessionId);
 	const tail = externalTails.get(sessionId);
 	if (!tail) return;
 	tail.stop();
@@ -91,6 +103,7 @@ export function onBridgeTurnBoundary(sessionId: string, streamType: PiStreamMess
 /** Stop all active external tails. */
 export function stopAllPiExternalTails(): void {
 	wantedTails.clear();
+	startsInFlight.clear();
 	for (const tail of externalTails.values()) {
 		tail.stop();
 	}

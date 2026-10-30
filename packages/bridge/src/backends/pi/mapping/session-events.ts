@@ -22,11 +22,20 @@ const TRIGGERS: Record<PiEvent<"compaction_start">["reason"], CompactionTrigger>
 	overflow: "overflow",
 };
 
-export function compactionStarted(event: PiEvent<"compaction_start">): CompactionStartedEvent {
+export function compactionStarted(
+	event: PiEvent<"compaction_start"> | Pick<PiEvent<"compaction_start">, "reason">,
+): CompactionStartedEvent {
 	return { type: "compaction_started", trigger: TRIGGERS[event.reason] };
 }
 
-export function compactionFinished(event: PiEvent<"compaction_end">): CompactionFinishedEvent {
+/** What a compaction's end says, from Pi's `compaction_end` or from the extension events that report the same. */
+export interface CompactionEnd {
+	readonly aborted: boolean;
+	readonly errorMessage?: string | undefined;
+	readonly result?: { readonly tokensBefore?: number; readonly estimatedTokensAfter?: number } | undefined;
+}
+
+export function compactionFinished(event: PiEvent<"compaction_end"> | CompactionEnd): CompactionFinishedEvent {
 	return { type: "compaction_finished", outcome: compactionOutcome(event) };
 }
 
@@ -34,7 +43,7 @@ export function compactionFinished(event: PiEvent<"compaction_end">): Compaction
  * `aborted` first, then `errorMessage`, else it completed: every `compaction_end` Pi emits without either carries a
  * result (pi-coding-agent `src/core/agent-session.ts:2941-2947, 3084-3091, 3265, 3282-3289`), whose counts are kept.
  */
-function compactionOutcome(event: PiEvent<"compaction_end">): CompactionOutcome {
+function compactionOutcome(event: PiEvent<"compaction_end"> | CompactionEnd): CompactionOutcome {
 	if (event.aborted) return { kind: "aborted" };
 	if (event.errorMessage !== undefined) return { kind: "failed", message: phoneText(event.errorMessage) };
 	const tokensBefore = event.result?.tokensBefore;
@@ -47,7 +56,7 @@ function compactionOutcome(event: PiEvent<"compaction_end">): CompactionOutcome 
 }
 
 /** The outcome of a run that was only a compaction (`RunTracker`): what the compaction's own outcome says, as a run's. */
-export function compactionRunOutcome(event: PiEvent<"compaction_end">): RunOutcome {
+export function compactionRunOutcome(event: PiEvent<"compaction_end"> | CompactionEnd): RunOutcome {
 	if (event.aborted) return { kind: "aborted" };
 	if (event.errorMessage === undefined) return { kind: "completed" };
 	return { kind: "error", error: { code: "unknown", message: phoneText(event.errorMessage) } };

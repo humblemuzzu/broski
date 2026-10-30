@@ -354,6 +354,12 @@
       ]
     },
     {
+      "type": "input_returned",
+      "texts": [
+        "x"
+      ]
+    },
+    {
       "type": "compaction_started",
       "trigger": "manual"
     },
@@ -1453,7 +1459,8 @@
     "revert_stage",
     "revert_clear",
     "revert_commit",
-    "navigate_tree"
+    "navigate_tree",
+    "take_over"
   ],
   "BackendOpResult": [
     {
@@ -1507,6 +1514,9 @@
     },
     {
       "kind": "navigate_tree"
+    },
+    {
+      "kind": "take_over"
     }
   ],
   "BackendStatus": [
@@ -3510,6 +3520,14 @@
     "image",
     "audio"
   ],
+  "InputReturnedEvent": [
+    {
+      "type": "input_returned",
+      "texts": [
+        "x"
+      ]
+    }
+  ],
   "IntegerField": [
     {
       "kind": "integer",
@@ -5101,6 +5119,10 @@
       "sessionId": "x",
       "itemId": "x",
       "summarize": false
+    },
+    {
+      "kind": "take_over",
+      "sessionId": "x"
     }
   ],
   "Plan": [
@@ -8306,6 +8328,17 @@
     "uri",
     "date",
     "date-time"
+  ],
+  "TakeOverOp": [
+    {
+      "kind": "take_over",
+      "sessionId": "x"
+    }
+  ],
+  "TakenOver": [
+    {
+      "kind": "take_over"
+    }
   ],
   "TextContent": [
     {

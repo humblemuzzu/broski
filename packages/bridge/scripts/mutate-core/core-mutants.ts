@@ -192,6 +192,40 @@ export const SESSION_MUTANTS: Mutant[] = [
 				"memory only: a settled tail stays per session key, and waiting on it adds no order a test or a phone can see",
 		},
 	]),
+	...mutantsOf("core/minor-views.ts", [
+		{
+			name: "minor views: an older client is offered the op it cannot send",
+			find: "if (client.speaks(ADDED_IN_MINOR.takeOver)) return descriptor;",
+			replace: "return descriptor;",
+		},
+		{
+			name: "minor views: no stand-in for the returned input",
+			find: "return { ...frame, instead: { minor: ADDED_IN_MINOR.inputReturned, frame: instead } };",
+			replace: "return frame;",
+		},
+		{
+			name: "minor views: the stand-in can cut a surrogate pair",
+			find: "return last >= 0xd800 && last <= 0xdbff ? cut.slice(0, -1) : cut;",
+			replace: "return cut;",
+		},
+		{
+			name: "minor views: every event gets a stand-in",
+			find: 'if (event.type !== "input_returned") return frame;',
+			replace: "",
+		},
+	]),
+	...mutantsOf("core/client.ts", [
+		{
+			name: "client: the stand-in goes to a client that speaks the event",
+			find: "const sent = frame.instead && !this.speaks(frame.instead.minor) ? frame.instead.frame : frame;",
+			replace: "const sent = frame.instead ? frame.instead.frame : frame;",
+		},
+		{
+			name: "client: the stand-in is never sent",
+			find: "const sent = frame.instead && !this.speaks(frame.instead.minor) ? frame.instead.frame : frame;",
+			replace: "const sent = frame;",
+		},
+	]),
 	...mutantsOf("core/keep-open.ts", [
 		{ name: "keep-open: a run does not hold", find: "snapshot.run !== undefined ||", replace: "false ||" },
 		{ name: "keep-open: an ask does not hold", find: "snapshot.interactions.length > 0 ||", replace: "false ||" },

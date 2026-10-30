@@ -6,10 +6,16 @@
 import { join } from "node:path";
 import { getAgentDir, ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { ModelRuntimeHost } from "./models/model-runtime";
+import { ProxySetting } from "./network/proxy-setting";
+import { withProxy } from "./network/scoped-runtime";
 
 export interface PiServices {
 	readonly agentDir: string;
 	readonly models: ModelRuntimeHost;
+	/** Pi's `httpProxy` setting, for `status()`. */
+	readonly proxy: ProxySetting;
+	/** `models.runtime` as hosted sessions use it: Pi's `httpProxy` applies to their requests and to nothing else. */
+	readonly sessionRuntime: ModelRuntime;
 }
 
 export interface PiServicesOptions {
@@ -27,5 +33,10 @@ export async function createPiServices(options: PiServicesOptions = {}): Promise
 		authPath: join(agentDir, "auth.json"),
 		modelsPath: join(agentDir, "models.json"),
 	});
-	return { agentDir, models: new ModelRuntimeHost(runtime, agentDir) };
+	const proxy = new ProxySetting(agentDir);
+	const sessionRuntime = withProxy(runtime, () => {
+		const outcome = proxy.outcome();
+		return outcome.kind === "scoped" ? outcome.plan : undefined;
+	});
+	return { agentDir, models: new ModelRuntimeHost(runtime, agentDir), proxy, sessionRuntime };
 }

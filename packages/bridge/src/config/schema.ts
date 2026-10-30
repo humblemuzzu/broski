@@ -41,6 +41,8 @@ export const BroskiConfigSchema = z.object({
 			defaultModel: z.string().optional(),
 			defaultThinkingLevel: z.enum(["off", "minimal", "low", "medium", "high", "xhigh"]).optional(),
 			extraExtensionPaths: z.array(z.string()).optional(),
+			/** `false`: the contract's Pi installs no extension in the agent dir and takes the Broski link's out. */
+			terminalLink: z.boolean().optional(),
 		})
 		.default({}),
 	daemon: z

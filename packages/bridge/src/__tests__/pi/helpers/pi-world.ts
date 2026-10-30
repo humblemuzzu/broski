@@ -10,6 +10,7 @@ import { join } from "node:path";
 import type { FauxProviderHandle } from "@earendil-works/pi-ai";
 import { createPiParts, type PiParts, piBackendOf } from "../../../backends/pi/backend";
 import { createPiServices, type PiServices } from "../../../backends/pi/services";
+import type { TerminalLinkOptions } from "../../../backends/pi/terminal/link";
 import type { AgentBackend, BackendHost, SessionControl, SessionId } from "../../../contract";
 import { Activity } from "./activity";
 import { type DriverBus, installDriverBus, removeDriverBus } from "./driver-bus";
@@ -31,6 +32,8 @@ export interface PiWorldOptions {
 	 * `sessionDir` setting, or Pi's own default under the agent dir. Pi's precedence is that order.
 	 */
 	readonly sessionsAt?: "env" | "setting" | "default";
+	/** Start the backend with the link to terminal `pi` processes on, in a directory of the env's own. */
+	readonly link?: boolean;
 }
 
 const SESSION_DIR_ENV = "PI_CODING_AGENT_SESSION_DIR";
@@ -66,6 +69,8 @@ export class PiWorld {
 		readonly bus: DriverBus,
 		readonly activity: Activity,
 		private running: Running,
+		private readonly link: TerminalLinkOptions | undefined,
+		private readonly linkDirBefore: string | undefined,
 	) {}
 
 	get backend(): AgentBackend {
@@ -91,8 +96,10 @@ export class PiWorld {
 		try {
 			const activity = new Activity();
 			const owner: { world?: PiWorld } = {};
-			const running = await startBackend(host, env, activity, () => owner.world?.halt());
-			owner.world = new PiWorld(env, sessionsRoot, trash, bus, activity, running);
+			const linkDirBefore = process.env.BROSKI_PI_LINK_DIR;
+			const link = options.link ? linkIn(env) : undefined;
+			const running = await startBackend(host, env, activity, () => owner.world?.halt(), link);
+			owner.world = new PiWorld(env, sessionsRoot, trash, bus, activity, running, link, linkDirBefore);
 			return owner.world;
 		} catch (error) {
 			removeDriverBus();
@@ -104,7 +111,7 @@ export class PiWorld {
 	/** Disposes the running backend and starts a new one over the same directories. */
 	async restart(host: BackendHost): Promise<AgentBackend> {
 		await this.backend.dispose();
-		this.running = await startBackend(host, this.env, this.activity, () => this.halt());
+		this.running = await startBackend(host, this.env, this.activity, () => this.halt(), this.link);
 		return this.backend;
 	}
 
@@ -119,6 +126,10 @@ export class PiWorld {
 
 	/** Removes the directories and puts the environment back; the backend is disposed by whoever made it. */
 	dispose(): void {
+		if (this.link) {
+			if (this.linkDirBefore === undefined) delete process.env.BROSKI_PI_LINK_DIR;
+			else process.env.BROSKI_PI_LINK_DIR = this.linkDirBefore;
+		}
 		removeDriverBus();
 		this.env.dispose();
 	}
@@ -152,10 +163,19 @@ async function startBackend(
 	env: PiTestEnv,
 	activity: Activity,
 	onCap: () => void,
+	link?: TerminalLinkOptions,
 ): Promise<Running> {
 	const { services, router } = await startFauxStack(env, activity, onCap);
-	const parts = createPiParts(host, services);
+	const parts = createPiParts(host, services, link);
+	await parts.terminal.start();
 	return { parts, observed: observeOpens(piBackendOf(parts)), router };
+}
+
+/** The link in a directory of the env's own; the extension finds it through the variable, as it would the user's. */
+function linkIn(env: PiTestEnv): TerminalLinkOptions {
+	const directory = join(env.root, "link");
+	process.env.BROSKI_PI_LINK_DIR = directory;
+	return { enabled: true, directory };
 }
 
 /** The driver's `settings.json`, extension reference and prompt template, written into the env's agent dir. Returns where session files will be. */

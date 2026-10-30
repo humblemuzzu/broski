@@ -30,12 +30,13 @@ describe("the layer check", () => {
 		]);
 	});
 
-	test("lets an adapter import the contract, itself, node and its own SDK", () => {
+	test("lets an adapter import the contract, itself, node, zod and its own SDK", () => {
 		const source = [
 			'import type { AgentBackend } from "../../contract";',
 			'import { mapEvent } from "./events";',
 			'import { spawn } from "node:child_process";',
 			'import { query } from "@anthropic-ai/claude-agent-sdk";',
+			'import { z } from "zod";',
 		].join("\n");
 		expect(check("backends/claude-code/index.ts", source)).toEqual([]);
 	});

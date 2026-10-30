@@ -24,7 +24,7 @@ afterEach(() => {
 });
 
 async function status() {
-	const result = await piStatus(world.services.models, world.env.agentDir);
+	const result = await piStatus(world.services.models, world.env.agentDir, { proxy: world.services.proxy });
 	expect(BackendStatus.safeParse(result).success).toBe(true);
 	return result;
 }
@@ -49,7 +49,7 @@ describe("piStatus", () => {
 	test("an agent directory that does not exist is a warning", async () => {
 		await signIn();
 		const missing = join(world.env.root, "nowhere");
-		const result = await piStatus(world.services.models, missing);
+		const result = await piStatus(world.services.models, missing, { proxy: world.services.proxy });
 		expect(result.usable).toBe(true);
 		expect(result.issues).toEqual([{ severity: "warning", message: expect.stringContaining(missing) }]);
 	});
@@ -121,13 +121,48 @@ describe("piStatus", () => {
 });
 
 describe("Pi's httpProxy setting", () => {
-	test("is said not to be used while the bridge's own environment names no proxy, and not once it does", async () => {
+	const GOOGLE_MODELS = JSON.stringify({
+		providers: {
+			gem: {
+				baseUrl: "http://127.0.0.1:9/v1beta",
+				api: "google-generative-ai",
+				apiKey: "not-a-real-key",
+				models: [{ id: "gem-1" }],
+			},
+		},
+	});
+
+	test("is applied to Pi's requests and says nothing while nothing escapes it", async () => {
 		await signIn();
 		writeSettings(world.env, { httpProxy: "http://proxy.example:3128" });
-		const unset = await status();
-		expect(unset.issues).toEqual([{ severity: "warning", message: expect.stringContaining("httpProxy") }]);
+		expect((await status()).issues).toEqual([]);
 		expect(process.env.HTTPS_PROXY).toBeUndefined();
+		expect(process.env.HTTP_PROXY).toBeUndefined();
+	});
 
+	test("is said not to be used when it is not an http or https proxy URL", async () => {
+		await signIn();
+		writeSettings(world.env, { httpProxy: "socks5://proxy.example:1080" });
+		const result = await status();
+		expect(result.issues).toEqual([
+			{ severity: "warning", message: expect.stringContaining("socks5://proxy.example") },
+		]);
+		expect(result.issues[0]?.message).toContain("only http:// and https://");
+	});
+
+	test("says that the Google models are not behind it, since their adapter takes no proxy", async () => {
+		await signIn();
+		writeAgentFile(world.env, "models.json", GOOGLE_MODELS);
+		writeSettings(world.env, { httpProxy: "http://proxy.example:3128" });
+		const result = await status();
+		expect(result.issues).toEqual([{ severity: "warning", message: expect.stringContaining("gem") }]);
+		expect(result.issues[0]?.message).toContain("HTTPS_PROXY");
+	});
+
+	test("is left to the environment once that names both proxies, which then reach the Google models too", async () => {
+		await signIn();
+		writeAgentFile(world.env, "models.json", GOOGLE_MODELS);
+		writeSettings(world.env, { httpProxy: "http://proxy.example:3128" });
 		process.env.HTTPS_PROXY = "http://proxy.example:3128";
 		process.env.HTTP_PROXY = "http://proxy.example:3128";
 		expect((await status()).issues).toEqual([]);

@@ -251,6 +251,8 @@ function declared(traits: BackendTraits, event: AgentEvent): string[] {
 				...(new Set(ids).size === ids.length ? [] : ["queue item ids repeat"]),
 			];
 		}
+		case "input_returned":
+			return traits.queue ? [] : ["queued input handed back by a backend without a queue"];
 		case "usage_updated":
 			return traits.usage ? [] : ["usage from a backend that does not report it"];
 		case "plan_updated":

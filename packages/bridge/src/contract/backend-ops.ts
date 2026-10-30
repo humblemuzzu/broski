@@ -12,6 +12,7 @@ export const BackendOpKind = z.enum([
 	"revert_clear",
 	"revert_commit",
 	"navigate_tree",
+	"take_over",
 ]);
 export type BackendOpKind = z.infer<typeof BackendOpKind>;
 
@@ -26,6 +27,7 @@ export function rewritesHistory(kind: BackendOpKind): boolean {
 		case "review_start":
 		case "revert_stage":
 		case "revert_clear":
+		case "take_over":
 			return false;
 	}
 }
@@ -114,6 +116,17 @@ export const NavigateTreeOp = z.strictObject({
 });
 export type NavigateTreeOp = z.infer<typeof NavigateTreeOp>;
 
+/**
+ * Pi: make a session another client wrote (a terminal `pi`, the old app) one this bridge may drive. The person says that
+ * no terminal is using it; the adapter refuses while one is, or while the file is still changing. The session keeps its
+ * id and its history; what changes is what it allows (`SessionCapabilities`), told to its viewers by `session_replaced`.
+ */
+export const TakeOverOp = z.strictObject({
+	kind: z.literal(BackendOpKind.enum.take_over),
+	sessionId: SessionId,
+});
+export type TakeOverOp = z.infer<typeof TakeOverOp>;
+
 export const ClaudeCodeOp = z.discriminatedUnion("kind", [RewindFilesOp]);
 export type ClaudeCodeOp = z.infer<typeof ClaudeCodeOp>;
 
@@ -123,7 +136,7 @@ export type CodexOp = z.infer<typeof CodexOp>;
 export const OpenCodeOp = z.discriminatedUnion("kind", [RevertStageOp, RevertClearOp, RevertCommitOp]);
 export type OpenCodeOp = z.infer<typeof OpenCodeOp>;
 
-export const PiOp = z.discriminatedUnion("kind", [NavigateTreeOp]);
+export const PiOp = z.discriminatedUnion("kind", [NavigateTreeOp, TakeOverOp]);
 export type PiOp = z.infer<typeof PiOp>;
 
 export const ClaudeCodeCall = z.strictObject({ backend: z.literal("claude-code"), op: ClaudeCodeOp });
@@ -175,6 +188,9 @@ export type RevertCommitted = z.infer<typeof RevertCommitted>;
 export const TreeNavigated = z.strictObject({ kind: z.literal(BackendOpKind.enum.navigate_tree) });
 export type TreeNavigated = z.infer<typeof TreeNavigated>;
 
+export const TakenOver = z.strictObject({ kind: z.literal(BackendOpKind.enum.take_over) });
+export type TakenOver = z.infer<typeof TakenOver>;
+
 export const BackendOpResult = z.discriminatedUnion("kind", [
 	RewindFilesResult,
 	ReviewStarted,
@@ -183,6 +199,7 @@ export const BackendOpResult = z.discriminatedUnion("kind", [
 	RevertCleared,
 	RevertCommitted,
 	TreeNavigated,
+	TakenOver,
 ]);
 export type BackendOpResult = z.infer<typeof BackendOpResult>;
 

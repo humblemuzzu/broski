@@ -14,7 +14,7 @@ import type { LiveState } from "./live-state";
 
 export interface RunTrackerDeps {
 	readonly live: LiveState;
-	readonly interactions: InteractionPort;
+	readonly interactions: Pick<InteractionPort, "releaseRun">;
 	/** Pulls the session's totals (D10), before `run_finished`. */
 	readonly refreshUsage: () => void;
 }

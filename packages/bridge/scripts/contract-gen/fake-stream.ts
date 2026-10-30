@@ -68,6 +68,7 @@ export async function fakeSessionStream(): Promise<ServerMessage[]> {
 		{ kind: "notice", level: "warning", text: "Close to the context limit." },
 		{ kind: "backend_error", error: { code: "network", message: "The stream dropped." }, retryable: true },
 		{ kind: "retract" },
+		{ kind: "return_input", texts: ["Also lint", "Then commit"] },
 		{ kind: "plan_proposal", text: "1. Test\n2. Ship" },
 		{ kind: "replace_session" },
 		{ kind: "text", text: "Finished." },

@@ -32,6 +32,7 @@ What it does not do: anything backend-specific. It never mints run, block, tool,
 | `backend-registry.ts` | Backends by id, their start and the wait for it, capability descriptors, status with fault containment, dispose. |
 | `catalog-feed.ts` | Catalog news to every negotiated client; a deleted session's stream ends here. |
 | `session-hub.ts` | Open on first use, at most one `OpenSession` per session, idle close, `session_replaced`, removal, the open and close deadlines, shutdown. |
+| `minor-views.ts` | What a client of an older minor is sent instead of what a later minor added: the descriptor without `take_over`, `input_returned` as a `notice`. |
 | `keep-open.ts` | `holdsOpen(snapshot)` and the idle-close delay. |
 | `live-session.ts` | One stream: checks adapter records, applies them, numbers them, logs them, fans them out; `sync` for attach; `reconcile` with the adapter's snapshot. |
 | `session-sink.ts` | The sink an adapter gets: never throws, holds early records, follows a replacement. |
@@ -152,7 +153,7 @@ Inbound, a socket has one token bucket for both protocols (`BROSKI_RATE_LIMIT_*`
 
 ## 12. Versioning
 
-`hello` is mandatory. Bridge and app talk only when `major` is equal (README §12.4); another major is `unsupported_version` and ends the talk: the client's sessions are let go, and an attach already under way is refused rather than completed. The client's minor is kept (`CoreClient.speaks`), and what a later minor added is sent only to a client that named it: 1.1 added the `replaced` attach answer (`ADDED_IN_MINOR.replacedSync`), which an older client is not sent. **The next minor bump adds its own check at the place it sends.** The answer carries the bridge's protocol and version.
+`hello` is mandatory. Bridge and app talk only when `major` is equal (README §12.4); another major is `unsupported_version` and ends the talk: the client's sessions are let go, and an attach already under way is refused rather than completed. The client's minor is kept (`CoreClient.speaks`), and what a later minor added is sent only to a client that named it: 1.1 added the `replaced` attach answer (`ADDED_IN_MINOR.replacedSync`), which an older client is not sent; 1.2 added the `take_over` op (`ADDED_IN_MINOR.takeOver`) and the `input_returned` event (`ADDED_IN_MINOR.inputReturned`). Both are cut for an older client in one place, `minor-views.ts`: `descriptorFor` strips the op from the backend's descriptor, and `withOlderView` turns the event into an info `notice` that carries the same texts (`EncodedFrame.instead`, picked by `CoreClient.send`; the event keeps its `seq`, so replay and resume count the same for every client). **The next minor bump adds its own check at the place it sends.** The answer carries the bridge's protocol and version.
 
 ## 13. Layers
 

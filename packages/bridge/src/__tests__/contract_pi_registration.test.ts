@@ -60,7 +60,10 @@ describe("a bridge started with the flag", () => {
 				expect(status.status).toMatchObject({ installed: true, auth: "signed_out", usable: false });
 				const listed = await phone.ok("backends.list", {});
 				expect(listed.backends.map((backend) => backend.id)).toEqual(["pi"]);
-				expect(listed.backends[0]?.capabilities).toMatchObject({ backendOps: ["navigate_tree"], fork: true });
+				expect(listed.backends[0]?.capabilities).toMatchObject({
+					backendOps: ["navigate_tree", "take_over"],
+					fork: true,
+				});
 			} finally {
 				await bridge.stop();
 			}

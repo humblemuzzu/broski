@@ -21,8 +21,9 @@ export class CoreClient {
 	/** Never throws, so one client's link cannot keep a frame from the others or stop the bookkeeping after it. */
 	send(frame: EncodedFrame): void {
 		if (!this.connected) return;
+		const sent = frame.instead && !this.speaks(frame.instead.minor) ? frame.instead.frame : frame;
 		try {
-			this.link.send(frame.text);
+			this.link.send(sent.text);
 		} catch (error) {
 			this.log.error(`[core] sending a frame to a client failed: ${String(error)}`);
 		}

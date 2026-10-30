@@ -18,6 +18,7 @@ sealed class AgentEvent {
         'interaction_requested' => InteractionRequestedEvent.fromJson(json),
         'interaction_resolved' => InteractionResolvedEvent.fromJson(json),
         'queue_changed' => QueueChangedEvent.fromJson(json),
+        'input_returned' => InputReturnedEvent.fromJson(json),
         'compaction_started' => CompactionStartedEvent.fromJson(json),
         'compaction_finished' => CompactionFinishedEvent.fromJson(json),
         'retry_scheduled' => RetryScheduledEvent.fromJson(json),
@@ -423,6 +424,44 @@ final class ExtensionEvent implements AgentEvent {
 
   @override
   String toString() => 'ExtensionEvent(extension: $extension)';
+}
+
+final class InputReturnedEvent implements AgentEvent {
+  const InputReturnedEvent({required this.texts});
+
+  factory InputReturnedEvent.fromJson(Map<String, Object?> json) {
+    _expectShape(
+      json,
+      'InputReturnedEvent',
+      const <String>{'type', 'texts'},
+      const <String, String>{'type': 'input_returned'},
+    );
+    return InputReturnedEvent(
+      texts: [
+        for (final e0 in _as<List<Object?>>(
+          json['texts'],
+          'InputReturnedEvent.texts',
+        ))
+          _as<String>(e0, 'InputReturnedEvent.texts[]'),
+      ],
+    );
+  }
+
+  final List<String> texts;
+
+  @override
+  Map<String, Object?> toJson() => {'type': 'input_returned', 'texts': texts};
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is InputReturnedEvent && _equal(texts, other.texts);
+
+  @override
+  int get hashCode => Object.hashAll([_hash(texts)]);
+
+  @override
+  String toString() => 'InputReturnedEvent(texts: $texts)';
 }
 
 final class InteractionRequestedEvent implements AgentEvent {
