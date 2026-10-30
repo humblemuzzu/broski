@@ -1,6 +1,6 @@
 # The Broski backend contract
 
-Status: Phase 1, protocol **1.2** (1.0 plus the `replaced` attach answer, 1.1, and the `take_over` op and `input_returned` event, 1.2; §12.4). Built on commit `9678394`. Nothing here is wired into the running bridge or the app yet. Phase 2 builds the bridge core on it, Phase 3 the Flutter core, and Phase 4 one adapter per backend.
+Status: Phase 1, protocol **1.3** (1.0 plus the `replaced` attach answer, 1.1, the `take_over` op and `input_returned` event, 1.2, and Pi's tree and shell ops, 1.3; §12.4). Built on commit `9678394`. Nothing here is wired into the running bridge or the app yet. Phase 2 builds the bridge core on it, Phase 3 the Flutter core, and Phase 4 one adapter per backend.
 
 This document is the spec. The code is the definition: `packages/bridge/src/contract/` (zod schemas, interfaces, reducer, answer checker) and `packages/bridge/src/contract/testing/` (fake backend, conformance suite). Every backend fact below cites the research in [`research/`](research/):
 
@@ -183,14 +183,14 @@ Declared traits are checked against behaviour, both ways where the contract can 
 | `interactions` | tool_permission, questions, form, plan_approval, external_url, choice (cc §8), confirm (empty MCP forms) | tool_permission, questions, form, external_url, confirm (cx §8) | tool_permission, questions, form, external_url (oc §8) | tool_permission (bridge-owned gate), choice, confirm, text (pi §8) | tool_permission (bridge-owned hook) (pd D8) |
 | `modelSwitch` | `next_request` (cc §7) | `next_run` (stable `turn/start.model`; exp `turn/settings/update` is not guaranteed) (cx §7) | `next_request` ("next step") (oc §7) | `next_request` ("next turn") (pi §7) | `next_request` (pd D7) |
 | `thinking` | ✓ effort levels (cc §7) | ✓ `effort` (cx §7) | ✓ model variants (oc §7) | ✓ levels, clamped (pi §7) | ✓ levels, unclamped (pd D7) |
-| `children` | ✓ subagents (cc §3) | ✓ child threads (cx §5.3) | ✓ child sessions (oc §3) | ✗ (pi §12) | ✓ task-owned conversations (pd D3) |
+| `children` | ✓ subagents (cc §3) | ✓ child threads (cx §5.3) | ✓ child sessions (oc §3) | ✓ a tool call's sub-run in its result's `details`, forks and handoffs (Pi README decision 23) | ✓ task-owned conversations (pd D3) |
 | `usage` | ✓ (cc §5) | ✓ tokens, no cost (cx §5.3) | ✓ (oc §5) | ✓ pulled after messages (pi §5) | ✓ (pd D5) |
 | `plan` (todo) | ✓ TodoWrite / Task tools, model-dependent (cc §13) | ✓ `turn/plan/updated` (cx §12) | ✗ experimental tool, off by default (oc §12) | ✗ | ✗ |
 | `planProposals` | ✗ (the plan reaches the app as a `plan_approval`) | ✓ Plan-mode `plan` item (cx §4.2) | ✗ | ✗ | ✗ |
 | `externalLive` | ✗ file tail only (cc §11) | ✓ through the shared daemon (cx §11) | ✓ through the managed service (oc §11) | ✗ tail only (pi §11) | ✗ no external writers (pd D11) |
 | `durableRuns` | ✗ the CLI child dies with the bridge (cc §1) | ✓ daemon / ✗ private stdio child (cx §1.5) | ✓ the service owns the run (oc §1) | ✗ in-process (pi §1) | ✓ (pd D1) |
 | `extensions` | rate_limit | turn_diff, rate_limit | — | — | — |
-| `backendOps` | rewind_files | review_start, revert | revert_stage, revert_clear, revert_commit | navigate_tree | — |
+| `backendOps` | rewind_files | review_start, revert | revert_stage, revert_clear, revert_commit | navigate_tree, take_over, read_tree, label_entry, abort_branch_summary, run_shell | — |
 | `fork` (derived) | ✓ `forkSession` (cc §7) | ✓ `thread/fork` (cx §7) | ✓ (oc §7) | ✓ `runtime.fork` (pi §7) | ✓ (pd D7) |
 | `rename` | ✓ | ✓ | ✓ | ✓ `setSessionName` | ✓ bridge `meta.json` |
 | `delete` | ✓ | ✓ | ✓ | ✓ bridge deletes the file (pi §3) | ✓ bridge directory |
@@ -533,7 +533,7 @@ Pending interactions arrive in the snapshot or the replayed `interaction_request
 
 ### 12.4 Versioning
 
-`PROTOCOL_VERSION = {major: 1, minor: 2}`; `ADDED_IN_MINOR` (`protocol.ts`) names the minor each addition came in, and the core sends it only to a client whose `hello` named that minor. 1.1 is `replaced` (§12.2). 1.2 is the Pi op `take_over` (`ADDED_IN_MINOR.takeOver`: an older client's `BackendDescriptor.ops` does not list it) and the `input_returned` event (`ADDED_IN_MINOR.inputReturned`: an older client gets the same texts as a `notice` with the same `seq`, `core/minor-views.ts`). The rules:
+`PROTOCOL_VERSION = {major: 1, minor: 3}`; `ADDED_IN_MINOR` (`protocol.ts`) names the minor each addition came in, and the core sends it only to a client whose `hello` named that minor. 1.1 is `replaced` (§12.2). 1.2 is the Pi op `take_over` (`ADDED_IN_MINOR.takeOver`: an older client's `BackendDescriptor.ops` does not list it) and the `input_returned` event (`ADDED_IN_MINOR.inputReturned`: an older client gets the same texts as a `notice` with the same `seq`, `core/minor-views.ts`). 1.3 is Pi's tree ops `read_tree`, `label_entry` and `abort_branch_summary` (`ADDED_IN_MINOR.treeOps`) and the shell op `run_shell` (`ADDED_IN_MINOR.shellOps`), withheld from an older client's `BackendDescriptor.ops` in the same table (`core/minor-views.ts`); `NavigateTreeOp.instructions` is a new optional field a client sends. The rules:
 
 - Bridge and app talk only when `major` is equal.
 - A change the older side can ignore bumps `minor`: a new optional field, a new request type, a new union member or enum value.
@@ -560,7 +560,11 @@ Two typed escape hatches. Neither is an untyped blob.
 | codex | `review_start{sessionId, target: uncommitted\|base_branch\|commit\|custom}` | `{}` (the review is a run of the session) | `review/start` inline (cx §6.2) |
 | codex | `revert{sessionId, beforeItemId}` | `{}` | `thread/revert`, paginated threads only, history only (cx §7) |
 | opencode | `revert_stage{sessionId, itemId, restoreFiles}` / `revert_clear` / `revert_commit` | `{files}` / `{}` / `{}` | stage/clear/commit; 409 while busy (oc §7) |
-| pi | `navigate_tree{sessionId, itemId, summarize}` | `{}` | `navigateTree` (pi §7) |
+| pi | `navigate_tree{sessionId, itemId, summarize, instructions?}` | `{}` | `navigateTree` (pi §7) |
+| pi | `read_tree{sessionId, page}` (since 1.3) | `TreeRead{leafId?, total, nodes[], nextCursor?}`: the entries of the session file as the terminal's `/tree` shows them, newest first; a node is `{id, parentId?, itemId, kind, at?, preview, previewCut, label?}` | The store's file read (Pi README decision 21) |
+| pi | `label_entry{sessionId, entryId, label?}` (since 1.3) | `{}`; a blank or absent label clears | `sessionManager.appendLabelChange` |
+| pi | `abort_branch_summary{sessionId}` (since 1.3) | `{}`, also when nothing was summarising | `AgentSession.abortBranchSummary()` |
+| pi | `run_shell{sessionId, clientRequestId, command, excludeFromContext}` (since 1.3) | `{}` once the command started; it runs as a run with one `bash` tool call | `user_bash`, then `AgentSession.executeBash` (Pi README decision 22) |
 | pi | `take_over{sessionId}` (since 1.2) | `{}` (`TakenOver`) | Marks a session another client made as this bridge's own (`broski.origin`), so it becomes controllable. Refused `busy` while a terminal holds it or its file changed in the last 10 s. The question the app asks says no terminal may be using the session; only the human knows |
 
 Revert is an op, not a capability: its meaning differs per backend (CC files only; Codex history only; OpenCode staged with files; Pi a leaf move; Pi Durable a fork), and one normalized "revert" would lie.
