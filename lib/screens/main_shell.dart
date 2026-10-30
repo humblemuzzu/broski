@@ -1,10 +1,14 @@
+import 'package:broski/agent/agent_providers.dart'
+    show runCompletionWatcherProvider;
 import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/nav_bar_style.dart';
+import 'package:broski/models/selected_backend.dart';
 import 'package:broski/providers/agent_type_provider.dart';
 import 'package:broski/providers/appearance_provider.dart';
 import 'package:broski/providers/connection/connection_banner_rules.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/nav_bar_style_provider.dart';
+import 'package:broski/providers/selected_backend_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/providers/sessions_provider.dart';
 import 'package:broski/screens/browse_screen.dart';
@@ -29,6 +33,8 @@ class MainShell extends ConsumerStatefulWidget {
 }
 
 class _MainShellState extends ConsumerState<MainShell> {
+  static const _defaultSelection = LegacySelection(AgentType.opencode);
+
   int _index = 0;
 
   /// Get the screen ID for the current tab index
@@ -53,13 +59,16 @@ class _MainShellState extends ConsumerState<MainShell> {
     // Main tabs don't need per-session traffic; keep it global-only for bandwidth.
     // Defer until after first frame so ref is fully available.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final agent = ref.read(agentTypeProvider);
-      if (agent != AgentType.opencode) {
+      ref.read(runCompletionWatcherProvider);
+      if (ref.read(selectedBackendProvider) != _defaultSelection) {
         setState(() => _index = 2);
       }
       ref
           .read(bridgeServiceProvider)
-          .setView(projectPath: 'global', agent: agent.wireValue);
+          .setView(
+            projectPath: 'global',
+            agent: ref.read(agentTypeProvider).wireValue,
+          );
     });
   }
 
@@ -80,14 +89,17 @@ class _MainShellState extends ConsumerState<MainShell> {
       }
     });
     // Keep bridge view agent aligned with selected backend.
-    ref.listen<AgentType>(agentTypeProvider, (previous, next) {
+    ref.listen<SelectedBackend>(selectedBackendProvider, (previous, next) {
       if (previous == next) return;
-      if (next != AgentType.opencode && (_index == 0 || _index == 1)) {
+      if (next != _defaultSelection && (_index == 0 || _index == 1)) {
         setState(() => _index = 2);
       }
       ref
           .read(bridgeServiceProvider)
-          .setView(projectPath: 'global', agent: next.wireValue);
+          .setView(
+            projectPath: 'global',
+            agent: ref.read(agentTypeProvider).wireValue,
+          );
     });
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,

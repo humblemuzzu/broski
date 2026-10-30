@@ -2,16 +2,20 @@ import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/highlight_color.dart';
 import 'package:broski/models/permission_rule.dart';
 import 'package:broski/models/project.dart';
+import 'package:broski/models/selected_backend.dart';
 import 'package:broski/models/worktree.dart';
 import 'package:broski/providers/agent_type_provider.dart';
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/highlights_provider.dart';
 import 'package:broski/providers/permission_rules_provider.dart';
+import 'package:broski/providers/selected_backend_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/providers/tool_settings_provider.dart';
 import 'package:broski/screens/chat_screen.dart';
 import 'package:broski/screens/dialogs/project_context_menu.dart';
+import 'package:broski/screens/projects/contract_projects.dart'
+    show loadContractProjects, projectsSourceProvider;
 import 'package:broski/screens/projects/open_project.dart';
 import 'package:broski/screens/sheets/add_project_sheet.dart';
 import 'package:broski/theme/app_icons.dart';
@@ -45,22 +49,22 @@ final _projectWorktreesProvider =
 class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
   late Future<List<ProjectSummary>> _projectsFuture;
   late AgentType _agentType;
-  late final ProviderSubscription<AgentType> _agentTypeSub;
+  late final ProviderSubscription<Object> _agentTypeSub;
   String? _creatingWorktreeForPath;
   @override
   void initState() {
     super.initState();
     _agentType = ref.read(agentTypeProvider);
     _projectsFuture = _loadProjects(_agentType);
-    _agentTypeSub = ref.listenManual<AgentType>(agentTypeProvider, (
+    _agentTypeSub = ref.listenManual<Object>(projectsSourceProvider, (
       previous,
       next,
     ) {
       if (previous == next) return;
       if (!mounted) return;
       setState(() {
-        _agentType = next;
-        _projectsFuture = _loadProjects(next);
+        _agentType = ref.read(agentTypeProvider);
+        _projectsFuture = _loadProjects(_agentType);
       });
     });
   }
@@ -72,6 +76,9 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
   }
 
   Future<List<ProjectSummary>> _loadProjects(AgentType agentType) async {
+    if (ref.read(selectedBackendProvider) case ContractSelection(:final id)) {
+      return loadContractProjects(ref, id);
+    }
     final connection = ref.read(connectionProvider);
     final storage = ref.read(storageServiceProvider);
 
@@ -453,7 +460,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final agentType = ref.watch(agentTypeProvider);
+    final agentType = ref.watch(legacyAgentProvider);
     final connection = ref.watch(connectionProvider);
     final highlights = ref.watch(highlightsProvider);
     final expandedProjects = ref.watch(_expandedProjectsProvider);

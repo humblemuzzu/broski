@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:broski/agent/cache/agent_cache.dart';
+import 'package:broski/agent/cache/cached_kinds.dart';
 import 'package:broski/agent/client/contract_client.dart';
 import 'package:broski/agent/client/contract_state.dart';
 import 'package:broski/agent/client/outcome.dart';
@@ -14,26 +16,35 @@ final class BackendsState {
     this.statuses = const {},
     this.loaded = false,
     this.problem,
+    this.savedAt,
   });
 
   final List<BackendDescriptor> backends;
   final Map<BackendId, BackendStatus> statuses;
   final bool loaded;
   final String? problem;
+
+  /// When the saved list these backends come from was taken; null once the
+  /// bridge has answered.
+  final int? savedAt;
 }
 
 /// Lists the backends on every new connection, and again when one the app
 /// has not listed reports its status: it just landed (core README §15).
 final class BackendsController extends StateNotifier<BackendsState> {
-  BackendsController(this._client) : super(const BackendsState()) {
+  BackendsController(this._client, {AgentCache? cache})
+    : _cache = cache,
+      super(const BackendsState()) {
     _subscriptions.addAll([
       _client.states.listen(_onState),
       _client.catalog.listen(_onCatalog),
     ]);
     _onState(_client.state);
+    unawaited(_restoreSaved());
   }
 
   final ContractClient _client;
+  final AgentCache? _cache;
   final List<StreamSubscription<Object?>> _subscriptions = [];
   var _generation = 0;
   var _lists = 0;
@@ -49,6 +60,7 @@ final class BackendsController extends StateNotifier<BackendsState> {
           statuses: state.statuses,
           loaded: true,
         );
+        unawaited(_cache?.saveBackends(backends));
         for (final backend in backends) {
           unawaited(_refreshStatus(backend.id));
         }
@@ -58,8 +70,15 @@ final class BackendsController extends StateNotifier<BackendsState> {
           statuses: state.statuses,
           loaded: state.loaded,
           problem: problemOf(outcome),
+          savedAt: state.savedAt,
         );
     }
+  }
+
+  Future<void> _restoreSaved() async {
+    final saved = await _cache?.backends();
+    if (saved == null || !mounted || state.loaded) return;
+    state = BackendsState(backends: saved.value, savedAt: saved.savedAt);
   }
 
   Future<void> _refreshStatus(BackendId backend) async {
@@ -74,6 +93,7 @@ final class BackendsController extends StateNotifier<BackendsState> {
         statuses: {...state.statuses, backend: status},
         loaded: state.loaded,
         problem: state.problem,
+        savedAt: state.savedAt,
       );
 
   void _onState(ContractState next) {

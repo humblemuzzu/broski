@@ -12,27 +12,32 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Starts a session in a directory on the Mac, with the model, thinking and
-/// modes the backend offers there (contract §11.3, §11.5).
-void showNewSessionSheet(BuildContext context, BackendDescriptor backend) =>
-    DetailSheet.show<void>(
-      context: context,
-      title: 'New session',
-      initialSize: 0.7,
-      child: _NewSessionForm(backend: backend),
-    );
+/// modes the backend offers there (contract §11.3, §11.5). With [directory]
+/// the sheet opens in it, as a project the person tapped.
+void showNewSessionSheet(
+  BuildContext context,
+  BackendDescriptor backend, {
+  String? directory,
+}) => DetailSheet.show<void>(
+  context: context,
+  title: 'New session',
+  initialSize: 0.7,
+  child: _NewSessionForm(backend: backend, directory: directory),
+);
 
 class _NewSessionForm extends ConsumerStatefulWidget {
-  const _NewSessionForm({required this.backend});
+  const _NewSessionForm({required this.backend, this.directory});
 
   final BackendDescriptor backend;
+  final String? directory;
 
   @override
   ConsumerState<_NewSessionForm> createState() => _NewSessionFormState();
 }
 
 class _NewSessionFormState extends ConsumerState<_NewSessionForm> {
-  final _cwd = TextEditingController();
-  String? _directory;
+  late final _cwd = TextEditingController(text: widget.directory);
+  late String? _directory = widget.directory;
   var _settings = const SessionSettingsChoice();
   var _creating = false;
 

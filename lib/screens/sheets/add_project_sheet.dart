@@ -1,6 +1,5 @@
-import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/project.dart';
-import 'package:broski/providers/agent_type_provider.dart';
+import 'package:broski/providers/selected_backend_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/design_tokens.dart';
@@ -123,12 +122,7 @@ class _AddProjectContentState extends ConsumerState<_AddProjectContent> {
   @override
   Widget build(BuildContext context) {
     final ocTheme = OpenCodeTheme.of(context);
-    final agentType = ref.watch(agentTypeProvider);
-    final agentLabel = switch (agentType) {
-      AgentType.claudeCode => 'Claude Code',
-      AgentType.codex => 'Codex',
-      AgentType.opencode => 'OpenCode',
-    };
+    final agentLabel = ref.watch(selectedBackendProvider).displayName;
 
     return Column(
       children: [

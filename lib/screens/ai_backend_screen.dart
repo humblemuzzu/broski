@@ -1,6 +1,9 @@
 import 'package:broski/models/agent_type.dart';
-import 'package:broski/providers/agent_type_provider.dart';
+import 'package:broski/models/selected_backend.dart';
+import 'package:broski/providers/selected_backend_provider.dart';
 import 'package:broski/providers/service_providers.dart';
+import 'package:broski/screens/ai_backend/backend_option_card.dart';
+import 'package:broski/screens/ai_backend/contract_backend_options.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
@@ -17,7 +20,7 @@ class AIBackendScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
-    final currentAgent = ref.watch(agentTypeProvider);
+    final selected = ref.watch(selectedBackendProvider);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -60,16 +63,16 @@ class AIBackendScreen extends ConsumerWidget {
             ),
             const SizedBox(height: Spacing.xl),
             for (final type in AgentType.values) ...[
-              _BackendOptionCard(
+              BackendOptionCard(
                 title: type.displayName,
                 subtitle: type.description,
                 icon: _BackendLogo(agentType: type),
-                isSelected: currentAgent == type,
+                isSelected: selected == LegacySelection(type),
                 onTap: () => _selectAgent(ref, type),
               ),
               const SizedBox(height: Spacing.lg),
             ],
-            const SizedBox(height: Spacing.sm),
+            const ContractBackendOptions(),
             const SizedBox(height: Spacing.xl),
             Container(
               padding: Insets.card,
@@ -96,7 +99,7 @@ class AIBackendScreen extends ConsumerWidget {
                     ),
                   ),
                   Text(
-                    currentAgent.displayName,
+                    selected.displayName,
                     style: TextStyle(
                       color: theme.colorScheme.primary,
                       fontSize: 14,
@@ -114,114 +117,9 @@ class AIBackendScreen extends ConsumerWidget {
   }
 
   void _selectAgent(WidgetRef ref, AgentType type) {
-    ref.read(agentTypeProvider.notifier).setAgentType(type);
+    ref.read(selectedBackendProvider.notifier).select(LegacySelection(type));
     final bridge = ref.read(bridgeServiceProvider);
     bridge.setAgent(type);
-  }
-}
-
-class _BackendOptionCard extends StatelessWidget {
-  const _BackendOptionCard({
-    required this.title,
-    required this.icon,
-    required this.isSelected,
-    required this.onTap,
-    this.subtitle,
-  });
-
-  final String title;
-  final String? subtitle;
-  final Widget icon;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final ocTheme = OpenCodeTheme.of(context);
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: Radii.brLg,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-        padding: Insets.screenAll,
-        decoration: BoxDecoration(
-          color: ocTheme.backgroundPanel,
-          borderRadius: Radii.brLg,
-          border: Border.all(
-            color: isSelected
-                ? theme.colorScheme.primary
-                : ocTheme.borderSubtle,
-            width: isSelected ? 1.8 : 1,
-          ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.14),
-                    blurRadius: 16,
-                    spreadRadius: 1,
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          children: [
-            icon,
-            const SizedBox(width: Spacing.lg),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  if (subtitle != null)
-                    Text(
-                      subtitle!,
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.6,
-                        ),
-                        fontSize: 12,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isSelected
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.onSurface.withValues(alpha: 0.3),
-                  width: 2,
-                ),
-                color: isSelected
-                    ? theme.colorScheme.primary
-                    : Colors.transparent,
-              ),
-              child: isSelected
-                  ? Icon(
-                      AppIcons.check,
-                      size: 16,
-                      color: theme.colorScheme.onPrimary,
-                    )
-                  : null,
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 

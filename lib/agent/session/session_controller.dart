@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:broski/agent/cache/agent_cache.dart';
+import 'package:broski/agent/cache/cached_kinds.dart';
 import 'package:broski/agent/client/agent_clock.dart';
 import 'package:broski/agent/client/client_delays.dart';
 import 'package:broski/agent/client/contract_client.dart';
@@ -20,6 +22,7 @@ import 'package:broski/agent/session/prompt_handoff.dart';
 import 'package:broski/agent/session/session_cell.dart';
 import 'package:broski/agent/session/session_controls.dart';
 import 'package:broski/agent/session/session_effects.dart';
+import 'package:broski/agent/session/session_history.dart';
 import 'package:broski/agent/session/session_link.dart';
 import 'package:broski/agent/session/session_notices.dart';
 import 'package:broski/agent/session/stream_sync.dart';
@@ -35,6 +38,7 @@ final class SessionController extends StateNotifier<AgentSessionState>
   SessionController({
     required this.client,
     required this.ref,
+    this.cache,
     AgentClock clock = const SystemClock(),
     PromptHandoff? handoff,
     String Function()? newPromptId,
@@ -46,6 +50,7 @@ final class SessionController extends StateNotifier<AgentSessionState>
     prompts = PromptDesk(this, newId: newPromptId);
     controls = SessionControls(this);
     _arrive();
+    unawaited(_restoreSaved());
     _subscriptions.addAll([
       client.events.listen(_onEnvelope),
       client.states.listen(_onClientState),
@@ -69,6 +74,8 @@ final class SessionController extends StateNotifier<AgentSessionState>
   final ContractClient client;
   @override
   final SessionRef ref;
+  @override
+  final AgentCache? cache;
   final AgentClock _clock;
   final ClientDelays _delays;
   final PromptHandoff _handoff;
@@ -249,6 +256,22 @@ final class SessionController extends StateNotifier<AgentSessionState>
     _attaches++;
     _held.release();
     update((state) => state.copyWith(link: LinkLost(reason)));
+  }
+
+  /// Shows the saved copy of the finished history until the bridge answers:
+  /// nothing replaces a history the bridge already gave.
+  Future<void> _restoreSaved() async {
+    final saved = await cache?.history(ref);
+    if (saved == null || _closed || state.history.loaded) return;
+    update(
+      (state) => state.copyWith(
+        history: SessionHistory.saved(
+          saved.value.items,
+          saved.value.stability,
+          saved.savedAt,
+        ),
+      ),
+    );
   }
 
   Future<void> _loadSummary() async {

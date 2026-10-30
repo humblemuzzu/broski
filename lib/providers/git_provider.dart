@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/git.dart';
 import 'package:broski/models/vcs.dart';
-import 'package:broski/providers/agent_type_provider.dart';
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/selected_backend_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -168,8 +168,7 @@ class GitStatusNotifier extends StateNotifier<AsyncValue<GitStatusResult>> {
 
     // Update Codex thread metadata with new git info (fire-and-forget)
     try {
-      final agentType = _ref.read(agentTypeProvider);
-      if (agentType == AgentType.codex) {
+      if (_ref.read(legacyAgentProvider) == AgentType.codex) {
         final chatState = _ref.read(chatSessionProvider);
         final threadId = chatState.cxThreadId ?? '';
         if (threadId.isNotEmpty) {
@@ -271,7 +270,7 @@ class VcsDiffRequest {
 final vcsDiffProvider = FutureProvider.autoDispose
     .family<List<VcsDiffFile>, VcsDiffRequest>((ref, request) async {
       final bridge = ref.watch(bridgeServiceProvider);
-      final agentType = ref.watch(agentTypeProvider);
+      final agentType = ref.watch(legacyAgentProvider);
 
       // OpenCode has a richer SDK endpoint; all others use the unified git handler
       if (agentType == AgentType.opencode) {

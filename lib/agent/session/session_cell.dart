@@ -1,3 +1,4 @@
+import 'package:broski/agent/cache/agent_cache.dart';
 import 'package:broski/agent/client/contract_client.dart';
 import 'package:broski/agent/session/agent_session_state.dart';
 import 'package:broski/agent/session/session_notices.dart';
@@ -8,6 +9,9 @@ import 'package:broski/contract/generated/contract.dart';
 abstract interface class SessionCell {
   SessionRef get ref;
   ContractClient get client;
+
+  /// Where the finished history is kept for the times the link is down.
+  AgentCache? get cache;
   AgentSessionState get current;
 
   /// The controller was disposed: answers that arrive later change nothing.

@@ -1,9 +1,15 @@
+import 'package:broski/agent/cache/agent_cache.dart';
+import 'package:broski/agent/cache/text_store.dart';
 import 'package:broski/agent/catalog/backends_controller.dart';
+import 'package:broski/agent/catalog/directories_controller.dart';
 import 'package:broski/agent/catalog/session_list_controller.dart';
 import 'package:broski/agent/client/agent_clock.dart';
 import 'package:broski/agent/client/contract_client.dart';
 import 'package:broski/agent/client/contract_state.dart';
 import 'package:broski/agent/client/socket_contract_link.dart';
+import 'package:broski/agent/notify/run_completion_watcher.dart';
+import 'package:broski/agent/notify/run_done_notifier.dart';
+import 'package:broski/agent/notify/session_viewing.dart';
 import 'package:broski/agent/session/agent_session_state.dart';
 import 'package:broski/agent/session/prompt_handoff.dart';
 import 'package:broski/agent/session/session_controller.dart';
@@ -33,15 +39,30 @@ final contractClientProvider = Provider<ContractClient>((ref) {
   return client;
 });
 
+/// What the phone read last, for the times the link is down.
+final agentCacheProvider = Provider<AgentCache>(
+  (ref) =>
+      AgentCache(const SecureTextStore(), clock: ref.watch(agentClockProvider)),
+);
+
 final contractStateProvider = StreamProvider<ContractState>((ref) async* {
   final client = ref.watch(contractClientProvider);
   yield client.state;
   yield* client.states;
 });
 
+/// Whether the phone can reach the bridge's contract now. Without it a screen
+/// shows what was saved and offers nothing that changes anything.
+final liveProvider = Provider<bool>(
+  (ref) => ref.watch(contractStateProvider).valueOrNull is ContractReady,
+);
+
 final backendsProvider =
     StateNotifierProvider<BackendsController, BackendsState>(
-      (ref) => BackendsController(ref.watch(contractClientProvider)),
+      (ref) => BackendsController(
+        ref.watch(contractClientProvider),
+        cache: ref.watch(agentCacheProvider),
+      ),
     );
 
 /// What a backend can do, once it is listed (contract §6).
@@ -56,8 +77,26 @@ final capabilitiesProvider = Provider.family<Capabilities?, BackendId>(
 
 final sessionListProvider = StateNotifierProvider.autoDispose
     .family<SessionListController, SessionListState, SessionListKey>(
-      (ref, key) =>
-          SessionListController(ref.watch(contractClientProvider), key),
+      (ref, key) => SessionListController(
+        ref.watch(contractClientProvider),
+        key,
+        cache: ref.watch(agentCacheProvider),
+        clock: ref.watch(agentClockProvider),
+      ),
+    );
+
+/// The directories a backend's sessions work in, its projects.
+final directoriesProvider =
+    StateNotifierProvider.family<
+      DirectoriesController,
+      DirectoriesState,
+      BackendId
+    >(
+      (ref, backend) => DirectoriesController(
+        ref.watch(contractClientProvider),
+        backend,
+        cache: ref.watch(agentCacheProvider),
+      ),
     );
 
 final promptHandoffProvider = Provider<PromptHandoff>((ref) => PromptHandoff());
@@ -69,7 +108,29 @@ final sessionProvider = StateNotifierProvider.autoDispose
       (ref, session) => SessionController(
         client: ref.watch(contractClientProvider),
         ref: session,
+        cache: ref.watch(agentCacheProvider),
         clock: ref.watch(agentClockProvider),
         handoff: ref.watch(promptHandoffProvider),
       ),
     );
+
+final sessionViewingProvider = Provider<SessionViewing>(
+  (ref) => SessionViewing(),
+);
+
+final runDoneNotifierProvider = Provider<RunDoneNotifier>(
+  (ref) => const LocalRunDoneNotifier(),
+);
+
+/// Read once at start: it lives as long as the app and tells the person when
+/// a run finishes in a session they are not looking at.
+final runCompletionWatcherProvider = Provider<RunCompletionWatcher>((ref) {
+  final watcher = RunCompletionWatcher(
+    client: ref.watch(contractClientProvider),
+    viewing: ref.watch(sessionViewingProvider),
+    notifier: ref.watch(runDoneNotifierProvider),
+    clock: ref.watch(agentClockProvider),
+  );
+  ref.onDispose(watcher.dispose);
+  return watcher;
+});

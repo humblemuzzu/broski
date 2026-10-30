@@ -4,6 +4,7 @@ import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/highlight_color.dart';
 import 'package:broski/models/permission_rule.dart';
 import 'package:broski/models/project.dart';
+import 'package:broski/models/selected_backend.dart';
 import 'package:broski/models/session.dart';
 import 'package:broski/models/worktree.dart';
 import 'package:broski/providers/agent_type_provider.dart';
@@ -11,12 +12,14 @@ import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/highlights_provider.dart';
 import 'package:broski/providers/permission_rules_provider.dart';
+import 'package:broski/providers/selected_backend_provider.dart';
 import 'package:broski/providers/selection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/providers/sessions_provider.dart';
 import 'package:broski/providers/tool_settings_provider.dart';
 import 'package:broski/screens/chat_screen.dart';
 import 'package:broski/screens/sessions/cc_sessions_view.dart';
+import 'package:broski/screens/sessions/contract_sessions_tab.dart';
 import 'package:broski/screens/sessions/cx_threads_view.dart';
 import 'package:broski/screens/sessions/new_session_content.dart';
 import 'package:broski/screens/sessions/subagent_tasks_view.dart';
@@ -89,6 +92,9 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (ref.watch(selectedBackendProvider) case ContractSelection(:final id)) {
+      return ContractSessionsTab(backend: id);
+    }
     final agentType = ref.watch(agentTypeProvider);
     final showTasks = ref.watch(showTasksTabProvider);
 

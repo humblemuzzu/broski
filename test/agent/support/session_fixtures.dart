@@ -1,3 +1,4 @@
+import 'package:broski/agent/cache/agent_cache.dart';
 import 'package:broski/agent/client/contract_client.dart';
 import 'package:broski/agent/reducer/session_reducer.dart';
 import 'package:broski/agent/session/prompt_handoff.dart';
@@ -129,10 +130,12 @@ final class SessionRig {
   /// A controller for [session] over whatever handlers the test set.
   Future<SessionController> controller({
     SessionRef session = sessionRef,
+    AgentCache? cache,
   }) async {
     final controller = SessionController(
       client: client,
       ref: session,
+      cache: cache,
       clock: clock,
       handoff: handoff,
       newPromptId: () =>

@@ -293,6 +293,11 @@ final sessionMutants = [
       '!rewritten &&\n        page.idStability',
       'page.idStability',
     ),
+    Mutant(
+      'history: a saved copy is extended by the newest page, not replaced',
+      '  savedAt == null &&\n        newest.isNotEmpty',
+      '  newest.isNotEmpty',
+    ),
   ]),
   ...mutantsOf('session/session_effects.dart', const [
     Mutant(

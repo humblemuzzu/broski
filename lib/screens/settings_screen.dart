@@ -1,9 +1,12 @@
+import 'package:broski/agent/agent_providers.dart' show agentCacheProvider;
 import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/project.dart';
+import 'package:broski/models/selected_backend.dart';
 import 'package:broski/providers/agent_type_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/link/machines_provider.dart';
 import 'package:broski/providers/onboarding_provider.dart';
+import 'package:broski/providers/selected_backend_provider.dart';
 import 'package:broski/providers/selection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/providers/theme_provider.dart';
@@ -25,6 +28,7 @@ import 'package:broski/screens/permission_rules_screen.dart';
 import 'package:broski/screens/plugins_screen.dart';
 import 'package:broski/screens/scan_screen.dart';
 import 'package:broski/screens/settings/app_version_line.dart';
+import 'package:broski/screens/settings/contract_feature_tiles.dart';
 import 'package:broski/screens/sheets/cx_apps_sheet.dart';
 import 'package:broski/screens/sheets/git_panel_sheet.dart';
 import 'package:broski/screens/skills_screen.dart';
@@ -61,6 +65,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
     final currentThemeInfo = ref.watch(currentThemeInfoProvider);
     final currentAgent = ref.watch(agentTypeProvider);
+    final selected = ref.watch(selectedBackendProvider);
     final selection = ref.watch(selectionProvider);
     final theme = Theme.of(context);
     final ocTheme = OpenCodeTheme.of(context);
@@ -122,7 +127,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       children: [
                         _SettingsTile(
                           title: 'AI Backend',
-                          subtitle: currentAgent.displayName,
+                          subtitle: selected.displayName,
                           icon: AppIcons.agent,
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -139,11 +144,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                   borderRadius: Radii.brSm,
                                 ),
                                 child: Text(
-                                  switch (currentAgent) {
-                                    AgentType.opencode => 'OC',
-                                    AgentType.claudeCode => 'CC',
-                                    AgentType.codex => 'CX',
-                                  },
+                                  selected.badge,
                                   style: TextStyle(
                                     color: theme.colorScheme.primary,
                                     fontSize: 11,
@@ -168,15 +169,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             ),
                           ),
                         ),
-                        const _Divider(),
-                        _PowerFeaturesTile(
-                          currentAgent: currentAgent,
-                          isExpanded: _powerFeaturesExpanded,
-                          onToggle: () => setState(
-                            () => _powerFeaturesExpanded =
-                                !_powerFeaturesExpanded,
+                        if (selected is ContractSelection)
+                          const ContractFeatureTiles()
+                        else ...[
+                          const _Divider(),
+                          _PowerFeaturesTile(
+                            currentAgent: currentAgent,
+                            isExpanded: _powerFeaturesExpanded,
+                            onToggle: () => setState(
+                              () => _powerFeaturesExpanded =
+                                  !_powerFeaturesExpanded,
+                            ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
@@ -191,7 +196,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       currentAgent: currentAgent,
                     ),
                   ),
-                  crossFadeState: _powerFeaturesExpanded
+                  crossFadeState:
+                      _powerFeaturesExpanded && selected is LegacySelection
                       ? CrossFadeState.showSecond
                       : CrossFadeState.showFirst,
                   duration: const Duration(milliseconds: 200),
@@ -502,6 +508,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               Navigator.pop(context);
               final storage = ref.read(storageServiceProvider);
               await storage.clearCache();
+              await ref.read(agentCacheProvider).clear();
               if (context.mounted) {
                 showInfo(context, 'Cache cleared successfully');
               }
