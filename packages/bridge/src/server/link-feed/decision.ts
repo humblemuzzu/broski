@@ -1,9 +1,11 @@
 import type { ServerWebSocket } from "bun";
+import { BackendId } from "../../contract";
 import { toErrorMessage } from "../../http-utils";
 import type { RouteRegistry } from "../../routing/registry";
 import type { ServerDeps } from "../../routing/types";
 import type { ClientMessage, ServerMessage } from "../../types";
 import type { BroskiBackend } from "../../types/runtime";
+import { applyContractDecision, type ContractAnswerer } from "./contract-decision";
 import type { LinkFeedRequestRecord, LinkFeedRequests } from "./requests";
 
 export type LinkDecision = {
@@ -24,6 +26,7 @@ export type LinkDecisionSources = {
 	registry: RouteRegistry;
 	serverDeps: ServerDeps;
 	requests: LinkFeedRequests;
+	contractAnswer: ContractAnswerer;
 };
 
 type Answer = { ok: true; message: ClientMessage } | { ok: false; error: string };
@@ -42,6 +45,9 @@ export function parseLinkDecision(frame: Record<string, unknown>): LinkDecision 
 export function createLinkDecisionApplier(sources: LinkDecisionSources): LinkDecisionApplier {
 	return async (decision, ws) => {
 		const record = sources.requests.find(decision.backend, decision.session, decision.request);
+		if (record?.contract) {
+			return await applyContractDecision(decision, record, record.contract, sources.requests, sources.contractAnswer);
+		}
 		const answer = answerOf(decision, record, sources.serverDeps);
 		if (!answer.ok) return { ok: false, error: answer.error };
 		sources.requests.markAnswered(decision.backend, decision.session, decision.request);
@@ -50,7 +56,7 @@ export function createLinkDecisionApplier(sources: LinkDecisionSources): LinkDec
 }
 
 function answerOf(decision: LinkDecision, record: LinkFeedRequestRecord | undefined, serverDeps: ServerDeps): Answer {
-	if (!isBroskiBackend(decision.backend)) return { ok: false, error: "unknown backend" };
+	if (!BackendId.safeParse(decision.backend).success) return { ok: false, error: "unknown backend" };
 	if (!record) return { ok: false, error: "unknown request" };
 	if (record.answered) return { ok: false, error: "already answered" };
 	// A request for input needs an answer, not a decision.
@@ -59,6 +65,7 @@ function answerOf(decision: LinkDecision, record: LinkFeedRequestRecord | undefi
 	if (decision.backend === "claude-code" && record.requestKind === "AskUserQuestion") {
 		return { ok: false, error: "unsupported" };
 	}
+	if (!isBroskiBackend(decision.backend)) return { ok: false, error: "unknown backend" };
 	return { ok: true, message: responseMessage(decision.backend, decision, serverDeps) };
 }
 

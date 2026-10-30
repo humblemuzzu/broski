@@ -5,6 +5,7 @@ import 'package:broski/providers/link/machines_provider.dart';
 import 'package:broski/providers/onboarding_provider.dart';
 import 'package:broski/screens/bridge_setup_screen.dart';
 import 'package:broski/screens/main_shell.dart';
+import 'package:broski/screens/notifications/notification_tap_routing.dart';
 import 'package:broski/screens/onboarding_screen.dart';
 import 'package:broski/screens/scan_screen.dart';
 import 'package:broski/screens/system_linked_screen.dart';
@@ -23,6 +24,7 @@ class RootScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(linkConnectionBootstrapProvider);
     ref.watch(linkSendFailureNoticeProvider);
+    routeNotificationTaps(context, ref);
     final connectionState = ref.watch(connectionProvider);
     final onboardingState = ref.watch(onboardingProvider);
     if (onboardingState.isLoading) {

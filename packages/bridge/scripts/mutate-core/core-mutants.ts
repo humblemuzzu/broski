@@ -104,7 +104,7 @@ export const SESSION_MUTANTS: Mutant[] = [
 			replace: "\t\tsink.deliverTo(live);",
 		},
 		{ name: "hub: events never review the idle close", find: "else this.reviewIdle(live);", replace: "" },
-		{ name: "hub: a resolution never reaches the desk", find: "this.deps.onEvent(live, event);", replace: "" },
+		{ name: "hub: a resolution never reaches the desk", find: "this.deps.onEvent(live, record, before);", replace: "" },
 		{ name: "hub: a replaced stream keeps no claims", find: "\t\t\told.claims,\n", replace: "" },
 		{
 			name: "hub: a close is waited for without end",
@@ -155,7 +155,65 @@ export const SESSION_MUTANTS: Mutant[] = [
 		},
 		{ name: "live: any epoch replays", find: "if (resume?.epoch === this.epoch) {", replace: "if (resume) {" },
 		{ name: "live: events are not logged for replay", find: "this.log.push(this.seq, frame);", replace: "" },
-		{ name: "live: the hub never hears of an event", find: "this.deps.published(this, record.event);", replace: "" },
+		{ name: "live: the hub never hears of an event", find: "this.deps.published(this, record, before);", replace: "" },
+		{
+			name: "live: the observer is given the state after as the state before",
+			find: "const before = this.state;\n\t\tthis.state = applyEvent(before, record);",
+			replace: "this.state = applyEvent(this.state, record);\n\t\tconst before = this.state;",
+		},
+	]),
+	...mutantsOf("core/observer.ts", [
+		{ name: "observer: it is never told", find: "this.observer.observe(observed);", replace: "" },
+		{
+			name: "observer: a throwing observer escapes into the adapter",
+			find: "} catch (error) {",
+			replace: "} catch (error) { throw error;",
+		},
+		{
+			name: "observer: a backend that never answers is given a row",
+			find: "if (outcome === undefined) return undefined;",
+			replace: "if (outcome === undefined) return { session: ref } as SessionSummary;",
+		},
+		{
+			name: "observer: a row that breaks the contract is passed on",
+			find: "return checked.success ? checked.data : undefined;",
+			replace: "return outcome.value.summary;",
+		},
+		{
+			name: "observer: a backend that is gone is looked up anyway",
+			find: "if (!backend) return undefined;",
+			replace: "",
+		},
+	]),
+	...mutantsOf("core/bridge-answer.ts", [
+		{
+			name: "answer: a session that is not open is answered",
+			find: 'if (!live) return rejected("not_found", "the session is not open");',
+			replace: "",
+		},
+		{
+			name: "answer: a watch-only session is answered",
+			find: "if (!control) return rejected(",
+			replace: "if (false) return rejected(",
+		},
+		{
+			name: "answer: the deadline never gives up",
+			find: "if (outcome === undefined) {",
+			replace: "if (false) {",
+		},
+		{ name: "answer: a throwing adapter escapes", find: "if (!outcome.ok) {", replace: "if (false) {" },
+		{
+			name: "answer: the desk is bypassed",
+			find: "settled(() => deps.desk.answer(live, control, answer))",
+			replace: "settled(() => control.answer(answer))",
+		},
+	]),
+	...mutantsOf("core/core.ts", [
+		{
+			name: "core: the observer is never given an event",
+			find: "observation.publish(live, record, before);",
+			replace: "",
+		},
 	]),
 	...mutantsOf("core/session-sink.ts", [
 		{ name: "sink: early records are lost", find: "for (const record of held) this.emit(record);", replace: "" },

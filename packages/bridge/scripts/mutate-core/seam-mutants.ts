@@ -168,7 +168,7 @@ export const SEAM_MUTANTS: Mutant[] = [
 		},
 	]),
 	...mutantsOf("server/shutdown.ts", [
-		{ name: "shutdown: the core is not stopped", find: "() => deps.contract.stop(),", replace: "" },
+		{ name: "shutdown: the core is not stopped", find: "() => deps.contract.stop()", replace: "" },
 	]),
 	...mutantsOf("server.ts", [{ name: "server: backends never start", find: "\tcontract.start();\n", replace: "" }]),
 	...mutantsOf("contract/session-reducer.ts", [

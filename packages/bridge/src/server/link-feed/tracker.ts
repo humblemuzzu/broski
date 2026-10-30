@@ -1,6 +1,6 @@
+import type { BackendId } from "../../contract";
 import { BoundedMap, registerSweepable } from "../../state/bounded-map";
 import type {
-	BroskiBackend,
 	BroskiPermissionRequestedEvent,
 	BroskiRuntimeEvent,
 	BroskiRuntimeState,
@@ -15,7 +15,7 @@ import {
 	type LinkFeedEventMessage,
 	type LinkFeedMessage,
 } from "./format";
-import type { LinkFeedRequests } from "./requests";
+import type { LinkFeedRequest, LinkFeedRequests } from "./requests";
 
 const MAX_TRACKED_SESSIONS = 512;
 const SESSION_TTL_MS = 30 * 60 * 1000;
@@ -26,13 +26,18 @@ export const linkFeedTiming = {
 	doneIdleMs: 5000,
 };
 
+/** The `done` alert of a contract session, built when it has stayed idle; undefined when the run's end is no news. */
+export type DoneAlert = () => Promise<LinkFeedEventMessage | undefined>;
+
 type SessionTrack = {
-	backend: BroskiBackend;
+	backend: BackendId;
 	sessionId: string;
 	cwd?: string;
 	busy: boolean;
 	doneTimer: ReturnType<typeof setTimeout> | null;
 	assistantText: string;
+	/** Set once a contract session's run ended; the runtime events of the other backends build theirs from `assistantText`. */
+	doneAlert?: DoneAlert;
 };
 
 /** Turns the normalized runtime event stream of every backend into the daemon feed's messages. */
@@ -116,8 +121,7 @@ export class LinkFeedTracker {
 			this.deliver(build());
 			return;
 		}
-		const message = build();
-		const announced = this.requests.announce(
+		this.announce(
 			event.backend,
 			sessionId,
 			requestId,
@@ -125,16 +129,57 @@ export class LinkFeedTracker {
 				kind: event.type === "permission_requested" ? "approval" : "attention",
 				...(event.request.kind ? { requestKind: event.request.kind } : {}),
 			},
-			message,
+			build(),
 		);
-		if (announced) this.deliver(message);
+	}
+
+	/** Tells the daemon of a request once, and remembers it so a decision on it can be applied. */
+	announce(
+		backend: string,
+		sessionId: string,
+		requestId: string,
+		request: LinkFeedRequest,
+		message: LinkFeedEventMessage,
+	): void {
+		if (this.requests.announce(backend, sessionId, requestId, request, message)) this.deliver(message);
+	}
+
+	/** A contract session's run began. */
+	runStarted(backend: BackendId, sessionId: string): void {
+		const key = sessionKey(backend, sessionId);
+		const track = this.trackFor(key, backend, sessionId);
+		track.doneAlert = undefined;
+		this.setWorking(key, track, true);
+	}
+
+	/** A contract session's run ended; `doneAlert` speaks once the session has stayed idle for `doneIdleMs`. */
+	runEnded(backend: BackendId, sessionId: string, doneAlert: DoneAlert): void {
+		const key = sessionKey(backend, sessionId);
+		const track = this.sessions.get(key);
+		if (!track) return;
+		track.doneAlert = doneAlert;
+		this.setWorking(key, track, false);
+	}
+
+	/** A contract session is no longer watched as one: no `done` follows, and it counts as idle. */
+	forgetSession(backend: BackendId, sessionId: string): void {
+		const key = sessionKey(backend, sessionId);
+		const track = this.sessions.get(key);
+		if (!track) return;
+		this.release(key, track);
+		this.sessions.delete(key);
+	}
+
+	/** The backend took a request back: no decision can reach it and a reconnecting feed is not told of it. */
+	withdrawRequest(backend: string, sessionId: string, requestId: string): void {
+		this.requests.withdraw(backend, sessionId, requestId);
 	}
 
 	private track(event: BroskiRuntimeEvent, sessionId: string): void {
-		const key = `${event.backend}::${sessionId}`;
+		const key = sessionKey(event.backend, sessionId);
 
 		if (event.type === "assistant_text_delta") {
-			const textTrack = this.trackFor(key, event, sessionId);
+			const textTrack = this.trackFor(key, event.backend, sessionId, event.cwd);
 			if (textTrack.assistantText.length < MAX_ASSISTANT_TEXT) {
 				textTrack.assistantText = `${textTrack.assistantText}${event.delta}`.slice(0, MAX_ASSISTANT_TEXT);
 			}
@@ -144,21 +189,21 @@ export class LinkFeedTracker {
 		const working = workingOf(event);
 		if (working === undefined) return;
 
-		const track = this.trackFor(key, event, sessionId);
+		const track = this.trackFor(key, event.backend, sessionId, event.cwd);
 		if (working && event.type === "agent_started") track.assistantText = "";
 		this.setWorking(key, track, working);
 	}
 
-	private trackFor(key: string, event: BroskiRuntimeEvent, sessionId: string): SessionTrack {
+	private trackFor(key: string, backend: BackendId, sessionId: string, cwd?: string): SessionTrack {
 		const existing = this.sessions.get(key);
 		if (existing) {
-			if (event.cwd) existing.cwd = event.cwd;
+			if (cwd) existing.cwd = cwd;
 			return existing;
 		}
 		const track: SessionTrack = {
-			backend: event.backend,
+			backend,
 			sessionId,
-			cwd: event.cwd,
+			cwd,
 			busy: false,
 			doneTimer: null,
 			assistantText: "",
@@ -193,10 +238,20 @@ export class LinkFeedTracker {
 
 	private emitDone(key: string, track: SessionTrack): void {
 		if (track.busy) return;
+		if (track.doneAlert) {
+			void this.deliverDone(track.doneAlert);
+			this.sessions.delete(key);
+			return;
+		}
 		const summary = firstLine(track.assistantText);
 		track.assistantText = "";
 		this.deliver(doneMessage(track.backend, track.sessionId, track.cwd, summary, Date.now()));
 		this.sessions.delete(key);
+	}
+
+	private async deliverDone(doneAlert: DoneAlert): Promise<void> {
+		const message = await doneAlert();
+		if (message) this.deliver(message);
 	}
 
 	private release(key: string, track: SessionTrack): void {
@@ -230,6 +285,10 @@ export class LinkFeedTracker {
 		this.busyState = busy;
 		this.deliver(busyMessage(busy));
 	}
+}
+
+function sessionKey(backend: string, sessionId: string): string {
+	return `${backend}::${sessionId}`;
 }
 
 function workingOf(event: BroskiRuntimeEvent): boolean | undefined {

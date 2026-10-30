@@ -1,8 +1,11 @@
 import type { ServerWebSocket } from "bun";
+import type { CoreObserver } from "../../core/observer";
 import type { RouteRegistry } from "../../routing/registry";
 import type { ServerDeps } from "../../routing/types";
 import { LINK_OVERFLOW_CLOSE_CODE } from "../../transport/send-limits";
 import type { BroskiRuntimeEvent } from "../../types/runtime";
+import type { ContractAnswerer } from "./contract-decision";
+import { ContractFeedTap } from "./contract-tap";
 import { createLinkDecisionApplier, type LinkDecisionApplier, parseLinkDecision } from "./decision";
 import { busyMessage, LINK_FEED_PONG } from "./format";
 import { LinkFeedRequests } from "./requests";
@@ -43,15 +46,24 @@ function sendToFeed(payload: unknown): void {
 
 const requests = new LinkFeedRequests();
 const tracker = new LinkFeedTracker(sendToFeed, requests);
+const contractTap = new ContractFeedTap(tracker);
+
+/** What the bridge core tells the feed of every open contract session. */
+export const contractFeedObserver: CoreObserver = { observe: (observed) => contractTap.observe(observed) };
 
 /** Forgets every tracked session, request and timer. */
 export function resetLinkFeed(): void {
 	tracker.reset();
+	contractTap.reset();
 }
 
 /** Routes the daemon's decisions through the registry the phone's own messages are dispatched to. */
-export function attachLinkDecisionPath(registry: RouteRegistry, serverDeps: ServerDeps): void {
-	applyDecision = createLinkDecisionApplier({ registry, serverDeps, requests });
+export function attachLinkDecisionPath(
+	registry: RouteRegistry,
+	serverDeps: ServerDeps,
+	contractAnswer: ContractAnswerer,
+): void {
+	applyDecision = createLinkDecisionApplier({ registry, serverDeps, requests, contractAnswer });
 }
 
 /** The daemon's feed, the one connection that sees runtime activity instead of a device's view. */

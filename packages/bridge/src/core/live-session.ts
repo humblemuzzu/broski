@@ -1,5 +1,4 @@
 import {
-	type AgentEvent,
 	type AttachSync,
 	applyEvent,
 	EventEnvelope,
@@ -28,7 +27,7 @@ export interface LiveSessionDeps {
 	readonly clock: CoreClock;
 	readonly log: CoreLog;
 	/** Called after each event reached every viewer; a viewer's link failing does not skip it (`CoreClient.send`). */
-	readonly published: (live: LiveSession, event: AgentEvent) => void;
+	readonly published: (live: LiveSession, record: SinkRecord, before: SessionSnapshot) => void;
 }
 
 /**
@@ -111,7 +110,8 @@ export class LiveSession {
 	}
 
 	private publish(record: SinkRecord): void {
-		this.state = applyEvent(this.state, record);
+		const before = this.state;
+		this.state = applyEvent(before, record);
 		this.seq += 1;
 		const envelope: EventEnvelope = {
 			session: this.ref,
@@ -124,6 +124,6 @@ export class LiveSession {
 		const frame = withOlderView(fitted, envelope, this.state, this.deps.maxFrameBytes, this.deps.log);
 		this.log.push(this.seq, frame);
 		for (const viewer of this.viewers) viewer.send(frame);
-		this.deps.published(this, record.event);
+		this.deps.published(this, record, before);
 	}
 }

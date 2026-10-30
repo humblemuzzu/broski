@@ -1,4 +1,5 @@
-import type { BroskiBackend, BroskiPermissionRequest, BroskiUserInputRequest } from "../../types/runtime";
+import type { BackendId } from "../../contract";
+import type { BroskiPermissionRequest, BroskiUserInputRequest } from "../../types/runtime";
 
 const TITLE_MAX = 80;
 const BODY_MAX = 200;
@@ -10,7 +11,7 @@ export type LinkFeedBusyMessage = { type: "link_busy"; busy: boolean };
 export type LinkFeedEventMessage = {
 	type: "link_event";
 	kind: LinkFeedAlertKind;
-	backend: BroskiBackend;
+	backend: BackendId;
 	session: string;
 	cwd: string;
 	title: string;
@@ -24,16 +25,18 @@ export type LinkFeedMessage = LinkFeedBusyMessage | LinkFeedEventMessage;
 
 export const LINK_FEED_PONG = { type: "link_feed_pong" } as const;
 
-const BACKEND_NAMES: Record<BroskiBackend, string> = {
+const BACKEND_NAMES: Record<BackendId, string> = {
 	"claude-code": "Claude Code",
 	opencode: "OpenCode",
 	codex: "Codex",
+	pi: "Pi",
+	"pi-durable": "Pi Durable",
 };
 
 /** The only tool-input keys a body may quote; anything else in the input stays on the machine. */
 const SUMMARY_KEYS = ["command", "cmd", "path", "filePath", "file_path", "blockedPath", "url", "pattern", "patterns"];
 
-function backendName(backend: BroskiBackend): string {
+export function backendName(backend: BackendId): string {
 	return BACKEND_NAMES[backend];
 }
 
@@ -42,7 +45,7 @@ export function busyMessage(busy: boolean): LinkFeedBusyMessage {
 }
 
 export function approvalMessage(
-	backend: BroskiBackend,
+	backend: BackendId,
 	sessionId: string,
 	cwd: string | undefined,
 	request: BroskiPermissionRequest,
@@ -56,7 +59,7 @@ export function approvalMessage(
 		stringOf(request.message) ??
 		stringOf(request.title) ??
 		"approval required";
-	return event(
+	return alertEvent(
 		"approval",
 		backend,
 		sessionId,
@@ -69,14 +72,14 @@ export function approvalMessage(
 }
 
 export function attentionMessage(
-	backend: BroskiBackend,
+	backend: BackendId,
 	sessionId: string,
 	cwd: string | undefined,
 	request: BroskiUserInputRequest,
 	at: number,
 ): LinkFeedEventMessage {
 	const detail = stringOf(request.prompt) ?? stringOf(request.title) ?? "input required";
-	return event(
+	return alertEvent(
 		"attention",
 		backend,
 		sessionId,
@@ -89,13 +92,21 @@ export function attentionMessage(
 }
 
 export function doneMessage(
-	backend: BroskiBackend,
+	backend: BackendId,
 	sessionId: string,
 	cwd: string | undefined,
 	summary: string | undefined,
 	at: number,
 ): LinkFeedEventMessage {
-	return event("done", backend, sessionId, cwd, `${backendName(backend)} finished`, summary ?? "Turn finished", at);
+	return alertEvent(
+		"done",
+		backend,
+		sessionId,
+		cwd,
+		`${backendName(backend)} finished`,
+		summary ?? "Turn finished",
+		at,
+	);
 }
 
 export function firstLine(text: string): string | undefined {
@@ -106,9 +117,9 @@ export function firstLine(text: string): string | undefined {
 	return undefined;
 }
 
-function event(
+export function alertEvent(
 	kind: LinkFeedAlertKind,
-	backend: BroskiBackend,
+	backend: BackendId,
 	sessionId: string,
 	cwd: string | undefined,
 	title: string,
@@ -141,7 +152,7 @@ function clamp(text: string, max: number): string {
 	return single.length <= max ? single : `${single.slice(0, max - 1)}…`;
 }
 
-function stringOf(value: unknown): string | undefined {
+export function stringOf(value: unknown): string | undefined {
 	return typeof value === "string" && value.trim().length > 0 ? value : undefined;
 }
 
@@ -150,7 +161,7 @@ function lastSegment(value: string | undefined): string | undefined {
 	return index === -1 ? value : value?.slice(index + 1);
 }
 
-function summarize(source: unknown): string | undefined {
+export function summarize(source: unknown): string | undefined {
 	if (typeof source !== "object" || source === null) return undefined;
 	const record = source as Record<string, unknown>;
 	for (const key of SUMMARY_KEYS) {

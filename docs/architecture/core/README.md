@@ -4,7 +4,7 @@ Status: Phase 2. The core speaks the [contract](../contract/README.md) (protocol
 
 Code: `packages/bridge/src/core/` (one concept per file), wired into the existing connection layer by `packages/bridge/src/server/contract-seam.ts`.
 
-**Contents.** [1 What it owns](#1-what-the-core-owns) · [2 Layout](#2-layout) · [3 Data flow](#3-data-flow) · [4 The seam](#4-the-seam-into-the-running-bridge) · [5 Sessions](#5-session-lifecycle) · [6 Streams](#6-streams-seq-epoch-replay) · [7 Interactions](#7-interactions) · [8 Prompts](#8-prompts) · [9 Fitting the link](#9-fitting-every-message-to-the-link) · [10 Backpressure](#10-backpressure-and-the-rate-limit) · [11 Trust](#11-what-the-core-does-not-trust) · [12 Versioning](#12-versioning) · [13 Layers](#13-layers) · [14 Numbers](#14-numbers) · [15 Phase 3](#15-how-phase-3-plugs-in) · [16 Phase 4](#16-how-phase-4-plugs-in) · [17 Tests](#17-tests) · [18 Limits](#18-limits-and-open-risks)
+**Contents.** [1 What it owns](#1-what-the-core-owns) · [2 Layout](#2-layout) · [3 Data flow](#3-data-flow) · [4 The seam](#4-the-seam-into-the-running-bridge) · [5 Sessions](#5-session-lifecycle) · [6 Streams](#6-streams-seq-epoch-replay) · [7 Interactions](#7-interactions) · [8 Prompts](#8-prompts) · [9 Fitting the link](#9-fitting-every-message-to-the-link) · [10 Backpressure](#10-backpressure-and-the-rate-limit) · [11 Trust](#11-what-the-core-does-not-trust) · [12 Versioning](#12-versioning) · [13 Layers](#13-layers) · [14 Numbers](#14-numbers) · [15 Phase 3](#15-how-phase-3-plugs-in) · [16 Phase 4](#16-how-phase-4-plugs-in) · [17 Tests](#17-tests) · [18 Limits](#18-limits-and-open-risks) · [19 Observing](#19-observing-sessions-and-answering-from-outside)
 
 ## 1. What the core owns
 
@@ -49,9 +49,11 @@ What it does not do: anything backend-specific. It never mints run, block, tool,
 | `results.ts`, `directories.ts`, `paged-read.ts`, `session-key.ts`, `same-state.ts` | Result and error builders; the directory policy; re-reading a page that is too large; session keys and log labels; snapshot equality. |
 | `replacements.ts`, `attach-redirect.ts` | Which stream replaced which, bounded and kept across restarts; answering an attach to a replaced session with the session that continues it. |
 | `frame.ts` | The `{"type":"contract","message":…}` frame, and the prefix every frame begins with. |
+| `observer.ts` | `CoreObserver`, `ObservedEvent` (an event with the state before and after it, and `describe()`), and the `Observation` that hands every published event to the observer (§19). |
+| `bridge-answer.ts` | `answerFromBridge`: a person's answer from outside the attached phones, through the interaction desk (§19). |
 | `wire-fit.ts`, `snapshot-fit.ts`, `text-elision.ts` | Fitting a message to the link: run items, free text, the event fallbacks. |
 
-Outside `core/`: `server/contract-seam.ts` (the seam, §4), `server/json-lines-journal.ts` (a journal file) with `contract-prompt-journal.ts` and `contract-replacement-journal.ts` (the two it keeps).
+Outside `core/`: `server/contract-seam.ts` (the seam, §4; it installs the observer and exposes `answer`, §19), `server/json-lines-journal.ts` (a journal file) with `contract-prompt-journal.ts` and `contract-replacement-journal.ts` (the two it keeps).
 
 ## 3. Data flow
 
@@ -76,7 +78,7 @@ The old code knows the core only through these lines:
 
 | File | Change |
 |---|---|
-| `server.ts` | `BridgeServerOptions.contract`; `createContractSeam(…)` (one call); `contract` handed to the connections, the message handler and the stop; `contract.start()` once the listeners are bound. |
+| `server.ts` | `BridgeServerOptions.contract`; `createContractSeam(…)` (one call); `contract` handed to the connections, the message handler and the stop; `contract.start()` once the listeners are bound; `contract.answer` handed to `attachLinkDecisionPath` (§19). |
 | `server/messages.ts` | After the JSON parse and the object check, before the old prototype-poison check: `if (deps.contract.owns(parsed)) return deps.contract.receive(ws, parsed, frameBytes(raw));`. |
 | `server/connections.ts` | On close: `deps.contract.disconnect(ws)`. When the socket's rate limit refuses a frame: `if (deps.contract.refuse(ws, raw)) return;`. |
 | `server/shutdown.ts` | `deps.contract.stop()` among the backend disposals, inside the teardown budget. |
@@ -203,11 +205,11 @@ The app does all of this in `lib/agent/`: see [`docs/architecture/app-core/READM
 
 ## 17. Tests
 
-- Unit, in process (`__tests__/helpers/core-rig.ts`: the core, the fake backend, in-memory clients that check every frame against `ServerMessage`, a manual clock): `core_protocol`, `core_streams`, `core_session_lifecycle`, `core_control`, `core_interactions`, `core_wire_fit`, `core_text_elision`, `core_wire_guards`, `core_adapter_guards`, `core_backend_start`, `core_backend_registry`, `core_event_log`, `core_keep_open`, `core_session_keys`, `core_prompt_journal`, `core_replacement_journal`, `core_session_replacement` (a phone away, a chain, an older minor, the memory's bounds, a successor not yet open), `core_seam`; the layer rules in `contract_layers`.
+- Unit, in process (`__tests__/helpers/core-rig.ts`: the core, the fake backend, in-memory clients that check every frame against `ServerMessage`, a manual clock): `core_protocol`, `core_streams`, `core_session_lifecycle`, `core_control`, `core_interactions`, `core_wire_fit`, `core_text_elision`, `core_wire_guards`, `core_adapter_guards`, `core_backend_start`, `core_backend_registry`, `core_event_log`, `core_keep_open`, `core_session_keys`, `core_prompt_journal`, `core_replacement_journal`, `core_session_replacement` (a phone away, a chain, an older minor, the memory's bounds, a successor not yet open), `core_seam`, `core_observer` (what the observer sees, `describe`, a failing observer), `core_bridge_answer` (an answer from outside the phones); the layer rules in `contract_layers`.
 - Adapters that differ from the fake in one way live in `__tests__/helpers/core-adapters.ts` (`wrappingSessions`, `changedSession`, `Gate` for a call that waits for the test); faults are made by wrapping the fake (`adapt`), never by mocking the core.
 - End to end over the real link path (`__tests__/helpers/core-bridge.ts`: a real bridge with the fake registered, phones on its unix socket through `link/unix-ws.ts`): `core_e2e_link` (hello, broken frames, the old protocol beside, two phones, steer and queue, catalog, interactions across phones), `core_e2e_resilience` (replay and stale-epoch snapshot, a slow phone, a phone cut off at its window, keep-open, the snapshot of a long run at a 1 MiB cap, a bridge restart) and `core_e2e_seam` (a closed socket's sessions, stop, the old guards beside the contract, the rate limit, an oversized frame, backends starting after the bridge listens) and `core_e2e_replacement` (a replaced session told to the phone that comes back, also after a bridge restart). The phone's side of it runs through the real daemon in `test/agent/e2e/` (app-core README §11).
 - No sleeps: the fake works in microtasks, so `setImmediate` is its quiescence; timers run on the manual clock (`whenPending` waits for another process to schedule one); e2e waits on frames.
-- **Mutation check**: `bun run mutate:core` (`scripts/mutate-core.ts`, mutants in `scripts/mutate-core/`) applies each of 185 mutants (one guard changed or removed) of the core, the seam, the journals, the reducer, the layer rules and the field-key rule to a copy of the bridge and runs these tests; `--check` only verifies that every mutant still matches its file. Every mutant is killed except the ones listed with the reason they change nothing a test can see (memory only, speed only, or a guard no input can reach).
+- **Mutation check**: `bun run mutate:core` (`scripts/mutate-core.ts`, mutants in `scripts/mutate-core/`) applies each of 203 mutants (one guard changed or removed) of the core, the seam, the journals, the reducer, the layer rules and the field-key rule to a copy of the bridge and runs these tests; `--check` only verifies that every mutant still matches its file. Every mutant is killed except the ones listed with the reason they change nothing a test can see (memory only, speed only, or a guard no input can reach).
 
 ## 18. Limits and open risks
 
@@ -221,3 +223,12 @@ The app does all of this in `lib/agent/`: see [`docs/architecture/app-core/READM
 - **The old heartbeat** still closes a socket that never answers `ping` (90 s).
 - **A watch-only session** shows asks it cannot answer; the terminal that owns it answers them.
 - `session.attach.result` has no `Rejected` member, so an open the adapter refuses for a reason other than `not_found` is `error{internal}` carrying the rejection's code and message. Giving the answer a result union would change its shape, a major change; the error carries everything meanwhile.
+
+## 19. Observing sessions and answering from outside
+
+Something outside the core needs two things the phones' protocol does not give it: to know what every open session does whether or not a phone views it, and to relay a person's answer that was given somewhere other than on an attached phone. In the bridge that is the daemon's feed (a push when a run ends or an approval waits, and an allow/deny tapped on a lock screen: [bridge-feed.md](../connectivity-v2/bridge-feed.md)). The core stays within its layer rules by exposing two small things and importing nothing from `server/`:
+
+- **`CoreOptions.observer?: CoreObserver`** (`observer.ts`). `observe(observed)` is called once for every event of every open session, after the event reached every viewer and the desk's bookkeeping, in the order the events were published, the `resynced` the core makes itself included. `ObservedEvent` carries the session, the time, the event, the live state **before** and **after** it (the state before is what a run's finished items are read from: the run is gone from the state after `run_finished`), and `describe()`, which reads the session's row from its backend (`getSession`): title, cwd. `describe()` never throws and gives `undefined` when the backend rejects, answers a row that breaks the contract, throws, does not answer within 30 s (`SESSION_CALL_DEADLINE_MS`) or is gone. The observer only watches: it holds no handle to a session, and an observer that throws costs it that event, is logged, and never reaches the adapter or the phones.
+- **`BridgeCore.answer(session, answer)`** (`bridge-answer.ts`). A person's answer from outside the attached phones. It goes where a phone's answer goes (`InteractionDesk.answer`): `answerProblem` against the live interaction before any adapter sees it (`invalid_input`), first answer wins (`stale`), a rejection or a throw releases the claim. The session must be open: a pending interaction keeps it open (keep-open), so a session that is not has nothing to answer (`not_found`); a session that can only be watched answers `unsupported`; an adapter that throws or does not answer within 120 s (`REQUEST_DEADLINE_MS`) is `backend_error`. Nothing here answers on anyone's behalf; the caller relays a decision a person made.
+
+The seam wires both: `createContractSeam` passes `contractFeedObserver` (`server/link-feed/feed.ts`) as the observer and exposes `answer` on the `ContractSeam`; `server.ts` hands that to the feed's decision path. To get the state before an event, `LiveSession.publish` keeps it and `LiveSessionDeps.published` / `HubDeps.onEvent` carry it (`record`, `before`).

@@ -79,6 +79,7 @@ The core that speaks the contract lives in `packages/bridge/src/core/`; its doc 
 - **No automatic answers.** An interaction ends only when a human answers or cancels it, or the backend withdraws it or lets it expire. Never add a timeout that answers for the user.
 - **Keep-open**: a session with a run, a pending ask, a compaction, a retry or queued input stays open, viewed or not; only bridge shutdown closes a busy session.
 - **Every frame fits the link** (`wire-fit.ts`): every contract message goes out through `fitMessage`/`fitEvent` (only the core's own short `error` answers skip it), and fitting never cuts ids, cursors or image bytes.
+- **The daemon's feed reaches the core through two things only**: `CoreOptions.observer` (every event of every open session, with the state before and after) and `BridgeCore.answer` (a person's answer from outside the attached phones, through the same desk and `answerProblem`); the seam installs `contractFeedObserver`. The core never imports `server/`; a feed decision is a human answer, never an automatic one (core README §19, `docs/architecture/connectivity-v2/bridge-feed.md`).
 - **Tests drive the fake backend** (`__tests__/helpers/core-rig.ts`, `core-bridge.ts`) and break adapters by wrapping the fake (`adapt`, `helpers/core-adapters.ts`); they never mock the core. `bun run mutate:core` checks that the core's tests fail on every guard removed, except the equivalent mutants it lists with their reasons.
 
 ## App core (the rebuild, Phase 3)

@@ -3,7 +3,15 @@
  * fake and changes one behaviour, so a test breaks the adapter, never the core.
  */
 
-import type { ActionResult, AgentBackend, OpenSession, SessionControl, SessionSink, SinkRecord } from "../../contract";
+import type {
+	ActionResult,
+	AgentBackend,
+	InteractionAnswer,
+	OpenSession,
+	SessionControl,
+	SessionSink,
+	SinkRecord,
+} from "../../contract";
 
 /** `backend` with every `OpenSession` it opens passed through `wrap`; everything else is `backend`'s. */
 export function wrappingSessions(backend: AgentBackend, wrap: (session: OpenSession) => OpenSession): AgentBackend {
@@ -53,6 +61,21 @@ export function recordingOpens(backend: AgentBackend, record: OpenRecord): Agent
 			},
 		});
 	});
+}
+
+/** `backend` with every answer its sessions are given recorded; it behaves exactly as `backend` does. */
+export function recordingAnswers(backend: AgentBackend, answers: InteractionAnswer[]): AgentBackend {
+	return wrappingSessions(backend, (session) =>
+		changedSession(session, {
+			control: (control) => ({
+				...control,
+				answer: (answer) => {
+					answers.push(answer);
+					return control.answer(answer);
+				},
+			}),
+		}),
+	);
 }
 
 /** An adapter whose `snapshot()` reports another model once `drifting` says so. */

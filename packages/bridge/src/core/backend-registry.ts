@@ -75,6 +75,11 @@ export class BackendRegistry {
 		return backend ? { backend } : { missing: this.missingReason(id) };
 	}
 
+	/** The backend `id` if it is registered now; unlike `reach`, it waits for nothing. */
+	get(id: BackendId): AgentBackend | undefined {
+		return this.backends.get(id);
+	}
+
 	descriptors(): BackendDescriptor[] {
 		return [...this.backends.values()].map((backend) => ({
 			id: backend.id,

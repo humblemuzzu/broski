@@ -26,6 +26,7 @@ final class PushNotifications: NSObject {
 
   private var channel: FlutterMethodChannel?
   private var token: String?
+  private let taps = NotificationTapChannel()
 
   /// Wires up the Dart side. A push that arrives before the engine is up is
   /// still shown; the channel only serves the token.
@@ -38,6 +39,7 @@ final class PushNotifications: NSObject {
       self?.handle(call, result: result)
     }
     self.channel = channel
+    taps.attach(messenger: messenger)
   }
 
   func received(deviceToken: Data) {
@@ -54,23 +56,31 @@ final class PushNotifications: NSObject {
   }
 
   /// Runs for a lock-screen action as well as for a tap: only Approve and Deny
-  /// carry a decision, so anything else is done the moment it arrives.
+  /// carry a decision; a tap on the notification itself opens the session it
+  /// names, and anything else is done the moment it arrives. False for a
+  /// response that is not one of our pushes, which is left to the plugins.
   func decide(
     _ response: UNNotificationResponse,
     completionHandler: @escaping () -> Void
-  ) {
+  ) -> Bool {
+    let content = response.notification.request.content
+    guard content.userInfo["m"] is String else { return false }
+    if response.actionIdentifier == UNNotificationDefaultActionIdentifier {
+      taps.tapped(content.userInfo)
+    }
     guard let decision = Decision(rawValue: response.actionIdentifier),
-      let machineID = response.notification.request.content.userInfo["m"] as? String
+      let machineID = content.userInfo["m"] as? String
     else {
       completionHandler()
-      return
+      return true
     }
     send(
       decision,
       machineID: machineID,
-      push: response.notification.request.content.userInfo,
+      push: content.userInfo,
       completionHandler: completionHandler
     )
+    return true
   }
 
   /// One sealed letter to the relay, which hands it to the machine whenever it
@@ -200,6 +210,47 @@ final class PushNotifications: NSObject {
       }
     default:
       result(FlutterMethodNotImplemented)
+    }
+  }
+}
+
+/// Hands the session a tapped push names to Dart: now when Dart is listening,
+/// otherwise as soon as it asks, which is how a tap that launched the app
+/// reaches it.
+final class NotificationTapChannel {
+  static let channelName = "broski/notification_taps"
+
+  private var channel: FlutterMethodChannel?
+  private var listening = false
+  private var pending: [String: String]?
+
+  func attach(messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(
+      name: Self.channelName,
+      binaryMessenger: messenger
+    )
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard call.method == "takeTap" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      self?.listening = true
+      result(self?.pending)
+      self?.pending = nil
+    }
+    self.channel = channel
+  }
+
+  func tapped(_ userInfo: [AnyHashable: Any]) {
+    var tap: [String: String] = [:]
+    for key in ["backend", "session", "request"] {
+      if let value = userInfo[key] as? String { tap[key] = value }
+    }
+    guard tap["backend"] != nil, tap["session"] != nil else { return }
+    if listening, let channel {
+      channel.invokeMethod("onTap", arguments: tap)
+    } else {
+      pending = tap
     }
   }
 }

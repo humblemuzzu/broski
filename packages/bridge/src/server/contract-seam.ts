@@ -1,7 +1,7 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { ServerWebSocket } from "bun";
-import type { BackendFactory, BackendId, JsonValue } from "../contract";
+import type { ActionResult, BackendFactory, BackendId, InteractionAnswer, JsonValue, SessionRef } from "../contract";
 import { BridgeCore, type CoreConnection } from "../core/core";
 import { CONTRACT_FRAME_TYPE } from "../core/frame";
 import type { CoreClock } from "../core/ports";
@@ -10,6 +10,7 @@ import type { RuntimeSendQueue } from "../utils/runtime-send-queue";
 import { openPromptJournal } from "./contract-prompt-journal";
 import { openReplacementJournal } from "./contract-replacement-journal";
 import type { BridgeLimits } from "./limits";
+import { contractFeedObserver } from "./link-feed/feed";
 import type { LeveledLogger } from "./logger";
 
 /** Where the journals live when backends are served and no other directory is given. */
@@ -41,6 +42,11 @@ export type ContractSeam = {
 	 */
 	refuse(ws: ServerWebSocket<unknown>, raw: string | Uint8Array): boolean;
 	disconnect(ws: ServerWebSocket<unknown>): void;
+	/**
+	 * A person's answer that does not come from a phone attached to the session: the daemon's feed
+	 * relays a decision made on a lock screen. Checked and applied as a phone's answer is.
+	 */
+	answer(session: SessionRef, answer: InteractionAnswer): Promise<ActionResult>;
 	/** Starts the backends, once the listeners are up: a slow start keeps no phone from connecting. */
 	start(): void;
 	stop(): Promise<void>;
@@ -71,6 +77,7 @@ export function createContractSeam(
 		maxFrameBytes: limits.linkMessageLimitBytes,
 		log,
 		clock: options?.clock ?? SYSTEM_CLOCK,
+		observer: contractFeedObserver,
 		directories: async (path) => (await getSecurePath(path)) ?? undefined,
 		...(journals !== undefined && {
 			journal: openPromptJournal(join(journals, "prompts.jsonl"), log),
@@ -106,6 +113,7 @@ export function createContractSeam(
 			connections.get(ws)?.close();
 			connections.delete(ws);
 		},
+		answer: (session, answer) => core.answer(session, answer),
 		start: () => {
 			for (const [id, factory] of backends) void core.addBackend(id, factory);
 		},

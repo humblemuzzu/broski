@@ -1,11 +1,21 @@
-import type { AgentBackend, BackendFactory, BackendId, JsonValue } from "../contract";
+import type {
+	ActionResult,
+	AgentBackend,
+	BackendFactory,
+	BackendId,
+	InteractionAnswer,
+	JsonValue,
+	SessionRef,
+} from "../contract";
 import { BackendRegistry } from "./backend-registry";
+import { answerFromBridge } from "./bridge-answer";
 import { CatalogFeed } from "./catalog-feed";
 import { CoreClient } from "./client";
 import type { CoreContext } from "./context";
 import { DEFAULT_REPLAY_WINDOW, type ReplayWindow } from "./event-log";
 import { InteractionDesk } from "./interaction-desk";
 import { DEFAULT_IDLE_CLOSE_MS } from "./keep-open";
+import { type CoreObserver, Observation } from "./observer";
 import type { ClientLink, CoreClock, CoreLog, DirectoryPolicy, PromptJournal, ReplacementJournal } from "./ports";
 import { PromptLedger } from "./prompt-ledger";
 import { ProtocolServer } from "./protocol-server";
@@ -25,6 +35,8 @@ export interface CoreOptions {
 	readonly replacementJournal?: ReplacementJournal;
 	readonly idleCloseMs?: number;
 	readonly replay?: ReplayWindow;
+	/** Told of every event of every open session, viewed or not. */
+	readonly observer?: CoreObserver;
 }
 
 /** One client's view of the core, for the connection that carries it. */
@@ -46,10 +58,17 @@ export class BridgeCore {
 	private readonly hub: SessionHub;
 	private readonly feed: CatalogFeed;
 	private readonly server: ProtocolServer;
+	private readonly desk = new InteractionDesk();
 	private readonly clients = new Set<CoreClient>();
 
 	constructor(private readonly options: CoreOptions) {
-		const desk = new InteractionDesk();
+		const { desk } = this;
+		const observation = new Observation(
+			options.observer,
+			(ref) => this.registry.get(ref.backend),
+			options.clock,
+			options.log,
+		);
 		const replacements = new Replacements(options.clock, options.replacementJournal);
 		this.hub = new SessionHub({
 			maxFrameBytes: options.maxFrameBytes,
@@ -57,7 +76,10 @@ export class BridgeCore {
 			clock: options.clock,
 			log: options.log,
 			idleCloseMs: options.idleCloseMs ?? DEFAULT_IDLE_CLOSE_MS,
-			onEvent: (live, event) => desk.observe(live, event),
+			onEvent: (live, record, before) => {
+				desk.observe(live, record.event);
+				observation.publish(live, record, before);
+			},
 			replacements,
 		});
 		this.feed = new CatalogFeed(this.clients, this.hub, options.maxFrameBytes, options.log);
@@ -101,6 +123,18 @@ export class BridgeCore {
 				for (const live of client.disconnect()) this.hub.leave(live, client);
 			},
 		};
+	}
+
+	/**
+	 * A person's answer from outside the phones attached to the session (the daemon's feed). It meets
+	 * the same checks as a phone's and, as there, answers nothing by itself.
+	 */
+	answer(ref: SessionRef, answer: InteractionAnswer): Promise<ActionResult> {
+		return answerFromBridge(
+			{ hub: this.hub, desk: this.desk, clock: this.options.clock, log: this.options.log },
+			ref,
+			answer,
+		);
 	}
 
 	/** Bridge shutdown: every backend is disposed, which closes their sessions; pending asks expire with them. */

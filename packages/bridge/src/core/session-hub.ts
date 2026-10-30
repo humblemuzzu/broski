@@ -1,6 +1,5 @@
 import {
 	type AgentBackend,
-	type AgentEvent,
 	type NewSessionOptions,
 	type NewSessionResult,
 	type OpenResult,
@@ -9,6 +8,7 @@ import {
 	type Rejected,
 	type SessionRef,
 	SessionSnapshot,
+	type SinkRecord,
 } from "../contract";
 import type { CoreClient } from "./client";
 import { SESSION_CALL_DEADLINE_MS, type Settled, settled, within } from "./deadline";
@@ -23,7 +23,7 @@ export interface HubDeps extends Omit<LiveSessionDeps, "published"> {
 	/** How long an idle session nobody views stays open. */
 	readonly idleCloseMs: number;
 	/** Every event after it reached the viewers, before the hub's own bookkeeping. */
-	readonly onEvent: (live: LiveSession, event: AgentEvent) => void;
+	readonly onEvent: (live: LiveSession, record: SinkRecord, before: SessionSnapshot) => void;
 	/** Told which stream replaced which, for a phone that was away. */
 	readonly replacements: Replacements;
 }
@@ -63,6 +63,11 @@ export class SessionHub {
 	async create(backend: AgentBackend, options: NewSessionOptions): Promise<NewSessionResult> {
 		const opened = await this.open(backend, { kind: "new", options });
 		return opened instanceof LiveSession ? { status: "accepted", session: opened.ref } : opened;
+	}
+
+	/** The open session `ref` names now, if it is one. */
+	find(ref: SessionRef): LiveSession | undefined {
+		return this.live.get(sessionKey(ref));
 	}
 
 	/** `viewer` stops viewing `live`, which may leave it idle and unviewed. */
@@ -133,7 +138,7 @@ export class SessionHub {
 		const ref = target.kind === "existing" ? target.session : result.session.session;
 		const live = new LiveSession(ref, result.session, result.snapshot, sink, {
 			...this.deps,
-			published: (session, event) => this.published(session, event),
+			published: (session, record, before) => this.published(session, record, before),
 		});
 		this.live.set(live.key, live);
 		sink.deliverTo(live);
@@ -149,8 +154,9 @@ export class SessionHub {
 		if (target.kind === "existing") this.awaitEnd(sessionKey(target.session), ended, label);
 	}
 
-	private published(live: LiveSession, event: AgentEvent): void {
-		this.deps.onEvent(live, event);
+	private published(live: LiveSession, record: SinkRecord, before: SessionSnapshot): void {
+		const { event } = record;
+		this.deps.onEvent(live, record, before);
 		if (event.type === "session_replaced") this.replace(live, event.session);
 		else this.reviewIdle(live);
 	}
@@ -168,7 +174,7 @@ export class SessionHub {
 			old.open,
 			old.snapshot,
 			old.sink,
-			{ ...this.deps, published: (session, event) => this.published(session, event) },
+			{ ...this.deps, published: (session, record, before) => this.published(session, record, before) },
 			old.claims,
 		);
 		this.deps.replacements.record(old.epoch, ref, next.epoch);

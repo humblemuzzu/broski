@@ -275,7 +275,7 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 		opencodeReadyTimeoutMs: options.opencodeReadyTimeoutMs,
 		contract,
 	});
-	attachLinkDecisionPath(messageRegistry, serverDeps);
+	attachLinkDecisionPath(messageRegistry, serverDeps, contract.answer);
 
 	let secureServer: ReturnType<typeof Bun.serve>;
 	try {

@@ -7,7 +7,7 @@
 import { mkdirSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { BackendFactory } from "../../contract";
+import type { AgentBackend, BackendFactory } from "../../contract";
 import { createFakeBackend, type FakeBackend, type FakeBackendOptions } from "../../contract/testing/fake-backend";
 import { type BridgeHandle, E2E_WAIT_MS, startBridge } from "../e2e/harness";
 import { type OpenRecord, recordingOpens } from "./core-adapters";
@@ -33,6 +33,8 @@ export interface CoreBridge {
 
 export interface CoreBridgeOptions {
 	readonly fake?: FakeBackendOptions;
+	/** Changes the adapter the core gets, as a broken or recording adapter would differ from the fake. */
+	readonly adapt?: (backend: AgentBackend) => AgentBackend;
 	/** Starts the fake from another's state, as a restarted bridge does. */
 	readonly from?: { root: string; restart: (host: Parameters<BackendFactory>[0]) => Promise<FakeBackend> };
 }
@@ -51,7 +53,7 @@ export async function startCoreBridge(options: CoreBridgeOptions = {}): Promise<
 	const factory: BackendFactory = async (host) => {
 		const fake = options.from ? await options.from.restart(host) : createFakeBackend(host, options.fake);
 		started.resolve(fake);
-		const recorded = recordingOpens(fake, opens);
+		const recorded = recordingOpens(options.adapt ? options.adapt(fake) : fake, opens);
 		return {
 			...recorded,
 			dispose: () => {

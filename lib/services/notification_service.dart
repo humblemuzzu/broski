@@ -1,6 +1,7 @@
 import 'dart:developer' as developer;
 import 'dart:io';
 
+import 'package:broski/services/notifications/notification_tap_relay.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
@@ -265,6 +266,7 @@ class NotificationService {
     // Navigation to the session will be handled by the app's navigation system.
     // This can be wired up with a stream or callback if needed.
     _notificationTappedSessionId = payload;
+    NotificationTapRelay.instance.add(payload);
   }
 
   /// The session ID from the last tapped notification.

@@ -36,7 +36,8 @@ import UserNotifications
     didReceive response: UNNotificationResponse,
     withCompletionHandler completionHandler: @escaping () -> Void
   ) {
-    PushNotifications.shared.decide(response, completionHandler: completionHandler)
+    if PushNotifications.shared.decide(response, completionHandler: completionHandler) { return }
+    super.userNotificationCenter(center, didReceive: response, withCompletionHandler: completionHandler)
   }
 
   override func userNotificationCenter(

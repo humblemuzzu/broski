@@ -1,18 +1,31 @@
+import type { InteractionId, SessionRef, ToolPermissionReply } from "../../contract";
 import { BoundedMap, registerSweepable } from "../../state/bounded-map";
 import type { LinkFeedAlertKind, LinkFeedEventMessage } from "./format";
 
 const MAX_TRACKED_REQUESTS = 512;
 const REQUEST_TTL_MS = 10 * 60 * 1000;
 
+/** What a decision on an alert of a contract session answers, and with what. */
+export type LinkFeedContractTarget = {
+	session: SessionRef;
+	interaction: InteractionId;
+	/** The replies the verdicts stand for; a verdict without one cannot be given from a lock screen. */
+	replies: { allow?: ToolPermissionReply; deny?: ToolPermissionReply };
+};
+
 /** What a decision needs to know about an alert the daemon was told about. */
 export type LinkFeedRequest = {
 	kind: LinkFeedAlertKind;
 	/** The backend's own label for the request. */
 	requestKind?: string;
+	/** Set for a request of a contract session, whose decisions go through the core. */
+	contract?: LinkFeedContractTarget;
 };
 
 export type LinkFeedRequestRecord = LinkFeedRequest & {
 	answered: boolean;
+	/** The backend took the request back before anyone answered through the feed. */
+	withdrawn: boolean;
 	/** The alert exactly as the daemon first received it, for a replay after a reconnect. */
 	message: LinkFeedEventMessage;
 };
@@ -47,7 +60,7 @@ export class LinkFeedRequests {
 	): boolean {
 		const key = requestKey(backend, session, request);
 		if (this.entries.has(key)) return false;
-		this.entries.set(key, { ...at, answered: false, message });
+		this.entries.set(key, { ...at, answered: false, withdrawn: false, message });
 		return true;
 	}
 
@@ -56,7 +69,7 @@ export class LinkFeedRequests {
 		const messages: LinkFeedEventMessage[] = [];
 		for (const key of this.entries.keys()) {
 			const record = this.entries.get(key);
-			if (record && !record.answered) messages.push(record.message);
+			if (record && !record.answered && !record.withdrawn) messages.push(record.message);
 		}
 		return messages;
 	}
@@ -71,6 +84,13 @@ export class LinkFeedRequests {
 		const key = requestKey(backend, session, request);
 		const record = this.entries.get(key);
 		if (record) this.entries.set(key, { ...record, answered: true });
+	}
+
+	/** The request is gone: no decision can reach it and a reconnecting feed is not told of it again. */
+	withdraw(backend: string, session: string, request: string): void {
+		const key = requestKey(backend, session, request);
+		const record = this.entries.get(key);
+		if (record) this.entries.set(key, { ...record, withdrawn: true });
 	}
 
 	reset(): void {
