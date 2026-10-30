@@ -1,6 +1,5 @@
 import 'package:broski/agent/agent_providers.dart';
 import 'package:broski/agent/notify/run_completion_watcher.dart';
-import 'package:broski/agent/notify/run_done_notifier.dart';
 import 'package:broski/agent/notify/session_viewing.dart';
 import 'package:broski/agent/ui/chat/agent_chat_screen.dart';
 import 'package:broski/contract/generated/contract.dart';
@@ -9,15 +8,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../support/manual_clock.dart';
+import '../support/recording_run_done_notifier.dart';
 import '../support/session_fixtures.dart';
 import '../support/widget_rig.dart';
-
-final class _Recorded implements RunDoneNotifier {
-  final List<RunDone> done = [];
-
-  @override
-  void runDone(RunDone done) => this.done.add(done);
-}
 
 SessionRef _ref(String id) => SessionRef(backend: BackendId.pi, sessionId: id);
 
@@ -42,7 +35,7 @@ void main() {
   group('the watcher', () {
     late WidgetRig rig;
     late ManualClock clock;
-    late _Recorded notifier;
+    late RecordingRunDoneNotifier notifier;
     late SessionViewing viewing;
     var foreground = true;
 
@@ -56,7 +49,7 @@ void main() {
       foreground = true;
       rig = WidgetRig();
       clock = ManualClock();
-      notifier = _Recorded();
+      notifier = RecordingRunDoneNotifier();
       viewing = SessionViewing();
       RunCompletionWatcher(
         client: rig.client,
@@ -132,7 +125,7 @@ void main() {
   ) async {
     final rig = WidgetRig();
     addTearDown(rig.dispose);
-    final notifier = _Recorded();
+    final notifier = RecordingRunDoneNotifier();
     final overrides = [runDoneNotifierProvider.overrideWithValue(notifier)];
 
     void finishRun(String id) {

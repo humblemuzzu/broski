@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:ui';
 
+import 'package:broski/agent/agent_providers.dart';
 import 'package:broski/app/app_messenger.dart';
 import 'package:broski/providers/font_provider.dart';
 import 'package:broski/providers/theme_provider.dart';
 import 'package:broski/screens/root_screen.dart';
 import 'package:broski/services/notification_service.dart';
+import 'package:broski/services/notifications/local_run_done_notifier.dart';
 import 'package:broski/services/storage/legacy_connection_purge.dart';
 import 'package:broski/services/storage_service.dart';
 import 'package:broski/theme/theme.dart';
@@ -40,7 +42,14 @@ void main() {
   _prewarmCaches();
   unawaited(purgeLegacyConnectionSecrets());
 
-  runApp(const ProviderScope(child: BroskiApp()));
+  runApp(
+    ProviderScope(
+      overrides: [
+        runDoneNotifierProvider.overrideWithValue(const LocalRunDoneNotifier()),
+      ],
+      child: const BroskiApp(),
+    ),
+  );
 }
 
 /// Pre-load cached data from secure storage into memory.

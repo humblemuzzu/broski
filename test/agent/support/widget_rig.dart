@@ -12,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'fake_contract_link.dart';
 import 'manual_clock.dart';
 import 'memory_text_store.dart';
+import 'recording_run_done_notifier.dart';
 import 'scripted_bridge.dart';
 import 'session_fixtures.dart';
 
@@ -114,6 +115,7 @@ final class WidgetRig {
   final AgentCache cache;
   late final ScriptedBridge bridge;
   late final ContractClient client;
+  final RecordingRunDoneNotifier runsDone = RecordingRunDoneNotifier();
 
   Future<void> pump(
     WidgetTester tester,
@@ -125,6 +127,7 @@ final class WidgetRig {
         overrides: [
           contractClientProvider.overrideWithValue(client),
           agentCacheProvider.overrideWithValue(cache),
+          runDoneNotifierProvider.overrideWithValue(runsDone),
           ...overrides,
         ],
         child: MaterialApp(

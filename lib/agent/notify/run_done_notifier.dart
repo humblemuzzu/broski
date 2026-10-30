@@ -1,6 +1,4 @@
 import 'package:broski/contract/generated/contract.dart';
-import 'package:broski/services/notification_service.dart'
-    show NotificationService;
 
 /// A run that finished in a session the person was not looking at.
 final class RunDone {
@@ -23,18 +21,4 @@ final class RunDone {
 
 abstract interface class RunDoneNotifier {
   void runDone(RunDone done);
-}
-
-/// The local "completed" notification every backend gets.
-final class LocalRunDoneNotifier implements RunDoneNotifier {
-  const LocalRunDoneNotifier();
-
-  @override
-  void runDone(RunDone done) =>
-      NotificationService.instance.showSessionCompleted(
-        sessionId: done.session.sessionId,
-        title: done.title,
-        projectName: done.project,
-        duration: done.duration,
-      );
 }

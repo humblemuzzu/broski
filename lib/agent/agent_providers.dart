@@ -118,8 +118,11 @@ final sessionViewingProvider = Provider<SessionViewing>(
   (ref) => SessionViewing(),
 );
 
+/// How a finished run is told; the app's entry point (`main.dart`) sets it.
 final runDoneNotifierProvider = Provider<RunDoneNotifier>(
-  (ref) => const LocalRunDoneNotifier(),
+  (ref) => throw UnimplementedError(
+    'runDoneNotifierProvider is overridden in main.dart',
+  ),
 );
 
 /// Read once at start: it lives as long as the app and tells the person when

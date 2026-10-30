@@ -121,6 +121,7 @@ class NotificationService {
     String? lastTool,
     int? additions,
     int? deletions,
+    String? payload,
   }) async {
     // Check if notifications are enabled
     if (!_enabled) return;
@@ -150,7 +151,7 @@ class NotificationService {
       id: sessionId.hashCode,
       title: projectName,
       body: body,
-      payload: sessionId,
+      payload: payload ?? sessionId,
     );
   }
 

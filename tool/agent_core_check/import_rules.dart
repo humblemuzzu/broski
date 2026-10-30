@@ -38,7 +38,6 @@ const namedImports = <String, Set<String>>{
   'package:broski/services/storage/broski_secure_storage.dart': {
     'broskiSecureStorage',
   },
-  'package:broski/services/notification_service.dart': {'NotificationService'},
   'package:broski/providers/app_info_provider.dart': {'appVersionProvider'},
   'package:broski/providers/connection/link_connection_controller.dart': {
     'linkConnectionControllerProvider',
