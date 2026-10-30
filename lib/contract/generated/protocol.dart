@@ -1379,13 +1379,20 @@ final class ModelsListRequest implements ClientMessage {
     required this.requestId,
     required this.backend,
     this.cwd,
+    this.includeUnavailable,
   });
 
   factory ModelsListRequest.fromJson(Map<String, Object?> json) {
     _expectShape(
       json,
       'ModelsListRequest',
-      const <String>{'type', 'requestId', 'backend', 'cwd'},
+      const <String>{
+        'type',
+        'requestId',
+        'backend',
+        'cwd',
+        'includeUnavailable',
+      },
       const <String, String>{'type': 'models.list'},
     );
     return ModelsListRequest(
@@ -1396,6 +1403,12 @@ final class ModelsListRequest implements ClientMessage {
       cwd: json.containsKey('cwd')
           ? _as<String>(json['cwd'], 'ModelsListRequest.cwd')
           : null,
+      includeUnavailable: json.containsKey('includeUnavailable')
+          ? _as<bool>(
+              json['includeUnavailable'],
+              'ModelsListRequest.includeUnavailable',
+            )
+          : null,
     );
   }
 
@@ -1403,6 +1416,7 @@ final class ModelsListRequest implements ClientMessage {
   final RequestId requestId;
   final BackendId backend;
   final WorkingDirectory? cwd;
+  final bool? includeUnavailable;
 
   @override
   Map<String, Object?> toJson() => {
@@ -1410,6 +1424,7 @@ final class ModelsListRequest implements ClientMessage {
     'requestId': requestId,
     'backend': backend.toJson(),
     if (cwd case final value?) 'cwd': value,
+    if (includeUnavailable case final value?) 'includeUnavailable': value,
   };
 
   @override
@@ -1418,15 +1433,20 @@ final class ModelsListRequest implements ClientMessage {
       other is ModelsListRequest &&
           _equal(requestId, other.requestId) &&
           _equal(backend, other.backend) &&
-          _equal(cwd, other.cwd);
+          _equal(cwd, other.cwd) &&
+          _equal(includeUnavailable, other.includeUnavailable);
 
   @override
-  int get hashCode =>
-      Object.hashAll([_hash(requestId), _hash(backend), _hash(cwd)]);
+  int get hashCode => Object.hashAll([
+    _hash(requestId),
+    _hash(backend),
+    _hash(cwd),
+    _hash(includeUnavailable),
+  ]);
 
   @override
   String toString() =>
-      'ModelsListRequest(requestId: $requestId, backend: $backend, cwd: $cwd)';
+      'ModelsListRequest(requestId: $requestId, backend: $backend, cwd: $cwd, includeUnavailable: $includeUnavailable)';
 }
 
 final class ModelsListResponse implements ServerMessage {

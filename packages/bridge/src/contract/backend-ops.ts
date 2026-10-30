@@ -1,4 +1,13 @@
 import { z } from "zod";
+import { ChangedFilesListed, ChangedFilesOp, ModelsRefreshed, RefreshModelsOp } from "./backend-ops-reads";
+import {
+	ExportPartOp,
+	ExportPartRead,
+	ExportSessionOp,
+	ImportSessionOp,
+	SessionExported,
+	SessionImported,
+} from "./backend-ops-transfer";
 import { FileChange } from "./content";
 import { SessionId, TranscriptItemId } from "./ids";
 import { MAX_ID_CHARS, MAX_LIST_ITEMS, MAX_NAME_CHARS, MAX_PATH_CHARS, MAX_TEXT_CHARS } from "./limits";
@@ -13,6 +22,11 @@ export const BackendOpKind = z.enum([
 	"revert_commit",
 	"navigate_tree",
 	"take_over",
+	"export_session",
+	"export_part",
+	"import_session",
+	"changed_files",
+	"refresh_models",
 ]);
 export type BackendOpKind = z.infer<typeof BackendOpKind>;
 
@@ -28,6 +42,11 @@ export function rewritesHistory(kind: BackendOpKind): boolean {
 		case "revert_stage":
 		case "revert_clear":
 		case "take_over":
+		case "export_session":
+		case "export_part":
+		case "import_session":
+		case "changed_files":
+		case "refresh_models":
 			return false;
 	}
 }
@@ -136,7 +155,15 @@ export type CodexOp = z.infer<typeof CodexOp>;
 export const OpenCodeOp = z.discriminatedUnion("kind", [RevertStageOp, RevertClearOp, RevertCommitOp]);
 export type OpenCodeOp = z.infer<typeof OpenCodeOp>;
 
-export const PiOp = z.discriminatedUnion("kind", [NavigateTreeOp, TakeOverOp]);
+export const PiOp = z.discriminatedUnion("kind", [
+	NavigateTreeOp,
+	TakeOverOp,
+	ExportSessionOp,
+	ExportPartOp,
+	ImportSessionOp,
+	ChangedFilesOp,
+	RefreshModelsOp,
+]);
 export type PiOp = z.infer<typeof PiOp>;
 
 export const ClaudeCodeCall = z.strictObject({ backend: z.literal("claude-code"), op: ClaudeCodeOp });
@@ -200,6 +227,11 @@ export const BackendOpResult = z.discriminatedUnion("kind", [
 	RevertCommitted,
 	TreeNavigated,
 	TakenOver,
+	SessionExported,
+	ExportPartRead,
+	SessionImported,
+	ChangedFilesListed,
+	ModelsRefreshed,
 ]);
 export type BackendOpResult = z.infer<typeof BackendOpResult>;
 

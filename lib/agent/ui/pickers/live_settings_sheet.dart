@@ -2,6 +2,7 @@ import 'package:broski/agent/agent_providers.dart';
 import 'package:broski/agent/catalog/catalog_lists.dart';
 import 'package:broski/agent/client/outcome.dart';
 import 'package:broski/agent/session/session_controls.dart';
+import 'package:broski/agent/ui/pickers/model_picker_extras.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:broski/theme/app_typography.dart';
 import 'package:broski/theme/design_tokens.dart';
@@ -53,6 +54,8 @@ class _LiveSettings extends ConsumerWidget {
             current: snapshot.modelId,
             timing: capabilities.modelSwitch,
             controls: controls,
+            backend: session.backend,
+            capabilities: capabilities,
           ),
           if (capabilities.thinking && levels.isNotEmpty)
             _ThinkingSection(
@@ -79,12 +82,16 @@ class _ModelSection extends StatelessWidget {
     required this.current,
     required this.timing,
     required this.controls,
+    required this.backend,
+    required this.capabilities,
   });
 
   final Outcome<List<ModelSummary>>? models;
   final ModelId? current;
   final ModelSwitchTiming timing;
   final SessionControls controls;
+  final BackendId backend;
+  final Capabilities capabilities;
 
   @override
   Widget build(BuildContext context) {
@@ -97,11 +104,11 @@ class _ModelSection extends StatelessWidget {
           ModelSwitchTiming.nextRequest => 'A change reaches the next request.',
           ModelSwitchTiming.nextRun => 'A change reaches the next run.',
         }, style: AppTypography.caption()),
-        if (listed case Done(value: final list))
+        if (listed case Done(value: final list)) ...[
           Wrap(
             spacing: Spacing.sm,
             children: [
-              for (final model in list)
+              for (final model in list.where(isUsableModel))
                 ChoiceChip(
                   key: ValueKey('model:${model.id}'),
                   label: Text(model.displayName),
@@ -109,8 +116,13 @@ class _ModelSection extends StatelessWidget {
                   onSelected: (_) => controls.setModel(model.id),
                 ),
             ],
-          )
-        else if (listed != null)
+          ),
+          ModelPickerExtras(
+            backend: backend,
+            capabilities: capabilities,
+            models: list,
+          ),
+        ] else if (listed != null)
           Text(problemOf(listed) ?? ''),
       ],
     );

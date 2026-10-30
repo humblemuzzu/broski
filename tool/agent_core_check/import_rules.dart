@@ -23,6 +23,9 @@ const _contract = 'package:broski/contract/generated/contract.dart';
 const namedImports = <String, Set<String>>{
   'package:broski_link/broski_link.dart': {'LinkSendFailure'},
   'package:broski/widgets/chat/detail_sheet.dart': {'DetailSheet'},
+  'package:file_picker/file_picker.dart': {'FilePicker', 'FileType'},
+  'package:path_provider/path_provider.dart': {'getTemporaryDirectory'},
+  'package:share_plus/share_plus.dart': {'Share', 'XFile'},
   'package:broski/widgets/chat/adaptive_markdown_body.dart': {
     'AdaptiveMarkdownBody',
   },

@@ -20,7 +20,11 @@ final modelsProvider = FutureProvider.autoDispose
     .family<Outcome<List<ModelSummary>>, CatalogKey>((ref, key) {
       final client = ref.watch(contractClientProvider);
       _readAgainWhenStale(ref, client, key.backend, CatalogScope.models);
-      return client.listModels(key.backend, cwd: key.cwd);
+      return client.listModels(
+        key.backend,
+        cwd: key.cwd,
+        includeUnavailable: true,
+      );
     });
 
 final modesProvider = FutureProvider.autoDispose

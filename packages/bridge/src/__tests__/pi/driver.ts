@@ -17,6 +17,7 @@ import { PiWorld, type PiWorldOptions } from "./helpers/pi-world";
 import { say, scenarioSteps } from "./helpers/scenarios";
 import { findSessionFile } from "./helpers/session-files";
 import { TerminalRig } from "./helpers/terminal-rig";
+import { transferCall } from "./helpers/transfer-calls";
 
 export class PiConformanceDriver implements ConformanceDriver {
 	readonly cwd: string;
@@ -61,6 +62,8 @@ export class PiConformanceDriver implements ConformanceDriver {
 
 	async backendCall(session: SessionRef, op: BackendOpKind): Promise<BackendCall | undefined> {
 		if (op === "take_over") return { backend: "pi", op: { kind: op, sessionId: session.sessionId } };
+		const transfer = await transferCall(this.world.backend, session, op);
+		if (transfer !== undefined) return transfer;
 		if (op !== "navigate_tree") return undefined;
 		const read = await this.world.backend.readTranscript(session, { limit: 200 });
 		if (read.status === "rejected") return undefined;

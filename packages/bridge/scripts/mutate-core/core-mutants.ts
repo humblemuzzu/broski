@@ -195,8 +195,8 @@ export const SESSION_MUTANTS: Mutant[] = [
 	...mutantsOf("core/minor-views.ts", [
 		{
 			name: "minor views: an older client is offered the op it cannot send",
-			find: "if (client.speaks(ADDED_IN_MINOR.takeOver)) return descriptor;",
-			replace: "return descriptor;",
+			find: "filter((op) => client.speaks(OP_ADDED_IN[op] ?? 0));",
+			replace: "filter(() => true);",
 		},
 		{
 			name: "minor views: no stand-in for the returned input",

@@ -3,6 +3,7 @@
 import {
 	ADDED_IN_MINOR,
 	type BackendDescriptor,
+	type BackendOpKind,
 	type EventEnvelope,
 	MAX_TEXT_CHARS,
 	type SessionSnapshot,
@@ -12,10 +13,20 @@ import type { EncodedFrame } from "./frame";
 import type { CoreLog } from "./ports";
 import { fitEvent } from "./wire-fit";
 
+/** The minor that added each op that was not in 1.0 (the others are absent). */
+const OP_ADDED_IN: Readonly<Partial<Record<BackendOpKind, number>>> = {
+	take_over: ADDED_IN_MINOR.takeOver,
+	export_session: ADDED_IN_MINOR.sessionFiles,
+	export_part: ADDED_IN_MINOR.sessionFiles,
+	import_session: ADDED_IN_MINOR.sessionFiles,
+	changed_files: ADDED_IN_MINOR.sessionFiles,
+	refresh_models: ADDED_IN_MINOR.modelAvailability,
+};
+
 /** The descriptor as `client` may know it: without the ops a later minor added. */
 export function descriptorFor(client: CoreClient, descriptor: BackendDescriptor): BackendDescriptor {
-	if (client.speaks(ADDED_IN_MINOR.takeOver)) return descriptor;
-	const backendOps = descriptor.capabilities.backendOps.filter((op) => op !== "take_over");
+	const backendOps = descriptor.capabilities.backendOps.filter((op) => client.speaks(OP_ADDED_IN[op] ?? 0));
+	if (backendOps.length === descriptor.capabilities.backendOps.length) return descriptor;
 	return { ...descriptor, capabilities: { ...descriptor.capabilities, backendOps } };
 }
 

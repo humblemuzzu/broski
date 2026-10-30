@@ -27,7 +27,7 @@ import { BackendStatus } from "./status";
  * field, a new request, a new union member or enum value) bumps `minor`; anything else bumps `major`.
  * Neither side sends the other anything newer than the other's `minor`, learnt from `hello`.
  */
-export const PROTOCOL_VERSION = { major: 1, minor: 2 } as const;
+export const PROTOCOL_VERSION = { major: 1, minor: 3 } as const;
 
 /**
  * The minor that introduced each addition to 1.0. The bridge sends it only to a client whose `hello`
@@ -35,7 +35,13 @@ export const PROTOCOL_VERSION = { major: 1, minor: 2 } as const;
  * `input_returned` event (an older client is sent a `notice` with the same texts in its place) and the
  * `take_over` Pi op (an older client is not told it exists).
  */
-export const ADDED_IN_MINOR = { replacedSync: 1, inputReturned: 2, takeOver: 2 } as const;
+export const ADDED_IN_MINOR = {
+	replacedSync: 1,
+	inputReturned: 2,
+	takeOver: 2,
+	sessionFiles: 3,
+	modelAvailability: 3,
+} as const;
 
 export const ProtocolVersion = z.strictObject({ major: z.int().nonnegative(), minor: z.int().nonnegative() });
 export type ProtocolVersion = z.infer<typeof ProtocolVersion>;
@@ -104,7 +110,11 @@ function response<T extends string, S extends z.ZodRawShape>(type: T, shape: S) 
 export const HelloRequest = request("hello", { protocol: ProtocolVersion, client: ClientInfo });
 export const BackendsListRequest = request("backends.list", {});
 export const BackendStatusRequest = request("backend.status", { backend: BackendId });
-export const ModelsListRequest = request("models.list", { backend: BackendId, cwd: WorkingDirectory.optional() });
+export const ModelsListRequest = request("models.list", {
+	backend: BackendId,
+	cwd: WorkingDirectory.optional(),
+	includeUnavailable: z.boolean().optional(),
+});
 export const CommandsListRequest = request("commands.list", {
 	backend: BackendId,
 	cwd: WorkingDirectory.optional(),

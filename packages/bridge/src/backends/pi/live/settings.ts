@@ -21,7 +21,7 @@ import type { LiveState } from "./live-state";
 export interface SessionSettingsDeps {
 	readonly session: () => AgentSession;
 	readonly live: LiveState;
-	readonly models: Pick<ModelCatalogue, "find">;
+	readonly models: Pick<ModelCatalogue, "find" | "missing">;
 	/** The model changed, and with it the context window the usage is measured against. */
 	readonly modelSwitched: () => void;
 }
@@ -62,7 +62,7 @@ export class SessionSettings implements GateHost {
 	/** `session.setModel` without `persist`, so the global default model stays the user's (pi `src/core/agent-session.ts:2541-2562`). */
 	async setModel(modelId: ModelId): Promise<ActionResult> {
 		const model = await this.deps.models.find(modelId);
-		if (!model) return rejected("not_found", `no model ${modelId}`);
+		if (!model) return this.deps.models.missing(modelId);
 		this.changing++;
 		try {
 			await this.deps.session().setModel(model);

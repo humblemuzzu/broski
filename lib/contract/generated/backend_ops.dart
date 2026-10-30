@@ -74,7 +74,12 @@ enum BackendOpKind {
   revertClear('revert_clear'),
   revertCommit('revert_commit'),
   navigateTree('navigate_tree'),
-  takeOver('take_over');
+  takeOver('take_over'),
+  exportSession('export_session'),
+  exportPart('export_part'),
+  importSession('import_session'),
+  changedFiles('changed_files'),
+  refreshModels('refresh_models');
 
   const BackendOpKind(this.wire);
 
@@ -99,6 +104,11 @@ sealed class BackendOpResult {
         'revert_commit' => RevertCommitted.fromJson(json),
         'navigate_tree' => TreeNavigated.fromJson(json),
         'take_over' => TakenOver.fromJson(json),
+        'export_session' => SessionExported.fromJson(json),
+        'export_part' => ExportPartRead.fromJson(json),
+        'import_session' => SessionImported.fromJson(json),
+        'changed_files' => ChangedFilesListed.fromJson(json),
+        'refresh_models' => ModelsRefreshed.fromJson(json),
         final tag => throw FormatException(
           'Unknown BackendOpResult kind: $tag',
         ),
@@ -337,7 +347,6 @@ final class NavigateTreeOp implements PiOp {
     );
   }
 
-  @override
   final SessionId sessionId;
   final TranscriptItemId itemId;
   final bool summarize;
@@ -449,10 +458,13 @@ sealed class PiOp {
   factory PiOp.fromJson(Map<String, Object?> json) => switch (json['kind']) {
     'navigate_tree' => NavigateTreeOp.fromJson(json),
     'take_over' => TakeOverOp.fromJson(json),
+    'export_session' => ExportSessionOp.fromJson(json),
+    'export_part' => ExportPartOp.fromJson(json),
+    'import_session' => ImportSessionOp.fromJson(json),
+    'changed_files' => ChangedFilesOp.fromJson(json),
+    'refresh_models' => RefreshModelsOp.fromJson(json),
     final tag => throw FormatException('Unknown PiOp kind: $tag'),
   };
-
-  SessionId get sessionId;
 
   Map<String, Object?> toJson();
 }
@@ -994,7 +1006,6 @@ final class TakeOverOp implements PiOp {
     );
   }
 
-  @override
   final SessionId sessionId;
 
   @override

@@ -3,11 +3,15 @@ import 'package:broski/agent/client/outcome.dart';
 import 'package:broski/agent/client/requests/session_requests.dart';
 import 'package:broski/agent/ui/chat/file_change_view.dart';
 import 'package:broski/agent/ui/panels/panel_registry.dart';
+import 'package:broski/agent/ui/panels/transfer/changed_files_view.dart';
+import 'package:broski/agent/ui/panels/transfer/export_share_view.dart';
+import 'package:broski/agent/ui/panels/transfer/file_transfers.dart';
 import 'package:broski/agent/ui/shared/text_entry_dialog.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/widgets/chat/detail_sheet.dart' show DetailSheet;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Asks what [panel] needs, calls the backend, and shows what came back. A
 /// history-rewriting operation reaches the conversation through the
@@ -19,6 +23,13 @@ Future<void> runOp(
   SessionRef session, {
   TranscriptItemId? itemId,
 }) async {
+  final flow = panel.flow;
+  if (flow != null) {
+    final files = ProviderScope.containerOf(
+      context,
+    ).read(fileTransfersProvider);
+    return flow(context, client, session, files);
+  }
   final call = await panel.ask(context, session.sessionId, itemId);
   if (call == null || !context.mounted) return;
   final outcome = await client.callBackend(call);
@@ -30,7 +41,7 @@ Future<void> runOp(
         title: panel.label,
         child: Padding(
           padding: Insets.screen,
-          child: OpResultView(result: result),
+          child: OpResultView(result: result, session: session),
         ),
       );
     case Refused() || Unreached():
@@ -39,9 +50,12 @@ Future<void> runOp(
 }
 
 class OpResultView extends StatelessWidget {
-  const OpResultView({super.key, required this.result});
+  const OpResultView({super.key, required this.result, this.session});
 
   final BackendOpResult result;
+
+  /// The session the operation ran on, when it ran on one.
+  final SessionRef? session;
 
   @override
   Widget build(BuildContext context) => switch (result) {
@@ -85,5 +99,26 @@ class OpResultView extends StatelessWidget {
     TreeNavigated() => const Text('Done. The conversation reloads.'),
     TakenOver() => const Text('This session now runs from your phone.'),
     RevertCleared() => const Text('The staged revert was undone.'),
+    final SessionExported exported => switch (session) {
+      final SessionRef session => ExportShareView(
+        session: session,
+        exported: exported,
+      ),
+      null => const Text('Exported.'),
+    },
+    ExportPartRead() => const SizedBox.shrink(),
+    SessionImported() => const Text('Imported. It is in the list.'),
+    final ChangedFilesListed changed => ChangedFilesView(changed: changed),
+    ModelsRefreshed(:final problems) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          problems.isEmpty
+              ? 'The model lists are up to date.'
+              : 'Some catalogues could not be refreshed:',
+        ),
+        for (final problem in problems) Text(problem),
+      ],
+    ),
   };
 }

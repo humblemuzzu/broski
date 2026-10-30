@@ -1,6 +1,6 @@
 # The Broski backend contract
 
-Status: Phase 1, protocol **1.2** (1.0 plus the `replaced` attach answer, 1.1, and the `take_over` op and `input_returned` event, 1.2; §12.4). Built on commit `9678394`. Nothing here is wired into the running bridge or the app yet. Phase 2 builds the bridge core on it, Phase 3 the Flutter core, and Phase 4 one adapter per backend.
+Status: Phase 1, protocol **1.3** (1.0 plus the `replaced` attach answer, 1.1, the `take_over` op and `input_returned` event, 1.2, and the Pi session-file ops, `refresh_models` and the unavailable models of a model list, 1.3; §12.4). Built on commit `9678394`. Nothing here is wired into the running bridge or the app yet. Phase 2 builds the bridge core on it, Phase 3 the Flutter core, and Phase 4 one adapter per backend.
 
 This document is the spec. The code is the definition: `packages/bridge/src/contract/` (zod schemas, interfaces, reducer, answer checker) and `packages/bridge/src/contract/testing/` (fake backend, conformance suite). Every backend fact below cites the research in [`research/`](research/):
 
@@ -449,7 +449,7 @@ Rejection { code: busy|not_steerable|no_model|auth|invalid_input|unsupported|not
 
 ### 11.3 Models and thinking
 
-`ModelSummary{id, displayName, description?, providerId?, providerName?, contextWindow?, inputModalities?, thinking: ThinkingSpec, isDefault}`. `ThinkingSpec{options[{value, label?, description?}], defaultValue?}`: no options means thinking cannot be set. `setThinking(value)` takes one of the current model's option values and nothing else; anything else is rejected `invalid_input`. `setModel(id)` takes a listed model; anything else is rejected `not_found`. The snapshot's `modelId` is the model chosen; `modelSwitch` says when the choice reaches the model.
+`ModelSummary{id, displayName, description?, providerId?, providerName?, contextWindow?, inputModalities?, thinking: ThinkingSpec, isDefault, unavailableReason?}`. A plain `models.list` holds usable models only. With `includeUnavailable` (since 1.3) the models the backend knows but cannot use now follow them, each with an `unavailableReason` that says what is missing; `setModel` refuses one (`auth`), and the conformance rule for models checks the order and the reason. `ThinkingSpec{options[{value, label?, description?}], defaultValue?}`: no options means thinking cannot be set. `setThinking(value)` takes one of the current model's option values and nothing else; anything else is rejected `invalid_input`. `setModel(id)` takes a listed model; anything else is rejected `not_found`. The snapshot's `modelId` is the model chosen; `modelSwitch` says when the choice reaches the model.
 
 | | Claude Code | Codex | OpenCode | Pi | Pi Durable |
 |---|---|---|---|---|---|
@@ -495,7 +495,7 @@ Every client message is a request `{type, requestId, …}` answered by exactly o
 | `hello{protocol, client}` | `{protocol, bridgeVersion}` |
 | `backends.list` | `{backends[{id, capabilities}]}` |
 | `backend.status{backend}` | `{status}` |
-| `models.list{backend, cwd?}` | `{result: ModelsListed{models} \| Rejected}` |
+| `models.list{backend, cwd?, includeUnavailable?}` | `{result: ModelsListed{models} \| Rejected}` |
 | `commands.list{backend, cwd?, session?}` | `{result: CommandsListed{commands} \| Rejected}` |
 | `modes.list{backend, cwd?}` | `{result: ModesListed{modes} \| Rejected}` |
 | `sessions.list{backend, query, page}` | `{result: SessionsListed{page} \| Rejected}` |
@@ -533,7 +533,7 @@ Pending interactions arrive in the snapshot or the replayed `interaction_request
 
 ### 12.4 Versioning
 
-`PROTOCOL_VERSION = {major: 1, minor: 2}`; `ADDED_IN_MINOR` (`protocol.ts`) names the minor each addition came in, and the core sends it only to a client whose `hello` named that minor. 1.1 is `replaced` (§12.2). 1.2 is the Pi op `take_over` (`ADDED_IN_MINOR.takeOver`: an older client's `BackendDescriptor.ops` does not list it) and the `input_returned` event (`ADDED_IN_MINOR.inputReturned`: an older client gets the same texts as a `notice` with the same `seq`, `core/minor-views.ts`). The rules:
+`PROTOCOL_VERSION = {major: 1, minor: 3}`; `ADDED_IN_MINOR` (`protocol.ts`) names the minor each addition came in, and the core sends it only to a client whose `hello` named that minor. 1.1 is `replaced` (§12.2). 1.2 is the Pi op `take_over` (`ADDED_IN_MINOR.takeOver`: an older client's `BackendDescriptor.ops` does not list it) and the `input_returned` event (`ADDED_IN_MINOR.inputReturned`: an older client gets the same texts as a `notice` with the same `seq`, `core/minor-views.ts`). 1.3 is the Pi ops `export_session`, `export_part`, `import_session` and `changed_files` (`ADDED_IN_MINOR.sessionFiles`), the Pi op `refresh_models`, `ModelSummary.unavailableReason` and the `includeUnavailable` field of `models.list` (`ADDED_IN_MINOR.modelAvailability`). `OP_ADDED_IN` (`core/minor-views.ts`) lists the ops of a minor an older client is not told of; the core passes `includeUnavailable` to an adapter only for a client of minor 3 or later. The rules:
 
 - Bridge and app talk only when `major` is equal.
 - A change the older side can ignore bumps `minor`: a new optional field, a new request type, a new union member or enum value.
@@ -562,6 +562,13 @@ Two typed escape hatches. Neither is an untyped blob.
 | opencode | `revert_stage{sessionId, itemId, restoreFiles}` / `revert_clear` / `revert_commit` | `{files}` / `{}` / `{}` | stage/clear/commit; 409 while busy (oc §7) |
 | pi | `navigate_tree{sessionId, itemId, summarize}` | `{}` | `navigateTree` (pi §7) |
 | pi | `take_over{sessionId}` (since 1.2) | `{}` (`TakenOver`) | Marks a session another client made as this bridge's own (`broski.origin`), so it becomes controllable. Refused `busy` while a terminal holds it or its file changed in the last 10 s. The question the app asks says no terminal may be using the session; only the human knows |
+| pi | `export_session{sessionId, format: html\|jsonl}` (since 1.3) | `{exportId, name, mimeType, bytes}` | The terminal's `/export` as HTML, or the session file whole up to its last complete line, written aside on the Mac (`AgentSession.exportToHtml`, pi-coding-agent `src/core/agent-session.ts`) |
+| pi | `export_part{sessionId, exportId, offset}` (since 1.3) | `{offset, data (base64), done}` | The next part of an export; a part is at most `MAX_TRANSFER_PART_BYTES` (512 KiB), so its frame fits the smallest link cap (1 MiB) |
+| pi | `import_session{uploadId, offset, data, last}` (since 1.3) | `{received, sessionId?}` | A session file arriving in parts, in order; the last part has the whole file judged as Pi reads session files, puts it in the sessions directory of its project (inside the trusted roots, never over a session) and lists it. A file past `MAX_IMPORT_BYTES` is refused |
+| pi | `changed_files{sessionId}` (since 1.3) | `{files[], omitted, additions, deletions}` | The files `edit` and `write` calls changed on the branch the transcript shows, folded per file |
+| pi | `refresh_models{}` (since 1.3) | `{problems[]}` | `pi update --models`: every signed-in provider's catalogue fetched again from the network, then the model files read again |
+
+Two Pi ops name no session (`import_session`, `refresh_models`): the ops rule (§14, rule 9) asks for `not_found` on a random session only of an op that names one. None of the five rewrites history.
 
 Revert is an op, not a capability: its meaning differs per backend (CC files only; Codex history only; OpenCode staged with files; Pi a leaf move; Pi Durable a fork), and one normalized "revert" would lie.
 

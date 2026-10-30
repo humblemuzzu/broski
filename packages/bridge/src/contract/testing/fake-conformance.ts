@@ -66,6 +66,15 @@ function exampleCall(op: BackendOpKind, sessionId: string, itemId: string): Back
 		case "navigate_tree":
 			return { backend: "pi", op: { kind: op, sessionId, itemId, summarize: false } };
 		case "take_over":
+		case "changed_files":
 			return { backend: "pi", op: { kind: op, sessionId } };
+		case "export_session":
+			return { backend: "pi", op: { kind: op, sessionId, format: "jsonl" } };
+		case "export_part":
+			return { backend: "pi", op: { kind: op, sessionId, exportId: "export", offset: 0 } };
+		case "import_session":
+			return { backend: "pi", op: { kind: op, uploadId: "upload", offset: 0, data: "", last: false } };
+		case "refresh_models":
+			return { backend: "pi", op: { kind: op } };
 	}
 }

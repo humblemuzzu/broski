@@ -1,4 +1,5 @@
 import 'package:broski/agent/agent_providers.dart';
+import 'package:broski/agent/ui/chat/copy_text.dart';
 import 'package:broski/agent/ui/chat/entry_views.dart';
 import 'package:broski/agent/ui/chat/item_actions_sheet.dart';
 import 'package:broski/agent/ui/chat/pending_prompt_view.dart';
@@ -77,16 +78,19 @@ class ChatTimeline extends ConsumerWidget {
       _ => null,
     };
     final actions = capabilities;
-    if (actions == null ||
-        !hasItemActions(actions) ||
-        itemId == null ||
-        !finished.contains(itemId)) {
-      return view;
-    }
+    final fromHere =
+        actions != null &&
+        hasItemActions(actions) &&
+        itemId != null &&
+        finished.contains(itemId);
+    final text = copyableTextOf(entry);
+    final copyable = text != null && text.trim().isNotEmpty;
+    if (!fromHere && !copyable) return view;
     void open() => showItemActions(
       context,
       session,
-      itemId: itemId,
+      itemId: fromHere ? itemId : null,
+      text: copyable ? text : null,
       capabilities: actions,
     );
     return Semantics(

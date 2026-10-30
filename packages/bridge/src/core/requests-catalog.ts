@@ -1,4 +1,4 @@
-import { PROTOCOL_VERSION, type ResponseFor } from "../contract";
+import { ADDED_IN_MINOR, PROTOCOL_VERSION, type ResponseFor } from "../contract";
 import { type Handler, onBackend } from "./context";
 import { allowedOptionalDirectory } from "./directories";
 import { descriptorFor } from "./minor-views";
@@ -46,9 +46,12 @@ export const backendStatus = onBackend<"backend.status">(
 
 export const modelsList = onBackend<"models.list">(
 	(request) => request.backend,
-	async ({ ctx, request, respond, backend }) => {
+	async ({ ctx, client, request, respond, backend }) => {
+		const options = {
+			includeUnavailable: request.includeUnavailable === true && client.speaks(ADDED_IN_MINOR.modelAvailability),
+		};
 		const directory = await allowedOptionalDirectory(ctx.directories, request.cwd);
-		const result = directory?.status === "rejected" ? directory : await backend.listModels(directory?.cwd);
+		const result = directory?.status === "rejected" ? directory : await backend.listModels(directory?.cwd, options);
 		respond({ type: "models.list.result", requestId: request.requestId, result });
 	},
 );

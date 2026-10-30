@@ -71,8 +71,10 @@ final class WidgetRig {
     Capabilities capabilities = everything,
     SessionSnapshot? snapshot,
     SessionCapabilities session = controllable,
+    int helloMinor = 0,
   }) : link = FakeContractLink() {
     bridge = ScriptedBridge(link)
+      ..helloMinor = helloMinor
       ..on<BackendsListRequest>(
         (request) => BackendsListResponse(
           requestId: request.requestId,
@@ -109,10 +111,17 @@ final class WidgetRig {
   late final ScriptedBridge bridge;
   late final ContractClient client;
 
-  Future<void> pump(WidgetTester tester, Widget home) async {
+  Future<void> pump(
+    WidgetTester tester,
+    Widget home, {
+    List<Override> overrides = const [],
+  }) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [contractClientProvider.overrideWithValue(client)],
+        overrides: [
+          contractClientProvider.overrideWithValue(client),
+          ...overrides,
+        ],
         child: MaterialApp(
           theme: BroskiTheme.fromOpenCodeTheme(opencodeDarkTheme),
           home: home,

@@ -16,7 +16,7 @@ export interface ModelChoice {
 /** What a new session asks for, checked before anything is written or built for it. */
 export async function chooseModel(
 	options: NewSessionOptions,
-	models: Pick<ModelCatalogue, "find">,
+	models: Pick<ModelCatalogue, "find" | "missing">,
 ): Promise<ModelChoice | Rejected> {
 	for (const setting of options.modes ?? []) {
 		const problem = modeProblem(setting);
@@ -27,7 +27,7 @@ export async function chooseModel(
 		return options.thinking === undefined ? { settings: {} } : { settings: {}, thinkingAfterStart: options.thinking };
 	}
 	const model: Model<Api> | undefined = await models.find(options.modelId);
-	if (!model) return rejected("not_found", `no model ${options.modelId}`);
+	if (!model) return models.missing(options.modelId);
 	if (options.thinking === undefined) return { settings: { model } };
 	const thinkingLevel = supportedLevel(model, options.thinking);
 	if (thinkingLevel === undefined) {

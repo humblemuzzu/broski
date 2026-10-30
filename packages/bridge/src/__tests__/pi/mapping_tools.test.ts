@@ -309,10 +309,13 @@ describe("file changes", () => {
 		expect(performance.now() - started).toBeLessThan(2000);
 	});
 
-	test("write: one modified change for the path, nothing more is known", () => {
+	test("write: one modified change for the path, the lines written counted as added, nothing more is known", () => {
 		expect(fileChangesOf("write", { path: "new.md", content: "x" }, undefined)).toEqual([
-			{ path: "new.md", change: "modified" },
+			{ path: "new.md", change: "modified", additions: 1 },
 		]);
+		const lines = (content: string) => fileChangesOf("write", { path: "f", content }, undefined)[0]?.additions;
+		expect([lines(""), lines("a\n"), lines("a\nb"), lines("a\nb\n\n")]).toEqual([0, 1, 2, 3]);
+		expect(fileChangesOf("write", { path: "f" }, undefined)).toEqual([{ path: "f", change: "modified" }]);
 		expect(fileChangesOf("write", { content: "x" }, undefined)).toEqual([]);
 		expect(fileChangesOf("write", "not an object", undefined)).toEqual([]);
 	});

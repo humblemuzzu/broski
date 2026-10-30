@@ -122,5 +122,15 @@ export function fakeOpResult(call: BackendCall): BackendOpResult {
 		case "navigate_tree":
 		case "take_over":
 			return { kind: op.kind };
+		case "export_session":
+			return { kind: op.kind, exportId: "export", name: "session.jsonl", mimeType: "application/x-ndjson", bytes: 0 };
+		case "export_part":
+			return { kind: op.kind, offset: op.offset, data: "", done: true };
+		case "import_session":
+			return { kind: op.kind, received: op.offset };
+		case "changed_files":
+			return { kind: op.kind, files: [], omitted: 0, additions: 0, deletions: 0 };
+		case "refresh_models":
+			return { kind: op.kind, problems: [] };
 	}
 }

@@ -197,6 +197,7 @@ export class FakeWorld implements FakeEnvironment {
 		if (call.backend !== this.id || !this.traits.backendOps.includes(call.op.kind)) {
 			return rejected("unsupported", `${call.backend} ${call.op.kind}`);
 		}
+		if (!("sessionId" in call.op)) return { status: "accepted", result: fakeOpResult(call) };
 		const ref: SessionRef = { backend: this.id, sessionId: call.op.sessionId };
 		const found = this.find(ref);
 		if (!(found instanceof FakeSession)) return found;

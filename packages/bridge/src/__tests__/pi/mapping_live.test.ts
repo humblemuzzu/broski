@@ -257,7 +257,7 @@ describe("a run on the real SDK", () => {
 		expect(finished).toHaveLength(2);
 		const write = finished.find((event) => event.outcome === "completed");
 		const read = finished.find((event) => event.outcome === "failed");
-		expect(write?.result.fileChanges).toEqual([{ path: "new.txt", change: "modified" }]);
+		expect(write?.result.fileChanges).toEqual([{ path: "new.txt", change: "modified", additions: 1 }]);
 		expect(read?.result).toMatchObject({ content: [], fileChanges: [] });
 		expect(read?.result.error).toContain("missing.txt");
 		expect(shape(storedItems(session))).toEqual(shape(liveItems(check(recorder))));

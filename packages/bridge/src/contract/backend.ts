@@ -26,6 +26,11 @@ export interface CatalogSink {
 	emit(event: CatalogEvent): void;
 }
 
+/** `includeUnavailable`: also the models the backend knows but cannot use now, each with its `unavailableReason`. */
+export interface ModelListOptions {
+	readonly includeUnavailable?: boolean;
+}
+
 /** An event as an adapter emits it; the core adds the session and `seq`. */
 export type SinkRecord = Omit<EventEnvelope, "seq" | "session">;
 
@@ -66,7 +71,7 @@ export interface AgentBackend {
 	readTranscript(session: SessionRef, page: PageRequest): Promise<TranscriptReadResult>;
 	/** The bytes behind an `ImageRef` the session's events or transcript named. */
 	readAttachment(session: SessionRef, attachment: AttachmentId): Promise<AttachmentReadResult>;
-	listModels(cwd: string | undefined): Promise<ModelsListResult>;
+	listModels(cwd: string | undefined, options?: ModelListOptions): Promise<ModelsListResult>;
 	listCommands(scope: { cwd?: string; session?: SessionRef }): Promise<CommandsListResult>;
 	listModes(cwd: string | undefined): Promise<ModesListResult>;
 	open(target: OpenTarget, sink: SessionSink): Promise<OpenResult>;

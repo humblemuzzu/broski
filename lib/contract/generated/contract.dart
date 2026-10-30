@@ -4,6 +4,8 @@
 library;
 
 part 'backend_ops.dart';
+part 'backend_ops_reads.dart';
+part 'backend_ops_transfer.dart';
 part 'capabilities.dart';
 part 'catalog_events.dart';
 part 'commands.dart';
@@ -36,12 +38,13 @@ part 'transcript.dart';
 part 'usage.dart';
 
 const int contractProtocolMajor = 1;
-const int contractProtocolMinor = 2;
+const int contractProtocolMinor = 3;
 
 const int contractMaxCatalogItems = 10000;
 const int contractMaxClientMessageValues = 50000;
 const int contractMaxIdChars = 256;
 const int contractMaxImageChars = 4194304;
+const int contractMaxImportBytes = 268435456;
 const int contractMaxJsonDepth = 64;
 const int contractMaxListItems = 1000;
 const int contractMaxMessageBytes = 8388608;
@@ -49,6 +52,8 @@ const int contractMaxNameChars = 1024;
 const int contractMaxPageLimit = 200;
 const int contractMaxPathChars = 4096;
 const int contractMaxTextChars = 1048576;
+const int contractMaxTransferPartBytes = 524288;
+const int contractMaxTransferPartChars = 699052;
 const int contractRequestDeadlineMs = 120000;
 
 T _as<T>(Object? value, String path) => value is T

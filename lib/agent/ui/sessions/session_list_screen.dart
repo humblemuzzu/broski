@@ -3,6 +3,7 @@ import 'package:broski/agent/catalog/session_actions.dart';
 import 'package:broski/agent/catalog/session_list_controller.dart';
 import 'package:broski/agent/ui/backend_label.dart';
 import 'package:broski/agent/ui/chat/agent_chat_screen.dart';
+import 'package:broski/agent/ui/panels/backend_panels_sheet.dart';
 import 'package:broski/agent/ui/sessions/new_session_sheet.dart';
 import 'package:broski/agent/ui/sessions/session_actions_sheet.dart';
 import 'package:broski/agent/ui/sessions/session_row.dart';
@@ -42,6 +43,13 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
             : 'Subagents of ${parent.title?.text ?? 'this session'}',
       ),
       actions: [
+        if (hasBackendPanels(widget.backend) && parent == null)
+          IconButton(
+            key: const ValueKey('backend-panels'),
+            tooltip: 'More',
+            icon: const Icon(AppIcons.moreVertical),
+            onPressed: () => showBackendPanels(context, widget.backend),
+          ),
         if (widget.backend.capabilities.archive && parent == null)
           IconButton(
             key: const ValueKey('toggle-archived'),

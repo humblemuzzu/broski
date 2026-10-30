@@ -8,6 +8,7 @@ import type {
 	ActionResult,
 	AttachmentId,
 	AttachmentReadResult,
+	ChangedFilesListed,
 	ForkPoint,
 	InteractionAnswer,
 	ModelId,
@@ -27,6 +28,7 @@ import type {
 import type { ToolCallIds } from "./ids";
 import type { LiveState } from "./live/live-state";
 import type { PermissionsMode } from "./modes";
+import type { CheckedHeader } from "./transfer/session-check";
 
 /** One member of Pi's session event union (pi-coding-agent `dist/core/agent-session.d.ts:47-109`). */
 export type PiEvent<T extends AgentSessionEvent["type"]> = Extract<AgentSessionEvent, { type: T }>;
@@ -80,6 +82,10 @@ export interface SessionStore {
 	/** `release` runs once the file may be deleted and before it is: the session's host ends there. */
 	remove(sessionId: SessionId, release: () => Promise<void>): Promise<ActionResult>;
 	fork(sessionId: SessionId, at: ForkPoint | undefined, live: LiveOverlay): Promise<NewSessionResult>;
+	/** The files the session's tool calls changed, with the lines added and removed (`store/changed-files.ts`). */
+	changedFiles(sessionId: SessionId, live: LiveOverlay): Promise<ChangedFilesListed | Rejected>;
+	/** Takes the checked session file at `source` into the sessions directory its project uses; see `store/import-file.ts`. */
+	importSession(header: CheckedHeader, source: string): Promise<{ readonly sessionId: SessionId } | Rejected>;
 	/**
 	 * From now on a session file another process adds, changes or removes reaches the catalog as
 	 * `session_updated`/`session_removed`: Pi reports nothing live (README §5, catalog sink).

@@ -39,7 +39,7 @@ import { type HostedPart, SessionView, type SessionViewDeps, watchedSnapshot } f
 export interface SessionHostsDeps {
 	readonly terminals: TerminalRegistry;
 	readonly shared: SharedServices;
-	readonly models: Pick<ModelCatalogue, "find">;
+	readonly models: Pick<ModelCatalogue, "find" | "missing">;
 	readonly store: SessionStore;
 	readonly catalog: CatalogFeed;
 	readonly now: () => number;

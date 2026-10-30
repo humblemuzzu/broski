@@ -19,6 +19,9 @@ type Scope = Awaited<ReturnType<typeof resolveModelScopeWithDiagnostics>>;
 /** The global `enabledModels` and a few projects' own. */
 const REMEMBERED_SCOPES = 16;
 
+/** `pi update --models` gives up after this long. */
+const NETWORK_REFRESH_MS = 15_000;
+
 /** Even with the files unchanged a refresh runs this often, as a credential can expire between two reads. */
 const REFRESH_EVERY_MS = 60_000;
 
@@ -53,6 +56,30 @@ export class ModelRuntimeHost {
 			started.then(done, done);
 		}
 		return this.inFlight;
+	}
+
+	/**
+	 * What `pi update --models` does (pi-coding-agent `src/package-manager-cli.ts:539-553`): every provider's catalogue fetched
+	 * again whatever its age, within `NETWORK_REFRESH_MS`. A provider that fails keeps the catalogue it had, and is named.
+	 * The next listing reads every file again.
+	 */
+	async refreshFromNetwork(): Promise<string[]> {
+		await this.available();
+		let problems: string[];
+		try {
+			const { aborted, errors } = await this.runtime.refresh({
+				allowNetwork: true,
+				force: true,
+				signal: AbortSignal.timeout(NETWORK_REFRESH_MS),
+			});
+			problems = [...errors].map(([providerId, error]) => `${providerId}: ${error.message}`);
+			if (aborted) problems.push(`the catalogues were not all fetched within ${NETWORK_REFRESH_MS / 1000} s`);
+		} catch (error) {
+			problems = [errorText(error)];
+		}
+		this.lastStamps = undefined;
+		this.scopes.clear();
+		return problems;
 	}
 
 	private async refreshIfStale(): Promise<AvailableModels> {

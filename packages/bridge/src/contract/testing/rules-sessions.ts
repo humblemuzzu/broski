@@ -170,8 +170,8 @@ async function deletes(rig: Rig, backend: With<"delete">, ref: SessionRef): Prom
 
 /**
  * Every declared op runs against a session's history and answers with its own result kind; an op
- * that rewrites history invalidates the transcript. Calls naming no session, or another backend's
- * op, are refused.
+ * that rewrites history invalidates the transcript. A call naming no session, if the op names one,
+ * or another backend's op, is refused.
  */
 export async function backendOpsAnswerInKind(rig: Rig): Promise<void> {
 	const { backend } = rig;
@@ -196,6 +196,7 @@ export async function backendOpsAnswerInKind(rig: Rig): Promise<void> {
 				`transcript_invalidated after ${op}`,
 			);
 		}
+		if (!("sessionId" in made.op)) continue;
 		const nowhere = await call(withSession(made, crypto.randomUUID()));
 		expect(
 			nowhere.status === "rejected" && nowhere.rejection.code === "not_found",

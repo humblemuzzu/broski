@@ -10,6 +10,8 @@ import { itemsOfEntry } from "../mapping/message-items";
 import type { SessionStore, StoredSession } from "../ports";
 import { rejected } from "../rejections";
 import { readAttachment } from "./attachments";
+import { readChangedFiles } from "./changed-files";
+import { importStored } from "./import-file";
 import { getSession, listSessions } from "./list";
 import { claimStored, forkStored, type MutationDeps, removeStored, renameStored } from "./mutations";
 import { isFileSystemError } from "./open-file";
@@ -61,6 +63,8 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
 		claim: (sessionId) => reaching(() => claimStored(mutation, sessionId)),
 		remove: (sessionId, release) => reaching(() => removeStored(mutation, sessionId, release)),
 		fork: (sessionId, at, live) => reaching(() => forkStored(mutation, sessionId, at, live)),
+		changedFiles: (sessionId, live) => reaching(() => readChangedFiles(index, sessionId, live, itemsOfEntry)),
+		importSession: (header, source) => reaching(() => importStored(mutation, header, source)),
 		watch: (live) => watcher.start(live),
 		dispose: () => watcher.stop(),
 	};

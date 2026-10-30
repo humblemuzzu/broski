@@ -171,6 +171,46 @@ Future<BackendCall?> askTakeOver(
   return sure ? PiCall(op: TakeOverOp(sessionId: sessionId)) : null;
 }
 
+Future<BackendCall?> askExportSession(
+  BuildContext context,
+  SessionId sessionId,
+  TranscriptItemId? _,
+) async {
+  final format = await _choose(
+    context,
+    title: 'Export this session as',
+    body: 'The Mac writes it aside and sends it here to share.',
+    options: const {
+      'A web page (HTML)': SessionExportFormat.html,
+      'The session file (JSONL)': SessionExportFormat.jsonl,
+    },
+  );
+  return format == null
+      ? null
+      : PiCall(
+          op: ExportSessionOp(sessionId: sessionId, format: format),
+        );
+}
+
+Future<BackendCall?> askChangedFiles(
+  BuildContext context,
+  SessionId sessionId,
+  TranscriptItemId? _,
+) async => PiCall(op: ChangedFilesOp(sessionId: sessionId));
+
+Future<BackendCall?> askRefreshModels(
+  BuildContext context,
+  SessionId sessionId,
+  TranscriptItemId? _,
+) async => const PiCall(op: RefreshModelsOp());
+
+/// For a panel that is run by its `flow`, or never run on its own.
+Future<BackendCall?> askNothing(
+  BuildContext context,
+  SessionId sessionId,
+  TranscriptItemId? _,
+) async => null;
+
 Future<T?> _choose<T>(
   BuildContext context, {
   required String title,
