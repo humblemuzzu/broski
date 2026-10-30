@@ -77,7 +77,12 @@ enum BackendOpKind {
   takeOver('take_over'),
   sessionSettings('session_settings'),
   sessionTools('session_tools'),
-  systemPrompt('system_prompt');
+  systemPrompt('system_prompt'),
+  exportSession('export_session'),
+  exportPart('export_part'),
+  importSession('import_session'),
+  changedFiles('changed_files'),
+  refreshModels('refresh_models');
 
   const BackendOpKind(this.wire);
 
@@ -105,6 +110,11 @@ sealed class BackendOpResult {
         'session_settings' => SessionSettingsResult.fromJson(json),
         'session_tools' => SessionToolsResult.fromJson(json),
         'system_prompt' => SystemPromptResult.fromJson(json),
+        'export_session' => SessionExported.fromJson(json),
+        'export_part' => ExportPartRead.fromJson(json),
+        'import_session' => SessionImported.fromJson(json),
+        'changed_files' => ChangedFilesListed.fromJson(json),
+        'refresh_models' => ModelsRefreshed.fromJson(json),
         final tag => throw FormatException(
           'Unknown BackendOpResult kind: $tag',
         ),
@@ -343,7 +353,6 @@ final class NavigateTreeOp implements PiOp {
     );
   }
 
-  @override
   final SessionId sessionId;
   final TranscriptItemId itemId;
   final bool summarize;
@@ -458,10 +467,13 @@ sealed class PiOp {
     'session_settings' => SessionSettingsOp.fromJson(json),
     'session_tools' => SessionToolsOp.fromJson(json),
     'system_prompt' => SystemPromptOp.fromJson(json),
+    'export_session' => ExportSessionOp.fromJson(json),
+    'export_part' => ExportPartOp.fromJson(json),
+    'import_session' => ImportSessionOp.fromJson(json),
+    'changed_files' => ChangedFilesOp.fromJson(json),
+    'refresh_models' => RefreshModelsOp.fromJson(json),
     final tag => throw FormatException('Unknown PiOp kind: $tag'),
   };
-
-  SessionId get sessionId;
 
   Map<String, Object?> toJson();
 }
@@ -1003,7 +1015,6 @@ final class TakeOverOp implements PiOp {
     );
   }
 
-  @override
   final SessionId sessionId;
 
   @override

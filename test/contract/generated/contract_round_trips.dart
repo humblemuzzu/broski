@@ -115,6 +115,12 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
   ),
   'CatalogScope': (json) =>
       CatalogScope.fromJson(_as<String>(json, 'CatalogScope')),
+  'ChangedFilesListed': (json) => ChangedFilesListed.fromJson(
+    _as<Map<String, Object?>>(json, 'ChangedFilesListed'),
+  ),
+  'ChangedFilesOp': (json) => ChangedFilesOp.fromJson(
+    _as<Map<String, Object?>>(json, 'ChangedFilesOp'),
+  ),
   'ChoiceChange': (json) =>
       ChoiceChange.fromJson(_as<Map<String, Object?>>(json, 'ChoiceChange')),
   'ChoiceReply': (json) =>
@@ -222,6 +228,15 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
       EventEnvelope.fromJson(_as<Map<String, Object?>>(json, 'EventEnvelope')),
   'EventMessage': (json) =>
       EventMessage.fromJson(_as<Map<String, Object?>>(json, 'EventMessage')),
+  'ExportId': (json) => _as<String>(json, 'ExportId'),
+  'ExportPartOp': (json) =>
+      ExportPartOp.fromJson(_as<Map<String, Object?>>(json, 'ExportPartOp')),
+  'ExportPartRead': (json) => ExportPartRead.fromJson(
+    _as<Map<String, Object?>>(json, 'ExportPartRead'),
+  ),
+  'ExportSessionOp': (json) => ExportSessionOp.fromJson(
+    _as<Map<String, Object?>>(json, 'ExportSessionOp'),
+  ),
   'ExtensionEvent': (json) => ExtensionEvent.fromJson(
     _as<Map<String, Object?>>(json, 'ExtensionEvent'),
   ),
@@ -275,6 +290,9 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
       ImageContent.fromJson(_as<Map<String, Object?>>(json, 'ImageContent')),
   'ImageRef': (json) =>
       ImageRef.fromJson(_as<Map<String, Object?>>(json, 'ImageRef')),
+  'ImportSessionOp': (json) => ImportSessionOp.fromJson(
+    _as<Map<String, Object?>>(json, 'ImportSessionOp'),
+  ),
   'InputModality': (json) =>
       InputModality.fromJson(_as<String>(json, 'InputModality')),
   'InputReturnedEvent': (json) => InputReturnedEvent.fromJson(
@@ -366,6 +384,9 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
   ),
   'ModelsListed': (json) =>
       ModelsListed.fromJson(_as<Map<String, Object?>>(json, 'ModelsListed')),
+  'ModelsRefreshed': (json) => ModelsRefreshed.fromJson(
+    _as<Map<String, Object?>>(json, 'ModelsRefreshed'),
+  ),
   'ModesListRequest': (json) => ModesListRequest.fromJson(
     _as<Map<String, Object?>>(json, 'ModesListRequest'),
   ),
@@ -510,6 +531,9 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
   'RateLimitUpdate': (json) => RateLimitUpdate.fromJson(
     _as<Map<String, Object?>>(json, 'RateLimitUpdate'),
   ),
+  'RefreshModelsOp': (json) => RefreshModelsOp.fromJson(
+    _as<Map<String, Object?>>(json, 'RefreshModelsOp'),
+  ),
   'Rejected': (json) =>
       Rejected.fromJson(_as<Map<String, Object?>>(json, 'Rejected')),
   'Rejection': (json) =>
@@ -631,6 +655,11 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
   'SessionDetachResponse': (json) => SessionDetachResponse.fromJson(
     _as<Map<String, Object?>>(json, 'SessionDetachResponse'),
   ),
+  'SessionExportFormat': (json) =>
+      SessionExportFormat.fromJson(_as<String>(json, 'SessionExportFormat')),
+  'SessionExported': (json) => SessionExported.fromJson(
+    _as<Map<String, Object?>>(json, 'SessionExported'),
+  ),
   'SessionForkRequest': (json) => SessionForkRequest.fromJson(
     _as<Map<String, Object?>>(json, 'SessionForkRequest'),
   ),
@@ -649,6 +678,9 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
     _as<Map<String, Object?>>(json, 'SessionGetResult'),
   ),
   'SessionId': (json) => _as<String>(json, 'SessionId'),
+  'SessionImported': (json) => SessionImported.fromJson(
+    _as<Map<String, Object?>>(json, 'SessionImported'),
+  ),
   'SessionOrigin': (json) =>
       SessionOrigin.fromJson(_as<String>(json, 'SessionOrigin')),
   'SessionPage': (json) =>
@@ -841,6 +873,7 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
   'UncommittedReview': (json) => UncommittedReview.fromJson(
     _as<Map<String, Object?>>(json, 'UncommittedReview'),
   ),
+  'UploadId': (json) => _as<String>(json, 'UploadId'),
   'Usage': (json) => Usage.fromJson(_as<Map<String, Object?>>(json, 'Usage')),
   'UsageUpdatedEvent': (json) => UsageUpdatedEvent.fromJson(
     _as<Map<String, Object?>>(json, 'UsageUpdatedEvent'),
@@ -986,6 +1019,12 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   )).toJson(),
   'CatalogScope': (json) =>
       (CatalogScope.fromJson(_as<String>(json, 'CatalogScope'))).toJson(),
+  'ChangedFilesListed': (json) => (ChangedFilesListed.fromJson(
+    _as<Map<String, Object?>>(json, 'ChangedFilesListed'),
+  )).toJson(),
+  'ChangedFilesOp': (json) => (ChangedFilesOp.fromJson(
+    _as<Map<String, Object?>>(json, 'ChangedFilesOp'),
+  )).toJson(),
   'ChoiceChange': (json) => (ChoiceChange.fromJson(
     _as<Map<String, Object?>>(json, 'ChoiceChange'),
   )).toJson(),
@@ -1114,6 +1153,16 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   'EventMessage': (json) => (EventMessage.fromJson(
     _as<Map<String, Object?>>(json, 'EventMessage'),
   )).toJson(),
+  'ExportId': (json) => (_as<String>(json, 'ExportId')),
+  'ExportPartOp': (json) => (ExportPartOp.fromJson(
+    _as<Map<String, Object?>>(json, 'ExportPartOp'),
+  )).toJson(),
+  'ExportPartRead': (json) => (ExportPartRead.fromJson(
+    _as<Map<String, Object?>>(json, 'ExportPartRead'),
+  )).toJson(),
+  'ExportSessionOp': (json) => (ExportSessionOp.fromJson(
+    _as<Map<String, Object?>>(json, 'ExportSessionOp'),
+  )).toJson(),
   'ExtensionEvent': (json) => (ExtensionEvent.fromJson(
     _as<Map<String, Object?>>(json, 'ExtensionEvent'),
   )).toJson(),
@@ -1181,6 +1230,9 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   )).toJson(),
   'ImageRef': (json) =>
       (ImageRef.fromJson(_as<Map<String, Object?>>(json, 'ImageRef'))).toJson(),
+  'ImportSessionOp': (json) => (ImportSessionOp.fromJson(
+    _as<Map<String, Object?>>(json, 'ImportSessionOp'),
+  )).toJson(),
   'InputModality': (json) =>
       (InputModality.fromJson(_as<String>(json, 'InputModality'))).toJson(),
   'InputReturnedEvent': (json) => (InputReturnedEvent.fromJson(
@@ -1277,6 +1329,9 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   )).toJson(),
   'ModelsListed': (json) => (ModelsListed.fromJson(
     _as<Map<String, Object?>>(json, 'ModelsListed'),
+  )).toJson(),
+  'ModelsRefreshed': (json) => (ModelsRefreshed.fromJson(
+    _as<Map<String, Object?>>(json, 'ModelsRefreshed'),
   )).toJson(),
   'ModesListRequest': (json) => (ModesListRequest.fromJson(
     _as<Map<String, Object?>>(json, 'ModesListRequest'),
@@ -1444,6 +1499,9 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   'RateLimitUpdate': (json) => (RateLimitUpdate.fromJson(
     _as<Map<String, Object?>>(json, 'RateLimitUpdate'),
   )).toJson(),
+  'RefreshModelsOp': (json) => (RefreshModelsOp.fromJson(
+    _as<Map<String, Object?>>(json, 'RefreshModelsOp'),
+  )).toJson(),
   'Rejected': (json) =>
       (Rejected.fromJson(_as<Map<String, Object?>>(json, 'Rejected'))).toJson(),
   'Rejection': (json) => (Rejection.fromJson(
@@ -1590,6 +1648,12 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   'SessionDetachResponse': (json) => (SessionDetachResponse.fromJson(
     _as<Map<String, Object?>>(json, 'SessionDetachResponse'),
   )).toJson(),
+  'SessionExportFormat': (json) => (SessionExportFormat.fromJson(
+    _as<String>(json, 'SessionExportFormat'),
+  )).toJson(),
+  'SessionExported': (json) => (SessionExported.fromJson(
+    _as<Map<String, Object?>>(json, 'SessionExported'),
+  )).toJson(),
   'SessionForkRequest': (json) => (SessionForkRequest.fromJson(
     _as<Map<String, Object?>>(json, 'SessionForkRequest'),
   )).toJson(),
@@ -1609,6 +1673,9 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
     _as<Map<String, Object?>>(json, 'SessionGetResult'),
   )).toJson(),
   'SessionId': (json) => (_as<String>(json, 'SessionId')),
+  'SessionImported': (json) => (SessionImported.fromJson(
+    _as<Map<String, Object?>>(json, 'SessionImported'),
+  )).toJson(),
   'SessionOrigin': (json) =>
       (SessionOrigin.fromJson(_as<String>(json, 'SessionOrigin'))).toJson(),
   'SessionPage': (json) => (SessionPage.fromJson(
@@ -1828,6 +1895,7 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   'UncommittedReview': (json) => (UncommittedReview.fromJson(
     _as<Map<String, Object?>>(json, 'UncommittedReview'),
   )).toJson(),
+  'UploadId': (json) => (_as<String>(json, 'UploadId')),
   'Usage': (json) =>
       (Usage.fromJson(_as<Map<String, Object?>>(json, 'Usage'))).toJson(),
   'UsageUpdatedEvent': (json) => (UsageUpdatedEvent.fromJson(

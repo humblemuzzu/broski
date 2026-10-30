@@ -1,5 +1,6 @@
 import { backendCapabilities } from "../backend";
 import { Capabilities } from "../capabilities";
+import type { ModelSummary } from "../models";
 import { CommandsListed, ModelsListed, ModesListed } from "../read-results";
 import { BackendStatus } from "../status";
 import { expect, fail, type Rig } from "./conformance-harness";
@@ -30,6 +31,27 @@ export async function modelsAreConsistent(rig: Rig): Promise<void> {
 		expect(fallback === undefined || values.includes(fallback), `${model.id}: the default thinking is not an option`);
 		expect(rig.traits.thinking || values.length === 0, `${model.id}: thinking options without the thinking capability`);
 	}
+	await unavailableModelsFollowTheUsable(rig, models);
+}
+
+/** `includeUnavailable` lists the usable models as before, and after them only models that say why they cannot be used. */
+async function unavailableModelsFollowTheUsable(rig: Rig, models: readonly ModelSummary[]): Promise<void> {
+	expect(
+		models.every((model) => model.unavailableReason === undefined),
+		"a model with an unavailableReason is listed without includeUnavailable",
+	);
+	const all = await rig.backend.listModels(rig.driver.cwd, { includeUnavailable: true });
+	if (all.status === "rejected") fail(`listModels with includeUnavailable was rejected: ${all.rejection.message}`);
+	const parsed = ModelsListed.safeParse(all);
+	expect(parsed.success, `the model list with includeUnavailable is not valid: ${parsed.error?.message}`);
+	expect(
+		models.every((model, at) => all.models[at]?.id === model.id),
+		"includeUnavailable must list the usable models first, as the plain list does",
+	);
+	expect(
+		all.models.slice(models.length).every((model) => model.unavailableReason !== undefined),
+		"a model listed only with includeUnavailable must say why it is unavailable",
+	);
 }
 
 export async function commandsAreListed(rig: Rig): Promise<void> {

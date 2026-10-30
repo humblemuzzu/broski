@@ -19,7 +19,11 @@ import { ConfigWatch } from "./config-watch";
 import { SessionHosts } from "./live/session-hosts";
 import { ModelCatalogue } from "./models/catalogue";
 import { listPiModes } from "./modes";
+import { changedFiles } from "./ops/changed-files";
+import { exportPart, exportSession } from "./ops/export-session";
+import { importSession } from "./ops/import-session";
 import { navigateTree } from "./ops/navigate-tree";
+import { refreshModels } from "./ops/refresh-models";
 import { sessionSettings } from "./ops/session-settings";
 import { sessionTools } from "./ops/session-tools";
 import { systemPrompt } from "./ops/system-prompt";
@@ -31,6 +35,7 @@ import { piStatus } from "./status";
 import { createSessionStore } from "./store/session-store";
 import { TerminalLink, type TerminalLinkOptions } from "./terminal/link";
 import { PI_TRAITS } from "./traits";
+import { SessionTransfer } from "./transfer/session-transfer";
 import { builtinExtensions } from "./ui/extensions";
 
 /** The parts one Pi backend is made of, which `piBackendOf` puts behind the contract. */
@@ -43,6 +48,7 @@ export interface PiParts {
 	readonly commands: PiCommandLister;
 	readonly config: ConfigWatch;
 	readonly terminal: TerminalLink;
+	readonly transfer: SessionTransfer;
 }
 
 export function createPiBackend(host: BackendHost, services: PiServices): AgentBackend {
@@ -87,11 +93,12 @@ export function createPiParts(host: BackendHost, services: PiServices, link?: Te
 	);
 	store.watch(hosts);
 	config.attach();
-	return { services, catalog, store, models, hosts, commands, config, terminal };
+	const transfer = new SessionTransfer(services, store, Date.now);
+	return { services, catalog, store, models, hosts, commands, config, terminal, transfer };
 }
 
 export function piBackendOf(parts: PiParts): AgentBackend {
-	const { services, catalog, store, models, hosts, commands, config, terminal } = parts;
+	const { services, catalog, store, models, hosts, commands, config, terminal, transfer } = parts;
 	const listCommands = async (scope: { cwd?: string; session?: SessionRef }): Promise<CommandsListResult> => {
 		if (scope.session === undefined) {
 			const live = scope.cwd === undefined ? undefined : hosts.sessionIn(scope.cwd);
@@ -115,7 +122,7 @@ export function piBackendOf(parts: PiParts): AgentBackend {
 		readTranscript: async (ref, page) =>
 			ref.backend === "pi" ? store.transcript(ref.sessionId, page, hosts) : notFound(ref),
 		readAttachment: async (ref, id) => (ref.backend === "pi" ? store.attachment(ref.sessionId, id) : notFound(ref)),
-		listModels: (cwd) => models.list(cwd),
+		listModels: (cwd, options) => models.list(cwd, options),
 		listCommands,
 		listModes: async () => listPiModes(),
 		open: async (target, sink) =>
@@ -137,13 +144,14 @@ export function piBackendOf(parts: PiParts): AgentBackend {
 			config.stop();
 			await terminal.stop();
 			await hosts.dispose();
+			await transfer.dispose();
 			catalog.silence();
 		},
 	};
 }
 
 function callOp(parts: PiParts, call: BackendCall): Promise<BackendCallResult> {
-	const { hosts, store, catalog, terminal } = parts;
+	const { services, hosts, store, catalog, terminal, transfer } = parts;
 	if (call.backend !== "pi")
 		return Promise.resolve(rejected("unsupported", `Pi has no ${call.backend} op ${call.op.kind}`));
 	const { op } = call;
@@ -158,6 +166,16 @@ function callOp(parts: PiParts, call: BackendCall): Promise<BackendCallResult> {
 			return hosts.withLiveSession(op.sessionId, (session) => sessionTools(session, op));
 		case "system_prompt":
 			return hosts.withLiveSession(op.sessionId, (session) => systemPrompt(session, op));
+		case "export_session":
+			return exportSession(transfer.exporting, op);
+		case "export_part":
+			return exportPart(transfer.exporting, op);
+		case "import_session":
+			return importSession(transfer.importing, op);
+		case "changed_files":
+			return changedFiles({ store, live: hosts }, op);
+		case "refresh_models":
+			return refreshModels({ models: services.models, catalog });
 	}
 }
 

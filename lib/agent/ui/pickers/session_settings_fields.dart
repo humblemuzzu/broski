@@ -1,5 +1,6 @@
 import 'package:broski/agent/catalog/catalog_lists.dart';
 import 'package:broski/agent/client/outcome.dart';
+import 'package:broski/agent/ui/pickers/model_picker_extras.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:flutter/material.dart';
@@ -56,8 +57,15 @@ class SessionSettingsFields extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (models case Done(value: final list) when list.isNotEmpty)
-          _modelField(list),
+        if (models case Done(value: final list) when list.isNotEmpty) ...[
+          if (list.any(isUsableModel))
+            _modelField([...list.where(isUsableModel)]),
+          ModelPickerExtras(
+            backend: backend.id,
+            capabilities: backend.capabilities,
+            models: list,
+          ),
+        ],
         if (models != null && models is! Done)
           Text('Models: ${problemOf(models)}'),
         if (backend.capabilities.thinking && levels.isNotEmpty)

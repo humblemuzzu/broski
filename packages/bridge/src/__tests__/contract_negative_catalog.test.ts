@@ -17,6 +17,24 @@ function withModels(change: (models: ModelSummary[]) => ModelSummary[]) {
 	}));
 }
 
+function withAllModels(change: (models: ModelSummary[]) => ModelSummary[]) {
+	return breakBackend((backend) => ({
+		listModels: async (cwd, options) => {
+			const listed = await backend.listModels(cwd, options);
+			return listed.status === "accepted" && options?.includeUnavailable
+				? { ...listed, models: change(listed.models) }
+				: listed;
+		},
+	}));
+}
+
+const NEEDS_A_KEY: ModelSummary = {
+	id: "missing/needs-a-key",
+	displayName: "Needs a key",
+	thinking: { options: [] },
+	isDefault: false,
+};
+
 describe("the capability rule fails", () => {
 	test("for traits without start", () =>
 		fails(
@@ -69,6 +87,43 @@ describe("the model rule fails", () => {
 			withModels((models) => models.map((model) => ({ ...model, displayName: "" }))),
 			modelsAreConsistent,
 			/model list is not valid/,
+		));
+
+	test("for an unavailable model in the plain list", () =>
+		fails(
+			withModels((models) => models.map((model) => ({ ...model, unavailableReason: "no key" }))),
+			modelsAreConsistent,
+			/unavailableReason is listed without includeUnavailable/,
+		));
+
+	test("for an unavailable model that does not say why", () =>
+		fails(
+			withAllModels((models) => [...models, NEEDS_A_KEY]),
+			modelsAreConsistent,
+			/must say why it is unavailable/,
+		));
+
+	test("for an unavailable model listed before the usable ones", () =>
+		fails(
+			withAllModels((models) => [{ ...NEEDS_A_KEY, unavailableReason: "no key" }, ...models]),
+			modelsAreConsistent,
+			/usable models first/,
+		));
+
+	test("for an includeUnavailable list that is not valid", () =>
+		fails(
+			withAllModels((models) => models.map((model) => ({ ...model, displayName: "" }))),
+			modelsAreConsistent,
+			/model list with includeUnavailable is not valid/,
+		));
+
+	test("for an includeUnavailable list that is refused", () =>
+		fails(
+			breakBackend((backend) => ({
+				listModels: async (cwd, options) => (options?.includeUnavailable ? refused : backend.listModels(cwd, options)),
+			})),
+			modelsAreConsistent,
+			/with includeUnavailable was rejected/,
 		));
 
 	test("for no models", () =>

@@ -30,5 +30,7 @@ export const ModelSummary = z.strictObject({
 	inputModalities: z.array(InputModality).max(InputModality.options.length).optional(),
 	thinking: ThinkingSpec,
 	isDefault: z.boolean(),
+	/** Present when the model is known but cannot be used now, and says why; `setModel` refuses it. Only a `models.list` that asked for `includeUnavailable` holds such models. */
+	unavailableReason: z.string().min(1).max(MAX_NAME_CHARS).optional(),
 });
 export type ModelSummary = z.infer<typeof ModelSummary>;

@@ -26,5 +26,16 @@ export const PI_TRAITS: BackendTraits = {
 	externalLive: true,
 	durableRuns: false,
 	extensions: [],
-	backendOps: ["navigate_tree", "take_over", "session_settings", "session_tools", "system_prompt"],
+	backendOps: [
+		"navigate_tree",
+		"take_over",
+		"session_settings",
+		"session_tools",
+		"system_prompt",
+		"export_session",
+		"export_part",
+		"import_session",
+		"changed_files",
+		"refresh_models",
+	],
 };

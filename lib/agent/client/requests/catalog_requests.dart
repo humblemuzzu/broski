@@ -1,5 +1,6 @@
 import 'package:broski/agent/client/contract_client.dart';
 import 'package:broski/agent/client/outcome.dart';
+import 'package:broski/agent/client/requests/bridge_minor.dart';
 import 'package:broski/agent/client/requests/outcomes.dart';
 import 'package:broski/contract/generated/contract.dart';
 
@@ -21,13 +22,24 @@ extension CatalogRequests on ContractClient {
         (response) => Done(response.status),
       );
 
+  /// With [includeUnavailable] the models the backend knows but cannot use
+  /// now come too, each with its `unavailableReason`; asked only of a bridge
+  /// that speaks the minor that added it (contract §12.4).
   Future<Outcome<List<ModelSummary>>> listModels(
     BackendId backend, {
     String? cwd,
+    bool includeUnavailable = false,
   }) async => outcomeOf(
     await request<ModelsListResponse>(
-      (requestId) =>
-          ModelsListRequest(requestId: requestId, backend: backend, cwd: cwd),
+      (requestId) => ModelsListRequest(
+        requestId: requestId,
+        backend: backend,
+        cwd: cwd,
+        includeUnavailable:
+            includeUnavailable && bridgeSpeaks(minorWithUnavailableModels)
+            ? true
+            : null,
+      ),
     ),
     (response) => switch (response.result) {
       ModelsListed(:final models) => Done(models),

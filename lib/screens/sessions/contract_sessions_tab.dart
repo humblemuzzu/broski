@@ -1,5 +1,6 @@
 import 'package:broski/agent/agent_providers.dart';
 import 'package:broski/agent/ui/backend_label.dart';
+import 'package:broski/agent/ui/panels/backend_panels_sheet.dart';
 import 'package:broski/agent/ui/sessions/new_session_sheet.dart';
 import 'package:broski/agent/ui/sessions/session_list_view.dart';
 import 'package:broski/contract/generated/contract.dart';
@@ -82,6 +83,13 @@ class _ContractSessionsTabState extends ConsumerState<ContractSessionsTab> {
   }
 
   List<Widget> _actions(BackendDescriptor descriptor) => [
+    if (hasBackendPanels(descriptor))
+      IconButton(
+        key: const ValueKey('backend-panels'),
+        tooltip: 'More',
+        icon: const Icon(AppIcons.moreVertical),
+        onPressed: () => showBackendPanels(context, descriptor),
+      ),
     if (descriptor.capabilities.archive)
       IconButton(
         key: const ValueKey('toggle-archived'),

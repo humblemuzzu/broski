@@ -31,6 +31,7 @@ final class ModelSummary {
     this.inputModalities,
     required this.thinking,
     required this.isDefault,
+    this.unavailableReason,
   });
 
   factory ModelSummary.fromJson(Map<String, Object?> json) {
@@ -44,6 +45,7 @@ final class ModelSummary {
       'inputModalities',
       'thinking',
       'isDefault',
+      'unavailableReason',
     }, const <String, String>{});
     return ModelSummary(
       id: _as<String>(json['id'], 'ModelSummary.id'),
@@ -75,6 +77,12 @@ final class ModelSummary {
         _as<Map<String, Object?>>(json['thinking'], 'ModelSummary.thinking'),
       ),
       isDefault: _as<bool>(json['isDefault'], 'ModelSummary.isDefault'),
+      unavailableReason: json.containsKey('unavailableReason')
+          ? _as<String>(
+              json['unavailableReason'],
+              'ModelSummary.unavailableReason',
+            )
+          : null,
     );
   }
 
@@ -87,6 +95,7 @@ final class ModelSummary {
   final List<InputModality>? inputModalities;
   final ThinkingSpec thinking;
   final bool isDefault;
+  final String? unavailableReason;
 
   Map<String, Object?> toJson() => {
     'id': id,
@@ -99,6 +108,7 @@ final class ModelSummary {
       'inputModalities': [for (final e0 in value) e0.toJson()],
     'thinking': thinking.toJson(),
     'isDefault': isDefault,
+    if (unavailableReason case final value?) 'unavailableReason': value,
   };
 
   @override
@@ -113,7 +123,8 @@ final class ModelSummary {
           _equal(contextWindow, other.contextWindow) &&
           _equal(inputModalities, other.inputModalities) &&
           _equal(thinking, other.thinking) &&
-          _equal(isDefault, other.isDefault);
+          _equal(isDefault, other.isDefault) &&
+          _equal(unavailableReason, other.unavailableReason);
 
   @override
   int get hashCode => Object.hashAll([
@@ -126,11 +137,12 @@ final class ModelSummary {
     _hash(inputModalities),
     _hash(thinking),
     _hash(isDefault),
+    _hash(unavailableReason),
   ]);
 
   @override
   String toString() =>
-      'ModelSummary(id: $id, displayName: $displayName, description: $description, providerId: $providerId, providerName: $providerName, contextWindow: $contextWindow, inputModalities: $inputModalities, thinking: $thinking, isDefault: $isDefault)';
+      'ModelSummary(id: $id, displayName: $displayName, description: $description, providerId: $providerId, providerName: $providerName, contextWindow: $contextWindow, inputModalities: $inputModalities, thinking: $thinking, isDefault: $isDefault, unavailableReason: $unavailableReason)';
 }
 
 final class ThinkingOption {

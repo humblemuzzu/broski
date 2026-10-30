@@ -1,5 +1,7 @@
 import { z } from "zod";
 import * as backendOps from "./backend-ops";
+import * as backendOpsReads from "./backend-ops-reads";
+import * as backendOpsTransfer from "./backend-ops-transfer";
 import * as capabilities from "./capabilities";
 import * as catalogEvents from "./catalog-events";
 import * as commands from "./commands";
@@ -52,6 +54,8 @@ const SCHEMA_MODULES = {
 	notice,
 	extensions,
 	"backend-ops": backendOps,
+	"backend-ops-reads": backendOpsReads,
+	"backend-ops-transfer": backendOpsTransfer,
 	models,
 	commands,
 	modes,

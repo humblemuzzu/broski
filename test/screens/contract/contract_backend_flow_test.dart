@@ -72,8 +72,16 @@ List<Override> _oldSide(FakeWebSocket socket) => [
   ),
 ];
 
-WidgetRig _rig({AgentCache? cache, bool reachable = true}) {
-  final rig = WidgetRig(cache: cache, reachable: reachable);
+WidgetRig _rig({
+  AgentCache? cache,
+  bool reachable = true,
+  Capabilities capabilities = everything,
+}) {
+  final rig = WidgetRig(
+    cache: cache,
+    reachable: reachable,
+    capabilities: capabilities,
+  );
   rig.bridge
     ..on<SessionsListRequest>(
       (request) => SessionsListResponse(
@@ -106,6 +114,7 @@ Future<WidgetRig> _shell(
   WidgetTester tester, {
   AgentCache? cache,
   bool reachable = true,
+  Capabilities capabilities = everything,
 }) async {
   FlutterSecureStorage.setMockInitialValues({_selectedKey: 'pi'});
   tester.view.physicalSize = const Size(1200, 2400);
@@ -113,7 +122,11 @@ Future<WidgetRig> _shell(
   addTearDown(tester.view.reset);
   final socket = _OldBridge();
   addTearDown(socket.close);
-  final rig = _rig(cache: cache, reachable: reachable);
+  final rig = _rig(
+    cache: cache,
+    reachable: reachable,
+    capabilities: capabilities,
+  );
   addTearDown(rig.dispose);
   await rig.pump(tester, const MainShell(), overrides: _oldSide(socket));
   await tester.pumpAndSettle();
@@ -121,6 +134,29 @@ Future<WidgetRig> _shell(
 }
 
 void main() {
+  testWidgets(
+    'the Sessions tab offers the backend-wide panels, such as import',
+    (tester) async {
+      await _shell(
+        tester,
+        capabilities: Capabilities.fromJson({
+          ...everything.toJson(),
+          'backendOps': ['import_session'],
+        }),
+      );
+      await tester.tap(find.byKey(const ValueKey('backend-panels')));
+      await tester.pumpAndSettle();
+      expect(find.text('Import session file'), findsOneWidget);
+    },
+  );
+
+  testWidgets('the Sessions tab has no More button when nothing is offered', (
+    tester,
+  ) async {
+    await _shell(tester);
+    expect(find.byKey(const ValueKey('backend-panels')), findsNothing);
+  });
+
   testWidgets(
     'with Pi selected the Sessions tab lists its sessions and one opens',
     (tester) async {

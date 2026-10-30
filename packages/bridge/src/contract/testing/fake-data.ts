@@ -128,5 +128,15 @@ export function fakeOpResult(call: BackendCall): BackendOpResult {
 			return { kind: op.kind, tools: [{ name: "read", description: "Reads a file", active: true }] };
 		case "system_prompt":
 			return { kind: op.kind, text: "You are a fake agent.", offset: 0, totalChars: 21 };
+		case "export_session":
+			return { kind: op.kind, exportId: "export", name: "session.jsonl", mimeType: "application/x-ndjson", bytes: 0 };
+		case "export_part":
+			return { kind: op.kind, offset: op.offset, data: "", done: true };
+		case "import_session":
+			return { kind: op.kind, received: op.offset };
+		case "changed_files":
+			return { kind: op.kind, files: [], omitted: 0, additions: 0, deletions: 0 };
+		case "refresh_models":
+			return { kind: op.kind, problems: [] };
 	}
 }

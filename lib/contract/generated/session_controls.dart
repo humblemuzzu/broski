@@ -181,7 +181,6 @@ final class SessionSettingsOp implements PiOp {
     );
   }
 
-  @override
   final SessionId sessionId;
   final SettingChange? change;
 
@@ -332,7 +331,6 @@ final class SessionToolsOp implements PiOp {
     );
   }
 
-  @override
   final SessionId sessionId;
   final ToolChange? change;
 
@@ -440,7 +438,6 @@ final class SystemPromptOp implements PiOp {
     );
   }
 
-  @override
   final SessionId sessionId;
   final int? offset;
 

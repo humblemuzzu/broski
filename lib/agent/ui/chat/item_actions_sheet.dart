@@ -3,6 +3,7 @@ import 'package:broski/agent/client/contract_client.dart';
 import 'package:broski/agent/client/outcome.dart';
 import 'package:broski/agent/client/requests/session_requests.dart';
 import 'package:broski/agent/ui/chat/agent_chat_screen.dart';
+import 'package:broski/agent/ui/chat/copy_text.dart';
 import 'package:broski/agent/ui/panels/panel_registry.dart';
 import 'package:broski/agent/ui/panels/run_op.dart';
 import 'package:broski/agent/ui/shared/text_entry_dialog.dart';
@@ -11,20 +12,25 @@ import 'package:broski/widgets/chat/detail_sheet.dart' show DetailSheet;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// What can be done from one finished item of the history: fork the session
-/// there (contract §11.1, `ForkPoint`) and the backend's item operations.
-/// Only finished items are offered, because their ids are the transcript's.
+/// What can be done with one row of the conversation: copy its [text], and,
+/// from a finished item of the history, fork the session there (contract
+/// §11.1, `ForkPoint`) and run the backend's item operations. Those need
+/// [itemId], which only a finished item has, because its id is the
+/// transcript's.
 void showItemActions(
   BuildContext context,
   SessionRef session, {
-  required TranscriptItemId itemId,
-  required Capabilities capabilities,
+  TranscriptItemId? itemId,
+  String? text,
+  Capabilities? capabilities,
 }) {
-  final panels = panelsAt(capabilities, OpPlace.item);
-  if (!hasItemActions(capabilities)) return;
+  final fromHere = itemId != null && capabilities != null;
+  final panels = fromHere ? panelsAt(capabilities, OpPlace.item) : const [];
+  final canFork = fromHere && capabilities.fork;
+  if (!canFork && panels.isEmpty && text == null) return;
   DetailSheet.show<void>(
     context: context,
-    title: 'From here',
+    title: fromHere ? 'From here' : 'Message',
     child: Consumer(
       builder: (sheetContext, ref, _) {
         // Runs from `context`, the screen under the sheet, once it closed.
@@ -36,7 +42,12 @@ void showItemActions(
 
         return Column(
           children: [
-            if (capabilities.fork)
+            if (text != null)
+              _action('item-copy', 'Copy text', () {
+                Navigator.of(sheetContext).pop();
+                copyToClipboard(context, text);
+              }),
+            if (canFork)
               for (final position in ForkPosition.values)
                 _action(
                   'fork:${position.wire}',
@@ -64,6 +75,7 @@ void showItemActions(
   );
 }
 
+/// Whether a finished item has anything to do beyond copying its text.
 bool hasItemActions(Capabilities capabilities) =>
     capabilities.fork || panelsAt(capabilities, OpPlace.item).isNotEmpty;
 

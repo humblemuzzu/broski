@@ -522,7 +522,12 @@
         "take_over",
         "session_settings",
         "session_tools",
-        "system_prompt"
+        "system_prompt",
+        "export_session",
+        "export_part",
+        "import_session",
+        "changed_files",
+        "refresh_models"
       ]
     },
     "BackendOpResult": {
@@ -561,6 +566,21 @@
         },
         {
           "$ref": "#/$defs/SystemPromptResult"
+        },
+        {
+          "$ref": "#/$defs/SessionExported"
+        },
+        {
+          "$ref": "#/$defs/ExportPartRead"
+        },
+        {
+          "$ref": "#/$defs/SessionImported"
+        },
+        {
+          "$ref": "#/$defs/ChangedFilesListed"
+        },
+        {
+          "$ref": "#/$defs/ModelsRefreshed"
         }
       ]
     },
@@ -1009,7 +1029,7 @@
           }
         },
         "backendOps": {
-          "maxItems": 11,
+          "maxItems": 16,
           "type": "array",
           "items": {
             "$ref": "#/$defs/BackendOpKind"
@@ -1126,6 +1146,66 @@
         "commands",
         "modes"
       ]
+    },
+    "ChangedFilesListed": {
+      "x-module": "backend-ops-reads",
+      "$id": "#/$defs/ChangedFilesListed",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "changed_files"
+        },
+        "files": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FileChange"
+          }
+        },
+        "omitted": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "additions": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "deletions": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "kind",
+        "files",
+        "omitted",
+        "additions",
+        "deletions"
+      ],
+      "additionalProperties": false
+    },
+    "ChangedFilesOp": {
+      "x-module": "backend-ops-reads",
+      "$id": "#/$defs/ChangedFilesOp",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "changed_files"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        }
+      },
+      "required": [
+        "kind",
+        "sessionId"
+      ],
+      "additionalProperties": false
     },
     "ChoiceChange": {
       "x-module": "session-controls",
@@ -2123,6 +2203,95 @@
       ],
       "additionalProperties": false
     },
+    "ExportId": {
+      "x-module": "backend-ops-transfer",
+      "$id": "#/$defs/ExportId",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "ExportPartOp": {
+      "x-module": "backend-ops-transfer",
+      "$id": "#/$defs/ExportPartOp",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "export_part"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        },
+        "exportId": {
+          "$ref": "#/$defs/ExportId"
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "kind",
+        "sessionId",
+        "exportId",
+        "offset"
+      ],
+      "additionalProperties": false
+    },
+    "ExportPartRead": {
+      "x-module": "backend-ops-transfer",
+      "$id": "#/$defs/ExportPartRead",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "export_part"
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "data": {
+          "type": "string",
+          "maxLength": 699052
+        },
+        "done": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "offset",
+        "data",
+        "done"
+      ],
+      "additionalProperties": false
+    },
+    "ExportSessionOp": {
+      "x-module": "backend-ops-transfer",
+      "$id": "#/$defs/ExportSessionOp",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "export_session"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        },
+        "format": {
+          "$ref": "#/$defs/SessionExportFormat"
+        }
+      },
+      "required": [
+        "kind",
+        "sessionId",
+        "format"
+      ],
+      "additionalProperties": false
+    },
     "ExtensionEvent": {
       "x-module": "events",
       "$id": "#/$defs/ExtensionEvent",
@@ -2646,6 +2815,40 @@
         "kind",
         "id",
         "mimeType"
+      ],
+      "additionalProperties": false
+    },
+    "ImportSessionOp": {
+      "x-module": "backend-ops-transfer",
+      "$id": "#/$defs/ImportSessionOp",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "import_session"
+        },
+        "uploadId": {
+          "$ref": "#/$defs/UploadId"
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "data": {
+          "type": "string",
+          "maxLength": 699052
+        },
+        "last": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "uploadId",
+        "offset",
+        "data",
+        "last"
       ],
       "additionalProperties": false
     },
@@ -3401,6 +3604,11 @@
         },
         "isDefault": {
           "type": "boolean"
+        },
+        "unavailableReason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
         }
       },
       "required": [
@@ -3437,6 +3645,9 @@
         },
         "cwd": {
           "$ref": "#/$defs/WorkingDirectory"
+        },
+        "includeUnavailable": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -3501,6 +3712,30 @@
       "required": [
         "status",
         "models"
+      ],
+      "additionalProperties": false
+    },
+    "ModelsRefreshed": {
+      "x-module": "backend-ops-reads",
+      "$id": "#/$defs/ModelsRefreshed",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "refresh_models"
+        },
+        "problems": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 1048576
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "problems"
       ],
       "additionalProperties": false
     },
@@ -4212,6 +4447,21 @@
         },
         {
           "$ref": "#/$defs/SystemPromptOp"
+        },
+        {
+          "$ref": "#/$defs/ExportSessionOp"
+        },
+        {
+          "$ref": "#/$defs/ExportPartOp"
+        },
+        {
+          "$ref": "#/$defs/ImportSessionOp"
+        },
+        {
+          "$ref": "#/$defs/ChangedFilesOp"
+        },
+        {
+          "$ref": "#/$defs/RefreshModelsOp"
         }
       ]
     },
@@ -4855,6 +5105,21 @@
       "required": [
         "kind",
         "window"
+      ],
+      "additionalProperties": false
+    },
+    "RefreshModelsOp": {
+      "x-module": "backend-ops-reads",
+      "$id": "#/$defs/RefreshModelsOp",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "refresh_models"
+        }
+      },
+      "required": [
+        "kind"
       ],
       "additionalProperties": false
     },
@@ -6053,6 +6318,52 @@
       ],
       "additionalProperties": false
     },
+    "SessionExportFormat": {
+      "x-module": "backend-ops-transfer",
+      "$id": "#/$defs/SessionExportFormat",
+      "type": "string",
+      "enum": [
+        "html",
+        "jsonl"
+      ]
+    },
+    "SessionExported": {
+      "x-module": "backend-ops-transfer",
+      "$id": "#/$defs/SessionExported",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "export_session"
+        },
+        "exportId": {
+          "$ref": "#/$defs/ExportId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "mimeType": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "kind",
+        "exportId",
+        "name",
+        "mimeType",
+        "bytes"
+      ],
+      "additionalProperties": false
+    },
     "SessionForkRequest": {
       "x-module": "protocol",
       "$id": "#/$defs/SessionForkRequest",
@@ -6185,6 +6496,30 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 256
+    },
+    "SessionImported": {
+      "x-module": "backend-ops-transfer",
+      "$id": "#/$defs/SessionImported",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "import_session"
+        },
+        "received": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        }
+      },
+      "required": [
+        "kind",
+        "received"
+      ],
+      "additionalProperties": false
     },
     "SessionOrigin": {
       "x-module": "sessions",
@@ -8010,6 +8345,13 @@
         "kind"
       ],
       "additionalProperties": false
+    },
+    "UploadId": {
+      "x-module": "backend-ops-transfer",
+      "$id": "#/$defs/UploadId",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
     },
     "Usage": {
       "x-module": "usage",

@@ -1,4 +1,13 @@
 import { z } from "zod";
+import { ChangedFilesListed, ChangedFilesOp, ModelsRefreshed, RefreshModelsOp } from "./backend-ops-reads";
+import {
+	ExportPartOp,
+	ExportPartRead,
+	ExportSessionOp,
+	ImportSessionOp,
+	SessionExported,
+	SessionImported,
+} from "./backend-ops-transfer";
 import { FileChange } from "./content";
 import { SessionId, TranscriptItemId } from "./ids";
 import { MAX_ID_CHARS, MAX_LIST_ITEMS, MAX_NAME_CHARS, MAX_PATH_CHARS, MAX_TEXT_CHARS } from "./limits";
@@ -24,6 +33,11 @@ export const BackendOpKind = z.enum([
 	"session_settings",
 	"session_tools",
 	"system_prompt",
+	"export_session",
+	"export_part",
+	"import_session",
+	"changed_files",
+	"refresh_models",
 ]);
 export type BackendOpKind = z.infer<typeof BackendOpKind>;
 
@@ -42,6 +56,11 @@ export function rewritesHistory(kind: BackendOpKind): boolean {
 		case "session_settings":
 		case "session_tools":
 		case "system_prompt":
+		case "export_session":
+		case "export_part":
+		case "import_session":
+		case "changed_files":
+		case "refresh_models":
 			return false;
 	}
 }
@@ -156,6 +175,11 @@ export const PiOp = z.discriminatedUnion("kind", [
 	SessionSettingsOp,
 	SessionToolsOp,
 	SystemPromptOp,
+	ExportSessionOp,
+	ExportPartOp,
+	ImportSessionOp,
+	ChangedFilesOp,
+	RefreshModelsOp,
 ]);
 export type PiOp = z.infer<typeof PiOp>;
 
@@ -223,6 +247,11 @@ export const BackendOpResult = z.discriminatedUnion("kind", [
 	SessionSettingsResult,
 	SessionToolsResult,
 	SystemPromptResult,
+	SessionExported,
+	ExportPartRead,
+	SessionImported,
+	ChangedFilesListed,
+	ModelsRefreshed,
 ]);
 export type BackendOpResult = z.infer<typeof BackendOpResult>;
 

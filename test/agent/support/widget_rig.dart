@@ -76,9 +76,11 @@ final class WidgetRig {
     SessionCapabilities session = controllable,
     bool reachable = true,
     AgentCache? cache,
+    int helloMinor = 0,
   }) : link = FakeContractLink(reachable: reachable),
        cache = cache ?? AgentCache(MemoryTextStore()) {
     bridge = ScriptedBridge(link)
+      ..helloMinor = helloMinor
       ..on<BackendsListRequest>(
         (request) => BackendsListResponse(
           requestId: request.requestId,

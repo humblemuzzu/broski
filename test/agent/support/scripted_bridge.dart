@@ -18,6 +18,9 @@ final class ScriptedBridge {
   /// The major version this bridge says `hello` with.
   int helloMajor = contractProtocolMajor;
 
+  /// The minor version it says `hello` with; an older bridge than the app.
+  int helloMinor = 0;
+
   /// Answers every later request of type [T] with what [handler] returns; a
   /// null leaves it unanswered.
   void on<T extends ClientMessage>(ServerMessage? Function(T request) handler) {
@@ -53,7 +56,7 @@ final class ScriptedBridge {
       link.deliver(
         HelloResponse(
           requestId: message.requestId,
-          protocol: ProtocolVersion(major: helloMajor, minor: 0),
+          protocol: ProtocolVersion(major: helloMajor, minor: helloMinor),
           bridgeVersion: 'test',
         ),
       );

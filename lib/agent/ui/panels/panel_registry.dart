@@ -1,11 +1,16 @@
+import 'package:broski/agent/client/contract_client.dart';
 import 'package:broski/agent/ui/panels/op_inputs.dart';
 import 'package:broski/agent/ui/panels/session_control_inputs.dart';
+import 'package:broski/agent/ui/panels/transfer/file_transfers.dart';
+import 'package:broski/agent/ui/panels/transfer/import_flow.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:flutter/material.dart';
 
-/// Where an operation is offered: on the session, or on one finished item of
-/// its history.
-enum OpPlace { session, item }
+/// Where an operation is offered: on the session, on one finished item of its
+/// history, on the backend as a whole (it names no session: its panel is run
+/// with a [SessionRef] whose session id is empty), beside the model choice, or
+/// nowhere, because it only continues another operation.
+enum OpPlace { session, item, backend, modelPicker, continuation }
 
 /// Which sessions an operation applies to, by what the session allows.
 enum OpAudience {
@@ -30,6 +35,7 @@ final class OpPanel {
     required this.place,
     required this.ask,
     this.audience = OpAudience.anySession,
+    this.flow,
   });
 
   final BackendOpKind kind;
@@ -45,6 +51,16 @@ final class OpPanel {
     TranscriptItemId? itemId,
   )
   ask;
+
+  /// For an operation that is more than one call: it runs instead of [ask]
+  /// and the call, and shows its own outcome.
+  final Future<void> Function(
+    BuildContext context,
+    ContractClient client,
+    SessionRef session,
+    FileTransfers files,
+  )?
+  flow;
 }
 
 /// Every operation kind the contract defines has exactly one panel, so a new
@@ -119,6 +135,38 @@ OpPanel panelFor(BackendOpKind kind) => switch (kind) {
     place: OpPlace.session,
     audience: OpAudience.controllableSession,
     ask: askSystemPrompt,
+  ),
+  BackendOpKind.exportSession => const OpPanel(
+    kind: BackendOpKind.exportSession,
+    label: 'Export session',
+    place: OpPlace.session,
+    ask: askExportSession,
+  ),
+  BackendOpKind.exportPart => const OpPanel(
+    kind: BackendOpKind.exportPart,
+    label: 'Read an export',
+    place: OpPlace.continuation,
+    ask: askNothing,
+  ),
+  BackendOpKind.importSession => OpPanel(
+    kind: BackendOpKind.importSession,
+    label: 'Import session file',
+    place: OpPlace.backend,
+    ask: askNothing,
+    flow: (context, client, session, files) =>
+        runImport(context, client, files, session.backend),
+  ),
+  BackendOpKind.changedFiles => const OpPanel(
+    kind: BackendOpKind.changedFiles,
+    label: 'Changed files',
+    place: OpPlace.session,
+    ask: askChangedFiles,
+  ),
+  BackendOpKind.refreshModels => const OpPanel(
+    kind: BackendOpKind.refreshModels,
+    label: 'Refresh models',
+    place: OpPlace.modelPicker,
+    ask: askRefreshModels,
   ),
 };
 

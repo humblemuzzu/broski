@@ -139,7 +139,7 @@ export function toolFinished(
 /**
  * What a built-in tool changed on disk: `edit`'s unified `details.patch` (not `details.diff`, which is
  * drawn for a terminal), `write`'s path. `write` reports no details, so a new file cannot be told from an
- * overwritten one: both are `modified`.
+ * overwritten one: both are `modified`, and the lines it wrote count as added.
  */
 export function fileChangesOf(toolName: string, input: JsonValue, details: JsonValue | undefined): FileChange[] {
 	switch (toolName) {
@@ -169,7 +169,22 @@ function editChanges(input: JsonValue, details: JsonValue | undefined): FileChan
 
 function writeChanges(input: JsonValue): FileChange[] {
 	const path = nonEmpty(fieldOf(input, "path"));
-	return path === undefined ? [] : [{ path: clipStart(path, MAX_PATH_CHARS), change: "modified" }];
+	if (path === undefined) return [];
+	const content = fieldOf(input, "content");
+	return [
+		{
+			path: clipStart(path, MAX_PATH_CHARS),
+			change: "modified",
+			...(typeof content === "string" && { additions: linesOf(content) }),
+		},
+	];
+}
+
+/** The lines `text` holds, a last one without a line break counting too. */
+function linesOf(text: string): number {
+	let lines = 0;
+	for (let at = text.indexOf("\n"); at !== -1; at = text.indexOf("\n", at + 1)) lines += 1;
+	return text === "" || text.endsWith("\n") ? lines : lines + 1;
 }
 
 /** The path Pi's patch names, for a result read back from a session file, which holds no call input. */

@@ -37,7 +37,14 @@ export const PROTOCOL_VERSION = { major: 1, minor: 3 } as const;
  * `retry.cancel` requests with the `SessionCapabilities` fields that announce them, and the Pi ops `session_settings`,
  * `session_tools` and `system_prompt` (an older client is told of none of them).
  */
-export const ADDED_IN_MINOR = { replacedSync: 1, inputReturned: 2, takeOver: 2, sessionControls: 3 } as const;
+export const ADDED_IN_MINOR = {
+	replacedSync: 1,
+	inputReturned: 2,
+	takeOver: 2,
+	sessionControls: 3,
+	sessionFiles: 3,
+	modelAvailability: 3,
+} as const;
 
 export const ProtocolVersion = z.strictObject({ major: z.int().nonnegative(), minor: z.int().nonnegative() });
 export type ProtocolVersion = z.infer<typeof ProtocolVersion>;
@@ -106,7 +113,11 @@ function response<T extends string, S extends z.ZodRawShape>(type: T, shape: S) 
 export const HelloRequest = request("hello", { protocol: ProtocolVersion, client: ClientInfo });
 export const BackendsListRequest = request("backends.list", {});
 export const BackendStatusRequest = request("backend.status", { backend: BackendId });
-export const ModelsListRequest = request("models.list", { backend: BackendId, cwd: WorkingDirectory.optional() });
+export const ModelsListRequest = request("models.list", {
+	backend: BackendId,
+	cwd: WorkingDirectory.optional(),
+	includeUnavailable: z.boolean().optional(),
+});
 export const CommandsListRequest = request("commands.list", {
 	backend: BackendId,
 	cwd: WorkingDirectory.optional(),

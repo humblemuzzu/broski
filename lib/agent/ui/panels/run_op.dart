@@ -8,11 +8,15 @@ import 'package:broski/agent/ui/panels/result_actions.dart';
 import 'package:broski/agent/ui/panels/settings_view.dart';
 import 'package:broski/agent/ui/panels/text_pages_view.dart';
 import 'package:broski/agent/ui/panels/tools_view.dart';
+import 'package:broski/agent/ui/panels/transfer/changed_files_view.dart';
+import 'package:broski/agent/ui/panels/transfer/export_share_view.dart';
+import 'package:broski/agent/ui/panels/transfer/file_transfers.dart';
 import 'package:broski/agent/ui/shared/text_entry_dialog.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/widgets/chat/detail_sheet.dart' show DetailSheet;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Asks what [panel] needs, calls the backend, and shows what came back. A
 /// history-rewriting operation reaches the conversation through the
@@ -24,6 +28,13 @@ Future<void> runOp(
   SessionRef session, {
   TranscriptItemId? itemId,
 }) async {
+  final flow = panel.flow;
+  if (flow != null) {
+    final files = ProviderScope.containerOf(
+      context,
+    ).read(fileTransfersProvider);
+    return flow(context, client, session, files);
+  }
   final call = await panel.ask(context, session.sessionId, itemId);
   if (call == null || !context.mounted) return;
   final outcome = await client.callBackend(call);
@@ -39,8 +50,11 @@ Future<void> runOp(
             client: client,
             session: session,
             first: result,
-            builder: (result, actions) =>
-                OpResultView(result: result, actions: actions),
+            builder: (result, actions) => OpResultView(
+              result: result,
+              actions: actions,
+              session: session,
+            ),
           ),
         ),
       );
@@ -50,10 +64,17 @@ Future<void> runOp(
 }
 
 class OpResultView extends StatelessWidget {
-  const OpResultView({super.key, required this.result, required this.actions});
+  const OpResultView({
+    super.key,
+    required this.result,
+    required this.actions,
+    required this.session,
+  });
 
   final BackendOpResult result;
   final ResultActions actions;
+
+  final SessionRef session;
 
   @override
   Widget build(BuildContext context) => switch (result) {
@@ -108,6 +129,24 @@ class OpResultView extends StatelessWidget {
     final SystemPromptResult page => TextPagesView(
       page: page,
       actions: actions,
+    ),
+    final SessionExported exported => ExportShareView(
+      session: session,
+      exported: exported,
+    ),
+    ExportPartRead() => const SizedBox.shrink(),
+    SessionImported() => const Text('Imported. It is in the list.'),
+    final ChangedFilesListed changed => ChangedFilesView(changed: changed),
+    ModelsRefreshed(:final problems) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          problems.isEmpty
+              ? 'The model lists are up to date.'
+              : 'Some catalogues could not be refreshed:',
+        ),
+        for (final problem in problems) Text(problem),
+      ],
     ),
   };
 }

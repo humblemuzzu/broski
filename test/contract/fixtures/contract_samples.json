@@ -1463,7 +1463,12 @@
     "take_over",
     "session_settings",
     "session_tools",
-    "system_prompt"
+    "system_prompt",
+    "export_session",
+    "export_part",
+    "import_session",
+    "changed_files",
+    "refresh_models"
   ],
   "BackendOpResult": [
     {
@@ -1579,6 +1584,68 @@
       "text": "x",
       "offset": 1,
       "totalChars": 1
+    },
+    {
+      "kind": "export_session",
+      "exportId": "x",
+      "name": "x",
+      "mimeType": "x",
+      "bytes": 1
+    },
+    {
+      "kind": "export_part",
+      "offset": 1,
+      "data": "x",
+      "done": true
+    },
+    {
+      "kind": "export_part",
+      "offset": 1,
+      "data": "x",
+      "done": false
+    },
+    {
+      "kind": "import_session",
+      "received": 1,
+      "sessionId": "x"
+    },
+    {
+      "kind": "import_session",
+      "received": 1
+    },
+    {
+      "kind": "changed_files",
+      "files": [
+        {
+          "path": "x",
+          "change": "added",
+          "previousPath": "x",
+          "diff": "x",
+          "additions": 1,
+          "deletions": 1
+        }
+      ],
+      "omitted": 1,
+      "additions": 1,
+      "deletions": 1
+    },
+    {
+      "kind": "changed_files",
+      "files": [
+        {
+          "path": "x",
+          "change": "added"
+        }
+      ],
+      "omitted": 1,
+      "additions": 1,
+      "deletions": 1
+    },
+    {
+      "kind": "refresh_models",
+      "problems": [
+        "x"
+      ]
     }
   ],
   "BackendStatus": [
@@ -2089,6 +2156,42 @@
     "commands",
     "modes"
   ],
+  "ChangedFilesListed": [
+    {
+      "kind": "changed_files",
+      "files": [
+        {
+          "path": "x",
+          "change": "added",
+          "previousPath": "x",
+          "diff": "x",
+          "additions": 1,
+          "deletions": 1
+        }
+      ],
+      "omitted": 1,
+      "additions": 1,
+      "deletions": 1
+    },
+    {
+      "kind": "changed_files",
+      "files": [
+        {
+          "path": "x",
+          "change": "added"
+        }
+      ],
+      "omitted": 1,
+      "additions": 1,
+      "deletions": 1
+    }
+  ],
+  "ChangedFilesOp": [
+    {
+      "kind": "changed_files",
+      "sessionId": "x"
+    }
+  ],
   "ChoiceChange": [
     {
       "kind": "choice",
@@ -2226,7 +2329,8 @@
       "type": "models.list",
       "requestId": "x",
       "backend": "claude-code",
-      "cwd": "x"
+      "cwd": "x",
+      "includeUnavailable": true
     },
     {
       "type": "models.list",
@@ -3106,6 +3210,38 @@
       }
     }
   ],
+  "ExportId": [
+    "x"
+  ],
+  "ExportPartOp": [
+    {
+      "kind": "export_part",
+      "sessionId": "x",
+      "exportId": "x",
+      "offset": 1
+    }
+  ],
+  "ExportPartRead": [
+    {
+      "kind": "export_part",
+      "offset": 1,
+      "data": "x",
+      "done": true
+    },
+    {
+      "kind": "export_part",
+      "offset": 1,
+      "data": "x",
+      "done": false
+    }
+  ],
+  "ExportSessionOp": [
+    {
+      "kind": "export_session",
+      "sessionId": "x",
+      "format": "html"
+    }
+  ],
   "ExtensionEvent": [
     {
       "type": "extension",
@@ -3646,6 +3782,22 @@
       "kind": "image_ref",
       "id": "x",
       "mimeType": "x"
+    }
+  ],
+  "ImportSessionOp": [
+    {
+      "kind": "import_session",
+      "uploadId": "x",
+      "offset": 1,
+      "data": "x",
+      "last": true
+    },
+    {
+      "kind": "import_session",
+      "uploadId": "x",
+      "offset": 1,
+      "data": "x",
+      "last": false
     }
   ],
   "InputModality": [
@@ -4523,7 +4675,8 @@
         ],
         "defaultValue": "x"
       },
-      "isDefault": true
+      "isDefault": true,
+      "unavailableReason": "x"
     },
     {
       "id": "x",
@@ -4547,7 +4700,8 @@
       "type": "models.list",
       "requestId": "x",
       "backend": "claude-code",
-      "cwd": "x"
+      "cwd": "x",
+      "includeUnavailable": true
     },
     {
       "type": "models.list",
@@ -4582,7 +4736,8 @@
               ],
               "defaultValue": "x"
             },
-            "isDefault": true
+            "isDefault": true,
+            "unavailableReason": "x"
           }
         ]
       }
@@ -4633,7 +4788,8 @@
             ],
             "defaultValue": "x"
           },
-          "isDefault": true
+          "isDefault": true,
+          "unavailableReason": "x"
         }
       ]
     },
@@ -4686,7 +4842,8 @@
             ],
             "defaultValue": "x"
           },
-          "isDefault": true
+          "isDefault": true,
+          "unavailableReason": "x"
         }
       ]
     },
@@ -4705,6 +4862,14 @@
           },
           "isDefault": false
         }
+      ]
+    }
+  ],
+  "ModelsRefreshed": [
+    {
+      "kind": "refresh_models",
+      "problems": [
+        "x"
       ]
     }
   ],
@@ -5290,6 +5455,38 @@
     {
       "kind": "system_prompt",
       "sessionId": "x"
+    },
+    {
+      "kind": "export_session",
+      "sessionId": "x",
+      "format": "html"
+    },
+    {
+      "kind": "export_part",
+      "sessionId": "x",
+      "exportId": "x",
+      "offset": 1
+    },
+    {
+      "kind": "import_session",
+      "uploadId": "x",
+      "offset": 1,
+      "data": "x",
+      "last": true
+    },
+    {
+      "kind": "import_session",
+      "uploadId": "x",
+      "offset": 1,
+      "data": "x",
+      "last": false
+    },
+    {
+      "kind": "changed_files",
+      "sessionId": "x"
+    },
+    {
+      "kind": "refresh_models"
     }
   ],
   "Plan": [
@@ -5754,6 +5951,11 @@
     {
       "kind": "rate_limit",
       "window": "x"
+    }
+  ],
+  "RefreshModelsOp": [
+    {
+      "kind": "refresh_models"
     }
   ],
   "Rejected": [
@@ -6572,7 +6774,8 @@
               ],
               "defaultValue": "x"
             },
-            "isDefault": true
+            "isDefault": true,
+            "unavailableReason": "x"
           }
         ]
       }
@@ -7310,6 +7513,19 @@
       "requestId": "x"
     }
   ],
+  "SessionExportFormat": [
+    "html",
+    "jsonl"
+  ],
+  "SessionExported": [
+    {
+      "kind": "export_session",
+      "exportId": "x",
+      "name": "x",
+      "mimeType": "x",
+      "bytes": 1
+    }
+  ],
   "SessionForkRequest": [
     {
       "type": "session.fork",
@@ -7501,6 +7717,17 @@
   ],
   "SessionId": [
     "x"
+  ],
+  "SessionImported": [
+    {
+      "kind": "import_session",
+      "received": 1,
+      "sessionId": "x"
+    },
+    {
+      "kind": "import_session",
+      "received": 1
+    }
   ],
   "SessionOrigin": [
     "broski",
@@ -9744,6 +9971,9 @@
     {
       "kind": "uncommitted"
     }
+  ],
+  "UploadId": [
+    "x"
   ],
   "Usage": [
     {

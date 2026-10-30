@@ -68,6 +68,7 @@ dependencies:
   broski_link:
     path: packages/link_dart
   bonsoir: ^6.0.3
+  file_picker: ^11.0.3
 
 dependency_overrides:
   # Force newer record_linux that implements startStream

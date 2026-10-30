@@ -82,7 +82,7 @@ describe("a session Pi wrote, read through the store", () => {
 				call?.kind === "tool_call" ? call.toolCallId : "missing",
 			);
 			expect(result?.kind === "tool_result" && result.result.fileChanges).toEqual([
-				{ path: "notes.txt", change: "modified" },
+				{ path: "notes.txt", change: "modified", additions: 1 },
 			]);
 		}
 	});

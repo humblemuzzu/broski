@@ -13,7 +13,7 @@ import type { SessionLocks } from "./session-lock";
 /** What every host shares: the process's services, and how the registry hears of a host's needs. */
 export interface HostEnvironment {
 	readonly shared: SharedServices;
-	readonly models: Pick<ModelCatalogue, "find">;
+	readonly models: Pick<ModelCatalogue, "find" | "missing">;
 	readonly catalog: CatalogFeed;
 	readonly locks: SessionLocks;
 	readonly notices: NoticeMemory;

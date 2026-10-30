@@ -1,5 +1,6 @@
 import 'package:broski/agent/agent_providers.dart';
 import 'package:broski/agent/session/agent_session_state.dart';
+import 'package:broski/agent/ui/chat/copy_text.dart';
 import 'package:broski/agent/ui/panels/panel_registry.dart';
 import 'package:broski/agent/ui/panels/panels_sheet.dart';
 import 'package:broski/agent/ui/pickers/live_settings_sheet.dart';
@@ -84,9 +85,17 @@ class ChatActions extends ConsumerWidget {
       OpPlace.session,
       controllable: state.controllable,
     );
+    final lastAnswer = ref.watch(lastAnswerProvider(session));
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (lastAnswer != null)
+          IconButton(
+            key: const ValueKey('chat-copy-last'),
+            tooltip: 'Copy last answer',
+            icon: const Icon(AppIcons.copy),
+            onPressed: () => copyToClipboard(context, lastAnswer),
+          ),
         if (state.controllable)
           IconButton(
             key: const ValueKey('chat-settings'),
