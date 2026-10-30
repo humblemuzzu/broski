@@ -1,4 +1,5 @@
 import 'package:broski/agent/agent_providers.dart';
+import 'package:broski/agent/cache/agent_cache.dart';
 import 'package:broski/agent/client/contract_client.dart';
 import 'package:broski/agent/reducer/session_reducer.dart';
 import 'package:broski/contract/generated/contract.dart';
@@ -10,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'fake_contract_link.dart';
 import 'manual_clock.dart';
+import 'memory_text_store.dart';
 import 'scripted_bridge.dart';
 import 'session_fixtures.dart';
 
@@ -71,7 +73,10 @@ final class WidgetRig {
     Capabilities capabilities = everything,
     SessionSnapshot? snapshot,
     SessionCapabilities session = controllable,
-  }) : link = FakeContractLink() {
+    bool reachable = true,
+    AgentCache? cache,
+  }) : link = FakeContractLink(reachable: reachable),
+       cache = cache ?? AgentCache(MemoryTextStore()) {
     bridge = ScriptedBridge(link)
       ..on<BackendsListRequest>(
         (request) => BackendsListResponse(
@@ -106,13 +111,22 @@ final class WidgetRig {
   }
 
   final FakeContractLink link;
+  final AgentCache cache;
   late final ScriptedBridge bridge;
   late final ContractClient client;
 
-  Future<void> pump(WidgetTester tester, Widget home) async {
+  Future<void> pump(
+    WidgetTester tester,
+    Widget home, {
+    List<Override> overrides = const [],
+  }) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [contractClientProvider.overrideWithValue(client)],
+        overrides: [
+          contractClientProvider.overrideWithValue(client),
+          agentCacheProvider.overrideWithValue(cache),
+          ...overrides,
+        ],
         child: MaterialApp(
           theme: BroskiTheme.fromOpenCodeTheme(opencodeDarkTheme),
           home: home,

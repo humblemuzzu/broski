@@ -48,6 +48,19 @@ void main() {
       expect(again.olderCursor, 'n');
     });
 
+    test('replaces a saved copy, whose older pages it knows nothing of', () {
+      final saved = SessionHistory.saved(
+        [userItem('a'), userItem('b')],
+        IdStability.stable,
+        1,
+      );
+      final read = saved.withNewestPage(_page(['c', 'b'], next: 'older'));
+      expect(_ids(read), ['b', 'c']);
+      expect(read.olderCursor, 'older');
+      expect(read.complete, isFalse);
+      expect(read.savedAt, isNull);
+    });
+
     test('starts afresh with positional ids, or after a rewrite', () {
       final read = const SessionHistory()
           .withNewestPage(_page(['d', 'c'], next: 'p2'))

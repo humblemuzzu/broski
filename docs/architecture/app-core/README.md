@@ -1,15 +1,15 @@
 # The Broski app core
 
-Status: Phase 3. The phone side of the [contract](../contract/README.md) (protocol **1.1**), speaking to the [bridge core](../core/README.md). It is additive: the old screens, providers and services keep working, and the new screens are reachable only from a hidden developer entry (a long press on the version line at the bottom of Settings, debug builds only). Phase 4 moves each backend's UI onto this layer and deletes the old code backend by backend.
+Status: Phase 3. The phone side of the [contract](../contract/README.md) (protocol **1.1**), speaking to the [bridge core](../core/README.md). The old screens, providers and services keep working beside it; a backend the bridge serves through the contract (today Pi) stands where Claude Code, Codex and OpenCode stand, in every build with no flag: in the backend picker, the Sessions and Projects tabs, and the Settings chip (§14). Phase 4 moves each backend's UI onto this layer and deletes the old code backend by backend.
 
 Code: `lib/agent/` (one concept per file, every file under 400 lines). Tests: `test/agent/`. Enforcement: `tool/check_agent_core.dart`.
 
-**Contents.** [1 Rules](#1-rules) · [2 Layout](#2-layout) · [3 The client](#3-the-client) · [4 The session store](#4-the-session-store) · [5 The merge rule](#5-history-and-the-merge-rule) · [6 Prompts](#6-prompts) · [7 Interactions](#7-interactions) · [8 Proving the ports](#8-proving-the-ports-equal-to-the-contract) · [9 The UI building blocks](#9-the-ui-building-blocks) · [10 Panels](#10-the-panels-registry) · [11 The fake bridge and the e2e test](#11-the-dev-fake-bridge-and-the-end-to-end-test) · [12 Phase 4](#12-how-phase-4-moves-a-backend-onto-this-layer) · [13 Limits](#13-limits-and-open-risks)
+**Contents.** [1 Rules](#1-rules) · [2 Layout](#2-layout) · [3 The client](#3-the-client) · [4 The session store](#4-the-session-store) · [5 The merge rule](#5-history-and-the-merge-rule) · [6 Prompts](#6-prompts) · [7 Interactions](#7-interactions) · [8 Proving the ports](#8-proving-the-ports-equal-to-the-contract) · [9 The UI building blocks](#9-the-ui-building-blocks) · [10 Panels](#10-the-panels-registry) · [11 The fake bridge and the e2e test](#11-the-dev-fake-bridge-and-the-end-to-end-test) · [12 Phase 4](#12-how-phase-4-moves-a-backend-onto-this-layer) · [13 Limits](#13-limits-and-open-risks) · [14 In the app](#14-a-contract-backend-in-the-app)
 
 ## 1. Rules
 
 1. **Nothing under `lib/agent/` steers by backend.** Screens branch on `Capabilities`, `SessionCapabilities` and the shape of the data (contract README §2 rule 1). `BackendId` members and backend-id strings appear in exactly one file, `ui/backend_label.dart`, which turns an id into a display name and nothing else. `AgentType` never appears.
-2. **`lib/agent/` imports only** the platform (`dart:`, Flutter, Riverpod), the generated contract (`package:broski/contract/generated/contract.dart`), itself, the theme, four packages already in `pubspec.yaml` (`uuid`, `image_picker`, `mime`, `url_launcher`), and named pieces of generic app infrastructure, each imported with a `show` of exactly what is used: `DetailSheet`, `AdaptiveMarkdownBody`, `DiffViewer` and `DiffEntry`, `WebSocketService` and `ConnectionStatus` with `webSocketServiceProvider`, `linkConnectionControllerProvider` (for send refusals), `appVersionProvider`, `LinkSendFailure`. Nothing from the old agent services, providers or models: `service_providers.dart`, for one, also exports `BridgeService`, which `show` keeps out.
+2. **`lib/agent/` imports only** the platform (`dart:`, Flutter, Riverpod), the generated contract (`package:broski/contract/generated/contract.dart`), itself, the theme, four packages already in `pubspec.yaml` (`uuid`, `image_picker`, `mime`, `url_launcher`), and named pieces of generic app infrastructure, each imported with a `show` of exactly what is used: `DetailSheet`, `AdaptiveMarkdownBody`, `DiffViewer` and `DiffEntry`, `WebSocketService` and `ConnectionStatus` with `webSocketServiceProvider`, `linkConnectionControllerProvider` (for send refusals), `appVersionProvider`, `LinkSendFailure`, `broskiSecureStorage` (the offline cache's store) and `NotificationService` (the run-finished notification). Nothing from the old agent services, providers or models: `service_providers.dart`, for one, also exports `BridgeService`, which `show` keeps out.
 3. **The contract's semantics are ported, never re-invented.** `applyEvent`/`sessionStatus` (reducer) and `answerProblem`/`fieldIsActive` (answer check) are held equal to the TypeScript by fixtures the generator computes from the TypeScript itself (§8).
 4. **Generated code is never edited by hand** (`lib/contract/generated/`, `test/contract/generated/`, `test/contract/fixtures/`): `cd packages/bridge && bun run contract:gen`; CI runs `contract:check`.
 5. **Every request ends in a typed value.** Nothing a caller awaits throws: a request is `Answered | Failed(ContractFailure)`, a read is `Done | Refused(Rejection) | Unreached(ContractFailure)`.
@@ -31,9 +31,11 @@ Code: `lib/agent/` (one concept per file, every file under 400 lines). Tests: `t
 | `reducer/*.dart` | The port of `session-reducer.ts` and `run-items.ts`. |
 | `answers/*.dart`, `answers/url/*.dart` | The port of `answer-check.ts` and `field-check.ts`, with the JavaScript semantics they lean on (`trim`, code points, property order, `RegExp` both readings and the syntax only newer engines take, WHATWG `URL.canParse`). |
 | `session/*.dart` | The session store: state, link, history, prompts, answers, notices; the controller and its parts; the events held while an attach is out (`held_events.dart`); the prompts a replaced session hands on (`prompt_handoff.dart`). |
-| `catalog/*.dart` | Backends, paged session lists, model/command/mode lists, row actions. |
+| `catalog/*.dart` | Backends, paged session lists, the directories sessions use (a backend's projects), model/command/mode lists, row actions. |
+| `cache/*.dart` | The offline cache: the bounded store of what the phone last read (§14.3). |
+| `notify/*.dart` | The run-finished notification: which sessions are on screen, the catalog watcher, the notifier port (§14.4). |
 | `agent_providers.dart` | The Riverpod providers. |
-| `ui/**` | The generic screens and sheets (§9), the panels registry (§10), the hidden entry. |
+| `ui/**` | The generic screens and sheets (§9), the panels registry (§10). |
 
 Tools: `tool/check_agent_core.dart` (rules 1 and 2), `tool/format_differential.dart` (the string checks against Bun at scale, §8), `tool/mutate_agent_core.dart` (mutation check, §8).
 
@@ -129,7 +131,7 @@ Of the 1,112,064 code points as a host, the app passes and Bun refuses 814,664 u
 
 ## 9. The UI building blocks
 
-All under `lib/agent/ui/`, reachable from `AgentHomeScreen`. What decides what is shown:
+All under `lib/agent/ui/`, reachable from the Sessions and Projects tabs (§14). What decides what is shown:
 
 | Element | Shown when |
 |---|---|
@@ -174,7 +176,7 @@ For each backend, in its own change:
 3. **Screens**: route the backend's entry points (session list, chat, settings sheets) to `SessionListScreen`, `AgentChatScreen`, `showLiveSettings`, `showInteractionSheet`. Nothing in `lib/agent/` changes for it; if a screen seems to need the backend's id, the contract is missing a capability: add it there.
 4. **Extras**: give each of its ops a panel if it is new (the registry will not compile without one) and render its extension kinds in `notices_strip.dart`.
 5. **Proof**: extend the e2e test with the backend's driver where one exists (a scripted model endpoint), and the fake's traits narrowed to the backend's.
-6. **Delete**: its old handlers, connector, runtime mapper, Dart models, providers, `BridgeService` extensions and screens; drop it from `AgentType`. When the last backend is moved, `BridgeService`, `PiBridgeService`, the old runtime events and the heartbeat go, and the hidden entry becomes the app's way in.
+6. **Delete**: its old handlers, connector, runtime mapper, Dart models, providers, `BridgeService` extensions and screens; drop it from `AgentType`. When the last backend is moved, `BridgeService`, `PiBridgeService`, the old runtime events and the heartbeat go. The app already lives on this layer for every backend the bridge serves through the contract (§14).
 
 ## 13. Limits and open risks
 
@@ -185,3 +187,17 @@ For each backend, in its own change:
 - **Rate-limit windows** show their status and percentage only: the units of `resetsAt` are unverified for both backends that send it (contract Q13, Q22).
 - **Composer lengths** are not limited as typed; the composer refuses a message over `MAX_TEXT_CHARS` or images over 4 MiB together, and the bridge enforces the rest of the schema.
 - **The old protocol shares the socket** until Phase 4; both clients see each other's frames and ignore them.
+
+## 14. A contract backend in the app
+
+A backend the bridge serves through the contract is a first-class choice next to the three that still speak the old protocol, in release builds, with no flag. Nothing here steers `lib/agent/` by backend: the screens outside it map the choice to the generic ones.
+
+**14.1 The choice.** `models/selected_backend.dart` is a sealed `SelectedBackend`: `LegacySelection(AgentType)` or `ContractSelection(BackendId)`. `AgentType` stays old-protocol only and never enters `lib/agent/`. `providers/selected_backend_provider.dart` keeps it across restarts (secure storage, the key the old choice used, so a stored `pi` loads as the contract Pi) and still auto-selects an available old agent when the chosen old one is gone; it never auto-selects a contract backend, nor away from one. `agentTypeProvider` stays the old-protocol agent the screens that act for one use (while a contract backend is selected it is the one selected last); `legacyAgentProvider` is null then, for the screens that must tell. The backend picker (`screens/ai_backend_screen.dart`) lists the contract backends the bridge lists (or last listed: the list is cached), without those whose id is an old agent's, with the label, blurb and logo from `ui/backend_label.dart` and the status issue when it is not usable; the Settings chip and subtitle read `SelectedBackend.displayName`/`badge`.
+
+**14.2 The tabs.** With a contract backend selected, Sessions (`screens/sessions/contract_sessions_tab.dart`) shows `SessionListView`, the body `SessionListScreen` also uses, with new session and archive in its header; a row opens `AgentChatScreen`; a run shows as a *Running* / *Waiting for you* pill kept current by the catalog. Projects keeps the old screen and reads its list from `lib/agent` instead (`screens/projects/contract_projects.dart`): **the directories of the backend's sessions**, from the paged session list (`catalog/directories_controller.dart`, 200 a page, 10 pages at most, newest first). The contract has no list of directories and a session is the one thing that says where work happens, so no new read was added; the limit is that a directory whose newest session is older than the newest 2,000 is not listed (the New session sheet takes any typed directory). A tap opens the New session sheet with the directory filled, and Start opens `AgentChatScreen`. Settings offers AI Usage and Terminal Sessions, the features that belong to the Mac, in place of the old agents' power features. The list is read again when the link comes back.
+
+**14.3 Offline.** `cache/agent_cache.dart` keeps what the phone read: the backends, each session list's rows, the directories, and the newest 120 items of each transcript opened. With the link down, the list, the Projects tab and a conversation opened before show that copy, read-only (no row actions, no new session, no composer or Stop), under an *Offline · read-only · saved 3 min ago* banner; when the link is back the bridge's answer replaces the copy (a saved transcript is replaced, not extended, by the newest page). Bounds: 24 entries, 2 MiB of text in all, 192 KiB in one entry, the oldest write going first, 200 rows a list; the cache is best effort (a failing store or an entry another version wrote is a miss), lives in the app's secure storage with the other offline caches, and *Clear Cache* in Settings clears it. It is generic: every list and transcript of every contract backend goes through the same code.
+
+**14.4 Run finished.** `notify/run_completion_watcher.dart` reads the catalog, which reaches every phone for every session: a row going from running or waiting-for-you to idle is a finished run, and unless that session is on screen with the app in front (`SessionViewing`, set by `AgentChatScreen`) the phone shows the same local *completed* notification the old backends get (`NotificationService.showSessionCompleted`, through the `RunDoneNotifier` port). It is started by the main shell, so the contract client lives for the whole session of the app. Tapping the notification, and pushes when the app is closed, belong to the bridge push work.
+
+**Tests.** `test/screens/contract/` (the real `MainShell` over a scripted bridge: Sessions lists and opens, Projects starts a session in a directory, the picker and the selection surviving a restart, offline Sessions and Projects), `test/agent/ui/offline_test.dart`, `test/agent/cache/`, `test/agent/notify/`, `test/models/selected_backend_test.dart`.

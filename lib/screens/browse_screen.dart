@@ -1,12 +1,11 @@
 import 'dart:convert';
 
-import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/file_binary_content.dart';
 import 'package:broski/models/file_content.dart';
 import 'package:broski/models/search_result.dart';
 import 'package:broski/models/vcs.dart';
-import 'package:broski/providers/agent_type_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/selected_agent_available.dart';
 import 'package:broski/providers/selection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/theme/app_icons.dart';
@@ -421,12 +420,9 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final connection = ref.watch(connectionProvider);
-    final agentType = ref.watch(agentTypeProvider);
     final selection = ref.watch(selectionProvider);
     final selectedProjectPath = selection.project?.path;
-    final agentAvailable =
-        connection.backends?.forType(agentType).available ??
-        (agentType == AgentType.opencode ? connection.opencodeRunning : true);
+    final agentAvailable = ref.watch(selectedAgentAvailableProvider);
     // Listen for selection changes to sync Browse path with selected project
     ref.listen(selectionProvider, _handleSelectionChange);
     // Show file viewer if viewing a file

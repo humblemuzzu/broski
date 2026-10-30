@@ -1,6 +1,5 @@
-import 'package:broski/models/agent_type.dart';
-import 'package:broski/providers/agent_type_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/selected_agent_available.dart';
 import 'package:broski/providers/selection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/screens/terminal_view_screen.dart';
@@ -242,11 +241,8 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
   @override
   Widget build(BuildContext context) {
     final connection = ref.watch(connectionProvider);
-    final agentType = ref.watch(agentTypeProvider);
     final ocTheme = OpenCodeTheme.of(context);
-    final agentAvailable =
-        connection.backends?.forType(agentType).available ??
-        (agentType == AgentType.opencode ? connection.opencodeRunning : true);
+    final agentAvailable = ref.watch(selectedAgentAvailableProvider);
     return Scaffold(
       backgroundColor: ocTheme.background,
       appBar: AppBar(

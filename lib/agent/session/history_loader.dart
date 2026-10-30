@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:broski/agent/cache/cached_kinds.dart';
 import 'package:broski/agent/client/outcome.dart';
 import 'package:broski/agent/client/requests/session_requests.dart';
 import 'package:broski/agent/session/session_cell.dart';
@@ -40,12 +43,20 @@ final class HistoryLoader {
             prompts: withoutEchoed(state.prompts, history.items),
           );
         });
+        _save();
       case Refused() || Unreached():
         _cell.notify(
           NoticeLevel.warning,
           'The conversation could not be loaded: ${problemOf(outcome)}',
         );
     }
+  }
+
+  void _save() {
+    final history = _cell.current.history;
+    unawaited(
+      _cell.cache?.saveHistory(_cell.ref, history.items, history.stability),
+    );
   }
 
   Future<void> loadOlder() async {

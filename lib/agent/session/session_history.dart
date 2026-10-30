@@ -13,7 +13,23 @@ final class SessionHistory {
     this.stability = IdStability.stable,
     this.settling = const [],
     this.settlingDropped = 0,
+    this.savedAt,
   });
+
+  /// A history read from the phone's saved copy, to be shown until the
+  /// bridge answers: it holds no older page and is replaced, not extended, by
+  /// the newest one read.
+  factory SessionHistory.saved(
+    List<TranscriptItem> items,
+    IdStability stability,
+    int savedAt,
+  ) => SessionHistory(
+    items: items,
+    loaded: true,
+    complete: true,
+    stability: stability,
+    savedAt: savedAt,
+  );
 
   final List<TranscriptItem> items;
   final PageCursor? olderCursor;
@@ -30,6 +46,10 @@ final class SessionHistory {
   /// transcript can show.
   final int settlingDropped;
 
+  /// When the saved copy this history shows was taken; null once the bridge
+  /// has answered.
+  final int? savedAt;
+
   /// The newest page, read again: at attach, after a run finished, after the
   /// history was rewritten. With stable ids the pages already read stay
   /// where the new page begins in them; otherwise, or when it begins in none
@@ -40,6 +60,7 @@ final class SessionHistory {
         !rewritten &&
         page.idStability == IdStability.stable &&
         stability == IdStability.stable &&
+        savedAt == null &&
         newest.isNotEmpty;
     final start = keepOlder
         ? items.indexWhere((item) => item.id == newest.first.id)

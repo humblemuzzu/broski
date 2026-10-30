@@ -69,6 +69,7 @@ void main() {
           result: const NewSessionAccepted(session: sessionRef),
         ),
       );
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('New session'));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -81,6 +82,31 @@ void main() {
     await WidgetRig.settle(tester);
     expect(rig.sent<SessionCreateRequest>().options.cwd, '/work');
     expect(find.byType(AgentChatScreen), findsOneWidget);
+  });
+
+  testWidgets('a row shows its run while it lasts', (tester) async {
+    final rig = await _list(tester, everything);
+    SessionSummary at(SessionStatus status) => SessionSummary(
+      session: summary.session,
+      updatedAt: 2,
+      archived: false,
+      status: status,
+      origin: SessionOrigin.broski,
+      cwd: summary.cwd,
+    );
+    expect(find.text('Running'), findsNothing);
+    rig.bridge.catalog(
+      sessionRef.backend,
+      SessionUpdatedEvent(summary: at(SessionStatus.running)),
+    );
+    await WidgetRig.settle(tester);
+    expect(find.text('Running'), findsOneWidget);
+    rig.bridge.catalog(
+      sessionRef.backend,
+      SessionUpdatedEvent(summary: at(SessionStatus.idle)),
+    );
+    await WidgetRig.settle(tester);
+    expect(find.text('Running'), findsNothing);
   });
 
   testWidgets('a rename asks for the title and sends it', (tester) async {

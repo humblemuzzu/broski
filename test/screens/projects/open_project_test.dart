@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/project.dart';
+import 'package:broski/models/selected_backend.dart';
 import 'package:broski/providers/agent_type_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
+import 'package:broski/providers/selected_backend_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/screens/projects/open_project.dart';
 import 'package:broski/theme/theme.dart';
@@ -66,7 +68,9 @@ void main() {
     final (ref, context) = await pumpProjectHost(tester, socket);
 
     unawaited(
-      ref.read(agentTypeProvider.notifier).setAgentType(AgentType.opencode),
+      ref
+          .read(selectedBackendProvider.notifier)
+          .select(const LegacySelection(AgentType.opencode)),
     );
     await tester.pump();
     expect(ref.read(agentTypeProvider), AgentType.opencode);

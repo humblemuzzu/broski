@@ -1,14 +1,16 @@
 import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/permission_rule.dart';
 import 'package:broski/models/project.dart';
-import 'package:broski/providers/agent_type_provider.dart';
+import 'package:broski/models/selected_backend.dart';
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/permission_rules_provider.dart';
+import 'package:broski/providers/selected_backend_provider.dart';
 import 'package:broski/providers/selection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/providers/tool_settings_provider.dart';
 import 'package:broski/screens/chat_screen.dart';
+import 'package:broski/screens/projects/contract_projects.dart';
 import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,13 +25,15 @@ Future<void> openProjectForSelectedAgent({
   required WidgetRef ref,
   required ProjectSummary project,
 }) {
-  switch (ref.read(agentTypeProvider)) {
-    case AgentType.claudeCode:
+  switch (ref.read(selectedBackendProvider)) {
+    case LegacySelection(type: AgentType.claudeCode):
       return _openClaudeProject(context, ref, project);
-    case AgentType.codex:
+    case LegacySelection(type: AgentType.codex):
       return _openCodexProject(context, ref, project);
-    case AgentType.opencode:
+    case LegacySelection(type: AgentType.opencode):
       return _openOpenCodeProject(context, ref, project);
+    case ContractSelection(:final id):
+      return openContractProject(context, ref, id, project);
   }
 }
 
