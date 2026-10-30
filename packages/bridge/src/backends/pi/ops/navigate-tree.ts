@@ -21,23 +21,29 @@ export interface NavigateDeps {
 const NAVIGATED: BackendCallResult = { status: "accepted", result: { kind: "navigate_tree" } };
 
 export async function navigateTree(deps: NavigateDeps, op: NavigateTreeOp): Promise<BackendCallResult> {
+	if (op.instructions !== undefined && !op.summarize) {
+		return rejected("invalid_input", "instructions are for a summary: ask for one");
+	}
 	const entryId = await deps.store.entryOf(op.sessionId, op.itemId, deps.live);
 	if (entryId === undefined) return rejected("not_found", `no item ${op.itemId} on the session's branch`);
 	if (typeof entryId !== "string") return entryId;
-	const result = await deps.hosts.withIdleSession(op.sessionId, (session) => moveLeaf(session, entryId, op.summarize));
+	const result = await deps.hosts.withIdleSession(op.sessionId, (session) => moveLeaf(session, entryId, op));
 	if (result.status === "accepted") {
 		deps.catalog.emit({ type: "transcript_invalidated", session: { backend: "pi", sessionId: op.sessionId } });
 	}
 	return result;
 }
 
-async function moveLeaf(session: AgentSession, entryId: string, summarize: boolean): Promise<BackendCallResult> {
+async function moveLeaf(session: AgentSession, entryId: string, op: NavigateTreeOp): Promise<BackendCallResult> {
 	const manager = session.sessionManager;
 	if (session.isStreaming || session.isCompacting) return rejected("busy", "the session is busy");
 	if (manager.getEntry(entryId) === undefined) return rejected("not_found", `no entry ${entryId} in the session`);
 	const leafBefore = manager.getLeafId();
 	try {
-		const moved = await session.navigateTree(entryId, { summarize });
+		const moved = await session.navigateTree(entryId, {
+			summarize: op.summarize,
+			...(op.instructions !== undefined && { customInstructions: op.instructions }),
+		});
 		if (moved.cancelled) {
 			return rejected(
 				"backend_error",

@@ -20,9 +20,11 @@ import type {
 	SessionOrigin,
 	SessionQuery,
 	SessionStatus,
+	SessionSummary,
 	SessionsListResult,
 	TranscriptItemId,
 	TranscriptReadResult,
+	TreeRead,
 } from "../../contract";
 import type { ToolCallIds } from "./ids";
 import type { LiveState } from "./live/live-state";
@@ -48,6 +50,8 @@ export interface LiveRow {
 /** Implemented by the live sessions (`live/`), read by the store (`store/`) on every read. */
 export interface LiveOverlay {
 	row(sessionId: SessionId): LiveRow | undefined;
+	/** The children of a hosted session whose tool calls still run: their result is not in the file yet. */
+	unwritten?(parentId: SessionId): readonly SessionSummary[];
 }
 
 /** A session file the store found, as the live sessions need it to host the session. */
@@ -68,6 +72,8 @@ export interface SessionStore {
 	get(sessionId: SessionId, live: LiveOverlay): Promise<SessionGetResult>;
 	transcript(sessionId: SessionId, page: PageRequest, live: LiveOverlay): Promise<TranscriptReadResult>;
 	attachment(sessionId: SessionId, attachment: AttachmentId): Promise<AttachmentReadResult>;
+	/** The entries of the session file as the tree `/tree` shows them, newest first. */
+	tree(sessionId: SessionId, page: PageRequest): Promise<TreeRead | Rejected>;
 	locate(sessionId: SessionId): Promise<StoredSession | Rejected>;
 	/** Where a new session of `cwd` is written, as the `pi` command would write it (D7). */
 	sessionDirFor(cwd: string): string;
@@ -147,6 +153,11 @@ export interface OwnershipAccess {
 	 * lock on the stored session and either refuses or writes the mark that makes the session this bridge's.
 	 */
 	takeOver(sessionId: SessionId, claim: (stored: StoredSession) => Promise<ActionResult>): Promise<ActionResult>;
+}
+
+/** The `AgentSession` of a session this bridge hosts now, without waiting for the session lock. */
+export interface HostedPeek {
+	session(sessionId: SessionId): AgentSession | undefined;
 }
 
 /** How the op (`ops/navigate-tree.ts`) reaches a session's `AgentSession` (`live/`). */

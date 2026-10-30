@@ -21,6 +21,7 @@ import {
 	MAX_NAME_CHARS,
 	MAX_TEXT_CHARS,
 	type NoticeEvent,
+	type SessionRef,
 	type ToolCallId,
 	type TranscriptItem,
 	type UserMessageEvent,
@@ -31,11 +32,14 @@ import { entryAttachmentId, entryItemId, storedToolCallId } from "../ids";
 import { boundedJson } from "../json";
 import { hasWireId, modelWireId } from "../models/model-ids";
 import { phoneText } from "../phone-text";
+import { bashItems } from "./bash-items";
 import { typedText } from "./prompt-title";
 import { fileChangesOf, toolNameOf, toolOutcome, toolResultOf } from "./tool-items";
 import { isCount } from "./usage";
 
 export interface EntryContext {
+	/** For an assistant message: the child session of each call (by the provider's call id) that ran a sub-run. */
+	readonly childSessions?: ReadonlyMap<string, SessionRef>;
 	/** The `broski.prompt` record that follows a user message entry. */
 	readonly prompt?: PromptRecord;
 	/**
@@ -53,8 +57,6 @@ export interface EntryContext {
 }
 
 type Content = string | readonly (TextContent | ImageContent)[] | null | undefined;
-type BashMessage = Extract<SessionMessageEntry["message"], { role: "bashExecution" }>;
-
 /**
  * An entry's items, ids `entryItemId(entry.id, index)`. Left out, with the reason: `system` messages carry
  * the prompt and tool declarations, never a turn; `label`, `session_info`, `usage`, `context_edit` and
@@ -131,11 +133,11 @@ function messageItems(entry: SessionMessageEntry, context: EntryContext, stamp: 
 			];
 		}
 		case "assistant":
-			return assistantItems(entry.id, message, stamp);
+			return assistantItems(entry.id, message, stamp, context);
 		case "toolResult":
 			return [toolResultItem(entry.id, message, context, stamp)];
 		case "bashExecution":
-			return noticeOf(entry.id, stamp, bashText(message));
+			return bashItems(entry.id, message, stamp);
 		case "custom":
 			return noticeOf(entry.id, stamp, customNoticeText(message.display, message.content));
 		default:
@@ -181,12 +183,17 @@ function imageRefOf(entryId: string, contentIndex: number, block: ImageContent, 
  * `content` may be missing in an old or hand-edited file, which Pi reads as empty
  * (pi-coding-agent `src/core/session-manager.ts:442-450`).
  */
-function assistantItems(entryId: string, message: AssistantMessage, stamp: Stamp): TranscriptItem[] {
+function assistantItems(
+	entryId: string,
+	message: AssistantMessage,
+	stamp: Stamp,
+	context: EntryContext,
+): TranscriptItem[] {
 	const items: TranscriptItem[] = [];
 	const content = message.content ?? [];
 	content.forEach((block, index) => {
 		if (block.type === "toolCall") {
-			items.push(toolCallItem(entryId, index, block, stamp));
+			items.push(toolCallItem(entryId, index, block, stamp, context.childSessions?.get(block.id)));
 			return;
 		}
 		const text = block.type === "text" ? block.text : block.thinking;
@@ -223,7 +230,13 @@ function endingText(message: AssistantMessage, content: AssistantMessage["conten
 	return undefined;
 }
 
-function toolCallItem(entryId: string, contentIndex: number, call: ToolCall, stamp: Stamp): TranscriptItem {
+function toolCallItem(
+	entryId: string,
+	contentIndex: number,
+	call: ToolCall,
+	stamp: Stamp,
+	childSession: SessionRef | undefined,
+): TranscriptItem {
 	return {
 		kind: "tool_call",
 		id: entryItemId(entryId, contentIndex),
@@ -232,6 +245,7 @@ function toolCallItem(entryId: string, contentIndex: number, call: ToolCall, sta
 		messageId: entryId,
 		name: toolNameOf(call.name),
 		input: boundedJson(call.arguments),
+		...(childSession !== undefined && { childSession }),
 	};
 }
 
@@ -287,18 +301,6 @@ function customNoticeText(display: boolean, content: Content): string | undefine
 	const texts: string[] = [];
 	for (const block of content ?? []) if (block.type === "text") texts.push(block.text);
 	return texts.join("\n");
-}
-
-function bashText(message: BashMessage): string {
-	const lines = [`$ ${message.command}`, message.output === "" ? "(no output)" : message.output];
-	if (message.cancelled) lines.push("(command cancelled)");
-	else if (typeof message.exitCode === "number" && message.exitCode !== 0) {
-		lines.push(`Command exited with code ${message.exitCode}`);
-	}
-	if (message.truncated && message.fullOutputPath) {
-		lines.push(`[Output truncated. Full output: ${message.fullOutputPath}]`);
-	}
-	return lines.join("\n");
 }
 
 function modelChangeItems(entry: ModelChangeEntry, stamp: Stamp): TranscriptItem[] {

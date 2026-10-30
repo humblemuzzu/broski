@@ -7,24 +7,24 @@ import type { AgentSession, AgentSessionRuntime } from "@earendil-works/pi-codin
 import {
 	type ActionResult,
 	type AgentEvent,
+	type BackendCallResult,
 	emptySnapshot,
 	MAX_LIST_ITEMS,
-	MAX_TEXT_CHARS,
 	type NoticeEvent,
 	type Rejected,
+	type RunShellOp,
 	type SessionControl,
 	type SessionSink,
 	type SessionSnapshot,
 	type SessionSummary,
-	sessionStatus,
 } from "../../../contract";
-import { clipStart } from "../bounds";
 import { errorText } from "../error-text";
 import { permissionsSetting } from "../modes";
 import type { AskHost, LiveRow } from "../ports";
 import { ACCEPTED, CLOSED, rejected } from "../rejections";
 import { InteractionDesk } from "../ui/interactions";
 import { createRemoteUiContext } from "../ui/ui-context";
+import { ChildFeeds } from "./child-feeds";
 import { CommandScope } from "./command-scope";
 import { requestCompaction } from "./compaction-request";
 import { EventBridge } from "./event-bridge";
@@ -34,12 +34,14 @@ import type { HostEnvironment, HostStart } from "./host-environment";
 import { HostLiveState } from "./host-live-state";
 import { HostRow } from "./host-row";
 import { startHostRuntime } from "./host-startup";
-import type { HostedFacts } from "./host-summary";
+import { type HostedFacts, liveRowOf } from "./host-summary";
 import { faultEvent, noticeEvent } from "./live-notes";
 import { PromptDesk } from "./prompt-desk";
 import { QueueMirror } from "./queue-mirror";
+import { returnQueuedInput } from "./queue-return";
 import { RunTracker } from "./run-tracker";
 import { SessionSettings } from "./settings";
+import { ShellRun } from "./shell-run";
 import { ABORT_DEADLINE_MS, BINDING_WAIT_MS, boundedAbort, shutdownRuntime, within } from "./shutdown";
 import { UsageFeed } from "./usage-feed";
 
@@ -58,6 +60,8 @@ export class SessionHost {
 	private readonly interactions: InteractionDesk;
 	private readonly runs: RunTracker;
 	private readonly queue: QueueMirror;
+	private readonly shell: ShellRun;
+	readonly children: ChildFeeds;
 	private readonly prompts: PromptDesk;
 	private readonly events: EventBridge;
 	private readonly askHost: AskHost;
@@ -105,6 +109,12 @@ export class SessionHost {
 			refreshUsage: () => this.usage.refresh(),
 		});
 		this.queue = new QueueMirror(this.live);
+		this.shell = new ShellRun({
+			session: () => this.session,
+			live: this.live,
+			runs: this.runs,
+			idle: () => this.idle(),
+		});
 		this.prompts = new PromptDesk({
 			session,
 			runs: this.runs,
@@ -113,7 +123,13 @@ export class SessionHost {
 			abort: () => this.abortInBackground(),
 			commands: this.commands,
 		});
+		this.children = new ChildFeeds({
+			parent: () => this.summary(),
+			now,
+			announce: (summary) => env.catalog.emit({ type: "session_updated", summary }),
+		});
 		this.events = new EventBridge({
+			children: this.children,
 			live: this.live,
 			runs: this.runs,
 			queue: this.queue,
@@ -225,13 +241,7 @@ export class SessionHost {
 	}
 
 	row(): LiveRow {
-		const snapshot = this.live.snapshot();
-		const cut = this.runs.cut();
-		return {
-			status: sessionStatus(snapshot),
-			...(snapshot.modelId !== undefined && { modelId: snapshot.modelId }),
-			...(cut && { cut }),
-		};
+		return liveRowOf(this.live.snapshot(), this.runs.cut());
 	}
 
 	facts(): HostedFacts {
@@ -263,6 +273,9 @@ export class SessionHost {
 				),
 		};
 	}
+
+	/** `!command` (`run_shell`), under the lock and once the extensions have started. */
+	readonly runShell = (op: RunShellOp): Promise<BackendCallResult> => this.whenBound(() => this.shell.start(op));
 
 	/** Work the registry runs on the idle session under the lock (a tree navigation): a Stop reaches it, as it reaches Pi's own (pi `src/core/agent-session.ts:2498-2508`). */
 	async runIdleWork<T>(work: (session: AgentSession) => Promise<T>): Promise<T> {
@@ -331,6 +344,7 @@ export class SessionHost {
 	/** Not under the lock: an abort must reach Pi while a prompt waits on it (D2). */
 	private async abort(): Promise<ActionResult> {
 		if (this.ended) return CLOSED;
+		if (this.shell.stop()) return ACCEPTED;
 		const quiet = this.runs.current() === undefined && !this.prompts.isDeciding;
 		if (quiet && this.idleWork === 0 && this.live.snapshot().compaction === undefined) return ACCEPTED;
 		return this.abortNow();
@@ -342,7 +356,7 @@ export class SessionHost {
 	 * the person as `input_returned`, steering first, so nothing queued is sent by a run that was stopped.
 	 */
 	private async abortNow(): Promise<ActionResult> {
-		this.returnQueuedInput();
+		returnQueuedInput(this.session, this.live);
 		const run = this.runs.current();
 		if (run) {
 			this.runs.noteAbort();
@@ -356,15 +370,6 @@ export class SessionHost {
 			return rejected("backend_error", `the abort failed: ${errorText(error)}`);
 		}
 		return ACCEPTED;
-	}
-
-	private returnQueuedInput(): void {
-		const session = this.session;
-		if (!session.isStreaming) return;
-		const { steering, followUp } = session.clearQueue();
-		const texts = [...steering, ...followUp].filter((text) => text !== "");
-		if (texts.length > 0)
-			this.live.emit({ type: "input_returned", texts: texts.map((text) => clipStart(text, MAX_TEXT_CHARS)) });
 	}
 
 	private abortInBackground(): void {

@@ -5,10 +5,11 @@
 
 import type { JsonObject } from "@earendil-works/pi-ai";
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
-import type { ToolCallId, TranscriptItem } from "../../../contract";
+import type { SessionRef, ToolCallId, TranscriptItem } from "../../../contract";
 import { readPromptRecord, readToolOutcomeRecord } from "../broski-entries";
-import { storedToolCallId } from "../ids";
+import { childSessionId, storedToolCallId } from "../ids";
 import type { EntryContext } from "../mapping/message-items";
+import { subRunsOf } from "../mapping/sub-runs";
 import { type EntrySpan, readEntries, type SessionFileIndex } from "./jsonl-reader";
 
 interface AnsweredCall {
@@ -90,6 +91,7 @@ export class BranchItems {
 			const prompt = await this.recordAfter(position, readPromptRecord);
 			return prompt === undefined ? {} : { prompt };
 		}
+		if (message.role === "assistant") return this.childLinks(position, message.content);
 		if (message.role !== "toolResult") return {};
 		const call =
 			typeof message.toolCallId === "string" ? await this.callAnswered(position, message.toolCallId) : undefined;
@@ -100,6 +102,33 @@ export class BranchItems {
 				: { toolCallId: call.toolCallId, toolInput: call.input }),
 			...(toolOutcome !== undefined && { toolOutcome }),
 		};
+	}
+
+	/**
+	 * The calls of the assistant message at `position` that ran a sub-run, each with the child session it is: the
+	 * results Pi appends after the message hold the sub-runs (`mapping/sub-runs.ts`).
+	 */
+	private async childLinks(
+		position: number,
+		content: readonly { readonly type: string }[] | undefined,
+	): Promise<EntryContext> {
+		const calls = new Set(
+			(content ?? []).flatMap((block) => (block.type === "toolCall" && "id" in block ? [String(block.id)] : [])),
+		);
+		const childSessions = new Map<string, SessionRef>();
+		for (let at = position + 1; at <= position + calls.size + RECORD_LOOK_AHEAD && calls.size > 0; at += 1) {
+			const span = this.branch[at];
+			if (span === undefined || (span.type === "message" && span.role !== undefined && span.role !== "toolResult"))
+				break;
+			if (span.type !== "message") continue;
+			const result = await this.entryAt(at, false);
+			if (result?.type !== "message" || result.message.role !== "toolResult") continue;
+			const id = childSessionId(this.file.header.id, result.message.toolCallId);
+			if (calls.has(result.message.toolCallId) && id !== undefined && subRunsOf(result.message.details).length > 0) {
+				childSessions.set(result.message.toolCallId, { backend: "pi", sessionId: id });
+			}
+		}
+		return childSessions.size === 0 ? {} : { childSessions };
 	}
 
 	/**

@@ -42,7 +42,7 @@ describe("a bridge", () => {
 				const listed = await phone.ok("backends.list", {});
 				expect(listed.backends.map((backend) => backend.id)).toEqual(["pi"]);
 				expect(listed.backends[0]?.capabilities).toMatchObject({
-					backendOps: ["navigate_tree", "take_over"],
+					backendOps: ["navigate_tree", "take_over", "read_tree", "label_entry", "abort_branch_summary", "run_shell"],
 					fork: true,
 				});
 			} finally {

@@ -19,16 +19,31 @@ describe("notices", () => {
 				timestamp: 1,
 				...extra,
 			});
-		expect(map(bash({}))).toEqual([{ kind: "notice", id: "b1:0", at: ENTRY_MS, level: "info", text: "$ ls\nfile" }]);
-		expect(map(bash({ exitCode: 2, output: "" }))).toMatchObject([
-			{ text: "$ ls\n(no output)\nCommand exited with code 2" },
+		expect(map(bash({}))).toEqual([
+			{ kind: "tool_call", id: "b1:0", at: ENTRY_MS, toolCallId: "b1:0", name: "bash", input: { command: "ls" } },
+			{
+				kind: "tool_result",
+				id: "b1:1",
+				at: ENTRY_MS,
+				toolCallId: "b1:0",
+				outcome: "completed",
+				result: { content: [{ kind: "text", text: "file" }], fileChanges: [], exitCode: 0 },
+			},
 		]);
-		expect(map(bash({ cancelled: true, exitCode: undefined }))).toMatchObject([
-			{ text: "$ ls\nfile\n(command cancelled)" },
-		]);
-		expect(map(bash({ truncated: true, fullOutputPath: "/tmp/full" }))).toMatchObject([
-			{ text: "$ ls\nfile\n[Output truncated. Full output: /tmp/full]" },
-		]);
+		expect(map(bash({ exitCode: 2, output: "" }))[1]).toMatchObject({
+			outcome: "failed",
+			result: { content: [], error: "Command exited with code 2", exitCode: 2 },
+		});
+		expect(map(bash({ cancelled: true, exitCode: undefined }))[1]).toMatchObject({
+			outcome: "aborted",
+			result: { content: [{ kind: "text", text: "file" }] },
+		});
+		expect(map(bash({ truncated: true, fullOutputPath: "/tmp/full" }))[1]).toMatchObject({
+			result: { content: [{ kind: "text", text: "file\n[Output truncated. Full output: /tmp/full]" }] },
+		});
+		expect(map(bash({ excludeFromContext: true }))[0]).toMatchObject({
+			input: { command: "ls", excludeFromContext: true },
+		});
 	});
 
 	test("an extension's message is shown only when it asks to, as its text", () => {

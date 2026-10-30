@@ -16,10 +16,14 @@ import type {
 import { CatalogFeed } from "./catalog-feed";
 import { PiCommandLister } from "./commands";
 import { ConfigWatch } from "./config-watch";
+import { parseChildSessionId } from "./ids";
+import { openChildSession } from "./live/child-open";
 import { SessionHosts } from "./live/session-hosts";
 import { ModelCatalogue } from "./models/catalogue";
 import { listPiModes } from "./modes";
 import { navigateTree } from "./ops/navigate-tree";
+import { runShellOp } from "./ops/run-shell";
+import { abortBranchSummaryOp, labelEntryOp, readTreeOp } from "./ops/session-tree";
 import { takeOver } from "./ops/take-over";
 import type { SessionStore } from "./ports";
 import { rejected } from "./rejections";
@@ -115,10 +119,14 @@ export function piBackendOf(parts: PiParts): AgentBackend {
 		listModels: (cwd) => models.list(cwd),
 		listCommands,
 		listModes: async () => listPiModes(),
-		open: async (target, sink) =>
-			target.kind === "existing" && target.session.backend !== "pi"
-				? notFound(target.session)
-				: hosts.open(target, sink),
+		open: async (target, sink) => {
+			if (target.kind === "existing" && target.session.backend !== "pi") return notFound(target.session);
+			const child = target.kind === "existing" ? parseChildSessionId(target.session.sessionId) : undefined;
+			if (target.kind === "existing" && child !== undefined) {
+				return openChildSession({ hosts, store }, target.session, child, sink);
+			}
+			return hosts.open(target, sink);
+		},
 		rename: async (ref, title) =>
 			ref.backend === "pi"
 				? hosts.rename(ref.sessionId, title, (name) => store.rename(ref.sessionId, name))
@@ -148,6 +156,14 @@ function callOp(parts: PiParts, call: BackendCall): Promise<BackendCallResult> {
 			return navigateTree({ hosts, store, live: hosts, catalog }, call.op);
 		case "take_over":
 			return takeOver({ hosts, store, terminals: terminal.registry, now: Date.now }, call.op);
+		case "read_tree":
+			return readTreeOp({ hosts, store }, call.op);
+		case "label_entry":
+			return labelEntryOp({ hosts, store }, call.op);
+		case "abort_branch_summary":
+			return abortBranchSummaryOp({ hosts, store }, call.op);
+		case "run_shell":
+			return runShellOp({ hosts, store }, call.op);
 	}
 }
 

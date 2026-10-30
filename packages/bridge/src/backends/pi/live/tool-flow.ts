@@ -6,7 +6,7 @@
  */
 
 import type { AssistantMessage, ImageContent, TextContent, ToolCall, ToolResultMessage } from "@earendil-works/pi-ai";
-import type { AgentEvent, ImageRef, ToolCallId, ToolOutcome, ToolResult } from "../../../contract";
+import type { AgentEvent, ImageRef, SessionRef, ToolCallId, ToolOutcome, ToolResult } from "../../../contract";
 import type { RecordedToolOutcome } from "../broski-entries";
 import { entryAttachmentId } from "../ids";
 import { boundedJson } from "../json";
@@ -27,13 +27,25 @@ export interface ToolFlowDeps {
 	readonly run: () => RunContext | undefined;
 	/** An abort was requested for the run, so a call that fails now failed because of it. */
 	readonly aborting: () => boolean;
+	readonly children: ChildLinks;
 	/** Records, right after the result Pi just stored, an outcome Pi stores as an ordinary failure. */
 	readonly record: (outcome: RecordedToolOutcome) => void;
 }
 
+/** The part of `ChildFeeds` a tool call needs. */
+export interface ChildLinks {
+	link(piToolCallId: string, toolName: string, args: unknown, details: unknown): SessionRef | undefined;
+	end(piToolCallId: string, outcome: ToolOutcome): void;
+}
+
+/** For a session whose calls have no children to follow: a terminal's. */
+export const NO_CHILDREN: ChildLinks = { link: () => undefined, end: () => undefined };
+
 interface OpenCall {
 	readonly name: string;
 	readonly args: unknown;
+	/** The call's child session was announced in the parent's stream. */
+	linked: boolean;
 	/** Read when the call ends: the gate's denials are forgotten at the next assistant message (`ToolCallIds.nextResponse`). */
 	denied: boolean;
 }
@@ -46,7 +58,7 @@ export class ToolFlow {
 
 	/** The assistant message streams a call (the event itself is mapped by the message's `AssistantStream`). */
 	streamed(call: Pick<ToolCall, "id" | "name" | "arguments">): void {
-		this.open.set(call.id, { name: call.name, args: call.arguments, denied: false });
+		this.open.set(call.id, { name: call.name, args: call.arguments, denied: false, linked: false });
 	}
 
 	/**
@@ -63,7 +75,7 @@ export class ToolFlow {
 	executionStarted(event: PiEvent<"tool_execution_start">): void {
 		const run = this.deps.run();
 		if (!run) return;
-		this.open.set(event.toolCallId, { name: event.toolName, args: event.args, denied: false });
+		this.open.set(event.toolCallId, { name: event.toolName, args: event.args, denied: false, linked: false });
 		if (run.tools.find(event.toolCallId) === undefined) {
 			this.deps.emit(toolStartedOfExecution(event, run.tools));
 		}
@@ -72,6 +84,18 @@ export class ToolFlow {
 	executionUpdated(event: PiEvent<"tool_execution_update">): void {
 		const run = this.deps.run();
 		if (run && run.tools.find(event.toolCallId) !== undefined) this.deps.emit(toolOutputOf(event, run.tools));
+		this.linkChild(event.toolCallId, event.partialResult.details);
+	}
+
+	/** The call's sub-runs reach its child session; the first time, the parent's stream says where the child is. */
+	private linkChild(piId: string, details: unknown): void {
+		const call = this.open.get(piId);
+		const toolCallId = this.deps.run()?.tools.find(piId);
+		if (call === undefined || toolCallId === undefined) return;
+		const child = this.deps.children.link(piId, call.name, call.args, details);
+		if (child === undefined || call.linked) return;
+		call.linked = true;
+		this.deps.emit({ type: "tool_updated", toolCallId, update: { kind: "child_session", session: child } });
 	}
 
 	executionEnded(event: PiEvent<"tool_execution_end">): void {
@@ -88,9 +112,11 @@ export class ToolFlow {
 	}
 
 	resultPersisted(message: ToolResultMessage, entryId: string): void {
+		this.linkChild(message.toolCallId, message.details);
 		const outcome = this.finishCall(message.toolCallId, message.content, message.isError, message.details, (index) =>
 			imageRefAt(message.content, entryId, index),
 		);
+		this.deps.children.end(message.toolCallId, outcome ?? (message.isError ? "failed" : "completed"));
 		if (outcome === "denied" || outcome === "aborted") this.deps.record(outcome);
 	}
 
@@ -98,6 +124,7 @@ export class ToolFlow {
 	closing(): AgentEvent[] {
 		const events: AgentEvent[] = [];
 		for (const piId of [...this.open.keys()]) {
+			this.deps.children.end(piId, "aborted");
 			const event = this.finishEvent(piId, "aborted", resultText("The run ended before the tool finished."));
 			if (event) events.push(event);
 		}
@@ -107,7 +134,12 @@ export class ToolFlow {
 
 	private rememberCall(block: ToolCall): void {
 		const known = this.open.get(block.id);
-		this.open.set(block.id, { name: block.name, args: block.arguments, denied: known?.denied ?? false });
+		this.open.set(block.id, {
+			name: block.name,
+			args: block.arguments,
+			denied: known?.denied ?? false,
+			linked: known?.linked ?? false,
+		});
 	}
 
 	private finishCall(

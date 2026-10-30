@@ -129,7 +129,10 @@ async function walkDown(
 	return { items, next: undefined };
 }
 
-/** The entry an item id names, when that entry is on the branch the transcript shows now and yields that item. */
+/**
+ * The entry an item id names, when that entry is on the branch the transcript shows now and yields that item, or when
+ * the id is the first-item id of any entry of the file (`TreeNode.itemId`: a node of another branch has no item here).
+ */
 export async function entryOfItem(
 	index: SessionIndex,
 	sessionId: SessionId,
@@ -142,6 +145,6 @@ export async function entryOfItem(
 	const opened = await openBranch(index, sessionId, live, itemsOf);
 	if ("rejection" in opened) return opened.rejection.code === "not_found" ? undefined : opened;
 	const position = opened.items.positionOf(part.entryId);
-	if (position < 0) return undefined;
-	return (await opened.items.itemsAt(position)).some((item) => item.id === itemId) ? part.entryId : undefined;
+	if (position >= 0 && (await opened.items.itemsAt(position)).some((item) => item.id === itemId)) return part.entryId;
+	return part.index === 0 && opened.file.byId.has(part.entryId) ? part.entryId : undefined;
 }

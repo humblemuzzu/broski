@@ -54,6 +54,7 @@ export function newestUserMessage(
 
 export class FauxRouter {
 	private readonly scripts = new Map<string, FauxResponseStep[]>();
+	private readonly unkeyed: FauxResponseStep[] = [];
 	private readonly recorded: RecordedRequest[] = [];
 	private count = 0;
 
@@ -79,7 +80,8 @@ export class FauxRouter {
 					modelId: model.id,
 					messages: [...context.messages],
 				});
-				const step = (sessionId === undefined ? undefined : this.scripts.get(sessionId)?.shift()) ?? fallback();
+				const step =
+					(this.isScripted(sessionId) ? this.scripts.get(sessionId)?.shift() : this.unkeyed.shift()) ?? fallback();
 				return typeof step === "function" ? await step(context, options, state, model) : step;
 			} finally {
 				end();
@@ -96,6 +98,21 @@ export class FauxRouter {
 	/** The session's next requests are answered by `steps`, in order; what it had left is dropped. */
 	script(sessionId: string, steps: readonly FauxResponseStep[]): void {
 		this.scripts.set(sessionId, [...steps]);
+	}
+
+	/** A request of a session `script` was given steps for is answered from them; any other (a branch summary's has an id of its own) from `scriptUnkeyed`. */
+	private isScripted(sessionId: string | undefined): sessionId is string {
+		return sessionId !== undefined && this.scripts.has(sessionId);
+	}
+
+	/** The next requests of no scripted session (a branch summary's) are answered by `steps`, in order. */
+	scriptUnkeyed(steps: readonly FauxResponseStep[]): void {
+		this.unkeyed.splice(0, this.unkeyed.length, ...steps);
+	}
+
+	/** Every request of no scripted session, oldest first. */
+	unkeyedRequests(): readonly RecordedRequest[] {
+		return this.recorded.filter((request) => !this.isScripted(request.sessionId));
 	}
 
 	/** Steps the session has not been asked for yet. */

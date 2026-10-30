@@ -3,15 +3,17 @@
  * entries, and the per-run table from Pi's tool call ids to live ones.
  */
 
-import type {
-	AttachmentId,
-	BlockId,
-	InteractionId,
-	MessageId,
-	QueueItemId,
-	RunId,
-	ToolCallId,
-	TranscriptItemId,
+import {
+	type AttachmentId,
+	type BlockId,
+	type InteractionId,
+	MAX_ID_CHARS,
+	type MessageId,
+	type QueueItemId,
+	type RunId,
+	type SessionId,
+	type ToolCallId,
+	type TranscriptItemId,
 } from "../../contract";
 
 /** Random, so no id is ever reused in a session (stream rule 2). */
@@ -24,6 +26,7 @@ export const mintRunId: () => RunId = mint;
 export const mintMessageId: () => MessageId = mint;
 export const mintInteractionId: () => InteractionId = mint;
 export const mintQueueItemId: () => QueueItemId = mint;
+export const mintToolCallId: () => ToolCallId = mint;
 
 export function blockId(messageId: MessageId, contentIndex: number): BlockId {
 	return `${messageId}:${contentIndex}`;
@@ -59,6 +62,28 @@ export function parseEntryPart(id: string): EntryPart | undefined {
 	if (!match) return undefined;
 	const [, entryId = "", index = ""] = match;
 	return isUsableEntryId(entryId) ? { entryId, index: Number(index) } : undefined;
+}
+
+const CHILD_SEPARATOR = ":";
+
+/**
+ * The id of the session a tool call's sub-run is shown as: its parent's id, then the provider's id of the call. Pi
+ * session ids never hold a `:`; a parent that does (a hand-edited file) has no children.
+ */
+export function childSessionId(parentId: string, piToolCallId: string): SessionId | undefined {
+	const id = `${parentId}${CHILD_SEPARATOR}${piToolCallId}`;
+	return parentId.includes(CHILD_SEPARATOR) || piToolCallId === "" || id.length > MAX_ID_CHARS ? undefined : id;
+}
+
+export interface ChildSessionPart {
+	readonly parentId: string;
+	readonly piToolCallId: string;
+}
+
+export function parseChildSessionId(id: string): ChildSessionPart | undefined {
+	const at = id.indexOf(CHILD_SEPARATOR);
+	if (at <= 0 || at === id.length - 1) return undefined;
+	return { parentId: id.slice(0, at), piToolCallId: id.slice(at + 1) };
 }
 
 /** Where the call sits: a provider's own id may be empty, repeat in a later response, or outgrow `ToolCallId`. */

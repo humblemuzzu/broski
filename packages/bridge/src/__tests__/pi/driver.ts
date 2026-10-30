@@ -60,14 +60,31 @@ export class PiConformanceDriver implements ConformanceDriver {
 	}
 
 	async backendCall(session: SessionRef, op: BackendOpKind): Promise<BackendCall | undefined> {
-		if (op === "take_over") return { backend: "pi", op: { kind: op, sessionId: session.sessionId } };
-		if (op !== "navigate_tree") return undefined;
-		const read = await this.world.backend.readTranscript(session, { limit: 200 });
-		if (read.status === "rejected") return undefined;
-		const prompt = read.page.items.find((item) => item.kind === "user_message");
-		return (
-			prompt && { backend: "pi", op: { kind: op, sessionId: session.sessionId, itemId: prompt.id, summarize: false } }
-		);
+		const { sessionId } = session;
+		switch (op) {
+			case "take_over":
+			case "abort_branch_summary":
+				return { backend: "pi", op: { kind: op, sessionId } };
+			case "read_tree":
+				return { backend: "pi", op: { kind: op, sessionId, page: { limit: 50 } } };
+			case "run_shell":
+				return {
+					backend: "pi",
+					op: { kind: op, sessionId, clientRequestId: crypto.randomUUID(), command: "true", excludeFromContext: false },
+				};
+			case "navigate_tree":
+			case "label_entry": {
+				const read = await this.world.backend.readTranscript(session, { limit: 200 });
+				if (read.status === "rejected") return undefined;
+				const prompt = read.page.items.find((item) => item.kind === "user_message");
+				if (prompt === undefined) return undefined;
+				return op === "navigate_tree"
+					? { backend: "pi", op: { kind: op, sessionId, itemId: prompt.id, summarize: false } }
+					: { backend: "pi", op: { kind: op, sessionId, entryId: prompt.id.replace(/:0$/, ""), label: "marked" } };
+			}
+			default:
+				return undefined;
+		}
 	}
 
 	/**
