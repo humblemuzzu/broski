@@ -59,7 +59,7 @@ export type Agent = {
 };
 
 // Agent type for multi-agent support
-export type AgentType = "opencode" | "claude-code" | "codex" | "pi" | "pi-durable";
+export type AgentType = "opencode" | "claude-code" | "codex";
 
 // Device information for multi-device support
 export type DeviceInfo = {

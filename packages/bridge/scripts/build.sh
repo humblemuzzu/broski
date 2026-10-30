@@ -278,8 +278,8 @@ done
 # from the dist/ folder next to the binary at import time
 # (readFileSync(join(dirname(process.execPath), "package.json"))). Missing, it
 # falls back to the SDK defaults; src/bootstrap.ts recreates the file on first run.
-# pi-durable, chord and pi-ai read no package-relative assets from the executable
-# dir (pi-ai's OAuth flows are registered from code — see connectors/pi/pi-model-runtime.ts).
+# pi-ai reads no package-relative assets from the executable dir (its OAuth
+# flows are registered from code).
 
 echo ""
 echo "  Emitting package.json for Pi SDK..."

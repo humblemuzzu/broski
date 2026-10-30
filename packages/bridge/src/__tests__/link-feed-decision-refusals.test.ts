@@ -39,20 +39,6 @@ describe("decisions that cannot be applied", () => {
 		}
 	});
 
-	test("a backend that never asks for approval is refused with unsupported", async () => {
-		const feed = await openFeed(h.socketPath);
-		try {
-			expect(
-				await h.decide(feed, { backend: "pi", session: "pi-1", request: "pi-1:call", decision: "allow" }),
-			).toMatchObject({
-				ok: false,
-				error: "unsupported",
-			});
-		} finally {
-			feed.close();
-		}
-	});
-
 	test("a request that needs an answer, not a decision, is refused with unsupported", async () => {
 		const feed = await openFeed(h.socketPath);
 		try {

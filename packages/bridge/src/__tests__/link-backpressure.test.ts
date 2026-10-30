@@ -39,10 +39,10 @@ const eventsForMiB = (mib: number): number => Math.ceil((mib * 1024 * 1024) / EV
 function toolEvent(sessionId: string, marker: number): ServerMessage {
 	return {
 		type: "runtime_event",
-		backend: "pi",
+		backend: "claude-code",
 		data: {
 			type: "tool_started",
-			backend: "pi",
+			backend: "claude-code",
 			timestampMs: Date.now(),
 			sessionId,
 			toolCallId: `tool-${marker}`,
@@ -55,10 +55,10 @@ function toolEvent(sessionId: string, marker: number): ServerMessage {
 function deltaEvent(sessionId: string, marker: number): ServerMessage {
 	return {
 		type: "runtime_event",
-		backend: "pi",
+		backend: "claude-code",
 		data: {
 			type: "assistant_text_delta",
-			backend: "pi",
+			backend: "claude-code",
 			timestampMs: Date.now(),
 			sessionId,
 			streamId: "s1",
@@ -165,7 +165,7 @@ describe("broski-link send window", () => {
 					resolve({ code: close.code, reason: close.reason });
 				});
 			});
-			await viewSession(client.ws, client.messages, "pi", "shed-session");
+			await viewSession(client.ws, client.messages, "claude-code", "shed-session");
 
 			let produced = 0;
 			const deadline = Date.now() + CLOSE_TIMEOUT_MS;

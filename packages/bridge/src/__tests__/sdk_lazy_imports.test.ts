@@ -13,7 +13,7 @@ async function runProbe(
 	const proc = Bun.spawn({
 		cmd: ["bun", script],
 		cwd: resolve(__dirname, "..", ".."),
-		env: { ...process.env, HOME: home, BROSKI_CACHE_DIR: join(home, "cache"), ...env },
+		env: { ...process.env, HOME: home, ...env },
 		stdout: "pipe",
 		stderr: "pipe",
 	});
@@ -36,12 +36,7 @@ describe("lazy agent SDK imports", () => {
 		expect(output).toContain("PROBE_SDK_MODULES=0");
 	});
 
-	for (const module of [
-		"src/connectors/claude-code.ts",
-		"src/connectors/opencode.ts",
-		"src/connectors/pi.ts",
-		"src/connectors/pi-durable/index.ts",
-	]) {
+	for (const module of ["src/connectors/claude-code.ts", "src/connectors/opencode.ts"]) {
 		test(`${module} loads without an agent SDK`, async () => {
 			const { output } = await runProbe(resolve(FIXTURES, "connector-import-probe.ts"), { PROBE_MODULE: module });
 			expect(output).toContain("PROBE_SDK_MODULES=0");

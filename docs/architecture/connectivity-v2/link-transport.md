@@ -144,11 +144,11 @@ Every list of sessions, threads or projects takes the same page contract as a tr
 reply can never grow with the number of sessions a machine has recorded:
 
 ```json
-{"type":"pi_list_sessions","limit":100,"before":"<nextCursor>"}
-{"type":"pi_sessions","data":[...],"hasMore":true,"nextCursor":"<opaque>"}
+{"type":"cc_list_sessions","limit":100,"before":"<nextCursor>"}
+{"type":"cc_sessions","data":[...],"hasMore":true,"nextCursor":"<opaque>"}
 ```
 
-`pi_list_sessions`/`pi_sessions`, `cc_list_sessions`/`cc_sessions`, `cx_list_threads`/`cx_threads`,
+`cc_list_sessions`/`cc_sessions`, `cx_list_threads`/`cx_threads`,
 OpenCode's `list_sessions`/`sessions` and `unified_list_sessions`/`unified_sessions` all use it, out
 of one implementation (`utils/session-list-page.ts`). `limit` defaults to 100 and is clamped to 500.
 Rows are ordered newest-modified first with `id` breaking ties, and `nextCursor` is base64url of

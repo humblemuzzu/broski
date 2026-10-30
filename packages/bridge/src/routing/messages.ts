@@ -8,13 +8,7 @@ import type { ClientMessage } from "../types";
 export type CcMessage = Extract<ClientMessage, { type: `cc_${string}` }> & { requestId?: string };
 export type CxMessage = Extract<ClientMessage, { type: `cx_${string}` }> & { requestId?: string };
 export type OcMessage = Extract<ClientMessage, { type: `oc_${string}` }> & { requestId?: string };
-export type PiMessage = Extract<ClientMessage, { type: `pi_${string}` }> & {
-	requestId?: string;
-	projectPath?: string;
-	cwd?: string;
-};
 export type UnifiedMessage = Extract<ClientMessage, { type: `unified_${string}` }> & { requestId?: string };
-export type PdMessage = Extract<ClientMessage, { type: `pd_${string}` }> & { requestId?: string };
 export type GitMessage = Extract<ClientMessage, { type: `git_${string}` | `github_${string}` }> & {
 	requestId?: string;
 };

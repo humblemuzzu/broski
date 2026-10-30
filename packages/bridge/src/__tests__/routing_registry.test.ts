@@ -40,17 +40,10 @@ const OVERLAPS = [
 	{ type: "oc_delete_message", claimedBy: ["oc_messages", "oc_parts"], owner: "oc_messages" },
 	{ type: "oc_get_message", claimedBy: ["oc_messages", "oc_parts"], owner: "oc_messages" },
 	{
-		type: "pi_get_subagent_invocation",
-		claimedBy: ["pi_subagent_messages", "pi_features"],
-		owner: "pi_subagent_messages",
-	},
-	{ type: "pi_read_session_messages", claimedBy: ["pi_session_messages", "pi_features"], owner: "pi_session_messages" },
-	{
 		type: "unified_list_session_children",
 		claimedBy: ["unified", "unified_session_children"],
 		owner: "unified_session_children",
 	},
-	{ type: "set_view", claimedBy: ["pi_durable", "session_view"], owner: "session_view (pi_durable attach runs first)" },
 ] as const;
 
 describe("message routing registry", () => {
@@ -87,11 +80,9 @@ describe("message routing registry", () => {
 	test("unknown types keep the pre-registry error replies", async () => {
 		const registry = createMessageRegistry(deps);
 		const { ctx, replies } = testContext();
-		await registry.dispatch(asClientMessage({ type: "pi_not_a_real_type" }), ctx);
 		await registry.dispatch(asClientMessage({ type: "unified_not_a_real_type" }), ctx);
 		await registry.dispatch(asClientMessage({ type: "not_a_real_type" }), ctx);
 		expect(replies.map(errorText)).toEqual([
-			errorText(unknownTypeError("pi_not_a_real_type")),
 			errorText(unknownTypeError("unified_not_a_real_type")),
 			"Unknown message type",
 		]);

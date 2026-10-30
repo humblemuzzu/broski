@@ -22,7 +22,6 @@ class MessageBubble extends StatelessWidget {
     this.onForkFromHere,
     this.onResumeFromHere,
     this.onDeleteMessage,
-    this.onRetryMessage,
   });
   final ChatMessage message;
 
@@ -30,9 +29,6 @@ class MessageBubble extends StatelessWidget {
   final void Function(String messageId)? onForkFromHere;
   final void Function(String messageId)? onResumeFromHere;
   final void Function(String messageId)? onDeleteMessage;
-
-  /// Resends a user message whose delivery failed.
-  final VoidCallback? onRetryMessage;
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -153,77 +149,56 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildUserMessage(BuildContext context, OpenCodeTheme theme) {
-    final deliveryState = message.metadata['deliveryState']?.toString();
-    final isPending = deliveryState == 'pending';
-    final isFailed = deliveryState == 'failed';
+    final isPending =
+        message.metadata['deliveryState']?.toString() == 'pending';
 
-    return GestureDetector(
-      onTap: isFailed ? onRetryMessage : null,
-      child: Align(
-        alignment: Alignment.centerRight,
-        child: Opacity(
-          opacity: isPending ? 0.7 : 1.0,
-          child: Container(
-            margin: const EdgeInsets.only(
-              left: 60,
-              right: 0,
-              top: 6,
-              bottom: 6,
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Opacity(
+        opacity: isPending ? 0.7 : 1.0,
+        child: Container(
+          margin: const EdgeInsets.only(left: 60, right: 0, top: 6, bottom: 6),
+          padding: Insets.listItem,
+          decoration: BoxDecoration(
+            color: theme.primary.withValues(alpha: 0.15),
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(18),
+              topRight: Radius.circular(18),
+              bottomLeft: Radius.circular(18),
+              bottomRight: Radius.circular(4),
             ),
-            padding: Insets.listItem,
-            decoration: BoxDecoration(
-              color: isFailed
-                  ? theme.error.withValues(alpha: 0.1)
-                  : theme.primary.withValues(alpha: 0.15),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(18),
-                topRight: Radius.circular(18),
-                bottomLeft: Radius.circular(18),
-                bottomRight: Radius.circular(4),
-              ),
-              border: Border.all(
-                color: isFailed
-                    ? theme.error.withValues(alpha: 0.5)
-                    : theme.primary.withValues(alpha: 0.3),
-                width: 1,
-              ),
+            border: Border.all(
+              color: theme.primary.withValues(alpha: 0.3),
+              width: 1,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  stripAnsi(message.text),
-                  style: TextStyle(
-                    fontFamily: AppTypography.uiFontFamily,
-                    color: theme.text,
-                    fontSize: 15,
-                    height: 1.5,
-                    fontWeight: FontWeight.w400,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                stripAnsi(message.text),
+                style: TextStyle(
+                  fontFamily: AppTypography.uiFontFamily,
+                  color: theme.text,
+                  fontSize: 15,
+                  height: 1.5,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              if (isPending)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: SizedBox(
+                    width: 10,
+                    height: 10,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      color: theme.textMuted,
+                    ),
                   ),
                 ),
-                if (isPending)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: SizedBox(
-                      width: 10,
-                      height: 10,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 1.5,
-                        color: theme.textMuted,
-                      ),
-                    ),
-                  ),
-                if (isFailed)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      'Failed to send \u00b7 Tap to retry',
-                      style: TextStyle(color: theme.error, fontSize: 11),
-                    ),
-                  ),
-              ],
-            ),
+            ],
           ),
         ),
       ),

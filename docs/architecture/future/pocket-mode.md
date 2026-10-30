@@ -3,6 +3,9 @@
 > **Status: idea only.** Nothing here is planned, scheduled or promised. This document writes down
 > how the idea *could* work if we ever chose to build it, what is known to be possible today, and
 > what is still unknown. Dates and sources are from research done on 2026-10-27/28.
+>
+> The Broski code it cites (`connectors/pi-durable/`, the pi-durable mapper) was deleted on
+> 2026-10-30, when Pi moved behind the backend contract; it is in git at `e9d1a10`.
 
 ---
 

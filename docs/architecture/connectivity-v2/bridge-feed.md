@@ -48,8 +48,7 @@ only: it is the id a decision on this alert must echo.
 ## Busy
 
 Working means `agent_started`, or a `session_state_changed` whose state satisfies
-`isStreaming || isCompacting || isRetrying || pendingMessageCount > 0` — what
-`runtime/pi-runtime-bootstrap.ts` already uses. `agent_finished` clears it; `error` deliberately does
+`isStreaming || isCompacting || isRetrying || pendingMessageCount > 0`. `agent_finished` clears it; `error` deliberately does
 not, since a mid-turn error would report a false `done`; a session that never finishes is forgotten by the 30 min session TTL.
 
 | backend | approval | attention | busy |
@@ -57,8 +56,6 @@ not, since a mid-turn error would report a false `done`; a session that never fi
 | claude-code | `permission_requested` | — (AskUserQuestion is a permission request) | ✓ |
 | opencode | `permission_requested` | `user_input_requested` (`question.asked`) | ✓ `session_state_changed` |
 | codex | `permission_requested` (`requestApproval`) | `user_input_requested` (elicitation) | ✓ |
-| pi | — | — | ✓ |
-| pi-durable | `permission_requested` | — | — |
 
 Every kind comes from `BroskiRuntimeEvent`s the bridge already maps; nothing is parsed per backend.
 
@@ -81,31 +78,25 @@ no per-backend decision logic exists here.
 | claude-code | the `toolUseId` | `cc_permission_response` | `once` | `reject` |
 | opencode | the permission `id` | `permission_response` | `once` | `reject` |
 | codex | the `requestId` | `cx_permission_response` | `once` | `reject` |
-| pi-durable | the `requestId` | `pd_permission_response` | `allow` | `deny` |
 
 A request is answerable only while its alert is outstanding: the feed holds one record per announced
 id (10 min, 512 ids) and closes it on the first decision, so a repeated tap can never answer twice.
 `error` is `unknown backend`, `unknown request`, `already answered`, `unsupported`, `no longer
 pending` (the backend had already dropped it), or the handler's own message.
 
-**Unsupported.** `pi` reports no approval, so every `pi` decision is refused with `unsupported`. So
-is a request that needs an *answer* rather than a decision — an `attention` alert, and Claude Code's
+**Unsupported.** A backend the feed does not know is refused with `unknown backend`; `unsupported` is
+a request that needs an *answer* rather than a decision — an `attention` alert, and Claude Code's
 `AskUserQuestion`, whose reply is that question's own input.
 
 ## Tap points
 
 `tapRuntimeEvent(event)` sits where a *complete* event leaves the mapping layer. The mappers build the
 envelope with `enrichRuntimeEvent` and only then spread `request`/`delta` onto it, so the tap is at
-each envelope site instead: `server/streams.ts`'s coalescer callback (Claude Code, Codex, Pi,
-hand-built broadcasts), `server/opencode-events.ts`'s `enqueueSdkEvent`, and
-`handlers/pi_durable/transport.ts`'s `broadcastPiDurablePermission`.
+each envelope site instead: `server/streams.ts`'s coalescer callback (Claude Code, Codex,
+hand-built broadcasts) and `server/opencode-events.ts`'s `enqueueSdkEvent`.
 
 ## Known gaps
 
-- **Pi approvals/input.** Pi maps permission prompts and extension dialogs to `backend_event`
-  (`extension-ui-request`), so they produce no alert.
-- **Pi busy.** `ensureStreamBridge` is created per cwd by the first request that touches it, so a Pi
-  session started in a cwd the bridge has never served is invisible.
-- **Pi Durable busy/done.** Durable events are mapped per attached socket
-  (`attachPiDurableView` → `host.watch`), so no phone watching means no stream; its approvals do
-  reach the feed, without a cwd.
+- **Pi has no feed.** Pi is served only through the backend contract (`src/core/`), which has no
+  tap here, so a Pi run, approval or question produces no alert. The old Pi path and Pi Durable,
+  which did, were deleted on 2026-10-30.

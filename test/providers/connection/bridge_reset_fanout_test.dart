@@ -1,10 +1,8 @@
 import 'dart:async';
 
 import 'package:broski/providers/connection/bridge_reset_fanout.dart';
-import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/services/bridge/bridge_reset_exception.dart';
-import 'package:broski/services/pi_bridge_service.dart';
 import 'package:broski_link/broski_link.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -27,21 +25,19 @@ void main() {
     await socket.close();
   });
 
-  test('one reset fails the bridge and the Pi backend alike', () async {
+  test('one reset fails every request still waiting', () async {
     final bridge = container.read(bridgeServiceProvider);
-    final pi = container.read(piBridgeServiceProvider);
 
     final sessions = bridge.listSessions();
-    final state = pi.getState();
-    final tools = pi.getTools();
+    final projects = bridge.listProjects();
     await pumpEventQueue();
-    expect(socket.sent, hasLength(3));
+    expect(socket.sent, hasLength(2));
 
     container
         .read(bridgeResetFanoutProvider)
         .failAll(BridgeResetReason.bridgeRestarted);
 
-    for (final request in <Future<Object?>>[sessions, state, tools]) {
+    for (final request in <Future<Object?>>[sessions, projects]) {
       await expectLater(
         request,
         throwsA(
@@ -57,10 +53,9 @@ void main() {
 
   test('a refused send fails only the request it named', () async {
     final bridge = container.read(bridgeServiceProvider);
-    final pi = container.read(piBridgeServiceProvider);
 
     final refused = bridge.listSessions();
-    final piState = pi.getState();
+    final other = bridge.listProjects();
     await pumpEventQueue();
     final refusedId = socket.sent.first['requestId'] as String;
 
@@ -79,10 +74,9 @@ void main() {
       ),
     );
 
-    // The Pi request is still waiting: a refusal names one message, not a backend.
     var settled = false;
     unawaited(
-      piState
+      other
           .then((_) {}, onError: (Object _) {})
           .whenComplete(() => settled = true),
     );
@@ -90,27 +84,19 @@ void main() {
     expect(settled, isFalse);
   });
 
-  test('a reset reaches both halves even with nothing in flight', () async {
-    final pi = container.read(piBridgeServiceProvider);
+  test('a reset with nothing in flight leaves later requests alone', () async {
     container
         .read(bridgeResetFanoutProvider)
         .failAll(BridgeResetReason.bridgeUnavailable);
 
-    final state = pi.getState();
     final sessions = container.read(bridgeServiceProvider).listSessions();
     await pumpEventQueue();
-    socket.deliver({
-      'type': 'pi_state',
-      'requestId': socket.sent.first['requestId'],
-      'data': <String, Object?>{'messages': <Object?>[]},
-    });
     socket.deliver({
       'type': 'sessions',
       'requestId': socket.lastRequestId,
       'data': <Map<String, dynamic>>[],
     });
 
-    await expectLater(state, completes);
     await expectLater(sessions, completes);
   });
 }

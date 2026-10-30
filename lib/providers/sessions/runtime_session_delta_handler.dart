@@ -40,10 +40,9 @@ RuntimeSessionDelta? runtimeSessionDeltaFromMessage(
       final sessionId = message['sessionId'];
       if (sessionId is! String || sessionId.isEmpty) return null;
       final backend = message['backend'];
+      if (backend is! String || backend.isEmpty) return null;
       return RuntimeSessionRemoved(
-        backend: AgentType.fromWireValue(
-          backend is String && backend.isNotEmpty ? backend : 'pi',
-        ),
+        backend: AgentType.fromWireValue(backend),
         sessionId: sessionId,
       );
     default:

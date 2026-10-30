@@ -5,12 +5,10 @@ import 'package:broski/providers/agent_type_provider.dart';
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/permission_rules_provider.dart';
-import 'package:broski/providers/pi_durable/pi_durable_providers.dart';
 import 'package:broski/providers/selection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/providers/tool_settings_provider.dart';
 import 'package:broski/screens/chat_screen.dart';
-import 'package:broski/screens/sheets/pi_durable_new_session_sheet.dart';
 import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,10 +28,6 @@ Future<void> openProjectForSelectedAgent({
       return _openClaudeProject(context, ref, project);
     case AgentType.codex:
       return _openCodexProject(context, ref, project);
-    case AgentType.pi:
-      return _openPiProject(context, ref, project);
-    case AgentType.piDurable:
-      return _openPiDurableProject(context, ref, project);
     case AgentType.opencode:
       return _openOpenCodeProject(context, ref, project);
   }
@@ -68,50 +62,6 @@ Future<void> _openCodexProject(
       builder: (_) =>
           ChatScreen.codexDraft(cwd: project.path, title: project.name),
     ),
-  );
-}
-
-Future<void> _openPiProject(
-  BuildContext context,
-  WidgetRef ref,
-  ProjectSummary project,
-) async {
-  ref.read(selectionProvider.notifier).selectProject(project);
-  if (!context.mounted) return;
-  await Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) =>
-          ChatScreen.piDraft(cwd: project.path, title: project.name),
-    ),
-  );
-}
-
-Future<void> _openPiDurableProject(
-  BuildContext context,
-  WidgetRef ref,
-  ProjectSummary project,
-) async {
-  ref.read(selectionProvider.notifier).selectProject(project);
-  if (ref.read(connectionProvider).isOfflineMode) {
-    showInfo(context, 'Pi Durable needs a connection to your Mac');
-    return;
-  }
-  await showPiDurableNewSessionSheet(
-    context: context,
-    initialProject: project,
-    onCreated: (created, session) {
-      ref.read(selectionProvider.notifier).selectProject(created);
-      ref.invalidate(piDurableSessionsProvider);
-      if (!context.mounted) return;
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) =>
-              ChatScreen(project: created, session: session, isPiDurable: true),
-        ),
-      );
-    },
   );
 }
 

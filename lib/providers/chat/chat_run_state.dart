@@ -8,12 +8,7 @@ import 'package:broski/providers/chat_provider.dart';
 bool chatIsRunning(ChatSessionState state) {
   if (state.sessionStatus.isBusy || state.sessionStatus.isRetry) return true;
   if (state.isCompacting) return true;
-  if (state.ccIsStreaming || state.cxIsStreaming || state.piIsStreaming) {
-    return true;
-  }
-  if (state case PiDurableChatState(:final pdIsStreaming) when pdIsStreaming) {
-    return true;
-  }
+  if (state.ccIsStreaming || state.cxIsStreaming) return true;
   final messages = state.messages;
   return messages.isNotEmpty &&
       messages.last.toolCalls.any(isUnfinishedToolCall);

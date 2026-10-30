@@ -45,7 +45,7 @@ function stalledClient(port: number, token: string, sessionId: string): { closed
 		// Read only the upgrade response, then stop draining: everything after it piles up.
 		if (watched) return;
 		watched = true;
-		socket.write(maskedTextFrame(JSON.stringify({ type: "set_view", agent: "pi", sessionId })));
+		socket.write(maskedTextFrame(JSON.stringify({ type: "set_view", agent: "claude-code", sessionId })));
 		socket.pause();
 	});
 	return { closed: () => closed };
@@ -72,13 +72,13 @@ function maskedTextFrame(text: string): Buffer {
 function buildEvent(): ServerMessage {
 	const event: BroskiAssistantTextDeltaEvent = {
 		type: "assistant_text_delta",
-		backend: "pi",
+		backend: "claude-code",
 		timestampMs: Date.now(),
 		sessionId: "bench-session",
 		streamId: "bench-stream",
 		delta: DELTA,
 	};
-	return { type: "runtime_event", backend: "pi", data: event };
+	return { type: "runtime_event", backend: "claude-code", data: event };
 }
 
 function charsInFrame(data: unknown): { events: number; chars: number } {
@@ -126,7 +126,7 @@ await runScenario(async () => {
 			healthyEvents += counted.events;
 			healthyChars += counted.chars;
 		});
-		watchSession(healthy, "pi", "bench-session");
+		watchSession(healthy, "claude-code", "bench-session");
 
 		const stalled = stalledClient(handle.port, handle.token, "bench-session");
 		const connections = await waitForConnections(handle, 2);

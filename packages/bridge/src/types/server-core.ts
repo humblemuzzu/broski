@@ -71,7 +71,6 @@ export type CoreServerMessage =
 				claudeCode: Array<{ sessionId: string; cwd?: string; startedAt?: number }>;
 				codex: Array<{ threadId: string; turnId?: string; cwd?: string }>;
 				opencode: Array<{ sessionId: string; projectPath?: string; statusType: "busy" | "retry" }>;
-				pi: unknown[];
 				pendingPermissions: {
 					claudeCode: Array<{ sessionId: string; toolUseId: string }>;
 					claudeCodeElicitations: Array<{ sessionId: string; requestId: string }>;

@@ -1,20 +1,12 @@
-import 'dart:async';
-
 import 'package:broski/models/agent.dart';
-import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/claude_code.dart';
-import 'package:broski/models/pi.dart';
 import 'package:broski/models/project.dart';
-import 'package:broski/models/runtime/runtime_event.dart';
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/claude_code_provider.dart';
 import 'package:broski/providers/codex/cx_error_listener.dart';
-import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/providers/selection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/screens/chat_screen.dart';
-import 'package:broski/screens/pi/pi_extension_ui_request_handler.dart';
-import 'package:broski/services/bridge/bridge_runtime.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -22,13 +14,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// Used both during initial setup and after reconnection.
 ///
 /// Extracted from `_ChatScreenState.initState` in `chat_screen.dart`.
-///
-/// A Pi chat that started as a draft has no session id on [widget]; [chatPiSessionId] is the one the
-/// bridge gave it, so the view survives a reconnect.
 void setViewForAgent({
   required BridgeService bridge,
   required ChatScreen widget,
-  String? chatPiSessionId,
 }) {
   if (widget.isOpenCode) {
     bridge.setView(
@@ -46,20 +34,6 @@ void setViewForAgent({
     if (threadId.isNotEmpty) {
       bridge.setView(sessionId: threadId, agent: 'codex');
     }
-  } else if (widget.isPiDurable) {
-    final sessionId = widget.session.id;
-    if (sessionId.isNotEmpty) {
-      bridge.setView(
-        sessionId: sessionId,
-        agent: 'pi-durable',
-        lastRuntimeSeq: 0,
-      );
-    }
-  } else if (widget.isPi) {
-    final sessionId = widget.piSession?.id ?? chatPiSessionId ?? '';
-    if (sessionId.isNotEmpty) {
-      bridge.setView(sessionId: sessionId, agent: 'pi');
-    }
   }
 }
 
@@ -73,7 +47,7 @@ void setupInitialProjectContext({
   required ChatScreen widget,
 }) {
   final selection = ref.read(selectionProvider.notifier);
-  final initialProject = widget.isOpenCode || widget.isPiDurable
+  final initialProject = widget.isOpenCode
       ? widget.project
       : ProjectSummary(
           id: '',
@@ -173,9 +147,8 @@ void setupCxErrorListenerIfCodex({
   setupCxErrorListener(ref, context);
 }
 
-/// Sets up token usage listeners that refresh the header context pill when CC,
-/// CX or Pi Durable turn usage changes. The durable pill also needs this because
-/// the bridge's `runtime_state` can land after the first `loadSessionContext`.
+/// Sets up token usage listeners that refresh the header context pill when CC
+/// or CX turn usage changes.
 ///
 /// Extracted from `_ChatScreenState.initState` in `chat_screen.dart`.
 void setupTokenUsageListeners({
@@ -193,56 +166,5 @@ void setupTokenUsageListeners({
       chatSessionProvider.select((s) => s.cxTokenUsage),
       (_, __) => onTokenUsageChanged(),
     );
-  } else if (widget.isPiDurable) {
-    ref.listenManual(
-      chatSessionProvider.select((s) => s.pdUsage),
-      (_, __) => onTokenUsageChanged(),
-    );
   }
-}
-
-/// Sets up the Pi extension UI stream listener that relays dialog/confirm/
-/// select prompts from the bridge to the Flutter UI.
-///
-/// Uses the unified runtime event stream instead of the legacy pi_stream.
-/// Extension UI requests arrive as [RuntimeBackendEvent] with
-/// kind == 'extension-ui-request', and agent-end arrives as
-/// [RuntimeAgentFinishedEvent].
-///
-/// Returns the subscription (must be cancelled in `dispose()`), or `null`
-/// if the current session is not a Pi session.
-///
-/// Extracted from `_ChatScreenState.initState` in `chat_screen.dart`.
-StreamSubscription<RuntimeEvent>? setupPiExtensionUiListener({
-  required WidgetRef ref,
-  required BuildContext context,
-  required ChatScreen widget,
-  required TextEditingController composerController,
-  required bool Function() isMounted,
-  required void Function() onAgentEnd,
-}) {
-  if (!widget.isPi) return null;
-  final bridge = ref.read(bridgeServiceProvider);
-  final piBridge = ref.read(piBridgeServiceProvider);
-  return bridge.runtimeEvents.where((e) => e.backend == AgentType.pi).listen((
-    event,
-  ) {
-    if (!isMounted() || !context.mounted) return;
-    if (event is RuntimeBackendEvent && event.kind == 'extension-ui-request') {
-      // Reconstruct PiStreamMessage from the runtime payload
-      final payload = event.payload;
-      if (payload is Map<String, dynamic>) {
-        final piMessage = PiStreamMessage.fromJson(payload);
-        handlePiExtensionUiRequest(
-          context: context,
-          bridge: piBridge,
-          request: piMessage,
-          projectPath: widget.piSession?.cwd ?? widget.piDraftCwd,
-          composerController: composerController,
-        );
-      }
-    } else if (event is RuntimeAgentFinishedEvent) {
-      onAgentEnd();
-    }
-  });
 }

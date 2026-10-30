@@ -51,8 +51,6 @@ export function createLinkDecisionApplier(sources: LinkDecisionSources): LinkDec
 
 function answerOf(decision: LinkDecision, record: LinkFeedRequestRecord | undefined, serverDeps: ServerDeps): Answer {
 	if (!isBroskiBackend(decision.backend)) return { ok: false, error: "unknown backend" };
-	// Pi never reports an approval, so it has no request a decision could answer.
-	if (decision.backend === "pi") return { ok: false, error: "unsupported" };
 	if (!record) return { ok: false, error: "unknown request" };
 	if (record.answered) return { ok: false, error: "already answered" };
 	// A request for input needs an answer, not a decision.
@@ -65,11 +63,7 @@ function answerOf(decision: LinkDecision, record: LinkFeedRequestRecord | undefi
 }
 
 /** The message the phone sends to answer this backend's request, carrying the daemon's verdict. */
-function responseMessage(
-	backend: Exclude<BroskiBackend, "pi">,
-	decision: LinkDecision,
-	serverDeps: ServerDeps,
-): ClientMessage {
+function responseMessage(backend: BroskiBackend, decision: LinkDecision, serverDeps: ServerDeps): ClientMessage {
 	const response = decision.decision === "allow" ? "once" : "reject";
 	switch (backend) {
 		case "claude-code":
@@ -92,13 +86,6 @@ function responseMessage(
 		}
 		case "codex":
 			return { type: "cx_permission_response", requestId: decision.request, response };
-		case "pi-durable":
-			return {
-				type: "pd_permission_response",
-				sessionId: decision.session,
-				requestId: decision.request,
-				decision: decision.decision,
-			};
 	}
 }
 
@@ -122,7 +109,7 @@ async function dispatch(
 	return outcomeOf(reply);
 }
 
-const BROSKI_BACKENDS: readonly string[] = ["opencode", "claude-code", "codex", "pi", "pi-durable"];
+const BROSKI_BACKENDS: readonly string[] = ["opencode", "claude-code", "codex"];
 
 function isBroskiBackend(value: string): value is BroskiBackend {
 	return BROSKI_BACKENDS.includes(value);
@@ -130,8 +117,5 @@ function isBroskiBackend(value: string): value is BroskiBackend {
 
 function outcomeOf(reply: ServerMessage | null): LinkDecisionOutcome {
 	if (reply?.type === "error") return { ok: false, error: reply.message };
-	// The durable handler echoes whether its host still had the request pending.
-	if (reply?.type === "pd_permission_resolved" && reply.data === false)
-		return { ok: false, error: "no longer pending" };
 	return { ok: true, error: null };
 }

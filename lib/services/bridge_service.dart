@@ -17,9 +17,6 @@ import 'package:broski/models/mcp.dart';
 import 'package:broski/models/opencode_markdown_file.dart';
 import 'package:broski/models/opencode_plugin_file.dart';
 import 'package:broski/models/permission_rule.dart';
-import 'package:broski/models/pi_durable/pi_durable_payloads.dart';
-import 'package:broski/models/pi_durable/pi_durable_transcript.dart';
-import 'package:broski/models/pi_subagent_invocation.dart';
 import 'package:broski/models/project.dart';
 import 'package:broski/models/provider.dart';
 import 'package:broski/models/runtime/runtime_session_summary.dart';
@@ -38,7 +35,6 @@ import 'package:broski/services/bridge/bridge_reset_exception.dart';
 import 'package:broski/services/bridge/bridge_response_error.dart';
 import 'package:broski/services/bridge/pending_requests.dart';
 import 'package:broski/services/bridge/runtime_replay_tracker.dart';
-import 'package:broski/services/bridge/skill_mapping.dart';
 import 'package:broski/services/websocket_service.dart';
 
 part 'bridge/bridge_cc_chat.dart';
@@ -83,8 +79,6 @@ part 'bridge/bridge_session_lists_page.dart';
 part 'bridge/bridge_sessions_messages_page.dart';
 part 'bridge/bridge_skills_universal.dart';
 part 'bridge/bridge_worktrees.dart';
-part 'bridge/bridge_pi_subagent.dart';
-part 'bridge/bridge_pi_durable.dart';
 part 'bridge/bridge_unified.dart';
 part 'bridge/bridge_unified_children.dart';
 

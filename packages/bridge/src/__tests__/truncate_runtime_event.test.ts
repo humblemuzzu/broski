@@ -12,8 +12,8 @@ const LIMIT = 64 * 1024;
 function event(data: Record<string, unknown>): Parameters<typeof shrinkRuntimeEvent>[0] {
 	return {
 		type: "runtime_event",
-		backend: "pi",
-		data: { backend: "pi", timestampMs: 7, sessionId: "sess-1", ...data },
+		backend: "claude-code",
+		data: { backend: "claude-code", timestampMs: 7, sessionId: "sess-1", ...data },
 	} as Parameters<typeof shrinkRuntimeEvent>[0];
 }
 

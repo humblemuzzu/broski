@@ -1,8 +1,6 @@
 import * as claudeCode from "../connectors/claude-code";
 import { checkCodexAvailable } from "../connectors/codex";
 import type { OpenCodeConnector } from "../connectors/opencode";
-import * as pi from "../connectors/pi";
-import * as piDurable from "../handlers/pi_durable";
 import type { AgentStatusInfo, AgentType } from "../types";
 import { type OpenCodeSlot, OpenCodeUnavailableError } from "./opencode-slot";
 import type { BridgeState } from "./state";
@@ -34,7 +32,7 @@ export function createBackends(deps: { state: BridgeState; opencode: OpenCodeSlo
 		backendsInFlight = (async () => {
 			const envKey = !!process.env.ANTHROPIC_API_KEY;
 
-			const [ocOk, ccOk, cxOk, piStatus, piDurableStatus] = await Promise.all([
+			const [ocOk, ccOk, cxOk] = await Promise.all([
 				(async () => {
 					const connector = opencode.current();
 					try {
@@ -57,18 +55,6 @@ export function createBackends(deps: { state: BridgeState; opencode: OpenCodeSlo
 						return false;
 					}
 				})(),
-				(async () => {
-					try {
-						return await pi.isPiAvailable();
-					} catch {
-						return {
-							available: false,
-							authenticated: false,
-							modelCount: 0,
-						} as const;
-					}
-				})(),
-				piDurable.piDurableAvailability(),
 			]);
 
 			const data: Record<AgentType, AgentStatusInfo> = {
@@ -78,15 +64,6 @@ export function createBackends(deps: { state: BridgeState; opencode: OpenCodeSlo
 					authMethod: ccOk ? (envKey ? "api-key" : "claude-login") : undefined,
 				},
 				codex: { available: cxOk, authMethod: cxOk ? "cli" : undefined },
-				pi: {
-					available: piStatus.available,
-					authMethod: piStatus.authenticated ? "configured" : "not-configured",
-					version: "version" in piStatus ? piStatus.version : undefined,
-				},
-				"pi-durable": {
-					available: piDurableStatus.available,
-					authMethod: piDurableStatus.authenticated ? "configured" : "not-configured",
-				},
 			};
 
 			backendsCache = { fetchedAt: Date.now(), data };
@@ -124,7 +101,6 @@ export function createBackends(deps: { state: BridgeState; opencode: OpenCodeSlo
 				if (backends["claude-code"]?.available) state.currentAgent = "claude-code";
 				else if (backends.opencode?.available) state.currentAgent = "opencode";
 				else if (backends.codex?.available) state.currentAgent = "codex";
-				else if (backends.pi?.available) state.currentAgent = "pi";
 			}
 		} catch {
 			// keep default

@@ -3,7 +3,6 @@ import type { CodexAppServerClient } from "../connectors/codex";
 import type { OpenCodeConnector } from "../connectors/opencode";
 import type { ClaudeElicitationReply } from "../handlers/cc_elicitation";
 import type { PtyRuntime } from "../pty/runtime";
-import type { PiDurableSocketPool } from "../transport/pi-durable-socket";
 import type {
 	AgentStatusInfo,
 	AgentType,
@@ -187,9 +186,6 @@ export type ServerDeps = {
 		status: SessionStatusInfo,
 		projectPath?: string,
 	) => Record<string, unknown>;
-	listPiActiveSessionSnapshots: () => unknown[];
-	buildPiActiveRuntimeStateMessages: () => ServerMessage[];
-	findPiActiveRuntimeStateMessage: (sessionId: string) => ServerMessage | null;
 	replayRuntimeEventsSince: (params: {
 		ws: ServerWebSocket<unknown>;
 		backend: AgentType;
@@ -206,7 +202,6 @@ export type ServerDeps = {
 	enqueueSdkEvent: (event: unknown) => void;
 	PERMISSION_TIMEOUT_MS: number;
 	ptyRuntime: PtyRuntime;
-	piDurableSockets: PiDurableSocketPool;
 };
 
 export type RequestContext = ServerDeps & {

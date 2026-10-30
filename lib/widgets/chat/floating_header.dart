@@ -12,7 +12,6 @@ import 'package:broski/widgets/chat/codex_actions_content.dart';
 import 'package:broski/widgets/chat/cx_rate_limit_badge.dart';
 import 'package:broski/widgets/chat/detail_sheet.dart';
 import 'package:broski/widgets/chat/glass_pill.dart';
-import 'package:broski/widgets/chat/pi_actions_content.dart';
 import 'package:broski/widgets/chat/session_actions_content.dart';
 import 'package:broski/widgets/chat/status_indicator.dart';
 import 'package:flutter/material.dart';
@@ -43,8 +42,6 @@ class FloatingHeader extends StatelessWidget {
     this.codexModel,
     this.cxRateLimitData,
     this.sessionContext,
-    this.isPi = false,
-    this.piModel,
   });
   final String projectName;
   final bool isConnected;
@@ -71,9 +68,6 @@ class FloatingHeader extends StatelessWidget {
   final Map<String, dynamic>? cxRateLimitData;
   // Context usage for inline indicator
   final SessionContext? sessionContext;
-  // Pi support
-  final bool isPi;
-  final String? piModel;
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
@@ -187,39 +181,6 @@ class FloatingHeader extends StatelessWidget {
                         ),
                       ),
                     ],
-                    // Pi badge
-                    if (isPi) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: theme.primary.withValues(alpha: 0.2),
-                          borderRadius: Radii.brSm,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              AppIcons.autoAwesome,
-                              size: 10,
-                              color: theme.primary,
-                            ),
-                            const SizedBox(width: 3),
-                            Text(
-                              'Pi',
-                              style: TextStyle(
-                                color: theme.primary,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),
@@ -298,28 +259,6 @@ class FloatingHeader extends StatelessWidget {
                     isConnected: isConnected,
                     rttMs: rttMs,
                     codexModel: codexModel,
-                    isStreaming: isStreaming,
-                    onMenu: onMenu!,
-                  ),
-                  child: Icon(
-                    AppIcons.moreHorizontal,
-                    color: kOnBackground,
-                    size: 18,
-                  ),
-                ),
-              )
-            // For Pi: bottom sheet menu
-            else if (isPi && onMenu != null)
-              GlassPill(
-                compact: true,
-                constraints: const BoxConstraints(maxWidth: 32, maxHeight: 32),
-                child: GestureDetector(
-                  onTap: () => _showPiActionsSheet(
-                    context,
-                    theme: theme,
-                    isConnected: isConnected,
-                    rttMs: rttMs,
-                    piModel: piModel,
                     isStreaming: isStreaming,
                     onMenu: onMenu!,
                   ),
@@ -445,33 +384,6 @@ class FloatingHeader extends StatelessWidget {
         isConnected: isConnected,
         rttMs: rttMs,
         codexModel: codexModel,
-        isStreaming: isStreaming,
-        onAction: (action) {
-          Navigator.pop(context);
-          onMenu(action);
-        },
-      ),
-    );
-  }
-
-  void _showPiActionsSheet(
-    BuildContext context, {
-    required OpenCodeTheme theme,
-    required bool isConnected,
-    required int? rttMs,
-    required String? piModel,
-    required bool isStreaming,
-    required void Function(String) onMenu,
-  }) {
-    DetailSheet.show(
-      context: context,
-      title: 'Pi',
-      initialSize: 0.5,
-      child: PiActionsContent(
-        theme: theme,
-        isConnected: isConnected,
-        rttMs: rttMs,
-        piModel: piModel,
         isStreaming: isStreaming,
         onAction: (action) {
           Navigator.pop(context);

@@ -5,7 +5,6 @@ import 'package:broski/models/claude_code.dart';
 import 'package:broski/models/codex.dart';
 import 'package:broski/models/file_attachment.dart';
 import 'package:broski/models/message.dart';
-import 'package:broski/models/pi.dart';
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/claude_code_provider.dart';
 import 'package:broski/providers/claude_code_variant_provider.dart';
@@ -13,12 +12,9 @@ import 'package:broski/providers/codex/cx_output_schema_provider.dart';
 import 'package:broski/providers/codex_settings_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/opencode_variant_provider.dart';
-import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/providers/selection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/screens/chat/codex_slash_commands.dart';
-import 'package:broski/screens/chat/pi_bang_command.dart';
-import 'package:broski/screens/chat/pi_durable_chat_actions.dart';
 import 'package:broski/utils/opencode_id.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -52,15 +48,12 @@ void sendMessage({
   required List<Agent> agents,
   required bool isClaudeCode,
   required bool isCodex,
-  required bool isPi,
   ClaudeCodeSession? ccSession,
   String? ccDraftCwd,
   String? ccDraftModel,
   String? ccResumeSessionAtMessageId,
   CodexThread? cxThread,
   String? cxDraftCwd,
-  PiSessionInfo? piSession,
-  String? piDraftCwd,
   required String sessionId,
   required String projectPath,
   required VoidCallback clearAttachments,
@@ -77,21 +70,6 @@ void sendMessage({
   final hasAttachments = attachedFiles.isNotEmpty;
   if (text.isEmpty && !hasAttachments) return;
   if (!connection.isConnected) return;
-
-  // Pi Durable owns its own send path (pd_chat with an exactly-once requestId).
-  if (ref.read(chatSessionProvider).isPiDurable) {
-    final sent = sendPiDurableMessage(
-      ref: ref,
-      text: text,
-      attachedFiles: attachedFiles,
-    );
-    if (sent) {
-      controller.clear();
-      clearAttachments();
-      scrollToBottom();
-    }
-    return;
-  }
 
   // Check for streaming state (different per agent)
   if (isClaudeCode) {
@@ -121,30 +99,6 @@ void sendMessage({
       }
       return;
     }
-  } else if (isPi) {
-    final piCwd = chatState.piCwd ?? piSession?.cwd ?? piDraftCwd;
-    final bangOutcome = runPiBangCommand(
-      context: context,
-      ref: ref,
-      text: text,
-      cwd: piCwd,
-    );
-    if (bangOutcome == PiBangCommandOutcome.dispatched) {
-      controller.clear();
-      clearAttachments();
-      scrollToBottom();
-      return;
-    }
-    if (bangOutcome == PiBangCommandOutcome.blocked) return;
-    // Pi mid-turn: steer the agent
-    if (chatState.piIsStreaming) {
-      final piBridge = ref.read(piBridgeServiceProvider);
-      piBridge.steer(message: text, projectPath: chatState.piCwd);
-      ref.read(chatSessionProvider.notifier).appendUserMessage(text);
-      controller.clear();
-      clearAttachments();
-      return;
-    }
   }
   // OpenCode: no block — SDK's promptAsync() returns 204 immediately
 
@@ -166,8 +120,7 @@ void sendMessage({
     }
   }
 
-  final isOpenCode =
-      !isClaudeCode && !isCodex && !isPi && !chatState.isPiDurable;
+  final isOpenCode = !isClaudeCode && !isCodex;
   // OpenCode Plan Mode: Use plan agent when in plan mode (unless overridden)
   if (isOpenCode && messageAgent == null) {
     if (chatState.ocAgentMode == 'plan') messageAgent = 'plan';
@@ -298,26 +251,9 @@ void sendMessage({
     return;
   }
 
-  // ── Pi ───────────────────────────────────────────────────────────
-  if (isPi) {
-    final piBridge = ref.read(piBridgeServiceProvider);
-    final cwd = chatState.piCwd ?? piSession?.cwd ?? piDraftCwd;
-    chat.appendUserMessage(_buildDisplayText(text, attachedFiles));
-    chat.setPiStreaming(true);
-    piBridge.chat(
-      prompt: text,
-      projectPath: cwd,
-      fileAttachments: hasAttachments ? attachedFiles : null,
-    );
-    controller.clear();
-    clearAttachments();
-    scrollToBottom();
-    return;
-  }
-
   // ── OpenCode ─────────────────────────────────────────────────────
   // Every other backend returned above; what is left must not be turned into
-  // an OpenCode prompt just because it is not Claude Code, Codex or Pi.
+  // an OpenCode prompt just because it is not Claude Code or Codex.
   if (!isOpenCode) return;
 
   // Check if this is a slash command (attachments not supported for commands)

@@ -37,7 +37,6 @@ extension CcStreamHandler on ChatSessionNotifier {
     _order.clear();
     _transcriptCursor = null;
     _transcriptSessionId = sessionId;
-    _transcriptPageSeq = 0;
     _rolesByMessageId.clear();
     _pendingLocalUserTextByMessageId.clear();
     _localAuthoredUserMessageIds.clear();

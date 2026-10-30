@@ -14,11 +14,6 @@ import 'package:broski/screens/sheets/cx_model_sheet.dart';
 import 'package:broski/screens/sheets/cx_rate_limits_sheet.dart';
 import 'package:broski/screens/sheets/cx_review_sheet.dart';
 import 'package:broski/screens/sheets/cx_settings_sheet.dart';
-import 'package:broski/screens/sheets/pi_model_sheet.dart';
-import 'package:broski/screens/sheets/pi_settings_sheet.dart';
-import 'package:broski/screens/sheets/pi_skills_sheet.dart';
-import 'package:broski/screens/sheets/pi_tools_sheet.dart';
-import 'package:broski/screens/sheets/pi_tree_sheet.dart';
 import 'package:broski/utils/error_utils.dart';
 import 'package:broski/utils/snackbar_helpers.dart';
 import 'package:flutter/material.dart';
@@ -152,51 +147,4 @@ void _cleanCodexTerminals(BuildContext context, WidgetRef ref) {
           showInfo(context, 'Clean failed: ${humanizeError(e)}');
         }
       });
-}
-
-/// Handles Pi overflow menu actions.
-/// Extracted from chat_screen.dart `_handlePiMenuAction`.
-void handlePiMenuAction(
-  BuildContext context,
-  String value, {
-  required VoidCallback onStop,
-  required VoidCallback onCycleThinking,
-  required VoidCallback onShowSidebar,
-  required VoidCallback onCompact,
-  required VoidCallback onNewSession,
-  VoidCallback? onExport,
-  VoidCallback? onCopyLast,
-  VoidCallback? onAbortCompaction,
-  VoidCallback? onAbortRetry,
-}) {
-  switch (value) {
-    case 'stop':
-      onStop();
-    case 'pi_model':
-      showPiModelSheet(context);
-    case 'pi_thinking':
-      onCycleThinking();
-    case 'pi_skills':
-      showPiSkillsSheet(context);
-    case 'pi_sidebar':
-      onShowSidebar();
-    case 'pi_compact':
-      onCompact();
-    case 'pi_new_session':
-      onNewSession();
-    case 'pi_tools':
-      showPiToolsSheet(context);
-    case 'pi_settings':
-      showPiSettingsSheet(context);
-    case 'pi_export':
-      onExport?.call();
-    case 'pi_copy_last':
-      onCopyLast?.call();
-    case 'pi_tree':
-      showPiTreeSheet(context);
-    case 'pi_abort_compaction':
-      onAbortCompaction?.call();
-    case 'pi_abort_retry':
-      onAbortRetry?.call();
-  }
 }

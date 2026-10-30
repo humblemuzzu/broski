@@ -8,7 +8,6 @@ import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/highlights_provider.dart';
 import 'package:broski/providers/permission_rules_provider.dart';
-import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/providers/tool_settings_provider.dart';
 import 'package:broski/screens/chat_screen.dart';
@@ -81,16 +80,12 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       AgentType.opencode => storage.getCachedProjects(),
       AgentType.codex => storage.getCachedCodexProjects(),
       AgentType.claudeCode => storage.getCachedCCProjects(),
-      AgentType.pi => storage.getCachedPiProjects(),
-      AgentType.piDurable => Future.value(const <ProjectSummary>[]),
     };
 
     Future<void> setCache(List<ProjectSummary> projects) => switch (agentType) {
       AgentType.opencode => storage.cacheProjects(projects),
       AgentType.codex => storage.cacheCodexProjects(projects),
       AgentType.claudeCode => storage.cacheCCProjects(projects),
-      AgentType.pi => storage.cachePiProjects(projects),
-      AgentType.piDurable => Future.value(),
     };
 
     // Offline mode: return per-agent cached projects
@@ -105,10 +100,6 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
         AgentType.claudeCode => await bridge.ccListProjects(),
         AgentType.codex => await bridge.cxListProjects(),
         AgentType.opencode => await bridge.listProjects(),
-        AgentType.pi => await ref.read(piBridgeServiceProvider).listProjects(),
-        AgentType.piDurable => (await bridge.unifiedListProjects(
-          backend: AgentType.piDurable,
-        )).map(ProjectSummary.fromJson).toList(),
       };
       if (projects.isNotEmpty) {
         await setCache(projects);

@@ -7,7 +7,6 @@
 
 import type { UnifiedMessage } from "../routing/messages";
 import type { ClaudeCodeSession, CodexThread, SessionSummary } from "../types";
-import type { PiSessionInfo } from "../types/pi";
 import type { BroskiBackend } from "../types/runtime";
 import {
 	isPagedSessionRequest,
@@ -59,7 +58,6 @@ const sourceLimit = (message: UnifiedListMessage): number | undefined =>
 const ccRow = (session: ClaudeCodeSession): SessionListRow => ({ id: session.id, modified: session.updatedAt });
 const cxRow = (thread: CodexThread): SessionListRow => ({ id: thread.id, modified: thread.updatedAt });
 const ocRow = (session: SessionSummary): SessionListRow => ({ id: session.id, modified: session.time?.updated ?? 0 });
-const piRow = (session: PiSessionInfo): SessionListRow => ({ id: session.id, modified: session.modified });
 
 export async function unifiedListSessions(
 	message: UnifiedListMessage,
@@ -83,12 +81,6 @@ export async function unifiedListSessions(
 			const roots = message.roots ?? true;
 			const sessions = openCode ? await openCode.listSessions(message.cwd, { roots, limit: sourceLimit(message) }) : [];
 			replyPage(message, reply, backend, sessions, ocRow);
-			return;
-		}
-		case "pi": {
-			const piModule = await import("../connectors/pi");
-			const sessions = await piModule.listSessions(message.cwd);
-			replyPage(message, reply, backend, sessions, piRow);
 			return;
 		}
 		default: {

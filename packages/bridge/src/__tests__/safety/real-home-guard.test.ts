@@ -118,7 +118,7 @@ describe("real-home guard", () => {
 		expect(report.configPath.startsWith(resolve(fakeRealHome))).toBe(true);
 
 		const refused = Object.entries(report.outcomes).map(([, outcome]) => outcome);
-		expect(refused.length).toBeGreaterThanOrEqual(8);
+		expect(refused.length).toBeGreaterThanOrEqual(6);
 		for (const outcome of refused) expect(outcome).toStartWith("threw:RealHomeWriteError");
 
 		expect(existsSync(join(fakeRealHome, ".claude"))).toBe(false);

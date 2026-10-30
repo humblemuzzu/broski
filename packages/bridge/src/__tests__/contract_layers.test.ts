@@ -105,19 +105,10 @@ describe("the layer check", () => {
 		]);
 	});
 
-	test("lets Pi and Pi Durable share backends/pi-shared, and nobody else", () => {
-		const shared = 'import { runtime } from "../pi-shared/model-runtime";';
-		expect(check("backends/pi/index.ts", shared)).toEqual([]);
-		expect(check("backends/pi-durable/index.ts", shared)).toEqual([]);
-		expect(check("backends/codex/index.ts", shared)).toEqual([
-			"backends/codex/index.ts: ../pi-shared/model-runtime is neither this backend nor the contract",
+	test("an adapter reaches no other adapter's directory", () => {
+		expect(check("backends/codex/index.ts", 'import { x } from "../pi/sessions";')).toEqual([
+			"backends/codex/index.ts: ../pi/sessions is neither this backend nor the contract",
 		]);
-		expect(check("backends/pi-shared/model-runtime.ts", 'import { x } from "../pi/sessions";')).toEqual([
-			"backends/pi-shared/model-runtime.ts: ../pi/sessions is neither this backend nor the contract",
-		]);
-		expect(
-			check("backends/pi-shared/model-runtime.ts", 'import { ModelRuntime } from "@earendil-works/pi-coding-agent";'),
-		).toEqual([]);
 	});
 
 	test("only backend ids are adapter directories", () => {

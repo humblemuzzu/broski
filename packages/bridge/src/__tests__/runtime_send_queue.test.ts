@@ -30,10 +30,10 @@ function fakeSocket(): ServerWebSocket<unknown> & FakeSocket {
 function delta(seq: number): ServerMessage {
 	return {
 		type: "runtime_event",
-		backend: "pi",
+		backend: "claude-code",
 		data: {
 			type: "assistant_text_delta",
-			backend: "pi",
+			backend: "claude-code",
 			timestampMs: seq,
 			sessionId: "sess-1",
 			streamId: "s1",
@@ -54,7 +54,7 @@ function linkSocket(): ServerWebSocket<unknown> & FakeSocket {
 }
 
 function transcriptReply(text: string, requestId: string): ServerMessage {
-	return { type: "pi_session_messages", data: [{ role: "assistant", text }], requestId } as ServerMessage;
+	return { type: "cc_session_messages", data: [{ role: "assistant", text }], requestId } as ServerMessage;
 }
 
 describe("RuntimeSendQueue backpressure", () => {
@@ -127,14 +127,14 @@ describe("RuntimeSendQueue backpressure", () => {
 		queue.sendRaw(socket, '{"warm":true}');
 		socket.sent.length = 0;
 
-		queue.sendPayload(socket, '{"type":"pd_thing"}');
+		queue.sendPayload(socket, '{"type":"cc_thing"}');
 		queue.flush(socket);
 		expect(socket.sent).toHaveLength(0);
 		expect(queue.stats().pendingFrames).toBe(1);
 
 		socket.status = 1;
 		queue.onDrain(socket);
-		expect(socket.sent).toEqual(['{"type":"pd_thing"}']);
+		expect(socket.sent).toEqual(['{"type":"cc_thing"}']);
 	});
 });
 
@@ -186,7 +186,7 @@ describe("RuntimeSendQueue link limits", () => {
 		const socket = linkSocket();
 		queue.send(socket, transcriptReply("small", "small-1"));
 		expect(socket.sent).toHaveLength(1);
-		expect(JSON.parse(socket.sent[0]!)).toMatchObject({ type: "pi_session_messages", requestId: "small-1" });
+		expect(JSON.parse(socket.sent[0]!)).toMatchObject({ type: "cc_session_messages", requestId: "small-1" });
 	});
 
 	test("a network socket has no frame cap", () => {
@@ -210,10 +210,10 @@ describe("RuntimeSendQueue on a link socket", () => {
 	function toolFinished(output: string): ServerMessage {
 		return {
 			type: "runtime_event",
-			backend: "pi",
+			backend: "claude-code",
 			data: {
 				type: "tool_finished",
-				backend: "pi",
+				backend: "claude-code",
 				timestampMs: 1,
 				sessionId: "sess-1",
 				toolCallId: "call-1",
@@ -264,14 +264,18 @@ describe("RuntimeSendQueue on a link socket", () => {
 
 		queue.sendPayload(
 			socket,
-			JSON.stringify({ type: "pd_transcript", requestId: "pd-7", data: "x".repeat(limits.linkMessageLimitBytes) }),
-			"pd-7",
+			JSON.stringify({
+				type: "cc_session_messages",
+				requestId: "cc-7",
+				data: "x".repeat(limits.linkMessageLimitBytes),
+			}),
+			"cc-7",
 		);
 
 		expect(socket.sent).toHaveLength(1);
 		const refusal = JSON.parse(socket.sent[0]!) as { code: string; requestId?: string };
 		expect(refusal.code).toBe(RESPONSE_TOO_LARGE_CODE);
-		expect(refusal.requestId).toBe("pd-7");
+		expect(refusal.requestId).toBe("cc-7");
 		expect(refusals).toEqual([]);
 	});
 
@@ -297,10 +301,10 @@ describe("RuntimeSendQueue on a link socket", () => {
 		for (let i = 1; i <= 2; i += 1) {
 			queue.send(socket, {
 				type: "runtime_event",
-				backend: "pi",
+				backend: "claude-code",
 				data: {
 					type: "assistant_text_delta",
-					backend: "pi",
+					backend: "claude-code",
 					timestampMs: i,
 					sessionId: "sess-1",
 					seq: i,

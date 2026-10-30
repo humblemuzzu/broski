@@ -121,11 +121,6 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
       _handleRuntimeCxBackendEvent(event);
     }
 
-    if (event case RuntimeBackendEvent()
-        when event.backend == AgentType.piDurable) {
-      _handlePiDurableBackendEvent(event);
-    }
-
     // External user message — prompt typed on Mac terminal, show it on phone
     if (event case RuntimeBackendEvent()
         when event.kind == 'external-user-message') {
@@ -231,17 +226,12 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
         ? AgentType.claudeCode
         : state.isCodex
         ? AgentType.codex
-        : state.isPi
-        ? AgentType.pi
-        : state.isPiDurable
-        ? AgentType.piDurable
         : AgentType.opencode;
     if (backend != activeBackend) return false;
 
     // Backend matches — accept. Session/cwd filtering caused silent event
-    // drops for CC/CX/Pi where session ID formats differ between the bridge
-    // connector and the Flutter state (e.g. Pi connector sessionId vs the
-    // session list id). On single-device, if you're viewing a backend,
+    // drops for CC/CX where session ID formats differ between the bridge
+    // connector and the Flutter state. On single-device, if you're viewing a backend,
     // events from that backend are for you.
     return true;
   }
@@ -338,21 +328,6 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
           isCompacting: runtimeState?.isCompacting ?? state.isCompacting,
         );
         break;
-      case AgentType.pi:
-        state = state.copyWith(
-          sessionStatus: sessionStatus,
-          piSessionId: (state.piSessionId ?? '').isEmpty
-              ? turn.sessionId
-              : state.piSessionId,
-          piCwd: (state.piCwd ?? '').isEmpty ? turn.cwd : state.piCwd,
-          piModel: runtimeState?.model?.id ?? state.piModel,
-          piIsStreaming: turn.isStreaming,
-          isCompacting: runtimeState?.isCompacting ?? state.isCompacting,
-        );
-        break;
-      case AgentType.piDurable:
-        applyPiDurableRuntimeState(runtimeState: runtimeState, turn: turn);
-        break;
     }
   }
 
@@ -406,18 +381,6 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
         if (event.backend == AgentType.codex) {
           _appendCodexRuntimeDiffMetadata(metadata, event);
         }
-        if (event.backend == AgentType.pi) {
-          final details = backendData?['details'];
-          final detailsMap = _runtimeMap(details);
-          final diff = detailsMap?['diff'] as String?;
-          if (diff != null && diff.isNotEmpty) {
-            metadata['diff'] = diff;
-            // Accumulate Pi file diffs into sessionDiffs for sidebar
-            if (event is RuntimeToolFinishedEvent) {
-              _accumulatePiSessionDiff(diff, event, backendData);
-            }
-          }
-        }
         break;
       default:
         break;
@@ -446,76 +409,6 @@ extension _RuntimeChatIngest on ChatSessionNotifier {
     if ((path ?? '').isEmpty || (diff ?? '').isEmpty) return;
     metadata['filediff'] = {'file': path, 'path': path, 'diff': diff};
     metadata['diff'] = diff;
-  }
-
-  /// Accumulate a Pi file diff into sessionDiffs (sidebar Changes section).
-  /// Pi edit tool results include a unified diff in details.diff.
-  void _accumulatePiSessionDiff(
-    String diff,
-    RuntimeToolFinishedEvent event,
-    Map<String, dynamic>? backendData,
-  ) {
-    // Parse file path. Pi's diff may not have standard "--- a/path" headers.
-    String file = '';
-    final headerMatch = RegExp(
-      r'^[-+]{3} [ab]/(.+)$',
-      multiLine: true,
-    ).firstMatch(diff);
-    if (headerMatch != null) {
-      file = headerMatch.group(1) ?? '';
-    }
-    // Fallback: try tool input for file path
-    if (file.isEmpty) {
-      final input = event.input;
-      if (input is Map<String, dynamic>) {
-        file = (input['path'] as String?) ?? '';
-      }
-    }
-    // Fallback: try tool output text ("replaced N block(s) in <path>")
-    if (file.isEmpty) {
-      final output = event.output?.toString() ?? '';
-      final inMatch = RegExp(r'\bin\s+(\S+?)\.?$').firstMatch(output);
-      if (inMatch != null) {
-        file = inMatch.group(1) ?? '';
-      }
-    }
-    if (file.isEmpty) file = 'unknown';
-
-    // Count additions/deletions from unified diff
-    int additions = 0;
-    int deletions = 0;
-    for (final line in diff.split('\n')) {
-      if (line.startsWith('+') && !line.startsWith('+++')) additions++;
-      if (line.startsWith('-') && !line.startsWith('---')) deletions++;
-    }
-
-    final entry = DiffEntry(
-      file: file,
-      before: '',
-      after: '',
-      additions: additions,
-      deletions: deletions,
-      diff: diff,
-      partId: event.toolCallId,
-    );
-
-    final current = List<DiffEntry>.from(state.sessionDiffs);
-    final idx = current.indexWhere((d) => d.file == file);
-    if (idx >= 0) {
-      final old = current[idx];
-      current[idx] = DiffEntry(
-        file: file,
-        before: '',
-        after: '',
-        additions: old.additions + additions,
-        deletions: old.deletions + deletions,
-        diff: diff,
-        partId: entry.partId,
-      );
-    } else {
-      current.add(entry);
-    }
-    state = state.copyWith(sessionDiffs: current);
   }
 
   void _addRuntimeErrorMessage(RuntimeErrorEvent event) {

@@ -8,7 +8,6 @@ import { PtyManager } from "../pty/manager";
 import type { ConnectionContext } from "../routing/types";
 import { BoundedMap, registerSweepable } from "../state/bounded-map";
 import { isTlsEnabledByEnv, type TlsMaterial } from "../tls";
-import { PiDurableSocketPool } from "../transport/pi-durable-socket";
 import { NETWORK_SEND_LIMITS } from "../transport/send-limits";
 import type { AgentType, PermissionResponse } from "../types";
 import { RuntimeSendQueue } from "../utils/runtime-send-queue";
@@ -54,7 +53,6 @@ export type BridgeState = {
 	codexClient: CodexAppServerClient | null;
 	ptyManager: PtyManager;
 	runtimeSendQueue: RuntimeSendQueue;
-	piDurableSockets: PiDurableSocketPool;
 	sessionWatchers: Map<string, Set<ServerWebSocket<unknown>>>;
 	ccExternalTails: Map<string, { stop: () => void }>;
 	cxExternalTails: Map<string, { stop: () => void }>;
@@ -231,7 +229,6 @@ export function createBridgeState(params: CreateBridgeStateParams): BridgeState 
 		codexClient: null,
 		ptyManager: new PtyManager(params.opencode),
 		runtimeSendQueue,
-		piDurableSockets: new PiDurableSocketPool(runtimeSendQueue),
 		...createSessionMaps(),
 		...createBoundedSessionState(registerState),
 		heartbeatTimer: null,

@@ -13,8 +13,6 @@ void showProjectToolsSheetAction({
   required WidgetRef ref,
   required bool isClaudeCode,
   required bool isCodex,
-  required bool isPi,
-  required bool isPiDurable,
   required String projectName,
   required String effectivePath,
   required ProjectSummary project,
@@ -24,13 +22,8 @@ void showProjectToolsSheetAction({
       ? AgentType.claudeCode
       : isCodex
       ? AgentType.codex
-      : isPi
-      ? AgentType.pi
-      : isPiDurable
-      ? AgentType.piDurable
       : AgentType.opencode;
-  final usesSelectedProject =
-      backend == AgentType.opencode || backend == AgentType.piDurable;
+  final usesSelectedProject = backend == AgentType.opencode;
   final resolvedProject = usesSelectedProject
       ? project
       : ProjectSummary(id: '', name: projectName, path: effectivePath);

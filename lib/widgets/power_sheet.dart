@@ -7,7 +7,6 @@ import 'package:broski/models/project.dart';
 import 'package:broski/providers/claude_code_provider.dart';
 import 'package:broski/providers/codex_settings_provider.dart';
 import 'package:broski/providers/permission_rules_provider.dart';
-import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/app_typography.dart';
 import 'package:broski/theme/design_tokens.dart';
@@ -248,14 +247,6 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
             if (widget.backend == AgentType.opencode) ...[
               _buildOpenCodePermissionPresets(theme, rulesState),
               const SizedBox(height: 28),
-            ] else if (widget.backend == AgentType.pi) ...[
-              _PiPowerSummaryCard(theme: theme),
-              const SizedBox(height: 28),
-              // ===== PI: QUICK ACTIONS =====
-              _SectionHeader(title: 'Quick Actions', theme: theme),
-              const SizedBox(height: Spacing.md),
-              _PiQuickActionsGrid(theme: theme),
-              const SizedBox(height: 28),
             ] else ...[
               _PermissionSummaryCard(backend: widget.backend, theme: theme),
               const SizedBox(height: 28),
@@ -280,10 +271,6 @@ class _PowerSheetState extends ConsumerState<PowerSheet> {
       case AgentType.codex:
         return 'Reasoning Effort';
       case AgentType.opencode:
-        return 'Thinking Level';
-      case AgentType.pi:
-        return 'Thinking Level';
-      case AgentType.piDurable:
         return 'Thinking Level';
     }
   }
@@ -885,98 +872,7 @@ class _ProjectToolsButton extends StatelessWidget {
         return 'Skills, Hooks, MCP, Plugins';
       case AgentType.codex:
         return 'Skills, Agents, MCP';
-      case AgentType.pi:
-        return 'Skills, Prompts, Sessions, Model Controls';
-      case AgentType.piDurable:
-        return 'Durable sessions and Model Controls';
     }
-  }
-}
-
-class _PiPowerSummaryCard extends ConsumerWidget {
-  const _PiPowerSummaryCard({required this.theme});
-
-  final OpenCodeTheme theme;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final piStateAsync = ref.watch(piStateProvider(null));
-
-    return piStateAsync.when(
-      data: (state) {
-        final model = state.model;
-        return Container(
-          padding: Insets.cardSm,
-          decoration: BoxDecoration(
-            color: theme.backgroundPanel,
-            borderRadius: Radii.brMd,
-            border: Border.all(color: theme.borderSubtle),
-          ),
-          child: Row(
-            children: [
-              Icon(AppIcons.autoAwesome, color: theme.textMuted, size: 18),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  model == null
-                      ? 'No model selected yet'
-                      : '${model.provider}/${model.id} • ${state.thinkingLevel.displayName}',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: theme.text,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-      loading: () => Container(
-        padding: Insets.cardSm,
-        decoration: BoxDecoration(
-          color: theme.backgroundPanel,
-          borderRadius: Radii.brMd,
-          border: Border.all(color: theme.borderSubtle),
-        ),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: theme.textMuted,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Text(
-              'Loading Pi state…',
-              style: AppTypography.label(color: theme.textMuted),
-            ),
-          ],
-        ),
-      ),
-      error: (_, __) => Container(
-        padding: Insets.cardSm,
-        decoration: BoxDecoration(
-          color: theme.backgroundPanel,
-          borderRadius: Radii.brMd,
-          border: Border.all(color: theme.borderSubtle),
-        ),
-        child: Row(
-          children: [
-            Icon(AppIcons.warning, color: theme.warning, size: 16),
-            const SizedBox(width: 10),
-            Text(
-              'Failed to load Pi state',
-              style: AppTypography.label(color: theme.textMuted),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 
@@ -1053,84 +949,3 @@ class _PermissionSummaryCard extends ConsumerWidget {
     }
   }
 }
-
-/// Pi-specific quick actions grid in the Power Menu.
-/// Triggers actions via a global callback stored on the ChatScreen.
-class _PiQuickActionsGrid extends StatelessWidget {
-  const _PiQuickActionsGrid({required this.theme});
-  final OpenCodeTheme theme;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: _QuickActionCard(
-                  icon: AppIcons.bolt,
-                  label: 'Skills',
-                  theme: theme,
-                  onTap: () {
-                    Navigator.pop(context);
-                    piPowerMenuCallback?.call('pi_skills');
-                  },
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _QuickActionCard(
-                  icon: AppIcons.callSplit,
-                  label: 'Sidebar',
-                  theme: theme,
-                  onTap: () {
-                    Navigator.pop(context);
-                    piPowerMenuCallback?.call('pi_sidebar');
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: _QuickActionCard(
-                  icon: AppIcons.compress,
-                  label: 'Compact',
-                  theme: theme,
-                  onTap: () {
-                    Navigator.pop(context);
-                    piPowerMenuCallback?.call('pi_compact');
-                  },
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _QuickActionCard(
-                  icon: AppIcons.add,
-                  label: 'New Chat',
-                  theme: theme,
-                  onTap: () {
-                    Navigator.pop(context);
-                    piPowerMenuCallback?.call('pi_new_session');
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Global callback for Pi power menu actions.
-/// Set by ChatScreen, used by _PiQuickActionsGrid.
-void Function(String)? piPowerMenuCallback;

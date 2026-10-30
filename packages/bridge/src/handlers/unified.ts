@@ -1,8 +1,7 @@
 /**
  * Unified request message handler (Phase 4, Batch 6).
  *
- * Instead of per-agent messages (cc_list_sessions, cx_list_threads, pi_list_sessions,
- * list_sessions), the Flutter app sends ONE message with a `backend` parameter.
+ * Instead of per-agent messages (cc_list_sessions, cx_list_threads, list_sessions), the Flutter app sends ONE message with a `backend` parameter.
  * Old per-agent messages still work for backward compatibility.
  *
  * Each case delegates to the appropriate connector, normalizing the response
@@ -14,8 +13,6 @@ import { registerLegacy } from "../routing/registry";
 import type { MessageRouter, ServerDeps } from "../routing/types";
 import type { BroskiBackend } from "../types/runtime";
 import type { CxThreadListContext } from "./codex/cx_thread_list";
-import { handleUnified as handlePiDurableUnified } from "./pi_durable";
-import { listPiSkills, setPiModel } from "./unified_pi";
 import { unifiedListSessions } from "./unified_session_lists";
 
 type Reply = (msg: any) => void;
@@ -76,7 +73,6 @@ export function register(router: MessageRouter, deps: ServerDeps): void {
 }
 
 export async function handle(message: UnifiedMessage, reply: Reply, ctx: UnifiedContext): Promise<boolean> {
-	if (message.backend === "pi-durable") return handlePiDurableUnified(message, reply);
 	switch (message.type) {
 		// ── unified_list_sessions ─────────────────────────────────────────
 		case "unified_list_sessions": {
@@ -127,13 +123,6 @@ export async function handle(message: UnifiedMessage, reply: Reply, ctx: Unified
 					}
 					break;
 				}
-				case "pi": {
-					const piMod = await import("../connectors/pi");
-					const instance = await piMod.getOrCreateInstance(message.cwd ?? process.cwd());
-					await instance.session.abort();
-					success = true;
-					break;
-				}
 			}
 			reply({ type: "unified_aborted", backend, data: success, requestId: message.requestId });
 			return true;
@@ -172,11 +161,6 @@ export async function handle(message: UnifiedMessage, reply: Reply, ctx: Unified
 					} catch {
 						data = [];
 					}
-					break;
-				}
-				case "pi": {
-					const piMod = await import("../connectors/pi");
-					data = await piMod.listAvailableModels();
 					break;
 				}
 			}
@@ -222,14 +206,6 @@ export async function handle(message: UnifiedMessage, reply: Reply, ctx: Unified
 					}
 					break;
 				}
-				case "pi": {
-					try {
-						success = await setPiModel(message);
-					} catch {
-						success = false;
-					}
-					break;
-				}
 			}
 			reply({ type: "unified_model_set", backend, data: success, requestId: message.requestId });
 			return true;
@@ -266,11 +242,6 @@ export async function handle(message: UnifiedMessage, reply: Reply, ctx: Unified
 					}
 					break;
 				}
-				case "pi": {
-					const piMod = await import("../connectors/pi");
-					success = await piMod.deleteSession(message.sessionId);
-					break;
-				}
 			}
 			reply({ type: "unified_session_deleted", backend, data: success, requestId: message.requestId });
 			return true;
@@ -302,14 +273,6 @@ export async function handle(message: UnifiedMessage, reply: Reply, ctx: Unified
 					try {
 						const skillFiles = await import("../skills");
 						data = await skillFiles.listOpenCodeSkills(message.cwd);
-					} catch {
-						data = [];
-					}
-					break;
-				}
-				case "pi": {
-					try {
-						data = await listPiSkills(message.cwd);
 					} catch {
 						data = [];
 					}
@@ -361,11 +324,6 @@ export async function handle(message: UnifiedMessage, reply: Reply, ctx: Unified
 					} catch {
 						data = [];
 					}
-					break;
-				}
-				case "pi": {
-					const piMod = await import("../connectors/pi");
-					data = await piMod.listProjects();
 					break;
 				}
 			}

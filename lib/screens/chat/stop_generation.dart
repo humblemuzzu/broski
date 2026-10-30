@@ -1,9 +1,5 @@
-import 'dart:async';
-
 import 'package:broski/providers/chat_provider.dart';
-import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/providers/service_providers.dart';
-import 'package:broski/screens/chat/pi_durable_chat_actions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Stop AI generation for all backends.
@@ -16,17 +12,11 @@ void stopGeneration({
   required WidgetRef ref,
   required bool isClaudeCode,
   required bool isCodex,
-  required bool isPi,
   required String sessionId,
   required String projectPath,
 }) {
   final bridge = ref.read(bridgeServiceProvider);
   final notifier = ref.read(chatSessionProvider.notifier);
-  if (ref.read(chatSessionProvider).isPiDurable) {
-    stopPiDurableGeneration(ref);
-    notifier.cancelRunLocally();
-    return;
-  }
   final chatState = ref.read(chatSessionProvider);
   if (isClaudeCode) {
     final sid = chatState.ccSessionId;
@@ -38,13 +28,6 @@ void stopGeneration({
     if (tid != null && tid.isNotEmpty) {
       bridge.cxAbort(threadId: tid);
     }
-  } else if (isPi) {
-    unawaited(
-      ref
-          .read(piBridgeServiceProvider)
-          .abort(projectPath: chatState.piCwd)
-          .catchError((Object _) {}),
-    );
   } else {
     bridge.abortSession(sessionId, projectPath: projectPath);
   }

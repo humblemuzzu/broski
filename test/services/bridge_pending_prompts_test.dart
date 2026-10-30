@@ -109,44 +109,6 @@ void main() {
     expect(request.metadata?['patterns'], ['src/**']);
   });
 
-  test(
-    'a pending Pi dialog is restored as the extension-ui request it was',
-    () {
-      final payloads = pendingPromptPayloads(
-        _sessionsActive({
-          'pi': [
-            {
-              'sessionId': 'pi-1',
-              'messages': [
-                {
-                  'type': 'extension-ui-request',
-                  'id': 'ui-1',
-                  'method': 'confirm',
-                  'title': 'Continue?',
-                },
-                {
-                  'type': 'extension-ui-request',
-                  'id': 'ui-2',
-                  'method': 'select',
-                  'title': 'Pick',
-                },
-              ],
-            },
-          ],
-        }),
-        nowMs: 1700000000000,
-      );
-
-      expect(payloads, hasLength(2));
-      final first =
-          RuntimeEvent.fromJson(payloads.first) as RuntimeBackendEvent;
-      expect(first.backend, AgentType.pi);
-      expect(first.kind, 'extension-ui-request');
-      expect(first.sessionId, 'pi-1');
-      expect((first.payload as Map<String, dynamic>)['method'], 'confirm');
-    },
-  );
-
   test('everything pending comes back together', () {
     final payloads = pendingPromptPayloads(
       _sessionsActive({

@@ -1,8 +1,8 @@
 /// Shared formatting utilities used across the app.
 ///
 /// Replaces duplicated _formatTokens(), _getModelName(), and magic constants
-/// that were copy-pasted across chat_screen.dart, pi_session_sidebar_sheet.dart,
-/// and various action content widgets.
+/// that were copy-pasted across chat_screen.dart and various action content
+/// widgets.
 library;
 
 /// Default context window size used across all agents when not specified.

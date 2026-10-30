@@ -1,4 +1,3 @@
-import * as pi from "../connectors/pi";
 import { sweepBoundedState } from "../state/bounded-map";
 import { heartbeatAction } from "./heartbeat";
 import type { LeveledLogger } from "./logger";
@@ -58,7 +57,6 @@ export function startBridgeIntervals(deps: { state: BridgeState; streams: Stream
 	state.eventBufferPruneTimer = setInterval(() => {
 		pruneEventBuffers(state.ccEventBuffers);
 		pruneEventBuffers(state.cxEventBuffers);
-		pi.pruneIdleInstances();
 		sweepBoundedState();
 	}, EVENT_BUFFER_PRUNE_INTERVAL_MS);
 

@@ -10,42 +10,6 @@ export const SCENARIOS: ScenarioSpec[] = [
 	{ name: "startup-version", description: "spawn `bun src/index.ts version` -> exit" },
 	{ name: "module-load", description: "import ../src/server.ts, no server started" },
 	{
-		name: "pi-list-sessions-cold",
-		description: "pi.listSessions() with an empty index (temp BROSKI_CACHE_DIR)",
-		requiresDatasets: ["pi-sessions"],
-	},
-	{
-		name: "pi-list-sessions-cold-sdk",
-		description: "pi.listSessions() through the SDK's SessionManager.listAll, before/after baseline",
-		requiresDatasets: ["pi-sessions"],
-	},
-	{
-		name: "pi-list-sessions-warm",
-		description: "pi.listSessions() twice in one process",
-		requiresDatasets: ["pi-sessions"],
-	},
-	{
-		name: "pi-list-sessions-restart",
-		description: "fresh process with the index present: build, then restart and list",
-		requiresDatasets: ["pi-sessions"],
-	},
-	{ name: "pi-list-projects", description: "pi.listProjects()", requiresDatasets: ["pi-sessions"] },
-	{
-		name: "pi-index-parity",
-		description: "head-scanning SessionInfo builder vs the SDK on every real session file",
-		requiresDatasets: ["pi-sessions"],
-	},
-	{
-		name: "pi-read-largest-transcript",
-		description: "pi_read_session_messages path on the largest session, limit 200",
-		requiresDatasets: ["pi-sessions"],
-	},
-	{
-		name: "pi-transcript-parity",
-		description: "bounded Pi transcript read vs the whole-file read on real sessions",
-		requiresDatasets: ["pi-sessions"],
-	},
-	{
 		name: "codex-list-projects",
 		description: "cx_list_projects path: listProjectsFromFs + sqlite fallback",
 		requiresDatasets: ["codex-sessions"],
@@ -60,12 +24,6 @@ export const SCENARIOS: ScenarioSpec[] = [
 		name: "codex-read-largest-transcript",
 		description: "getThreadMessagesFromFs on the largest rollout",
 		requiresDatasets: ["codex-sessions"],
-	},
-	{
-		name: "open-chat-pi",
-		description:
-			"pi_read_session_messages on the largest session: paged open vs the whole transcript (OPEN_CHAT_MODE=legacy)",
-		requiresDatasets: ["pi-sessions"],
 	},
 	{
 		name: "open-chat-codex",

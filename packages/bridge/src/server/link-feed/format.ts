@@ -28,8 +28,6 @@ const BACKEND_NAMES: Record<BroskiBackend, string> = {
 	"claude-code": "Claude Code",
 	opencode: "OpenCode",
 	codex: "Codex",
-	pi: "Pi",
-	"pi-durable": "Pi Durable",
 };
 
 /** The only tool-input keys a body may quote; anything else in the input stays on the machine. */

@@ -2,7 +2,7 @@
  * In-process bridge server on a random port, isolated from the developer's real config.
  *
  * `os.homedir()` is fixed at process start, so `HOME` here is only advisory: the real isolation is
- * the stubbed hook installers, the temp Pi agent dir, and the temp cache dirs `bun test` pins in
+ * the stubbed hook installers, the temp Pi agent dir, and the real-home guard `bun test` arms in
  * its preload. The server module is imported lazily so `PI_CODING_AGENT_DIR` is set first.
  */
 
@@ -257,7 +257,12 @@ export function upgradeStatus(
 }
 
 /** A phone that stopped reading: completes the handshake, asks to view a session, then pauses. */
-export function stalledClient(port: number, token: string, sessionId: string, agent = "pi"): { closed: () => boolean } {
+export function stalledClient(
+	port: number,
+	token: string,
+	sessionId: string,
+	agent = "claude-code",
+): { closed: () => boolean } {
 	const socket = netConnect(port, "127.0.0.1");
 	let closed = false;
 	socket.on("close", () => {

@@ -374,32 +374,6 @@ class _ProjectToolsContent extends StatelessWidget {
               CxAppsSheet.show(context);
             },
           ),
-        ] else if (backend == AgentType.pi) ...[
-          _sectionLabel(theme, 'Power features'),
-          _tile(
-            context,
-            theme,
-            icon: AppIcons.autoFix,
-            title: 'Skills',
-            subtitle: 'Commands, prompts, extensions',
-            onTap: () => _closeAndPush(
-              context,
-              const SkillsScreen(backend: AgentType.pi),
-            ),
-          ),
-        ] else if (backend == AgentType.piDurable) ...[
-          _sectionLabel(theme, 'Power features'),
-          _tile(
-            context,
-            theme,
-            icon: AppIcons.autoFix,
-            title: 'Skills',
-            subtitle: 'Project + user SKILL.md files',
-            onTap: () => _closeAndPush(
-              context,
-              const SkillsScreen(backend: AgentType.piDurable),
-            ),
-          ),
         ],
         const SizedBox(height: 18),
       ],

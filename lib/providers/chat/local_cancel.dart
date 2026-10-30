@@ -47,14 +47,9 @@ extension ChatLocalCancel on ChatSessionNotifier {
 
     markAllStreamingComplete();
     _emitMessages();
-    final current = state;
-    if (current is PiDurableChatState) {
-      state = current.copyWith(pdIsStreaming: false);
-    }
     state = state.copyWith(
       ccIsStreaming: false,
       cxIsStreaming: false,
-      piIsStreaming: false,
       isCompacting: false,
     );
   }

@@ -2,7 +2,6 @@ import packageMeta from "../package.json";
 import type { CliOptions } from "./cli";
 import type { BroskiConfig } from "./config";
 import { OpenCodeConnector } from "./connectors/opencode";
-import { warmPiSessionIndex } from "./connectors/pi/pi-session-list-indexed";
 import { bindWithRetry, isAddressInUse } from "./lifecycle/port-retry";
 import { logDaemon, logDaemonError, setDaemonLogger } from "./logging/daemon-log";
 import { createBridgeLogger } from "./logging/logger";
@@ -200,9 +199,6 @@ export async function runServe(cli: CliOptions, config: BroskiConfig): Promise<v
 
 	daemonLog(`[daemon] Bridge listening on port ${bridgePort}`);
 
-	// Warm the Pi session index in the background, so the first listing a phone asks for is served
-	// from disk instead of scanning every session file.
-	void warmPiSessionIndex();
 	if (!cli.daemon) {
 		logDaemon(`\n✓ Bridge listening on port ${bridgePort}`);
 		logDaemon("  Pair your phone: broski-link pair");

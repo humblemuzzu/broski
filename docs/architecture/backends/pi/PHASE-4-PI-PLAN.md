@@ -171,6 +171,8 @@ Real Mac, real `~/.pi`, real phone over LAN and over the relay:
 
 Remove the dev flag (Pi is served by the contract by default), route the app's Pi entry points to the generic screens for everyone, then delete:
 
+**Status (2026-10-30):** the flag is removed and every item below is deleted, bridge, app, tests and the link_dart Pi e2e. Not done: routing the app's main screens to the generic ones — Pi is reachable only from the contract screens (Settings → long-press the version line) until it is. Push notifications have no Pi path yet: the old one went with the old Pi, and the core has no link-feed tap.
+
 **Bridge** (≈ 8,800 + 523 lines, 28 test files reviewed):
 - `connectors/pi.ts`, `connectors/pi/*` (34 modules), `connectors/pi_extension_ui.ts`
 - `handlers/pi_*.ts` (22), `handlers/unified_pi.ts`, the Pi arms of `handlers/unified*.ts` and `handlers/misc.ts`

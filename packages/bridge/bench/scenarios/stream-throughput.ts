@@ -55,13 +55,13 @@ function percentile(sorted: number[], p: number): number {
 function buildEvent(): ServerMessage {
 	const event: BroskiAssistantTextDeltaEvent = {
 		type: "assistant_text_delta",
-		backend: "pi",
+		backend: "claude-code",
 		timestampMs: Date.now(),
 		sessionId: "bench-session",
 		streamId: "bench-stream",
 		delta: DELTA,
 	};
-	return { type: "runtime_event", backend: "pi", data: event };
+	return { type: "runtime_event", backend: "claude-code", data: event };
 }
 
 /** One received frame is either a message or a `batch` envelope holding several. */
@@ -82,7 +82,7 @@ async function runPhase(handle: BenchServerHandle, clientCount: number): Promise
 
 	for (let i = 0; i < clientCount; i += 1) {
 		const ws = await connectBenchClient(handle.port, handle.token);
-		watchSession(ws, "pi", "bench-session");
+		watchSession(ws, "claude-code", "bench-session");
 		const stat: ClientStats = {
 			frames: 0,
 			wireBytes: 0,

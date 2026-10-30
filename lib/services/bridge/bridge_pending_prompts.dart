@@ -11,7 +11,6 @@ library;
 const _claudeCode = 'claude-code';
 const _codex = 'codex';
 const _opencode = 'opencode';
-const _pi = 'pi';
 
 /// The runtime event payloads one `sessions_active` reply stands for.
 List<Map<String, dynamic>> pendingPromptPayloads(Object? data, {int? nowMs}) {
@@ -47,7 +46,6 @@ List<Map<String, dynamic>> pendingPromptPayloads(Object? data, {int? nowMs}) {
           request: _mapOf(entry['request']) ?? {'requestId': id},
           at: at,
         ),
-    for (final entry in _entriesOf(pending['pi'])) ..._piDialogs(entry, at: at),
   ];
 }
 
@@ -89,29 +87,6 @@ Map<String, dynamic> _elicitation(
       'requestedSchema': entry['requestedSchema'],
   },
 };
-
-/// One Pi session may hold several extension-UI dialogs; each is its own event,
-/// carrying the stream message the bridge emitted so the dialog is the real one.
-Iterable<Map<String, dynamic>> _piDialogs(
-  Map<String, dynamic> entry, {
-  required int at,
-}) sync* {
-  final sessionId = _stringOr(entry['sessionId']);
-  final messages = entry['messages'];
-  if (sessionId == null || messages is! List) return;
-  for (final message in messages) {
-    final payload = _mapOf(message);
-    if (payload == null) continue;
-    yield {
-      'type': 'backend_event',
-      'backend': _pi,
-      'timestampMs': at,
-      'sessionId': sessionId,
-      'kind': 'extension-ui-request',
-      'payload': payload,
-    };
-  }
-}
 
 /// Codex waiters are keyed by the request id alone, so an entry is that string.
 Iterable<Map<String, dynamic>> _entriesOf(Object? raw) sync* {

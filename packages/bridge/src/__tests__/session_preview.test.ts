@@ -5,9 +5,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { mapCodexThreadToRuntimeSession } from "../runtime/codex-runtime-read-models";
-import { mapPiSessionToRuntimeSession } from "../runtime/pi-runtime-read-models";
 import type { CodexThread } from "../types";
-import type { PiSessionInfo } from "../types/pi";
 import { SESSION_PREVIEW_ELLIPSIS, SESSION_PREVIEW_MAX_CHARS, sessionPreview } from "../utils/session-preview";
 
 describe("sessionPreview", () => {
@@ -38,27 +36,6 @@ describe("sessionPreview", () => {
 
 describe("summaries carry a preview, not the whole message", () => {
 	const huge = "u".repeat(100_000);
-
-	const piSession: PiSessionInfo = {
-		path: "/tmp/project/.pi/s1.jsonl",
-		id: "pi-1",
-		cwd: "/tmp/project",
-		created: 1,
-		modified: 2,
-		messageCount: 2,
-		firstMessage: huge,
-	};
-
-	test("a Pi runtime summary caps its title", () => {
-		const summary = mapPiSessionToRuntimeSession(piSession, [piSession]);
-		expect(summary.title.length).toBeLessThanOrEqual(SESSION_PREVIEW_MAX_CHARS);
-		expect(summary.title.endsWith(SESSION_PREVIEW_ELLIPSIS)).toBeTrue();
-	});
-
-	test("a Pi runtime summary carries no second copy of the first message", () => {
-		const summary = mapPiSessionToRuntimeSession(piSession, [piSession]);
-		expect(summary.backendData?.firstMessage).toBeUndefined();
-	});
 
 	test("a Codex runtime summary caps its title", () => {
 		const thread: CodexThread = {

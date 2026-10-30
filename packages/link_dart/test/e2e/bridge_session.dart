@@ -202,38 +202,3 @@ void expectCleanReplies(BridgeSession session) {
   );
   expect(session.outstanding, isEmpty, reason: 'every request was answered');
 }
-
-/// `pi_new_session` → `pi_session_created` (handlers/pi_session_lifecycle.ts).
-Map<String, Object?> piNewSession(
-  String key, {
-  required String projectPath,
-  required String provider,
-  required String modelId,
-}) => <String, Object?>{
-  'type': 'pi_new_session',
-  'requestId': key,
-  'projectPath': projectPath,
-  'provider': provider,
-  'modelId': modelId,
-  'thinkingLevel': 'high',
-};
-
-/// `pi_chat` → `pi_chat_started`, then `runtime_event`s (handlers/pi_chat.ts).
-Map<String, Object?> piChat(
-  String key, {
-  required String projectPath,
-  required String prompt,
-}) => <String, Object?>{
-  'type': 'pi_chat',
-  'requestId': key,
-  'projectPath': projectPath,
-  'prompt': prompt,
-};
-
-/// `pi_abort` → `pi_aborted` (handlers/pi_chat.ts).
-Map<String, Object?> piAbort(String key, {required String projectPath}) =>
-    <String, Object?>{
-      'type': 'pi_abort',
-      'requestId': key,
-      'projectPath': projectPath,
-    };

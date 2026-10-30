@@ -17,10 +17,10 @@ const TOKENS = 70;
 function delta(text: string, seq: number): ServerMessage {
 	return {
 		type: "runtime_event",
-		backend: "pi",
+		backend: "claude-code",
 		data: {
 			type: "assistant_text_delta",
-			backend: "pi",
+			backend: "claude-code",
 			timestampMs: seq,
 			sessionId: "sess-1",
 			streamId: "s1",

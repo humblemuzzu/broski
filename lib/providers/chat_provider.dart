@@ -7,9 +7,6 @@ import 'package:broski/models/claude_code/cc_terminal_reason.dart';
 import 'package:broski/models/codex.dart';
 import 'package:broski/models/file_attachment.dart';
 import 'package:broski/models/message.dart';
-import 'package:broski/models/pi.dart';
-import 'package:broski/models/pi_bash_card.dart';
-import 'package:broski/models/pi_durable/pi_durable_session.dart';
 import 'package:broski/models/question.dart';
 import 'package:broski/models/runtime/runtime.dart';
 import 'package:broski/models/session.dart';
@@ -32,10 +29,6 @@ part 'chat/local_cancel.dart';
 part 'chat/message_builder.dart';
 part 'chat/oc_stream_handler.dart';
 part 'chat/oc_transcript_page.dart';
-part 'chat/pi_bash_message.dart';
-part 'chat/pi_durable_chat_state.dart';
-part 'chat/pi_durable_stream_handler.dart';
-part 'chat/pi_stream_handler.dart';
 part 'chat/runtime_cc_metadata_handler.dart';
 part 'chat/runtime_cc_system_messages.dart';
 // Existing part files
@@ -78,9 +71,6 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
 
   /// The session that owns [_transcriptCursor]; a page fetched for another session is dropped.
   String? _transcriptSessionId;
-
-  /// Counts the transcript pages prepended to the open chat, so their generated ids stay unique.
-  int _transcriptPageSeq = 0;
 
   Timer? _textDebounceTimer;
   final Map<String, StringBuffer> _pendingTextBuffers = {};
@@ -185,10 +175,6 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       return;
     }
 
-    // Pi Durable has no user-input surface: never answer its question over the
-    // OpenCode question tool.
-    if (state.isPiDurable) return;
-
     // OpenCode Question tool flow.
     try {
       final ok = await _bridge.ocReplyToQuestion(
@@ -250,10 +236,6 @@ class ChatSessionNotifier extends StateNotifier<ChatSessionState> {
       );
       return;
     }
-
-    // Pi Durable has no user-input surface: never reject its question over the
-    // OpenCode question tool.
-    if (state.isPiDurable) return;
 
     try {
       final ok = await _bridge.ocRejectQuestion(

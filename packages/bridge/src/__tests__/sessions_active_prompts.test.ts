@@ -118,7 +118,8 @@ describe("sessions_active after a reconnect", () => {
 
 	test("carries nothing for a prompt it never saw", async () => {
 		const pending = await withRegisteredClient(sessionsActive);
-		expect(pending.pi ?? []).toHaveLength(0);
+		expect(pending.pi).toBeUndefined();
+		expect(pending.codex ?? []).toHaveLength(0);
 		expect(pending.claudeCodeElicitations ?? []).toHaveLength(0);
 	});
 });

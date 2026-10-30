@@ -151,12 +151,12 @@ describe("runtime stream state", () => {
 		enrichRuntimeEvent(
 			{
 				type: "assistant_text_delta",
-				backend: "pi",
+				backend: "claude-code",
 				timestampMs: Date.now(),
 				sessionId,
 				delta: "text",
 			},
-			{ backend: "pi", sessionId },
+			{ backend: "claude-code", sessionId },
 		);
 
 	it("keeps an active session through a sweep and expires an idle one", () => {
@@ -181,10 +181,10 @@ describe("runtime replay buffers", () => {
 	const runtimeEvent = (sessionId: string, seq: number) =>
 		recordRuntimeEvent({
 			type: "runtime_event",
-			backend: "pi",
+			backend: "claude-code",
 			data: {
 				type: "assistant_text_delta",
-				backend: "pi",
+				backend: "claude-code",
 				timestampMs: Date.now(),
 				sessionId,
 				seq,
@@ -195,8 +195,8 @@ describe("runtime replay buffers", () => {
 	it("keeps the most recent streams and drops the rest", () => {
 		for (let index = 0; index < 200; index++) runtimeEvent(`stream-${index}`, index + 1);
 
-		expect(replayRuntimeEventsSince({ backend: "pi", sessionId: "stream-0", lastSeq: 0 })).toHaveLength(0);
-		expect(replayRuntimeEventsSince({ backend: "pi", sessionId: "stream-199", lastSeq: 0 })).toHaveLength(1);
+		expect(replayRuntimeEventsSince({ backend: "claude-code", sessionId: "stream-0", lastSeq: 0 })).toHaveLength(0);
+		expect(replayRuntimeEventsSince({ backend: "claude-code", sessionId: "stream-199", lastSeq: 0 })).toHaveLength(1);
 		const stats = boundedStateSizes().find((state) => state.name === "runtime-replay-buffers");
 		expect(stats?.size).toBe(stats?.limit);
 	});

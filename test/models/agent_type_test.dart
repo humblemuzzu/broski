@@ -9,12 +9,6 @@ void main() {
       }
     });
 
-    test('pi-durable uses the bridge wire value', () {
-      expect(AgentType.piDurable.wireValue, 'pi-durable');
-      expect(AgentType.piDurable.displayName, 'Pi Durable');
-      expect(AgentType.fromWireValue('pi-durable'), AgentType.piDurable);
-    });
-
     test('an unknown wire value still falls back to OpenCode', () {
       expect(AgentType.fromWireValue('not-a-backend'), AgentType.opencode);
       expect(AgentType.fromWireValue(''), AgentType.opencode);
@@ -22,21 +16,15 @@ void main() {
   });
 
   group('AgentsStatus', () {
-    test('reads the pi-durable availability key', () {
+    test('reads each backend by its wire key', () {
       final status = AgentsStatus.fromJson(const {
-        'pi-durable': {'available': true, 'version': '0.4.1'},
+        'claude-code': {'available': true, 'version': '2.1.0'},
+        'codex': {'available': false},
       });
-      expect(status.piDurable.available, isTrue);
-      expect(status.piDurable.version, '0.4.1');
-      expect(status.forType(AgentType.piDurable).available, isTrue);
-    });
-
-    test('defaults pi-durable to unavailable when the key is absent', () {
-      final status = AgentsStatus.fromJson(const {
-        'pi': {'available': true},
-      });
-      expect(status.piDurable.available, isFalse);
-      expect(status.pi.available, isTrue);
+      expect(status.forType(AgentType.claudeCode).available, isTrue);
+      expect(status.forType(AgentType.claudeCode).version, '2.1.0');
+      expect(status.forType(AgentType.codex).available, isFalse);
+      expect(status.forType(AgentType.opencode).available, isFalse);
     });
   });
 }

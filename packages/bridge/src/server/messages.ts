@@ -79,23 +79,6 @@ export function createMessageHandler(
 			(message as unknown as Record<string, unknown>).projectPath = secureProjectPath;
 		}
 
-		// pi_get_subagent_invocation carries a raw `parentSessionPath` pointing
-		// at a JSONL file under the Pi sessions directory. Canonicalize it the
-		// same way as cwd/projectPath to prevent path traversal attacks.
-		const rawParentSessionPath = (message as unknown as Record<string, unknown>).parentSessionPath;
-		if (typeof rawParentSessionPath === "string" && rawParentSessionPath.trim()) {
-			const secureParent = await deps.getSecurePath(rawParentSessionPath.trim());
-			if (!secureParent) {
-				reply({
-					type: "error",
-					message: "Access denied",
-					requestId: message.requestId,
-				});
-				return;
-			}
-			(message as unknown as Record<string, unknown>).parentSessionPath = secureParent;
-		}
-
 		await deps.registry.dispatch(message, { ...deps.serverDeps, ws, reply });
 	};
 

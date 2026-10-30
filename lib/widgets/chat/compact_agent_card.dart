@@ -3,7 +3,6 @@ import 'package:broski/models/card_style.dart';
 import 'package:broski/models/claude_code.dart';
 import 'package:broski/models/codex.dart';
 import 'package:broski/models/message.dart';
-import 'package:broski/models/pi.dart';
 import 'package:broski/models/project.dart';
 import 'package:broski/models/session.dart';
 import 'package:broski/models/session_context.dart';
@@ -796,26 +795,6 @@ class _ViewFullSessionButton extends ConsumerWidget {
             agentNickname: agentType,
           ),
         );
-      case AgentType.pi:
-        // Pi subagents from compact agent card are tool invocations (Task,
-        // oracle, finder, etc.). They don't have their own session file.
-        // Open as read-only Pi session — the hydrator will use the session
-        // path to read messages from JSONL.
-        screen = ChatScreen.pi(
-          piSession: PiSessionInfo(
-            path: sessionId, // Pi hydrator checks hasSessionPath
-            id: sessionId,
-            cwd: cwd,
-            created: DateTime.now(),
-            modified: DateTime.now(),
-            messageCount: 0,
-            firstMessage: title,
-          ),
-          readOnly: true,
-        );
-      case AgentType.piDurable:
-        // Durable sessions have no synthetic child ids to open here.
-        return;
     }
 
     Navigator.push(context, MaterialPageRoute(builder: (_) => screen));

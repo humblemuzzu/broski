@@ -8,8 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Read-only preview of a skill the bridge cannot read back through a
-/// get-skill op. Pi and Pi Durable skills are SKILL.md files on disk, so the
-/// body is read straight from [Skill.path].
+/// get-skill op; the body is read straight from [Skill.path].
 Future<void> showSkillReadonlySheet({
   required BuildContext context,
   required WidgetRef ref,

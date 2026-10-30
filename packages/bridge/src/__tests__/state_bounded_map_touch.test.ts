@@ -49,12 +49,12 @@ describe("runtime stream state under capacity pressure", () => {
 	const event = (sessionId: string) => {
 		const input: BroskiRuntimeEvent = {
 			type: "assistant_text_delta",
-			backend: "pi",
+			backend: "claude-code",
 			timestampMs: 1,
 			sessionId,
 			delta: "x",
 		};
-		return enrichRuntimeEvent(input, { backend: "pi", sessionId });
+		return enrichRuntimeEvent(input, { backend: "claude-code", sessionId });
 	};
 
 	it("never capacity-evicts the state of a live stream", () => {
@@ -70,8 +70,8 @@ describe("runtime stream state under capacity pressure", () => {
 
 			expect(event(hot).seq).toBe(RUNTIME_STREAM_STATE_MAX_KEYS + 2);
 		} finally {
-			resetRuntimeStreamState("pi", hot);
-			for (const sessionId of idle) resetRuntimeStreamState("pi", sessionId);
+			resetRuntimeStreamState("claude-code", hot);
+			for (const sessionId of idle) resetRuntimeStreamState("claude-code", sessionId);
 		}
 	});
 });

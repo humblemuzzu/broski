@@ -2,7 +2,7 @@
 
 `packages/bridge/src/backends/pi/` serves Pi (`@earendil-works/pi-coding-agent` 1.4.0, exact pin) through the backend contract ([`../../contract/README.md`](../../contract/README.md)). It implements `AgentBackend` on Pi's classic engine (`AgentSession` + session JSONL files), the engine the terminal `pi` runs, and passes all 28 conformance rules, rule 27 (`externalLive`) against a real terminal `pi` that runs the Broski link extension ([`terminal-link.md`](terminal-link.md)).
 
-Status: built, reviewed three times, and every review finding answered ([`reviews/FIXES.md`](reviews/FIXES.md)). It is registered behind a dev flag; the old Pi path (`connectors/pi/**`, `handlers/pi_*`) still serves the app and is untouched. App routing, the on-device checklist, cutover and deletion are in [`PHASE-4-PI-PLAN.md`](PHASE-4-PI-PLAN.md). [`STEP-0-INTERFACES.md`](STEP-0-INTERFACES.md) is the historical build plan; where it and this file differ, this file says what was built.
+Status: built, reviewed three times, and every review finding answered ([`reviews/FIXES.md`](reviews/FIXES.md)). It is the only Pi the bridge serves, registered by default (compiled binaries included). The old Pi path (`connectors/pi/**`, `handlers/pi_*`, the `pi_*` wire messages) and the experimental Pi Durable backend (`connectors/pi-durable/**`, `pd_*`) were deleted on 2026-10-30, bridge and app; the last commit that has them is `e9d1a10`, including `docs/architecture/backends/pi-durable.md`. The app reaches this Pi only through the contract screens (Settings → long-press the version line); routing it from the main screens is in [`PHASE-4-PI-PLAN.md`](PHASE-4-PI-PLAN.md). [`STEP-0-INTERFACES.md`](STEP-0-INTERFACES.md) is the historical build plan; where it and this file differ, this file says what was built.
 
 **`research/` is superseded.** The five research notes were written by an agent before the build, and are partly wrong. Where they differ from this file or the code (and the SDK `path:line` the code cites), this file and the code are right. They are kept as history only.
 
@@ -14,10 +14,10 @@ Status: built, reviewed three times, and every review finding answered ([`review
 
 ```bash
 cd packages/bridge
-BROSKI_CONTRACT_PI=1 bun dev        # the core serves `pi` beside the old protocol
+bun dev        # the core serves `pi` beside the old protocol's other backends
 ```
 
-`server/contract-backends.ts` builds the core's backends: `[["pi", piWithLink]]` (`piBackendFactory` with the terminal link, on unless the bridge's config has `"pi": {"terminalLink": false}`; installing the extension and the socket are in [`terminal-link.md`](terminal-link.md)) only when `BROSKI_CONTRACT_PI` is exactly `1` and the process is not a compiled binary, else none; `serve.ts` passes it as `contract`. With backends registered the core's journals default to `~/.broski/core`. The adapter reads the real `~/.pi/agent` (or `$PI_CODING_AGENT_DIR`) and the sessions directory the `pi` command uses. The old Pi path keeps serving Pi on the same bridge: do not drive one session from both at once.
+`server/contract-backends.ts` builds the core's backends: `[["pi", piWithLink]]` (`piBackendFactory` with the terminal link, on unless the bridge's config has `"pi": {"terminalLink": false}`; installing the extension and the socket are in [`terminal-link.md`](terminal-link.md)), always; `serve.ts` passes it as `contract`. With backends registered the core's journals default to `~/.broski/core`. The adapter reads the real `~/.pi/agent` (or `$PI_CODING_AGENT_DIR`) and the sessions directory the `pi` command uses.
 
 ## Layout
 
@@ -211,10 +211,9 @@ Plus `src/__tests__/contract_pi_registration.test.ts`: the flag off serves nothi
 5. **Extensions' `project_trust` handlers are not run.** Trust is read as the terminal reads it without a dialog: saved decision, then `defaultProjectTrust`. A project that needs trust gets a warning notice. The phone cannot grant trust.
 6. From STEP-0 §12: `DeliveredInput` compares an image's name, which no model receives; a fork point inside an assistant message (Pi forks at whole messages: `invalid_input`); `navigate_tree` on a `user_message` moves the leaf to its parent, as the terminal's `/tree`.
 7. From the plan: no tree read, no user `!bash`, no active-tools op; `setStatus`/`setWidget`/`setTitle` are lost.
-8. Contract README §2 rule 3 still names `src/backends/pi-shared/`, which D19/D20 do not build.
-9. **A terminal's queue is invisible.** Pi gives extensions no queue or retry event (1.4.0), so a terminal session never sends `queue_changed` and cannot `cancelQueued`; the phone's steer and queue are delivered but not listed.
-10. **A terminal's questions cannot be answered from the phone.** There is no extension API to answer another surface's dialog; the phone shows a notice that the terminal waits.
-11. **No "this session changed what it allows" event.** `session_replaced` naming the same session carries it (contract errata 14); a dedicated `capabilities_changed` would not end the stream.
+8. **A terminal's queue is invisible.** Pi gives extensions no queue or retry event (1.4.0), so a terminal session never sends `queue_changed` and cannot `cancelQueued`; the phone's steer and queue are delivered but not listed.
+9. **A terminal's questions cannot be answered from the phone.** There is no extension API to answer another surface's dialog; the phone shows a notice that the terminal waits.
+10. **No "this session changed what it allows" event.** `session_replaced` naming the same session carries it (contract errata 14); a dedicated `capabilities_changed` would not end the stream.
 
 ## Risks
 

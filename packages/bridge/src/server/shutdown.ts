@@ -1,7 +1,4 @@
-import * as pi from "../connectors/pi";
 import { uninstallCcHook } from "../handlers/cc_hook_installer";
-import * as piDurable from "../handlers/pi_durable";
-import * as piFeatures from "../handlers/pi_features";
 import { stopBridgeResources } from "../lifecycle/bridge-teardown";
 import { DEFAULT_TEARDOWN_TIMEOUT_MS, type TeardownResult } from "../lifecycle/teardown";
 import type { PtyRuntime } from "../pty/runtime";
@@ -53,12 +50,7 @@ export function createStop(deps: StopDeps): (force?: boolean) => Promise<Teardow
 				stopPtyRuntime: () => deps.ptyRuntime.stop(),
 				uninstallHooks: [() => uninstallCcHook(deps.log.logInfo)],
 				stopCodexAppServer: () => deps.codexClient.stopCodexAppServer(),
-				disposeBackends: [
-					() => pi.disposeAll(),
-					() => piFeatures.stopAllPiExternalTails(),
-					() => piDurable.shutdown(),
-					() => deps.contract.stop(),
-				],
+				disposeBackends: [() => deps.contract.stop()],
 				stopServers: () => {
 					state.secureServer?.stop(force);
 					state.linkIngress?.stop();

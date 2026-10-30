@@ -12,10 +12,10 @@ const wsB = { send: () => 1 } as unknown as ServerWebSocket<unknown>;
 function delta(text: string, seq: number, streamId = "s1", sessionId = "sess-1"): ServerMessage {
 	return {
 		type: "runtime_event",
-		backend: "pi",
+		backend: "claude-code",
 		data: {
 			type: "assistant_text_delta",
-			backend: "pi",
+			backend: "claude-code",
 			timestampMs: 1000 + seq,
 			sessionId,
 			streamId,
@@ -28,10 +28,10 @@ function delta(text: string, seq: number, streamId = "s1", sessionId = "sess-1")
 function toolStarted(seq: number, sessionId = "sess-1"): ServerMessage {
 	return {
 		type: "runtime_event",
-		backend: "pi",
+		backend: "claude-code",
 		data: {
 			type: "tool_started",
-			backend: "pi",
+			backend: "claude-code",
 			timestampMs: 1000 + seq,
 			sessionId,
 			seq,

@@ -1,10 +1,7 @@
-import 'package:broski/models/pi_durable/pi_durable_usage.dart';
 import 'package:broski/models/session_context.dart';
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/claude_code_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
-import 'package:broski/providers/pi_durable/pi_durable_providers.dart';
-import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/screens/chat_screen.dart';
 import 'package:broski/utils/format_utils.dart';
@@ -108,54 +105,6 @@ Future<SessionContext> loadSessionContext({
     return context;
   }
 
-  // Pi Durable mode - the bridge streams usage and context tokens in runtime_state
-  if (widget.isPiDurable) {
-    final chatState = ref.read(chatSessionProvider);
-    final contextWindow = await _piDurableContextWindow(ref, chatState.pdModel);
-    return PiDurableUsage.fromUsage(chatState.pdUsage).toSessionContext(
-      contextTokens: chatState.pdContextTokens,
-      contextWindow: contextWindow,
-    );
-  }
-
-  // Pi mode - build context from session stats
-  if (widget.isPi) {
-    try {
-      final piBridge = ref.read(piBridgeServiceProvider);
-      final chatState = ref.read(chatSessionProvider);
-      final cwd = chatState.piCwd;
-
-      // Fetch stats and modified files in parallel
-      final statsFuture = piBridge.getSessionStats(projectPath: cwd);
-      final filesFuture = piBridge.getModifiedFiles(projectPath: cwd);
-      final stats = await statsFuture;
-      List<ModifiedFile> modifiedFiles = const [];
-      try {
-        final raw = await filesFuture;
-        modifiedFiles = raw.map((item) => ModifiedFile.fromJson(item)).toList();
-      } catch (_) {
-        // Non-critical
-      }
-
-      final ctxUsage = stats.contextUsage;
-      return SessionContext.fromPi(
-        inputTokens: stats.tokens.input,
-        outputTokens: stats.tokens.output,
-        cacheReadTokens: stats.tokens.cacheRead,
-        cacheWriteTokens: stats.tokens.cacheWrite,
-        totalCost: stats.cost,
-        contextWindow:
-            ctxUsage?.contextWindow ??
-            chatState.piModelData?.contextWindow ??
-            kDefaultContextWindow,
-        actualContextTokens: ctxUsage?.tokens ?? 0,
-        modifiedFiles: modifiedFiles,
-      );
-    } catch (_) {
-      return SessionContext.empty();
-    }
-  }
-
   // OpenCode offline mode - use cached data
   if (connection.isOfflineMode) {
     final cachedContext = await storage.getCachedSessionContext(
@@ -193,16 +142,5 @@ Future<SessionContext> loadSessionContext({
       widget.session.id,
     );
     return cachedContext ?? SessionContext.empty();
-  }
-}
-
-/// The durable model catalog is cached after the model sheet first loads it, so
-/// this is usually a synchronous hit; a failure just falls back to the default.
-Future<int> _piDurableContextWindow(WidgetRef ref, String? modelLabel) async {
-  try {
-    final models = await ref.read(piDurableModelsProvider.future);
-    return piDurableContextWindow(models, modelLabel);
-  } catch (_) {
-    return kDefaultContextWindow;
   }
 }

@@ -80,20 +80,6 @@ void main() {
       expect(ctx.modifiedFiles, isEmpty);
     });
 
-    test('fromPi passes modifiedFiles through', () {
-      final files = [
-        const ModifiedFile(file: 'main.py', additions: 8, deletions: 4),
-      ];
-      final ctx = SessionContext.fromPi(modifiedFiles: files);
-      expect(ctx.modifiedFiles.length, 1);
-      expect(ctx.modifiedFiles[0].file, 'main.py');
-    });
-
-    test('fromPi defaults to empty modifiedFiles', () {
-      final ctx = SessionContext.fromPi();
-      expect(ctx.modifiedFiles, isEmpty);
-    });
-
     test('fromJson parses modifiedFiles from bridge response', () {
       final ctx = SessionContext.fromJson({
         'tokens': {
@@ -144,22 +130,6 @@ void main() {
       expect(entry.deletions, 2);
       expect(entry.diff, isNotNull);
       expect(entry.partId, 'tool-use-123');
-    });
-
-    test('can be constructed from Pi diff metadata shape', () {
-      // This is the shape _accumulatePiSessionDiff creates
-      const entry = DiffEntry(
-        file: 'src/main.py',
-        before: '',
-        after: '',
-        additions: 3,
-        deletions: 1,
-        diff: '--- a/src/main.py\n+++ b/src/main.py\n-old\n+new1\n+new2\n+new3',
-        partId: 'pi-tool-456',
-      );
-      expect(entry.file, 'src/main.py');
-      expect(entry.additions, 3);
-      expect(entry.deletions, 1);
     });
 
     test('merge logic: accumulating same file sums additions/deletions', () {

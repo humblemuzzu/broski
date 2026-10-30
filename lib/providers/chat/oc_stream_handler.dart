@@ -9,7 +9,6 @@ extension OcStreamHandler on ChatSessionNotifier {
     _messages.clear();
     _order.clear();
     _transcriptCursor = null;
-    _transcriptPageSeq = 0;
     _rolesByMessageId.clear();
     _pendingLocalUserTextByMessageId.clear();
     _localAuthoredUserMessageIds.clear();

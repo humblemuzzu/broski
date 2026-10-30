@@ -6,10 +6,8 @@ import 'package:broski/models/codex.dart';
 import 'package:broski/models/command.dart';
 import 'package:broski/models/file_attachment.dart';
 import 'package:broski/models/message.dart';
-import 'package:broski/models/pi.dart';
 import 'package:broski/models/project.dart';
 import 'package:broski/models/question.dart';
-import 'package:broski/models/runtime/runtime_event.dart';
 import 'package:broski/models/session.dart';
 import 'package:broski/models/session_context.dart';
 import 'package:broski/models/vcs.dart';
@@ -19,8 +17,6 @@ import 'package:broski/providers/codex_settings_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/file_search_provider.dart';
 import 'package:broski/providers/notifications/chat_presence.dart';
-import 'package:broski/providers/pi/pi_live_queue_provider.dart';
-import 'package:broski/providers/pi/pi_live_session_name_provider.dart';
 import 'package:broski/providers/selection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/screens/chat/actions_sheet_opener.dart';
@@ -41,9 +37,6 @@ import 'package:broski/screens/chat/oc_menu_handler.dart' as omh;
 import 'package:broski/screens/chat/oc_message_delete_action.dart';
 import 'package:broski/screens/chat/ordered_parts_builder.dart' as opb;
 import 'package:broski/screens/chat/permission_responder.dart';
-import 'package:broski/screens/chat/pi_durable_commands.dart';
-import 'package:broski/screens/chat/pi_durable_menu_handler.dart';
-import 'package:broski/screens/chat/pi_session_actions.dart' as psa;
 import 'package:broski/screens/chat/project_initializer.dart';
 import 'package:broski/screens/chat/project_tools_handler.dart' as pth;
 import 'package:broski/screens/chat/question_prompt_handler.dart' as qph;
@@ -75,8 +68,6 @@ import 'package:broski/screens/sheets/cc_tools_sheet.dart';
 import 'package:broski/screens/sheets/cx_agents_sheet.dart';
 import 'package:broski/screens/sheets/cx_apps_sheet.dart';
 import 'package:broski/screens/sheets/cx_model_sheet.dart';
-import 'package:broski/screens/sheets/pi_durable_model_sheet.dart';
-import 'package:broski/screens/sheets/pi_model_sheet.dart';
 import 'package:broski/services/haptics_service.dart';
 import 'package:broski/services/image_picker_service.dart';
 import 'package:broski/services/websocket_service.dart';
@@ -94,15 +85,12 @@ import 'package:broski/widgets/chat/cx_queue_bar.dart';
 import 'package:broski/widgets/chat/cx_steer_bar.dart';
 import 'package:broski/widgets/chat/input_bar_content.dart';
 import 'package:broski/widgets/chat/message_group.dart';
-import 'package:broski/widgets/chat/pi_durable_status_banner.dart';
 import 'package:broski/widgets/chat/retry_status_banner.dart';
 import 'package:broski/widgets/chat/revert_state_banner.dart';
 import 'package:broski/widgets/chat/running_stop_bar.dart';
 import 'package:broski/widgets/chat/variant_card_builder.dart';
 import 'package:broski/widgets/file_tagging.dart';
 import 'package:broski/widgets/opencode_branding.dart';
-import 'package:broski/widgets/pi/pi_queue_indicator.dart';
-import 'package:broski/widgets/pi_branding.dart';
 import 'package:broski/widgets/session_sidebar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -121,7 +109,6 @@ class ChatScreen extends ConsumerStatefulWidget {
     required this.session,
     this.initialPrompt,
     this.readOnly = false,
-    this.isPiDurable = false,
   }) : ccSession = null,
        ccDraftCwd = null,
        ccDraftTitle = null,
@@ -131,11 +118,7 @@ class ChatScreen extends ConsumerStatefulWidget {
        cxDraftTitle = null,
        cxDraftModel = null,
        isClaudeCode = false,
-       isCodex = false,
-       isPi = false,
-       piSession = null,
-       piDraftCwd = null,
-       piDraftTitle = null;
+       isCodex = false;
 
   /// Named constructor for Claude Code sessions
   const ChatScreen.claudeCode({
@@ -159,12 +142,7 @@ class ChatScreen extends ConsumerStatefulWidget {
        cxDraftTitle = null,
        cxDraftModel = null,
        isClaudeCode = true,
-       isCodex = false,
-       isPi = false,
-       isPiDurable = false,
-       piSession = null,
-       piDraftCwd = null,
-       piDraftTitle = null;
+       isCodex = false;
 
   /// Named constructor for a new Claude Code chat (session ID assigned on first turn)
   const ChatScreen.claudeCodeDraft({
@@ -191,12 +169,7 @@ class ChatScreen extends ConsumerStatefulWidget {
        cxDraftTitle = null,
        cxDraftModel = null,
        isClaudeCode = true,
-       isCodex = false,
-       isPi = false,
-       isPiDurable = false,
-       piSession = null,
-       piDraftCwd = null,
-       piDraftTitle = null;
+       isCodex = false;
 
   /// Named constructor for Codex threads
   const ChatScreen.codex({
@@ -220,12 +193,7 @@ class ChatScreen extends ConsumerStatefulWidget {
        cxDraftTitle = null,
        cxDraftModel = null,
        isClaudeCode = false,
-       isCodex = true,
-       isPi = false,
-       isPiDurable = false,
-       piSession = null,
-       piDraftCwd = null,
-       piDraftTitle = null;
+       isCodex = true;
 
   /// Named constructor for a new Codex chat (thread ID assigned on first turn)
   const ChatScreen.codexDraft({
@@ -252,72 +220,7 @@ class ChatScreen extends ConsumerStatefulWidget {
        cxDraftTitle = title,
        cxDraftModel = model,
        isClaudeCode = false,
-       isCodex = true,
-       isPi = false,
-       isPiDurable = false,
-       piSession = null,
-       piDraftCwd = null,
-       piDraftTitle = null;
-
-  /// Named constructor for Pi sessions
-  const ChatScreen.pi({
-    super.key,
-    required this.piSession,
-    this.initialPrompt,
-    this.readOnly = false,
-  }) : project = const ProjectSummary(id: '', name: '', path: ''),
-       session = const SessionSummary(
-         id: '',
-         title: '',
-         projectID: '',
-         directory: '',
-         time: SessionTime(created: 0, updated: 0),
-       ),
-       ccSession = null,
-       ccDraftCwd = null,
-       ccDraftTitle = null,
-       ccDraftModel = null,
-       cxThread = null,
-       cxDraftCwd = null,
-       cxDraftTitle = null,
-       cxDraftModel = null,
-       isClaudeCode = false,
-       isCodex = false,
-       isPi = true,
-       isPiDurable = false,
-       piDraftCwd = null,
-       piDraftTitle = null;
-
-  /// Named constructor for a new Pi chat (draft, no session yet)
-  const ChatScreen.piDraft({
-    super.key,
-    required String cwd,
-    String? title,
-    this.initialPrompt,
-  }) : readOnly = false,
-       project = const ProjectSummary(id: '', name: '', path: ''),
-       session = const SessionSummary(
-         id: '',
-         title: '',
-         projectID: '',
-         directory: '',
-         time: SessionTime(created: 0, updated: 0),
-       ),
-       ccSession = null,
-       ccDraftCwd = null,
-       ccDraftTitle = null,
-       ccDraftModel = null,
-       cxThread = null,
-       cxDraftCwd = null,
-       cxDraftTitle = null,
-       cxDraftModel = null,
-       isClaudeCode = false,
-       isCodex = false,
-       isPi = true,
-       isPiDurable = false,
-       piSession = null,
-       piDraftCwd = cwd,
-       piDraftTitle = title;
+       isCodex = true;
   final ProjectSummary project;
   final SessionSummary session;
   final ClaudeCodeSession? ccSession;
@@ -330,29 +233,19 @@ class ChatScreen extends ConsumerStatefulWidget {
   final String? cxDraftModel;
   final bool isClaudeCode;
   final bool isCodex;
-  final bool isPi;
-
-  /// Pi Durable sessions reuse the generic `project`/`session` fields for their
-  /// id, cwd and title; this only marks which backend owns the screen.
-  final bool isPiDurable;
-  final PiSessionInfo? piSession;
-  final String? piDraftCwd;
-  final String? piDraftTitle;
   final String? initialPrompt;
 
   /// When true, hides the input bar and skips side-effectful live-state
-  /// operations (e.g. Pi switchSession). Used to view finished subagent
-  /// transcripts without accidentally mutating live bridge state.
+  /// operations. Used to view finished subagent transcripts without
+  /// accidentally mutating live bridge state.
   final bool readOnly;
-  bool get isOpenCode => !isClaudeCode && !isCodex && !isPi && !isPiDurable;
+  bool get isOpenCode => !isClaudeCode && !isCodex;
 
   /// Get the effective session ID
   String get effectiveSessionId => isClaudeCode
       ? (ccSession?.id ?? '')
       : isCodex
       ? (cxThread?.id ?? '')
-      : isPi
-      ? (piSession?.id ?? '')
       : session.id;
 
   /// Get the effective project path
@@ -360,8 +253,6 @@ class ChatScreen extends ConsumerStatefulWidget {
       ? (ccSession?.cwd ?? ccDraftCwd ?? '')
       : isCodex
       ? (cxThread?.cwd ?? cxDraftCwd ?? '')
-      : isPi
-      ? (piSession?.cwd ?? piDraftCwd ?? '')
       : project.path;
 
   /// Get the effective title
@@ -369,8 +260,6 @@ class ChatScreen extends ConsumerStatefulWidget {
       ? (ccSession?.displayTitle ?? ccDraftTitle ?? 'Claude Code')
       : isCodex
       ? (cxThread?.displayTitle ?? cxDraftTitle ?? 'Codex')
-      : isPi
-      ? (piSession?.name ?? piSession?.firstMessage ?? piDraftTitle ?? 'Pi')
       : session.title;
 
   /// Get project name from path
@@ -441,8 +330,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   ProviderSubscription<bool>? _ccQueueSubscription;
   // CX queue: listen for cxIsStreaming true→false to auto-send queued messages
   ProviderSubscription<bool>? _cxQueueSubscription;
-  // Pi extension UI stream subscription (via unified runtime events)
-  StreamSubscription<RuntimeEvent>? _piExtensionUiSub;
   // Codex background sync timer (rate limits + context refresh)
   Timer? _bgSyncTimer;
   @override
@@ -468,11 +355,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         if (_resyncingAfterReconnect) return;
         _resyncingAfterReconnect = true;
         // Re-establish view routing for all backends (enables real-time sync)
-        ci.setViewForAgent(
-          bridge: bridge,
-          widget: widget,
-          chatPiSessionId: ref.read(chatSessionProvider).piSessionId,
-        );
+        ci.setViewForAgent(bridge: bridge, widget: widget);
         _hydrateSession().whenComplete(() {
           _resyncingAfterReconnect = false;
           if (widget.isOpenCode &&
@@ -539,15 +422,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       widget: widget,
       onTokenUsageChanged: _loadSessionContext,
     );
-    // Pi: listen for extension UI requests from pi_stream
-    _piExtensionUiSub = ci.setupPiExtensionUiListener(
-      ref: ref,
-      context: context,
-      widget: widget,
-      composerController: _controller,
-      isMounted: () => mounted,
-      onAgentEnd: _loadSessionContext,
-    );
     // Codex: periodic background sync (rate limits + context)
     _bgSyncTimer = cxbg.setupCxBackgroundSyncTimer(
       ref: ref,
@@ -570,7 +444,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final shouldLoadContext = await hydrateSession(
       ref: ref,
       widget: widget,
-      resyncingAfterReconnect: _resyncingAfterReconnect,
       setPaginationState:
           ({required bool loadingMore, required bool loadedAll}) {
             if (mounted) {
@@ -603,34 +476,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         setState(() {
           _agents = const [];
           _commands = kCodexBuiltinCommands;
-        });
-      }
-      return;
-    }
-    // Pi mode
-    if (widget.isPi) {
-      final commands = await loadPiCommands(
-        ref: ref,
-        cwd: widget.piSession?.cwd ?? widget.piDraftCwd,
-      );
-      if (mounted) {
-        setState(() {
-          _agents = const [];
-          _commands = commands;
-        });
-      }
-      return;
-    }
-    // Pi Durable mode — its skills, and nothing OpenCode-specific
-    if (widget.isPiDurable) {
-      final commands = await loadPiDurableCommands(
-        ref: ref,
-        cwd: ref.read(chatSessionProvider).pdCwd ?? widget.project.path,
-      );
-      if (mounted) {
-        setState(() {
-          _agents = const [];
-          _commands = commands;
         });
       }
       return;
@@ -946,56 +791,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     onShowAgents: _showCodexAgentsSheet,
   );
 
-  void _handlePiMenuAction(String value) => handlePiMenuAction(
-    context,
-    value,
-    onStop: _stopGeneration,
-    onCycleThinking: _cyclePiThinkingLevel,
-    onShowSidebar: _showPiSidebarSheet,
-    onCompact: _piCompact,
-    onNewSession: _piNewSession,
-    onExport: () => psa.piExportSession(context: context, ref: ref),
-    onCopyLast: () => psa.piCopyLastResponse(context: context, ref: ref),
-    onAbortCompaction: () => psa.piAbortCompaction(context: context, ref: ref),
-    onAbortRetry: () => psa.piAbortRetry(context: context, ref: ref),
-  );
-
-  Future<void> _piCompact() => psa.piCompact(context: context, ref: ref);
-
-  void _handlePiDurableMenuAction(String value) => handlePiDurableMenuAction(
-    context,
-    ref,
-    value,
-    onStop: _stopGeneration,
-    onShowModel: _showPiDurableModelSheet,
-  );
-
-  Future<void> _piNewSession() => psa.piNewSession(context: context, ref: ref);
-
-  void _showPiModelSheet() => showPiModelSheet(context);
-
-  Future<void> _cyclePiThinkingLevel() =>
-      psa.cyclePiThinkingLevel(context: context, ref: ref);
-
-  void _showPiSidebarSheet() => psa.showPiSidebarSheetAction(
-    context: context,
-    ref: ref,
-    onForkFromEntry: _forkPiSessionFromEntry,
-  );
-
-  Future<void> _forkPiSessionFromEntry(String entryId) =>
-      psa.forkPiSessionFromEntry(context: context, ref: ref, entryId: entryId);
-
   /// Opens the backend-specific actions sheet (⋯ menu from input bar).
   void _openActionsSheet() {
     final onAction = widget.isClaudeCode
         ? _handleClaudeCodeMenuAction
         : widget.isCodex
         ? _handleCodexMenuAction
-        : widget.isPi
-        ? _handlePiMenuAction
-        : widget.isPiDurable
-        ? _handlePiDurableMenuAction
         : (String value) => _handleMenuActionWithMessages(
             value,
             ref.read(chatSessionProvider).messages,
@@ -1005,8 +806,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ref: ref,
       isClaudeCode: widget.isClaudeCode,
       isCodex: widget.isCodex,
-      isPi: widget.isPi,
-      isPiDurable: widget.isPiDurable,
       onAction: onAction,
       ccSessionModel: widget.ccSession?.model,
       ccDraftModel: widget.ccDraftModel,
@@ -1045,9 +844,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   /// Set Codex reasoning effort by wireValue string (e.g., 'high', 'xhigh')
   void _setCodexReasoningEffort(String? wireValue) =>
       ca.setCodexReasoningEffort(ref: ref, wireValue: wireValue);
-
-  void _setPiThinkingLevel(String? wireValue) =>
-      psa.setPiThinkingLevel(ref: ref, wireValue: wireValue);
 
   void _showCodexModelSheet() {
     // Delegate to modular dynamic sheet (fetches from Codex model/list API)
@@ -1279,7 +1075,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     _ccConfigSubscription?.close();
     _ccQueueSubscription?.close();
     _cxQueueSubscription?.close();
-    _piExtensionUiSub?.cancel();
     _bgSyncTimer?.cancel();
     ref.read(bridgeServiceProvider).setView(projectPath: 'global');
     ref.read(chatPresenceProvider).closed();
@@ -1341,8 +1136,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                   'Claude Code')
             : widget.isCodex
             ? (widget.cxThread?.displayTitle ?? 'Codex')
-            : widget.isPi
-            ? (widget.piDraftTitle ?? 'Pi')
             : widget.session.title,
         sessionContext: _sessionContext,
         todos: todos, // Both OC and CC have todos (CC via TodoWrite tool)
@@ -1396,10 +1189,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                           if (widget.isOpenCode && messages.isEmpty)
                             const Center(
                               child: OpenCodeBranding(width: 280, opacity: 1.0),
-                            ),
-                          if (widget.isPi && messages.isEmpty)
-                            const Center(
-                              child: PiBranding(width: 120, opacity: 0.3),
                             ),
                           // Message list
                           ScrollbarTheme(
@@ -1582,31 +1371,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       );
                     },
                   ),
-                // Pi: show queue indicator when messages are pending
-                if (widget.isPi)
-                  Consumer(
-                    builder: (context, ref, _) {
-                      final cwd = ref.watch(
-                        chatSessionProvider.select((s) => s.piCwd),
-                      );
-                      final sessionId = ref.watch(
-                        chatSessionProvider.select((s) => s.piSessionId),
-                      );
-                      final pending = ref.watch(
-                        piQueuePendingCountProvider(sessionId),
-                      );
-                      if (pending <= 0) return const SizedBox.shrink();
-                      return PiQueueIndicator(
-                        projectPath: cwd,
-                        pendingCount: pending,
-                      );
-                    },
-                  ),
                 RunningStopBar(onStop: _stopGeneration),
                 // Codex: show steer bar when streaming
                 if (widget.isCodex && cxIsStreaming) const CxSteerBar(),
-                // Pi Durable: banner when the Mac resumed interrupted work
-                if (widget.isPiDurable) const PiDurableStatusBanner(),
                 // Codex: show queued message bar when messages are queued
                 if (widget.isCodex && cxIsStreaming)
                   Consumer(
@@ -1697,12 +1464,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                   // Session title
                   Expanded(
                     child: Text(
-                      ref.watch(
-                            piLiveSessionTitleProvider(
-                              widget.effectiveSessionId,
-                            ),
-                          ) ??
-                          widget.effectiveTitle,
+                      widget.effectiveTitle,
                       style: TextStyle(
                         color: theme.text,
                         fontSize: 13,
@@ -1802,8 +1564,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ccModel: ccModel,
       isClaudeCode: widget.isClaudeCode,
       isCodex: widget.isCodex,
-      isPi: widget.isPi,
-      isPiDurable: widget.isPiDurable,
       selectedAgent: _selectedAgent,
       agents: _agents,
       project: widget.project,
@@ -1822,13 +1582,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           ? _showClaudeCodeModelSheet
           : widget.isCodex
           ? _showCodexModelSheet
-          : widget.isPiDurable
-          ? _showPiDurableModelSheet
-          : widget.isPi
-          ? _showPiModelSheet
           : _showModelsDialog,
       onSetCodexReasoningEffort: _setCodexReasoningEffort,
-      onSetPiThinkingLevel: _setPiThinkingLevel,
       onMenuTap: _openActionsSheet,
     );
   }
@@ -1917,8 +1672,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     ref: ref,
     isClaudeCode: widget.isClaudeCode,
     isCodex: widget.isCodex,
-    isPi: widget.isPi,
-    isPiDurable: widget.isPiDurable,
     projectName: widget.projectName,
     effectivePath: widget.effectivePath,
     project: widget.project,
@@ -1931,16 +1684,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     projectPath: widget.project.path,
   );
 
-  void _showPiDurableModelSheet() =>
-      showPiDurableModelSheet(context: context, ref: ref);
-
   /// Stop AI generation for all backends
   /// Sends abort to bridge and clears local streaming states
   void _stopGeneration() => sg.stopGeneration(
     ref: ref,
     isClaudeCode: widget.isClaudeCode,
     isCodex: widget.isCodex,
-    isPi: widget.isPi,
     sessionId: widget.session.id,
     projectPath: widget.project.path,
   );
@@ -2017,15 +1766,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       agents: _agents,
       isClaudeCode: widget.isClaudeCode,
       isCodex: widget.isCodex,
-      isPi: widget.isPi,
       ccSession: widget.ccSession,
       ccDraftCwd: widget.ccDraftCwd,
       ccDraftModel: widget.ccDraftModel,
       ccResumeSessionAtMessageId: _ccResumeSessionAtMessageId,
       cxThread: widget.cxThread,
       cxDraftCwd: widget.cxDraftCwd,
-      piSession: widget.piSession,
-      piDraftCwd: widget.piDraftCwd,
       sessionId: widget.session.id,
       projectPath: widget.project.path,
       clearAttachments: () => setState(() => _attachedFiles.clear()),

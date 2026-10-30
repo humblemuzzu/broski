@@ -3,10 +3,6 @@ import type { ServerWebSocket } from "bun";
 import { registerAll } from "../routing/registry";
 import type { MessageRouter, ServerDeps } from "../routing/types";
 import type { AgentType, ServerMessage } from "../types";
-import * as piDurable from "./pi_durable";
-import { getPendingExtensionUiRequests } from "./pi_features";
-import { replayPendingExtensionUiRequests } from "./pi_stream_delivery";
-import { bindPiWatcher, piSessionViewedBy } from "./pi_view_binding";
 
 type ReplyFn = (msg: ServerMessage) => void;
 
@@ -58,9 +54,6 @@ export type SessionViewHandlerContext = {
 	// OpenCode
 	ocSessionOwners: Map<string, ServerWebSocket<unknown>>;
 	ocSessionProjectPaths: Map<string, string>;
-	// Pi
-	broadcast: (msg: ServerMessage) => void;
-	findPiActiveRuntimeStateMessage: (sessionId: string) => ServerMessage | null;
 	replayRuntimeEventsSince: (params: {
 		ws: ServerWebSocket<unknown>;
 		backend: AgentType;
@@ -76,9 +69,6 @@ export const MODULE_TYPES = SESSION_VIEW_OPS;
 
 export function register(router: MessageRouter, deps: ServerDeps): void {
 	registerAll(router, SESSION_VIEW_OPS, async (message, c) => {
-		// Pi Durable's attach/detach runs first and returns false so the shared
-		// session-view bookkeeping below still executes (matches the old chain).
-		await piDurable.handle(deps.piDurableSockets.for(c.ws), message, c.reply);
 		await handle(c.ws, message, c.reply, {
 			contexts: deps.contexts,
 			sockets: deps.sockets,
@@ -102,8 +92,6 @@ export function register(router: MessageRouter, deps: ServerDeps): void {
 			buildCodexRuntimeState: deps.buildCodexRuntimeState,
 			ocSessionOwners: deps.ocSessionOwners,
 			ocSessionProjectPaths: deps.ocSessionProjectPaths,
-			broadcast: deps.broadcast,
-			findPiActiveRuntimeStateMessage: deps.findPiActiveRuntimeStateMessage,
 			replayRuntimeEventsSince: deps.replayRuntimeEventsSince,
 		});
 	});
@@ -123,7 +111,6 @@ export async function handle(
 		connectedAt: Date.now(),
 	};
 	const prevKey = ctx.makeSessionKey(existing.viewAgent as AgentType | undefined, existing.sessionId);
-	const prevPiSessionId = piSessionViewedBy(existing);
 	const nextAgent =
 		(message.agent as AgentType | undefined) ??
 		existing.viewAgent ??
@@ -153,13 +140,6 @@ export async function handle(
 		projectPath: (message.projectPath as string) || undefined,
 		sessionId: nextSessionId,
 		viewAgent: nextAgent,
-	});
-
-	bindPiWatcher(ws, prevPiSessionId, nextAgent === "pi" ? nextSessionId : undefined, {
-		sockets: ctx.sockets,
-		broadcast: ctx.broadcast,
-		debugRts: ctx.DEBUG_RTS,
-		logDebug: ctx.logDebug,
 	});
 
 	// Track project path for OpenCode external tails
@@ -255,22 +235,6 @@ export async function handle(
 			);
 		}
 	}
-	if (nextAgent === "pi" && nextSessionId) {
-		const runtimeStateMessage = ctx.findPiActiveRuntimeStateMessage(nextSessionId);
-		if (runtimeStateMessage) {
-			ctx.send(ws, runtimeStateMessage);
-		}
-		// Replay pending extension UI requests (select/confirm/input dialogs)
-		const projectPath = (message.projectPath as string) || undefined;
-		if (projectPath) {
-			const pendingUi = getPendingExtensionUiRequests(projectPath);
-			const replayedUi = replayPendingExtensionUiRequests(ws, nextSessionId, pendingUi, projectPath, ctx.send);
-			if (replayedUi > 0) {
-				ctx.logInfo(`[RTS] Replayed ${replayedUi} pending Pi extension UI requests for ${nextSessionId}`);
-			}
-		}
-	}
-
 	if (nextAgent && (nextSessionId || message.projectPath) && lastRuntimeSeq != null) {
 		const replayed = ctx.replayRuntimeEventsSince({
 			ws,

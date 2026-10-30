@@ -6,8 +6,6 @@ import * as devices from "../handlers/devices";
 import * as git from "../handlers/git/index";
 import * as misc from "../handlers/misc";
 import * as ocRouting from "../handlers/oc_routing";
-import * as piDurable from "../handlers/pi_durable";
-import * as piFeatures from "../handlers/pi_features";
 import * as sessionView from "../handlers/session_view";
 import * as unified from "../handlers/unified";
 import * as unifiedChildren from "../handlers/unified_session_children";
@@ -44,8 +42,6 @@ export const ALL_MESSAGE_TYPES = [
 	...git.MODULE_TYPES,
 	...misc.MODULE_TYPES,
 	...ocRouting.MODULE_TYPES,
-	...piDurable.MODULE_TYPES,
-	...piFeatures.MODULE_TYPES,
 	...sessionView.MODULE_TYPES,
 	...unified.MODULE_TYPES,
 	...unifiedChildren.MODULE_TYPES,
@@ -76,8 +72,6 @@ export function createMessageRegistry(deps: ServerDeps): RouteRegistry {
 	git.register(router, deps);
 	misc.register(router, deps);
 	ocRouting.register(router, deps);
-	piDurable.register(router, deps);
-	piFeatures.register(router, deps);
 	sessionView.register(router, deps);
 	unified.register(router, deps);
 	unifiedChildren.register(router, deps);

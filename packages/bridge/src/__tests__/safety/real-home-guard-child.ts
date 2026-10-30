@@ -4,13 +4,11 @@
  * `~/.broski`. Prints one report line and always exits 0: the parent asserts on the outcomes.
  */
 
-import { homedir, tmpdir } from "node:os";
+import { homedir } from "node:os";
 import { createNewAuthState } from "../../auth-token";
 import { getDefaultConfig } from "../../config/defaults";
 import { getConfigPath, writeConfig } from "../../config/read-write";
-import { PiDurableSessionStore } from "../../connectors/pi-durable/session-store";
 import { installCcHook, uninstallCcHook } from "../../handlers/cc_hook_installer";
-import { resolveIndexCacheRoot } from "../../index-cache/index-cache-root";
 import { createBridgeLogger } from "../../logging/logger";
 import { isIsolationActive, realHomeDir } from "../../safety/real-home-guard";
 import { ensureTlsMaterial } from "../../tls";
@@ -24,13 +22,6 @@ const probes: Probe[] = [
 	{ name: "writeConfig.defaultPath", work: () => writeConfig(getDefaultConfig()) },
 	{ name: "createNewAuthState", work: () => createNewAuthState() },
 	{ name: "ensureTlsMaterial", work: () => ensureTlsMaterial() },
-	{ name: "piDurableCreate", work: () => new PiDurableSessionStore().create({ cwd: tmpdir() }) },
-	{
-		name: "resolveIndexCacheRoot",
-		work: async () => {
-			return resolveIndexCacheRoot();
-		},
-	},
 	{
 		name: "createBridgeLogger",
 		work: async () => {

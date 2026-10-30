@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { mapPiStreamToRuntimeEvent } from "../runtime/pi-runtime-event-mapper";
 import type { ServerMessage } from "../types";
 import { recordRuntimeEvent, replayRuntimeEventsSince } from "../utils/runtime-replay-buffer";
 
@@ -46,22 +45,5 @@ describe("Runtime replay buffer", () => {
 				replayed: true,
 			},
 		});
-	});
-
-	test("pi mapper exposes the agent run as runtime lifecycle", () => {
-		const started = mapPiStreamToRuntimeEvent(
-			{ type: "agent-start" },
-			{ backend: "pi", sessionId: "pi-1", cwd: "/tmp/repo" },
-		);
-		expect(started?.type).toBe("agent_started");
-		expect(started?.sessionId).toBe("pi-1");
-		expect(started?.seq).toBeDefined();
-
-		const finished = mapPiStreamToRuntimeEvent(
-			{ type: "agent-end", messages: [{ role: "assistant", text: "done" }] },
-			{ backend: "pi", sessionId: "pi-1", cwd: "/tmp/repo" },
-		);
-		expect(finished?.type).toBe("agent_finished");
-		expect(finished?.seq).toBeDefined();
 	});
 });

@@ -1,10 +1,8 @@
 import 'package:broski/models/claude_code.dart';
 import 'package:broski/models/codex.dart';
-import 'package:broski/models/pi.dart';
 import 'package:broski/models/project.dart';
 import 'package:broski/providers/claude_code_provider.dart';
 import 'package:broski/providers/codex_provider.dart';
-import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/services/bridge/bridge_response_error.dart';
 import 'package:broski/services/storage_service.dart';
@@ -14,8 +12,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/fake_websocket.dart';
 
-/// Every backend's list and every backend's project picker load on their own: the Pi list being
-/// refused by the link must leave the Claude Code list and both project pickers working.
+/// Every backend's list and every backend's project picker load on their own: the Claude Code list
+/// being refused by the link must leave the Codex list and the project picker working.
 void main() {
   late FakeWebSocket socket;
   late ProviderContainer container;
@@ -48,20 +46,20 @@ void main() {
   Map<String, dynamic> lastSent(String type) =>
       socket.sent.lastWhere((message) => message['type'] == type);
 
-  /// Refuses every `pi_list_sessions` the retrying page fetch asks for, as the link would.
-  Future<int> refuseEveryPiPage() async {
+  /// Refuses every `cc_list_sessions` the retrying page fetch asks for, as the link would.
+  Future<int> refuseEveryCcPage() async {
     var answered = 0;
-    while (container.read(piSessionsProvider(null)).isLoading) {
+    while (container.read(ccSessionsProvider).isLoading) {
       await pumpEventQueue();
       final asked = socket.sent
-          .where((m) => m['type'] == 'pi_list_sessions')
+          .where((m) => m['type'] == 'cc_list_sessions')
           .length;
       if (asked <= answered) continue;
       answered = asked;
       socket.deliver({
         'type': 'error',
         'code': bridgeResponseTooLargeCode,
-        'requestId': lastSent('pi_list_sessions')['requestId'],
+        'requestId': lastSent('cc_list_sessions')['requestId'],
         'bytes': 18 * 1024 * 1024,
         'limit': 8 * 1024 * 1024,
         'message': 'Response too large for the link',
@@ -71,39 +69,14 @@ void main() {
   }
 
   test(
-    'a refused Pi list leaves the Claude Code list and both pickers working',
+    'a refused Claude Code list leaves the Codex list and the picker working',
     () async {
-      container.read(piSessionsProvider(null));
+      final ccLoading = container.read(ccSessionsProvider.notifier).load();
       await settle(() => socket.sent.isNotEmpty);
 
-      expect(await refuseEveryPiPage(), greaterThan(1));
-      expect(container.read(piSessionsProvider(null)).hasError, isTrue);
-
-      final ccSessions = container.read(ccSessionsProvider.notifier);
-      final ccLoading = ccSessions.load();
-      await settle(
-        () => socket.sent.any((m) => m['type'] == 'cc_list_sessions'),
-      );
-      socket.deliver({
-        'type': 'cc_sessions',
-        'requestId': lastSent('cc_list_sessions')['requestId'],
-        'data': <Map<String, dynamic>>[
-          {
-            'id': 'cc-1',
-            'title': 'Claude session',
-            'cwd': '/tmp/cc-project',
-            'createdAt': 1700000000000,
-            'updatedAt': 1700000000000,
-          },
-        ],
-        'hasMore': false,
-      });
+      expect(await refuseEveryCcPage(), greaterThan(1));
       await ccLoading;
-
-      final ccRows = container.read(ccSessionsProvider).valueOrNull;
-      expect(ccRows, isNotNull);
-      expect(ccRows!.single, isA<ClaudeCodeSession>());
-      expect(ccRows.single.id, 'cc-1');
+      expect(container.read(ccSessionsProvider).hasError, isTrue);
 
       final cxThreads = container.read(codexThreadsProvider.notifier);
       final cxLoading = cxThreads.load();
@@ -130,23 +103,6 @@ void main() {
       expect(cxRows, isNotNull);
       expect(cxRows!.single, isA<CodexThread>());
 
-      final piProjects = container.read(piProjectsForSessionsProvider.future);
-      await settle(
-        () => socket.sent.any((m) => m['type'] == 'pi_list_projects'),
-      );
-      socket.deliver({
-        'type': 'pi_projects',
-        'requestId': lastSent('pi_list_projects')['requestId'],
-        'data': <Map<String, dynamic>>[
-          {
-            'id': '/tmp/pi-project',
-            'name': 'pi-project',
-            'path': '/tmp/pi-project',
-          },
-        ],
-      });
-      expect(await piProjects, hasLength(1));
-
       final ccProjects = container.read(ccProjectsForSessionsProvider.future);
       await settle(
         () => socket.sent.any((m) => m['type'] == 'cc_list_projects'),
@@ -168,45 +124,47 @@ void main() {
     },
   );
 
-  test('the Pi list keeps its rows when the next page fails', () async {
-    final notifier = container.read(piSessionsProvider(null).notifier);
-    await settle(() => socket.sent.isNotEmpty);
-    socket.deliver({
-      'type': 'pi_sessions',
-      'requestId': socket.lastRequestId,
-      'data': <Map<String, dynamic>>[
-        {
-          'path': '/tmp/pi-project/s1.jsonl',
-          'id': 's1',
-          'cwd': '/tmp/pi-project',
-          'created': 1700000000000,
-          'modified': 1700000000000,
-          'messageCount': 1,
-          'firstMessage': 'hello',
-        },
-      ],
-      'hasMore': true,
-      'nextCursor': 'cursor-1',
-    });
-    await settle(() => !container.read(piSessionsProvider(null)).isLoading);
+  test(
+    'the Claude Code list keeps its rows when the next page fails',
+    () async {
+      final notifier = container.read(ccSessionsProvider.notifier);
+      final loading = notifier.load();
+      await settle(() => socket.sent.isNotEmpty);
+      socket.deliver({
+        'type': 'cc_sessions',
+        'requestId': lastSent('cc_list_sessions')['requestId'],
+        'data': <Map<String, dynamic>>[
+          {
+            'id': 'cc-1',
+            'title': 'Claude session',
+            'cwd': '/tmp/cc-project',
+            'createdAt': 1700000000000,
+            'updatedAt': 1700000000000,
+          },
+        ],
+        'hasMore': true,
+        'nextCursor': 'cursor-1',
+      });
+      await loading;
 
-    final rows = container.read(piSessionsProvider(null)).valueOrNull;
-    expect(rows, isNotNull);
-    expect(rows!.single, isA<PiSessionInfo>());
-    expect(notifier.hasMore, isTrue);
+      final rows = container.read(ccSessionsProvider).valueOrNull;
+      expect(rows, isNotNull);
+      expect(rows!.single, isA<ClaudeCodeSession>());
+      expect(notifier.hasMore, isTrue);
 
-    final requestsBefore = socket.sent.length;
-    final page = notifier.loadMore();
-    await settle(() => socket.sent.length > requestsBefore);
-    expect(lastSent('pi_list_sessions')['before'], 'cursor-1');
-    socket.deliver({
-      'type': 'error',
-      'requestId': socket.lastRequestId,
-      'message': 'no such page',
-    });
-    await page;
+      final requestsBefore = socket.sent.length;
+      final page = notifier.loadMore();
+      await settle(() => socket.sent.length > requestsBefore);
+      expect(lastSent('cc_list_sessions')['before'], 'cursor-1');
+      socket.deliver({
+        'type': 'error',
+        'requestId': socket.lastRequestId,
+        'message': 'no such page',
+      });
+      await page;
 
-    expect(notifier.loadMoreFailed, isTrue);
-    expect(container.read(piSessionsProvider(null)).valueOrNull, hasLength(1));
-  });
+      expect(notifier.loadMoreFailed, isTrue);
+      expect(container.read(ccSessionsProvider).valueOrNull, hasLength(1));
+    },
+  );
 }

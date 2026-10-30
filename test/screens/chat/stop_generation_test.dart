@@ -1,9 +1,7 @@
 import 'package:broski/providers/chat/chat_run_state.dart';
 import 'package:broski/providers/chat_provider.dart';
-import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/screens/chat/stop_generation.dart';
-import 'package:broski/services/pi_bridge_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -27,7 +25,6 @@ Future<_Harness> _pump(WidgetTester tester) async {
       overrides: [
         chatSessionProvider.overrideWith((ref) => chat),
         bridgeServiceProvider.overrideWithValue(BridgeService(socket)),
-        piBridgeServiceProvider.overrideWithValue(PiBridgeService(socket)),
       ],
       child: Consumer(
         builder: (context, widgetRef, _) {
@@ -44,12 +41,10 @@ void _stop(
   _Harness harness, {
   bool isClaudeCode = false,
   bool isCodex = false,
-  bool isPi = false,
 }) => stopGeneration(
   ref: harness.ref,
   isClaudeCode: isClaudeCode,
   isCodex: isCodex,
-  isPi: isPi,
   sessionId: 'session-1',
   projectPath: '/work/repo',
 );
@@ -58,26 +53,6 @@ Iterable<Map<String, dynamic>> _sent(_Harness harness, String type) =>
     harness.socket.sent.where((message) => message['type'] == type);
 
 void main() {
-  testWidgets('Stop on a Pi chat sends pi_abort and leaves the running state '
-      'before the bridge answers', (tester) async {
-    final harness = await _pump(tester);
-    harness.chat.setPiSession(sessionId: 'pi-1', cwd: '/work/repo');
-    harness.chat.setPiStreaming(true);
-    expect(chatIsRunning(harness.chat.state), isTrue);
-
-    _stop(harness, isPi: true);
-
-    expect(_sent(harness, 'pi_abort'), hasLength(1));
-    expect(chatIsRunning(harness.chat.state), isFalse);
-
-    harness.socket.deliver({
-      'type': 'pi_aborted',
-      'data': true,
-      'requestId': harness.socket.lastRequestId,
-    });
-    await tester.pump();
-  });
-
   testWidgets('Stop on a Claude Code chat sends cc_abort and leaves the '
       'running state', (tester) async {
     final harness = await _pump(tester);

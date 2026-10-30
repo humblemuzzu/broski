@@ -185,7 +185,7 @@ describe("stopBridgeResources", () => {
 		expect([cc.size, cx.size, oc.size]).toEqual([0, 0, 0]);
 	});
 
-	test("awaits async backend disposal (pi-durable shutdown)", async () => {
+	test("awaits async backend disposal", async () => {
 		let disposed = false;
 		const { resources } = makeResources({
 			disposeBackends: [

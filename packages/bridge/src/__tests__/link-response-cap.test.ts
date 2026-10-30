@@ -54,10 +54,10 @@ afterAll(async () => {
 function oversizedEvent(sessionId: string): ServerMessage {
 	return {
 		type: "runtime_event",
-		backend: "pi",
+		backend: "claude-code",
 		data: {
 			type: "tool_started",
-			backend: "pi",
+			backend: "claude-code",
 			timestampMs: Date.now(),
 			sessionId,
 			toolCallId: "big-tool",
@@ -90,10 +90,10 @@ describe("a frame over the link's message limit", () => {
 		try {
 			bridge.server.broadcast({
 				type: "runtime_event",
-				backend: "pi",
+				backend: "claude-code",
 				data: {
 					type: "tool_started",
-					backend: "pi",
+					backend: "claude-code",
 					timestampMs: Date.now(),
 					sessionId: "small-session",
 					toolCallId: "small-tool",

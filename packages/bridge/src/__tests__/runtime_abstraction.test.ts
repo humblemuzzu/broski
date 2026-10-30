@@ -7,7 +7,6 @@ import {
 	createOpenCodeMapperContext,
 	mapOpenCodeSdkEventToRuntimeEvent,
 } from "../runtime/opencode-runtime-event-mapper";
-import { mapPiSessionsToRuntimeSessions, mapPiStateToRuntimeState } from "../runtime/pi-runtime-read-models";
 
 describe("Runtime Abstraction", () => {
 	test("Claude mapper emits common runtime events", () => {
@@ -556,80 +555,6 @@ describe("Runtime Abstraction", () => {
 		});
 		expect(cxState.backend).toBe("codex");
 		expect(cxState.isStreaming).toBeFalse();
-	});
-
-	test("Pi runtime read models preserve active sessions honestly", () => {
-		const piState = mapPiStateToRuntimeState({
-			model: null,
-			thinkingLevel: "high",
-			isStreaming: true,
-			isCompacting: false,
-			isRetrying: false,
-			sessionFile: "/tmp/repo/.pi/session.jsonl",
-			sessionId: "pi-1",
-			sessionName: "Pi session",
-			steeringMode: "all",
-			followUpMode: "all",
-			autoCompactionEnabled: true,
-			autoRetryEnabled: true,
-			messageCount: 2,
-			pendingMessageCount: 0,
-			isBashRunning: false,
-			hasPendingBashMessages: false,
-			retryAttempt: 0,
-		});
-		expect(piState.backend).toBe("pi");
-		expect(piState.isStreaming).toBeTrue();
-
-		const sessions = mapPiSessionsToRuntimeSessions(
-			[
-				{
-					id: "pi-1",
-					path: "/tmp/repo/.pi/session.jsonl",
-					cwd: "/tmp/repo",
-					created: 1,
-					modified: 2,
-					messageCount: 2,
-					firstMessage: "hello",
-				},
-				{
-					id: "pi-2",
-					path: "/tmp/other/.pi/session.jsonl",
-					cwd: "/tmp/other",
-					created: 3,
-					modified: 4,
-					messageCount: 1,
-					firstMessage: "hi",
-				},
-			],
-			[
-				{
-					cwd: "/tmp/repo",
-					state: {
-						model: null,
-						thinkingLevel: "high",
-						isStreaming: true,
-						isCompacting: false,
-						isRetrying: false,
-						sessionFile: "/tmp/repo/.pi/session.jsonl",
-						sessionId: "pi-1",
-						sessionName: "Pi session",
-						steeringMode: "all",
-						followUpMode: "all",
-						autoCompactionEnabled: true,
-						autoRetryEnabled: true,
-						messageCount: 2,
-						pendingMessageCount: 0,
-						isBashRunning: false,
-						hasPendingBashMessages: false,
-						retryAttempt: 0,
-					},
-				},
-			],
-		);
-
-		expect(sessions[0]?.isActive).toBeTrue();
-		expect(sessions[1]?.isActive).toBeUndefined();
 	});
 
 	test("Codex mapper maps mcpServer/elicitation/request to user_input_requested", () => {

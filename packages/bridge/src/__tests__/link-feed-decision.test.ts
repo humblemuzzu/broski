@@ -47,12 +47,10 @@ describe("the request id an alert carries", () => {
 				},
 				"cx-id",
 			);
-			h.durablePermission("pd-id", "pd-id:call-1");
 
 			expect((await h.alertFor(feed, "claude-code", "cc-id")).request).toBe("toolu-id-1");
 			expect((await h.alertFor(feed, "opencode", "oc-id")).request).toBe("oc-perm-1");
 			expect((await h.alertFor(feed, "codex", "cx-id")).request).toBe("cx-req-1");
-			expect((await h.alertFor(feed, "pi-durable", "pd-id")).request).toBe("pd-id:call-1");
 		} finally {
 			feed.close();
 		}

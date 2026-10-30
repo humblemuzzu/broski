@@ -7,8 +7,6 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { OpenCodeConnector } from "../../connectors/opencode";
-import type { PiDurablePermissionRequest } from "../../connectors/pi-durable";
-import { broadcastPiDurablePermission } from "../../handlers/pi_durable/transport";
 import { createLimits } from "../../server/limits";
 import { resetLinkFeed } from "../../server/link-feed/feed";
 import { createLeveledLogger } from "../../server/logger";
@@ -30,7 +28,6 @@ export type DecisionHarness = {
 	ccStream: (message: ClaudeCodeStreamMessage, sessionId: string, cwd?: string) => void;
 	cxStream: (message: CodexStreamMessage, threadId: string) => void;
 	ocStream: (payloadType: string, properties: Record<string, unknown>) => void;
-	durablePermission: (sessionId: string, requestId: string) => void;
 	alertFor: (feed: UnixWsClient, backend: string, session: string) => Promise<LinkFrame>;
 	/** Sends one decision and returns its result; earlier frames are dropped so a repeat cannot match. */
 	decide: (feed: UnixWsClient, input: DecisionRequest) => Promise<LinkFrame>;
@@ -94,16 +91,6 @@ export async function startDecisionHarness(): Promise<DecisionHarness> {
 		},
 		ocStream: (payloadType, properties) => {
 			opencodeEvents.enqueueSdkEvent({ directory: CWD, payload: { type: payloadType, properties } });
-		},
-		durablePermission: (sessionId, requestId) => {
-			const request: PiDurablePermissionRequest = {
-				requestId,
-				sessionId,
-				toolName: "bash",
-				input: { command: "echo hi" },
-				title: "Run bash",
-			};
-			broadcastPiDurablePermission(request);
 		},
 		alertFor,
 		decide: async (feed, input) => {

@@ -15,7 +15,7 @@ Future<ChatSessionNotifier> pumpBar(
 }) async {
   final socket = FakeWebSocket();
   final chat = ChatSessionNotifier(BridgeService(socket));
-  chat.setPiSession(sessionId: 'pi-1', cwd: '/work/repo');
+  chat.setCCSession(sessionId: 'cc-1', cwd: '/work/repo');
   addTearDown(socket.close);
   await tester.pumpWidget(
     ProviderScope(
@@ -45,21 +45,21 @@ void main() {
     var stops = 0;
     final chat = await pumpBar(tester, onStop: () => stops++);
 
-    chat.setPiStreaming(true);
+    chat.setCCStreaming(true);
     await tester.pump();
     expect(find.byKey(barKey), findsOneWidget);
 
     await tester.tap(find.byKey(stopKey));
     expect(stops, 1);
 
-    chat.setPiStreaming(false);
+    chat.setCCStreaming(false);
     await tester.pump();
     expect(find.byKey(barKey), findsNothing);
   });
 
   testWidgets('cancelling the run locally takes the bar away', (tester) async {
     final chat = await pumpBar(tester, onStop: () {});
-    chat.setPiStreaming(true);
+    chat.setCCStreaming(true);
     await tester.pump();
 
     chat.cancelRunLocally();

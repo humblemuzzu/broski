@@ -28,10 +28,10 @@ function fakeSocket(): ServerWebSocket<unknown> & FakeSocket {
 function delta(text: string, seq: number, streamId = "s1", sessionId = "sess-1"): ServerMessage {
 	return {
 		type: "runtime_event",
-		backend: "pi",
+		backend: "claude-code",
 		data: {
 			type: "assistant_text_delta",
-			backend: "pi",
+			backend: "claude-code",
 			timestampMs: 1000 + seq,
 			sessionId,
 			streamId,
@@ -44,10 +44,10 @@ function delta(text: string, seq: number, streamId = "s1", sessionId = "sess-1")
 function thinking(text: string, seq: number): ServerMessage {
 	return {
 		type: "runtime_event",
-		backend: "pi",
+		backend: "claude-code",
 		data: {
 			type: "assistant_thinking_delta",
-			backend: "pi",
+			backend: "claude-code",
 			timestampMs: 1000 + seq,
 			sessionId: "sess-1",
 			streamId: "s1",
@@ -60,10 +60,10 @@ function thinking(text: string, seq: number): ServerMessage {
 function toolStarted(seq: number): ServerMessage {
 	return {
 		type: "runtime_event",
-		backend: "pi",
+		backend: "claude-code",
 		data: {
 			type: "tool_started",
-			backend: "pi",
+			backend: "claude-code",
 			timestampMs: 1000 + seq,
 			sessionId: "sess-1",
 			seq,

@@ -8,7 +8,6 @@ import 'package:broski/models/runtime/runtime.dart';
 import 'package:broski/models/session.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/notifications/chat_presence.dart';
-import 'package:broski/providers/pi_durable/pi_durable_sessions_refresh.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/providers/session_archive_filter_provider.dart';
 import 'package:broski/providers/sessions/runtime_session_activity_handler.dart';
@@ -58,8 +57,6 @@ class GlobalSessionStatusNotifier
   StreamSubscription<RuntimeEvent>? _runtimeEventSubscription;
   StreamSubscription<RuntimeState>? _runtimeStateSubscription;
   StreamSubscription<Map<String, dynamic>>? _sessionDeltaSubscription;
-  late final PiDurableSessionsRefresher _piDurableSessionsRefresher =
-      piDurableSessionsRefresher(_ref);
 
   void _init() {
     final bridge = _ref.read(bridgeServiceProvider);
@@ -81,8 +78,6 @@ class GlobalSessionStatusNotifier
   }
 
   void _handleRuntimeEvent(RuntimeEvent event) {
-    _piDurableSessionsRefresher.schedule(event);
-
     final sessionId = runtimeSessionIdFromEvent(event);
     if (sessionId == null || sessionId.isEmpty) return;
 
@@ -221,32 +216,6 @@ class GlobalSessionStatusNotifier
         return;
       }
 
-      // Pi fallback: use cached Pi sessions
-      final piSessions = await _ref
-          .read(storageServiceProvider)
-          .getCachedPiSessions();
-      final piSession = piSessions.where((s) => s.id == sessionId).firstOrNull;
-      if (piSession != null) {
-        final title = (piSession.name ?? '').trim().isNotEmpty
-            ? piSession.name!.trim()
-            : piSession.firstMessage.trim().isNotEmpty
-            ? piSession.firstMessage.trim()
-            : 'Pi Session';
-        final cwd = piSession.cwd;
-        final project = cwd.split('/').where((p) => p.isNotEmpty).lastOrNull;
-
-        NotificationService.instance.showSessionCompleted(
-          sessionId: sessionId,
-          title: title,
-          projectName: project ?? 'Pi',
-          duration: duration,
-          lastTool: lastTool,
-          additions: piSession.summary?.additions,
-          deletions: piSession.summary?.deletions,
-        );
-        return;
-      }
-
       // Final fallback
       NotificationService.instance.showSessionCompleted(
         sessionId: sessionId,
@@ -303,7 +272,6 @@ class GlobalSessionStatusNotifier
     _runtimeEventSubscription?.cancel();
     _runtimeStateSubscription?.cancel();
     _sessionDeltaSubscription?.cancel();
-    _piDurableSessionsRefresher.dispose();
     super.dispose();
   }
 }

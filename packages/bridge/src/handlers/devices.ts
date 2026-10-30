@@ -3,7 +3,6 @@ import { registerAll } from "../routing/registry";
 import type { MessageRouter, ServerDeps } from "../routing/types";
 import { pendingElicitations } from "../server/pending-elicitation";
 import { pendingPermissions } from "../server/pending-permissions";
-import { piPendingPrompts } from "../server/pi-pending-prompts";
 import type { AgentType, DeviceInfo, ServerMessage } from "../types";
 import type { ClaudeElicitationReply } from "./cc_elicitation";
 
@@ -39,8 +38,6 @@ export function register(router: MessageRouter, deps: ServerDeps): void {
 		buildClaudeCodeRuntimeState: deps.buildClaudeCodeRuntimeState,
 		buildCodexRuntimeState: deps.buildCodexRuntimeState,
 		mapOpenCodeStatusToRuntimeState: deps.mapOpenCodeStatusToRuntimeState,
-		listPiActiveSessionSnapshots: deps.listPiActiveSessionSnapshots,
-		buildPiActiveRuntimeStateMessages: deps.buildPiActiveRuntimeStateMessages,
 	};
 	registerAll(router, DEVICE_OPS, async (message, c) => {
 		await handle(c.ws, message, c.reply, ctx);
@@ -113,8 +110,6 @@ export type DevicesHandlerContext = {
 		status: import("../types").SessionStatusInfo,
 		projectPath?: string,
 	) => Record<string, unknown>;
-	listPiActiveSessionSnapshots: () => unknown[];
-	buildPiActiveRuntimeStateMessages: () => ServerMessage[];
 };
 
 export async function handle(
@@ -275,24 +270,17 @@ async function pushActiveSessionsOnConnect(ws: ServerWebSocket<unknown>, ctx: De
 			} as ServerMessage);
 		}
 
-		const activePI = ctx.listPiActiveSessionSnapshots();
-		for (const runtimeStateMessage of ctx.buildPiActiveRuntimeStateMessages()) {
-			ctx.send(ws, runtimeStateMessage);
-		}
-
 		ctx.send(ws, {
 			type: "sessions_active",
 			data: {
 				claudeCode: activeCC,
 				codex: activeCX,
 				opencode: activeOC,
-				pi: activePI,
 				pendingPermissions: {
 					claudeCode: pendingCCPerms,
 					claudeCodeElicitations: pendingCCElicitations,
 					codex: pendingCXPerms,
 					opencode: pendingOCPerms,
-					pi: piPendingPrompts(),
 				},
 			},
 		} as ServerMessage);

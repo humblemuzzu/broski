@@ -2,7 +2,6 @@ import 'package:broski/models/agent.dart';
 import 'package:broski/models/command.dart';
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/connection_provider.dart';
-import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -203,32 +202,6 @@ const kOpenCodeBuiltinCommands = <SlashCommand>[
     builtin: true,
   ),
 ];
-
-/// Loads commands for Pi mode.
-///
-/// Extracted from the Pi branch of `_ChatScreenState._loadCommandsAndAgents`.
-Future<List<SlashCommand>> loadPiCommands({
-  required WidgetRef ref,
-  required String? cwd,
-}) async {
-  final connection = ref.read(connectionProvider);
-  if (connection.isOfflineMode) return const [];
-  try {
-    final piBridge = ref.read(piBridgeServiceProvider);
-    final piCommands = await piBridge.listCommands(projectPath: cwd);
-    return piCommands
-        .map(
-          (c) => SlashCommand(
-            name: c.name,
-            description: c.description ?? c.source,
-            builtin: false,
-          ),
-        )
-        .toList();
-  } catch (_) {
-    return const [];
-  }
-}
 
 /// Loads commands and agents for OpenCode mode.
 ///

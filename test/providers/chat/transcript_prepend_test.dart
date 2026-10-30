@@ -65,37 +65,9 @@ void main() {
       expect(chat.state.messages, isEmpty);
       expect(chat.transcriptCursor, isNull);
     });
-
-    test('a Pi page is dropped once another session is open', () {
-      chat.setPiSession(sessionId: 'A', cwd: '/p');
-      chat.setTranscriptCursor('cursor-a');
-      chat.setPiSession(sessionId: 'B', cwd: '/p');
-
-      chat.prependPiTranscript([
-        {'role': 'user', 'content': 'belongs to A', 'timestamp': 1},
-      ], sessionId: 'A');
-
-      expect(chat.state.messages, isEmpty);
-      expect(chat.transcriptCursor, isNull);
-    });
   });
 
   group('page contents', () {
-    test('a Pi item read twice without a timestamp is not duplicated', () {
-      chat.setPiSession(sessionId: 'pi-1', cwd: '/p');
-      final item = <String, dynamic>{
-        'role': 'user',
-        'content': 'no timestamp on this one',
-      };
-
-      chat.hydratePiTranscript([item]);
-      chat.prependPiTranscript([item], sessionId: 'pi-1');
-
-      expect(chat.state.messages.map((m) => m.text), [
-        'no timestamp on this one',
-      ]);
-    });
-
     test('a page repeating an id is prepended once', () {
       chat.setCodexThread(threadId: 't1', cwd: '/p');
 

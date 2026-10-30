@@ -92,18 +92,13 @@ describe("e2e device registration", () => {
 });
 
 describe("e2e backend status", () => {
-	test("get_agents_status reports pi-durable from its own probe", async () => {
+	test("get_agents_status reports each backend the old protocol serves", async () => {
 		const client = await connect(bridge.port, bridge.token);
 		try {
 			send(client.ws, { type: "get_agents_status", requestId: "status-1" });
 			const reply = await client.messages.waitFor("agents_status");
 			const data = reply.data as Record<string, Record<string, unknown>>;
-			expect(Object.keys(data).sort()).toEqual(["claude-code", "codex", "opencode", "pi", "pi-durable"]);
-			// The durable backend reports its own probe result, distinct from the Pi entry. Which
-			// value it takes depends on the machine's Pi auth, so only the contract is asserted.
-			expect(typeof data["pi-durable"]?.available).toBe("boolean");
-			expect(["configured", "not-configured"]).toContain(String(data["pi-durable"]?.authMethod));
-			expect(data["pi-durable"]).not.toBe(data.pi);
+			expect(Object.keys(data).sort()).toEqual(["claude-code", "codex", "opencode"]);
 		} finally {
 			client.ws.close();
 		}
@@ -273,7 +268,7 @@ describe("e2e graceful stop", () => {
 			const baseline = probe.live();
 			const disposable = await startBridge();
 			const client = await connect(disposable.port, disposable.token);
-			await viewSession(client.ws, client.messages, "pi", "stop-session");
+			await viewSession(client.ws, client.messages, "claude-code", "stop-session");
 			expect(disposable.server.connections()).toBe(1);
 			expect(probe.live()).toBeGreaterThan(baseline);
 
@@ -304,7 +299,7 @@ describe("e2e stalled client", () => {
 		const disposable = await startBridge();
 		const healthy = await connect(disposable.port, disposable.token);
 		try {
-			await viewSession(healthy.ws, healthy.messages, "pi", "shed-session");
+			await viewSession(healthy.ws, healthy.messages, "claude-code", "shed-session");
 
 			stalledClient(disposable.port, disposable.token, "shed-session");
 			const deadline = Date.now() + E2E_WAIT_MS;
@@ -337,10 +332,10 @@ describe("e2e stalled client", () => {
 				for (let i = 0; i < chunk; i += 1) {
 					disposable.server.broadcast({
 						type: "runtime_event",
-						backend: "pi",
+						backend: "claude-code",
 						data: {
 							type: "assistant_text_delta",
-							backend: "pi",
+							backend: "claude-code",
 							timestampMs: Date.now(),
 							sessionId: "shed-session",
 							streamId: "shed-stream",

@@ -7,7 +7,6 @@
 
 import { join } from "node:path";
 import type { ServerWebSocket } from "bun";
-import * as pi from "../connectors/pi";
 import { registerAll } from "../routing/registry";
 import type { MessageRouter, ServerDeps } from "../routing/types";
 import type { AgentStatusInfo, AgentType, ServerMessage } from "../types";
@@ -150,12 +149,6 @@ export async function handle(
 			if (agent === "codex") {
 				const available = await ctx.checkCodexAvailable();
 				ctx.log(`[Codex] ${available ? "OK" : "MISSING"} (requires 'codex' in PATH)`);
-			}
-			if (agent === "pi") {
-				const status = await pi.isPiAvailable();
-				ctx.log(
-					`[Pi] ${status.available ? "OK" : "MISSING"} (${status.authenticated ? `${status.modelCount} authenticated models` : "no authenticated providers"})`,
-				);
 			}
 			return true;
 		}

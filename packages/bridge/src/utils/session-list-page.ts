@@ -1,6 +1,6 @@
 /**
- * Shared contract for paged session lists: `pi_sessions`, `cc_sessions`, `cx_threads`, OpenCode's
- * `sessions` and `unified_sessions`.
+ * Shared contract for paged session lists: `cc_sessions`, `cx_threads`, OpenCode's `sessions` and
+ * `unified_sessions`.
  *
  * A page holds the newest rows that sort after a cursor, and the cursor names the last row of the
  * previous page rather than a distance from the top, so a session created between two pages can

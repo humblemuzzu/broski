@@ -1,11 +1,9 @@
 /**
  * End-to-end streaming contract over a real bridge server: per-session delivery isolation, merged
- * delta seq ranges, reconnect replay, and Pi transcript paging against a synthetic session file.
+ * delta seq ranges and reconnect replay.
  */
 
 import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
-import { join } from "node:path";
-import { chain, header } from "../../bench/lib/pi-synthetic-sessions";
 import { enrichRuntimeEvent } from "../runtime/stream-contract";
 import type { BroskiRuntimeEvent } from "../types/runtime";
 import {
@@ -19,7 +17,6 @@ import {
 	sleep,
 	startBridge,
 	viewSession,
-	writeJsonlSession,
 } from "./e2e/harness";
 
 setDefaultTimeout(E2E_TEST_TIMEOUT_MS);
@@ -42,22 +39,22 @@ afterAll(async () => {
 function broadcastDelta(sessionId: string, text: string, seq?: number, streamId = "s"): void {
 	const event: BroskiRuntimeEvent = {
 		type: "assistant_text_delta",
-		backend: "pi",
+		backend: "claude-code",
 		timestampMs: Date.now(),
 		sessionId,
 		streamId,
 		delta: text,
 		...(seq === undefined ? {} : { seq }),
 	};
-	bridge.server.broadcast({ type: "runtime_event", backend: "pi", data: event });
+	bridge.server.broadcast({ type: "runtime_event", backend: "claude-code", data: event });
 }
 
 function broadcastEnriched(sessionId: string, delta: string, streamId: string, cwd: string): void {
 	const event = enrichRuntimeEvent(
-		{ type: "assistant_text_delta", backend: "pi", timestampMs: Date.now(), sessionId, streamId, delta },
-		{ backend: "pi", sessionId, cwd },
+		{ type: "assistant_text_delta", backend: "claude-code", timestampMs: Date.now(), sessionId, streamId, delta },
+		{ backend: "claude-code", sessionId, cwd },
 	);
-	bridge.server.broadcast({ type: "runtime_event", backend: "pi", data: event });
+	bridge.server.broadcast({ type: "runtime_event", backend: "claude-code", data: event });
 }
 
 function deltasOf(messages: MessageCollector): Array<{ delta: string; seq?: number; seqStart?: number }> {
@@ -87,8 +84,8 @@ describe("e2e per-session delivery", () => {
 		const a = await connect(bridge.port, bridge.token);
 		const b = await connect(bridge.port, bridge.token);
 		try {
-			await viewSession(a.ws, a.messages, "pi", "iso-a");
-			await viewSession(b.ws, b.messages, "pi", "iso-b");
+			await viewSession(a.ws, a.messages, "claude-code", "iso-a");
+			await viewSession(b.ws, b.messages, "claude-code", "iso-b");
 
 			broadcastDelta("iso-a", "for-a");
 			broadcastDelta("iso-b", "for-b");
@@ -106,13 +103,13 @@ describe("e2e per-session delivery", () => {
 		const a = await connect(bridge.port, bridge.token);
 		const b = await connect(bridge.port, bridge.token);
 		try {
-			await viewSession(a.ws, a.messages, "pi", "iso-c");
+			await viewSession(a.ws, a.messages, "claude-code", "iso-c");
 			await b.messages.waitFor("status");
 
 			bridge.server.broadcast({
 				type: "runtime_event",
-				backend: "pi",
-				data: { type: "agent_started", backend: "pi", timestampMs: Date.now(), sessionId: "iso-d", seq: 7 },
+				backend: "claude-code",
+				data: { type: "agent_started", backend: "claude-code", timestampMs: Date.now(), sessionId: "iso-d", seq: 7 },
 			});
 			await sleep(60);
 
@@ -132,7 +129,7 @@ describe("e2e merged delta seq ranges", () => {
 	test("merged frames cover the whole seq range with no gap", async () => {
 		const client = await connect(bridge.port, bridge.token);
 		try {
-			await viewSession(client.ws, client.messages, "pi", "seq-session");
+			await viewSession(client.ws, client.messages, "claude-code", "seq-session");
 
 			const count = 600;
 			for (let i = 0; i < count; i += 1) {
@@ -160,7 +157,7 @@ describe("e2e reconnect replay", () => {
 	test("set_view with lastRuntimeSeq replays the recorded frames unchanged", async () => {
 		const first = await connect(bridge.port, bridge.token);
 		try {
-			await viewSession(first.ws, first.messages, "pi", "replay-session");
+			await viewSession(first.ws, first.messages, "claude-code", "replay-session");
 
 			for (let i = 0; i < 40; i += 1) {
 				broadcastEnriched("replay-session", `chunk-${i}`, "replay-stream", "/tmp/e2e-replay");
@@ -173,7 +170,7 @@ describe("e2e reconnect replay", () => {
 			try {
 				await replay.messages.waitFor("status");
 				replay.messages.clear();
-				send(replay.ws, { type: "set_view", agent: "pi", sessionId: "replay-session", lastRuntimeSeq: 0 });
+				send(replay.ws, { type: "set_view", agent: "claude-code", sessionId: "replay-session", lastRuntimeSeq: 0 });
 				const replayed = await replay.messages.waitForWhere(
 					(m) => m.type === "runtime_event" && (m.data as Record<string, unknown>).replayed === true,
 					"replayed runtime event",
@@ -187,53 +184,6 @@ describe("e2e reconnect replay", () => {
 			}
 		} finally {
 			first.ws.close();
-		}
-	});
-});
-
-describe("e2e Pi transcript paging", () => {
-	test("pages the newest messages backwards and joins into the whole read", async () => {
-		const sessionPath = writeJsonlSession(join(env.piAgentDir, "sessions", "synthetic"), "session-page.jsonl", [
-			header(3),
-			...chain(8, "page"),
-		]);
-
-		const client = await connect(bridge.port, bridge.token);
-		try {
-			await client.messages.waitFor("status");
-			client.messages.clear();
-
-			send(client.ws, { type: "pi_read_session_messages", sessionPath, requestId: "whole" });
-			const whole = await client.messages.waitFor("pi_session_messages");
-			const wholeMessages = whole.data as Array<Record<string, unknown>>;
-			expect(wholeMessages.length).toBeGreaterThan(2);
-
-			client.messages.clear();
-			send(client.ws, { type: "pi_read_session_messages", sessionPath, limit: 2, requestId: "page-1" });
-			const page1 = await client.messages.waitFor("pi_session_messages");
-			const page1Messages = page1.data as Array<Record<string, unknown>>;
-			// A page is at least `limit` and reaches back to the prompt that opened its oldest turn.
-			expect(page1Messages.length).toBeGreaterThanOrEqual(2);
-			expect(page1Messages[0]?.role).toBe("user");
-			expect(page1.hasMore).toBe(true);
-			expect(typeof page1.nextCursor).toBe("string");
-
-			client.messages.clear();
-			send(client.ws, {
-				type: "pi_read_session_messages",
-				sessionPath,
-				limit: 2,
-				before: page1.nextCursor,
-				requestId: "page-2",
-			});
-			const page2 = await client.messages.waitFor("pi_session_messages");
-			const page2Messages = page2.data as Array<Record<string, unknown>>;
-
-			const text = (m: Record<string, unknown>) => m.text ?? m.content;
-			const walked = [...page2Messages, ...page1Messages].map(text);
-			expect(walked).toEqual(wholeMessages.slice(-walked.length).map(text));
-		} finally {
-			client.ws.close();
 		}
 	});
 });

@@ -3,7 +3,6 @@ import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/claude_code.dart';
 import 'package:broski/models/codex.dart';
 import 'package:broski/models/file_attachment.dart';
-import 'package:broski/models/pi.dart';
 import 'package:broski/models/project.dart';
 import 'package:broski/models/prompt_accent_color.dart';
 import 'package:broski/providers/chat_provider.dart';
@@ -15,11 +14,9 @@ import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/glow_style_provider.dart';
 import 'package:broski/providers/input_style_provider.dart';
 import 'package:broski/providers/opencode_variant_provider.dart';
-import 'package:broski/providers/pi_provider.dart';
 import 'package:broski/providers/prompt_accent_provider.dart';
 import 'package:broski/providers/selection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
-import 'package:broski/screens/chat/pi_durable_thinking.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/utils/snackbar_helpers.dart';
@@ -45,8 +42,6 @@ class ChatInputBarContent extends ConsumerWidget {
     this.ccModel,
     required this.isClaudeCode,
     required this.isCodex,
-    required this.isPi,
-    this.isPiDurable = false,
     this.selectedAgent,
     this.agents = const [],
     required this.project,
@@ -63,7 +58,6 @@ class ChatInputBarContent extends ConsumerWidget {
     required this.onAgentChanged,
     required this.onModelTap,
     required this.onSetCodexReasoningEffort,
-    required this.onSetPiThinkingLevel,
     this.onMenuTap,
   });
 
@@ -82,9 +76,7 @@ class ChatInputBarContent extends ConsumerWidget {
   // --- Agent type flags ---
   final bool isClaudeCode;
   final bool isCodex;
-  final bool isPi;
-  final bool isPiDurable;
-  bool get isOpenCode => !isClaudeCode && !isCodex && !isPi && !isPiDurable;
+  bool get isOpenCode => !isClaudeCode && !isCodex;
 
   // --- OpenCode agent selection ---
   final String? selectedAgent;
@@ -107,7 +99,6 @@ class ChatInputBarContent extends ConsumerWidget {
   final void Function(String?) onAgentChanged;
   final VoidCallback onModelTap;
   final void Function(String?) onSetCodexReasoningEffort;
-  final void Function(String?) onSetPiThinkingLevel;
   final VoidCallback? onMenuTap;
 
   /// Handles CC permission mode change: persists config and optionally applies
@@ -157,16 +148,6 @@ class ChatInputBarContent extends ConsumerWidget {
     }
     if (isCodex) {
       return ref.watch(codexSettingsProvider).reasoningEffort.wireValue;
-    }
-    if (isPi) {
-      return ref
-          .watch(chatSessionProvider.select((s) => s.piThinkingLevel))
-          ?.wireValue;
-    }
-    if (isPiDurable) {
-      return ref
-          .watch(chatSessionProvider.select((s) => s.pdThinkingLevel))
-          ?.wireValue;
     }
     return null;
   }
@@ -232,18 +213,6 @@ class ChatInputBarContent extends ConsumerWidget {
       // Fallback: standard Codex reasoning efforts (protocol-defined)
       return CodexReasoningEffort.values.map((e) => e.wireValue).toList();
     }
-    if (isPi) {
-      // Dynamic: use per-model available levels from bridge
-      final cwd = ref.read(chatSessionProvider).piCwd ?? effectivePath;
-      final capsAsync = ref.watch(piThinkingCapabilitiesProvider(cwd));
-      final caps = capsAsync.valueOrNull;
-      if (caps != null && caps.availableLevels.isNotEmpty) {
-        return caps.availableLevels.map((l) => l.wireValue).toList();
-      }
-      // Fallback: standard Pi thinking levels (protocol-defined)
-      return PiThinkingLevel.values.map((e) => e.wireValue).toList();
-    }
-    if (isPiDurable) return piDurableThinkingVariantsOf(ref);
     return const [];
   }
 
@@ -263,10 +232,6 @@ class ChatInputBarContent extends ConsumerWidget {
       return (v) => ref.read(claudeCodeVariantProvider.notifier).setVariant(v);
     }
     if (isCodex) return onSetCodexReasoningEffort;
-    if (isPi) return onSetPiThinkingLevel;
-    if (isPiDurable) {
-      return (v) => setPiDurableThinkingLevel(ref: ref, wireValue: v);
-    }
     return null;
   }
 
@@ -306,10 +271,6 @@ class ChatInputBarContent extends ConsumerWidget {
         ? AgentType.claudeCode
         : isCodex
         ? AgentType.codex
-        : isPi
-        ? AgentType.pi
-        : isPiDurable
-        ? AgentType.piDurable
         : AgentType.opencode;
     // Build project for power sheet
     final powerProject = isOpenCode
@@ -428,10 +389,6 @@ class ChatInputBarContent extends ConsumerWidget {
               ccDraftModel)
         : isCodex
         ? ref.watch(chatSessionProvider.select((s) => s.cxModel))
-        : isPi
-        ? ref.watch(chatSessionProvider.select((s) => s.piModel))
-        : isPiDurable
-        ? ref.watch(chatSessionProvider.select((s) => s.pdModel))
         : ref.watch(selectionProvider).model?.displayString;
 
     if (inputStyle == InputBarStyle.cli) {

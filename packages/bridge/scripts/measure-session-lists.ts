@@ -1,23 +1,14 @@
 /**
  * Prints the size of every session list reply against this machine's real session stores.
  *
- * Read-only: the Pi index is copied into a temp cache root, so a measurement never writes to
- * `~/.broski`, `~/.pi`, `~/.claude` or `~/.codex`. A backend that is not installed is reported and
- * skipped. Run it with `bun scripts/measure-session-lists.ts`.
+ * Read-only: a measurement never writes to `~/.broski`, `~/.claude` or `~/.codex`. A backend that
+ * is not installed is reported and skipped. Run it with `bun scripts/measure-session-lists.ts`.
  */
 
-import { existsSync } from "node:fs";
-import { copyFile, mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import * as claudeCode from "../src/connectors/claude-code";
 import { findCodexStateDbPath, listThreadsFromDb } from "../src/connectors/codex/cx-sqlite";
-import * as pi from "../src/connectors/pi";
-import { resolveIndexCacheRoot } from "../src/index-cache/index-cache-root";
-import { PI_SESSION_INDEX_FILE } from "../src/index-cache/pi-session-index-record";
 import { mapClaudeCodeSessionToRuntimeSession } from "../src/runtime/claude-code-runtime-read-models";
 import { mapCodexThreadToRuntimeSession } from "../src/runtime/codex-runtime-read-models";
-import { mapPiSessionsToRuntimeSessions } from "../src/runtime/pi-runtime-read-models";
 import { DEFAULT_SESSION_PAGE_LIMIT, pageSessionList, type SessionListRow } from "../src/utils/session-list-page";
 
 /** A measurement is a scan of local files; standing over this means the run is out of bounds. */
@@ -63,36 +54,6 @@ function report(measurement: Measurement): void {
 		`${measurement.backend.padEnd(12)} ${measurement.list.padEnd(30)} rows=${String(measurement.rows).padStart(5)}  ` +
 			`full=${mib(measurement.fullBytes).padStart(10)} (${kib(measurement.fullBytes)})  ` +
 			`first page=${kib(measurement.pageBytes).padStart(10)}${oversize}`,
-	);
-}
-
-async function piCacheRoot(): Promise<string> {
-	const root = await mkdtemp(join(tmpdir(), "broski-measure-cache-"));
-	const realIndex = join(resolveIndexCacheRoot(), PI_SESSION_INDEX_FILE);
-	if (existsSync(realIndex)) await copyFile(realIndex, join(root, PI_SESSION_INDEX_FILE));
-	return root;
-}
-
-async function measurePi(): Promise<void> {
-	const sessions = await pi.listSessions(undefined, { cacheRoot: await piCacheRoot() });
-	guard();
-	report(
-		measure(
-			"pi",
-			"pi_sessions",
-			sessions,
-			(session) => ({ id: session.id, modified: session.modified }),
-			"pi_sessions",
-		),
-	);
-	report(
-		measure(
-			"pi",
-			"runtime_sessions (old broadcast)",
-			mapPiSessionsToRuntimeSessions(sessions, []),
-			(session: { id: string; updatedAtMs: number }) => ({ id: session.id, modified: session.updatedAtMs }),
-			"runtime_sessions",
-		),
 	);
 }
 
@@ -143,7 +104,6 @@ function measureCodex(): void {
 
 async function main(): Promise<void> {
 	console.log(`first page = limit ${DEFAULT_SESSION_PAGE_LIMIT}; full = the whole list in one reply\n`);
-	await measurePi();
 	await measureClaudeCode();
 	measureCodex();
 	guard();

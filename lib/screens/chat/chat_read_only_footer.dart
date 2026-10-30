@@ -7,8 +7,7 @@ import 'package:flutter/material.dart';
 /// subagent transcript in read-only mode. Replaces the input bar.
 ///
 /// Subagents that cannot be resumed by their SDK (Claude Code subagents —
-/// SDK has no continue API; Pi tool subagents — no session exists) open
-/// with this footer so the user sees the full transcript but can't type.
+/// SDK has no continue API) open with this footer so the user sees the full transcript but can't type.
 class ChatReadOnlyFooter extends StatelessWidget {
   const ChatReadOnlyFooter({super.key});
 

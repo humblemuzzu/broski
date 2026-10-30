@@ -41,12 +41,11 @@ export class RouteRegistry implements MessageRouter {
 }
 
 /**
- * Preserves the pre-registry behaviour for a type no handler owns: `pi_` and
- * `unified_` messages reported a domain-specific error, everything else was
- * funnelled through the Claude Code router and landed on "Unknown message type".
+ * Preserves the pre-registry behaviour for a type no handler owns: `unified_`
+ * messages reported a domain-specific error, everything else was funnelled
+ * through the Claude Code router and landed on "Unknown message type".
  */
 export function unknownTypeError(type: string): ServerMessage {
-	if (type.startsWith("pi_")) return { type: "error", message: `Unhandled Pi feature: ${type}` };
 	if (type.startsWith("unified_")) return { type: "error", message: `Unhandled unified message: ${type}` };
 	return { type: "error", message: "Unknown message type" };
 }

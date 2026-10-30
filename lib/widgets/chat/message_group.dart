@@ -1,17 +1,14 @@
 import 'package:broski/models/message.dart';
-import 'package:broski/models/pi_bash_card.dart';
 import 'package:broski/providers/chat_provider.dart';
 import 'package:broski/providers/claude_code_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/screens/chat/oc_message_delete_action.dart';
-import 'package:broski/screens/chat/pi_durable_chat_actions.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
 import 'package:broski/widgets/chat/cc_undo_turn_bar.dart';
 import 'package:broski/widgets/chat/compact_agent_card.dart';
 import 'package:broski/widgets/chat/compact_thinking_card.dart';
 import 'package:broski/widgets/chat/message_helpers.dart';
-import 'package:broski/widgets/chat/pi_bash_command_card.dart';
 import 'package:broski/widgets/diff_viewer.dart';
 import 'package:broski/widgets/message_bubble.dart';
 import 'package:flutter/material.dart';
@@ -123,10 +120,6 @@ class MessageGroup extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Pi `!` shell command → compact bash card
-    if (isPiBashCard(message.metadata)) {
-      return PiBashCommandCard(message: message);
-    }
     // Compaction marker → centered divider
     if (message.error == 'context_compacted') {
       return _buildCompactionDivider(context);
@@ -189,12 +182,6 @@ class MessageGroup extends ConsumerWidget {
                             ref.read(chatSessionProvider).projectPath ??
                             projectPath,
                       )
-                    : null,
-                onRetryMessage:
-                    message.role == MessageRole.user &&
-                        ref.watch(chatSessionProvider).isPiDurable
-                    ? () =>
-                          retryPiDurableMessage(ref: ref, messageId: message.id)
                     : null,
               ),
             // Tool calls

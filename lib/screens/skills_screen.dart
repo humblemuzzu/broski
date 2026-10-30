@@ -32,11 +32,6 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
   String? _error;
   StreamSubscription<Map<String, dynamic>>? _fsSub;
 
-  /// Pi and Pi Durable skills are SKILL.md files the bridge only lists, so
-  /// create/delete stay hidden for them.
-  bool get _isReadOnlyBackend =>
-      widget.backend == AgentType.pi || widget.backend == AgentType.piDurable;
-
   @override
   void initState() {
     super.initState();
@@ -99,8 +94,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
   }
 
   Future<void> _openSkill(Skill summary) async {
-    // Pi and Pi Durable expose no get-skill op, so their skills open read-only.
-    if (_isReadOnlyBackend || summary.source == SkillSource.builtin) {
+    if (summary.source == SkillSource.builtin) {
       if (!mounted) return;
       await showSkillReadonlySheet(context: context, ref: ref, skill: summary);
       return;
@@ -258,12 +252,11 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
                 _load(forceReload: widget.backend == AgentType.codex),
             tooltip: 'Refresh',
           ),
-          if (!_isReadOnlyBackend)
-            IconButton(
-              icon: const Icon(AppIcons.add),
-              onPressed: _createSkill,
-              tooltip: 'Create Skill',
-            ),
+          IconButton(
+            icon: const Icon(AppIcons.add),
+            onPressed: _createSkill,
+            tooltip: 'Create Skill',
+          ),
         ],
       ),
       body: AdaptiveContainer(
@@ -311,22 +304,16 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
                       Text('No skills found', style: TextStyle(color: oc.text)),
                       const SizedBox(height: Spacing.sm),
                       Text(
-                        widget.backend == AgentType.pi
-                            ? 'Pi commands come from extensions, skills, and prompt templates.'
-                            : widget.backend == AgentType.piDurable
-                            ? 'Pi Durable reads SKILL.md files from your project and user skill folders.'
-                            : 'Create a SKILL.md to teach the agent repeatable workflows.',
+                        'Create a SKILL.md to teach the agent repeatable workflows.',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: oc.textMuted),
                       ),
-                      if (!_isReadOnlyBackend) ...[
-                        const SizedBox(height: Spacing.lg),
-                        ElevatedButton.icon(
-                          onPressed: _createSkill,
-                          icon: const Icon(AppIcons.add),
-                          label: const Text('Create Skill'),
-                        ),
-                      ],
+                      const SizedBox(height: Spacing.lg),
+                      ElevatedButton.icon(
+                        onPressed: _createSkill,
+                        icon: const Icon(AppIcons.add),
+                        label: const Text('Create Skill'),
+                      ),
                     ],
                   ),
                 ),
@@ -340,8 +327,7 @@ class _SkillsScreenState extends ConsumerState<SkillsScreen> {
                     _SectionHeader(title: source.displayName),
                     const SizedBox(height: 6),
                     ...grouped[source]!.map((skill) {
-                      final editable =
-                          !_isReadOnlyBackend && skill.source.isEditable;
+                      final editable = skill.source.isEditable;
                       return Card(
                         color: oc.backgroundElement,
                         margin: const EdgeInsets.only(bottom: 10),

@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 export 'hydrate_claude_code.dart';
 export 'hydrate_codex.dart';
 export 'hydrate_opencode.dart';
-export 'hydrate_pi.dart';
 
 /// What every backend's initial hydrate needs from the chat screen.
 final class Hydration {

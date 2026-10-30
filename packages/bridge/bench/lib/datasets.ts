@@ -39,7 +39,6 @@ function collectSingleFile(id: string, path: string): DatasetInfo {
 export async function collectDatasets(): Promise<DatasetInfo[]> {
 	const home = homedir();
 	return [
-		await collectJsonlDataset("pi-sessions", join(home, ".pi", "agent", "sessions")),
 		await collectJsonlDataset("codex-sessions", join(home, ".codex", "sessions")),
 		await collectJsonlDataset("codex-archived-sessions", join(home, ".codex", "archived_sessions")),
 		await collectJsonlDataset("claude-code-projects", join(home, ".claude", "projects")),

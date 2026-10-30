@@ -1,14 +1,12 @@
 import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/claude_code.dart';
 import 'package:broski/models/codex.dart';
-import 'package:broski/models/pi.dart';
 import 'package:broski/models/project.dart';
 import 'package:broski/models/runtime/runtime_session_summary.dart';
 import 'package:broski/models/session.dart';
 import 'package:broski/providers/agent_type_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/screens/chat_screen.dart';
-import 'package:broski/screens/sheets/pi_subagent_detail_sheet.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
@@ -240,18 +238,7 @@ class _TaskCard extends ConsumerWidget {
         final role = data['agentRole'] as String?;
         if (role != null && role.isNotEmpty) return role;
         return '';
-      case AgentType.pi:
-        // Pi: show tool name as prompt excerpt
-        final kind = data['kind'] as String?;
-        if (kind == 'pi_tool_invocation') {
-          final prompt = data['promptPreview'] as String? ?? '';
-          if (prompt.length > 30) return '${prompt.substring(0, 30)}…';
-          return prompt;
-        }
-        return '';
       case AgentType.opencode:
-        return '';
-      case AgentType.piDurable:
         return '';
     }
   }
@@ -306,42 +293,6 @@ class _TaskCard extends ConsumerWidget {
             updatedAt: task.updatedAtMs,
           ),
         );
-      case AgentType.pi:
-        // Pi tool invocations have synthetic IDs — can't open as a session.
-        // Pi handoff children are real sessions with a parent link.
-        final isToolInvocation =
-            task.backendData?['kind'] == 'pi_tool_invocation';
-        if (isToolInvocation) {
-          // Show subagent detail sheet instead of navigating
-          showPiSubagentDetailSheet(
-            context,
-            parentSessionPath:
-                task.backendData?['parentSessionPath'] as String? ?? '',
-            toolCallId: task.id,
-            toolName: task.subagentType ?? 'Task',
-          );
-          return;
-        }
-        screen = ChatScreen.pi(
-          piSession: PiSessionInfo(
-            path: task.id,
-            id: task.id,
-            cwd: task.cwd,
-            created: DateTime.fromMillisecondsSinceEpoch(
-              task.createdAtMs > 0 ? task.createdAtMs : 0,
-            ),
-            modified: DateTime.fromMillisecondsSinceEpoch(
-              task.updatedAtMs > 0 ? task.updatedAtMs : 0,
-            ),
-            messageCount: 0,
-            firstMessage: task.title,
-          ),
-          readOnly: true,
-        );
-      case AgentType.piDurable:
-        // Durable sessions are opened from the sessions list; a task card has
-        // no synthetic id that maps to one.
-        return;
     }
 
     Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
@@ -494,10 +445,6 @@ class _TaskCard extends ConsumerWidget {
         return AppIcons.code;
       case AgentType.codex:
         return AppIcons.smartToy;
-      case AgentType.pi:
-        return AppIcons.autoAwesome;
-      case AgentType.piDurable:
-        return AppIcons.history;
     }
   }
 }

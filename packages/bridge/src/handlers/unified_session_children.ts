@@ -13,7 +13,6 @@ import type { MessageRouter, ServerDeps } from "../routing/types";
 import { mapClaudeCodeSessionToRuntimeSession } from "../runtime/claude-code-runtime-read-models";
 import { mapCodexThreadToRuntimeSession } from "../runtime/codex-runtime-read-models";
 import { mapOpenCodeSessionToRuntimeSession } from "../runtime/opencode-runtime-read-models";
-import { mapPiSessionToRuntimeSession } from "../runtime/pi-runtime-read-models";
 import type { BroskiBackend, BroskiSessionSummary } from "../types/runtime";
 
 type Reply = (msg: any) => void;
@@ -38,11 +37,6 @@ export const MODULE_TYPES = CHILDREN_OPS;
 
 export function register(router: MessageRouter, deps: ServerDeps): void {
 	registerAll(router, CHILDREN_OPS, async (message, c) => {
-		// `unified.handle` ran first and short-circuited every pi-durable unified request.
-		if (message.backend === "pi-durable") {
-			c.reply({ type: "error", message: `Unhandled unified message: ${message.type}` });
-			return;
-		}
 		const children = await deps.getClaudeCodeChildren();
 		await handle(message, c.reply, {
 			requireOpenCode: deps.requireOpenCodeOrNull,
@@ -155,40 +149,6 @@ export async function handle(message: UnifiedMessage, reply: Reply, ctx: Session
 						data = forkChildren.map((t: any) => mapCodexThreadToRuntimeSession(t));
 					} catch (e) {
 						ctx.log("[unified_session_children] CX error:", e);
-						data = [];
-					}
-					break;
-				}
-
-				case "pi": {
-					try {
-						const piMod = await import("../connectors/pi");
-						const { extractSubagentInvocations, mapInvocationsToSummaries } = await import(
-							"../connectors/pi/pi-subagent-extraction"
-						);
-						const allSessions = await piMod.listSessions(message.cwd);
-						const parentSession = allSessions.find((s: any) => s.id === sessionId);
-						if (parentSession) {
-							// Handoff/fork children (real sessions with parentSessionPath)
-							const handoffChildren = allSessions
-								.filter((s: any) => s.parentSessionPath === parentSession.path)
-								.map((s: any) => mapPiSessionToRuntimeSession(s, allSessions));
-
-							// Tool-based subagent invocations (Task, oracle, finder, etc.)
-							// Pass cwd so the dynamic subagent registry can discover
-							// user-configured extension tools (not just the hardcoded list).
-							const invocations = await extractSubagentInvocations(parentSession.path, parentSession.cwd);
-							const toolChildren = mapInvocationsToSummaries(
-								invocations,
-								sessionId,
-								parentSession.path,
-								parentSession.cwd,
-							);
-
-							data = [...handoffChildren, ...toolChildren];
-						}
-					} catch (e) {
-						ctx.log("[unified_session_children] Pi error:", e);
 						data = [];
 					}
 					break;

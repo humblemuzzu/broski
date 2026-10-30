@@ -36,7 +36,6 @@ class McpOAuthPending {
 ///   [OpenCodeChatState]   — OpenCode / default
 ///   [ClaudeCodeChatState] — Claude Code
 ///   [CodexChatState]      — Codex
-///   [PiChatState]         — Pi
 ///
 /// Migration patterns:
 ///   - `state.isClaudeCode` → `state is ClaudeCodeChatState`
@@ -78,7 +77,7 @@ sealed class ChatSessionState {
 
   // --- Abstract interface ---
 
-  /// Which agent is running. Replaces isClaudeCode/isCodex/isPi checks.
+  /// Which agent is running. Replaces isClaudeCode/isCodex checks.
   AgentType get agentType;
 
   /// The session/thread ID for this backend.
@@ -94,9 +93,6 @@ sealed class ChatSessionState {
 
   /// @deprecated Use `state is CodexChatState` instead.
   bool get isCodex => this is CodexChatState;
-
-  /// @deprecated Use `state is PiChatState` instead.
-  bool get isPi => this is PiChatState;
 
   /// @deprecated Use `state is OpenCodeChatState` instead.
   bool get isOpenCode => this is OpenCodeChatState;
@@ -152,18 +148,6 @@ sealed class ChatSessionState {
       ? (this as OpenCodeChatState).ocAgentMode
       : 'build';
 
-  String? get piSessionId =>
-      this is PiChatState ? (this as PiChatState).piSessionId : null;
-  String? get piCwd => this is PiChatState ? (this as PiChatState).piCwd : null;
-  String? get piModel =>
-      this is PiChatState ? (this as PiChatState).piModel : null;
-  PiModel? get piModelData =>
-      this is PiChatState ? (this as PiChatState).piModelData : null;
-  PiThinkingLevel? get piThinkingLevel =>
-      this is PiChatState ? (this as PiChatState).piThinkingLevel : null;
-  bool get piIsStreaming =>
-      this is PiChatState ? (this as PiChatState).piIsStreaming : false;
-
   // --- Polymorphic copyWith (shared fields only) ---
   ChatSessionState copyWith({
     SessionSummary? session,
@@ -200,13 +184,6 @@ sealed class ChatSessionState {
     Object? cxPendingUserInput = _absent,
     List<String>? cxQueuedMessages,
     String? ocAgentMode,
-    bool? isPi,
-    Object? piSessionId = _absent,
-    String? piCwd,
-    Object? piModel = _absent,
-    Object? piModelData = _absent,
-    Object? piThinkingLevel = _absent,
-    bool? piIsStreaming,
   });
 }
 
@@ -278,13 +255,6 @@ final class OpenCodeChatState extends ChatSessionState {
     bool? cxIsStreaming,
     Object? cxPendingUserInput = _absent,
     List<String>? cxQueuedMessages,
-    bool? isPi,
-    Object? piSessionId = _absent,
-    String? piCwd,
-    Object? piModel = _absent,
-    Object? piModelData = _absent,
-    Object? piThinkingLevel = _absent,
-    bool? piIsStreaming,
   }) {
     return OpenCodeChatState(
       session: session ?? this.session,
@@ -398,13 +368,6 @@ final class ClaudeCodeChatState extends ChatSessionState {
     Object? cxPendingUserInput = _absent,
     List<String>? cxQueuedMessages,
     String? ocAgentMode,
-    bool? isPi,
-    Object? piSessionId = _absent,
-    String? piCwd,
-    Object? piModel = _absent,
-    Object? piModelData = _absent,
-    Object? piThinkingLevel = _absent,
-    bool? piIsStreaming,
   }) {
     return ClaudeCodeChatState(
       session: session ?? this.session,
@@ -529,13 +492,6 @@ final class CodexChatState extends ChatSessionState {
     Object? pendingCCMessage = _absent,
     Object? pendingCCAttachments = _absent,
     String? ocAgentMode,
-    bool? isPi,
-    Object? piSessionId = _absent,
-    String? piCwd,
-    Object? piModel = _absent,
-    Object? piModelData = _absent,
-    Object? piThinkingLevel = _absent,
-    bool? piIsStreaming,
   }) {
     return CodexChatState(
       session: session ?? this.session,
@@ -569,125 +525,6 @@ final class CodexChatState extends ChatSessionState {
         this.cxPendingUserInput,
       ),
       cxQueuedMessages: cxQueuedMessages ?? this.cxQueuedMessages,
-    );
-  }
-}
-
-// ─── Pi ──────────────────────────────────────────────────────────────────────
-
-final class PiChatState extends ChatSessionState {
-  const PiChatState({
-    super.session,
-    super.projectPath,
-    super.messages,
-    super.permissions,
-    super.sessionDiffs,
-    super.todos,
-    super.vcsInfo,
-    super.isCompacting,
-    super.sessionStatus,
-    super.pendingQuestion,
-    super.contentLength,
-    super.mcpOAuthPending,
-    this.piSessionId,
-    this.piCwd,
-    this.piModel,
-    this.piModelData,
-    this.piThinkingLevel,
-    this.piIsStreaming = false,
-  });
-
-  @override
-  final String? piSessionId;
-  @override
-  final String? piCwd;
-  @override
-  final String? piModel;
-  @override
-  final PiModel? piModelData;
-  @override
-  final PiThinkingLevel? piThinkingLevel;
-  @override
-  final bool piIsStreaming;
-
-  @override
-  AgentType get agentType => AgentType.pi;
-  @override
-  String? get effectiveSessionId => piSessionId;
-  @override
-  String? get effectivePath => piCwd;
-
-  @override
-  PiChatState copyWith({
-    SessionSummary? session,
-    String? projectPath,
-    List<ChatMessage>? messages,
-    List<PermissionRequest>? permissions,
-    List<DiffEntry>? sessionDiffs,
-    List<Todo>? todos,
-    Object? vcsInfo = _absent,
-    bool? isCompacting,
-    SessionStatus? sessionStatus,
-    Object? pendingQuestion = _absent,
-    int? contentLength,
-    Object? mcpOAuthPending = _absent,
-    // Pi-specific
-    bool? isPi,
-    Object? piSessionId = _absent,
-    String? piCwd,
-    Object? piModel = _absent,
-    Object? piModelData = _absent,
-    Object? piThinkingLevel = _absent,
-    bool? piIsStreaming,
-    // Ignored (wrong subclass)
-    bool? isClaudeCode,
-    Object? ccSessionId = _absent,
-    String? ccCwd,
-    Object? ccModel = _absent,
-    Object? ccInit = _absent,
-    Object? ccTokenUsage = _absent,
-    Object? ccStructuredOutput = _absent,
-    bool? ccIsStreaming,
-    Object? pendingCCMessage = _absent,
-    Object? pendingCCAttachments = _absent,
-    bool? isCodex,
-    Object? cxThreadId = _absent,
-    String? cxCwd,
-    Object? cxModel = _absent,
-    Object? cxTokenUsage = _absent,
-    bool? cxIsStreaming,
-    Object? cxPendingUserInput = _absent,
-    List<String>? cxQueuedMessages,
-    String? ocAgentMode,
-  }) {
-    return PiChatState(
-      session: session ?? this.session,
-      projectPath: projectPath ?? this.projectPath,
-      messages: messages ?? this.messages,
-      permissions: permissions ?? this.permissions,
-      sessionDiffs: sessionDiffs ?? this.sessionDiffs,
-      todos: todos ?? this.todos,
-      vcsInfo: _resolve<VcsInfo>(vcsInfo, this.vcsInfo),
-      isCompacting: isCompacting ?? this.isCompacting,
-      sessionStatus: sessionStatus ?? this.sessionStatus,
-      pendingQuestion: _resolve<QuestionRequest>(
-        pendingQuestion,
-        this.pendingQuestion,
-      ),
-      contentLength: contentLength ?? this.contentLength,
-      mcpOAuthPending: _resolve<McpOAuthPending>(
-        mcpOAuthPending,
-        this.mcpOAuthPending,
-      ),
-      piSessionId: _resolve<String>(piSessionId, this.piSessionId),
-      piCwd: piCwd ?? this.piCwd,
-      piModel: _resolve<String>(piModel, this.piModel),
-      piModelData: _resolve<PiModel>(piModelData, this.piModelData),
-      piThinkingLevel: _resolve<PiThinkingLevel>(
-        piThinkingLevel,
-        this.piThinkingLevel,
-      ),
-      piIsStreaming: piIsStreaming ?? this.piIsStreaming,
     );
   }
 }

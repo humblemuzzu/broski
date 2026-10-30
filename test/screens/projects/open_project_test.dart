@@ -59,60 +59,6 @@ Future<(WidgetRef, BuildContext)> pumpProjectHost(
 }
 
 void main() {
-  testWidgets('a tapped project opens the durable new-session flow, never an '
-      'OpenCode session', (tester) async {
-    FlutterSecureStorage.setMockInitialValues({
-      'broski_pi_durable_enabled': 'true',
-    });
-    final socket = FakeWebSocket();
-    addTearDown(socket.close);
-    final (ref, context) = await pumpProjectHost(tester, socket);
-
-    unawaited(
-      ref.read(agentTypeProvider.notifier).setAgentType(AgentType.piDurable),
-    );
-    await tester.pump();
-    expect(ref.read(agentTypeProvider), AgentType.piDurable);
-
-    unawaited(
-      openProjectForSelectedAgent(
-        context: context,
-        ref: ref,
-        project: _project,
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(socket.sent.where((m) => m['type'] == 'create_session'), isEmpty);
-    expect(socket.sent.where((m) => m['type'] == 'pd_create_session'), isEmpty);
-    expect(find.text('New Pi Durable Session'), findsOneWidget);
-    expect(find.text(_project.path), findsOneWidget);
-
-    final modelsRequest = socket.sent.firstWhere(
-      (m) => m['type'] == 'unified_list_models',
-    );
-    socket.deliver({
-      'type': 'unified_models',
-      'requestId': modelsRequest['requestId'],
-      'data': <dynamic>[],
-    });
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Create session'));
-    await tester.pump();
-
-    final create = socket.sent.firstWhere(
-      (m) => m['type'] == 'pd_create_session',
-    );
-    expect(create['cwd'], _project.path);
-    socket.deliver({
-      'type': 'error',
-      'requestId': create['requestId'],
-      'message': 'no',
-    });
-    await tester.pumpAndSettle();
-  });
-
   testWidgets('OpenCode still creates an OpenCode session', (tester) async {
     FlutterSecureStorage.setMockInitialValues({});
     final socket = FakeWebSocket();

@@ -351,7 +351,7 @@ Broski is a thin UI layer. Your AI agents do all the heavy lifting.
 | **OpenCode Connector** | `@opencode-ai/sdk` | Full OpenCode SDK integration |
 | **Claude Code Connector** | `@anthropic-ai/claude-agent-sdk` | Claude Agent SDK integration |
 | **Codex Connector** | JSON-RPC | Codex app-server protocol |
-| **Pi Connector** | `@earendil-works/pi-coding-agent` | Event-driven AgentSession integration |
+| **Pi Adapter** | `@earendil-works/pi-coding-agent` | AgentSession behind the backend contract |
 
 ### Key Design Decisions
 
@@ -388,8 +388,8 @@ broski/
 │       ├── connectors/
 │       │   ├── opencode.ts       # OpenCode SDK connector
 │       │   ├── claude-code.ts    # Claude Code SDK connector
-│       │   ├── codex.ts          # Codex app-server connector
-│       │   └── pi.ts             # Pi event-driven connector
+│       │   └── codex.ts          # Codex app-server connector
+│       ├── backends/pi/          # Pi, served through the backend contract
 │       ├── plugins.ts            # Plugin system
 │       ├── custom-tools.ts       # Custom MCP tools
 │       └── ...

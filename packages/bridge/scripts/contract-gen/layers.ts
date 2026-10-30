@@ -12,15 +12,7 @@ const BACKEND_SDKS = new Map<string, readonly string[]>([
 	["codex", []],
 	["opencode", ["@opencode/client"]],
 	["pi", ["@earendil-works/pi-coding-agent", "@earendil-works/pi-ai", "@earendil-works/pi-agent-core"]],
-	["pi-durable", ["@earendil-works/pi-durable", "@earendil-works/chord", "@earendil-works/pi-ai"]],
-	["pi-shared", ["@earendil-works/pi-coding-agent", "@earendil-works/pi-ai"]],
 ]);
-
-/**
- * Directories several adapters share, and who may import them. Pi Durable runs on Pi's model
- * runtime (pd D9), so the code both use lives once, under `backends/pi-shared/`.
- */
-const SHARED_DIRS = new Map<string, readonly string[]>([["pi-shared", ["pi", "pi-durable"]]]);
 
 /** `createRequire` hands out a `require` this check cannot follow. */
 const LOADERS = new Set(["module", "node:module"]);
@@ -135,14 +127,12 @@ function withoutExtension(path: string): string {
 }
 
 function backendJudge(file: SourceFile, id: string, sdks: readonly string[], layout: Layout): Judge {
-	const reachable = [join(layout.backends, id), ...sharedFor(id).map((shared) => join(layout.backends, shared))];
+	const own = join(layout.backends, id);
 	return (specifier) => {
 		if (specifier === undefined) return ["an import whose specifier is not a plain string"];
 		if (specifier.startsWith(".")) {
 			const target = resolve(dirname(file.path), specifier);
-			const allowed =
-				reachable.some((dir) => within(target, dir)) ||
-				(within(target, layout.contract) && !within(target, layout.testing));
+			const allowed = within(target, own) || (within(target, layout.contract) && !within(target, layout.testing));
 			return allowed ? [] : [`${specifier} is neither this backend nor the contract`];
 		}
 		if (LOADERS.has(specifier)) return [`${specifier} loads modules this check cannot see`];
@@ -151,10 +141,6 @@ function backendJudge(file: SourceFile, id: string, sdks: readonly string[], lay
 		}
 		return [`${specifier} is not this backend's SDK`];
 	};
-}
-
-function sharedFor(id: string): string[] {
-	return [...SHARED_DIRS].flatMap(([shared, users]) => (users.includes(id) ? [shared] : []));
 }
 
 function within(path: string, dir: string): boolean {

@@ -3,7 +3,6 @@ import 'package:broski/providers/connection/link_send_failure_notice.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/link/machines_provider.dart';
 import 'package:broski/providers/onboarding_provider.dart';
-import 'package:broski/providers/pi/pi_backend_event_listener.dart';
 import 'package:broski/screens/bridge_setup_screen.dart';
 import 'package:broski/screens/main_shell.dart';
 import 'package:broski/screens/onboarding_screen.dart';
@@ -22,7 +21,6 @@ class RootScreen extends ConsumerWidget {
   const RootScreen({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    ref.watch(piBackendEventListenerProvider);
     ref.watch(linkConnectionBootstrapProvider);
     ref.watch(linkSendFailureNoticeProvider);
     final connectionState = ref.watch(connectionProvider);

@@ -59,21 +59,6 @@ const SCHEMAS: Partial<Record<ClientMessage["type"], Schema>> = {
 	cx_permission_response: [string("requestId"), string("response")],
 	cx_shell_command: [string("threadId"), string("command")],
 
-	pi_chat: [string("prompt"), string("projectPath", true)],
-	pi_steer: [string("message")],
-	pi_follow_up: [string("message")],
-	pi_execute_bash: [string("command")],
-	pi_send_custom_message: [string("customType"), string("content", true)],
-	pi_set_model: [string("provider"), string("modelId")],
-	pi_set_session_name: [string("name")],
-	pi_switch_session: [string("sessionPath")],
-	pi_delete_session: [string("sessionPath")],
-	pi_get_subagent_invocation: [string("parentSessionPath"), string("toolCallId")],
-	pi_read_session_messages: [string("sessionPath", true), string("sessionId", true)],
-
-	pd_chat: [string("sessionId"), string("content")],
-	pd_create_session: [string("cwd")],
-
 	unified_list_sessions: [string("backend")],
 	unified_list_projects: [string("backend")],
 	unified_list_models: [string("backend")],

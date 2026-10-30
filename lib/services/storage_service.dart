@@ -9,7 +9,6 @@ import 'package:broski/models/highlight_color.dart';
 import 'package:broski/models/mcp.dart';
 import 'package:broski/models/message.dart';
 import 'package:broski/models/permission_rule.dart';
-import 'package:broski/models/pi.dart';
 import 'package:broski/models/project.dart';
 import 'package:broski/models/provider.dart';
 import 'package:broski/models/session.dart';
@@ -23,7 +22,6 @@ import 'package:broski/services/storage/broski_secure_storage.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 part 'storage/storage_codex.dart';
-part 'storage/storage_pi_durable.dart';
 
 class StorageService {
   static const _disabledToolsKey = 'broski_disabled_tools';
@@ -84,8 +82,6 @@ class StorageService {
   static const _cachedSubagentsKey = 'broski_cached_subagents';
   static const _cachedCustomToolsKey = 'broski_cached_custom_tools';
   static const _cachedPluginsKey = 'broski_cached_plugins';
-  static const _cachedPiSessionsKey = 'broski_cached_pi_sessions';
-  static const _cachedPiProjectsKey = 'broski_cached_pi_projects';
   static const _cachedCCProjectsKey = 'broski_cached_cc_projects';
 
   final FlutterSecureStorage _storage = broskiSecureStorage;
@@ -133,8 +129,6 @@ class StorageService {
       _cachedSubagentsKey,
       _cachedCustomToolsKey,
       _cachedPluginsKey,
-      _cachedPiSessionsKey,
-      _cachedPiProjectsKey,
       _cachedCCProjectsKey,
       StorageCodex._cachedCodexConfigKey,
       StorageCodex._cachedCodexExperimentalFeaturesKey,
@@ -854,30 +848,6 @@ class StorageService {
   /// Get cached Claude Code messages for a session
   Future<List<ChatMessage>> getCachedCCMessages(String sessionId) =>
       _getList('$_cachedCCMessagesPrefix$sessionId', _messageFromJson);
-
-  // ============================================================
-  // Pi Sessions Cache
-  // ============================================================
-
-  /// Cache Pi sessions list
-  Future<void> cachePiSessions(List<PiSessionInfo> sessions) =>
-      _putList(_cachedPiSessionsKey, sessions, (s) => s.toJson());
-
-  /// Get cached Pi sessions
-  Future<List<PiSessionInfo>> getCachedPiSessions() =>
-      _getList(_cachedPiSessionsKey, (j) => PiSessionInfo.fromJson(j));
-
-  // ============================================================
-  // Pi Projects Cache
-  // ============================================================
-
-  /// Cache Pi projects (derived from Pi session cwd values)
-  Future<void> cachePiProjects(List<ProjectSummary> projects) =>
-      _putList(_cachedPiProjectsKey, projects, _projectToJson);
-
-  /// Load cached Pi projects
-  Future<List<ProjectSummary>> getCachedPiProjects() =>
-      _getList(_cachedPiProjectsKey, (j) => ProjectSummary.fromJson(j));
 
   // ============================================================
   // Claude Code Projects Cache

@@ -5,18 +5,18 @@ import type { RequestContext, ServerDeps } from "../routing/types";
 import { validateMessageShape } from "../routing/validate";
 import type { ClientMessage, ServerMessage } from "../types";
 
-const HOT_TYPES = ["cc_chat", "chat", "pi_chat", "set_view", "cx_chat"] as const;
+const HOT_TYPES = ["cc_chat", "chat", "set_view", "cx_chat"] as const;
 
 describe("message shape validation", () => {
 	test("accepts well-formed messages", () => {
-		expect(validateMessageShape({ type: "pi_chat", prompt: "hi" })).toBeNull();
+		expect(validateMessageShape({ type: "cc_chat", prompt: "hi" })).toBeNull();
 		expect(validateMessageShape({ type: "cc_chat", prompt: "hi", cwd: "/tmp" })).toBeNull();
 		expect(validateMessageShape({ type: "pty_resize", ptyId: "p1", rows: 24, cols: 80 })).toBeNull();
-		expect(validateMessageShape({ type: "set_view", agent: "pi", sessionId: "s1" })).toBeNull();
+		expect(validateMessageShape({ type: "set_view", agent: "claude-code", sessionId: "s1" })).toBeNull();
 	});
 
 	test("rejects a missing required field", () => {
-		expect(validateMessageShape({ type: "pi_chat" })).toContain("prompt");
+		expect(validateMessageShape({ type: "cc_chat" })).toContain("prompt");
 		expect(validateMessageShape({ type: "pty_input", ptyId: "p1" })).toContain("data");
 		expect(validateMessageShape({ type: "git_commit", projectPath: "/tmp" })).toContain("message");
 	});
@@ -33,28 +33,29 @@ describe("message shape validation", () => {
 	});
 });
 
-const piChatSchema = z.object({
-	type: z.literal("pi_chat"),
+const ccChatSchema = z.object({
+	type: z.literal("cc_chat"),
 	prompt: z.string(),
-	projectPath: z.string().optional(),
+	sessionId: z.string().optional(),
+	cwd: z.string().optional(),
 });
 
 describe("validation and dispatch cost", () => {
 	test("hand-written guards beat zod on the hot path and stay far under 20us", () => {
 		const iterations = 100_000;
-		const raw = { type: "pi_chat", prompt: "hello world" };
+		const raw = { type: "cc_chat", prompt: "hello world" };
 
 		const guardStart = performance.now();
 		for (let i = 0; i < iterations; i++) validateMessageShape(raw);
 		const guardMs = performance.now() - guardStart;
 
 		const zodStart = performance.now();
-		for (let i = 0; i < iterations; i++) piChatSchema.safeParse(raw);
+		for (let i = 0; i < iterations; i++) ccChatSchema.safeParse(raw);
 		const zodMs = performance.now() - zodStart;
 
 		const guardUs = (guardMs / iterations) * 1000;
 		const zodUs = (zodMs / iterations) * 1000;
-		console.log(`[bench] validate pi_chat: guard=${guardUs.toFixed(3)}us zod=${zodUs.toFixed(3)}us`);
+		console.log(`[bench] validate cc_chat: guard=${guardUs.toFixed(3)}us zod=${zodUs.toFixed(3)}us`);
 		expect(guardUs).toBeLessThan(20);
 	});
 
@@ -158,17 +159,6 @@ const OC_ORDER = [
 	"oc_init_git",
 	"oc_health",
 ];
-const PI_ORDER = [
-	"pi_get_subagent_invocation",
-	"pi_read_session_messages",
-	"pi_get_tools",
-	"pi_abort_compaction",
-	"pi_execute_bash",
-	"pi_set_label",
-	"pi_get_tree",
-	"pi_send_custom_message",
-	"pi_chat",
-];
 const UNIFIED_ORDER = ["unified_list_sessions", "unified_list_session_children"];
 const CHAIN_TAIL = ["cc_elicitation_response", "cc_chat"];
 
@@ -177,12 +167,6 @@ async function matchesOwned(owned: string, type: string): Promise<boolean> {
 }
 
 async function simulateOldChain(type: string): Promise<void> {
-	if (type.startsWith("pi_")) {
-		for (const owned of PI_ORDER) {
-			if (await matchesOwned(owned, type)) return;
-		}
-		return;
-	}
 	if (type.startsWith("unified_")) {
 		for (const owned of UNIFIED_ORDER) {
 			if (await matchesOwned(owned, type)) return;

@@ -100,13 +100,13 @@ function connect(port: number, token: string): Promise<WebSocket> {
 function buildDelta(): ServerMessage {
 	const event: BroskiAssistantTextDeltaEvent = {
 		type: "assistant_text_delta",
-		backend: "pi",
+		backend: "claude-code",
 		timestampMs: Date.now(),
 		sessionId: "bench-session",
 		streamId: "bench-stream",
 		delta: nextDelta(),
 	};
-	return { type: "runtime_event", backend: "pi", data: event };
+	return { type: "runtime_event", backend: "claude-code", data: event };
 }
 
 function buildSessionList(): ServerMessage {
@@ -149,7 +149,7 @@ async function connectCounting(proxyPort: number, token: string): Promise<Counti
 			counting.chars += String(record.delta ?? "").length;
 		}
 	});
-	counting.ws.send(JSON.stringify({ type: "set_view", agent: "pi", sessionId: "bench-session" }));
+	counting.ws.send(JSON.stringify({ type: "set_view", agent: "claude-code", sessionId: "bench-session" }));
 	await Bun.sleep(100);
 	return counting;
 }

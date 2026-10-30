@@ -1,5 +1,4 @@
 import 'package:broski/models/agent_type.dart';
-import 'package:broski/providers/agent_type_restore.dart';
 import 'package:broski/providers/connection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/services/storage_service.dart';
@@ -42,17 +41,12 @@ class AgentTypeNotifier extends StateNotifier<AgentType> {
 
   bool _didAutoSelectForConnection = false;
   bool _loaded = false;
-  bool _piDurableEnabled = false;
   AgentsStatus? _latestBackends;
 
   Future<void> _load() async {
-    _piDurableEnabled = await _storage.getPiDurableEnabled();
-    final restored = restoredAgentType(
-      await _storage.getSelectedAgentType(),
-      piDurableEnabled: _piDurableEnabled,
-    );
-    if (restored != null) {
-      state = restored;
+    final saved = await _storage.getSelectedAgentType();
+    if (saved != null) {
+      state = AgentType.fromWireValue(saved);
     }
     _loaded = true;
     if (_latestBackends != null) {
@@ -73,8 +67,7 @@ class AgentTypeNotifier extends StateNotifier<AgentType> {
     if (!conn.isConnected) return;
     if (_didAutoSelectForConnection) return;
 
-    if (isSelectableAgent(state, piDurableEnabled: _piDurableEnabled) &&
-        backends.forType(state).available) {
+    if (backends.forType(state).available) {
       _didAutoSelectForConnection = true;
       return;
     }
@@ -86,8 +79,6 @@ class AgentTypeNotifier extends StateNotifier<AgentType> {
       best = AgentType.opencode;
     } else if (backends.codex.available) {
       best = AgentType.codex;
-    } else if (backends.pi.available) {
-      best = AgentType.pi;
     }
 
     final selected = best;
@@ -103,7 +94,6 @@ class AgentTypeNotifier extends StateNotifier<AgentType> {
   bool get isOpenCode => state == AgentType.opencode;
   bool get isClaudeCode => state == AgentType.claudeCode;
   bool get isCodex => state == AgentType.codex;
-  bool get isPi => state == AgentType.pi;
 }
 
 final agentsStatusProvider = FutureProvider<AgentsStatus?>((ref) async {

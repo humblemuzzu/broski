@@ -12,12 +12,13 @@ the user is looking at.**
 ## Why a run is the unit
 
 Both sources read the normalized `agent_started` / `agent_finished` pair. For that to mean "the turn", **only the
-agent run may emit them**. Pi's `turn_start` / `turn_end` (and Pi Durable's) bracket each *model call* inside a run,
+agent run may emit them**. Pi's `turn_start` / `turn_end` bracket each *model call* inside a run,
 so a prompt that runs two tools has three of them; mapped to the lifecycle they made the app finish and restart
 the agent three times (a notification each, the Stop control gone between them) and could push `done` whenever a
-model call took longer than the 5 s idle window. The Pi mappers now emit `agent_started` for `agent_start` and
-`agent_finished` for `agent_end` only; `turn_*` and `agent_settled` map to nothing
-(`runtime/pi-runtime-event-mapper.ts`, `runtime/pi-durable-runtime-event-mapper.ts`).
+model call took longer than the 5 s idle window. The old Pi mappers (deleted on 2026-10-30) emitted
+`agent_started` for `agent_start` and `agent_finished` for `agent_end` only. Pi now speaks the contract, and its
+adapter keeps the rule: a run opens at `agent_start`, `run_finished` follows `agent_settled`, and `turn_*` map to
+nothing (`backends/pi/live/event-bridge.ts`).
 
 The `runtime_state` snapshot that follows a Pi run is published at `agent_settled`, not at `agent_end`: at
 `agent_end` the session still reports `isStreaming`, and a snapshot saying so would start the turn again in the

@@ -13,11 +13,6 @@ import {
 } from "../runtime/claude-code-runtime-read-models";
 import { buildCodexRuntimeState, mapCodexThreadToRuntimeSession } from "../runtime/codex-runtime-read-models";
 import { mapOpenCodeStatusToRuntimeState } from "../runtime/opencode-runtime-read-models";
-import {
-	buildPiActiveRuntimeStateMessages,
-	findPiActiveRuntimeStateMessage,
-	listPiActiveSessionSnapshots,
-} from "../runtime/pi-runtime-bootstrap";
 import { getSecurePath, isSafeClaudeCommandName, resolveClaudeCommandFilePath } from "../security";
 import type { AgentType, CodexThread } from "../types";
 import type { Backends } from "./backends";
@@ -162,15 +157,11 @@ export function buildServerDeps(ctx: ServerDepsContext): ServerDeps {
 		buildClaudeCodeRuntimeState,
 		buildCodexRuntimeState,
 		mapOpenCodeStatusToRuntimeState,
-		listPiActiveSessionSnapshots,
-		buildPiActiveRuntimeStateMessages,
-		findPiActiveRuntimeStateMessage,
 		replayRuntimeEventsSince: streams.replayRuntimeEventsForSocket,
 		emitCcStream: streams.emitCcStream,
 		emitCxStream: streams.emitCxStream,
 		enqueueSdkEvent: ctx.opencodeEvents.enqueueSdkEvent,
 		PERMISSION_TIMEOUT_MS: ctx.permissionTimeoutMs,
 		ptyRuntime: ctx.ptyRuntime,
-		piDurableSockets: state.piDurableSockets,
 	} as ServerDeps;
 }

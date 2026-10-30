@@ -1,7 +1,5 @@
 import type { ServerWebSocket } from "bun";
 import * as cxRouting from "../handlers/cx_routing";
-import * as piDurable from "../handlers/pi_durable";
-import * as piFeatures from "../handlers/pi_features";
 import type { PtyRuntime } from "../pty/runtime";
 import type { AgentType, DeviceInfo } from "../types";
 import type { ContractSeam } from "./contract-seam";
@@ -196,7 +194,6 @@ export function createConnections(deps: ConnectionsDeps): Connections {
 			const disconnectedDeviceName = ctx?.deviceName;
 			const prevKey = makeSessionKey(ctx?.viewAgent, ctx?.sessionId);
 			sessions.updateSessionWatchers(ws, prevKey, null);
-			piDurable.detach(state.piDurableSockets.for(ws));
 			deps.contract.disconnect(ws);
 			cxRouting.detachCxFsWatches(ws, state.codexClient);
 
@@ -229,12 +226,6 @@ export function createConnections(deps: ConnectionsDeps): Connections {
 			state.contexts.delete(ws);
 			rateLimiters.delete(ws);
 			state.runtimeSendQueue.disposeSocket(ws);
-
-			// Pi watchers are registered per socket; a socket that goes away without another
-			// set_view would otherwise keep its external tail polling for the session forever.
-			for (const orphanedSessionId of piFeatures.prunePiWatchers((sock) => state.sockets.has(sock))) {
-				piFeatures.stopPiExternalTail(orphanedSessionId);
-			}
 
 			// Remove client from active PTY subscriptions.
 			deps.ptyRuntime.onClientDisconnected(ws);

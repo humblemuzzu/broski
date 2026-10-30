@@ -135,9 +135,9 @@ app exactly as they do in your terminal.
 ## Troubleshooting
 
 **Pi providers are unavailable from the phone but work in the terminal.** Your key is exported in a shell profile
-(`export RIVER_API_KEY=…`) and the service never read it. `bun scripts/measure-pi-models.ts --service-env` prints
-the catalogue with the service's environment, and `bun scripts/measure-pi-models.ts` prints it with yours; the two
-must match `pi --list-models`. If they do not, check `~/.broski/logs/bridge.log` for the `[shell-env]` line.
+(`export RIVER_API_KEY=…`) and the service never read it. `broski doctor` resolves the service's environment and
+names the provider variables it finds; compare that with `pi --list-models` in your terminal. If they differ, check
+`~/.broski/logs/bridge.log` for the `[shell-env]` line.
 
 **`Ensure OpenCode is installed and on PATH`.** Same cause: `~/.local/bin`, `~/.npm-global/bin` or a version
 manager's shims were not on the service's `PATH`. The login-shell import puts them there; restart the bridge.
@@ -148,7 +148,7 @@ that provider. Export it in your shell profile, then restart the bridge.
 ```bash
 broski restart                 # or the restart button in the app
 broski logs                    # bridge.log, including the [shell-env] line
-bun scripts/measure-pi-models.ts --service-env
+broski doctor                  # the provider variables the service can see
 ```
 
 ## Development
@@ -162,9 +162,8 @@ bun test                   # Bun test runner
 bun scripts/measure-session-lists.ts
 ```
 
-`measure-session-lists.ts` is read-only: it copies the Pi session index into a temp cache root, never
-writes to `~/.broski`, `~/.pi`, `~/.claude` or `~/.codex`, stops if the process passes 2 GiB RSS, and
-prints the full-list and first-page size of `pi_sessions`, `cc_sessions`, `cx_threads`, `sessions`
+`measure-session-lists.ts` is read-only: it never writes to `~/.broski`, `~/.claude` or `~/.codex`, stops
+if the process passes 2 GiB RSS, and prints the full-list and first-page size of `cc_sessions`, `cx_threads`, `sessions`
 (OpenCode) and the `runtime_sessions` shape each one used to send whole. A backend that is not
 installed is reported and skipped.
 
