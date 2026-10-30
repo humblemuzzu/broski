@@ -3,14 +3,16 @@ import 'package:broski/agent/ui/panels/op_inputs.dart';
 import 'package:broski/agent/ui/panels/session_control_inputs.dart';
 import 'package:broski/agent/ui/panels/transfer/file_transfers.dart';
 import 'package:broski/agent/ui/panels/transfer/import_flow.dart';
+import 'package:broski/agent/ui/panels/tree_panels.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:flutter/material.dart';
 
 /// Where an operation is offered: on the session, on one finished item of its
 /// history, on the backend as a whole (it names no session: its panel is run
 /// with a [SessionRef] whose session id is empty), beside the model choice, or
-/// nowhere, because it only continues another operation.
-enum OpPlace { session, item, backend, modelPicker, continuation }
+/// in no menu, because another panel or screen calls it (an export's later
+/// parts, the tree's label and cancel, the composer's shell command).
+enum OpPlace { session, item, backend, modelPicker, unlisted }
 
 /// Which sessions an operation applies to, by what the session allows.
 enum OpAudience {
@@ -52,8 +54,8 @@ final class OpPanel {
   )
   ask;
 
-  /// For an operation that is more than one call: it runs instead of [ask]
-  /// and the call, and shows its own outcome.
+  /// For an operation that is more than one call, or a screen of its own: it
+  /// runs instead of [ask] and the call, and shows its own outcome.
   final Future<void> Function(
     BuildContext context,
     ContractClient client,
@@ -108,6 +110,12 @@ OpPanel panelFor(BackendOpKind kind) => switch (kind) {
     place: OpPlace.item,
     ask: askNavigateTree,
   ),
+  BackendOpKind.readTree => treePanel,
+  BackendOpKind.labelEntry => embeddedOp(BackendOpKind.labelEntry),
+  BackendOpKind.abortBranchSummary => embeddedOp(
+    BackendOpKind.abortBranchSummary,
+  ),
+  BackendOpKind.runShell => embeddedOp(BackendOpKind.runShell),
   BackendOpKind.takeOver => const OpPanel(
     kind: BackendOpKind.takeOver,
     label: 'Take over this session',
@@ -145,7 +153,7 @@ OpPanel panelFor(BackendOpKind kind) => switch (kind) {
   BackendOpKind.exportPart => const OpPanel(
     kind: BackendOpKind.exportPart,
     label: 'Read an export',
-    place: OpPlace.continuation,
+    place: OpPlace.unlisted,
     ask: askNothing,
   ),
   BackendOpKind.importSession => OpPanel(

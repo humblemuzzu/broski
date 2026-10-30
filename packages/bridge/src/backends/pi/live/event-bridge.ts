@@ -26,7 +26,7 @@ import { persistedEntryId } from "./persisted-entry";
 import type { PromptDesk } from "./prompt-desk";
 import type { QueueMirror } from "./queue-mirror";
 import type { RunTracker } from "./run-tracker";
-import { ToolFlow } from "./tool-flow";
+import { type ChildLinks, ToolFlow } from "./tool-flow";
 import type { UsageFeed } from "./usage-feed";
 
 /** What the host does with the events that are about the session rather than about a run. */
@@ -48,6 +48,7 @@ export interface EventBridgeDeps {
 	readonly usage: UsageFeed;
 	readonly now: () => number;
 	readonly hooks: BridgeHooks;
+	readonly children: ChildLinks;
 }
 
 /**
@@ -69,6 +70,7 @@ export class EventBridge {
 			emit: (event) => deps.live.emit(event),
 			run: () => deps.runs.current(),
 			aborting: () => deps.runs.aborting,
+			children: deps.children,
 			record: (outcome) => this.appendRecord(TOOL_OUTCOME_ENTRY, toolOutcomeEntryData(outcome)),
 		});
 	}
@@ -268,7 +270,7 @@ export class EventBridge {
 			runs.start(
 				this.compactionRequested ? "prompt" : "system",
 				this.requireSession().sessionManager.getLeafId(),
-				true,
+				"compaction",
 			);
 		}
 		this.compactionRequested = false;

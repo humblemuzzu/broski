@@ -82,7 +82,11 @@ enum BackendOpKind {
   exportPart('export_part'),
   importSession('import_session'),
   changedFiles('changed_files'),
-  refreshModels('refresh_models');
+  refreshModels('refresh_models'),
+  readTree('read_tree'),
+  labelEntry('label_entry'),
+  abortBranchSummary('abort_branch_summary'),
+  runShell('run_shell');
 
   const BackendOpKind(this.wire);
 
@@ -115,6 +119,10 @@ sealed class BackendOpResult {
         'import_session' => SessionImported.fromJson(json),
         'changed_files' => ChangedFilesListed.fromJson(json),
         'refresh_models' => ModelsRefreshed.fromJson(json),
+        'read_tree' => TreeRead.fromJson(json),
+        'label_entry' => EntryLabelled.fromJson(json),
+        'abort_branch_summary' => BranchSummaryAborted.fromJson(json),
+        'run_shell' => ShellStarted.fromJson(json),
         final tag => throw FormatException(
           'Unknown BackendOpResult kind: $tag',
         ),
@@ -337,25 +345,36 @@ final class NavigateTreeOp implements PiOp {
     required this.sessionId,
     required this.itemId,
     required this.summarize,
+    this.instructions,
   });
 
   factory NavigateTreeOp.fromJson(Map<String, Object?> json) {
     _expectShape(
       json,
       'NavigateTreeOp',
-      const <String>{'kind', 'sessionId', 'itemId', 'summarize'},
+      const <String>{
+        'kind',
+        'sessionId',
+        'itemId',
+        'summarize',
+        'instructions',
+      },
       const <String, String>{'kind': 'navigate_tree'},
     );
     return NavigateTreeOp(
       sessionId: _as<String>(json['sessionId'], 'NavigateTreeOp.sessionId'),
       itemId: _as<String>(json['itemId'], 'NavigateTreeOp.itemId'),
       summarize: _as<bool>(json['summarize'], 'NavigateTreeOp.summarize'),
+      instructions: json.containsKey('instructions')
+          ? _as<String>(json['instructions'], 'NavigateTreeOp.instructions')
+          : null,
     );
   }
 
   final SessionId sessionId;
   final TranscriptItemId itemId;
   final bool summarize;
+  final String? instructions;
 
   @override
   Map<String, Object?> toJson() => {
@@ -363,6 +382,7 @@ final class NavigateTreeOp implements PiOp {
     'sessionId': sessionId,
     'itemId': itemId,
     'summarize': summarize,
+    if (instructions case final value?) 'instructions': value,
   };
 
   @override
@@ -371,15 +391,20 @@ final class NavigateTreeOp implements PiOp {
       other is NavigateTreeOp &&
           _equal(sessionId, other.sessionId) &&
           _equal(itemId, other.itemId) &&
-          _equal(summarize, other.summarize);
+          _equal(summarize, other.summarize) &&
+          _equal(instructions, other.instructions);
 
   @override
-  int get hashCode =>
-      Object.hashAll([_hash(sessionId), _hash(itemId), _hash(summarize)]);
+  int get hashCode => Object.hashAll([
+    _hash(sessionId),
+    _hash(itemId),
+    _hash(summarize),
+    _hash(instructions),
+  ]);
 
   @override
   String toString() =>
-      'NavigateTreeOp(sessionId: $sessionId, itemId: $itemId, summarize: $summarize)';
+      'NavigateTreeOp(sessionId: $sessionId, itemId: $itemId, summarize: $summarize, instructions: $instructions)';
 }
 
 final class OpenCodeCall implements BackendCall {
@@ -472,6 +497,10 @@ sealed class PiOp {
     'import_session' => ImportSessionOp.fromJson(json),
     'changed_files' => ChangedFilesOp.fromJson(json),
     'refresh_models' => RefreshModelsOp.fromJson(json),
+    'read_tree' => ReadTreeOp.fromJson(json),
+    'label_entry' => LabelEntryOp.fromJson(json),
+    'abort_branch_summary' => AbortBranchSummaryOp.fromJson(json),
+    'run_shell' => RunShellOp.fromJson(json),
     final tag => throw FormatException('Unknown PiOp kind: $tag'),
   };
 

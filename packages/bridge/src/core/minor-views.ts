@@ -25,6 +25,10 @@ const OP_ADDED_IN: Readonly<Partial<Record<BackendOpKind, number>>> = {
 	import_session: ADDED_IN_MINOR.sessionFiles,
 	changed_files: ADDED_IN_MINOR.sessionFiles,
 	refresh_models: ADDED_IN_MINOR.modelAvailability,
+	read_tree: ADDED_IN_MINOR.treeOps,
+	label_entry: ADDED_IN_MINOR.treeOps,
+	abort_branch_summary: ADDED_IN_MINOR.treeOps,
+	run_shell: ADDED_IN_MINOR.shellOps,
 };
 
 /** The descriptor as `client` may know it: without the ops a later minor added. */

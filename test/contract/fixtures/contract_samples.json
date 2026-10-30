@@ -1,4 +1,10 @@
 {
+  "AbortBranchSummaryOp": [
+    {
+      "kind": "abort_branch_summary",
+      "sessionId": "x"
+    }
+  ],
   "AbortRequest": [
     {
       "type": "abort",
@@ -1223,7 +1229,8 @@
         "kind": "navigate_tree",
         "sessionId": "x",
         "itemId": "x",
-        "summarize": true
+        "summarize": true,
+        "instructions": "x"
       }
     },
     {
@@ -1468,7 +1475,11 @@
     "export_part",
     "import_session",
     "changed_files",
-    "refresh_models"
+    "refresh_models",
+    "read_tree",
+    "label_entry",
+    "abort_branch_summary",
+    "run_shell"
   ],
   "BackendOpResult": [
     {
@@ -1646,6 +1657,46 @@
       "problems": [
         "x"
       ]
+    },
+    {
+      "kind": "read_tree",
+      "leafId": "x",
+      "total": 1,
+      "nodes": [
+        {
+          "id": "x",
+          "parentId": "x",
+          "itemId": "x",
+          "kind": "user",
+          "at": 1,
+          "preview": "x",
+          "previewCut": true,
+          "label": "x"
+        }
+      ],
+      "nextCursor": "x"
+    },
+    {
+      "kind": "read_tree",
+      "total": 1,
+      "nodes": [
+        {
+          "id": "x",
+          "itemId": "x",
+          "kind": "user",
+          "preview": "x",
+          "previewCut": false
+        }
+      ]
+    },
+    {
+      "kind": "label_entry"
+    },
+    {
+      "kind": "abort_branch_summary"
+    },
+    {
+      "kind": "run_shell"
     }
   ],
   "BackendStatus": [
@@ -1917,6 +1968,11 @@
     {
       "kind": "boolean",
       "value": false
+    }
+  ],
+  "BranchSummaryAborted": [
+    {
+      "kind": "abort_branch_summary"
     }
   ],
   "CancelReply": [
@@ -3085,6 +3141,11 @@
     {
       "kind": "custom",
       "instructions": "x"
+    }
+  ],
+  "EntryLabelled": [
+    {
+      "kind": "label_entry"
     }
   ],
   "ErrorCode": [
@@ -4516,6 +4577,19 @@
     null,
     "text"
   ],
+  "LabelEntryOp": [
+    {
+      "kind": "label_entry",
+      "sessionId": "x",
+      "entryId": "x",
+      "label": "x"
+    },
+    {
+      "kind": "label_entry",
+      "sessionId": "x",
+      "entryId": "x"
+    }
+  ],
   "Mention": [
     {
       "kind": "file",
@@ -5072,7 +5146,8 @@
       "kind": "navigate_tree",
       "sessionId": "x",
       "itemId": "x",
-      "summarize": true
+      "summarize": true,
+      "instructions": "x"
     },
     {
       "kind": "navigate_tree",
@@ -5392,7 +5467,8 @@
         "kind": "navigate_tree",
         "sessionId": "x",
         "itemId": "x",
-        "summarize": true
+        "summarize": true,
+        "instructions": "x"
       }
     },
     {
@@ -5410,7 +5486,8 @@
       "kind": "navigate_tree",
       "sessionId": "x",
       "itemId": "x",
-      "summarize": true
+      "summarize": true,
+      "instructions": "x"
     },
     {
       "kind": "navigate_tree",
@@ -5487,6 +5564,50 @@
     },
     {
       "kind": "refresh_models"
+    },
+    {
+      "kind": "read_tree",
+      "sessionId": "x",
+      "page": {
+        "cursor": "x",
+        "limit": 1
+      }
+    },
+    {
+      "kind": "read_tree",
+      "sessionId": "x",
+      "page": {
+        "limit": 1
+      }
+    },
+    {
+      "kind": "label_entry",
+      "sessionId": "x",
+      "entryId": "x",
+      "label": "x"
+    },
+    {
+      "kind": "label_entry",
+      "sessionId": "x",
+      "entryId": "x"
+    },
+    {
+      "kind": "abort_branch_summary",
+      "sessionId": "x"
+    },
+    {
+      "kind": "run_shell",
+      "sessionId": "x",
+      "clientRequestId": "00000000-0000-4000-8000-000000000000",
+      "command": "x",
+      "excludeFromContext": true
+    },
+    {
+      "kind": "run_shell",
+      "sessionId": "x",
+      "clientRequestId": "00000000-0000-4000-8000-000000000000",
+      "command": "x",
+      "excludeFromContext": false
     }
   ],
   "Plan": [
@@ -5951,6 +6072,23 @@
     {
       "kind": "rate_limit",
       "window": "x"
+    }
+  ],
+  "ReadTreeOp": [
+    {
+      "kind": "read_tree",
+      "sessionId": "x",
+      "page": {
+        "cursor": "x",
+        "limit": 1
+      }
+    },
+    {
+      "kind": "read_tree",
+      "sessionId": "x",
+      "page": {
+        "limit": 1
+      }
     }
   ],
   "RefreshModelsOp": [
@@ -6549,6 +6687,22 @@
     },
     {
       "kind": "deferred"
+    }
+  ],
+  "RunShellOp": [
+    {
+      "kind": "run_shell",
+      "sessionId": "x",
+      "clientRequestId": "00000000-0000-4000-8000-000000000000",
+      "command": "x",
+      "excludeFromContext": true
+    },
+    {
+      "kind": "run_shell",
+      "sessionId": "x",
+      "clientRequestId": "00000000-0000-4000-8000-000000000000",
+      "command": "x",
+      "excludeFromContext": false
     }
   ],
   "RunStartedEvent": [
@@ -8546,6 +8700,11 @@
   "SettingKey": [
     "x"
   ],
+  "ShellStarted": [
+    {
+      "kind": "run_shell"
+    }
+  ],
   "SnapshotSync": [
     {
       "kind": "snapshot",
@@ -9965,6 +10124,74 @@
   "TreeNavigated": [
     {
       "kind": "navigate_tree"
+    }
+  ],
+  "TreeNode": [
+    {
+      "id": "x",
+      "parentId": "x",
+      "itemId": "x",
+      "kind": "user",
+      "at": 1,
+      "preview": "x",
+      "previewCut": true,
+      "label": "x"
+    },
+    {
+      "id": "x",
+      "itemId": "x",
+      "kind": "user",
+      "preview": "x",
+      "previewCut": false
+    }
+  ],
+  "TreeNodeKind": [
+    "user",
+    "assistant",
+    "assistant_tools",
+    "tool_result",
+    "bash",
+    "custom_message",
+    "compaction",
+    "branch_summary",
+    "model_change",
+    "thinking_change",
+    "session_info",
+    "label",
+    "custom",
+    "context_edit"
+  ],
+  "TreeRead": [
+    {
+      "kind": "read_tree",
+      "leafId": "x",
+      "total": 1,
+      "nodes": [
+        {
+          "id": "x",
+          "parentId": "x",
+          "itemId": "x",
+          "kind": "user",
+          "at": 1,
+          "preview": "x",
+          "previewCut": true,
+          "label": "x"
+        }
+      ],
+      "nextCursor": "x"
+    },
+    {
+      "kind": "read_tree",
+      "total": 1,
+      "nodes": [
+        {
+          "id": "x",
+          "itemId": "x",
+          "kind": "user",
+          "preview": "x",
+          "previewCut": false
+        }
+      ]
     }
   ],
   "UncommittedReview": [

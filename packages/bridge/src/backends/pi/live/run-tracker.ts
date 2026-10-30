@@ -19,11 +19,13 @@ export interface RunTrackerDeps {
 	readonly refreshUsage: () => void;
 }
 
+/** A run with no agent loop: no `agent_settled` will come, and a prompt cannot join it. */
+export type SoloRun = "compaction" | "shell";
+
 interface ActiveRun {
 	readonly context: RunContext;
 	readonly cut: TranscriptCut;
-	/** Pi compacts while idle: no agent loop runs, and no `agent_settled` will come. */
-	readonly compactionOnly: boolean;
+	readonly solo: SoloRun | undefined;
 	aborting: boolean;
 }
 
@@ -38,16 +40,21 @@ export class RunTracker {
 	}
 
 	/** Emits `run_started`; `leafEntryId` is the session's leaf now, where the transcript is cut. */
-	start(trigger: RunTrigger, leafEntryId: string | null, compactionOnly = false): RunContext {
+	start(trigger: RunTrigger, leafEntryId: string | null, solo?: SoloRun): RunContext {
 		const context: RunContext = { runId: mintRunId(), tools: new ToolCallIds() };
-		this.active = { context, cut: { leafEntryId }, compactionOnly, aborting: false };
+		this.active = { context, cut: { leafEntryId }, solo, aborting: false };
 		this.deps.live.emit({ type: "run_started", runId: context.runId, trigger });
 		return context;
 	}
 
 	/** The active run is an idle compaction, which a prompt cannot join. */
 	get compacting(): boolean {
-		return this.active?.compactionOnly === true;
+		return this.active?.solo === "compaction";
+	}
+
+	/** The active run is a shell command the person typed. */
+	get shelling(): boolean {
+		return this.active?.solo === "shell";
 	}
 
 	cut(): TranscriptCut | undefined {

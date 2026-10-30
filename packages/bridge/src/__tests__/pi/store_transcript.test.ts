@@ -335,7 +335,7 @@ describe("a big session", () => {
 });
 
 describe("naming an entry by an item", () => {
-	test("an item of the branch names its entry; a ghost index, a foreign id and an abandoned branch do not", async () => {
+	test("an item of the branch names its entry; so does the first item of an entry on an abandoned branch; a ghost index and a foreign id do not", async () => {
 		const builder = new SessionBuilder({ id: "named", cwd: env.cwd, version: 3 });
 		const first = builder.user("one", 10);
 		const answer = builder.assistant([textBlock("a"), textBlock("b")], 20);
@@ -348,7 +348,8 @@ describe("naming an entry by an item", () => {
 		expect(await of(`${first}:0`)).toBe(first);
 		expect(await of(`${answer}:1`)).toBe(answer);
 		expect(await of(`${answer}:2`)).toBeUndefined();
-		expect(await of(`${abandoned}:0`)).toBeUndefined();
+		expect(await of(`${abandoned}:0`)).toBe(abandoned);
+		expect(await of(`${abandoned}:1`)).toBeUndefined();
 		expect(await of("nonsense")).toBeUndefined();
 		expect(await entryOfItem(index, "nobody", `${first}:0`, NOBODY, itemsOfEntryStub)).toBeUndefined();
 	});

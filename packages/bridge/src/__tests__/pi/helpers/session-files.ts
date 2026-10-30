@@ -49,6 +49,8 @@ export interface ExternalHeader {
 	/** Absent in a version 1 file. */
 	readonly version?: 2 | 3;
 	readonly timestamp?: string;
+	/** The path of the session this one continues, as a handoff or a fork records it. */
+	readonly parentSession?: string;
 }
 
 export function messageEntry(
@@ -92,6 +94,7 @@ export function writeSessionFile(dir: string, header: ExternalHeader, entries: r
 			id: header.id,
 			timestamp,
 			cwd: header.cwd,
+			...(header.parentSession !== undefined && { parentSession: header.parentSession }),
 		},
 		...entries,
 	].map((line) => JSON.stringify(line));

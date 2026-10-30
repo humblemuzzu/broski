@@ -10,7 +10,7 @@ import { mintMessageId } from "../ids";
 import { noticeEvent } from "../live/live-notes";
 import { LiveState } from "../live/live-state";
 import { RunTracker } from "../live/run-tracker";
-import { ToolFlow } from "../live/tool-flow";
+import { NO_CHILDREN, ToolFlow } from "../live/tool-flow";
 import { customNotice } from "../mapping/message-items";
 import { compactionFinished, compactionRunOutcome, compactionStarted } from "../mapping/session-events";
 import { AssistantStream } from "../mapping/stream-blocks";
@@ -61,6 +61,7 @@ export class TerminalFeed {
 			emit: (event) => this.live.emit(event),
 			run: () => this.runs.current(),
 			aborting: () => this.runs.aborting,
+			children: NO_CHILDREN,
 			record: () => {},
 		});
 	}
@@ -290,7 +291,7 @@ export class TerminalFeed {
 	private compactionStarted(reason: "manual" | "threshold" | "overflow"): void {
 		if (this.live.snapshot().compaction) return;
 		if (!this.runs.current()) {
-			this.runs.start("external", this.leafId, true);
+			this.runs.start("external", this.leafId, "compaction");
 			this.changed();
 		}
 		this.live.emit(compactionStarted({ reason }));

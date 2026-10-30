@@ -6,6 +6,7 @@
 import type {
 	JsonValue,
 	PageRequest,
+	Rejected,
 	SessionGetResult,
 	SessionId,
 	SessionQuery,
@@ -14,11 +15,15 @@ import type {
 	SessionTitle,
 } from "../../../contract";
 import { cursorScope, decodeCursor, encodeCursor } from "../cursor";
+import { parseChildSessionId } from "../ids";
 import type { LiveOverlay } from "../ports";
 import { rejected } from "../rejections";
+import { childRows } from "./children";
+import type { ListedRow } from "./listed-row";
 import { mapPool } from "./pool";
 import type { SessionHead } from "./session-head";
 import type { IndexedSession, SessionIndex } from "./session-index";
+import type { ToolChildren } from "./tool-children";
 
 /** For rows nobody hosts: no status, no model of its own, no run to cut the transcript at. */
 export const NO_LIVE: LiveOverlay = { row: () => undefined };
@@ -86,6 +91,7 @@ export async function listSessions(
 	query: SessionQuery,
 	page: PageRequest,
 	live: LiveOverlay,
+	toolChildren: ToolChildren,
 ): Promise<SessionsListResult> {
 	const scope = cursorScope(["sessions", query.cwd ?? "", String(query.archived), query.parent?.sessionId ?? ""]);
 	const after =
@@ -96,11 +102,13 @@ export async function listSessions(
 	if (query.archived || (query.parent !== undefined && query.parent.backend !== "pi")) {
 		return { status: "accepted", page: { items: [] } };
 	}
-	const heads = sortNewestFirst(await headsOf(index, query));
-	const remaining = after === undefined ? heads : heads.filter((head) => isOlder(head, after));
+	const listed = await rowsOf(index, query, live, toolChildren);
+	if ("rejection" in listed) return listed;
+	const rows = sortNewestFirst(listed);
+	const remaining = after === undefined ? rows : rows.filter((row) => isOlder(row, after));
 	const shown = remaining.slice(0, page.limit);
 	const last = shown.at(-1);
-	const items = await mapPool(shown, SUMMARY_CONCURRENCY, (head) => summaryFor(index, head, live));
+	const items = await mapPool(shown, SUMMARY_CONCURRENCY, (row) => row.summary());
 	return {
 		status: "accepted",
 		page: {
@@ -113,25 +121,40 @@ export async function listSessions(
 	};
 }
 
-async function headsOf(index: SessionIndex, query: SessionQuery): Promise<SessionHead[]> {
+/** The rows a query lists: the sessions of a directory, or a session's children (its forks, and its tool calls' sub-runs). */
+async function rowsOf(
+	index: SessionIndex,
+	query: SessionQuery,
+	live: LiveOverlay,
+	toolChildren: ToolChildren,
+): Promise<ListedRow[] | Rejected> {
 	const heads = await index.scan(query.cwd);
-	if (query.parent === undefined) return heads;
+	const row = (head: SessionHead): ListedRow => ({
+		updatedAt: head.updatedAt,
+		sessionId: head.sessionId,
+		summary: () => summaryFor(index, head, live),
+	});
+	if (query.parent === undefined) return heads.map(row);
 	const parentId = query.parent.sessionId;
-	const forks: SessionHead[] = [];
-	for (const head of heads) if (await isForkOf(index, head, parentId)) forks.push(head);
-	return forks;
+	if (parseChildSessionId(parentId) !== undefined) return [];
+	const forks: ListedRow[] = [];
+	for (const head of heads) if (await isForkOf(index, head, parentId)) forks.push(row(head));
+	const parent = await getSession(index, parentId, live);
+	if (parent.status === "rejected") return forks;
+	const children = await childRows({ children: toolChildren, live }, parent.summary);
+	return "rejection" in children ? forks : [...forks, ...children];
 }
 
 async function isForkOf(index: SessionIndex, head: SessionHead, parentId: SessionId): Promise<boolean> {
 	return head.parentPath !== undefined && (await index.idOfPath(head.parentPath)) === parentId;
 }
 
-function sortNewestFirst(heads: SessionHead[]): SessionHead[] {
-	return heads.sort(
+function sortNewestFirst(rows: ListedRow[]): ListedRow[] {
+	return rows.sort(
 		(a, b) => b.updatedAt - a.updatedAt || (a.sessionId < b.sessionId ? 1 : a.sessionId > b.sessionId ? -1 : 0),
 	);
 }
 
-function isOlder(head: SessionHead, after: SessionsPosition): boolean {
-	return head.updatedAt < after[0] || (head.updatedAt === after[0] && head.sessionId < after[1]);
+function isOlder(row: ListedRow, after: SessionsPosition): boolean {
+	return row.updatedAt < after[0] || (row.updatedAt === after[0] && row.sessionId < after[1]);
 }

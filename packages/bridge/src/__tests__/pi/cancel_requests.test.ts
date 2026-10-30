@@ -29,7 +29,7 @@ describe("cancelling a compaction", () => {
 		await t.rig.arrange(live.ref, { kind: "reply" });
 		await live.run("Something to compact.");
 
-		t.router.scriptSummaries([heldAnswer(t.bus, live.ref.sessionId, "A summary.")]);
+		t.router.scriptUnkeyed([heldAnswer(t.bus, live.ref.sessionId, "A summary.")]);
 		const mark = live.recorder.items.length;
 		expect((await live.control.compact?.(undefined))?.status).toBe("accepted");
 		await live.waitFor("compaction_started", () => true, mark);
@@ -52,7 +52,7 @@ describe("cancelling a compaction", () => {
 		t = await LiveRig.create();
 		const live = await t.rig.openNew({ modelId: wireIdOf(FAUX_MODEL_IDS.tiny) });
 		t.router.script(live.ref.sessionId, [say("x".repeat(16_000))]);
-		t.router.scriptSummaries([heldAnswer(t.bus, live.ref.sessionId, "A summary.")]);
+		t.router.scriptUnkeyed([heldAnswer(t.bus, live.ref.sessionId, "A summary.")]);
 		const result = await live.prompt("fill the window");
 		expect(result.status).toBe("accepted");
 		await live.waitFor("compaction_started", (event) => event.trigger === "auto");

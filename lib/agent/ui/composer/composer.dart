@@ -3,6 +3,8 @@ import 'package:broski/agent/session/agent_session_state.dart';
 import 'package:broski/agent/session/prompt_desk.dart';
 import 'package:broski/agent/ui/composer/composer_extras.dart';
 import 'package:broski/agent/ui/composer/composer_rules.dart';
+import 'package:broski/agent/ui/composer/shell_command.dart';
+import 'package:broski/agent/ui/shared/text_entry_dialog.dart' show showProblem;
 import 'package:broski/contract/generated/contract.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/app_typography.dart';
@@ -65,9 +67,27 @@ class _ComposerState extends ConsumerState<Composer> {
         .send(draft);
   }
 
+  Future<void> _runShell(ShellCommand shell) async {
+    final problem = await startShellCommand(
+      ref.read(contractClientProvider),
+      widget.session,
+      shell,
+    );
+    if (!mounted) return;
+    if (problem == null) {
+      widget.text.clear();
+    } else {
+      showProblem(context, problem);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
+    final shell =
+        offersShell(widget.capabilities) && _extras.attachments.isEmpty
+        ? shellCommandOf(widget.text.text)
+        : null;
     final modes = composerModes(
       widget.capabilities,
       running: widget.state.running,
@@ -103,7 +123,12 @@ class _ComposerState extends ConsumerState<Composer> {
               onSelectionChanged: (picked) =>
                   setState(() => _mode = picked.single),
             ),
-          _inputRow(mode, sendable: mode != null && problem == null),
+          if (shell != null) _shellNote(theme, shell),
+          _inputRow(
+            mode,
+            sendable: mode != null && problem == null,
+            shell: shell,
+          ),
           if (mode == null)
             Text(
               'This backend takes no input while a run is on.',
@@ -114,7 +139,24 @@ class _ComposerState extends ConsumerState<Composer> {
     );
   }
 
-  Widget _inputRow(PromptMode? mode, {required bool sendable}) => Row(
+  Widget _shellNote(OpenCodeTheme theme, ShellCommand shell) => Padding(
+    key: const ValueKey('composer-shell'),
+    padding: const EdgeInsets.only(bottom: Spacing.xs),
+    child: Text(
+      widget.state.running
+          ? 'A command runs once the run ends.'
+          : shell.excludeFromContext
+          ? "Runs in a shell. The output stays out of the model's context."
+          : "Runs in a shell. The output goes to the model's context.",
+      style: AppTypography.caption(color: theme.primary),
+    ),
+  );
+
+  Widget _inputRow(
+    PromptMode? mode, {
+    required bool sendable,
+    required ShellCommand? shell,
+  }) => Row(
     children: [
       Expanded(
         child: TextField(
@@ -131,9 +173,20 @@ class _ComposerState extends ConsumerState<Composer> {
       ),
       IconButton(
         key: const ValueKey('composer-send'),
-        tooltip: mode == null ? null : _modeLabel(mode),
-        icon: Icon(AppIcons.send, color: OpenCodeTheme.of(context).primary),
-        onPressed: mode != null && sendable ? () => _send(mode) : null,
+        tooltip: shell != null
+            ? 'Run'
+            : mode == null
+            ? null
+            : _modeLabel(mode),
+        icon: Icon(
+          shell != null ? AppIcons.terminal : AppIcons.send,
+          color: OpenCodeTheme.of(context).primary,
+        ),
+        onPressed: shell != null
+            ? (widget.state.running ? null : () => _runShell(shell))
+            : mode != null && sendable
+            ? () => _send(mode)
+            : null,
       ),
     ],
   );

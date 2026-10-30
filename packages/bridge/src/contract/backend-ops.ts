@@ -20,6 +20,16 @@ import {
 	SystemPromptOp,
 	SystemPromptResult,
 } from "./session-controls";
+import { RunShellOp, SHELL_OP_KINDS, ShellStarted } from "./shell-ops";
+import {
+	AbortBranchSummaryOp,
+	BranchSummaryAborted,
+	EntryLabelled,
+	LabelEntryOp,
+	ReadTreeOp,
+	TREE_OP_KINDS,
+	TreeRead,
+} from "./tree-ops";
 
 export const BackendOpKind = z.enum([
 	"rewind_files",
@@ -38,6 +48,8 @@ export const BackendOpKind = z.enum([
 	"import_session",
 	"changed_files",
 	"refresh_models",
+	...TREE_OP_KINDS,
+	...SHELL_OP_KINDS,
 ]);
 export type BackendOpKind = z.infer<typeof BackendOpKind>;
 
@@ -61,6 +73,10 @@ export function rewritesHistory(kind: BackendOpKind): boolean {
 		case "import_session":
 		case "changed_files":
 		case "refresh_models":
+		case "read_tree":
+		case "label_entry":
+		case "abort_branch_summary":
+		case "run_shell":
 			return false;
 	}
 }
@@ -146,6 +162,8 @@ export const NavigateTreeOp = z.strictObject({
 	sessionId: SessionId,
 	itemId: TranscriptItemId,
 	summarize: z.boolean(),
+	/** What the summary should stress, as the terminal's "Summarize with custom prompt". */
+	instructions: z.string().min(1).max(MAX_TEXT_CHARS).optional(),
 });
 export type NavigateTreeOp = z.infer<typeof NavigateTreeOp>;
 
@@ -180,6 +198,10 @@ export const PiOp = z.discriminatedUnion("kind", [
 	ImportSessionOp,
 	ChangedFilesOp,
 	RefreshModelsOp,
+	ReadTreeOp,
+	LabelEntryOp,
+	AbortBranchSummaryOp,
+	RunShellOp,
 ]);
 export type PiOp = z.infer<typeof PiOp>;
 
@@ -252,6 +274,10 @@ export const BackendOpResult = z.discriminatedUnion("kind", [
 	SessionImported,
 	ChangedFilesListed,
 	ModelsRefreshed,
+	TreeRead,
+	EntryLabelled,
+	BranchSummaryAborted,
+	ShellStarted,
 ]);
 export type BackendOpResult = z.infer<typeof BackendOpResult>;
 

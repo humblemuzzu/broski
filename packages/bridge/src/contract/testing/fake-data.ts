@@ -121,6 +121,9 @@ export function fakeOpResult(call: BackendCall): BackendOpResult {
 		case "revert_commit":
 		case "navigate_tree":
 		case "take_over":
+		case "label_entry":
+		case "abort_branch_summary":
+		case "run_shell":
 			return { kind: op.kind };
 		case "session_settings":
 			return { kind: op.kind, settings: [{ kind: "toggle", key: "example", label: "Example", enabled: true }] };
@@ -138,5 +141,7 @@ export function fakeOpResult(call: BackendCall): BackendOpResult {
 			return { kind: op.kind, files: [], omitted: 0, additions: 0, deletions: 0 };
 		case "refresh_models":
 			return { kind: op.kind, problems: [] };
+		case "read_tree":
+			return { kind: op.kind, total: 0, nodes: [] };
 	}
 }

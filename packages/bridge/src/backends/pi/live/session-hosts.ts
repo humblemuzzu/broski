@@ -7,16 +7,20 @@ import { unlink } from "node:fs/promises";
 import { type AgentSession, SessionManager } from "@earendil-works/pi-coding-agent";
 import type {
 	ActionResult,
+	BackendCallResult,
 	NewSessionOptions,
 	OpenResult,
 	OpenTarget,
 	Rejected,
+	RunShellOp,
 	SessionId,
 	SessionSink,
 	SessionSnapshot,
+	SessionSummary,
 } from "../../../contract";
 import type { CatalogFeed } from "../catalog-feed";
 import { errorText } from "../error-text";
+import { type ChildSessionPart, parseChildSessionId } from "../ids";
 import { isDirectory } from "../is-directory";
 import type { ModelCatalogue } from "../models/catalogue";
 import { initialPermissions } from "../modes";
@@ -180,7 +184,24 @@ export class SessionHosts implements LiveOverlay, HostAccess, OwnershipAccess, L
 		return rejected("not_found", "The session is not open on this bridge.");
 	}
 
+	/** `run_shell` runs in a session this bridge hosts; the phone that asks has it open, so it does. Undefined when it is not hosted. */
+	runShell(op: RunShellOp): Promise<BackendCallResult> | undefined {
+		const hosted = this.hosts.get(op.sessionId);
+		return hosted && !hosted.ended ? hosted.runShell(op) : undefined;
+	}
+
+	/** A hosted session's child that its tool call is running, or has run in this host's life: a view that follows it. */
+	openChild(part: ChildSessionPart, sink: SessionSink): OpenResult | undefined {
+		return this.hosts.get(part.parentId)?.children.open(part.piToolCallId, sink);
+	}
+
+	unwritten(parentId: SessionId): readonly SessionSummary[] {
+		return this.hosts.get(parentId)?.children.unwritten() ?? [];
+	}
+
 	row(sessionId: SessionId): LiveRow | undefined {
+		const child = parseChildSessionId(sessionId);
+		if (child !== undefined) return this.hosts.get(child.parentId)?.children.row(sessionId);
 		return this.hosts.get(sessionId)?.row() ?? this.deps.terminals.row(sessionId);
 	}
 

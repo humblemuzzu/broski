@@ -16,6 +16,8 @@ import type {
 import { CatalogFeed } from "./catalog-feed";
 import { PiCommandLister } from "./commands";
 import { ConfigWatch } from "./config-watch";
+import { parseChildSessionId } from "./ids";
+import { openChildSession } from "./live/child-open";
 import { SessionHosts } from "./live/session-hosts";
 import { ModelCatalogue } from "./models/catalogue";
 import { listPiModes } from "./modes";
@@ -24,8 +26,10 @@ import { exportPart, exportSession } from "./ops/export-session";
 import { importSession } from "./ops/import-session";
 import { navigateTree } from "./ops/navigate-tree";
 import { refreshModels } from "./ops/refresh-models";
+import { runShellOp } from "./ops/run-shell";
 import { sessionSettings } from "./ops/session-settings";
 import { sessionTools } from "./ops/session-tools";
+import { abortBranchSummaryOp, labelEntryOp, readTreeOp } from "./ops/session-tree";
 import { systemPrompt } from "./ops/system-prompt";
 import { takeOver } from "./ops/take-over";
 import type { SessionStore } from "./ports";
@@ -125,10 +129,14 @@ export function piBackendOf(parts: PiParts): AgentBackend {
 		listModels: (cwd, options) => models.list(cwd, options),
 		listCommands,
 		listModes: async () => listPiModes(),
-		open: async (target, sink) =>
-			target.kind === "existing" && target.session.backend !== "pi"
-				? notFound(target.session)
-				: hosts.open(target, sink),
+		open: async (target, sink) => {
+			if (target.kind === "existing" && target.session.backend !== "pi") return notFound(target.session);
+			const child = target.kind === "existing" ? parseChildSessionId(target.session.sessionId) : undefined;
+			if (target.kind === "existing" && child !== undefined) {
+				return openChildSession({ hosts, store }, target.session, child, sink);
+			}
+			return hosts.open(target, sink);
+		},
 		rename: async (ref, title) =>
 			ref.backend === "pi"
 				? hosts.rename(ref.sessionId, title, (name) => store.rename(ref.sessionId, name))
@@ -176,6 +184,14 @@ function callOp(parts: PiParts, call: BackendCall): Promise<BackendCallResult> {
 			return changedFiles({ store, live: hosts }, op);
 		case "refresh_models":
 			return refreshModels({ models: services.models, catalog });
+		case "read_tree":
+			return readTreeOp({ hosts, store }, op);
+		case "label_entry":
+			return labelEntryOp({ hosts, store }, op);
+		case "abort_branch_summary":
+			return abortBranchSummaryOp({ hosts, store }, op);
+		case "run_shell":
+			return runShellOp({ hosts, store }, op);
 	}
 }
 

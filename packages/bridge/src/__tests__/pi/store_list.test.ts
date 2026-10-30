@@ -7,6 +7,7 @@ import type { LiveOverlay, LiveRow } from "../../backends/pi/ports";
 import { getSession, listSessions } from "../../backends/pi/store/list";
 import { piSessionDirs } from "../../backends/pi/store/session-dir";
 import { SessionIndex } from "../../backends/pi/store/session-index";
+import { ToolChildren } from "../../backends/pi/store/tool-children";
 import {
 	MAX_NAME_CHARS,
 	type PageRequest,
@@ -20,10 +21,12 @@ import { imageBlock, iso, SessionBuilder, T0, textBlock, toolCall, writeSession 
 
 let env: PiTestEnv;
 let index: SessionIndex;
+let children: ToolChildren;
 
 beforeEach(() => {
 	env = createPiTestEnv();
 	index = new SessionIndex(piSessionDirs(env.agentDir));
+	children = new ToolChildren(index);
 });
 
 afterEach(() => {
@@ -40,7 +43,7 @@ function chat(id: string, cwd: string, lastAt: number, prompt = `prompt of ${id}
 }
 
 async function list(query: Partial<SessionQuery>, page: PageRequest = { limit: 200 }, live: LiveOverlay = NOBODY) {
-	const result = await listSessions(index, { archived: false, ...query }, page, live);
+	const result = await listSessions(index, { archived: false, ...query }, page, live, children);
 	expect(SessionsListResult.safeParse(result).success).toBe(true);
 	return result;
 }

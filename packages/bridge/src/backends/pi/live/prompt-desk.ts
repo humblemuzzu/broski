@@ -130,6 +130,7 @@ export class PromptDesk {
 			const run = this.deps.runs.current();
 			if (run && this.pending) return rejected("busy", "the prompt before this one is waiting to start");
 			if (this.deps.runs.compacting) return rejected("busy", "a compaction is under way");
+			if (this.deps.runs.shelling) return rejected("busy", "a shell command is running");
 			if (run && !session.isStreaming) {
 				// Pi clears `isStreaming` before `agent_settled` reaches listeners, and defers a prompt made while
 				// it settles (pi `src/core/agent-session.ts:1078-1100`, `:2093-2096`): wait, then route as idle.

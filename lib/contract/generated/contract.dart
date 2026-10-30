@@ -32,10 +32,12 @@ part 'rejection.dart';
 part 'runs.dart';
 part 'session_controls.dart';
 part 'sessions.dart';
+part 'shell_ops.dart';
 part 'snapshot.dart';
 part 'status.dart';
 part 'tools.dart';
 part 'transcript.dart';
+part 'tree_ops.dart';
 part 'usage.dart';
 
 const int contractProtocolMajor = 1;

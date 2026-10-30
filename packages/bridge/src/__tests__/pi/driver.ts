@@ -40,7 +40,7 @@ export class PiConformanceDriver implements ConformanceDriver {
 
 	async arrange(session: SessionRef, scenario: Scenario): Promise<boolean> {
 		if (scenario.kind === "slow_compaction") {
-			this.world.router.scriptSummaries([heldAnswer(this.world.bus, session.sessionId, "A summary.")]);
+			this.world.router.scriptUnkeyed([heldAnswer(this.world.bus, session.sessionId, "A summary.")]);
 			return true;
 		}
 		const steps = scenarioSteps(this.world.bus, session.sessionId, scenario);
@@ -65,18 +65,34 @@ export class PiConformanceDriver implements ConformanceDriver {
 	}
 
 	async backendCall(session: SessionRef, op: BackendOpKind): Promise<BackendCall | undefined> {
-		if (op === "take_over" || op === "session_settings" || op === "session_tools" || op === "system_prompt") {
-			return { backend: "pi", op: { kind: op, sessionId: session.sessionId } };
+		const { sessionId } = session;
+		switch (op) {
+			case "take_over":
+			case "abort_branch_summary":
+			case "session_settings":
+			case "session_tools":
+			case "system_prompt":
+				return { backend: "pi", op: { kind: op, sessionId } };
+			case "read_tree":
+				return { backend: "pi", op: { kind: op, sessionId, page: { limit: 50 } } };
+			case "run_shell":
+				return {
+					backend: "pi",
+					op: { kind: op, sessionId, clientRequestId: crypto.randomUUID(), command: "true", excludeFromContext: false },
+				};
+			case "navigate_tree":
+			case "label_entry": {
+				const read = await this.world.backend.readTranscript(session, { limit: 200 });
+				if (read.status === "rejected") return undefined;
+				const prompt = read.page.items.find((item) => item.kind === "user_message");
+				if (prompt === undefined) return undefined;
+				return op === "navigate_tree"
+					? { backend: "pi", op: { kind: op, sessionId, itemId: prompt.id, summarize: false } }
+					: { backend: "pi", op: { kind: op, sessionId, entryId: prompt.id.replace(/:0$/, ""), label: "marked" } };
+			}
+			default:
+				return transferCall(this.world.backend, session, op);
 		}
-		const transfer = await transferCall(this.world.backend, session, op);
-		if (transfer !== undefined) return transfer;
-		if (op !== "navigate_tree") return undefined;
-		const read = await this.world.backend.readTranscript(session, { limit: 200 });
-		if (read.status === "rejected") return undefined;
-		const prompt = read.page.items.find((item) => item.kind === "user_message");
-		return (
-			prompt && { backend: "pi", op: { kind: op, sessionId: session.sessionId, itemId: prompt.id, summarize: false } }
-		);
 	}
 
 	/**

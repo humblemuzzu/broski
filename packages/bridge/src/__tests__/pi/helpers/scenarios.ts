@@ -1,6 +1,6 @@
 /**
  * The faux model's script for each conformance `Scenario`, as Pi can play it. A scenario Pi lacks
- * (plan, plan proposals, children, structured forms) has no script: the driver answers `false`.
+ * (plan, plan proposals, structured forms) has no script: the driver answers `false`.
  */
 
 import {
@@ -37,6 +37,11 @@ export function askHuman(
 	extra: { options?: string[]; timeoutMs?: number; withSignal?: boolean; ownSignal?: boolean; tag?: string } = {},
 ): AssistantMessage {
 	return toolUse(fauxToolCall("ask_human", { tag: extra.tag ?? dialog, dialog, title, ...extra }));
+}
+
+/** A call of the driver's subagent tool; with a gate, the tool parks after its first update. */
+export function subagent(task: string, gate?: string): AssistantMessage {
+	return toolUse(fauxToolCall("driver_subagent", { task, ...(gate !== undefined && { gate }) }));
 }
 
 export function holdAt(gate: string, ...before: FauxContentBlock[]): AssistantMessage {
@@ -87,9 +92,10 @@ function featureSteps(feature: Extract<Scenario, { kind: "feature" }>["feature"]
 			return [fauxAssistantMessage([fauxThinking("Let me think."), fauxText("Done.")])];
 		case "usage":
 			return [say(REPLY_TEXT)];
+		case "children":
+			return [subagent("Find the readme."), say("Delegated.")];
 		case "plan":
 		case "plan_proposal":
-		case "children":
 			return undefined;
 	}
 }

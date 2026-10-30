@@ -35,7 +35,9 @@ export const PROTOCOL_VERSION = { major: 1, minor: 3 } as const;
  * `input_returned` event (an older client is sent a `notice` with the same texts in its place) and the
  * `take_over` Pi op (an older client is not told it exists). 1.3: `sessionControls`, the `compaction.cancel` and
  * `retry.cancel` requests with the `SessionCapabilities` fields that announce them, and the Pi ops `session_settings`,
- * `session_tools` and `system_prompt` (an older client is told of none of them).
+ * `session_tools` and `system_prompt`; `sessionFiles` and `modelAvailability`, the Pi session-file ops,
+ * `refresh_models` and the unavailable models of a model list; `treeOps` and `shellOps`, the Pi tree ops
+ * (`read_tree`, `label_entry`, `abort_branch_summary`) and `run_shell`. An older client is told of none of them.
  */
 export const ADDED_IN_MINOR = {
 	replacedSync: 1,
@@ -44,6 +46,8 @@ export const ADDED_IN_MINOR = {
 	sessionControls: 3,
 	sessionFiles: 3,
 	modelAvailability: 3,
+	treeOps: 3,
+	shellOps: 3,
 } as const;
 
 export const ProtocolVersion = z.strictObject({ major: z.int().nonnegative(), minor: z.int().nonnegative() });

@@ -36,6 +36,27 @@ export default function driverExtension(pi: ExtensionAPI): void {
 	});
 
 	pi.registerTool({
+		name: "driver_subagent",
+		label: "Subagent",
+		description:
+			"Runs a subagent whose conversation it returns in its details, as the Task and oracle tools of a user's extensions do.",
+		parameters: Type.Object({ task: Type.String(), gate: Type.Optional(Type.String()) }),
+		execute: async (_toolCallId, params, signal, onUpdate) => {
+			const started = subRun(params.task, "reading", 1);
+			onUpdate?.({ content: [{ type: "text", text: "working" }], details: started });
+			if (params.gate !== undefined) await driverBus().hold(params.gate, signal);
+			const done = subRun(params.task, "found it", 3);
+			return { content: [{ type: "text", text: "found it" }], details: done };
+		},
+	});
+
+	pi.on("user_bash", (event) =>
+		event.command === "drv-result"
+			? { result: { output: "from the extension", exitCode: 0, cancelled: false, truncated: false } }
+			: undefined,
+	);
+
+	pi.registerTool({
 		name: "ask_human",
 		label: "Ask",
 		description: "Asks the human a question through one of Pi's dialogs.",
@@ -75,6 +96,57 @@ export default function driverExtension(pi: ExtensionAPI): void {
 			driverBus().recordAsk("drv-ask", answer);
 		},
 	});
+}
+
+const ASSISTANT_STATS = {
+	api: "faux",
+	provider: "faux",
+	model: "faux-reasoner",
+	usage: {
+		input: 1,
+		output: 1,
+		cacheRead: 0,
+		cacheWrite: 0,
+		totalTokens: 2,
+		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+	},
+	timestamp: 1,
+};
+
+/** The details of a subagent tool: its conversation so far (`messages` messages of three) in one sub-run. */
+function subRun(task: string, answer: string, messages: number) {
+	const all = [
+		{ role: "user", content: [{ type: "text", text: task }], timestamp: 1 },
+		{
+			role: "assistant",
+			content: [
+				{ type: "text", text: "I will look." },
+				{ type: "toolCall", id: "sub-call-1", name: "read", arguments: { path: "README.md" } },
+			],
+			stopReason: "toolUse",
+			...ASSISTANT_STATS,
+		},
+		{
+			role: "toolResult",
+			toolCallId: "sub-call-1",
+			toolName: "read",
+			content: [{ type: "text", text: "# readme" }],
+			isError: false,
+			timestamp: 1,
+		},
+		{ role: "assistant", content: [{ type: "text", text: answer }], stopReason: "stop", ...ASSISTANT_STATS },
+	];
+	return {
+		mode: "single",
+		results: [
+			{
+				agent: "scout",
+				task,
+				exitCode: messages === 3 ? 0 : -1,
+				messages: all.slice(0, messages === 3 ? 4 : messages),
+			},
+		],
+	};
 }
 
 function askOnce(

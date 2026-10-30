@@ -4,6 +4,9 @@
 import 'package:broski/contract/generated/contract.dart';
 
 final Map<String, Object? Function(Object? json)> contractDecoders = {
+  'AbortBranchSummaryOp': (json) => AbortBranchSummaryOp.fromJson(
+    _as<Map<String, Object?>>(json, 'AbortBranchSummaryOp'),
+  ),
   'AbortRequest': (json) =>
       AbortRequest.fromJson(_as<Map<String, Object?>>(json, 'AbortRequest')),
   'AbortResponse': (json) =>
@@ -101,6 +104,9 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
       BooleanField.fromJson(_as<Map<String, Object?>>(json, 'BooleanField')),
   'BooleanValue': (json) =>
       BooleanValue.fromJson(_as<Map<String, Object?>>(json, 'BooleanValue')),
+  'BranchSummaryAborted': (json) => BranchSummaryAborted.fromJson(
+    _as<Map<String, Object?>>(json, 'BranchSummaryAborted'),
+  ),
   'CancelReply': (json) =>
       CancelReply.fromJson(_as<Map<String, Object?>>(json, 'CancelReply')),
   'Capabilities': (json) =>
@@ -217,6 +223,8 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
   ),
   'CustomReview': (json) =>
       CustomReview.fromJson(_as<Map<String, Object?>>(json, 'CustomReview')),
+  'EntryLabelled': (json) =>
+      EntryLabelled.fromJson(_as<Map<String, Object?>>(json, 'EntryLabelled')),
   'ErrorCode': (json) => ErrorCode.fromJson(_as<String>(json, 'ErrorCode')),
   'ErrorEvent': (json) =>
       ErrorEvent.fromJson(_as<Map<String, Object?>>(json, 'ErrorEvent')),
@@ -332,6 +340,8 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
   'IssueSeverity': (json) =>
       IssueSeverity.fromJson(_as<String>(json, 'IssueSeverity')),
   'JsonValue': (json) => JsonValue.fromJson(json),
+  'LabelEntryOp': (json) =>
+      LabelEntryOp.fromJson(_as<Map<String, Object?>>(json, 'LabelEntryOp')),
   'Mention': (json) =>
       Mention.fromJson(_as<Map<String, Object?>>(json, 'Mention')),
   'MentionKind': (json) =>
@@ -531,6 +541,8 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
   'RateLimitUpdate': (json) => RateLimitUpdate.fromJson(
     _as<Map<String, Object?>>(json, 'RateLimitUpdate'),
   ),
+  'ReadTreeOp': (json) =>
+      ReadTreeOp.fromJson(_as<Map<String, Object?>>(json, 'ReadTreeOp')),
   'RefreshModelsOp': (json) => RefreshModelsOp.fromJson(
     _as<Map<String, Object?>>(json, 'RefreshModelsOp'),
   ),
@@ -612,6 +624,8 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
       RunLimited.fromJson(_as<Map<String, Object?>>(json, 'RunLimited')),
   'RunOutcome': (json) =>
       RunOutcome.fromJson(_as<Map<String, Object?>>(json, 'RunOutcome')),
+  'RunShellOp': (json) =>
+      RunShellOp.fromJson(_as<Map<String, Object?>>(json, 'RunShellOp')),
   'RunStartedEvent': (json) => RunStartedEvent.fromJson(
     _as<Map<String, Object?>>(json, 'RunStartedEvent'),
   ),
@@ -748,6 +762,8 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
   'SettingChange': (json) =>
       SettingChange.fromJson(_as<Map<String, Object?>>(json, 'SettingChange')),
   'SettingKey': (json) => _as<String>(json, 'SettingKey'),
+  'ShellStarted': (json) =>
+      ShellStarted.fromJson(_as<Map<String, Object?>>(json, 'ShellStarted')),
   'SnapshotSync': (json) =>
       SnapshotSync.fromJson(_as<Map<String, Object?>>(json, 'SnapshotSync')),
   'StatusChangedEvent': (json) => StatusChangedEvent.fromJson(
@@ -870,6 +886,12 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
   ),
   'TreeNavigated': (json) =>
       TreeNavigated.fromJson(_as<Map<String, Object?>>(json, 'TreeNavigated')),
+  'TreeNode': (json) =>
+      TreeNode.fromJson(_as<Map<String, Object?>>(json, 'TreeNode')),
+  'TreeNodeKind': (json) =>
+      TreeNodeKind.fromJson(_as<String>(json, 'TreeNodeKind')),
+  'TreeRead': (json) =>
+      TreeRead.fromJson(_as<Map<String, Object?>>(json, 'TreeRead')),
   'UncommittedReview': (json) => UncommittedReview.fromJson(
     _as<Map<String, Object?>>(json, 'UncommittedReview'),
   ),
@@ -888,6 +910,9 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
 };
 
 final Map<String, Object? Function(Object? json)> contractRoundTrips = {
+  'AbortBranchSummaryOp': (json) => (AbortBranchSummaryOp.fromJson(
+    _as<Map<String, Object?>>(json, 'AbortBranchSummaryOp'),
+  )).toJson(),
   'AbortRequest': (json) => (AbortRequest.fromJson(
     _as<Map<String, Object?>>(json, 'AbortRequest'),
   )).toJson(),
@@ -1001,6 +1026,9 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   )).toJson(),
   'BooleanValue': (json) => (BooleanValue.fromJson(
     _as<Map<String, Object?>>(json, 'BooleanValue'),
+  )).toJson(),
+  'BranchSummaryAborted': (json) => (BranchSummaryAborted.fromJson(
+    _as<Map<String, Object?>>(json, 'BranchSummaryAborted'),
   )).toJson(),
   'CancelReply': (json) => (CancelReply.fromJson(
     _as<Map<String, Object?>>(json, 'CancelReply'),
@@ -1135,6 +1163,9 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   )).toJson(),
   'CustomReview': (json) => (CustomReview.fromJson(
     _as<Map<String, Object?>>(json, 'CustomReview'),
+  )).toJson(),
+  'EntryLabelled': (json) => (EntryLabelled.fromJson(
+    _as<Map<String, Object?>>(json, 'EntryLabelled'),
   )).toJson(),
   'ErrorCode': (json) =>
       (ErrorCode.fromJson(_as<String>(json, 'ErrorCode'))).toJson(),
@@ -1274,6 +1305,9 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   'IssueSeverity': (json) =>
       (IssueSeverity.fromJson(_as<String>(json, 'IssueSeverity'))).toJson(),
   'JsonValue': (json) => (JsonValue.fromJson(json)).toJson(),
+  'LabelEntryOp': (json) => (LabelEntryOp.fromJson(
+    _as<Map<String, Object?>>(json, 'LabelEntryOp'),
+  )).toJson(),
   'Mention': (json) =>
       (Mention.fromJson(_as<Map<String, Object?>>(json, 'Mention'))).toJson(),
   'MentionKind': (json) =>
@@ -1499,6 +1533,9 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   'RateLimitUpdate': (json) => (RateLimitUpdate.fromJson(
     _as<Map<String, Object?>>(json, 'RateLimitUpdate'),
   )).toJson(),
+  'ReadTreeOp': (json) => (ReadTreeOp.fromJson(
+    _as<Map<String, Object?>>(json, 'ReadTreeOp'),
+  )).toJson(),
   'RefreshModelsOp': (json) => (RefreshModelsOp.fromJson(
     _as<Map<String, Object?>>(json, 'RefreshModelsOp'),
   )).toJson(),
@@ -1600,6 +1637,9 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   )).toJson(),
   'RunOutcome': (json) => (RunOutcome.fromJson(
     _as<Map<String, Object?>>(json, 'RunOutcome'),
+  )).toJson(),
+  'RunShellOp': (json) => (RunShellOp.fromJson(
+    _as<Map<String, Object?>>(json, 'RunShellOp'),
   )).toJson(),
   'RunStartedEvent': (json) => (RunStartedEvent.fromJson(
     _as<Map<String, Object?>>(json, 'RunStartedEvent'),
@@ -1750,6 +1790,9 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
     _as<Map<String, Object?>>(json, 'SettingChange'),
   )).toJson(),
   'SettingKey': (json) => (_as<String>(json, 'SettingKey')),
+  'ShellStarted': (json) => (ShellStarted.fromJson(
+    _as<Map<String, Object?>>(json, 'ShellStarted'),
+  )).toJson(),
   'SnapshotSync': (json) => (SnapshotSync.fromJson(
     _as<Map<String, Object?>>(json, 'SnapshotSync'),
   )).toJson(),
@@ -1892,6 +1935,12 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   'TreeNavigated': (json) => (TreeNavigated.fromJson(
     _as<Map<String, Object?>>(json, 'TreeNavigated'),
   )).toJson(),
+  'TreeNode': (json) =>
+      (TreeNode.fromJson(_as<Map<String, Object?>>(json, 'TreeNode'))).toJson(),
+  'TreeNodeKind': (json) =>
+      (TreeNodeKind.fromJson(_as<String>(json, 'TreeNodeKind'))).toJson(),
+  'TreeRead': (json) =>
+      (TreeRead.fromJson(_as<Map<String, Object?>>(json, 'TreeRead'))).toJson(),
   'UncommittedReview': (json) => (UncommittedReview.fromJson(
     _as<Map<String, Object?>>(json, 'UncommittedReview'),
   )).toJson(),

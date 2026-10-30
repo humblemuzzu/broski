@@ -7,6 +7,25 @@
     "minor": 3
   },
   "$defs": {
+    "AbortBranchSummaryOp": {
+      "x-module": "tree-ops",
+      "$id": "#/$defs/AbortBranchSummaryOp",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "abort_branch_summary"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        }
+      },
+      "required": [
+        "kind",
+        "sessionId"
+      ],
+      "additionalProperties": false
+    },
     "AbortRequest": {
       "x-module": "protocol",
       "$id": "#/$defs/AbortRequest",
@@ -527,7 +546,11 @@
         "export_part",
         "import_session",
         "changed_files",
-        "refresh_models"
+        "refresh_models",
+        "read_tree",
+        "label_entry",
+        "abort_branch_summary",
+        "run_shell"
       ]
     },
     "BackendOpResult": {
@@ -581,6 +604,18 @@
         },
         {
           "$ref": "#/$defs/ModelsRefreshed"
+        },
+        {
+          "$ref": "#/$defs/TreeRead"
+        },
+        {
+          "$ref": "#/$defs/EntryLabelled"
+        },
+        {
+          "$ref": "#/$defs/BranchSummaryAborted"
+        },
+        {
+          "$ref": "#/$defs/ShellStarted"
         }
       ]
     },
@@ -929,6 +964,21 @@
       ],
       "additionalProperties": false
     },
+    "BranchSummaryAborted": {
+      "x-module": "tree-ops",
+      "$id": "#/$defs/BranchSummaryAborted",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "abort_branch_summary"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
     "CancelReply": {
       "x-module": "interaction-replies",
       "$id": "#/$defs/CancelReply",
@@ -1029,7 +1079,7 @@
           }
         },
         "backendOps": {
-          "maxItems": 16,
+          "maxItems": 20,
           "type": "array",
           "items": {
             "$ref": "#/$defs/BackendOpKind"
@@ -2067,6 +2117,21 @@
       "required": [
         "kind",
         "instructions"
+      ],
+      "additionalProperties": false
+    },
+    "EntryLabelled": {
+      "x-module": "tree-ops",
+      "$id": "#/$defs/EntryLabelled",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "label_entry"
+        }
+      },
+      "required": [
+        "kind"
       ],
       "additionalProperties": false
     },
@@ -3250,6 +3315,35 @@
         }
       ]
     },
+    "LabelEntryOp": {
+      "x-module": "tree-ops",
+      "$id": "#/$defs/LabelEntryOp",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "label_entry"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        },
+        "entryId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "kind",
+        "sessionId",
+        "entryId"
+      ],
+      "additionalProperties": false
+    },
     "Mention": {
       "x-module": "input",
       "$id": "#/$defs/Mention",
@@ -3927,6 +4021,11 @@
         },
         "summarize": {
           "type": "boolean"
+        },
+        "instructions": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1048576
         }
       },
       "required": [
@@ -4462,6 +4561,18 @@
         },
         {
           "$ref": "#/$defs/RefreshModelsOp"
+        },
+        {
+          "$ref": "#/$defs/ReadTreeOp"
+        },
+        {
+          "$ref": "#/$defs/LabelEntryOp"
+        },
+        {
+          "$ref": "#/$defs/AbortBranchSummaryOp"
+        },
+        {
+          "$ref": "#/$defs/RunShellOp"
         }
       ]
     },
@@ -5105,6 +5216,29 @@
       "required": [
         "kind",
         "window"
+      ],
+      "additionalProperties": false
+    },
+    "ReadTreeOp": {
+      "x-module": "tree-ops",
+      "$id": "#/$defs/ReadTreeOp",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "read_tree"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        },
+        "page": {
+          "$ref": "#/$defs/PageRequest"
+        }
+      },
+      "required": [
+        "kind",
+        "sessionId",
+        "page"
       ],
       "additionalProperties": false
     },
@@ -5847,6 +5981,39 @@
           "$ref": "#/$defs/RunDeferred"
         }
       ]
+    },
+    "RunShellOp": {
+      "x-module": "shell-ops",
+      "$id": "#/$defs/RunShellOp",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "run_shell"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        },
+        "clientRequestId": {
+          "$ref": "#/$defs/ClientRequestId"
+        },
+        "command": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1048576
+        },
+        "excludeFromContext": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "sessionId",
+        "clientRequestId",
+        "command",
+        "excludeFromContext"
+      ],
+      "additionalProperties": false
     },
     "RunStartedEvent": {
       "x-module": "events",
@@ -7112,6 +7279,21 @@
       "minLength": 1,
       "maxLength": 256
     },
+    "ShellStarted": {
+      "x-module": "shell-ops",
+      "$id": "#/$defs/ShellStarted",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "run_shell"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
     "SnapshotSync": {
       "x-module": "protocol",
       "$id": "#/$defs/SnapshotSync",
@@ -8328,6 +8510,109 @@
       },
       "required": [
         "kind"
+      ],
+      "additionalProperties": false
+    },
+    "TreeNode": {
+      "x-module": "tree-ops",
+      "$id": "#/$defs/TreeNode",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "parentId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "itemId": {
+          "$ref": "#/$defs/TranscriptItemId"
+        },
+        "kind": {
+          "$ref": "#/$defs/TreeNodeKind"
+        },
+        "at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "preview": {
+          "type": "string",
+          "maxLength": 280
+        },
+        "previewCut": {
+          "type": "boolean"
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "id",
+        "itemId",
+        "kind",
+        "preview",
+        "previewCut"
+      ],
+      "additionalProperties": false
+    },
+    "TreeNodeKind": {
+      "x-module": "tree-ops",
+      "$id": "#/$defs/TreeNodeKind",
+      "type": "string",
+      "enum": [
+        "user",
+        "assistant",
+        "assistant_tools",
+        "tool_result",
+        "bash",
+        "custom_message",
+        "compaction",
+        "branch_summary",
+        "model_change",
+        "thinking_change",
+        "session_info",
+        "label",
+        "custom",
+        "context_edit"
+      ]
+    },
+    "TreeRead": {
+      "x-module": "tree-ops",
+      "$id": "#/$defs/TreeRead",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "read_tree"
+        },
+        "leafId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "nodes": {
+          "maxItems": 200,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TreeNode"
+          }
+        },
+        "nextCursor": {
+          "$ref": "#/$defs/PageCursor"
+        }
+      },
+      "required": [
+        "kind",
+        "total",
+        "nodes"
       ],
       "additionalProperties": false
     },

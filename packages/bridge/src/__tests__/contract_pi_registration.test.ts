@@ -53,6 +53,10 @@ describe("a bridge", () => {
 						"import_session",
 						"changed_files",
 						"refresh_models",
+						"read_tree",
+						"label_entry",
+						"abort_branch_summary",
+						"run_shell",
 					],
 					fork: true,
 				});

@@ -83,5 +83,16 @@ function exampleCall(op: BackendOpKind, sessionId: string, itemId: string): Back
 			return { backend: "pi", op: { kind: op, uploadId: "upload", offset: 0, data: "", last: false } };
 		case "refresh_models":
 			return { backend: "pi", op: { kind: op } };
+		case "abort_branch_summary":
+			return { backend: "pi", op: { kind: op, sessionId } };
+		case "read_tree":
+			return { backend: "pi", op: { kind: op, sessionId, page: { limit: 10 } } };
+		case "label_entry":
+			return { backend: "pi", op: { kind: op, sessionId, entryId: itemId, label: "marked" } };
+		case "run_shell":
+			return {
+				backend: "pi",
+				op: { kind: op, sessionId, clientRequestId: crypto.randomUUID(), command: "true", excludeFromContext: false },
+			};
 	}
 }

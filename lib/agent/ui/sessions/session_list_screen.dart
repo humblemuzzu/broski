@@ -36,7 +36,7 @@ class _SessionListScreenState extends ConsumerState<SessionListScreen> {
       title: Text(
         parent == null
             ? backendLabel(widget.backend.id)
-            : 'Subagents of ${parent.title?.text ?? 'this session'}',
+            : 'Under ${parent.title?.text ?? 'this session'}',
       ),
       actions: [
         if (live && hasBackendPanels(widget.backend) && parent == null)

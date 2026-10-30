@@ -117,6 +117,10 @@ class OpResultView extends StatelessWidget {
     RevertCommitted() ||
     TreeNavigated() => const Text('Done. The conversation reloads.'),
     TakenOver() => const Text('This session now runs from your phone.'),
+    TreeRead() ||
+    EntryLabelled() ||
+    BranchSummaryAborted() ||
+    ShellStarted() => const Text('Done.'),
     RevertCleared() => const Text('The staged revert was undone.'),
     SessionSettingsResult(:final settings) => SessionSettingsView(
       settings: settings,

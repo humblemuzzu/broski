@@ -19,7 +19,7 @@ export const PI_TRAITS: BackendTraits = {
 	interactions: ["tool_permission", "choice", "confirm", "text"],
 	modelSwitch: "next_request",
 	thinking: true,
-	children: false,
+	children: true,
 	usage: true,
 	plan: false,
 	planProposals: false,
@@ -37,5 +37,9 @@ export const PI_TRAITS: BackendTraits = {
 		"import_session",
 		"changed_files",
 		"refresh_models",
+		"read_tree",
+		"label_entry",
+		"abort_branch_summary",
+		"run_shell",
 	],
 };
