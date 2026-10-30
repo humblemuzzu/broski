@@ -1,0 +1,14 @@
+/** The two events a hosted session emits about itself rather than about a run: a notice and a fault. */
+
+import type { ErrorEvent, NoticeEvent, NoticeLevel } from "../../../contract";
+import { errorText } from "../error-text";
+import { phoneText } from "../phone-text";
+
+export function noticeEvent(level: NoticeLevel, text: string): NoticeEvent {
+	return { type: "notice", level, text: phoneText(text) };
+}
+
+/** Something the adapter could not do outside a run's outcome; never retryable, the cause is not Pi's. */
+export function faultEvent(error: unknown): ErrorEvent {
+	return { type: "error", error: { code: "unknown", message: phoneText(errorText(error)) }, retryable: false };
+}

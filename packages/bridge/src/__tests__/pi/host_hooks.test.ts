@@ -1,0 +1,158 @@
+/**
+ * A hook that throws at each stage of a session's life, and a provider that never ends a stream. Whatever
+ * Pi's extension runner does with the throw, the adapter must still end the run it started, take the next
+ * prompt, and shut down inside its deadlines.
+ */
+
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
+import { fauxToolCall } from "@earendil-works/pi-ai";
+import { SessionSettings } from "../../backends/pi/live/settings";
+import { ABORT_DEADLINE_MS, HOST_END_BUDGET_MS, SETTLE_DEADLINE_MS } from "../../backends/pi/live/shutdown";
+import type { AgentEvent } from "../../contract";
+import { DEFAULT_TEARDOWN_TIMEOUT_MS } from "../../lifecycle/teardown";
+import { countOf } from "./helpers/live-steps";
+import { say, toolUse } from "./helpers/scenarios";
+import { useWatchdog } from "./helpers/use-watchdog";
+import { HostRig, pause, until } from "./host_rig";
+
+useWatchdog();
+
+let t: HostRig | undefined;
+
+afterEach(async () => {
+	await t?.dispose();
+	t = undefined;
+});
+
+/** Pi told the phone about the throw: a notice from the extension runner, or the failed tool's own error. */
+function reported(events: readonly AgentEvent[], stage: string): boolean {
+	return events.some((event) => {
+		if (event.type === "notice") return event.text.includes(`boom in ${stage}`);
+		return event.type === "tool_finished" && event.result.error === `boom in ${stage}`;
+	});
+}
+
+const RUN_STAGES: string[] = ["input", "before_agent_start", "message_end", "agent_settled", "tool"];
+
+describe("a hook that throws while a run goes", () => {
+	test.each(
+		RUN_STAGES,
+	)("in %s: the run ends once, the session takes the next prompt, and it shuts down", async (stage) => {
+		t = await HostRig.create();
+		const live = await t.rig.rig.openNew();
+		t.router.script(live.ref.sessionId, [toolUse(fauxToolCall("ignore_abort", {})), say("done")]);
+		t.state.throwAt = stage;
+
+		const first = await live.prompt("go");
+		if (first.status === "accepted") {
+			await live.waitFor("run_finished");
+			expect(countOf(live, "run_started")).toBe(countOf(live, "run_finished"));
+		}
+		await t.rig.driver.quiesce();
+		expect(reported(live.events(), stage)).toBe(true);
+		expect(live.reduced().run).toBeUndefined();
+		live.assertSettled();
+
+		t.state.throwAt = undefined;
+		t.router.script(live.ref.sessionId, [say("fine")]);
+		expect((await live.run("again")).outcome.kind).toBe("completed");
+
+		await t.rig.rig.backend.dispose();
+		expect(t.bus.liveRuntimes()).toBe(0);
+	});
+});
+
+describe("a hook that throws outside a run", () => {
+	test("in session_start: the session still opens", async () => {
+		t = await HostRig.create();
+		t.state.throwAt = "session_start";
+		const live = await t.rig.rig.openNew();
+		t.state.throwAt = undefined;
+		t.router.script(live.ref.sessionId, [say("fine")]);
+		expect((await live.run("hello")).outcome.kind).toBe("completed");
+	});
+
+	test("in session_shutdown: the idle host still ends and the runtime is disposed", async () => {
+		t = await HostRig.create();
+		const live = await t.rig.rig.openNew();
+		t.state.throwAt = "session_shutdown";
+		await live.close();
+		await until(() => t?.bus.liveRuntimes() === 0, "the host ends");
+	});
+
+	test("in session_before_tree and session_before_compact: the navigation and the compaction fail, nothing stays locked", async () => {
+		t = await HostRig.create();
+		const live = await t.rig.rig.openNew();
+		await t.rig.rig.arrange(live.ref, { kind: "reply" });
+		await live.run("one");
+		await t.rig.rig.arrange(live.ref, { kind: "reply" });
+		await live.run("two");
+		const call = await t.rig.driver.backendCall(live.ref, "navigate_tree");
+		const op = call?.op;
+		if (call === undefined || op?.kind !== "navigate_tree") throw new Error("no navigate_tree call");
+
+		t.state.throwAt = "session_before_tree";
+		const navigated = await t.rig.rig.backend.call?.({ backend: "pi", op: { ...op, summarize: true } });
+		expect(navigated?.status).toBeDefined();
+		t.state.throwAt = "session_before_compact";
+		await live.control.compact?.(undefined);
+		await t.rig.driver.quiesce();
+		t.state.throwAt = undefined;
+
+		await t.rig.rig.arrange(live.ref, { kind: "reply" });
+		expect((await live.run("after")).outcome.kind).toBe("completed");
+		live.assertSettled();
+	});
+});
+
+describe("a part of the adapter that throws while a run is being closed", () => {
+	test("the run still ends: the fault is reported and run_finished follows", async () => {
+		t = await HostRig.create();
+		const live = await t.rig.rig.openNew();
+		await t.rig.rig.arrange(live.ref, { kind: "reply" });
+		const broken = spyOn(SessionSettings.prototype, "reconcile").mockImplementation(() => {
+			throw new Error("reconcile broke");
+		});
+		try {
+			const { outcome } = await live.run("go");
+			expect(outcome.kind).toBe("completed");
+			const faults = live.events().filter((event) => event.type === "error");
+			expect(faults.map((event) => event.error.message)).toEqual(["reconcile broke"]);
+			expect(live.reduced().run).toBeUndefined();
+		} finally {
+			broken.mockRestore();
+		}
+	});
+});
+
+describe("a provider that never ends a stream", () => {
+	test("Stop is answered at its deadline with the run still open, and shutdown ends inside the bridge's teardown", async () => {
+		t = await HostRig.create();
+		const live = await t.rig.rig.openNew();
+		const other = await t.rig.rig.openNew();
+		for (const session of [live, other]) {
+			t.router.script(session.ref.sessionId, [() => new Promise<never>(() => {})]);
+			await session.prompt("go");
+			await session.waitFor("run_started");
+		}
+		await pause(50);
+
+		const stopStarted = Date.now();
+		expect((await live.control.abort()).status).toBe("accepted");
+		const stopTook = Date.now() - stopStarted;
+		expect(stopTook).toBeGreaterThanOrEqual(ABORT_DEADLINE_MS - 200);
+		expect(stopTook).toBeLessThan(ABORT_DEADLINE_MS + 2_000);
+		expect(countOf(live, "run_finished")).toBe(0);
+
+		const downStarted = Date.now();
+		await t.rig.rig.backend.dispose();
+		const downTook = Date.now() - downStarted;
+		expect(downTook).toBeGreaterThanOrEqual(SETTLE_DEADLINE_MS - 200);
+		expect(downTook).toBeLessThan(HOST_END_BUDGET_MS + 300);
+		expect(downTook).toBeLessThan(DEFAULT_TEARDOWN_TIMEOUT_MS);
+		expect(t.bus.liveRuntimes()).toBe(0);
+		const after = live.recorder.items.length;
+		await pause(100);
+		expect(live.recorder.items.length).toBe(after);
+	}, 40_000);
+});

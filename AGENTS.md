@@ -67,6 +67,7 @@ The backend-agnostic contract that replaces the runtime abstraction below lives 
 - **Generated code is never edited by hand**: `lib/contract/generated/`, `test/contract/generated/`, `test/contract/fixtures/` and `src/contract/contract.schema.json` come from the zod schemas via `bun run contract:gen`; CI runs `bun run contract:check`.
 - **The protocol has a minor** (`PROTOCOL_VERSION`, 1.1): what a later minor added (`ADDED_IN_MINOR`) goes only to a client whose `hello` named it, and an adapter whose backend names a form field `__proto__` maps it to another key (`FieldKey` refuses it).
 - **Every adapter passes the conformance suite** (`runConformance` in `src/contract/testing/`, 28 rules, each proven to fail by the broken adapters in `src/__tests__/contract_negative_*.test.ts`), and every answer goes through `answerProblem` before it reaches a backend.
+- **Pi's adapter** (`src/backends/pi/`, Phase 4) is served only with `BROSKI_CONTRACT_PI=1` in a dev bridge (`server/contract-backends.ts`); what it is, its decisions and open questions: [`docs/architecture/backends/pi/README.md`](docs/architecture/backends/pi/README.md).
 
 ## Bridge core (the rebuild, Phase 2)
 

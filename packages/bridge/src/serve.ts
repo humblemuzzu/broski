@@ -19,6 +19,7 @@ import { installProcessHandlers } from "./serve/process-handlers";
 import { restartManagedOpenCode, shutdown, startOpenCodeHealthMonitor } from "./serve/shutdown";
 import { serveState, subscribeOpenCodeStream } from "./serve/state";
 import { createBridgeServer, loadOrCreateAuthState } from "./server";
+import { contractOptions } from "./server/contract-backends";
 import { startPeriodicUpdateCheck, startupUpdateCheck } from "./updater";
 
 async function runFirstRunWizard(cli: CliOptions): Promise<void> {
@@ -103,6 +104,7 @@ async function bindBridgeServer(
 					linkKeyFile: cli.linkKeyFile,
 					restartOpenCode: restartManagedOpenCode,
 					bridgeLogger: logger,
+					contract: contractOptions(),
 				}),
 			{
 				mode: cli.daemon ? "daemon" : "once",
