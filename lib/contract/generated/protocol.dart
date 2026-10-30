@@ -636,6 +636,8 @@ sealed class ClientMessage {
         'thinking.set' => ThinkingSetRequest.fromJson(json),
         'mode.set' => ModeSetRequest.fromJson(json),
         'compact' => CompactRequest.fromJson(json),
+        'compaction.cancel' => CompactionCancelRequest.fromJson(json),
+        'retry.cancel' => RetryCancelRequest.fromJson(json),
         'backend.call' => BackendCallRequest.fromJson(json),
         final tag => throw FormatException('Unknown ClientMessage type: $tag'),
       };
@@ -864,6 +866,111 @@ final class CompactResponse implements ServerMessage {
   @override
   String toString() =>
       'CompactResponse(requestId: $requestId, result: $result)';
+}
+
+final class CompactionCancelRequest implements ClientMessage {
+  const CompactionCancelRequest({
+    required this.requestId,
+    required this.session,
+  });
+
+  factory CompactionCancelRequest.fromJson(Map<String, Object?> json) {
+    _expectShape(
+      json,
+      'CompactionCancelRequest',
+      const <String>{'type', 'requestId', 'session'},
+      const <String, String>{'type': 'compaction.cancel'},
+    );
+    return CompactionCancelRequest(
+      requestId: _as<String>(
+        json['requestId'],
+        'CompactionCancelRequest.requestId',
+      ),
+      session: SessionRef.fromJson(
+        _as<Map<String, Object?>>(
+          json['session'],
+          'CompactionCancelRequest.session',
+        ),
+      ),
+    );
+  }
+
+  @override
+  final RequestId requestId;
+  final SessionRef session;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'compaction.cancel',
+    'requestId': requestId,
+    'session': session.toJson(),
+  };
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CompactionCancelRequest &&
+          _equal(requestId, other.requestId) &&
+          _equal(session, other.session);
+
+  @override
+  int get hashCode => Object.hashAll([_hash(requestId), _hash(session)]);
+
+  @override
+  String toString() =>
+      'CompactionCancelRequest(requestId: $requestId, session: $session)';
+}
+
+final class CompactionCancelResponse implements ServerMessage {
+  const CompactionCancelResponse({
+    required this.requestId,
+    required this.result,
+  });
+
+  factory CompactionCancelResponse.fromJson(Map<String, Object?> json) {
+    _expectShape(
+      json,
+      'CompactionCancelResponse',
+      const <String>{'type', 'requestId', 'result'},
+      const <String, String>{'type': 'compaction.cancel.result'},
+    );
+    return CompactionCancelResponse(
+      requestId: _as<String>(
+        json['requestId'],
+        'CompactionCancelResponse.requestId',
+      ),
+      result: ActionResult.fromJson(
+        _as<Map<String, Object?>>(
+          json['result'],
+          'CompactionCancelResponse.result',
+        ),
+      ),
+    );
+  }
+
+  final RequestId requestId;
+  final ActionResult result;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'compaction.cancel.result',
+    'requestId': requestId,
+    'result': result.toJson(),
+  };
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CompactionCancelResponse &&
+          _equal(requestId, other.requestId) &&
+          _equal(result, other.result);
+
+  @override
+  int get hashCode => Object.hashAll([_hash(requestId), _hash(result)]);
+
+  @override
+  String toString() =>
+      'CompactionCancelResponse(requestId: $requestId, result: $result)';
 }
 
 final class ErrorResponse implements ServerMessage {
@@ -1947,6 +2054,99 @@ final class ReplaySync implements AttachSync {
 
 typedef RequestId = String;
 
+final class RetryCancelRequest implements ClientMessage {
+  const RetryCancelRequest({required this.requestId, required this.session});
+
+  factory RetryCancelRequest.fromJson(Map<String, Object?> json) {
+    _expectShape(
+      json,
+      'RetryCancelRequest',
+      const <String>{'type', 'requestId', 'session'},
+      const <String, String>{'type': 'retry.cancel'},
+    );
+    return RetryCancelRequest(
+      requestId: _as<String>(json['requestId'], 'RetryCancelRequest.requestId'),
+      session: SessionRef.fromJson(
+        _as<Map<String, Object?>>(
+          json['session'],
+          'RetryCancelRequest.session',
+        ),
+      ),
+    );
+  }
+
+  @override
+  final RequestId requestId;
+  final SessionRef session;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'retry.cancel',
+    'requestId': requestId,
+    'session': session.toJson(),
+  };
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RetryCancelRequest &&
+          _equal(requestId, other.requestId) &&
+          _equal(session, other.session);
+
+  @override
+  int get hashCode => Object.hashAll([_hash(requestId), _hash(session)]);
+
+  @override
+  String toString() =>
+      'RetryCancelRequest(requestId: $requestId, session: $session)';
+}
+
+final class RetryCancelResponse implements ServerMessage {
+  const RetryCancelResponse({required this.requestId, required this.result});
+
+  factory RetryCancelResponse.fromJson(Map<String, Object?> json) {
+    _expectShape(
+      json,
+      'RetryCancelResponse',
+      const <String>{'type', 'requestId', 'result'},
+      const <String, String>{'type': 'retry.cancel.result'},
+    );
+    return RetryCancelResponse(
+      requestId: _as<String>(
+        json['requestId'],
+        'RetryCancelResponse.requestId',
+      ),
+      result: ActionResult.fromJson(
+        _as<Map<String, Object?>>(json['result'], 'RetryCancelResponse.result'),
+      ),
+    );
+  }
+
+  final RequestId requestId;
+  final ActionResult result;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'retry.cancel.result',
+    'requestId': requestId,
+    'result': result.toJson(),
+  };
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RetryCancelResponse &&
+          _equal(requestId, other.requestId) &&
+          _equal(result, other.result);
+
+  @override
+  int get hashCode => Object.hashAll([_hash(requestId), _hash(result)]);
+
+  @override
+  String toString() =>
+      'RetryCancelResponse(requestId: $requestId, result: $result)';
+}
+
 sealed class ServerMessage {
   factory ServerMessage.fromJson(Map<String, Object?> json) =>
       switch (json['type']) {
@@ -1975,6 +2175,8 @@ sealed class ServerMessage {
         'thinking.set.result' => ThinkingSetResponse.fromJson(json),
         'mode.set.result' => ModeSetResponse.fromJson(json),
         'compact.result' => CompactResponse.fromJson(json),
+        'compaction.cancel.result' => CompactionCancelResponse.fromJson(json),
+        'retry.cancel.result' => RetryCancelResponse.fromJson(json),
         'backend.call.result' => BackendCallResponse.fromJson(json),
         'error' => ErrorResponse.fromJson(json),
         'event' => EventMessage.fromJson(json),

@@ -44,6 +44,24 @@ extension LiveRequests on ContractClient {
     (response) => actionOutcome(response.result),
   );
 
+  Future<Outcome<ActionAccepted>> cancelCompaction(SessionRef session) async =>
+      outcomeOf(
+        await request<CompactionCancelResponse>(
+          (requestId) =>
+              CompactionCancelRequest(requestId: requestId, session: session),
+        ),
+        (response) => actionOutcome(response.result),
+      );
+
+  Future<Outcome<ActionAccepted>> cancelRetry(SessionRef session) async =>
+      outcomeOf(
+        await request<RetryCancelResponse>(
+          (requestId) =>
+              RetryCancelRequest(requestId: requestId, session: session),
+        ),
+        (response) => actionOutcome(response.result),
+      );
+
   Future<Outcome<ActionAccepted>> answer(
     SessionRef session,
     InteractionAnswer answer,

@@ -1,4 +1,5 @@
 import 'package:broski/agent/ui/panels/op_inputs.dart';
+import 'package:broski/agent/ui/panels/session_control_inputs.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:flutter/material.dart';
 
@@ -13,6 +14,10 @@ enum OpAudience {
   /// Only a session that cannot be driven from here yet
   /// (`SessionCapabilities.controllable` false).
   watchOnlySession,
+
+  /// Only a session that can be driven from here
+  /// (`SessionCapabilities.controllable` true).
+  controllableSession,
 }
 
 /// A backend's own operation (contract §13, `backend.call`) as the generic
@@ -94,6 +99,27 @@ OpPanel panelFor(BackendOpKind kind) => switch (kind) {
     audience: OpAudience.watchOnlySession,
     ask: askTakeOver,
   ),
+  BackendOpKind.sessionSettings => const OpPanel(
+    kind: BackendOpKind.sessionSettings,
+    label: 'Session settings',
+    place: OpPlace.session,
+    audience: OpAudience.controllableSession,
+    ask: askSessionSettings,
+  ),
+  BackendOpKind.sessionTools => const OpPanel(
+    kind: BackendOpKind.sessionTools,
+    label: 'Tools',
+    place: OpPlace.session,
+    audience: OpAudience.controllableSession,
+    ask: askSessionTools,
+  ),
+  BackendOpKind.systemPrompt => const OpPanel(
+    kind: BackendOpKind.systemPrompt,
+    label: 'System prompt',
+    place: OpPlace.session,
+    audience: OpAudience.controllableSession,
+    ask: askSystemPrompt,
+  ),
 };
 
 /// The panels [capabilities] allow at [place], in the order declared. A panel
@@ -106,6 +132,12 @@ List<OpPanel> panelsAt(
 }) => [
   for (final kind in capabilities.backendOps)
     if (panelFor(kind).place == place &&
-        (panelFor(kind).audience == OpAudience.anySession || !controllable))
+        _offered(panelFor(kind).audience, controllable))
       panelFor(kind),
 ];
+
+bool _offered(OpAudience audience, bool controllable) => switch (audience) {
+  OpAudience.anySession => true,
+  OpAudience.watchOnlySession => !controllable,
+  OpAudience.controllableSession => controllable,
+};

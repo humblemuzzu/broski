@@ -2,7 +2,12 @@ import 'package:broski/agent/client/contract_client.dart';
 import 'package:broski/agent/client/outcome.dart';
 import 'package:broski/agent/client/requests/session_requests.dart';
 import 'package:broski/agent/ui/chat/file_change_view.dart';
+import 'package:broski/agent/ui/panels/op_result_host.dart';
 import 'package:broski/agent/ui/panels/panel_registry.dart';
+import 'package:broski/agent/ui/panels/result_actions.dart';
+import 'package:broski/agent/ui/panels/settings_view.dart';
+import 'package:broski/agent/ui/panels/text_pages_view.dart';
+import 'package:broski/agent/ui/panels/tools_view.dart';
 import 'package:broski/agent/ui/shared/text_entry_dialog.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:broski/theme/design_tokens.dart';
@@ -30,7 +35,13 @@ Future<void> runOp(
         title: panel.label,
         child: Padding(
           padding: Insets.screen,
-          child: OpResultView(result: result),
+          child: OpResultHost(
+            client: client,
+            session: session,
+            first: result,
+            builder: (result, actions) =>
+                OpResultView(result: result, actions: actions),
+          ),
         ),
       );
     case Refused() || Unreached():
@@ -39,9 +50,10 @@ Future<void> runOp(
 }
 
 class OpResultView extends StatelessWidget {
-  const OpResultView({super.key, required this.result});
+  const OpResultView({super.key, required this.result, required this.actions});
 
   final BackendOpResult result;
+  final ResultActions actions;
 
   @override
   Widget build(BuildContext context) => switch (result) {
@@ -85,5 +97,17 @@ class OpResultView extends StatelessWidget {
     TreeNavigated() => const Text('Done. The conversation reloads.'),
     TakenOver() => const Text('This session now runs from your phone.'),
     RevertCleared() => const Text('The staged revert was undone.'),
+    SessionSettingsResult(:final settings) => SessionSettingsView(
+      settings: settings,
+      actions: actions,
+    ),
+    final SessionToolsResult tools => SessionToolsView(
+      result: tools,
+      actions: actions,
+    ),
+    final SystemPromptResult page => TextPagesView(
+      page: page,
+      actions: actions,
+    ),
   };
 }

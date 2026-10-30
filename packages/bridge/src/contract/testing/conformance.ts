@@ -1,5 +1,6 @@
 import { CatalogRecorder, Rig } from "./conformance-harness";
 import type { ConformanceFactory } from "./conformance-types";
+import { compactionAndRetryCanBeCancelled } from "./rules-cancel";
 import {
 	capabilitiesMatchTheBackend,
 	commandsAreListed,
@@ -66,6 +67,7 @@ export const CONFORMANCE_RULES: readonly ConformanceRule[] = [
 	{ name: "models and thinking can be set and reach the model when declared", check: modelAndThinkingCanBeSet },
 	{ name: "modes can be set", check: modesCanBeSet },
 	{ name: "compaction runs when the session can compact", check: compactionRuns },
+	{ name: "a compaction or a retry can be cancelled on its own", check: compactionAndRetryCanBeCancelled },
 	{
 		name: "every declared interaction kind is answered, checked and cancelled correctly",
 		check: declaredInteractionsAnswerCorrectly,

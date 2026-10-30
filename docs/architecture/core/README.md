@@ -32,7 +32,7 @@ What it does not do: anything backend-specific. It never mints run, block, tool,
 | `backend-registry.ts` | Backends by id, their start and the wait for it, capability descriptors, status with fault containment, dispose. |
 | `catalog-feed.ts` | Catalog news to every negotiated client; a deleted session's stream ends here. |
 | `session-hub.ts` | Open on first use, at most one `OpenSession` per session, idle close, `session_replaced`, removal, the open and close deadlines, shutdown. |
-| `minor-views.ts` | What a client of an older minor is sent instead of what a later minor added: the descriptor without `take_over`, `input_returned` as a `notice`. |
+| `minor-views.ts` | What a client of an older minor is sent instead of what a later minor added: the descriptor without the ops a later minor added (`take_over`, `session_settings`, `session_tools`, `system_prompt`), a session's capabilities without `cancelCompaction` and `cancelRetry`, `input_returned` as a `notice`. |
 | `keep-open.ts` | `holdsOpen(snapshot)` and the idle-close delay. |
 | `live-session.ts` | One stream: checks adapter records, applies them, numbers them, logs them, fans them out; `sync` for attach; `reconcile` with the adapter's snapshot. |
 | `session-sink.ts` | The sink an adapter gets: never throws, holds early records, follows a replacement. |

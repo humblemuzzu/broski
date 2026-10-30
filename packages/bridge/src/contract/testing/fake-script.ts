@@ -43,6 +43,8 @@ type FakeContentStep =
 export type FakeSignalStep =
 	| { kind: "compaction" }
 	| { kind: "retry"; attempts: number }
+	/** Schedules a retry and waits until it is cancelled, which ends the run in error, or released, which retries. */
+	| { kind: "retry_wait" }
 	/** The backend hands queued input back, as an abort that clears its queue does. */
 	| { kind: "return_input"; texts: string[] }
 	| { kind: "usage"; usage: Usage }

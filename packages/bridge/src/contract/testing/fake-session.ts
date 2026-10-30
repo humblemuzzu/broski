@@ -1,6 +1,7 @@
 import { answerProblem } from "../answer-check";
 import type { BackendTraits, SessionSink } from "../backend";
 import type { CatalogEvent } from "../catalog-events";
+import type { CompactionOutcome } from "../compaction";
 import type { AgentEvent, UserMessageEvent } from "../events";
 import type { AttachmentId, InteractionId, ModelId, QueueItemId, SessionRef, ToolCallId } from "../ids";
 import type { ActionResult, PromptInput, PromptResult } from "../input";
@@ -33,6 +34,10 @@ export interface FakeEnvironment {
 
 const ACCEPTED: ActionResult = { status: "accepted" };
 
+function compactionOutcome(end: "cancelled" | "released"): CompactionOutcome {
+	return end === "cancelled" ? { kind: "aborted" } : { kind: "completed", tokensBefore: 1000, tokensAfter: 200 };
+}
+
 /** One session of the fake backend: its live state, transcript and runs. Open sessions are views onto it. */
 export class FakeSession implements RunHost {
 	readonly history: FakeHistory;
@@ -46,6 +51,8 @@ export class FakeSession implements RunHost {
 	private readonly scripts: FakeStep[][] = [];
 	private readonly waiters = new Map<InteractionId, (reply: InteractionReply) => void>();
 	private readonly resolved = new Set<InteractionId>();
+	private slowCompaction = false;
+	private compactionEnd: ((end: "cancelled" | "released") => void) | undefined;
 
 	constructor(
 		private env: FakeEnvironment,
@@ -151,6 +158,7 @@ export class FakeSession implements RunHost {
 	}
 
 	async abort(): Promise<ActionResult> {
+		this.endCompaction("cancelled");
 		this.run?.abort({ kind: "aborted" });
 		await this.settled;
 		return ACCEPTED;
@@ -198,7 +206,27 @@ export class FakeSession implements RunHost {
 	compact(): ActionResult {
 		if (this.run) return rejected("busy", "a run is active");
 		this.emit({ type: "compaction_started", trigger: "manual" });
-		this.emit({ type: "compaction_finished", outcome: { kind: "completed", tokensBefore: 1000, tokensAfter: 200 } });
+		if (this.slowCompaction) {
+			this.slowCompaction = false;
+			this.compactionEnd = (end) => this.emit({ type: "compaction_finished", outcome: compactionOutcome(end) });
+			return ACCEPTED;
+		}
+		this.emit({ type: "compaction_finished", outcome: compactionOutcome("released") });
+		return ACCEPTED;
+	}
+
+	/** The next compaction waits until it is cancelled, aborted or released. */
+	armSlowCompaction(): void {
+		this.slowCompaction = true;
+	}
+
+	cancelCompaction(): ActionResult {
+		this.endCompaction("cancelled");
+		return ACCEPTED;
+	}
+
+	cancelRetry(): ActionResult {
+		if (this.snapshot.retry) this.run?.cancelRetry();
 		return ACCEPTED;
 	}
 
@@ -209,7 +237,14 @@ export class FakeSession implements RunHost {
 	}
 
 	release(): void {
+		this.endCompaction("released");
 		this.run?.release();
+	}
+
+	private endCompaction(end: "cancelled" | "released"): void {
+		const finish = this.compactionEnd;
+		this.compactionEnd = undefined;
+		finish?.(end);
 	}
 
 	runExternally(text: string, steps: FakeStep[]): void {

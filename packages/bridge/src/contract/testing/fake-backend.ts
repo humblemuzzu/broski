@@ -19,6 +19,8 @@ const ALL_METHODS: FakeMethods = {
 	call: true,
 	compact: true,
 	cancelQueued: true,
+	cancelCompaction: true,
+	cancelRetry: true,
 };
 
 export const NO_METHODS: FakeMethods = {
@@ -29,6 +31,8 @@ export const NO_METHODS: FakeMethods = {
 	call: false,
 	compact: false,
 	cancelQueued: false,
+	cancelCompaction: false,
+	cancelRetry: false,
 };
 
 export interface FakeBackendOptions {
@@ -46,8 +50,10 @@ export interface FakeControls {
 	seed(options: SeedOptions): SessionRef;
 	/** The next run of `session` plays `steps`; runs without a script reply "Done.". */
 	script(session: SessionRef, steps: FakeStep[]): void;
-	/** Ends a `hold` step of the session's active run. */
+	/** Ends a `hold` step of the session's active run, a retry it waits on, or a slow compaction. */
 	release(session: SessionRef): void;
+	/** The session's next compaction waits until it is cancelled, aborted or released. */
+	slowCompaction(session: SessionRef): void;
 	/** Another client of the backend starts a run. */
 	runExternally(session: SessionRef, text: string, steps: FakeStep[]): void;
 	/** The adapter lost track and replaces the live state with a snapshot. */
@@ -126,6 +132,7 @@ function controls(world: FakeWorld): FakeControls {
 		seed: (options) => world.seed(options),
 		script: (ref, steps) => world.session(ref).script(steps),
 		release: (ref) => world.session(ref).release(),
+		slowCompaction: (ref) => world.session(ref).armSlowCompaction(),
 		runExternally: (ref, text, steps) => world.session(ref).runExternally(text, steps),
 		resync: (ref) => world.session(ref).resync(),
 		loseBackend: (ref) => world.session(ref).loseBackend(),

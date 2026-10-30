@@ -24,6 +24,10 @@ function fakeDriver(first: FakeBackend): ConformanceDriver {
 			for (let index = 0; index < count; index++) backend.fake.seed({ cwd, title: `Seeded ${index}` });
 		},
 		arrange: async (session: SessionRef, scenario: Scenario) => {
+			if (scenario.kind === "slow_compaction") {
+				backend.fake.slowCompaction(session);
+				return true;
+			}
 			const steps = scenarioSteps(backend.traits, scenario);
 			if (steps) backend.fake.script(session, steps);
 			return steps !== undefined;
@@ -66,6 +70,9 @@ function exampleCall(op: BackendOpKind, sessionId: string, itemId: string): Back
 		case "navigate_tree":
 			return { backend: "pi", op: { kind: op, sessionId, itemId, summarize: false } };
 		case "take_over":
+		case "session_settings":
+		case "session_tools":
+		case "system_prompt":
 			return { backend: "pi", op: { kind: op, sessionId } };
 	}
 }

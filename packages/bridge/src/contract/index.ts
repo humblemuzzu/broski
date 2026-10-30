@@ -29,6 +29,7 @@ export * from "./rejection";
 export * from "./run-items";
 export * from "./runs";
 export * from "./schema-registry";
+export * from "./session-controls";
 export * from "./session-reducer";
 export * from "./sessions";
 export * from "./snapshot";

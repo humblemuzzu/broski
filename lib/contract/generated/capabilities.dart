@@ -258,6 +258,8 @@ final class SessionCapabilities {
     required this.controllable,
     required this.compact,
     required this.cancelQueued,
+    this.cancelCompaction,
+    this.cancelRetry,
   });
 
   factory SessionCapabilities.fromJson(Map<String, Object?> json) {
@@ -265,6 +267,8 @@ final class SessionCapabilities {
       'controllable',
       'compact',
       'cancelQueued',
+      'cancelCompaction',
+      'cancelRetry',
     }, const <String, String>{});
     return SessionCapabilities(
       controllable: _as<bool>(
@@ -276,17 +280,30 @@ final class SessionCapabilities {
         json['cancelQueued'],
         'SessionCapabilities.cancelQueued',
       ),
+      cancelCompaction: json.containsKey('cancelCompaction')
+          ? _as<bool>(
+              json['cancelCompaction'],
+              'SessionCapabilities.cancelCompaction',
+            )
+          : null,
+      cancelRetry: json.containsKey('cancelRetry')
+          ? _as<bool>(json['cancelRetry'], 'SessionCapabilities.cancelRetry')
+          : null,
     );
   }
 
   final bool controllable;
   final bool compact;
   final bool cancelQueued;
+  final bool? cancelCompaction;
+  final bool? cancelRetry;
 
   Map<String, Object?> toJson() => {
     'controllable': controllable,
     'compact': compact,
     'cancelQueued': cancelQueued,
+    if (cancelCompaction case final value?) 'cancelCompaction': value,
+    if (cancelRetry case final value?) 'cancelRetry': value,
   };
 
   @override
@@ -295,16 +312,20 @@ final class SessionCapabilities {
       other is SessionCapabilities &&
           _equal(controllable, other.controllable) &&
           _equal(compact, other.compact) &&
-          _equal(cancelQueued, other.cancelQueued);
+          _equal(cancelQueued, other.cancelQueued) &&
+          _equal(cancelCompaction, other.cancelCompaction) &&
+          _equal(cancelRetry, other.cancelRetry);
 
   @override
   int get hashCode => Object.hashAll([
     _hash(controllable),
     _hash(compact),
     _hash(cancelQueued),
+    _hash(cancelCompaction),
+    _hash(cancelRetry),
   ]);
 
   @override
   String toString() =>
-      'SessionCapabilities(controllable: $controllable, compact: $compact, cancelQueued: $cancelQueued)';
+      'SessionCapabilities(controllable: $controllable, compact: $compact, cancelQueued: $cancelQueued, cancelCompaction: $cancelCompaction, cancelRetry: $cancelRetry)';
 }

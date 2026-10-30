@@ -1,6 +1,6 @@
 # The Broski backend contract
 
-Status: Phase 1, protocol **1.2** (1.0 plus the `replaced` attach answer, 1.1, and the `take_over` op and `input_returned` event, 1.2; §12.4). Built on commit `9678394`. Nothing here is wired into the running bridge or the app yet. Phase 2 builds the bridge core on it, Phase 3 the Flutter core, and Phase 4 one adapter per backend.
+Status: Phase 1, protocol **1.3** (1.0 plus the `replaced` attach answer, 1.1, the `take_over` op and `input_returned` event, 1.2, and the separate cancel of a compaction and of a retry with the Pi ops `session_settings`, `session_tools` and `system_prompt`, 1.3; §12.4). Built on commit `9678394`. Nothing here is wired into the running bridge or the app yet. Phase 2 builds the bridge core on it, Phase 3 the Flutter core, and Phase 4 one adapter per backend.
 
 This document is the spec. The code is the definition: `packages/bridge/src/contract/` (zod schemas, interfaces, reducer, answer checker) and `packages/bridge/src/contract/testing/` (fake backend, conformance suite). Every backend fact below cites the research in [`research/`](research/):
 
@@ -134,7 +134,7 @@ interface AgentBackend {
 }
 type OpenResult = {status:"accepted", session: OpenSession, snapshot} | Rejected;
 interface OpenSession { session; snapshot(); control?: SessionControl; close(); }   // control absent = watch-only
-interface SessionControl { prompt; abort; answer; setModel; setThinking; setMode; compact?; cancelQueued?; }
+interface SessionControl { prompt; abort; answer; setModel; setThinking; setMode; compact?; cancelQueued?; cancelCompaction?; cancelRetry?; }
 ```
 
 Every method that can fail resolves with `{status: "accepted", …} | Rejected` (§2 rule 5).
@@ -146,7 +146,7 @@ Every method that can fail resolves with `{status: "accepted", …} | Rejected` 
 3. ✓ `close()` detaches the sink: **from the call on**, nothing is emitted and `control` methods reject `closed`. It aborts nothing; a run in progress goes on in the backend. A second call does nothing. An in-process backend (CC's CLI child, Pi, Pi Durable) keeps whatever it needs alive until the run settles. An ask pending at `close`, or raised after it, is held by the adapter and appears in the next `open`'s snapshot, where it can be answered: every backend can re-deliver (CC keeps its own registry of pending callbacks, cc §8.7; Codex replays on `thread/resume`, cx §8; OpenCode lists per session, oc §8.1; Pi and Pi Durable asks are the bridge's own, pi §8.5, pd D8).
    **The core's side of it:** while a session's snapshot has an active run, a pending interaction, a compaction or retry under way, or queued input, the core keeps its `OpenSession` open, phones attached or not, so no ask is raised to nobody and no event is lost from the log. It closes a session only once it is idle, and never aborts a run to do so; bridge shutdown is the one exception, and then the asks expire (§9).
 4. ✓ `dispose()` closes every open session and silences the catalog sink.
-5. ✓ Optional methods carry capabilities. An absent `rename`, `delete`, `archive`, `fork`, `call`, `compact` or `cancelQueued` *is* the capability being false; nothing declares it separately (§6).
+5. ✓ Optional methods carry capabilities. An absent `rename`, `delete`, `archive`, `fork`, `call`, `compact`, `cancelQueued`, `cancelCompaction` or `cancelRetry` *is* the capability being false; nothing declares it separately (§6).
 6. ✓ `abort()` ends the active run with outcome `aborted`; with no run it is accepted and emits nothing. It resolves once the backend has taken the abort (Codex answers `turn/interrupt` only after `TurnAborted`, cx §7; Pi's `abort()` awaits idle, pi §7; OpenCode acknowledges at once, oc §7). `run_finished` may follow the resolution.
 7. ✓ `prompt` is idempotent per `clientRequestId` within the session for accepted prompts; a rejection is not remembered (§10).
 8. ✓ A malformed answer is rejected `invalid_input` and changes nothing. An answer to a resolved interaction is rejected `stale`.
@@ -508,7 +508,7 @@ Every client message is a request `{type, requestId, …}` answered by exactly o
 | `transcript.read{session, page}` | `{result: TranscriptRead{page} \| Rejected}` |
 | `attachment.read{session, attachmentId}` | `{result: AttachmentRead{image} \| Rejected}` |
 | `prompt{session, input}` | `{result: PromptResult}` |
-| `abort`, `interaction.answer{answer}`, `queue.cancel{queueItemId}`, `model.set{modelId}`, `thinking.set{thinking}`, `mode.set{axis, value}`, `compact{instructions?}` | `{result: ActionResult}` |
+| `abort`, `interaction.answer{answer}`, `queue.cancel{queueItemId}`, `model.set{modelId}`, `thinking.set{thinking}`, `mode.set{axis, value}`, `compact{instructions?}`, `compaction.cancel` (since 1.3), `retry.cancel` (since 1.3) | `{result: ActionResult}` |
 | `backend.call{call}` | `{result: BackendCallResult}` |
 
 Server-pushed messages: `event{envelope}` (§7) and `catalog{backend, event}` (§5).
@@ -533,7 +533,7 @@ Pending interactions arrive in the snapshot or the replayed `interaction_request
 
 ### 12.4 Versioning
 
-`PROTOCOL_VERSION = {major: 1, minor: 2}`; `ADDED_IN_MINOR` (`protocol.ts`) names the minor each addition came in, and the core sends it only to a client whose `hello` named that minor. 1.1 is `replaced` (§12.2). 1.2 is the Pi op `take_over` (`ADDED_IN_MINOR.takeOver`: an older client's `BackendDescriptor.ops` does not list it) and the `input_returned` event (`ADDED_IN_MINOR.inputReturned`: an older client gets the same texts as a `notice` with the same `seq`, `core/minor-views.ts`). The rules:
+`PROTOCOL_VERSION = {major: 1, minor: 3}`; `ADDED_IN_MINOR` (`protocol.ts`) names the minor each addition came in, and the core sends it only to a client whose `hello` named that minor. 1.1 is `replaced` (§12.2). 1.2 is the Pi op `take_over` (`ADDED_IN_MINOR.takeOver`: an older client's `BackendDescriptor.ops` does not list it) and the `input_returned` event (`ADDED_IN_MINOR.inputReturned`: an older client gets the same texts as a `notice` with the same `seq`, `core/minor-views.ts`). 1.3 is `ADDED_IN_MINOR.sessionControls`: the `compaction.cancel` and `retry.cancel` requests (a client below 1.3 never sends them), the optional `SessionCapabilities.cancelCompaction` and `cancelRetry` that announce them (removed from the answer an older client gets, since its Dart models refuse an unknown field; absent from an older bridge's answer, which means false), and the Pi ops `session_settings`, `session_tools` and `system_prompt` (an older client's descriptor does not list them). The rules:
 
 - Bridge and app talk only when `major` is equal.
 - A change the older side can ignore bumps `minor`: a new optional field, a new request type, a new union member or enum value.
@@ -561,11 +561,14 @@ Two typed escape hatches. Neither is an untyped blob.
 | codex | `revert{sessionId, beforeItemId}` | `{}` | `thread/revert`, paginated threads only, history only (cx §7) |
 | opencode | `revert_stage{sessionId, itemId, restoreFiles}` / `revert_clear` / `revert_commit` | `{files}` / `{}` / `{}` | stage/clear/commit; 409 while busy (oc §7) |
 | pi | `navigate_tree{sessionId, itemId, summarize}` | `{}` | `navigateTree` (pi §7) |
+| pi | `session_settings{sessionId, change?}` (since 1.3) | `{settings[]}`: each a toggle (`enabled`) or a choice (`value`, `options`), with a label, a description and a `note` when a value shown may not be the one just chosen. With `change` that setting is set first, and the answer is the settings as the session now has them | Pi's auto-compaction, auto-retry, steering mode and follow-up mode, saved to the global `settings.json` as the terminal saves them (Pi README, decision 21) |
+| pi | `session_tools{sessionId, change?}` (since 1.3) | `{tools[], omitted?}`: name, description (cut with `…` at 2,048 characters), whether it is on, and a group; with `change` one tool is switched first | `getAllTools`, `getActiveToolNames`, `setActiveToolsByName`; the loadout is not a setting, it is recorded in the session file at the next prompt (Pi README, decision 22) |
+| pi | `system_prompt{sessionId, offset?}` (since 1.3) | `{text, offset, totalChars, nextOffset?}`: a page of at most 32,768 UTF-16 units, never cut inside a surrogate pair; `nextOffset` is absent on the last page | `session.systemPrompt`, read-only (Pi README, decision 23) |
 | pi | `take_over{sessionId}` (since 1.2) | `{}` (`TakenOver`) | Marks a session another client made as this bridge's own (`broski.origin`), so it becomes controllable. Refused `busy` while a terminal holds it or its file changed in the last 10 s. The question the app asks says no terminal may be using the session; only the human knows |
 
 Revert is an op, not a capability: its meaning differs per backend (CC files only; Codex history only; OpenCode staged with files; Pi a leaf move; Pi Durable a fork), and one normalized "revert" would lie.
 
-An op that rewrites what the transcript reads is marked by `rewritesHistory(kind)`: `revert`, `revert_commit` and `navigate_tree` (`take_over` does not: it appends one bookkeeping entry that no transcript item shows). After one is accepted the adapter emits `transcript_invalidated{session}` (§5). A staged OpenCode revert is not one of them: the messages stay until the commit (oc §7).
+An op that rewrites what the transcript reads is marked by `rewritesHistory(kind)`: `revert`, `revert_commit` and `navigate_tree` (`take_over` does not: it appends one bookkeeping entry that no transcript item shows; nor do `session_settings`, `session_tools` and `system_prompt`). After one is accepted the adapter emits `transcript_invalidated{session}` (§5). A staged OpenCode revert is not one of them: the messages stay until the commit (oc §7).
 
 ## 14. Conformance
 
@@ -576,7 +579,7 @@ An op that rewrites what the transcript reads is marked by `rewritesHistory(kind
 - **`ConformanceFactory = (host) => Promise<{backend, driver}>`**. Phase 4 writes one driver per adapter; Pi's natural seam is the scripted OpenAI endpoint and live rig in `src/__tests__/helpers/` (pi §16), and a scripted endpoint serves the others too (a custom provider for Codex and OpenCode, `ANTHROPIC_BASE_URL` for CC). The driver (`conformance-types.ts`):
   - knows a `cwd` holding a `README.md`, an `otherCwd`, and an `agentName` when agent mentions are declared;
   - `seedSessions(cwd, n)`;
-  - `arrange(session, scenario)` for `reply`, `tool` (a tool call, then a text answer), `hold` (until aborted or `release`d), `interaction{kind}`, `feature{thinking|usage|plan|plan_proposal|children}` and `echo_model` (two requests, each answering with the id of the model it ran with, a hold between). It returns false when the backend cannot, and that is a failure whenever the capability is declared;
+  - `arrange(session, scenario)` for `reply`, `tool` (a tool call, then a text answer), `hold` (until aborted or `release`d), `interaction{kind}`, `feature{thinking|usage|plan|plan_proposal|children}` and `echo_model` (two requests, each answering with the id of the model it ran with, a hold between), `slow_compaction` (the next compaction, started by `compact`, waits until cancelled, aborted or released) and `slow_retry` (the run's first request fails transiently and its retry waits likewise, then answers). It returns false when the backend cannot, and that is a failure whenever the capability is declared;
   - `release(session)`; `quiesce()`, which resolves once everything asked so far has emitted all it will, short of a hold, a human or a run still going (the silence checks wait on it, never on a timer);
   - `delivered(session)`: the latest user input as it reached the model;
   - `backendCall(session, op)`: a valid call of a declared op;
@@ -613,10 +616,11 @@ An op that rewrites what the transcript reads is marked by `rewritesHistory(kind
 26. `dispose` silences every sink.
 27. With `externalLive`, a run another client starts is reported, with trigger `external`.
 28. A run survives a restart of the bridge, under its id, exactly when `durableRuns` is declared; the session survives always.
+29. A session that can cancel a compaction or a retry does so on its own: with none under way the cancel is accepted and silent; a compaction cancelled while under way finishes `aborted` and the session compacts again; a retry cancelled while scheduled finishes unsuccessfully and its run does not complete.
 
 Every scenario's stream also passes the stream rules (§7), and every catalog event is validated as it arrives. `src/__tests__/contract_conformance.test.ts` runs the suite against the fake with every capability and with none.
 
-**The suite can fail.** The `contract_negative_*.test.ts` files run 197 deliberately broken adapters (one change each to the honest fake or its driver): every assertion of every rule, and every stream rule a rule relies on, fails at least one of them, for the reason it names. `fails()` (`src/__tests__/helpers/broken-adapters.ts`) requires the rule to reject with that reason, so a rule that lets its broken adapter through, or catches it only by accident, fails its negative test.
+**The suite can fail.** The `contract_negative_*.test.ts` files run 214 deliberately broken adapters (one change each to the honest fake or its driver): every assertion of every rule, and every stream rule a rule relies on, fails at least one of them, for the reason it names. `fails()` (`src/__tests__/helpers/broken-adapters.ts`) requires the rule to reject with that reason, so a rule that lets its broken adapter through, or catches it only by accident, fails its negative test.
 
 ## 15. Lossy points and unsupported capabilities
 
@@ -695,6 +699,7 @@ The brief names proposals and says to refine them. These are the places the cont
 | `tool_started{childSession?}` | `ToolChildSession` update | The child is known only after the call starts in every backend that has one. |
 | `Interaction.session` | dropped | The envelope already names the session. |
 | — | added `input_returned{texts}` and the Pi op `take_over` (1.2) | A terminal's Esc gives queued input back to the human, and the contract had no way to say so; a session another client made could never become controllable. |
+| — | added `compaction.cancel`, `retry.cancel` and the Pi ops `session_settings`, `session_tools`, `system_prompt` (1.3) | Stop ended a compaction and a retry together with the run it belonged to, and the human could not end only one. The state is already normalized (`snapshot.compaction`, `snapshot.retry`), so the cancel is normalized too, as optional methods that announce themselves in `SessionCapabilities` like `compact` and `cancelQueued`. Pi's settings, tools and system prompt are its own and global in part, so they are typed ops, not modes (Pi README, decision 21). |
 | — | added `session_replaced{session}` | CC continues a live session under a new id after `/clear` or a plan-exit context clear (`conversation_reset`, cc §5); without it the phone would keep watching a session that no longer receives anything. |
 
 ## 17. Not in Phase 1

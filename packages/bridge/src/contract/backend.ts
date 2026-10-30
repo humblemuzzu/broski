@@ -111,6 +111,10 @@ export interface SessionControl {
 	setMode(axis: ModeAxisId, value: string): Promise<ActionResult>;
 	compact?(instructions: string | undefined): Promise<ActionResult>;
 	cancelQueued?(id: QueueItemId): Promise<ActionResult>;
+	/** Ends the compaction under way and nothing else; accepted, with no effect, when none is. */
+	cancelCompaction?(): Promise<ActionResult>;
+	/** Ends the wait before a retried attempt; `stale` once the attempt runs, accepted with no effect when none is scheduled. */
+	cancelRetry?(): Promise<ActionResult>;
 }
 
 export function backendCapabilities(backend: AgentBackend): Capabilities {
@@ -128,5 +132,7 @@ export function sessionCapabilities(session: OpenSession): SessionCapabilities {
 		controllable: session.control !== undefined,
 		compact: session.control?.compact !== undefined,
 		cancelQueued: session.control?.cancelQueued !== undefined,
+		cancelCompaction: session.control?.cancelCompaction !== undefined,
+		cancelRetry: session.control?.cancelRetry !== undefined,
 	};
 }

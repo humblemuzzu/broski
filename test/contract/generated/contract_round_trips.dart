@@ -115,10 +115,14 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
   ),
   'CatalogScope': (json) =>
       CatalogScope.fromJson(_as<String>(json, 'CatalogScope')),
+  'ChoiceChange': (json) =>
+      ChoiceChange.fromJson(_as<Map<String, Object?>>(json, 'ChoiceChange')),
   'ChoiceReply': (json) =>
       ChoiceReply.fromJson(_as<Map<String, Object?>>(json, 'ChoiceReply')),
   'ChoiceRequest': (json) =>
       ChoiceRequest.fromJson(_as<Map<String, Object?>>(json, 'ChoiceRequest')),
+  'ChoiceSetting': (json) =>
+      ChoiceSetting.fromJson(_as<Map<String, Object?>>(json, 'ChoiceSetting')),
   'ChoicesValue': (json) =>
       ChoicesValue.fromJson(_as<Map<String, Object?>>(json, 'ChoicesValue')),
   'ClaudeCodeCall': (json) => ClaudeCodeCall.fromJson(
@@ -168,6 +172,12 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
   ),
   'CompactionAborted': (json) => CompactionAborted.fromJson(
     _as<Map<String, Object?>>(json, 'CompactionAborted'),
+  ),
+  'CompactionCancelRequest': (json) => CompactionCancelRequest.fromJson(
+    _as<Map<String, Object?>>(json, 'CompactionCancelRequest'),
+  ),
+  'CompactionCancelResponse': (json) => CompactionCancelResponse.fromJson(
+    _as<Map<String, Object?>>(json, 'CompactionCancelResponse'),
   ),
   'CompactionCompleted': (json) => CompactionCompleted.fromJson(
     _as<Map<String, Object?>>(json, 'CompactionCompleted'),
@@ -515,6 +525,12 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
       ResolutionReason.fromJson(_as<String>(json, 'ResolutionReason')),
   'ResyncedEvent': (json) =>
       ResyncedEvent.fromJson(_as<Map<String, Object?>>(json, 'ResyncedEvent')),
+  'RetryCancelRequest': (json) => RetryCancelRequest.fromJson(
+    _as<Map<String, Object?>>(json, 'RetryCancelRequest'),
+  ),
+  'RetryCancelResponse': (json) => RetryCancelResponse.fromJson(
+    _as<Map<String, Object?>>(json, 'RetryCancelResponse'),
+  ),
   'RetryFinishedEvent': (json) => RetryFinishedEvent.fromJson(
     _as<Map<String, Object?>>(json, 'RetryFinishedEvent'),
   ),
@@ -655,6 +671,15 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
   'SessionReplacedEvent': (json) => SessionReplacedEvent.fromJson(
     _as<Map<String, Object?>>(json, 'SessionReplacedEvent'),
   ),
+  'SessionSetting': (json) => SessionSetting.fromJson(
+    _as<Map<String, Object?>>(json, 'SessionSetting'),
+  ),
+  'SessionSettingsOp': (json) => SessionSettingsOp.fromJson(
+    _as<Map<String, Object?>>(json, 'SessionSettingsOp'),
+  ),
+  'SessionSettingsResult': (json) => SessionSettingsResult.fromJson(
+    _as<Map<String, Object?>>(json, 'SessionSettingsResult'),
+  ),
   'SessionSnapshot': (json) => SessionSnapshot.fromJson(
     _as<Map<String, Object?>>(json, 'SessionSnapshot'),
   ),
@@ -665,6 +690,14 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
   ),
   'SessionTitle': (json) =>
       SessionTitle.fromJson(_as<Map<String, Object?>>(json, 'SessionTitle')),
+  'SessionTool': (json) =>
+      SessionTool.fromJson(_as<Map<String, Object?>>(json, 'SessionTool')),
+  'SessionToolsOp': (json) => SessionToolsOp.fromJson(
+    _as<Map<String, Object?>>(json, 'SessionToolsOp'),
+  ),
+  'SessionToolsResult': (json) => SessionToolsResult.fromJson(
+    _as<Map<String, Object?>>(json, 'SessionToolsResult'),
+  ),
   'SessionUpdatedEvent': (json) => SessionUpdatedEvent.fromJson(
     _as<Map<String, Object?>>(json, 'SessionUpdatedEvent'),
   ),
@@ -680,6 +713,9 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
   'SessionsListed': (json) => SessionsListed.fromJson(
     _as<Map<String, Object?>>(json, 'SessionsListed'),
   ),
+  'SettingChange': (json) =>
+      SettingChange.fromJson(_as<Map<String, Object?>>(json, 'SettingChange')),
+  'SettingKey': (json) => _as<String>(json, 'SettingKey'),
   'SnapshotSync': (json) =>
       SnapshotSync.fromJson(_as<Map<String, Object?>>(json, 'SnapshotSync')),
   'StatusChangedEvent': (json) => StatusChangedEvent.fromJson(
@@ -695,6 +731,12 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
       StringField.fromJson(_as<Map<String, Object?>>(json, 'StringField')),
   'StringFormat': (json) =>
       StringFormat.fromJson(_as<String>(json, 'StringFormat')),
+  'SystemPromptOp': (json) => SystemPromptOp.fromJson(
+    _as<Map<String, Object?>>(json, 'SystemPromptOp'),
+  ),
+  'SystemPromptResult': (json) => SystemPromptResult.fromJson(
+    _as<Map<String, Object?>>(json, 'SystemPromptResult'),
+  ),
   'TakeOverOp': (json) =>
       TakeOverOp.fromJson(_as<Map<String, Object?>>(json, 'TakeOverOp')),
   'TakenOver': (json) =>
@@ -721,9 +763,15 @@ final Map<String, Object? Function(Object? json)> contractDecoders = {
   'Timestamp': (json) => _as<int>(json, 'Timestamp'),
   'TitleSource': (json) =>
       TitleSource.fromJson(_as<String>(json, 'TitleSource')),
+  'ToggleChange': (json) =>
+      ToggleChange.fromJson(_as<Map<String, Object?>>(json, 'ToggleChange')),
+  'ToggleSetting': (json) =>
+      ToggleSetting.fromJson(_as<Map<String, Object?>>(json, 'ToggleSetting')),
   'ToolCallId': (json) => _as<String>(json, 'ToolCallId'),
   'ToolCallItem': (json) =>
       ToolCallItem.fromJson(_as<Map<String, Object?>>(json, 'ToolCallItem')),
+  'ToolChange': (json) =>
+      ToolChange.fromJson(_as<Map<String, Object?>>(json, 'ToolChange')),
   'ToolChildSession': (json) => ToolChildSession.fromJson(
     _as<Map<String, Object?>>(json, 'ToolChildSession'),
   ),
@@ -938,11 +986,17 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   )).toJson(),
   'CatalogScope': (json) =>
       (CatalogScope.fromJson(_as<String>(json, 'CatalogScope'))).toJson(),
+  'ChoiceChange': (json) => (ChoiceChange.fromJson(
+    _as<Map<String, Object?>>(json, 'ChoiceChange'),
+  )).toJson(),
   'ChoiceReply': (json) => (ChoiceReply.fromJson(
     _as<Map<String, Object?>>(json, 'ChoiceReply'),
   )).toJson(),
   'ChoiceRequest': (json) => (ChoiceRequest.fromJson(
     _as<Map<String, Object?>>(json, 'ChoiceRequest'),
+  )).toJson(),
+  'ChoiceSetting': (json) => (ChoiceSetting.fromJson(
+    _as<Map<String, Object?>>(json, 'ChoiceSetting'),
   )).toJson(),
   'ChoicesValue': (json) => (ChoicesValue.fromJson(
     _as<Map<String, Object?>>(json, 'ChoicesValue'),
@@ -1000,6 +1054,12 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   )).toJson(),
   'CompactionAborted': (json) => (CompactionAborted.fromJson(
     _as<Map<String, Object?>>(json, 'CompactionAborted'),
+  )).toJson(),
+  'CompactionCancelRequest': (json) => (CompactionCancelRequest.fromJson(
+    _as<Map<String, Object?>>(json, 'CompactionCancelRequest'),
+  )).toJson(),
+  'CompactionCancelResponse': (json) => (CompactionCancelResponse.fromJson(
+    _as<Map<String, Object?>>(json, 'CompactionCancelResponse'),
   )).toJson(),
   'CompactionCompleted': (json) => (CompactionCompleted.fromJson(
     _as<Map<String, Object?>>(json, 'CompactionCompleted'),
@@ -1404,6 +1464,12 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   'ResyncedEvent': (json) => (ResyncedEvent.fromJson(
     _as<Map<String, Object?>>(json, 'ResyncedEvent'),
   )).toJson(),
+  'RetryCancelRequest': (json) => (RetryCancelRequest.fromJson(
+    _as<Map<String, Object?>>(json, 'RetryCancelRequest'),
+  )).toJson(),
+  'RetryCancelResponse': (json) => (RetryCancelResponse.fromJson(
+    _as<Map<String, Object?>>(json, 'RetryCancelResponse'),
+  )).toJson(),
   'RetryFinishedEvent': (json) => (RetryFinishedEvent.fromJson(
     _as<Map<String, Object?>>(json, 'RetryFinishedEvent'),
   )).toJson(),
@@ -1569,6 +1635,15 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   'SessionReplacedEvent': (json) => (SessionReplacedEvent.fromJson(
     _as<Map<String, Object?>>(json, 'SessionReplacedEvent'),
   )).toJson(),
+  'SessionSetting': (json) => (SessionSetting.fromJson(
+    _as<Map<String, Object?>>(json, 'SessionSetting'),
+  )).toJson(),
+  'SessionSettingsOp': (json) => (SessionSettingsOp.fromJson(
+    _as<Map<String, Object?>>(json, 'SessionSettingsOp'),
+  )).toJson(),
+  'SessionSettingsResult': (json) => (SessionSettingsResult.fromJson(
+    _as<Map<String, Object?>>(json, 'SessionSettingsResult'),
+  )).toJson(),
   'SessionSnapshot': (json) => (SessionSnapshot.fromJson(
     _as<Map<String, Object?>>(json, 'SessionSnapshot'),
   )).toJson(),
@@ -1579,6 +1654,15 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   )).toJson(),
   'SessionTitle': (json) => (SessionTitle.fromJson(
     _as<Map<String, Object?>>(json, 'SessionTitle'),
+  )).toJson(),
+  'SessionTool': (json) => (SessionTool.fromJson(
+    _as<Map<String, Object?>>(json, 'SessionTool'),
+  )).toJson(),
+  'SessionToolsOp': (json) => (SessionToolsOp.fromJson(
+    _as<Map<String, Object?>>(json, 'SessionToolsOp'),
+  )).toJson(),
+  'SessionToolsResult': (json) => (SessionToolsResult.fromJson(
+    _as<Map<String, Object?>>(json, 'SessionToolsResult'),
   )).toJson(),
   'SessionUpdatedEvent': (json) => (SessionUpdatedEvent.fromJson(
     _as<Map<String, Object?>>(json, 'SessionUpdatedEvent'),
@@ -1595,6 +1679,10 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   'SessionsListed': (json) => (SessionsListed.fromJson(
     _as<Map<String, Object?>>(json, 'SessionsListed'),
   )).toJson(),
+  'SettingChange': (json) => (SettingChange.fromJson(
+    _as<Map<String, Object?>>(json, 'SettingChange'),
+  )).toJson(),
+  'SettingKey': (json) => (_as<String>(json, 'SettingKey')),
   'SnapshotSync': (json) => (SnapshotSync.fromJson(
     _as<Map<String, Object?>>(json, 'SnapshotSync'),
   )).toJson(),
@@ -1613,6 +1701,12 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   )).toJson(),
   'StringFormat': (json) =>
       (StringFormat.fromJson(_as<String>(json, 'StringFormat'))).toJson(),
+  'SystemPromptOp': (json) => (SystemPromptOp.fromJson(
+    _as<Map<String, Object?>>(json, 'SystemPromptOp'),
+  )).toJson(),
+  'SystemPromptResult': (json) => (SystemPromptResult.fromJson(
+    _as<Map<String, Object?>>(json, 'SystemPromptResult'),
+  )).toJson(),
   'TakeOverOp': (json) => (TakeOverOp.fromJson(
     _as<Map<String, Object?>>(json, 'TakeOverOp'),
   )).toJson(),
@@ -1646,9 +1740,18 @@ final Map<String, Object? Function(Object? json)> contractRoundTrips = {
   'Timestamp': (json) => (_as<int>(json, 'Timestamp')),
   'TitleSource': (json) =>
       (TitleSource.fromJson(_as<String>(json, 'TitleSource'))).toJson(),
+  'ToggleChange': (json) => (ToggleChange.fromJson(
+    _as<Map<String, Object?>>(json, 'ToggleChange'),
+  )).toJson(),
+  'ToggleSetting': (json) => (ToggleSetting.fromJson(
+    _as<Map<String, Object?>>(json, 'ToggleSetting'),
+  )).toJson(),
   'ToolCallId': (json) => (_as<String>(json, 'ToolCallId')),
   'ToolCallItem': (json) => (ToolCallItem.fromJson(
     _as<Map<String, Object?>>(json, 'ToolCallItem'),
+  )).toJson(),
+  'ToolChange': (json) => (ToolChange.fromJson(
+    _as<Map<String, Object?>>(json, 'ToolChange'),
   )).toJson(),
   'ToolChildSession': (json) => (ToolChildSession.fromJson(
     _as<Map<String, Object?>>(json, 'ToolChildSession'),

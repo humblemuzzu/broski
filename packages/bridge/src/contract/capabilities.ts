@@ -55,5 +55,8 @@ export const SessionCapabilities = z.strictObject({
 	controllable: z.boolean(),
 	compact: z.boolean(),
 	cancelQueued: z.boolean(),
+	/** Since 1.3; absent from an older bridge, which cancels neither. */
+	cancelCompaction: z.boolean().optional(),
+	cancelRetry: z.boolean().optional(),
 });
 export type SessionCapabilities = z.infer<typeof SessionCapabilities>;

@@ -20,6 +20,8 @@ export function openSessionView(host: SessionHost, sink: SessionSink, release: (
 		setThinking: (value) => whileOpen(() => shared.setThinking(value)),
 		setMode: (axis, value) => whileOpen(() => shared.setMode(axis, value)),
 		compact: (instructions) => whileOpen(() => shared.compact(instructions)),
+		cancelCompaction: () => whileOpen(() => shared.cancelCompaction()),
+		cancelRetry: () => whileOpen(() => shared.cancelRetry()),
 	};
 	return {
 		session: { backend: "pi", sessionId: host.sessionId },

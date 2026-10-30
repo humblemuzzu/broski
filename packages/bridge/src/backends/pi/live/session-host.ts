@@ -25,6 +25,7 @@ import type { AskHost, LiveRow } from "../ports";
 import { ACCEPTED, CLOSED, rejected } from "../rejections";
 import { InteractionDesk } from "../ui/interactions";
 import { createRemoteUiContext } from "../ui/ui-context";
+import { cancelCompaction, cancelRetry } from "./cancel-requests";
 import { CommandScope } from "./command-scope";
 import { requestCompaction } from "./compaction-request";
 import { EventBridge } from "./event-bridge";
@@ -44,11 +45,13 @@ import { ABORT_DEADLINE_MS, BINDING_WAIT_MS, boundedAbort, shutdownRuntime, with
 import { UsageFeed } from "./usage-feed";
 
 /** `SessionControl` with the one method a session this bridge made always has. */
-type HostControl = Omit<SessionControl, "compact"> & {
+type HostControl = Omit<SessionControl, "compact" | "cancelCompaction" | "cancelRetry"> & {
 	compact(instructions: string | undefined): Promise<ActionResult>;
+	cancelCompaction(): Promise<ActionResult>;
+	cancelRetry(): Promise<ActionResult>;
 };
 
-const BINDING: Rejected = rejected("busy", "the session's extensions are still starting");
+export const BINDING: Rejected = rejected("busy", "the session's extensions are still starting");
 
 export class SessionHost {
 	readonly sessionId: string;
@@ -261,6 +264,8 @@ export class SessionHost {
 						started: () => this.events.nextCompactionStart(),
 					}),
 				),
+			cancelCompaction: async () => (this.ended ? CLOSED : cancelCompaction(this.session)),
+			cancelRetry: async () => (this.ended ? CLOSED : cancelRetry(this.session, this.live.snapshot())),
 		};
 	}
 

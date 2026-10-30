@@ -20,6 +20,9 @@ import { SessionHosts } from "./live/session-hosts";
 import { ModelCatalogue } from "./models/catalogue";
 import { listPiModes } from "./modes";
 import { navigateTree } from "./ops/navigate-tree";
+import { sessionSettings } from "./ops/session-settings";
+import { sessionTools } from "./ops/session-tools";
+import { systemPrompt } from "./ops/system-prompt";
 import { takeOver } from "./ops/take-over";
 import type { SessionStore } from "./ports";
 import { rejected } from "./rejections";
@@ -143,11 +146,18 @@ function callOp(parts: PiParts, call: BackendCall): Promise<BackendCallResult> {
 	const { hosts, store, catalog, terminal } = parts;
 	if (call.backend !== "pi")
 		return Promise.resolve(rejected("unsupported", `Pi has no ${call.backend} op ${call.op.kind}`));
-	switch (call.op.kind) {
+	const { op } = call;
+	switch (op.kind) {
 		case "navigate_tree":
-			return navigateTree({ hosts, store, live: hosts, catalog }, call.op);
+			return navigateTree({ hosts, store, live: hosts, catalog }, op);
 		case "take_over":
-			return takeOver({ hosts, store, terminals: terminal.registry, now: Date.now }, call.op);
+			return takeOver({ hosts, store, terminals: terminal.registry, now: Date.now }, op);
+		case "session_settings":
+			return hosts.withLiveSession(op.sessionId, (session) => sessionSettings(session, op));
+		case "session_tools":
+			return hosts.withLiveSession(op.sessionId, (session) => sessionTools(session, op));
+		case "system_prompt":
+			return hosts.withLiveSession(op.sessionId, (session) => systemPrompt(session, op));
 	}
 }
 

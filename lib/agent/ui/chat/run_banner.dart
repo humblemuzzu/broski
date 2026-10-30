@@ -6,11 +6,20 @@ import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
 
 /// A retry or a compaction under way, or how the last run ended when that
-/// needs saying (it failed, hit a limit, was suspended or deferred).
+/// needs saying (it failed, hit a limit, was suspended or deferred). A line
+/// that can be cancelled on its own carries the button for it: [onCancelRetry]
+/// and [onCancelCompaction] are null where the session cannot.
 class RunBanner extends StatelessWidget {
-  const RunBanner({super.key, required this.snapshot});
+  const RunBanner({
+    super.key,
+    required this.snapshot,
+    this.onCancelRetry,
+    this.onCancelCompaction,
+  });
 
   final SessionSnapshot snapshot;
+  final VoidCallback? onCancelRetry;
+  final VoidCallback? onCancelCompaction;
 
   @override
   Widget build(BuildContext context) {
@@ -20,16 +29,25 @@ class RunBanner extends StatelessWidget {
     final outcome = snapshot.run == null ? snapshot.lastOutcome : null;
     final lines = [
       if (retry != null)
-        (
+        _BannerLine(
           'Retrying (attempt ${retry.attempt}'
-              '${retry.maxAttempts == null ? '' : ' of ${retry.maxAttempts}'}): '
-              '${retry.message}',
+          '${retry.maxAttempts == null ? '' : ' of ${retry.maxAttempts}'}): '
+          '${retry.message}',
           theme.warning,
+          cancel: onCancelRetry,
+          cancelKey: 'cancel-retry',
+          cancelLabel: 'Cancel retry',
         ),
       if (compaction != null)
-        ('Compacting the context (${compaction.trigger.wire})', theme.info),
+        _BannerLine(
+          'Compacting the context (${compaction.trigger.wire})',
+          theme.info,
+          cancel: onCancelCompaction,
+          cancelKey: 'cancel-compaction',
+          cancelLabel: 'Cancel compaction',
+        ),
       if (outcome != null && outcome is! RunCompleted && outcome is! RunAborted)
-        (
+        _BannerLine(
           outcomeText(outcome),
           outcome is RunErrored ? theme.error : theme.info,
         ),
@@ -41,11 +59,39 @@ class RunBanner extends StatelessWidget {
       padding: Insets.cardSm,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (final (text, color) in lines)
-            Text(text, style: AppTypography.bodySmall(color: color)),
-        ],
+        children: lines,
       ),
     );
   }
+}
+
+class _BannerLine extends StatelessWidget {
+  const _BannerLine(
+    this.text,
+    this.color, {
+    this.cancel,
+    this.cancelKey = '',
+    this.cancelLabel = 'Cancel',
+  });
+
+  final String text;
+  final Color color;
+  final VoidCallback? cancel;
+  final String cancelKey;
+  final String cancelLabel;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Expanded(
+        child: Text(text, style: AppTypography.bodySmall(color: color)),
+      ),
+      if (cancel != null)
+        TextButton(
+          key: ValueKey(cancelKey),
+          onPressed: cancel,
+          child: Text(cancelLabel),
+        ),
+    ],
+  );
 }

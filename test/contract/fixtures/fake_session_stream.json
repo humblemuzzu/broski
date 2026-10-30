@@ -5,7 +5,9 @@
     "capabilities": {
       "controllable": true,
       "compact": true,
-      "cancelQueued": true
+      "cancelQueued": true,
+      "cancelCompaction": true,
+      "cancelRetry": true
     },
     "sync": {
       "kind": "snapshot",

@@ -23,6 +23,8 @@ export interface RunHost {
 
 const ABORTED = Symbol("aborted");
 
+const RETRY_WAIT_MS = 60_000;
+
 const PERMISSION_OPTIONS: readonly PermissionOption[] = [
 	{ id: "allow_once", label: "Allow", effect: "allow", scope: "once", stopsRun: false, message: "none" },
 	{
@@ -53,6 +55,7 @@ export class FakeRun {
 	private abortedWith: RunOutcome | undefined;
 	private readonly interruption = Promise.withResolvers<typeof ABORTED>();
 	private readonly holdRelease = Promise.withResolvers<void>();
+	private readonly retryEnd = Promise.withResolvers<"cancelled" | "released">();
 
 	constructor(
 		private readonly host: RunHost,
@@ -69,9 +72,15 @@ export class FakeRun {
 		this.interruption.resolve(ABORTED);
 	}
 
-	/** Ends a `hold` step, now or when the run reaches one. */
+	/** Ends a `hold` step, now or when the run reaches one; a retry that waits is retried. */
 	release(): void {
 		this.holdRelease.resolve();
+		this.retryEnd.resolve("released");
+	}
+
+	/** Ends the wait of the `retry_wait` step under way; the run then ends in error. */
+	cancelRetry(): void {
+		this.retryEnd.resolve("cancelled");
 	}
 
 	async play(): Promise<RunOutcome> {
@@ -149,6 +158,15 @@ export class FakeRun {
 				}
 				this.host.emit({ type: "retry_finished", succeeded: true });
 				return undefined;
+			case "retry_wait":
+				this.host.emit({
+					type: "retry_scheduled",
+					attempt: 1,
+					maxAttempts: 3,
+					retryAt: this.host.now() + RETRY_WAIT_MS,
+					message: "overloaded",
+				});
+				return this.retryEnded(await this.waitFor(this.retryEnd.promise));
 			case "return_input":
 				this.host.emit({ type: "input_returned", texts: step.texts });
 				return undefined;
@@ -179,6 +197,11 @@ export class FakeRun {
 			case "defer":
 				return { kind: "deferred" };
 		}
+	}
+
+	private retryEnded(end: "cancelled" | "released"): RunOutcome | undefined {
+		this.host.emit({ type: "retry_finished", succeeded: end === "released" });
+		return end === "cancelled" ? { kind: "error", error: { code: "server", message: "overloaded" } } : undefined;
 	}
 
 	private async block(kind: "text" | "thinking" | "plan", text: string, streams: boolean): Promise<void> {

@@ -51,6 +51,15 @@ export function echoModel(gate?: string): FauxResponseFactory {
 	};
 }
 
+/** A response that waits at a gate of the session until it is released or the request is aborted, then answers `text`. */
+export function heldAnswer(bus: DriverBus, sessionId: string, text: string): FauxResponseFactory {
+	const gate = bus.newGate(sessionId);
+	return async (_context, options) => {
+		await bus.hold(gate, options?.signal);
+		return fauxAssistantMessage(text);
+	};
+}
+
 export function scenarioSteps(bus: DriverBus, sessionId: string, scenario: Scenario): FauxResponseStep[] | undefined {
 	switch (scenario.kind) {
 		case "reply":
@@ -61,6 +70,10 @@ export function scenarioSteps(bus: DriverBus, sessionId: string, scenario: Scena
 			return [holdAt(bus.newGate(sessionId), fauxText("Working.")), say("Done.")];
 		case "echo_model":
 			return [echoModel(bus.newGate(sessionId)), echoModel()];
+		case "slow_retry":
+			return [failWith(OVERLOADED), say("Recovered.")];
+		case "slow_compaction":
+			return undefined;
 		case "feature":
 			return featureSteps(scenario.feature);
 		case "interaction":

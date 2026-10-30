@@ -74,7 +74,10 @@ enum BackendOpKind {
   revertClear('revert_clear'),
   revertCommit('revert_commit'),
   navigateTree('navigate_tree'),
-  takeOver('take_over');
+  takeOver('take_over'),
+  sessionSettings('session_settings'),
+  sessionTools('session_tools'),
+  systemPrompt('system_prompt');
 
   const BackendOpKind(this.wire);
 
@@ -99,6 +102,9 @@ sealed class BackendOpResult {
         'revert_commit' => RevertCommitted.fromJson(json),
         'navigate_tree' => TreeNavigated.fromJson(json),
         'take_over' => TakenOver.fromJson(json),
+        'session_settings' => SessionSettingsResult.fromJson(json),
+        'session_tools' => SessionToolsResult.fromJson(json),
+        'system_prompt' => SystemPromptResult.fromJson(json),
         final tag => throw FormatException(
           'Unknown BackendOpResult kind: $tag',
         ),
@@ -449,6 +455,9 @@ sealed class PiOp {
   factory PiOp.fromJson(Map<String, Object?> json) => switch (json['kind']) {
     'navigate_tree' => NavigateTreeOp.fromJson(json),
     'take_over' => TakeOverOp.fromJson(json),
+    'session_settings' => SessionSettingsOp.fromJson(json),
+    'session_tools' => SessionToolsOp.fromJson(json),
+    'system_prompt' => SystemPromptOp.fromJson(json),
     final tag => throw FormatException('Unknown PiOp kind: $tag'),
   };
 
