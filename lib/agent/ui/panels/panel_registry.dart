@@ -1,10 +1,17 @@
 import 'package:broski/agent/ui/panels/op_inputs.dart';
+import 'package:broski/agent/ui/panels/tree_panels.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:flutter/material.dart';
 
 /// Where an operation is offered: on the session, or on one finished item of
 /// its history.
-enum OpPlace { session, item }
+enum OpPlace {
+  session,
+  item,
+
+  /// Not in any menu: a screen of its own calls it.
+  embedded,
+}
 
 /// Which sessions an operation applies to, by what the session allows.
 enum OpAudience {
@@ -25,12 +32,16 @@ final class OpPanel {
     required this.place,
     required this.ask,
     this.audience = OpAudience.anySession,
+    this.open,
   });
 
   final BackendOpKind kind;
   final String label;
   final OpPlace place;
   final OpAudience audience;
+
+  /// A screen of its own instead of one question and one call.
+  final Future<void> Function(BuildContext context, SessionRef session)? open;
 
   /// Asks for what the call needs; null when the person cancels. [itemId]
   /// is set for an item operation.
@@ -87,6 +98,12 @@ OpPanel panelFor(BackendOpKind kind) => switch (kind) {
     place: OpPlace.item,
     ask: askNavigateTree,
   ),
+  BackendOpKind.readTree => treePanel,
+  BackendOpKind.labelEntry => embeddedOp(BackendOpKind.labelEntry),
+  BackendOpKind.abortBranchSummary => embeddedOp(
+    BackendOpKind.abortBranchSummary,
+  ),
+  BackendOpKind.runShell => embeddedOp(BackendOpKind.runShell),
   BackendOpKind.takeOver => const OpPanel(
     kind: BackendOpKind.takeOver,
     label: 'Take over this session',

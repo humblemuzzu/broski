@@ -3,6 +3,16 @@ import { FileChange } from "./content";
 import { SessionId, TranscriptItemId } from "./ids";
 import { MAX_ID_CHARS, MAX_LIST_ITEMS, MAX_NAME_CHARS, MAX_PATH_CHARS, MAX_TEXT_CHARS } from "./limits";
 import { Rejected } from "./rejection";
+import { RunShellOp, SHELL_OP_KINDS, ShellStarted } from "./shell-ops";
+import {
+	AbortBranchSummaryOp,
+	BranchSummaryAborted,
+	EntryLabelled,
+	LabelEntryOp,
+	ReadTreeOp,
+	TREE_OP_KINDS,
+	TreeRead,
+} from "./tree-ops";
 
 export const BackendOpKind = z.enum([
 	"rewind_files",
@@ -13,6 +23,8 @@ export const BackendOpKind = z.enum([
 	"revert_commit",
 	"navigate_tree",
 	"take_over",
+	...TREE_OP_KINDS,
+	...SHELL_OP_KINDS,
 ]);
 export type BackendOpKind = z.infer<typeof BackendOpKind>;
 
@@ -28,6 +40,10 @@ export function rewritesHistory(kind: BackendOpKind): boolean {
 		case "revert_stage":
 		case "revert_clear":
 		case "take_over":
+		case "read_tree":
+		case "label_entry":
+		case "abort_branch_summary":
+		case "run_shell":
 			return false;
 	}
 }
@@ -113,6 +129,8 @@ export const NavigateTreeOp = z.strictObject({
 	sessionId: SessionId,
 	itemId: TranscriptItemId,
 	summarize: z.boolean(),
+	/** What the summary should stress, as the terminal's "Summarize with custom prompt". */
+	instructions: z.string().min(1).max(MAX_TEXT_CHARS).optional(),
 });
 export type NavigateTreeOp = z.infer<typeof NavigateTreeOp>;
 
@@ -136,7 +154,14 @@ export type CodexOp = z.infer<typeof CodexOp>;
 export const OpenCodeOp = z.discriminatedUnion("kind", [RevertStageOp, RevertClearOp, RevertCommitOp]);
 export type OpenCodeOp = z.infer<typeof OpenCodeOp>;
 
-export const PiOp = z.discriminatedUnion("kind", [NavigateTreeOp, TakeOverOp]);
+export const PiOp = z.discriminatedUnion("kind", [
+	NavigateTreeOp,
+	TakeOverOp,
+	ReadTreeOp,
+	LabelEntryOp,
+	AbortBranchSummaryOp,
+	RunShellOp,
+]);
 export type PiOp = z.infer<typeof PiOp>;
 
 export const ClaudeCodeCall = z.strictObject({ backend: z.literal("claude-code"), op: ClaudeCodeOp });
@@ -200,6 +225,10 @@ export const BackendOpResult = z.discriminatedUnion("kind", [
 	RevertCommitted,
 	TreeNavigated,
 	TakenOver,
+	TreeRead,
+	EntryLabelled,
+	BranchSummaryAborted,
+	ShellStarted,
 ]);
 export type BackendOpResult = z.infer<typeof BackendOpResult>;
 

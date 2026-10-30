@@ -3,6 +3,7 @@
 import {
 	ADDED_IN_MINOR,
 	type BackendDescriptor,
+	type BackendOpKind,
 	type EventEnvelope,
 	MAX_TEXT_CHARS,
 	type SessionSnapshot,
@@ -12,10 +13,18 @@ import type { EncodedFrame } from "./frame";
 import type { CoreLog } from "./ports";
 import { fitEvent } from "./wire-fit";
 
+/** The minor that introduced each op a later minor added; an older client is not told of them. */
+const OP_ADDED_IN: Partial<Record<BackendOpKind, number>> = {
+	take_over: ADDED_IN_MINOR.takeOver,
+	read_tree: ADDED_IN_MINOR.treeOps,
+	label_entry: ADDED_IN_MINOR.treeOps,
+	abort_branch_summary: ADDED_IN_MINOR.treeOps,
+	run_shell: ADDED_IN_MINOR.shellOps,
+};
+
 /** The descriptor as `client` may know it: without the ops a later minor added. */
 export function descriptorFor(client: CoreClient, descriptor: BackendDescriptor): BackendDescriptor {
-	if (client.speaks(ADDED_IN_MINOR.takeOver)) return descriptor;
-	const backendOps = descriptor.capabilities.backendOps.filter((op) => op !== "take_over");
+	const backendOps = descriptor.capabilities.backendOps.filter((op) => client.speaks(OP_ADDED_IN[op] ?? 0));
 	return { ...descriptor, capabilities: { ...descriptor.capabilities, backendOps } };
 }
 

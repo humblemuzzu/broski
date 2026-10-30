@@ -27,15 +27,16 @@ import { BackendStatus } from "./status";
  * field, a new request, a new union member or enum value) bumps `minor`; anything else bumps `major`.
  * Neither side sends the other anything newer than the other's `minor`, learnt from `hello`.
  */
-export const PROTOCOL_VERSION = { major: 1, minor: 2 } as const;
+export const PROTOCOL_VERSION = { major: 1, minor: 3 } as const;
 
 /**
  * The minor that introduced each addition to 1.0. The bridge sends it only to a client whose `hello`
  * named at least that minor (`CoreClient.speaks`). 1.1: the `replaced` attach answer. 1.2: the
  * `input_returned` event (an older client is sent a `notice` with the same texts in its place) and the
- * `take_over` Pi op (an older client is not told it exists).
+ * `take_over` Pi op (an older client is not told it exists). 1.3: the Pi tree ops (`read_tree`, `label_entry`,
+ * `abort_branch_summary`) and the shell op (`run_shell`), likewise not told of.
  */
-export const ADDED_IN_MINOR = { replacedSync: 1, inputReturned: 2, takeOver: 2 } as const;
+export const ADDED_IN_MINOR = { replacedSync: 1, inputReturned: 2, takeOver: 2, treeOps: 3, shellOps: 3 } as const;
 
 export const ProtocolVersion = z.strictObject({ major: z.int().nonnegative(), minor: z.int().nonnegative() });
 export type ProtocolVersion = z.infer<typeof ProtocolVersion>;

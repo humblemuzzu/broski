@@ -19,6 +19,7 @@ Future<void> runOp(
   SessionRef session, {
   TranscriptItemId? itemId,
 }) async {
+  if (panel.open case final open?) return open(context, session);
   final call = await panel.ask(context, session.sessionId, itemId);
   if (call == null || !context.mounted) return;
   final outcome = await client.callBackend(call);
@@ -84,6 +85,10 @@ class OpResultView extends StatelessWidget {
     RevertCommitted() ||
     TreeNavigated() => const Text('Done. The conversation reloads.'),
     TakenOver() => const Text('This session now runs from your phone.'),
+    TreeRead() ||
+    EntryLabelled() ||
+    BranchSummaryAborted() ||
+    ShellStarted() => const Text('Done.'),
     RevertCleared() => const Text('The staged revert was undone.'),
   };
 }

@@ -66,6 +66,16 @@ function exampleCall(op: BackendOpKind, sessionId: string, itemId: string): Back
 		case "navigate_tree":
 			return { backend: "pi", op: { kind: op, sessionId, itemId, summarize: false } };
 		case "take_over":
+		case "abort_branch_summary":
 			return { backend: "pi", op: { kind: op, sessionId } };
+		case "read_tree":
+			return { backend: "pi", op: { kind: op, sessionId, page: { limit: 10 } } };
+		case "label_entry":
+			return { backend: "pi", op: { kind: op, sessionId, entryId: itemId, label: "marked" } };
+		case "run_shell":
+			return {
+				backend: "pi",
+				op: { kind: op, sessionId, clientRequestId: crypto.randomUUID(), command: "true", excludeFromContext: false },
+			};
 	}
 }

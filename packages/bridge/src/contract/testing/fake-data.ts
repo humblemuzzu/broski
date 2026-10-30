@@ -121,6 +121,11 @@ export function fakeOpResult(call: BackendCall): BackendOpResult {
 		case "revert_commit":
 		case "navigate_tree":
 		case "take_over":
+		case "label_entry":
+		case "abort_branch_summary":
+		case "run_shell":
 			return { kind: op.kind };
+		case "read_tree":
+			return { kind: op.kind, total: 0, nodes: [] };
 	}
 }

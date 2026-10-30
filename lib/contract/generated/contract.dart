@@ -29,14 +29,16 @@ part 'read_results.dart';
 part 'rejection.dart';
 part 'runs.dart';
 part 'sessions.dart';
+part 'shell_ops.dart';
 part 'snapshot.dart';
 part 'status.dart';
 part 'tools.dart';
 part 'transcript.dart';
+part 'tree_ops.dart';
 part 'usage.dart';
 
 const int contractProtocolMajor = 1;
-const int contractProtocolMinor = 2;
+const int contractProtocolMinor = 3;
 
 const int contractMaxCatalogItems = 10000;
 const int contractMaxClientMessageValues = 50000;

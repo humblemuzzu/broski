@@ -25,10 +25,12 @@ import * as readResults from "./read-results";
 import * as rejection from "./rejection";
 import * as runs from "./runs";
 import * as sessions from "./sessions";
+import * as shellOps from "./shell-ops";
 import * as snapshot from "./snapshot";
 import * as status from "./status";
 import * as tools from "./tools";
 import * as transcript from "./transcript";
+import * as treeOps from "./tree-ops";
 import * as usage from "./usage";
 
 /** Every wire-visible schema module. Each exported schema is a named type, its export name the type's id. */
@@ -51,6 +53,8 @@ const SCHEMA_MODULES = {
 	notice,
 	extensions,
 	"backend-ops": backendOps,
+	"tree-ops": treeOps,
+	"shell-ops": shellOps,
 	models,
 	commands,
 	modes,

@@ -99,6 +99,12 @@ final class SessionControls {
     await _cell.client.compact(_cell.ref, instructions: instructions),
   );
 
+  /// Puts [text] in front of the composer's draft, as input the backend
+  /// handed back: the message a tree jump returns to be edited and sent again.
+  void returnInput(String text) => _cell.update(
+    (state) => state.copyWith(returnedInput: [...state.returnedInput, text]),
+  );
+
   /// The composer has taken the input the backend handed back.
   void clearReturnedInput() =>
       _cell.update((state) => state.copyWith(returnedInput: const []));
