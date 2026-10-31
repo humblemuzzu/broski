@@ -36,8 +36,8 @@ export async function importSession(deps: ImportDeps, op: ImportSessionOp): Prom
 }
 
 async function finish(deps: ImportDeps, uploadId: string, received: number): Promise<BackendCallResult> {
-	const path = deps.uploads.pathOf(uploadId);
 	try {
+		const path = await deps.uploads.pathOf(uploadId);
 		if (path === undefined || received === 0) {
 			return rejected("invalid_input", "the file is empty");
 		}

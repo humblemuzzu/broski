@@ -39,14 +39,17 @@ export async function exportSession(deps: ExportDeps, op: ExportSessionOp): Prom
 	const format = FORMATS[op.format];
 	const slot = await deps.desk.slot();
 	const name = clipStart(`${basename(stored.path, ".jsonl")}${format.extension}`, MAX_NAME_CHARS);
+	let kept = false;
 	try {
 		const path = await write(deps, slot, op.format, stored);
 		if (path === undefined) return rejected("not_found", "the session file is gone or is no longer a file");
 		const file = await deps.desk.keep(slot, { sessionId: op.sessionId, path, name, mimeType: format.mimeType });
+		kept = true;
 		return { status: "accepted", result: { kind: "export_session", ...summaryOf(file) } };
 	} catch (error) {
-		await deps.desk.abandon(slot);
 		return rejected("backend_error", `the session could not be exported: ${errorText(error)}`);
+	} finally {
+		if (!kept) await deps.desk.abandon(slot);
 	}
 }
 

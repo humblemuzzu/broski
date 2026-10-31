@@ -10,19 +10,25 @@ import { UploadDesk } from "./upload-desk";
 
 export class SessionTransfer {
 	private readonly scratch = new Scratch();
+	private readonly exports: ExportDesk;
+	private readonly uploads: UploadDesk;
 	readonly exporting: ExportDeps;
 	readonly importing: ImportDeps;
 
 	constructor(services: PiServices, store: SessionStore, now: () => number) {
+		this.exports = new ExportDesk(this.scratch, { now });
+		this.uploads = new UploadDesk(this.scratch, { now });
 		this.exporting = {
 			store,
-			desk: new ExportDesk(this.scratch),
+			desk: this.exports,
 			html: { agentDir: services.agentDir, modelRuntime: services.models.runtime },
 		};
-		this.importing = { store, uploads: new UploadDesk(this.scratch), now };
+		this.importing = { store, uploads: this.uploads, now };
 	}
 
 	dispose(): Promise<void> {
+		this.exports.dispose();
+		this.uploads.dispose();
 		return this.scratch.dispose();
 	}
 }

@@ -306,12 +306,12 @@ describe("the parts of an upload", () => {
 
 	test("are bounded: an upload past the largest session file is refused and dropped", async () => {
 		const area = new Scratch();
-		const desk = new UploadDesk(area, 10);
+		const desk = new UploadDesk(area, { limit: 10 });
 		try {
 			expect(await desk.take("u", 0, Buffer.from("12345678"))).toBe(8);
 			const refused = await desk.take("u", 8, Buffer.from("90123"));
 			expect(typeof refused === "number" ? refused : refused.rejection.code).toBe("invalid_input");
-			expect(desk.pathOf("u")).toBeUndefined();
+			expect(await desk.pathOf("u")).toBeUndefined();
 		} finally {
 			await area.dispose();
 		}
