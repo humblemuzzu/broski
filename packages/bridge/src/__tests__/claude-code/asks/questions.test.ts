@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { humanDenial } from "../../../backends/claude-code/ui/denial";
 import type { Interaction, QuestionsReply, QuestionsRequest } from "../../../contract";
 import { DeskRig } from "./desk-rig";
 
@@ -120,12 +121,12 @@ describe("AskUserQuestion", () => {
 		const rig = new DeskRig();
 		const first = rig.tool("AskUserQuestion", { questions: [COLOR] });
 		rig.answer(rig.only(), { kind: "cancel", stopRun: false });
-		expect(await first.promise).toEqual({ behavior: "deny", message: "The user denied this request." });
+		expect(await first.promise).toEqual({ behavior: "deny", message: humanDenial(undefined) });
 		const second = rig.tool("AskUserQuestion", { questions: [COLOR] });
 		const asked = rig.requested()[1];
 		if (!asked) throw new Error("no second ask");
 		rig.answer(asked, { kind: "cancel", stopRun: true, message: "Enough." });
-		expect(await second.promise).toEqual({ behavior: "deny", message: "Enough.", interrupt: true });
+		expect(await second.promise).toEqual({ behavior: "deny", message: humanDenial("Enough."), interrupt: true });
 		expect(rig.aborts).toEqual(["abort"]);
 	});
 

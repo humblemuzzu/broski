@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { humanDenial } from "../../../backends/claude-code/ui/denial";
 import type { Interaction, PlanApprovalReply, PlanApprovalRequest } from "../../../contract";
 import { DeskRig } from "./desk-rig";
 
@@ -80,7 +81,7 @@ describe("ExitPlanMode", () => {
 		const rig = new DeskRig();
 		const ask = rig.tool("ExitPlanMode", INPUT);
 		rig.answer(rig.only(), { kind: "plan_approval", decision: "reject", feedback: "Add a test step first." });
-		expect(await ask.promise).toEqual({ behavior: "deny", message: "Add a test step first." });
+		expect(await ask.promise).toEqual({ behavior: "deny", message: humanDenial("Add a test step first.") });
 		expect(rig.aborts).toEqual([]);
 	});
 

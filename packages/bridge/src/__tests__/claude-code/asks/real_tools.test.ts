@@ -4,6 +4,7 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import { humanDenial } from "../../../backends/claude-code/ui/denial";
 import type { ScriptedTurn } from "../../helpers/scripted-anthropic-server";
 import { expectNoOrphans } from "../spike/rig/orphans";
 import { finishTurn, permissionModes, toolResults, withRealCli } from "./rig/real-run";
@@ -200,7 +201,7 @@ describe("AskUserQuestion through the real CLI", () => {
 				const interaction = await run.rig.requestedAt(0);
 				run.rig.answer(interaction, { kind: "cancel", stopRun: false });
 				expect((await turn).terminal_reason).toBe("completed");
-				expect(toolResults(run.spike.messages)).toContain("The user denied this request.");
+				expect(toolResults(run.spike.messages)).toContain(humanDenial(undefined));
 			});
 		},
 		CLI_MS,

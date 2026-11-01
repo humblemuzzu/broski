@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { PermissionUpdate } from "@anthropic-ai/claude-agent-sdk";
+import { failureOutcome } from "../../../backends/claude-code/mapping/tool-outcome";
+import { humanDenial } from "../../../backends/claude-code/ui/denial";
 import type { Interaction, PermissionOption, ToolPermissionReply, ToolPermissionRequest } from "../../../contract";
 import { permissionVerdicts } from "../../../server/link-feed/contract-replies";
 import { DeskRig } from "./desk-rig";
@@ -75,7 +77,11 @@ describe("a tool permission", () => {
 		const rig = new DeskRig();
 		const first = rig.tool("Bash", BASH);
 		rig.answer(rig.only(), reply("deny_once", { message: "Not that one." }));
-		expect(await first.promise).toEqual({ behavior: "deny", message: "Not that one." });
+		const denied = await first.promise;
+		expect(denied).toEqual({ behavior: "deny", message: humanDenial("Not that one.") });
+		const message = denied !== null && "message" in denied ? String(denied.message) : "";
+		expect(message.endsWith("\nNot that one.")).toBe(true);
+		expect(failureOutcome(message)).toBe("denied");
 		expect(rig.aborts).toEqual([]);
 
 		const second = rig.tool("Bash", BASH);
@@ -84,7 +90,7 @@ describe("a tool permission", () => {
 		rig.answer(asked, reply("deny_stop"));
 		expect(await second.promise).toEqual({
 			behavior: "deny",
-			message: "The user denied this request.",
+			message: humanDenial(undefined),
 			interrupt: true,
 		});
 		expect(rig.aborts).toEqual(["abort"]);
@@ -215,8 +221,10 @@ describe("a tool permission", () => {
 		const rig = new DeskRig();
 		rig.tool("WebFetch", { url: "https://example.com/a?b=1" }, { displayName: "Fetch" });
 		rig.tool("Read", { file_path: "/etc/hosts" }, { blockedPath: "/etc/hosts" });
-		const [fetch, read] = rig.requested();
-		expect(fetch?.title).toBe("Allow Fetch?");
+		rig.tool("Frobnicate", {}, {});
+		const [fetch, read, bare] = rig.requested();
+		expect(fetch?.title).toBe("Fetch https://example.com/a?b=1");
+		expect(bare?.title).toBe("Allow Frobnicate?");
 		expect(fetch?.request).toMatchObject({ previews: [{ kind: "network", host: "example.com", protocol: "https" }] });
 		expect(read?.request).toMatchObject({ previews: [{ kind: "paths", paths: ["/etc/hosts"] }] });
 	});

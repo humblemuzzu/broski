@@ -2,6 +2,7 @@
 
 import type { PermissionResult } from "@anthropic-ai/claude-agent-sdk";
 import type { CancelReply, InteractionReply, InteractionRequest } from "../../../contract";
+import { humanDenial } from "./denial";
 
 export interface ToolAsk {
 	readonly title: string;
@@ -11,8 +12,6 @@ export interface ToolAsk {
 	readonly decide: (reply: InteractionReply) => PermissionResult | undefined;
 }
 
-export const DENIED_MESSAGE = "The user denied this request.";
-
 /** The CLI withdrew the ask or its run is over: nobody is waiting for this any more. */
 export const WITHDRAWN: PermissionResult = { behavior: "deny", message: "The request was withdrawn." };
 
@@ -20,7 +19,7 @@ export const WITHDRAWN: PermissionResult = { behavior: "deny", message: "The req
 export function cancelledToolAsk(reply: CancelReply): PermissionResult {
 	return {
 		behavior: "deny",
-		message: textOr(reply.message, DENIED_MESSAGE),
+		message: humanDenial(reply.message),
 		...(reply.stopRun && { interrupt: true }),
 	};
 }

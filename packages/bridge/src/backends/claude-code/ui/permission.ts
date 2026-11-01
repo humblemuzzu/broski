@@ -12,11 +12,12 @@ import { clip, nameOr } from "../bounds";
 import { toolCallId } from "../ids";
 import { boundedJson } from "../json";
 import { toolTitle } from "../mapping/tool-titles";
+import { humanDenial } from "./denial";
 import { DENY_ONCE, type OptionEffect, permissionChoices } from "./permission-options";
 import { permissionPreviews } from "./permission-previews";
 import { reportAskProblem } from "./problems";
 import { plain } from "./text";
-import { DENIED_MESSAGE, type ToolAsk, textOr } from "./tool-ask";
+import type { ToolAsk } from "./tool-ask";
 
 export type PermissionAskOptions = Parameters<CanUseTool>[2];
 
@@ -95,7 +96,7 @@ function permitted(
 	if (chosen.effect === "deny") {
 		return {
 			behavior: "deny",
-			message: textOr(reply.message, DENIED_MESSAGE),
+			message: humanDenial(reply.message),
 			...(chosen.stopsRun && { interrupt: true }),
 		};
 	}

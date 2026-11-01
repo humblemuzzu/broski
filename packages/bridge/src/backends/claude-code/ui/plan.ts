@@ -10,6 +10,7 @@ import {
 } from "../../../contract";
 import { clip } from "../bounds";
 import { isPermissionMode } from "../permission-modes";
+import { humanDenial } from "./denial";
 import { type ToolAsk, textOr } from "./tool-ask";
 
 const KEEP_PLANNING = "The user wants the plan revised before any work starts.";
@@ -47,7 +48,8 @@ function decided(
 	offered: PlanModeOptions | undefined,
 	reply: PlanApprovalReply,
 ): PermissionResult | undefined {
-	if (reply.decision === "reject") return { behavior: "deny", message: textOr(reply.feedback, KEEP_PLANNING) };
+	if (reply.decision === "reject")
+		return { behavior: "deny", message: humanDenial(textOr(reply.feedback, KEEP_PLANNING)) };
 	const mode = reply.modeAfter ?? offered?.defaultValue;
 	if (mode !== undefined && !isPermissionMode(mode)) return undefined;
 	const edited = reply.plan !== undefined && reply.plan !== plan;
