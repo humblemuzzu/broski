@@ -133,11 +133,13 @@ export class WatchedSession {
 		if (this.closed || !this.translator.settled) return;
 		this.cancelQuiet = this.clock.after(QUIET_MS, () => {
 			this.cancelQuiet = undefined;
-			if (!this.closed) this.publish(this.translator.settle());
+			if (!this.closed && this.desk.size === 0) this.publish(this.translator.settle());
 		});
 	}
 
+	/** An ask is a turn under way: a settled run the file never closed is over, and the ask gets a run of its own. */
 	private ensureRun(): RunId {
+		this.publish(this.translator.settle());
 		const { runId, events } = this.translator.ensureRun();
 		this.publish(events);
 		return runId;

@@ -282,6 +282,41 @@ describe("a terminal ask on a session the bridge only watches", () => {
 		expect(kinds.indexOf("interaction_resolved")).toBeLessThan(kinds.indexOf("tool_finished"));
 	});
 
+	test("an ask after a turn the file never closed gets a run of its own, and the quiet rule never finishes a run that has an ask", async () => {
+		const hook = receiver();
+		viewed = await rig.open(sessionId);
+		const start = viewed.status === "accepted" ? viewed.snapshot : undefined;
+		if (start === undefined) throw new Error("open refused");
+		watchedByAPhone = true;
+		append(prompt("first"), assistant("msg_1", text("all done"), { index: 0 }));
+		await rig.waitFor((records) => records.some((r) => r.event.type === "block_finished"));
+		const response = hook.handle(ask());
+		const interaction = await pendingInteraction();
+		await Bun.sleep(700);
+		expect(types(rig.records)).not.toContain("interaction_resolved");
+		const runs = rig.records.flatMap((r) => (r.event.type === "run_started" ? [r.event.runId] : []));
+		expect(runs).toHaveLength(2);
+		expect(interaction.runId).toBe(runs[1]);
+		expect(types(rig.records).filter((kind) => kind === "run_finished")).toHaveLength(1);
+		rig.watch.answerAsk(sessionId, reply(interaction, ids.allow));
+		await response;
+		expect(streamViolations(rig.records, CLAUDE_CODE_TRAITS, start)).toEqual([]);
+	});
+
+	test("a run that looks finished is not finished while an ask is on it", async () => {
+		const hook = receiver();
+		viewed = await rig.open(sessionId);
+		watchedByAPhone = true;
+		const response = hook.handle(ask());
+		const interaction = await pendingInteraction();
+		append(assistant("msg_7", text("that is all"), { index: 0 }));
+		await rig.waitFor((records) => records.some((r) => r.event.type === "block_finished"));
+		await Bun.sleep(700);
+		expect(types(rig.records)).not.toContain("run_finished");
+		rig.watch.answerAsk(sessionId, reply(interaction, ids.deny));
+		await response;
+	});
+
 	test("an Esc at the terminal ends the run, and the ask goes before the run does", async () => {
 		const hook = receiver();
 		append(
