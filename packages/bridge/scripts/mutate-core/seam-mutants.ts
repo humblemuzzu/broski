@@ -24,7 +24,7 @@ export const FIT_MUTANTS: Mutant[] = [
 			find: "\tif (!checked.success) {\n\t\tlog.error(`[core] a shortened",
 			replace: "\tif (false) {\n\t\tlog.error(`[core] a shortened",
 			equivalent:
-				"cutting only shortens strings longer than MAX_PATH_CHARS and turns an edit flag false; no schema in the contract constrains such a string beyond its maximum, so a cut message always parses",
+				"cutting only shortens strings longer than MAX_PATH_CHARS, turns an edit flag false and a file's `truncated` true; no schema in the contract constrains such a string beyond its maximum, so a cut message always parses",
 		},
 		{
 			name: "fit: open text keeps its head",
