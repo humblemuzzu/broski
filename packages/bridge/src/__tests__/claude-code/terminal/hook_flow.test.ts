@@ -9,6 +9,7 @@ import { appendFileSync, mkdirSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { TerminalAskHandler } from "../../../backends/claude-code/ports/terminal";
 import { CLAUDE_CODE_TRAITS } from "../../../backends/claude-code/traits";
+import { humanDenial } from "../../../backends/claude-code/ui/denial";
 import type { Interaction, InteractionAnswer, OpenResult, SessionSnapshot, SinkRecord } from "../../../contract";
 import { streamViolations, unsettledParts } from "../../../contract/testing/stream-rules";
 import { createTerminalHookReceiver } from "../../../server/cc-terminal-hook";
@@ -178,7 +179,7 @@ describe("a terminal ask on a session the bridge only watches", () => {
 		expect(await body(response)).toEqual({
 			hookSpecificOutput: {
 				hookEventName: "PermissionRequest",
-				decision: { behavior: "deny", message: "not that directory" },
+				decision: { behavior: "deny", message: humanDenial("not that directory") },
 			},
 		});
 	});

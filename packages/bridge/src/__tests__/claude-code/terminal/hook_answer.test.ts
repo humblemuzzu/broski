@@ -3,6 +3,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { TerminalAskHandler, TerminalPermissionDecision } from "../../../backends/claude-code/ports/terminal";
 import { CLAUDE_CODE_TRAITS } from "../../../backends/claude-code/traits";
+import { humanDenial } from "../../../backends/claude-code/ui/denial";
 import {
 	type Interaction,
 	type InteractionReply,
@@ -109,11 +110,11 @@ describe("a terminal session whose ask can be answered here", () => {
 			[{ kind: "tool_permission", optionId: "allow-once", grantIds: [] }, { behavior: "allow" }],
 			[
 				{ kind: "tool_permission", optionId: "deny-and-stop", grantIds: [], message: "no" },
-				{ behavior: "deny", message: "no", interrupt: true },
+				{ behavior: "deny", message: humanDenial("no"), interrupt: true },
 			],
 			[
 				{ kind: "cancel", stopRun: true },
-				{ behavior: "deny", message: "Denied from the Broski app.", interrupt: true },
+				{ behavior: "deny", message: humanDenial("Denied from the Broski app."), interrupt: true },
 			],
 			[{ kind: "cancel", stopRun: false }, undefined],
 		];

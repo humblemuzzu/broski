@@ -17,6 +17,7 @@ import { boundedJson, isRecord } from "../json";
 import { fileChangesOf } from "../mapping/file-changes";
 import { toolTitle } from "../mapping/tool-titles";
 import type { TerminalPermissionDecision } from "../ports/terminal";
+import { humanDenial } from "../ui/denial";
 
 export const ALLOW_ONCE = "allow-once";
 export const DENY_ONCE = "deny-once";
@@ -50,6 +51,11 @@ const OPTIONS: readonly PermissionOption[] = [
 ];
 
 const DENIED_ON_PHONE = "Denied from the Broski app.";
+
+/** In the CLI's own words, so the tail and history read the result `denied` (D53, D120). */
+function denial(message: string | undefined): string {
+	return humanDenial(message ?? DENIED_ON_PHONE);
+}
 
 /** The tools whose terminal dialog is a question to the person, not a permission: a hook's allow would answer none. */
 export function isPersonOnlyTool(toolName: string): boolean {
@@ -121,7 +127,7 @@ export function decisionOf(reply: InteractionReply): HookDecision | undefined {
 				decision: reply.stopRun
 					? {
 							behavior: "deny",
-							message: reply.message ?? DENIED_ON_PHONE,
+							message: denial(reply.message),
 							interrupt: true,
 						}
 					: undefined,
@@ -137,13 +143,13 @@ function toolPermissionDecision(optionId: string, message: string | undefined): 
 			return { decision: { behavior: "allow" } };
 		case DENY_ONCE:
 			return {
-				decision: { behavior: "deny", message: message ?? DENIED_ON_PHONE },
+				decision: { behavior: "deny", message: denial(message) },
 			};
 		case DENY_AND_STOP:
 			return {
 				decision: {
 					behavior: "deny",
-					message: message ?? DENIED_ON_PHONE,
+					message: denial(message),
 					interrupt: true,
 				},
 			};

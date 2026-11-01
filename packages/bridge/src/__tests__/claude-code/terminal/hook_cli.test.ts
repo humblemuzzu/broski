@@ -7,9 +7,11 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { failureOutcome } from "../../../backends/claude-code/mapping/tool-outcome";
 import type { TerminalAskHandler } from "../../../backends/claude-code/ports/terminal";
 import { installTerminalHook } from "../../../backends/claude-code/terminal/hook-install";
 import { TERMINAL_HOOK_TIMEOUT_SECONDS } from "../../../backends/claude-code/terminal/hook-settings";
+import { humanDenial } from "../../../backends/claude-code/ui/denial";
 import { createTerminalHookReceiver } from "../../../server/cc-terminal-hook";
 import { createClaudeHome } from "../../helpers/claude-home";
 import { expectNoOrphans } from "../spike/rig/orphans";
@@ -232,10 +234,12 @@ describe("the PermissionRequest hook the installer writes, in the real CLI", () 
 	test(
 		"a deny from the phone stops the tool and the model is told the reason",
 		async () => {
-			const outcome = await run(async () => ({ behavior: "deny", message: "not from my phone" }));
+			const message = humanDenial("not from my phone");
+			const outcome = await run(async () => ({ behavior: "deny", message }));
 			expect(outcome.wrote).toBe(false);
 			expect(outcome.promptWithdrawn).toBe(true);
-			expect(outcome.toolResult).toContain("not from my phone");
+			const [block] = JSON.parse(outcome.toolResult);
+			expect(failureOutcome(typeof block.content === "string" ? block.content : block.content[0].text)).toBe("denied");
 		},
 		CLI_TEST_MS,
 	);
