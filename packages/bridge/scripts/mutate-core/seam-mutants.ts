@@ -42,13 +42,36 @@ export const FIT_MUTANTS: Mutant[] = [
 	...mutantsOf("core/text-elision.ts", [
 		{
 			name: "elide: edits stay editable when cut",
-			find: "for (const lock of locks) lock.request[lock.flag] =",
-			replace: "for (const lock of []) lock.request[lock.flag] =",
+			find: "lock.holder[lock.flag] = lock.editable && whole;",
+			replace: "",
 		},
 		{
 			name: "elide: a lock is never lifted",
-			find: "lock.candidates.every((item) => item.text.length <= limit)",
-			replace: "lock.request[lock.flag] === true && lock.candidates.every((item) => item.text.length <= limit)",
+			find: "const whole = lock.candidates.every((item) => item.text.length <= limit);",
+			replace:
+				"const whole = lock.holder[lock.flag] === true && lock.candidates.every((item) => item.text.length <= limit);",
+		},
+		{
+			name: "elide: a read-only file becomes editable when whole",
+			find: "lock.holder[lock.flag] = lock.editable && whole;",
+			replace: "lock.holder[lock.flag] = whole;",
+		},
+		{
+			name: "elide: a cut file is not marked truncated",
+			find: "if (lock.cutFlag) lock.holder[lock.cutFlag] = !whole;",
+			replace: "",
+		},
+		{
+			name: "elide: a file's text is never locked",
+			find: "requestLock(tree, candidate.path) ?? fileLock(tree, candidate.path)",
+			replace: "requestLock(tree, candidate.path)",
+		},
+		{
+			name: "elide: any text beside a revision is a file's",
+			find: 'if (path.at(-1) !== "text") return undefined;',
+			replace: "",
+			equivalent:
+				"no input reaches it: only an `EditableFile` has a boolean `truncated` and a string `revision`, and of its strings only `text` and the entries of `problems` can be long enough to cut, a problem's parent being the list",
 		},
 		{ name: "elide: the tail is never kept", find: "scope.keepsTail(candidate.path)", replace: "false" },
 		{ name: "elide: conditions are cut", find: " && !isCondition(path)", replace: "" },
