@@ -87,37 +87,40 @@ describe("compaction on the real CLI", () => {
 		CLI_TEST_MS,
 	);
 
-	test(
-		"cancelCompaction ends a compaction under way as aborted, with its run, and the session goes on",
-		async () => {
-			const rig = realRig([{ text: ["first answer"] }, { text: ["after"] }], {
-				server: { sideRequests: { compact: [SLOW_SUMMARY] } },
-			});
-			showCompaction(rig.mapping);
-			try {
-				const live = await rig.openNew(rig.home.projectDir);
-				const cancel = live.control.cancelCompaction;
-				if (!cancel) throw new Error("the session cannot cancel a compaction");
-				await live.run("hello");
-				const quiet = live.recorder.items.length;
-				expect((await cancel()).status).toBe("accepted");
-				expect(live.recorder.items.length).toBe(quiet);
-				await live.control.compact?.(undefined);
-				const mark = live.recorder.items.length;
-				await live.waitFor("compaction_started", () => true, mark - 1);
-				expect((await cancel()).status).toBe("accepted");
-				const finished = await live.waitFor("compaction_finished", () => true, mark - 1);
-				expect(finished.outcome).toEqual({ kind: "aborted" });
-				const ended = await live.waitFor("run_finished", () => true, mark - 1);
-				expect(ended.outcome).toEqual({ kind: "aborted" });
-				live.assertSettled();
-				expect((await live.run("again")).outcome).toEqual({ kind: "completed" });
-			} finally {
-				await rig.dispose();
-			}
-		},
-		CLI_TEST_MS,
-	);
+	for (const kind of ["slow", "held"] as const) {
+		test(
+			`cancelCompaction ends a ${kind} compaction under way as aborted, with its run, and the session goes on`,
+			async () => {
+				const summary = kind === "slow" ? SLOW_SUMMARY : { ...SUMMARY, gate: new Promise<void>(() => undefined) };
+				const rig = realRig([{ text: ["first answer"] }, { text: ["after"] }], {
+					server: { sideRequests: { compact: [summary] } },
+				});
+				showCompaction(rig.mapping);
+				try {
+					const live = await rig.openNew(rig.home.projectDir);
+					const cancel = live.control.cancelCompaction;
+					if (!cancel) throw new Error("the session cannot cancel a compaction");
+					await live.run("hello");
+					const quiet = live.recorder.items.length;
+					expect((await cancel()).status).toBe("accepted");
+					expect(live.recorder.items.length).toBe(quiet);
+					await live.control.compact?.(undefined);
+					const mark = live.recorder.items.length;
+					await live.waitFor("compaction_started", () => true, mark - 1);
+					expect((await cancel()).status).toBe("accepted");
+					const finished = await live.waitFor("compaction_finished", () => true, mark - 1);
+					expect(finished.outcome).toEqual({ kind: "aborted" });
+					const ended = await live.waitFor("run_finished", () => true, mark - 1);
+					expect(ended.outcome).toEqual({ kind: "aborted" });
+					live.assertSettled();
+					expect((await live.run("again")).outcome).toEqual({ kind: "completed" });
+				} finally {
+					await rig.dispose();
+				}
+			},
+			CLI_TEST_MS,
+		);
+	}
 
 	test(
 		"a compaction inside a regular run cannot be ended alone",
