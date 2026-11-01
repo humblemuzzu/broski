@@ -225,6 +225,7 @@ SinkRecord    = EventEnvelope without seq and session      // what an adapter em
 6. `retry_finished` follows a `retry_scheduled`; `compaction_finished` follows a `compaction_started`, and a compaction does not start while one is under way. No retry or compaction is under way at `run_finished`. A stream at rest has none open either.
 7. Declared traits gate events: thinking deltas need `streamThinking`, text and plan deltas `streamText`, plan blocks `planProposals`, `queue_changed` `queue` (item ids unique), `usage_updated` `usage`, `plan_updated` `plan`, child sessions `children`, extensions their declared kind, interactions their declared kind.
 8. `resynced` resets what is open to its snapshot; the ids seen so far stay seen.
+9. An `activity` comes inside a run, and none is still `running` when its run finishes (since 1.4).
 
 **The events and their sources.** "synth." means the adapter synthesizes the event.
 
@@ -245,6 +246,7 @@ SinkRecord    = EventEnvelope without seq and session      // what an adapter em
 | `model_changed{modelId?, thinking?}` | Model and thinking, both replaced | the adapter's `setModel`; per-turn `system/init` (cc §5) | the adapter's own calls; `thinking_level_changed` (pi §5) | `agent_changed` (pd D5) |
 | `mode_changed{axis, value}` | One session mode now has `value` (§11.5) | `system/status.permissionMode`, the adapter's own `setPermissionMode` (cc §5, §7) | — | — |
 | `notice{level, text}` | Something to show, not a turn | `system/informational`, `system/notification` (cc §5) | extension `notify` (pi §8) | — |
+| `activity{activity}` (since 1.4) | Work the harness ran around the turn, such as a hook: `{id, label, detail?, status: running\|succeeded\|failed\|cancelled, output?, durationMs?}`. A later one with the same `id` replaces it; it is one item in `run.items` (the reducer keeps where and when it began) and in the transcript. A client below 1.4 is sent a `notice` with the same `seq` (a warning when it failed), and reads an `ActivityItem` as a `NoticeItem` with the same id in a snapshot or a transcript page | `system/hook_started`, `hook_progress`, `hook_response` with `includeHookEvents` | — | — |
 | `error{error, retryable}` | A failure outside a run's outcome | process exit, transport error (cc §1) | — | `onReport`, `harness.closed` (pd D14) |
 | `extension{extension}` | Typed per-backend extra (§13) | `rate_limit_event` | — | — |
 | `session_replaced{session}` | The live session goes on under a new id; this event is the last under the old one. A phone away when it happened is told at its next attach (§12.2). `session` may also name the same session: what it allows changed (Pi: a terminal began or ended running it, or a phone took it over), and the only way to hand viewers the new `SessionCapabilities` is a new stream | `conversation_reset` (`/clear`, plan-exit context clear) (cc §5) | — (the adapter hosts one runtime per session, pi §1) | — |
@@ -445,6 +447,7 @@ Rejection { code: busy|not_steerable|no_model|auth|invalid_input|unsupported|not
 | `compaction` | `compact_boundary` (+ tokens) | `compaction` (summary, tokens) | `pi.compaction` |
 | `model_change` | `attachment.type:"model"` (disk only) | `model_change`, `thinking_level_change` | `agent_changed` history |
 | `run_boundary` | `turn_duration` / `result` (disk) | — | — |
+| `activity` (since 1.4) | a hook's `attachment` (`hook_success`, `hook_non_blocking_error`, …), after the entry it follows | — | — |
 | ids | entry `uuid`, stable | entry ids stable | entry ids stable |
 | paging | chain offset from the start; whole file parsed (cc §4) | none: whole file (bridge pages) | native cursor |
 
@@ -542,6 +545,7 @@ Pending interactions arrive in the snapshot or the replayed `interaction_request
 - Claude Code serving the existing kinds `session_settings`, `changed_files` and `refresh_models`: an older client has no call that carries them to Claude Code (its `ClaudeCodeOp` lacks them), so its Claude Code descriptor does not list them (`OP_JOINED_IN`, by backend), while Pi's still does.
 - The `prompt_suggestion` extension: an older client is sent an info `notice` ("Suggested next prompt: …") with the same `seq`.
 - `PlanApprovalRequest.modeOptions`: taken out of every plan approval an older client is sent, in `interaction_requested`, in a `resynced` snapshot, in an attach's snapshot, and in the live state a frame that does not fit is replaced by. `PlanApprovalReply.modeAfter` from an older client is refused `invalid_input`.
+- Harness activities (`ADDED_IN_MINOR.activities`, §7): the `activity` event becomes a `notice` with the same `seq` for an older client (`core/older-activities.ts`); an `ActivityItem` in `run.items` (an attach's snapshot, a `resynced` one, the live state a frame that does not fit is replaced by) or in a `transcript.read` page becomes a `NoticeItem` with the same id. Added while 1.4 was unreleased, like the next item.
 - Answering a session without control (`ADDED_IN_MINOR.watchedAnswers`, §5 rule 14): `SessionCapabilities.answer` is taken out of the capabilities an older client is sent (its Dart models refuse an unknown field), and that client's `interaction.answer` on such a session is refused `unsupported`, as before 1.4. An answer from outside the phones (`BridgeCore.answer`, the lock screen) has no client minor and reaches it. 1.4 had not shipped when this was added, so it joined 1.4 instead of making a 1.5: no released app or bridge speaks a 1.4 without it.
 
 An event can have a stand-in for more than one older minor; `EncodedFrame.instead` is then a chain, newest minor first, and each client is sent the first stand-in its minor speaks. The rules:
@@ -569,7 +573,7 @@ Two typed escape hatches. Neither is an untyped blob.
 
 **Shared result payloads** (1.4). Each op answers under its own `kind`; the payload is shared:
 
-- `ActionList{rows[{id, title, subtitle?, status?{label, tone: neutral|ok|busy|warning|error}, group?, badges[], actions[{id, label, destructive}]}], omitted, note?}`. An op whose rows have actions takes an optional `change: ActionListChange{rowId, actionId}`: the action is taken first and the answer is the list after it; an unknown row is `not_found`, an action the row does not offer `invalid_input`. A `destructive` action is asked about on the phone before it is sent.
+- `ActionList{rows[{id, title, subtitle?, status?{label, tone: neutral|ok|busy|warning|error}, group?, badges[], actions[{id, label, destructive, confirm?}]}], omitted, note?}`. An op whose rows have actions takes an optional `change: ActionListChange{rowId, actionId}`: the action is taken first and the answer is the list after it; an unknown row is `not_found`, an action the row does not offer `invalid_input`. A `destructive` action (it stops or removes something) is asked about on the phone before it is sent, with `confirm`, the backend's words for what taking it does ("The tool's definition goes to the Trash on the Mac, where it can be restored."); without it the phone names the action and claims nothing more. `confirm` joined 1.4 with the list itself, so no older client is sent it.
 - `EditableFile{id, path, scope, format: json|markdown|text, exists, text, revision, editable, truncated, problems[]}`. A change is `write{text, revision}` or `delete{revision}`, compare-and-swap on the revision (opaque, minted by the adapter, also for a file that does not exist): another revision is `stale`, a JSON write that does not parse `invalid_input` (never written), a file the backend may not change `unsupported`. A `delete` moves the file to the machine's trash, never unlinks it, so the app tells the person it can be restored there. `truncated` (the file is longer than `text` holds) is never `editable`. The core keeps it so: a file whose `text` it cuts to fit the link is sent `truncated` and not `editable` (core README §9). An id the backend never named is `not_found`. Conformance rule 30 holds these refusals to every adapter, for a write and a delete alike, and checks that no file it reads is both `truncated` and `editable`.
 
 | Backend | Op | Result | Source |

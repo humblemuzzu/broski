@@ -1,6 +1,6 @@
 # Claude Code on the contract: the plan
 
-Status: plan, written 2026-11-01 on `main` at `6ce0895`, after the SDK moved from 0.2.92 to **0.3.316** (bundled CLI 2.1.316). Steps 1–5 done (§6).
+Status: plan, written 2026-11-01 on `main` at `6ce0895`, after the SDK moved from 0.2.92 to **0.3.316** (bundled CLI 2.1.316). Steps 1–7 done (§6); Step 8 (the owner's on-device checklist) is next.
 Goal: Claude Code becomes a contract backend (`packages/bridge/src/backends/claude-code/`) that rides the generic app (`lib/agent/`) exactly as Pi does, reaches parity with the old `cc_*` path, and then the old path is deleted.
 
 This file is the single plan from start to finish: what we know, what we decided, what we still have to prove, what gets built in which order, by whom, and how we know each step is done.
@@ -80,7 +80,7 @@ D1–D29 are this plan's. Lanes number their own decisions in their reserved ran
 
 **D4. Environment.** `env = { ...bridge login-shell env, CLAUDE_AGENT_SDK_CLIENT_APP: "broski/<version>", CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS: "1" }`. `CLAUDE_CODE_ENTRYPOINT` stays the SDK's `sdk-ts` (claiming `cli` would be a lie the CLI may act on).
 
-**D5. Fixed options for every host.** `includePartialMessages: true`, `forwardSubagentText: true`, `agentProgressSummaries: true`, `enableFileCheckpointing: true`, `permissionMode` always explicit, `allowDangerouslySkipPermissions: true` (only so the user can switch to bypass later; the mode stays `default` unless chosen), no `supportedDialogKinds` and no `onUserDialog` (so the CLI emits no dialogs; see the note below), `onElicitation` always set, `canUseTool` always set, `settingSources` omitted (CLI parity), `systemPrompt: {type:"preset", preset:"claude_code"}`. `CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS=1` (D4) is mandatory: without it no `session_state_changed` arrives (Q2). The `refusal_fallback_prompt` dialog is **not** declared: no offline test can reach it (Q13), and conformance rule 23 tests every declared interaction kind, so the adapter does not declare `choice`. Undeclared, the CLI degrades to its classic refusal (an error result that ends the turn), which D31 maps to an error outcome. **Never** `permissionPrompts:"none"`, never `perTaskStopAffordance` (so Stop kills background tasks too, matching "abort ends the run"), never a string prompt, never `persistSession:false`, never `sessionStore`.
+**D5. Fixed options for every host.** `includePartialMessages: true`, `includeHookEvents: true` (added in Step 7 for the hook activity rows, README D163), `forwardSubagentText: true`, `agentProgressSummaries: true`, `enableFileCheckpointing: true`, `permissionMode` always explicit, `allowDangerouslySkipPermissions: true` (only so the user can switch to bypass later; the mode stays `default` unless chosen), no `supportedDialogKinds` and no `onUserDialog` (so the CLI emits no dialogs; see the note below), `onElicitation` always set, `canUseTool` always set, `settingSources` omitted (CLI parity), `systemPrompt: {type:"preset", preset:"claude_code"}`. `CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS=1` (D4) is mandatory: without it no `session_state_changed` arrives (Q2). The `refusal_fallback_prompt` dialog is **not** declared: no offline test can reach it (Q13), and conformance rule 23 tests every declared interaction kind, so the adapter does not declare `choice`. Undeclared, the CLI degrades to its classic refusal (an error result that ends the turn), which D31 maps to an error outcome. **Never** `permissionPrompts:"none"`, never `perTaskStopAffordance` (so Stop kills background tasks too, matching "abort ends the run"), never a string prompt, never `persistSession:false`, never `sessionStore`.
 
 **D6. Catalogue reads without a session use a probe.** Models, commands, agents and account come from the `initialize` answer. With no host for the cwd, the adapter starts a probe `query()` with an empty inbox, awaits `initializationResult()`, and closes it. The answer is cached per cwd (memory + `~/.broski/claude-code/catalog.json`), invalidated by `catalog_invalidated`, `commands_changed`, a model refresh op, or 24 h. A live host's own `initialize` refreshes the cache. `prewarm()`/`claim()` stay unused (alpha).
 
@@ -278,9 +278,11 @@ One delegate assembles `backend.ts` and `factory.ts`, registers behind the flag 
 
 Three `review_code` runs in parallel: SDK correctness (opus), contract correctness, robustness/security/slop. One Opus fixer takes every finding, adds a test that fails without each fix, commits as it goes, and writes `reviews/FIXES.md` with mutation evidence. A cheap chad sweep afterwards checks for: `as any`, deep SDK imports, any timer near an ask, any read of the real `~/.claude` in tests, string prompts, `permissionPrompts`, `null` returned from a callback.
 
-### Step 7 — App wiring (parallel with Step 6)
+### Step 7 — App wiring — **done** (`cc/app` on `356cb30`: `5fcd370a`, `7111dab8`, `96881982`, `d1801fa0`, `0ae21d97`, `45cb1fcb`, `57819b3e`, `bb3354b5`, `73088748`, `6686546f`, `b42fa515`, then the docs; decisions D150–D169 in the adapter README; the audit is [`REACHABILITY.md`](REACHABILITY.md))
 
 The selection storage and migration (D29), the picker entry during the flag period, and the parity audit of reachability: every PARITY row in §10 is reachable from the normal tabs, picker, chat menus or More sheet. No dev-only entry points.
+
+As built: the picker lists *Claude Code (new)* beside the old one while the bridge serves it, stored as `contract:claude-code` (D150, D151; the one-shot migration stays Step 9's); the tabs wait for the stored choice so no `cc_*` request is sent for it (D152); a `claude-code` notification tap follows the choice (D153); project rows offer *Continue latest session* and the project panels (D154); title filters per backend (D155); a destructive list action says what it does (`ActionListAction.confirm`, 1.4, D156); 1M context needs no toggle (D157); fast mode and the loaded plugins come from the host's latest init (D158–D160); a startup refusal is worded (D161); hook activity is the 1.4 `activity` event and item, live and in history (D162–D164); *Open as fork*, *Continue latest* and *Copy conversation* (D165–D167).
 
 ### Step 8 — On-device checklist (owner)
 
@@ -356,7 +358,7 @@ Every user-visible feature of the old path (07 §1) → where it lives on the co
 
 | Old feature | New home |
 |---|---|
-| Sessions tab, project grouping, search, sort, title filters | contract: sessions tab and projects (`lib/agent`); search/filters are app-side (check the contract list view has them; if not, app lane H adds them generically) |
+| Sessions tab, project grouping, search, sort, title filters | contract: sessions tab and projects (`lib/agent`); search, order, directory, grouping (lane H, D116) and saved title filters per backend (Step 7, D155) |
 | Session previews, subagent rows, orphan subagent dirs | contract: rows (D16) and child sessions (D20) |
 | Diff-stat badges on rows | **dropped** (owner decision of 2026-11-01; they read every whole transcript at list time); `changed_files` per session instead |
 | Active/working pill | contract: `status` from live hosts |
@@ -365,15 +367,15 @@ Every user-visible feature of the old path (07 §1) → where it lives on the co
 | Tool results and diffs in history, hidden command echoes | contract: transcript items (D18) |
 | Subagent transcript | contract: child sessions (D20) |
 | Offline transcript, prefetch | contract: the app's offline cache |
-| Copy/export transcript | app-side, generic |
+| Copy/export transcript | app-side, generic: *Copy conversation* (chat More) and copy last answer / copy text; export as a file is Pi's op only (D167) |
 | Modified files sidebar | op: `changed_files` |
 | Streamed text, thinking, tool cards by tool, todos | contract: blocks, tools, `plan_updated` (mapping lane B) |
 | Compaction divider, retry banner, errors, refusal line | contract: compaction, retry, `error`, `notice` |
 | Token usage / cost, context bar | contract: `usage_updated`; op: `context_usage` |
-| Structured output | contract: `notice` (rare; no UI in old app beyond raw text) |
-| Hook activity cards | **keep** (owner decision of 2026-11-01), Step 7: the host turns on `includeHookEvents`, and `hook_started`/`hook_progress`/`hook_response` reach the phone as compact activity entries; the shape (a `notice`, an extension kind, or a contract addition) is Step 7's, by the rules of 06 §4.4 |
+| Structured output | not produced: the adapter sets no `outputFormat` (lane B) |
+| Hook activity cards | **done** (Step 7, D162–D164): `includeHookEvents` on; the 1.4 `activity` event and `ActivityItem`, live and read back from the transcript's hook attachments; a compact row in the timeline (a notice for an older client) |
 | Background task cards, stop task | op: `tasks`; contract: `child_session` progress |
-| Tool-use summaries, files persisted | contract: `notice` |
+| Tool-use summaries, files persisted | not shown (lane B: `tool_use_summary` needs an env opt-in, `files_persisted` has no place) |
 | Rate-limit info | contract: `extension{rate_limit}` |
 | Prompt suggestions | new: `extension{prompt_suggestion}` (D24) |
 | Auth status, local command output | contract: `status()` issues; `notice` |
@@ -384,8 +386,8 @@ Every user-visible feature of the old path (07 §1) → where it lives on the co
 | Queued message (one slot) | contract: `queue` with N items and cancel (D8) — better than parity |
 | Resume from this message | contract: `fork` at the message, then prompt (D19) |
 | Stop, stop while an ask is pending, offline stop | contract: `abort` + `cancelRunLocally()` |
-| Model picker, 1M context toggle | contract: `setModel`; op: `session_settings` toggle |
-| Thinking mode/variant, effort, fast mode, quick settings | contract: `setThinking` (effort, D11); op: `session_settings` (fast mode, prompt suggestions, auto memory) |
+| Model picker, 1M context toggle | contract: `setModel`; 1M: every listed model already runs with a 1,000,000 window on CLI 2.1.316, so no toggle (decided in Step 7, D157) |
+| Thinking mode/variant, effort, fast mode, quick settings | contract: `setThinking` (effort, D11); op: `session_settings` (fast mode on a model that supports it, D159; prompt suggestions, auto memory, output style) |
 | Permission-mode chip incl. plan, bypass | contract: modes axis (D12) |
 | Allowed/disallowed tools lists | op: `config_file` on settings (`permissions.allow/deny`) + `settings_overview` |
 | SDK approval prompt, always-allow rules, rich prompt text | contract: `tool_permission` (D13) |
@@ -396,14 +398,14 @@ Every user-visible feature of the old path (07 §1) → where it lives on the co
 | MCP elicitation (URL, form), completion | contract: `form`/`external_url`/`confirm` (D13) |
 | Undo turn's file changes, checkpoint counter | op: `rewind_files` (D23); the item menu on a user message |
 | Fork session, fork from a message | contract: `fork` |
-| Fork-on-resume, continue-latest (API only, no UI) | **keep** (owner decision of 2026-11-01), Step 7: reachable phone actions, generic for any backend the contract allows (fork-on-resume = open an existing session as a fork; continue-latest = open the most recent session of a project directory) |
+| Fork-on-resume, continue-latest (API only, no UI) | **done** (Step 7, D165, D166): *Open as fork* on a row and in the chat's More sheet (`fork`); *Continue latest session* on a project row and above a one-directory session list |
 | Custom subagent definitions editor | op: `config_files`/`config_file` on `.claude/agents` |
 | Filesystem agents list, active subagent per turn | op: `config_files`; contract: agent mention |
 | Subagent task sessions view | contract: child sessions |
 | Agent teams toggle | **dropped** (owner decision of 2026-11-01; teams never run under the SDK, 04 fact 13) |
 | Commands list/editor | op: `config_files`/`config_file` on `.claude/commands`; contract: `listCommands` |
 | Skills list/editor | op: `config_files`/`config_file` on `.claude/skills`; contract: `listCommands` (`kind: skill`) |
-| Plugins list, toggle, add/remove path, reload | op: `plugins`; add/remove local path → `config_file` on settings; Broski's own plugin-path config **dropped** (owner decision of 2026-11-01, the plan owner's call on the owner's behalf: Claude's real plugin settings, edited through `plugins`/`config_file`, replace it) |
+| Plugins list, toggle, add/remove path, reload | op: `plugins` (with a session, also what loaded and what failed, D160); add/remove local path → `config_file` on settings; Broski's own plugin-path config **dropped** (owner decision of 2026-11-01, the plan owner's call on the owner's behalf: Claude's real plugin settings, edited through `plugins`/`config_file`, replace it) |
 | Hooks list/editor | op: `config_file` on settings (`hooks`), listing via `settings_overview` |
 | MCP editor (`.mcp.json`), status, reconnect, toggle, set servers | op: `config_file` on `.mcp.json`; op: `mcp_servers` |
 | claude.ai MCP servers toggle | op: `config_file` on settings (`disableClaudeAiConnectors`) |
