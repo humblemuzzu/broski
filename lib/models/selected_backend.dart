@@ -1,4 +1,3 @@
-import 'package:broski/agent/ui/backend_label.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:broski/models/agent_type.dart';
 
@@ -11,10 +10,6 @@ sealed class SelectedBackend {
 
   /// What is stored, and the old protocol's name for it.
   String get wire;
-
-  String get displayName;
-
-  String get badge;
 
   /// The old-protocol agent, or null for a contract backend.
   AgentType? get legacy;
@@ -49,16 +44,6 @@ final class LegacySelection extends SelectedBackend {
   String get wire => type.wireValue;
 
   @override
-  String get displayName => type.displayName;
-
-  @override
-  String get badge => switch (type) {
-    AgentType.opencode => 'OC',
-    AgentType.claudeCode => 'CC',
-    AgentType.codex => 'CX',
-  };
-
-  @override
   AgentType get legacy => type;
 }
 
@@ -69,12 +54,6 @@ final class ContractSelection extends SelectedBackend {
 
   @override
   String get wire => id.wire;
-
-  @override
-  String get displayName => backendLabel(id);
-
-  @override
-  String get badge => backendBadge(id);
 
   @override
   AgentType? get legacy => null;

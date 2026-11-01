@@ -4,6 +4,7 @@ import 'package:broski/providers/selected_backend_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/screens/ai_backend/backend_option_card.dart';
 import 'package:broski/screens/ai_backend/contract_backend_options.dart';
+import 'package:broski/screens/ai_backend/selected_backend_label.dart';
 import 'package:broski/theme/app_icons.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';

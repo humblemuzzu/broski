@@ -11,6 +11,7 @@ import 'package:broski/providers/selected_backend_provider.dart';
 import 'package:broski/providers/selection_provider.dart';
 import 'package:broski/providers/service_providers.dart';
 import 'package:broski/providers/theme_provider.dart';
+import 'package:broski/screens/ai_backend/selected_backend_label.dart';
 import 'package:broski/screens/ai_backend_screen.dart';
 import 'package:broski/screens/claude_code_commands_screen.dart';
 import 'package:broski/screens/claude_code_mcp_screen.dart';

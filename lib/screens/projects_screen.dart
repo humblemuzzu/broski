@@ -15,7 +15,7 @@ import 'package:broski/providers/tool_settings_provider.dart';
 import 'package:broski/screens/chat_screen.dart';
 import 'package:broski/screens/dialogs/project_context_menu.dart';
 import 'package:broski/screens/projects/contract_projects.dart'
-    show loadContractProjects, projectsSourceProvider;
+    show ProjectsSource, loadContractProjects, projectsSourceProvider;
 import 'package:broski/screens/projects/open_project.dart';
 import 'package:broski/screens/sheets/add_project_sheet.dart';
 import 'package:broski/theme/app_icons.dart';
@@ -49,14 +49,14 @@ final _projectWorktreesProvider =
 class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
   late Future<List<ProjectSummary>> _projectsFuture;
   late AgentType _agentType;
-  late final ProviderSubscription<Object> _agentTypeSub;
+  late final ProviderSubscription<ProjectsSource> _agentTypeSub;
   String? _creatingWorktreeForPath;
   @override
   void initState() {
     super.initState();
     _agentType = ref.read(agentTypeProvider);
     _projectsFuture = _loadProjects(_agentType);
-    _agentTypeSub = ref.listenManual<Object>(projectsSourceProvider, (
+    _agentTypeSub = ref.listenManual<ProjectsSource>(projectsSourceProvider, (
       previous,
       next,
     ) {

@@ -9,14 +9,18 @@ import 'package:broski/providers/selection_provider.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// What the projects list is read from: it changes when the selection does,
-/// and, for a contract backend, when the bridge becomes reachable or is lost,
-/// so the list is read again then.
-final projectsSourceProvider = Provider<Object>((ref) {
+/// What the projects list is read from: the chosen backend and, for a
+/// contract backend, whether the bridge can be asked now.
+typedef ProjectsSource = ({SelectedBackend backend, bool live});
+
+/// It changes when the selection does and, for a contract backend, when the
+/// bridge becomes reachable or is lost, so the list is read again then.
+final projectsSourceProvider = Provider<ProjectsSource>((ref) {
   final selected = ref.watch(selectedBackendProvider);
-  return selected is ContractSelection
-      ? (selected, ref.watch(liveProvider))
-      : selected;
+  return (
+    backend: selected,
+    live: selected is ContractSelection && ref.watch(liveProvider),
+  );
 });
 
 /// The projects of a contract backend: the directories its sessions work in,

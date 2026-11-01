@@ -1,6 +1,7 @@
 import 'package:broski/contract/generated/contract.dart';
 import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/selected_backend.dart';
+import 'package:broski/screens/ai_backend/selected_backend_label.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
