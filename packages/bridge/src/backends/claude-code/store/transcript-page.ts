@@ -10,9 +10,11 @@ import { sourceOf } from "./chain-sources";
 import { childLinks } from "./children";
 import type { StoreContext } from "./context";
 import { itemsOf } from "./items";
-import { contentList, toolCallOf } from "./message-parts";
+import { contentList, resultBlockCount, toolCallOf } from "./message-parts";
+import { ToolUseResults } from "./tool-use-results";
 import type { TranscriptPosition } from "./transcript-cursor";
 import { transcriptCursor, transcriptPosition, transcriptScope } from "./transcript-cursor";
+import type { IndexEntry } from "./transcript-index";
 
 const MIN_WINDOW = 32;
 const MAX_WINDOW = 256;
@@ -36,7 +38,8 @@ export async function transcriptPage(
 	const start = startOf(snapshot, live.row(sessionId)?.cut?.lastUuidBefore, resume);
 	if (start === "stale") return rejected("stale", "the transcript changed since this cursor was minted; read it again");
 	const owner = opened.isChild ? undefined : opened.owner;
-	const walked = await walk(ctx, { sessionId, snapshot, owner }, start, page.limit);
+	const results = new ToolUseResults(opened.source.path);
+	const walked = await walk(ctx, { sessionId, snapshot, owner, results }, start, page.limit);
 	if (isRejected(walked)) return walked;
 	const { items, resumeAt } = walked;
 	const nextCursor = resumeAt === undefined ? undefined : transcriptCursor(scope, resumeAt);
@@ -81,6 +84,7 @@ interface Walk {
 	readonly snapshot: ChainSnapshot;
 	/** The session whose subagents an `Agent` call links to; undefined inside a child's own transcript. */
 	readonly owner: StoredSession | undefined;
+	readonly results: ToolUseResults;
 }
 
 async function walk(ctx: StoreContext, job: Walk, start: Start, limit: number): Promise<Walked | Rejected> {
@@ -103,6 +107,9 @@ async function walk(ctx: StoreContext, job: Walk, start: Start, limit: number): 
 				blockBase: index.blockBase[entry] ?? 0,
 				toolName: (toolUseId) => index.toolNames.get(toolUseId),
 				childOf: (toolUseId) => links?.get(toolUseId),
+				toolUseResult: await resultOf(job, index, message),
+				system: index.raw.system.get(message.uuid),
+				previousSystem: index.raw.system.get(index.uuids[entry - 1] ?? ""),
 			});
 			for (let item = Math.min(entryItems.length, remaining ?? entryItems.length) - 1; item >= 0; item--) {
 				const shown = entryItems[item];
@@ -114,6 +121,13 @@ async function walk(ctx: StoreContext, job: Walk, start: Start, limit: number): 
 		position = from - 1;
 	}
 	return { items, resumeAt: undefined };
+}
+
+/** The raw `toolUseResult` of an entry that answers exactly one tool call; a shared entry's would be ambiguous. */
+async function resultOf(job: Walk, index: IndexEntry, message: SessionMessage): Promise<unknown> {
+	const span = message.type === "user" ? index.raw.spans.get(message.uuid) : undefined;
+	if (span === undefined || resultBlockCount(message) !== 1) return undefined;
+	return job.results.read(message.uuid, span);
 }
 
 /** Where the page after one that ended on item `item` of entry `entry` resumes; undefined at the start of the chain. */

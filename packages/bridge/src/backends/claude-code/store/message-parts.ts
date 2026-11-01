@@ -56,6 +56,11 @@ export function toolCallOf(block: unknown): { id: string; name: string } | undef
 		: undefined;
 }
 
+/** How many `tool_result` blocks the entry holds. */
+export function resultBlockCount(message: SessionMessage): number {
+	return (contentList(message) ?? []).filter((block) => resultOf(block) !== undefined).length;
+}
+
 /** The `tool_use_id` a `tool_result` block answers. */
 export function resultOf(block: unknown): string | undefined {
 	return isRecord(block) && block.type === "tool_result" ? stringField(block, "tool_use_id") : undefined;

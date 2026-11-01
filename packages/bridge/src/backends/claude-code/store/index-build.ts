@@ -3,9 +3,10 @@
 import type { SessionMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { FileStamp } from "./locator";
 import { apiMessageId, blocksOf, resultOf, toolCallOf } from "./message-parts";
+import type { RawFacts } from "./raw-scan";
 import type { EntryType, IndexEntry } from "./transcript-index";
 
-export function buildIndex(messages: readonly SessionMessage[], stamp: FileStamp): IndexEntry {
+export function buildIndex(messages: readonly SessionMessage[], stamp: FileStamp, raw: RawFacts): IndexEntry {
 	const uuids: string[] = [];
 	const types: EntryType[] = [];
 	const positions = new Map<string, number>();
@@ -50,5 +51,6 @@ export function buildIndex(messages: readonly SessionMessage[], stamp: FileStamp
 		toolCalls,
 		toolResults,
 		toolNames,
+		raw,
 	};
 }

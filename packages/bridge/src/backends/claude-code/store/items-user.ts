@@ -45,6 +45,7 @@ export function userItems(message: SessionMessage, context: ItemContext): Transc
 				id: message.uuid,
 				...(at !== undefined && { at }),
 				summary: clip(textOf(message), MAX_TEXT_CHARS),
+				...context.previousSystem?.boundary,
 			},
 		];
 	}
@@ -100,7 +101,7 @@ function resultItem(block: unknown, site: ResultSite): TranscriptItem | undefine
 	const id = answered === undefined ? undefined : toolCallId(answered);
 	if (answered === undefined || id === undefined) return undefined;
 	const place = { entryUuid: site.message.uuid, blockIndex: site.blockIndex };
-	const { outcome, result } = toolResultOf(block, undefined, place, site.context.toolName(answered));
+	const { outcome, result } = toolResultOf(block, site.context.toolUseResult, place, site.context.toolName(answered));
 	return {
 		kind: "tool_result",
 		id: toolResultItemId(id),

@@ -4,7 +4,9 @@ import type { SessionMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { SessionId, TranscriptItem } from "../../../contract";
 import type { PromptRecord } from "../ports/store";
 import { assistantItems } from "./items-assistant";
+import { systemItems } from "./items-system";
 import { userItems } from "./items-user";
+import type { SystemFact } from "./system-facts";
 
 export interface ItemContext {
 	/** The owner journal's record of the prompt, when this bridge sent it (D37). */
@@ -15,11 +17,15 @@ export interface ItemContext {
 	readonly toolName: (toolUseId: string) => string | undefined;
 	/** The subagent session a spawning tool call started. */
 	readonly childOf: (toolUseId: string) => SessionId | undefined;
+	/** The entry's `toolUseResult` from the raw file, bounded (D41a); undefined when it has none or could not be read. */
+	readonly toolUseResult?: unknown;
+	/** What the raw file says of this entry when it is a `system` entry, and of the chain entry before it. */
+	readonly system?: SystemFact;
+	readonly previousSystem?: SystemFact;
 }
 
-/** System entries carry only a uuid through the SDK's reader (`sdk.mjs` `$R`), so none becomes an item. */
 export function itemsOf(message: SessionMessage, context: ItemContext): TranscriptItem[] {
 	if (message.type === "assistant") return assistantItems(message, context);
 	if (message.type === "user") return userItems(message, context);
-	return [];
+	return systemItems(message, context.system);
 }

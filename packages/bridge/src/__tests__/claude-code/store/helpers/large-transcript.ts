@@ -28,6 +28,8 @@ export function writeLargeTranscript(
 	writeFileSync(path, "");
 	const base = { sessionId, cwd: realpathSync(cwd), version: "2.1.316", isSidechain: false, userType: "external" };
 	let parent: string | null = null;
+	/** The SDK's chain ends at the last user or assistant entry; a `system` entry after it is not in it. */
+	let lastChained = "";
 	let entries = 0;
 	let bytes = 0;
 	let clock = Date.UTC(2026, 10, 1);
@@ -66,12 +68,21 @@ export function writeLargeTranscript(
 		add("assistant", {
 			message: assistant(message, { type: "tool_use", id: call, name: "Read", input: { file_path: `/f${turn}` } }),
 		});
-		add("user", { message: { role: "user", content: [{ type: "tool_result", tool_use_id: call, content: FILLER }] } });
-		add("assistant", { message: assistant(`${message}b`, { type: "text", text: `${FILLER} (${turn})` }) });
+		add("user", {
+			message: { role: "user", content: [{ type: "tool_result", tool_use_id: call, content: FILLER }] },
+			toolUseResult: {
+				type: "text",
+				file: { filePath: `/f${turn}`, content: FILLER, numLines: 40, startLine: 1, totalLines: 40 },
+			},
+		});
+		lastChained = add("assistant", {
+			message: assistant(`${message}b`, { type: "text", text: `${FILLER} (${turn})` }),
+		});
+		add("system", { subtype: "turn_duration", durationMs: 1000, isMeta: false, level: "info" });
 		if (buffer.length >= 400) flush();
 	}
 	flush();
-	return { sessionId, path, entries, bytes, lastUuid: parent ?? "" };
+	return { sessionId, path, entries, bytes, lastUuid: lastChained };
 }
 
 function assistant(id: string, block: unknown): Record<string, unknown> {

@@ -75,6 +75,11 @@ test(
 		expect(whole[3]).toMatchObject({ kind: "user_message", text: "/compact" });
 		const compaction = whole.find((item) => item.kind === "compaction");
 		expect(compaction?.kind === "compaction" && compaction.summary).toContain("Scripted summary.");
+		expect(compaction).toMatchObject({
+			trigger: "manual",
+			tokensBefore: expect.any(Number),
+			tokensAfter: expect.any(Number),
+		});
 		expect(whole[0]).toMatchObject({ kind: "block", text: "answer after the compaction" });
 		expect((await read(1)).map((item) => item.id)).toEqual(whole.map((item) => item.id));
 		expect(new Set(whole.map((item) => item.id)).size).toBe(whole.length);

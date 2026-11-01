@@ -1,6 +1,7 @@
 /** Lane A · per-session `{size, mtimeMs, count}` and the chain's skeleton, so a newest-first page is one SDK read (D15). */
 
 import type { SessionId } from "../../../contract";
+import type { RawFacts } from "./raw-scan";
 
 export type EntryType = "user" | "assistant" | "system";
 
@@ -21,6 +22,8 @@ export interface IndexEntry {
 	readonly toolCalls: ReadonlyMap<string, number>;
 	readonly toolResults: ReadonlyMap<string, number>;
 	readonly toolNames: ReadonlyMap<string, string>;
+	/** What the raw file adds to entries of the chain, by uuid (D41a): the `toolUseResult` spans and the `system` facts. */
+	readonly raw: RawFacts;
 }
 
 const MAX_SESSIONS = 8;

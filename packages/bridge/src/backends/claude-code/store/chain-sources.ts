@@ -41,6 +41,7 @@ export async function sourceOf(ctx: StoreContext, sessionId: SessionId): Promise
 		read: (offset, limit) =>
 			sdk.getSessionMessages(sessionId, {
 				offset,
+				includeSystemMessages: true,
 				...(limit !== undefined && { limit }),
 			}),
 	};

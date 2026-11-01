@@ -11,6 +11,7 @@ import type { StoreContext } from "./context";
 import { attempt } from "./guard";
 import { buildIndex } from "./index-build";
 import { type FileStamp, stampOf } from "./locator";
+import { scanRaw } from "./raw-scan";
 import type { IndexEntry } from "./transcript-index";
 
 export interface ChainSource {
@@ -67,7 +68,8 @@ async function readWhole(ctx: StoreContext, source: ChainSource): Promise<BuiltC
 	if (stamp === undefined) return rejected("not_found", `no transcript for ${source.key}`);
 	const fresh = await attempt(() => source.read(0, undefined));
 	if (isRejected(fresh)) return fresh;
-	const index = buildIndex(fresh, stamp);
+	const raw = await scanRaw(source.path, new Set(fresh.map((message) => message.uuid)));
+	const index = buildIndex(fresh, stamp, raw);
 	ctx.index.set(source.key, index);
 	return { index, fresh };
 }
