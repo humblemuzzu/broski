@@ -30,6 +30,7 @@ describe("throwaway Claude home", () => {
 			homeDir: homedir(),
 			configDir: join(homedir(), ".claude"),
 			projectDir: "/tmp",
+			tmpDir: "/tmp",
 			cleanup() {},
 		};
 		expect(() => claudeTestEnv({ url: "http://127.0.0.1:1", home: fake })).toThrow(/real home/);

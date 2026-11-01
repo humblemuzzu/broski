@@ -15,6 +15,8 @@ export type ClaudeHome = {
 	configDir: string;
 	homeDir: string;
 	projectDir: string;
+	/** `CLAUDE_CODE_TMPDIR`: where the CLI puts task output files, instead of `/tmp/claude-<uid>`. */
+	tmpDir: string;
 	cleanup: () => void;
 };
 
@@ -77,7 +79,8 @@ export function createClaudeHome(options: { git?: boolean } = {}): ClaudeHome {
 	const homeDir = join(root, "home");
 	const configDir = join(homeDir, ".claude");
 	const projectDir = join(root, "project");
-	for (const dir of [homeDir, configDir, projectDir]) mkdirSync(dir, { recursive: true });
+	const tmpDir = join(root, "tmp");
+	for (const dir of [homeDir, configDir, projectDir, tmpDir]) mkdirSync(dir, { recursive: true });
 	writeFileSync(join(projectDir, "README.md"), README_TEXT);
 	if (options.git !== false) gitInit(projectDir, homeDir);
 	return {
@@ -85,6 +88,7 @@ export function createClaudeHome(options: { git?: boolean } = {}): ClaudeHome {
 		configDir,
 		homeDir,
 		projectDir,
+		tmpDir,
 		cleanup: () => {
 			assertTempClaudePath(root, "cleanup");
 			rmSync(root, { recursive: true, force: true });
@@ -129,6 +133,7 @@ export function claudeTestEnv({
 		XDG_DATA_HOME: join(home.homeDir, ".local", "share"),
 		XDG_CACHE_HOME: join(home.homeDir, ".cache"),
 		XDG_STATE_HOME: join(home.homeDir, ".local", "state"),
+		CLAUDE_CODE_TMPDIR: home.tmpDir,
 		CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
 		DISABLE_TELEMETRY: "1",
 		DISABLE_ERROR_REPORTING: "1",
