@@ -1,6 +1,6 @@
 /** Where the CLI reads each config file for a cwd (research 05 §3, §8, §9, §11), and the ids the phone addresses them by. */
 
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 export type PlaceKind =
 	| "settings"
@@ -37,6 +37,10 @@ export interface PlaceRoots {
 	readonly managedDir: string | undefined;
 	/** This project's auto memory directory, when it can be named. */
 	readonly autoMemoryDir: string | undefined;
+	/** Where `resolveSettings` found each settings file that exists, which is where the CLI reads it. */
+	readonly settingsPaths?: Partial<Record<"project" | "local", string>>;
+	/** Every settings file `resolveSettings` loaded something from, as reported and as resolved; a file not here is skipped. */
+	readonly loadedSettings?: ReadonlySet<string>;
 }
 
 export type Resolved = ConfigPlace | { readonly problem: string } | undefined;
@@ -84,9 +88,15 @@ interface Made {
 	readonly template?: boolean;
 }
 
+function reportedSettings(roots: PlaceRoots, scope: PlaceScope): string | undefined {
+	return scope === "project" || scope === "local" ? roots.settingsPaths?.[scope] : undefined;
+}
+
 function baseOf(roots: PlaceRoots, kind: PlaceKind, scope: PlaceScope): string {
 	if (kind === "auto-memory") return roots.autoMemoryDir ?? roots.configRoot;
 	if (scope === "managed") return roots.managedDir ?? "/";
+	const reported = kind === "settings" ? reportedSettings(roots, scope) : undefined;
+	if (reported !== undefined && scope !== "user") return dirname(dirname(reported));
 	return scope === "user" ? roots.configRoot : roots.cwd;
 }
 
@@ -113,6 +123,8 @@ const SETTINGS_LABELS: Record<PlaceScope, string> = {
 };
 
 function settingsPath(roots: PlaceRoots, scope: PlaceScope): string {
+	const reported = reportedSettings(roots, scope);
+	if (reported !== undefined) return reported;
 	if (scope === "user") return join(roots.configRoot, "settings.json");
 	if (scope === "managed") return join(roots.managedDir ?? "/", "managed-settings.json");
 	return join(roots.cwd, ".claude", scope === "local" ? "settings.local.json" : "settings.json");

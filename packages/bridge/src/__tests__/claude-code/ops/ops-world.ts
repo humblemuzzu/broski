@@ -32,6 +32,7 @@ export interface HostSpec {
 }
 
 export interface WorldOptions {
+	/** A canned `resolveSettings` answer through the fake SDK; without it the SDK's own reader runs in a worker. */
 	readonly resolved?: ResolvedSettings;
 	readonly hosts?: Record<SessionId, HostSpec | "idle">;
 	readonly init?: Partial<SDKControlInitializeResponse>;
@@ -53,7 +54,7 @@ export interface OpsWorld {
 	write(path: string, text: string): string;
 	/** Names of the files the fake `trash` command was given; the real Trash is never reachable from a test world. */
 	trashed(): string[];
-	cleanup(): void;
+	cleanup(): Promise<void>;
 }
 
 function installFakeTrash(root: string): { bin: string; bucket: string } {
@@ -154,7 +155,7 @@ export function opsWorld(options: WorldOptions = {}): OpsWorld {
 		stateDir: join(root, "state"),
 		clientApp: "broski/test",
 		configDir,
-		sdk,
+		sdk: options.resolved === undefined ? undefined : sdk,
 		customTools: options.customTools,
 	});
 	const init = {
@@ -201,6 +202,9 @@ export function opsWorld(options: WorldOptions = {}): OpsWorld {
 			return path;
 		},
 		trashed: () => readdirSync(trash.bucket),
-		cleanup: () => rmSync(root, { recursive: true, force: true }),
+		cleanup: async () => {
+			await deps.services.sdk.dispose();
+			rmSync(root, { recursive: true, force: true });
+		},
 	};
 }

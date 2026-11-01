@@ -1,7 +1,8 @@
 /** The directories config paths hang from for one cwd, read from what the CLI itself resolves (research 05 §8). */
 
-import { readdir } from "node:fs/promises";
+import { readdir, realpath } from "node:fs/promises";
 import { join } from "node:path";
+import type { ResolvedSettings } from "@anthropic-ai/claude-agent-sdk";
 import type { OpsDeps } from "../ports";
 import { managedDirFor, type PlaceRoots } from "./config-paths";
 
@@ -22,20 +23,39 @@ async function projectDirectoryName(projectsDir: string, cwd: string): Promise<s
 }
 
 /** `autoMemoryDirectory` from any settings source but the project's, which the CLI ignores for it (research 05 §2.8). */
-async function customAutoMemory(deps: OpsDeps, cwd: string): Promise<string | undefined> {
-	const resolved = await deps.services.sdk.resolveSettings({ cwd }).catch(() => undefined);
+function customAutoMemory(resolved: ResolvedSettings | undefined, home: string | undefined): string | undefined {
 	const sources = resolved?.sources.filter((entry) => entry.source !== "project") ?? [];
 	const chosen = [...sources].reverse().find((entry) => typeof entry.settings.autoMemoryDirectory === "string");
 	const value = chosen?.settings.autoMemoryDirectory;
 	if (typeof value !== "string" || value === "") return undefined;
 	if (!value.startsWith("~/")) return value.startsWith("/") ? value : undefined;
-	const home = deps.services.cliEnv.HOME;
 	return home === undefined || home === "" ? undefined : join(home, value.slice(2));
+}
+
+function settingsPathsOf(resolved: ResolvedSettings | undefined): PlaceRoots["settingsPaths"] {
+	const paths: Partial<Record<"project" | "local", string>> = {};
+	for (const entry of resolved?.sources ?? []) {
+		if ((entry.source === "project" || entry.source === "local") && entry.path !== undefined)
+			paths[entry.source] = entry.path;
+	}
+	return paths;
+}
+
+async function loadedPaths(resolved: ResolvedSettings | undefined): Promise<Set<string>> {
+	const loaded = new Set<string>();
+	for (const entry of resolved?.sources ?? []) {
+		const path = entry.path;
+		if (path === undefined) continue;
+		loaded.add(path);
+		loaded.add(await realpath(path).catch(() => path));
+	}
+	return loaded;
 }
 
 export async function placeRoots(deps: OpsDeps, cwd: string): Promise<PlaceRoots> {
 	const configRoot = deps.services.sdk.configRoot();
-	const custom = await customAutoMemory(deps, cwd);
+	const resolved = await deps.services.sdk.resolveSettings({ cwd }).catch(() => undefined);
+	const custom = customAutoMemory(resolved, deps.services.cliEnv.HOME);
 	const projects = join(configRoot, "projects");
 	const name = custom === undefined ? await projectDirectoryName(projects, cwd) : undefined;
 	return {
@@ -43,5 +63,7 @@ export async function placeRoots(deps: OpsDeps, cwd: string): Promise<PlaceRoots
 		cwd,
 		managedDir: managedDirFor(process.platform),
 		autoMemoryDir: custom ?? (name === undefined ? undefined : join(projects, name, "memory")),
+		settingsPaths: settingsPathsOf(resolved),
+		loadedSettings: resolved === undefined ? undefined : await loadedPaths(resolved),
 	};
 }
