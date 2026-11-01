@@ -15,7 +15,7 @@ function wireOf(row: ModelInfo): string {
 /**
  * Rows the phone may choose, once each, in the CLI's own order ("Default (recommended)" first). A row that runs the
  * Default row's model (`opus` resolves to `claude-opus-5-5` as `default` does) is left out, so the phone never shows
- * one model twice and a request's wire model names its row (D120, conformance rule 20).
+ * one model twice and a request's wire model names its row (D135, conformance rule 20).
  */
 export function listedRows(models: readonly ModelInfo[]): ModelInfo[] {
 	const rows: ModelInfo[] = [];

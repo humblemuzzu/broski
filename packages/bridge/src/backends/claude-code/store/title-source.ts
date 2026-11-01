@@ -22,8 +22,8 @@ export class TitleSources {
 	constructor(private readonly locator: FileLocator) {}
 
 	/** True when a custom title written by a person (a `custom-title` entry or the sidecar) is there. */
-	async userTitled(sessionId: string): Promise<boolean> {
-		const path = await this.locator.find(sessionId);
+	async userTitled(sessionId: string, known?: string): Promise<boolean> {
+		const path = known ?? (await this.locator.find(sessionId));
 		const stamp = path === undefined ? undefined : await stampOf(path);
 		if (path === undefined || stamp === undefined) return false;
 		const key = `${stamp.size}:${stamp.mtimeMs}`;

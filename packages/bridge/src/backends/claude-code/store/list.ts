@@ -5,6 +5,7 @@
  */
 
 import { realpath } from "node:fs/promises";
+import { join } from "node:path";
 import type { PageRequest, Rejected, SessionQuery, SessionSummary, SessionsListResult } from "../../../contract";
 import { parseChildRef } from "../ids";
 import type { LiveOverlay } from "../ports/store";
@@ -127,5 +128,6 @@ async function rowOf(
 	if (isRejected(info)) return info;
 	ctx.dirs.learn(candidate.dir, info.cwd);
 	if (wanted !== undefined && (info.cwd === undefined || !wanted.has(info.cwd))) return undefined;
-	return rowOfInfo(ctx, info, live.row(info.sessionId));
+	const path = join(ctx.deps.services.sdk.configRoot(), "projects", candidate.dir, `${candidate.sessionId}.jsonl`);
+	return rowOfInfo(ctx, info, live.row(info.sessionId), path);
 }
