@@ -292,6 +292,13 @@ void main() {
     );
     await tapKey(tester, 'config-file:project-settings');
     await tapKey(tester, 'editable-file-delete');
+    expect(
+      find.text(
+        'The file is moved to the Trash on the Mac, where it can be restored.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('cannot be undone'), findsNothing);
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
     expect(

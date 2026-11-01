@@ -105,7 +105,8 @@ class _EditableFileViewState extends State<EditableFileView> {
     final confirmed = await askToConfirm(
       context,
       title: 'Delete ${_file.path}?',
-      body: 'The file is removed from the Mac. This cannot be undone.',
+      body:
+          'The file is moved to the Trash on the Mac, where it can be restored.',
       action: 'Delete',
     );
     if (!confirmed || !mounted) return;
