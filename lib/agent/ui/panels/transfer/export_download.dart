@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:broski/agent/client/contract_client.dart';
 import 'package:broski/agent/client/outcome.dart';
+import 'package:broski/agent/client/requests/op_call.dart';
 import 'package:broski/agent/client/requests/session_requests.dart';
 import 'package:broski/agent/ui/panels/transfer/file_transfers.dart';
 import 'package:broski/contract/generated/contract.dart';
@@ -23,8 +24,8 @@ Future<String?> downloadExport({
   var offset = 0;
   while (!stopped()) {
     final outcome = await client.callBackend(
-      PiCall(
-        op: ExportPartOp(
+      opCall(
+        ExportPartOp(
           sessionId: session.sessionId,
           exportId: exported.exportId,
           offset: offset,

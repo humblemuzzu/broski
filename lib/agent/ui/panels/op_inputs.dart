@@ -3,6 +3,7 @@
 /// union (contract §13), and only that backend lists it in `backendOps`.
 library;
 
+import 'package:broski/agent/client/requests/op_call.dart';
 import 'package:broski/agent/ui/shared/text_entry_dialog.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:flutter/material.dart';
@@ -145,12 +146,8 @@ Future<BackendCall?> askNavigateTree(
     options: const {'Summarise what is left': true, 'Leave it as it is': false},
   );
   if (summarize == null) return null;
-  return PiCall(
-    op: NavigateTreeOp(
-      sessionId: sessionId,
-      itemId: itemId,
-      summarize: summarize,
-    ),
+  return opCall(
+    NavigateTreeOp(sessionId: sessionId, itemId: itemId, summarize: summarize),
   );
 }
 
@@ -168,7 +165,7 @@ Future<BackendCall?> askTakeOver(
         'can corrupt it. Broski then runs the session from your phone.',
     action: 'Take over',
   );
-  return sure ? PiCall(op: TakeOverOp(sessionId: sessionId)) : null;
+  return sure ? opCall(TakeOverOp(sessionId: sessionId)) : null;
 }
 
 Future<BackendCall?> askExportSession(
@@ -187,22 +184,20 @@ Future<BackendCall?> askExportSession(
   );
   return format == null
       ? null
-      : PiCall(
-          op: ExportSessionOp(sessionId: sessionId, format: format),
-        );
+      : opCall(ExportSessionOp(sessionId: sessionId, format: format));
 }
 
 Future<BackendCall?> askChangedFiles(
   BuildContext context,
   SessionId sessionId,
   TranscriptItemId? _,
-) async => PiCall(op: ChangedFilesOp(sessionId: sessionId));
+) async => opCall(ChangedFilesOp(sessionId: sessionId));
 
 Future<BackendCall?> askRefreshModels(
   BuildContext context,
   SessionId sessionId,
   TranscriptItemId? _,
-) async => const PiCall(op: RefreshModelsOp());
+) async => opCall(const RefreshModelsOp());
 
 /// For a panel that is run by its `flow`, or never run on its own.
 Future<BackendCall?> askNothing(

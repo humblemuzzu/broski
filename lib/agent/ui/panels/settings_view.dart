@@ -1,3 +1,4 @@
+import 'package:broski/agent/client/requests/op_call.dart';
 import 'package:broski/agent/ui/panels/result_actions.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:broski/theme/app_typography.dart';
@@ -51,8 +52,8 @@ class _ToggleRow extends StatelessWidget {
     onChanged: actions.busy
         ? null
         : (enabled) => actions.call(
-            (sessionId) => PiCall(
-              op: SessionSettingsOp(
+            (sessionId) => opCall(
+              SessionSettingsOp(
                 sessionId: sessionId,
                 change: ToggleChange(key: setting.key, enabled: enabled),
               ),
@@ -85,8 +86,8 @@ class _ChoiceRow extends StatelessWidget {
                 onSelected: actions.busy
                     ? null
                     : (_) => actions.call(
-                        (sessionId) => PiCall(
-                          op: SessionSettingsOp(
+                        (sessionId) => opCall(
+                          SessionSettingsOp(
                             sessionId: sessionId,
                             change: ChoiceChange(
                               key: setting.key,

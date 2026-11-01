@@ -1,5 +1,6 @@
 import 'package:broski/agent/client/contract_client.dart';
 import 'package:broski/agent/client/outcome.dart';
+import 'package:broski/agent/client/requests/op_call.dart';
 import 'package:broski/agent/client/requests/session_requests.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:uuid/uuid.dart';
@@ -36,8 +37,8 @@ Future<String?> startShellCommand(
   ShellCommand shell,
 ) async => problemOf(
   await client.callBackend(
-    PiCall(
-      op: RunShellOp(
+    opCall(
+      RunShellOp(
         sessionId: session.sessionId,
         clientRequestId: const Uuid().v4(),
         command: shell.command,

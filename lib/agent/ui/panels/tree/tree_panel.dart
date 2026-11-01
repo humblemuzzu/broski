@@ -1,5 +1,6 @@
 import 'package:broski/agent/agent_providers.dart';
 import 'package:broski/agent/client/outcome.dart';
+import 'package:broski/agent/client/requests/op_call.dart';
 import 'package:broski/agent/client/requests/session_requests.dart';
 import 'package:broski/agent/ui/panels/tree/tree_actions.dart';
 import 'package:broski/agent/ui/panels/tree/tree_model.dart';
@@ -56,8 +57,6 @@ class _TreePanelState extends ConsumerState<TreePanel> {
   var _filter = TreeFilter.standard;
   _Working _working = _Working.nothing;
 
-  PiCall _call(PiOp op) => PiCall(op: op);
-
   @override
   void initState() {
     super.initState();
@@ -72,7 +71,7 @@ class _TreePanelState extends ConsumerState<TreePanel> {
     final outcome = await ref
         .read(contractClientProvider)
         .callBackend(
-          _call(
+          opCall(
             ReadTreeOp(
               sessionId: widget.session.sessionId,
               page: PageRequest(
@@ -121,7 +120,7 @@ class _TreePanelState extends ConsumerState<TreePanel> {
           _working = choice.summarize ? _Working.summarising : _Working.moving,
     );
     final outcome = await client.callBackend(
-      _call(
+      opCall(
         NavigateTreeOp(
           sessionId: widget.session.sessionId,
           itemId: node.itemId,
@@ -152,7 +151,7 @@ class _TreePanelState extends ConsumerState<TreePanel> {
     final outcome = await ref
         .read(contractClientProvider)
         .callBackend(
-          _call(AbortBranchSummaryOp(sessionId: widget.session.sessionId)),
+          opCall(AbortBranchSummaryOp(sessionId: widget.session.sessionId)),
         );
     if (mounted) showProblem(context, problemOf(outcome));
   }
@@ -161,7 +160,7 @@ class _TreePanelState extends ConsumerState<TreePanel> {
     final outcome = await ref
         .read(contractClientProvider)
         .callBackend(
-          _call(
+          opCall(
             LabelEntryOp(
               sessionId: widget.session.sessionId,
               entryId: node.id,

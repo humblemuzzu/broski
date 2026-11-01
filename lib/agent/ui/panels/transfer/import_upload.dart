@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:broski/agent/client/contract_client.dart';
 import 'package:broski/agent/client/outcome.dart';
+import 'package:broski/agent/client/requests/op_call.dart';
 import 'package:broski/agent/client/requests/session_requests.dart';
 import 'package:broski/agent/ui/panels/transfer/file_transfers.dart';
 import 'package:broski/contract/generated/contract.dart';
@@ -55,8 +56,8 @@ Future<UploadEnd> uploadSessionFile({
   Future<UploadEnd?> send(Uint8List bytes, {required bool last}) async {
     if (stopped()) return const UploadStopped();
     final outcome = await client.callBackend(
-      PiCall(
-        op: ImportSessionOp(
+      opCall(
+        ImportSessionOp(
           uploadId: id,
           offset: sent,
           data: base64Encode(bytes),

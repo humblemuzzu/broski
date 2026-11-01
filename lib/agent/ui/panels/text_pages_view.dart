@@ -1,3 +1,4 @@
+import 'package:broski/agent/client/requests/op_call.dart';
 import 'package:broski/agent/ui/panels/result_actions.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:broski/theme/app_typography.dart';
@@ -57,8 +58,8 @@ class _TextPagesViewState extends State<TextPagesView> {
             onPressed: widget.actions.busy
                 ? null
                 : () => widget.actions.call(
-                    (sessionId) => PiCall(
-                      op: SystemPromptOp(sessionId: sessionId, offset: next),
+                    (sessionId) => opCall(
+                      SystemPromptOp(sessionId: sessionId, offset: next),
                     ),
                   ),
             child: const Text('Show more'),

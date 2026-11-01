@@ -1,3 +1,4 @@
+import 'package:broski/agent/client/requests/op_call.dart';
 import 'package:broski/agent/ui/panels/result_actions.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:broski/theme/app_typography.dart';
@@ -53,8 +54,8 @@ class SessionToolsView extends StatelessWidget {
               onChanged: actions.busy
                   ? null
                   : (on) => actions.call(
-                      (sessionId) => PiCall(
-                        op: SessionToolsOp(
+                      (sessionId) => opCall(
+                        SessionToolsOp(
                           sessionId: sessionId,
                           change: ToolChange(name: tool.name, active: on),
                         ),
