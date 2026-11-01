@@ -1,15 +1,16 @@
 /**
  * D41a against the real CLI: Read, Edit, Write and Bash through the scripted endpoint (zero escapes). What reaches
- * lane B's `toolResultOf` from history is the `tool_use_result` the live frame carried; once lane B is merged the history
- * items must also carry the diffs (the `[needs lane B]` tests below run then, and say so while they do not).
+ * lane B's `toolResultOf` from history is the `tool_use_result` the live frame carried, and each history result equals
+ * the live mapper's `tool_finished` for the same call.
  */
 
 import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { realpathSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { CLAUDE_CODE_MAPPING } from "../../../backends/claude-code/mapping";
 import * as helper from "../../../backends/claude-code/mapping/tool-results";
-import type { TranscriptItem } from "../../../contract";
+import type { ToolFinishedEvent, TranscriptItem } from "../../../contract";
 import { type ClaudeHome, createClaudeHome } from "../../helpers/claude-home";
 import { expectNoOrphans } from "../spike/rig/orphans";
 import { startSpike } from "../spike/rig/session";
@@ -25,18 +26,9 @@ let escapes: string[] = [];
 const live = new Map<string, unknown>();
 let items: TranscriptItem[] = [];
 const given = new Map<string, unknown>();
+const finished = new Map<string, ToolFinishedEvent>();
 
 const ids = { read: "", edit: "", write: "", bash: "" };
-
-/** Lane B is merged once its helper no longer answers with its stub's error. */
-const laneBMerged = !JSON.stringify(
-	helper.toolResultOf(
-		{ type: "tool_result", tool_use_id: "x", content: "y" },
-		undefined,
-		{ entryUuid: "e", blockIndex: 0 },
-		"Bash",
-	),
-).includes("not built yet");
 
 beforeAll(async () => {
 	home = createClaudeHome();
@@ -61,8 +53,11 @@ beforeAll(async () => {
 		await spike.close();
 	}
 	escapes = spike.server.escapes();
+	const mapper = CLAUDE_CODE_MAPPING.createMapper({ sessionId });
 	const names = new Map<string, string>();
 	for (const message of spike.messages) {
+		for (const { event } of mapper.map(message))
+			if (event.type === "tool_finished") finished.set(event.toolCallId, event);
 		if (message.type === "assistant") {
 			for (const block of message.message.content) if (block.type === "tool_use") names.set(block.id, block.name);
 		}
@@ -130,27 +125,26 @@ describe("tool results the real CLI wrote", () => {
 		expect(resultIds).toEqual([ids.bash, ids.write, ids.edit, ids.read].map((id) => `${id}:result`));
 	});
 
-	test.if(laneBMerged)(
-		"[needs lane B] the Edit result carries its diff, the Write its new file, the Bash its output",
-		() => {
-			const result = (id: string) => items.find((item) => item.kind === "tool_result" && item.toolCallId === id);
-			const edit = result(ids.edit);
-			const changes = edit?.kind === "tool_result" ? edit.result.fileChanges : [];
-			expect(changes[0]).toMatchObject({ change: "modified" });
-			expect(changes[0]?.path).toContain("a.txt");
-			expect(changes[0]?.diff).toContain("+TWO");
-			const write = result(ids.write);
-			expect(write?.kind === "tool_result" && write.result.fileChanges[0]).toMatchObject({ change: "added" });
-			const bash = result(ids.bash);
-			expect(JSON.stringify(bash?.kind === "tool_result" ? bash.result.content : [])).toContain("hi");
-		},
-	);
+	test("the Edit result carries its diff, the Write its new file, the Bash its output", () => {
+		const result = (id: string) => items.find((item) => item.kind === "tool_result" && item.toolCallId === id);
+		const edit = result(ids.edit);
+		const changes = edit?.kind === "tool_result" ? edit.result.fileChanges : [];
+		expect(changes[0]).toMatchObject({ change: "modified" });
+		expect(changes[0]?.path).toContain("a.txt");
+		expect(changes[0]?.diff).toContain("+TWO");
+		const write = result(ids.write);
+		expect(write?.kind === "tool_result" && write.result.fileChanges[0]).toMatchObject({ change: "added" });
+		const bash = result(ids.bash);
+		expect(JSON.stringify(bash?.kind === "tool_result" ? bash.result.content : [])).toContain("hi");
+	});
 
-	test("lane B state is stated, not assumed", () => {
-		if (!laneBMerged)
-			console.warn(
-				"[needs lane B] toolResultOf is still a stub in this worktree: the diff assertion above is not running",
-			);
-		expect(typeof laneBMerged).toBe("boolean");
+	test("each history result equals what the live mapper finished the call with", () => {
+		for (const id of [ids.read, ids.edit, ids.write, ids.bash]) {
+			const item = items.find((entry) => entry.kind === "tool_result" && entry.toolCallId === id);
+			const live = finished.get(id);
+			expect(live).toBeDefined();
+			const stored = item?.kind === "tool_result" ? { outcome: item.outcome, result: item.result } : undefined;
+			expect(stored).toEqual(live && { outcome: live.outcome, result: live.result });
+		}
 	});
 });
