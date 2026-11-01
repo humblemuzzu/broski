@@ -1,7 +1,17 @@
 /** The old protocol's PreToolUse hook installer edits the user's Claude settings strictly; every file is in a temp dir. */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+	existsSync,
+	lstatSync,
+	mkdtempSync,
+	readdirSync,
+	readFileSync,
+	rmSync,
+	statSync,
+	symlinkSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CC_HOOK_MARKER, installCcHookAt, uninstallCcHookAt } from "../handlers/cc_hook_file";
@@ -63,6 +73,15 @@ describe("the old hook installer never loses the user's settings", () => {
 		expect(statSync(settingsPath).mode & 0o777).toBe(0o640);
 		await uninstall();
 		expect(readFileSync(settingsPath, "utf8")).toBe(original);
+	});
+
+	test("a symlinked settings file is edited where it points and stays a link", async () => {
+		const target = join(root, "dotfiles-settings.json");
+		writeFileSync(target, JSON.stringify(USER, null, 2));
+		symlinkSync(target, settingsPath);
+		await install();
+		expect(lstatSync(settingsPath).isSymbolicLink()).toBe(true);
+		expect(JSON.parse(readFileSync(target, "utf8")).hooks.PreToolUse[0].hooks[0].command).toContain(CC_HOOK_MARKER);
 	});
 
 	test("a missing file is created private; uninstall with no file creates nothing", async () => {

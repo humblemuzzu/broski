@@ -1,9 +1,10 @@
 /**
  * A strict read-modify-write of a user's JSON object file: a file that does not parse, or is too large, is refused and
  * left byte for byte as it was; every other key survives; the write is atomic and does not overwrite a change made
- * meanwhile.
+ * meanwhile. A symlinked file (a dotfiles manager's) is edited where it points, so the link stays a link.
  */
 
+import { realpath } from "node:fs/promises";
 import { readFileForEdit, writeFileAtomic } from "./atomic-file";
 import { jsonIndentOf, parseJsonObject } from "./json-object";
 
@@ -25,10 +26,11 @@ export interface JsonEditOptions {
 }
 
 export async function editJsonObjectFile(
-	path: string,
+	given: string,
 	change: JsonObjectChange,
 	options: JsonEditOptions = {},
 ): Promise<JsonEditResult> {
+	const path = given;
 	try {
 		for (let attempt = 0; attempt < ATTEMPTS; attempt += 1) {
 			const done = await editOnce(path, change, options);
