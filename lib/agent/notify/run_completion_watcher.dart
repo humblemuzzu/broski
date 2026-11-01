@@ -13,7 +13,8 @@ import 'package:flutter/widgets.dart';
 /// every session, so a session nobody is attached to is covered. A row going
 /// from busy (a run, or an ask waiting inside one) to idle is one finished
 /// run; a session on screen with the app in front is being watched, and says
-/// nothing.
+/// nothing. A subagent's session runs inside its parent's run, which is the
+/// one told; a fork is a session of its own, and is told like any.
 final class RunCompletionWatcher {
   RunCompletionWatcher({
     required ContractClient client,
@@ -52,6 +53,7 @@ final class RunCompletionWatcher {
   }
 
   void _onRow(SessionSummary row) {
+    if (row.parent?.kind == ParentKind.subagent) return;
     final busy =
         row.status == SessionStatus.running ||
         row.status == SessionStatus.waitingForUser;

@@ -1,6 +1,7 @@
 import 'package:broski/agent/agent_providers.dart';
 import 'package:broski/agent/catalog/backends_controller.dart';
 import 'package:broski/agent/catalog/catalog_lists.dart';
+import 'package:broski/agent/catalog/directories_controller.dart';
 import 'package:broski/agent/catalog/session_list_controller.dart';
 import 'package:broski/agent/client/contract_client.dart';
 import 'package:broski/agent/client/outcome.dart';
@@ -141,6 +142,41 @@ void main() {
     );
     expect([for (final row in list.state.rows) row.session.sessionId], ['a']);
     list.dispose();
+  });
+
+  test('directories are read once per load, and once per reconnect even when '
+      'a screen asks at the same time', () async {
+    bridge.on<SessionsListRequest>(
+      (request) => SessionsListResponse(
+        requestId: request.requestId,
+        result: const SessionsListed(
+          page: SessionPage(
+            items: [
+              SessionSummary(
+                session: SessionRef(backend: BackendId.codex, sessionId: 'a'),
+                cwd: '/work',
+                updatedAt: 1,
+                archived: false,
+                status: SessionStatus.idle,
+                origin: SessionOrigin.broski,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    final directories = DirectoriesController(client, BackendId.codex);
+    addTearDown(directories.dispose);
+    final first = await directories.load();
+    expect([for (final d in first.directories) d.cwd], ['/work']);
+    expect(link.sent.whereType<SessionsListRequest>(), hasLength(1));
+
+    link
+      ..down()
+      ..up();
+    await directories.load();
+    await pumpEventQueue();
+    expect(link.sent.whereType<SessionsListRequest>(), hasLength(2));
   });
 
   test(

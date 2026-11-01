@@ -19,8 +19,10 @@ SessionSummary _row(
   SessionStatus status, {
   String? title,
   String? cwd = '/work/shop',
+  SessionParent? parent,
 }) => SessionSummary(
   session: _ref(id),
+  parent: parent,
   title: title == null
       ? null
       : SessionTitle(text: title, source: TitleSource.user),
@@ -72,6 +74,28 @@ void main() {
       expect(done.title, 'Fix it');
       expect(done.project, 'shop');
       expect(done.duration, const Duration(seconds: 42));
+    });
+
+    test('a subagent\'s run is its parent\'s, which alone is told; a fork '
+        'is told like any session', () async {
+      void child(String id, SessionStatus status, ParentKind kind) =>
+          rig.bridge.catalog(
+            BackendId.pi,
+            SessionUpdatedEvent(
+              summary: _row(
+                id,
+                status,
+                parent: SessionParent(kind: kind, session: _ref('parent')),
+              ),
+            ),
+          );
+      child('parent:call-1', SessionStatus.running, ParentKind.subagent);
+      child('fork', SessionStatus.running, ParentKind.fork);
+      await pumpEventQueue();
+      child('parent:call-1', SessionStatus.idle, ParentKind.subagent);
+      child('fork', SessionStatus.idle, ParentKind.fork);
+      await pumpEventQueue();
+      expect(notifier.done.map((done) => done.session.sessionId), ['fork']);
     });
 
     test('an ask waiting inside a run does not end it', () {

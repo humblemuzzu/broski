@@ -57,14 +57,43 @@ final class DirectoriesController extends StateNotifier<DirectoriesState> {
   var _generation = 0;
   var _reads = 0;
 
-  /// The saved copy first, then the bridge's answer: what to show now.
+  /// The read under way and the connection it was made on.
+  ({int? generation, Future<void> done})? _reading;
+
+  /// The saved copy first, then the bridge's answer: what to show now. It
+  /// waits for the read under way rather than asking again.
   Future<DirectoriesState> load() async {
     await _restoring;
     await refresh();
+    for (var reading = _reading; reading != null; reading = _reading) {
+      await reading.done;
+    }
     return state;
   }
 
-  Future<void> refresh() async {
+  /// Reads the list again, unless a read on this connection is under way,
+  /// which it joins: a screen and a reconnect asking at once cost one read.
+  Future<void> refresh() {
+    final generation = switch (_client.state) {
+      ContractReady(:final generation) => generation,
+      _ => null,
+    };
+    final reading = _reading;
+    if (reading != null && reading.generation == generation) {
+      return reading.done;
+    }
+    final done = _read();
+    final started = (generation: generation, done: done);
+    _reading = started;
+    unawaited(
+      done.whenComplete(() {
+        if (identical(_reading, started)) _reading = null;
+      }),
+    );
+    return done;
+  }
+
+  Future<void> _read() async {
     final read = ++_reads;
     final rows = <SessionSummary>[];
     PageCursor? cursor;
