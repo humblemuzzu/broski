@@ -179,6 +179,27 @@ describe("the done alert of a contract session", () => {
 		expect(contractDone(SESSION, row(), completed, ended(), 9)?.body).toBe("Turn finished");
 	});
 
+	test("a run that only ran a call, as a command typed for the shell does, names the call and a failing exit code", () => {
+		const call = (toolCallId: string, command: string) => ({
+			kind: "tool_call" as const,
+			id: `${toolCallId}-call`,
+			toolCallId,
+			name: "bash",
+			input: { command },
+		});
+		const result = (toolCallId: string, exitCode: number) => ({
+			kind: "tool_result" as const,
+			id: `${toolCallId}-result`,
+			toolCallId,
+			outcome: exitCode === 0 ? ("completed" as const) : ("failed" as const),
+			result: { content: [], fileChanges: [], exitCode },
+		});
+		const passed = ended([], [call("t1", "npm test\n--watch=false"), result("t1", 0)]);
+		expect(contractDone(SESSION, row(), completed, passed, 9)?.body).toBe("bash: npm test");
+		const failed = ended([], [call("t1", "make"), result("t1", 2)]);
+		expect(contractDone(SESSION, row(), completed, failed, 9)?.body).toBe("bash: make (exit code 2)");
+	});
+
 	test("a failed or limited run is told by its code, never by the backend's message", () => {
 		const failed = contractDone(
 			SESSION,

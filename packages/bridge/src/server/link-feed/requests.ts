@@ -86,6 +86,13 @@ export class LinkFeedRequests {
 		if (record) this.entries.set(key, { ...record, answered: true });
 	}
 
+	/** An answer that did not go through: the request takes a decision again. */
+	reopen(backend: string, session: string, request: string): void {
+		const key = requestKey(backend, session, request);
+		const record = this.entries.get(key);
+		if (record) this.entries.set(key, { ...record, answered: false });
+	}
+
 	/** The request is gone: no decision can reach it and a reconnecting feed is not told of it again. */
 	withdraw(backend: string, session: string, request: string): void {
 		const key = requestKey(backend, session, request);

@@ -30,7 +30,7 @@ export class ContractFeedTap {
 		this.describing.clear();
 	}
 
-	private followRun({ session, event, before, after, describe }: ObservedEvent): void {
+	private followRun({ session, event, before, after, describe, at }: ObservedEvent): void {
 		const { backend, sessionId } = session;
 		if (after.run) {
 			this.tracker.runStarted(backend, sessionId);
@@ -43,7 +43,7 @@ export class ContractFeedTap {
 			return;
 		}
 		this.tracker.runEnded(backend, sessionId, async () =>
-			contractDone(session, await describe(), event.outcome, before, Date.now()),
+			contractDone(session, await describe(), event.outcome, before, at),
 		);
 	}
 

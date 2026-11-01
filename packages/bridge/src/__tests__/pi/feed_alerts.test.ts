@@ -34,38 +34,43 @@ afterEach(async () => {
 	restoreTiming();
 });
 
+/** A bridge with the real Pi adapter, a phone that said hello, and a new session in ask mode. */
+async function piSession() {
+	let started: PiWorld | undefined;
+	const factory: BackendFactory = async (host) => {
+		started = await PiWorld.create(host);
+		return started.backend;
+	};
+	const root = realpathSync(mkdtempSync(join(tmpdir(), "broski-pi-feed-")));
+	const socketPath = join(root, "link.sock");
+	const bridge = await startBridge({
+		linkSocket: socketPath,
+		contract: { backends: [["pi", factory]], journalDirectory: join(root, "core") },
+	});
+	cleanup.push(
+		() => rmSync(root, { recursive: true, force: true }),
+		() => started?.dispose(),
+		async () => {
+			await bridge.stop();
+		},
+	);
+	const phone = await connectPhone(socketPath, "phone");
+	cleanup.push(() => phone.socket.close());
+	await phone.hello();
+	while (!(await phone.ok("backends.list", {})).backends.some((backend) => backend.id === "pi")) await Bun.sleep(25);
+	const world = started;
+	if (!world) throw new Error("Pi did not start");
+	const created = await phone.ok("session.create", {
+		backend: "pi",
+		options: { cwd: world.env.cwd, modes: [{ axis: "permissions", value: "ask" }] },
+	});
+	if (created.result.status !== "accepted") throw new Error("the session was not created");
+	return { world, phone, session: created.result.session, socketPath };
+}
+
 describe("the feed with the real Pi adapter", () => {
 	test("an ask-mode tool call is an approval, a lock-screen allow runs it once, and the run ends in a done alert", async () => {
-		let world: PiWorld | undefined;
-		const factory: BackendFactory = async (host) => {
-			world = await PiWorld.create(host);
-			return world.backend;
-		};
-		const root = realpathSync(mkdtempSync(join(tmpdir(), "broski-pi-feed-")));
-		const socketPath = join(root, "link.sock");
-		const bridge = await startBridge({
-			linkSocket: socketPath,
-			contract: { backends: [["pi", factory]], journalDirectory: join(root, "core") },
-		});
-		cleanup.push(
-			() => rmSync(root, { recursive: true, force: true }),
-			() => world?.dispose(),
-			async () => {
-				await bridge.stop();
-			},
-		);
-
-		const phone = await connectPhone(socketPath, "phone");
-		cleanup.push(() => phone.socket.close());
-		await phone.hello();
-		while (!(await phone.ok("backends.list", {})).backends.some((backend) => backend.id === "pi")) await Bun.sleep(25);
-		if (!world) throw new Error("Pi did not start");
-		const created = await phone.ok("session.create", {
-			backend: "pi",
-			options: { cwd: world.env.cwd, modes: [{ axis: "permissions", value: "ask" }] },
-		});
-		if (created.result.status !== "accepted") throw new Error("the session was not created");
-		const session = created.result.session;
+		const { world, phone, session, socketPath } = await piSession();
 		world.router.script(session.sessionId, [readReadme(), say("The README says Project.\nNothing else.")]);
 		await phone.ok("session.attach", { session });
 
@@ -96,5 +101,23 @@ describe("the feed with the real Pi adapter", () => {
 		expect(done).toMatchObject({ kind: "done", backend: "pi", body: "The README says Project." });
 		await busyFrame(feed, false);
 		expect(world.router.requests(session.sessionId)).toHaveLength(2);
+	});
+
+	test("a command typed for the shell ends in a done alert that names it, not a turn", async () => {
+		const { phone, session, socketPath } = await piSession();
+		await phone.ok("session.attach", { session });
+		const feed = await openFeed(socketPath);
+		cleanup.push(() => finishFeed(feed, () => {}));
+		const op = {
+			kind: "run_shell" as const,
+			sessionId: session.sessionId,
+			clientRequestId: crypto.randomUUID(),
+			command: "echo hi; exit 3",
+			excludeFromContext: false,
+		};
+		const call = await phone.ok("backend.call", { call: { backend: "pi", op } });
+		expect(call.result).toEqual({ status: "accepted", result: { kind: "run_shell" } });
+		const [done] = await alertsOf(feed, 1);
+		expect(done).toMatchObject({ kind: "done", backend: "pi", body: "bash: echo hi; exit 3 (exit code 3)" });
 	});
 });

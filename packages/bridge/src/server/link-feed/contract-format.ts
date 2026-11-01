@@ -6,6 +6,8 @@ import type {
 	SessionSnapshot,
 	SessionSummary,
 	ToolPermissionRequest,
+	ToolResultItem,
+	TranscriptItem,
 } from "../../contract";
 import { alertEvent, backendName, firstLine, type LinkFeedEventMessage, stringOf, summarize } from "./format";
 
@@ -80,7 +82,7 @@ export function contractDone(
 function outcomeWords(outcome: RunOutcome, state: SessionSnapshot): { title: string; body: string } | undefined {
 	switch (outcome.kind) {
 		case "completed":
-			return { title: "finished", body: finalAnswerLine(state) ?? "Turn finished" };
+			return { title: "finished", body: finalAnswerLine(state) ?? lastCallLine(state) ?? "Turn finished" };
 		case "error":
 			return { title: "stopped with an error", body: `Run failed: ${outcome.error.code}` };
 		case "limit":
@@ -104,6 +106,26 @@ function finalAnswerLine(state: SessionSnapshot): string | undefined {
 		}
 	}
 	return undefined;
+}
+
+/**
+ * A run that wrote no text, such as a command the person typed for the shell: its newest top-level call, what it ran,
+ * and the exit code when that was not 0.
+ */
+function lastCallLine(state: SessionSnapshot): string | undefined {
+	const items = state.run?.items ?? [];
+	for (const item of [...items].reverse()) {
+		if (item.kind !== "tool_call" || item.parentToolCallId !== undefined) continue;
+		const detail = summarize(item.input);
+		const call = detail === undefined ? item.name : `${item.name}: ${firstLine(detail) ?? detail}`;
+		const exitCode = resultOf(items, item.toolCallId)?.result.exitCode;
+		return exitCode === undefined || exitCode === 0 ? call : `${call} (exit code ${exitCode})`;
+	}
+	return undefined;
+}
+
+function resultOf(items: readonly TranscriptItem[], toolCallId: string): ToolResultItem | undefined {
+	return items.find((item): item is ToolResultItem => item.kind === "tool_result" && item.toolCallId === toolCallId);
 }
 
 /** The session's own name, or its backend's, followed by what happened. */

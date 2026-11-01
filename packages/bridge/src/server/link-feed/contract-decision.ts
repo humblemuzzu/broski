@@ -1,4 +1,4 @@
-import type { ActionResult, InteractionAnswer, SessionRef } from "../../contract";
+import type { ActionResult, InteractionAnswer, RejectionCode, SessionRef } from "../../contract";
 import type { LinkDecision, LinkDecisionOutcome } from "./decision";
 import type { LinkFeedContractTarget, LinkFeedRequestRecord, LinkFeedRequests } from "./requests";
 
@@ -22,13 +22,24 @@ export async function applyContractDecision(
 	const reply = decision.decision === "allow" ? target.replies.allow : target.replies.deny;
 	if (!reply) return refusal("unsupported");
 	requests.markAnswered(decision.backend, decision.session, decision.request);
-	return outcomeOf(await answer(target.session, { interactionId: target.interaction, reply }));
+	const result = await answer(target.session, { interactionId: target.interaction, reply });
+	if (!endsRequest(result)) requests.reopen(decision.backend, decision.session, decision.request);
+	return outcomeOf(result);
+}
+
+/** The request is over once answered, or once the core says nothing is there to answer; any other refusal may pass. */
+function endsRequest(result: ActionResult): boolean {
+	return result.status === "accepted" || isGone(result.rejection.code);
+}
+
+function isGone(code: RejectionCode): boolean {
+	return code === "stale" || code === "not_found" || code === "closed";
 }
 
 function outcomeOf(result: ActionResult): LinkDecisionOutcome {
 	if (result.status === "accepted") return { ok: true, error: null };
 	const { code, message } = result.rejection;
-	return refusal(code === "stale" || code === "not_found" ? "no longer pending" : message);
+	return refusal(isGone(code) ? "no longer pending" : message);
 }
 
 function refusal(error: string): LinkDecisionOutcome {
