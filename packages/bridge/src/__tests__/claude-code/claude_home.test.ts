@@ -60,7 +60,12 @@ describe("throwaway Claude home", () => {
 			expect(env.PATH).toBe(process.env.PATH ?? "");
 		} finally {
 			home.cleanup();
-			for (const key of Object.keys(process.env)) if (!(key in saved)) delete process.env[key];
+			for (const key of Object.keys(process.env)) {
+				if (key in saved) continue;
+				// On Linux, Bun's fetch still reads a proxy variable that was only deleted; emptied first, it is gone.
+				process.env[key] = "";
+				delete process.env[key];
+			}
 			Object.assign(process.env, saved);
 		}
 	});

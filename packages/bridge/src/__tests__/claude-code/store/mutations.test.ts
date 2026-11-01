@@ -7,6 +7,11 @@ import { SessionSummary, type TranscriptItem } from "../../../contract";
 import { createStoreWorld, type StoreWorld } from "./helpers/store-world";
 import { TranscriptBuilder } from "./helpers/transcript-builder";
 
+/** Where `trash.ts` puts a file under the world's temp HOME (its XDG data dir is `HOME/.local/share`). */
+function trashFiles(home: string): string {
+	return process.platform === "darwin" ? join(home, ".Trash") : join(home, ".local", "share", "Trash", "files");
+}
+
 let world: StoreWorld;
 beforeEach(async () => {
 	world = await createStoreWorld();
@@ -129,7 +134,7 @@ describe("delete", () => {
 		expect((await world.store.remove(built.sessionId)).status).toBe("accepted");
 		expect(existsSync(built.path)).toBe(false);
 		expect(existsSync(directory)).toBe(false);
-		const trash = join(world.home.homeDir, ".Trash");
+		const trash = trashFiles(world.home.homeDir);
 		expect(readdirSync(trash).sort()).toEqual([built.sessionId, `${built.sessionId}.jsonl`].sort());
 		expect(readFileSync(join(trash, `${built.sessionId}.jsonl`), "utf8")).toContain("first prompt");
 		expect(world.events.find((event) => event.type === "session_removed")).toEqual({
@@ -146,7 +151,7 @@ describe("delete", () => {
 		const { built } = session();
 		const unknown = await world.store.remove(crypto.randomUUID());
 		expect(unknown.status === "rejected" && unknown.rejection.code).toBe("not_found");
-		const trash = join(world.home.homeDir, ".Trash");
+		const trash = trashFiles(world.home.homeDir);
 		mkdirSync(trash, { recursive: true });
 		writeFileSync(join(trash, `${built.sessionId}.jsonl`), "an older file");
 		expect((await world.store.remove(built.sessionId)).status).toBe("accepted");
