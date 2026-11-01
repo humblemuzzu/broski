@@ -281,6 +281,33 @@ describe("LineTranslator", () => {
 		legal(events);
 	});
 
+	test("a slash command the CLI runs itself is a turn its output ends, in the order the file has it; a mid-turn compaction is no turn", () => {
+		const manual = run([
+			system("compact_boundary", { compactMetadata: { trigger: "manual", preTokens: 5 } }),
+			prompt("This session is being continued from a previous conversation", undefined, { isCompactSummary: true }),
+			prompt("<local-command-caveat>not sent to you</local-command-caveat>", undefined, { isMeta: true }),
+			prompt("<command-name>/compact</command-name>\n<command-message>compact</command-message>"),
+			prompt("<local-command-stdout>Compacted </local-command-stdout>"),
+		]);
+		expect(kinds(manual.events)).toEqual([
+			"compaction_started",
+			"compaction_finished",
+			"run_started",
+			"user_message",
+			"run_finished",
+		]);
+		legal(manual.events);
+		expect(run([prompt("<local-command-stdout>nothing running</local-command-stdout>")]).events).toEqual([]);
+		const auto = run([
+			prompt("go"),
+			system("compact_boundary", { compactMetadata: { trigger: "auto", preTokens: 5 } }),
+			assistant("msg_1", text("continuing"), { index: 0 }),
+			turnDuration(),
+		]);
+		expect(kinds(auto.events).filter((kind) => kind === "run_started")).toHaveLength(1);
+		legal(auto.events);
+	});
+
 	test("a block without apiBlockIndex takes its message's next position; with it, that index", () => {
 		const { events } = run([
 			prompt("go"),

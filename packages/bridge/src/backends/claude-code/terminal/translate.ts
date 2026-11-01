@@ -7,6 +7,7 @@
 import type { RunId, ToolCallId } from "../../../contract";
 import { isRecord } from "../json";
 import type { MappedEvent } from "../ports/mapping";
+import { canonicalInput } from "./canonical";
 import { assistantEvents } from "./translate-assistant";
 import { TranslatorState } from "./translate-state";
 import { userEvents } from "./translate-user";
@@ -60,11 +61,18 @@ export class LineTranslator {
 
 	/** The id of the open tool call that has this name and input, when exactly one has. */
 	openToolMatching(name: string, input: unknown): ToolCallId | undefined {
-		const key = canonical(input);
-		const sameInput = [...this.state.tools].filter(([, tool]) => tool.name === name && canonical(tool.input) === key);
+		const key = canonicalInput(input);
+		const sameInput = [...this.state.tools].filter(
+			([, tool]) => tool.name === name && canonicalInput(tool.input) === key,
+		);
 		if (sameInput.length === 1) return sameInput[0]?.[0];
 		const sameName = [...this.state.tools].filter(([, tool]) => tool.name === name);
 		return sameName.length === 1 ? sameName[0]?.[0] : undefined;
+	}
+
+	/** How many calls of this tool are waiting for a result. */
+	openToolsNamed(name: string): number {
+		return [...this.state.tools.values()].filter((tool) => tool.name === name).length;
 	}
 }
 
@@ -109,11 +117,4 @@ function compactionEvents(out: MappedEvent[], metadata: unknown): void {
 
 function wholeCount(value: unknown): number | undefined {
 	return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : undefined;
-}
-
-/** Key-sorted JSON, so two inputs that differ only in key order compare equal. */
-function canonical(value: unknown): string {
-	return JSON.stringify(value, (_key, item: unknown) =>
-		isRecord(item) ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) : item,
-	);
 }

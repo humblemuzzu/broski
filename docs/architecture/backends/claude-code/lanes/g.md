@@ -1,0 +1,75 @@
+# Lane G · Terminal (D100–D109)
+
+Branch `cc/lane-g-terminal`. Files: `backends/claude-code/terminal/*`, `server/cc-terminal-hook.ts`, tests in `src/__tests__/claude-code/terminal/`; two lines in `http-handler.ts`, one key in `config/`. Status: D21 (watching) complete; D26 built up to the core call that routes a person's answer to a session it only watches (Step 3b), see "Open".
+
+## Decisions
+
+### D100. The tail: one watcher per project directory, positional reads, bounded lines
+
+`terminal-sessions.ts` keeps one `WatchedSession` per open session and one `ProjectWatch` per directory (`fs.watch` on the directory, plus a 250 ms `stat` sweep over the tracked files only, because `fs.watch` can miss an append). `tail.ts` reads with `open` + `fh.read(buf, 0, n, position)`, never `readFile` (a test fails if a tail-path file calls it). Per file: offset and inode; a smaller size or another inode re-reads the newest 512 KiB from a whole line. `jsonl-lines.ts` keeps a partial last line by value (a reused read buffer corrupted lines at every 64 KiB boundary before a test caught it) and drops a line over 4 MiB without buffering it. A uuid seen is never translated twice (50,000 remembered); after a reset, lines older than the tail's start by their own timestamp are remembered, not shown. A same-size in-place rewrite with the same inode is not detected (research 04 open question 2 is still open).
+
+### D101. What is translated (research 04 §7 rec. 4, checked against a recorded 2.1.316 run)
+
+`user` (prompt, tool result, interruption), `assistant` (one block per line), `system/turn_duration`, `system/compact_boundary`. Everything else is noise. Block ids are `<message.id>:<apiBlockIndex>` (the field the CLI writes on every assistant line; the position among the message's lines when it is absent). **Lanes A and B must count the same way for join point 7**: `apiBlockIndex` where present. A tool result is `toolResultOf(...)` of lane B (tests compare against it, so a change of B's helper changes nothing here); no `model_changed` (the wire id would need `CatalogueAccess.listedModelId`, which `TerminalDeps` does not carry), no `usage_updated`, no `plan_updated` (D38). Sidechain, `isMeta`, `isCompactSummary` lines are skipped; `<command-name>/x</command-name>` shows as `/x args`; other `<tag>` user lines (system reminders, command output) are not prompts.
+
+### D102. Run boundaries, and why there is a quiet rule
+
+A terminal's turn is an `external` run. It starts at the first line that needs one (a prompt, a block, a tool). It ends at: `system/turn_duration` (the REPL writes it, binary `ezt`); an interruption marker (`[Request interrupted by user…]`, aborted, open tools finished `aborted` first); a `<local-command-stdout>` line (a slash command the CLI ran itself, such as `/compact`, has no assistant message: the real order is boundary, summary, caveat, `<command-name>` echo, stdout); **or a quiet rule**: no tool open, the last message's `stop_reason` final (`end_turn`, `stop_sequence`, `max_tokens`, `refusal`) and 2.5 s without a line. The quiet rule exists because a session written by `query()`/`claude -p` (`entrypoint: sdk-ts`) writes no `turn_duration` (observed in the recorded run), so rule 27's "second `query()` process" would never see a run end. Research 04 judged the old tail's synthesised boundaries wrong; this one fires only when the file says the last message ended the turn and nothing is open. A new human prompt after a settled but unclosed run closes it first.
+
+### D103. Opening in the middle of a turn
+
+The open snapshot is the lines already in the file folded with the contract's own `applyEvent`, but only when a turn is still under way (otherwise empty: history is the transcript's). So a phone that opens mid-turn gets the `run` with its items and running tools, and what is written next applies on top. The ask path depends on it: a session opened because of a hook ask always opens mid-turn. `catchUp()` reads what is on disk before an ask is raised; the CLI flushes its transcript about 100 ms late (measured: the tool call line is absent when the prompt is shown, present 105 ms later), so an ask can precede its tool call: the desk assigns the ask to the tool call when it appears (`toolStarted`: same name and input, else the only ask and the only call of that name).
+
+### D104. `writing(id)`
+
+True when: watching is on (`services.terminal.watch !== false`), the bridge does not host the session, and either a hook ask names it right now or its file was written in the last 10 s. A hook ask matters because a long tool run leaves the file quiet for minutes while the terminal waits at a prompt, and `backend.ts` would otherwise resume the session in a second process. `store.locate` is called once per session id (the path is cached; dropped when the file disappears).
+
+### D105. The settings entry (`hook-settings.ts`, `hook-install.ts`)
+
+`hooks.PermissionRequest[]` gets `{hooks:[{type:"http", url, timeout:86400, headers:{Authorization:"Bearer <token>"}, statusMessage}]}`; `allowedHttpHookUrls` gets the exact URL; `onFailure` is left at its default `continue` (never `block`: a dead bridge must leave the terminal's own prompt). Our entries are found by URL shape (`https?://127.0.0.1:<port>/cc-terminal-hook`), so a new port or token replaces the old and nothing else of the user's is touched. The file: strict `JSON.parse` (a trailing comma, a comment, an array root are refused and the file stays byte-for-byte; the old installer started from `{}` on a parse error), same indentation and mode, written beside and renamed over, re-read just before the rename (changed meanwhile: read again, three tries, then refused), a symlink edited at its target, never throws. Removal drops only ours and the keys we created. **Side effect to know**: `allowedHttpHookUrls` set means every other HTTP hook of the user's is blocked unless its URL is in the list (the CLI: "When set, HTTP hooks with non-matching URLs are blocked"). Their existing entries are kept and ours appended; a user with no list gets one with only ours. The timeout is a day: the CLI does not clamp it (the settings accepted 86,400 in every real-CLI test) and the hook never blocks the terminal's prompt (D107).
+
+### D106. The bridge's TLS certificate does not work for this hook as it is (blocker for integration)
+
+Real CLI, scripted runs (`hook_cli.test.ts`): an HTTP hook to a self-signed loopback certificate reaches the server **only if the certificate has a subject alternative name (`IP:127.0.0.1`) and the CLI trusts it** (`NODE_EXTRA_CA_CERTS`, from the process environment or from the settings file's `env` block, both worked). Without the SAN, naming it in `NODE_EXTRA_CA_CERTS` changes nothing; without naming it, the same. Either failure is silent: the hook fails open and the terminal asks as before. The certificate `~/.broski/tls/server.cert.pem` (`platform.ts` `generateCertOpenssl`: `-subj /CN=broski`, no `-addext`) has no SAN. Integration must (a) add `-addext subjectAltName=IP:127.0.0.1,DNS:localhost` to the generator and regenerate a certificate that lacks one, and (b) pass `caCertPath` to `installTerminalHook` (it writes `env.NODE_EXTRA_CA_CERTS`, and refuses to install when the user's settings already name another file there, since the hook would then be untrusted). Security: the CLI then trusts the bridge's self-signed certificate for every connection it makes; its key is a `0600` file of the user's own. The alternative the owner may prefer is a loopback listener without TLS for this one route (the CLI allows `http://127.0.0.1`), which AGENTS.md forbids for compiled builds.
+
+### D107. The receiver (`server/cc-terminal-hook.ts`)
+
+`POST /cc-terminal-hook`, behind the loopback listener's bearer check. The adapter's handler is called **first** and the session held (`ContractSeam.hold`) right after: the handler marks the session as written synchronously, so the open `hold` causes takes the watch-only path. A handler that declines within one tick (a session the bridge hosts, `AskUserQuestion`, `ExitPlanMode`) is answered without a hold. Verified in the real CLI: the hook and the terminal's prompt **race** (the prompt is shown at once; a decision from the hook withdraws it; `{}` or a failure leaves it); the CLI **does not drop the HTTP request when the terminal's person answers first** (so the transcript, not the connection, tells the bridge: D103); the CLI drops it at its own `timeout` and the prompt stays. The only things that end a pending ask: a person's answer, the transcript showing the tool finished or the run ended, the request dropped, a session close. No timer. Bounds: 8 MiB body, 64 asks open at once (429 past it), the body validated (zod) before anything uses it, a throwing handler is `{}`.
+
+### D108. The ask on the phone
+
+`tool_permission` with Allow once, Deny (optional message), Deny and stop (`interrupt:true`, verified: the run ends `aborted_*`); the Bash command and file changes as previews; no "allow for the session / always" (the hook input's `permission_suggestions` are not offered; a later step). A cancel that stops the run is a deny with interrupt; a cancel that does not gives no decision (the terminal asks), as does a withdrawal. `AskUserQuestion` and `ExitPlanMode` are never raised: their terminal dialogs are questions, and an allow from a hook would answer them with nothing.
+
+### D109. `claudeCode.terminalAsks` (default true) and the route
+
+`config/schema.ts` and `defaults.ts`; false means the integration does not install the hook and removes ours. The route is two lines in `http-handler.ts` (`handleCcTerminalHook` in `HandleHttpDeps` and the branch for `/cc-terminal-hook`); nothing is served until `server/http.ts` passes the handler.
+
+## Ports: what I needed, and worked within
+
+- None changed. `TerminalAskHandler`'s shape is enough with the receiver's order (handler first, then `hold`); a cleaner port would be a handler with a separate `claims(ask)` step. Say so if you want it.
+- `createTerminalWatch` returns `TerminalWatchWithAsks` (adds `answerAsk(sessionId, answer)`); `backend.ts` still sees a `TerminalWatch`. **Step 3b**: when the core routes an answer to a watch-only `OpenSession`, that member calls `answerAsk`. The desk, the interaction and the decision mapping are tested up to that call (`hook_flow.test.ts`).
+- `TerminalDeps` has no `CatalogueAccess`, so no `model_changed` from the tail.
+
+## Integration: what to switch off when the contract flag is on
+
+The old path installs its own `PreToolUse` hook at every bridge start and removes it at shutdown; with ours that is two hooks for one prompt (two asks on the phone). With the flag on:
+
+1. `server.ts:238-248` (`installCcHook(hookTarget)`): do not call it. Call the old `uninstallCcHook` once (it removes the `PreToolUse` entry carrying its marker; it reads `homedir()/.claude`, not `CLAUDE_CONFIG_DIR`) so a hook left by an earlier run does not stay.
+2. `server/shutdown.ts:44` (`uninstallHooks: [() => uninstallCcHook(...)]`): skip it. Ours stays installed across restarts; with a dead bridge the hook fails open to the terminal (connection refused → `onFailure: continue`). A rotated auth token (`loadOrCreateAuthState(forceNew)`) gives 401s, equally fail-open, until the next start rewrites the entry.
+3. The old route `/cc-hook` (`http-handler.ts:123`, `server/http.ts:38`) can stay until the old path is deleted; it receives nothing once its hook is gone.
+4. Wire ours: `createTerminalHookReceiver({hold: contract.hold, release: contract.release, log})` (the seam is created after `createHttpWiring`: pass lazy closures); `terminal: { hookAsks: receiver.setHandler }` in the factory options; `handleCcTerminalHook: receiver.handle` in `server/http.ts`. After the listener binds: `terminalAsks ? installTerminalHook(configRoot, {url: https://127.0.0.1:<securePort>/cc-terminal-hook, token: state.authToken, timeoutSeconds: TERMINAL_HOOK_TIMEOUT_SECONDS, caCertPath}) : removeTerminalHook(configRoot, caCertPath)`, with `assertNotRealHome` on the path (the adapter may not import `safety/`). `configRoot` is `services.sdk.configRoot()`. A result `refused` is logged, never fatal.
+5. A Broski-hosted session also fires this hook (it loads the user's settings). The handler declines for it (`hosted(id)`), so the host's own `canUseTool` raises the ask; the cost is one local round trip per permission request.
+
+## Facts that contradict the plan or the research
+
+- Research 03 Q10 / §5 says the CLI "blocks the prompt while the hook runs". In the interactive path the hook and the prompt race (binary: the hook promise `QNt(...)` is created, then the prompt is shown without awaiting it, and the first to answer wins); measured in `hook_cli.test.ts`, where the SDK's `canUseTool` stands for the prompt.
+- Research 04 §7 rec. 4's `system/turn_duration` is written by the REPL only; an SDK or `-p` session has none (recorded transcript).
+- The CLI writes its transcript about 100 ms after the event (batched), not before the prompt.
+- `compactMetadata` on disk is camelCase and the user echo of `/compact` comes after the boundary (research 04 §2.3 had the first right; the order was not stated).
+
+## Open
+
+- **Step 3b.** `OpenSession` for a watch-only session must expose answering; then wire it to `answerAsk` and add a conformance-style test through the core.
+- **Rule 27 / `externalLive`.** The tail now shows `run_started{external}…run_finished` for a second CLI process writing the session (`watch_live_cli.test.ts`, legal under `streamViolations`). Declaring `externalLive: true` and `runExternally` in the driver is the plan owner's trait change; the quiet rule (D102) is what ends a `query()`-written run, 2.5 s after its last line.
+- An interactive REPL was not driven (no pty in the test bed): `turn_duration` and the real terminal dialog are read from the binary and from the recorded shapes, not run.
+- "Continue here" is lane A's `fork` on the same `SessionRef`; nothing in `terminal/` is needed for it, and it was not tested here (A's `fork` is a stub on this branch).

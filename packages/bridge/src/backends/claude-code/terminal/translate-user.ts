@@ -10,6 +10,7 @@ import type { MappedEvent } from "../ports/mapping";
 import type { TranslatorState } from "./translate-state";
 
 const INTERRUPT_MARKER = "[Request interrupted by user";
+const LOCAL_OUTPUT = "<local-command-stdout>";
 const TAG_START = /^\s*<[a-z][\w-]*[\s>]/;
 const COMMAND_NAME = /<command-name>(.*?)<\/command-name>/s;
 const COMMAND_ARGS = /<command-args>(.*?)<\/command-args>/s;
@@ -68,8 +69,8 @@ function resultEvents(
 function promptEvents(state: TranslatorState, out: MappedEvent[], raw: string, content: unknown, uuid: string): void {
 	const prompt = classify(raw);
 	if (prompt === undefined || !fitsId(uuid)) return;
-	if (prompt.kind === "interrupt") {
-		state.finishRun(out, "aborted");
+	if (prompt.kind !== "prompt") {
+		state.finishRun(out, prompt.kind === "interrupt" ? "aborted" : "completed");
 		return;
 	}
 	if (state.settled) state.finishRun(out, "completed");
@@ -85,12 +86,14 @@ function promptEvents(state: TranslatorState, out: MappedEvent[], raw: string, c
 	});
 }
 
-type UserText = { readonly kind: "interrupt" } | { readonly kind: "prompt"; readonly text: string };
+/** `local_output`: a slash command the CLI ran itself has printed its result, which is all the turn there is. */
+type UserText = { readonly kind: "interrupt" | "local_output" } | { readonly kind: "prompt"; readonly text: string };
 
 /** What a user line says; undefined for the CLI's own notes (system reminders, command output) that are no prompt. */
 function classify(raw: string): UserText | undefined {
 	const trimmed = raw.trim();
 	if (trimmed.startsWith(INTERRUPT_MARKER)) return { kind: "interrupt" };
+	if (trimmed.startsWith(LOCAL_OUTPUT)) return { kind: "local_output" };
 	if (!TAG_START.test(raw)) return trimmed === "" ? undefined : { kind: "prompt", text: raw };
 	const name = COMMAND_NAME.exec(raw)?.[1]?.trim();
 	if (name === undefined || name === "") return undefined;

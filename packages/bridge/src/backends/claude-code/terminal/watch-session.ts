@@ -52,6 +52,7 @@ export class WatchedSession {
 			emit: (event) => this.publish([{ event }]),
 			ensureRun: () => this.ensureRun(),
 			toolMatching: (name, input) => this.translator.openToolMatching(name, input),
+			openToolsNamed: (name) => this.translator.openToolsNamed(name),
 			catchUp: () => this.catchUp(),
 			now: () => clock.now(),
 		});
@@ -154,7 +155,8 @@ export class WatchedSession {
 	}
 
 	private beforeEmit(event: AgentEvent): void {
-		if (event.type === "tool_finished") this.desk.withdrawForTool(event.toolCallId);
+		if (event.type === "tool_started") this.desk.toolStarted(event.toolCallId, event.name, event.input);
+		else if (event.type === "tool_finished") this.desk.withdrawForTool(event.toolCallId);
 		else if (event.type === "run_finished") this.desk.withdrawForRun(event.runId);
 	}
 }

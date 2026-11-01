@@ -34,6 +34,7 @@ interface Terminal {
 interface Outcome {
 	readonly wrote: boolean;
 	readonly toolResult: string;
+	readonly terminalReasons: string[];
 	readonly hookRequests: number;
 	readonly authorization: (string | null)[];
 	readonly asks: unknown[];
@@ -47,9 +48,9 @@ interface Outcome {
 
 async function run(
 	handler: TerminalAskHandler,
-	options: { timeoutSeconds?: number; terminal?: Terminal } = {},
+	options: { timeoutSeconds?: number; terminal?: Terminal; san?: boolean; namesCertificate?: boolean } = {},
 ): Promise<Outcome> {
-	const cert = makeLoopbackCert();
+	const cert = makeLoopbackCert({ san: options.san });
 	const home = createClaudeHome();
 	const authorization: (string | null)[] = [];
 	const asks: unknown[] = [];
@@ -86,7 +87,7 @@ async function run(
 			url: `https://127.0.0.1:${server.port}/cc-terminal-hook`,
 			token: TOKEN,
 			timeoutSeconds: options.timeoutSeconds ?? TERMINAL_HOOK_TIMEOUT_SECONDS,
-			caCertPath: cert.certPath,
+			...(options.namesCertificate !== false && { caCertPath: cert.certPath }),
 		});
 		expect(installed.status).toBe("installed");
 		const terminal = options.terminal ?? {};
@@ -127,6 +128,7 @@ async function run(
 			return {
 				wrote: existsSync(join(home.projectDir, "notes.txt")),
 				toolResult: JSON.stringify(result?.type === "user" ? result.message.content : null),
+				terminalReasons: spike.results().map((r) => String(r.terminal_reason)),
 				hookRequests,
 				authorization,
 				asks,
@@ -146,6 +148,31 @@ async function run(
 		cert.cleanup();
 	}
 }
+
+describe("when the CLI cannot trust the bridge's certificate the hook fails open to the terminal", () => {
+	const terminal: Terminal = { answersAfterMs: 400, behavior: "allow" };
+
+	test(
+		"a certificate with no subject alternative name is refused even when NODE_EXTRA_CA_CERTS names it",
+		async () => {
+			const outcome = await run(async () => ({ behavior: "allow" }), { san: false, terminal });
+			expect(outcome.hookRequests).toBe(0);
+			expect(outcome.promptAnswered).toBe(true);
+			expect(outcome.wrote).toBe(true);
+		},
+		CLI_TEST_MS,
+	);
+
+	test(
+		"a good certificate nobody told the CLI to trust is refused",
+		async () => {
+			const outcome = await run(async () => ({ behavior: "allow" }), { namesCertificate: false, terminal });
+			expect(outcome.hookRequests).toBe(0);
+			expect(outcome.promptAnswered).toBe(true);
+		},
+		CLI_TEST_MS,
+	);
+});
 
 describe("the PermissionRequest hook the installer writes, in the real CLI", () => {
 	test(
@@ -175,6 +202,16 @@ describe("the PermissionRequest hook the installer writes, in the real CLI", () 
 			expect(outcome.wrote).toBe(false);
 			expect(outcome.promptWithdrawn).toBe(true);
 			expect(outcome.toolResult).toContain("not from my phone");
+		},
+		CLI_TEST_MS,
+	);
+
+	test(
+		"a deny that interrupts ends the whole run, not just the tool",
+		async () => {
+			const outcome = await run(async () => ({ behavior: "deny", message: "stop", interrupt: true }));
+			expect(outcome.wrote).toBe(false);
+			expect(outcome.terminalReasons).toEqual([expect.stringMatching(/^aborted/)]);
 		},
 		CLI_TEST_MS,
 	);

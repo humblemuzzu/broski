@@ -8,6 +8,7 @@ import type { PermissionRequestHookInput } from "@anthropic-ai/claude-agent-sdk"
 import type { ActionResult, AgentEvent, InteractionAnswer, InteractionId, RunId, ToolCallId } from "../../../contract";
 import { mintInteractionId } from "../ids";
 import { ACCEPTED, rejected } from "../rejections";
+import { canonicalInput } from "./canonical";
 import { decisionOf, type HookDecision, permissionInteraction } from "./hook-interaction";
 
 /** What the desk needs of the session it sits on. */
@@ -16,6 +17,8 @@ export interface DeskSession {
 	/** The run the ask blocks; starts an external one when the tail has seen none. */
 	ensureRun(): RunId;
 	toolMatching(name: string, input: unknown): ToolCallId | undefined;
+	/** How many calls of this tool are waiting for a result. */
+	openToolsNamed(name: string): number;
 	/** Resolves once what the terminal has written so far has been shown. */
 	catchUp(): Promise<void>;
 	now(): number;
@@ -23,7 +26,10 @@ export interface DeskSession {
 
 interface Pending {
 	readonly runId: RunId | undefined;
-	readonly toolCallId: ToolCallId | undefined;
+	/** The terminal writes a tool call to its file a moment after it asks, so this may be found later. */
+	toolCallId: ToolCallId | undefined;
+	readonly toolName: string;
+	readonly inputKey: string;
 	readonly settle: (decision: HookDecision) => void;
 }
 
@@ -51,7 +57,13 @@ export class HookDesk {
 				resolve(decision);
 			};
 			const onAbort = () => this.withdraw(id);
-			this.pending.set(id, { runId, toolCallId, settle });
+			this.pending.set(id, {
+				runId,
+				toolCallId,
+				toolName: ask.tool_name,
+				inputKey: canonicalInput(ask.tool_input),
+				settle,
+			});
 			signal.addEventListener("abort", onAbort, { once: true });
 			const interaction = permissionInteraction(ask, {
 				id,
@@ -89,6 +101,18 @@ export class HookDesk {
 			reason: "withdrawn",
 		});
 		entry.settle({ decision: undefined });
+	}
+
+	/** A tool call the terminal wrote after its ask: the ask belongs to it when it is the same call. */
+	toolStarted(toolCallId: ToolCallId, name: string, input: unknown): void {
+		const waiting = [...this.pending.values()].filter(
+			(entry) => entry.toolCallId === undefined && entry.toolName === name,
+		);
+		const key = canonicalInput(input);
+		const same = waiting.find((entry) => entry.inputKey === key);
+		const only = waiting.length === 1 && this.session.openToolsNamed(name) === 1 ? waiting[0] : undefined;
+		const entry = same ?? only;
+		if (entry !== undefined) entry.toolCallId = toolCallId;
 	}
 
 	withdrawForTool(toolCallId: ToolCallId): void {

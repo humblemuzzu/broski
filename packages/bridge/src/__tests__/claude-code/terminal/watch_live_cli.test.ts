@@ -175,6 +175,46 @@ describe("watching a session another CLI process writes", () => {
 	);
 
 	test(
+		"a /compact in the terminal shows as a compaction with the tokens the file gives, and its summary is not a prompt",
+		async () => {
+			const spike = startSpike({
+				permissionMode: "default",
+				turns: [{ text: ["first answer"] }, { text: ["must not run"] }],
+				server: {
+					sideRequests: { compact: [{ text: ["<analysis>a</analysis>\n<summary>Scripted summary.</summary>"] }] },
+				},
+			});
+			const rig = terminalRig(spike.home);
+			try {
+				await turn(spike, "hello");
+				const opened = await rig.open(sessionIdOf(spike.messages));
+				if (opened.status !== "accepted") throw new Error("open refused");
+				await turn(spike, "/compact");
+				await rig.waitFor((records) => records.some((r) => r.event.type === "compaction_finished"));
+				await Bun.sleep(300);
+				const events = rig.records.map((record) => record.event);
+				expect(events.find((event) => event.type === "compaction_started")).toEqual({
+					type: "compaction_started",
+					trigger: "manual",
+				});
+				const finished = events.find((event) => event.type === "compaction_finished");
+				const outcome = finished?.type === "compaction_finished" ? finished.outcome : undefined;
+				expect(outcome?.kind).toBe("completed");
+				expect(outcome?.kind === "completed" && typeof outcome.tokensBefore).toBe("number");
+				expect(
+					events.filter((event) => event.type === "user_message").map((e) => e.type === "user_message" && e.text),
+				).toEqual(["/compact"]);
+				expect(streamViolations(rig.records, CLAUDE_CODE_TRAITS, opened.snapshot)).toEqual([]);
+				expect(unsettledParts(rig.records, opened.snapshot)).toEqual([]);
+			} finally {
+				await rig.watch.dispose();
+				await spike.close();
+			}
+		},
+		CLI_TEST_MS,
+	);
+
+	test(
 		"a turn the terminal cut short with Esc ends the run aborted, nothing left open",
 		async () => {
 			const spike = startSpike({

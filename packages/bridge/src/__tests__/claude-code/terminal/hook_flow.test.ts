@@ -260,6 +260,28 @@ describe("a terminal ask on a session the bridge only watches", () => {
 		expect(rig.watch.answerAsk(sessionId, reply(interaction, ids.allow))).toMatchObject({ status: "rejected" });
 	});
 
+	test("the terminal writes its tool call a moment after it asks: the ask is found to belong to it and goes with it", async () => {
+		const hook = receiver();
+		const response = hook.handle(
+			ask({ tool_name: "Write", tool_input: { file_path: `${home.projectDir}/n.txt`, content: "x" } }),
+		);
+		const interaction = await pendingInteraction();
+		expect(interaction.origin?.toolCallId).toBeUndefined();
+		append(
+			prompt("write it"),
+			assistant("msg_1", toolUse("toolu_9", "Write", { file_path: "n.txt", content: "x" }), {
+				index: 0,
+				stop: "tool_use",
+			}),
+		);
+		await rig.waitFor((records) => records.some((r) => r.event.type === "tool_started"));
+		append(toolResult("toolu_9", "written"));
+		expect(await body(response)).toEqual({});
+		const kinds = types(rig.records);
+		expect(kinds.indexOf("interaction_resolved")).toBeGreaterThan(kinds.indexOf("tool_started"));
+		expect(kinds.indexOf("interaction_resolved")).toBeLessThan(kinds.indexOf("tool_finished"));
+	});
+
 	test("an Esc at the terminal ends the run, and the ask goes before the run does", async () => {
 		const hook = receiver();
 		append(
