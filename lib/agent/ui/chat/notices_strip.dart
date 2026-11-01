@@ -10,8 +10,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Notices and errors the session raised, each dismissible, and the live
-/// extras its backend declares (contract §13): rate-limit windows, the next
-/// prompt the backend suggests, the run's aggregated diff.
+/// extras its backend declares (contract §13): rate-limit windows. The next
+/// prompt the backend suggests is the composer's chip, not a line here.
 class NoticesStrip extends ConsumerWidget {
   const NoticesStrip({super.key, required this.session, required this.state});
 
@@ -77,16 +77,7 @@ class _ExtensionRow extends StatelessWidget {
             style: AppTypography.caption(color: theme.textMuted),
           ),
         ),
-      PromptSuggestion(:final text) => Padding(
-        key: const ValueKey('prompt-suggestion'),
-        padding: Insets.chip,
-        child: Text(
-          'Suggested: $text',
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: AppTypography.caption(color: theme.textMuted),
-        ),
-      ),
+      PromptSuggestion() => const SizedBox.shrink(),
     };
   }
 }

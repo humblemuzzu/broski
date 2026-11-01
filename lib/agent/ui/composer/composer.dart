@@ -3,6 +3,7 @@ import 'package:broski/agent/session/agent_session_state.dart';
 import 'package:broski/agent/session/prompt_desk.dart';
 import 'package:broski/agent/ui/composer/composer_extras.dart';
 import 'package:broski/agent/ui/composer/composer_rules.dart';
+import 'package:broski/agent/ui/composer/prompt_suggestion_chip.dart';
 import 'package:broski/agent/ui/composer/shell_command.dart';
 import 'package:broski/agent/ui/shared/text_entry_dialog.dart' show showProblem;
 import 'package:broski/contract/generated/contract.dart';
@@ -105,6 +106,7 @@ class _ComposerState extends ConsumerState<Composer> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          PromptSuggestionChip(state: widget.state, text: widget.text),
           ComposerExtrasRow(
             session: widget.session,
             state: widget.state,

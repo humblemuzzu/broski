@@ -85,7 +85,7 @@ void main() {
         ),
       ),
     );
-    final theme = opencodeDarkTheme;
+    const theme = opencodeDarkTheme;
     expect(byKey('action-group:Project'), findsOneWidget);
     expect(byKey('action-group:User'), findsOneWidget);
     expect(
