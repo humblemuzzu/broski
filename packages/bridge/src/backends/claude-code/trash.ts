@@ -16,6 +16,8 @@ export interface TrashTarget {
 	readonly home: string;
 	readonly xdgDataHome: string | undefined;
 	readonly now: Date;
+	/** Tests only: stands in for `rename`, to be refused as macOS refuses a service without Full Disk Access. */
+	readonly rename?: (from: string, to: string) => Promise<void>;
 }
 
 const DIR_MODE = 0o700;
@@ -48,8 +50,7 @@ export async function moveToTrash(paths: readonly string[], target: TrashTarget 
 			if (target.platform === "darwin") await moveToMacTrash(path, target);
 			else await moveToXdgTrash(path, target);
 		} catch (error) {
-			const why = error instanceof Error ? error.message : String(error);
-			return rejected("backend_error", `${basename(path)} could not be moved to the trash: ${why}`);
+			return rejected("backend_error", refusalText(basename(path), error, target.platform));
 		}
 	}
 	return ACCEPTED;
@@ -62,6 +63,15 @@ async function exists(path: string): Promise<boolean> {
 	} catch {
 		return false;
 	}
+}
+
+function refusalText(name: string, error: unknown, platform: NodeJS.Platform): string {
+	const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+	if (platform === "darwin" && (code === "EPERM" || code === "EACCES")) {
+		return `macOS did not let the bridge move ${name} into the Trash (${code}): a background service needs Full Disk Access to reach ~/.Trash. Grant it in System Settings, Privacy & Security, Full Disk Access, or delete the file on the Mac. It was left where it is.`;
+	}
+	const why = error instanceof Error ? error.message : String(error);
+	return `${name} could not be moved to the trash, and was left where it is: ${why}`;
 }
 
 /** `name`, else `stem 2.ext`, `stem 3.ext`…: Finder's way of keeping both. */
@@ -77,7 +87,7 @@ async function moveToMacTrash(path: string, target: TrashTarget): Promise<void> 
 	for (let attempt = 1; attempt <= MAX_NAME_TRIES; attempt++) {
 		const destination = join(trash, candidateName(basename(path), attempt));
 		if (await exists(destination)) continue;
-		await rename(path, destination);
+		await (target.rename ?? rename)(path, destination);
 		return;
 	}
 	throw new Error("no free name in the trash");
@@ -101,7 +111,7 @@ async function moveToXdgTrash(path: string, target: TrashTarget): Promise<void> 
 			throw error;
 		}
 		try {
-			await rename(path, join(root, "files", name));
+			await (target.rename ?? rename)(path, join(root, "files", name));
 		} catch (error) {
 			await unlink(info).catch(() => undefined);
 			throw error;

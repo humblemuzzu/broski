@@ -13,6 +13,8 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { revisionOfText } from "../../../backends/claude-code/ops/file-state";
+import { trashIfUnchanged } from "../../../backends/claude-code/ops/file-write";
 import { createClaudeCodeServices } from "../../../backends/claude-code/services";
 import { moveToTrash, type TrashTarget, trashTargetOf } from "../../../backends/claude-code/trash";
 import { fakeClaudeSdk } from "../helpers/fake-claude-sdk";
@@ -85,6 +87,21 @@ describe("moveToTrash", () => {
 		expect(existsSync(path)).toBe(true);
 		const missing = await moveToTrash([join(root, "nothing.jsonl")], { ...target("darwin"), home: join(root, "h2") });
 		expect(missing.status).toBe("rejected");
+	});
+
+	test("macOS refusing the move (a service without Full Disk Access) is a rejection that says why; nothing is copied", async () => {
+		const path = file("settings.json", "{}");
+		const refusing = async () => {
+			throw Object.assign(new Error("EPERM: operation not permitted, rename"), { code: "EPERM" });
+		};
+		const result = await moveToTrash([path], { ...target("darwin"), rename: refusing });
+		expect(result.status === "rejected" && result.rejection.code).toBe("backend_error");
+		expect(result.status === "rejected" && result.rejection.message).toContain("Full Disk Access");
+		expect(readFileSync(path, "utf8")).toBe("{}");
+		expect(readdirSync(join(root, "home", ".Trash"))).toEqual([]);
+		const later = await trashIfUnchanged(path, revisionOfText("{}"), { ...target("darwin"), rename: refusing });
+		expect(later.ok === false && later.message).toContain("Full Disk Access");
+		expect(readFileSync(path, "utf8")).toBe("{}");
 	});
 
 	test("an unknown HOME and an unsupported platform are refused, never guessed", async () => {
