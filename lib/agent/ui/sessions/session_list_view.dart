@@ -26,6 +26,7 @@ class SessionListView extends ConsumerStatefulWidget {
     required this.listKey,
     this.bottomPadding = 0,
     this.tools = true,
+    this.hidden,
   });
 
   final BackendDescriptor backend;
@@ -34,6 +35,10 @@ class SessionListView extends ConsumerStatefulWidget {
   /// Room below the last row, for what floats over the list.
   final double bottomPadding;
   final bool tools;
+
+  /// Rows the person chose not to see, such as titles the screen around the
+  /// list filters out; a line says how many of the rows read it left out.
+  final bool Function(SessionSummary row)? hidden;
 
   @override
   ConsumerState<SessionListView> createState() => _SessionListViewState();
@@ -54,7 +59,15 @@ class _SessionListViewState extends ConsumerState<SessionListView> {
     final list = ref.watch(sessionListProvider(widget.listKey));
     final controller = ref.read(sessionListProvider(widget.listKey).notifier);
     final live = ref.watch(liveProvider);
-    final shown = visibleSessions(list.rows, _options);
+    final hide = widget.hidden;
+    final kept = hide == null
+        ? list.rows
+        : [
+            for (final row in list.rows)
+              if (!hide(row)) row,
+          ];
+    final hiddenCount = list.rows.length - kept.length;
+    final shown = visibleSessions(kept, _options);
     return RefreshIndicator(
       onRefresh: controller.refresh,
       child: ListView(
@@ -82,8 +95,10 @@ class _SessionListViewState extends ConsumerState<SessionListView> {
             OfflineBanner(savedAt: list.savedAt)
           else if (list.problem case final problem?)
             Padding(padding: Insets.screen, child: Text(problem)),
+          if (hiddenCount > 0) _HiddenCount(count: hiddenCount),
           ..._rows(context, shown, live),
-          if (list.loaded && shown.isEmpty) _empty(list.rows.isEmpty),
+          if (list.loaded && shown.isEmpty)
+            _empty(list.rows.isEmpty, filtered: hiddenCount > 0),
           if (_options.filtering && !list.complete && list.loaded)
             _SearchScope(read: list.rows.length),
           if (!list.complete && list.loaded && live)
@@ -105,10 +120,10 @@ class _SessionListViewState extends ConsumerState<SessionListView> {
     );
   }
 
-  Widget _empty(bool nothingRead) => Padding(
+  Widget _empty(bool nothingRead, {required bool filtered}) => Padding(
     padding: Insets.screen,
     child: Text(
-      nothingRead || !_options.filtering
+      nothingRead || !(_options.filtering || filtered)
           ? 'No sessions'
           : 'No session here matches.',
     ),
@@ -150,6 +165,22 @@ class _SessionListViewState extends ConsumerState<SessionListView> {
           : null,
     );
   }
+}
+
+class _HiddenCount extends StatelessWidget {
+  const _HiddenCount({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    key: const ValueKey('session-hidden-count'),
+    padding: Insets.chip,
+    child: Text(
+      '$count hidden by your title filters.',
+      style: AppTypography.caption(color: OpenCodeTheme.of(context).textMuted),
+    ),
+  );
 }
 
 class _SearchScope extends StatelessWidget {

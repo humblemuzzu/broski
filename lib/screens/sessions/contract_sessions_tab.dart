@@ -3,7 +3,9 @@ import 'package:broski/agent/ui/sessions/session_list_actions.dart';
 import 'package:broski/agent/ui/sessions/session_list_view.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:broski/models/selected_backend.dart';
+import 'package:broski/providers/sessions/contract_title_filters_provider.dart';
 import 'package:broski/screens/ai_backend/selected_backend_label.dart';
+import 'package:broski/screens/sessions/contract_title_filters_sheet.dart';
 import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/utils/responsive.dart';
 import 'package:broski/widgets/adaptive_container.dart';
@@ -32,6 +34,7 @@ class _ContractSessionsTabState extends ConsumerState<ContractSessionsTab> {
         .where((listed) => listed.id == widget.backend)
         .firstOrNull;
     final live = ref.watch(liveProvider);
+    final filters = ref.watch(contractTitleFiltersProvider(widget.backend));
     final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -55,6 +58,7 @@ class _ContractSessionsTabState extends ConsumerState<ContractSessionsTab> {
                         ),
                       ),
                     ),
+                    ContractTitleFiltersButton(backend: widget.backend),
                     if (descriptor != null && live)
                       SessionListActions(
                         backend: descriptor,
@@ -78,6 +82,7 @@ class _ContractSessionsTabState extends ConsumerState<ContractSessionsTab> {
                           query: SessionQuery(archived: _archived),
                         ),
                         bottomPadding: 100,
+                        hidden: (row) => hiddenByTitleFilters(filters, row),
                       ),
               ),
             ],
