@@ -121,15 +121,39 @@ void main() {
     expect(await cache.sessions(BackendId.pi, query), isNull);
   });
 
-  test('clear forgets everything it holds', () async {
+  test('a damaged index reads as empty: writes go on, bounded', () async {
     await cache.saveSessions(BackendId.pi, query, [_row('a')]);
-    await cache.saveDirectories(
-      BackendId.pi,
-      directoriesOf([_row('a', cwd: '/w')]),
+    store.entries['broski_agent_cache_index'] = '{not json';
+    for (var i = 0; i < AgentCache.maxEntries + 6; i++) {
+      await cache.saveSessions(
+        BackendId.pi,
+        SessionQuery(archived: false, cwd: '/w$i'),
+        [_row('a')],
+      );
+    }
+    final index = jsonDecode(store.entries['broski_agent_cache_index']!);
+    expect(index, hasLength(AgentCache.maxEntries));
+    expect(
+      await cache.sessions(
+        BackendId.pi,
+        const SessionQuery(
+          archived: false,
+          cwd: '/w${AgentCache.maxEntries + 5}',
+        ),
+      ),
+      isNotNull,
     );
-    await cache.clear();
-    expect(store.entries, isEmpty);
-    expect(await cache.directories(BackendId.pi), isNull);
+  });
+
+  test('a value too large to keep takes the older one with it', () async {
+    await cache.saveSessions(BackendId.pi, query, [_row('a')]);
+    final huge = [
+      for (var i = 0; i < 2000; i++) _row('s$i', cwd: '/${'p' * 1500}'),
+    ];
+    await cache.saveSessions(BackendId.pi, query, huge);
+    expect(await cache.sessions(BackendId.pi, query), isNull);
+    expect(store.entries.keys, ['broski_agent_cache_index']);
+    expect(jsonDecode(store.entries['broski_agent_cache_index']!), isEmpty);
   });
 
   test('directories are the working directories, newest first', () {

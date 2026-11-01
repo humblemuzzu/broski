@@ -13,12 +13,12 @@ final class Saved<T> {
   final int savedAt;
 }
 
-/// The last data the phone read from the bridge, kept for the times the link
-/// is down (stale-while-revalidate): session lists, finished transcripts, the
-/// backends and the directories their sessions use. It is bounded as a whole
-/// (entries, characters in all, characters in each), the oldest write goes first, and it
-/// is best effort: a store that fails, or an entry another version wrote, is
-/// a miss, never an error.
+/// The last data the phone read from one machine's bridge, kept for the times
+/// the link is down (stale-while-revalidate): session lists, finished
+/// transcripts, the backends and the directories their sessions use. It is
+/// bounded as a whole (entries, characters in all, characters in each), the
+/// oldest write goes first, and it is best effort: a store that fails, or an
+/// entry another version wrote, is a miss, never an error.
 final class AgentCache {
   AgentCache(this._store, {AgentClock clock = const SystemClock()})
     : _clock = clock;
@@ -58,8 +58,10 @@ final class AgentCache {
     return null;
   }
 
-  /// Saves [data] under [name] unless it alone is over the entry bound;
-  /// completes once it is written. Writes happen one at a time.
+  /// Saves [data] under [name]; a value alone over the entry bound is not
+  /// kept, and takes the older value under [name] with it, which no longer
+  /// says what the bridge has. Completes once it is written. Writes happen one
+  /// at a time.
   Future<void> write(String name, Object? data) {
     final next = _writes.then((_) => _put(name, data));
     _writes = next;
@@ -74,10 +76,14 @@ final class AgentCache {
         'at': _clock.now().millisecondsSinceEpoch,
         'data': data,
       });
-      if (text.length > maxEntryChars) return;
       final key = _storageKey(name);
-      await _store.write(key, text);
       final index = CacheIndex.parse(await _store.read(_indexKey));
+      if (text.length > maxEntryChars) {
+        await _store.write(_indexKey, index.without(key).encode());
+        await _store.delete(key);
+        return;
+      }
+      await _store.write(key, text);
       final (kept, dropped) = index.withWrite(
         CacheEntry(key, text.length),
         maxEntries: maxEntries,
@@ -90,23 +96,6 @@ final class AgentCache {
     } on Object {
       return;
     }
-  }
-
-  /// Everything the cache holds, gone.
-  Future<void> clear() {
-    final next = _writes.then((_) async {
-      try {
-        final index = CacheIndex.parse(await _store.read(_indexKey));
-        for (final entry in index.entries) {
-          await _store.delete(entry.key);
-        }
-        await _store.delete(_indexKey);
-      } on Object {
-        return;
-      }
-    });
-    _writes = next;
-    return next;
   }
 
   /// The key an entry named [name] is stored under: fixed length whatever the

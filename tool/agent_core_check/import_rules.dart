@@ -24,7 +24,10 @@ const namedImports = <String, Set<String>>{
   'package:broski_link/broski_link.dart': {'LinkSendFailure'},
   'package:broski/widgets/chat/detail_sheet.dart': {'DetailSheet'},
   'package:file_picker/file_picker.dart': {'FilePicker', 'FileType'},
-  'package:path_provider/path_provider.dart': {'getTemporaryDirectory'},
+  'package:path_provider/path_provider.dart': {
+    'getApplicationSupportDirectory',
+    'getTemporaryDirectory',
+  },
   'package:share_plus/share_plus.dart': {'Share', 'XFile'},
   'package:broski/widgets/chat/adaptive_markdown_body.dart': {
     'AdaptiveMarkdownBody',
@@ -38,13 +41,11 @@ const namedImports = <String, Set<String>>{
   'package:broski/providers/service_providers.dart': {
     'webSocketServiceProvider',
   },
-  'package:broski/services/storage/broski_secure_storage.dart': {
-    'broskiSecureStorage',
-  },
   'package:broski/providers/app_info_provider.dart': {'appVersionProvider'},
   'package:broski/providers/connection/link_connection_controller.dart': {
     'linkConnectionControllerProvider',
   },
+  'package:broski/providers/link/machines_provider.dart': {'machinesProvider'},
 };
 
 /// What is wrong with the directive (`import`, `export`, `part`) whose

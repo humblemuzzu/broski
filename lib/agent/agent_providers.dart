@@ -1,5 +1,5 @@
 import 'package:broski/agent/cache/agent_cache.dart';
-import 'package:broski/agent/cache/text_store.dart';
+import 'package:broski/agent/cache/cache_directories.dart';
 import 'package:broski/agent/catalog/backends_controller.dart';
 import 'package:broski/agent/catalog/directories_controller.dart';
 import 'package:broski/agent/catalog/session_list_controller.dart';
@@ -18,6 +18,8 @@ import 'package:broski/providers/app_info_provider.dart'
     show appVersionProvider;
 import 'package:broski/providers/connection/link_connection_controller.dart'
     show linkConnectionControllerProvider;
+import 'package:broski/providers/link/machines_provider.dart'
+    show machinesProvider;
 import 'package:broski/providers/service_providers.dart'
     show webSocketServiceProvider;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -39,11 +41,22 @@ final contractClientProvider = Provider<ContractClient>((ref) {
   return client;
 });
 
-/// What the phone read last, for the times the link is down.
-final agentCacheProvider = Provider<AgentCache>(
-  (ref) =>
-      AgentCache(const SecureTextStore(), clock: ref.watch(agentClockProvider)),
+/// The machine whose bridge the contract client talks to; null when none is
+/// chosen.
+final agentCacheScopeProvider = Provider<String?>(
+  (ref) => ref.watch(machinesProvider.select((state) => state.selectedId)),
 );
+
+/// What the phone read last from the chosen machine, for the times the link
+/// is down; null while no machine is chosen.
+final agentCacheProvider = Provider<AgentCache?>((ref) {
+  final machine = ref.watch(agentCacheScopeProvider);
+  if (machine == null) return null;
+  return AgentCache(
+    ref.watch(cacheDirectoriesProvider).storeFor(machine),
+    clock: ref.watch(agentClockProvider),
+  );
+});
 
 final contractStateProvider = StreamProvider<ContractState>((ref) async* {
   final client = ref.watch(contractClientProvider);

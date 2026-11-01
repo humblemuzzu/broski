@@ -1,4 +1,5 @@
-import 'package:broski/agent/agent_providers.dart' show agentCacheProvider;
+import 'package:broski/agent/cache/cache_directories.dart'
+    show cacheDirectoriesProvider;
 import 'package:broski/models/agent_type.dart';
 import 'package:broski/models/project.dart';
 import 'package:broski/models/selected_backend.dart';
@@ -508,7 +509,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               Navigator.pop(context);
               final storage = ref.read(storageServiceProvider);
               await storage.clearCache();
-              await ref.read(agentCacheProvider).clear();
+              await ref.read(cacheDirectoriesProvider).clearAll();
               if (context.mounted) {
                 showInfo(context, 'Cache cleared successfully');
               }

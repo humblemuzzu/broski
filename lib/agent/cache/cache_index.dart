@@ -1,14 +1,21 @@
 import 'dart:convert';
 
 /// The entries the offline cache holds, newest write first, with the size of
-/// each, so the cache can stay inside its budget (nothing else lists the keys
-/// of a secure store).
+/// each, so the cache can stay inside its budget without listing its store.
 final class CacheIndex {
   const CacheIndex(this.entries);
 
+  /// The index [text] holds; an empty one when there is none or it cannot be
+  /// read. A damaged index loses track of the entries it named, which go with
+  /// the machine's directory; the cache goes on, bounded, from nothing.
   factory CacheIndex.parse(String? text) {
     if (text == null) return const CacheIndex([]);
-    final decoded = jsonDecode(text);
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(text);
+    } on FormatException {
+      return const CacheIndex([]);
+    }
     if (decoded is! List) return const CacheIndex([]);
     return CacheIndex([
       for (final entry in decoded)
@@ -41,6 +48,11 @@ final class CacheIndex {
     }
     return (CacheIndex(kept), dropped);
   }
+
+  CacheIndex without(String key) => CacheIndex([
+    for (final entry in entries)
+      if (entry.key != key) entry,
+  ]);
 
   String encode() => jsonEncode([
     for (final entry in entries) {'k': entry.key, 'n': entry.size},

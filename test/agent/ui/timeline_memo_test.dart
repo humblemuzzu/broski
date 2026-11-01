@@ -33,6 +33,7 @@ void main() {
       overrides: [
         contractClientProvider.overrideWithValue(rig.client),
         agentClockProvider.overrideWithValue(rig.clock),
+        agentCacheProvider.overrideWithValue(null),
       ],
     );
     addTearDown(container.dispose);

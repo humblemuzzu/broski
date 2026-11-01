@@ -1,3 +1,5 @@
+import 'package:broski/agent/cache/cache_directories.dart'
+    show cacheDirectoriesProvider;
 import 'package:broski/models/link/link_control_exception.dart';
 import 'package:broski/models/link/machine.dart';
 import 'package:broski/models/link/pending_pairing.dart';
@@ -14,7 +16,10 @@ final deviceIdentityProvider = FutureProvider<LinkIdentity>(
 );
 
 final machinesProvider = StateNotifierProvider<MachinesNotifier, MachinesState>(
-  (ref) => MachinesNotifier(ref.watch(machineStoreProvider)),
+  (ref) => MachinesNotifier(
+    ref.watch(machineStoreProvider),
+    onRemoved: (id) => ref.read(cacheDirectoriesProvider).forget(id),
+  ),
 );
 
 class MachinesState {
@@ -25,11 +30,16 @@ class MachinesState {
 }
 
 class MachinesNotifier extends StateNotifier<MachinesState> {
-  MachinesNotifier(this._store) : super(const MachinesState()) {
+  MachinesNotifier(this._store, {Future<void> Function(String id)? onRemoved})
+    : _onRemoved = onRemoved,
+      super(const MachinesState()) {
     _ready = _load();
   }
 
   final MachineStore _store;
+
+  /// Drops what the phone keeps of a machine besides its pairing.
+  final Future<void> Function(String id)? _onRemoved;
 
   /// Set before the constructor returns, so every mutation waits for the
   /// stored list instead of racing it.
@@ -65,6 +75,7 @@ class MachinesNotifier extends StateNotifier<MachinesState> {
     final selectedId = state.selectedId == id ? null : state.selectedId;
     await _store.saveSelectedId(selectedId);
     _publish(machines, selectedId);
+    await _onRemoved?.call(id);
   }
 
   Future<void> select(String? id) async {
