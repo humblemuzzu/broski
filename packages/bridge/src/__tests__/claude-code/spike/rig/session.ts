@@ -136,7 +136,7 @@ export function startSpike(spec: SpikeOptions): SpikeSession {
 		send: (content, extra = {}) => {
 			const message = userMessage(content, extra);
 			inbox.push(message);
-			return message.uuid as string;
+			return message.uuid ?? "";
 		},
 		waitFor,
 		results: () => messages.filter((m): m is Extract<SDKMessage, { type: "result" }> => m.type === "result"),

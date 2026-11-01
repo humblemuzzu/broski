@@ -36,7 +36,6 @@ async function call(name) {
 async function handle(message) {
 	if (message.id !== undefined && pending.has(message.id)) { pending.get(message.id)(message.result ?? { error: message.error }); pending.delete(message.id); return; }
 	if (message.method === "initialize") {
-		process.stderr.write("client capabilities: " + JSON.stringify(message.params.capabilities) + "\\n");
 		return write({ id: message.id, result: { protocolVersion: message.params.protocolVersion, capabilities: { tools: {} }, serverInfo: { name: "elicit", version: "1.0.0" } } });
 	}
 	if (message.method === "tools/list") return write({ id: message.id, result: { tools } });

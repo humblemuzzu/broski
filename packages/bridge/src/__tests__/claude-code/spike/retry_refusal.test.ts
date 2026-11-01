@@ -22,7 +22,7 @@ function systemFrames(messages: readonly SDKMessage[], subtype: string): Extract
 
 describe("retries and refusals", () => {
 	test(
-		"529 then success: one system/api_retry (overloaded), then the turn completes; no retry-finished frame",
+		"529 then success: one system/api_retry (overloaded), then the turn completes",
 		async () => {
 			const spike = startSpike({ permissionMode: "default", turns: [{ status: 529 }, { text: ["ok after retry"] }] });
 			try {
