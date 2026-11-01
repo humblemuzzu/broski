@@ -101,14 +101,13 @@ function imagesOf(input: PromptInput): Image[] | Rejected {
 	return images;
 }
 
-function userMessage(uuid: UUID, content: Content, priority: SendPriority | undefined): SDKUserMessage {
+function userMessage(uuid: UUID, content: Content): SDKUserMessage {
 	return {
 		type: "user",
 		message: { role: "user", content },
 		parent_tool_use_id: null,
 		origin: { kind: "human" },
 		uuid,
-		...(priority !== undefined && { priority }),
 	};
 }
 
@@ -125,12 +124,13 @@ function refsOf(images: readonly Image[], firstImageBlock: number, uuid: UUID): 
 	}));
 }
 
+/** `send` as it goes to the CLI with `priority`: a steer pushes with `next` (D8). */
+export function withPriority(send: PreparedSend, priority: SendPriority): PreparedSend {
+	return { ...send, message: { ...send.message, priority } };
+}
+
 /** Refuses what Claude Code cannot be sent, so nothing is ever dropped (conformance rule 13). */
-export function userMessageOf(
-	input: PromptInput,
-	uuid: UUID,
-	priority: SendPriority | undefined,
-): PreparedSend | Rejected {
+export function userMessageOf(input: PromptInput, uuid: UUID): PreparedSend | Rejected {
 	const images = imagesOf(input);
 	if (isRejected(images)) return images;
 	const blocks = imageBlocks(images);
@@ -143,7 +143,7 @@ export function userMessageOf(
 	const content: Content = blocks.length === 0 ? text : [...(hasText ? [textBlock(text)] : []), ...blocks];
 	return {
 		uuid,
-		message: userMessage(uuid, content, priority),
+		message: userMessage(uuid, content),
 		sentText: text,
 		typedText: texts.typed,
 		imageNames: images.map((image) => image.name),

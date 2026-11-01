@@ -68,12 +68,16 @@ describe("run boundaries (D7)", () => {
 		await rig.dispose();
 	});
 
-	test("an idle with no run is ignored, and stream frames with no run start one", async () => {
+	test("an idle with no run is ignored, and only `running` starts a run nobody sent: stray frames and an init do not", async () => {
 		const { rig, query, live } = await hosted();
 		query.push(idle());
 		await flush();
 		expect(live.events()).toEqual([]);
-		query.push(streamEvent(), assistant(), idle());
+		query.push(streamEvent(), assistant(), init(), result());
+		await flush();
+		expect(live.events()).toEqual([]);
+		expect(rig.mapping.mapped.length).toBeGreaterThan(0);
+		query.push(running(), idle());
 		await flush();
 		expect(types(live.events())).toEqual(["run_started", "run_finished"]);
 		await rig.dispose();
@@ -291,6 +295,24 @@ describe("lifecycle frames (D8)", () => {
 		expect(live.reduced().queue).toEqual([]);
 		const shown = live.events().filter((event) => event.type === "user_message");
 		expect(shown.map((event) => event.type === "user_message" && event.text)).toEqual(["work", "also this"]);
+		await rig.dispose();
+	});
+
+	test("steered input the CLI never delivered goes back to the person when the run ends", async () => {
+		const { rig, query, live } = await hosted();
+		const steer = promptOf("never delivered", "steer");
+		await live.control.prompt(promptOf("work"));
+		await live.control.prompt(steer);
+		query.push(running(), lifecycle("cancelled", steer.clientRequestId), result(), idle());
+		await flush();
+		expect(
+			live
+				.events()
+				.slice(-3)
+				.map((event) => event.type),
+		).toEqual(["run_finished", "queue_changed", "input_returned"]);
+		expect(live.events().at(-1)).toEqual({ type: "input_returned", texts: ["never delivered"] });
+		expect(live.reduced().queue).toEqual([]);
 		await rig.dispose();
 	});
 

@@ -15,7 +15,8 @@ import { sendUuid } from "../ids";
 import type { SessionEmitter } from "../ports/live";
 import type { Ownership } from "../ports/store";
 import { ACCEPTED, CLOSED, isRejected, rejected } from "../rejections";
-import { type PreparedSend, userMessageOf } from "./input";
+import { errorText } from "./error-text";
+import { type PreparedSend, userMessageOf, withPriority } from "./input";
 import type { InputQueue } from "./queue";
 import type { RunTracker } from "./run-tracker";
 
@@ -57,41 +58,30 @@ export class PromptDesk {
 	prompt(input: PromptInput): Promise<PromptResult> {
 		const known = this.accepted.get(input.clientRequestId);
 		if (known) return known;
-		const attempt = this.deps.locked(() => this.decide(input));
+		const attempt = this.deps
+			.locked(() => this.decide(input))
+			.catch((error: unknown): Rejected => rejected("backend_error", `the prompt failed: ${errorText(error)}`));
 		this.accepted.set(input.clientRequestId, attempt);
-		return attempt.then(
-			(result) => this.settled(input.clientRequestId, attempt, result),
-			(error: unknown) => {
-				this.forget(input.clientRequestId, attempt);
-				throw error;
-			},
-		);
+		return attempt.then((result) => this.settled(input.clientRequestId, attempt, result));
 	}
 
 	/** A compaction is a run the person asked for but did not say; `busy` while a run is active. */
 	compaction(text: string): Promise<ActionResult> {
-		return this.deps.locked(async () => {
-			if (this.deps.closed()) return CLOSED;
-			const failure = await this.deps.ensureProcess();
-			if (failure) return failure;
-			if (this.deps.closed()) return CLOSED;
-			if (this.deps.runs.current) return rejected("busy", "a run is active");
-			const uuid = randomUUID();
-			const send = userMessageOf(
-				{
-					clientRequestId: uuid,
-					mode: "start",
-					text,
-					attachments: [],
-					mentions: [],
-				},
-				uuid,
-				undefined,
-			);
-			if (isRejected(send)) return send;
-			this.begin(send, "prompt", { shown: false, compaction: true });
-			return ACCEPTED;
-		});
+		return this.deps
+			.locked(async () => {
+				if (this.deps.closed()) return CLOSED;
+				if (this.deps.runs.current) return rejected("busy", "a run is active");
+				const failure = await this.deps.ensureProcess();
+				if (failure) return failure;
+				if (this.deps.closed()) return CLOSED;
+				if (this.deps.runs.current) return rejected("busy", "a run is active");
+				const uuid = randomUUID();
+				const send = userMessageOf({ clientRequestId: uuid, mode: "start", text, attachments: [], mentions: [] }, uuid);
+				if (isRejected(send)) return send;
+				this.begin(send, "prompt", { shown: false, compaction: true });
+				return ACCEPTED;
+			})
+			.catch((error: unknown): Rejected => rejected("backend_error", `the compaction failed: ${errorText(error)}`));
 	}
 
 	/** Sends `send` now as a new run's first input, or into the running one. Synchronous: the CLI process runs. */
@@ -120,20 +110,20 @@ export class PromptDesk {
 		if (this.deps.closed()) return CLOSED;
 		const uuid = sendUuid(input.clientRequestId);
 		if (uuid === undefined) return rejected("invalid_input", "the clientRequestId is not a UUID");
+		const prepared = userMessageOf(input, uuid);
+		if (isRejected(prepared)) return prepared;
+		if (runs.current && input.mode === "start") return rejected("busy", "a run is active");
 		const failure = await this.deps.ensureProcess();
 		if (failure) return failure;
 		if (this.deps.closed()) return CLOSED;
 		const running = runs.current !== undefined;
-		if (running && input.mode === "start") return rejected("busy", "a run is active");
-		if (running && queue.isFull) return rejected("busy", "the queue is full");
-		const steering = running && input.mode === "steer";
-		const prepared = userMessageOf(input, uuid, steering ? "next" : undefined);
-		if (isRejected(prepared)) return prepared;
 		if (!running) {
 			this.begin(prepared, "prompt", { shown: true });
 			return { status: "accepted", disposition: "started" };
 		}
-		if (steering) return this.steer(prepared, input.clientRequestId);
+		if (input.mode === "start") return rejected("busy", "a run is active");
+		if (queue.isFull) return rejected("busy", "the queue is full");
+		if (input.mode === "steer") return this.steer(withPriority(prepared, "next"), input.clientRequestId);
 		const item = queue.enqueue(prepared, input.clientRequestId);
 		return { status: "accepted", disposition: "queued", queueItemId: item.id };
 	}

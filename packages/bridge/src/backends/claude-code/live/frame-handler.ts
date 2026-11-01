@@ -60,10 +60,10 @@ export class FrameHandler {
 			case "assistant":
 			case "user":
 				this.entry(frame);
-				this.activity();
+				this.deps.runs.markStarted();
 				break;
 			case "stream_event":
-				this.activity();
+				this.deps.runs.markStarted();
 				break;
 			case "conversation_reset":
 				this.deps.conversationReset(frame.new_conversation_id);
@@ -84,7 +84,7 @@ export class FrameHandler {
 				deps.persisted();
 				deps.settings.modelFromInit(frame.model);
 				deps.settings.modeFromFrame(frame.permissionMode);
-				this.activity();
+				deps.runs.markStarted();
 				break;
 			case "status":
 				if (frame.permissionMode !== undefined) deps.settings.modeFromFrame(frame.permissionMode);
@@ -120,14 +120,8 @@ export class FrameHandler {
 			this.deps.endRun();
 			return;
 		}
-		if (state === "running") this.activity();
-		else runs.markStarted();
-	}
-
-	/** The CLI is working: if no run is under way, this is one the host did not start. */
-	private activity(): void {
-		if (!this.deps.runs.current) this.deps.systemRun();
-		this.deps.runs.markStarted();
+		if (state === "running" && !runs.current) this.deps.systemRun();
+		runs.markStarted();
 	}
 
 	/** Every main-thread `user` and `assistant` frame is a chain entry under its own uuid (D70). */

@@ -16,6 +16,7 @@ import {
 	sessionStatus,
 } from "../../../contract";
 import { clip } from "../bounds";
+import { isUuid } from "../ids";
 import type { AskDesk } from "../ports/asks";
 import type { LiveDeps } from "../ports/deps";
 import type { BackgroundTask, HostView, SessionEmitter } from "../ports/live";
@@ -342,6 +343,10 @@ export class SessionHost {
 	/** `/clear` and its kin: the conversation goes on under a new session id, and the old one keeps its history. */
 	private conversationReset(newId: SessionId): void {
 		if (newId === this.id) return;
+		if (!isUuid(newId)) {
+			this.fault("Claude Code began a conversation under an id this bridge cannot use");
+			return;
+		}
 		const previous = this.id;
 		this.routing.restart(newId);
 		this.id = newId;

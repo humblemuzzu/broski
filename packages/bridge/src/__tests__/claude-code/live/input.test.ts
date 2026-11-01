@@ -5,8 +5,10 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { getSessionMessages } from "@anthropic-ai/claude-agent-sdk";
 import { sendUuid } from "../../../backends/claude-code/ids";
-import { userMessageOf } from "../../../backends/claude-code/live/input";
+import { userMessageOf, withPriority } from "../../../backends/claude-code/live/input";
 import type { PromptInput } from "../../../contract";
+import type { ScriptedRequest } from "../../helpers/scripted-anthropic-server";
+import { deliveredInput } from "../conformance/delivered";
 import { withConfigDir } from "../spike/rig/config-env";
 import { expectNoOrphans } from "../spike/rig/orphans";
 import { realRig } from "./helpers/rig";
@@ -15,6 +17,12 @@ expectNoOrphans();
 
 const CLI_TEST_MS = 30_000;
 const PIXEL = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+
+/** 2.1.316 puts an `# Environment` message with role "system" after the first user message; the driver reads the last message. */
+function withoutSystemMessages(request: ScriptedRequest): ScriptedRequest {
+	const body = request.body as { messages: { role: string }[] };
+	return { ...request, body: { ...body, messages: body.messages.filter((message) => message.role === "user") } };
+}
 
 function uuidOf(request: PromptInput) {
 	const uuid = sendUuid(request.clientRequestId);
@@ -36,8 +44,10 @@ function input(extra: Partial<PromptInput> = {}): PromptInput {
 describe("a prompt as the message it is sent as", () => {
 	test("is human-stamped, keyed by its clientRequestId, and carries its priority", () => {
 		const request = input();
-		const prepared = userMessageOf(request, uuidOf(request), "next");
-		if ("status" in prepared) throw new Error("rejected");
+		const plain = userMessageOf(request, uuidOf(request));
+		if ("status" in plain) throw new Error("rejected");
+		expect(plain.message.priority).toBeUndefined();
+		const prepared = withPriority(plain, "next");
 		expect(prepared.message).toEqual({
 			type: "user",
 			message: { role: "user", content: "Look at this." },
@@ -67,7 +77,7 @@ describe("a prompt as the message it is sent as", () => {
 			attachments: [{ kind: "image", mimeType: "image/png", data: PIXEL, name: "p.png" }],
 		});
 		const uuid = uuidOf(request);
-		const prepared = userMessageOf(request, uuid, undefined);
+		const prepared = userMessageOf(request, uuid);
 		if ("status" in prepared) throw new Error("rejected");
 		const text = '/review now\n@/repo/a.ts @"/repo/with space.ts" @agent-general-purpose';
 		expect(prepared.sentText).toBe(text);
@@ -85,10 +95,10 @@ describe("a prompt as the message it is sent as", () => {
 	test("an image alone is the first block, and nothing at all is refused", () => {
 		const request = input({ text: "", attachments: [{ kind: "image", mimeType: "image/jpeg", data: PIXEL }] });
 		const uuid = uuidOf(request);
-		const prepared = userMessageOf(request, uuid, undefined);
+		const prepared = userMessageOf(request, uuid);
 		if ("status" in prepared) throw new Error("rejected");
 		expect(prepared.event.attachments).toEqual([{ kind: "image_ref", id: `${uuid}:0`, mimeType: "image/jpeg" }]);
-		expect(userMessageOf(input({ text: "  " }), uuid, undefined)).toMatchObject({
+		expect(userMessageOf(input({ text: "  " }), uuid)).toMatchObject({
 			status: "rejected",
 			rejection: { code: "invalid_input" },
 		});
@@ -96,13 +106,9 @@ describe("a prompt as the message it is sent as", () => {
 
 	test("a file attachment is unsupported and an image type the API does not read is invalid_input; nothing is dropped", () => {
 		const uuid = crypto.randomUUID();
-		const file = userMessageOf(input({ attachments: [{ kind: "file", uri: "/x.txt" }] }), uuid, undefined);
+		const file = userMessageOf(input({ attachments: [{ kind: "file", uri: "/x.txt" }] }), uuid);
 		expect(file).toMatchObject({ status: "rejected", rejection: { code: "unsupported" } });
-		const tiff = userMessageOf(
-			input({ attachments: [{ kind: "image", mimeType: "image/tiff", data: PIXEL }] }),
-			uuid,
-			undefined,
-		);
+		const tiff = userMessageOf(input({ attachments: [{ kind: "image", mimeType: "image/tiff", data: PIXEL }] }), uuid);
 		expect(tiff).toMatchObject({ status: "rejected", rejection: { code: "invalid_input" } });
 	});
 });
@@ -201,6 +207,46 @@ describe("input on the real CLI", () => {
 				const again = await live.control.prompt({ ...file, attachments: [] });
 				expect(again).toMatchObject({ status: "accepted", disposition: "started" });
 				await live.waitFor("run_finished");
+			} finally {
+				await rig.dispose();
+			}
+		},
+		CLI_TEST_MS,
+	);
+
+	test(
+		"what the conformance driver reads back from the request is what was sent: image, file, agent, command",
+		async () => {
+			const rig = realRig([{ text: ["ok"] }, { text: ["ok"] }, { text: ["ok"] }, { text: ["ok"] }]);
+			try {
+				mkdirSync(join(rig.home.projectDir, ".claude", "commands"), { recursive: true });
+				writeFileSync(join(rig.home.projectDir, ".claude", "commands", "greet.md"), "Say hello to $ARGUMENTS.\n");
+				const live = await rig.openNew(rig.home.projectDir);
+				const noTranscript = {
+					readTranscript: async () => ({
+						status: "rejected" as const,
+						rejection: { code: "not_found" as const, message: "" },
+					}),
+				};
+				const read = async () => {
+					const request = rig.server.mainRequests().at(-1);
+					return deliveredInput(noTranscript, request && withoutSystemMessages(request), live.ref);
+				};
+
+				const image = { kind: "image" as const, mimeType: "image/png", data: PIXEL };
+				await live.runInput(input({ attachments: [image] }));
+				expect((await read())?.attachments).toEqual([image]);
+
+				const file = { kind: "file" as const, path: join(rig.home.projectDir, "README.md") };
+				await live.runInput(input({ mentions: [file] }));
+				expect((await read())?.mentions).toEqual([file]);
+
+				const agent = { kind: "agent" as const, name: "general-purpose" };
+				await live.runInput(input({ mentions: [agent] }));
+				expect((await read())?.mentions).toEqual([agent]);
+
+				await live.runInput(input({ text: "the moon", command: "greet" }));
+				expect((await read())?.command).toBe("greet");
 			} finally {
 				await rig.dispose();
 			}

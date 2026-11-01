@@ -131,4 +131,31 @@ describe("settings on the real CLI", () => {
 		},
 		CLI_TEST_MS,
 	);
+
+	test(
+		"a model chosen while a run is under way reaches the run's next request (next_request)",
+		async () => {
+			let release: () => void = () => undefined;
+			const held = new Promise<void>((resolve) => {
+				release = resolve;
+			});
+			const rig = realRig([
+				{ toolCalls: [{ name: "Read", args: { file_path: "README.md" } }], text: ["first"], echoModel: true },
+				{ text: ["second"], echoModel: true, gate: held },
+			]);
+			try {
+				const live = await rig.openNew(rig.home.projectDir);
+				await live.prompt("go");
+				await rig.mapping.waitForFrame("assistant");
+				expect((await live.control.setModel("sonnet")).status).toBe("accepted");
+				release();
+				await live.waitFor("run_finished");
+				const models = rig.server.mainRequests().map((request) => bodyOf(request).model);
+				expect(models).toEqual(["claude-opus-5-5", "claude-sonnet-5-5"]);
+			} finally {
+				await rig.dispose();
+			}
+		},
+		CLI_TEST_MS,
+	);
 });

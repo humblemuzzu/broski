@@ -1,6 +1,7 @@
 /** What a run's end closes, in the order the stream rules need, before `run_finished` (D7). */
 
-import type { CompactionOutcome, RunOutcome } from "../../../contract";
+import { type CompactionOutcome, MAX_TEXT_CHARS, type RunOutcome } from "../../../contract";
+import { clip } from "../bounds";
 import type { AskDesk } from "../ports/asks";
 import type { SessionEmitter } from "../ports/live";
 import type { FrameMapper, MappedEvent } from "../ports/mapping";
@@ -60,7 +61,7 @@ function closeOpenParts(live: SessionEmitter, outcome: RunOutcome): void {
 function handBackSteered(deps: RunEndDeps): void {
 	const texts = deps.queue
 		.takeSteered()
-		.map((send) => send.typedText)
+		.map((send) => clip(send.typedText, MAX_TEXT_CHARS))
 		.filter((text) => text !== "");
 	if (texts.length > 0) deps.live.emit({ type: "input_returned", texts });
 }

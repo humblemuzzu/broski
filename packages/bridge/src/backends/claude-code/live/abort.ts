@@ -1,7 +1,8 @@
 /** Stop (D8): `interruptQuery(query, {cancelQueued: true})`; queued input comes back as `input_returned`. */
 
 import type { Query } from "@anthropic-ai/claude-agent-sdk";
-import { type ActionResult, MAX_LIST_ITEMS } from "../../../contract";
+import { type ActionResult, MAX_LIST_ITEMS, MAX_TEXT_CHARS } from "../../../contract";
+import { clip } from "../bounds";
 import type { SessionEmitter } from "../ports/live";
 import { ACCEPTED, CLOSED } from "../rejections";
 import { interruptQuery } from "../sdk/interrupt";
@@ -23,7 +24,7 @@ export interface AbortDeps {
 export function returnQueued(queue: InputQueue, live: SessionEmitter): void {
 	const texts = queue
 		.takeAll()
-		.map((send) => send.typedText)
+		.map((send) => clip(send.typedText, MAX_TEXT_CHARS))
 		.filter((text) => text !== "")
 		.slice(0, MAX_LIST_ITEMS);
 	if (texts.length > 0) live.emit({ type: "input_returned", texts });

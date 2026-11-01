@@ -10,7 +10,9 @@ export interface FrameSink {
 	ended(error: unknown): void;
 }
 
+/** Never throws: what the sink throws is its own fault, and the loop ends all the same. */
 export async function consume(query: Query, sink: FrameSink): Promise<void> {
+	let failure: unknown;
 	try {
 		for await (const message of query) {
 			try {
@@ -20,8 +22,11 @@ export async function consume(query: Query, sink: FrameSink): Promise<void> {
 			}
 		}
 	} catch (error) {
-		sink.ended(error);
-		return;
+		failure = error;
 	}
-	sink.ended(undefined);
+	try {
+		sink.ended(failure);
+	} catch {
+		/* the host that owned this loop is already gone */
+	}
 }

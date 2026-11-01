@@ -95,7 +95,16 @@ export class ProcessSlot {
 			return rejected("backend_error", `Claude Code could not be started: ${errorText(error)}`);
 		}
 		this.process = started.process;
-		started.process.query.initializationResult().then(this.deps.initialized, () => undefined);
+		started.process.query.initializationResult().then(
+			(init) => {
+				try {
+					this.deps.initialized(init);
+				} catch {
+					/* the catalogue's news is not worth a process */
+				}
+			},
+			() => undefined,
+		);
 		return undefined;
 	}
 }
