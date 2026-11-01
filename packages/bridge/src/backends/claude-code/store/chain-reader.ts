@@ -53,10 +53,16 @@ function matches(index: IndexEntry, from: number, wanted: number, read: readonly
 	return read.length === wanted && read.every((message, offset) => message.uuid === index.uuids[from + offset]);
 }
 
-async function rebuild(
-	ctx: StoreContext,
-	source: ChainSource,
-): Promise<{ index: IndexEntry; fresh: SessionMessage[] } | Rejected> {
+export interface BuiltChain {
+	readonly index: IndexEntry;
+	readonly fresh: SessionMessage[];
+}
+
+function rebuild(ctx: StoreContext, source: ChainSource): Promise<BuiltChain | Rejected> {
+	return ctx.reads.run(source.key, () => readWhole(ctx, source));
+}
+
+async function readWhole(ctx: StoreContext, source: ChainSource): Promise<BuiltChain | Rejected> {
 	const stamp = await stampOf(source.path);
 	if (stamp === undefined) return rejected("not_found", `no transcript for ${source.key}`);
 	const fresh = await attempt(() => source.read(0, undefined));
