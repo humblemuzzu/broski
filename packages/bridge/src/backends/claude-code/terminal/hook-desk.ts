@@ -5,14 +5,15 @@
  */
 
 import type { PermissionRequestHookInput } from "@anthropic-ai/claude-agent-sdk";
-import type {
-	ActionResult,
-	AgentEvent,
-	Interaction,
-	InteractionAnswer,
-	InteractionId,
-	RunId,
-	ToolCallId,
+import {
+	type ActionResult,
+	type AgentEvent,
+	answerProblem,
+	type Interaction,
+	type InteractionAnswer,
+	type InteractionId,
+	type RunId,
+	type ToolCallId,
 } from "../../../contract";
 import { mintInteractionId } from "../ids";
 import { ACCEPTED, rejected } from "../rejections";
@@ -33,6 +34,7 @@ export interface DeskSession {
 }
 
 interface Pending {
+	readonly interaction: Interaction;
 	readonly runId: RunId | undefined;
 	/** The terminal writes a tool call to its file a moment after it asks, so this may be found later. */
 	toolCallId: ToolCallId | undefined;
@@ -67,6 +69,7 @@ export class HookDesk {
 			};
 			const onAbort = () => this.withdraw(interaction.id);
 			this.pending.set(interaction.id, {
+				interaction,
 				runId,
 				toolCallId,
 				toolName: ask.tool_name,
@@ -99,6 +102,8 @@ export class HookDesk {
 	answer(answer: InteractionAnswer): ActionResult {
 		const entry = this.pending.get(answer.interactionId);
 		if (entry === undefined) return rejected("stale", "that ask is no longer open");
+		const problem = answerProblem(entry.interaction, answer);
+		if (problem !== undefined) return rejected("invalid_input", problem);
 		const decision = decisionOf(answer.reply);
 		if (decision === undefined) return rejected("invalid_input", "that reply does not answer a permission ask");
 		this.pending.delete(answer.interactionId);

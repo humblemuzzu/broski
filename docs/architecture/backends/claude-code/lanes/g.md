@@ -1,6 +1,6 @@
 # Lane G · Terminal (D100–D109)
 
-Branch `cc/lane-g-terminal`. Files: `backends/claude-code/terminal/*`, `server/cc-terminal-hook.ts`, tests in `src/__tests__/claude-code/terminal/`; two lines in `http-handler.ts`, one key in `config/`. Status: D21 (watching) complete; D26 built up to the core call that routes a person's answer to a session it only watches (Step 3b), see "Open".
+Branch `cc/lane-g-terminal`. Files: `backends/claude-code/terminal/*`, `server/cc-terminal-hook.ts`, tests in `src/__tests__/claude-code/terminal/`; two lines in `http-handler.ts`, one key in `config/`. Status: D21 (watching) and D26 (terminal asks, on Step 3b's `OpenSession.answer`) complete as far as the adapter and the receiver go; wiring them into `server/` and the Claude Code driver is integration's, see "Integration" and "Open".
 
 ## Decisions
 
@@ -38,7 +38,7 @@ Real CLI, scripted runs (`hook_cli.test.ts`): an HTTP hook to a self-signed loop
 
 ### D108. The ask on the phone
 
-`tool_permission` with Allow once, Deny (optional message), Deny and stop (`interrupt:true`, verified: the run ends `aborted_*`); the Bash command and file changes as previews; no "allow for the session / always" (the hook input's `permission_suggestions` are not offered; a later step). A cancel that stops the run is a deny with interrupt; a cancel that does not gives no decision (the terminal asks), as does a withdrawal. `AskUserQuestion` and `ExitPlanMode` are never raised: their terminal dialogs are questions, and an allow from a hook would answer them with nothing.
+`tool_permission` with Allow once, Deny (optional message), Deny and stop (`interrupt:true`, verified: the run ends `aborted_*`); the Bash command and file changes as previews; no "allow for the session / always" (the hook input's `permission_suggestions` are not offered; a later step). A cancel that stops the run is a deny with interrupt; a cancel that does not gives no decision (the terminal asks), as does a withdrawal. **Step 3b (core README §21):** the watch-only `OpenSession` has no `control` and offers `answer` exactly when the server gave the adapter its hook handler (`services.terminal.hookAsks`, i.e. the hook is in use; otherwise the session shows its asks without a button, `SessionCapabilities.answer: false`). `answer` runs `answerProblem` against the pending ask first (`invalid_input`), then the desk (`stale` once resolved or withdrawn), and says `closed` after `close`. The options are the three the hook can honour (`allow-once`, `deny-once`, `deny-and-stop`); a reply that ends its run (`stopsRun`, `cancel{stopRun:true}`) is the hook decision's `interrupt:true` (verified in the real CLI: the run ends `aborted_*`), there is no `abort` here. The server's receiver already holds the session (`hold`) before the ask is raised and releases it when the decision is given or the request ends. `AskUserQuestion` and `ExitPlanMode` are never raised: their terminal dialogs are questions, and an allow from a hook would answer them with nothing.
 
 ### D109. `claudeCode.terminalAsks` (default true) and the route
 
@@ -47,7 +47,7 @@ Real CLI, scripted runs (`hook_cli.test.ts`): an HTTP hook to a self-signed loop
 ## Ports: what I needed, and worked within
 
 - None changed. `TerminalAskHandler`'s shape is enough with the receiver's order (handler first, then `hold`); a cleaner port would be a handler with a separate `claims(ask)` step. Say so if you want it.
-- `createTerminalWatch` returns `TerminalWatchWithAsks` (adds `answerAsk(sessionId, answer)`); `backend.ts` still sees a `TerminalWatch`. **Step 3b**: when the core routes an answer to a watch-only `OpenSession`, that member calls `answerAsk`. The desk, the interaction and the decision mapping are tested up to that call (`hook_flow.test.ts`).
+- `createTerminalWatch` returns `TerminalWatchWithAsks`, which adds `answerAsk(sessionId, answer)` (the by-id form of the open session's own `answer`; `backend.ts` still sees a `TerminalWatch` and nothing needs it).
 - `TerminalDeps` has no `CatalogueAccess`, so no `model_changed` from the tail.
 
 ## Integration: what to switch off when the contract flag is on
@@ -69,7 +69,7 @@ The old path installs its own `PreToolUse` hook at every bridge start and remove
 
 ## Open
 
-- **Step 3b.** `OpenSession` for a watch-only session must expose answering; then wire it to `answerAsk` and add a conformance-style test through the core.
+- **Rule 31 in the Claude Code driver (integration).** The driver files are read-only for lane G, so `watchedAsk()` is a helper in `src/__tests__/claude-code/terminal/watched-ask.ts` (`watchedAskHelper({configDir, projectDir, handler})`, `watchedAsk()`, `dispose()`, `decision(ref)`). To plug it in: the conformance world builds the factory with `terminal: {hookAsks: (h) => (handler = h)}`; `claudeCodeConformanceKit` creates the helper over the world's `configDir` and `projectDir` with `handler: () => handler` and gives the driver `watchedAsk: () => helper.watchedAsk()`; the driver's `dispose` calls `helper.dispose()`. It needs lane A's `store.locate` (it finds the session by its file under `projects/`), so it is untested against the whole backend here: `hook_answer.test.ts` runs the rule's checks (no `control`, an `answer`, invalid answers `invalid_input`, once `answered` then `stale`, `closed` after close, `SessionCapabilities.answer`) against the adapter's own watch-only open, with the same reply helpers the rule uses.
 - **Rule 27 / `externalLive`.** The tail now shows `run_started{external}…run_finished` for a second CLI process writing the session (`watch_live_cli.test.ts`, legal under `streamViolations`). Declaring `externalLive: true` and `runExternally` in the driver is the plan owner's trait change; the quiet rule (D102) is what ends a `query()`-written run, 2.5 s after its last line.
 - An interactive REPL was not driven (no pty in the test bed): `turn_duration` and the real terminal dialog are read from the binary and from the recorded shapes, not run.
 - "Continue here" is lane A's `fork` on the same `SessionRef`; nothing in `terminal/` is needed for it, and it was not tested here (A's `fork` is a stub on this branch).

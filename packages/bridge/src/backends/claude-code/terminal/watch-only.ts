@@ -12,7 +12,7 @@ import type {
 import type { TerminalDeps } from "../ports/deps";
 import type { StoredSession } from "../ports/store";
 import type { TerminalWatch } from "../ports/terminal";
-import { isRejected, rejected } from "../rejections";
+import { CLOSED, isRejected, rejected } from "../rejections";
 import { createHookAsks } from "./hook-asks";
 import { TerminalSessions } from "./terminal-sessions";
 
@@ -21,8 +21,8 @@ export const WRITING_MS = 10_000;
 const MAX_KNOWN_PATHS = 5_000;
 
 /**
- * `answerAsk` is where a person's answer to a terminal ask goes once the core can route one to a session it only
- * watches (Step 3b); `backend.ts` sees a `TerminalWatch`.
+ * `answerAsk` answers by session id what the open session's `answer` (contract README §5 rule 14) answers on its own;
+ * `backend.ts` sees a `TerminalWatch`.
  */
 export interface TerminalWatchWithAsks extends TerminalWatch {
 	answerAsk(sessionId: SessionId, answer: InteractionAnswer): ActionResult;
@@ -31,6 +31,8 @@ export interface TerminalWatchWithAsks extends TerminalWatch {
 export function createTerminalWatch(deps: TerminalDeps): TerminalWatchWithAsks {
 	const { services } = deps;
 	const enabled = services.terminal.watch !== false;
+	/** Only a bridge that installed the ask hook (the server gave `hookAsks`) has asks here to answer. */
+	const takesAsks = enabled && services.terminal.hookAsks !== undefined;
 	const sessions = new TerminalSessions(services.clock);
 	const paths = new Map<SessionId, string>();
 
@@ -73,6 +75,9 @@ export function createTerminalWatch(deps: TerminalDeps): TerminalWatchWithAsks {
 			session: {
 				session: ref,
 				snapshot: () => session.live.snapshot(),
+				...(takesAsks && {
+					answer: async (answer: InteractionAnswer) => (closed ? CLOSED : session.desk.answer(answer)),
+				}),
 				close: async () => {
 					if (closed) return;
 					closed = true;
