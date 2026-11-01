@@ -10,6 +10,8 @@ import type { MappedEvent } from "../ports/mapping";
 import type { TranslatorState } from "./translate-state";
 
 const INTERRUPT_MARKER = "[Request interrupted by user";
+/** The CLI's own tags are short and come first; a person's long text is never scanned past this for one. */
+const SCAN_CHARS = 4_096;
 const LOCAL_OUTPUT = "<local-command-stdout>";
 const TAG_START = /^\s*<[a-z][\w-]*[\s>]/;
 const COMMAND_NAME = /<command-name>(.*?)<\/command-name>/s;
@@ -91,13 +93,13 @@ type UserText = { readonly kind: "interrupt" | "local_output" } | { readonly kin
 
 /** What a user line says; undefined for the CLI's own notes (system reminders, command output) that are no prompt. */
 function classify(raw: string): UserText | undefined {
-	const trimmed = raw.trim();
+	const trimmed = raw.slice(0, SCAN_CHARS).trim();
 	if (trimmed.startsWith(INTERRUPT_MARKER)) return { kind: "interrupt" };
 	if (trimmed.startsWith(LOCAL_OUTPUT)) return { kind: "local_output" };
-	if (!TAG_START.test(raw)) return trimmed === "" ? undefined : { kind: "prompt", text: raw };
-	const name = COMMAND_NAME.exec(raw)?.[1]?.trim();
+	if (!TAG_START.test(trimmed)) return trimmed === "" ? undefined : { kind: "prompt", text: raw };
+	const name = COMMAND_NAME.exec(trimmed)?.[1]?.trim();
 	if (name === undefined || name === "") return undefined;
-	const args = COMMAND_ARGS.exec(raw)?.[1]?.trim();
+	const args = COMMAND_ARGS.exec(trimmed)?.[1]?.trim();
 	return {
 		kind: "prompt",
 		text: args === undefined || args === "" ? name : `${name} ${args}`,

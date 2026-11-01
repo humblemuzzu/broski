@@ -123,6 +123,24 @@ describe("the terminal hook receiver", () => {
 		expect(none.calls).toEqual([]);
 	});
 
+	test("a handler that throws at once, and a hold that fails, both leave the decision to the terminal", async () => {
+		const throwing = serve({
+			handler: () => {
+				throw new Error("adapter bug");
+			},
+		});
+		expect(await (await throwing.post(INPUT)).json()).toEqual({});
+		const failing = serve({
+			handler: (_ask, signal) =>
+				new Promise((resolve) => signal.addEventListener("abort", () => resolve(undefined), { once: true })),
+			hold: async () => {
+				throw new Error("seam bug");
+			},
+		});
+		expect(await (await failing.post(INPUT)).json()).toEqual({});
+		expect(failing.seen.signal?.aborted).toBe(true);
+	});
+
 	test("a session that cannot be held is not asked about: the handler is told to stop, nothing is released", async () => {
 		const rig = serve({
 			handler: (_ask, signal) =>

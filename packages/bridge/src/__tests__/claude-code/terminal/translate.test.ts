@@ -360,6 +360,16 @@ describe("LineTranslator", () => {
 		expect(JSON.stringify(tool).length).toBeLessThan(MAX_TEXT_CHARS + 2_000);
 	});
 
+	test("a long text full of command tags is read in bounded time and shown as the prompt it is", () => {
+		const hostile = "<command-name>".repeat(300_000);
+		const started = performance.now();
+		const { events } = run([prompt(hostile)]);
+		expect(performance.now() - started).toBeLessThan(500);
+		expect(events.map((event) => event.type)).toEqual([]);
+		const long = `fix this: ${"<command-name>".repeat(300_000)}`;
+		expect(run([prompt(long)]).events.map((event) => event.type)).toEqual(["run_started", "user_message"]);
+	});
+
 	test("an open tool is found by name and input (key order aside), else by name when only one is open", () => {
 		const { translator } = run([
 			prompt("go"),

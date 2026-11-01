@@ -81,7 +81,9 @@ export class TerminalSessions {
 				},
 			};
 			const onAbort = () => {
-				this.waiters.get(sessionId)?.delete(waiter);
+				const waiting = this.waiters.get(sessionId);
+				waiting?.delete(waiter);
+				if (waiting?.size === 0) this.waiters.delete(sessionId);
 				resolve(undefined);
 			};
 			signal.addEventListener("abort", onAbort, { once: true });

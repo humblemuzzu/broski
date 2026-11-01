@@ -5,7 +5,15 @@
  */
 
 import type { PermissionRequestHookInput } from "@anthropic-ai/claude-agent-sdk";
-import type { ActionResult, AgentEvent, InteractionAnswer, InteractionId, RunId, ToolCallId } from "../../../contract";
+import type {
+	ActionResult,
+	AgentEvent,
+	Interaction,
+	InteractionAnswer,
+	InteractionId,
+	RunId,
+	ToolCallId,
+} from "../../../contract";
 import { mintInteractionId } from "../ids";
 import { ACCEPTED, rejected } from "../rejections";
 import { canonicalInput } from "./canonical";
@@ -48,16 +56,17 @@ export class HookDesk {
 		if (signal.aborted) return { decision: undefined };
 		await this.session.catchUp();
 		if (signal.aborted || this.shut) return { decision: undefined };
-		const id = mintInteractionId();
 		const runId = this.session.ensureRun();
 		const toolCallId = this.session.toolMatching(ask.tool_name, ask.tool_input);
+		const interaction = this.interactionFor(ask, runId, toolCallId);
+		if (interaction === undefined) return { decision: undefined };
 		return new Promise<HookDecision>((resolve) => {
 			const settle = (decision: HookDecision) => {
 				signal.removeEventListener("abort", onAbort);
 				resolve(decision);
 			};
-			const onAbort = () => this.withdraw(id);
-			this.pending.set(id, {
+			const onAbort = () => this.withdraw(interaction.id);
+			this.pending.set(interaction.id, {
 				runId,
 				toolCallId,
 				toolName: ask.tool_name,
@@ -65,14 +74,26 @@ export class HookDesk {
 				settle,
 			});
 			signal.addEventListener("abort", onAbort, { once: true });
-			const interaction = permissionInteraction(ask, {
-				id,
+			this.session.emit({ type: "interaction_requested", interaction });
+		});
+	}
+
+	/** The ask as the contract shows it; undefined if it cannot be built, which leaves the terminal to ask. */
+	private interactionFor(
+		ask: PermissionRequestHookInput,
+		runId: RunId,
+		toolCallId: ToolCallId | undefined,
+	): Interaction | undefined {
+		try {
+			return permissionInteraction(ask, {
+				id: mintInteractionId(),
 				runId,
 				createdAt: this.session.now(),
 				toolCallId,
 			});
-			this.session.emit({ type: "interaction_requested", interaction });
-		});
+		} catch {
+			return undefined;
+		}
 	}
 
 	answer(answer: InteractionAnswer): ActionResult {

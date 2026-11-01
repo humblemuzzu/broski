@@ -6,6 +6,7 @@
  * checked before a request reaches here (`http-handler.ts`).
  */
 
+import type { PermissionRequestHookInput } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import type { TerminalAskHandler, TerminalPermissionDecision } from "../backends/claude-code/ports/terminal";
 import { MAX_MESSAGE_BYTES, MAX_NAME_CHARS, MAX_PATH_CHARS, type SessionRef } from "../contract";
@@ -61,45 +62,55 @@ export function createTerminalHookReceiver(deps: TerminalHookDeps): TerminalHook
 		input: z.infer<typeof HookAsk>,
 		clientGone: AbortSignal,
 	): Promise<Response> {
-		const ref: SessionRef = { backend: "claude-code", sessionId: input.session_id };
 		const stop = new AbortController();
 		const onGone = () => stop.abort();
-		clientGone.addEventListener("abort", onGone, { once: true });
+		if (clientGone.aborted) stop.abort();
+		else clientGone.addEventListener("abort", onGone, { once: true });
 		try {
-			const asking = asker(
-				{
-					hook_event_name: "PermissionRequest",
-					session_id: input.session_id,
-					transcript_path: input.transcript_path,
-					cwd: input.cwd,
-					tool_name: input.tool_name,
-					tool_input: input.tool_input,
-				},
-				stop.signal,
-			).catch(() => undefined);
-			const early = await Promise.race([asking.then((decision) => ({ decision })), tick()]);
-			if (early !== undefined) return answerOf(early.decision);
-			const held = await deps.hold(ref);
-			if (held.status !== "accepted") {
-				stop.abort();
-				await asking;
-				return noDecision();
-			}
-			try {
-				const decision = await asking;
-				deps.log(
-					`[CC terminal ask] ${input.tool_name} on ${input.session_id}: ${decision?.behavior ?? "left to the terminal"}`,
-				);
-				return answerOf(decision);
-			} finally {
-				deps.release(ref);
-			}
+			return await decide(asker, input, stop);
 		} finally {
 			clientGone.removeEventListener("abort", onGone);
 		}
 	}
 
+	async function decide(
+		asker: TerminalAskHandler,
+		input: z.infer<typeof HookAsk>,
+		stop: AbortController,
+	): Promise<Response> {
+		const ref: SessionRef = { backend: "claude-code", sessionId: input.session_id };
+		const asking = (async () => asker(askOf(input), stop.signal))().catch(() => undefined);
+		const early = await Promise.race([asking.then((decision) => ({ decision })), tick()]);
+		if (early !== undefined) return answerOf(early.decision);
+		const held = await deps.hold(ref).catch(() => ({ status: "rejected" }));
+		if (held.status !== "accepted") {
+			stop.abort();
+			await asking;
+			return noDecision();
+		}
+		try {
+			const decision = await asking;
+			deps.log(
+				`[CC terminal ask] ${input.tool_name} on ${input.session_id}: ${decision?.behavior ?? "left to the terminal"}`,
+			);
+			return answerOf(decision);
+		} finally {
+			deps.release(ref);
+		}
+	}
+
 	return { handle, setHandler: (next) => (handler = next) };
+}
+
+function askOf(input: z.infer<typeof HookAsk>): PermissionRequestHookInput {
+	return {
+		hook_event_name: "PermissionRequest",
+		session_id: input.session_id,
+		transcript_path: input.transcript_path,
+		cwd: input.cwd,
+		tool_name: input.tool_name,
+		tool_input: input.tool_input,
+	};
 }
 
 function noDecision(): Response {

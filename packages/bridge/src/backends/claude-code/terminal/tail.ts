@@ -41,10 +41,9 @@ export class TranscriptTail {
 		}
 		try {
 			const stat = await handle.stat();
-			if ((this.ino !== undefined && stat.ino !== this.ino) || stat.size < this.offset) {
+			if (stat.ino !== this.ino || stat.size < this.offset) {
 				return await this.rebaselineFrom(handle, stat.size, stat.ino);
 			}
-			this.ino = stat.ino;
 			const lines = await this.readTo(handle, stat.size);
 			return {
 				lines,

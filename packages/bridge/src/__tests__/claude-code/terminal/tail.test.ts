@@ -82,7 +82,9 @@ describe("TranscriptTail", () => {
 		const tail = new TranscriptTail(path);
 		expect((await tail.read()).gone).toBe(true);
 		writeFileSync(path, '{"n":1}\n');
-		expect((await tail.read()).lines).toEqual(['{"n":1}']);
+		const back = await tail.read();
+		expect(back.lines).toEqual(['{"n":1}']);
+		expect(back.reset).toBe(true);
 	});
 
 	test("a burst larger than one read is read in several, none lost", async () => {

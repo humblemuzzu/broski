@@ -12,12 +12,13 @@ import type {
 import type { TerminalDeps } from "../ports/deps";
 import type { StoredSession } from "../ports/store";
 import type { TerminalWatch } from "../ports/terminal";
-import { isRejected } from "../rejections";
+import { isRejected, rejected } from "../rejections";
 import { createHookAsks } from "./hook-asks";
 import { TerminalSessions } from "./terminal-sessions";
 
 /** A file written this recently, by a process this bridge does not host, belongs to a terminal (research 04 §7 rec. 6). */
 export const WRITING_MS = 10_000;
+const MAX_KNOWN_PATHS = 5_000;
 
 /**
  * `answerAsk` is where a person's answer to a terminal ask goes once the core can route one to a session it only
@@ -36,10 +37,15 @@ export function createTerminalWatch(deps: TerminalDeps): TerminalWatchWithAsks {
 	async function pathOf(sessionId: SessionId): Promise<string | undefined> {
 		const known = paths.get(sessionId);
 		if (known !== undefined) return known;
-		const stored = await deps.locate(sessionId);
-		if (isRejected(stored)) return undefined;
-		paths.set(sessionId, stored.path);
+		const stored = await deps.locate(sessionId).catch(() => undefined);
+		if (stored === undefined || isRejected(stored)) return undefined;
+		remember(sessionId, stored.path);
 		return stored.path;
+	}
+
+	function remember(sessionId: SessionId, path: string): void {
+		if (paths.size >= MAX_KNOWN_PATHS) paths.clear();
+		paths.set(sessionId, path);
 	}
 
 	async function writing(sessionId: SessionId): Promise<boolean> {
@@ -57,8 +63,9 @@ export function createTerminalWatch(deps: TerminalDeps): TerminalWatchWithAsks {
 	}
 
 	async function openWatchOnly(ref: SessionRef, stored: StoredSession, sink: SessionSink): Promise<OpenResult> {
-		paths.set(stored.sessionId, stored.path);
-		const session = await sessions.acquire(ref.sessionId, stored.path, sink);
+		remember(stored.sessionId, stored.path);
+		const session = await sessions.acquire(ref.sessionId, stored.path, sink).catch(() => undefined);
+		if (session === undefined) return rejected("backend_error", "the terminal session could not be followed");
 		let closed = false;
 		return {
 			status: "accepted",
