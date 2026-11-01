@@ -20,6 +20,8 @@ export interface ActiveRun {
 	aborting: boolean;
 	/** The CLI has begun a turn for this run (`running`, a stream frame). */
 	started: boolean;
+	/** The run is a `/compact` and nothing else: ending it ends the compaction. */
+	readonly compactOnly: boolean;
 }
 
 export class RunTracker {
@@ -54,7 +56,7 @@ export class RunTracker {
 	}
 
 	/** Emits `run_started`; the cut is the chain as it stands now, before the run writes anything. */
-	start(trigger: RunTrigger): ActiveRun {
+	start(trigger: RunTrigger, compactOnly = false): ActiveRun {
 		const run: ActiveRun = {
 			runId: mintRunId(),
 			trigger,
@@ -62,6 +64,7 @@ export class RunTracker {
 			outcomes: [],
 			aborting: false,
 			started: false,
+			compactOnly,
 		};
 		this.active = run;
 		this.live.emit({ type: "run_started", runId: run.runId, trigger });
@@ -98,6 +101,7 @@ export class RunTracker {
 		if (!run) return { kind: "completed" };
 		const aborted = run.outcomes.find((outcome) => outcome.kind === "aborted");
 		if (aborted) return aborted;
+		if (run.aborting && run.compactOnly) return { kind: "aborted" };
 		const failed = run.outcomes.find((outcome) => outcome.kind !== "completed");
 		if (failed) return failed;
 		return run.aborting && run.outcomes.length === 0 ? { kind: "aborted" } : { kind: "completed" };

@@ -16,6 +16,7 @@ import type {
 	LiveDeps,
 	LiveSessions,
 	MappingPort,
+	SessionFunctions,
 } from "../../../../backends/claude-code/ports";
 import { type ClaudeCodeServices, createClaudeCodeServices } from "../../../../backends/claude-code/services";
 import { CLAUDE_CODE_TRAITS } from "../../../../backends/claude-code/traits";
@@ -58,6 +59,8 @@ export interface RigOptions {
 export class LiveRig {
 	readonly live: LiveSessions;
 	readonly catalogEvents: CatalogEvent[] = [];
+	/** Sessions a terminal is writing, as `TerminalPresence` reports them. */
+	readonly writing = new Set<string>();
 	readonly deps: LiveDeps;
 
 	constructor(
@@ -76,7 +79,7 @@ export class LiveRig {
 			store,
 			ownership,
 			catalogue,
-			terminal: { writing: async () => false },
+			terminal: { writing: async (sessionId) => this.writing.has(sessionId) },
 			mapping,
 			createDesk: desk.factory,
 		};
@@ -162,8 +165,11 @@ export interface FakeRig extends LiveRig {
 }
 
 /** The host over `FakeQuery`s: each `query()` call gets the next, and the test pushes its frames. */
-export function fakeRig(queries: FakeQuery[], options: RigOptions & { cli?: boolean } = {}): FakeRig {
-	const sdk = fakeClaudeSdk({ queries });
+export function fakeRig(
+	queries: FakeQuery[],
+	options: RigOptions & { cli?: boolean; sdk?: Partial<SessionFunctions> } = {},
+): FakeRig {
+	const sdk = fakeClaudeSdk({ queries, overrides: options.sdk });
 	const clock = new ManualClock();
 	const services = createClaudeCodeServices({
 		cli:

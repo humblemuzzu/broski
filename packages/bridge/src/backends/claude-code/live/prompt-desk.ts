@@ -44,6 +44,8 @@ export interface PromptDeskDeps {
 export interface SendOptions {
 	/** False for an action such as a compaction, which is a run but not something the person said. */
 	readonly shown: boolean;
+	/** The run is a compaction and nothing else. */
+	readonly compaction?: boolean;
 }
 
 export class PromptDesk {
@@ -66,8 +68,8 @@ export class PromptDesk {
 		);
 	}
 
-	/** A run the person asked for that is not something they said, such as a compaction; `busy` while a run is active. */
-	action(text: string): Promise<ActionResult> {
+	/** A compaction is a run the person asked for but did not say; `busy` while a run is active. */
+	compaction(text: string): Promise<ActionResult> {
 		return this.deps.locked(async () => {
 			if (this.deps.closed()) return CLOSED;
 			const failure = await this.deps.ensureProcess();
@@ -87,7 +89,7 @@ export class PromptDesk {
 				undefined,
 			);
 			if (isRejected(send)) return send;
-			this.begin(send, "prompt", { shown: false });
+			this.begin(send, "prompt", { shown: false, compaction: true });
 			return ACCEPTED;
 		});
 	}
@@ -97,7 +99,7 @@ export class PromptDesk {
 		const { runs, live } = this.deps;
 		this.record(send);
 		if (!runs.current) {
-			runs.start(trigger);
+			runs.start(trigger, options.compaction === true);
 			this.deps.runBegan();
 		}
 		if (options.shown) live.emit(send.event);

@@ -29,4 +29,5 @@ export interface HostHooks {
 export type HostControl = Omit<SessionControl, "compact" | "cancelQueued" | "cancelCompaction" | "cancelRetry"> & {
 	compact(instructions: string | undefined): Promise<ActionResult>;
 	cancelQueued(id: QueueItemId): Promise<ActionResult>;
+	cancelCompaction(): Promise<ActionResult>;
 };

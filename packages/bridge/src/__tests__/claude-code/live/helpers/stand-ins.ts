@@ -99,6 +99,8 @@ export interface StandInMapping extends MappingPort {
 	readonly mapped: SDKMessage[];
 	readonly noted: string[];
 	readonly settled: ("completed" | "aborted")[];
+	/** The session id each mapper was created for, in order. */
+	readonly seeds: string[];
 	/** Events `map` returns for each frame, to drive the host's routing. */
 	script(events: (frame: SDKMessage) => readonly MappedEvent[]): void;
 	/** Resolves once a frame of `type` has been mapped (now, if one has). */
@@ -110,6 +112,7 @@ export function standInMapping(): StandInMapping {
 	const mapped: SDKMessage[] = [];
 	const noted: string[] = [];
 	const settled: ("completed" | "aborted")[] = [];
+	const seeds: string[] = [];
 	let scripted: (frame: SDKMessage) => readonly MappedEvent[] = () => [];
 	const listeners = new Set<() => void>();
 	const mapper: FrameMapper = {
@@ -130,6 +133,7 @@ export function standInMapping(): StandInMapping {
 		mapped,
 		noted,
 		settled,
+		seeds,
 		script: (events) => {
 			scripted = events;
 		},
@@ -148,7 +152,10 @@ export function standInMapping(): StandInMapping {
 				listeners.add(check);
 				check();
 			}),
-		createMapper: () => mapper,
+		createMapper: (seed) => {
+			seeds.push(seed.sessionId);
+			return mapper;
+		},
 		turnOutcome: outcomeOf,
 	};
 }
@@ -255,7 +262,19 @@ export function standInStore(sdk: ClaudeSdk): StandInStore {
 		known,
 		rows,
 		list: async () => no("list"),
-		get: async (): Promise<SessionGetResult> => no("get"),
+		get: async (sessionId): Promise<SessionGetResult> =>
+			known.has(sessionId.split("/")[0] ?? "")
+				? {
+						status: "accepted",
+						summary: {
+							session: { backend: "claude-code", sessionId },
+							updatedAt: 1,
+							archived: false,
+							status: "idle",
+							origin: "broski",
+						},
+					}
+				: rejected("not_found", `no session ${sessionId}`),
 		transcript: async () => no("transcript"),
 		attachment: async () => no("attachment"),
 		locate,

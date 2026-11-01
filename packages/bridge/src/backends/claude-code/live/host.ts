@@ -24,7 +24,7 @@ import type { LiveOverlay, LiveRow } from "../ports/store";
 import { CLOSED, isRejected, rejected } from "../rejections";
 import { abortRun, returnQueued } from "./abort";
 import { ChildRouter } from "./child-router";
-import { startCompaction } from "./compaction";
+import { cancelCompaction, startCompaction } from "./compaction";
 import { errorText } from "./error-text";
 import { FrameHandler } from "./frame-handler";
 import { HostEmitter } from "./host-emitter";
@@ -32,6 +32,8 @@ import { launchOptions } from "./host-launch";
 import type { HostProcess } from "./host-process";
 import type { HostControl, HostHooks, HostStart } from "./host-types";
 import { LiveState } from "./live-state";
+import { MappedRouting } from "./mapped-routing";
+import { processEnded } from "./process-end";
 import { ProcessSlot } from "./process-slot";
 import { PromptDesk } from "./prompt-desk";
 import { InputQueue } from "./queue";
@@ -56,7 +58,7 @@ export class SessionHost {
 	private readonly prompts: PromptDesk;
 	private readonly frames: FrameHandler;
 	private readonly lock = new SerialLock();
-	private mapper: FrameMapper;
+	private readonly routing: MappedRouting;
 	private readonly slot: ProcessSlot;
 	private sink: SessionSink | undefined;
 	private persisted: boolean;
@@ -78,7 +80,10 @@ export class SessionHost {
 		this.runs = new RunTracker(this.live, start.tail);
 		this.queue = new InputQueue(this.live);
 		this.children = new ChildRouter({ parentId: () => this.id, now });
-		this.mapper = deps.mapping.createMapper({ sessionId: this.id });
+		this.routing = new MappedRouting(
+			{ mapping: deps.mapping, live: this.live, runs: this.runs, children: this.children },
+			this.id,
+		);
 		this.settings = new SessionSettings(
 			{
 				live: this.live,
@@ -130,6 +135,7 @@ export class SessionHost {
 			setThinking: (value) => this.settings.setThinking(value),
 			setMode: (axis, value) => this.settings.setMode(axis, value),
 			compact: (instructions) => startCompaction(this.prompts, instructions),
+			cancelCompaction: () => cancelCompaction(this.state.snapshot(), this.runs, () => this.abort(), this.finished),
 			cancelQueued: async (id) => (this.finished ? CLOSED : this.queue.cancel(id)),
 		};
 	}
@@ -253,26 +259,17 @@ export class SessionHost {
 
 	private processEnded(process: HostProcess, error: unknown): void {
 		if (!this.slot.release(process) || this.finished) return;
-		this.desk.expireAll();
-		const message = error === undefined ? "Claude Code stopped" : `Claude Code stopped: ${errorText(error)}`;
-		const stopped = process.isClosing;
-		if (!stopped) this.fault(message);
-		const run = this.runs.current;
-		if (run) {
-			endRun(
-				this.runEnd(),
-				run.aborting || stopped
-					? { kind: "aborted" }
-					: {
-							kind: "error",
-							error: {
-								code: "backend_unavailable",
-								message: clip(message, MAX_TEXT_CHARS),
-							},
-						},
-			);
-		}
-		returnQueued(this.queue, this.live);
+		processEnded(
+			{
+				live: this.live,
+				runs: this.runs,
+				queue: this.queue,
+				desk: this.desk,
+				endRun: (outcome) => endRun(this.runEnd(), outcome),
+			},
+			process.isClosing,
+			error,
+		);
 		this.reviewIdle();
 	}
 
@@ -283,7 +280,7 @@ export class SessionHost {
 			queue: this.queue,
 			ownership: this.deps.ownership,
 			sessionId: () => this.id,
-			noteSend: (uuid) => this.mapper.noteSend(uuid),
+			noteSend: (uuid) => this.routing.current.noteSend(uuid),
 			ensureProcess: () => this.ensureProcess(),
 			push: (message) => this.slot.push(message),
 			alive: () => this.slot.alive !== undefined,
@@ -303,10 +300,10 @@ export class SessionHost {
 			desk: this.desk,
 			settings: this.settings,
 			mapping: this.deps.mapping,
-			mapper: () => this.mapper,
+			mapper: () => this.routing.current,
 			catalogue: this.deps.catalogue,
 			cwd: this.cwd,
-			emitMapped: (events) => this.emitMapped(events),
+			emitMapped: (events) => this.routing.emit(events),
 			persisted: () => {
 				this.persisted = true;
 			},
@@ -328,8 +325,8 @@ export class SessionHost {
 			prompts: this.prompts,
 			children: this.children,
 			desk: this.desk,
-			mapper: () => this.mapper,
-			emitMapped: (events) => this.emitMapped(events),
+			mapper: () => this.routing.current,
+			emitMapped: (events) => this.routing.emit(events),
 			finished: () => this.rowChanged(),
 		};
 	}
@@ -342,20 +339,12 @@ export class SessionHost {
 		});
 	}
 
-	private emitMapped(events: readonly MappedEvent[]): void {
-		for (const mapped of events) {
-			if (mapped.agentId !== undefined) this.children.route(mapped);
-			else this.live.emit(mapped.event, mapped.native);
-		}
-	}
-
 	/** `/clear` and its kin: the conversation goes on under a new session id, and the old one keeps its history. */
 	private conversationReset(newId: SessionId): void {
 		if (newId === this.id) return;
 		const previous = this.id;
-		this.emitMapped(this.mapper.settle("completed"));
+		this.routing.restart(newId);
 		this.id = newId;
-		this.mapper = this.deps.mapping.createMapper({ sessionId: newId });
 		this.children.reset();
 		this.runs.resetChain();
 		this.hooks.renamed(this, previous);
