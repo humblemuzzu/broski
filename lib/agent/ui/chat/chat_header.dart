@@ -4,6 +4,7 @@ import 'package:broski/agent/ui/chat/copy_text.dart';
 import 'package:broski/agent/ui/panels/panel_registry.dart';
 import 'package:broski/agent/ui/panels/panels_sheet.dart';
 import 'package:broski/agent/ui/pickers/live_settings_sheet.dart';
+import 'package:broski/agent/ui/sessions/session_openers.dart';
 import 'package:broski/agent/ui/shared/status_look.dart';
 import 'package:broski/agent/ui/shared/text_entry_dialog.dart';
 import 'package:broski/contract/generated/contract.dart';
@@ -89,6 +90,15 @@ class ChatActions extends ConsumerWidget {
       ),
       if (cwd != null) ...panelsAt(capabilities, OpPlace.project),
     ];
+    final entries = <SheetEntry>[
+      if (capabilities.fork)
+        (
+          key: 'chat-open-as-fork',
+          label: 'Open as fork',
+          detail: 'A copy to go on with; this session stays as it is',
+          run: (screen) => openAsFork(screen, ref, session),
+        ),
+    ];
     final lastAnswer = ref.watch(lastAnswerProvider(session));
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -126,7 +136,7 @@ class ChatActions extends ConsumerWidget {
               );
             },
           ),
-        if (panels.isNotEmpty)
+        if (panels.isNotEmpty || entries.isNotEmpty)
           IconButton(
             key: const ValueKey('chat-panels'),
             tooltip: 'More',
@@ -135,6 +145,7 @@ class ChatActions extends ConsumerWidget {
               context,
               panels,
               sessionTarget(session, cwd: cwd),
+              entries: entries,
             ),
           ),
       ],

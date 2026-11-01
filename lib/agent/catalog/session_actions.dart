@@ -41,9 +41,6 @@ final class SessionActions {
     return problemOf(outcome);
   }
 
-  Future<Outcome<SessionRef>> fork(SessionRef session) =>
-      _client.forkSession(session);
-
   Future<Outcome<SessionRef>> create(
     BackendId backend,
     NewSessionOptions options,

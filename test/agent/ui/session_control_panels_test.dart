@@ -141,6 +141,25 @@ void main() {
 
   testWidgets('a watched session has no menu of them', (tester) async {
     await _chat(tester, session: _watchOnly);
+    await tester.tap(_key('chat-panels'));
+    await tester.pumpAndSettle();
+    expect(_key('chat-open-as-fork'), findsOneWidget);
+    for (final kind in ['session_settings', 'session_tools', 'system_prompt']) {
+      expect(_key('panel:$kind'), findsNothing);
+    }
+  });
+
+  testWidgets('a watched session of a backend that cannot fork has no More', (
+    tester,
+  ) async {
+    await _chat(
+      tester,
+      session: _watchOnly,
+      capabilities: Capabilities.fromJson({
+        ..._offered.toJson(),
+        'fork': false,
+      }),
+    );
     expect(_key('chat-panels'), findsNothing);
   });
 

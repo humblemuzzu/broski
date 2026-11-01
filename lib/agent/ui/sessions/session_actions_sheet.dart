@@ -1,9 +1,8 @@
 import 'package:broski/agent/agent_providers.dart';
 import 'package:broski/agent/catalog/session_actions.dart';
 import 'package:broski/agent/catalog/session_list_controller.dart';
-import 'package:broski/agent/client/outcome.dart';
-import 'package:broski/agent/ui/chat/agent_chat_screen.dart';
 import 'package:broski/agent/ui/sessions/child_sessions_screen.dart';
+import 'package:broski/agent/ui/sessions/session_openers.dart';
 import 'package:broski/agent/ui/shared/text_entry_dialog.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:broski/theme/app_icons.dart';
@@ -30,6 +29,10 @@ Future<void> showSessionActions(
               key: ValueKey('row-action:${action.name}'),
               leading: Icon(_icon(action)),
               title: Text(_label(action)),
+              subtitle: switch (action) {
+                RowAction.fork => const Text('The original stays as it is'),
+                _ => null,
+              },
               onTap: () => Navigator.of(context).pop(action),
             ),
         ],
@@ -69,7 +72,7 @@ Future<void> _run(
       final list = ref.read(sessionListProvider(listKey).notifier);
       await _delete(context, actions, session, list);
     case RowAction.fork:
-      await _fork(context, actions, session);
+      await openAsFork(context, ref, session);
     case RowAction.children:
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
@@ -96,23 +99,9 @@ Future<void> _delete(
   if (context.mounted) showProblem(context, problem);
 }
 
-Future<void> _fork(
-  BuildContext context,
-  SessionActions actions,
-  SessionRef session,
-) async {
-  final outcome = await actions.fork(session);
-  if (!context.mounted) return;
-  if (outcome case Done(value: final forked)) {
-    await openSession(context, forked);
-  } else {
-    showProblem(context, problemOf(outcome));
-  }
-}
-
 String _label(RowAction action) => switch (action) {
   RowAction.rename => 'Rename',
-  RowAction.fork => 'Fork',
+  RowAction.fork => 'Open as fork',
   RowAction.archive => 'Archive',
   RowAction.unarchive => 'Unarchive',
   RowAction.delete => 'Delete',

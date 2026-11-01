@@ -82,6 +82,7 @@ void main() {
     tester,
   ) async {
     await _chat(tester, session: controllable);
-    expect(_key('chat-panels'), findsNothing);
+    await _tap(tester, _key('chat-panels'));
+    expect(_key('panel:take_over'), findsNothing);
   });
 }

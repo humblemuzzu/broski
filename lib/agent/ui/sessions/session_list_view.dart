@@ -5,6 +5,7 @@ import 'package:broski/agent/ui/chat/agent_chat_screen.dart';
 import 'package:broski/agent/ui/sessions/session_actions_sheet.dart';
 import 'package:broski/agent/ui/sessions/session_list_options.dart';
 import 'package:broski/agent/ui/sessions/session_list_tools.dart';
+import 'package:broski/agent/ui/sessions/session_openers.dart';
 import 'package:broski/agent/ui/sessions/session_row.dart';
 import 'package:broski/agent/ui/shared/offline_banner.dart';
 import 'package:broski/contract/generated/contract.dart';
@@ -65,6 +66,17 @@ class _SessionListViewState extends ConsumerState<SessionListView> {
               options: _options,
               directories: directoriesOf(list.rows),
               onChanged: (next) => setState(() => _options = next),
+            ),
+          if (_options.directory case final directory? when live)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                key: const ValueKey('continue-latest'),
+                icon: const Icon(Icons.play_arrow, size: 18),
+                label: const Text('Continue the latest session here'),
+                onPressed: () =>
+                    continueLatest(context, ref, widget.backend.id, directory),
+              ),
             ),
           if (!live && list.loaded)
             OfflineBanner(savedAt: list.savedAt)
