@@ -5,7 +5,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { README_TEXT } from "../../helpers/claude-home";
-import { statesOf } from "./rig/interrupt";
+import { lifecycleFrames, statesOf } from "./rig/interrupt";
 import { blockOrder, indexOf } from "./rig/order";
 import { expectNoOrphans } from "./rig/orphans";
 import { isIdle, type SpikeSession, startSpike } from "./rig/session";
@@ -106,6 +106,22 @@ describe("Q1/Q2/Q4/Q5: one offline turn through the real CLI", () => {
 				expect(JSON.stringify(toolResult)).toContain("PLUMBUS");
 				expect(JSON.stringify(spike.server.mainRequests()[1]?.body)).toContain(README_TEXT.split("\n")[2] ?? "");
 				expect(spike.results()).toHaveLength(1);
+			} finally {
+				await spike.close();
+			}
+		},
+		CLI_TEST_MS,
+	);
+
+	test(
+		"Q4: a send without a uuid gets no command_lifecycle frames",
+		async () => {
+			const spike = startSpike({ permissionMode: "default", turns: [{ text: ["ok"] }] });
+			try {
+				spike.send("hi", { uuid: undefined });
+				await spike.waitFor((m) => m.type === "result");
+				await spike.waitFor(isIdle, { after: indexOf(spike.messages, (m) => m.type === "result") });
+				expect(lifecycleFrames(spike.messages)).toEqual([]);
 			} finally {
 				await spike.close();
 			}
