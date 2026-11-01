@@ -130,6 +130,17 @@ describe("the editable file rule fails", () => {
 			/config_file answered other text than it wrote/,
 		));
 
+	test("for a file the backend never named that is answered as if it existed", () =>
+		fails(
+			changingCalls("config_file", (call, result) =>
+				call.op.kind === "config_file" && result.status === "rejected" && result.rejection.code === "not_found"
+					? { status: "accepted", result: { kind: "config_file", file: fileFrom(result) } }
+					: result,
+			),
+			editableFilesKeepTheirRevision,
+			/config_file of a file the backend never named must be not_found/,
+		));
+
 	test("when the driver cannot build a file call", () =>
 		fails(
 			breakDriver(

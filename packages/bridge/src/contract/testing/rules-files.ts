@@ -5,11 +5,13 @@ import { expect, fail, type Rig } from "./conformance-harness";
 type FileOpKind = Extract<BackendOpKind, "config_file" | "custom_tool">;
 
 const OTHER_REVISION = "conformance-another-revision";
+const NO_SUCH_FILE = "conformance-no-such-file";
 
 /**
  * Every declared op that reads an editable file writes it only at the revision read: another revision is `stale`, a
  * JSON file only when the text parses (`invalid_input`), and a file the backend may not change never (`unsupported`).
- * Writing back what was read, at its revision, through the id the answer named, lands and answers the same text.
+ * Writing back what was read, at its revision, through the id the answer named, lands and answers the same text. An id
+ * the backend never named is `not_found`.
  */
 export async function editableFilesKeepTheirRevision(rig: Rig): Promise<void> {
 	const { backend } = rig;
@@ -22,7 +24,9 @@ export async function editableFilesKeepTheirRevision(rig: Rig): Promise<void> {
 		const read = await rig.driver.backendCall(live.ref, op);
 		if (!read) fail(`the driver cannot build a ${op} call`);
 		const file = fileOf(op, await call(read));
-		const write = async (change: EditableFileChange) => call(writing(read, file, change));
+		const nowhere = await call(addressing(read, NO_SUCH_FILE));
+		expect(rejectedAs(nowhere, "not_found"), `${op} of a file the backend never named must be not_found`);
+		const write = async (change: EditableFileChange) => call(addressing(read, file.id, change));
 		if (!file.editable) {
 			const refused = await write({ kind: "write", text: file.text, revision: file.revision });
 			expect(rejectedAs(refused, "unsupported"), `a write to a file ${op} cannot change must be unsupported`);
@@ -55,13 +59,16 @@ function rejectedAs(result: BackendCallResult, code: string): boolean {
 	return result.status === "rejected" && result.rejection.code === code;
 }
 
-/** `read` changed to write `file`, which the answer's id names from then on. */
-function writing(read: BackendCall, file: EditableFile, change: EditableFileChange): BackendCall {
+/** `read` addressing the file `id`, the id an answer named, with `change` when there is one. */
+function addressing(read: BackendCall, id: string, change?: EditableFileChange): BackendCall {
 	const { op } = read;
 	if (op.kind === "config_file") {
-		const { name: _name, ...rest } = op;
-		return BackendCall.parse({ ...read, op: { ...rest, fileId: file.id, change } });
+		const { name: _name, change: _change, ...rest } = op;
+		return BackendCall.parse({ ...read, op: { ...rest, fileId: id, ...(change && { change }) } });
 	}
-	if (op.kind === "custom_tool") return BackendCall.parse({ ...read, op: { ...op, toolId: file.id, change } });
+	if (op.kind === "custom_tool") {
+		const { change: _change, ...rest } = op;
+		return BackendCall.parse({ ...read, op: { ...rest, toolId: id, ...(change && { change }) } });
+	}
 	return fail(`${op.kind} reads no file`);
 }

@@ -6,8 +6,8 @@ import { rejected } from "./fake-validation";
 
 /** The revision of a file that is not there. */
 const ABSENT = "absent";
-/** Every file the fake is asked for starts as this JSON, until it is written or deleted. */
-const STARTING_TEXT = "{}\n";
+/** The one configuration file the fake lists (`fakeConfigResult`), as it starts. */
+const LISTED: Stored = { text: "{}\n", revision: "fake-0" };
 
 interface Stored {
 	readonly text: string;
@@ -15,11 +15,12 @@ interface Stored {
 }
 
 /**
- * The fake's editable files (`config_file`, `custom_tool`), in memory: writes are compare-and-swap on the revision and
- * a write that does not parse as JSON is refused, as the contract asks of every adapter.
+ * The fake's editable files (`config_file`, `custom_tool`), in memory: writes are compare-and-swap on the revision, a
+ * write that does not parse as JSON is refused, and an id the fake never named is not found, as the contract asks of
+ * every adapter. A file named but not there is held as `undefined`.
  */
 export class FakeFiles {
-	private readonly files = new Map<string, Stored | undefined>();
+	private readonly files = new Map<string, Stored | undefined>([["settings", LISTED]]);
 	private written = 0;
 	private newTools = 0;
 
@@ -27,7 +28,8 @@ export class FakeFiles {
 		if (op.kind === "custom_tool" && op.change && op.toolId === undefined) {
 			return rejected("invalid_input", "a change names the tool it changes");
 		}
-		const id = op.kind === "config_file" ? (op.name ? `${op.fileId}/${op.name}` : op.fileId) : this.toolId(op);
+		const id = op.kind === "config_file" ? this.fileId(op) : this.toolId(op);
+		if (!this.files.has(id)) return rejected("not_found", `no file ${id}`);
 		if (op.change) {
 			const problem = this.change(id, op.change);
 			if (problem) return problem;
@@ -39,6 +41,14 @@ export class FakeFiles {
 		};
 	}
 
+	/** A name makes a new file beside the listed one, named from then on. */
+	private fileId(op: ConfigFileOp): string {
+		if (op.name === undefined) return op.fileId;
+		const id = `${op.fileId}/${op.name}`;
+		if (!this.files.has(id)) this.files.set(id, undefined);
+		return id;
+	}
+
 	private toolId(op: CustomToolOp): string {
 		if (op.toolId !== undefined) return op.toolId;
 		this.newTools += 1;
@@ -48,7 +58,7 @@ export class FakeFiles {
 	}
 
 	private change(id: string, change: EditableFileChange): BackendCallResult | undefined {
-		if (change.revision !== (this.stored(id)?.revision ?? ABSENT)) {
+		if (change.revision !== (this.files.get(id)?.revision ?? ABSENT)) {
 			return rejected("stale", `${id} changed since revision ${change.revision}`);
 		}
 		if (change.kind === "delete") {
@@ -65,13 +75,8 @@ export class FakeFiles {
 		return undefined;
 	}
 
-	private stored(id: string): Stored | undefined {
-		if (!this.files.has(id)) this.files.set(id, { text: STARTING_TEXT, revision: "fake-0" });
-		return this.files.get(id);
-	}
-
 	private file(id: string): EditableFile {
-		const stored = this.stored(id);
+		const stored = this.files.get(id);
 		return {
 			id,
 			path: `/fake/files/${id}.json`,
