@@ -28,7 +28,9 @@ export function elicitationAsk(request: ElicitationRequest): ElicitationAsk {
 	const server = plain(request.serverName, MAX_NAME_CHARS);
 	const message = plain(request.message, MAX_TEXT_CHARS);
 	const title = nameOr(plain(request.title ?? "", MAX_NAME_CHARS), nameOr(message, `${server} asks for input`));
-	const shown = shownAsk(request, server, title, message);
+	const subtitle = plain(request.description ?? "", MAX_TEXT_CHARS).trim();
+	const body = clip([subtitle, message].filter((part) => part !== "").join("\n\n"), MAX_TEXT_CHARS);
+	const shown = shownAsk(request, server, title, body);
 	return shown !== undefined && isValidAsk(shown) ? shown : unrenderable(request, server, title, message);
 }
 
@@ -36,11 +38,11 @@ function shownAsk(
 	request: ElicitationRequest,
 	server: string,
 	title: string,
-	message: string,
+	body: string,
 ): ElicitationAsk | undefined {
 	try {
 		const asked = request.mode === "url" ? linkAsk(request, server) : formAsk(request, server);
-		return asked && { title, ...(message !== "" && { body: message }), ...asked };
+		return asked && { title, ...(body !== "" && { body }), ...asked };
 	} catch (error) {
 		reportAskProblem("elicitation request", error);
 		return undefined;

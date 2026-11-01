@@ -1,7 +1,7 @@
 /** Tool permissions and AskUserQuestion through the desk against the real CLI (what the recorded frames and spikes show). */
 
 import { describe, expect, test } from "bun:test";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { ScriptedTurn } from "../../helpers/scripted-anthropic-server";
@@ -68,6 +68,28 @@ describe("a Write permission through the real CLI", () => {
 				expect(existsSync(join(run.home.projectDir, "notes.txt"))).toBe(true);
 				expect(permissionModes(run.spike.messages).at(-1)).toBe("acceptEdits");
 				expect(run.rig.resolved()).toEqual([{ interactionId: interaction.id, reason: "answered" }]);
+			});
+		},
+		CLI_MS,
+	);
+
+	test(
+		"always allow sends the CLI's own suggestion back and the CLI writes that rule to the project's local settings",
+		async () => {
+			const turns: ScriptedTurn[] = [
+				{ toolCalls: [{ name: "Bash", args: { command: "echo hi > out.txt", description: "Say hi" } }] },
+				{ text: ["Done."] },
+			];
+			await withRealCli({ permissionMode: "default", turns }, async (run) => {
+				const turn = finishTurn(run, "say hi");
+				const interaction = await run.rig.requestedAt(0);
+				if (interaction.request.kind !== "tool_permission") throw new Error("not a permission");
+				const always = interaction.request.options.find((option) => option.scope === "always");
+				expect(always).toMatchObject({ id: "allow_always_local", rule: "Bash(echo hi *)" });
+				run.rig.answer(interaction, { kind: "tool_permission", optionId: always?.id ?? "none", grantIds: [] });
+				expect((await turn).subtype).toBe("success");
+				const settings = readFileSync(join(run.home.projectDir, ".claude", "settings.local.json"), "utf8");
+				expect(JSON.parse(settings).permissions.allow).toContain("Bash(echo hi *)");
 			});
 		},
 		CLI_MS,

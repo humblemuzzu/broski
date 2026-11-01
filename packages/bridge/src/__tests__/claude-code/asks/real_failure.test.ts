@@ -10,7 +10,7 @@ import { interruptQuery } from "../../../backends/claude-code/sdk/interrupt";
 import type { ScriptedTurn } from "../../helpers/scripted-anthropic-server";
 import { expectNoOrphans } from "../spike/rig/orphans";
 import { captureProblems, DeskRig, throwingLive } from "./desk-rig";
-import { finishTurn, toolResults, withRealCli } from "./rig/real-run";
+import { finishTurn, type RealRun, toolResults, withRealCli } from "./rig/real-run";
 
 expectNoOrphans();
 
@@ -19,6 +19,15 @@ const WRITE: ScriptedTurn[] = [
 	{ toolCalls: [{ name: "Write", args: { file_path: "notes.txt", content: "hi\n" } }] },
 	{ text: ["Done."] },
 ];
+
+/** The CLI reports `requires_action`: it is stopped on the ask, so what follows is not a race with its start-up. */
+function blockedOnAnAsk(run: RealRun) {
+	return run.spike.waitFor(
+		(message) =>
+			message.type === "system" && message.subtype === "session_state_changed" && message.state === "requires_action",
+		{ timeoutMs: 25_000 },
+	);
+}
 
 describe("a desk that fails while the real CLI waits for it", () => {
 	test(
@@ -29,10 +38,10 @@ describe("a desk that fails while the real CLI waits for it", () => {
 			const rig = new DeskRig({ live: throwingLive(base, ["interaction_requested"]) });
 			await withRealCli({ permissionMode: "default", turns: WRITE, rig }, async (run) => {
 				const turn = finishTurn(run, "write it");
-				for (let waited = 0; base.pending().length === 0 && waited < 4_000; waited += 10) await Bun.sleep(10);
+				await base.requestedAt(0);
+				await blockedOnAnAsk(run);
 				const [interaction] = base.pending();
 				if (!interaction) throw new Error("the ask never reached the snapshot");
-				await Bun.sleep(300);
 				expect(run.spike.messages.some((message) => message.type === "result")).toBe(false);
 				expect(existsSync(join(run.home.projectDir, "notes.txt"))).toBe(false);
 				expect(
@@ -61,7 +70,8 @@ describe("a desk that fails while the real CLI waits for it", () => {
 			});
 			await withRealCli({ permissionMode: "default", turns: WRITE, rig }, async (run) => {
 				const turn = finishTurn(run, "write it");
-				await Bun.sleep(1_500);
+				await blockedOnAnAsk(run);
+				await Bun.sleep(500);
 				expect(run.spike.messages.some((message) => message.type === "result")).toBe(false);
 				expect(toolResults(run.spike.messages)).not.toContain("Tool permission request failed");
 				expect(existsSync(join(run.home.projectDir, "notes.txt"))).toBe(false);

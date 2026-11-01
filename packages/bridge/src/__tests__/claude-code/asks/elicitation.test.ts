@@ -167,6 +167,23 @@ describe("a form elicitation", () => {
 	});
 });
 
+describe("an elicitation's own wording", () => {
+	test("takes the title, and shows the subtitle above the message with control characters removed", () => {
+		const rig = new DeskRig();
+		rig.elicit(
+			form(
+				{ type: "object", properties: { a: { type: "string" } } },
+				{
+					title: "\u001b[1mConnect\u001b[0m",
+					description: "Needs access to \u202eyour files",
+					message: "Pick a name",
+				},
+			),
+		);
+		expect(rig.only()).toMatchObject({ title: "Connect", body: "Needs access to your files\n\nPick a name" });
+	});
+});
+
 describe("an empty-schema elicitation", () => {
 	test.each([
 		["no schema", undefined],
