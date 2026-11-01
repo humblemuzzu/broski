@@ -54,6 +54,8 @@ class Registry implements LiveSessions, LiveOverlay {
 	private readonly hosts = new Map<SessionId, SessionHost>();
 	private readonly transients = new Set<HostProcess>();
 	private readonly locks = new KeyedLock();
+	/** Hosts that ended but whose process may still write the file (D122), by session id. */
+	private readonly ending = new Map<SessionId, SessionHost>();
 	private disposing: Promise<void> | undefined;
 
 	private readonly hooks: HostHooks = {
@@ -63,7 +65,12 @@ class Registry implements LiveSessions, LiveOverlay {
 			});
 		},
 		forget: (host) => {
-			if (this.hosts.get(host.sessionId) === host) this.hosts.delete(host.sessionId);
+			if (this.hosts.get(host.sessionId) !== host) return;
+			this.hosts.delete(host.sessionId);
+			this.ending.set(host.sessionId, host);
+		},
+		released: (host) => {
+			if (this.ending.get(host.sessionId) === host) this.ending.delete(host.sessionId);
 		},
 		renamed: (host, previous) => {
 			if (this.hosts.get(previous) === host) this.hosts.delete(previous);
@@ -81,7 +88,7 @@ class Registry implements LiveSessions, LiveOverlay {
 
 	isHosted(sessionId: SessionId): boolean {
 		const host = this.hosts.get(sessionId);
-		return host !== undefined && !host.ended;
+		return (host !== undefined && !host.ended) || this.ending.has(sessionId);
 	}
 
 	open(target: OpenTarget, sink: SessionSink): Promise<OpenResult> {

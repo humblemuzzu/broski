@@ -52,6 +52,7 @@ export interface LiveSessions extends LiveOverlay {
 	open(target: OpenTarget, sink: SessionSink): Promise<OpenResult>;
 	/** Watch-only; its parent's host forwards the child's live work while it runs it (D20). */
 	openChild(ref: SessionRef, child: ChildPart, sink: SessionSink): Promise<OpenResult>;
+	/** A host runs the session, or one that ended has not yet noted its own last write (D122). */
 	isHosted(sessionId: SessionId): boolean;
 	/** `work(undefined)` when the session exists but nobody hosts it; `not_found` when it does not exist. */
 	withLiveHost<T>(sessionId: SessionId, work: (host: HostView | undefined) => Promise<T>): Promise<T | Rejected>;

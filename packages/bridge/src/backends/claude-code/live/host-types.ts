@@ -21,6 +21,8 @@ export interface HostHooks {
 	idle(host: SessionHost): void;
 	/** The host ended: the registry forgets it. */
 	forget(host: SessionHost): void;
+	/** The host's process is gone and its own last write noted (D122): it no longer counts as hosted. */
+	released(host: SessionHost): void;
 	/** The conversation went on under a new session id (`/clear`). */
 	renamed(host: SessionHost, previous: SessionId): void;
 }
