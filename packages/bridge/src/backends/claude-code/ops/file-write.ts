@@ -5,25 +5,13 @@ import { randomBytes } from "node:crypto";
 import { link, mkdir, open, rename, stat, unlink } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { ABSENT_REVISION, readFileState } from "./file-state";
+import { serialized } from "./serialized";
 
 export type WriteOutcome =
 	| { readonly ok: true }
 	| { readonly ok: false; readonly reason: "stale" | "failed"; readonly message: string };
 
 const STALE: WriteOutcome = { ok: false, reason: "stale", message: "the file changed since it was read" };
-
-const queues = new Map<string, Promise<unknown>>();
-
-/** Runs `work` after every earlier job on the same path, so two writes from this bridge never interleave. */
-function serialized<T>(path: string, work: () => Promise<T>): Promise<T> {
-	const turn = (queues.get(path) ?? Promise.resolve()).then(work, work);
-	const tail = turn.catch(() => undefined);
-	queues.set(path, tail);
-	void tail.then(() => {
-		if (queues.get(path) === tail) queues.delete(path);
-	});
-	return turn;
-}
 
 function failed(error: unknown): WriteOutcome {
 	return { ok: false, reason: "failed", message: error instanceof Error ? error.message : String(error) };
