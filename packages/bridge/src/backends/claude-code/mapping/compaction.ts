@@ -2,6 +2,7 @@
 
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { CompactionOutcome, CompactionTrigger } from "../../../contract";
+import { isRecord } from "../json";
 import type { MappedEvent } from "../ports/mapping";
 import type { MapperState } from "./state";
 
@@ -17,8 +18,8 @@ function finished(outcome: CompactionOutcome): MappedEvent {
 	return { event: { type: "compaction_finished", outcome } };
 }
 
-function tokens(value: number | undefined): number | undefined {
-	return value !== undefined && Number.isFinite(value) && value >= 0 ? Math.round(value) : undefined;
+function tokens(value: unknown): number | undefined {
+	return typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.round(value) : undefined;
 }
 
 /**
@@ -45,7 +46,7 @@ function statusEvents(state: MapperState, frame: System<"status">): MappedEvent[
 		return [
 			finished({
 				kind: "failed",
-				message: frame.compact_error?.trim() || FAILED_COMPACTION,
+				message: (typeof frame.compact_error === "string" && frame.compact_error.trim()) || FAILED_COMPACTION,
 			}),
 		];
 	}
@@ -55,7 +56,8 @@ function statusEvents(state: MapperState, frame: System<"status">): MappedEvent[
 
 /** The boundary carries the sizes and the real trigger; it also stands alone when no `status` announced the compaction. */
 function boundaryEvents(state: MapperState, frame: System<"compact_boundary">): MappedEvent[] {
-	const meta = frame.compact_metadata;
+	const said: unknown = frame.compact_metadata;
+	const meta = isRecord(said) ? said : {};
 	const trigger = meta.trigger === "manual" || meta.trigger === "auto" ? meta.trigger : triggerOf(state);
 	const events = state.compaction === "none" ? [started(trigger)] : [];
 	state.compaction = "none";

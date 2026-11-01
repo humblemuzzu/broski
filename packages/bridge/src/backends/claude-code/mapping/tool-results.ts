@@ -59,15 +59,12 @@ export function toolResultOf(
 function failedResult(parts: readonly ToolContent[]): ToolResultMapping {
 	const text = textOf(parts);
 	const outcome = failureOutcome(text);
-	const shown = outcome === "aborted" ? "" : text;
 	return {
 		outcome,
 		result: {
 			content: parts.filter((part) => part.kind === "image_ref"),
 			fileChanges: [],
-			...(outcome !== "aborted" && {
-				error: clip(shown === "" ? FAILED_WITHOUT_TEXT : shown, MAX_TEXT_CHARS),
-			}),
+			...(outcome !== "aborted" && { error: clip(text === "" ? FAILED_WITHOUT_TEXT : text, MAX_TEXT_CHARS) }),
 		},
 	};
 }

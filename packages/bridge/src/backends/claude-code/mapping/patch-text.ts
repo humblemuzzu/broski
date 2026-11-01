@@ -91,14 +91,22 @@ export function diffOfGitPatch(path: string, patch: unknown, counts: unknown): D
 	};
 }
 
-/** A file written whole: every line added. */
+function lineCount(text: string): number {
+	let lines = 0;
+	for (let at = text.indexOf("\n"); at !== -1; at = text.indexOf("\n", at + 1)) lines += 1;
+	return text.endsWith("\n") ? lines : lines + 1;
+}
+
+/** A file written whole: every line added. Only the diff's first `MAX_TEXT_CHARS` are built, the count is of all of it. */
 export function diffOfNewFile(path: string, content: string): DiffText | undefined {
 	if (content === "") return undefined;
-	const lines = content.endsWith("\n") ? content.slice(0, -1).split("\n") : content.split("\n");
+	const total = lineCount(content);
+	const head = content.length > MAX_TEXT_CHARS ? content.slice(0, MAX_TEXT_CHARS) : content;
+	const lines = head.endsWith("\n") ? head.slice(0, -1).split("\n") : head.split("\n");
 	const body = lines.map((line) => `+${line}`);
 	return {
-		diff: clip([header(NO_PATH, path), `@@ -0,0 +1,${lines.length} @@`, ...body].join("\n"), MAX_TEXT_CHARS),
-		additions: lines.length,
+		diff: clip([header(NO_PATH, path), `@@ -0,0 +1,${total} @@`, ...body].join("\n"), MAX_TEXT_CHARS),
+		additions: total,
 		deletions: 0,
 	};
 }

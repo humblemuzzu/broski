@@ -94,6 +94,18 @@ describe("turnOutcome by terminal_reason first", () => {
 		});
 	});
 
+	test("a result of a shape nobody expects still has an outcome, and never throws", () => {
+		const odd = [{ result: 7 }, { result: null }, { errors: "text" }, { errors: [1, "two", null] }, { errors: null }];
+		const wire = (base: SDKResultMessage, extra: object): SDKResultMessage =>
+			JSON.parse(JSON.stringify({ ...base, ...extra }));
+		for (const extra of odd) {
+			expect(() => turnOutcome(wire(failure({ terminal_reason: "api_error" }), extra))).not.toThrow();
+			expect(() => turnOutcome(wire(success({ is_error: true, terminal_reason: undefined }), extra))).not.toThrow();
+		}
+		const said = turnOutcome(wire(failure({ terminal_reason: "api_error" }), { errors: [1, "two", null] }));
+		expect(said).toEqual({ kind: "error", error: { code: "server", message: "two" } });
+	});
+
 	test("an error with no text says what ended it", () => {
 		const mapped = outcome(failure({ terminal_reason: "prompt_too_long", errors: [] }));
 		expect(mapped).toEqual({

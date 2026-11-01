@@ -61,9 +61,11 @@ function codeOfStatus(status: number | null | undefined, fallback: ErrorCode): E
 	return fallback;
 }
 
+/** The text that says what went wrong: a success's `result`, an error's `errors`. */
 function messageOf(result: SDKResultMessage, fallback: string): string {
-	const text = result.subtype === "success" ? result.result : result.errors.join("\n");
-	const clean = phoneText(text).trim();
+	const said: unknown = result.subtype === "success" ? result.result : result.errors;
+	const text = Array.isArray(said) ? said.filter((line) => typeof line === "string").join("\n") : said;
+	const clean = typeof text === "string" ? phoneText(text).trim() : "";
 	return clip(clean === "" ? fallback : clean, MAX_TEXT_CHARS);
 }
 

@@ -127,6 +127,12 @@ describe("the tool's own output, where it says more than the model's text", () =
 		const { result } = resultOf(block([image]), { stdout: "ignored", stderr: "" }, "Bash");
 		expect(result.content.map((part) => part.kind)).toEqual(["image_ref"]);
 	});
+
+	test("a command that printed an image shows the image block, not its bytes as text", () => {
+		const bytes = "iVBORw0KGgo".repeat(1000);
+		const { result } = resultOf(block("(image)"), { stdout: bytes, stderr: "", isImage: true }, "Bash");
+		expect(result.content).toEqual([{ kind: "text", text: "(image)" }]);
+	});
 });
 
 describe("a result the CLI marked is_error", () => {
@@ -222,6 +228,18 @@ describe("file changes", () => {
 			additions: 3,
 			deletions: 1,
 		});
+	});
+
+	test("a new file larger than a diff can hold is counted whole and shown from its start", () => {
+		const content = `${"a line\n".repeat(400_000)}`;
+		const [change] = resultOf(
+			block("created"),
+			{ type: "create", filePath: "/p/big.txt", content, structuredPatch: [] },
+			"Write",
+		).result.fileChanges;
+		expect(change?.additions).toBe(400_000);
+		expect(change?.diff?.startsWith("--- /dev/null\n+++ /p/big.txt\n@@ -0,0 +1,400000 @@\n+a line")).toBe(true);
+		expect(change?.diff?.length).toBeLessThanOrEqual(MAX_TEXT_CHARS);
 	});
 
 	test("a write held for review changed nothing", () => {

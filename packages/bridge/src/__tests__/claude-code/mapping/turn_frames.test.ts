@@ -11,6 +11,7 @@ import {
 	success,
 	text,
 	textDelta,
+	toolResult,
 	toolUse,
 	userText,
 } from "./frames";
@@ -187,8 +188,7 @@ describe("progress", () => {
 	test("a heartbeat, a call that is not running, and one that ended say nothing", () => {
 		expect(updates([call, progress(3, { heartbeat: true })])).toEqual([]);
 		expect(updates([progress(3)])).toEqual([]);
-		const done = { ...call };
-		expect(ofType(events([done, progress(1)]), "tool_finished")).toHaveLength(1);
+		expect(updates([call, toolResult("toolu_1", "out"), progress(5)])).toEqual([]);
 	});
 
 	test("a task's summary is the progress of the call that started it", () => {

@@ -62,7 +62,9 @@ export function contentParts(content: unknown, entryUuid: string, blockIndex: nu
 		.slice(0, MAX_LIST_ITEMS);
 }
 
+/** A command that printed an image has its bytes in `stdout`; the result's image block shows it, so text would be noise. */
 function shellText(output: Record<string, unknown>): string | undefined {
+	if (output.isImage === true) return undefined;
 	const stdout = typeof output.stdout === "string" ? output.stdout : "";
 	const stderr = typeof output.stderr === "string" ? output.stderr : "";
 	if (typeof output.stdout !== "string" && typeof output.stderr !== "string") return undefined;
