@@ -59,7 +59,10 @@ async function sessionsPage(
 ): Promise<SessionsListResult> {
 	const root = ctx.deps.services.sdk.configRoot();
 	const wanted = query.cwd === undefined ? undefined : await wantedCwds(query.cwd);
-	const everything = await enumerateSessions(root, await projectDirNames(root));
+	const dirs = (await projectDirNames(root)).filter(
+		(dir) => wanted === undefined || ctx.dirs.scopeOf(dir, wanted) !== "out",
+	);
+	const everything = await enumerateSessions(root, dirs);
 	const { after } = spec;
 	const ahead = after === undefined ? everything : everything.filter((candidate) => isAfter(candidate, after));
 	const items: SessionSummary[] = [];

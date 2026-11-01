@@ -20,6 +20,8 @@ import { locateSession } from "./info";
 import { type ListPosition, listCursor } from "./list-cursor";
 import { readSubagentMeta, type SubagentFile, type SubagentMeta, scanSubagents, subagentsDir } from "./subagent-files";
 
+const META_BATCH = 32;
+
 export interface ChildLocation {
 	readonly parent: StoredSession;
 	readonly file: SubagentFile;
@@ -141,9 +143,13 @@ export async function childLinks(ctx: StoreContext, parent: StoredSession): Prom
 	const entries = await childEntries(ctx, parent);
 	const links = new Map<string, SessionId>();
 	if (isRejected(entries)) return links;
-	for (const entry of entries) {
-		const { toolUseId } = await readSubagentMeta(entry.file);
-		if (toolUseId !== undefined) links.set(toolUseId, entry.ref);
+	for (let from = 0; from < entries.length; from += META_BATCH) {
+		const batch = entries.slice(from, from + META_BATCH);
+		const metas = await Promise.all(batch.map((entry) => readSubagentMeta(entry.file)));
+		metas.forEach((meta, at) => {
+			const entry = batch[at];
+			if (entry !== undefined && meta.toolUseId !== undefined) links.set(meta.toolUseId, entry.ref);
+		});
 	}
 	return links;
 }

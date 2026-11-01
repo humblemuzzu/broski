@@ -14,7 +14,7 @@ import { clip } from "../bounds";
 import { parseChildRef } from "../ids";
 import type { LiveOverlay } from "../ports/store";
 import { ACCEPTED, isRejected, rejected } from "../rejections";
-import { positionOfItem } from "./chain-lookup";
+import { finishedEnd, positionOfItem } from "./chain-lookup";
 import { openChain } from "./chain-reader";
 import { sourceOf } from "./chain-sources";
 import type { StoreContext } from "./context";
@@ -86,12 +86,7 @@ async function forkEnd(
 	const position = at.position === "through" ? (answered ?? found) : found - 1;
 	const uuid = index.uuids[position];
 	if (uuid === undefined) return rejected("invalid_input", "nothing comes before the first item");
-	const limit =
-		cut === undefined
-			? index.count
-			: cut.lastUuidBefore === null
-				? 0
-				: (index.positions.get(cut.lastUuidBefore) ?? -1) + 1;
+	const limit = finishedEnd(index, cut?.lastUuidBefore);
 	return position < limit ? { uuid } : rejected("invalid_input", "the item belongs to the run in progress");
 }
 
@@ -100,9 +95,10 @@ export async function removeStored(ctx: StoreContext, sessionId: SessionId): Pro
 	const located = await locateSession(ctx, sessionId);
 	if (isRejected(located)) return located;
 	const directory = join(dirname(located.path), sessionId);
-	const paths = (await isDirectory(directory)) ? [located.path, directory] : [located.path];
-	const moved = await moveToTrash(paths, trashTargetOf(ctx.deps.services));
+	const target = trashTargetOf(ctx.deps.services);
+	const moved = await moveToTrash([located.path], target);
 	if (isRejected(moved)) return moved;
+	if (await isDirectory(directory)) await moveToTrash([directory], target);
 	ctx.index.drop(sessionId);
 	ctx.locator.forget(sessionId);
 	ctx.deps.catalog.emit({

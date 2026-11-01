@@ -62,10 +62,12 @@ describe("listing", () => {
 			(d) => `${d.repeat(8)}-${d.repeat(4)}-4${d.repeat(3)}-8${d.repeat(3)}-${d.repeat(12)}`,
 		);
 		for (const id of ids) seed(cwd, "tie", tied, id);
-		const sdkOrder = (await world.sdk.listSessions({ dir: cwd, includeWorktrees: false })).map((row) => row.sessionId);
+		const sdkRows = await world.sdk.listSessions({ dir: cwd, includeWorktrees: false });
+		const sdkOrder = sdkRows.map((row) => row.sessionId);
 		for (const limit of [1, 2, 3, 200]) {
-			const ours = (await everyPage({ cwd, archived: false }, limit)).map((row) => row.session.sessionId);
-			expect(ours).toEqual(sdkOrder);
+			const rows = await everyPage({ cwd, archived: false }, limit);
+			expect(rows.map((row) => row.session.sessionId)).toEqual(sdkOrder);
+			expect(rows.map((row) => row.updatedAt)).toEqual(sdkRows.map((row) => row.lastModified));
 		}
 		expect(sdkOrder[0]).toBe(ids[4]);
 	});

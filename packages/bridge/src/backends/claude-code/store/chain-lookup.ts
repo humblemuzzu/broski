@@ -34,6 +34,15 @@ export async function entryOf(
 	return { uuid, type };
 }
 
+/**
+ * How many entries of the chain belong to finished runs: all of them without a cut; with one, up to and including
+ * the entry `cutAt` names; none for a null cut, and none when the chain has lost that entry (a compaction removed it).
+ */
+export function finishedEnd(index: IndexEntry, cutAt: string | null | undefined): number {
+	if (cutAt === undefined) return index.count;
+	return cutAt === null ? 0 : (index.positions.get(cutAt) ?? -1) + 1;
+}
+
 /** The chain position of the entry that holds `itemId`: a user entry, a block, a tool call or its result. */
 export function positionOfItem(index: IndexEntry, itemId: TranscriptItemId): number | undefined {
 	const direct = index.positions.get(itemId);

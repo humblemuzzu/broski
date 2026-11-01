@@ -1,9 +1,10 @@
 /** Lane A · a newest-first transcript page (D18), ending before an active run (`LiveRow.cut`). */
 
 import type { SessionMessage } from "@anthropic-ai/claude-agent-sdk";
-import type { PageRequest, SessionId, TranscriptItem, TranscriptReadResult } from "../../../contract";
+import type { PageRequest, Rejected, SessionId, TranscriptItem, TranscriptReadResult } from "../../../contract";
 import type { LiveOverlay, StoredSession } from "../ports/store";
 import { isRejected, rejected } from "../rejections";
+import { finishedEnd } from "./chain-lookup";
 import { type ChainSnapshot, openChain } from "./chain-reader";
 import { sourceOf } from "./chain-sources";
 import { childLinks } from "./children";
@@ -63,7 +64,7 @@ function startOf(
 	resume: TranscriptPosition | undefined,
 ): Start | "stale" {
 	const { index } = snapshot;
-	const cut = cutAt === undefined ? index.count : cutAt === null ? 0 : (index.positions.get(cutAt) ?? -1) + 1;
+	const cut = finishedEnd(index, cutAt);
 	if (resume === undefined) return { position: cut - 1, items: undefined };
 	const at = index.positions.get(resume.uuid);
 	if (at === undefined) return "stale";
@@ -82,12 +83,7 @@ interface Walk {
 	readonly owner: StoredSession | undefined;
 }
 
-async function walk(
-	ctx: StoreContext,
-	job: Walk,
-	start: Start,
-	limit: number,
-): Promise<Walked | ReturnType<typeof rejected>> {
+async function walk(ctx: StoreContext, job: Walk, start: Start, limit: number): Promise<Walked | Rejected> {
 	const { index } = job.snapshot;
 	const items: TranscriptItem[] = [];
 	let links: Map<string, SessionId> | undefined;
