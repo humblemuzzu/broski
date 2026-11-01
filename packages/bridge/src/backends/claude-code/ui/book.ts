@@ -36,8 +36,13 @@ export class AskBook<R> {
 		if (prior) return Promise.resolve(prior.result);
 		if (spec.signal.aborted) return Promise.resolve(spec.ended);
 		const { promise, resolve } = Promise.withResolvers<R>();
-		this.raise(spec, resolve);
 		this.open.set(spec.requestId, promise);
+		try {
+			this.raise(spec, resolve);
+		} catch (error) {
+			this.open.delete(spec.requestId);
+			throw error;
+		}
 		return promise;
 	}
 

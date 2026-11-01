@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { SessionEmitter } from "../../../backends/claude-code/ports/live";
 import type { ToolPermissionReply } from "../../../contract";
 import { captureProblems, DeskRig, stillPending } from "./desk-rig";
 
@@ -127,6 +128,28 @@ describe("a redelivered request id", () => {
 		const again = rig.tool("Bash", BASH, { requestId: "r-1" });
 		expect(await again.promise).toEqual(denied);
 		expect(rig.requested()).toHaveLength(1);
+	});
+
+	test("after an answer given while the ask was still being raised is replayed too", async () => {
+		const base = new DeskRig();
+		let target: DeskRig | undefined;
+		const live: SessionEmitter = {
+			snapshot: () => base.live.snapshot(),
+			emit: (event) => {
+				base.live.emit(event);
+				if (event.type === "interaction_requested") {
+					target?.desk.answer({ interactionId: event.interaction.id, reply: ALLOW });
+				}
+			},
+		};
+		target = new DeskRig({ live });
+		const first = target.tool("Bash", BASH, { requestId: "r-1" });
+		const answer = await first.promise;
+		expect(answer).toMatchObject({ behavior: "allow" });
+		const again = target.tool("Bash", BASH, { requestId: "r-1" });
+		expect(await again.promise).toEqual(answer);
+		expect(base.requested()).toHaveLength(1);
+		expect(base.pending()).toEqual([]);
 	});
 
 	test("after the CLI withdrew it is a new ask", async () => {
