@@ -3,14 +3,15 @@
  * settings, its tools and its system prompt. Each is one `backend.call` op that reads when it carries no
  * change and changes then answers with what the session now has. The results are plain data (a list of
  * switches and choices, a list of tools, a page of text), so a screen renders them by shape.
- *
- * The `kind` literals are those of `BackendOpKind` in `backend-ops.ts`, which imports this file.
  */
 
 import { z } from "zod";
 import { SessionId } from "./ids";
 import { MAX_ID_CHARS, MAX_LIST_ITEMS, MAX_NAME_CHARS, MAX_TEXT_CHARS } from "./limits";
 import { Option } from "./option";
+
+/** The op kinds that read and change a session's settings, tools and system prompt (since 1.3, `ADDED_IN_MINOR.sessionControls`). */
+export const SESSION_CONTROL_OP_KINDS = ["session_settings", "session_tools", "system_prompt"] as const;
 
 export const SettingKey = z.string().min(1).max(MAX_ID_CHARS);
 export type SettingKey = z.infer<typeof SettingKey>;

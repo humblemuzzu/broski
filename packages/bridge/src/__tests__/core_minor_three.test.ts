@@ -5,11 +5,11 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { type AgentBackend, SessionCapabilities } from "../contract";
+import { type AgentBackend, SESSION_CONTROL_OP_KINDS, SessionCapabilities } from "../contract";
 import { quiesce, RIG_CWD, startCoreRig } from "./helpers/core-rig";
 
 const MINOR_TWO = { major: 1, minor: 2 } as const;
-const NEW_OPS = ["session_settings", "session_tools", "system_prompt"] as const;
+const NEW_OPS = SESSION_CONTROL_OP_KINDS;
 
 const withoutCancels = (backend: AgentBackend): AgentBackend => ({
 	...backend,

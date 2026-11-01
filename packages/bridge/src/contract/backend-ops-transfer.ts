@@ -4,8 +4,11 @@ import { MAX_ID_CHARS, MAX_NAME_CHARS, MAX_TRANSFER_PART_CHARS } from "./limits"
 
 /**
  * Pi: session files moving between the Mac and the phone, in parts of `MAX_TRANSFER_PART_BYTES` so every frame fits the
- * link. The kinds are spelled out, not taken from `BackendOpKind`, because `backend-ops.ts` imports this file.
+ * link.
  */
+
+/** The op kinds that move a session file (since 1.3, `ADDED_IN_MINOR.sessionFiles`). */
+export const TRANSFER_OP_KINDS = ["export_session", "export_part", "import_session"] as const;
 
 export const SessionExportFormat = z.enum(["html", "jsonl"]);
 export type SessionExportFormat = z.infer<typeof SessionExportFormat>;

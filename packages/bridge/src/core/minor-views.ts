@@ -14,8 +14,15 @@ import type { EncodedFrame } from "./frame";
 import type { CoreLog } from "./ports";
 import { fitEvent } from "./wire-fit";
 
-/** The minor that added each op that was not in 1.0 (the others are absent). */
-const OP_ADDED_IN: Readonly<Partial<Record<BackendOpKind, number>>> = {
+/** The minor that added each op: 0 for those of 1.0, so a new op the table misses does not compile. */
+const OP_ADDED_IN: Readonly<Record<BackendOpKind, number>> = {
+	rewind_files: 0,
+	review_start: 0,
+	revert: 0,
+	revert_stage: 0,
+	revert_clear: 0,
+	revert_commit: 0,
+	navigate_tree: 0,
 	take_over: ADDED_IN_MINOR.takeOver,
 	session_settings: ADDED_IN_MINOR.sessionControls,
 	session_tools: ADDED_IN_MINOR.sessionControls,
@@ -33,7 +40,7 @@ const OP_ADDED_IN: Readonly<Partial<Record<BackendOpKind, number>>> = {
 
 /** The descriptor as `client` may know it: without the ops a later minor added. */
 export function descriptorFor(client: CoreClient, descriptor: BackendDescriptor): BackendDescriptor {
-	const backendOps = descriptor.capabilities.backendOps.filter((op) => client.speaks(OP_ADDED_IN[op] ?? 0));
+	const backendOps = descriptor.capabilities.backendOps.filter((op) => client.speaks(OP_ADDED_IN[op]));
 	if (backendOps.length === descriptor.capabilities.backendOps.length) return descriptor;
 	return { ...descriptor, capabilities: { ...descriptor.capabilities, backendOps } };
 }

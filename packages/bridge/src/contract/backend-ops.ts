@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { ChangedFilesListed, ChangedFilesOp, ModelsRefreshed, RefreshModelsOp } from "./backend-ops-reads";
+import {
+	ChangedFilesListed,
+	ChangedFilesOp,
+	ModelsRefreshed,
+	READ_OP_KINDS,
+	RefreshModelsOp,
+} from "./backend-ops-reads";
 import {
 	ExportPartOp,
 	ExportPartRead,
@@ -7,12 +13,14 @@ import {
 	ImportSessionOp,
 	SessionExported,
 	SessionImported,
+	TRANSFER_OP_KINDS,
 } from "./backend-ops-transfer";
 import { FileChange } from "./content";
 import { SessionId, TranscriptItemId } from "./ids";
 import { MAX_ID_CHARS, MAX_LIST_ITEMS, MAX_NAME_CHARS, MAX_PATH_CHARS, MAX_TEXT_CHARS } from "./limits";
 import { Rejected } from "./rejection";
 import {
+	SESSION_CONTROL_OP_KINDS,
 	SessionSettingsOp,
 	SessionSettingsResult,
 	SessionToolsOp,
@@ -40,14 +48,9 @@ export const BackendOpKind = z.enum([
 	"revert_commit",
 	"navigate_tree",
 	"take_over",
-	"session_settings",
-	"session_tools",
-	"system_prompt",
-	"export_session",
-	"export_part",
-	"import_session",
-	"changed_files",
-	"refresh_models",
+	...SESSION_CONTROL_OP_KINDS,
+	...TRANSFER_OP_KINDS,
+	...READ_OP_KINDS,
 	...TREE_OP_KINDS,
 	...SHELL_OP_KINDS,
 ]);

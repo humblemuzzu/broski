@@ -3,7 +3,8 @@ import { FileChange } from "./content";
 import { SessionId } from "./ids";
 import { MAX_LIST_ITEMS, MAX_TEXT_CHARS } from "./limits";
 
-/** Pi: reads of what a session did and of the models it can use. The kinds are spelled out because `backend-ops.ts` imports this file. */
+/** The op kinds that read what a session did and the models it can use (since 1.3, `ADDED_IN_MINOR.sessionFiles` and `modelAvailability`). */
+export const READ_OP_KINDS = ["changed_files", "refresh_models"] as const;
 
 /** The files the session's tool calls changed, each once, with the lines added and removed across all its edits. */
 export const ChangedFilesOp = z.strictObject({

@@ -1,16 +1,25 @@
 /**
- * What protocol 1.3 added, as the core sends it: the ops that move and read a session's files and refresh models, and
- * the models a backend knows but cannot use now. A client of an older minor is not told the ops exist and is never
+ * What protocol 1.3 added, as the core sends it: the ops that move and read a session's files, refresh models, read
+ * and edit the tree and run a shell command, and the models a backend knows but cannot use now. A client of an older minor is not told the ops exist and is never
  * handed the unavailable models, even when its request asks for them.
  */
 
 import { describe, expect, test } from "bun:test";
-import type { AgentBackend, ModelListOptions, ModelSummary, ModelsListResult } from "../contract";
+import {
+	type AgentBackend,
+	type ModelListOptions,
+	type ModelSummary,
+	type ModelsListResult,
+	READ_OP_KINDS,
+	SHELL_OP_KINDS,
+	TRANSFER_OP_KINDS,
+	TREE_OP_KINDS,
+} from "../contract";
 import { quiesce, startCoreRig } from "./helpers/core-rig";
 
 const MINOR_TWO = { major: 1, minor: 2 } as const;
 
-const THREE_OPS = ["export_session", "export_part", "import_session", "changed_files", "refresh_models"] as const;
+const THREE_OPS = [...TRANSFER_OP_KINDS, ...READ_OP_KINDS, ...TREE_OP_KINDS, ...SHELL_OP_KINDS] as const;
 
 const UNUSABLE: ModelSummary = {
 	id: "missing/key-model",

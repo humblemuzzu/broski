@@ -253,8 +253,23 @@ export const SESSION_MUTANTS: Mutant[] = [
 	...mutantsOf("core/minor-views.ts", [
 		{
 			name: "minor views: an older client is offered the op it cannot send",
-			find: "filter((op) => client.speaks(OP_ADDED_IN[op] ?? 0));",
+			find: "filter((op) => client.speaks(OP_ADDED_IN[op]));",
 			replace: "filter(() => true);",
+		},
+		{
+			name: "minor views: an older client is offered a tree op",
+			find: "read_tree: ADDED_IN_MINOR.treeOps,",
+			replace: "read_tree: 0,",
+		},
+		{
+			name: "minor views: an older client is offered the shell op",
+			find: "run_shell: ADDED_IN_MINOR.shellOps,",
+			replace: "run_shell: 0,",
+		},
+		{
+			name: "minor views: an older client is offered a session control op",
+			find: "system_prompt: ADDED_IN_MINOR.sessionControls,",
+			replace: "system_prompt: 0,",
 		},
 		{
 			name: "minor views: an older client is sent capability fields it cannot read",
