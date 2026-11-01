@@ -4,6 +4,7 @@
 library;
 
 import 'package:broski/agent/client/requests/op_call.dart';
+import 'package:broski/agent/ui/panels/action_list_view.dart';
 import 'package:broski/agent/ui/panels/op_panel.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:flutter/material.dart';
@@ -53,55 +54,85 @@ Future<BackendCall?> askCustomTools(
   OpTarget target,
 ) async => opCall(target.session, const CustomToolsOp());
 
-Future<BackendCall?> askNewCustomTool(
-  BuildContext context,
-  OpTarget target,
-) async => opCall(target.session, const CustomToolOp());
-
 PluginsOp pluginsCall(OpTarget target, [ActionListChange? change]) => PluginsOp(
   cwd: projectOf(target),
   sessionId: _sessionOf(target),
   change: change,
 );
 
-/// The call that takes [change] on the list a result of [result]'s kind
-/// shows; null for a list that is only read.
-BackendCall Function(OpTarget target, ActionListChange change)? listChange(
-  BackendOpResult result,
-) => switch (result) {
-  McpServersListed() => (target, change) => opCall(
-    target.session,
-    McpServersOp(sessionId: target.session.sessionId, change: change),
+/// The calls of a list result: the read that gives it again, and the call
+/// that takes an action on one of its rows (null for a list that offers
+/// none).
+typedef ListCalls = ({
+  BackendCall Function(OpTarget target) read,
+  ListActionCall? change,
+});
+
+/// The calls of the list a result of [result]'s kind shows; null for a result
+/// that is not a list.
+ListCalls? listCallsOf(BackendOpResult result) => switch (result) {
+  SettingsOverviewRead() => (
+    read: (target) =>
+        opCall(target.session, SettingsOverviewOp(cwd: projectOf(target))),
+    change: null,
   ),
-  PluginsListed() => (target, change) => opCall(
-    target.session,
-    pluginsCall(target, change),
+  ContextUsageRead() => (
+    read: (target) => opCall(
+      target.session,
+      ContextUsageOp(sessionId: target.session.sessionId),
+    ),
+    change: null,
   ),
-  TasksListed() => (target, change) => opCall(
-    target.session,
-    TasksOp(sessionId: target.session.sessionId, change: change),
+  McpServersListed() => (
+    read: (target) => opCall(
+      target.session,
+      McpServersOp(sessionId: target.session.sessionId),
+    ),
+    change: (target, change) => opCall(
+      target.session,
+      McpServersOp(sessionId: target.session.sessionId, change: change),
+    ),
   ),
-  CustomToolsListed() => (target, change) => opCall(
-    target.session,
-    CustomToolsOp(change: change),
+  PluginsListed() => (
+    read: (target) => opCall(target.session, pluginsCall(target)),
+    change: (target, change) =>
+        opCall(target.session, pluginsCall(target, change)),
+  ),
+  TasksListed() => (
+    read: (target) =>
+        opCall(target.session, TasksOp(sessionId: target.session.sessionId)),
+    change: (target, change) => opCall(
+      target.session,
+      TasksOp(sessionId: target.session.sessionId, change: change),
+    ),
+  ),
+  CustomToolsListed() => (
+    read: (target) => opCall(target.session, const CustomToolsOp()),
+    change: (target, change) =>
+        opCall(target.session, CustomToolsOp(change: change)),
   ),
   _ => null,
 };
 
-/// The call that reads, or changes then reads, the file [file] shows, for a
-/// result of [result]'s kind.
-BackendCall fileCall(
-  OpTarget target,
-  BackendOpResult result,
-  EditableFile file, [
-  EditableFileChange? change,
-]) => switch (result) {
-  CustomToolRead() => opCall(
-    target.session,
-    CustomToolOp(toolId: file.id, change: change),
-  ),
-  _ => opCall(
-    target.session,
-    ConfigFileOp(cwd: projectOf(target), fileId: file.id, change: change),
-  ),
+/// The file a result carries, when it carries one.
+EditableFile? fileOf(BackendOpResult result) => switch (result) {
+  ConfigFileRead(:final file) || CustomToolRead(:final file) => file,
+  _ => null,
 };
+
+/// The call that reads, or changes then reads, a configuration file.
+BackendCall configFileCall(
+  OpTarget target,
+  EditableFile file,
+  EditableFileChange? change,
+) => opCall(
+  target.session,
+  ConfigFileOp(cwd: projectOf(target), fileId: file.id, change: change),
+);
+
+/// The same for the definition of one of the bridge's own tools.
+BackendCall customToolCall(
+  OpTarget target,
+  EditableFile file,
+  EditableFileChange? change,
+) => opCall(target.session, CustomToolOp(toolId: file.id, change: change));
