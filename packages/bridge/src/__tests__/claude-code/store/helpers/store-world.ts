@@ -73,8 +73,9 @@ function counting(sdk: ClaudeSdk, calls: SdkCalls): ClaudeSdk {
 	};
 }
 
-export async function createStoreWorld(): Promise<StoreWorld> {
-	const home = createClaudeHome({ git: false });
+/** `existing`: a home some other test bed made (a real CLI's); its owner cleans it up. */
+export async function createStoreWorld(existing?: ClaudeHome): Promise<StoreWorld> {
+	const home = existing ?? createClaudeHome({ git: false });
 	const stateDir = join(home.root, "broski-state");
 	const env = {
 		HOME: home.homeDir,
@@ -139,7 +140,7 @@ export async function createStoreWorld(): Promise<StoreWorld> {
 		dispose: async () => {
 			current.store.dispose();
 			await real.dispose();
-			home.cleanup();
+			if (existing === undefined) home.cleanup();
 		},
 	};
 }
