@@ -29,6 +29,7 @@ export interface HandleHttpDeps {
 	listFilesDirectly: (path: string) => Promise<unknown>;
 	logUser: (msg: string) => void;
 	handleCcPermissionHook?: (request: Request) => Promise<Response>;
+	handleCcTerminalHook?: (request: Request) => Promise<Response>;
 }
 
 /**
@@ -126,6 +127,9 @@ export async function handleHttpRequest(request: Request, deps: HandleHttpDeps):
 		}
 		return await deps.handleCcPermissionHook(request);
 	}
+
+	if (url.pathname === "/cc-terminal-hook" && deps.handleCcTerminalHook)
+		return await deps.handleCcTerminalHook(request);
 
 	return new Response("Not found", { status: 404 });
 }
