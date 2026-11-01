@@ -51,7 +51,7 @@ const USER_SETTINGS = {
 };
 
 describe("installing the terminal ask hook", () => {
-	test("a fresh config dir gets a private settings file with the hook, its URL pinned and the token in a header", async () => {
+	test("a fresh config dir gets a private settings file with the hook and the token in a header, and no URL list", async () => {
 		const dir = join(root, "fresh", ".claude");
 		const result = await installTerminalHook(dir, SPEC);
 		expect(result).toMatchObject({ status: "installed" });
@@ -74,7 +74,6 @@ describe("installing the terminal ask hook", () => {
 					},
 				],
 			},
-			allowedHttpHookUrls: [SPEC.url],
 		});
 		expect(SPEC.url).not.toContain(SPEC.token);
 		expect(readFileSync(file, "utf8")).not.toContain("command");
@@ -173,7 +172,39 @@ describe("installing the terminal ask hook", () => {
 	test("an empty file is filled", async () => {
 		writeFileSync(settingsPath, "  \n");
 		expect(await installTerminalHook(root, SPEC)).toMatchObject({ status: "installed" });
-		expect(read().allowedHttpHookUrls).toEqual([SPEC.url]);
+		expect(read().hooks.PermissionRequest).toHaveLength(1);
+	});
+
+	test("a user with no URL list gets none, so their other HTTP hooks keep running", async () => {
+		const theirs = { hooks: { PostToolUse: [{ hooks: [{ type: "http", url: "https://hooks.example.com/x" }] }] } };
+		write(theirs);
+		expect(await installTerminalHook(root, SPEC)).toMatchObject({ status: "installed" });
+		const settings = read();
+		expect("allowedHttpHookUrls" in settings).toBe(false);
+		expect(settings.hooks.PostToolUse).toEqual(theirs.hooks.PostToolUse);
+		await removeTerminalHook(root);
+		expect(read()).toEqual(theirs);
+	});
+
+	test("a user who keeps a URL list gets ours appended, and removal leaves theirs as it was", async () => {
+		write({ allowedHttpHookUrls: ["https://hooks.example.com/*"] });
+		await installTerminalHook(root, SPEC);
+		expect(read().allowedHttpHookUrls).toEqual(["https://hooks.example.com/*", SPEC.url]);
+		await removeTerminalHook(root);
+		expect(read()).toEqual({ allowedHttpHookUrls: ["https://hooks.example.com/*"] });
+	});
+
+	test("a list an older install created with only our URL goes, so nothing is blocked any more", async () => {
+		write({ allowedHttpHookUrls: ["https://127.0.0.1:1234/cc-terminal-hook"] });
+		await installTerminalHook(root, SPEC);
+		expect("allowedHttpHookUrls" in read()).toBe(false);
+	});
+
+	test("an empty URL list (no HTTP hook may run) refuses the install and writes nothing", async () => {
+		write({ allowedHttpHookUrls: [] });
+		const before = readFileSync(settingsPath, "utf8");
+		expect(await installTerminalHook(root, SPEC)).toMatchObject({ status: "refused" });
+		expect(readFileSync(settingsPath, "utf8")).toBe(before);
 	});
 });
 

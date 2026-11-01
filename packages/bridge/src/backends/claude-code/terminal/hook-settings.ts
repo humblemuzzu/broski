@@ -1,7 +1,8 @@
 /**
  * The terminal ask hook inside a Claude settings object (D26): a `PermissionRequest` hook of type `http` to the
- * bridge's loopback URL with the bearer token in a header, that URL pinned in `allowedHttpHookUrls`, and, when the
- * bridge's certificate is self-signed, the file that vouches for it in `env.NODE_EXTRA_CA_CERTS`. Pure: it takes a parsed
+ * bridge's loopback URL with the bearer token in a header, that URL added to `allowedHttpHookUrls` only when the user
+ * keeps such a list (D123: creating one would block every other HTTP hook of theirs), and, when the bridge's
+ * certificate is self-signed, the file that vouches for it in `env.NODE_EXTRA_CA_CERTS`. Pure: it takes a parsed
  * settings object and gives a new one, every other key untouched.
  */
 
@@ -41,9 +42,13 @@ export function withHook(settings: Settings, spec: HookSpec): Edit {
 	if (!allowed.ok) return allowed;
 	const env = spec.caCertPath === undefined ? undefined : withCa(settings.env, spec.caCertPath);
 	if (env !== undefined && !env.ok) return env;
+	if (allowed.present && allowed.others.length === 0 && allowed.ours === 0) {
+		return refuse('"allowedHttpHookUrls" is empty: these settings let no HTTP hook run');
+	}
 	const next: Settings = { ...settings };
 	next.hooks = { ...hooks.all, [HOOK_EVENT]: [...hooks.kept, hookGroup(spec)] };
-	next.allowedHttpHookUrls = [...allowed.others, spec.url];
+	if (allowed.present && allowed.others.length > 0) next.allowedHttpHookUrls = [...allowed.others, spec.url];
+	else delete next.allowedHttpHookUrls;
 	if (env !== undefined) next.env = env.env;
 	return { ok: true, settings: next };
 }
@@ -117,15 +122,17 @@ function hookGroup(spec: HookSpec): Settings {
 	};
 }
 
-type Allowed = { readonly ok: true; readonly others: string[]; readonly ours: number } | Refused;
+type Allowed =
+	| { readonly ok: true; readonly present: boolean; readonly others: string[]; readonly ours: number }
+	| Refused;
 
 function allowedUrls(value: unknown): Allowed {
-	if (value === undefined) return { ok: true, others: [], ours: 0 };
+	if (value === undefined) return { ok: true, present: false, others: [], ours: 0 };
 	if (!Array.isArray(value) || !value.every((item) => typeof item === "string")) {
 		return refuse('"allowedHttpHookUrls" is not a list of strings');
 	}
 	const others = value.filter((url) => !isOwnUrl(url));
-	return { ok: true, others, ours: value.length - others.length };
+	return { ok: true, present: true, others, ours: value.length - others.length };
 }
 
 function withCa(env: unknown, caCertPath: string): { readonly ok: true; readonly env: Settings } | Refused {
