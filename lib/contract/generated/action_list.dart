@@ -58,6 +58,7 @@ final class ActionListAction {
     required this.id,
     required this.label,
     required this.destructive,
+    this.confirm,
   });
 
   factory ActionListAction.fromJson(Map<String, Object?> json) {
@@ -65,6 +66,7 @@ final class ActionListAction {
       'id',
       'label',
       'destructive',
+      'confirm',
     }, const <String, String>{});
     return ActionListAction(
       id: _as<String>(json['id'], 'ActionListAction.id'),
@@ -73,17 +75,22 @@ final class ActionListAction {
         json['destructive'],
         'ActionListAction.destructive',
       ),
+      confirm: json.containsKey('confirm')
+          ? _as<String>(json['confirm'], 'ActionListAction.confirm')
+          : null,
     );
   }
 
   final String id;
   final String label;
   final bool destructive;
+  final String? confirm;
 
   Map<String, Object?> toJson() => {
     'id': id,
     'label': label,
     'destructive': destructive,
+    if (confirm case final value?) 'confirm': value,
   };
 
   @override
@@ -92,15 +99,20 @@ final class ActionListAction {
       other is ActionListAction &&
           _equal(id, other.id) &&
           _equal(label, other.label) &&
-          _equal(destructive, other.destructive);
+          _equal(destructive, other.destructive) &&
+          _equal(confirm, other.confirm);
 
   @override
-  int get hashCode =>
-      Object.hashAll([_hash(id), _hash(label), _hash(destructive)]);
+  int get hashCode => Object.hashAll([
+    _hash(id),
+    _hash(label),
+    _hash(destructive),
+    _hash(confirm),
+  ]);
 
   @override
   String toString() =>
-      'ActionListAction(id: $id, label: $label, destructive: $destructive)';
+      'ActionListAction(id: $id, label: $label, destructive: $destructive, confirm: $confirm)';
 }
 
 final class ActionListChange {

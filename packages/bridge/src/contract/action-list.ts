@@ -19,11 +19,17 @@ export const ActionListStatus = z.strictObject({
 });
 export type ActionListStatus = z.infer<typeof ActionListStatus>;
 
-/** One action on a row. A `destructive` one cannot be undone, so the phone asks before it sends it. */
+/**
+ * One action on a row. A `destructive` one stops or removes something, so the phone asks before it sends it;
+ * `confirm` is what taking it does, in the backend's words ("The definition goes to the Trash on the Mac, where it
+ * can be restored"), shown when the phone asks. Without it the phone names the action and the row and claims nothing
+ * more. Part of 1.4 like the list itself, so no older client is sent it.
+ */
 export const ActionListAction = z.strictObject({
 	id: z.string().min(1).max(MAX_ID_CHARS),
 	label: z.string().min(1).max(MAX_NAME_CHARS),
 	destructive: z.boolean(),
+	confirm: z.string().min(1).max(MAX_NAME_CHARS).optional(),
 });
 export type ActionListAction = z.infer<typeof ActionListAction>;
 

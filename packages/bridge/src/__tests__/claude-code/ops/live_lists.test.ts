@@ -172,7 +172,7 @@ describe("tasks", () => {
 			title: "task a",
 			status: { label: "running", tone: "busy" },
 			badges: ["local_bash"],
-			actions: [{ id: "stop", destructive: true }],
+			actions: [{ id: "stop", destructive: true, confirm: "Stops this background work now." }],
 		});
 		expect(byId.get("b")).toMatchObject({ status: { label: "done", tone: "ok" }, actions: [] });
 		expect(byId.get("c")?.actions).toHaveLength(1);

@@ -129,7 +129,11 @@ void main() {
 
     final before = allOps(rig).length;
     await tapKey(tester, 'row-action:github:remove');
-    expect(find.text('This cannot be undone.'), findsOneWidget);
+    expect(
+      find.text('The Mac does this as soon as you confirm.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('cannot be undone'), findsNothing);
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
     expect(allOps(rig).length, before, reason: 'cancelled: nothing is sent');
@@ -144,6 +148,37 @@ void main() {
         change: ActionListChange(rowId: 'github', actionId: 'remove'),
       ),
     );
+  });
+
+  testWidgets('a confirmation says what the backend says the action does', (
+    tester,
+  ) async {
+    const trash = ActionListAction(
+      id: 'delete',
+      label: 'Delete',
+      destructive: true,
+      confirm: 'It goes to the Trash on the Mac, where it can be restored.',
+    );
+    await _openServers(
+      tester,
+      (r) => answered(
+        r,
+        McpServersListed(
+          list: ActionList(
+            rows: [
+              _row('weather', actions: [trash]),
+            ],
+            omitted: 0,
+          ),
+        ),
+      ),
+    );
+    await tapKey(tester, 'row-action:weather:delete');
+    expect(
+      find.text('It goes to the Trash on the Mac, where it can be restored.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('cannot be undone'), findsNothing);
   });
 
   testWidgets('a note and what was left out are told as they are', (

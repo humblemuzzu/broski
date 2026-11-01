@@ -5,7 +5,7 @@ import type { BackgroundTask, HostView, OpsDeps, TaskStatus } from "../ports";
 import { isRejected, rejected } from "../rejections";
 import { guarded } from "./guard";
 import { messageOf } from "./host-access";
-import { action, actionList, findAction, type RowSpec } from "./list-rows";
+import { actionList, askedAction, findAction, type RowSpec } from "./list-rows";
 
 const STATUS: Record<TaskStatus, { label: string; tone: ActionListTone }> = {
 	pending: { label: "waiting", tone: "busy" },
@@ -25,7 +25,7 @@ function rowOf(task: BackgroundTask): RowSpec {
 		title: task.description,
 		status: STATUS[task.status] ?? { label: String(task.status), tone: "neutral" },
 		badges: task.taskType === undefined ? [] : [task.taskType],
-		actions: STOPPABLE.has(task.status) ? [action("stop", "Stop", true)] : [],
+		actions: STOPPABLE.has(task.status) ? [askedAction("stop", "Stop", "Stops this background work now.")] : [],
 	};
 }
 

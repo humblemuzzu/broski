@@ -212,7 +212,7 @@ class _RowView extends StatelessWidget {
         !await askToConfirm(
           context,
           title: '${action.label}: ${row.title}?',
-          body: 'This cannot be undone.',
+          body: action.confirm ?? 'The Mac does this as soon as you confirm.',
           action: action.label,
         )) {
       return;

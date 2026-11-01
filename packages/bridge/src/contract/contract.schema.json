@@ -132,6 +132,11 @@
         },
         "destructive": {
           "type": "boolean"
+        },
+        "confirm": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
         }
       },
       "required": [

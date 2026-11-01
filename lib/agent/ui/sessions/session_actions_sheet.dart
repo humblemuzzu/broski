@@ -88,7 +88,7 @@ Future<void> _delete(
   final sure = await askToConfirm(
     context,
     title: 'Delete this session?',
-    body: 'Its history is deleted on the Mac too. This cannot be undone.',
+    body: 'Its history is removed from the Mac too.',
     action: 'Delete',
   );
   if (!sure) return;

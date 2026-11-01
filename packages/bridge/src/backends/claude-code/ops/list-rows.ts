@@ -28,6 +28,11 @@ export function action(id: string, label: string, destructive = false): ActionLi
 	return { id, label, destructive };
 }
 
+/** An action the phone asks about first, saying `confirm`: what taking it does. */
+export function askedAction(id: string, label: string, confirm: string): ActionListAction {
+	return { id, label, destructive: true, confirm };
+}
+
 function rowOf(spec: RowSpec): ActionListRow {
 	return {
 		id: spec.id,

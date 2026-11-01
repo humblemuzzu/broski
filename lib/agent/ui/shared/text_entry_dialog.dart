@@ -74,7 +74,7 @@ class _TextEntryDialogState extends State<_TextEntryDialog> {
   );
 }
 
-/// Asks before something that cannot be undone.
+/// Asks before something that stops or removes what it is about.
 Future<bool> askToConfirm(
   BuildContext context, {
   required String title,

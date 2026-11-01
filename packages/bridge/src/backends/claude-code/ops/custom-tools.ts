@@ -6,9 +6,12 @@ import type { CustomToolsPort, OpsDeps } from "../ports";
 import { isRejected, rejected } from "../rejections";
 import { guarded } from "./guard";
 import { messageOf } from "./host-access";
-import { action, actionList, findAction, type RowSpec } from "./list-rows";
+import { action, actionList, askedAction, findAction, type RowSpec } from "./list-rows";
 
 export const NO_PORT = "Broski's custom tools are not available in this bridge";
+
+/** D121: the port moves a deleted definition to the Mac's trash; a failed move keeps the tool. */
+export const DELETE_CONFIRM = "The tool's definition goes to the Trash on the Mac, where it can be restored.";
 
 async function rowsOf(port: CustomToolsPort): Promise<RowSpec[]> {
 	return (await port.list()).map((tool) => ({
@@ -17,7 +20,7 @@ async function rowsOf(port: CustomToolsPort): Promise<RowSpec[]> {
 		subtitle: tool.description,
 		status: tool.enabled ? { label: "enabled", tone: "ok" as const } : { label: "disabled", tone: "neutral" as const },
 		badges: [clip(tool.handler, MAX_NAME_CHARS)],
-		actions: [action("test", "Test"), action("delete", "Delete", true)],
+		actions: [action("test", "Test"), askedAction("delete", "Delete", DELETE_CONFIRM)],
 	}));
 }
 

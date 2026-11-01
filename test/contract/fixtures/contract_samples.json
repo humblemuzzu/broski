@@ -48,7 +48,8 @@
             {
               "id": "x",
               "label": "x",
-              "destructive": true
+              "destructive": true,
+              "confirm": "x"
             }
           ]
         }
@@ -80,7 +81,8 @@
     {
       "id": "x",
       "label": "x",
-      "destructive": true
+      "destructive": true,
+      "confirm": "x"
     },
     {
       "id": "x",
@@ -111,7 +113,8 @@
         {
           "id": "x",
           "label": "x",
-          "destructive": true
+          "destructive": true,
+          "confirm": "x"
         }
       ]
     },
@@ -2078,7 +2081,8 @@
               {
                 "id": "x",
                 "label": "x",
-                "destructive": true
+                "destructive": true,
+                "confirm": "x"
               }
             ]
           }
@@ -2129,7 +2133,8 @@
               {
                 "id": "x",
                 "label": "x",
-                "destructive": true
+                "destructive": true,
+                "confirm": "x"
               }
             ]
           }
@@ -2180,7 +2185,8 @@
               {
                 "id": "x",
                 "label": "x",
-                "destructive": true
+                "destructive": true,
+                "confirm": "x"
               }
             ]
           }
@@ -2231,7 +2237,8 @@
               {
                 "id": "x",
                 "label": "x",
-                "destructive": true
+                "destructive": true,
+                "confirm": "x"
               }
             ]
           }
@@ -2282,7 +2289,8 @@
               {
                 "id": "x",
                 "label": "x",
-                "destructive": true
+                "destructive": true,
+                "confirm": "x"
               }
             ]
           }
@@ -2333,7 +2341,8 @@
               {
                 "id": "x",
                 "label": "x",
-                "destructive": true
+                "destructive": true,
+                "confirm": "x"
               }
             ]
           }
@@ -4042,7 +4051,8 @@
               {
                 "id": "x",
                 "label": "x",
-                "destructive": true
+                "destructive": true,
+                "confirm": "x"
               }
             ]
           }
@@ -4145,7 +4155,8 @@
               {
                 "id": "x",
                 "label": "x",
-                "destructive": true
+                "destructive": true,
+                "confirm": "x"
               }
             ]
           }
@@ -5741,7 +5752,8 @@
               {
                 "id": "x",
                 "label": "x",
-                "destructive": true
+                "destructive": true,
+                "confirm": "x"
               }
             ]
           }
@@ -6905,7 +6917,8 @@
               {
                 "id": "x",
                 "label": "x",
-                "destructive": true
+                "destructive": true,
+                "confirm": "x"
               }
             ]
           }
@@ -9885,7 +9898,8 @@
               {
                 "id": "x",
                 "label": "x",
-                "destructive": true
+                "destructive": true,
+                "confirm": "x"
               }
             ]
           }
@@ -10351,7 +10365,8 @@
               {
                 "id": "x",
                 "label": "x",
-                "destructive": true
+                "destructive": true,
+                "confirm": "x"
               }
             ]
           }

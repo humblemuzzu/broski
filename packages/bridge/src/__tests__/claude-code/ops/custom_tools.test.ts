@@ -52,7 +52,12 @@ describe("custom_tools", () => {
 				badges: ["builtin"],
 				actions: [
 					{ id: "test", label: "Test", destructive: false },
-					{ id: "delete", label: "Delete", destructive: true },
+					{
+						id: "delete",
+						label: "Delete",
+						destructive: true,
+						confirm: "The tool's definition goes to the Trash on the Mac, where it can be restored.",
+					},
 				],
 			},
 		]);
