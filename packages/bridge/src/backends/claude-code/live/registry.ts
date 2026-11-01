@@ -129,7 +129,8 @@ class Registry implements LiveSessions, LiveOverlay {
 		const cwd = stored.cwd;
 		if (cwd === undefined || !isDirectory(cwd)) return rejected("not_found", "the session's working directory is gone");
 		if (this.disposing) return CLOSED;
-		return withTransientHost(this.deps, this.transients, { sessionId, cwd }, (view) => safely(work, view));
+		const pool = { live: this.transients, closing: () => this.disposing !== undefined };
+		return withTransientHost(this.deps, pool, { sessionId, cwd }, (view) => safely(work, view));
 	}
 
 	end(sessionId: SessionId): Promise<void> {
