@@ -98,9 +98,23 @@ class ChatActions extends ConsumerWidget {
       ),
   ];
 
+  Future<void> _compact(BuildContext context, WidgetRef ref) async {
+    final instructions = await askForText(
+      context,
+      title: 'Compact the conversation',
+      action: 'Compact',
+      hint: 'Instructions (optional)',
+      allowEmpty: true,
+    );
+    if (instructions == null) return;
+    await ref
+        .read(sessionProvider(session).notifier)
+        .controls
+        .compact(instructions: instructions.isEmpty ? null : instructions);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final controls = ref.read(sessionProvider(session).notifier).controls;
     final cwd = state.summary?.cwd;
     final panels = [
       ...panelsAt(
@@ -134,19 +148,7 @@ class ChatActions extends ConsumerWidget {
             key: const ValueKey('chat-compact'),
             tooltip: 'Compact',
             icon: const Icon(AppIcons.compress),
-            onPressed: () async {
-              final instructions = await askForText(
-                context,
-                title: 'Compact the conversation',
-                action: 'Compact',
-                hint: 'Instructions (optional)',
-                allowEmpty: true,
-              );
-              if (instructions == null) return;
-              await controls.compact(
-                instructions: instructions.isEmpty ? null : instructions,
-              );
-            },
+            onPressed: () => _compact(context, ref),
           ),
         if (panels.isNotEmpty || entries.isNotEmpty)
           IconButton(

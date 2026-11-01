@@ -125,7 +125,19 @@ void main() {
     );
     expect(_key('attach-image'), findsNothing);
     expect(_key('pick-command'), findsNothing);
-    expect(_key('chat-panels'), findsNothing);
+    await tester.tap(_key('chat-panels'));
+    await WidgetRig.settle(tester);
+    expect(_key('chat-copy-conversation'), findsOneWidget);
+    expect(_key('chat-open-as-fork'), findsNothing);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith('panel:'),
+      ),
+      findsNothing,
+      reason: 'no backend operation is offered',
+    );
   });
 
   testWidgets('an idle session sends a prompt and shows it at once', (
