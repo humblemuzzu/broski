@@ -13,6 +13,7 @@ import { installTerminalHook } from "../../../backends/claude-code/terminal/hook
 import { TERMINAL_HOOK_TIMEOUT_SECONDS } from "../../../backends/claude-code/terminal/hook-settings";
 import { humanDenial } from "../../../backends/claude-code/ui/denial";
 import { createTerminalHookReceiver } from "../../../server/cc-terminal-hook";
+import { serveLoopback } from "../../../server/loopback-listener";
 import { createClaudeHome } from "../../helpers/claude-home";
 import { expectNoOrphans } from "../spike/rig/orphans";
 import { isIdle, startSpike } from "../spike/rig/session";
@@ -75,11 +76,10 @@ async function run(
 		return handler(ask, signal);
 	});
 	let hookRequests = 0;
-	const server = Bun.serve({
-		hostname: "127.0.0.1",
+	const server = serveLoopback({
 		port: 0,
-		idleTimeout: 0,
-		tls: { key: Bun.file(cert.keyPath), cert: Bun.file(cert.certPath) },
+		tls: cert,
+		websocket: { message: () => undefined },
 		fetch: (request) => {
 			hookRequests += 1;
 			authorization.push(request.headers.get("authorization"));
@@ -216,6 +216,21 @@ describe("the PermissionRequest hook the installer writes, in the real CLI", () 
 					session_id: expect.stringMatching(/^[0-9a-f-]{36}$/),
 				}),
 			]);
+		},
+		CLI_TEST_MS,
+	);
+
+	test(
+		"an allow given after Bun's 10 s request idle timeout still reaches the CLI over the production listener",
+		async () => {
+			const outcome = await run(async (_ask, signal) => {
+				await Bun.sleep(14_000);
+				return signal.aborted ? undefined : { behavior: "allow" };
+			});
+			expect(outcome.requestDroppedAt).toBeUndefined();
+			expect(outcome.hookRequests).toBe(1);
+			expect(outcome.wrote).toBe(true);
+			expect(outcome.promptAnswered).toBe(false);
 		},
 		CLI_TEST_MS,
 	);

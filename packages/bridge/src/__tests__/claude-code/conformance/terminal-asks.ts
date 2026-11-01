@@ -12,6 +12,7 @@ import { installTerminalHook } from "../../../backends/claude-code/terminal/hook
 import { TERMINAL_HOOK_TIMEOUT_SECONDS } from "../../../backends/claude-code/terminal/hook-settings";
 import type { SessionRef } from "../../../contract";
 import { createTerminalHookReceiver } from "../../../server/cc-terminal-hook";
+import { serveLoopback } from "../../../server/loopback-listener";
 import { makeLoopbackCert, type TestCert } from "../terminal/tls";
 import type { SessionRouter } from "./session-router";
 
@@ -42,7 +43,7 @@ export class TerminalAsks {
 	});
 	private readonly waiting = new Map<string, () => void>();
 	private readonly terminals: Terminal[] = [];
-	private server: ReturnType<typeof Bun.serve> | undefined;
+	private server: ReturnType<typeof serveLoopback> | undefined;
 	private cert: TestCert | undefined;
 
 	/** `TerminalOptions.hookAsks`: the adapter hands its handler to the receiver, as `server/http.ts` wires it. */
@@ -59,11 +60,10 @@ export class TerminalAsks {
 	async install(world: TerminalWorld): Promise<void> {
 		if (this.server) return;
 		this.cert = makeLoopbackCert();
-		this.server = Bun.serve({
-			hostname: "127.0.0.1",
+		this.server = serveLoopback({
 			port: 0,
-			idleTimeout: 0,
-			tls: { key: Bun.file(this.cert.keyPath), cert: Bun.file(this.cert.certPath) },
+			tls: this.cert,
+			websocket: { message: () => undefined },
 			fetch: (request) =>
 				request.headers.get("authorization") === `Bearer ${TOKEN}`
 					? this.receiver.handle(request)

@@ -26,6 +26,7 @@ import { createLimits } from "./server/limits";
 import { attachLinkDecisionPath } from "./server/link-feed/feed";
 import { startConfiguredLinkIngress } from "./server/link-start";
 import { createLeveledLogger } from "./server/logger";
+import { serveLoopback } from "./server/loopback-listener";
 import { createMessageHandler } from "./server/messages";
 import { DEFAULT_PERMISSION_TIMEOUT_MS } from "./server/permission-waiter";
 import { createSessions, type Sessions } from "./server/sessions";
@@ -212,19 +213,9 @@ export async function createBridgeServer(options: BridgeServerOptions): Promise<
 			limits,
 			log,
 		});
-		secureServer = Bun.serve({
-			// Phones reach the bridge only through broski-link's socket; this listener serves the
-			// agent permission hooks on this machine.
-			hostname: "127.0.0.1",
+		secureServer = serveLoopback({
 			port: options.port,
-			...(state.tlsMaterial
-				? {
-						tls: {
-							key: Bun.file(state.tlsMaterial.keyPath),
-							cert: Bun.file(state.tlsMaterial.certPath),
-						},
-					}
-				: {}),
+			...(state.tlsMaterial && { tls: state.tlsMaterial }),
 			fetch: http.makeFetch(),
 			websocket: connections.websocketConfig,
 		});
