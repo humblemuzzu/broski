@@ -1,8 +1,6 @@
 /** `/clear` on the real CLI: the conversation goes on under a new session id (`session_replaced`), in the same host. */
 
 import { expect, test } from "bun:test";
-import { getSessionMessages } from "@anthropic-ai/claude-agent-sdk";
-import { withConfigDir } from "../spike/rig/config-env";
 import { expectNoOrphans } from "../spike/rig/orphans";
 import { promptOf } from "./helpers/fake-host";
 import { realRig } from "./helpers/rig";

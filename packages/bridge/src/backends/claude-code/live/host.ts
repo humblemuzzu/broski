@@ -2,13 +2,9 @@
 
 import {
 	type ActionResult,
-	type AgentEvent,
 	type InteractionAnswer,
 	MAX_TEXT_CHARS,
-	type NativeIds,
-	type QueueItemId,
 	type Rejected,
-	type SessionControl,
 	type SessionId,
 	type SessionRef,
 	type SessionSink,
@@ -18,11 +14,10 @@ import {
 import { clip } from "../bounds";
 import type { AskDesk } from "../ports/asks";
 import type { LiveDeps } from "../ports/deps";
-import type { BackgroundTask, HostView, SessionEmitter } from "../ports/live";
-import type { FrameMapper, MappedEvent } from "../ports/mapping";
+import type { BackgroundTask, HostView } from "../ports/live";
 import type { LiveOverlay, LiveRow } from "../ports/store";
-import { CLOSED, isRejected, rejected } from "../rejections";
-import { abortRun, returnQueued } from "./abort";
+import { CLOSED, isRejected } from "../rejections";
+import { abortRun } from "./abort";
 import { ChildRouter } from "./child-router";
 import { cancelCompaction, startCompaction } from "./compaction";
 import { errorText } from "./error-text";
@@ -39,7 +34,7 @@ import { processEnded } from "./process-end";
 import { ProcessSlot } from "./process-slot";
 import type { PromptDesk } from "./prompt-desk";
 import { InputQueue } from "./queue";
-import { endRun, type RunEndDeps } from "./run-end";
+import { endRun } from "./run-end";
 import { RunTracker } from "./run-tracker";
 import { SerialLock } from "./serial";
 import { startNewConversation } from "./session-reset";
@@ -71,7 +66,7 @@ export class SessionHost {
 	constructor(
 		readonly deps: LiveDeps,
 		private readonly overlay: LiveOverlay,
-		private readonly start: HostStart,
+		start: HostStart,
 		private readonly hooks: HostHooks,
 	) {
 		this.cwd = start.cwd;

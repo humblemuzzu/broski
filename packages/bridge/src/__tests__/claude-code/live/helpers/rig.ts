@@ -9,13 +9,11 @@ import { CatalogFeed } from "../../../../backends/claude-code/catalog-feed";
 import { createLiveSessions } from "../../../../backends/claude-code/live/registry";
 import type {
 	AskDeskFactory,
-	CatalogueAccess,
 	ClaudeSdk,
 	Clock,
 	CustomToolsPort,
 	LiveDeps,
 	LiveSessions,
-	MappingPort,
 	SessionFunctions,
 } from "../../../../backends/claude-code/ports";
 import { type ClaudeCodeServices, createClaudeCodeServices } from "../../../../backends/claude-code/services";

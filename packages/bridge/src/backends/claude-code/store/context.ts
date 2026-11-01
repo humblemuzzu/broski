@@ -2,7 +2,6 @@
 
 import type { Rejected } from "../../../contract";
 import type { StoreDeps } from "../ports/deps";
-import type { LiveOverlay } from "../ports/store";
 import type { BuiltChain } from "./chain-reader";
 import { ForkLinks } from "./fork-links";
 import { FullReads } from "./full-reads";

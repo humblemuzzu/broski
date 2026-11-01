@@ -4,18 +4,7 @@ import { LineTranslator } from "../../../backends/claude-code/terminal/translate
 import { CLAUDE_CODE_TRAITS } from "../../../backends/claude-code/traits";
 import { type AgentEvent, emptySnapshot, MAX_TEXT_CHARS, type SinkRecord } from "../../../contract";
 import { streamViolations, unsettledParts } from "../../../contract/testing/stream-rules";
-import {
-	assistant,
-	type Line,
-	noise,
-	prompt,
-	system,
-	text,
-	thinking,
-	toolResult,
-	toolUse,
-	turnDuration,
-} from "./lines";
+import { assistant, noise, prompt, system, text, thinking, toolResult, toolUse, turnDuration } from "./lines";
 
 function run(lines: readonly unknown[], translator = new LineTranslator()) {
 	const events: AgentEvent[] = lines.flatMap((line) => translator.translate(line).map((mapped) => mapped.event));

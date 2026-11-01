@@ -1,7 +1,7 @@
 /** What a tool permission shows besides its input: the command, the paths, the host, the file changes (bounded). */
 
-import { MAX_LIST_ITEMS, MAX_NAME_CHARS, MAX_PATH_CHARS, MAX_TEXT_CHARS, PermissionPreview } from "../../../contract";
-import { boundList, clip } from "../bounds";
+import { MAX_LIST_ITEMS, MAX_NAME_CHARS, MAX_PATH_CHARS, PermissionPreview } from "../../../contract";
+import { boundList } from "../bounds";
 import { fileChangesOf } from "../mapping/file-changes";
 import { phoneText } from "../phone-text";
 import { reportAskProblem } from "./problems";

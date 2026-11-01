@@ -21,7 +21,7 @@ async function makeTempJsonl(lines: object[]): Promise<string> {
 	const dir = await mkdtemp(join(tmpdir(), "broski-test-"));
 	tmpDirs.push(dir);
 	const filePath = join(dir, "session.jsonl");
-	const content = lines.map((l) => JSON.stringify(l)).join("\n") + "\n";
+	const content = `${lines.map((l) => JSON.stringify(l)).join("\n")}\n`;
 	await writeFile(filePath, content);
 	return filePath;
 }

@@ -19,7 +19,7 @@ import {
 	streamEvent,
 	userEntry,
 } from "./helpers/frames";
-import { type FakeRig, fakeRig } from "./helpers/rig";
+import { fakeRig } from "./helpers/rig";
 import { standInCatalogue } from "./helpers/stand-ins";
 
 const projects: { remove: () => void }[] = [];

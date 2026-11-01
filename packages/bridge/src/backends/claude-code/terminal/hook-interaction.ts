@@ -6,13 +6,12 @@ import {
 	type InteractionId,
 	type InteractionReply,
 	MAX_PATH_CHARS,
-	MAX_TEXT_CHARS,
 	type PermissionOption,
 	type PermissionPreview,
 	type RunId,
 	type ToolCallId,
 } from "../../../contract";
-import { clip, nameOr } from "../bounds";
+import { nameOr } from "../bounds";
 import { boundedJson, isRecord } from "../json";
 import { fileChangesOf } from "../mapping/file-changes";
 import { toolTitle } from "../mapping/tool-titles";

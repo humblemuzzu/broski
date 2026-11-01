@@ -10,7 +10,6 @@
 import type { UnifiedMessage } from "../routing/messages";
 import { registerAll } from "../routing/registry";
 import type { MessageRouter, ServerDeps } from "../routing/types";
-import { mapClaudeCodeSessionToRuntimeSession } from "../runtime/claude-code-runtime-read-models";
 import type { BroskiBackend, BroskiSessionSummary } from "../types/runtime";
 
 type Reply = (msg: any) => void;

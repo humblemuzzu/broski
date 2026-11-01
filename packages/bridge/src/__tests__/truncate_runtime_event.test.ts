@@ -4,7 +4,6 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import type { ServerMessage } from "../types";
 import { shrinkRuntimeEvent } from "../utils/truncate-runtime-event";
 
 const LIMIT = 64 * 1024;

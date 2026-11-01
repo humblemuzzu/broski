@@ -110,7 +110,7 @@ describe("the editable file rule fails", () => {
 
 	test("for a file the backend may not change that takes a write", () =>
 		fails(
-			changingCalls("custom_tool", (call, result) =>
+			changingCalls("custom_tool", (_call, result) =>
 				result.status === "accepted" && result.result.kind === "custom_tool"
 					? { status: "accepted", result: { kind: "custom_tool", file: { ...result.result.file, editable: false } } }
 					: result,

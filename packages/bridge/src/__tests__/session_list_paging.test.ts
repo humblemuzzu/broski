@@ -30,7 +30,7 @@ const asRow = (row: Row): Row => row;
 
 async function walk<T extends { id: string }>(
 	fetchPage: (before?: string) => Promise<Page<T>>,
-	orderOf: (item: T) => number,
+	_orderOf: (item: T) => number,
 ): Promise<T[]> {
 	const seen: T[] = [];
 	let before: string | undefined;

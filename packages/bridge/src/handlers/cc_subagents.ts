@@ -63,8 +63,8 @@ export async function handle(message: Record<string, unknown>, reply: ReplyFn): 
 							const content = Array.isArray(msg.content) ? msg.content : msg.content ? [msg.content] : [];
 							for (const block of content) {
 								if (!block || typeof block !== "object") continue;
-								if (block.type === "text") text += (block.text ?? "") + "\n";
-								if (block.type === "thinking") thinking += (block.thinking ?? "") + "\n";
+								if (block.type === "text") text += `${block.text ?? ""}\n`;
+								if (block.type === "thinking") thinking += `${block.thinking ?? ""}\n`;
 								if (block.type === "tool_use") {
 									toolCalls.push({
 										toolUseId: block.id ?? `tool-${idx}`,
