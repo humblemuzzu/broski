@@ -11,18 +11,18 @@
  */
 
 import { spawn } from "node:child_process";
-import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { realpath } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import type { createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 
+import { createCustomToolStore } from "./custom-tools-store";
 import { getDefaultAllowedPaths } from "./platform";
 import { loadClaudeAgentSdk } from "./sdk/claude-agent-sdk";
 
 // Storage path for custom tools
-const BROSKI_DIR = join(homedir(), ".broski");
-const CUSTOM_TOOLS_FILE = join(BROSKI_DIR, "custom-tools.json");
+const CUSTOM_TOOLS_FILE = join(homedir(), ".broski", "custom-tools.json");
 
 const SECURITY_ALLOWED_BASE_PATHS = (() => {
 	const raw = (process.env.BROSKI_ALLOWED_BASE_PATHS ?? "").trim();
@@ -215,65 +215,14 @@ export interface CustomToolDefinition {
 	updatedAt: number;
 }
 
-/**
- * Custom tools storage format
- */
-interface CustomToolsStorage {
-	version: number;
-	tools: CustomToolDefinition[];
+const store = createCustomToolStore(CUSTOM_TOOLS_FILE);
+
+export function loadCustomTools(): Promise<CustomToolDefinition[]> {
+	return store.load();
 }
 
-// In-memory cache of custom tools
-let customToolsCache: CustomToolDefinition[] = [];
-
-/**
- * Ensure the broski directory exists
- */
-async function ensureBroskiDir(): Promise<void> {
-	try {
-		await mkdir(BROSKI_DIR, { recursive: true });
-	} catch {
-		// Directory already exists
-	}
-}
-
-/**
- * Load custom tools from storage
- */
-export async function loadCustomTools(): Promise<CustomToolDefinition[]> {
-	try {
-		const content = await readFile(CUSTOM_TOOLS_FILE, "utf-8");
-		const storage: CustomToolsStorage = JSON.parse(content);
-		customToolsCache = storage.tools || [];
-		return customToolsCache;
-	} catch {
-		// File doesn't exist or is invalid, return empty array
-		customToolsCache = [];
-		return [];
-	}
-}
-
-/**
- * Save custom tools to storage
- */
-async function saveCustomTools(tools: CustomToolDefinition[]): Promise<void> {
-	await ensureBroskiDir();
-	const storage: CustomToolsStorage = {
-		version: 1,
-		tools,
-	};
-	await writeFile(CUSTOM_TOOLS_FILE, JSON.stringify(storage, null, 2), "utf-8");
-	customToolsCache = tools;
-}
-
-/**
- * Get all custom tools
- */
-export async function getCustomTools(): Promise<CustomToolDefinition[]> {
-	if (customToolsCache.length === 0) {
-		await loadCustomTools();
-	}
-	return customToolsCache;
+export function getCustomTools(): Promise<CustomToolDefinition[]> {
+	return store.all();
 }
 
 /**
@@ -284,44 +233,13 @@ export async function getCustomTool(id: string): Promise<CustomToolDefinition | 
 	return tools.find((t) => t.id === id);
 }
 
-/**
- * Create or update a custom tool
- */
-export async function saveCustomTool(tool: CustomToolDefinition): Promise<CustomToolDefinition> {
-	const tools = await getCustomTools();
-	const existingIndex = tools.findIndex((t) => t.id === tool.id);
-
-	const now = Date.now();
-	const updatedTool = {
-		...tool,
-		updatedAt: now,
-		createdAt: existingIndex >= 0 ? tools[existingIndex]!.createdAt : now,
-	};
-
-	if (existingIndex >= 0) {
-		tools[existingIndex] = updatedTool;
-	} else {
-		tools.push(updatedTool);
-	}
-
-	await saveCustomTools(tools);
-	return updatedTool;
+/** Throws, leaving the file as it is, when `custom-tools.json` exists but does not parse. */
+export function saveCustomTool(tool: CustomToolDefinition): Promise<CustomToolDefinition> {
+	return store.save(tool);
 }
 
-/**
- * Delete a custom tool
- */
-export async function deleteCustomTool(id: string): Promise<boolean> {
-	const tools = await getCustomTools();
-	const index = tools.findIndex((t) => t.id === id);
-
-	if (index >= 0) {
-		tools.splice(index, 1);
-		await saveCustomTools(tools);
-		return true;
-	}
-
-	return false;
+export function deleteCustomTool(id: string): Promise<boolean> {
+	return store.delete(id);
 }
 
 /**
