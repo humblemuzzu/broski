@@ -9,12 +9,14 @@
  * If the bridge is unreachable, the hook returns {} (no-op) so CC shows
  * its normal terminal dialog — safe degradation.
  */
-import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { assertNotRealHome } from "../safety/real-home-guard";
+import { isJsonObject } from "../utils/json-object";
+import { editJsonObjectFile, type JsonEditResult } from "../utils/json-object-edit";
 
 export const HOOK_MARKER = "broski-permission-proxy";
+const NEW_FILE_MODE = 0o600;
 
 /** The file this installer edits: `~/.claude/settings.json`, whatever `CLAUDE_CONFIG_DIR` says. */
 export function ccHookSettingsPath(): string {
@@ -27,6 +29,8 @@ export type HookInstallTarget = {
 	token: string;
 	scheme: "http" | "https";
 	log?: (message: string) => void;
+	/** Tests only: the settings file, instead of `ccHookSettingsPath()`. */
+	settingsPath?: string;
 };
 
 /**
@@ -35,122 +39,105 @@ export type HookInstallTarget = {
  * Otherwise a new entry is prepended (runs first).
  */
 export async function installCcHook(target: HookInstallTarget): Promise<void> {
-	const { log } = target;
-	const settingsPath = ccHookSettingsPath();
+	const settingsPath = target.settingsPath ?? ccHookSettingsPath();
 	assertNotRealHome(settingsPath, "cc hook install");
-
-	let settings: Record<string, unknown> = {};
-	try {
-		const content = await readFile(settingsPath, "utf-8");
-		settings = JSON.parse(content) as Record<string, unknown>;
-	} catch {
-		// File doesn't exist or invalid JSON — create fresh
-		await mkdir(join(homedir(), ".claude"), { recursive: true });
-	}
-
-	if (!settings.hooks || typeof settings.hooks !== "object") {
-		settings.hooks = {};
-	}
-	const hooks = settings.hooks as Record<string, unknown>;
-
-	// Build the hook command — inline curl, no external script needed
-	const hookCommand = buildHookCommand(target);
-
-	const hookEntry: Record<string, unknown> = {
-		hooks: [
-			{
-				type: "command",
-				command: hookCommand,
-			},
-		],
+	const hookEntry = {
+		hooks: [{ type: "command", command: buildHookCommand(target) }],
 		timeout: 50, // 45s hook timeout + 5s buffer
 	};
-
-	// Install ONLY for PreToolUse — it fires for every tool and supports both
-	// permissionDecision (allow/deny/ask) and updatedInput (for AskUserQuestion
-	// answers). Installing PermissionRequest too causes duplicate waiters —
-	// when the user answers on the phone, only one waiter resolves, the other
-	// times out and CC falls back to the terminal dialog.
-	installHookForEvent(hooks, "PreToolUse", hookEntry);
-
-	// Clean up any leftover PermissionRequest hook from previous versions
-	removeHookFromEvent(hooks, "PermissionRequest");
-
-	await writeFile(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
-	(log ?? console.log)(`[CC Hook] Installed PreToolUse hook in ${settingsPath}`);
-}
-
-/**
- * Install or update a hook entry for a specific event type.
- */
-function installHookForEvent(
-	hooks: Record<string, unknown>,
-	eventName: string,
-	hookEntry: Record<string, unknown>,
-): void {
-	if (!Array.isArray(hooks[eventName])) {
-		hooks[eventName] = [];
-	}
-	const eventHooks = hooks[eventName] as Array<Record<string, unknown>>;
-
-	const existingIdx = eventHooks.findIndex((matcher) => {
-		const matcherHooks = matcher.hooks;
-		if (!Array.isArray(matcherHooks)) return false;
-		return matcherHooks.some(
-			(h: Record<string, unknown>) => typeof h.command === "string" && h.command.includes(HOOK_MARKER),
-		);
-	});
-
-	if (existingIdx >= 0) {
-		eventHooks[existingIdx] = hookEntry;
-	} else {
-		eventHooks.unshift(hookEntry);
-	}
-}
-
-/**
- * Remove our hook entry from a specific event type.
- */
-function removeHookFromEvent(hooks: Record<string, unknown>, eventName: string): void {
-	if (!Array.isArray(hooks[eventName])) return;
-	hooks[eventName] = (hooks[eventName] as Array<Record<string, unknown>>).filter((matcher) => {
-		const matcherHooks = matcher.hooks;
-		if (!Array.isArray(matcherHooks)) return true;
-		return !matcherHooks.some(
-			(h: Record<string, unknown>) => typeof h.command === "string" && h.command.includes(HOOK_MARKER),
-		);
-	});
-	if ((hooks[eventName] as unknown[]).length === 0) {
-		delete hooks[eventName];
-	}
+	const result = await editJsonObjectFile(
+		settingsPath,
+		(settings) => {
+			const hooks = hooksOf(settings, true);
+			if (typeof hooks !== "object") return hooks ?? false;
+			// Install ONLY for PreToolUse — it fires for every tool and supports both
+			// permissionDecision (allow/deny/ask) and updatedInput (for AskUserQuestion
+			// answers). Installing PermissionRequest too causes duplicate waiters —
+			// when the user answers on the phone, only one waiter resolves, the other
+			// times out and CC falls back to the terminal dialog.
+			const installed = installHookForEvent(hooks, "PreToolUse", hookEntry);
+			if (typeof installed === "string") return installed;
+			const removed = removeHookFromEvent(hooks, "PermissionRequest");
+			return typeof removed === "string" ? removed : installed || removed;
+		},
+		{ createMode: NEW_FILE_MODE },
+	);
+	report(result, "Installed PreToolUse hook", target.log);
 }
 
 /**
  * Uninstall Broski hooks from ~/.claude/settings.json.
  * Removes both PreToolUse and PermissionRequest hooks.
  */
-export async function uninstallCcHook(log?: (msg: string) => void): Promise<void> {
-	const settingsPath = ccHookSettingsPath();
+export async function uninstallCcHook(log?: (msg: string) => void, settingsPath = ccHookSettingsPath()): Promise<void> {
 	assertNotRealHome(settingsPath, "cc hook uninstall");
+	const result = await editJsonObjectFile(settingsPath, (settings) => {
+		const hooks = hooksOf(settings, false);
+		if (typeof hooks !== "object") return hooks ?? false;
+		const fromPre = removeHookFromEvent(hooks, "PreToolUse");
+		if (typeof fromPre === "string") return fromPre;
+		const fromRequest = removeHookFromEvent(hooks, "PermissionRequest");
+		if (typeof fromRequest === "string") return fromRequest;
+		if (Object.keys(hooks).length === 0) delete settings.hooks;
+		return fromPre || fromRequest;
+	});
+	report(result, "Uninstalled hooks", log);
+}
 
-	try {
-		const content = await readFile(settingsPath, "utf-8");
-		const settings = JSON.parse(content) as Record<string, unknown>;
+function report(result: JsonEditResult, done: string, log: ((message: string) => void) | undefined): void {
+	const say = log ?? console.log;
+	if (result.status === "changed") say(`[CC Hook] ${done} in ${result.path}`);
+	if (result.status === "refused") say(`[CC Hook] ${result.path} not changed: ${result.reason}`);
+}
 
-		if (settings?.hooks && typeof settings.hooks === "object") {
-			const hooks = settings.hooks as Record<string, unknown>;
-			removeHookFromEvent(hooks, "PreToolUse");
-			removeHookFromEvent(hooks, "PermissionRequest");
-			// Clean up empty hooks object
-			if (Object.keys(hooks).length === 0) {
-				delete settings.hooks;
-			}
-			await writeFile(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
-			(log ?? console.log)(`[CC Hook] Uninstalled hooks from ${settingsPath}`);
-		}
-	} catch {
-		// File doesn't exist or parse error — nothing to uninstall
+/** The settings' `hooks` object (made when `create`), or why it cannot be edited; undefined: there is none. */
+function hooksOf(settings: Record<string, unknown>, create: boolean): Record<string, unknown> | string | undefined {
+	if (settings.hooks === undefined) {
+		if (!create) return undefined;
+		settings.hooks = {};
 	}
+	return isJsonObject(settings.hooks) ? settings.hooks : "its hooks setting is not an object";
+}
+
+function eventList(hooks: Record<string, unknown>, eventName: string): unknown[] | string | undefined {
+	const list = hooks[eventName];
+	if (list === undefined) return undefined;
+	return Array.isArray(list) ? list : `its ${eventName} hooks are not a list`;
+}
+
+function isOurs(matcher: unknown): boolean {
+	if (!isJsonObject(matcher) || !Array.isArray(matcher.hooks)) return false;
+	return matcher.hooks.some(
+		(hook: unknown) => isJsonObject(hook) && typeof hook.command === "string" && hook.command.includes(HOOK_MARKER),
+	);
+}
+
+/** Install or update a hook entry for a specific event type; whether anything changed. */
+function installHookForEvent(
+	hooks: Record<string, unknown>,
+	eventName: string,
+	hookEntry: Record<string, unknown>,
+): boolean | string {
+	const list = eventList(hooks, eventName) ?? [];
+	if (typeof list === "string") return list;
+	const existingIdx = list.findIndex(isOurs);
+	if (existingIdx >= 0 && JSON.stringify(list[existingIdx]) === JSON.stringify(hookEntry)) return false;
+	if (existingIdx >= 0) list[existingIdx] = hookEntry;
+	else list.unshift(hookEntry);
+	hooks[eventName] = list;
+	return true;
+}
+
+/** Remove our hook entry from a specific event type; whether anything changed. */
+function removeHookFromEvent(hooks: Record<string, unknown>, eventName: string): boolean | string {
+	const list = eventList(hooks, eventName);
+	if (list === undefined) return false;
+	if (typeof list === "string") return list;
+	const kept = list.filter((matcher) => !isOurs(matcher));
+	if (kept.length === list.length) return false;
+	if (kept.length === 0) delete hooks[eventName];
+	else hooks[eventName] = kept;
+	return true;
 }
 
 /**
