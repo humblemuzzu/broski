@@ -1,4 +1,5 @@
 import 'package:broski/agent/ui/chat/agent_chat_screen.dart';
+import 'package:broski/agent/ui/chat/file_change_view.dart';
 import 'package:broski/agent/ui/panels/transfer/changed_files_view.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:broski/theme/theme.dart';
@@ -209,6 +210,33 @@ void main() {
       expect(_countsOf(tester, 'changed-file:lib/a.dart'), '+12 −3');
       expect(_countsOf(tester, 'changed-file:lib/new.dart'), '+40');
       expect(_countsOf(tester, 'changed-files-total'), '+52 −3');
+    });
+
+    testWidgets('are drawn one way wherever a change without a diff is shown', (
+      tester,
+    ) async {
+      const change = FileChange(
+        path: 'lib/b.dart',
+        change: FileChangeKind.modified,
+        additions: 4,
+        deletions: 1,
+      );
+      await _view(tester, const FileChangeView(change: change));
+      expect(find.text('modified lib/b.dart'), findsOneWidget);
+      expect(tester.widget<FileCounts>(find.byType(FileCounts)).additions, 4);
+      await _view(
+        tester,
+        const ChangedFilesView(
+          changed: ChangedFilesListed(
+            files: [change],
+            omitted: 0,
+            additions: 4,
+            deletions: 1,
+          ),
+        ),
+      );
+      expect(find.byType(FileChangeLine), findsOneWidget);
+      expect(find.text('modified lib/b.dart'), findsOneWidget);
     });
 
     testWidgets('say how many more there are past the list', (tester) async {

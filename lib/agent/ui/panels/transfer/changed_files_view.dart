@@ -1,7 +1,7 @@
+import 'package:broski/agent/ui/chat/file_change_view.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:broski/theme/app_typography.dart';
 import 'package:broski/theme/design_tokens.dart';
-import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
 
 /// The files a session changed: each once, with the lines added and removed
@@ -29,64 +29,23 @@ class ChangedFilesView extends StatelessWidget {
           '$count ${count == 1 ? 'file' : 'files'} changed',
           style: AppTypography.labelLarge(),
         ),
-        _Counts(
+        FileCounts(
           additions: changed.additions,
           deletions: changed.deletions,
           key: const ValueKey('changed-files-total'),
         ),
         const SizedBox(height: Spacing.sm),
-        for (final file in changed.files) _FileRow(file: file),
+        for (final file in changed.files)
+          Padding(
+            padding: Insets.topSm,
+            child: FileChangeLine(
+              key: ValueKey('changed-file:${file.path}'),
+              change: file,
+            ),
+          ),
         if (changed.omitted > 0)
           Text('and ${changed.omitted} more', style: AppTypography.caption()),
       ],
-    );
-  }
-}
-
-class _FileRow extends StatelessWidget {
-  const _FileRow({required this.file});
-
-  final FileChange file;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    key: ValueKey('changed-file:${file.path}'),
-    padding: Insets.topSm,
-    child: Row(
-      children: [
-        Expanded(child: Text(file.path, style: AppTypography.codeSmall())),
-        _Counts(additions: file.additions, deletions: file.deletions),
-      ],
-    ),
-  );
-}
-
-class _Counts extends StatelessWidget {
-  const _Counts({super.key, this.additions, this.deletions});
-
-  final int? additions;
-  final int? deletions;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = OpenCodeTheme.of(context);
-    return Text.rich(
-      TextSpan(
-        children: [
-          if (additions case final added?)
-            TextSpan(
-              text: '+$added',
-              style: TextStyle(color: theme.success),
-            ),
-          if (additions != null && deletions != null) const TextSpan(text: ' '),
-          if (deletions case final removed?)
-            TextSpan(
-              text: '−$removed',
-              style: TextStyle(color: theme.error),
-            ),
-        ],
-      ),
-      style: AppTypography.codeSmall(),
     );
   }
 }

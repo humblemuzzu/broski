@@ -1,6 +1,6 @@
 import 'package:broski/agent/client/contract_client.dart';
 import 'package:broski/agent/ui/panels/op_inputs.dart';
-import 'package:broski/agent/ui/panels/panel_registry.dart';
+import 'package:broski/agent/ui/panels/op_panel.dart';
 import 'package:broski/agent/ui/panels/transfer/file_transfers.dart';
 import 'package:broski/agent/ui/panels/tree/tree_panel.dart';
 import 'package:broski/contract/generated/contract.dart';

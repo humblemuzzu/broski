@@ -72,60 +72,82 @@ List<TreeRow> treeRows(
   List<TreeNode> nodes,
   String? leafId,
   TreeFilter filter,
-) {
-  final byId = {for (final node in nodes) node.id: node};
-  final path = <String>{};
-  for (var at = leafId; at != null && path.add(at); at = byId[at]?.parentId) {}
-  final shown = {
-    for (final node in nodes)
-      if (_shown(node, filter, node.id == leafId)) node.id,
-  };
-  String? shownParent(TreeNode node) {
+) => _TreeShape(nodes, leafId, filter).rows();
+
+/// The shown nodes of a tree, each under its nearest shown ancestor, oldest
+/// first, and the way from the root to the session's position.
+final class _TreeShape {
+  _TreeShape(List<TreeNode> nodes, this._leafId, TreeFilter filter)
+    : _byId = {for (final node in nodes) node.id: node} {
+    for (
+      var at = _leafId;
+      at != null && _path.add(at);
+      at = _byId[at]?.parentId
+    ) {}
+    for (final node in nodes) {
+      if (_shown(node, filter, node.id == _leafId)) _visible.add(node.id);
+    }
+    for (final node in nodes) {
+      if (_visible.contains(node.id)) {
+        (_children[_shownParent(node)] ??= []).add(node);
+      }
+    }
+    for (final list in _children.values) {
+      list.sort((a, b) => (a.at ?? 0).compareTo(b.at ?? 0));
+    }
+  }
+
+  final String? _leafId;
+  final Map<String, TreeNode> _byId;
+  final _path = <String>{};
+  final _visible = <String>{};
+  final _children = <String?, List<TreeNode>>{};
+
+  String? _shownParent(TreeNode node) {
     final seen = <String>{node.id};
     for (
       var at = node.parentId;
       at != null && seen.add(at);
-      at = byId[at]?.parentId
+      at = _byId[at]?.parentId
     ) {
-      if (shown.contains(at)) return at;
-      if (!byId.containsKey(at)) return null;
+      if (_visible.contains(at)) return at;
+      if (!_byId.containsKey(at)) return null;
     }
     return null;
   }
 
-  final children = <String?, List<TreeNode>>{};
-  for (final node in nodes) {
-    if (shown.contains(node.id)) {
-      (children[shownParent(node)] ??= []).add(node);
+  /// The session's position, or the nearest shown node before it.
+  String? _current() {
+    var current = _leafId;
+    while (current != null && !_visible.contains(current)) {
+      current = _byId[current]?.parentId;
     }
+    return current;
   }
-  for (final list in children.values) {
-    list.sort((a, b) => (a.at ?? 0).compareTo(b.at ?? 0));
-  }
-  var current = leafId;
-  while (current != null && !shown.contains(current)) {
-    current = byId[current]?.parentId;
-  }
-  final rows = <TreeRow>[];
-  final pending = <(TreeNode, int)>[
-    for (final root in (children[null] ?? const <TreeNode>[]).reversed)
-      (root, 0),
-  ];
-  while (pending.isNotEmpty) {
-    final (node, depth) = pending.removeLast();
-    rows.add(
-      TreeRow(
-        node: node,
-        depth: depth,
-        onPath: path.contains(node.id),
-        current: node.id == current,
-        cutAbove: node.parentId != null && !byId.containsKey(node.parentId),
-      ),
-    );
-    final below = children[node.id] ?? const <TreeNode>[];
-    for (final child in below.reversed) {
-      pending.add((child, depth + (below.length > 1 ? 1 : 0)));
+
+  List<TreeRow> rows() {
+    final current = _current();
+    final rows = <TreeRow>[];
+    final pending = <(TreeNode, int)>[
+      for (final root in (_children[null] ?? const <TreeNode>[]).reversed)
+        (root, 0),
+    ];
+    while (pending.isNotEmpty) {
+      final (node, depth) = pending.removeLast();
+      rows.add(
+        TreeRow(
+          node: node,
+          depth: depth,
+          onPath: _path.contains(node.id),
+          current: node.id == current,
+          cutAbove: node.parentId != null && !_byId.containsKey(node.parentId),
+        ),
+      );
+      final below = _children[node.id] ?? const <TreeNode>[];
+      for (final child in below.reversed) {
+        pending.add((child, depth + (below.length > 1 ? 1 : 0)));
+      }
     }
+    return rows;
   }
-  return rows;
 }

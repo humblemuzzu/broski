@@ -4,6 +4,7 @@ import 'package:broski/agent/cache/cached_kinds.dart';
 import 'package:broski/agent/client/outcome.dart';
 import 'package:broski/agent/client/requests/session_requests.dart';
 import 'package:broski/agent/session/session_cell.dart';
+import 'package:broski/agent/session/session_history.dart';
 import 'package:broski/agent/session/stream_sync.dart';
 import 'package:broski/contract/generated/contract.dart';
 
@@ -20,6 +21,22 @@ final class HistoryLoader {
   var _newestReads = 0;
   var _rewritePending = false;
   var _olderReading = false;
+
+  /// Shows the saved copy of the finished history until the bridge answers:
+  /// nothing replaces a history the bridge already gave.
+  Future<void> restoreSaved() async {
+    final saved = await _cell.cache?.history(_cell.ref);
+    if (saved == null || _cell.closed || _cell.current.history.loaded) return;
+    _cell.update(
+      (state) => state.copyWith(
+        history: SessionHistory.saved(
+          saved.value.items,
+          saved.value.stability,
+          saved.savedAt,
+        ),
+      ),
+    );
+  }
 
   Future<void> refreshNewest({bool rewritten = false}) async {
     _rewritePending |= rewritten;
