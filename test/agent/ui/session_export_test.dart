@@ -150,6 +150,17 @@ void main() {
     expect(transfers.downloads.single.sharedAs, ['text/html', 'text/html']);
   });
 
+  testWidgets('a shared file is kept while its sheet is up and removed when it '
+      'closes', (tester) async {
+    final (rig, transfers) = await _chat(tester, capabilities: _exportOffered);
+    _serve(rig, _page);
+    await _startExport(tester, 'A web page (HTML)');
+    expect(transfers.downloads.single.discarded, isFalse);
+    Navigator.of(tester.element(_key('export-share'))).pop();
+    await tester.pumpAndSettle();
+    expect(transfers.downloads.single.discarded, isTrue);
+  });
+
   testWidgets('a part damaged on the way is said so, nothing is shared and the '
       'partial file is discarded', (tester) async {
     final (rig, transfers) = await _chat(tester, capabilities: _exportOffered);

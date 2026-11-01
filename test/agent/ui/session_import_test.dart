@@ -245,4 +245,61 @@ void main() {
     await _list(tester);
     expect(_key('backend-panels'), findsNothing);
   });
+
+  BackendCallResponse accept(BackendCallRequest request) {
+    final op = (request.call as PiCall).op as ImportSessionOp;
+    return BackendCallResponse(
+      requestId: request.requestId,
+      result: BackendCallAccepted(
+        result: SessionImported(
+          received: op.offset + base64Decode(op.data).length,
+          sessionId: op.last ? 'imported-1' : null,
+        ),
+      ),
+    );
+  }
+
+  testWidgets('the progress outlasts the back button, and the import still '
+      'ends on the list it began from', (tester) async {
+    final (rig, _) = await _list(
+      tester,
+      pick: MemoryPickedFile('s.jsonl', Uint8List(1200000)),
+      capabilities: _importOffered,
+    );
+    rig.bridge.on<BackendCallRequest>((_) => null);
+    await _startImport(tester);
+    expect(_key('import-progress'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(_key('import-progress'), findsOneWidget);
+
+    _takeEverything(rig);
+    rig.bridge.answer(accept(rig.bridge.waiting<BackendCallRequest>()));
+    await tester.pumpAndSettle();
+    expect(_key('import-progress'), findsNothing);
+    expect(_key('import-done'), findsOneWidget);
+    expect(find.byType(ContractSessionsTab), findsOneWidget);
+  });
+
+  testWidgets('Cancel stops the upload after the part under way, and shows '
+      'no result', (tester) async {
+    final (rig, _) = await _list(
+      tester,
+      pick: MemoryPickedFile('s.jsonl', Uint8List(1200000)),
+      capabilities: _importOffered,
+    );
+    rig.bridge.on<BackendCallRequest>((_) => null);
+    await _startImport(tester);
+    await _tap(tester, _key('import-cancel'));
+    expect(find.text('Stopping…'), findsOneWidget);
+
+    rig.bridge.answer(accept(rig.bridge.waiting<BackendCallRequest>()));
+    await tester.pumpAndSettle();
+    expect(_uploads(rig), hasLength(1));
+    expect(_key('import-progress'), findsNothing);
+    expect(_key('import-done'), findsNothing);
+    expect(_key('import-refused'), findsNothing);
+    expect(find.byType(ContractSessionsTab), findsOneWidget);
+  });
 }

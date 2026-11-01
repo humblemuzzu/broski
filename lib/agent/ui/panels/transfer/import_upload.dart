@@ -25,13 +25,21 @@ final class UploadRefused extends UploadEnd {
   final String reason;
 }
 
+/// The person stopped it; the Mac lets the parts it holds go when they lie
+/// idle.
+final class UploadStopped extends UploadEnd {
+  const UploadStopped();
+}
+
 /// Sends [file] to the Mac in parts of at most `contractMaxTransferPartBytes`,
 /// in order, the last one asking the Mac to judge the whole file. The file is
-/// read as a stream and never held whole. [onProgress] is told the bytes sent.
+/// read as a stream and never held whole. [onProgress] is told the bytes sent;
+/// no part is sent once [stopped] says so.
 Future<UploadEnd> uploadSessionFile({
   required ContractClient client,
   required PickedFile file,
   required void Function(int sent) onProgress,
+  required bool Function() stopped,
   String? uploadId,
 }) async {
   if (file.size > contractMaxImportBytes) {
@@ -45,6 +53,7 @@ Future<UploadEnd> uploadSessionFile({
   var sent = 0;
   var pending = BytesBuilder(copy: false);
   Future<UploadEnd?> send(Uint8List bytes, {required bool last}) async {
+    if (stopped()) return const UploadStopped();
     final outcome = await client.callBackend(
       PiCall(
         op: ImportSessionOp(

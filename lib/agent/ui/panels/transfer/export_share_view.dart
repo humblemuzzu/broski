@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:broski/agent/agent_providers.dart';
 import 'package:broski/agent/ui/panels/transfer/export_download.dart';
 import 'package:broski/agent/ui/panels/transfer/file_transfers.dart';
@@ -8,7 +10,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// An export the Mac has written aside: fetched part by part, then handed to
 /// the share sheet. It says how far it is, and when it cannot finish, why,
-/// with a way to try again.
+/// with a way to try again. The file is kept for another share while the view
+/// is up, and removed with it.
 class ExportShareView extends ConsumerStatefulWidget {
   const ExportShareView({
     super.key,
@@ -72,6 +75,15 @@ class _ExportShareViewState extends ConsumerState<ExportShareView> {
       return;
     }
     await _share();
+  }
+
+  /// A download still under way discards its own file when it sees the view
+  /// gone (`_fetch`); a finished one is discarded here.
+  @override
+  void dispose() {
+    final file = _file;
+    if (file != null && _phase != _Phase.fetching) unawaited(file.discard());
+    super.dispose();
   }
 
   Future<void> _share() async {

@@ -8,18 +8,43 @@ import 'package:path_provider/path_provider.dart' show getTemporaryDirectory;
 import 'package:share_plus/share_plus.dart' show Share, XFile;
 
 /// The phone's own files: a temporary folder for downloads, the system's file
-/// chooser and its share sheet.
+/// chooser and its share sheet. Each download has a folder of its own, removed
+/// when its sheet closes; one a crash left behind goes once it is [staleAfter]
+/// old, never one a share sheet may still be reading.
 final class SystemFileTransfers implements FileTransfers {
-  const SystemFileTransfers();
+  const SystemFileTransfers({
+    this.temporary = getTemporaryDirectory,
+    this.now = DateTime.now,
+  });
+
+  static const staleAfter = Duration(days: 1);
+
+  final Future<Directory> Function() temporary;
+  final DateTime Function() now;
 
   @override
   Future<DownloadedFile> startDownload(String name) async {
-    final root = await getTemporaryDirectory();
-    final downloads = Directory('${root.path}/broski-downloads');
-    if (downloads.existsSync()) await downloads.delete(recursive: true);
-    final own = await (await downloads.create(recursive: true)).createTemp();
+    final root = await temporary();
+    final downloads = await Directory(
+      '${root.path}/broski-downloads',
+    ).create(recursive: true);
+    await _removeStale(downloads);
+    final own = await downloads.createTemp();
     final file = File('${own.path}/${_fileName(name)}');
     return _Downloaded(own, file, file.openWrite());
+  }
+
+  Future<void> _removeStale(Directory downloads) async {
+    final before = now().subtract(staleAfter);
+    await for (final left in downloads.list()) {
+      try {
+        if ((await left.stat()).modified.isBefore(before)) {
+          await left.delete(recursive: true);
+        }
+      } on FileSystemException {
+        continue;
+      }
+    }
   }
 
   @override
