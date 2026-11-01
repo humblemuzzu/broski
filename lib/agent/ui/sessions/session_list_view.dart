@@ -3,21 +3,28 @@ import 'package:broski/agent/catalog/session_actions.dart';
 import 'package:broski/agent/catalog/session_list_controller.dart';
 import 'package:broski/agent/ui/chat/agent_chat_screen.dart';
 import 'package:broski/agent/ui/sessions/session_actions_sheet.dart';
+import 'package:broski/agent/ui/sessions/session_list_options.dart';
+import 'package:broski/agent/ui/sessions/session_list_tools.dart';
 import 'package:broski/agent/ui/sessions/session_row.dart';
 import 'package:broski/agent/ui/shared/offline_banner.dart';
 import 'package:broski/contract/generated/contract.dart';
+import 'package:broski/theme/app_typography.dart';
 import 'package:broski/theme/design_tokens.dart';
+import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// The rows of one list of sessions, paged, with the row actions the backend
-/// has; the saved copy, marked, while the bridge cannot be reached.
-class SessionListView extends ConsumerWidget {
+/// has; the saved copy, marked, while the bridge cannot be reached. With
+/// [tools] the person can search the rows read, order them, keep one
+/// directory, and group them by directory.
+class SessionListView extends ConsumerStatefulWidget {
   const SessionListView({
     super.key,
     required this.backend,
     required this.listKey,
     this.bottomPadding = 0,
+    this.tools = true,
   });
 
   final BackendDescriptor backend;
@@ -25,24 +32,58 @@ class SessionListView extends ConsumerWidget {
 
   /// Room below the last row, for what floats over the list.
   final double bottomPadding;
+  final bool tools;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final list = ref.watch(sessionListProvider(listKey));
-    final controller = ref.read(sessionListProvider(listKey).notifier);
+  ConsumerState<SessionListView> createState() => _SessionListViewState();
+}
+
+class _SessionListViewState extends ConsumerState<SessionListView> {
+  final _search = TextEditingController();
+  var _options = const SessionListOptions();
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final list = ref.watch(sessionListProvider(widget.listKey));
+    final controller = ref.read(sessionListProvider(widget.listKey).notifier);
     final live = ref.watch(liveProvider);
+    final shown = visibleSessions(list.rows, _options);
     return RefreshIndicator(
       onRefresh: controller.refresh,
       child: ListView(
-        padding: EdgeInsets.only(bottom: bottomPadding),
+        padding: EdgeInsets.only(bottom: widget.bottomPadding),
         children: [
+          if (widget.tools && (list.rows.isNotEmpty || _options.filtering))
+            SessionListTools(
+              search: _search,
+              options: _options,
+              directories: directoriesOf(list.rows),
+              onChanged: (next) => setState(() => _options = next),
+            ),
           if (!live && list.loaded)
             OfflineBanner(savedAt: list.savedAt)
           else if (list.problem case final problem?)
             Padding(padding: Insets.screen, child: Text(problem)),
-          for (final row in list.rows) _row(context, ref, row, live),
-          if (list.loaded && list.rows.isEmpty)
-            const Padding(padding: Insets.screen, child: Text('No sessions')),
+          ..._rows(context, shown, live),
+          if (list.loaded && shown.isEmpty) _empty(list.rows.isEmpty),
+          if (_options.filtering && !list.complete && list.loaded)
+            Padding(
+              key: const ValueKey('session-search-scope'),
+              padding: Insets.chip,
+              child: Text(
+                'Looking through the ${list.rows.length} sessions read so '
+                'far.',
+                style: AppTypography.caption(
+                  color: OpenCodeTheme.of(context).textMuted,
+                ),
+              ),
+            ),
           if (!list.complete && list.loaded && live)
             TextButton(
               onPressed: list.loading ? null : controller.loadMore,
@@ -62,13 +103,37 @@ class SessionListView extends ConsumerWidget {
     );
   }
 
-  Widget _row(
+  Widget _empty(bool nothingRead) => Padding(
+    padding: Insets.screen,
+    child: Text(
+      nothingRead || !_options.filtering
+          ? 'No sessions'
+          : 'No session here matches.',
+    ),
+  );
+
+  List<Widget> _rows(
     BuildContext context,
-    WidgetRef ref,
-    SessionSummary row,
+    List<SessionSummary> shown,
     bool live,
   ) {
-    final actionable = live && rowActions(row, backend.capabilities).isNotEmpty;
+    if (!_options.byDirectory) {
+      return [for (final row in shown) _row(context, row, live)];
+    }
+    return [
+      for (final section in byDirectory(shown)) ...[
+        _DirectoryHeader(
+          directory: section.directory,
+          count: section.rows.length,
+        ),
+        for (final row in section.rows) _row(context, row, live),
+      ],
+    ];
+  }
+
+  Widget _row(BuildContext context, SessionSummary row, bool live) {
+    final actionable =
+        live && rowActions(row, widget.backend.capabilities).isNotEmpty;
     return SessionRow(
       row: row,
       onOpen: () => openSession(context, row.session),
@@ -77,10 +142,48 @@ class SessionListView extends ConsumerWidget {
               context,
               ref,
               row: row,
-              backend: backend,
-              listKey: listKey,
+              backend: widget.backend,
+              listKey: widget.listKey,
             )
           : null,
+    );
+  }
+}
+
+class _DirectoryHeader extends StatelessWidget {
+  const _DirectoryHeader({required this.directory, required this.count});
+
+  final String? directory;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+    final segments = (directory ?? '').split('/').where((s) => s.isNotEmpty);
+    final name = directory == null
+        ? 'No directory'
+        : segments.lastOrNull ?? directory!;
+    return Padding(
+      key: ValueKey('session-directory-header:${directory ?? ''}'),
+      padding: const EdgeInsets.fromLTRB(
+        Spacing.lg,
+        Spacing.md,
+        Spacing.lg,
+        Spacing.xs,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('$name \u00b7 $count', style: AppTypography.labelLarge()),
+          if (directory != null)
+            Text(
+              directory!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.caption(color: theme.textMuted),
+            ),
+        ],
+      ),
     );
   }
 }
