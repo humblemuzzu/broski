@@ -1,6 +1,6 @@
 # The Broski backend contract
 
-Status: Phase 1, protocol **1.3** (1.0 plus the `replaced` attach answer, 1.1, the `take_over` op and `input_returned` event, 1.2, and, in 1.3, the separate cancel of a compaction and of a retry, the Pi ops `session_settings`, `session_tools` and `system_prompt`, the Pi session-file ops, `refresh_models` and the unavailable models of a model list, and Pi's tree and shell ops; §12.4). Built on commit `9678394`. The bridge core (Phase 2) and the app core (Phase 3) speak it, and Phase 4 adds one adapter per backend: Pi's is registered in every bridge (`server/contract-backends.ts`).
+Status: Phase 1, protocol **1.4** (1.0 plus the `replaced` attach answer, 1.1, the `take_over` op and `input_returned` event, 1.2, in 1.3, the separate cancel of a compaction and of a retry, the Pi ops `session_settings`, `session_tools` and `system_prompt`, the Pi session-file ops, `refresh_models` and the unavailable models of a model list, and Pi's tree and shell ops, and, in 1.4, the configuration, list and custom tool ops, the `prompt_suggestion` extension and a plan approval's next mode; §12.4). Built on commit `9678394`. The bridge core (Phase 2) and the app core (Phase 3) speak it, and Phase 4 adds one adapter per backend: Pi's is registered in every bridge (`server/contract-backends.ts`).
 
 This document is the spec. The code is the definition: `packages/bridge/src/contract/` (zod schemas, interfaces, reducer, answer checker) and `packages/bridge/src/contract/testing/` (fake backend, conformance suite). Every backend fact below cites the research in [`research/`](research/):
 
@@ -29,6 +29,8 @@ Where this document and a research report disagree, the report wins unless the d
 | `contract/snapshot.ts`, `session-reducer.ts`, `run-items.ts` | `SessionSnapshot`; `applyEvent`, the executable meaning of every event; how live events become the active run's items. |
 | `contract/protocol.ts`, `read-results.ts` | The wire protocol: requests, responses, version; the results of the read requests. |
 | `contract/extensions.ts`, `backend-ops.ts` | Typed per-backend live events and the `backend.call` escape hatch. |
+| `contract/backend-ops-*.ts`, `session-controls.ts`, `tree-ops.ts`, `shell-ops.ts`, `config-ops.ts`, `custom-tool-ops.ts` | The op families, each with its kinds, ops and results. |
+| `contract/action-list.ts`, `editable-file.ts` | Two result payloads several ops share: a list of rows with actions, and one text file edited at a revision. |
 | `contract/backend.ts` | `AgentBackend`, `OpenSession`, `SessionControl`, the sinks, capability derivation. Plain TypeScript over the schema types. |
 | `contract/schema-registry.ts` | Names every schema after its export, for JSON Schema and Dart. |
 | `contract/contract.schema.json` | **Generated.** The contract as one JSON Schema (draft 2020-12). |
@@ -187,8 +189,8 @@ Declared traits are checked against behaviour, both ways where the contract can 
 | `planProposals` | ✗ (the plan reaches the app as a `plan_approval`) | ✗ | ✗ |
 | `externalLive` | ✗ file tail only (cc §11) | ✓ a terminal `pi` through the terminal link (Pi README decision 19) | ✗ no external writers (pd D11) |
 | `durableRuns` | ✗ the CLI child dies with the bridge (cc §1) | ✗ in-process (pi §1) | ✓ (pd D1) |
-| `extensions` | rate_limit | — | — |
-| `backendOps` | rewind_files | navigate_tree, take_over, session_settings, session_tools, system_prompt, export_session, export_part, import_session, changed_files, refresh_models, read_tree, label_entry, abort_branch_summary, run_shell | — |
+| `extensions` | rate_limit, prompt_suggestion (1.4) | — | — |
+| `backendOps` | rewind_files; since 1.4 session_settings, changed_files, refresh_models, config_files, config_file, settings_overview, mcp_servers, plugins, tasks, context_usage, custom_tools, custom_tool | navigate_tree, take_over, session_settings, session_tools, system_prompt, export_session, export_part, import_session, changed_files, refresh_models, read_tree, label_entry, abort_branch_summary, run_shell | — |
 | `fork` (derived) | ✓ `forkSession` (cc §7) | ✓ `runtime.fork` (pi §7) | ✓ (pd D7) |
 | `rename` | ✓ | ✓ `setSessionName` | ✓ bridge `meta.json` |
 | `delete` | ✓ | ✓ bridge deletes the file (pi §3) | ✓ bridge directory |
@@ -313,7 +315,7 @@ interaction_resolved { interactionId, reason: answered | withdrawn | expired }
 | `tool_permission` | `input?` (editable when `inputEditable`), `reason?`, `previews[]` (command, file changes, network host, paths), `options[]`, `grants[]`, `defaultOptionId?`, `deliberate` | `{optionId, message?, editedInput?, grantIds[]}` |
 | `questions` | `questions[]`: `{id, header?, text, options[{label, description?, preview?}], multiSelect, allowCustom, secret, required}` | `{answers[{questionId, selected[], custom?}]}` |
 | `form` | `fields[]` (`FormFieldSpec`), `server?` | `{values: {key → FormValue}}` |
-| `plan_approval` | `plan` (markdown), `editable`, `path?` | `{decision: approve\|reject, plan?, feedback?}` |
+| `plan_approval` | `plan` (markdown), `editable`, `path?`, `modeOptions?{axis, options[], defaultValue?}` (since 1.4: the values of a mode axis the session may go on in once approved) | `{decision: approve\|reject, plan?, feedback?, modeAfter?}` (`modeAfter` since 1.4) |
 | `external_url` | `url`, `server?` | `{}` (opened, consent to continue) |
 | `choice` | `options[{value, label, description?}]` | `{value}` |
 | `confirm` | (title and body say it) | `{confirmed}` |
@@ -336,7 +338,7 @@ interaction_resolved { interactionId, reason: answered | withdrawn | expired }
 - an empty answer to a required string or multiselect field;
 - answers to inactive fields, and missing required active fields (a hidden one counts as answered only when it has a default, which the adapter fills in);
 - an external field not acknowledged with `true`;
-- plan feedback on an approval, an edited plan on a rejection or on a non-editable plan;
+- plan feedback on an approval, an edited plan on a rejection or on a non-editable plan, a `modeAfter` on a rejection, on a plan that offers no modes, or that is not one of the `modeOptions`;
 - a choice that is not an option;
 - newlines in single-line text.
 
@@ -531,7 +533,16 @@ Pending interactions arrive in the snapshot or the replayed `interaction_request
 
 ### 12.4 Versioning
 
-`PROTOCOL_VERSION = {major: 1, minor: 3}`; `ADDED_IN_MINOR` (`protocol.ts`) names the minor each addition came in, and the core sends it only to a client whose `hello` named that minor. 1.1 is `replaced` (§12.2). 1.2 is the Pi op `take_over` (`ADDED_IN_MINOR.takeOver`: an older client's `BackendDescriptor.ops` does not list it) and the `input_returned` event (`ADDED_IN_MINOR.inputReturned`: an older client gets the same texts as a `notice` with the same `seq`, `core/minor-views.ts`). 1.3 is `ADDED_IN_MINOR.sessionControls`: the `compaction.cancel` and `retry.cancel` requests (a client below 1.3 never sends them), the optional `SessionCapabilities.cancelCompaction` and `cancelRetry` that announce them (removed from the answer an older client gets, since its Dart models refuse an unknown field; absent from an older bridge's answer, which means false), and the Pi ops `session_settings`, `session_tools` and `system_prompt` (an older client's descriptor does not list them). 1.3 also brings the Pi ops `export_session`, `export_part`, `import_session` and `changed_files` (`ADDED_IN_MINOR.sessionFiles`), the Pi op `refresh_models`, `ModelSummary.unavailableReason` and the `includeUnavailable` field of `models.list` (`ADDED_IN_MINOR.modelAvailability`). `OP_ADDED_IN` (`core/minor-views.ts`) lists the minor of every op an older client is not told of; the core passes `includeUnavailable` to an adapter only for a client of minor 3 or later. 1.3 also brings Pi's tree ops `read_tree`, `label_entry` and `abort_branch_summary` (`ADDED_IN_MINOR.treeOps`) and the shell op `run_shell` (`ADDED_IN_MINOR.shellOps`), withheld from an older client in the same table; `NavigateTreeOp.instructions` is a new optional field a client sends. The rules:
+`PROTOCOL_VERSION = {major: 1, minor: 4}`; `ADDED_IN_MINOR` (`protocol.ts`) names the minor each addition came in, and the core sends it only to a client whose `hello` named that minor. 1.1 is `replaced` (§12.2). 1.2 is the Pi op `take_over` (`ADDED_IN_MINOR.takeOver`: an older client's `BackendDescriptor.ops` does not list it) and the `input_returned` event (`ADDED_IN_MINOR.inputReturned`: an older client gets the same texts as a `notice` with the same `seq`, `core/minor-views.ts`). 1.3 is `ADDED_IN_MINOR.sessionControls`: the `compaction.cancel` and `retry.cancel` requests (a client below 1.3 never sends them), the optional `SessionCapabilities.cancelCompaction` and `cancelRetry` that announce them (removed from the answer an older client gets, since its Dart models refuse an unknown field; absent from an older bridge's answer, which means false), and the Pi ops `session_settings`, `session_tools` and `system_prompt` (an older client's descriptor does not list them). 1.3 also brings the Pi ops `export_session`, `export_part`, `import_session` and `changed_files` (`ADDED_IN_MINOR.sessionFiles`), the Pi op `refresh_models`, `ModelSummary.unavailableReason` and the `includeUnavailable` field of `models.list` (`ADDED_IN_MINOR.modelAvailability`). `OP_ADDED_IN` (`core/minor-views.ts`) lists the minor of every op an older client is not told of; the core passes `includeUnavailable` to an adapter only for a client of minor 3 or later. 1.3 also brings Pi's tree ops `read_tree`, `label_entry` and `abort_branch_summary` (`ADDED_IN_MINOR.treeOps`) and the shell op `run_shell` (`ADDED_IN_MINOR.shellOps`), withheld from an older client in the same table; `NavigateTreeOp.instructions` is a new optional field a client sends.
+
+1.4 is `ADDED_IN_MINOR.configOps`, and every check below is in the core (`core/minor-views.ts`, `core/older-events.ts`, `core/older-plans.ts`):
+
+- The ops `config_files`, `config_file`, `settings_overview`, `mcp_servers`, `plugins`, `tasks`, `context_usage`, `custom_tools` and `custom_tool` (§13): an older client's descriptor does not list them (`OP_ADDED_IN`).
+- Claude Code serving the existing kinds `session_settings`, `changed_files` and `refresh_models`: an older client has no call that carries them to Claude Code (its `ClaudeCodeOp` lacks them), so its Claude Code descriptor does not list them (`OP_JOINED_IN`, by backend), while Pi's still does.
+- The `prompt_suggestion` extension: an older client is sent an info `notice` ("Suggested next prompt: …") with the same `seq`.
+- `PlanApprovalRequest.modeOptions`: taken out of every plan approval an older client is sent, in `interaction_requested`, in a `resynced` snapshot, in an attach's snapshot, and in the live state a frame that does not fit is replaced by. `PlanApprovalReply.modeAfter` from an older client is refused `invalid_input`.
+
+An event can have a stand-in for more than one older minor; `EncodedFrame.instead` is then a chain, newest minor first, and each client is sent the first stand-in its minor speaks. The rules:
 
 - Bridge and app talk only when `major` is equal.
 - A change the older side can ignore bumps `minor`: a new optional field, a new request type, a new union member or enum value.
@@ -548,11 +559,29 @@ Two typed escape hatches. Neither is an untyped blob.
 **Extensions** (`extension{extension}` events, declared in `Capabilities.extensions`):
 
 - `rate_limit{window, status?, usedPercent?, resetsAt?}` (CC `rate_limit_event`, cc §2; units in Q13).
+- `prompt_suggestion{text}` (since 1.4): the next prompt the backend predicts once a turn ends (CC `prompt_suggestion`, `SDKPromptSuggestionMessage.suggestion`). A newer one replaces it; the phone offers it, never sends it.
 
-**Ops** (`backend.call{call: {backend, op}}` → `BackendCallResult`, declared in `Capabilities.backendOps`, served by `AgentBackend.call`). Each backend's ops form their own union, so an adapter receives only its own:
+**Ops** (`backend.call{call: {backend, op}}` → `BackendCallResult`, declared in `Capabilities.backendOps`, served by `AgentBackend.call`). Each backend's ops form their own union, so an adapter receives only its own. A kind may be in several unions (Claude Code serves Pi's `session_settings`, `changed_files` and `refresh_models` since 1.4): the call's `backend` says which adapter gets it, and a client builds the call from the backend of the session it is about. `BackendOp` is every op of every backend, each kind once, for a client to build the op before it wraps it.
+
+**How an op names what it is about** (1.4): live state, which only a running session has, is named by `sessionId`, and an unknown session is `not_found` (§14 rule 9); files and configuration are named by the project directory, `cwd`, which reaches the adapter canonical through the bridge's directory policy (the core applies it to every op that has a `cwd`, as to `models.list`) or is refused `invalid_input`; what belongs to the bridge itself names neither. An op that has both (`plugins`) reads configuration by `cwd` and adds what only a running session knows when given a `sessionId`.
+
+**Shared result payloads** (1.4). Each op answers under its own `kind`; the payload is shared:
+
+- `ActionList{rows[{id, title, subtitle?, status?{label, tone: neutral|ok|busy|warning|error}, group?, badges[], actions[{id, label, destructive}]}], omitted, note?}`. An op whose rows have actions takes an optional `change: ActionListChange{rowId, actionId}`: the action is taken first and the answer is the list after it; an unknown row is `not_found`, an action the row does not offer `invalid_input`. A `destructive` action is asked about on the phone before it is sent.
+- `EditableFile{id, path, scope, format: json|markdown|text, exists, text, revision, editable, truncated, problems[]}`. A change is `write{text, revision}` or `delete{revision}`, compare-and-swap on the revision (opaque, minted by the adapter, also for a file that does not exist): another revision is `stale`, a JSON write that does not parse `invalid_input` (never written), a file the backend may not change `unsupported`. `truncated` (the file is longer than `text` holds) is never `editable`. The core keeps it so: a file whose `text` it cuts to fit the link is sent `truncated` and not `editable` (core README §9). Conformance rule 30 holds the revision, JSON and `unsupported` rules to every adapter.
 
 | Backend | Op | Result | Source |
 |---|---|---|---|
+| claude-code | `config_files{cwd}` (since 1.4) | `{files[{id, label, group, scope, path, exists, editable, format, template}], omitted}`: `group` and `scope` are the backend's own short words; a `template` entry is the place a new named file goes, read and written by `config_file` with a `name` | The CLI's settings, `.mcp.json`, CLAUDE.md, agents, commands, skills, output styles (PLAN D22) |
+| claude-code | `config_file{cwd, fileId, name?, change?}` (since 1.4) | `{file: EditableFile}`. `fileId` is an id the listing gave or a `config_file` answer named (a new file's id addresses it before it is written) | The file itself, written atomically under its expected base (PLAN D22) |
+| claude-code | `settings_overview{cwd}` (since 1.4) | `{list: ActionList}`, read-only: a row per setting with its value and source, problems, the account | `resolveSettings()` provenance (`sdk.d.ts` `ResolvedSettings`) |
+| claude-code | `mcp_servers{sessionId, change?}` (since 1.4) | `{list: ActionList}`: status per server; actions such as enable, disable, reconnect | `mcpServerStatus`, `toggleMcpServer`, `reconnectMcpServer` |
+| claude-code | `plugins{cwd, sessionId?, change?}` (since 1.4) | `{list: ActionList}`: actions such as enable, disable | `enabledPlugins`; with a session, `system/init` `plugins`/`plugin_errors` and `reloadPlugins` |
+| claude-code | `tasks{sessionId, change?}` (since 1.4) | `{list: ActionList}`: a session's background work; action such as stop | `background_tasks_changed`, `task_*`, `stopTask` |
+| claude-code | `context_usage{sessionId}` (since 1.4) | `{list: ActionList}`, read-only: a row per part of the context window with its tokens, the total in `note` | `getContextUsage` `categories` |
+| claude-code | `custom_tools{change?}` (since 1.4) | `{list: ActionList}`: rows are tools (a row's id is the `toolId`), actions such as test and delete; a test's output is `note` | The bridge's own tools (`custom-tools.ts`, PLAN D30) |
+| claude-code | `custom_tool{toolId?, change?}` (since 1.4) | `{file: EditableFile}`: one definition as JSON. No `toolId`: a starting template under a new id, created by a write to that id; a change always names its `toolId` | Same |
+| claude-code | `session_settings`, `changed_files`, `refresh_models` (since 1.4 for Claude Code) | as Pi's below | PLAN D11, D22 |
 | claude-code | `rewind_files{sessionId, userItemId, dryRun}` | `{canRewind, filesChanged?, insertions?, deletions?, skippedLinks?, error?}`: `filesChanged` absent when the CLI does not say; `skippedLinks` counts files a real rewind left alone because a link sat at their path, so a partial rewind shows as one | `Query.rewindFiles` (cc §7; `RewindFilesResult`, `sdk.d.ts:3442-3452`) |
 | pi | `navigate_tree{sessionId, itemId, summarize, instructions?}` | `{}` | `navigateTree` (pi §7) |
 | pi | `session_settings{sessionId, change?}` (since 1.3) | `{settings[]}`: each a toggle (`enabled`) or a choice (`value`, `options`), with a label, a description and a `note` when a value shown may not be the one just chosen. With `change` that setting is set first, and the answer is the settings as the session now has them | Pi's auto-compaction, auto-retry, steering mode and follow-up mode, saved to the global `settings.json` as the terminal saves them (Pi README, decision 21) |
@@ -569,11 +598,11 @@ Two typed escape hatches. Neither is an untyped blob.
 | pi | `changed_files{sessionId}` (since 1.3) | `{files[], omitted, additions, deletions}` | The files `edit` and `write` calls changed on the branch the transcript shows, folded per file |
 | pi | `refresh_models{}` (since 1.3) | `{problems[]}` | `pi update --models`: every signed-in provider's catalogue fetched again from the network, then the model files read again |
 
-Two Pi ops name no session (`import_session`, `refresh_models`): the ops rule (§14, rule 9) asks for `not_found` on a random session only of an op that names one. Of the Pi ops only `navigate_tree` rewrites history.
+Some ops name no session (Pi's `import_session`, `refresh_models`; `config_files`, `config_file`, `settings_overview`, `custom_tools`, `custom_tool`, and `plugins` without one): the ops rule (§14, rule 9) asks for `not_found` on a random session only of an op that names one. Of all the ops only `navigate_tree` rewrites history.
 
 Revert is an op, not a capability: its meaning differs per backend (CC files only; Pi a leaf move; Pi Durable a fork), and one normalized "revert" would lie.
 
-An op that rewrites what the transcript reads is marked by `rewritesHistory(kind)`: `navigate_tree` (`rewind_files` does not: it changes files, not the transcript; `take_over` does not either: it appends one bookkeeping entry that no transcript item shows; nor do `session_settings`, `session_tools` and `system_prompt`). After one is accepted the adapter emits `transcript_invalidated{session}` (§5).
+An op that rewrites what the transcript reads is marked by `rewritesHistory(kind)`: `navigate_tree` (`rewind_files` does not: it changes files, not the transcript; `take_over` does not either: it appends one bookkeeping entry that no transcript item shows; nor do `session_settings`, `session_tools` and `system_prompt`, nor any op of 1.4: a configuration file is not the transcript). After one is accepted the adapter emits `transcript_invalidated{session}` (§5).
 
 ## 14. Conformance
 
@@ -622,10 +651,11 @@ An op that rewrites what the transcript reads is marked by `rewritesHistory(kind
 27. With `externalLive`, a run another client starts is reported, with trigger `external`.
 28. A run survives a restart of the bridge, under its id, exactly when `durableRuns` is declared; the session survives always.
 29. A session that can cancel a compaction or a retry does so on its own: with none under way the cancel is accepted and silent; a compaction cancelled while under way finishes `aborted` and the session compacts again; a retry cancelled while scheduled finishes unsuccessfully and its run does not complete.
+30. Every declared op that reads an editable file (`config_file`, `custom_tool`) writes it only at the revision read (another is `stale`), a JSON file only when the text parses (`invalid_input`), a file it may not change never (`unsupported`); writing back what was read, at its revision, through the id the answer named, lands and answers the same text.
 
-Every scenario's stream also passes the stream rules (§7), and every catalog event is validated as it arrives. `src/__tests__/contract_conformance.test.ts` runs the suite against the fake with every capability and with none.
+Every scenario's stream also passes the stream rules (§7), and every catalog event is validated as it arrives. `src/__tests__/contract_conformance.test.ts` runs the suite against the fake with every capability, as Claude Code with every op of its union, and with none.
 
-**The suite can fail.** The `contract_negative_*.test.ts` files run 214 deliberately broken adapters (one change each to the honest fake or its driver): every assertion of every rule, and every stream rule a rule relies on, fails at least one of them, for the reason it names. `fails()` (`src/__tests__/helpers/broken-adapters.ts`) requires the rule to reject with that reason, so a rule that lets its broken adapter through, or catches it only by accident, fails its negative test.
+**The suite can fail.** The `contract_negative_*.test.ts` files run 225 deliberately broken adapters (one change each to the honest fake or its driver): every assertion of every rule, and every stream rule a rule relies on, fails at least one of them, for the reason it names. `fails()` (`src/__tests__/helpers/broken-adapters.ts`) requires the rule to reject with that reason, so a rule that lets its broken adapter through, or catches it only by accident, fails its negative test.
 
 ## 15. Lossy points and unsupported capabilities
 
@@ -642,10 +672,10 @@ What each backend cannot carry through the contract, and what is lost on the way
 **Claude Code**
 
 - Unsupported: archive; `planProposals`; `externalLive` (cc §11); `text` interactions; per-item queue cancel where the runtime-only `cancel_async_message` is unavailable (cc §6, Q4; it is ungated, Errata 10).
-- Lost, events: `thinking_tokens` estimates when thinking display is omitted (cc §5); `tool_use_summary`; `task_*` details beyond the child session link (description, usage, background state; cc §5); hook events; `prompt_suggestion`; `system/init` catalogs between turns; `model_refusal_no_fallback` beyond its error; `memory_recall`, `files_persisted` and the other informational system frames.
+- Lost, events: `thinking_tokens` estimates when thinking display is omitted (cc §5); `tool_use_summary`; `task_*` details beyond the child session link (description, usage, background state; cc §5); hook events; `system/init` catalogs between turns; `model_refusal_no_fallback` beyond its error; `memory_recall`, `files_persisted` and the other informational system frames.
 - Lost, input: `shouldQuery:false` appends and `client_composed` verbatim prompts (cc §6).
 - Lost, tool results: per-tool structured output beyond diffs, images and text, such as `BashOutput.gitOperation` and `backgroundTaskId`, and the `Read` variants (cc §4).
-- Lost, interactions: AskUserQuestion `annotations.notes` and the free-form `response` (cc §8.2); the post-plan permission mode (Q6; the app can follow an approval with `mode.set`).
+- Lost, interactions: AskUserQuestion `annotations.notes` and the free-form `response` (cc §8.2). The post-plan permission mode is carried since 1.4 (`modeOptions`, `modeAfter`).
 - Lost, modes: none of the six permission modes is dropped; `bypassPermissions` needs `allowDangerouslySkipPermissions` at start (cc §7), so the adapter offers it only when it started the session with it.
 - Lost, input and catalog: `priority:'now'` interrupt-and-send (do abort then start); transcript `gitBranch` and `tag`; the CLI's `capabilities` strings (the adapter uses them to set traits); effort as a single scale, so the adaptive/enabled/budget thinking modes are not chosen separately (cc §7).
 - Lost, errors: `SDKAssistantMessageError` → `ErrorCode`: `authentication_failed`, `oauth_org_not_allowed`, `account_on_hold`, `verification_required`, `cloud_credential_error` → `auth`; `billing_error` → `quota`; `rate_limit` → `rate_limit`; `overloaded`, `server_error` → `server`; `invalid_request` → `invalid_request`; `model_not_found` → `model_unavailable`; `max_output_tokens` → the `limit` outcome; `unknown` → `unknown`.
@@ -687,12 +717,13 @@ The brief names proposals and says to refine them. These are the places the cont
 | `Interaction.session` | dropped | The envelope already names the session. |
 | — | added `input_returned{texts}` and the Pi op `take_over` (1.2) | A terminal's Esc gives queued input back to the human, and the contract had no way to say so; a session another client made could never become controllable. |
 | — | added `compaction.cancel`, `retry.cancel` and the Pi ops `session_settings`, `session_tools`, `system_prompt` (1.3) | Stop ended a compaction and a retry together with the run it belonged to, and the human could not end only one. The state is already normalized (`snapshot.compaction`, `snapshot.retry`), so the cancel is normalized too, as optional methods that announce themselves in `SessionCapabilities` like `compact` and `cancelQueued`. Pi's settings, tools and system prompt are its own and global in part, so they are typed ops, not modes (Pi README, decision 21). |
+| — | added the configuration, list and custom tool ops, the `prompt_suggestion` extension and a plan approval's `modeOptions`/`modeAfter` (1.4) | A backend's configuration is files and its live lists (MCP servers, plugins, tasks, context) are its own, so they are ops; two shared payloads, a list of rows with actions and one file at a revision, let the phone draw every one by shape instead of one screen per backend feature (Claude Code PLAN D22, D24, D25, D30). |
 | — | added `session_replaced{session}` | CC continues a live session under a new id after `/clear` or a plan-exit context clear (`conversation_reset`, cc §5); without it the phone would keep watching a session that no longer receives anything. |
 
 ## 17. Not in Phase 1
 
-- **Background-task control** in CC (`stopTask`, `backgroundTasks`, `perTaskStopAffordance`, cc §7).
-- **Catalogs** beyond models and commands: MCP servers, plugins, hooks, config and settings (including Pi's global vs project scope, pi §13), auth and login flows (cc §9).
+- **Background-task control** beyond listing and stopping a task (1.4 `tasks`): backgrounding a running tool (`backgroundTasks`), `perTaskStopAffordance` (cc §7).
+- **Catalogs** beyond models, commands and the 1.4 configuration and list ops: Pi's global vs project scope (pi §13), auth and login flows (cc §9).
 - **External-session takeover** (resuming a terminal-owned CC or Pi session interleaves writers, cc §11, pi §11).
 - **Title search** in `SessionQuery`: CC and Pi would need the bridge index. An additive field later.
 - The core: the event log, `seq`, epochs, first-answer-wins, de-duplication across restarts (Phase 2). The Flutter reducer that mirrors `applyEvent` (Phase 3).

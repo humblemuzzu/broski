@@ -224,7 +224,7 @@ One delegate, on `main` in a worktree `cc/spike`.
 
 **Exit:** a compiled darwin-arm64 bridge runs an old-path Claude Code turn; the offline turn test passes in CI (Linux and macOS); full bridge suite green.
 
-### Step 2 — Contract additions (protocol 1.4)
+### Step 2 — Contract additions (protocol 1.4) — **done** (`32a1b2d`…; the shapes as built are in §8 and contract README §13; the minor is `ADDED_IN_MINOR.configOps`)
 
 One delegate, serial, the only step that edits shared contract files. Following the recipe in 06 §4.3, with `ADDED_IN_MINOR.claudeCode = 4`:
 - New op kinds and result shapes: `config_files`, `config_file`, `settings_overview`, `mcp_servers`, `plugins`, `tasks`, `context_usage` (shapes per §8), each in `OP_ADDED_IN`, `fakeOpResult`, `exampleCall`, the negative suite, and `panelFor` with a real panel or a placeholder.
@@ -330,8 +330,9 @@ Every file under 400 lines, every function under 50, one concept per file (AGENT
 
 ## 8. Conventions every lane follows
 
-- **Op shapes.** An op that lists things with actions returns the shared `ActionList` shape: `rows[{id, title, subtitle?, status?, badges[], actions[{id, label, destructive}]}]`, `omitted`, `note?`. Its change is `{rowId, actionId}`. `mcp_servers`, `plugins`, `tasks`, `context_usage` (no actions) and `settings_overview` (no actions) use it; the app renders all of them with one `ActionListView`. Each op keeps its own `kind`.
-- **File ops.** `config_file` returns `{path, scope, format: json|markdown|text, text, revision, editable, problems[]}`; the change is `{text, revision}`; a stale revision is `stale`, an unparsable JSON write is `invalid_input`, a managed file is `unsupported`.
+- **Op shapes** (as built in Step 2, `contract/action-list.ts`). An op that lists things with actions answers `{kind, list: ActionList}`, `ActionList = {rows[{id, title, subtitle?, status?{label, tone: neutral|ok|busy|warning|error}, group?, badges[], actions[{id, label, destructive}]}], omitted, note?}`. Its change is `ActionListChange{rowId, actionId}` (unknown row `not_found`, action not offered `invalid_input`). `mcp_servers`, `plugins`, `tasks`, `custom_tools`, `context_usage` (no actions) and `settings_overview` (no actions) use it; the app renders all of them with one `ActionListView`. Each op keeps its own `kind`.
+- **File ops** (`contract/editable-file.ts`). `config_file` and `custom_tool` answer `{kind, file: EditableFile}`, `EditableFile = {id, path, scope, format: json|markdown|text, exists, text, revision, editable, truncated, problems[]}`; the change is `write{text, revision}` or `delete{revision}`; a stale revision is `stale`, an unparsable JSON write is `invalid_input`, a managed file is `unsupported`; a `truncated` file is never `editable`. The answer's `file.id` addresses the file from then on, also a new one not yet written. Conformance rule 30 checks the three refusals.
+- **Scoping.** Live state by `sessionId` (`mcp_servers`, `tasks`, `context_usage`), files and configuration by `cwd`, canonical through the core's directory policy (`config_files`, `config_file`, `settings_overview`, `plugins` with an optional `sessionId`), the bridge's own tools by neither (`custom_tools`, `custom_tool`).
 - **One helper per job.** `rejected(code, message)` in `rejections.ts`, `clip()` in `bounds.ts`, `childRef()`/`parseChildRef()` in `ids.ts`, `encodeCursor()`/`decodeCursor()` in `cursor.ts`. No lane writes its own copy.
 - **SDK access.** Only through the `ClaudeSdk` port (`ports.ts`), so unit tests inject a fake and the conformance driver injects the real SDK. Import SDK types, never `as any`, never deep paths.
 - **Bounds.** Every string, list and map from the SDK is clipped to `limits.ts` before it enters a contract value.
