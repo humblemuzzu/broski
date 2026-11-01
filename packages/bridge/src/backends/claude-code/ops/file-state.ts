@@ -1,7 +1,7 @@
 /** A config file as the phone sees it: its text within the contract's bound and the revision a write must quote. */
 
 import { createHash } from "node:crypto";
-import { open } from "node:fs/promises";
+import { open, stat } from "node:fs/promises";
 import { MAX_TEXT_CHARS } from "../../../contract";
 import { clip } from "../bounds";
 import { isMissing } from "./contained-path";
@@ -44,6 +44,7 @@ function unreadable(path: string, why: string): FileState {
 export async function readFileState(path: string): Promise<FileState> {
 	let handle: Awaited<ReturnType<typeof open>>;
 	try {
+		if (!(await stat(path)).isFile()) return unreadable(path, "it is not a regular file");
 		handle = await open(path, "r");
 	} catch (error) {
 		if (isMissing(error)) return ABSENT;

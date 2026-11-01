@@ -54,13 +54,18 @@ async function writeTemp(temp: string, text: string, mode: number | undefined): 
 	}
 }
 
+const NO_HARD_LINKS = new Set(["EPERM", "ENOTSUP", "ENOSYS", "EXDEV"]);
+
+/** Makes the file appear whole and only if nothing is there yet: a hard link fails when the name is taken. */
 async function create(temp: string, real: string): Promise<WriteOutcome> {
 	try {
 		await link(temp, real);
 		return { ok: true };
 	} catch (error) {
-		if (error instanceof Error && "code" in error && error.code === "EEXIST") return STALE;
-		throw error;
+		const code = error instanceof Error && "code" in error ? String(error.code) : "";
+		if (code === "EEXIST") return STALE;
+		if (!NO_HARD_LINKS.has(code)) throw error;
+		return swap(temp, real, ABSENT_REVISION);
 	}
 }
 

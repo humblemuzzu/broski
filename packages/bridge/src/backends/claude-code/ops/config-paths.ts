@@ -236,8 +236,8 @@ export function resolvePlace(roots: PlaceRoots, id: string, name?: string): Reso
 /** What a new file of a kind starts as, so the first save already is something the CLI reads. */
 export function starterText(place: ConfigPlace): string {
 	if (place.format === "json") return "{}\n";
-	const parts = place.id.slice(place.id.indexOf("/") + 1).split("/");
-	const name = (parts[0] === "" ? "" : (parts[0] ?? "")).replace(/\.md$/, "");
+	const slash = place.id.indexOf("/");
+	const name = slash < 0 ? "" : (place.id.slice(slash + 1).split("/")[0] ?? "").replace(/\.md$/, "");
 	switch (place.kind) {
 		case "agents":
 			return `---\nname: ${name}\ndescription: Describe when this agent should be used\n---\n\nYou are ${name}.\n`;

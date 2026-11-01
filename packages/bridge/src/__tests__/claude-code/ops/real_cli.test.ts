@@ -182,7 +182,7 @@ describe("host calls against a real CLI", () => {
 						}),
 					);
 					expect(plugins.rows.find((row) => row.id === "ghost@nowhere")?.status?.label).toBe("disabled");
-					expect(plugins.note).toMatch(/^Saved/);
+					expect(plugins.note).toMatch(/^Saved and reloaded in the running session/);
 					expect(spike.server.escapes()).toEqual([]);
 				} finally {
 					await world.cleanup();

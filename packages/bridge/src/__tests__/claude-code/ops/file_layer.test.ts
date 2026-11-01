@@ -88,6 +88,13 @@ describe("readFileState", () => {
 		expect(await readFileState(join(base, "d"))).toMatchObject({ exists: true, faithful: false });
 	});
 
+	test("a named pipe is reported, not opened (opening one would wait for a writer for ever)", async () => {
+		const base = temp();
+		const made = Bun.spawnSync(["mkfifo", join(base, "pipe")]);
+		if (made.exitCode !== 0) return;
+		expect(await readFileState(join(base, "pipe"))).toMatchObject({ exists: true, faithful: false });
+	});
+
 	test("a file past the contract's text bound is truncated and never faithful", async () => {
 		const base = temp();
 		writeFileSync(join(base, "big"), "a".repeat(1_048_576 + 5));

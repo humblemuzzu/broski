@@ -39,7 +39,7 @@ class Anchor {
 	/** Watches `root` for the folders appearing, and each folder that exists for its files changing; opens what is missing. */
 	refresh(): void {
 		this.open(this.root, false, (name) => {
-			if (name !== null && (FOLDERS as readonly string[]).includes(name)) {
+			if (name !== null && FOLDERS.some((folder) => folder === name)) {
 				this.refresh();
 				this.changed();
 			}

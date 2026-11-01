@@ -10,6 +10,7 @@ import type {
 	ClaudeCodeOp,
 	SessionSetting,
 	SettingChange,
+	ToolOutcome,
 	TranscriptItem,
 	TranscriptReadResult,
 } from "../../../contract";
@@ -109,13 +110,13 @@ describe("rewind_files", () => {
 function toolResult(
 	id: string,
 	changes: { path: string; additions?: number; deletions?: number }[],
-	outcome = "completed",
+	outcome: ToolOutcome = "completed",
 ): TranscriptItem {
 	return {
 		kind: "tool_result",
 		id,
 		toolCallId: `call-${id}`,
-		outcome: outcome as "completed",
+		outcome,
 		result: { content: [], fileChanges: changes.map((change) => ({ ...change, change: "modified" as const })) },
 	};
 }
