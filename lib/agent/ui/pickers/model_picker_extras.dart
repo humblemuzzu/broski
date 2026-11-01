@@ -68,7 +68,8 @@ class _UnusableModels extends StatelessWidget {
       tilePadding: EdgeInsets.zero,
       title: Text('Not available yet (${models.length})'),
       subtitle: Text(
-        'Models Pi knows but cannot run here, and what each one needs.',
+        'Models the backend knows but cannot run here, and what each one '
+        'needs.',
         style: AppTypography.caption(),
       ),
       children: [
@@ -88,16 +89,16 @@ class _ProviderGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final first = models.first;
+    final shared = _sharedReason(models);
     return ExpansionTile(
       key: ValueKey('unavailable-provider:$provider'),
       tilePadding: const EdgeInsets.only(left: Spacing.md),
       title: Text(
         first.providerName ?? (provider.isEmpty ? 'Other' : provider),
       ),
-      subtitle: Text(
-        first.unavailableReason ?? '',
-        style: AppTypography.caption(),
-      ),
+      subtitle: shared == null
+          ? null
+          : Text(shared, style: AppTypography.caption()),
       trailing: Text('${models.length}'),
       children: [
         for (final model in models)
@@ -107,8 +108,18 @@ class _ProviderGroup extends StatelessWidget {
             enabled: false,
             contentPadding: const EdgeInsets.only(left: Spacing.xl),
             title: Text(model.displayName),
+            subtitle: shared == null && model.unavailableReason != null
+                ? Text(model.unavailableReason!)
+                : null,
           ),
       ],
     );
+  }
+
+  /// The reason every model of the group gives, said once for all of them;
+  /// null when they differ, and each says its own.
+  static String? _sharedReason(List<ModelSummary> models) {
+    final reasons = {for (final model in models) model.unavailableReason};
+    return reasons.length == 1 ? reasons.single : null;
   }
 }

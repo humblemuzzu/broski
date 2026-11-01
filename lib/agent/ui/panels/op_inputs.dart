@@ -163,8 +163,8 @@ Future<BackendCall?> askTakeOver(
     context,
     title: 'Take over this session?',
     body:
-        'Make sure no terminal is using this session. If pi is open on it in '
-        'a terminal, close it there first: two programs writing one session '
+        'Make sure no terminal is using this session. If it is open in a '
+        'terminal, close it there first: two programs writing one session '
         'can corrupt it. Broski then runs the session from your phone.',
     action: 'Take over',
   );

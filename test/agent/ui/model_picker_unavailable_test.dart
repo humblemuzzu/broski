@@ -106,6 +106,30 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Model m/locked-one'), findsOneWidget);
     expect(find.text('Model m/locked-two'), findsOneWidget);
+    expect(
+      find.text('Not signed in to Provider m: sign in with /login in pi.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('a group whose models need different things says each one\'s '
+      'beside it', (tester) async {
+    await _settings(
+      tester,
+      models: [
+        _model('a/usable-one'),
+        _model('m/one', providerId: 'm', reason: 'Needs a key for one.'),
+        _model('m/two', providerId: 'm', reason: 'Needs a key for two.'),
+      ],
+    );
+    await tester.tap(_key('unavailable-models'));
+    await tester.pumpAndSettle();
+    final group = tester.widget<ExpansionTile>(_key('unavailable-provider:m'));
+    expect(group.subtitle, isNull);
+    await tester.tap(_key('unavailable-provider:m'));
+    await tester.pumpAndSettle();
+    expect(find.text('Needs a key for one.'), findsOneWidget);
+    expect(find.text('Needs a key for two.'), findsOneWidget);
   });
 
   testWidgets('an unavailable model cannot be chosen', (tester) async {
