@@ -31,13 +31,15 @@ export type ProbeOutcome =
 
 /**
  * `disableAllHooks` because a project's `SessionStart` hook would otherwise run for a probe (seen with the real CLI);
- * `CLAUDE_CODE_STARTUP_FAILURE_RESULTS` so a known refusal arrives as a `result` frame carrying its
+ * D4's env carries `CLAUDE_CODE_STARTUP_FAILURE_RESULTS`, so a known refusal arrives as a `result` frame carrying its
  * `startup_failure_reason` instead of stderr alone (`SDKResultError.startup_failure_reason`, `d.ts:5991`).
+ * The user's MCP servers do start for a probe: the settings are not narrowed (D5's parity), only hooks are off.
  */
 function probeOptions(services: ClaudeCodeServices, cliPath: string, cwd: string): Options {
 	return {
+		// No canUseTool or onElicitation, unlike D5's hosts: a probe runs no turn, so nothing can ask.
 		cwd,
-		env: { ...services.cliEnv, CLAUDE_CODE_STARTUP_FAILURE_RESULTS: "1" },
+		env: { ...services.cliEnv },
 		pathToClaudeCodeExecutable: cliPath,
 		permissionMode: "default",
 		persistSession: false,
