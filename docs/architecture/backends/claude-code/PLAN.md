@@ -111,7 +111,7 @@ D1–D29 are this plan's. Lanes number their own decisions in their reserved ran
 
 ### Store
 
-**D15. The SDK reads sessions; the adapter only orders and pages.** No hand-written JSONL parsing for lists or history, and no path encoding: rows come from `listSessions`/`getSessionInfo`, history from `getSessionMessages`. The adapter owns the cursor: `(lastModified, sessionId)` for lists (stable on an unchanged list, so pages concatenate — rule 5), and a per-session index `{size, mtimeMs, count}` so a newest-first transcript page becomes an SDK `offset`/`limit` read. A list page costs at most `limit + 32` lite reads.
+**D15. The SDK reads sessions; the adapter only orders and pages.** No hand-written JSONL parsing for lists or history, and no path encoding: rows come from `listSessions`/`getSessionInfo`, history from `getSessionMessages`. The adapter owns the cursor: `(lastModified, sessionId)` for lists (stable on an unchanged list, so pages concatenate — rule 5), and a per-session index `{size, mtimeMs, count}` so a newest-first transcript page becomes an SDK `offset`/`limit` read. A list page costs at most `limit + 32` lite reads. A row's `cwd` is the asked cwd (rule 5), so a git worktree's sessions list under the worktree, not under its repository as `listSessions({dir})` would (README D143); a row's title source is read beside the SDK's lite read (README D131).
 
 **D16. Session rows.** `title.source`: `customTitle` → `user`; `summary === firstPrompt` → `first_prompt`; else `generated`. `status` is live for a hosted session, `unknown` otherwise. `archived` is always false (`archive` absent). `origin` comes from the owner journal (D17), not the row (the row has no entrypoint).
 
