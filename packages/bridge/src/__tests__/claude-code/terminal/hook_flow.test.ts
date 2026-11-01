@@ -9,13 +9,7 @@ import { appendFileSync, mkdirSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { TerminalAskHandler } from "../../../backends/claude-code/ports/terminal";
 import { CLAUDE_CODE_TRAITS } from "../../../backends/claude-code/traits";
-import {
-	type Interaction,
-	type InteractionAnswer,
-	type OpenResult,
-	type SessionSnapshot,
-	type SinkRecord,
-} from "../../../contract";
+import type { Interaction, InteractionAnswer, OpenResult, SessionSnapshot, SinkRecord } from "../../../contract";
 import { streamViolations, unsettledParts } from "../../../contract/testing/stream-rules";
 import { createTerminalHookReceiver } from "../../../server/cc-terminal-hook";
 import { type ClaudeHome, createClaudeHome } from "../../helpers/claude-home";
