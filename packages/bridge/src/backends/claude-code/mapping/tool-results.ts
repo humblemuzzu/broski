@@ -3,7 +3,12 @@
  * history with it, lane G the tail, so a result reads the same live and in the transcript.
  */
 
-import type { ToolOutcome, ToolResult } from "../../../contract";
+import { MAX_TEXT_CHARS, type ToolContent, type ToolOutcome, type ToolResult } from "../../../contract";
+import { clip } from "../bounds";
+import { isRecord } from "../json";
+import { fileChangesOf } from "./file-changes";
+import { failureOutcome } from "./tool-outcome";
+import { contentParts, structuredText } from "./tool-text";
 
 export interface ToolResultMapping {
 	readonly outcome: ToolOutcome;
@@ -16,11 +21,53 @@ export interface ResultPlace {
 	readonly blockIndex: number;
 }
 
+const FAILED_WITHOUT_TEXT = "The tool call failed";
+
+function textOf(parts: readonly ToolContent[]): string {
+	return parts.flatMap((part) => (part.kind === "text" ? [part.text] : [])).join("\n");
+}
+
+/**
+ * `block` is the `tool_result` block, `toolUseResult` the frame's structured output (only meaningful when the frame
+ * holds this one result). A result the CLI marked `is_error` reports its text as `error` and no file changes;
+ * `failureOutcome` reads its wording for `aborted` and `denied`. Bash reports no exit code, so `exitCode` is never set.
+ */
 export function toolResultOf(
-	_block: unknown,
-	_toolUseResult: unknown,
-	_place: ResultPlace,
-	_toolName: string | undefined,
+	block: unknown,
+	toolUseResult: unknown,
+	place: ResultPlace,
+	toolName: string | undefined,
 ): ToolResultMapping {
-	return { outcome: "failed", result: { content: [], fileChanges: [], error: "not built yet: lane B toolResultOf" } };
+	const record = isRecord(block) ? block : {};
+	const parts = contentParts(record.content, place.entryUuid, place.blockIndex);
+	if (record.is_error === true) return failedResult(parts);
+	const structured = structuredText(toolName, toolUseResult);
+	const hasImage = parts.some((part) => part.kind === "image_ref");
+	const content: ToolContent[] =
+		structured !== undefined && structured !== "" && !hasImage
+			? contentParts(structured, place.entryUuid, place.blockIndex)
+			: parts;
+	return {
+		outcome: "completed",
+		result: {
+			content,
+			fileChanges: toolName === undefined ? [] : fileChangesOf(toolName, undefined, toolUseResult),
+		},
+	};
+}
+
+function failedResult(parts: readonly ToolContent[]): ToolResultMapping {
+	const text = textOf(parts);
+	const outcome = failureOutcome(text);
+	const shown = outcome === "aborted" ? "" : text;
+	return {
+		outcome,
+		result: {
+			content: parts.filter((part) => part.kind === "image_ref"),
+			fileChanges: [],
+			...(outcome !== "aborted" && {
+				error: clip(shown === "" ? FAILED_WITHOUT_TEXT : shown, MAX_TEXT_CHARS),
+			}),
+		},
+	};
 }
