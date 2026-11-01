@@ -5,6 +5,7 @@ import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { findBinary, generateSelfSignedCertificate } from "./platform";
 import { assertNotRealHome } from "./safety/real-home-guard";
+import { servesLoopbackHook } from "./tls-loopback";
 import { fileExists } from "./utils/fs-helpers";
 
 export type TlsMaterial = {
@@ -172,8 +173,13 @@ export async function ensureTlsMaterial(paths?: Partial<TlsMaterialPaths>): Prom
 	if (hasKey && hasCert) {
 		// Check if cert is expired or expiring within 7 days
 		const expiry = checkCertExpiry(certPath);
-		if (!expiry.valid || expiry.daysRemaining < 7) {
-			const reason = !expiry.valid ? "expired" : `expiring in ${expiry.daysRemaining} day(s)`;
+		const fit = await servesLoopbackHook(certPath);
+		if (!expiry.valid || expiry.daysRemaining < 7 || !fit) {
+			const reason = !fit
+				? "without the loopback name a terminal claude checks"
+				: !expiry.valid
+					? "expired"
+					: `expiring in ${expiry.daysRemaining} day(s)`;
 			console.log(`TLS certificate ${reason} — regenerating...`);
 			try {
 				await unlink(keyPath);

@@ -3,6 +3,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { generateSelfSignedCertificate } from "../../../platform";
 
 export interface TestCert {
 	readonly dir: string;
@@ -20,5 +21,14 @@ export function makeLoopbackCert(options: { san?: boolean } = {}): TestCert {
 	args.push("-keyout", keyPath, "-out", certPath);
 	const result = Bun.spawnSync(["openssl", ...args], { stdout: "ignore", stderr: "pipe" });
 	if (result.exitCode !== 0) throw new Error(`openssl failed: ${result.stderr.toString()}`);
+	return { dir, keyPath, certPath, cleanup: () => rmSync(dir, { recursive: true, force: true }) };
+}
+
+/** The certificate the bridge's own generator makes for its loopback listener, in a temp dir. */
+export async function makeBridgeCert(): Promise<TestCert> {
+	const dir = mkdtempSync(join(tmpdir(), "broski-tls-"));
+	const keyPath = join(dir, "server.key.pem");
+	const certPath = join(dir, "server.cert.pem");
+	await generateSelfSignedCertificate({ commonName: "broski", validityDays: 2, keyPath, certPath });
 	return { dir, keyPath, certPath, cleanup: () => rmSync(dir, { recursive: true, force: true }) };
 }

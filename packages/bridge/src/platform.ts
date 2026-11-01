@@ -405,6 +405,17 @@ export async function generateSelfSignedCertificate(opts: {
 	}
 }
 
+/**
+ * A terminal `claude` calling the permission hook refuses a certificate without the loopback name, and trusts this one
+ * through `NODE_EXTRA_CA_CERTS`, so it is no CA: trusting it trusts nothing it could sign (`tls-loopback.ts`).
+ */
+const LOOPBACK_CERT_EXTENSIONS = [
+	"-addext",
+	"subjectAltName=IP:127.0.0.1,DNS:localhost",
+	"-addext",
+	"basicConstraints=critical,CA:FALSE",
+];
+
 async function generateCertOpenssl(cn: string, days: number, keyPath: string, certPath: string): Promise<void> {
 	const openssl = findBinary("openssl") ?? "openssl";
 
@@ -418,6 +429,7 @@ async function generateCertOpenssl(cn: string, days: number, keyPath: string, ce
 			"-nodes",
 			"-subj",
 			`/CN=${cn}`,
+			...LOOPBACK_CERT_EXTENSIONS,
 			"-days",
 			String(days),
 			"-keyout",

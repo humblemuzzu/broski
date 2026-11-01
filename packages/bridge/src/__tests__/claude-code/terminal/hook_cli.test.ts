@@ -14,7 +14,7 @@ import { createTerminalHookReceiver } from "../../../server/cc-terminal-hook";
 import { createClaudeHome } from "../../helpers/claude-home";
 import { expectNoOrphans } from "../spike/rig/orphans";
 import { isIdle, startSpike } from "../spike/rig/session";
-import { makeLoopbackCert } from "./tls";
+import { makeBridgeCert, makeLoopbackCert } from "./tls";
 
 expectNoOrphans();
 
@@ -54,9 +54,10 @@ async function run(
 		san?: boolean;
 		namesCertificate?: boolean;
 		pinnedElsewhere?: boolean;
+		bridgeCert?: boolean;
 	} = {},
 ): Promise<Outcome> {
-	const cert = makeLoopbackCert({ san: options.san });
+	const cert = options.bridgeCert ? await makeBridgeCert() : makeLoopbackCert({ san: options.san });
 	const home = createClaudeHome();
 	const authorization: (string | null)[] = [];
 	const asks: unknown[] = [];
@@ -213,6 +214,17 @@ describe("the PermissionRequest hook the installer writes, in the real CLI", () 
 					session_id: expect.stringMatching(/^[0-9a-f-]{36}$/),
 				}),
 			]);
+		},
+		CLI_TEST_MS,
+	);
+
+	test(
+		"the bridge's own loopback certificate (platform.ts) is one the CLI calls the hook over",
+		async () => {
+			const outcome = await run(async () => ({ behavior: "allow" }), { bridgeCert: true });
+			expect(outcome.hookRequests).toBe(1);
+			expect(outcome.wrote).toBe(true);
+			expect(outcome.promptAnswered).toBe(false);
 		},
 		CLI_TEST_MS,
 	);
