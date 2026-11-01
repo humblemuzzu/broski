@@ -23,6 +23,7 @@ export class TerminalSessions {
 	private readonly watches = new Map<string, ProjectWatch>();
 	private readonly waiters = new Map<SessionId, Set<Waiter>>();
 	private readonly asked = new Map<SessionId, number>();
+	private disposed = false;
 
 	constructor(private readonly clock: Clock) {}
 
@@ -94,6 +95,7 @@ export class TerminalSessions {
 	}
 
 	dispose(): void {
+		this.disposed = true;
 		for (const [sessionId, entry] of [...this.entries]) this.drop(sessionId, entry);
 		for (const watch of this.watches.values()) watch.stop();
 		this.watches.clear();
@@ -113,6 +115,10 @@ export class TerminalSessions {
 
 	private async create(sessionId: SessionId, path: string): Promise<Entry> {
 		const session = await WatchedSession.open(path, this.clock);
+		if (this.disposed) {
+			session.dispose();
+			throw new Error("the terminal watch is disposed");
+		}
 		const entry: Entry = { session, holders: 0 };
 		this.entries.set(sessionId, entry);
 		this.bySessionPath.set(path, sessionId);

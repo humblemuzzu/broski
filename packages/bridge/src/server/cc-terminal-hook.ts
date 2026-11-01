@@ -44,17 +44,20 @@ export function createTerminalHookReceiver(deps: TerminalHookDeps): TerminalHook
 	async function handle(request: Request): Promise<Response> {
 		if (request.method !== "POST") return Response.json({ error: "Method not allowed" }, { status: 405 });
 		if (pending >= MAX_PENDING_ASKS) return Response.json({ error: "Too many asks" }, { status: 429 });
+		pending += 1;
+		try {
+			return await receive(request);
+		} finally {
+			pending -= 1;
+		}
+	}
+
+	async function receive(request: Request): Promise<Response> {
 		const body = await readBounded(request);
 		if (body === undefined) return Response.json({ error: "Body too large" }, { status: 413 });
 		const parsed = HookAsk.safeParse(parseJson(body));
 		if (!parsed.success) return Response.json({ error: "Not a PermissionRequest hook input" }, { status: 400 });
-		if (handler === undefined) return noDecision();
-		pending += 1;
-		try {
-			return await ask(handler, parsed.data, request.signal);
-		} finally {
-			pending -= 1;
-		}
+		return handler === undefined ? noDecision() : ask(handler, parsed.data, request.signal);
 	}
 
 	async function ask(

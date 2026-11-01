@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { TerminalAskHandler } from "../../../backends/claude-code/ports/terminal";
 import { installTerminalHook } from "../../../backends/claude-code/terminal/hook-install";
@@ -48,7 +48,13 @@ interface Outcome {
 
 async function run(
 	handler: TerminalAskHandler,
-	options: { timeoutSeconds?: number; terminal?: Terminal; san?: boolean; namesCertificate?: boolean } = {},
+	options: {
+		timeoutSeconds?: number;
+		terminal?: Terminal;
+		san?: boolean;
+		namesCertificate?: boolean;
+		pinnedElsewhere?: boolean;
+	} = {},
 ): Promise<Outcome> {
 	const cert = makeLoopbackCert({ san: options.san });
 	const home = createClaudeHome();
@@ -90,6 +96,12 @@ async function run(
 			...(options.namesCertificate !== false && { caCertPath: cert.certPath }),
 		});
 		expect(installed.status).toBe("installed");
+		if (options.pinnedElsewhere) {
+			const file = join(home.configDir, "settings.json");
+			const settings = JSON.parse(readFileSync(file, "utf8"));
+			settings.allowedHttpHookUrls = ["https://127.0.0.1:1/somewhere-else"];
+			writeFileSync(file, JSON.stringify(settings));
+		}
 		const terminal = options.terminal ?? {};
 		const spike = startSpike({
 			home,
@@ -149,7 +161,7 @@ async function run(
 	}
 }
 
-describe("when the CLI cannot trust the bridge's certificate the hook fails open to the terminal", () => {
+describe("when the CLI will not call the hook, it fails open to the terminal", () => {
 	const terminal: Terminal = { answersAfterMs: 400, behavior: "allow" };
 
 	test(
@@ -159,6 +171,16 @@ describe("when the CLI cannot trust the bridge's certificate the hook fails open
 			expect(outcome.hookRequests).toBe(0);
 			expect(outcome.promptAnswered).toBe(true);
 			expect(outcome.wrote).toBe(true);
+		},
+		CLI_TEST_MS,
+	);
+
+	test(
+		"a URL the settings do not pin in allowedHttpHookUrls is not called",
+		async () => {
+			const outcome = await run(async () => ({ behavior: "allow" }), { pinnedElsewhere: true, terminal });
+			expect(outcome.hookRequests).toBe(0);
+			expect(outcome.promptAnswered).toBe(true);
 		},
 		CLI_TEST_MS,
 	);

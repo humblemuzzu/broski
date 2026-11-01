@@ -8,6 +8,9 @@ import { toolTitle } from "../mapping/tool-titles";
 import type { MappedEvent } from "../ports/mapping";
 import type { TranslatorState } from "./translate-state";
 
+/** The most digits `ids.ts` `parseBlockId` reads back. */
+const MAX_BLOCK_INDEX = 999_999;
+
 export function assistantEvents(state: TranslatorState, entry: Record<string, unknown>): MappedEvent[] {
 	const message = entry.message;
 	if (!isRecord(message) || typeof message.id !== "string" || !fitsId(message.id)) return [];
@@ -26,7 +29,10 @@ export function assistantEvents(state: TranslatorState, entry: Record<string, un
 }
 
 function firstIndex(state: TranslatorState, messageId: string, apiBlockIndex: unknown): number {
-	return typeof apiBlockIndex === "number" && Number.isInteger(apiBlockIndex) && apiBlockIndex >= 0
+	return typeof apiBlockIndex === "number" &&
+		Number.isInteger(apiBlockIndex) &&
+		apiBlockIndex >= 0 &&
+		apiBlockIndex <= MAX_BLOCK_INDEX
 		? apiBlockIndex
 		: state.fallbackIndex(messageId);
 }
