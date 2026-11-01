@@ -37,8 +37,10 @@ export async function rowOfInfo(
 	live: LiveRow | undefined,
 ): Promise<SessionSummary | undefined> {
 	const forkOf = await ctx.forks.parentOf(info.sessionId);
+	const titled = info.customTitle !== undefined && info.customTitle !== "";
 	return sessionRow(info, {
 		origin: ctx.deps.ownership.origin(info.sessionId),
+		userTitled: titled && (await ctx.titles.userTitled(info.sessionId)),
 		...(live !== undefined && { live }),
 		...(forkOf !== undefined && {
 			parent: {

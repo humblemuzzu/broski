@@ -1,8 +1,10 @@
 /** Rule 5 and its neighbours against transcripts in a temp config dir: keyset pages, scoping, rows, cost. */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { utimesSync } from "node:fs";
+import { appendFileSync, mkdirSync, utimesSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { type SessionQuery, SessionSummary, type SessionSummary as Summary } from "../../../contract";
+import { projectKey } from "../helpers/fixture-transcripts";
 import { createStoreWorld, type StoreWorld } from "./helpers/store-world";
 import { TranscriptBuilder } from "./helpers/transcript-builder";
 
@@ -164,4 +166,43 @@ describe("rows", () => {
 		const odd = await world.store.get("not-a-uuid", world.live);
 		expect(odd.status === "rejected" && odd.rejection.code).toBe("not_found");
 	});
+
+	test("an AI title is generated, a /rename or the custom-title sidecar is the user's, whatever the SDK folds", async () => {
+		const cwd = world.project("titles");
+		const titleOf = async (sessionId: string) => {
+			const found = await world.store.get(sessionId, world.live);
+			return found.status === "accepted" ? found.summary.title : undefined;
+		};
+		const at = new Date(Date.UTC(2026, 0, 1));
+		const ai = seed(cwd, "fix the login bug please", at);
+		appendFileSync(
+			transcriptOf(cwd, ai),
+			`${JSON.stringify({ type: "ai-title", aiTitle: "Fix login bug", sessionId: ai })}\n`,
+		);
+		expect(await titleOf(ai)).toEqual({ text: "Fix login bug", source: "generated" });
+
+		const renamed = seed(cwd, "something", at);
+		const entries = [
+			{ type: "ai-title", aiTitle: "Something", sessionId: renamed },
+			{ type: "custom-title", customTitle: "My name", sessionId: renamed },
+		];
+		appendFileSync(transcriptOf(cwd, renamed), entries.map((entry) => `${JSON.stringify(entry)}\n`).join(""));
+		expect(await titleOf(renamed)).toEqual({ text: "My name", source: "user" });
+
+		const sidecar = seed(cwd, "another", at);
+		appendFileSync(
+			transcriptOf(cwd, sidecar),
+			`${JSON.stringify({ type: "ai-title", aiTitle: "Another", sessionId: sidecar })}\n`,
+		);
+		mkdirSync(join(dirname(transcriptOf(cwd, sidecar)), sidecar), { recursive: true });
+		writeFileSync(
+			join(dirname(transcriptOf(cwd, sidecar)), sidecar, "custom-title.json"),
+			JSON.stringify({ customTitle: "From the sidecar" }),
+		);
+		expect(await titleOf(sidecar)).toEqual({ text: "From the sidecar", source: "user" });
+	});
 });
+
+function transcriptOf(cwd: string, sessionId: string): string {
+	return join(world.home.configDir, "projects", projectKey(cwd), `${sessionId}.jsonl`);
+}

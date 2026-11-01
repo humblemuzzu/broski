@@ -7,6 +7,7 @@ import { ForkLinks } from "./fork-links";
 import { FullReads } from "./full-reads";
 import { FileLocator } from "./locator";
 import { ProjectDirs } from "./project-dirs";
+import { TitleSources } from "./title-source";
 import { TranscriptIndex } from "./transcript-index";
 
 export interface StoreContext {
@@ -16,16 +17,19 @@ export interface StoreContext {
 	readonly dirs: ProjectDirs;
 	readonly forks: ForkLinks;
 	readonly reads: FullReads<BuiltChain | Rejected>;
+	readonly titles: TitleSources;
 }
 
 export function createStoreContext(deps: StoreDeps): StoreContext {
 	const { sdk, stateDir } = deps.services;
+	const locator = new FileLocator(() => sdk.configRoot());
 	return {
 		deps,
-		locator: new FileLocator(() => sdk.configRoot()),
+		locator,
 		index: new TranscriptIndex(),
 		dirs: new ProjectDirs(),
 		forks: new ForkLinks(stateDir),
 		reads: new FullReads(),
+		titles: new TitleSources(locator),
 	};
 }
