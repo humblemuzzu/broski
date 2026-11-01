@@ -53,6 +53,29 @@ describe("the ops a client is told of", () => {
 	});
 });
 
+describe("the extensions a client is told of", () => {
+	async function listedExtensions(protocol?: ProtocolVersion, backendOps = [...CLAUDE_CODE_OPS]) {
+		const rig = await startCoreRig({
+			fake: claudeCodeFake,
+			adapt: (backend) => ({
+				...backend,
+				traits: { ...backend.traits, backendOps, extensions: ["rate_limit", "prompt_suggestion"] },
+			}),
+		});
+		const listed = await (await rig.client("app", protocol)).ok("backends.list", {});
+		return listed.backends.flatMap((backend) => backend.capabilities.extensions);
+	}
+
+	test("are every extension the backend declares for a client of this minor", async () => {
+		expect(await listedExtensions()).toEqual(["rate_limit", "prompt_suggestion"]);
+	});
+
+	test("leave out, for a client of minor 3, the prompt_suggestion kind 1.4 added", async () => {
+		expect(await listedExtensions(MINOR_THREE)).toEqual(["rate_limit"]);
+		expect(await listedExtensions(MINOR_THREE, ["rewind_files"])).toEqual(["rate_limit"]);
+	});
+});
+
 describe("an op that names a project directory", () => {
 	const recording = (calls: BackendCall[]) => (backend: AgentBackend) => ({
 		...backend,

@@ -9,6 +9,7 @@ import {
 	type BackendDescriptor,
 	type BackendId,
 	type BackendOpKind,
+	type ExtensionKind,
 	type InteractionAnswer,
 	type Rejected,
 	type SessionCapabilities,
@@ -61,11 +62,20 @@ function opAddedIn(backend: BackendId, op: BackendOpKind): number {
 	return Math.max(OP_ADDED_IN[op], OP_JOINED_IN[backend]?.[op] ?? 0);
 }
 
-/** The descriptor as `client` may know it: without the ops a later minor added. */
+/** The minor that added each extension kind: an older client's generated `ExtensionKind` refuses a newer one. */
+const EXTENSION_ADDED_IN: Readonly<Record<ExtensionKind, number>> = {
+	rate_limit: 0,
+	prompt_suggestion: ADDED_IN_MINOR.configOps,
+};
+
+/** The descriptor as `client` may know it: without the ops and extension kinds a later minor added. */
 export function descriptorFor(client: CoreClient, descriptor: BackendDescriptor): BackendDescriptor {
-	const backendOps = descriptor.capabilities.backendOps.filter((op) => client.speaks(opAddedIn(descriptor.id, op)));
-	if (backendOps.length === descriptor.capabilities.backendOps.length) return descriptor;
-	return { ...descriptor, capabilities: { ...descriptor.capabilities, backendOps } };
+	const { capabilities } = descriptor;
+	const backendOps = capabilities.backendOps.filter((op) => client.speaks(opAddedIn(descriptor.id, op)));
+	const extensions = capabilities.extensions.filter((kind) => client.speaks(EXTENSION_ADDED_IN[kind]));
+	if (backendOps.length === capabilities.backendOps.length && extensions.length === capabilities.extensions.length)
+		return descriptor;
+	return { ...descriptor, capabilities: { ...capabilities, backendOps, extensions } };
 }
 
 /** A session's capabilities as `client` may know them: without the fields a later minor added. */

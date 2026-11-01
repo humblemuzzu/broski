@@ -9,6 +9,21 @@ export const MINOR_MUTANTS: Mutant[] = [
 			replace: "filter(() => true);",
 		},
 		{
+			name: "minor views: an older client is told of an extension kind it cannot read",
+			find: "filter((kind) => client.speaks(EXTENSION_ADDED_IN[kind]));",
+			replace: "filter(() => true);",
+		},
+		{
+			name: "minor views: prompt_suggestion counts as a 1.0 extension",
+			find: "prompt_suggestion: ADDED_IN_MINOR.configOps,",
+			replace: "prompt_suggestion: 0,",
+		},
+		{
+			name: "minor views: a descriptor whose extensions alone were cut is sent whole",
+			find: " && extensions.length === capabilities.extensions.length)",
+			replace: ")",
+		},
+		{
 			name: "minor views: an older client is offered a tree op",
 			find: "read_tree: ADDED_IN_MINOR.treeOps,",
 			replace: "read_tree: 0,",
