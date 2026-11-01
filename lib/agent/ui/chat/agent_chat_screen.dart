@@ -90,7 +90,7 @@ class _AgentChatScreenState extends ConsumerState<AgentChatScreen> {
     _takeReturnedInput();
     final state = ref.watch(sessionProvider(_session));
     final capabilities = ref.watch(capabilitiesProvider(_session.backend));
-    final saved = state.history.savedAt;
+    final saved = ref.watch(liveProvider) ? null : state.history.savedAt;
     return Scaffold(
       appBar: AppBar(
         title: ChatTitle(state: state),

@@ -18,6 +18,17 @@ class TreeRowTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final node = row.node;
+    return Semantics(
+      button: true,
+      enabled: onTap != null,
+      onTap: onTap,
+      label: _spoken(row),
+      excludeSemantics: true,
+      child: _tile(theme, node),
+    );
+  }
+
+  Widget _tile(OpenCodeTheme theme, TreeNode node) {
     return InkWell(
       key: ValueKey('tree-node:${node.id}'),
       onTap: onTap,
@@ -74,6 +85,15 @@ class TreeRowTile extends StatelessWidget {
     );
   }
 }
+
+/// The row as a screen reader says it: what it is, where the session is, what
+/// it says and its label, in one phrase.
+String _spoken(TreeRow row) => [
+  _kind(row.node.kind),
+  if (row.current) 'you are here',
+  row.node.preview.replaceAll(RegExp(r'\s+'), ' ').trim(),
+  if (row.node.label case final label?) 'label $label',
+].join(', ');
 
 String _kind(TreeNodeKind kind) => switch (kind) {
   TreeNodeKind.user => 'You',

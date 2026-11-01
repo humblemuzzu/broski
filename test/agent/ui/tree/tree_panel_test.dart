@@ -120,6 +120,31 @@ void main() {
     expect(_key('tree-more'), findsNothing);
   });
 
+  testWidgets('each node is one button to a screen reader, said in one '
+      'phrase', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await _tree(tester);
+    final here = find.bySemanticsLabel(
+      'Assistant, you are here, Second answer',
+    );
+    expect(here, findsOneWidget);
+    expect(
+      tester.getSemantics(here),
+      matchesSemantics(
+        label: 'Assistant, you are here, Second answer',
+        isButton: true,
+        isEnabled: true,
+        hasEnabledState: true,
+        hasTapAction: true,
+      ),
+    );
+    expect(
+      find.bySemanticsLabel('Assistant, First answer, label checkpoint'),
+      findsOneWidget,
+    );
+    semantics.dispose();
+  });
+
   testWidgets('says how many entries a capped tree leaves out', (tester) async {
     await _tree(tester, next: null, total: 5000);
     expect(

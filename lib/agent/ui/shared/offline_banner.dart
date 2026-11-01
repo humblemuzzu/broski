@@ -32,22 +32,25 @@ class OfflineBanner extends ConsumerWidget {
         ? 'Offline \u00b7 read-only'
         : 'Offline \u00b7 read-only \u00b7 saved '
               '${savedAgo(ref.watch(agentClockProvider).now(), saved)}';
-    return Container(
-      key: const ValueKey('offline-banner'),
-      width: double.infinity,
-      padding: Insets.cardSm,
-      color: theme.warning.withValues(alpha: 0.1),
-      child: Row(
-        children: [
-          Icon(AppIcons.wifiOff, size: 16, color: theme.warning),
-          const SizedBox(width: Spacing.sm),
-          Expanded(
-            child: Text(
-              text,
-              style: AppTypography.bodySmall(color: theme.warning),
+    return Semantics(
+      liveRegion: true,
+      child: Container(
+        key: const ValueKey('offline-banner'),
+        width: double.infinity,
+        padding: Insets.cardSm,
+        color: theme.warning.withValues(alpha: 0.1),
+        child: Row(
+          children: [
+            Icon(AppIcons.wifiOff, size: 16, color: theme.warning),
+            const SizedBox(width: Spacing.sm),
+            Expanded(
+              child: Text(
+                text,
+                style: AppTypography.bodySmall(color: theme.warning),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

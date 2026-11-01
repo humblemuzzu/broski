@@ -167,7 +167,10 @@ void main() {
       ),
     );
     await _type(tester, '!ls');
-    expect(find.textContaining('runs once the run ends'), findsOneWidget);
+    expect(
+      find.text('Wait for the run to end to run this command.'),
+      findsOneWidget,
+    );
     expect(tester.widget<IconButton>(_key('composer-send')).onPressed, isNull);
     expect(rig.link.sent.whereType<BackendCallRequest>(), isEmpty);
   });

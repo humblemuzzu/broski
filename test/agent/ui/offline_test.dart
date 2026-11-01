@@ -87,9 +87,20 @@ void main() {
     expect(find.text('Fix the build'), findsOneWidget);
     expect(find.byKey(_banner), findsNothing);
 
+    final semantics = tester.ensureSemantics();
     final offline = await _screen(tester, cache, chat, reachable: false);
     expect(find.text('Fix the build'), findsOneWidget);
     expect(find.byKey(_banner), findsOneWidget);
+    expect(
+      tester.getSemantics(find.byKey(_banner)),
+      containsSemantics(
+        isLiveRegion: true,
+        label:
+            'Offline · read-only · '
+            'saved just now',
+      ),
+    );
+    semantics.dispose();
     expect(find.byType(TextField), findsNothing);
     expect(find.byKey(const ValueKey('agent-stop-bar')), findsNothing);
 
@@ -98,5 +109,20 @@ void main() {
     expect(find.text('Fix the build'), findsOneWidget);
     expect(find.byKey(_banner), findsNothing);
     expect(find.byType(TextField), findsOneWidget);
+  });
+
+  testWidgets('with the link up a saved conversation is not offline while '
+      'the live read is under way', (tester) async {
+    final cache = AgentCache(MemoryTextStore());
+    const chat = AgentChatScreen(session: sessionRef);
+    await _screen(tester, cache, chat);
+    final rig = WidgetRig(cache: cache);
+    addTearDown(rig.dispose);
+    rig.bridge.on<TranscriptReadRequest>((_) => null);
+    await tester.pumpWidget(const SizedBox());
+    await rig.pump(tester, chat);
+    expect(find.text('Fix the build'), findsOneWidget);
+    expect(find.byKey(_banner), findsNothing);
+    expect(find.byKey(const ValueKey('chat-settings')), findsOneWidget);
   });
 }

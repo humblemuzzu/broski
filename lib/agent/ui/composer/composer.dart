@@ -144,7 +144,7 @@ class _ComposerState extends ConsumerState<Composer> {
     padding: const EdgeInsets.only(bottom: Spacing.xs),
     child: Text(
       widget.state.running
-          ? 'A command runs once the run ends.'
+          ? 'Wait for the run to end to run this command.'
           : shell.excludeFromContext
           ? "Runs in a shell. The output stays out of the model's context."
           : "Runs in a shell. The output goes to the model's context.",
