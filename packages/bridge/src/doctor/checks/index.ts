@@ -26,7 +26,7 @@ export async function runAllChecks(
 ): Promise<CheckResult[]> {
 	const results: CheckResult[] = [
 		...(await runSystemChecks(ctx)),
-		...(await runDependencyChecks()),
+		...(await runDependencyChecks(ctx.config)),
 		...(await runNetworkChecks(ctx)),
 		...(await runSecurityChecks(ctx)),
 		...(await runDaemonChecks(ctx, { deep: opts.deep })),

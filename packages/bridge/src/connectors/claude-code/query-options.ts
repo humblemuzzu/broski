@@ -6,6 +6,7 @@ import type {
 	ClaudeCodeSandboxSettings,
 	ClaudeCodeSubagent,
 } from "../../types";
+import { claudeExecutableOption } from "./executable";
 import type {
 	ClaudeCodeQueryOptions,
 	ElicitationRequestHandler,
@@ -305,7 +306,10 @@ export async function buildQueryOptions(
 	const enableAgentTeams = options.enableAgentTeams ?? config.enableAgentTeams ?? false;
 	const enableClaudeAiMcpServers = options.enableClaudeAiMcpServers ?? config.enableClaudeAiMcpServers;
 
-	const sdkOptions = buildBaseSdkOptions(options, config, ctx.controller, enableCheckpointing);
+	const sdkOptions = {
+		...buildBaseSdkOptions(options, config, ctx.controller, enableCheckpointing),
+		...claudeExecutableOption(),
+	};
 	ctx.sdkOptions = sdkOptions;
 
 	applyLimitsAndSandbox(sdkOptions, {

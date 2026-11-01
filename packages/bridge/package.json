@@ -48,7 +48,6 @@
     "build:mac-intel": "sh scripts/build.sh --target darwin-x64",
     "build:linux": "sh scripts/build.sh --target linux-x64",
     "build:linux-arm": "sh scripts/build.sh --target linux-arm64",
-    "build:windows": "sh scripts/build.sh --target windows-x64",
     "lint": "biome check src/ scripts/",
     "format": "biome format --write src/",
     "typecheck": "tsc --noEmit",

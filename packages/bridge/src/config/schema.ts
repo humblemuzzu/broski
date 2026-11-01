@@ -31,6 +31,12 @@ export const BroskiConfigSchema = z.object({
 			pi: z.boolean().default(false),
 		})
 		.default({ claudeCode: true, pi: false }),
+	claudeCode: z
+		.object({
+			/** The `claude` executable to run instead of the one the bridge carries (`server/claude-cli-path.ts`). */
+			cliPath: z.string().optional(),
+		})
+		.default({}),
 	pi: z
 		.object({
 			enabled: z.boolean().optional(),

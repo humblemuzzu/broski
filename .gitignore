@@ -140,6 +140,8 @@ analysis.log
 # Node.js build artifacts
 **/dist/
 packages/bridge/dist/
+packages/bridge/src/_bootstrap_embedded.ts
+packages/bridge/src/_claude_cli_embed.ts
 packages/bridge/bench/results/
 
 # Rust build artifacts

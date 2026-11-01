@@ -1,6 +1,7 @@
 import { stat } from "node:fs/promises";
 import type { Options } from "@anthropic-ai/claude-agent-sdk";
 import { loadClaudeAgentSdk } from "../../sdk/claude-agent-sdk";
+import { claudeExecutableOption } from "./executable";
 import { activeSessions, CLAUDE_SETTINGS_FILE } from "./shared";
 
 export async function abortClaudeCode(sessionId: string): Promise<void> {
@@ -42,6 +43,7 @@ export async function rewindToCheckpoint(
 		// Resume the session with an empty prompt to open the connection.
 		// SDK requires CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING env var for tracking.
 		const resumeOptions: Partial<Options> & { extraArgs?: Record<string, string | null> } = {
+			...claudeExecutableOption(),
 			cwd,
 			resume: sessionId,
 			enableFileCheckpointing: true,

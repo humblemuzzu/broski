@@ -1,35 +1,18 @@
-import { existsSync } from "node:fs";
-import { homedir } from "node:os";
-import { resolve } from "node:path";
+import type { BroskiConfig } from "../../config";
 import { findBinary } from "../../platform";
+import { defaultClaudeCliEnvironment, resolveClaudeCliPath } from "../../server/claude-cli-path";
 import type { CheckResult } from "../types";
+import { claudeCliCheck } from "./claude-cli";
 
-const CLAUDE_FIX = "Install Claude Code: curl -fsSL https://claude.ai/install.sh | bash";
+const CLAUDE_FIX = "Reinstall the bridge, or set claudeCode.cliPath in ~/.broski/config.json";
 const PI_FIX = "Install Pi: npm i -g @earendil-works/pi-coding-agent";
 
-export async function runDependencyChecks(): Promise<CheckResult[]> {
+export async function runDependencyChecks(config?: BroskiConfig): Promise<CheckResult[]> {
 	const results: CheckResult[] = [];
 
-	const claude = findBinary("claude");
-	const hasAnthropicKey = Boolean(process.env.ANTHROPIC_API_KEY);
-	const hasClaudeSettings = existsSync(resolve(homedir(), ".claude", "settings.json"));
-	if (!claude) {
-		results.push({
-			id: "claude_code",
-			category: "dependencies",
-			status: "warning",
-			message: "Claude Code not found",
-			fix: CLAUDE_FIX,
-		});
-	} else {
-		const auth = hasAnthropicKey ? "API key set" : hasClaudeSettings ? "settings.json found" : "auth not configured";
-		results.push({
-			id: "claude_code",
-			category: "dependencies",
-			status: "ok",
-			message: `Claude Code found (${auth})`,
-		});
-	}
+	const claudeResult = claudeCliCheck(resolveClaudeCliPath(defaultClaudeCliEnvironment(config?.claudeCode.cliPath)));
+	results.push(claudeResult);
+	const claude = claudeResult.status === "ok";
 
 	const pi = findBinary("pi");
 	if (!pi) {

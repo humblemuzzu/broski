@@ -1,6 +1,7 @@
 import packageMeta from "../package.json";
 import type { CliOptions } from "./cli";
 import type { BroskiConfig } from "./config";
+import { setClaudeExecutableProvider } from "./connectors/claude-code/executable";
 import { bindWithRetry, isAddressInUse } from "./lifecycle/port-retry";
 import { logDaemon, setDaemonLogger } from "./logging/daemon-log";
 import { createBridgeLogger } from "./logging/logger";
@@ -10,6 +11,7 @@ import { installProcessHandlers } from "./serve/process-handlers";
 import { shutdown } from "./serve/shutdown";
 import { serveState } from "./serve/state";
 import { createBridgeServer, loadOrCreateAuthState } from "./server";
+import { claudeCliPathOnce } from "./server/claude-cli-path";
 import { contractOptions } from "./server/contract-backends";
 import { startPeriodicUpdateCheck, startupUpdateCheck } from "./updater";
 
@@ -132,6 +134,8 @@ export async function runServe(cli: CliOptions, config: BroskiConfig): Promise<v
 		{ info: bridgeLogger.info, warn: bridgeLogger.user },
 		{ daemon: cli.daemon, linkSocket: cli.linkSocket },
 	);
+
+	setClaudeExecutableProvider(claudeCliPathOnce(config.claudeCode.cliPath));
 
 	daemonLog("[daemon] Loading auth token...");
 	daemonLog("[daemon] Creating bridge server...");

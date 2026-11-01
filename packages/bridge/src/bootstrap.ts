@@ -9,6 +9,10 @@
  * 1. package.json — Pi SDK reads this at import time via readFileSync()
  * 2. libbroski_pty.dylib/.so — Native PTY library for terminal sessions
  *
+ * The build also replaces the `%%EMBEDDED_CLAUDE_CLI_IMPORT%%` line with an import of the generated
+ * `_claude_cli_embed.ts`, which registers the target's bundled `claude` binary; it is extracted on first
+ * use by `server/claude-cli-path.ts`, not here.
+ *
  * The package.json sidecar is created once; the PTY library is rewritten whenever the bytes on
  * disk differ from the embedded ones, because an in-place upgrade leaves the previous release's
  * library behind and the compiled loader refuses a sidecar whose sha256 does not match.
@@ -17,6 +21,8 @@
 import { existsSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { extractPtySidecar } from "./pty/sidecar-embed";
+
+// %%EMBEDDED_CLAUDE_CLI_IMPORT%%
 
 const binDir = dirname(process.execPath);
 
