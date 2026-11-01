@@ -38,6 +38,8 @@ export interface WorldOptions {
 	readonly init?: Partial<SDKControlInitializeResponse>;
 	readonly customTools?: CustomToolsPort;
 	readonly env?: Record<string, string>;
+	/** Sessions the store knows, by id, with their cwd. */
+	readonly known?: Record<SessionId, string>;
 	readonly transcript?: SessionStore["transcript"];
 	readonly entryOf?: SessionStore["entryOf"];
 }
@@ -84,14 +86,18 @@ const UNUSED_TERMINAL: TerminalWatch = {
 	dispose: async () => undefined,
 };
 
-function unusedStore(options: WorldOptions): SessionStore {
+function unusedStore(options: WorldOptions, cwd: string): SessionStore {
 	const refuse = async () => NEVER;
 	return {
 		list: async () => NEVER,
 		get: async () => NEVER,
 		transcript: options.transcript ?? (async () => NEVER),
 		attachment: async () => NEVER,
-		locate: async (sessionId) => rejected("not_found", `no session ${sessionId}`),
+		locate: async (sessionId) => {
+			const where = options.known?.[sessionId] ?? (options.hosts?.[sessionId] === undefined ? undefined : cwd);
+			if (where === undefined) return rejected("not_found", `no session ${sessionId}`);
+			return { sessionId, cwd: where, path: join(where, `${sessionId}.jsonl`), origin: "broski", lastModified: 0 };
+		},
 		lastChainUuid: refuse,
 		entryOf: options.entryOf ?? refuse,
 		rename: refuse,
@@ -183,7 +189,7 @@ export function opsWorld(options: WorldOptions = {}): OpsWorld {
 		catalog: new CatalogFeed({ emit: (event) => events.push(event) }),
 		ownership: UNUSED_OWNERSHIP,
 		terminal: UNUSED_TERMINAL,
-		store: unusedStore(options),
+		store: unusedStore(options, cwd),
 		live: liveWith(options, transient, cwd),
 		catalogue,
 	};
