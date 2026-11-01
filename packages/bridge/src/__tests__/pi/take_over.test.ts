@@ -69,6 +69,7 @@ describe("taking over a session another client wrote", () => {
 			cancelQueued: false,
 			cancelCompaction: false,
 			cancelRetry: false,
+			answer: false,
 		});
 
 		const result = await takeOver(t, ref.sessionId);
@@ -82,6 +83,7 @@ describe("taking over a session another client wrote", () => {
 			cancelQueued: false,
 			cancelCompaction: true,
 			cancelRetry: true,
+			answer: true,
 		});
 		const marks = readEntries(path).filter((entry) => entry.type === "custom" && entry.customType === "broski.origin");
 		expect(marks).toHaveLength(1);

@@ -174,6 +174,7 @@ describe("a session another client made", () => {
 			cancelQueued: false,
 			cancelCompaction: false,
 			cancelRetry: false,
+			answer: false,
 		});
 		expect(opened.initial.run).toBeUndefined();
 		const items = await allItems(t.backend, opened.ref, 200);
