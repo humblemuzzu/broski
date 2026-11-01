@@ -1,4 +1,5 @@
 import 'package:broski/agent/ui/interactions/open_link.dart';
+import 'package:broski/agent/ui/interactions/plan_mode_picker.dart';
 import 'package:broski/agent/ui/interactions/reply_draft.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:broski/theme/design_tokens.dart';
@@ -21,6 +22,7 @@ class PlanView extends StatefulWidget {
 class _PlanViewState extends State<PlanView> {
   var _decision = PlanDecision.approve;
   var _editing = false;
+  late String? _mode = initialPlanMode(widget.request.modeOptions);
   late final _plan = TextEditingController(text: widget.request.plan);
   final _feedback = TextEditingController();
 
@@ -45,6 +47,7 @@ class _PlanViewState extends State<PlanView> {
         decision: _decision,
         editedPlan: _plan.text,
         feedback: _feedback.text.trim(),
+        modeAfter: _mode,
       ),
     );
   }
@@ -79,6 +82,16 @@ class _PlanViewState extends State<PlanView> {
           _report();
         },
       ),
+      if (widget.request.modeOptions case final options?
+          when _decision == PlanDecision.approve)
+        PlanModePicker(
+          options: options,
+          selected: _mode,
+          onSelected: (mode) {
+            setState(() => _mode = mode);
+            _report();
+          },
+        ),
       if (_decision == PlanDecision.reject)
         TextField(
           key: const ValueKey('plan-feedback'),

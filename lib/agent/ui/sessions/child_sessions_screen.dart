@@ -25,7 +25,7 @@ class ChildSessionsScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text('Under ${parent.title?.text ?? 'this session'}'),
       ),
-      body: SessionListView(backend: backend, listKey: key),
+      body: SessionListView(backend: backend, listKey: key, tools: false),
     );
   }
 }

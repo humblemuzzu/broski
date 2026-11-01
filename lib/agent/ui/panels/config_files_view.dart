@@ -1,6 +1,5 @@
-import 'package:broski/agent/client/requests/op_call.dart';
-import 'package:broski/agent/ui/panels/config_inputs.dart';
-import 'package:broski/agent/ui/panels/result_actions.dart';
+import 'package:broski/agent/ui/panels/grouping.dart';
+import 'package:broski/agent/ui/panels/pill.dart';
 import 'package:broski/agent/ui/shared/text_entry_dialog.dart';
 import 'package:broski/contract/generated/contract.dart';
 import 'package:broski/theme/app_typography.dart';
@@ -8,64 +7,114 @@ import 'package:broski/theme/design_tokens.dart';
 import 'package:broski/theme/opencode_theme.dart';
 import 'package:flutter/material.dart';
 
-/// A backend's configuration files for a project, listed by the group the
-/// backend names; a tap opens one in this sheet. A place for a new named file
-/// asks for the name first.
+/// Opens [file], named [name] when it is a place for a new file.
+typedef OpenConfigFile =
+    Future<void> Function(ConfigFileEntry file, String? name);
+
+/// A backend's configuration files for a project, under the group the backend
+/// names, each with whose it is (the scope) and whether it is there yet or
+/// may be changed. A tap opens the file; a place for a new named file asks
+/// for the name first.
 class ConfigFilesView extends StatelessWidget {
   const ConfigFilesView({
     super.key,
     required this.listed,
-    required this.actions,
+    required this.busy,
+    required this.onOpen,
   });
 
   final ConfigFilesListed listed;
-  final ResultActions actions;
+  final bool busy;
+  final OpenConfigFile onOpen;
 
   @override
   Widget build(BuildContext context) {
     final theme = OpenCodeTheme.of(context);
     final muted = AppTypography.bodySmall(color: theme.textMuted);
-    final files = listed.files;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final (index, file) in files.indexed) ...[
-          if (index == 0 || files[index - 1].group != file.group)
-            Padding(
-              padding: Insets.section,
-              child: Text(file.group, style: AppTypography.labelLarge()),
+        if (listed.files.isEmpty) Text('No files to show.', style: muted),
+        for (final section in groupedInOrder(listed.files, (f) => f.group)) ...[
+          Padding(
+            padding: Insets.section,
+            child: Text(
+              section.group ?? '',
+              key: ValueKey('config-group:${section.group}'),
+              style: AppTypography.labelLarge(),
             ),
-          ListTile(
-            key: ValueKey('config-file:${file.id}'),
-            contentPadding: EdgeInsets.zero,
-            title: Text(file.label),
-            subtitle: Text(
-              [
-                file.scope,
-                if (file.template) 'new' else if (!file.exists) 'not there yet',
-                if (!file.editable) 'read-only',
-              ].join(' · '),
-              style: muted,
-            ),
-            onTap: actions.busy ? null : () => _open(context, file),
           ),
+          for (final file in section.items)
+            _FileTile(file: file, busy: busy, onOpen: onOpen),
         ],
         if (listed.omitted > 0)
-          Text('${listed.omitted} more not listed.', style: muted),
+          Padding(
+            key: const ValueKey('config-omitted'),
+            padding: Insets.chipV,
+            child: Text(
+              '${listed.omitted} more '
+              '${listed.omitted == 1 ? 'file is' : 'files are'} not shown: '
+              'the list is at its limit.',
+              style: muted,
+            ),
+          ),
       ],
     );
   }
+}
 
-  Future<void> _open(BuildContext context, ConfigFileEntry file) async {
+class _FileTile extends StatelessWidget {
+  const _FileTile({
+    required this.file,
+    required this.busy,
+    required this.onOpen,
+  });
+
+  final ConfigFileEntry file;
+  final bool busy;
+  final OpenConfigFile onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = OpenCodeTheme.of(context);
+    return ListTile(
+      key: ValueKey('config-file:${file.id}'),
+      contentPadding: EdgeInsets.zero,
+      leading: file.template
+          ? Icon(Icons.add_circle_outline, color: theme.primary)
+          : null,
+      title: Text(file.label),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            file.path,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTypography.codeSmall(color: theme.textMuted),
+          ),
+          Wrap(
+            spacing: Spacing.xs,
+            children: [
+              Pill(text: file.scope, color: theme.info),
+              if (file.template) Pill(text: 'add new', color: theme.success),
+              if (!file.template && !file.exists)
+                Pill(text: 'not there yet', color: theme.textMuted),
+              if (!file.editable) Pill(text: 'read-only', color: theme.warning),
+            ],
+          ),
+        ],
+      ),
+      trailing: Icon(Icons.chevron_right, color: theme.textMuted),
+      onTap: busy ? null : () => _open(context),
+    );
+  }
+
+  Future<void> _open(BuildContext context) async {
     final name = file.template
         ? await askForText(context, title: file.label, action: 'Create')
         : null;
     if (file.template && name == null) return;
-    await actions.call(
-      (target) => opCall(
-        target.session,
-        ConfigFileOp(cwd: projectOf(target), fileId: file.id, name: name),
-      ),
-    );
+    await onOpen(file, name);
   }
 }

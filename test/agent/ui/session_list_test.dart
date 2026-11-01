@@ -113,7 +113,13 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('row-action:rename')));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'Better name');
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.byType(TextField),
+      ),
+      'Better name',
+    );
     await tester.tap(find.text('Rename').last);
     await tester.pumpAndSettle();
     expect(rig.sent<SessionRenameRequest>().title, 'Better name');

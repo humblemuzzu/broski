@@ -37,12 +37,37 @@ class _OpResultHostState extends State<OpResultHost> {
   String? _problem;
   bool _busy = false;
 
-  Future<void> _call(BackendCall Function(OpTarget target) build) async {
+  Future<Outcome<BackendOpResult>> _run(
+    BackendCall Function(OpTarget target) build,
+  ) async {
+    final BackendCall call;
+    try {
+      call = build(widget.target);
+    } on FormatException {
+      return const Refused(
+        Rejection(
+          code: RejectionCode.unsupported,
+          message: 'This backend does not offer that.',
+        ),
+      );
+    }
     setState(() {
       _busy = true;
       _problem = null;
     });
-    final outcome = await widget.client.callBackend(build(widget.target));
+    return widget.client.callBackend(call);
+  }
+
+  Future<Outcome<BackendOpResult>> _attempt(
+    BackendCall Function(OpTarget target) build,
+  ) async {
+    final outcome = await _run(build);
+    if (mounted) setState(() => _busy = false);
+    return outcome;
+  }
+
+  Future<void> _call(BackendCall Function(OpTarget target) build) async {
+    final outcome = await _run(build);
     if (!mounted) return;
     setState(() {
       _busy = false;
@@ -70,7 +95,10 @@ class _OpResultHostState extends State<OpResultHost> {
               style: AppTypography.bodySmall(color: theme.error),
             ),
           ),
-        widget.builder(_result, ResultActions(call: _call, busy: _busy)),
+        widget.builder(
+          _result,
+          ResultActions(call: _call, attempt: _attempt, busy: _busy),
+        ),
       ],
     );
   }

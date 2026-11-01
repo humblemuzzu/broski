@@ -64,7 +64,7 @@ const customToolsPanel = OpPanel(
 
 const customToolPanel = OpPanel(
   kind: BackendOpKind.customTool,
-  label: 'New custom tool',
-  place: OpPlace.backend,
-  ask: askNewCustomTool,
+  label: 'Custom tool',
+  place: OpPlace.unlisted,
+  ask: askNothing,
 );
