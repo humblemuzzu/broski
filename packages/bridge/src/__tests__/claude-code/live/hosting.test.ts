@@ -77,7 +77,7 @@ describe("reaching a session's host", () => {
 	);
 
 	test(
-		"withHost on a hosted session uses its host, and a work that throws still closes a transient host",
+		"withHost on a hosted session uses its host, and a work that throws is a rejection and still closes a transient host",
 		async () => {
 			const rig = realRig([{ text: ["done"] }]);
 			try {
@@ -88,15 +88,11 @@ describe("reaching a session's host", () => {
 				expect(same).toEqual(processes);
 				await live.close();
 				await rig.live.end(live.ref.sessionId);
-				const thrown = await rig.live
-					.withHost(live.ref.sessionId, async () => {
-						throw new Error("the op failed");
-					})
-					.then(
-						() => "returned",
-						(error: unknown) => (error instanceof Error ? error.message : "other"),
-					);
-				expect(thrown).toBe("the op failed");
+				const thrown = await rig.live.withHost(live.ref.sessionId, async () => {
+					throw new Error("the op failed");
+				});
+				expect(thrown).toMatchObject({ status: "rejected", rejection: { code: "backend_error" } });
+				expect(JSON.stringify(thrown)).toContain("the op failed");
 				expect(cliPidsOf(live.ref.sessionId)).toEqual([]);
 			} finally {
 				await rig.dispose();

@@ -243,14 +243,14 @@ export interface StandInStore extends SessionStore {
 	readonly invalidated: SessionId[];
 	readonly announced: SessionId[];
 	/** Sessions the stand-in knows, for `locate`; real runs add theirs through the SDK. */
-	readonly known: Map<SessionId, { cwd: string }>;
+	readonly known: Map<SessionId, { cwd: string; modelId?: string }>;
 	/** The overlay row at each `announce`, to see what the catalogue would have read. */
 	readonly rows: { sessionId: SessionId; status: string | undefined; cut: string | null | undefined }[];
 }
 
 /** `locate` and `lastChainUuid` read the real session files through the SDK port; everything else is not built. */
 export function standInStore(sdk: ClaudeSdk): StandInStore {
-	const known = new Map<SessionId, { cwd: string }>();
+	const known = new Map<SessionId, { cwd: string; modelId?: string }>();
 	const invalidated: SessionId[] = [];
 	const announced: SessionId[] = [];
 	const rows: StandInStore["rows"] = [];
@@ -282,6 +282,7 @@ export function standInStore(sdk: ClaudeSdk): StandInStore {
 							archived: false,
 							status: "idle",
 							origin: "broski",
+							...(known.get(sessionId)?.modelId !== undefined && { modelId: known.get(sessionId)?.modelId }),
 						},
 					}
 				: rejected("not_found", `no session ${sessionId}`),

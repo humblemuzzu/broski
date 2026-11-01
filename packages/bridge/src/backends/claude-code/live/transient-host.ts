@@ -74,7 +74,11 @@ export async function withTransientHost<T>(
 		});
 	} finally {
 		process.close();
-		desk.expireAll();
+		try {
+			desk.expireAll();
+		} catch {
+			/* the process is closing whatever the desk says */
+		}
 		await process.closed();
 		live.delete(process);
 	}

@@ -53,10 +53,12 @@ export async function abortRun(deps: AbortDeps): Promise<ActionResult> {
  */
 async function interruptOrKill(deps: AbortDeps, query: Query): Promise<void> {
 	const outcome = await within(
-		interruptQuery(query, { cancelQueued: true }).then(
-			() => "answered" as const,
-			() => "failed" as const,
-		),
+		Promise.resolve()
+			.then(() => interruptQuery(query, { cancelQueued: true }))
+			.then(
+				() => "answered" as const,
+				() => "failed" as const,
+			),
 		INTERRUPT_DEADLINE_MS,
 		"silent" as const,
 	);

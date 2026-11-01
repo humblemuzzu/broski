@@ -8,6 +8,7 @@ import type { SessionMessage } from "@anthropic-ai/claude-agent-sdk";
 import { FakeQuery } from "../helpers/fake-query";
 import { idle, init, running } from "./helpers/frames";
 import { type FakeRig, fakeRig } from "./helpers/rig";
+import { standInCatalogue } from "./helpers/stand-ins";
 
 const dirs: string[] = [];
 const sessionId = crypto.randomUUID();
@@ -256,6 +257,35 @@ describe("the options of a resumed host", () => {
 		});
 		expect(rig.sdk.started[1]?.options).toMatchObject({ resume: live.ref.sessionId });
 		expect(rig.sdk.started[1]?.options.sessionId).toBeUndefined();
+		await rig.dispose();
+	});
+});
+
+describe("the model of a session that exists", () => {
+	async function existing(recorded: string, wires: Record<string, string>) {
+		const dir = tempDir();
+		const query = new FakeQuery({ applyFlagSettings: async () => undefined });
+		const rig = fakeRig([query], { catalogue: standInCatalogue(wires) });
+		rig.sdk.getSessionInfo = async () => ({ sessionId, summary: "x", lastModified: 1, cwd: dir });
+		rig.store.known.set(sessionId, { cwd: dir, modelId: recorded });
+		const live = await rig.openExisting({ backend: "claude-code", sessionId });
+		return { rig, live };
+	}
+
+	test("is shown by its listed id when the transcript recorded a wire id", async () => {
+		const { rig, live } = await existing("claude-opus-5-5", { "claude-opus-5-5": "opus" });
+		expect(live.initial.modelId).toBe("opus");
+		await rig.dispose();
+	});
+
+	test("is kept as recorded when no listed model matches, and a thinking level is checked against the default model", async () => {
+		const { rig, live } = await existing("claude-made-up-9", {});
+		expect(live.initial.modelId).toBe("claude-made-up-9");
+		expect((await live.control.setThinking("high")).status).toBe("accepted");
+		expect(await live.control.setThinking("nonsense")).toMatchObject({
+			status: "rejected",
+			rejection: { code: "invalid_input" },
+		});
 		await rig.dispose();
 	});
 });

@@ -33,6 +33,15 @@ function notASession(sessionId: string): Rejected {
 	return rejected("not_found", `no Claude Code session ${clip(sessionId, 64)}`);
 }
 
+/** An op that throws is a failed op, not a thrown error out of the adapter. */
+async function safely<T, A>(work: (arg: A) => Promise<T>, arg: A): Promise<T | Rejected> {
+	try {
+		return await work(arg);
+	} catch (error) {
+		return rejected("backend_error", `the operation failed: ${errorText(error)}`);
+	}
+}
+
 function isDirectory(path: string): boolean {
 	try {
 		return statSync(path).isDirectory();
@@ -98,9 +107,9 @@ class Registry implements LiveSessions, LiveOverlay {
 	async withLiveHost<T>(sessionId: SessionId, work: (host: HostView | undefined) => Promise<T>): Promise<T | Rejected> {
 		if (!isUuid(sessionId) && !parseChildRef(sessionId)) return notASession(sessionId);
 		const host = this.hosts.get(sessionId);
-		if (host && !host.ended) return work(host.view());
+		if (host && !host.ended) return safely(work, host.view());
 		const stored = await this.deps.store.locate(sessionId);
-		return isRejected(stored) ? stored : work(undefined);
+		return isRejected(stored) ? stored : safely(work, undefined);
 	}
 
 	async withHost<T>(sessionId: SessionId, work: (host: HostView) => Promise<T>): Promise<T | Rejected> {
@@ -120,7 +129,7 @@ class Registry implements LiveSessions, LiveOverlay {
 		const cwd = stored.cwd;
 		if (cwd === undefined || !isDirectory(cwd)) return rejected("not_found", "the session's working directory is gone");
 		if (this.disposing) return CLOSED;
-		return withTransientHost(this.deps, this.transients, { sessionId, cwd }, work);
+		return withTransientHost(this.deps, this.transients, { sessionId, cwd }, (view) => safely(work, view));
 	}
 
 	end(sessionId: SessionId): Promise<void> {
@@ -147,7 +156,7 @@ class Registry implements LiveSessions, LiveOverlay {
 		const failure = await host.ensureProcess();
 		if (failure) return failure;
 		const view = host.view();
-		return view ? work(view) : rejected("backend_error", "Claude Code is not running");
+		return view ? safely(work, view) : rejected("backend_error", "Claude Code is not running");
 	}
 
 	private async openNew(options: NewSessionOptions, sink: SessionSink): Promise<OpenResult> {
@@ -195,7 +204,12 @@ class Registry implements LiveSessions, LiveOverlay {
 
 	private async existingSnapshot(stored: StoredSession): Promise<SessionSnapshot> {
 		const found = await this.deps.store.get(stored.sessionId, this);
-		const modelId = found.status === "accepted" ? found.summary.modelId : undefined;
+		const recorded = found.status === "accepted" ? found.summary.modelId : undefined;
+		const listed =
+			recorded !== undefined && stored.cwd !== undefined
+				? await this.deps.catalogue.listedModelId(stored.cwd, recorded)
+				: undefined;
+		const modelId = listed ?? recorded;
 		return {
 			...emptySnapshot(),
 			modes: [{ axis: PERMISSIONS_AXIS, value: DEFAULT_PERMISSION_MODE }],

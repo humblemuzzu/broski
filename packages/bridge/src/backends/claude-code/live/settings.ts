@@ -185,8 +185,7 @@ export class SessionSettings {
 		const modelId = this.deps.live.snapshot().modelId;
 		if (modelId !== undefined) {
 			const summary = await catalogue.model(cwd, modelId);
-			if (summary === undefined) return rejected("not_found", `Claude Code offers no model ${modelId}`);
-			return isRejected(summary) ? summary : summary.thinking;
+			if (summary !== undefined) return isRejected(summary) ? summary : summary.thinking;
 		}
 		const listed = await catalogue.models(cwd);
 		if (listed.status === "rejected") return listed;
