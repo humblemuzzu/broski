@@ -9,6 +9,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { failureOutcome } from "../../../backends/claude-code/mapping/tool-outcome";
 import type { TerminalAskHandler } from "../../../backends/claude-code/ports/terminal";
+import { urlAllowedBy } from "../../../backends/claude-code/terminal/allowed-urls";
 import { installTerminalHook } from "../../../backends/claude-code/terminal/hook-install";
 import { TERMINAL_HOOK_TIMEOUT_SECONDS } from "../../../backends/claude-code/terminal/hook-settings";
 import { humanDenial } from "../../../backends/claude-code/ui/denial";
@@ -56,7 +57,7 @@ async function run(
 		terminal?: Terminal;
 		san?: boolean;
 		namesCertificate?: boolean;
-		pinnedElsewhere?: boolean;
+		pinned?: readonly string[];
 		bridgeCert?: boolean;
 	} = {},
 ): Promise<Outcome> {
@@ -99,10 +100,10 @@ async function run(
 			...(options.namesCertificate !== false && { caCertPath: cert.certPath }),
 		});
 		expect(installed.status).toBe("installed");
-		if (options.pinnedElsewhere) {
+		if (options.pinned) {
 			const file = join(home.configDir, "settings.json");
 			const settings = JSON.parse(readFileSync(file, "utf8"));
-			settings.allowedHttpHookUrls = ["https://127.0.0.1:1/somewhere-else"];
+			settings.allowedHttpHookUrls = options.pinned;
 			writeFileSync(file, JSON.stringify(settings));
 		}
 		const terminal = options.terminal ?? {};
@@ -181,7 +182,11 @@ describe("when the CLI will not call the hook, it fails open to the terminal", (
 	test(
 		"a URL the settings do not pin in allowedHttpHookUrls is not called",
 		async () => {
-			const outcome = await run(async () => ({ behavior: "allow" }), { pinnedElsewhere: true, terminal });
+			const outcome = await run(async () => ({ behavior: "allow" }), {
+				pinned: ["https://127.0.0.1:1/somewhere-else", "http://127.0.0.1:*/cc-terminal-hook"],
+				terminal,
+			});
+			expect(urlAllowedBy("https://127.0.0.1:2/cc-terminal-hook", "http://127.0.0.1:*/cc-terminal-hook")).toBe(false);
 			expect(outcome.hookRequests).toBe(0);
 			expect(outcome.promptAnswered).toBe(true);
 		},
@@ -231,6 +236,18 @@ describe("the PermissionRequest hook the installer writes, in the real CLI", () 
 			expect(outcome.hookRequests).toBe(1);
 			expect(outcome.wrote).toBe(true);
 			expect(outcome.promptAnswered).toBe(false);
+		},
+		CLI_TEST_MS,
+	);
+
+	test(
+		"a list whose port wildcard covers our URL lets the CLI call the hook, as allowed-urls.ts reads it",
+		async () => {
+			const pattern = "https://127.0.0.1:*/cc-terminal-hook";
+			const outcome = await run(async () => ({ behavior: "allow" }), { pinned: [pattern] });
+			expect(outcome.hookRequests).toBe(1);
+			expect(outcome.wrote).toBe(true);
+			expect(urlAllowedBy("https://127.0.0.1:2/cc-terminal-hook", pattern)).toBe(true);
 		},
 		CLI_TEST_MS,
 	);

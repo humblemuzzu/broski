@@ -96,6 +96,32 @@ describe("a probe whose skills never come", () => {
 	});
 });
 
+describe("the status", () => {
+	const url = "https://127.0.0.1:18274/cc-terminal-hook";
+	const blocking = async () => ({
+		effective: {
+			hooks: { PermissionRequest: [{ matcher: "*", hooks: [{ type: "http" as const, url }] }] },
+			allowedHttpHookUrls: ["https://hooks.example.com/*"],
+		},
+		provenance: {},
+		sources: [{ source: "managed" as const, settings: { allowedHttpHookUrls: ["https://hooks.example.com/*"] } }],
+	});
+
+	test("warns when a managed URL list leaves our terminal hook out, only while terminal asks are on", async () => {
+		const on = rigOf({
+			queries: scripted(1),
+			terminal: { hookAsks: () => undefined },
+			sdk: { resolveSettings: blocking },
+		});
+		const warned = await on.catalogue.status();
+		expect(warned.issues.map((issue) => issue.severity)).toEqual(["warning"]);
+		expect(warned.issues[0]?.message).toContain("managed settings");
+		expect(warned.usable).toBe(true);
+		const off = rigOf({ queries: scripted(1), sdk: { resolveSettings: blocking } });
+		expect((await off.catalogue.status()).issues).toEqual([]);
+	});
+});
+
 describe("the modes", () => {
 	test("a bridge running as root outside a sandbox does not offer bypass", async () => {
 		const valuesOf = async (uid: number) => {

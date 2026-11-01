@@ -4,6 +4,7 @@ import type { ResolvedSettings, Settings } from "@anthropic-ai/claude-agent-sdk"
 import type { BackendCallResult, SettingsOverviewOp } from "../../../contract";
 import type { OpsDeps } from "../ports";
 import { isRejected } from "../rejections";
+import { blockedHook, blockedHookText } from "../terminal/hook-blocked";
 import { fixedPlaces, type PlaceRoots } from "./config-paths";
 import { placeRoots } from "./config-roots";
 import { containedPath } from "./contained-path";
@@ -43,6 +44,11 @@ function droppedMode(resolved: ResolvedSettings, effective: Settings): Problem[]
 	];
 }
 
+function hookProblems(resolved: ResolvedSettings): Problem[] {
+	const blocked = blockedHook(resolved);
+	return blocked === undefined ? [] : [{ title: "Terminal prompts blocked", message: blockedHookText(blocked) }];
+}
+
 async function accountOf(deps: OpsDeps, cwd: string): Promise<{ rows: RowSpec[]; note: string | undefined }> {
 	const init = await deps.catalogue.initialize(cwd);
 	if (isRejected(init)) return { rows: [], note: `The account could not be read: ${init.rejection.message}` };
@@ -54,7 +60,7 @@ export async function settingsOverview(deps: OpsDeps, op: SettingsOverviewOp): P
 		const resolved = await deps.services.sdk.resolveSettings({ cwd: op.cwd });
 		const effective = deps.services.sdk.filterEscalatingDefaultMode(resolved);
 		const roots = await placeRoots(deps, op.cwd);
-		const problems = [...(await fileProblems(roots)), ...droppedMode(resolved, effective)];
+		const problems = [...(await fileProblems(roots)), ...droppedMode(resolved, effective), ...hookProblems(resolved)];
 		const account = await accountOf(deps, op.cwd);
 		const rows = [
 			...problemRows(problems),

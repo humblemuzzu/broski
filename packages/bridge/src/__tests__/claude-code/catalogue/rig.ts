@@ -13,6 +13,8 @@ import type {
 import { CatalogFeed } from "../../../backends/claude-code/catalog-feed";
 import { createCatalogue } from "../../../backends/claude-code/models/catalog";
 import type { CatalogueAccess } from "../../../backends/claude-code/ports/catalogue";
+import type { SessionFunctions } from "../../../backends/claude-code/ports/sdk";
+import type { TerminalOptions } from "../../../backends/claude-code/ports/terminal";
 import type { Clock } from "../../../backends/claude-code/ports/time";
 import {
 	type ClaudeCodeServices,
@@ -134,11 +136,13 @@ export interface RigOptions {
 	readonly cli?: CliLocation;
 	readonly expectedCliVersion?: string;
 	readonly uid?: number;
+	readonly terminal?: TerminalOptions;
+	readonly sdk?: Partial<SessionFunctions>;
 }
 
 export function catalogueRig(options: RigOptions = {}): Rig {
 	const stateDir = mkdtempSync(join(tmpdir(), "broski-catalogue-"));
-	const sdk = fakeClaudeSdk({ queries: options.queries });
+	const sdk = fakeClaudeSdk({ queries: options.queries, overrides: options.sdk });
 	const clock = new ManualClock();
 	const events: CatalogEvent[] = [];
 	const services = createClaudeCodeServices({
@@ -150,6 +154,7 @@ export function catalogueRig(options: RigOptions = {}): Rig {
 		sdk,
 		clock,
 		...(options.uid !== undefined && { uid: options.uid }),
+		...(options.terminal !== undefined && { terminal: options.terminal }),
 	});
 	const make = () => createCatalogue({ services, catalog: new CatalogFeed({ emit: (event) => events.push(event) }) });
 	return {

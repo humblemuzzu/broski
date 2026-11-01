@@ -1,6 +1,7 @@
 /** `settings_overview`: the real cascade with provenance, policy marks, permission rules by source, and what is skipped. */
 
 import { afterEach, describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ActionList, ActionListRow, BackendCallResult } from "../../../contract";
 import { type OpsWorld, opsWorld } from "./ops-world";
@@ -114,6 +115,21 @@ describe("settings_overview", () => {
 		expect(problems[0]?.status).toEqual({ label: "problem", tone: "error" });
 		expect(problems[0]?.subtitle).toContain("settings schema");
 		expect(row(list, "mode:default")).toBeUndefined();
+	});
+
+	test("a project's URL list that leaves out our terminal hook is a problem, and no file is changed", async () => {
+		world = opsWorld();
+		const url = "https://127.0.0.1:18274/cc-terminal-hook";
+		const user = JSON.stringify({ hooks: { PermissionRequest: [{ matcher: "*", hooks: [{ type: "http", url }] }] } });
+		const project = JSON.stringify({ allowedHttpHookUrls: ["https://hooks.example.com/*"] });
+		const userFile = world.write(join(world.configDir, "settings.json"), user);
+		const projectFile = world.write(join(world.cwd, ".claude", "settings.json"), project);
+		const list = listOf(await overview());
+		const blocked = list.rows.find((candidate) => candidate.title === "Terminal prompts blocked");
+		expect(blocked?.group).toBe("Problems");
+		expect(blocked?.subtitle).toContain("project settings");
+		expect(blocked?.subtitle).toContain(url);
+		expect([readFileSync(userFile, "utf8"), readFileSync(projectFile, "utf8")]).toEqual([user, project]);
 	});
 
 	test("a settings file that is not JSON is a problem, and the rest of the cascade still shows", async () => {

@@ -11,6 +11,7 @@ import type {
 	ModelsListResult,
 	ModesListResult,
 	Rejected,
+	StatusIssue,
 } from "../../../contract";
 import { commandsOf } from "../commands";
 import { permissionsAxis } from "../modes";
@@ -20,6 +21,7 @@ import { type ProbeOutcome, probeInitialize } from "../process/probe";
 import { isRejected, rejected } from "../rejections";
 import type { ClaudeCodeServices } from "../services";
 import { claudeCodeStatus, type StatusSource } from "../status";
+import { blockedHookIssue } from "../terminal/hook-blocked";
 import { CatalogCache, type CatalogEntry } from "./catalog-cache";
 import { listedModelIdOf, modelSummaries } from "./model-list";
 import { failureCode, failureText } from "./startup-failures";
@@ -111,11 +113,20 @@ class Catalogue implements CatalogueAccess {
 		const { cli, expectedCliVersion } = this.services;
 		try {
 			const source: StatusSource = cli.found ? await this.statusSource() : { kind: "missing", reason: cli.reason };
-			return claudeCodeStatus(source, expectedCliVersion);
+			const status = claudeCodeStatus(source, expectedCliVersion);
+			const hook = await this.hookIssue();
+			return hook === undefined ? status : { ...status, issues: [...status.issues, hook] };
 		} catch (error) {
 			const reason = error instanceof Error ? error.message : String(error);
 			return claudeCodeStatus({ kind: "unreadable", installed: cli.found, reason }, expectedCliVersion);
 		}
+	}
+
+	/** Only the user's and the managed settings: they hold for every project, as a status does. */
+	private async hookIssue(): Promise<StatusIssue | undefined> {
+		if (this.services.terminal.hookAsks === undefined) return undefined;
+		const resolved = await this.services.sdk.resolveSettings({ settingSources: ["user"] }).catch(() => undefined);
+		return resolved === undefined ? undefined : blockedHookIssue(resolved);
 	}
 
 	private async read<T>(work: () => Promise<T | Rejected>): Promise<T | Rejected> {
