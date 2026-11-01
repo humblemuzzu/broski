@@ -12,13 +12,38 @@ export interface ClaudeSdkOptions {
 	readonly configDir?: string;
 	/** The environment the CLI gets (`process/env.ts`), which then names `configDir`. */
 	readonly env: Readonly<Record<string, string>>;
+	/** Tests only: whether this is a `bun build --compile` binary; otherwise read from this module's own URL. */
+	readonly compiled?: boolean;
+}
+
+export const NO_WORKER_IN_A_COMPILED_BRIDGE =
+	"a Claude Code config dir needs the SDK worker, which a compiled bridge does not carry; leave configDir unset (D36)";
+
+function refusing(): SessionFunctions {
+	const no = () => Promise.reject(new Error(NO_WORKER_IN_A_COMPILED_BRIDGE));
+	return {
+		listSessions: no,
+		getSessionInfo: no,
+		getSessionMessages: no,
+		getSubagentMessages: no,
+		listSubagents: no,
+		forkSession: no,
+		renameSession: no,
+		resolveSettings: no,
+	};
+}
+
+function sessionFunctions(options: ClaudeSdkOptions): { fns: SessionFunctions; worker?: WorkerSessionFunctions } {
+	const { configDir } = options;
+	if (configDir === undefined) return { fns: IN_PROCESS };
+	if (options.compiled ?? import.meta.url.includes("/$bunfs/")) return { fns: refusing() };
+	const worker = new WorkerSessionFunctions({ ...options.env, CLAUDE_CONFIG_DIR: configDir });
+	return { fns: worker, worker };
 }
 
 export function createClaudeSdk(options: ClaudeSdkOptions): ClaudeSdk {
 	const { configDir } = options;
-	const worker =
-		configDir === undefined ? undefined : new WorkerSessionFunctions({ ...options.env, CLAUDE_CONFIG_DIR: configDir });
-	const fns: SessionFunctions = worker ?? IN_PROCESS;
+	const { fns, worker } = sessionFunctions(options);
 	let disposed = false;
 	const guarded =
 		<A extends unknown[], R>(fn: (...args: A) => Promise<R>) =>

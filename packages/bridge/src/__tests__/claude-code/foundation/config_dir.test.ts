@@ -7,7 +7,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createClaudeSdk } from "../../../backends/claude-code/sdk/claude-sdk";
+import { createClaudeSdk, NO_WORKER_IN_A_COMPILED_BRIDGE } from "../../../backends/claude-code/sdk/claude-sdk";
 import { writeFixtureSession } from "../helpers/fixture-transcripts";
 
 const root = realpathSync(mkdtempSync(join(tmpdir(), "broski-cc-config-dir-")));
@@ -83,5 +83,28 @@ describe("D36: an explicit config dir", () => {
 			(error: Error) => error.message,
 		);
 		expect(late).toContain("disposed");
+	});
+
+	test("in a compiled bridge, which carries no worker, every session read refuses with why; none starts a worker", async () => {
+		const d = sessionsIn("d", 1);
+		const sdk = createClaudeSdk({ configDir: d.configDir, env: {}, compiled: true });
+		const [sessionId = ""] = d.ids;
+		const said = await Promise.all(
+			[
+				sdk.listSessions({ dir: d.cwd }),
+				sdk.getSessionInfo(sessionId),
+				sdk.getSessionMessages(sessionId),
+				sdk.renameSession(sessionId, "x"),
+				sdk.resolveSettings({ cwd: d.cwd }),
+			].map((call) =>
+				Promise.resolve(call).then(
+					() => "answered",
+					(error: Error) => error.message,
+				),
+			),
+		);
+		expect(new Set(said)).toEqual(new Set([NO_WORKER_IN_A_COMPILED_BRIDGE]));
+		expect(sdk.configRoot()).toBe(d.configDir);
+		await sdk.dispose();
 	});
 });
