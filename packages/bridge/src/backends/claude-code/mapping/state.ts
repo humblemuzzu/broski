@@ -55,6 +55,8 @@ export class RecentSet {
 export class MapperState {
 	readonly ownSends = new RecentSet(MAX_REMEMBERED);
 	readonly startedTools = new RecentSet(MAX_REMEMBERED);
+	/** Messages already retracted, so a second frame naming another block of one says nothing more. */
+	readonly retracted = new RecentSet(MAX_REMEMBERED);
 	readonly openBlocks = new Map<BlockId, OpenBlock>();
 	readonly openTools = new Map<ToolCallId, OpenTool>();
 	/** Tools a `permission_denied` frame named, until their result arrives. */

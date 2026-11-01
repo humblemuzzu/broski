@@ -32,6 +32,7 @@ function withdrawnByStream(state: MapperState, frame: SDKMessage): Map<string, S
 		const known = state.frameMessages.get(uuid);
 		state.frameMessages.delete(uuid);
 		if (known === undefined || known.messageId === own || !fitsId(known.messageId)) continue;
+		if (state.retracted.has(known.messageId)) continue;
 		for (const stream of known.streams) {
 			byStream.set(stream, (byStream.get(stream) ?? new Set()).add(known.messageId));
 		}
@@ -47,7 +48,9 @@ function withdrawnByStream(state: MapperState, frame: SDKMessage): Map<string, S
 export function retractionEvents(state: MapperState, frame: SDKMessage): MappedEvent[] {
 	const byStream = withdrawnByStream(state, frame);
 	if (byStream.size === 0) return [];
-	forget(state, new Set([...byStream.values()].flatMap((ids) => [...ids])));
+	const messageIds = new Set([...byStream.values()].flatMap((ids) => [...ids]));
+	for (const id of messageIds) state.retracted.add(id);
+	forget(state, messageIds);
 	return [...byStream].flatMap(([stream, ids]) =>
 		fanOut([stream], () => ({
 			type: "messages_retracted",

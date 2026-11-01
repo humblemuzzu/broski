@@ -78,6 +78,18 @@ describe("retraction", () => {
 		expect(mapper.settle("aborted")).toEqual([]);
 	});
 
+	test("another block of a message already withdrawn says nothing more", () => {
+		const mapper = newMapper();
+		const first = assistant("msg_A", [text("a1")]);
+		const second = assistant("msg_A", [text("a2")]);
+		mapper.map(first);
+		mapper.map(second);
+		const retracted = (uuids: string[]) =>
+			mapper.map(fallback(uuids)).filter((item) => item.event.type === "messages_retracted");
+		expect(retracted([first.uuid])).toHaveLength(1);
+		expect(retracted([second.uuid])).toEqual([]);
+	});
+
 	test("several messages in one frame are one retraction", () => {
 		const a = assistant("msg_A", [text("a")]);
 		const b = assistant("msg_B", [text("b")]);
