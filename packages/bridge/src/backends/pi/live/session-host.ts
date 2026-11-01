@@ -116,6 +116,7 @@ export class SessionHost {
 			session: () => this.session,
 			live: this.live,
 			runs: this.runs,
+			interactions: this.interactions,
 			idle: () => this.idle(),
 		});
 		this.prompts = new PromptDesk({

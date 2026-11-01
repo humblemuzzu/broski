@@ -50,11 +50,15 @@ export default function driverExtension(pi: ExtensionAPI): void {
 		},
 	});
 
-	pi.on("user_bash", (event) =>
-		event.command === "drv-result"
-			? { result: { output: "from the extension", exitCode: 0, cancelled: false, truncated: false } }
-			: undefined,
-	);
+	pi.on("user_bash", async (event, ctx) => {
+		if (event.command === "drv-result") {
+			return { result: { output: "from the extension", exitCode: 0, cancelled: false, truncated: false } };
+		}
+		if (event.command.endsWith("# confirm"))
+			driverBus().recordAsk("user_bash", await ctx.ui.confirm("Run it?", event.command));
+		if (event.command.endsWith("# refuse")) throw new Error("commands like this are not run here");
+		return undefined;
+	});
 
 	pi.registerTool({
 		name: "ask_human",

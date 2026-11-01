@@ -4,7 +4,8 @@
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
-import type { BackendCallResult, ToolFinishedEvent } from "../../contract";
+import { DEFAULT_MAX_BYTES } from "@earendil-works/pi-coding-agent";
+import type { AgentEvent, BackendCallResult, ToolFinishedEvent } from "../../contract";
 import type { LiveSession } from "../../contract/testing/conformance-harness";
 import { LiveRig } from "./helpers/live-rig";
 import { callPi } from "./helpers/pi-calls";
@@ -51,6 +52,15 @@ function recorded(rig: LiveRig, live: LiveSession) {
 	);
 }
 
+/** What the card showed at each update: the whole output so far, as the agent's own calls show theirs. */
+function shown(events: readonly AgentEvent[]): string[] {
+	return events.flatMap((event) => {
+		if (event.type !== "tool_updated") return [];
+		if (event.update.kind !== "output_replaced") throw new Error(`a ${event.update.kind} update`);
+		return [event.update.text];
+	});
+}
+
 function finishedOf(events: readonly { type: string }[]): ToolFinishedEvent {
 	const finished = events.find((event): event is ToolFinishedEvent => event.type === "tool_finished");
 	if (finished === undefined) throw new Error("no tool finished");
@@ -61,7 +71,7 @@ describe("a command typed with !", () => {
 	test("is a run with one bash tool call: its output streams, it finishes with the exit code, and the stream is valid", async () => {
 		t = await LiveRig.create();
 		const live = await t.rig.openNew();
-		const { outcome, events } = await shellRun(t, live, "echo first; sleep 0.15; echo second");
+		const { outcome, events } = await shellRun(t, live, "echo first; sleep 0.6; echo second");
 		expect(outcome).toEqual({ kind: "completed" });
 		expect(
 			events.map((event) => event.type).filter((type) => type !== "tool_updated" && type !== "usage_updated"),
@@ -70,15 +80,9 @@ describe("a command typed with !", () => {
 		expect(events[1]).toMatchObject({
 			type: "tool_started",
 			name: "bash",
-			input: { command: "echo first; sleep 0.15; echo second" },
+			input: { command: "echo first; sleep 0.6; echo second" },
 		});
-		const streamed = events
-			.flatMap((event) =>
-				event.type === "tool_updated" && event.update.kind === "output_appended" ? [event.update.text] : [],
-			)
-			.join("");
-		expect(streamed).toBe("first\nsecond\n");
-		expect(events.filter((event) => event.type === "tool_updated").length).toBeGreaterThanOrEqual(2);
+		expect(shown(events)).toEqual(["first\n", "first\nsecond\n"]);
 		expect(finishedOf(events)).toMatchObject({
 			outcome: "completed",
 			result: { content: [{ kind: "text", text: "first\nsecond\n" }], exitCode: 0 },
@@ -175,6 +179,43 @@ describe("Stop during a command", () => {
 	});
 });
 
+describe("Stop while an extension's user_bash handler decides", () => {
+	test("withdraws the handler's ask, runs nothing, records nothing, and ends the run aborted", async () => {
+		t = await LiveRig.create();
+		const live = await t.rig.openNew();
+		const mark = live.events().length;
+		expect(await runShell(t, live, "echo ran # confirm")).toEqual({
+			status: "accepted",
+			result: { kind: "run_shell" },
+		});
+		const { interaction } = await live.waitFor("interaction_requested", () => true, mark);
+		expect((await live.control.abort()).status).toBe("accepted");
+		await live.waitFor("interaction_resolved", (event) => event.interactionId === interaction.id, mark);
+		await t.bus.answered("user_bash");
+		const { outcome } = await live.runAfter(mark);
+		expect(outcome).toEqual({ kind: "aborted" });
+		const events = live.events().slice(mark);
+		expect(finishedOf(events)).toMatchObject({ outcome: "aborted" });
+		expect(shown(events)).toEqual([]);
+		expect(recorded(t, live)).toEqual([]);
+		live.assertSettled();
+		t.router.script(live.ref.sessionId, [say("alive")]);
+		expect((await live.run("still there?")).outcome.kind).toBe("completed");
+	});
+
+	test("that throws ends the run with its error, and nothing runs", async () => {
+		t = await LiveRig.create();
+		const live = await t.rig.openNew();
+		const { outcome, events } = await shellRun(t, live, "echo ran # refuse");
+		live.assertSettled();
+		expect(outcome.kind === "error" && outcome.error.message).toContain("not run here");
+		const finished = finishedOf(events);
+		expect(finished.outcome).toBe("failed");
+		expect(finished.result.error).toContain("not run here");
+		expect(recorded(t, live)).toEqual([]);
+	});
+});
+
 describe("what a command cannot do", () => {
 	test("run beside another command, a run, or a prompt", async () => {
 		t = await LiveRig.create();
@@ -237,15 +278,30 @@ describe("what a command cannot do", () => {
 });
 
 describe("output without end", () => {
-	test("reaches the phone in a few pieces whatever the command prints, and the card keeps the end of it", async () => {
+	test("reaches the phone as a bounded tail a few times a second, however much the command prints", async () => {
 		t = await LiveRig.create();
 		const live = await t.rig.openNew();
-		const { events } = await shellRun(t, live, "yes line | head -n 200000");
-		const pieces = events.filter((event) => event.type === "tool_updated");
-		expect(pieces.length).toBeGreaterThan(0);
-		expect(pieces.length).toBeLessThan(400);
+		const printed = 4 * 1_000_000 * "line\n".length;
+		const started = Date.now();
+		const { events } = await shellRun(t, live, "for i in 1 2 3 4; do yes line | head -n 1000000; sleep 0.3; done");
+		const flushes = Math.ceil((Date.now() - started) / 250) + 1;
+		const tails = shown(events);
+		expect(tails.length).toBeGreaterThan(1);
+		expect(tails.length).toBeLessThanOrEqual(flushes);
+		for (const tail of tails) expect(Buffer.byteLength(tail)).toBeLessThanOrEqual(DEFAULT_MAX_BYTES);
+		expect(tails.reduce((sum, tail) => sum + tail.length, 0)).toBeLessThan(printed / 10);
+		expect(tails.at(-1)?.endsWith("line\nline")).toBe(true);
 		expect(recorded(t, live)[0]?.truncated).toBe(true);
 		expect(finishedOf(events).result.content[0]).toMatchObject({ kind: "text" });
 		live.assertSettled();
+	});
+
+	test("never shows a terminal escape, even one split across the command's writes", async () => {
+		t = await LiveRig.create();
+		const live = await t.rig.openNew();
+		const { events } = await shellRun(t, live, "printf 'a\\033[3'; sleep 0.4; printf '1mred\\033[0m\\n'");
+		const tails = shown(events);
+		expect(tails.at(-1)).toBe("ared\n");
+		for (const tail of tails) expect(tail).not.toMatch(/\u001B|\[3/);
 	});
 });

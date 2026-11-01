@@ -2,23 +2,26 @@
  * A command the person typed with `!` or `!!`, run as the terminal runs it: `user_bash` extension handlers first
  * (they may supply the whole result or the operations to run it with), then `AgentSession.executeBash`, which
  * records the result in the session as a `bashExecution` message (pi-coding-agent `src/core/agent-session.ts:3906-3965`;
- * the terminal's `handleBashCommand`, `src/modes/interactive/interactive-mode.ts:7068-7190`).
+ * the terminal's `handleBashCommand`, `src/modes/interactive/interactive-mode.ts:7095-7186`).
  *
- * It is a run of the contract with no agent loop: `run_started`, one `bash` tool call whose output streams, then
- * `run_finished`. The terminal also runs a command while the agent streams and records it when the agent ends;
- * the contract has one run at a time, so a command waits for the run to end (`busy`). Stop ends the command alone.
+ * It is a run of the contract with no agent loop: `run_started`, one `bash` tool call, then `run_finished`. The run
+ * starts before the handlers are asked, so a handler that asks the person asks inside it, and a Stop while one still
+ * decides withdraws its asks and runs and records nothing. The contract has one run at a time, so a command waits for
+ * a run to end (`busy`), where the terminal would record it after the agent ends. Stop ends the command alone.
  */
 
 import type { AgentSession, UserBashEventResult } from "@earendil-works/pi-coding-agent";
-import type { BackendCallResult, Rejected, RunOutcome, RunShellOp, ToolCallId } from "../../../contract";
+import type { BackendCallResult, RunId, RunOutcome, RunShellOp, ToolCallId } from "../../../contract";
 import { clipStart } from "../bounds";
 import { errorText } from "../error-text";
 import { mintToolCallId } from "../ids";
 import { BASH_TOOL_NAME, bashInput, bashOutcome, bashResult } from "../mapping/bash-items";
 import { phoneText } from "../phone-text";
+import type { InteractionPort } from "../ports";
 import { rejected } from "../rejections";
 import type { LiveState } from "./live-state";
 import type { RunTracker } from "./run-tracker";
+import { ShellOutput } from "./shell-output";
 
 type BashResult = Awaited<ReturnType<AgentSession["executeBash"]>>;
 
@@ -26,25 +29,35 @@ export interface ShellDeps {
 	readonly session: () => AgentSession;
 	readonly live: LiveState;
 	readonly runs: RunTracker;
+	readonly interactions: Pick<InteractionPort, "withdrawRun">;
 	/** Nothing else runs in the session: no run, no ask, no compaction, no queued input. */
 	readonly idle: () => boolean;
 }
 
 const STARTED: BackendCallResult = { status: "accepted", result: { kind: "run_shell" } };
 const REMEMBERED_REQUESTS = 1_000;
-/** Output reaches the phone in pieces no more often than this, whatever the command prints. */
-const FLUSH_MS = 50;
-const FLUSH_CHARS = 64 * 1024;
+const NOT_RUN: BashResult = { output: "", exitCode: undefined, cancelled: true, truncated: false };
+
+interface Job {
+	readonly runId: RunId;
+	readonly command: string;
+	readonly excludeFromContext: boolean;
+	readonly toolCallId: ToolCallId;
+	stopped: boolean;
+}
 
 export class ShellRun {
 	private readonly answered = new Set<string>();
-	private running = false;
+	private job: Job | undefined;
 
 	constructor(private readonly deps: ShellDeps) {}
 
-	/** Ends the command that runs, if any; the session's agent is untouched. Whether one was running. */
+	/** Ends the command under way, whether it runs or its handlers still decide; the agent is untouched. Whether there was one. */
 	stop(): boolean {
-		if (!this.running) return false;
+		const job = this.job;
+		if (job === undefined) return false;
+		job.stopped = true;
+		this.deps.interactions.withdrawRun(job.runId);
 		this.deps.session().abortBash();
 		return true;
 	}
@@ -52,35 +65,13 @@ export class ShellRun {
 	async start(op: RunShellOp): Promise<BackendCallResult> {
 		if (this.answered.has(op.clientRequestId)) return STARTED;
 		const session = this.deps.session();
-		if (this.running || session.isBashRunning) return rejected("busy", "a bash command is already running");
+		if (this.job !== undefined || session.isBashRunning) return rejected("busy", "a bash command is already running");
 		if (!this.deps.idle()) return rejected("busy", "the session has work under way");
 		const command = op.command.trim();
 		if (command === "") return rejected("invalid_input", "there is no command to run");
-		const hooked = await this.hooked(session, command, op.excludeFromContext);
-		if (hooked !== undefined && "status" in hooked) return hooked;
-		if (!this.deps.idle()) return rejected("busy", "the session has work under way");
 		this.remember(op.clientRequestId);
-		this.running = true;
-		const toolCallId = this.begin(session, command, op.excludeFromContext);
-		void this.execute(session, { command, excludeFromContext: op.excludeFromContext, toolCallId, hooked });
+		void this.execute(session, this.begin(session, command, op.excludeFromContext));
 		return STARTED;
-	}
-
-	private async hooked(
-		session: AgentSession,
-		command: string,
-		excludeFromContext: boolean,
-	): Promise<UserBashEventResult | undefined | Rejected> {
-		try {
-			return await session.extensionRunner.emitUserBash({
-				type: "user_bash",
-				command,
-				excludeFromContext,
-				cwd: session.sessionManager.getCwd(),
-			});
-		} catch (error) {
-			return rejected("backend_error", `an extension's user_bash handler failed: ${errorText(error)}`);
-		}
 	}
 
 	private remember(clientRequestId: string): void {
@@ -91,42 +82,59 @@ export class ShellRun {
 		}
 	}
 
-	private begin(session: AgentSession, command: string, excludeFromContext: boolean): ToolCallId {
-		const { live, runs } = this.deps;
-		runs.start("prompt", session.sessionManager.getLeafId(), "shell");
-		const toolCallId = mintToolCallId();
-		live.emit({
+	private begin(session: AgentSession, command: string, excludeFromContext: boolean): Job {
+		const { runId } = this.deps.runs.start("prompt", session.sessionManager.getLeafId(), "shell");
+		const job: Job = { runId, command, excludeFromContext, toolCallId: mintToolCallId(), stopped: false };
+		this.job = job;
+		this.deps.live.emit({
 			type: "tool_started",
-			toolCallId,
+			toolCallId: job.toolCallId,
 			name: BASH_TOOL_NAME,
 			input: bashInput(command, excludeFromContext),
 		});
-		return toolCallId;
+		return job;
 	}
 
 	private async execute(session: AgentSession, job: Job): Promise<void> {
-		const output = new OutputPieces((text) =>
+		let hooked: UserBashEventResult | undefined;
+		try {
+			hooked = await session.extensionRunner.emitUserBash({
+				type: "user_bash",
+				command: job.command,
+				excludeFromContext: job.excludeFromContext,
+				cwd: session.sessionManager.getCwd(),
+			});
+		} catch (error) {
+			this.fail(job, `an extension's user_bash handler failed: ${errorText(error)}`);
+			return;
+		}
+		if (job.stopped) this.finish(job, NOT_RUN);
+		else await this.run(session, job, hooked);
+	}
+
+	private async run(session: AgentSession, job: Job, hooked: UserBashEventResult | undefined): Promise<void> {
+		const output = new ShellOutput((tail) =>
 			this.deps.live.emit({
 				type: "tool_updated",
 				toolCallId: job.toolCallId,
-				update: { kind: "output_appended", text },
+				update: { kind: "output_replaced", text: tail },
 			}),
 		);
 		try {
-			const given = job.hooked?.result;
+			const given = hooked?.result;
 			if (given !== undefined)
 				session.recordBashResult(job.command, given, { excludeFromContext: job.excludeFromContext });
 			const result =
 				given ??
 				(await session.executeBash(job.command, (chunk) => output.add(chunk), {
 					excludeFromContext: job.excludeFromContext,
-					...(job.hooked?.operations !== undefined && { operations: job.hooked.operations }),
+					...(hooked?.operations !== undefined && { operations: hooked.operations }),
 				}));
 			output.flush();
 			this.finish(job, result);
 		} catch (error) {
 			output.flush();
-			this.fail(job, error);
+			this.fail(job, errorText(error));
 		}
 	}
 
@@ -141,47 +149,18 @@ export class ShellRun {
 		this.end(result.cancelled ? { kind: "aborted" } : { kind: "completed" });
 	}
 
-	private fail(job: Job, error: unknown): void {
+	private fail(job: Job, message: string): void {
 		this.deps.live.emit({
 			type: "tool_finished",
 			toolCallId: job.toolCallId,
 			outcome: "failed",
-			result: { content: [], fileChanges: [], error: clipStart(phoneText(errorText(error)), 4096) },
+			result: { content: [], fileChanges: [], error: clipStart(phoneText(message), 4096) },
 		});
-		this.end({ kind: "error", error: { code: "tool", message: clipStart(errorText(error), 1024) } });
+		this.end({ kind: "error", error: { code: "tool", message: clipStart(message, 1024) } });
 	}
 
 	private end(outcome: RunOutcome): void {
-		this.running = false;
+		this.job = undefined;
 		this.deps.runs.end(outcome);
-	}
-}
-
-interface Job {
-	readonly command: string;
-	readonly excludeFromContext: boolean;
-	readonly toolCallId: ToolCallId;
-	readonly hooked: UserBashEventResult | undefined;
-}
-
-/** Coalesces a command's output into pieces, so a chatty command costs the link a few events a second. */
-class OutputPieces {
-	private pending = "";
-	private timer: ReturnType<typeof setTimeout> | undefined;
-
-	constructor(private readonly send: (text: string) => void) {}
-
-	add(chunk: string): void {
-		this.pending += chunk;
-		if (this.pending.length >= FLUSH_CHARS) this.flush();
-		else this.timer ??= setTimeout(() => this.flush(), FLUSH_MS);
-	}
-
-	flush(): void {
-		if (this.timer !== undefined) clearTimeout(this.timer);
-		this.timer = undefined;
-		const text = phoneText(this.pending);
-		this.pending = "";
-		if (text !== "") this.send(text);
 	}
 }
