@@ -18,14 +18,15 @@ import type {
 } from "../../../backends/claude-code/ports";
 import { rejected } from "../../../backends/claude-code/rejections";
 import { createClaudeCodeServices } from "../../../backends/claude-code/services";
-import type { BackendCallResult, CatalogEvent, ClaudeCodeOp, Rejected, SessionId } from "../../../contract";
+import { BackendCallResult, type CatalogEvent, ClaudeCodeOp, type Rejected, type SessionId } from "../../../contract";
+import type { ClaudeHome } from "../../helpers/claude-home";
 import { fakeClaudeSdk } from "../helpers/fake-claude-sdk";
 import { FakeQuery } from "../helpers/fake-query";
 
 export const NO_RESOLVED: ResolvedSettings = { effective: {}, provenance: {}, sources: [] };
 
 export interface HostSpec {
-	readonly query: FakeQuery;
+	readonly query: Query;
 	readonly tasks?: HostView["tasks"];
 	readonly busy?: boolean;
 	readonly cwd?: string;
@@ -38,6 +39,8 @@ export interface WorldOptions {
 	readonly init?: Partial<SDKControlInitializeResponse>;
 	readonly customTools?: CustomToolsPort;
 	readonly env?: Record<string, string>;
+	/** A throwaway Claude home a real CLI runs in; the world then uses its directories and leaves removing it to the caller. */
+	readonly claudeHome?: ClaudeHome;
 	/** Sessions the store knows, by id, with their cwd. */
 	readonly known?: Record<SessionId, string>;
 	readonly transcript?: SessionStore["transcript"];
@@ -114,7 +117,7 @@ function liveWith(options: WorldOptions, transient: FakeQuery[], cwd: string): L
 	const view = (sessionId: SessionId, spec: HostSpec): HostView => ({
 		sessionId,
 		cwd: spec.cwd ?? cwd,
-		query: spec.query as Query,
+		query: spec.query,
 		tasks: spec.tasks ?? (() => []),
 		busy: () => spec.busy ?? false,
 	});
@@ -142,10 +145,10 @@ function liveWith(options: WorldOptions, transient: FakeQuery[], cwd: string): L
 }
 
 export function opsWorld(options: WorldOptions = {}): OpsWorld {
-	const root = realpathSync(mkdtempSync(join(tmpdir(), "broski-ops-")));
+	const root = options.claudeHome?.root ?? realpathSync(mkdtempSync(join(tmpdir(), "broski-ops-")));
 	const trash = installFakeTrash(root);
-	const configDir = join(root, "home", ".claude");
-	const cwd = join(root, "project");
+	const configDir = options.claudeHome?.configDir ?? join(root, "home", ".claude");
+	const cwd = options.claudeHome?.projectDir ?? join(root, "project");
 	mkdirSync(configDir, { recursive: true });
 	mkdirSync(cwd, { recursive: true });
 	const events: CatalogEvent[] = [];
@@ -201,7 +204,8 @@ export function opsWorld(options: WorldOptions = {}): OpsWorld {
 		events,
 		invalidated,
 		transient,
-		call: (op) => callOp(deps, { backend: "claude-code", op }),
+		call: async (op) =>
+			BackendCallResult.parse(await callOp(deps, { backend: "claude-code", op: ClaudeCodeOp.parse(op) })),
 		write: (path, text) => {
 			mkdirSync(dirname(path), { recursive: true });
 			writeFileSync(path, text);
@@ -210,7 +214,7 @@ export function opsWorld(options: WorldOptions = {}): OpsWorld {
 		trashed: () => readdirSync(trash.bucket),
 		cleanup: async () => {
 			await deps.services.sdk.dispose();
-			rmSync(root, { recursive: true, force: true });
+			if (options.claudeHome === undefined) rmSync(root, { recursive: true, force: true });
 		},
 	};
 }
