@@ -7,7 +7,8 @@
       "compact": true,
       "cancelQueued": true,
       "cancelCompaction": true,
-      "cancelRetry": true
+      "cancelRetry": true,
+      "answer": true
     },
     "sync": {
       "kind": "snapshot",

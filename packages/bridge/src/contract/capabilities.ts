@@ -58,5 +58,10 @@ export const SessionCapabilities = z.strictObject({
 	/** Since 1.3; absent from an older bridge, which cancels neither. */
 	cancelCompaction: z.boolean().optional(),
 	cancelRetry: z.boolean().optional(),
+	/**
+	 * The session's asks can be answered here, with or without `controllable`. Since 1.4; absent from an older bridge,
+	 * whose sessions take answers exactly when they are controllable.
+	 */
+	answer: z.boolean().optional(),
 });
 export type SessionCapabilities = z.infer<typeof SessionCapabilities>;

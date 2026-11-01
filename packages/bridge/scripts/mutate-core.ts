@@ -12,7 +12,9 @@
 import { cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { availableParallelism, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { ANSWER_MUTANTS } from "./mutate-core/answer-mutants";
 import { SESSION_MUTANTS } from "./mutate-core/core-mutants";
+import { MINOR_MUTANTS } from "./mutate-core/minor-mutants";
 import type { Mutant } from "./mutate-core/mutant";
 import { PROTOCOL_MUTANTS } from "./mutate-core/protocol-mutants";
 import { REPLACEMENT_MUTANTS } from "./mutate-core/replacement-mutants";
@@ -44,6 +46,8 @@ const jobs = jobsAt >= 0 ? Number(args[jobsAt + 1]) : Math.max(1, Math.min(4, Ma
 const filter = args.find((arg, index) => !arg.startsWith("--") && args[index - 1] !== "--jobs") ?? "";
 const mutants = [
 	...SESSION_MUTANTS,
+	...ANSWER_MUTANTS,
+	...MINOR_MUTANTS,
 	...PROTOCOL_MUTANTS,
 	...REPLACEMENT_MUTANTS,
 	...FIT_MUTANTS,

@@ -3,7 +3,7 @@ import {
 	type AgentEvent,
 	answerProblem,
 	type InteractionAnswer,
-	type SessionControl,
+	type SessionAnswerer,
 } from "../contract";
 import { BoundedMap } from "../state/bounded-map";
 import type { LiveSession } from "./live-session";
@@ -25,7 +25,7 @@ const RESOLVED_MEMORY = 10_000;
 export class InteractionDesk {
 	private readonly resolved = new BoundedMap<string, true>({ maxEntries: RESOLVED_MEMORY });
 
-	async answer(live: LiveSession, control: SessionControl, answer: InteractionAnswer): Promise<ActionResult> {
+	async answer(live: LiveSession, answerer: SessionAnswerer, answer: InteractionAnswer): Promise<ActionResult> {
 		const id = answer.interactionId;
 		const interaction = live.snapshot.interactions.find((pending) => pending.id === id);
 		if (!interaction) {
@@ -38,7 +38,7 @@ export class InteractionDesk {
 		if (live.claims.has(id)) return rejected("stale", "another answer to this interaction is already on its way");
 		live.claims.add(id);
 		try {
-			const result = await control.answer(answer);
+			const result = await answerer.answer(answer);
 			if (result.status === "rejected") live.claims.delete(id);
 			return result;
 		} catch (error) {

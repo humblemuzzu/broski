@@ -43,6 +43,8 @@ export class FakeSession implements RunHost {
 	readonly history: FakeHistory;
 	readonly inbox: FakeInbox;
 	snapshot: SessionSnapshot;
+	/** With `external`: its asks can still be answered here. */
+	answersWatched = false;
 	private sink: SessionSink | undefined;
 	private run: FakeRun | undefined;
 	/** Where the active run's items start in the history, which the transcript stops short of. */

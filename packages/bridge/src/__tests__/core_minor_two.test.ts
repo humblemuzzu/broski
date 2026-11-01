@@ -67,6 +67,7 @@ describe("a session that goes on as itself with other capabilities", () => {
 			cancelQueued: false,
 			cancelCompaction: false,
 			cancelRetry: false,
+			answer: false,
 		});
 		if (first.sync.kind !== "snapshot") throw new Error("a fresh attach gets a snapshot");
 
@@ -82,6 +83,7 @@ describe("a session that goes on as itself with other capabilities", () => {
 			cancelQueued: true,
 			cancelCompaction: true,
 			cancelRetry: true,
+			answer: true,
 		});
 		if (second.sync.kind !== "snapshot") throw new Error("the new stream starts with a snapshot");
 		expect(second.sync.epoch).not.toBe(first.sync.epoch);

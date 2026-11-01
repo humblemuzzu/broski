@@ -260,6 +260,7 @@ final class SessionCapabilities {
     required this.cancelQueued,
     this.cancelCompaction,
     this.cancelRetry,
+    this.answer,
   });
 
   factory SessionCapabilities.fromJson(Map<String, Object?> json) {
@@ -269,6 +270,7 @@ final class SessionCapabilities {
       'cancelQueued',
       'cancelCompaction',
       'cancelRetry',
+      'answer',
     }, const <String, String>{});
     return SessionCapabilities(
       controllable: _as<bool>(
@@ -289,6 +291,9 @@ final class SessionCapabilities {
       cancelRetry: json.containsKey('cancelRetry')
           ? _as<bool>(json['cancelRetry'], 'SessionCapabilities.cancelRetry')
           : null,
+      answer: json.containsKey('answer')
+          ? _as<bool>(json['answer'], 'SessionCapabilities.answer')
+          : null,
     );
   }
 
@@ -297,6 +302,7 @@ final class SessionCapabilities {
   final bool cancelQueued;
   final bool? cancelCompaction;
   final bool? cancelRetry;
+  final bool? answer;
 
   Map<String, Object?> toJson() => {
     'controllable': controllable,
@@ -304,6 +310,7 @@ final class SessionCapabilities {
     'cancelQueued': cancelQueued,
     if (cancelCompaction case final value?) 'cancelCompaction': value,
     if (cancelRetry case final value?) 'cancelRetry': value,
+    if (answer case final value?) 'answer': value,
   };
 
   @override
@@ -314,7 +321,8 @@ final class SessionCapabilities {
           _equal(compact, other.compact) &&
           _equal(cancelQueued, other.cancelQueued) &&
           _equal(cancelCompaction, other.cancelCompaction) &&
-          _equal(cancelRetry, other.cancelRetry);
+          _equal(cancelRetry, other.cancelRetry) &&
+          _equal(answer, other.answer);
 
   @override
   int get hashCode => Object.hashAll([
@@ -323,9 +331,10 @@ final class SessionCapabilities {
     _hash(cancelQueued),
     _hash(cancelCompaction),
     _hash(cancelRetry),
+    _hash(answer),
   ]);
 
   @override
   String toString() =>
-      'SessionCapabilities(controllable: $controllable, compact: $compact, cancelQueued: $cancelQueued, cancelCompaction: $cancelCompaction, cancelRetry: $cancelRetry)';
+      'SessionCapabilities(controllable: $controllable, compact: $compact, cancelQueued: $cancelQueued, cancelCompaction: $cancelCompaction, cancelRetry: $cancelRetry, answer: $answer)';
 }

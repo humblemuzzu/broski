@@ -142,8 +142,8 @@ export const PROTOCOL_MUTANTS: Mutant[] = [
 		},
 		{
 			name: "control: a watched session is controlled",
-			find: 'control ? await run({ ctx, client, request, live, control }) : rejected("unsupported", WATCH_ONLY)',
-			replace: "await run({ ctx, client, request, live, control: live.open.control ?? ({} as SessionControl) })",
+			find: 'control ? run({ ...target, control }) : rejected("unsupported", WATCH_ONLY)',
+			replace: "run({ ...target, control: control ?? ({} as SessionControl) })",
 		},
 	]),
 	...mutantsOf("core/requests-live.ts", [
