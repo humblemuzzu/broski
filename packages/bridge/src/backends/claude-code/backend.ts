@@ -88,11 +88,14 @@ export function claudeCodeBackendOf(parts: ClaudeCodeParts): AgentBackend {
 		fork: async (ref, at) => (mine(ref) ? store.fork(ref.sessionId, at, live) : notFound(ref)),
 		call: (call) => callOp(parts, call),
 		dispose: async () => {
-			await terminal.dispose();
-			await live.dispose();
-			store.dispose();
-			await services.sdk.dispose();
-			catalog.silence();
+			try {
+				await terminal.dispose();
+				await live.dispose();
+				store.dispose();
+				await services.sdk.dispose();
+			} finally {
+				catalog.silence();
+			}
 		},
 	};
 }

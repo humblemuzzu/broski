@@ -26,7 +26,7 @@ type NoStore<T> = Omit<T, "sessionStore">;
  * does; the caller turns a throw into a `Rejected`.
  */
 export interface SessionFunctions {
-	/** Newest `lastModified` first, then `sessionId` ascending. */
+	/** Newest `lastModified` first, then the greater `sessionId` first. */
 	listSessions(options: NoStore<ListSessionsOptions>): Promise<SDKSessionInfo[]>;
 	getSessionInfo(sessionId: string, options?: NoStore<GetSessionInfoOptions>): Promise<SDKSessionInfo | undefined>;
 	/** The live `parentUuid` chain, oldest first; `[]` for an unknown session. */
@@ -54,7 +54,7 @@ export interface ClaudeSdk extends SessionFunctions {
 	filterEscalatingDefaultMode(resolved: ResolvedSettings): Settings;
 	/** The config dir the functions above read, resolved as the SDK resolves it; for paths it has no function for. */
 	configRoot(): string;
-	/** Idempotent; a call after it rejects. */
+	/** Idempotent; a session function called after it rejects. */
 	dispose(): Promise<void>;
 }
 

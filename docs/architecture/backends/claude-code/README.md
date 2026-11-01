@@ -40,7 +40,7 @@ D1–D35 are [`PLAN.md`](PLAN.md) §3 (D1–D30 the plan's, D31–D35 the spike'
 
 ### D36. An explicit config dir runs the SDK's session functions in a worker; production calls them in process
 
-The SDK's session and settings functions (`listSessions`, `getSessionInfo`, `getSessionMessages`, `getSubagentMessages`, `listSubagents`, `forkSession`, `renameSession`, `resolveSettings`) read `CLAUDE_CONFIG_DIR` from the environment of the thread they run in: `sdk.mjs:30` `function hu(){return process.env.CLAUDE_CONFIG_DIR}` and `Mt=PP(()=>(hu()??join(homedir(),".claude")).normalize("NFC"),hu)`; their options have no config dir (`sdk.d.ts:934`, `:1143`, `:3418`).
+The SDK's session and settings functions (`listSessions`, `getSessionInfo`, `getSessionMessages`, `getSubagentMessages`, `listSubagents`, `forkSession`, `renameSession`, `resolveSettings`) read `CLAUDE_CONFIG_DIR` from the environment of the thread they run in: `sdk.mjs:30` `function hu(){return process.env.CLAUDE_CONFIG_DIR}` and `Mt=PP(()=>(hu()??join(homedir(),".claude")).normalize("NFC"),hu)`; their options have no config dir (`sdk.d.ts:939` `GetSessionMessagesOptions`, `:1143` `ListSessionsOptions`, `:3418` `ResolveSettingsOptions`).
 
 When they read it decides the mechanism. Read in `sdk.mjs`:
 
@@ -95,6 +95,10 @@ Each lane appends its decisions here, with the evidence (PLAN §8, §9).
 ### Lane G · Terminal (D100–D109)
 
 ### Lane H · App (D110–D119)
+
+## Corrections to the research
+
+- `listSessions` breaks a `lastModified` tie by the **greater** `sessionId` first (`sdk.mjs:117` `zwe`, `$we`; `src/__tests__/claude-code/foundation/session_order.test.ts`), not ascending as research 04 §3 and PLAN fact 15 say. Lane A's keyset (D15) orders the same way.
 
 ## Known gaps
 

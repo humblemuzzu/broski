@@ -57,7 +57,7 @@ export interface LiveSessions extends LiveOverlay {
 	withLiveHost<T>(sessionId: SessionId, work: (host: HostView | undefined) => Promise<T>): Promise<T | Rejected>;
 	/**
 	 * `work` on the session's host, else on a transient host (a resume with an empty inbox, closed in `finally`, D23).
-	 * `not_found`; `unsupported` for a session a terminal is writing (D21); `busy` when `work` needs it idle and it is not.
+	 * `not_found`; `unsupported` for a session a terminal is writing (D21). An op that needs it idle checks `busy()`.
 	 */
 	withHost<T>(sessionId: SessionId, work: (host: HostView) => Promise<T>): Promise<T | Rejected>;
 	/** Ends the session's host, if any, before its file goes (D19). */
