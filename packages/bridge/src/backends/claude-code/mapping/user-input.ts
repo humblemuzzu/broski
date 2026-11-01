@@ -2,7 +2,7 @@
 
 import type { SDKUserMessage, SDKUserMessageReplay } from "@anthropic-ai/claude-agent-sdk";
 import { MAX_TEXT_CHARS } from "../../../contract";
-import { clip } from "../bounds";
+import { clip, fitsId } from "../bounds";
 import { toolCallId, userItemId } from "../ids";
 import type { MappedEvent } from "../ports/mapping";
 import { fileChangesOf } from "./file-changes";
@@ -63,8 +63,9 @@ function promptEvents(state: MapperState, frame: UserFrame): MappedEvent[] {
 		agentId: frame.agent_id,
 		parentToolUseId: frame.parent_tool_use_id,
 	});
-	const uuid = frame.uuid;
-	if (uuid === undefined || placement.streams.length === 0 || state.ownSends.has(uuid)) return [];
+	const uuid: unknown = frame.uuid;
+	if (typeof uuid !== "string" || !fitsId(uuid) || placement.streams.length === 0 || state.ownSends.has(uuid))
+		return [];
 	if (frame.isSynthetic === true || (frame.origin !== undefined && frame.origin.kind !== "human")) return [];
 	const text = textOf(frame.message.content);
 	if (CLI_TEXT_PREFIXES.some((prefix) => text.startsWith(prefix))) return [];

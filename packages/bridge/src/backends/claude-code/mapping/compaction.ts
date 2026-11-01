@@ -56,7 +56,8 @@ function statusEvents(state: MapperState, frame: System<"status">): MappedEvent[
 /** The boundary carries the sizes and the real trigger; it also stands alone when no `status` announced the compaction. */
 function boundaryEvents(state: MapperState, frame: System<"compact_boundary">): MappedEvent[] {
 	const meta = frame.compact_metadata;
-	const events = state.compaction === "none" ? [started(meta.trigger)] : [];
+	const trigger = meta.trigger === "manual" || meta.trigger === "auto" ? meta.trigger : triggerOf(state);
+	const events = state.compaction === "none" ? [started(trigger)] : [];
 	state.compaction = "none";
 	const tokensBefore = tokens(meta.pre_tokens);
 	const tokensAfter = tokens(meta.post_tokens);
